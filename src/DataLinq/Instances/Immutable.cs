@@ -14,12 +14,12 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
     where T : IModel
     where M : class, IDatabaseModel
 {
-    protected ConcurrentDictionary<RelationProperty, IKey>? relationKeys;
+    protected ConcurrentDictionary<RelationProperty, DataLinqKey>? relationKeys;
 
     protected ConcurrentDictionary<string, object?>? lazyValues = null;
 
     // Cache the primary key once calculated for performance
-    protected IKey? _cachedPrimaryKey = null;
+    protected DataLinqKey? _cachedPrimaryKey = null;
 
     public object? this[ColumnDefinition column] => rowData[column];
     public object? this[int columnIndex] => rowData[columnIndex];
@@ -27,8 +27,8 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
 
     public ModelDefinition Metadata() => rowData.Table.Model;
     // Use the cached version
-    public IKey PrimaryKeys() => _cachedPrimaryKey ??= KeyFactory.GetKey(rowData, rowData.Table.PrimaryKeyColumns);
-    public bool HasPrimaryKeysSet() => !(PrimaryKeys() is NullKey);
+    public DataLinqKey PrimaryKeys() => _cachedPrimaryKey ??= KeyFactory.GetKey(rowData, rowData.Table.PrimaryKeyColumns);
+    public bool HasPrimaryKeysSet() => !PrimaryKeys().IsNull;
 
     public IRowData GetRowData() => rowData;
     IRowData IModelInstance.GetRowData() => GetRowData();
@@ -93,7 +93,7 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
         return result;
     }
 
-    private IKey GetRelationKey(RelationProperty property)
+    private DataLinqKey GetRelationKey(RelationProperty property)
     {
         var keys = LazyInitializer.EnsureInitialized(ref relationKeys);
         return keys.GetOrAdd(property, relationProperty => KeyFactory.GetKey(rowData, relationProperty.RelationPart.ColumnIndex.Columns));

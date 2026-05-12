@@ -11,16 +11,16 @@ public class IndexCache
 {
     private readonly object cacheLock = new();
     private readonly object ticksQueueLock = new();
-    private (IKey keys, long ticks)? oldestTick;
-    private readonly Queue<(IKey keys, long ticks)> ticks = new();
+    private (DataLinqKey keys, long ticks)? oldestTick;
+    private readonly Queue<(DataLinqKey keys, long ticks)> ticks = new();
 
-    private readonly ConcurrentDictionary<IKey, ImmutableArray<IKey>> primaryKeysToForeignKeys = new();
+    private readonly ConcurrentDictionary<DataLinqKey, ImmutableArray<DataLinqKey>> primaryKeysToForeignKeys = new();
 
-    protected readonly ConcurrentDictionary<IKey, IKey[]> foreignKeys = new();
+    protected readonly ConcurrentDictionary<DataLinqKey, DataLinqKey[]> foreignKeys = new();
 
     public int Count => foreignKeys.Count;
 
-    public bool TryAdd(IKey foreignKey, IKey[] primaryKeys)
+    public bool TryAdd(DataLinqKey foreignKey, DataLinqKey[] primaryKeys)
     {
         var ticksNow = DateTime.Now.Ticks;
 
@@ -44,7 +44,7 @@ public class IndexCache
         return true;
     }
 
-    public bool TryRemoveForeignKey(IKey foreignKey, out int numRowsRemoved)
+    public bool TryRemoveForeignKey(DataLinqKey foreignKey, out int numRowsRemoved)
     {
         numRowsRemoved = 0;
 
@@ -68,7 +68,7 @@ public class IndexCache
         return true;
     }
 
-    public IEnumerable<IKey> GetForeignKeysByPrimaryKey(IKey primaryKey)
+    public IEnumerable<DataLinqKey> GetForeignKeysByPrimaryKey(DataLinqKey primaryKey)
     {
         lock (cacheLock)
         {
@@ -76,10 +76,10 @@ public class IndexCache
                 return foreignKeys.IsDefaultOrEmpty ? [] : foreignKeys;
         }
 
-        return Enumerable.Empty<IKey>();
+        return Enumerable.Empty<DataLinqKey>();
     }
 
-    public bool TryRemovePrimaryKey(IKey primaryKey, out int numRowsRemoved)
+    public bool TryRemovePrimaryKey(DataLinqKey primaryKey, out int numRowsRemoved)
     {
         numRowsRemoved = 0;
 
@@ -124,11 +124,11 @@ public class IndexCache
         return count;
     }
 
-    public bool ContainsKey(IKey foreignKey) => foreignKeys.ContainsKey(foreignKey);
+    public bool ContainsKey(DataLinqKey foreignKey) => foreignKeys.ContainsKey(foreignKey);
 
-    public bool TryGetValue(IKey foreignKey, out IKey[]? keys) => foreignKeys.TryGetValue(foreignKey, out keys);
+    public bool TryGetValue(DataLinqKey foreignKey, out DataLinqKey[]? keys) => foreignKeys.TryGetValue(foreignKey, out keys);
 
-    public IEnumerable<IKey[]> Values => foreignKeys.Values;
+    public IEnumerable<DataLinqKey[]> Values => foreignKeys.Values;
 
     public void Clear()
     {
@@ -145,7 +145,7 @@ public class IndexCache
         }
     }
 
-    private void AddReverseMapping(IKey primaryKey, IKey foreignKey)
+    private void AddReverseMapping(DataLinqKey primaryKey, DataLinqKey foreignKey)
     {
         primaryKeysToForeignKeys.AddOrUpdate(
             primaryKey,
@@ -155,7 +155,7 @@ public class IndexCache
                 : existingForeignKeys.Add(foreignKey));
     }
 
-    private void RemoveReverseMapping(IKey primaryKey, IKey foreignKey)
+    private void RemoveReverseMapping(DataLinqKey primaryKey, DataLinqKey foreignKey)
     {
         if (!primaryKeysToForeignKeys.TryGetValue(primaryKey, out var existingForeignKeys))
             return;

@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 10: Key and Allocation Foundation
 
-**Status:** Next implementation priority.
+**Status:** Active implementation. Workstreams A through E are implemented as of 2026-05-12.
 
 ## Purpose
 
@@ -16,8 +16,8 @@ In scope:
 
 - non-copying metadata collection access and frozen lookup maps
 - generated provider-key row/cache accessors
-- relation lookup paths that avoid lookup-only `IKey` construction
-- non-allocating key value access for transitional paths
+- relation and query lookup paths that avoid lookup-only `IKey` construction
+- deletion of the legacy `IKey` abstraction rather than a long-lived transitional compatibility layer
 - generated static `Get(...)` and materialization paths that use provider key components directly
 - before/after allocation benchmarks for provider initialization, warm primary-key fetch, relation traversal, and query hot paths
 
@@ -47,7 +47,7 @@ Out of scope:
 4. Add generated/provider-key row-store paths for scalar primary keys.
 5. Remove relation lookup-only `IKey` construction on generated relation paths.
 6. Convert query/materialization key reads to provider-key components where practical.
-7. Re-measure allocations and document remaining `IKey` dependencies before moving to Phase 11.
+7. Re-measure allocations and confirm no production `IKey` dependencies remain before moving to Phase 11.
 
 ## Exit Criteria
 
@@ -56,6 +56,6 @@ Phase 10 is done when:
 - runtime provider initialization and hot query paths no longer depend on defensive metadata array snapshots
 - generated scalar primary-key cache hits avoid DataLinq-owned key allocations
 - generated relation traversal avoids lookup-only key objects for the common scalar-FK path
-- transitional `IKey` use is either deleted or explicitly isolated with a removal follow-up
+- legacy `IKey` types and public APIs are deleted
 - benchmark artifacts show the before/after allocation impact
 - later cache invalidation APIs can be designed around provider key components rather than `IKey`

@@ -32,7 +32,7 @@ public class StateChange
     /// <summary>
     /// Gets the primary keys for the model.
     /// </summary>
-    public IKey PrimaryKeys { get; }
+    public DataLinqKey PrimaryKeys { get; }
 
     /// <summary>
     /// Determines if the model has an auto-incrementing primary key.

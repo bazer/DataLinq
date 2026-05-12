@@ -195,22 +195,22 @@ public class Select<T> : IQuery
         return definitions;
     }
 
-    public IEnumerable<IKey> ReadKeys()
+    public IEnumerable<DataLinqKey> ReadKeys()
     {
         return KeyFactory.GetKeys(this, query.Table.PrimaryKeyColumns);
     }
 
-    //public IEnumerable<IKey> ReadForeignKeys(ColumnIndex foreignKeyIndex)
+    //public IEnumerable<DataLinqKey> ReadForeignKeys(ColumnIndex foreignKeyIndex)
     //{
     //    return ReadReader()
     //        .Select(x => new RowData(x, query.Table, foreignKeyIndex.Columns.AsSpan()))
     //        .Select(x => new ForeignKey(foreignKeyIndex, x.GetValues(foreignKeyIndex.Columns).ToArray()));
     //}
 
-    public IEnumerable<(IKey fk, IKey[] pks)> ReadPrimaryAndForeignKeys(ColumnIndex foreignKeyIndex)
+    public IEnumerable<(DataLinqKey fk, DataLinqKey[] pks)> ReadPrimaryAndForeignKeys(ColumnIndex foreignKeyIndex)
     {
         var columnsToRead = GetPrimaryAndForeignKeyColumns(foreignKeyIndex);
-        var primaryKeysByForeignKey = new Dictionary<IKey, List<IKey>>();
+        var primaryKeysByForeignKey = new Dictionary<DataLinqKey, List<DataLinqKey>>();
 
         foreach (var reader in ReadReader())
         {
@@ -275,9 +275,9 @@ public class Select<T> : IQuery
                 var simpleKey = query.TryGetSimplePrimaryKey();
                 var tableCache = query.DataSource.Provider.GetTableCache(query.Table);
 
-                if (simpleKey != null)
+                if (simpleKey.HasValue)
                 {
-                    var row = tableCache.GetRow(simpleKey, query.DataSource);
+                    var row = tableCache.GetRow(simpleKey.Value, query.DataSource);
                     if (row is not null)
                         yield return row;
                 }

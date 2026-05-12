@@ -859,7 +859,7 @@ public class GeneratorFileFactory
                     yield return $"{namespaceTab}{tab}{tab}{tab}_ => throw new global::System.IndexOutOfRangeException(),";
                     yield return $"{namespaceTab}{tab}{tab}" + "};";
                     yield return "";
-                    yield return $"{namespaceTab}{tab}{tab}public static bool TryCreate(IKey key, out {keyTypeName} providerKey)";
+                    yield return $"{namespaceTab}{tab}{tab}public static bool TryCreate(global::DataLinq.Instances.DataLinqKey key, out {keyTypeName} providerKey)";
                     yield return $"{namespaceTab}{tab}{tab}" + "{";
                     yield return $"{namespaceTab}{tab}{tab}{tab}if (key.ValueCount == {primaryKeys.Count.ToString(CultureInfo.InvariantCulture)}";
                     for (var i = 0; i < primaryKeys.Count; i++)
@@ -896,6 +896,38 @@ public class GeneratorFileFactory
                 yield return $"{namespaceTab}{tab}" + "}";
                 yield return "";
 
+                yield return $"{namespaceTab}{tab}internal static bool TryCreateDataLinqPrimaryKey(global::DataLinq.Instances.DataLinqKey key, out {keyTypeName} providerKey)";
+                yield return $"{namespaceTab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}if (key.ValueCount == {primaryKeys.Count.ToString(CultureInfo.InvariantCulture)}";
+                for (var i = 0; i < primaryKeys.Count; i++)
+                    yield return $"{namespaceTab}{tab}{tab}{tab}&& key.GetValue({i.ToString(CultureInfo.InvariantCulture)}) is {primaryKeys[i].CsType.Name} {primaryKeys[i].PropertyName.ToCamelCase()}";
+                yield return $"{namespaceTab}{tab}{tab}{tab})";
+                yield return $"{namespaceTab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}providerKey = {providerKeyExpression};";
+                yield return $"{namespaceTab}{tab}{tab}{tab}return true;";
+                yield return $"{namespaceTab}{tab}{tab}" + "}";
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}providerKey = default!;";
+                yield return $"{namespaceTab}{tab}{tab}return false;";
+                yield return $"{namespaceTab}{tab}" + "}";
+                yield return "";
+
+                yield return $"{namespaceTab}{tab}internal static bool TryCreateDataLinqPrimaryKey(global::DataLinq.Instances.IModelInstance model, out {keyTypeName} providerKey)";
+                yield return $"{namespaceTab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}if (model is not null";
+                for (var i = 0; i < primaryKeys.Count; i++)
+                    yield return $"{namespaceTab}{tab}{tab}{tab}&& model[{GetGeneratedColumnHandleName(primaryKeys[i])}] is {primaryKeys[i].CsType.Name} {primaryKeys[i].PropertyName.ToCamelCase()}";
+                yield return $"{namespaceTab}{tab}{tab}{tab})";
+                yield return $"{namespaceTab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}providerKey = {providerKeyExpression};";
+                yield return $"{namespaceTab}{tab}{tab}{tab}return true;";
+                yield return $"{namespaceTab}{tab}{tab}" + "}";
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}providerKey = default!;";
+                yield return $"{namespaceTab}{tab}{tab}return false;";
+                yield return $"{namespaceTab}{tab}" + "}";
+                yield return "";
+
                 yield return $"{namespaceTab}{tab}internal sealed class DataLinqProviderKeyRowStoreAccessor : global::DataLinq.Instances.IProviderKeyRowStoreAccessor";
                 yield return $"{namespaceTab}{tab}" + "{";
                 yield return $"{namespaceTab}{tab}{tab}public bool TryAddRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.RowData rowData, global::DataLinq.Instances.IImmutableInstance row)";
@@ -903,10 +935,56 @@ public class GeneratorFileFactory
                 yield return $"{namespaceTab}{tab}{tab}{tab}if (!TryCreateDataLinqPrimaryKey(rowData, out var providerKey))";
                 yield return $"{namespaceTab}{tab}{tab}{tab}{tab}return false;";
                 yield return "";
-                var legacyKeyFactoryArgument = primaryKeys.Count == 1
-                    ? ""
-                    : $", {keyTypeName}.TryCreate";
-                yield return $"{namespaceTab}{tab}{tab}{tab}return cache.TryAddRow(providerKey, rowData.Size, row{legacyKeyFactoryArgument});";
+                yield return $"{namespaceTab}{tab}{tab}{tab}return cache.TryAddRow(providerKey, rowData.Size, row);";
+                yield return $"{namespaceTab}{tab}{tab}" + "}";
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}public bool TryGetRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.DataLinqKey key, out global::DataLinq.Instances.IImmutableInstance? row)";
+                yield return $"{namespaceTab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}if (!TryCreateDataLinqPrimaryKey(key, out var providerKey))";
+                yield return $"{namespaceTab}{tab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}row = null;";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}return false;";
+                yield return $"{namespaceTab}{tab}{tab}{tab}" + "}";
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}{tab}return cache.TryGetValue(providerKey, out row);";
+                yield return $"{namespaceTab}{tab}{tab}" + "}";
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}public bool TryRemoveRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.DataLinqKey key, out int numRowsRemoved)";
+                yield return $"{namespaceTab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}if (!TryCreateDataLinqPrimaryKey(key, out var providerKey))";
+                yield return $"{namespaceTab}{tab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}numRowsRemoved = 0;";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}return false;";
+                yield return $"{namespaceTab}{tab}{tab}{tab}" + "}";
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}{tab}return cache.TryRemoveProviderKey(providerKey, out numRowsRemoved);";
+                yield return $"{namespaceTab}{tab}{tab}" + "}";
+                yield return "";
+                var dynamicKeyExpression = primaryKeys.Count == 1
+                    ? "global::DataLinq.Instances.DataLinqKey.FromValue(providerKey)"
+                    : "global::DataLinq.Instances.DataLinqKey.FromProviderKey(providerKey)";
+                yield return $"{namespaceTab}{tab}{tab}public bool TryCreateKey(global::DataLinq.Instances.IRowData rowData, out global::DataLinq.Instances.DataLinqKey key)";
+                yield return $"{namespaceTab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}if (TryCreateDataLinqPrimaryKey(rowData, out var providerKey))";
+                yield return $"{namespaceTab}{tab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}key = {dynamicKeyExpression};";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}return true;";
+                yield return $"{namespaceTab}{tab}{tab}{tab}" + "}";
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}{tab}key = default;";
+                yield return $"{namespaceTab}{tab}{tab}{tab}return false;";
+                yield return $"{namespaceTab}{tab}{tab}" + "}";
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}public bool TryCreateKey(global::DataLinq.Instances.IModelInstance model, out global::DataLinq.Instances.DataLinqKey key)";
+                yield return $"{namespaceTab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}if (TryCreateDataLinqPrimaryKey(model, out var providerKey))";
+                yield return $"{namespaceTab}{tab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}key = {dynamicKeyExpression};";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}return true;";
+                yield return $"{namespaceTab}{tab}{tab}{tab}" + "}";
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}{tab}key = default;";
+                yield return $"{namespaceTab}{tab}{tab}{tab}return false;";
                 yield return $"{namespaceTab}{tab}{tab}" + "}";
                 yield return $"{namespaceTab}{tab}" + "}";
                 yield return "";
@@ -919,9 +997,9 @@ public class GeneratorFileFactory
                 }
                 else
                 {
-                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, IDataSourceAccess dataSource) => IImmutable<{model.CsType.Name}>.GetByProviderKey(new {keyTypeName}({keyValues}), dataSource, {keyTypeName}.TryCreate);";
-                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Database<{model.Database.CsType.Name}> database) => IImmutable<{model.CsType.Name}>.GetByProviderKey(new {keyTypeName}({keyValues}), database.Provider.ReadOnlyAccess, {keyTypeName}.TryCreate);";
-                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Transaction<{model.Database.CsType.Name}> transaction) => IImmutable<{model.CsType.Name}>.GetByProviderKey(new {keyTypeName}({keyValues}), transaction, {keyTypeName}.TryCreate);";
+                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, IDataSourceAccess dataSource) => IImmutable<{model.CsType.Name}>.GetByProviderKey(new {keyTypeName}({keyValues}), dataSource);";
+                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Database<{model.Database.CsType.Name}> database) => IImmutable<{model.CsType.Name}>.GetByProviderKey(new {keyTypeName}({keyValues}), database.Provider.ReadOnlyAccess);";
+                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Transaction<{model.Database.CsType.Name}> transaction) => IImmutable<{model.CsType.Name}>.GetByProviderKey(new {keyTypeName}({keyValues}), transaction);";
                 }
 
                 yield return $"";

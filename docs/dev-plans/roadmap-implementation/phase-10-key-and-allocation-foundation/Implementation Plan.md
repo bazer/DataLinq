@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 10 Implementation Plan: Key and Allocation Foundation
 
-**Status:** Next implementation priority.
+**Status:** Active implementation. Workstreams A through E are implemented as of 2026-05-12.
 
 ## Purpose
 
@@ -20,7 +20,7 @@ Start from the Phase 9A closeout state:
 - cache maintenance emits telemetry
 - benchmark history can show profile, last-run date, trends, and allocation deltas
 - generated metadata startup and indexed row access exist
-- `IKey` still appears in cache, relation, query, and mutation paths
+- at phase start, `IKey` still appeared in cache, relation, query, and mutation paths; Workstream E has since deleted the production abstraction
 - metadata getters still need an audit for defensive snapshots and repeated lookup scans
 
 Before changing code, refresh the allocation baselines that this phase will claim against.
@@ -42,7 +42,7 @@ If benchmark naming changes, preserve the intent: provider initialization, start
 - add frozen metadata lookup maps for common table and column resolution
 - introduce provider-key cache access paths for generated scalar primary keys
 - remove lookup-only `IKey` construction from generated relation traversal for common scalar-FK paths
-- provide a transitional non-allocating key value API for any `IKey` paths that cannot be deleted safely in one pass
+- delete `IKey` rather than preserving it as a public or production internal compatibility layer
 - make joined/query materialization able to read provider key components directly
 - leave Phase 11 with provider-key invalidation hooks instead of `IKey`-first invalidation hooks
 - measure before/after allocation changes and document remaining identity debt honestly
@@ -52,7 +52,6 @@ If benchmark naming changes, preserve the intent: provider initialization, start
 - public cache clearing APIs
 - memory-pressure cleanup and adaptive scheduling
 - global value/key interning
-- full `IKey` deletion if mutation/query compatibility makes that too risky for one phase
 - full scalar converter/typed-ID ergonomics
 - relation-aware join syntax
 - Remotion replacement
@@ -160,7 +159,9 @@ Exit criteria:
 
 ## Workstream D: Transitional Non-Allocating `IKey` Access
 
-Status: corrected implementation complete as of 2026-05-12.
+Status: superseded by Workstream E as of 2026-05-12.
+
+The non-allocating `IKey` work was useful as an intermediate safety step, but it is not the final architecture. Workstream E deletes `IKey` instead of preserving the transitional compatibility layer.
 
 Goals:
 
@@ -225,27 +226,29 @@ Tasks:
 2. Add a single provider-key row store API that is generic over the table's actual provider-key type.
 3. Add a composite-key design that avoids `object?[]` and `IKey` storage on generated lookup paths.
 4. Route generated static `Get(...)` through provider-key store access for scalar and composite primary keys.
-5. Keep legacy dynamic lookup working through a clearly isolated adapter if needed.
-6. Add tests for `int`, `long`, `Guid`, `string`, generated composite provider keys, and legacy composite rejection.
+5. Keep metadata-driven lookup working through a bounded `DataLinqKey` carrier, not through `IKey`.
+6. Add tests for `int`, `long`, `Guid`, `string`, generated composite provider keys, and dynamic composite fallback.
 
 Implementation notes:
 
 - `TableDefinition.PrimaryKeyShape` describes primary-key arity, component ordinals, CLR types, nullability, scalar store kind, and the placeholder converter handle.
 - The initial side-dictionary implementation was rejected because it stored every key twice. The corrected design gives each `RowCache` exactly one `RowStore<TKey>` selected by the table's provider-key shape.
-- `RowCache` no longer has an `IKey` dictionary, scalar side stores, or a duplicate key-age queue. Rows, byte totals, and age cleanup are owned by the single typed store.
+- `RowStore<TKey>` now lives in its own file. `RowCache` owns orchestration only; rows, byte totals, and age cleanup are owned by the single typed store.
+- `RowCache` no longer has an `IKey` dictionary, scalar side stores, or a duplicate key-age queue.
 - `RowCache.TryRemoveProviderKey(...)` and `TableCache.TryRemoveProviderKey(...)` provide the provider-key removal hook Phase 11 needs without coordinating with legacy key storage.
 - Generated scalar primary-key `Get(...)` methods call `IImmutable<T>.GetByProviderKey(...)` with the scalar provider value directly.
 - Generated composite primary-key `Get(...)` methods use an internal generated `DataLinqPrimaryKey` record struct that implements the provider-key component reader and acts as the cache key. The struct is stored directly by `Dictionary<DataLinqPrimaryKey, ...>`, so the cache does not box scalar components or keep a parallel `IKey`.
-- Generated metadata also carries a provider-key row-store accessor per primary-key table. Query and relation materialization use that accessor to populate the same typed store as generated static `Get(...)`, so composite tables do not lose cache population when rows arrive outside the direct lookup path.
-- Legacy `IKey` lookup/add/remove paths are compatibility adapters only. Scalar legacy keys can create the typed store for existing dynamic call sites; composite legacy keys can only adapt into an already-created generated composite store via the generated converter. A bare legacy composite key is not allowed to create an `IKey`-backed row store.
+- Generated metadata also carries a provider-key row-store accessor per primary-key table. Query, relation, and mutation/cache-invalidation paths use that accessor to convert bounded `DataLinqKey` values into the table's exact provider key before touching the row store.
+- `IKey`, the old scalar key structs, `CompositeKey`, and the unused `KeyCache<T>` have been deleted. Metadata-driven dynamic paths use `DataLinqKey`; generated row stores still store only exact provider values such as `int`, `string`, or generated `DataLinqPrimaryKey`.
 
 Verification:
 
 - `.\scripts\dotnet-sandbox.ps1 build src\DataLinq\DataLinq.csproj -c Debug -v minimal --no-incremental`
-- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug` (`544/544` passed)
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-build` (`545/545` passed)
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Generators.Tests\DataLinq.Generators.Tests.csproj -c Debug` (`32/32` passed)
 - `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj -c Debug -v minimal --no-incremental`
-- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --alias quick --output failures --build` (`544/544` passed)
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Benchmark.CLI\DataLinq.Benchmark.CLI.csproj -c Debug -v minimal --no-incremental`
 - `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build` (`405/405` passed for `sqlite-file` and `sqlite-memory`)
 
 Initial internal shape:
@@ -269,6 +272,10 @@ internal sealed class RowStore<TKey>
 public interface IProviderKeyRowStoreAccessor
 {
     bool TryAddRow(RowCache cache, RowData rowData, IImmutableInstance row);
+    bool TryGetRow(RowCache cache, DataLinqKey key, out IImmutableInstance? row);
+    bool TryRemoveRow(RowCache cache, DataLinqKey key, out int numRowsRemoved);
+    bool TryCreateKey(IRowData rowData, out DataLinqKey key);
+    bool TryCreateKey(IModelInstance model, out DataLinqKey key);
 }
 ```
 
@@ -277,6 +284,7 @@ Exit criteria:
 - generated scalar primary-key `Get(...)` can hit cache without constructing `IKey`
 - generated provider-key removal exists for Phase 11 row invalidation
 - generated composite primary-key `Get(...)` can hit cache through a generated provider-key struct without constructing or storing `IKey`
+- public and production internal code no longer reference `IKey`
 
 ## Workstream F: Generated Relation Provider-Key Access
 

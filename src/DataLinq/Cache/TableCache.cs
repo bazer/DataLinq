@@ -332,7 +332,7 @@ public class TableCache
         {
             if (change.Type == TransactionChangeType.Delete || change.Type == TransactionChangeType.Update)
             {
-                if (rowCache?.TryRemoveRow(change.PrimaryKeys, out var rows) == true)
+                if (rowCache is not null && TryRemoveRowFromCache(rowCache, change.PrimaryKeys, out var rows))
                     numRows += rows;
             }
 
@@ -481,7 +481,7 @@ public class TableCache
     }
 
 
-    public void TryRemoveRowFromAllIndices(IKey primaryKeys, out int numRowsRemoved)
+    public void TryRemoveRowFromAllIndices(DataLinqKey primaryKeys, out int numRowsRemoved)
     {
         numRowsRemoved = 0;
 
@@ -492,7 +492,7 @@ public class TableCache
         }
     }
 
-    public bool TryRemoveForeignKeyIndex(ColumnIndex columnIndex, IKey foreignKey, out int numRowsRemoved)
+    public bool TryRemoveForeignKeyIndex(ColumnIndex columnIndex, DataLinqKey foreignKey, out int numRowsRemoved)
     {
         var indexCache = TryGetIndexCache(columnIndex);
         if (indexCache is null)
@@ -504,7 +504,7 @@ public class TableCache
         return indexCache.TryRemoveForeignKey(foreignKey, out numRowsRemoved);
     }
 
-    public bool TryRemovePrimaryKeyIndex(ColumnIndex columnIndex, IKey primaryKeys, out int numRowsRemoved)
+    public bool TryRemovePrimaryKeyIndex(ColumnIndex columnIndex, DataLinqKey primaryKeys, out int numRowsRemoved)
     {
         var indexCache = TryGetIndexCache(columnIndex);
         if (indexCache is null)
@@ -519,12 +519,12 @@ public class TableCache
     public int RemoveAllIndicesInsertedBeforeTick(long tick) =>
         GetLoadedIndexCaches().Sum(x => x.RemoveInsertedBeforeTick(tick));
 
-    public bool TryRemoveTransactionRow(IKey primaryKeys, Transaction transaction, out int numRowsRemoved)
+    public bool TryRemoveTransactionRow(DataLinqKey primaryKeys, Transaction transaction, out int numRowsRemoved)
     {
         numRowsRemoved = 0;
 
         return transactionRows?.TryGetValue(transaction, out var transactionRowCache) == true &&
-            transactionRowCache.TryRemoveRow(primaryKeys, out numRowsRemoved);
+            TryRemoveRowFromCache(transactionRowCache, primaryKeys, out numRowsRemoved);
     }
 
     public bool TryRemoveProviderKey<TKey>(TKey primaryKey, IDataSourceAccess dataSource, out int numRowsRemoved)
@@ -565,7 +565,7 @@ public class TableCache
         return true;
     }
 
-    public void PreloadIndex(IKey foreignKey, RelationProperty otherSide, int? limitRows = null)
+    public void PreloadIndex(DataLinqKey foreignKey, RelationProperty otherSide, int? limitRows = null)
     {
         var index = otherSide.RelationPart.GetOtherSide().ColumnIndex;
 
@@ -605,7 +605,7 @@ public class TableCache
         RefreshOccupancyMetrics();
     }
 
-    public IKey[] GetKeys(IKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
+    public DataLinqKey[] GetKeys(DataLinqKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
     {
         var index = otherSide.RelationPart.GetOtherSide().ColumnIndex;
         if (Table.PrimaryKeyColumns.SequenceEqual(index.Columns))
@@ -644,9 +644,9 @@ public class TableCache
         return newKeys;
     }
 
-    public IEnumerable<IImmutableInstance> GetRows(IKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
+    public IEnumerable<IImmutableInstance> GetRows(DataLinqKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
     {
-        if (foreignKey is NullKey)
+        if (foreignKey.IsNull)
             return [];
 
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
@@ -667,7 +667,7 @@ public class TableCache
         return LoadRowsFromForeignKeyAndCache(foreignKey, index, dataSource);
     }
 
-    public IImmutableInstance? GetRow(IKey primaryKeys, IDataSourceAccess dataSource)
+    public IImmutableInstance? GetRow(DataLinqKey primaryKeys, IDataSourceAccess dataSource)
     {
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
         EnsureTransactionRowCache(dataSource);
@@ -698,8 +698,7 @@ public class TableCache
 
     public IImmutableInstance? GetRow<TKey>(
         TKey primaryKey,
-        IDataSourceAccess dataSource,
-        ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory = null)
+        IDataSourceAccess dataSource)
         where TKey : notnull
     {
         if (primaryKey is null)
@@ -707,6 +706,9 @@ public class TableCache
 
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
         EnsureTransactionRowCache(dataSource);
+
+        if (ShouldUseDynamicKeyLookup(primaryKey))
+            return GetRow(DataLinqKey.FromValue(primaryKey), dataSource);
 
         if (GetRowFromCache(primaryKey, dataSource, out var row))
         {
@@ -725,14 +727,36 @@ public class TableCache
         {
             MetricsHandle.RecordDatabaseRowsLoaded(1);
             Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, 1);
-            return AddRow(rowData, dataSource, primaryKey, legacyKeyFactory);
+            return AddRow(rowData, dataSource, primaryKey);
         }
 
         Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, 1);
         return null;
     }
 
-    public IEnumerable<IImmutableInstance> GetRows(IKey[] primaryKeys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
+    private bool ShouldUseDynamicKeyLookup<TKey>(TKey primaryKey)
+        where TKey : notnull
+    {
+        if (primaryKey is IProviderKey)
+            return false;
+
+        if (Table.Model.ProviderKeyRowStoreAccessor is IProviderKeyRowStoreAccessor)
+            return false;
+
+        if (!Table.PrimaryKeyShape.IsScalar)
+            return false;
+
+        return Table.PrimaryKeyShape[0].StoreKind switch
+        {
+            TableKeyComponentStoreKind.Int32 => primaryKey is not int,
+            TableKeyComponentStoreKind.Int64 => primaryKey is not long,
+            TableKeyComponentStoreKind.Guid => primaryKey is not Guid,
+            TableKeyComponentStoreKind.String => primaryKey is not string,
+            _ => true
+        };
+    }
+
+    public IEnumerable<IImmutableInstance> GetRows(DataLinqKey[] primaryKeys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
     {
         EnsureTransactionRowCache(dataSource);
 
@@ -766,11 +790,11 @@ public class TableCache
         }
     }
 
-    private IEnumerable<IImmutableInstance> LoadRowsFromDatabaseAndCache(IKey[] primaryKeys, IDataSourceAccess dataSource)
+    private IEnumerable<IImmutableInstance> LoadRowsFromDatabaseAndCache(DataLinqKey[] primaryKeys, IDataSourceAccess dataSource)
     {
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
 
-        var keysToLoad = new List<IKey>(primaryKeys.Length);
+        var keysToLoad = new List<DataLinqKey>(primaryKeys.Length);
         foreach (var key in primaryKeys)
         {
             if (GetRowFromCache(key, dataSource, out var row))
@@ -799,14 +823,14 @@ public class TableCache
         }
     }
 
-    private IImmutableInstance[] LoadRowsFromForeignKeyAndCache(IKey foreignKey, ColumnIndex index, IDataSourceAccess dataSource)
+    private IImmutableInstance[] LoadRowsFromForeignKeyAndCache(DataLinqKey foreignKey, ColumnIndex index, IDataSourceAccess dataSource)
     {
         var q = new SqlQuery(Table, dataSource)
             .Where(index.Columns, foreignKey)
             .SelectQuery();
 
         var rows = new List<IImmutableInstance>();
-        var primaryKeys = indexCachePolicy.type == IndexCacheType.None ? null : new List<IKey>();
+        var primaryKeys = indexCachePolicy.type == IndexCacheType.None ? null : new List<DataLinqKey>();
         var rowCacheHits = 0;
         var rowCacheMisses = 0;
 
@@ -840,11 +864,11 @@ public class TableCache
         return rows.ToArray();
     }
 
-    private IEnumerable<IImmutableInstance> LoadOrderedRowsFromDatabaseAndCache(IKey[] primaryKeys, IDataSourceAccess dataSource, List<OrderBy> orderings)
+    private IEnumerable<IImmutableInstance> LoadOrderedRowsFromDatabaseAndCache(DataLinqKey[] primaryKeys, IDataSourceAccess dataSource, List<OrderBy> orderings)
     {
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
 
-        var keysToLoad = new List<IKey>(primaryKeys.Length);
+        var keysToLoad = new List<DataLinqKey>(primaryKeys.Length);
         var loadedRows = new List<IImmutableInstance>(primaryKeys.Length);
 
         foreach (var key in primaryKeys)
@@ -899,7 +923,7 @@ public class TableCache
             : orderedRows;
     }
 
-    private IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<IKey> keys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
+    private IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<DataLinqKey> keys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
     {
         var q = new SqlQuery(Table, dataSource);
 
@@ -946,7 +970,7 @@ public class TableCache
             .ReadRows();
     }
 
-    private RowData? GetRowDataFromPrimaryKey(IKey key, IDataSourceAccess dataSource)
+    private RowData? GetRowDataFromPrimaryKey(DataLinqKey key, IDataSourceAccess dataSource)
     {
         var q = new SqlQuery(Table, dataSource);
 
@@ -1001,18 +1025,36 @@ public class TableCache
             .ReadFirstRow();
     }
 
-    private bool GetRowFromCache(IKey key, IDataSourceAccess dataSource, out IImmutableInstance? row)
+    private bool GetRowFromCache(DataLinqKey key, IDataSourceAccess dataSource, out IImmutableInstance? row)
     {
-        if (dataSource is ReadOnlyAccess && rowCache is not null && rowCache.TryGetValue(key, out row))
+        if (dataSource is ReadOnlyAccess && rowCache is not null && TryGetRowFromCache(rowCache, key, out row))
             return true;
         else if (dataSource is Transaction transaction &&
             transactionRows is not null &&
             transactionRows.TryGetValue(transaction, out var transactionRowCache) &&
-            transactionRowCache.TryGetValue(key, out row))
+            TryGetRowFromCache(transactionRowCache, key, out row))
             return true;
 
         row = null;
         return false;
+    }
+
+    private bool TryGetRowFromCache(RowCache cache, DataLinqKey key, out IImmutableInstance? row)
+    {
+        if (Table.Model.ProviderKeyRowStoreAccessor is IProviderKeyRowStoreAccessor providerKeyAccessor &&
+            providerKeyAccessor.TryGetRow(cache, key, out row))
+            return row is not null;
+
+        return cache.TryGetValue(key, out row);
+    }
+
+    private bool TryRemoveRowFromCache(RowCache cache, DataLinqKey key, out int numRowsRemoved)
+    {
+        if (Table.Model.ProviderKeyRowStoreAccessor is IProviderKeyRowStoreAccessor providerKeyAccessor &&
+            providerKeyAccessor.TryRemoveRow(cache, key, out numRowsRemoved))
+            return true;
+
+        return cache.TryRemoveRow(key, out numRowsRemoved);
     }
 
     private bool GetRowFromCache<TKey>(TKey key, IDataSourceAccess dataSource, out IImmutableInstance? row)
@@ -1045,11 +1087,10 @@ public class TableCache
     private IImmutableInstance AddRow<TKey>(
         RowData rowData,
         IDataSourceAccess transaction,
-        TKey primaryKey,
-        ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory)
+        TKey primaryKey)
         where TKey : notnull
     {
-        TryAddRow(rowData, transaction, primaryKey, legacyKeyFactory, out var row);
+        TryAddRow(rowData, transaction, primaryKey, out var row);
         return row;
     }
 
@@ -1076,17 +1117,16 @@ public class TableCache
         RowData rowData,
         IDataSourceAccess dataSource,
         TKey primaryKey,
-        ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory,
         out IImmutableInstance row)
         where TKey : notnull
     {
         row = InstanceFactory.NewImmutableRow(rowData, dataSource);
 
-        var added = (dataSource is ReadOnlyAccess && (!Table.UseCache || GetOrCreateRowCache().TryAddRow(primaryKey, rowData.Size, row, legacyKeyFactory)))
+        var added = (dataSource is ReadOnlyAccess && (!Table.UseCache || GetOrCreateRowCache().TryAddRow(primaryKey, rowData.Size, row)))
             || (dataSource is Transaction transaction &&
                 transactionRows is not null &&
                 transactionRows.TryGetValue(transaction, out var transactionRowCache) &&
-                transactionRowCache.TryAddRow(primaryKey, rowData.Size, row, legacyKeyFactory));
+                transactionRowCache.TryAddRow(primaryKey, rowData.Size, row));
 
         if (added)
         {

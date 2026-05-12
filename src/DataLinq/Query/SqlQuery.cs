@@ -5,7 +5,7 @@ using System.Linq;
 using DataLinq.Interfaces;
 using DataLinq.Linq;
 using DataLinq.Linq.Visitors;
-using DataLinq.Instances; // Needed for IKey
+using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using Remotion.Linq.Clauses;
@@ -139,7 +139,7 @@ public class SqlQuery<T>
         return WhereGroup;
     }
 
-    public WhereGroup<T> Where(IReadOnlyList<ColumnDefinition> columns, IKey key, BooleanType type = BooleanType.And, string? alias = null)
+    public WhereGroup<T> Where(IReadOnlyList<ColumnDefinition> columns, DataLinqKey key, BooleanType type = BooleanType.And, string? alias = null)
     {
         WhereGroup ??= new WhereGroup<T>(this);
 
@@ -522,7 +522,7 @@ public class SqlQuery<T>
     /// Attempts to extract a single Primary Key from the Where clause if the query represents a simple lookup.
     /// Returns null if the query is complex, involves other columns, or is not a direct equality check on the PK.
     /// </summary>
-    public IKey? TryGetSimplePrimaryKey()
+    public DataLinqKey? TryGetSimplePrimaryKey()
     {
         // We can only optimization if:
         // 1. We have a Where clause.

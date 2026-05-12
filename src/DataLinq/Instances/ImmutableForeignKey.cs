@@ -8,7 +8,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-public class ImmutableForeignKey<T>(IKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : ICacheNotification
+public class ImmutableForeignKey<T>(DataLinqKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : ICacheNotification
     where T : IImmutableInstance
 {
     // A simple private class to hold our value. This is our "tuple on the heap".
@@ -51,7 +51,7 @@ public class ImmutableForeignKey<T>(IKey foreignKey, IDataSourceAccess dataSourc
         {
             if (valueHolder == null)
             {
-                if (foreignKey is NullKey)
+                if (foreignKey.IsNull)
                 {
                     valueHolder = new (default);
                 }

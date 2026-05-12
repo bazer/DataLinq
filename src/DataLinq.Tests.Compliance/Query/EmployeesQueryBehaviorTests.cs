@@ -40,8 +40,8 @@ public class EmployeesQueryBehaviorTests
             EmployeesSeedMode.Bogus);
 
         var employeesDatabase = databaseScope.Database;
-        var department = employeesDatabase.Get<Department>(new StringKey("d005"));
-        var missing = employeesDatabase.Get<Department>(new StringKey("xxxx"));
+        var department = employeesDatabase.Get<Department, string>("d005");
+        var missing = employeesDatabase.Get<Department, string>("xxxx");
         var exact = employeesDatabase.Query().Departments.Where(x => x.DeptNo == "d005").ToList();
         var exactReverse = employeesDatabase.Query().Departments.Where(x => "d005" == x.DeptNo).ToList();
         var notExact = employeesDatabase.Query().Departments.Where(x => x.DeptNo != "d005").ToList();

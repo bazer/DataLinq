@@ -29,10 +29,10 @@ public class RowCache
     public int RemoveRowsInsertedBeforeTick(long tick) =>
         rowStore?.RemoveRowsInsertedBeforeTick(tick) ?? 0;
 
-    public bool TryGetValue(IKey primaryKeys, out IImmutableInstance? row)
+    public bool TryGetValue(DataLinqKey primaryKey, out IImmutableInstance? row)
     {
         if (rowStore is not null)
-            return rowStore.TryGetLegacyKey(primaryKeys, out row);
+            return rowStore.TryGetKey(primaryKey, out row);
 
         row = null;
         return false;
@@ -41,7 +41,7 @@ public class RowCache
     public bool TryGetValue<TKey>(TKey primaryKey, out IImmutableInstance? row)
         where TKey : notnull
     {
-        if (primaryKey is null || primaryKey is IKey)
+        if (primaryKey is null)
         {
             row = null;
             return false;
@@ -54,10 +54,10 @@ public class RowCache
         return false;
     }
 
-    public bool TryRemoveRow(IKey primaryKeys, out int numRowsRemoved)
+    public bool TryRemoveRow(DataLinqKey primaryKey, out int numRowsRemoved)
     {
         if (rowStore is not null)
-            return rowStore.TryRemoveLegacyKey(primaryKeys, out numRowsRemoved);
+            return rowStore.TryRemoveKey(primaryKey, out numRowsRemoved);
 
         numRowsRemoved = 0;
         return true;
@@ -66,7 +66,7 @@ public class RowCache
     public bool TryRemoveProviderKey<TKey>(TKey primaryKey, out int numRowsRemoved)
         where TKey : notnull
     {
-        if (primaryKey is null || primaryKey is IKey)
+        if (primaryKey is null)
         {
             numRowsRemoved = 0;
             return true;
@@ -79,59 +79,36 @@ public class RowCache
         return true;
     }
 
-    public bool TryAddRow(IKey keys, RowData data, IImmutableInstance instance)
-    {
-        if (rowStore is not null)
-            return rowStore.TryAddLegacyKey(keys, data.Size, instance);
-
-        return TryCreateScalarStoreFromLegacyKey(keys, data.Size, instance);
-    }
+    public bool TryAddRow(DataLinqKey key, RowData data, IImmutableInstance instance) =>
+        TryAddRow(key, data.Size, instance);
 
     public bool TryAddRow<TKey>(
         TKey key,
         int size,
-        IImmutableInstance instance,
-        ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory = null)
+        IImmutableInstance instance)
         where TKey : notnull
     {
-        if (key is null || key is IKey)
+        if (key is null)
             return false;
 
-        return GetOrCreateStore(legacyKeyFactory).TryAdd(key, size, instance);
+        return GetOrCreateStore<TKey>().TryAdd(key, size, instance);
     }
 
-    private IRowStore<TKey> GetOrCreateStore<TKey>(ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory)
+    private IRowStore<TKey> GetOrCreateStore<TKey>()
         where TKey : notnull
     {
         var store = rowStore;
         if (store is null)
         {
-            var created = new RowStore<TKey>(legacyKeyFactory);
+            var created = new RowStore<TKey>();
             store = Interlocked.CompareExchange(ref rowStore, created, null) ?? created;
         }
 
         if (store is IRowStore<TKey> typedStore)
-        {
-            typedStore.SetLegacyKeyFactory(legacyKeyFactory);
             return typedStore;
-        }
 
         throw new InvalidOperationException(
             $"Row cache already stores provider keys of type '{store.KeyType}', but was accessed with '{typeof(TKey)}'.");
     }
 
-    private bool TryCreateScalarStoreFromLegacyKey(IKey keys, int size, IImmutableInstance instance)
-    {
-        if (!keys.TryGetSingleValue(out var value) || value is null)
-            return false;
-
-        return value switch
-        {
-            int intKey => TryAddRow(intKey, size, instance),
-            long longKey => TryAddRow(longKey, size, instance),
-            Guid guidKey => TryAddRow(guidKey, size, instance),
-            string stringKey => TryAddRow(stringKey, size, instance),
-            _ => false
-        };
-    }
 }

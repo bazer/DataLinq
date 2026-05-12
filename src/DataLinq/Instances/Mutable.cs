@@ -31,10 +31,10 @@ public class Mutable<T> : IMutableInstance,
     public MutableRowData GetRowData() => mutableRowData;
     IRowData IModelInstance.GetRowData() => GetRowData();
 
-    private IKey? _cachedPrimaryKey = null;
+    private DataLinqKey? _cachedPrimaryKey = null;
     private bool _isPkCached = false;
 
-    private IKey GetCurrentPrimaryKey()
+    private DataLinqKey GetCurrentPrimaryKey()
     {
         // 1. Check if we have a valid cached PK and it hasn't been invalidated
         bool pkChanged = false;
@@ -46,25 +46,24 @@ public class Mutable<T> : IMutableInstance,
             pkChanged = MutatedDataContainsKey(pkColumns); // Helper method needed
         }
 
-        if (_isPkCached && _cachedPrimaryKey != null && !pkChanged)
+        if (_isPkCached && _cachedPrimaryKey.HasValue && !pkChanged)
         {
-            return _cachedPrimaryKey; // Return cached value
+            return _cachedPrimaryKey.Value; // Return cached value
         }
 
         // 2. Need to calculate/recalculate PK from current data
         _cachedPrimaryKey = KeyFactory.GetKey(mutableRowData, metadata.Table.PrimaryKeyColumns);
 
-        // 3. Determine if the calculated key is actually "set" (not NullKey)
+        // 3. Determine if the calculated key is actually set.
         //    This replaces the recursive HasPrimaryKeysSet() check
-        bool isPkConsideredSet = !(_cachedPrimaryKey is NullKey);
+        bool isPkConsideredSet = !_cachedPrimaryKey.Value.IsNull;
 
         // 4. Only mark as cached if it's considered set OR if the object isn't new
-        //    (We cache NullKey for existing objects if their PK was somehow nullified,
-        //     but don't cache NullKey as the "valid" PK for a brand new object unless values were explicitly set to null)
+        //    Existing rows cache an all-null key if their PK was somehow nullified.
         _isPkCached = isPkConsideredSet || !this.IsNew();
 
 
-        return _cachedPrimaryKey;
+        return _cachedPrimaryKey.Value;
     }
 
     // Helper method to check if any PK columns are in the mutated data
@@ -79,10 +78,10 @@ public class Mutable<T> : IMutableInstance,
     }
 
     // Public method remains the same
-    public IKey PrimaryKeys() => GetCurrentPrimaryKey();
+    public DataLinqKey PrimaryKeys() => GetCurrentPrimaryKey();
 
     // HasPrimaryKeysSet remains the same, relying on the fixed PrimaryKeys()
-    public bool HasPrimaryKeysSet() => !(PrimaryKeys() is NullKey);
+    public bool HasPrimaryKeysSet() => !PrimaryKeys().IsNull;
 
     public object? this[ColumnDefinition column]
     {

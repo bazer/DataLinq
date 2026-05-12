@@ -489,9 +489,19 @@ public class Transaction<T> : Transaction, IDataSourceAccess<T>
     /// <typeparam name="M">The type of the model.</typeparam>
     /// <param name="key">The key to identify the model.</param>
     /// <returns>The model if found; otherwise, <c>null</c>.</returns>
-    public M? Get<M>(IKey key) where M : IImmutableInstance
+    public M? Get<M>(DataLinqKey key) where M : IImmutableInstance
     {
-        return IImmutable<M>.Get(key, this);
+        if (!Provider.Metadata.TryGetTableModel(typeof(M), out var tableModel))
+            throw new Exception($"Found no TableDefinition for model '{typeof(M)}'");
+
+        return (M?)Provider.GetTableCache(tableModel.Table).GetRow(key, this);
+    }
+
+    public M? Get<M, TKey>(TKey key)
+        where M : IImmutableInstance
+        where TKey : notnull
+    {
+        return IImmutable<M>.GetByProviderKey(key, this);
     }
 
     /// <summary>

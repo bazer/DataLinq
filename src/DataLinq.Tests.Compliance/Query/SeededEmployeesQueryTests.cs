@@ -42,7 +42,7 @@ public class SeededEmployeesQueryTests
 
         var latestDepartmentAssignments = employeesDatabase.Query().dept_emp_latest_date.Count();
         var currentDepartmentAssignments = employeesDatabase.Query().current_dept_emp.ToList();
-        var department = employeesDatabase.Get<Department>(new StringKey("d005"));
+        var department = employeesDatabase.Get<Department, string>("d005");
 
         await Assert.That(latestDepartmentAssignments).IsGreaterThan(0);
         await Assert.That(currentDepartmentAssignments.Count).IsGreaterThan(0);

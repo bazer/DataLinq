@@ -16,7 +16,7 @@ public interface IModelInstance : IModel
     IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues(IEnumerable<ColumnDefinition> columns);
     bool HasPrimaryKeysSet();
     ModelDefinition Metadata();
-    IKey PrimaryKeys();
+    DataLinqKey PrimaryKeys();
     IRowData GetRowData();
     void ClearLazy();
     V? GetLazy<V>(string name, Func<V> fetchCode);
@@ -43,24 +43,9 @@ public interface IImmutableInstance<T> : IImmutableInstance, IModelInstance<T>
 public interface IImmutable<T>
     where T : IModel
 {
-    static T? Get(IKey key, IDataSourceAccess dataSource)
-    {
-        if (key == null)
-            throw new ArgumentNullException(nameof(key), "Key cannot be null");
-
-        if (dataSource == null)
-            throw new ArgumentNullException(nameof(dataSource), "Data source cannot be null");
-
-        if (!dataSource.Provider.Metadata.TryGetTableModel(typeof(T), out var tableModel))
-            throw new Exception($"Found no TableDefinition for model '{typeof(T)}'");
-
-        return (T?)dataSource.Provider.GetTableCache(tableModel.Table).GetRow(key, dataSource);
-    }
-
     static T? GetByProviderKey<TKey>(
         TKey key,
-        IDataSourceAccess dataSource,
-        ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory = null)
+        IDataSourceAccess dataSource)
         where TKey : notnull
     {
         if (dataSource == null)
@@ -69,7 +54,7 @@ public interface IImmutable<T>
         if (!dataSource.Provider.Metadata.TryGetTableModel(typeof(T), out var tableModel))
             throw new Exception($"Found no TableDefinition for model '{typeof(T)}'");
 
-        return (T?)dataSource.Provider.GetTableCache(tableModel.Table).GetRow(key, dataSource, legacyKeyFactory);
+        return (T?)dataSource.Provider.GetTableCache(tableModel.Table).GetRow(key, dataSource);
     }
 }
 

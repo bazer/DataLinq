@@ -15,17 +15,17 @@ namespace DataLinq.Instances;
 
 public interface IImmutableRelation<T> : IEnumerable<T> where T : IModelInstance
 {
-    T? this[IKey key] { get; }
+    T? this[DataLinqKey key] { get; }
 
     int Count { get; }
-    ImmutableArray<IKey> Keys { get; }
+    ImmutableArray<DataLinqKey> Keys { get; }
     ImmutableArray<T> Values { get; }
 
-    IEnumerable<KeyValuePair<IKey, T>> AsEnumerable();
+    IEnumerable<KeyValuePair<DataLinqKey, T>> AsEnumerable();
     void Clear();
     bool Any() => Count != 0;
 
-    bool ContainsKey(IKey key);
+    bool ContainsKey(DataLinqKey key);
 
     T First()
     {
@@ -79,8 +79,8 @@ public interface IImmutableRelation<T> : IEnumerable<T> where T : IModelInstance
         };
     }
 
-    T? Get(IKey key);
-    FrozenDictionary<IKey, T> ToFrozenDictionary();
+    T? Get(DataLinqKey key);
+    FrozenDictionary<DataLinqKey, T> ToFrozenDictionary();
 }
 
 public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelInstance
@@ -92,15 +92,15 @@ public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelIn
         this.list = list;
     }
 
-    public T? this[IKey key] => throw new System.NotImplementedException();
+    public T? this[DataLinqKey key] => throw new System.NotImplementedException();
 
     public int Count => throw new System.NotImplementedException();
 
-    public ImmutableArray<IKey> Keys => throw new System.NotImplementedException();
+    public ImmutableArray<DataLinqKey> Keys => throw new System.NotImplementedException();
 
     public ImmutableArray<T> Values => throw new System.NotImplementedException();
 
-    public IEnumerable<KeyValuePair<IKey, T>> AsEnumerable()
+    public IEnumerable<KeyValuePair<DataLinqKey, T>> AsEnumerable()
     {
         throw new System.NotImplementedException();
     }
@@ -110,12 +110,12 @@ public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelIn
         throw new System.NotImplementedException();
     }
 
-    public bool ContainsKey(IKey key)
+    public bool ContainsKey(DataLinqKey key)
     {
         throw new System.NotImplementedException();
     }
 
-    public T? Get(IKey key)
+    public T? Get(DataLinqKey key)
     {
         throw new System.NotImplementedException();
     }
@@ -125,7 +125,7 @@ public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelIn
         throw new System.NotImplementedException();
     }
 
-    public FrozenDictionary<IKey, T> ToFrozenDictionary()
+    public FrozenDictionary<DataLinqKey, T> ToFrozenDictionary()
     {
         throw new System.NotImplementedException();
     }
@@ -136,10 +136,10 @@ public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelIn
     }
 }
 
-public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : IImmutableRelation<T>, ICacheNotification
+public class ImmutableRelation<T>(DataLinqKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : IImmutableRelation<T>, ICacheNotification
     where T : IImmutableInstance
 {
-    private volatile FrozenDictionary<IKey, T>? relationInstances;
+    private volatile FrozenDictionary<DataLinqKey, T>? relationInstances;
     private ImmutableArray<T> relationValues;
     private volatile bool relationValuesLoaded;
 
@@ -153,20 +153,20 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
     /// Indexer to get an instance by its primary key.
     /// Returns null if the key is not found.
     /// </summary>
-    public T? this[IKey key] => Get(key);
+    public T? this[DataLinqKey key] => Get(key);
 
     /// <summary>
     /// A method that does the same as the indexer:
     /// returns the instance corresponding to the primary key, or null if not found.
     /// </summary>
-    public T? Get(IKey key) => GetInstances().TryGetValue(key, out var instance) ? instance : default;
+    public T? Get(DataLinqKey key) => GetInstances().TryGetValue(key, out var instance) ? instance : default;
 
     public ImmutableArray<T> Values => GetValues();
-    public ImmutableArray<IKey> Keys => GetInstances().Keys;
+    public ImmutableArray<DataLinqKey> Keys => GetInstances().Keys;
     public int Count => GetValues().Length;
-    public bool ContainsKey(IKey key) => GetInstances().ContainsKey(key);
-    public IEnumerable<KeyValuePair<IKey, T>> AsEnumerable() => GetInstances().AsEnumerable();
-    public FrozenDictionary<IKey, T> ToFrozenDictionary() => GetInstances();
+    public bool ContainsKey(DataLinqKey key) => GetInstances().ContainsKey(key);
+    public IEnumerable<KeyValuePair<DataLinqKey, T>> AsEnumerable() => GetInstances().AsEnumerable();
+    public FrozenDictionary<DataLinqKey, T> ToFrozenDictionary() => GetInstances();
 
     protected TableCache GetTableCache() => GetTableCache(GetDataSource());
     protected TableCache GetTableCache(IDataSourceAccess source) => source.Provider.GetTableCache(property.RelationPart.GetOtherSide().ColumnIndex.Table);
@@ -197,7 +197,7 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
         }
     }
 
-    protected FrozenDictionary<IKey, T> GetInstances()
+    protected FrozenDictionary<DataLinqKey, T> GetInstances()
     {
         var localInstance = relationInstances;
         if (localInstance != null)

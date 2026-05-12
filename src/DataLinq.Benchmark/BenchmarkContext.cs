@@ -23,7 +23,7 @@ internal sealed class BenchmarkContext : IDisposable
     private readonly Employee[] sampleEmployees;
     private readonly int[] sampleEmployeeWithDepartmentNumbers;
     private readonly Employee[] sampleEmployeesWithDepartments;
-    private readonly IKey[] sampleEmployeePrimaryKeys;
+    private readonly DataLinqKey[] sampleEmployeePrimaryKeys;
     private readonly RowData[] sampleEmployeeRowData;
     private readonly int[] sampleMutationEmployeeNumbers;
     private readonly int[] sampleCrudWorkflowEmployeeNumbers;

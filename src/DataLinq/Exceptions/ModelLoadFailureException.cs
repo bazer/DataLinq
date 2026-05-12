@@ -5,21 +5,21 @@ namespace DataLinq.Exceptions
 {
     class ModelLoadFailureException : Exception
     {
-        public IKey Key { get; }
+        public DataLinqKey Key { get; }
         private readonly string? message;
 
-        public ModelLoadFailureException(IKey key, string message)
+        public ModelLoadFailureException(DataLinqKey key, string message)
         {
             Key = key;
             this.message = message;
         }
 
-        public ModelLoadFailureException(IKey key) : base()
+        public ModelLoadFailureException(DataLinqKey key) : base()
         {
             Key = key;
         }
 
-        public ModelLoadFailureException(IKey key, string message, Exception innerException) : base(message, innerException)
+        public ModelLoadFailureException(DataLinqKey key, string message, Exception innerException) : base(message, innerException)
         {
             Key = key;
         }

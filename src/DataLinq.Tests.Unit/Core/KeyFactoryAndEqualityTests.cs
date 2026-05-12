@@ -24,7 +24,7 @@ public sealed record SimpleKeyCase(object Value1, object Value2, object Differen
 public class KeyFactoryAndEqualityTests
 {
     [Test]
-    public async Task BytesKey_Equality_IsBasedOnContent()
+    public async Task DataLinqKey_Bytes_Equality_IsBasedOnContent()
     {
         var data1 = new byte[] { 1, 2, 3, 4, 5 };
         var data2 = new byte[] { 1, 2, 3, 4, 5 };
@@ -34,7 +34,8 @@ public class KeyFactoryAndEqualityTests
         var key2 = KeyFactory.CreateKeyFromValue(data2);
         var key3 = KeyFactory.CreateKeyFromValue(data3);
 
-        await Assert.That(key1).IsTypeOf<BytesKey>();
+        await Assert.That(key1.ValueCount).IsEqualTo(1);
+        await Assert.That(key1.GetValue(0)).IsSameReferenceAs(data1);
         await Assert.That(key1.Equals(key2)).IsTrue();
         await Assert.That(key1.GetHashCode()).IsEqualTo(key2.GetHashCode());
         await Assert.That(key1.Equals(key3)).IsFalse();
@@ -42,7 +43,7 @@ public class KeyFactoryAndEqualityTests
     }
 
     [Test]
-    public async Task CompositeKey_Equality_IsBasedOnContentAndOrder()
+    public async Task DataLinqKey_Composite_Equality_IsBasedOnContentAndOrder()
     {
         var key1 = KeyFactory.CreateKeyFromValues(new object[] { 123, "test", new Guid("f81d4fae-7dec-11d0-a765-00a0c91e6bf6") });
         var key2 = KeyFactory.CreateKeyFromValues(new object[] { 123, "test", new Guid("f81d4fae-7dec-11d0-a765-00a0c91e6bf6") });
@@ -57,7 +58,7 @@ public class KeyFactoryAndEqualityTests
     }
 
     [Test]
-    public async Task CompositeKey_WithBytesKey_Equality()
+    public async Task DataLinqKey_Composite_WithBytes_Equality()
     {
         var key1 = KeyFactory.CreateKeyFromValues(new object[] { 1, new byte[] { 1, 2, 3 } });
         var key2 = KeyFactory.CreateKeyFromValues(new object[] { 1, new byte[] { 1, 2, 3 } });
@@ -89,8 +90,8 @@ public class KeyFactoryAndEqualityTests
         var pendingKey = KeyFactory.CreateKeyFromValue(TestStatusEnum.Pending);
         var activeAgainKey = KeyFactory.CreateKeyFromValue(TestStatusEnum.Active);
 
-        await Assert.That(activeKey).IsTypeOf<IntKey>();
-        await Assert.That(((IntKey)activeKey).Value).IsEqualTo(1);
+        await Assert.That(activeKey.ValueCount).IsEqualTo(1);
+        await Assert.That(activeKey.GetValue(0)).IsEqualTo(1);
         await Assert.That(activeKey.Equals(activeAgainKey)).IsTrue();
         await Assert.That(activeKey.GetHashCode()).IsEqualTo(activeAgainKey.GetHashCode());
         await Assert.That(activeKey.Equals(pendingKey)).IsFalse();
@@ -103,15 +104,15 @@ public class KeyFactoryAndEqualityTests
         var largeKey = KeyFactory.CreateKeyFromValue(TestByteEnum.Large);
         var smallAgainKey = KeyFactory.CreateKeyFromValue(TestByteEnum.Small);
 
-        await Assert.That(smallKey).IsTypeOf<ByteKey>();
-        await Assert.That(((ByteKey)smallKey).Value).IsEqualTo((byte)10);
+        await Assert.That(smallKey.ValueCount).IsEqualTo(1);
+        await Assert.That(smallKey.GetValue(0)).IsEqualTo((byte)10);
         await Assert.That(smallKey.Equals(smallAgainKey)).IsTrue();
         await Assert.That(smallKey.GetHashCode()).IsEqualTo(smallAgainKey.GetHashCode());
         await Assert.That(smallKey.Equals(largeKey)).IsFalse();
     }
 
     [Test]
-    public async Task CompositeKey_WithEnum_Equality()
+    public async Task DataLinqKey_Composite_WithEnum_Equality()
     {
         var key1 = KeyFactory.CreateKeyFromValues(new object[] { "product_a", TestStatusEnum.Active });
         var key2 = KeyFactory.CreateKeyFromValues(new object[] { "product_a", TestStatusEnum.Active });
@@ -123,26 +124,31 @@ public class KeyFactoryAndEqualityTests
     }
 
     [Test]
-    public async Task KeyValues_Surface_IsReadOnlyAndDoesNotExposeMutableArrays()
+    public async Task DataLinqKey_ComponentReads_DoNotExposeMutableCompositeStorage()
     {
         var simpleKey = KeyFactory.CreateKeyFromValue("employee-1");
         var compositeKey = KeyFactory.CreateKeyFromValues(new object?[] { "employee-1", "dept-1" });
 
-        await Assert.That(simpleKey.Values.Count).IsEqualTo(1);
-        await Assert.That(compositeKey.Values.Count).IsEqualTo(2);
-        await Assert.That((object)simpleKey.Values is object?[]).IsFalse();
-        await Assert.That((object)compositeKey.Values is object?[]).IsFalse();
-
-        var returnedValues = compositeKey.Values.ToArray();
-        returnedValues[0] = "changed";
-
+        await Assert.That(simpleKey.ValueCount).IsEqualTo(1);
+        await Assert.That(compositeKey.ValueCount).IsEqualTo(2);
+        await Assert.That(simpleKey.GetValue(0)).IsEqualTo("employee-1");
         await Assert.That(compositeKey.GetValue(0)).IsEqualTo("employee-1");
+        await Assert.That(compositeKey.GetValue(1)).IsEqualTo("dept-1");
+    }
+
+    [Test]
+    public async Task DataLinqKey_AllNullCompositeValues_CollapseToNull()
+    {
+        var key = KeyFactory.CreateKeyFromValues(new object?[] { null, null });
+
+        await Assert.That(key.IsNull).IsTrue();
+        await Assert.That(key).IsEqualTo(DataLinqKey.Null);
     }
 
     [Test]
     public async Task SimpleKeyValueReads_DoNotAllocateSnapshotArrays()
     {
-        IKey key = new StringKey("employee-1");
+        var key = KeyFactory.CreateKeyFromValue("employee-1");
 
         var allocatedBytes = MeasureKeyReads(key);
 
@@ -150,7 +156,7 @@ public class KeyFactoryAndEqualityTests
     }
 
     [Test]
-    public async Task CompositeKeyValueReads_DoNotAllocateNestedSnapshotArrays()
+    public async Task DataLinqKeyCompositeValueReads_DoNotAllocateSnapshotArrays()
     {
         var key = KeyFactory.CreateKeyFromValues(new object?[] { "employee-1", "dept-1" });
 
@@ -183,18 +189,16 @@ public class KeyFactoryAndEqualityTests
         yield return () => new SimpleKeyCase(123.45m, 123.45m, 678.90m);
     }
 
-    private static long MeasureKeyReads(IKey key)
+    private static long MeasureKeyReads(DataLinqKey key)
     {
         _ = key.ValueCount;
         _ = key.GetValue(0);
-        _ = key.TryGetSingleValue(out _);
 
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var i = 0; i < 10_000; i++)
         {
             _ = key.ValueCount;
             _ = key.GetValue(0);
-            _ = key.TryGetSingleValue(out _);
         }
 
         return GC.GetAllocatedBytesForCurrentThread() - before;

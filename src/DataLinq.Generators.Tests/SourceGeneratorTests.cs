@@ -57,8 +57,9 @@ public class SourceGeneratorTests : GeneratorTestBase
         await Assert.That(code.Contains("internal readonly record struct DataLinqPrimaryKey(string deptNo, int empNo) : IProviderKey", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("internal static bool TryCreateDataLinqPrimaryKey(IRowData rowData, out DataLinqPrimaryKey providerKey)", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("internal sealed class DataLinqProviderKeyRowStoreAccessor : global::DataLinq.Instances.IProviderKeyRowStoreAccessor", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(code.Contains("IImmutable<Dept_emp>.GetByProviderKey(new DataLinqPrimaryKey(deptNo, empNo), dataSource, DataLinqPrimaryKey.TryCreate)", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(code.Contains("return cache.TryAddRow(providerKey, rowData.Size, row, DataLinqPrimaryKey.TryCreate);", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("IImmutable<Dept_emp>.GetByProviderKey(new DataLinqPrimaryKey(deptNo, empNo), dataSource)", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("public bool TryGetRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.DataLinqKey key, out global::DataLinq.Instances.IImmutableInstance? row)", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("public bool TryRemoveRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.DataLinqKey key, out int numRowsRemoved)", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("IImmutable<Dept_emp>.Get(KeyFactory.CreateKeyFromValues([deptNo, empNo]), dataSource)", StringComparison.Ordinal)).IsFalse();
         await Assert.That(code.Contains("GetValue(nameof(", StringComparison.Ordinal)).IsFalse();
         await Assert.That(code.Contains("SetValue(nameof(", StringComparison.Ordinal)).IsFalse();

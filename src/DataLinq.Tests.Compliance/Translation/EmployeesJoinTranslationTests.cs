@@ -121,11 +121,11 @@ public class EmployeesJoinTranslationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task ExplicitInnerJoin_CompositeKeysThrowQueryTranslationException(TestProviderDescriptor provider)
+    public async Task ExplicitInnerJoin_CompositePrimaryKeysThrowQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(ExplicitInnerJoin_CompositeKeysThrowQueryTranslationException),
+            nameof(ExplicitInnerJoin_CompositePrimaryKeysThrowQueryTranslationException),
             EmployeesSeedMode.Bogus);
 
         await AssertTranslationFailure(

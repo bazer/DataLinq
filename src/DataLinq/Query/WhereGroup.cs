@@ -195,7 +195,7 @@ public class WhereGroup<T> : IWhere<T>
     /// <summary>
     /// Analyzes the group to see if it represents a simple equality check for the specified Primary Key columns.
     /// </summary>
-    internal IKey? TryGetSimplePrimaryKey(IReadOnlyList<ColumnDefinition> pkColumns)
+    internal DataLinqKey? TryGetSimplePrimaryKey(IReadOnlyList<ColumnDefinition> pkColumns)
     {
         // 1. Empty or negated group cannot be a simple key lookup
         if (whereList == null || whereList.Count == 0 || IsNegated) return null;

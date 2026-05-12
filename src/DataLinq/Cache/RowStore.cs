@@ -19,15 +19,14 @@ internal interface IRowStore
     int RemoveRowsOverRowLimit(int maxRows);
     int RemoveRowsOverSizeLimit(long maxSize);
     int RemoveRowsInsertedBeforeTick(long tick);
-    bool TryGetLegacyKey(IKey key, out IImmutableInstance? row);
-    bool TryAddLegacyKey(IKey key, int size, IImmutableInstance row);
-    bool TryRemoveLegacyKey(IKey key, out int numRowsRemoved);
+    bool TryGetKey(DataLinqKey key, out IImmutableInstance? row);
+    bool TryAddKey(DataLinqKey key, int size, IImmutableInstance row);
+    bool TryRemoveKey(DataLinqKey key, out int numRowsRemoved);
 }
 
 internal interface IRowStore<TKey> : IRowStore
     where TKey : notnull
 {
-    void SetLegacyKeyFactory(ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory);
     bool TryGet(TKey key, out IImmutableInstance? row);
     bool TryAdd(TKey key, int size, IImmutableInstance row);
     bool TryRemove(TKey key, out int numRowsRemoved);
@@ -45,13 +44,7 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
 
     private readonly object rowsLock = new();
     private readonly Dictionary<TKey, RowEntry> rows = new();
-    private ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory;
     private long totalBytes;
-
-    public RowStore(ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory = null)
-    {
-        this.legacyKeyFactory = legacyKeyFactory;
-    }
 
     public Type KeyType => typeof(TKey);
 
@@ -91,12 +84,6 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
             lock (rowsLock)
                 return rows.Count == 0 ? null : rows.Values.Max(static x => x.Ticks);
         }
-    }
-
-    public void SetLegacyKeyFactory(ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory)
-    {
-        if (legacyKeyFactory is not null)
-            this.legacyKeyFactory ??= legacyKeyFactory;
     }
 
     public void Clear()
@@ -196,36 +183,39 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
         }
     }
 
-    public bool TryGetLegacyKey(IKey key, out IImmutableInstance? row)
+    public bool TryGetKey(DataLinqKey key, out IImmutableInstance? row)
     {
-        if (TryConvertLegacyKey(key, out var providerKey))
+        if (TryConvertKey(key, out var providerKey))
             return TryGet(providerKey, out row);
 
         row = null;
         return false;
     }
 
-    public bool TryAddLegacyKey(IKey key, int size, IImmutableInstance row)
+    public bool TryAddKey(DataLinqKey key, int size, IImmutableInstance row)
     {
-        return TryConvertLegacyKey(key, out var providerKey) &&
+        return TryConvertKey(key, out var providerKey) &&
             TryAdd(providerKey, size, row);
     }
 
-    public bool TryRemoveLegacyKey(IKey key, out int numRowsRemoved)
+    public bool TryRemoveKey(DataLinqKey key, out int numRowsRemoved)
     {
-        if (TryConvertLegacyKey(key, out var providerKey))
+        if (TryConvertKey(key, out var providerKey))
             return TryRemove(providerKey, out numRowsRemoved);
 
         numRowsRemoved = 0;
         return true;
     }
 
-    private bool TryConvertLegacyKey(IKey key, out TKey providerKey)
+    private bool TryConvertKey(DataLinqKey key, out TKey providerKey)
     {
-        if (legacyKeyFactory is not null)
-            return legacyKeyFactory(key, out providerKey);
+        if (key is TKey directKey)
+        {
+            providerKey = directKey;
+            return true;
+        }
 
-        if (key.TryGetSingleValue(out var value) && value is TKey typedKey)
+        if (key.ValueCount == 1 && key.GetValue(0) is TKey typedKey)
         {
             providerKey = typedKey;
             return true;

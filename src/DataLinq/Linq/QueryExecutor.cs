@@ -394,7 +394,7 @@ internal class QueryExecutor : IQueryExecutor
         }
     }
 
-    private static IKey ReadJoinedPrimaryKey(IDataLinqDataReader reader, JoinQuerySource source, int sourceIndex)
+    private static DataLinqKey ReadJoinedPrimaryKey(IDataLinqDataReader reader, JoinQuerySource source, int sourceIndex)
     {
         var values = source.Table.PrimaryKeyColumns
             .Select((column, columnIndex) => reader.GetValue<object>(column, reader.GetOrdinal(GetJoinedPrimaryKeyAlias(sourceIndex, columnIndex))))

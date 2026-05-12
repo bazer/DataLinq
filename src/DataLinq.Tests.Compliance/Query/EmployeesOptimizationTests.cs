@@ -11,11 +11,11 @@ public class EmployeesOptimizationTests
 {
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task Query_TryGetSimplePrimaryKey_SingleKey_ReturnsIntKey(TestProviderDescriptor provider)
+    public async Task Query_TryGetSimplePrimaryKey_SingleKey_ReturnsDataLinqKey(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(Query_TryGetSimplePrimaryKey_SingleKey_ReturnsIntKey),
+            nameof(Query_TryGetSimplePrimaryKey_SingleKey_ReturnsDataLinqKey),
             EmployeesSeedMode.Bogus);
 
         var key = databaseScope.Database
@@ -24,17 +24,17 @@ public class EmployeesOptimizationTests
             .Query.TryGetSimplePrimaryKey();
 
         await Assert.That(key).IsNotNull();
-        await Assert.That(key).IsTypeOf<IntKey>();
-        await Assert.That(((IntKey)key!).Value).IsEqualTo(1001);
+        await Assert.That(key!.Value.ValueCount).IsEqualTo(1);
+        await Assert.That(key.Value.GetValue(0)).IsEqualTo(1001);
     }
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task Query_TryGetSimplePrimaryKey_CompositeKey_ReturnsCompositeKey(TestProviderDescriptor provider)
+    public async Task Query_TryGetSimplePrimaryKey_CompositePrimaryKey_ReturnsDataLinqKey(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(Query_TryGetSimplePrimaryKey_CompositeKey_ReturnsCompositeKey),
+            nameof(Query_TryGetSimplePrimaryKey_CompositePrimaryKey_ReturnsDataLinqKey),
             EmployeesSeedMode.Bogus);
 
         var key = databaseScope.Database
@@ -44,12 +44,9 @@ public class EmployeesOptimizationTests
             .Query.TryGetSimplePrimaryKey();
 
         await Assert.That(key).IsNotNull();
-        await Assert.That(key).IsTypeOf<CompositeKey>();
-
-        var compositeKey = (CompositeKey)key!;
-        await Assert.That(compositeKey.ValueCount).IsEqualTo(2);
-        await Assert.That(compositeKey.GetValue(0)).IsEqualTo("d001");
-        await Assert.That(compositeKey.GetValue(1)).IsEqualTo(1001);
+        await Assert.That(key!.Value.ValueCount).IsEqualTo(2);
+        await Assert.That(key.Value.GetValue(0)).IsEqualTo("d001");
+        await Assert.That(key.Value.GetValue(1)).IsEqualTo(1001);
     }
 
     [Test]
@@ -89,11 +86,11 @@ public class EmployeesOptimizationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task Query_TryGetSimplePrimaryKey_PartialCompositeKey_ReturnsNull(TestProviderDescriptor provider)
+    public async Task Query_TryGetSimplePrimaryKey_PartialCompositePrimaryKey_ReturnsNull(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(Query_TryGetSimplePrimaryKey_PartialCompositeKey_ReturnsNull),
+            nameof(Query_TryGetSimplePrimaryKey_PartialCompositePrimaryKey_ReturnsNull),
             EmployeesSeedMode.Bogus);
 
         var key = databaseScope.Database
@@ -160,7 +157,7 @@ public class EmployeesOptimizationTests
             .Query.TryGetSimplePrimaryKey();
 
         await Assert.That(key).IsNotNull();
-        await Assert.That(key).IsTypeOf<IntKey>();
-        await Assert.That(((IntKey)key!).Value).IsEqualTo(employeeId);
+        await Assert.That(key!.Value.ValueCount).IsEqualTo(1);
+        await Assert.That(key.Value.GetValue(0)).IsEqualTo(employeeId);
     }
 }
