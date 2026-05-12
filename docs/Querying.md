@@ -35,7 +35,7 @@ var recentManagers = db.Query().Managers
 Direct primary-key lookup also exists when you already know the key and do not need a LINQ pipeline:
 
 ```csharp
-var department = db.Get<Department, string>("d005");
+var department = Department.Get("d005", db);
 ```
 
 If you need lower-level SQL-builder access, `Database<T>` also exposes `From(...)` and `From<TModel>()`. That is a different API surface from LINQ and should not be confused with "LINQ join support".

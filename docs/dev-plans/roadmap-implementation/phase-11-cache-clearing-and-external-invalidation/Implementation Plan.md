@@ -30,9 +30,9 @@ As of 2026-05-12, Phase 11 can rely on these artifacts:
 
 - `TableDefinition.PrimaryKeyShape` and `TableKeyComponentDefinition` describe primary-key arity, provider/model CLR types, provider store kind, nullability, column ordinals, and scalar-converter placeholders.
 - Generated table models install `IProviderKeyRowStoreAccessor` or `IProviderKeyDataReaderRowStoreAccessor` for primary-key tables.
-- `RowCache.TryRemoveProviderKey<TKey>(...)` and `TableCache.TryRemoveProviderKey<TKey>(...)` remove row-cache entries by provider key.
-- `TableCache.TryRemoveForeignKeyIndex<TKey>(...)` removes scalar relation/index entries by provider foreign-key value.
-- `TableCache.TryRemovePrimaryKeyIndex(...)`, `ClearIndex()`, and `ClearCache()` provide the conservative fallback path.
+- `RowCache.TryRemoveProviderKey<TKey>(...)` removes row-cache entries by provider key; table-level orchestration is internal through `TableCache.TryRemoveProviderKey<TKey>(...)`.
+- Internal `TableCache.TryRemoveForeignKeyIndex<TKey>(...)` removes scalar relation/index entries by provider foreign-key value.
+- Internal `TableCache.TryRemovePrimaryKeyIndex(...)`, plus public `ClearIndex()` and `ClearCache()`, provide the conservative fallback path.
 - Cache maintenance telemetry already emits `datalinq.cache.operation`; current operation names live in `CacheMaintenanceOperations`.
 - Phase 10 closeout artifacts are recorded in the Phase 10 measurement document.
 

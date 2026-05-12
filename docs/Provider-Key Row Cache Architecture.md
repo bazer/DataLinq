@@ -197,6 +197,7 @@ The cache key architecture depends on these invariants:
 - joined materialization lets generated accessors build provider keys from reader ordinals
 - generated composite primary keys use generated structs, not object arrays as row-store keys
 - `DataLinqKey` is allowed in metadata-driven plumbing, not as a replacement for generated provider keys
+- broad cache machinery is internal except where generated code needs a public bridge into `RowCache` or `TableCache.GetRow<TKey>(...)`
 - cache invalidation should remove rows by provider-key components through the same table-specific accessor path
 
 If a future change stores the same row under two key representations, it is almost certainly the wrong design.
@@ -207,9 +208,10 @@ Phase 11 cache clearing and external invalidation should start from these concre
 
 - `TableDefinition.PrimaryKeyShape` is the table/key descriptor. Its components expose provider/model CLR types, provider store kind, nullability, column ordinals, and the scalar-converter placeholder.
 - Generated table models install `IProviderKeyRowStoreAccessor` or `IProviderKeyDataReaderRowStoreAccessor` when a table has primary-key metadata. That accessor is the bridge from bounded dynamic components into the table's exact provider-key type.
+- Generated model `Get(...)` methods are the exact public primary-key lookup path. `Database<T>.Get<M>(DataLinqKey)` and `Transaction<T>.Get<M>(DataLinqKey)` remain the explicit dynamic escape hatch.
 - `RowCache.TryRemoveProviderKey<TKey>(...)` removes a row from the single typed row store without constructing `IKey` or a duplicate side key.
-- `TableCache.TryRemoveProviderKey<TKey>(...)` applies provider-key row removal to the active read/transaction cache.
-- `TableCache.TryRemoveForeignKeyIndex<TKey>(...)` removes scalar relation/index buckets by provider foreign-key values. `TableCache.TryRemovePrimaryKeyIndex(...)` removes relation index entries that point at a primary key carrier.
+- Internal `TableCache.TryRemoveProviderKey<TKey>(...)` applies provider-key row removal to the active read/transaction cache.
+- Internal `TableCache.TryRemoveForeignKeyIndex<TKey>(...)` removes scalar relation/index buckets by provider foreign-key values. Internal `TableCache.TryRemovePrimaryKeyIndex(...)` removes relation index entries that point at a primary key carrier.
 - `TableCache.ClearCache()`, `ClearRows()`, and `ClearIndex()` are the conservative table-level fallback when a future external invalidation signal cannot provide precise provider-key components.
 - Cache maintenance telemetry uses the `datalinq.cache.operation` tag. The current operation names are centralized in `CacheMaintenanceOperations`: `state_change_precise`, `state_change_table`, `transaction_state_change`, `transaction_state_change_table`, `transaction_remove`, `clear`, `row_limit`, `size_limit`, `age_limit`, and `limit`.
 - Production source has no remaining `IKey` dependency. `DataLinqKey` remains as the bounded dynamic provider-key carrier, not as a universal row-store identity.

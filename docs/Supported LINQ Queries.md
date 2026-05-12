@@ -280,7 +280,7 @@ var page = db.Query().Employees
 There is also tested support for direct lookup without a LINQ predicate:
 
 ```csharp
-var department = db.Get<Department, string>("d005");
+var department = Department.Get("d005", db);
 ```
 
 That is useful when you already know the key and do not need a query pipeline.

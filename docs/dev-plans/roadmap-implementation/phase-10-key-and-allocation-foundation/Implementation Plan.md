@@ -235,11 +235,12 @@ Implementation notes:
 - The initial side-dictionary implementation was rejected because it stored every key twice. The corrected design gives each `RowCache` exactly one `RowStore<TKey>` selected by the table's provider-key shape.
 - `RowStore<TKey>` now lives in its own file. `RowCache` owns orchestration only; rows, byte totals, and age cleanup are owned by the single typed store.
 - `RowCache` no longer has an `IKey` dictionary, scalar side stores, or a duplicate key-age queue.
-- `RowCache.TryRemoveProviderKey(...)` and `TableCache.TryRemoveProviderKey(...)` provide the provider-key removal hook Phase 11 needs without coordinating with legacy key storage.
+- `RowCache.TryRemoveProviderKey(...)` and internal `TableCache.TryRemoveProviderKey(...)` provide the provider-key removal hook Phase 11 needs without coordinating with legacy key storage.
 - Generated scalar primary-key `Get(...)` methods call `IImmutable<T>.GetByProviderKey(...)` with the scalar provider value directly.
 - Generated composite primary-key `Get(...)` methods use an internal generated `DataLinqPrimaryKey` record struct that implements the provider-key component reader and acts as the cache key. The struct is stored directly by `Dictionary<DataLinqPrimaryKey, ...>`, so the cache does not box scalar components or keep a parallel `IKey`.
 - Generated metadata also carries a provider-key row-store accessor per primary-key table. Query, relation, and mutation/cache-invalidation paths use that accessor to convert bounded `DataLinqKey` values into the table's exact provider key before touching the row store.
 - `IKey`, the old scalar key structs, `CompositeKey`, and the unused `KeyCache<T>` have been deleted. Metadata-driven dynamic paths use `DataLinqKey`; generated row stores still store only exact provider values such as `int`, `string`, or generated `DataLinqPrimaryKey`.
+- Follow-up cleanup consolidated the duplicated `DataLinqKey` and `TKey` cache methods behind `ProviderKeyComponents`. Broad `Database<T>.Get<M, TKey>(...)` and `Transaction<T>.Get<M, TKey>(...)` are internal; public exact lookup should go through generated model `Get(...)`, while explicit dynamic lookup uses `DataLinqKey`.
 
 Verification:
 
@@ -436,8 +437,9 @@ Phase 10 should leave these handoff artifacts:
 Implementation notes:
 
 - Provider-key table descriptors are `TableDefinition.PrimaryKeyShape` and `TableKeyComponentDefinition`; generated table descriptors install `IProviderKeyRowStoreAccessor` or `IProviderKeyDataReaderRowStoreAccessor`.
-- Row-cache removal by provider key exists through `RowCache.TryRemoveProviderKey<TKey>(...)` and `TableCache.TryRemoveProviderKey<TKey>(...)`.
-- Relation/index invalidation can remove scalar foreign-key buckets through `TableCache.TryRemoveForeignKeyIndex<TKey>(...)`, remove primary-key references through `TryRemovePrimaryKeyIndex(...)`, or fall back to `ClearIndex()`/`ClearCache()` when precision is unavailable.
+- Row-cache removal by provider key exists through `RowCache.TryRemoveProviderKey<TKey>(...)`; table-level orchestration is internal through `TableCache.TryRemoveProviderKey<TKey>(...)`.
+- Relation/index invalidation can remove scalar foreign-key buckets through internal `TableCache.TryRemoveForeignKeyIndex<TKey>(...)`, remove primary-key references through internal `TryRemovePrimaryKeyIndex(...)`, or fall back to `ClearIndex()`/`ClearCache()` when precision is unavailable.
+- Generated model `Get(...)` methods are the exact public primary-key lookup surface. `Database<T>.Get<M>(DataLinqKey)` and `Transaction<T>.Get<M>(DataLinqKey)` remain the explicit dynamic lookup surface.
 - Cache maintenance telemetry operation names are centralized in `CacheMaintenanceOperations` and continue to flow through the `datalinq.cache.operation` tag.
 - Production source has no remaining `IKey` dependencies. Phase 11 may use `DataLinqKey` as the bounded dynamic carrier, but it should not resurrect a universal key interface or row-store identity abstraction.
 - Closeout benchmark paths are recorded in [Measurement Baseline](Measurement%20Baseline.md). Focused generated static `Get(...)` and generated relation traversal are 0 B in the closeout key-foundation lane; broad provider/query lanes remain allocation-stable but do not justify latency claims.

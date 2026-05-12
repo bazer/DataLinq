@@ -7,32 +7,28 @@ using DataLinq.Instances;
 
 namespace DataLinq.Cache;
 
-public interface IIndexCache
+internal interface IIndexCache
 {
     Type KeyType { get; }
     int Count { get; }
     IEnumerable<DataLinqKey[]> Values { get; }
 
-    bool TryAdd(DataLinqKey foreignKey, DataLinqKey[] primaryKeys);
-    bool TryAddProviderKey<TKey>(TKey foreignKey, DataLinqKey[] primaryKeys)
+    bool TryAdd<TKey>(TKey foreignKey, DataLinqKey[] primaryKeys)
         where TKey : notnull;
-    bool TryRemoveForeignKey(DataLinqKey foreignKey, out int numRowsRemoved);
-    bool TryRemoveProviderKey<TKey>(TKey foreignKey, out int numRowsRemoved)
+    bool TryRemove<TKey>(TKey foreignKey, out int numRowsRemoved)
         where TKey : notnull;
     bool TryRemovePrimaryKey(DataLinqKey primaryKey, out int numRowsRemoved);
     int RemoveInsertedBeforeTick(long tick);
-    bool ContainsKey(DataLinqKey foreignKey);
-    bool TryGetValue(DataLinqKey foreignKey, out DataLinqKey[]? keys);
-    bool TryGetProviderKey<TKey>(TKey foreignKey, out DataLinqKey[]? keys)
+    bool TryGet<TKey>(TKey foreignKey, out DataLinqKey[]? keys)
         where TKey : notnull;
     void Clear();
 }
 
-public class IndexCache : TypedIndexCache<DataLinqKey>
+internal class IndexCache : TypedIndexCache<DataLinqKey>
 {
 }
 
-public class TypedIndexCache<TKey> : IIndexCache
+internal class TypedIndexCache<TKey> : IIndexCache
     where TKey : notnull
 {
     private readonly object cacheLock = new();
@@ -48,13 +44,7 @@ public class TypedIndexCache<TKey> : IIndexCache
 
     public Type KeyType => typeof(TKey);
 
-    public bool TryAdd(DataLinqKey foreignKey, DataLinqKey[] primaryKeys)
-    {
-        return TryConvertKey(foreignKey, out var providerKey) &&
-            TryAddCore(providerKey, primaryKeys);
-    }
-
-    public bool TryAddProviderKey<TProviderKey>(TProviderKey foreignKey, DataLinqKey[] primaryKeys)
+    public bool TryAdd<TProviderKey>(TProviderKey foreignKey, DataLinqKey[] primaryKeys)
         where TProviderKey : notnull
     {
         return TryConvertProviderKey(foreignKey, out var providerKey) &&
@@ -85,16 +75,7 @@ public class TypedIndexCache<TKey> : IIndexCache
         return true;
     }
 
-    public bool TryRemoveForeignKey(DataLinqKey foreignKey, out int numRowsRemoved)
-    {
-        if (TryConvertKey(foreignKey, out var providerKey))
-            return TryRemoveProviderKeyCore(providerKey, out numRowsRemoved);
-
-        numRowsRemoved = 0;
-        return true;
-    }
-
-    public bool TryRemoveProviderKey<TProviderKey>(TProviderKey foreignKey, out int numRowsRemoved)
+    public bool TryRemove<TProviderKey>(TProviderKey foreignKey, out int numRowsRemoved)
         where TProviderKey : notnull
     {
         if (TryConvertProviderKey(foreignKey, out var providerKey))
@@ -184,20 +165,7 @@ public class TypedIndexCache<TKey> : IIndexCache
         return count;
     }
 
-    public bool ContainsKey(DataLinqKey foreignKey) =>
-        TryConvertKey(foreignKey, out var providerKey) &&
-        foreignKeys.ContainsKey(providerKey);
-
-    public bool TryGetValue(DataLinqKey foreignKey, out DataLinqKey[]? keys)
-    {
-        if (TryConvertKey(foreignKey, out var providerKey))
-            return foreignKeys.TryGetValue(providerKey, out keys);
-
-        keys = null;
-        return false;
-    }
-
-    public bool TryGetProviderKey<TProviderKey>(TProviderKey foreignKey, out DataLinqKey[]? keys)
+    public bool TryGet<TProviderKey>(TProviderKey foreignKey, out DataLinqKey[]? keys)
         where TProviderKey : notnull
     {
         if (TryConvertProviderKey(foreignKey, out var providerKey))

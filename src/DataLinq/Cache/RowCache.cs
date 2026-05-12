@@ -29,7 +29,7 @@ public class RowCache
     public int RemoveRowsInsertedBeforeTick(long tick) =>
         rowStore?.RemoveRowsInsertedBeforeTick(tick) ?? 0;
 
-    public bool TryGetValue(DataLinqKey primaryKey, out IImmutableInstance? row)
+    internal bool TryGetValue(DataLinqKey primaryKey, out IImmutableInstance? row)
     {
         if (rowStore is not null)
             return rowStore.TryGetKey(primaryKey, out row);
@@ -50,11 +50,14 @@ public class RowCache
         if (rowStore is IRowStore<TKey> typedStore)
             return typedStore.TryGet(primaryKey, out row);
 
+        if (rowStore is IRowStore<DataLinqKey> dynamicStore)
+            return dynamicStore.TryGet(ProviderKeyComponents.ToDataLinqKey(primaryKey), out row);
+
         row = null;
         return false;
     }
 
-    public bool TryRemoveRow(DataLinqKey primaryKey, out int numRowsRemoved)
+    internal bool TryRemoveRow(DataLinqKey primaryKey, out int numRowsRemoved)
     {
         if (rowStore is not null)
             return rowStore.TryRemoveKey(primaryKey, out numRowsRemoved);
@@ -75,11 +78,14 @@ public class RowCache
         if (rowStore is IRowStore<TKey> typedStore)
             return typedStore.TryRemove(primaryKey, out numRowsRemoved);
 
+        if (rowStore is IRowStore<DataLinqKey> dynamicStore)
+            return dynamicStore.TryRemove(ProviderKeyComponents.ToDataLinqKey(primaryKey), out numRowsRemoved);
+
         numRowsRemoved = 0;
         return true;
     }
 
-    public bool TryAddRow(DataLinqKey key, RowData data, IImmutableInstance instance) =>
+    internal bool TryAddRow(DataLinqKey key, RowData data, IImmutableInstance instance) =>
         TryAddRow(key, data.Size, instance);
 
     public bool TryAddRow<TKey>(

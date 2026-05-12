@@ -498,7 +498,7 @@ public class TableCache
     }
 
 
-    public void TryRemoveRowFromAllIndices(DataLinqKey primaryKeys, out int numRowsRemoved)
+    internal void TryRemoveRowFromAllIndices(DataLinqKey primaryKeys, out int numRowsRemoved)
     {
         numRowsRemoved = 0;
 
@@ -509,19 +509,7 @@ public class TableCache
         }
     }
 
-    public bool TryRemoveForeignKeyIndex(ColumnIndex columnIndex, DataLinqKey foreignKey, out int numRowsRemoved)
-    {
-        var indexCache = TryGetIndexCache(columnIndex);
-        if (indexCache is null)
-        {
-            numRowsRemoved = 0;
-            return true;
-        }
-
-        return indexCache.TryRemoveForeignKey(foreignKey, out numRowsRemoved);
-    }
-
-    public bool TryRemoveForeignKeyIndex<TKey>(ColumnIndex columnIndex, TKey foreignKey, out int numRowsRemoved)
+    internal bool TryRemoveForeignKeyIndex<TKey>(ColumnIndex columnIndex, TKey foreignKey, out int numRowsRemoved)
         where TKey : notnull
     {
         var indexCache = TryGetIndexCache(columnIndex);
@@ -531,10 +519,10 @@ public class TableCache
             return true;
         }
 
-        return indexCache.TryRemoveProviderKey(foreignKey, out numRowsRemoved);
+        return indexCache.TryRemove(foreignKey, out numRowsRemoved);
     }
 
-    public bool TryRemovePrimaryKeyIndex(ColumnIndex columnIndex, DataLinqKey primaryKeys, out int numRowsRemoved)
+    internal bool TryRemovePrimaryKeyIndex(ColumnIndex columnIndex, DataLinqKey primaryKeys, out int numRowsRemoved)
     {
         var indexCache = TryGetIndexCache(columnIndex);
         if (indexCache is null)
@@ -549,7 +537,7 @@ public class TableCache
     public int RemoveAllIndicesInsertedBeforeTick(long tick) =>
         GetLoadedIndexCaches().Sum(x => x.RemoveInsertedBeforeTick(tick));
 
-    public bool TryRemoveTransactionRow(DataLinqKey primaryKeys, Transaction transaction, out int numRowsRemoved)
+    internal bool TryRemoveTransactionRow(DataLinqKey primaryKeys, Transaction transaction, out int numRowsRemoved)
     {
         numRowsRemoved = 0;
 
@@ -557,7 +545,7 @@ public class TableCache
             TryRemoveRowFromCache(transactionRowCache, primaryKeys, out numRowsRemoved);
     }
 
-    public bool TryRemoveProviderKey<TKey>(TKey primaryKey, IDataSourceAccess dataSource, out int numRowsRemoved)
+    internal bool TryRemoveProviderKey<TKey>(TKey primaryKey, IDataSourceAccess dataSource, out int numRowsRemoved)
         where TKey : notnull
     {
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
@@ -567,10 +555,12 @@ public class TableCache
         {
             numRowsRemoved = 0;
             return transactionRows?.TryGetValue(transaction, out var transactionRowCache) == true &&
-                transactionRowCache.TryRemoveProviderKey(primaryKey, out numRowsRemoved);
+                TryRemoveProviderKeyFromCache(transactionRowCache, primaryKey, out numRowsRemoved);
         }
 
-        return rowCache?.TryRemoveProviderKey(primaryKey, out numRowsRemoved) ?? RemoveNoRows(out numRowsRemoved);
+        return rowCache is not null
+            ? TryRemoveProviderKeyFromCache(rowCache, primaryKey, out numRowsRemoved)
+            : RemoveNoRows(out numRowsRemoved);
     }
 
     public bool TryRemoveTransaction(Transaction transaction)
@@ -595,7 +585,7 @@ public class TableCache
         return true;
     }
 
-    public void PreloadIndex(DataLinqKey foreignKey, RelationProperty otherSide, int? limitRows = null)
+    internal void PreloadIndex(DataLinqKey foreignKey, RelationProperty otherSide, int? limitRows = null)
     {
         var index = otherSide.RelationPart.GetOtherSide().ColumnIndex;
 
@@ -635,28 +625,17 @@ public class TableCache
         RefreshOccupancyMetrics();
     }
 
-    public DataLinqKey[] GetKeys(DataLinqKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
+    internal DataLinqKey[] GetKeys<TKey>(TKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
+        where TKey : notnull
     {
         var index = otherSide.RelationPart.GetOtherSide().ColumnIndex;
         if (Table.PrimaryKeyColumns.SequenceEqual(index.Columns))
-            return [foreignKey];
+            return [ProviderKeyComponents.ToDataLinqKey(foreignKey)];
 
         if (dataSource is ReadOnlyAccess && indexCachePolicy.type != IndexCacheType.None)
         {
-            if (TryGetIndexCache(index)?.TryGetValue(foreignKey, out var keys) == true)
+            if (TryGetIndexCache(index)?.TryGet(foreignKey, out var keys) == true)
                 return keys!;
-
-            //if (IndexCaches[index].Count == 0)
-            //{
-            //    PreloadIndex(foreignKey, otherSide, indexCachePolicy.type == IndexCacheType.MaxAmountRows ? indexCachePolicy.amount : null);
-            //    Log.IndexCachePreload(loggingConfiguration.CacheLogger, index, IndexCaches[index].Count);
-
-            //    var rowCount = GetRows(IndexCaches[index].Values.SelectMany(x => x).Take(1000).ToArray(), dataSource).Count();
-            //    Log.RowCachePreload(loggingConfiguration.CacheLogger, Table, rowCount);
-
-            //    if (IndexCaches[index].TryGetValue(foreignKey, out var retryKeys))
-            //        return retryKeys!;
-            //}
         }
 
         var select = new SqlQuery(Table, dataSource ?? DatabaseCache.Database.ReadOnlyAccess)
@@ -674,40 +653,10 @@ public class TableCache
         return newKeys;
     }
 
-    public DataLinqKey[] GetKeys<TKey>(TKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
+    internal IEnumerable<IImmutableInstance> GetRows<TKey>(TKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
         where TKey : notnull
     {
-        if (foreignKey is DataLinqKey dataLinqKey)
-            return GetKeys(dataLinqKey, otherSide, dataSource);
-
-        var index = otherSide.RelationPart.GetOtherSide().ColumnIndex;
-        if (Table.PrimaryKeyColumns.SequenceEqual(index.Columns))
-            return [DataLinqKey.FromValue(foreignKey)];
-
-        if (dataSource is ReadOnlyAccess && indexCachePolicy.type != IndexCacheType.None)
-        {
-            if (TryGetIndexCache(index)?.TryGetProviderKey(foreignKey, out var keys) == true)
-                return keys!;
-        }
-
-        var select = new SqlQuery(Table, dataSource ?? DatabaseCache.Database.ReadOnlyAccess)
-            .What(Table.PrimaryKeyColumns)
-            .Where(index.Columns, foreignKey)
-            .SelectQuery();
-
-        var newKeys = KeyFactory.GetKeys(select, Table.PrimaryKeyColumns).ToArray();
-
-        if (indexCachePolicy.type != IndexCacheType.None)
-            GetIndexCache(index).TryAddProviderKey(foreignKey, newKeys);
-
-        RefreshOccupancyMetrics();
-
-        return newKeys;
-    }
-
-    public IEnumerable<IImmutableInstance> GetRows(DataLinqKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
-    {
-        if (foreignKey.IsNull)
+        if (ProviderKeyComponents.IsNull(foreignKey))
             return [];
 
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
@@ -722,37 +671,13 @@ public class TableCache
 
         if (dataSource is ReadOnlyAccess &&
             indexCachePolicy.type != IndexCacheType.None &&
-            TryGetIndexCache(index)?.TryGetValue(foreignKey, out var keys) == true)
+            TryGetIndexCache(index)?.TryGet(foreignKey, out var keys) == true)
             return GetRows(keys!, dataSource);
 
         return LoadRowsFromForeignKeyAndCache(foreignKey, index, dataSource);
     }
 
-    public IEnumerable<IImmutableInstance> GetRows<TKey>(TKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
-        where TKey : notnull
-    {
-        if (foreignKey is DataLinqKey dataLinqKey)
-            return GetRows(dataLinqKey, otherSide, dataSource);
-
-        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
-        EnsureTransactionRowCache(dataSource);
-
-        var index = otherSide.RelationPart.GetOtherSide().ColumnIndex;
-        if (Table.PrimaryKeyColumns.SequenceEqual(index.Columns))
-        {
-            var row = GetRow(foreignKey, dataSource);
-            return row is null ? [] : [row];
-        }
-
-        if (dataSource is ReadOnlyAccess &&
-            indexCachePolicy.type != IndexCacheType.None &&
-            TryGetIndexCache(index)?.TryGetProviderKey(foreignKey, out var keys) == true)
-            return GetRows(keys!, dataSource);
-
-        return LoadRowsFromForeignKeyAndCache(foreignKey, index, dataSource);
-    }
-
-    public IImmutableInstance? GetRow(DataLinqKey primaryKeys, IDataSourceAccess dataSource)
+    private IImmutableInstance? GetRowByDynamicKey(DataLinqKey primaryKeys, IDataSourceAccess dataSource)
     {
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
         EnsureTransactionRowCache(dataSource);
@@ -769,7 +694,7 @@ public class TableCache
         MetricsHandle.RecordRowCacheMisses(1);
         Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, 0);
 
-        var rowData = GetRowDataFromPrimaryKey(primaryKeys, dataSource);
+        var rowData = GetRowDataFromPrimaryKeyValue(primaryKeys, dataSource);
         if (rowData is not null)
         {
             MetricsHandle.RecordDatabaseRowsLoaded(1);
@@ -790,13 +715,13 @@ public class TableCache
             return null;
 
         if (primaryKey is DataLinqKey dataLinqKey)
-            return GetRow(dataLinqKey, dataSource);
+            return GetRowByDynamicKey(dataLinqKey, dataSource);
 
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
         EnsureTransactionRowCache(dataSource);
 
         if (ShouldUseDynamicKeyLookup(primaryKey))
-            return GetRow(DataLinqKey.FromValue(primaryKey), dataSource);
+            return GetRowByDynamicKey(DataLinqKey.FromValue(primaryKey), dataSource);
 
         if (GetRowFromCache(primaryKey, dataSource, out var row))
         {
@@ -842,27 +767,6 @@ public class TableCache
             TableKeyComponentStoreKind.String => primaryKey is not string,
             _ => true
         };
-    }
-
-    public IEnumerable<IImmutableInstance> GetRows(DataLinqKey[] primaryKeys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
-    {
-        EnsureTransactionRowCache(dataSource);
-
-        if (primaryKeys.Length == 0)
-            return [];
-
-        if (orderings == null || orderings.Count == 0)
-        {
-            if (primaryKeys.Length == 1)
-            {
-                var row = GetRow(primaryKeys[0], dataSource);
-                return row is null ? [] : [row];
-            }
-
-            return LoadRowsFromDatabaseAndCache(primaryKeys, dataSource);
-        }
-
-        return LoadOrderedRowsFromDatabaseAndCache(primaryKeys, dataSource, orderings);
     }
 
     internal bool TryGetRowsFromScalarPrimaryKeyQuery<T>(
@@ -972,39 +876,6 @@ public class TableCache
         }
     }
 
-    private IEnumerable<IImmutableInstance> LoadRowsFromDatabaseAndCache(DataLinqKey[] primaryKeys, IDataSourceAccess dataSource)
-    {
-        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
-
-        var keysToLoad = new List<DataLinqKey>(primaryKeys.Length);
-        foreach (var key in primaryKeys)
-        {
-            if (GetRowFromCache(key, dataSource, out var row))
-                yield return row!;
-            else
-                keysToLoad.Add(key);
-        }
-
-        MetricsHandle.RecordRowCacheHits(primaryKeys.Length - keysToLoad.Count);
-        MetricsHandle.RecordRowCacheMisses(keysToLoad.Count);
-
-        Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, primaryKeys.Length - keysToLoad.Count);
-
-        if (keysToLoad.Count != 0)
-        {
-            foreach (var split in keysToLoad.SplitList(500))
-            {
-                foreach (var rowData in GetRowDataFromPrimaryKeys(split, dataSource))
-                {
-                    MetricsHandle.RecordDatabaseRowsLoaded(1);
-                    yield return AddRow(rowData, dataSource);
-                }
-            }
-
-            Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, keysToLoad.Count);
-        }
-    }
-
     private IEnumerable<IImmutableInstance> LoadRowsFromDatabaseAndCache<TKey>(IReadOnlyList<TKey> primaryKeys, IDataSourceAccess dataSource)
         where TKey : notnull
     {
@@ -1039,7 +910,8 @@ public class TableCache
         }
     }
 
-    private IImmutableInstance[] LoadRowsFromForeignKeyAndCache(DataLinqKey foreignKey, ColumnIndex index, IDataSourceAccess dataSource)
+    private IImmutableInstance[] LoadRowsFromForeignKeyAndCache<TKey>(TKey foreignKey, ColumnIndex index, IDataSourceAccess dataSource)
+        where TKey : notnull
     {
         var q = new SqlQuery(Table, dataSource)
             .Where(index.Columns, foreignKey)
@@ -1078,107 +950,6 @@ public class TableCache
         RefreshOccupancyMetrics();
 
         return rows.ToArray();
-    }
-
-    private IImmutableInstance[] LoadRowsFromForeignKeyAndCache<TKey>(TKey foreignKey, ColumnIndex index, IDataSourceAccess dataSource)
-        where TKey : notnull
-    {
-        var q = new SqlQuery(Table, dataSource)
-            .Where(index.Columns, foreignKey)
-            .SelectQuery();
-
-        var rows = new List<IImmutableInstance>();
-        var primaryKeys = indexCachePolicy.type == IndexCacheType.None ? null : new List<DataLinqKey>();
-        var rowCacheHits = 0;
-        var rowCacheMisses = 0;
-
-        foreach (var rowData in q.ReadRows())
-        {
-            var primaryKey = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
-            primaryKeys?.Add(primaryKey);
-
-            if (GetRowFromCache(primaryKey, dataSource, out var cachedRow))
-            {
-                rowCacheHits++;
-                rows.Add(cachedRow!);
-                continue;
-            }
-
-            rowCacheMisses++;
-            MetricsHandle.RecordDatabaseRowsLoaded(1);
-            rows.Add(AddRow(rowData, dataSource));
-        }
-
-        MetricsHandle.RecordRowCacheHits(rowCacheHits);
-        MetricsHandle.RecordRowCacheMisses(rowCacheMisses);
-        Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, rowCacheHits);
-        Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, rowCacheMisses);
-
-        if (primaryKeys is not null)
-            GetIndexCache(index).TryAddProviderKey(foreignKey, primaryKeys.ToArray());
-
-        RefreshOccupancyMetrics();
-
-        return rows.ToArray();
-    }
-
-    private IEnumerable<IImmutableInstance> LoadOrderedRowsFromDatabaseAndCache(DataLinqKey[] primaryKeys, IDataSourceAccess dataSource, List<OrderBy> orderings)
-    {
-        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
-
-        var keysToLoad = new List<DataLinqKey>(primaryKeys.Length);
-        var loadedRows = new List<IImmutableInstance>(primaryKeys.Length);
-
-        foreach (var key in primaryKeys)
-        {
-            if (GetRowFromCache(key, dataSource, out var row))
-                loadedRows.Add(row!);
-            else
-                keysToLoad.Add(key);
-        }
-
-        MetricsHandle.RecordRowCacheHits(loadedRows.Count);
-        MetricsHandle.RecordRowCacheMisses(keysToLoad.Count);
-
-        Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, loadedRows.Count);
-
-        if (keysToLoad.Count != 0)
-        {
-            foreach (var split in keysToLoad.SplitList(500))
-            {
-                foreach (var rowData in GetRowDataFromPrimaryKeys(split, dataSource, orderings))
-                {
-                    MetricsHandle.RecordDatabaseRowsLoaded(1);
-                    loadedRows.Add(AddRow(rowData, dataSource));
-                }
-            }
-
-            Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, keysToLoad.Count);
-        }
-
-        IOrderedEnumerable<IImmutableInstance>? orderedRows = null;
-
-        foreach (var ordering in orderings)
-        {
-            Func<IImmutableInstance, IComparable?> keySelector = x => (IComparable?)x.GetValues([ordering.Column]).First().Value;
-
-            if (orderedRows == null)
-            {
-                orderedRows = ordering.Ascending
-                    ? loadedRows.OrderBy(keySelector)
-                    : loadedRows.OrderByDescending(keySelector);
-            }
-            else
-            {
-                orderedRows = ordering.Ascending
-                    ? orderedRows.ThenBy(keySelector)
-                    : orderedRows.ThenByDescending(keySelector);
-            }
-        }
-
-        return orderedRows == null
-            ? loadedRows
-            : orderedRows;
     }
 
     private IEnumerable<IImmutableInstance> LoadOrderedRowsFromDatabaseAndCache<TKey>(IReadOnlyList<TKey> primaryKeys, IDataSourceAccess dataSource, List<OrderBy> orderings)
@@ -1246,53 +1017,6 @@ public class TableCache
         return orderedRows ?? rows;
     }
 
-    private IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<DataLinqKey> keys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
-    {
-        var q = new SqlQuery(Table, dataSource);
-
-        if (!keys.Any()) // Optimization: if no keys, return empty
-            return [];
-
-        if (Table.PrimaryKeyColumns.Length == 1)
-        {
-            var pkColumn = Table.PrimaryKeyColumns[0];
-
-            q.Where(pkColumn.DbName)
-             .In(keys.Select(x => dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, x.GetValue(0))));
-        }
-        else
-        {
-            foreach (var key in keys)
-            {
-                // Each key's set of PK conditions forms an AND group.
-                // This AND group is ORed with other key's AND groups.
-                // How it connects to the *previous* AND group. The first one is effectively standalone.
-                var connectionToPreviousKeyGroup = (key == keys.First()) ? BooleanType.And : BooleanType.Or;
-
-                var keySpecificAndGroup = q.AddWhereGroup(connectionToPreviousKeyGroup); // This creates a new subgroup for ANDs, connected by OR to previous
-
-                for (var i = 0; i < primaryKeyColumnsCount; i++)
-                {
-                    var pkColumn = Table.PrimaryKeyColumns[i];
-                    // All conditions for a single key are ANDed together *within* keySpecificAndGroup.
-                    // The AddWhere on keySpecificAndGroup will use its InternalJoinType (which is AND by default for new groups from SqlQuery.AddWhereGroup)
-                    keySpecificAndGroup.Where(pkColumn.DbName)
-                                       .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key.GetValue(i)));
-                }
-            }
-        }
-
-        if (orderings != null)
-        {
-            foreach (var order in orderings)
-                q.OrderBy(order.Column, order.Alias, order.Ascending);
-        }
-
-        return q
-            .SelectQuery()
-            .ReadRows();
-    }
-
     private IEnumerable<RowData> GetRowDataFromPrimaryKeyValues<TKey>(IEnumerable<TKey> keys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
         where TKey : notnull
     {
@@ -1307,20 +1031,17 @@ public class TableCache
             var pkColumn = Table.PrimaryKeyColumns[0];
 
             q.Where(pkColumn.DbName)
-             .In(keyArray.Select(key => dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key)));
+             .In(keyArray.Select(key => dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, ProviderKeyComponents.GetValue(key, 0))));
         }
         else
         {
             var first = true;
             foreach (var key in keyArray)
             {
-                if (key is not IProviderKey providerKey)
-                    throw new InvalidOperationException(
-                        $"Provider key for table '{Table.DbName}' must expose components for composite lookup.");
-
-                if (providerKey.ValueCount != primaryKeyColumnsCount)
-                    throw new InvalidOperationException(
-                        $"Provider key for table '{Table.DbName}' has {providerKey.ValueCount} components, expected {primaryKeyColumnsCount}.");
+                ProviderKeyComponents.ThrowIfComponentCountMismatch(
+                    key,
+                    primaryKeyColumnsCount,
+                    $"Provider key for table '{Table.DbName}'");
 
                 var keySpecificAndGroup = q.AddWhereGroup(first ? BooleanType.And : BooleanType.Or);
                 first = false;
@@ -1329,7 +1050,7 @@ public class TableCache
                 {
                     var pkColumn = Table.PrimaryKeyColumns[i];
                     keySpecificAndGroup.Where(pkColumn.DbName)
-                        .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, providerKey.GetValue(i)));
+                        .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, ProviderKeyComponents.GetValue(key, i)));
                 }
             }
         }
@@ -1392,54 +1113,21 @@ public class TableCache
         return primaryKey is not null;
     }
 
-    private RowData? GetRowDataFromPrimaryKey(DataLinqKey key, IDataSourceAccess dataSource)
-    {
-        var q = new SqlQuery(Table, dataSource);
-
-        if (Table.PrimaryKeyColumns.Length == 1)
-        {
-            var pkColumn = Table.PrimaryKeyColumns[0];
-            q.Where(pkColumn.DbName)
-             .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key.GetValue(0)));
-        }
-        else
-        {
-            for (var i = 0; i < primaryKeyColumnsCount; i++)
-            {
-                var pkColumn = Table.PrimaryKeyColumns[i];
-                q.Where(pkColumn.DbName)
-                 .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key.GetValue(i)));
-            }
-        }
-
-        return q
-            .SelectQuery()
-            .ReadFirstRow();
-    }
-
     private RowData? GetRowDataFromPrimaryKeyValue<TKey>(TKey key, IDataSourceAccess dataSource)
         where TKey : notnull
     {
         var q = new SqlQuery(Table, dataSource);
 
-        if (key is IProviderKey providerKey)
-        {
-            if (providerKey.ValueCount != primaryKeyColumnsCount)
-                throw new InvalidOperationException(
-                    $"Provider key for table '{Table.DbName}' has {providerKey.ValueCount} components, expected {primaryKeyColumnsCount}.");
+        ProviderKeyComponents.ThrowIfComponentCountMismatch(
+            key,
+            primaryKeyColumnsCount,
+            $"Provider key for table '{Table.DbName}'");
 
-            for (var i = 0; i < primaryKeyColumnsCount; i++)
-            {
-                var pkColumn = Table.PrimaryKeyColumns[i];
-                q.Where(pkColumn.DbName)
-                 .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, providerKey.GetValue(i)));
-            }
-        }
-        else
+        for (var i = 0; i < primaryKeyColumnsCount; i++)
         {
-            var pkColumn = Table.PrimaryKeyColumns[0];
+            var pkColumn = Table.PrimaryKeyColumns[i];
             q.Where(pkColumn.DbName)
-             .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key));
+             .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, ProviderKeyComponents.GetValue(key, i)));
         }
 
         return q
@@ -1479,9 +1167,21 @@ public class TableCache
         return cache.TryRemoveRow(key, out numRowsRemoved);
     }
 
+    private bool TryRemoveProviderKeyFromCache<TKey>(RowCache cache, TKey key, out int numRowsRemoved)
+        where TKey : notnull
+    {
+        if (key is DataLinqKey dataLinqKey)
+            return TryRemoveRowFromCache(cache, dataLinqKey, out numRowsRemoved);
+
+        return cache.TryRemoveProviderKey(key, out numRowsRemoved);
+    }
+
     private bool GetRowFromCache<TKey>(TKey key, IDataSourceAccess dataSource, out IImmutableInstance? row)
         where TKey : notnull
     {
+        if (key is DataLinqKey dataLinqKey)
+            return GetRowFromCache(dataLinqKey, dataSource, out row);
+
         if (dataSource is ReadOnlyAccess && rowCache is not null && rowCache.TryGetValue(key, out row))
             return true;
         else if (dataSource is Transaction transaction &&

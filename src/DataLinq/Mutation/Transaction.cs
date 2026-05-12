@@ -504,7 +504,7 @@ public class Transaction<T> : Transaction, IDataSourceAccess<T>
     /// <typeparam name="TKey">The provider-key type used by the table cache.</typeparam>
     /// <param name="key">The provider key that identifies the model.</param>
     /// <returns>The model if found; otherwise, <c>null</c>.</returns>
-    public M? Get<M, TKey>(TKey key)
+    internal M? Get<M, TKey>(TKey key)
         where M : IImmutableInstance
         where TKey : notnull
     {

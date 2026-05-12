@@ -108,7 +108,7 @@ Then ordinary use becomes:
 var employee = db.Employees.Get(10001);
 ```
 
-That is a sensible public API. `Database.Get<M>(IKey key)` is not.
+That is a sensible public API. A broad `Database.Get<M, TKey>(TKey key)` is not, because it lets callers invent key shapes the model never generated.
 
 ## Runtime Store Shape
 

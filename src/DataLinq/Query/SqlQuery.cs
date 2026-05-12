@@ -139,41 +139,19 @@ public class SqlQuery<T>
         return WhereGroup;
     }
 
-    public WhereGroup<T> Where(IReadOnlyList<ColumnDefinition> columns, DataLinqKey key, BooleanType type = BooleanType.And, string? alias = null)
-    {
-        WhereGroup ??= new WhereGroup<T>(this);
-
-        for (var i = 0; i < columns.Count; i++)
-            WhereGroup.AddWhere(columns[i].DbName, alias, type).EqualTo(key.GetValue(i));
-
-        return WhereGroup;
-    }
-
-    public WhereGroup<T> Where<TKey>(IReadOnlyList<ColumnDefinition> columns, TKey key, BooleanType type = BooleanType.And, string? alias = null)
+    internal WhereGroup<T> Where<TKey>(IReadOnlyList<ColumnDefinition> columns, TKey key, BooleanType type = BooleanType.And, string? alias = null)
         where TKey : notnull
     {
-        if (key is DataLinqKey dataLinqKey)
-            return Where(columns, dataLinqKey, type, alias);
-
         WhereGroup ??= new WhereGroup<T>(this);
 
-        if (key is IProviderKey providerKey)
-        {
-            if (providerKey.ValueCount != columns.Count)
-                throw new InvalidOperationException(
-                    $"Provider key has {providerKey.ValueCount} components, expected {columns.Count}.");
+        ProviderKeyComponents.ThrowIfComponentCountMismatch(
+            key,
+            columns.Count,
+            "Provider key");
 
-            for (var i = 0; i < columns.Count; i++)
-                WhereGroup.AddWhere(columns[i].DbName, alias, type).EqualTo(providerKey.GetValue(i));
+        for (var i = 0; i < columns.Count; i++)
+            WhereGroup.AddWhere(columns[i].DbName, alias, type).EqualTo(ProviderKeyComponents.GetValue(key, i));
 
-            return WhereGroup;
-        }
-
-        if (columns.Count != 1)
-            throw new InvalidOperationException(
-                $"Scalar provider key cannot be used with {columns.Count} columns.");
-
-        WhereGroup.AddWhere(columns[0].DbName, alias, type).EqualTo(key);
         return WhereGroup;
     }
 
