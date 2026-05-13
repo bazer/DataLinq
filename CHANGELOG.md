@@ -4,6 +4,127 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.7.0 - Schema Trust, LINQ Coverage, AOT Proofs, and Cache Control](https://github.com/bazer/DataLinq/releases/tag/0.7.0)
+
+**Released on:** TBD
+
+This is a real minor release, not a dressed-up patch. The main theme is trust: DataLinq can now compare models against live schemas, explain more query translation behavior, prove a narrow generated SQLite AOT/WebAssembly path, and give applications explicit cache invalidation plus better cache memory accounting. It also removes some old compatibility crutches, most notably the legacy `IKey` identity abstraction and silent generated-model fallback paths.
+
+The blunt version: 0.7.0 makes DataLinq more serious. It is still not a general-purpose migration engine, a broadly AOT-compatible ORM, or a "translate every LINQ expression you can dream up" provider. But the supported boundaries are much clearer, better tested, and easier to diagnose.
+
+### Highlights
+
+* **Schema validation and conservative diff scripts are now real product features.**
+  The CLI now has `validate` and `diff` commands that compare generated model metadata against live provider metadata and produce either drift reports or conservative SQL suggestions. This is not full migrations. That restraint is a feature: DataLinq now tells you what changed without pretending it can safely infer every rename, destructive edit, or provider-specific rebuild.
+
+* **LINQ translation coverage is substantially broader and better documented.**
+  DataLinq now covers more predicate composition, local collection membership, local `Any(...)` membership shapes, nullable predicates, scalar aggregates, projections, a first explicit inner-join shape, and relation-backed existence predicates. Unsupported shapes now produce better `QueryTranslationException` messages instead of failing as vague provider weirdness.
+
+* **Generated SQLite has a narrow but proven constrained-platform path.**
+  The release adds Native AOT, trimming, and Blazor WebAssembly AOT smoke coverage for generated SQLite models. The public claim is intentionally narrow: generated SQLite works through the tested smoke path, Roslyn is kept out of runtime dependency groups, and compatibility size/package reports make that boundary inspectable.
+
+* **Cache invalidation is finally a first-class API instead of tribal knowledge.**
+  Databases now expose explicit cache clearing and invalidation through `database.Cache`, including database/table clearing, provider-key row invalidation, normalized invalidation events, freshness vocabulary, relation/index invalidation, and telemetry that says whether DataLinq used a precise provider-key path or a conservative fallback.
+
+* **Byte cache limits now use an estimated cache footprint, not row payload bytes.**
+  `CacheLimitType.Bytes`, `Kilobytes`, `Megabytes`, and `Gigabytes` now compare against `EstimatedCacheBytes`. The old row-payload byte gauges still exist for compatibility, but they are no longer the byte-limit decision basis. This is a behavioral breaking change if you tuned byte limits tightly in older releases.
+
+### Product Trust and Schema Validation
+
+* Added a schema comparison model with difference kinds, severity, safety, identifier comparison, and provider capability boundaries.
+* Added `datalinq validate` with text and JSON output. Exit code `1` now means drift was detected, not that the command crashed.
+* Added `datalinq diff` to generate conservative SQL for supported additive drift such as missing tables, supported missing columns, and supported simple/unique indexes.
+* Kept destructive, ambiguous, unsupported, and provider-specific changes as manual-review comments in generated diff output.
+* Added initial schema migration snapshot models and tooling foundation without claiming shipped migration execution.
+* Added `SchemaValidator`, `SchemaDiffScriptGenerator`, and snapshot helpers under the tooling layer.
+* Added provider metadata roundtrip testing for supported SQLite, MySQL, and MariaDB metadata subsets.
+* Improved metadata fidelity for comments, raw check constraints, composite foreign keys, composite indexes, identifier handling, duplicate relation names, and same-target foreign keys.
+* Added provider metadata support documentation so validation claims are tied to actual provider behavior instead of vibes.
+
+### LINQ and Query Translation
+
+* Fixed chained `Where(...).Where(...)` composition.
+* Added guarded local sequence extraction for membership predicates.
+* Expanded local `Contains(...)` support across arrays, lists, sets, spans, and simple local projections.
+* Added local `Any(predicate)` membership translation for equality shapes that can safely become `IN (...)` / `NOT IN (...)`.
+* Locked down empty local collection behavior so empty `Contains(...)`, `Any()`, and `Any(predicate)` become fixed true/false conditions instead of invalid SQL.
+* Added nullable-boolean and nullable-value predicate coverage, including guarded `.Value` member access and C#-style lifted inequality semantics.
+* Added SQL-backed scalar aggregate support for `Sum`, `Min`, `Max`, and `Average` over direct numeric members.
+* Added row-local projection support after materialization for scalar, anonymous, and computed projections.
+* Added a first explicit SQL inner-join baseline for two DataLinq query sources and direct member equality keys.
+* Added relation-backed existence predicates through correlated `EXISTS` translation for one-to-many `Any(...)` and existence-equivalent `Count()` comparisons.
+* Added `QueryTranslationException` diagnostics for unsupported method, predicate, selector, operator, and expression shapes.
+* Added a LINQ translation support matrix and updated public query documentation to describe what is tested, not what sounds plausible.
+
+### Platform Compatibility and Packaging
+
+* Added Native AOT and trimming smoke projects for generated SQLite models.
+* Added a Blazor WebAssembly AOT smoke path for generated SQLite in-memory behavior.
+* Documented that no-AOT browser WebAssembly remains unsupported for the DataLinq/SQLite path.
+* Removed runtime expression compilation from supported query, projection, local sequence, and partial-evaluation paths by adding a narrow projection evaluator.
+* Added the generated database-model contract and required generated hooks for normal provider startup and row materialization.
+* Split Roslyn/source parsing concerns away from runtime metadata construction.
+* Generated complete startup metadata and indexed metadata handles so generated models do less runtime rediscovery.
+* Kept Roslyn/compiler assemblies out of the runtime dependency groups for `DataLinq`, `DataLinq.SQLite`, and `DataLinq.MySql`.
+* Added repo-local `size-report` and `package-report` tooling for compatibility payload and NuGet package inspection.
+* Kept internal/dev/test projects out of public packages.
+
+### Metadata and Source Generation
+
+* Added typed metadata drafts, immutable snapshots, and a centralized `MetadataDefinitionFactory`.
+* Hardened metadata validation with many preflight checks before invalid shapes reach generation or runtime.
+* Sealed and froze finalized metadata collections, cache policy metadata, enum value lists, generated declaration arrays, and array-valued metadata attributes.
+* Retired broad mutable metadata construction paths in favor of typed draft construction and snapshot transforms.
+* Added generated/source/provider metadata equivalence coverage to keep the new factory path honest.
+* Improved qualified source parsing for attributes, table properties, model interfaces, `DbRead` arguments, defaults, and relation property types.
+* Improved generated metadata diagnostics for duplicate relations, invalid relation indexes, unsupported provider columns/indexes, malformed provider relations, unresolved provider value types, source model contract errors, and invalid generated declarations.
+* Added frozen metadata lookup maps and stable collection surfaces to reduce repeated scans and defensive snapshots.
+* Escaped generated metadata literals more consistently.
+
+### Cache, Runtime, and Metrics
+
+* Added `database.Cache` with explicit database clear, table clear, single-row invalidation, many-row invalidation, and normalized invalidation-event APIs.
+* Added precise provider-key invalidation for row caches and relation/index cache paths.
+* Added `CacheInvalidationEvent`, scope/source/freshness vocabulary, invalidation impact reporting, and provider-key component helpers.
+* Added cache invalidation metrics covering scope, rows removed, tables cleared, provider-key counts, changed columns/index values, approximate work, and precise versus conservative fallback paths.
+* Split `TableCache` into focused partials for indexes, invalidation, maintenance, notifications, row loading, row lookup, row queries, and row storage.
+* Replaced the old `IKey`-backed row identity design with typed provider-key row stores and a single `RowStore<TKey>` per table shape.
+* Added generated provider-key access for scalar and composite primary keys, generated static `Get(...)`, relation traversal, query materialization, and mutation/invalidation paths.
+* Added `DataLinqKey` as a bounded dynamic key carrier for metadata-driven fallback paths, not as a universal row-store identity abstraction.
+* Added cache memory estimate primitives and component accounting for row stores, transaction rows, indexes, relation subscriptions, notifications, and snapshots.
+* Expanded `DataLinqMetrics` occupancy snapshots and standard .NET telemetry with `EstimatedCacheBytes` and cache component byte gauges.
+* Added cleanup telemetry tags for trigger, reason, and basis, including `estimated_cache_bytes` for size and pressure cleanup.
+* Added bounded memory-pressure cleanup policy configuration through `ConfigureMemoryPressureCleanup(...)`.
+* Coordinated scheduled, mutation-triggered, transaction-triggered, manual, and memory-pressure cleanup through a single scheduler.
+* Documented that memory-pressure cleanup is disabled by default and unsupported in browser/WebAssembly runtimes.
+
+### Performance, Benchmarks, and Tooling
+
+* Added benchmark lanes for Phase 10 provider-key/key-allocation work, Phase 11 cache invalidation, and Phase 12 cache memory behavior.
+* Reduced allocations in provider initialization, startup primary-key lookup, single-key cache hits, cold primary-key fetches, cold relation traversal, warm relation traversal, and query temporary paths.
+* Added allocation-free relation cardinality helpers.
+* Recorded benchmark evidence for metadata allocation, key cache allocation, generated metadata allocation, cache invalidation behavior, provider-key cache design, and cache memory accounting.
+* Added benchmark-only string deduplication probes and rejected production value/key deduplication where the evidence did not justify the complexity.
+* Made benchmark history profile-aware, filtered trends to the current suite, normalized trend categories, and upgraded the benchmark trend website.
+* Enforced a compiler warning cleanup baseline and cleaned nullable/initialization warnings across core, CLI, sample, information-schema, and compliance test code.
+* Added a sandbox-safe `dotnet` wrapper and improved Podman database sandbox routing guidance.
+* Added documentation for internal dev tooling, benchmark tooling, provider matrices, platform compatibility, cache memory behavior, and provider-key cache internals.
+
+### Upgrade Notes
+
+* **Regenerate DataLinq models.** Generated database model types now participate in `IDataLinqGeneratedDatabaseModel<T>` and carry generated metadata/materialization hooks. Older generated output can fail to compile or fail at provider startup.
+* **Stop using `IKey` directly.** The old `IKey` abstraction, old scalar key wrappers, `CompositeKey`, and the unused `KeyCache<T>` path are gone from production cache identity. Use generated static `Get(...)` methods for ordinary direct lookup, typed provider keys where available, or `DataLinqKeyComponents` for dynamic invalidation APIs.
+* **Retune byte-based cache limits.** Byte limits now use `EstimatedCacheBytes`, which includes more than row payload. A cache that cleaned at 64 MB under 0.6.x may clean earlier under 0.7.0 because the estimate now counts row-store overhead, indexes, transaction-local rows, relation state, notification queues, and snapshots.
+* **Do not mistake `validate` / `diff` for migrations.** They are schema trust tools. They report drift and produce conservative suggestions, but they do not track applied migrations or execute database upgrades.
+* **Read the AOT claim narrowly.** Generated SQLite Native AOT, trimming, and Blazor WebAssembly AOT smoke paths are proven. Broad DataLinq AOT compatibility, MySQL/MariaDB browser support, OPFS/file-backed browser storage, and arbitrary LINQ under AOT are not shipped claims.
+* **Expect stricter metadata failures.** The new typed metadata pipeline rejects many invalid shapes earlier. If a model relied on loose metadata mutation, ambiguous relation naming, malformed attributes, or reflection fallback, 0.7.0 is more likely to fail loudly.
+
+### Full Changelog
+
+https://github.com/bazer/DataLinq/compare/0.6.9...0.7.0
+
+---
+
 ## [DataLinq v0.6.9 - Benchmark Evidence, Generator Hardening, and SQL Hot Paths](https://github.com/bazer/DataLinq/releases/tag/0.6.9)
 
 **Released on:** 2026-04-28
@@ -678,5 +799,3 @@ First release with basic functionality.
 * Support for lazy loading of model properties
 
 ---
-
-
