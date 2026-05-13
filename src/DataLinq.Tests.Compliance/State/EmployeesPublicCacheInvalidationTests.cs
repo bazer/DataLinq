@@ -102,6 +102,60 @@ public class EmployeesPublicCacheInvalidationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Cache_InvalidateEvent_Row_RemovesCachedRow(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Cache_InvalidateEvent_Row_RemovesCachedRow),
+            EmployeesSeedMode.Bogus);
+
+        var database = databaseScope.Database;
+        database.Provider.State.ClearCache();
+
+        var cachedEmployee = database.Query().Employees.OrderBy(x => x.emp_no).First();
+        var employeeNumber = cachedEmployee.emp_no ?? throw new InvalidOperationException("Seed employee is missing its primary key.");
+        var employeeCache = GetTableCache<Employee, EmployeesDb>(database);
+
+        await Assert.That(employeeCache.RowCount).IsEqualTo(1);
+
+        var result = database.Cache.Invalidate(CacheInvalidationEvent.Row(
+            "employees",
+            DataLinqKeyComponents.FromValue(employeeNumber),
+            changedColumns: [nameof(Employee.first_name)]));
+
+        await Assert.That(result.RowsRemoved).IsEqualTo(1);
+        await Assert.That(result.UsedConservativeFallback).IsFalse();
+        await Assert.That(employeeCache.RowCount).IsEqualTo(0);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Cache_InvalidateEvent_Table_ClearsSelectedTable(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Cache_InvalidateEvent_Table_ClearsSelectedTable),
+            EmployeesSeedMode.Bogus);
+
+        var database = databaseScope.Database;
+        database.Provider.State.ClearCache();
+
+        _ = database.Query().Employees.OrderBy(x => x.emp_no).First();
+        _ = database.Query().Departments.OrderBy(x => x.DeptNo).First();
+
+        var employeeCache = GetTableCache<Employee, EmployeesDb>(database);
+        var departmentCache = GetTableCache<Department, EmployeesDb>(database);
+
+        var result = database.Cache.Invalidate(CacheInvalidationEvent.Table("employees"));
+
+        await Assert.That(result.TablesCleared).IsEqualTo(1);
+        await Assert.That(result.UsedConservativeFallback).IsTrue();
+        await Assert.That(employeeCache.RowCount).IsEqualTo(0);
+        await Assert.That(departmentCache.RowCount).IsEqualTo(1);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateUnknownProviderKey_IsNoOp(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
@@ -218,6 +272,45 @@ public class EmployeesPublicCacheInvalidationTests
 
         await AssertThrows<ArgumentException>(() =>
             database.Cache.Invalidate<Dept_emp>(DataLinqKeyComponents.FromValues(10001, "d001")));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Cache_InvalidateEvent_RejectsMissingAndMalformedFields(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Cache_InvalidateEvent_RejectsMissingAndMalformedFields),
+            EmployeesSeedMode.Bogus);
+
+        var database = databaseScope.Database;
+
+        await AssertThrows<ArgumentException>(() =>
+            database.Cache.Invalidate(new CacheInvalidationEvent
+            {
+                Scope = CacheInvalidationScope.Row,
+                ProviderPrimaryKeys = [DataLinqKeyComponents.FromValue(10001)]
+            }));
+
+        await AssertThrows<ArgumentException>(() =>
+            database.Cache.Invalidate(new CacheInvalidationEvent
+            {
+                Scope = CacheInvalidationScope.Row,
+                TableName = "employees"
+            }));
+
+        await AssertThrows<ArgumentException>(() =>
+            database.Cache.Invalidate(CacheInvalidationEvent.Row(
+                "employees",
+                DataLinqKeyComponents.FromValues(10001, "extra"))));
+
+        await AssertThrows<ArgumentException>(() =>
+            database.Cache.Invalidate(CacheInvalidationEvent.Row(
+                "employees",
+                DataLinqKeyComponents.FromValue("wrong-type"))));
+
+        await AssertThrows<ArgumentException>(() =>
+            database.Cache.Invalidate(CacheInvalidationEvent.Database(databaseName: "wrong_database")));
     }
 
     private static TableDefinition GetTable<TModel, TDatabase>(Database<TDatabase> database)

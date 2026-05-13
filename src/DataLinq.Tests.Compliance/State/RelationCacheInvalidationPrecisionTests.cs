@@ -1,5 +1,7 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
+using DataLinq.Cache;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -109,6 +111,165 @@ public class RelationCacheInvalidationPrecisionTests
         {
             DataLinqMetrics.Reset();
         }
+    }
+
+    [Test]
+    [NotInParallel]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task RelationCache_EventWithOldAndNewRelationValues_ClearsOldAndNewBucketsOnly(TestProviderDescriptor provider)
+    {
+        DataLinqMetrics.Reset();
+
+        using var databaseScope = TemporaryModelTestDatabase<MultipleForeignKeyRelationDb>.Create(
+            provider,
+            nameof(RelationCache_EventWithOldAndNewRelationValues_ClearsOldAndNewBucketsOnly));
+
+        try
+        {
+            SeedRelationDatabase(databaseScope.Database);
+            databaseScope.Database.Provider.State.ClearCache();
+            DataLinqMetrics.Reset();
+
+            var firstAccount = databaseScope.Database.Query().Accounts.Single(x => x.Id == 1);
+            var secondAccount = databaseScope.Database.Query().Accounts.Single(x => x.Id == 2);
+            var firstCreatedInvoices = firstAccount.CreatedInvoices;
+            var secondCreatedInvoices = secondAccount.CreatedInvoices;
+            var firstApprovedInvoices = firstAccount.ApprovedInvoices;
+
+            await Assert.That(firstCreatedInvoices.Select(x => x.Id).ToArray()).IsEquivalentTo([100]);
+            await Assert.That(secondCreatedInvoices.Select(x => x.Id).ToArray()).IsEquivalentTo([101]);
+            await Assert.That(firstApprovedInvoices.Select(x => x.Id).ToArray()).IsEquivalentTo([101]);
+
+            var beforeInvalidate = GetTableMetrics(databaseScope.Database, "runtime_invoices");
+
+            using (var transaction = databaseScope.Database.Transaction())
+            {
+                transaction.DatabaseAccess.ExecuteNonQuery(
+                    "UPDATE runtime_invoices SET created_by_account_id = 2 WHERE id = 100");
+                transaction.Commit();
+            }
+
+            var result = databaseScope.Database.Cache.Invalidate(CacheInvalidationEvent.Row(
+                "runtime_invoices",
+                DataLinqKeyComponents.FromValue(100),
+                changedColumns: ["created_by_account_id"],
+                changedIndexValues:
+                [
+                    CacheIndexInvalidation.OldAndNew(
+                        "created_by_account_id",
+                        DataLinqKeyComponents.FromValue(1),
+                        DataLinqKeyComponents.FromValue(2))
+                ]));
+
+            await Assert.That(result.UsedConservativeFallback).IsFalse();
+            await Assert.That(firstCreatedInvoices).IsEmpty();
+            await Assert.That(secondCreatedInvoices.Select(x => x.Id).Order().ToArray()).IsEquivalentTo([100, 101]);
+            await Assert.That(firstApprovedInvoices.Select(x => x.Id).ToArray()).IsEquivalentTo([101]);
+
+            var afterInvalidate = GetTableMetrics(databaseScope.Database, "runtime_invoices");
+
+            await Assert.That(afterInvalidate.Relations.CollectionLoads)
+                .IsEqualTo(beforeInvalidate.Relations.CollectionLoads + 2);
+        }
+        finally
+        {
+            DataLinqMetrics.Reset();
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task RelationCache_EventMissingRelationValues_DowngradesToTableWideClear(TestProviderDescriptor provider)
+    {
+        DataLinqMetrics.Reset();
+
+        using var databaseScope = TemporaryModelTestDatabase<MultipleForeignKeyRelationDb>.Create(
+            provider,
+            nameof(RelationCache_EventMissingRelationValues_DowngradesToTableWideClear));
+
+        try
+        {
+            SeedRelationDatabase(databaseScope.Database);
+            databaseScope.Database.Provider.State.ClearCache();
+            DataLinqMetrics.Reset();
+
+            var firstAccount = databaseScope.Database.Query().Accounts.Single(x => x.Id == 1);
+            var secondAccount = databaseScope.Database.Query().Accounts.Single(x => x.Id == 2);
+            var firstCreatedInvoices = firstAccount.CreatedInvoices;
+            var secondCreatedInvoices = secondAccount.CreatedInvoices;
+            var firstApprovedInvoices = firstAccount.ApprovedInvoices;
+
+            await Assert.That(firstCreatedInvoices.Select(x => x.Id).ToArray()).IsEquivalentTo([100]);
+            await Assert.That(secondCreatedInvoices.Select(x => x.Id).ToArray()).IsEquivalentTo([101]);
+            await Assert.That(firstApprovedInvoices.Select(x => x.Id).ToArray()).IsEquivalentTo([101]);
+
+            var beforeInvalidate = GetTableMetrics(databaseScope.Database, "runtime_invoices");
+
+            using (var transaction = databaseScope.Database.Transaction())
+            {
+                transaction.DatabaseAccess.ExecuteNonQuery(
+                    "UPDATE runtime_invoices SET created_by_account_id = 2 WHERE id = 100");
+                transaction.Commit();
+            }
+
+            var result = databaseScope.Database.Cache.Invalidate(CacheInvalidationEvent.Row(
+                "runtime_invoices",
+                DataLinqKeyComponents.FromValue(100),
+                changedColumns: ["created_by_account_id"]));
+
+            await Assert.That(result.UsedConservativeFallback).IsTrue();
+            await Assert.That(firstCreatedInvoices).IsEmpty();
+            await Assert.That(secondCreatedInvoices.Select(x => x.Id).Order().ToArray()).IsEquivalentTo([100, 101]);
+            await Assert.That(firstApprovedInvoices.Select(x => x.Id).ToArray()).IsEquivalentTo([101]);
+
+            var afterInvalidate = GetTableMetrics(databaseScope.Database, "runtime_invoices");
+
+            await Assert.That(afterInvalidate.Relations.CollectionLoads)
+                .IsEqualTo(beforeInvalidate.Relations.CollectionLoads + 3);
+        }
+        finally
+        {
+            DataLinqMetrics.Reset();
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task RelationCache_EventRejectsMalformedIndexValues(TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<MultipleForeignKeyRelationDb>.Create(
+            provider,
+            nameof(RelationCache_EventRejectsMalformedIndexValues));
+
+        SeedRelationDatabase(databaseScope.Database);
+
+        await AssertThrows<ArgumentException>(() =>
+            databaseScope.Database.Cache.Invalidate(CacheInvalidationEvent.Row(
+                "runtime_invoices",
+                DataLinqKeyComponents.FromValue(100),
+                changedColumns: ["created_by_account_id"],
+                changedIndexValues:
+                [
+                    CacheIndexInvalidation.OldAndNew(
+                        "created_by_account_id",
+                        DataLinqKeyComponents.FromValue("wrong-type"),
+                        DataLinqKeyComponents.FromValue(2))
+                ])));
+
+        await AssertThrows<ArgumentException>(() =>
+            databaseScope.Database.Cache.Invalidate(CacheInvalidationEvent.Row(
+                "runtime_invoices",
+                DataLinqKeyComponents.FromValue(100),
+                changedColumns: ["created_by_account_id"],
+                changedIndexValues:
+                [
+                    CacheIndexInvalidation.OldAndNew(
+                        "created_by_account_id",
+                        DataLinqKeyComponents.FromValues(1, 2),
+                        DataLinqKeyComponents.FromValue(2))
+                ])));
     }
 
     [Test]
@@ -301,6 +462,56 @@ public class RelationCacheInvalidationPrecisionTests
     [Test]
     [NotInParallel]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task RelationCache_EventParentRowInvalidationClearsReferenceRelation(TestProviderDescriptor provider)
+    {
+        DataLinqMetrics.Reset();
+
+        using var databaseScope = TemporaryModelTestDatabase<MultipleForeignKeyRelationDb>.Create(
+            provider,
+            nameof(RelationCache_EventParentRowInvalidationClearsReferenceRelation));
+
+        try
+        {
+            SeedRelationDatabase(databaseScope.Database);
+            databaseScope.Database.Provider.State.ClearCache();
+            DataLinqMetrics.Reset();
+
+            var invoice = databaseScope.Database.Query().Invoices.Single(x => x.Id == 100);
+            var createdByAccount = invoice.CreatedByAccount;
+
+            await Assert.That(createdByAccount.Name).IsEqualTo("Creator");
+
+            var beforeInvalidate = GetTableMetrics(databaseScope.Database, "runtime_accounts");
+
+            using (var transaction = databaseScope.Database.Transaction())
+            {
+                transaction.DatabaseAccess.ExecuteNonQuery(
+                    "UPDATE runtime_accounts SET name = 'Creator Event' WHERE id = 1");
+                transaction.Commit();
+            }
+
+            var result = databaseScope.Database.Cache.Invalidate(CacheInvalidationEvent.Row(
+                "runtime_accounts",
+                DataLinqKeyComponents.FromValue(1),
+                changedColumns: ["name"]));
+
+            await Assert.That(result.UsedConservativeFallback).IsFalse();
+            await Assert.That(invoice.CreatedByAccount.Name).IsEqualTo("Creator Event");
+
+            var afterInvalidate = GetTableMetrics(databaseScope.Database, "runtime_accounts");
+
+            await Assert.That(afterInvalidate.Relations.ReferenceLoads)
+                .IsEqualTo(beforeInvalidate.Relations.ReferenceLoads + 1);
+        }
+        finally
+        {
+            DataLinqMetrics.Reset();
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCache_ManualChildInvalidationFallsBackToTableWideClear(TestProviderDescriptor provider)
     {
         DataLinqMetrics.Reset();
@@ -444,5 +655,22 @@ public class RelationCacheInvalidationPrecisionTests
             .Single(x => x.ProviderInstanceId == database.Provider.TelemetryInstanceId)
             .Tables
             .Single(x => x.TableName == tableName);
+    }
+
+    private static async Task AssertThrows<TException>(Action action)
+        where TException : Exception
+    {
+        var threw = false;
+
+        try
+        {
+            action();
+        }
+        catch (TException)
+        {
+            threw = true;
+        }
+
+        await Assert.That(threw).IsTrue();
     }
 }

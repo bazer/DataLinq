@@ -284,6 +284,40 @@ public partial class TableCache
         return numRows;
     }
 
+    internal int InvalidateProviderKeys(
+        IReadOnlyList<DataLinqKey> normalizedPrimaryKeys,
+        CacheInvalidationImpact impact)
+    {
+        if (normalizedPrimaryKeys.Count == 0)
+            return 0;
+
+        var startedAt = Stopwatch.GetTimestamp();
+        var numRows = 0;
+
+        for (var i = 0; i < normalizedPrimaryKeys.Count; i++)
+        {
+            var primaryKey = normalizedPrimaryKeys[i];
+            if (rowCache is not null && TryRemoveRowFromCache(rowCache, primaryKey, out var rows))
+                numRows += rows;
+
+            TryRemoveRowFromAllIndices(primaryKey, out var indexRows);
+            numRows += indexRows;
+        }
+
+        foreach (var relationKey in impact.ChangedRelationKeys)
+        {
+            if (!ReferenceEquals(relationKey.Index.Table, Table))
+                continue;
+
+            if (TryRemoveForeignKeyIndex(relationKey.Index, relationKey.ProviderKey, out var indexRows))
+                numRows += indexRows;
+        }
+
+        RecordManualInvalidation(numRows, Stopwatch.GetElapsedTime(startedAt), impact);
+
+        return numRows;
+    }
+
     private void RecordManualInvalidation(int rowsRemoved, TimeSpan duration, bool notifySubscribers = false)
     {
         if (rowsRemoved == 0 && !notifySubscribers)
@@ -295,6 +329,17 @@ public partial class TableCache
 
         if (notifySubscribers)
             OnRowChanged();
+    }
+
+    private void RecordManualInvalidation(int rowsRemoved, TimeSpan duration, CacheInvalidationImpact impact)
+    {
+        if (rowsRemoved == 0 && impact.IsEmpty)
+            return;
+
+        RefreshOccupancyMetrics();
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.ManualInvalidate, rowsRemoved, duration);
+        MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
+        OnRowChanged(impact);
     }
 
     public bool TryRemoveTransaction(Transaction transaction)

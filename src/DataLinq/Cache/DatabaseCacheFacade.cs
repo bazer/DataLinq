@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -127,11 +128,42 @@ public sealed class DatabaseCacheFacade<TDatabase>
         return tableCache.InvalidateProviderKeys(normalizedKeys);
     }
 
+    /// <summary>
+    /// Applies a normalized cache invalidation event.
+    /// </summary>
+    public CacheInvalidationResult Invalidate(CacheInvalidationEvent invalidationEvent)
+    {
+        if (invalidationEvent is null)
+            throw new ArgumentNullException(nameof(invalidationEvent));
+
+        ValidateDatabaseName(invalidationEvent);
+
+        return invalidationEvent.Scope switch
+        {
+            CacheInvalidationScope.Database => InvalidateDatabaseEvent(),
+            CacheInvalidationScope.Table => InvalidateTableEvent(invalidationEvent),
+            CacheInvalidationScope.Row => InvalidateRowsEvent(invalidationEvent, expectedSingleRow: true),
+            CacheInvalidationScope.Rows => InvalidateRowsEvent(invalidationEvent, expectedSingleRow: false),
+            _ => throw new ArgumentOutOfRangeException(nameof(invalidationEvent), invalidationEvent.Scope, "Unsupported cache invalidation scope.")
+        };
+    }
+
     private TableCache ResolveTableCache<TModel>()
         where TModel : IImmutableInstance
     {
         if (!database.Provider.Metadata.TryGetTableModel(typeof(TModel), out var tableModel))
             throw new KeyNotFoundException($"No table model registered for model type '{typeof(TModel).FullName ?? typeof(TModel).Name}'.");
+
+        return ResolveTableCache(tableModel.Table);
+    }
+
+    private TableCache ResolveTableCache(string tableName)
+    {
+        if (string.IsNullOrWhiteSpace(tableName))
+            throw new ArgumentException("A table name is required for this cache invalidation scope.", nameof(tableName));
+
+        if (!database.Provider.Metadata.TryGetTableModel(tableName, out var tableModel))
+            throw new KeyNotFoundException($"No table model registered for database table '{tableName}'.");
 
         return ResolveTableCache(tableModel.Table);
     }
@@ -161,6 +193,224 @@ public sealed class DatabaseCacheFacade<TDatabase>
         return DataLinqKey.FromValue(providerPrimaryKey);
     }
 
+    private CacheInvalidationResult InvalidateDatabaseEvent()
+    {
+        var rows = database.Provider.State.Cache.TableCaches.Values.Sum(x => x.RowCount);
+        var tables = database.Provider.State.Cache.TableCaches.Count;
+        Clear();
+
+        return new CacheInvalidationResult(rows, tables, UsedConservativeFallback: true);
+    }
+
+    private CacheInvalidationResult InvalidateTableEvent(CacheInvalidationEvent invalidationEvent)
+    {
+        var tableCache = ResolveTableCache(GetRequiredTableName(invalidationEvent));
+        var rows = tableCache.RowCount;
+        tableCache.ClearCache();
+
+        return new CacheInvalidationResult(rows, TablesCleared: 1, UsedConservativeFallback: true);
+    }
+
+    private CacheInvalidationResult InvalidateRowsEvent(CacheInvalidationEvent invalidationEvent, bool expectedSingleRow)
+    {
+        var tableCache = ResolveTableCache(GetRequiredTableName(invalidationEvent));
+        var primaryKeys = NormalizePrimaryKeys(tableCache.Table, invalidationEvent.ProviderPrimaryKeys, expectedSingleRow);
+        var impact = BuildImpact(tableCache.Table, invalidationEvent, primaryKeys, out var usedConservativeFallback);
+        var rowsRemoved = tableCache.InvalidateProviderKeys(primaryKeys, impact);
+
+        return new CacheInvalidationResult(
+            rowsRemoved,
+            TablesCleared: 0,
+            usedConservativeFallback);
+    }
+
+    private void ValidateDatabaseName(CacheInvalidationEvent invalidationEvent)
+    {
+        var databaseName = invalidationEvent.DatabaseName;
+        if (databaseName is null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(databaseName))
+            throw new ArgumentException("Database name cannot be empty when supplied.", nameof(invalidationEvent));
+
+        if (string.Equals(databaseName, database.Provider.Metadata.DbName, StringComparison.Ordinal) ||
+            string.Equals(databaseName, database.Provider.Metadata.Name, StringComparison.Ordinal) ||
+            string.Equals(databaseName, typeof(TDatabase).Name, StringComparison.Ordinal) ||
+            string.Equals(databaseName, typeof(TDatabase).FullName, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        throw new ArgumentException(
+            $"Invalidation event targets database '{databaseName}', but this cache belongs to database '{database.Provider.Metadata.DbName}'.",
+            nameof(invalidationEvent));
+    }
+
+    private static string GetRequiredTableName(CacheInvalidationEvent invalidationEvent)
+    {
+        if (string.IsNullOrWhiteSpace(invalidationEvent.TableName))
+            throw new ArgumentException("A table name is required for this cache invalidation scope.", nameof(invalidationEvent));
+
+        return invalidationEvent.TableName;
+    }
+
+    private static DataLinqKey[] NormalizePrimaryKeys(
+        TableDefinition table,
+        IReadOnlyList<DataLinqKeyComponents> providerPrimaryKeys,
+        bool expectedSingleRow)
+    {
+        if (providerPrimaryKeys is null)
+            throw new ArgumentNullException(nameof(providerPrimaryKeys));
+
+        if (expectedSingleRow && providerPrimaryKeys.Count != 1)
+            throw new ArgumentException("A row invalidation event must contain exactly one provider primary key.", nameof(providerPrimaryKeys));
+
+        if (!expectedSingleRow && providerPrimaryKeys.Count == 0)
+            throw new ArgumentException("A rows invalidation event must contain at least one provider primary key.", nameof(providerPrimaryKeys));
+
+        var normalizedKeys = new DataLinqKey[providerPrimaryKeys.Count];
+        for (var i = 0; i < normalizedKeys.Length; i++)
+        {
+            normalizedKeys[i] = providerPrimaryKeys[i].ToDataLinqKey();
+            ValidateProviderPrimaryKey(table, normalizedKeys[i], $"{nameof(CacheInvalidationEvent.ProviderPrimaryKeys)}[{i}]");
+        }
+
+        return normalizedKeys;
+    }
+
+    private static CacheInvalidationImpact BuildImpact(
+        TableDefinition table,
+        CacheInvalidationEvent invalidationEvent,
+        IReadOnlyList<DataLinqKey> primaryKeys,
+        out bool usedConservativeFallback)
+    {
+        var impactBuilder = new CacheInvalidationImpactBuilder();
+        for (var i = 0; i < primaryKeys.Count; i++)
+            impactBuilder.AddPrimaryKey(primaryKeys[i]);
+
+        var fullyDescribedIndices = new HashSet<ColumnIndex>();
+        for (var i = 0; i < invalidationEvent.ChangedIndexValues.Count; i++)
+        {
+            var changedIndex = invalidationEvent.ChangedIndexValues[i];
+            var index = ResolveColumnIndex(table, changedIndex.Columns, $"{nameof(CacheInvalidationEvent.ChangedIndexValues)}[{i}].{nameof(CacheIndexInvalidation.Columns)}");
+            var hasValue = false;
+            var hasOldValue = changedIndex.OldValue.HasValue;
+            var hasNewValue = changedIndex.NewValue.HasValue;
+
+            if (changedIndex.OldValue is { } oldValue)
+            {
+                hasValue = true;
+                impactBuilder.AddRelationKey(index, ValidateIndexKey(index, oldValue, $"{nameof(CacheInvalidationEvent.ChangedIndexValues)}[{i}].{nameof(CacheIndexInvalidation.OldValue)}"));
+            }
+
+            if (changedIndex.NewValue is { } newValue)
+            {
+                hasValue = true;
+                impactBuilder.AddRelationKey(index, ValidateIndexKey(index, newValue, $"{nameof(CacheInvalidationEvent.ChangedIndexValues)}[{i}].{nameof(CacheIndexInvalidation.NewValue)}"));
+            }
+
+            if (!hasValue)
+                throw new ArgumentException("A changed index invalidation must supply an old value, a new value, or both.", nameof(invalidationEvent));
+
+            if (hasOldValue && hasNewValue)
+                fullyDescribedIndices.Add(index);
+        }
+
+        usedConservativeFallback = ShouldUseConservativeFallback(table, invalidationEvent, fullyDescribedIndices);
+        if (usedConservativeFallback)
+            impactBuilder.ClearTable();
+
+        return impactBuilder.Build();
+    }
+
+    private static bool ShouldUseConservativeFallback(
+        TableDefinition table,
+        CacheInvalidationEvent invalidationEvent,
+        HashSet<ColumnIndex> describedIndices)
+    {
+        if (invalidationEvent.ChangedColumns.Count == 0 &&
+            invalidationEvent.ChangedIndexValues.Count == 0)
+        {
+            return true;
+        }
+
+        foreach (var columnName in invalidationEvent.ChangedColumns)
+        {
+            var column = ResolveColumn(table, columnName, nameof(CacheInvalidationEvent.ChangedColumns));
+            var indices = table.GetColumnIndices(column);
+            for (var i = 0; i < indices.Count; i++)
+            {
+                if (!describedIndices.Contains(indices[i]))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static ColumnIndex ResolveColumnIndex(
+        TableDefinition table,
+        IReadOnlyList<string> columnNames,
+        string parameterName)
+    {
+        if (columnNames is null)
+            throw new ArgumentNullException(parameterName);
+
+        if (columnNames.Count == 0)
+            throw new ArgumentException("At least one index column is required.", parameterName);
+
+        var columns = new ColumnDefinition[columnNames.Count];
+        for (var i = 0; i < columns.Length; i++)
+            columns[i] = ResolveColumn(table, columnNames[i], parameterName);
+
+        foreach (var index in table.ColumnIndices)
+        {
+            if (ColumnsMatch(index.Columns, columns))
+                return index;
+        }
+
+        throw new ArgumentException(
+            $"Table '{table.DbName}' has no index with columns '{string.Join(", ", columnNames)}'.",
+            parameterName);
+    }
+
+    private static ColumnDefinition ResolveColumn(TableDefinition table, string columnName, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(columnName))
+            throw new ArgumentException("Column names cannot be empty.", parameterName);
+
+        if (table.TryGetColumnByDbName(columnName, out var column) ||
+            table.TryGetColumnByPropertyName(columnName, out column))
+        {
+            return column;
+        }
+
+        throw new ArgumentException(
+            $"Table '{table.DbName}' has no column or value property named '{columnName}'.",
+            parameterName);
+    }
+
+    private static bool ColumnsMatch(IReadOnlyList<ColumnDefinition> left, IReadOnlyList<ColumnDefinition> right)
+    {
+        if (left.Count != right.Count)
+            return false;
+
+        for (var i = 0; i < left.Count; i++)
+        {
+            if (!ReferenceEquals(left[i], right[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static DataLinqKey ValidateIndexKey(ColumnIndex index, DataLinqKeyComponents components, string parameterName)
+    {
+        var key = components.ToDataLinqKey();
+        ValidateProviderKey(index.Table, index.Columns, key, parameterName);
+        return key;
+    }
+
     private static void ValidateProviderPrimaryKey(TableDefinition table, DataLinqKey key, string parameterName)
     {
         var shape = table.PrimaryKeyShape;
@@ -174,6 +424,21 @@ public sealed class DatabaseCacheFacade<TDatabase>
 
         for (var i = 0; i < shape.Arity; i++)
             ValidateProviderPrimaryKeyComponent(table, shape[i], key.GetValue(i), parameterName);
+    }
+
+    private static void ValidateProviderKey(
+        TableDefinition table,
+        IReadOnlyList<ColumnDefinition> columns,
+        DataLinqKey key,
+        string parameterName)
+    {
+        if (key.ValueCount != columns.Count)
+            throw new ArgumentException(
+                $"Provider key for index on table '{table.DbName}' has {key.ValueCount} component(s), expected {columns.Count}.",
+                parameterName);
+
+        for (var i = 0; i < columns.Count; i++)
+            ValidateProviderKeyComponent(table, columns[i], key.GetValue(i), parameterName);
     }
 
     private static void ValidateProviderPrimaryKeyComponent(
@@ -200,6 +465,30 @@ public sealed class DatabaseCacheFacade<TDatabase>
 
         throw new ArgumentException(
             $"Provider primary key component '{component.Column.DbName}' for table '{table.DbName}' has type '{valueType.FullName}', expected provider type '{GetExpectedTypeDescription(component)}'.",
+            parameterName);
+    }
+
+    private static void ValidateProviderKeyComponent(
+        TableDefinition table,
+        ColumnDefinition column,
+        object? value,
+        string parameterName)
+    {
+        if (value is null)
+            throw new ArgumentException(
+                $"Provider key component '{column.DbName}' for table '{table.DbName}' cannot be null.",
+                parameterName);
+
+        var valueType = value.GetType();
+        if (GetStoreKind(valueType) == TableKeyShape.GetProviderStoreKind(column))
+            return;
+
+        var providerType = Nullable.GetUnderlyingType(column.ValueProperty.CsType.Type ?? typeof(object)) ?? column.ValueProperty.CsType.Type;
+        if (providerType is not null && providerType != typeof(object) && providerType.IsAssignableFrom(valueType))
+            return;
+
+        throw new ArgumentException(
+            $"Provider key component '{column.DbName}' for table '{table.DbName}' has type '{valueType.FullName}', expected provider type '{TableKeyShape.GetProviderCsType(column)}'.",
             parameterName);
     }
 

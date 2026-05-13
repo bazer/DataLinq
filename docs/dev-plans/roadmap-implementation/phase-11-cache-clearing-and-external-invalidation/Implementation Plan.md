@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 11 Implementation Plan: Cache Clearing and External Invalidation
 
-**Status:** In progress. Workstreams A and B implemented on 2026-05-13.
+**Status:** In progress. Workstreams A, B, and C implemented on 2026-05-13.
 
 ## Purpose
 
@@ -204,13 +204,45 @@ Candidate fields:
 
 Tasks:
 
-1. Define the event DTO or internal record shape.
-2. Support manual construction for application-driven invalidation.
-3. Keep transport-specific metadata out of the core DTO.
-4. Add validation for missing table/key fields.
-5. Add tests for component-count/type mismatches.
-6. Add tests for conservative downgrade when an event lacks precise primary keys or old/new relation/index values.
-7. Ensure relation-object invalidation consumes the normalized event impact rather than a separate notification shape.
+1. [x] Define the event DTO or internal record shape.
+2. [x] Support manual construction for application-driven invalidation.
+3. [x] Keep transport-specific metadata out of the core DTO.
+4. [x] Add validation for missing table/key fields.
+5. [x] Add tests for component-count/type mismatches.
+6. [x] Add tests for conservative downgrade when an event lacks precise primary keys or old/new relation/index values.
+7. [x] Ensure relation-object invalidation consumes the normalized event impact rather than a separate notification shape.
+
+Implementation status, 2026-05-13:
+
+- Added `CacheInvalidationEvent`, `CacheInvalidationScope`, `CacheIndexInvalidation`, `CacheInvalidationSources`, and `CacheInvalidationResult` under `DataLinq.Cache`.
+- Added `database.Cache.Invalidate(CacheInvalidationEvent invalidationEvent)` as the normalized event entry point.
+- Supported database, table, row, and rows scopes without tying the payload to Kafka, Debezium, database triggers, or any other transport.
+- Validated optional database name against the generated database type/name and provider metadata name.
+- Resolved event table names against provider-owned metadata, then validated provider primary-key arity, nullability, and provider component types before touching cache internals.
+- Let events identify changed columns by database column name or generated value-property name.
+- Let events supply old/new index values through `CacheIndexInvalidation`; those values are mapped to `ColumnIndex` metadata and then into the Workstream B `CacheInvalidationImpact` path.
+- Used precise event invalidation when row primary keys and complete old/new changed-index values are supplied.
+- Deliberately downgraded to table-wide relation notification when an event lacks changed-column detail, or when it says an indexed/relation column changed but does not supply complete old/new values for that index.
+- Kept row and index cache removal shared with the existing provider-key invalidation mechanics.
+- Added compliance tests for row and table event scopes, malformed event fields, component count/type validation, precise external FK movement, conservative fallback for missing relation values, and external parent-row reference refresh.
+
+Actual public shape:
+
+```csharp
+database.Cache.Invalidate(CacheInvalidationEvent.Database());
+database.Cache.Invalidate(CacheInvalidationEvent.Table("employees"));
+database.Cache.Invalidate(CacheInvalidationEvent.Row(
+    "runtime_invoices",
+    DataLinqKeyComponents.FromValue(100),
+    changedColumns: ["created_by_account_id"],
+    changedIndexValues:
+    [
+        CacheIndexInvalidation.OldAndNew(
+            "created_by_account_id",
+            DataLinqKeyComponents.FromValue(1),
+            DataLinqKeyComponents.FromValue(2))
+    ]));
+```
 
 Exit criteria:
 
@@ -219,6 +251,22 @@ Exit criteria:
 - event handling validates key arity and provider component compatibility before touching cache internals
 - old/new relation/index values can drive precise relation-object and index invalidation when supplied
 - unsupported payloads fail clearly or downgrade conservatively
+
+Workstream C verification, 2026-05-13:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 build src\DataLinq\DataLinq.csproj -c Debug -v minimal --no-incremental
+.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj -c Debug -v minimal --no-incremental
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --alias quick --output failures --build
+```
+
+Results:
+
+- `DataLinq` build passed for `net8.0`, `net9.0`, and `net10.0`.
+- Compliance build passed for `net10.0`.
+- Compliance quick passed: 453/453 against `sqlite-file` and `sqlite-memory`.
+- Unit quick passed: 547/547.
 
 ## Workstream D: Freshness Vocabulary
 
