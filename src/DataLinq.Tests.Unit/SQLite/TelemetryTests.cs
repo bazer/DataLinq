@@ -393,6 +393,23 @@ public sealed class TelemetryTests
             await Assert.That(transactionRowsGauge.Value).IsEqualTo(0L);
 
             longMeasurements.Clear();
+            var sizeLimitRemoval = db.Provider.State.Cache
+                .RemoveRowsByLimit(CacheLimitType.Bytes, 0)
+                .ToList();
+
+            await Assert.That(sizeLimitRemoval.Sum(x => x.numRows)).IsGreaterThan(0);
+
+            var sizeLimitOperation = longMeasurements.Single(x =>
+                x.InstrumentName == "datalinq.cache.maintenance.operations" &&
+                HasTag(x.Tags, "datalinq.table", "telemetryrows") &&
+                HasTag(x.Tags, "datalinq.cache.operation", "size_limit"));
+            await Assert.That(sizeLimitOperation.Value).IsEqualTo(1L);
+            await Assert.That(HasTag(sizeLimitOperation.Tags, "datalinq.cache.cleanup.trigger", "manual")).IsTrue();
+            await Assert.That(HasTag(sizeLimitOperation.Tags, "datalinq.cache.cleanup.reason", "size_limit")).IsTrue();
+            await Assert.That(HasTag(sizeLimitOperation.Tags, "datalinq.cache.cleanup.basis", "estimated_cache_bytes")).IsTrue();
+
+            longMeasurements.Clear();
+            _ = db.Query().Rows.Single(x => x.Name == "epsilon");
             db.Provider.State.Cache.ClearCache();
 
             var maintenanceOperation = longMeasurements.Single(x =>
@@ -400,6 +417,9 @@ public sealed class TelemetryTests
                 HasTag(x.Tags, "datalinq.table", "telemetryrows") &&
                 HasTag(x.Tags, "datalinq.cache.operation", "clear"));
             await Assert.That(maintenanceOperation.Value).IsEqualTo(1L);
+            await Assert.That(HasTag(maintenanceOperation.Tags, "datalinq.cache.cleanup.trigger", "manual")).IsTrue();
+            await Assert.That(HasTag(maintenanceOperation.Tags, "datalinq.cache.cleanup.reason", "clear")).IsTrue();
+            await Assert.That(HasTag(maintenanceOperation.Tags, "datalinq.cache.cleanup.basis", "manual")).IsTrue();
 
             var rowsRemoved = longMeasurements.Single(x =>
                 x.InstrumentName == "datalinq.cache.rows.removed" &&

@@ -419,10 +419,16 @@ internal static class DataLinqTelemetry
         string tableName,
         string operation,
         int rowsRemoved,
-        TimeSpan duration)
+        TimeSpan duration,
+        string? cleanupTrigger = null,
+        string? cleanupReason = null,
+        string? cleanupBasis = null)
     {
         var tags = CreateTableTags(context, tableName);
         tags.Add("datalinq.cache.operation", operation);
+        tags.Add("datalinq.cache.cleanup.trigger", NormalizeDimension(cleanupTrigger, GetDefaultCacheMaintenanceTrigger(operation)));
+        tags.Add("datalinq.cache.cleanup.reason", NormalizeDimension(cleanupReason, GetDefaultCacheMaintenanceReason(operation)));
+        tags.Add("datalinq.cache.cleanup.basis", NormalizeDimension(cleanupBasis, GetDefaultCacheMaintenanceBasis(operation)));
 
         CacheMaintenanceCounter.Add(1, tags);
         CacheMaintenanceDuration.Record(duration.TotalMilliseconds, tags);
@@ -601,6 +607,57 @@ internal static class DataLinqTelemetry
 
         return "rows_many";
     }
+
+    private static string GetDefaultCacheMaintenanceTrigger(string operation)
+        => operation switch
+        {
+            CacheMaintenanceOperations.StateChangePrecise => CacheMaintenanceTriggers.Mutation,
+            CacheMaintenanceOperations.StateChangeTable => CacheMaintenanceTriggers.Mutation,
+            CacheMaintenanceOperations.TransactionStateChange => CacheMaintenanceTriggers.Transaction,
+            CacheMaintenanceOperations.TransactionStateChangeTable => CacheMaintenanceTriggers.Transaction,
+            CacheMaintenanceOperations.TransactionRemove => CacheMaintenanceTriggers.Transaction,
+            CacheMaintenanceOperations.ManualInvalidate => CacheMaintenanceTriggers.Manual,
+            CacheMaintenanceOperations.Clear => CacheMaintenanceTriggers.Manual,
+            CacheMaintenanceOperations.RowLimit => CacheMaintenanceTriggers.Manual,
+            CacheMaintenanceOperations.SizeLimit => CacheMaintenanceTriggers.Manual,
+            CacheMaintenanceOperations.AgeLimit => CacheMaintenanceTriggers.Manual,
+            CacheMaintenanceOperations.Limit => CacheMaintenanceTriggers.Manual,
+            _ => CacheMaintenanceTriggers.Unknown
+        };
+
+    private static string GetDefaultCacheMaintenanceReason(string operation)
+        => operation switch
+        {
+            CacheMaintenanceOperations.StateChangePrecise => CacheMaintenanceReasons.StateChange,
+            CacheMaintenanceOperations.StateChangeTable => CacheMaintenanceReasons.StateChange,
+            CacheMaintenanceOperations.TransactionStateChange => CacheMaintenanceReasons.StateChange,
+            CacheMaintenanceOperations.TransactionStateChangeTable => CacheMaintenanceReasons.StateChange,
+            CacheMaintenanceOperations.TransactionRemove => CacheMaintenanceReasons.Transaction,
+            CacheMaintenanceOperations.ManualInvalidate => CacheMaintenanceReasons.Manual,
+            CacheMaintenanceOperations.Clear => CacheMaintenanceReasons.Clear,
+            CacheMaintenanceOperations.RowLimit => CacheMaintenanceReasons.RowLimit,
+            CacheMaintenanceOperations.SizeLimit => CacheMaintenanceReasons.SizeLimit,
+            CacheMaintenanceOperations.AgeLimit => CacheMaintenanceReasons.AgeLimit,
+            CacheMaintenanceOperations.Limit => CacheMaintenanceReasons.Limit,
+            _ => CacheMaintenanceReasons.Unknown
+        };
+
+    private static string GetDefaultCacheMaintenanceBasis(string operation)
+        => operation switch
+        {
+            CacheMaintenanceOperations.StateChangePrecise => CacheMaintenanceBases.StateChange,
+            CacheMaintenanceOperations.StateChangeTable => CacheMaintenanceBases.StateChange,
+            CacheMaintenanceOperations.TransactionStateChange => CacheMaintenanceBases.StateChange,
+            CacheMaintenanceOperations.TransactionStateChangeTable => CacheMaintenanceBases.StateChange,
+            CacheMaintenanceOperations.TransactionRemove => CacheMaintenanceBases.Transaction,
+            CacheMaintenanceOperations.ManualInvalidate => CacheMaintenanceBases.Manual,
+            CacheMaintenanceOperations.Clear => CacheMaintenanceBases.Manual,
+            CacheMaintenanceOperations.RowLimit => CacheMaintenanceBases.RowCount,
+            CacheMaintenanceOperations.SizeLimit => CacheMaintenanceBases.EstimatedCacheBytes,
+            CacheMaintenanceOperations.AgeLimit => CacheMaintenanceBases.CacheAge,
+            CacheMaintenanceOperations.Limit => CacheMaintenanceBases.Unknown,
+            _ => CacheMaintenanceBases.Unknown
+        };
 
     private static string NormalizeDimension(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value)

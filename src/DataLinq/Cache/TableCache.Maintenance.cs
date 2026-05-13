@@ -28,7 +28,7 @@ public partial class TableCache
         OnRowChanged();
     }
 
-    public int RemoveRowsByLimit(CacheLimitType limitType, long amount)
+    public int RemoveRowsByLimit(CacheLimitType limitType, long amount, string cleanupTrigger = CacheMaintenanceTriggers.Manual)
     {
         if (limitType is CacheLimitType.Seconds or CacheLimitType.Minutes or CacheLimitType.Hours or CacheLimitType.Days or CacheLimitType.Ticks)
         {
@@ -42,7 +42,7 @@ public partial class TableCache
                 _ => throw new NotImplementedException($"CacheLimitType '{limitType}' is not implemented.")
             };
 
-            return RemoveRowsInsertedBeforeTick(cutoffTick);
+            return RemoveRowsInsertedBeforeTick(cutoffTick, cleanupTrigger);
         }
 
         var startedAt = Stopwatch.GetTimestamp();
@@ -57,26 +57,26 @@ public partial class TableCache
         };
 
         var duration = Stopwatch.GetElapsedTime(startedAt);
-        RecordCacheLimitCleanup(GetCacheLimitOperationName(limitType), rowsRemoved, duration);
+        RecordCacheLimitCleanup(GetCacheLimitOperationName(limitType), rowsRemoved, duration, cleanupTrigger);
         return rowsRemoved;
     }
 
-    internal int RemoveRowsByEstimatedCacheByteLimit(long maxBytes)
+    internal int RemoveRowsByEstimatedCacheByteLimit(long maxBytes, string cleanupTrigger = CacheMaintenanceTriggers.Manual)
     {
         var startedAt = Stopwatch.GetTimestamp();
         var rowsRemoved = RemoveRowsOverEstimatedSizeLimit(maxBytes);
         var duration = Stopwatch.GetElapsedTime(startedAt);
-        RecordCacheLimitCleanup(CacheMaintenanceOperations.SizeLimit, rowsRemoved, duration);
+        RecordCacheLimitCleanup(CacheMaintenanceOperations.SizeLimit, rowsRemoved, duration, cleanupTrigger);
         return rowsRemoved;
     }
 
-    public int RemoveRowsInsertedBeforeTick(long tick)
+    public int RemoveRowsInsertedBeforeTick(long tick, string cleanupTrigger = CacheMaintenanceTriggers.Manual)
     {
         var startedAt = Stopwatch.GetTimestamp();
         RemoveAllIndicesInsertedBeforeTick(tick);
         var rowsRemoved = ProcessRemovedRowsAndNotify(rowCache?.RemoveRowsInsertedBeforeTickAndReturnKeys(tick) ?? []);
         var duration = Stopwatch.GetElapsedTime(startedAt);
-        RecordCacheLimitCleanup(CacheMaintenanceOperations.AgeLimit, rowsRemoved, duration);
+        RecordCacheLimitCleanup(CacheMaintenanceOperations.AgeLimit, rowsRemoved, duration, cleanupTrigger);
         return rowsRemoved;
     }
 
@@ -173,10 +173,10 @@ public partial class TableCache
             OnRowChanged(impact);
     }
 
-    private void RecordCacheLimitCleanup(string operationName, int rowsRemoved, TimeSpan duration)
+    private void RecordCacheLimitCleanup(string operationName, int rowsRemoved, TimeSpan duration, string cleanupTrigger)
     {
         RefreshOccupancyMetrics();
-        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, operationName, rowsRemoved, duration);
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, operationName, rowsRemoved, duration, cleanupTrigger);
         MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
     }
 

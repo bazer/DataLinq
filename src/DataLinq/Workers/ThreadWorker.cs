@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DataLinq.Diagnostics;
 using DataLinq.Interfaces;
 
 namespace DataLinq.Workers;
@@ -198,7 +199,7 @@ public class CleanCacheWorker : ThreadWorker<int>
     protected override void DoWork(int value)
     {
         DatabaseProvider.State?.Cache.CleanRelationNotifications();
-        var rows = DatabaseProvider.State?.Cache.RemoveRowsBySettings().ToList();
+        var rows = DatabaseProvider.State?.Cache.RemoveRowsBySettings(CacheMaintenanceTriggers.Scheduled).ToList();
         //TODO: Logging
 
         if (WorkQueue.Count == 0)

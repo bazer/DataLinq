@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.Diagnostics;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
@@ -151,13 +152,13 @@ public class DatabaseCache : IDisposable
     }
 
 
-    public IEnumerable<(TableCache table, int numRows)> RemoveRowsBySettings()
+    public IEnumerable<(TableCache table, int numRows)> RemoveRowsBySettings(string cleanupTrigger = CacheMaintenanceTriggers.Manual)
     {
         foreach (var table in TableCaches.Values)
         {
             foreach (var (limitType, amount) in Policy.GetTableCacheLimits(table.Table))
             {
-                var numRows = table.RemoveRowsByLimit(limitType, amount);
+                var numRows = table.RemoveRowsByLimit(limitType, amount, cleanupTrigger);
 
                 if (numRows > 0)
                     yield return (table, numRows);
@@ -166,16 +167,19 @@ public class DatabaseCache : IDisposable
 
         foreach (var (limitType, amount) in Policy.DatabaseCacheLimits)
         {
-            foreach (var rows in RemoveRowsByLimit(limitType, amount))
+            foreach (var rows in RemoveRowsByLimit(limitType, amount, cleanupTrigger))
                 yield return rows;
         }
     }
 
-    public IEnumerable<(TableCache table, int numRows)> RemoveRowsByLimit(CacheLimitType limitType, long amount)
+    public IEnumerable<(TableCache table, int numRows)> RemoveRowsByLimit(
+        CacheLimitType limitType,
+        long amount,
+        string cleanupTrigger = CacheMaintenanceTriggers.Manual)
     {
         if (TableCache.IsByteCacheLimit(limitType))
         {
-            foreach (var rows in RemoveRowsByDatabaseByteLimit(TableCache.ConvertByteLimitToBytes(limitType, amount)))
+            foreach (var rows in RemoveRowsByDatabaseByteLimit(TableCache.ConvertByteLimitToBytes(limitType, amount), cleanupTrigger))
                 yield return rows;
 
             yield break;
@@ -183,14 +187,14 @@ public class DatabaseCache : IDisposable
 
         foreach (var table in TableCaches.Values)
         {
-            var numRows = table.RemoveRowsByLimit(limitType, amount);
+            var numRows = table.RemoveRowsByLimit(limitType, amount, cleanupTrigger);
 
             if (numRows > 0)
                 yield return (table, numRows);
         }
     }
 
-    private IEnumerable<(TableCache table, int numRows)> RemoveRowsByDatabaseByteLimit(long maxBytes)
+    private IEnumerable<(TableCache table, int numRows)> RemoveRowsByDatabaseByteLimit(long maxBytes, string cleanupTrigger)
     {
         while (GetMemoryEstimate().EstimatedCacheBytes > maxBytes)
         {
@@ -206,7 +210,7 @@ public class DatabaseCache : IDisposable
 
             var overflowBytes = GetMemoryEstimate().EstimatedCacheBytes - maxBytes;
             var tableTargetBytes = Math.Max(0, tableEstimate.estimatedBytes - overflowBytes);
-            var numRows = tableEstimate.table.RemoveRowsByEstimatedCacheByteLimit(tableTargetBytes);
+            var numRows = tableEstimate.table.RemoveRowsByEstimatedCacheByteLimit(tableTargetBytes, cleanupTrigger);
 
             if (numRows <= 0)
                 yield break;
