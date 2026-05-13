@@ -90,9 +90,11 @@ If you already know what you need, jump directly to the major sections:
 
 ### Internals
 
-- [Technical Documentation](Technical%20documentation.md)
-- [Source Generator](Source%20Generator.md)
-- [Query Translator](Query%20Translator.md)
+- [Internals](internals/index.md)
+- [Architecture Overview](internals/Architecture%20Overview.md)
+- [Data Flow](internals/Data%20Flow.md)
+- [Source Generator](internals/Source%20Generator.md)
+- [Query Translator](internals/Query%20Translator.md)
 
 ### Release and Roadmap
 

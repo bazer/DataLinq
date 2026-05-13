@@ -94,7 +94,7 @@ Runtime systems use generated hooks instead of guessing:
 
 Roslyn and source parsing belong at build time. Runtime packages should not carry compiler assemblies as runtime dependencies. Current public compatibility wording depends on that split.
 
-This does not make every DataLinq query AOT-safe. The query pipeline still uses `Remotion.Linq`, and the public AOT/WebAssembly claim remains the narrow generated SQLite smoke boundary described in [Platform Compatibility](Platform%20Compatibility.md).
+This does not make every DataLinq query AOT-safe. The query pipeline still uses `Remotion.Linq`, and the public AOT/WebAssembly claim remains the narrow generated SQLite smoke boundary described in [Platform Compatibility](../Platform%20Compatibility.md).
 
 ## Maintenance Rule
 

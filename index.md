@@ -75,7 +75,7 @@ Once you are through the onboarding flow, the docs split into the main working a
 - [Changelog](CHANGELOG.md)
 - [Roadmap](docs/Roadmap.md)
 - [Providers](docs/backends/MySQL-MariaDB.md)
-- [Internals](docs/Technical%20documentation.md)
+- [Internals](docs/internals/index.md)
 - [Contributing](docs/Contributing.md)
 
 ## GitHub

@@ -101,7 +101,7 @@ The important behavior is this:
 
 That primary-key-first path is why DataLinq can stay fast on repeated reads without pretending every query shape is supported.
 
-For more on the translation pipeline, see [Query Translator](Query%20Translator.md).
+For more on the translation pipeline, see [Query Translator](internals/Query%20Translator.md).
 
 ## Relation Loading
 

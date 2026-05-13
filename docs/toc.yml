@@ -58,18 +58,21 @@
     - name: Benchmark Results
       href: Benchmark Results.md
 - name: Internals
+  href: internals/index.md
   expanded: true
   items:
-    - name: Technical Documentation
-      href: Technical documentation.md
+    - name: Architecture Overview
+      href: internals/Architecture Overview.md
+    - name: Data Flow
+      href: internals/Data Flow.md
     - name: Metadata Structure
-      href: Metadata Structure.md
+      href: internals/Metadata Structure.md
     - name: Provider-Key Row Cache Architecture
-      href: Provider-Key Row Cache Architecture.md
+      href: internals/Provider-Key Row Cache Architecture.md
     - name: Source Generator
-      href: Source Generator.md
+      href: internals/Source Generator.md
     - name: Query Translator
-      href: Query Translator.md
+      href: internals/Query Translator.md
 - name: Contributing
   expanded: true
   items:
