@@ -282,6 +282,7 @@ The exported surface now covers the main runtime paths:
 - cache occupancy gauges for rows, transaction rows, row-payload bytes, estimated cache bytes, major component byte estimates, and index entries
 - cache-notification queue depth gauges
 - cache maintenance counters and duration
+- cache cleanup estimated-byte histograms for pressure and size cleanup budgets
 - cache invalidation counters and duration, tagged by source, scope, table, fallback path, freshness state, and approximate work bucket
 
 SQL text is still a logging concern, not a metric tag. That is deliberate. Putting SQL text into metric tags would be a cardinality bug.
@@ -305,10 +306,12 @@ Maintenance metrics keep the stable operation tag and add low-cardinality explan
 
 - `datalinq.cache.operation`: stable operation name such as `clear`, `row_limit`, `size_limit`, `age_limit`, or `state_change_precise`
 - `datalinq.cache.cleanup.trigger`: why cleanup ran from the scheduler/process perspective, such as `manual`, `scheduled`, `mutation`, `transaction`, or `memory_pressure`
-- `datalinq.cache.cleanup.reason`: policy reason such as `row_limit`, `size_limit`, `age_limit`, `clear`, `state_change`, or `transaction`
+- `datalinq.cache.cleanup.reason`: policy reason such as `row_limit`, `size_limit`, `age_limit`, `memory_pressure`, `clear`, `state_change`, or `transaction`
 - `datalinq.cache.cleanup.basis`: unit used by the cleanup decision, such as `row_count`, `estimated_cache_bytes`, `cache_age`, `state_change`, or `manual`
 
 For size cleanup, the basis is `estimated_cache_bytes`. That is the important part: the old row-payload byte value is still observable, but it is no longer the byte-limit decision basis.
+
+Pressure-triggered cleanup uses `memory_pressure` for both trigger and reason, and `estimated_cache_bytes` for basis. It also records `datalinq.cache.cleanup.estimated_bytes` with `datalinq.cache.cleanup.estimate` set to `before`, `after`, or `target`. Those values are DataLinq's cache-footprint estimate, not exact CLR heap measurements.
 
 ## Local Inspection with `dotnet-counters`
 

@@ -203,7 +203,7 @@ Implementation notes:
 
 ## Workstream D: Memory-Pressure Policy And Cleanup Scheduling
 
-Status: in progress.
+Status: implemented.
 
 Goals:
 
@@ -261,6 +261,7 @@ Implementation notes:
 - 2026-05-13: Replaced the overwritten `DatabaseCache.CleanCacheWorker` constructor loop with one coordinated `CacheCleanupScheduler` that owns all configured cleanup intervals. The scheduler uses an injected `TimeProvider`, has deterministic `RunDueScheduledCleanup(...)` coverage for tests, and `Dispose()` stops the single background loop.
 - 2026-05-13: Added the memory-pressure vocabulary: public `CacheMemoryPressureCleanupPolicy`, internal `IMemoryPressureReader`, GC/unsupported reader implementations, `MemoryPressureSnapshot`, and a policy evaluator with disabled/unsupported/low-pressure/minimum-cache/cooldown no-op reasons plus bounded target-byte/row decisions.
 - 2026-05-13: Wired memory-pressure decisions into the coordinated scheduler instead of adding a second worker. `DatabaseCache.ConfigureMemoryPressureCleanup(...)` is the initial public policy surface; it normalizes conservative defaults and keeps `CacheMemoryPressureCleanupPolicy.Disabled` as the clear opt-out. Pressure cleanup now uses estimated cache bytes, row/byte pass budgets, cooldowns, and check intervals, records `memory_pressure` cleanup telemetry with before/after/target estimate phases, and has deterministic unit coverage for bounded cleanup, unsupported readers, cooldown, and check-interval behavior.
+- 2026-05-13: Chose runtime cache configuration over a metadata-backed attribute for the first shipped pressure-cleanup surface. That is the right boundary for now because GC memory pressure is host-process state, not database model shape. Public docs now describe `ConfigureMemoryPressureCleanup(...)`, disabled/browser behavior, `memory_pressure` maintenance tags, and the cleanup estimate histogram.
 
 ## Workstream E: Measured Deduplication And Scoped Interning
 

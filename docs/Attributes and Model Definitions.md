@@ -228,6 +228,27 @@ Adds cache limits such as rows, bytes, seconds, minutes, or megabytes.
 
 Defines cleanup intervals for cached data.
 
+### Memory-Pressure Cleanup
+
+Memory-pressure cleanup is runtime policy, not a model attribute. That is intentional: process memory pressure depends on the host process and deployment, while model metadata should describe the database shape and ordinary cache policy.
+
+Configure it through the provider state cache:
+
+```csharp
+using DataLinq.Cache;
+
+provider.State.Cache.ConfigureMemoryPressureCleanup(
+    CacheMemoryPressureCleanupPolicy.Conservative with
+    {
+        HighMemoryLoadThresholdPercent = 90,
+        MinimumCacheBytes = 16 * 1024 * 1024,
+        TargetReductionPercent = 25,
+        MaxRowsPerPass = 1024
+    });
+```
+
+Use `CacheMemoryPressureCleanupPolicy.Disabled` to turn pressure-triggered cleanup off. Browser/WASM runtimes do not start background cache cleanup, and memory-pressure cleanup reports unsupported there.
+
 ### `[IndexCache(...)]`
 
 Controls index-cache behavior.
