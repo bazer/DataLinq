@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Cache Memory Accounting
 
-**Status:** Phase 12 implementation notes. The row-payload compatibility fields and estimated-cache-footprint fields are now both exposed.
+**Status:** Phase 12 closeout notes. The row-payload compatibility fields and estimated-cache-footprint fields are now both exposed.
 
 ## Purpose
 
@@ -72,6 +72,21 @@ The row-payload compatibility value does not include:
 - cache snapshot/history objects
 
 The practical result is blunt: a table can report modest `Bytes` while retaining substantial memory through relation indexes, relation-object caches, transaction caches, and dictionary/key overhead. Use `EstimatedCacheBytes` and the component fields to diagnose that footprint.
+
+## Phase 12 Closeout
+
+`EstimatedCacheBytes` now includes the cache-owned components DataLinq can account for cheaply:
+
+- row payload and row-store overhead
+- transaction-local row payload and row-store overhead
+- index-cache payload and overhead
+- relation subscription retained keys and loaded primary-key arrays
+- notification queue and subscription overhead
+- lazy cache-history snapshot overhead
+
+The estimate intentionally excludes exact CLR object layout, provider/driver buffers, application-held model references, JIT/runtime overhead, and weakly referenced relation object internals that would require turning weak tracking into strong retention. It also excludes production value-pool or key-pool state because Phase 12 did not adopt production interning.
+
+Verification is directional. Unit and compliance tests prove the counters increase, aggregate, and drop through the intended cache mutations and cleanup paths. The `phase12-cache-memory` benchmark lane records allocation evidence for the hot cache paths and rejected dedup candidates. `GC.GetTotalMemory(forceFullCollection: true)` comparisons remain sanity probes only; they are useful for catching wild mistakes, but they are not exact enough to be a release gate.
 
 ## Terminology
 
@@ -149,7 +164,7 @@ Tasks:
 8. Decide whether `CacheHistory` should be included in cache memory estimates or separately reported as diagnostics overhead. Implemented as `SnapshotBytes`.
 9. Update existing size-based cleanup to use `EstimatedCacheBytes`, not row-payload bytes. Implemented for table and database byte limits.
 10. Expand diagnostics/reporting so operators can see the corrected total estimate and the important component estimates. Implemented in snapshots and OpenTelemetry gauges.
-11. Add benchmarks that compare the estimate with observed managed heap deltas under controlled scenarios.
+11. Add benchmarks and sanity notes that compare estimate direction with observed allocation/heap behavior under controlled scenarios. Implemented through the `phase12-cache-memory` benchmark lane and closeout notes; exact GC heap deltas are not a release gate.
 
 Exit condition for Phase 12:
 
@@ -238,6 +253,7 @@ Comparison checks:
 - load a controlled number of rows and compare estimated deltas with `GC.GetTotalMemory(forceFullCollection: true)` before/after
 - treat comparison as a sanity range, not an equality assertion
 - record expected under/over-count boundaries in closeout notes
+- prefer BenchmarkDotNet allocation columns and component-direction tests for repeatable automated evidence
 
 ## Non-Goals
 

@@ -104,7 +104,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ## Current Stage Audit
 
-As of the post-Phase 9A cleanup on 2026-05-11:
+As of the Phase 12 closeout on 2026-05-13:
 
 - Phase 1 benchmarking and observability is substantially implemented; benchmark-history evidence still matters for noisy scenarios.
 - Phase 2 metadata/generator/diagnostics hardening is implemented as a narrow foundation, not as a full immutable metadata rewrite.
@@ -120,14 +120,14 @@ As of the post-Phase 9A cleanup on 2026-05-11:
 - Phase 9A release hardening, benchmarks, allocation, and cache invalidation is complete: warning cleanup, benchmark-history and website trends, allocation reduction, conservative cache invalidation hardening, and benchmark closeout evidence have landed. The honest performance claim is allocation evidence, not latency improvement.
 - Phase 10 key and allocation foundation is complete: metadata collection shape, frozen lookups, generated provider-key cache paths, relation lookup without lookup-only `IKey`, scalar-converter seams, and allocation closeout evidence have landed.
 - Phase 11 cache clearing and external invalidation is complete: explicit database/table/provider-key invalidation APIs, relation/index invalidation, invalidation envelopes, freshness vocabulary, and cache telemetry have landed.
-- Phase 12 memory-pressure cleanup and measured deduplication is the next implementation priority: memory-pressure-aware cleanup, cleanup scheduling, cache memory accounting, cache-internal cleanup, and benchmark-led value/key deduplication only where it wins.
-- Phase 13 explicit multi-join composition comes before relation-aware join syntax: standard query-syntax joins, multiple explicit joins, and filtering/ordering/paging/counting over joined rows.
+- Phase 12 memory-pressure cleanup and measured deduplication is complete: estimated cache memory accounting, estimated-footprint byte limits, memory-pressure-aware cleanup, coordinated cleanup scheduling, cleanup telemetry, and benchmark-led rejection of production value/key deduplication have landed.
+- Phase 13 explicit multi-join composition is the next implementation priority before relation-aware join syntax: standard query-syntax joins, multiple explicit joins, and filtering/ordering/paging/counting over joined rows.
 - Phase 14 relation-aware joins and left joins owns `JoinBy(...)`, `JoinMany(...)`, join-local `on:` predicates, and left-join nullability semantics.
 - Phase 15 scalar converters and typed-key ergonomics owns provider/model value conversion after the provider-key cache design has room for it.
 - Phase 16 dependency-tracked result-set caching remains deferred until cache invalidation, freshness vocabulary, joins, and projection semantics are stronger.
 - Phase 17 query plan and Remotion isolation is deferred to the back of the roadmap. It owns the DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
 - Completed phase records and superseded implementation plans have moved under `archive/`; active docs should describe future work or current strategy.
 
-The next broad runtime work should be Phase 12 memory-pressure cleanup and measured deduplication, followed by joins. The Remotion/parser rewrite should stay out of the immediate queue unless constrained-platform query support becomes the concrete blocker.
+The next broad runtime work should be Phase 13 explicit multi-join composition, followed by relation-aware joins. The Remotion/parser rewrite should stay out of the immediate queue unless constrained-platform query support becomes the concrete blocker.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.

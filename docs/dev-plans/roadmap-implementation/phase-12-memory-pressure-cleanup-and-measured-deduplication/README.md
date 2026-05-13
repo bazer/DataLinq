@@ -2,17 +2,26 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 12: Memory-Pressure Cleanup and Measured Deduplication
 
-**Status:** Ready for implementation after the Phase 11 merge. The implementation plan was drafted on 2026-05-13.
+**Status:** Implemented as of 2026-05-13. Verification and closeout are complete.
 
 ## Purpose
 
 Phase 12 improves cache cleanup behavior after the identity and invalidation foundations are in place.
 
-This is where memory-pressure-aware cleanup, adaptive scheduling, and scoped value/key deduplication belong. They are intentionally behind explicit cache clearing because adaptive behavior without clear invalidation semantics is harder to explain and harder to debug.
+This phase added memory-pressure-aware cleanup, bounded cleanup scheduling, and benchmark-led value/key deduplication decisions. Adaptive cleanup intentionally came after explicit cache clearing because adaptive behavior without clear invalidation semantics is harder to explain and harder to debug.
 
-Phase 12 also owns broad cache memory accounting. The existing cache byte value is a row-payload estimate, not a full managed-memory footprint. Memory-pressure cleanup should not be built on that number without first separating row payload, row-store overhead, transaction caches, index caches, relation-object caches, notification queues, and snapshot/history overhead.
+Phase 12 also implemented broad cache memory accounting. The legacy cache byte value remains a row-payload estimate, not a full managed-memory footprint. Memory-pressure cleanup now uses a separate estimated cache footprint that includes row payload, row-store overhead, transaction caches, index caches, relation-object subscription state, notification queues, and snapshot/history overhead.
 
-The byte-limit settings should stay as-is. Phase 12 may make the breaking behavioral change that existing byte-based limits use the corrected estimated cache footprint rather than the old row-payload estimate. Reporting is different: diagnostics should grow enough fields to explain the estimate.
+The byte-limit settings stayed as-is. Phase 12 made the breaking behavioral change that existing byte-based limits use the corrected estimated cache footprint rather than the old row-payload estimate. Reporting now exposes enough component fields to explain the estimate.
+
+## Implementation Result
+
+- Component-level cache estimates now distinguish row payload from estimated cache footprint.
+- `CacheLimitType.Bytes`, `Kilobytes`, `Megabytes`, and `Gigabytes` now compare against `EstimatedCacheBytes`.
+- Cache occupancy snapshots and OpenTelemetry gauges expose row payload, estimated cache bytes, and major component fields.
+- Cleanup scheduling is coordinated by one bounded scheduler, and pressure cleanup can be configured or disabled through `ConfigureMemoryPressureCleanup(...)`.
+- Limit-driven eviction now keeps row, index, relation, notification, and accounting state coherent.
+- No production value/key interning shipped. The benchmark-only bounded string-pool prototype was rejected because it did not reduce allocation and was slower in the Phase 12 benchmark lane.
 
 ## Execution Boundary
 

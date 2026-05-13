@@ -372,7 +372,7 @@ Key related plans:
 
 ### Phase 11: Cache Clearing and External Invalidation
 
-Status: next implementation priority.
+Status: complete.
 
 Goals:
 
@@ -401,7 +401,7 @@ Key related plans:
 
 ### Phase 12: Memory-Pressure Cleanup and Measured Deduplication
 
-Status: ready for implementation after Phase 11.
+Status: complete.
 
 Goals:
 
@@ -431,7 +431,7 @@ Key related plans:
 
 ### Phase 13: Explicit Multi-Join Composition
 
-Status: planned after Phase 12.
+Status: next implementation priority.
 
 Goals:
 
@@ -575,7 +575,9 @@ Phase 9A is now complete: warning cleanup, benchmark/history improvements, alloc
 
 Phase 10 is now complete: metadata collection and lookup cleanup, generated provider-key row stores, generated relation provider-key access, query/materialization provider-key reads, scalar-converter seams, and Phase 11 handoff artifacts have landed. Its closeout supports the generated provider-key allocation claims; it does not claim broad latency wins.
 
-The next broad runtime priority should be Phase 12 memory-pressure cleanup and measured deduplication. That should be followed by the join work in Phases 13 and 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
+Phase 11 is now complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is now complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led rejection of production interning.
+
+The next broad runtime priority should be Phase 13 explicit multi-join composition. That should be followed by the relation-aware join work in Phase 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

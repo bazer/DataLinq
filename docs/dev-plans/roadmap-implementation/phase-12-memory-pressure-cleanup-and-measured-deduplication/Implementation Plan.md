@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 12 Implementation Plan: Memory-Pressure Cleanup and Measured Deduplication
 
-**Status:** Ready for implementation as of 2026-05-13, after the Phase 11 branch was merged to `master`.
+**Status:** Implemented as of 2026-05-13. Workstream F verification and closeout are complete.
 
 ## Purpose
 
@@ -321,6 +321,8 @@ Implementation notes:
 
 ## Workstream F: Verification, Documentation, And Closeout
 
+Status: implemented.
+
 Goals:
 
 - prove behavior and cost
@@ -359,6 +361,14 @@ Documentation updates:
 - update `Cache Memory Accounting.md` with the final estimate components and any intentionally excluded structures
 - update benchmark notes with retained-heap and allocation evidence for accepted or rejected dedup prototypes
 
+Implementation notes:
+
+- 2026-05-13: Ran the required build and test verification. `DataLinq`, `DataLinq.Tests.Unit`, and `DataLinq.Tests.Compliance` all built cleanly with `.\scripts\dotnet-sandbox.ps1 ... --no-incremental`. The Testing CLI quick lanes passed with `unit` at 583/583 and `compliance` at 455/455 for the `sqlite-file` and `sqlite-memory` batch.
+- 2026-05-13: Re-ran the `phase12-cache-memory` smoke benchmark after row-cache accounting joined the lane. The smoke run passed for warm primary-key fetch, warm relation traversal, scalar row-cache add/get/remove, large relation-index preload, composite dynamic key creation, and the benchmark-only string-pool probes.
+- 2026-05-13: The default `sqlite-memory` Phase 12 benchmark history is recorded at `artifacts\benchmarks\history\phase12-cache-memory-20260513.json`. It remains the closeout evidence for rejecting the bounded string-pool prototype: allocation did not improve and throughput regressed in both low-cardinality and high-cardinality string probes.
+- 2026-05-13: Heap sanity is covered as directional evidence, not as an exact gate. Component tests prove estimate deltas for row stores, transaction-local caches, index caches, notification queues, relation subscription retained keys, snapshots, and byte-limit cleanup. BenchmarkDotNet allocation columns cover the hot cache paths. Direct `GC.GetTotalMemory(forceFullCollection: true)` deltas are deliberately treated as sanity ranges only; they are too runtime- and host-sensitive to make the release hinge on byte-for-byte equality.
+- 2026-05-13: DocFX build passed after closeout with the pre-existing `docs\Benchmark Results.md` invalid-file-link warning for `~/public/benchmark-results.js`.
+
 Release acceptance criteria:
 
 - cleanup can react to memory pressure through a fakeable abstraction
@@ -368,7 +378,7 @@ Release acceptance criteria:
 - byte-based limits use estimated cache footprint
 - cleanup telemetry explains why cleanup ran
 - row/size/age eviction keeps row, index, relation, notification, and accounting state coherent
-- any dedup strategy has benchmark evidence and bounded retention behavior
+- any adopted dedup strategy has benchmark evidence and bounded retention behavior
 - no docs imply exact managed heap accounting
 
 ## Suggested Commit Slices
@@ -380,6 +390,6 @@ Release acceptance criteria:
 5. Convert byte-limit cleanup to estimated footprint and repair limit eviction consistency.
 6. Replace cleanup worker scheduling with a single bounded scheduler and fake clock tests.
 7. Add memory-pressure reader, policy evaluator, configuration, and telemetry.
-8. Add Phase 12 benchmark lanes and GC-delta sanity probes.
+8. Add Phase 12 benchmark lanes and heap-delta sanity evidence.
 9. Prototype scoped dedup strategies and adopt only measured wins.
 10. Update shipped docs and Phase 12 closeout notes.
