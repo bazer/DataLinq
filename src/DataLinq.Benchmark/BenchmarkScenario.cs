@@ -14,6 +14,10 @@ internal enum BenchmarkScenario
     ColdRelationTraversal,
     WarmRelationTraversal,
     ScalarRowCacheAddGetRemove,
+    InvalidateOneEmployeeRow,
+    InvalidateManyEmployeeRows,
+    InvalidateEmployeeTable,
+    InvalidateDatabase,
     RepeatedNonPrimaryKeyEqualityFetch,
     RepeatedInPredicateFetch,
     RepeatedScalarAny

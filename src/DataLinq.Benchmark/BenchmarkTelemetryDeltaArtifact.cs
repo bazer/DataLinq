@@ -19,4 +19,11 @@ internal sealed record BenchmarkTelemetryDeltaArtifact(
     double DatabaseRowsPerOperation,
     double MaterializationsPerOperation,
     double RelationHitsPerOperation,
-    double RelationLoadsPerOperation);
+    double RelationLoadsPerOperation,
+    double CacheInvalidationOperationsPerOperation,
+    double CacheInvalidationRowsRemovedPerOperation,
+    double CacheInvalidationTablesClearedPerOperation,
+    double CacheInvalidationProviderKeysPerOperation,
+    double CacheInvalidationApproximateWorkPerOperation,
+    double CacheInvalidationPreciseOperationsPerOperation,
+    double CacheInvalidationConservativeFallbackOperationsPerOperation);

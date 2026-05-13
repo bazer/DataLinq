@@ -282,6 +282,70 @@ internal sealed class BenchmarkContext : IDisposable
         return checksum;
     }
 
+    public void WarmEmployeeInvalidationCache()
+    {
+        ResetState(clearCache: true);
+        _ = LoadEmployeesByPrimaryKeyBatch();
+        DataLinqMetrics.Reset();
+    }
+
+    public void WarmDatabaseInvalidationCache()
+    {
+        ResetState(clearCache: true);
+        _ = LoadEmployeesByPrimaryKeyBatch();
+        _ = Database.Query().Departments.OrderBy(x => x.DeptNo).ToList();
+        DataLinqMetrics.Reset();
+    }
+
+    public int InvalidateOneEmployeeRows()
+    {
+        var checksum = 0;
+
+        foreach (var employeeNumber in sampleEmployeeNumbers)
+        {
+            var result = Database.Cache.Invalidate(CacheInvalidationEvent.Row(
+                "employees",
+                DataLinqKeyComponents.FromValue(employeeNumber),
+                changedColumns: [nameof(Employee.first_name)],
+                source: CacheInvalidationSources.Manual));
+
+            checksum += result.RowsRemoved;
+        }
+
+        return checksum;
+    }
+
+    public int InvalidateManyEmployeeRows()
+    {
+        var keys = sampleEmployeeNumbers
+            .Select(static employeeNumber => DataLinqKeyComponents.FromValue(employeeNumber))
+            .ToArray();
+        var result = Database.Cache.Invalidate(CacheInvalidationEvent.Rows(
+            "employees",
+            keys,
+            changedColumns: [nameof(Employee.first_name)],
+            source: CacheInvalidationSources.Manual));
+
+        return result.RowsRemoved;
+    }
+
+    public int InvalidateEmployeeTable()
+    {
+        var result = Database.Cache.Invalidate(CacheInvalidationEvent.Table(
+            "employees",
+            source: CacheInvalidationSources.Manual));
+
+        return result.RowsRemoved + result.TablesCleared;
+    }
+
+    public int InvalidateDatabase()
+    {
+        var result = Database.Cache.Invalidate(CacheInvalidationEvent.Database(
+            source: CacheInvalidationSources.Manual));
+
+        return result.RowsRemoved + result.TablesCleared;
+    }
+
     public int LoadEmployeeByPrimaryKeyOnFreshScope()
     {
         using var startupDatabase = OpenStartupDatabase();
@@ -438,6 +502,14 @@ internal sealed class BenchmarkContext : IDisposable
                     _ = TraverseWarmDepartmentNamesBatch();
                     DataLinqMetrics.Reset();
                     break;
+                case BenchmarkScenario.InvalidateOneEmployeeRow:
+                case BenchmarkScenario.InvalidateManyEmployeeRows:
+                case BenchmarkScenario.InvalidateEmployeeTable:
+                    WarmEmployeeInvalidationCache();
+                    break;
+                case BenchmarkScenario.InvalidateDatabase:
+                    WarmDatabaseInvalidationCache();
+                    break;
                 case BenchmarkScenario.CrudWorkflowSmall:
                 case BenchmarkScenario.CrudWorkflowBatch:
                     CleanupCrudWorkflowEmployees();
@@ -470,6 +542,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.ColdRelationTraversal => TraverseDepartmentNamesBatch(),
             BenchmarkScenario.WarmRelationTraversal => TraverseWarmDepartmentNamesBatch(),
             BenchmarkScenario.ScalarRowCacheAddGetRemove => AddGetRemoveScalarRowCacheEntries(),
+            BenchmarkScenario.InvalidateOneEmployeeRow => InvalidateOneEmployeeRows(),
+            BenchmarkScenario.InvalidateManyEmployeeRows => InvalidateManyEmployeeRows(),
+            BenchmarkScenario.InvalidateEmployeeTable => InvalidateEmployeeTable(),
+            BenchmarkScenario.InvalidateDatabase => InvalidateDatabase(),
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => LoadEmployeesByNonPrimaryKeyEqualityBatch(),
             BenchmarkScenario.RepeatedInPredicateFetch => LoadEmployeesByInPredicateBatch(),
             BenchmarkScenario.RepeatedScalarAny => ExecuteScalarAnyBatch(),
@@ -541,7 +617,14 @@ internal sealed class BenchmarkContext : IDisposable
             DatabaseRowsPerOperation: Normalize(after.RowCache.DatabaseRowsLoaded, before.RowCache.DatabaseRowsLoaded, operationsPerInvoke),
             MaterializationsPerOperation: Normalize(after.RowCache.Materializations, before.RowCache.Materializations, operationsPerInvoke),
             RelationHitsPerOperation: relationHits,
-            RelationLoadsPerOperation: relationLoads);
+            RelationLoadsPerOperation: relationLoads,
+            CacheInvalidationOperationsPerOperation: Normalize(after.CacheInvalidations.Operations, before.CacheInvalidations.Operations, operationsPerInvoke),
+            CacheInvalidationRowsRemovedPerOperation: Normalize(after.CacheInvalidations.RowsRemoved, before.CacheInvalidations.RowsRemoved, operationsPerInvoke),
+            CacheInvalidationTablesClearedPerOperation: Normalize(after.CacheInvalidations.TablesCleared, before.CacheInvalidations.TablesCleared, operationsPerInvoke),
+            CacheInvalidationProviderKeysPerOperation: Normalize(after.CacheInvalidations.ProviderKeys, before.CacheInvalidations.ProviderKeys, operationsPerInvoke),
+            CacheInvalidationApproximateWorkPerOperation: Normalize(after.CacheInvalidations.ApproximateWork, before.CacheInvalidations.ApproximateWork, operationsPerInvoke),
+            CacheInvalidationPreciseOperationsPerOperation: Normalize(after.CacheInvalidations.PreciseOperations, before.CacheInvalidations.PreciseOperations, operationsPerInvoke),
+            CacheInvalidationConservativeFallbackOperationsPerOperation: Normalize(after.CacheInvalidations.ConservativeFallbackOperations, before.CacheInvalidations.ConservativeFallbackOperations, operationsPerInvoke));
     }
 
     private static int GetOperationsPerInvoke(BenchmarkScenario scenario)
@@ -559,6 +642,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.ColdRelationTraversal => BatchOperationCount,
             BenchmarkScenario.WarmRelationTraversal => BatchOperationCount,
             BenchmarkScenario.ScalarRowCacheAddGetRemove => BatchOperationCount,
+            BenchmarkScenario.InvalidateOneEmployeeRow => BatchOperationCount,
+            BenchmarkScenario.InvalidateManyEmployeeRows => 1,
+            BenchmarkScenario.InvalidateEmployeeTable => 1,
+            BenchmarkScenario.InvalidateDatabase => 1,
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => BatchOperationCount,
             BenchmarkScenario.RepeatedInPredicateFetch => BatchOperationCount,
             BenchmarkScenario.RepeatedScalarAny => BatchOperationCount,
@@ -606,6 +693,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.ColdRelationTraversal => "Cold relation traversal",
             BenchmarkScenario.WarmRelationTraversal => "Warm relation traversal",
             BenchmarkScenario.ScalarRowCacheAddGetRemove => "Scalar row-cache add/get/remove",
+            BenchmarkScenario.InvalidateOneEmployeeRow => "Invalidate one employee row",
+            BenchmarkScenario.InvalidateManyEmployeeRows => "Invalidate many employee rows",
+            BenchmarkScenario.InvalidateEmployeeTable => "Invalidate employee table",
+            BenchmarkScenario.InvalidateDatabase => "Invalidate database",
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => "Repeated non-PK equality fetch",
             BenchmarkScenario.RepeatedInPredicateFetch => "Repeated IN predicate fetch",
             BenchmarkScenario.RepeatedScalarAny => "Repeated scalar Any",

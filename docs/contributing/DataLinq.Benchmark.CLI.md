@@ -41,6 +41,7 @@ dotnet run --project src/DataLinq.Benchmark.CLI -- run --profile heavy
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase2-watch
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase3-query-hotpath
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase10-key-foundation
+dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase11-cache-invalidation
 ```
 
 Important options:
@@ -61,6 +62,8 @@ Important options:
   Runs only the Phase 3 query/runtime hot-path benchmark lane.
 - `--phase10-key-foundation`
   Runs only the Phase 10 key/cache attribution lane.
+- `--phase11-cache-invalidation`
+  Runs only the Phase 11 explicit cache invalidation lane.
 - `--history-json`
   Writes a stable benchmark history entry JSON artifact.
 - `--baseline`
@@ -155,6 +158,35 @@ For quick local smoke validation:
 
 ```bash
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase10-key-foundation --profile smoke
+```
+
+Use the smoke profile only to prove the lane is wired correctly. Use the default or heavy profile before interpreting performance.
+
+## Phase 11 Cache Invalidation
+
+Phase 11 cache clearing and external invalidation work should use the `phase11-cache-invalidation` category to keep invalidation overhead visible without blending it into read hot-path numbers.
+
+That category intentionally contains:
+
+- `InvalidateOneEmployeeRow`
+  Tracks repeated provider-key precise row invalidation.
+- `InvalidateManyEmployeeRows`
+  Tracks one normalized rows invalidation envelope with many provider keys.
+- `InvalidateEmployeeTable`
+  Tracks conservative table invalidation.
+- `InvalidateDatabase`
+  Tracks conservative database invalidation across loaded table caches.
+
+Run the lane with:
+
+```bash
+dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase11-cache-invalidation
+```
+
+For quick local smoke validation:
+
+```bash
+dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase11-cache-invalidation --profile smoke
 ```
 
 Use the smoke profile only to prove the lane is wired correctly. Use the default or heavy profile before interpreting performance.

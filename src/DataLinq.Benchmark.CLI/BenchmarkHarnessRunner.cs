@@ -25,6 +25,7 @@ internal sealed class BenchmarkHarnessRunner
     internal const string Phase2WatchCategory = "phase2-watch";
     internal const string Phase3QueryHotPathCategory = "phase3-query-hotpath";
     internal const string Phase10KeyFoundationCategory = "phase10-key-foundation";
+    internal const string Phase11CacheInvalidationCategory = "phase11-cache-invalidation";
     internal const string MacroReadWriteCategory = "macro-readwrite";
     internal const string MacroBulkCategory = "macro-bulk";
     private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
@@ -80,6 +81,7 @@ internal sealed class BenchmarkHarnessRunner
         bool phase2Watch,
         bool phase3QueryHotPath,
         bool phase10KeyFoundation,
+        bool phase11CacheInvalidation,
         string? historyJsonPath,
         string? baselinePath,
         string? comparisonJsonPath,
@@ -88,10 +90,10 @@ internal sealed class BenchmarkHarnessRunner
     {
         settings.EnsureDirectories();
 
-        if (new[] { phase2Watch, phase3QueryHotPath, phase10KeyFoundation }.Count(static selected => selected) > 1)
+        if (new[] { phase2Watch, phase3QueryHotPath, phase10KeyFoundation, phase11CacheInvalidation }.Count(static selected => selected) > 1)
         {
             throw new InvalidOperationException(
-                "Benchmark category options '--phase2-watch', '--phase3-query-hotpath', and '--phase10-key-foundation' cannot be combined.");
+                "Benchmark category options '--phase2-watch', '--phase3-query-hotpath', '--phase10-key-foundation', and '--phase11-cache-invalidation' cannot be combined.");
         }
 
         if (!noBuild)
@@ -124,6 +126,9 @@ internal sealed class BenchmarkHarnessRunner
 
         if (phase10KeyFoundation)
             arguments.AddRange(["--anyCategories", Phase10KeyFoundationCategory]);
+
+        if (phase11CacheInvalidation)
+            arguments.AddRange(["--anyCategories", Phase11CacheInvalidationCategory]);
 
         arguments.AddRange(additionalArgs);
 
@@ -363,7 +368,7 @@ internal sealed class BenchmarkHarnessRunner
 
         AnsiConsole.Write(table);
         AnsiConsole.MarkupLine("[grey]Mean: green = fastest, red = slowest. Error/Noise: yellow > 10% of mean, red > 20%.[/]");
-        AnsiConsole.MarkupLine("[grey]Telemetry deltas are per operation: Q=entity/scalar, Tx=starts/commits/rollbacks, Mut=inserts/updates/deletes with affected rows, Row=hits/misses/stores, Rel=hits/loads.[/]");
+        AnsiConsole.MarkupLine("[grey]Telemetry deltas are per operation: Q=entity/scalar, Tx=starts/commits/rollbacks, Mut=inserts/updates/deletes with affected rows, Row=hits/misses/stores, Rel=hits/loads, Inv=ops rows/tables work precise/fallback.[/]");
         var artifact = CreateSummaryArtifact(runId, profile, filter, mergedRows);
         var jsonPath = WriteSummaryArtifact(resultsDirectory, artifact);
         return new SummaryResult(jsonPath, artifact);
@@ -942,6 +947,10 @@ internal sealed class BenchmarkHarnessRunner
             "Warm generated static Get" => Phase10KeyFoundationCategory,
             "Warm relation traversal" => Phase10KeyFoundationCategory,
             "Scalar row-cache add/get/remove" => Phase10KeyFoundationCategory,
+            "Invalidate one employee row" => Phase11CacheInvalidationCategory,
+            "Invalidate many employee rows" => Phase11CacheInvalidationCategory,
+            "Invalidate employee table" => Phase11CacheInvalidationCategory,
+            "Invalidate database" => Phase11CacheInvalidationCategory,
             _ => null
         };
 
@@ -959,6 +968,10 @@ internal sealed class BenchmarkHarnessRunner
             "Cold relation traversal" => "relation-traversal",
             "Warm relation traversal" => "relation-traversal",
             "Scalar row-cache add/get/remove" => "cache-hotpath",
+            "Invalidate one employee row" => "cache-invalidation",
+            "Invalidate many employee rows" => "cache-invalidation",
+            "Invalidate employee table" => "cache-invalidation",
+            "Invalidate database" => "cache-invalidation",
             "Insert employees" => "mutation",
             "Update employees" => "mutation",
             "Delete employees" => "mutation",
@@ -1086,6 +1099,10 @@ internal sealed class BenchmarkHarnessRunner
             "Cold relation traversal" => "Cold rel",
             "Warm primary-key fetch" => "Warm PK",
             "Cold primary-key fetch" => "Cold PK",
+            "Invalidate one employee row" => "Inv row",
+            "Invalidate many employee rows" => "Inv rows",
+            "Invalidate employee table" => "Inv table",
+            "Invalidate database" => "Inv DB",
             _ => method
         };
 
@@ -1150,6 +1167,22 @@ internal sealed class BenchmarkHarnessRunner
 
         if (HasSignal(artifact.RelationHitsPerOperation, artifact.RelationLoadsPerOperation))
             parts.Add(string.Create(CultureInfo.InvariantCulture, $"Rel {FormatRelations(artifact)}"));
+
+        if (HasSignal(
+            artifact.CacheInvalidationOperationsPerOperation,
+            artifact.CacheInvalidationRowsRemovedPerOperation,
+            artifact.CacheInvalidationTablesClearedPerOperation,
+            artifact.CacheInvalidationApproximateWorkPerOperation,
+            artifact.CacheInvalidationPreciseOperationsPerOperation,
+            artifact.CacheInvalidationConservativeFallbackOperationsPerOperation))
+        {
+            parts.Add(string.Create(
+                CultureInfo.InvariantCulture,
+                $"Inv {FormatMetric(artifact.CacheInvalidationOperationsPerOperation)} " +
+                $"rows/tables {FormatMetric(artifact.CacheInvalidationRowsRemovedPerOperation)}/{FormatMetric(artifact.CacheInvalidationTablesClearedPerOperation)} " +
+                $"work {FormatMetric(artifact.CacheInvalidationApproximateWorkPerOperation)} " +
+                $"path {FormatMetric(artifact.CacheInvalidationPreciseOperationsPerOperation)}/{FormatMetric(artifact.CacheInvalidationConservativeFallbackOperationsPerOperation)}"));
+        }
 
         return parts.Count == 0 ? "-" : string.Join("  ", parts);
     }
@@ -1336,7 +1369,14 @@ internal sealed class BenchmarkHarnessRunner
         double DatabaseRowsPerOperation,
         double MaterializationsPerOperation,
         double RelationHitsPerOperation,
-        double RelationLoadsPerOperation);
+        double RelationLoadsPerOperation,
+        double CacheInvalidationOperationsPerOperation,
+        double CacheInvalidationRowsRemovedPerOperation,
+        double CacheInvalidationTablesClearedPerOperation,
+        double CacheInvalidationProviderKeysPerOperation,
+        double CacheInvalidationApproximateWorkPerOperation,
+        double CacheInvalidationPreciseOperationsPerOperation,
+        double CacheInvalidationConservativeFallbackOperationsPerOperation);
 
     private sealed record BenchmarkRunMetadata(
         string? Repository,

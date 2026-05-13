@@ -41,6 +41,10 @@ internal static class RunCommand
         {
             Description = $"Runs only the {BenchmarkHarnessRunner.Phase10KeyFoundationCategory} benchmark category."
         };
+        var phase11CacheInvalidationOption = new Option<bool>("--phase11-cache-invalidation")
+        {
+            Description = $"Runs only the {BenchmarkHarnessRunner.Phase11CacheInvalidationCategory} benchmark category."
+        };
         var historyJsonOption = new Option<string?>("--history-json")
         {
             Description = "Optional output path for a stable benchmark history entry JSON artifact."
@@ -73,6 +77,7 @@ internal static class RunCommand
         command.Options.Add(phase2WatchOption);
         command.Options.Add(phase3QueryHotPathOption);
         command.Options.Add(phase10KeyFoundationOption);
+        command.Options.Add(phase11CacheInvalidationOption);
         command.Options.Add(historyJsonOption);
         command.Options.Add(baselineOption);
         command.Options.Add(comparisonJsonOption);
@@ -91,6 +96,7 @@ internal static class RunCommand
                 parseResult.GetValue(phase2WatchOption),
                 parseResult.GetValue(phase3QueryHotPathOption),
                 parseResult.GetValue(phase10KeyFoundationOption),
+                parseResult.GetValue(phase11CacheInvalidationOption),
                 parseResult.GetValue(historyJsonOption),
                 parseResult.GetValue(baselineOption),
                 parseResult.GetValue(comparisonJsonOption),

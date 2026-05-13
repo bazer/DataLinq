@@ -16,6 +16,7 @@ public class EmployeesBenchmarks : IDisposable
     private const string Phase2WatchCategory = "phase2-watch";
     private const string Phase3QueryHotPathCategory = "phase3-query-hotpath";
     private const string Phase10KeyFoundationCategory = "phase10-key-foundation";
+    private const string Phase11CacheInvalidationCategory = "phase11-cache-invalidation";
     private const string MacroReadWriteCategory = "macro-readwrite";
     private const string MacroBulkCategory = "macro-bulk";
     private BenchmarkContext? context;
@@ -306,6 +307,62 @@ public class EmployeesBenchmarks : IDisposable
     {
         executedScenario = BenchmarkScenario.ScalarRowCacheAddGetRemove;
         return context!.AddGetRemoveScalarRowCacheEntries();
+    }
+
+    [IterationSetup(Target = nameof(InvalidateOneEmployeeRow))]
+    public void SetupInvalidateOneEmployeeRow()
+    {
+        context!.WarmEmployeeInvalidationCache();
+    }
+
+    [BenchmarkCategory(Phase11CacheInvalidationCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Invalidate one employee row")]
+    public int InvalidateOneEmployeeRow()
+    {
+        executedScenario = BenchmarkScenario.InvalidateOneEmployeeRow;
+        return context!.InvalidateOneEmployeeRows();
+    }
+
+    [IterationSetup(Target = nameof(InvalidateManyEmployeeRows))]
+    public void SetupInvalidateManyEmployeeRows()
+    {
+        context!.WarmEmployeeInvalidationCache();
+    }
+
+    [BenchmarkCategory(Phase11CacheInvalidationCategory)]
+    [Benchmark(Description = "Invalidate many employee rows")]
+    public int InvalidateManyEmployeeRows()
+    {
+        executedScenario = BenchmarkScenario.InvalidateManyEmployeeRows;
+        return context!.InvalidateManyEmployeeRows();
+    }
+
+    [IterationSetup(Target = nameof(InvalidateEmployeeTable))]
+    public void SetupInvalidateEmployeeTable()
+    {
+        context!.WarmEmployeeInvalidationCache();
+    }
+
+    [BenchmarkCategory(Phase11CacheInvalidationCategory)]
+    [Benchmark(Description = "Invalidate employee table")]
+    public int InvalidateEmployeeTable()
+    {
+        executedScenario = BenchmarkScenario.InvalidateEmployeeTable;
+        return context!.InvalidateEmployeeTable();
+    }
+
+    [IterationSetup(Target = nameof(InvalidateDatabase))]
+    public void SetupInvalidateDatabase()
+    {
+        context!.WarmDatabaseInvalidationCache();
+    }
+
+    [BenchmarkCategory(Phase11CacheInvalidationCategory)]
+    [Benchmark(Description = "Invalidate database")]
+    public int InvalidateDatabase()
+    {
+        executedScenario = BenchmarkScenario.InvalidateDatabase;
+        return context!.InvalidateDatabase();
     }
 
     public void Dispose()
