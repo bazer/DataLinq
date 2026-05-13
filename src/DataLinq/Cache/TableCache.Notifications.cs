@@ -24,7 +24,9 @@ public partial class TableCache
             Transaction? Transaction,
             bool TableWide,
             RelationCacheKey? RelationKey,
-            DataLinqKey[] LoadedPrimaryKeys)
+            DataLinqKey[] LoadedPrimaryKeys,
+            long NotificationBytes,
+            long RelationObjectBytes)
         {
             internal bool Matches(CacheInvalidationImpact impact)
             {
@@ -64,6 +66,8 @@ public partial class TableCache
         private ConcurrentQueue<CacheNotificationSubscription> _subscribers = new();
         private int _maintenanceState = 0;
         private int _approximateSubscriberCount = 0;
+        private long _notificationBytes = 0;
+        private long _relationObjectBytes = 0;
 
         internal CacheNotificationManager(DataLinqTableMetricsHandle metricsHandle)
         {
@@ -89,15 +93,36 @@ public partial class TableCache
             RelationCacheKey? relationKey,
             IReadOnlyCollection<DataLinqKey> loadedPrimaryKeys)
         {
+            var loadedPrimaryKeyArray = loadedPrimaryKeys.Count == 0 ? [] : loadedPrimaryKeys.ToArray();
+            var notificationBytes = CacheMemoryEstimator.SaturatingAdd(
+                CacheMemoryEstimator.NotificationSubscriptionBytes,
+                CacheMemoryEstimator.WeakReferenceBytes);
+            var relationObjectBytes = EstimateRelationSubscriptionBytes(relationKey, loadedPrimaryKeyArray);
+
             // This is a fully thread-safe, lock-free, O(1) operation.
             _subscribers.Enqueue(new CacheNotificationSubscription(
                 new WeakReference<ICacheNotification>(subscriber),
                 transaction,
                 tableWide,
                 relationKey,
-                loadedPrimaryKeys.Count == 0 ? [] : loadedPrimaryKeys.ToArray()));
+                loadedPrimaryKeyArray,
+                notificationBytes,
+                relationObjectBytes));
+            AddSubscriptionEstimate(notificationBytes, relationObjectBytes);
             var approximateQueueDepth = Interlocked.Increment(ref _approximateSubscriberCount);
             metricsHandle.RecordCacheNotificationSubscribe(approximateQueueDepth);
+        }
+
+        internal CacheMemoryEstimate GetMemoryEstimate()
+        {
+            var approximateSubscriberCount = Volatile.Read(ref _approximateSubscriberCount);
+            var notificationBytes = CacheMemoryEstimator.SaturatingAdd(
+                Interlocked.Read(ref _notificationBytes),
+                CacheMemoryEstimator.ConcurrentQueueOverheadBytes(approximateSubscriberCount));
+
+            return new CacheMemoryEstimate(
+                RelationObjectBytes: Interlocked.Read(ref _relationObjectBytes),
+                NotificationBytes: notificationBytes);
         }
 
         internal void Notify() => Notify(null);
@@ -156,12 +181,19 @@ public partial class TableCache
                     {
                         liveSubscribers++;
                         subscriber.Clear();
+                        DropSubscriptionEstimate(subscription);
                     }
                     else
                     {
+                        DropSubscriptionEstimate(subscription);
                         _subscribers.Enqueue(subscription);
+                        AddSubscriptionEstimate(subscription);
                         requeuedSubscribers++;
                     }
+                }
+                else
+                {
+                    DropSubscriptionEstimate(subscription);
                 }
             }
 
@@ -199,8 +231,14 @@ public partial class TableCache
                     snapshotEntries++;
                     if (subscription.Subscriber.TryGetTarget(out _))
                     {
+                        DropSubscriptionEstimate(subscription);
                         _subscribers.Enqueue(subscription);
+                        AddSubscriptionEstimate(subscription);
                         requeuedSubscribers++;
+                    }
+                    else
+                    {
+                        DropSubscriptionEstimate(subscription);
                     }
                 }
 
@@ -215,6 +253,43 @@ public partial class TableCache
             {
                 Volatile.Write(ref _maintenanceState, 0);
             }
+        }
+
+        private static long EstimateRelationSubscriptionBytes(
+            RelationCacheKey? relationKey,
+            DataLinqKey[] loadedPrimaryKeys)
+        {
+            var bytes = 0L;
+
+            if (relationKey is { } key)
+            {
+                bytes = CacheMemoryEstimator.SaturatingAdd(bytes, CacheMemoryEstimator.RelationSubscriptionKeyBytes);
+                bytes = CacheMemoryEstimator.SaturatingAdd(bytes, CacheMemoryEstimator.EstimateDataLinqKeyPayloadBytes(key.ProviderKey));
+            }
+
+            if (loadedPrimaryKeys.Length > 0)
+            {
+                bytes = CacheMemoryEstimator.SaturatingAdd(bytes, CacheMemoryEstimator.DataLinqKeyArrayBytes(loadedPrimaryKeys.Length));
+                for (var i = 0; i < loadedPrimaryKeys.Length; i++)
+                    bytes = CacheMemoryEstimator.SaturatingAdd(bytes, CacheMemoryEstimator.EstimateDataLinqKeyPayloadBytes(loadedPrimaryKeys[i]));
+            }
+
+            return bytes;
+        }
+
+        private void AddSubscriptionEstimate(CacheNotificationSubscription subscription) =>
+            AddSubscriptionEstimate(subscription.NotificationBytes, subscription.RelationObjectBytes);
+
+        private void AddSubscriptionEstimate(long notificationBytes, long relationObjectBytes)
+        {
+            Interlocked.Add(ref _notificationBytes, notificationBytes);
+            Interlocked.Add(ref _relationObjectBytes, relationObjectBytes);
+        }
+
+        private void DropSubscriptionEstimate(CacheNotificationSubscription subscription)
+        {
+            Interlocked.Add(ref _notificationBytes, -subscription.NotificationBytes);
+            Interlocked.Add(ref _relationObjectBytes, -subscription.RelationObjectBytes);
         }
     }
 
@@ -246,4 +321,7 @@ public partial class TableCache
     {
         notificationManager?.Clean();
     }
+
+    internal CacheMemoryEstimate GetNotificationMemoryEstimate() =>
+        notificationManager?.GetMemoryEstimate() ?? CacheMemoryEstimate.Empty;
 }

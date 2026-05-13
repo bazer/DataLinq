@@ -48,4 +48,31 @@ public class CacheHistory(uint maxCapacity = 10000)
         history.Clear();
         Count = 0;
     }
+
+    internal CacheMemoryEstimate GetMemoryEstimate()
+    {
+        lock (lockObject)
+        {
+            var snapshotBytes = CacheMemoryEstimator.CacheHistoryContainerBytes;
+            snapshotBytes = CacheMemoryEstimator.SaturatingAdd(
+                snapshotBytes,
+                CacheMemoryEstimator.SaturatingMultiply(Count, CacheMemoryEstimator.LinkedListNodeBytes));
+
+            foreach (var snapshot in history)
+            {
+                snapshotBytes = CacheMemoryEstimator.SaturatingAdd(
+                    snapshotBytes,
+                    CacheMemoryEstimator.DatabaseCacheSnapshotBytes(snapshot.TableCaches.Length));
+
+                foreach (var tableSnapshot in snapshot.TableCaches)
+                {
+                    snapshotBytes = CacheMemoryEstimator.SaturatingAdd(
+                        snapshotBytes,
+                        CacheMemoryEstimator.TableCacheSnapshotBytes(tableSnapshot.Indices.Length));
+                }
+            }
+
+            return new CacheMemoryEstimate(SnapshotBytes: snapshotBytes);
+        }
+    }
 }

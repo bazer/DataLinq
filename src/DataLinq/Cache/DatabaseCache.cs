@@ -70,6 +70,9 @@ public class DatabaseCache : IDisposable
         return snapshot;
     }
 
+    internal CacheMemoryEstimate GetMemoryEstimate() =>
+        CacheMemoryEstimate.Sum(TableCaches.Values.Select(x => x.GetMemoryEstimate())) + History.GetMemoryEstimate();
+
     private TimeSpan GetFromCacheCleanupType(CacheCleanupType type, long amount)
     {
         return type switch

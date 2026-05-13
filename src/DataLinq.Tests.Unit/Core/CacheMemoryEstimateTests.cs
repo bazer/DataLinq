@@ -284,6 +284,33 @@ public class CacheMemoryEstimateTests
         await Assert.That(cache.GetMemoryEstimate().IndexPayloadBytes).IsEqualTo(0);
     }
 
+    [Test]
+    public async Task CacheHistory_GetMemoryEstimate_CountsSnapshotBytesAndDropsOnClear()
+    {
+        var history = new CacheHistory();
+        var emptyEstimate = history.GetMemoryEstimate();
+
+        history.Add(new DatabaseCacheSnapshot(
+            DateTime.UtcNow,
+            [
+                new TableCacheSnapshot(
+                    tableName: "employees",
+                    rowCount: 1,
+                    totalBytes: 128,
+                    newestTick: 10,
+                    oldestTick: 5,
+                    indices: [("idx_employees_department", 2)])
+            ]));
+
+        var occupiedEstimate = history.GetMemoryEstimate();
+
+        await Assert.That(occupiedEstimate.SnapshotBytes).IsGreaterThan(emptyEstimate.SnapshotBytes);
+
+        history.Clear();
+
+        await Assert.That(history.GetMemoryEstimate().SnapshotBytes).IsLessThan(occupiedEstimate.SnapshotBytes);
+    }
+
     private static TableDefinition CreateMemoryEstimateTable()
     {
         var draft = new MetadataDatabaseDraft(

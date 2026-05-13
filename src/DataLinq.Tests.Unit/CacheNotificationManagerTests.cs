@@ -1,14 +1,20 @@
 using System;
+using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using DataLinq.Attributes;
 using DataLinq.Cache;
+using DataLinq.Core.Factories;
 using DataLinq.Diagnostics;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit;
 
@@ -117,6 +123,51 @@ public class CacheNotificationManagerTests
         await Assert.That(subscriber.ClearCacheCallCount).IsEqualTo(1);
     }
 
+    [Test]
+    [NotInParallel]
+    public async Task GetMemoryEstimate_TableWideSubscription_CountsNotificationBytes()
+    {
+        var subscriber = new MockSubscriber();
+
+        manager.Subscribe(subscriber);
+
+        var estimate = manager.GetMemoryEstimate();
+
+        await Assert.That(estimate.NotificationBytes).IsGreaterThan(0);
+        await Assert.That(estimate.RelationObjectBytes).IsEqualTo(0);
+
+        manager.Notify();
+
+        await Assert.That(manager.GetMemoryEstimate().NotificationBytes).IsLessThan(estimate.NotificationBytes);
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task GetMemoryEstimate_RelationSubscription_CountsRetainedKeysWithoutRetainingSubscriber()
+    {
+        var table = CreateNotificationTable();
+        var relationKey = new RelationCacheKey(
+            table.ColumnIndices.Single(x => x.Name == "idx_memory_notification_rows_name"),
+            DataLinqKey.FromValue("dept-1"));
+        var weakReference = SubscribeRelationAndForget(
+            relationKey,
+            [DataLinqKey.FromValue(1), DataLinqKey.FromValues([2, "dept-1"])]);
+        var occupiedEstimate = manager.GetMemoryEstimate();
+
+        await Assert.That(occupiedEstimate.NotificationBytes).IsGreaterThan(0);
+        await Assert.That(occupiedEstimate.RelationObjectBytes).IsGreaterThan(0);
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+
+        await Assert.That(weakReference.TryGetTarget(out _)).IsFalse();
+        manager.Clean();
+
+        var cleanedEstimate = manager.GetMemoryEstimate();
+        await Assert.That(cleanedEstimate.RelationObjectBytes).IsLessThan(occupiedEstimate.RelationObjectBytes);
+        await Assert.That(cleanedEstimate.NotificationBytes).IsLessThan(occupiedEstimate.NotificationBytes);
+    }
+
     private int GetSubscriberCount()
     {
         var subscribersField = typeof(TableCache.CacheNotificationManager).GetField("_subscribers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -130,6 +181,65 @@ public class CacheNotificationManagerTests
         var subscriber = new MockSubscriber();
         manager.Subscribe(subscriber);
         return new WeakReference<MockSubscriber>(subscriber);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private WeakReference<MockSubscriber> SubscribeRelationAndForget(
+        RelationCacheKey relationKey,
+        IReadOnlyCollection<DataLinqKey> loadedPrimaryKeys)
+    {
+        var subscriber = new MockSubscriber();
+        manager.Subscribe(subscriber, null, relationKey, loadedPrimaryKeys);
+        return new WeakReference<MockSubscriber>(subscriber);
+    }
+
+    private static TableDefinition CreateNotificationTable()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "NotificationMemoryDb",
+            new CsTypeDeclaration("NotificationMemoryDb", "DataLinq.Tests.Unit", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration("NotificationMemoryRow", "DataLinq.Tests.Unit", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.SQLite, "integer")]
+                                })
+                            {
+                                Attributes = [new PrimaryKeyAttribute(), new ColumnAttribute("id")],
+                                CsSize = sizeof(int)
+                            },
+                            new MetadataValuePropertyDraft(
+                                "Name",
+                                new CsTypeDeclaration(typeof(string)),
+                                new MetadataColumnDraft("name")
+                                {
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.SQLite, "text")]
+                                })
+                            {
+                                Attributes =
+                                [
+                                    new ColumnAttribute("name"),
+                                    new IndexAttribute("idx_memory_notification_rows_name", IndexCharacteristic.Simple)
+                                ]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("memory_notification_rows"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException().TableModels.Single().Table;
     }
 
     private sealed class MockSubscriber(ManualResetEventSlim? waitHandle = null, int delayMs = 0) : ICacheNotification

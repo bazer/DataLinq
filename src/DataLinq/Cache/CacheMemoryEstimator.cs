@@ -91,6 +91,19 @@ internal static class CacheMemoryEstimator
         return SaturatingAdd(queueObjectBytes, ArrayBytes(count, entryBytes));
     }
 
+    public static long ConcurrentQueueOverheadBytes(int entryCount)
+    {
+        var count = Math.Max(entryCount, 0);
+        var queueObjectBytes = AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 3));
+        var segmentBytes = count == 0
+            ? 0
+            : SaturatingAdd(
+                AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 3) + (sizeof(int) * 2)),
+                ObjectArrayBytes(count));
+
+        return SaturatingAdd(queueObjectBytes, segmentBytes);
+    }
+
     public static long IndexCacheContainerBytes =>
         AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 5) + sizeof(long));
 
@@ -149,6 +162,34 @@ internal static class CacheMemoryEstimator
 
     public static long ImmutableRowInstanceBytes =>
         AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 5));
+
+    public static long NotificationSubscriptionBytes =>
+        AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 5) + sizeof(bool));
+
+    public static long WeakReferenceBytes =>
+        AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 2) + sizeof(bool));
+
+    public static long RelationSubscriptionKeyBytes =>
+        AlignToPointer(ReferenceSize + DataLinqKeyStructBytes);
+
+    public static long CacheHistoryContainerBytes =>
+        AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 3) + (sizeof(uint) * 2));
+
+    public static long LinkedListNodeBytes =>
+        AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 4));
+
+    public static long DatabaseCacheSnapshotBytes(int tableCount)
+    {
+        var snapshotObjectBytes = AlignToPointer(ObjectHeaderBytes + ReferenceSize + sizeof(long));
+        return SaturatingAdd(snapshotObjectBytes, ObjectArrayBytes(tableCount));
+    }
+
+    public static long TableCacheSnapshotBytes(int indexCount)
+    {
+        var snapshotObjectBytes = AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 3) + sizeof(int) + (sizeof(long) * 3));
+        var indexTupleBytes = AlignToPointer(ReferenceSize + sizeof(int));
+        return SaturatingAdd(snapshotObjectBytes, ArrayBytes(indexCount, indexTupleBytes));
+    }
 
     public static long EstimateKeyPayloadBytes(object? key)
     {

@@ -140,6 +140,7 @@ Implementation notes:
 
 - 2026-05-13: Started component accounting with internal row-store estimates. `RowCache` now reports row payload separately from row-store overhead, with per-row overhead counters updated on add/remove/clear and transaction-local row caches remapped into transaction payload/overhead at the table estimate boundary.
 - 2026-05-13: Added index-cache estimates for retained primary-key arrays, foreign-key dictionaries, reverse-map dictionaries, `ImmutableArray` backing arrays, and tick queues. Reverse-map mutation now runs under the cache lock with explicit counter adjustments instead of optimistic `ConcurrentDictionary` update delegates.
+- 2026-05-13: Added notification and snapshot estimates. Notification queues count subscription records, weak references, and queue overhead in `NotificationBytes`; relation subscriptions count retained relation keys and loaded primary-key arrays in `RelationObjectBytes` without counting or strengthening weakly referenced relation objects. Cache history is included as database-level `SnapshotBytes` diagnostics overhead because it is lazy and bounded.
 
 ## Workstream C: Diagnostics And Byte-Limit Cutover
 

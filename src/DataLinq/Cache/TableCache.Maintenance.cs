@@ -83,8 +83,9 @@ public partial class TableCache
         var estimate = rowCache?.GetMemoryEstimate() ?? CacheMemoryEstimate.Empty;
         var transactionEstimate = GetTransactionRowsMemoryEstimate();
         var indexEstimate = CacheMemoryEstimate.Sum(GetLoadedIndexCaches().Select(x => x.GetMemoryEstimate()));
+        var notificationEstimate = GetNotificationMemoryEstimate();
 
-        return estimate + transactionEstimate + indexEstimate;
+        return estimate + transactionEstimate + indexEstimate + notificationEstimate;
     }
 
     internal void UnregisterTelemetry()
