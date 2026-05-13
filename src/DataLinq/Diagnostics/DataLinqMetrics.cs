@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading;
+using DataLinq.Cache;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
 
@@ -65,6 +66,24 @@ internal sealed class DataLinqTableMetricsHandle
         => state.RecordMutationExecution(mutationType, succeeded, affectedRows, duration);
     internal void UpdateCacheOccupancy(CacheOccupancyMetricsSnapshot snapshot) => state.UpdateCacheOccupancy(snapshot);
     internal void RecordCacheCleanup(int rowsRemoved, TimeSpan duration) => state.RecordCacheCleanup(rowsRemoved, duration);
+    internal void RecordCacheInvalidation(
+        CacheInvalidationScope scope,
+        int rowsRemoved,
+        int tablesCleared,
+        int providerKeyCount,
+        int changedColumnCount,
+        int changedIndexValueCount,
+        bool usedConservativeFallback,
+        TimeSpan duration) =>
+        state.RecordCacheInvalidation(
+            scope,
+            rowsRemoved,
+            tablesCleared,
+            providerKeyCount,
+            changedColumnCount,
+            changedIndexValueCount,
+            usedConservativeFallback,
+            duration);
 
     internal void RecordCacheNotificationSubscribe(int approximateQueueDepth) => state.RecordCacheNotificationSubscribe(approximateQueueDepth);
     internal void RecordCacheNotificationNotifySweep(int snapshotEntries, int liveSubscribers, int currentQueueDepth)
@@ -270,6 +289,7 @@ internal sealed class DataLinqProviderMetricsState
                 TotalDurationMicroseconds: Interlocked.Read(ref mutationDurationMicroseconds)),
             Occupancy: CacheOccupancyMetricsSnapshot.Sum(tables.Select(x => x.Occupancy)),
             Cleanup: CacheCleanupMetricsSnapshot.Sum(tables.Select(x => x.Cleanup)),
+            CacheInvalidations: CacheInvalidationMetricsSnapshot.Sum(tables.Select(x => x.CacheInvalidations)),
             Relations: RelationMetricsSnapshot.Sum(tables.Select(x => x.Relations)),
             RowCache: RowCacheMetricsSnapshot.Sum(tables.Select(x => x.RowCache)),
             CacheNotifications: CacheNotificationMetricsSnapshot.Sum(tables.Select(x => x.CacheNotifications)),
@@ -295,6 +315,20 @@ internal sealed class DataLinqTableMetricsState
     private long cacheCleanupOperations;
     private long cacheCleanupRowsRemoved;
     private long cacheCleanupDurationMicroseconds;
+    private long cacheInvalidationOperations;
+    private long cacheInvalidationRowsRemoved;
+    private long cacheInvalidationTablesCleared;
+    private long cacheInvalidationProviderKeys;
+    private long cacheInvalidationChangedColumns;
+    private long cacheInvalidationChangedIndexValues;
+    private long cacheInvalidationApproximateWork;
+    private long cacheInvalidationPreciseOperations;
+    private long cacheInvalidationConservativeFallbackOperations;
+    private long cacheInvalidationDatabaseScopeOperations;
+    private long cacheInvalidationTableScopeOperations;
+    private long cacheInvalidationRowScopeOperations;
+    private long cacheInvalidationRowsScopeOperations;
+    private long cacheInvalidationDurationMicroseconds;
     private long rowCacheHits;
     private long rowCacheMisses;
     private long databaseRowsLoaded;
@@ -371,6 +405,55 @@ internal sealed class DataLinqTableMetricsState
         Interlocked.Add(ref cacheCleanupDurationMicroseconds, ToMicroseconds(duration));
     }
 
+    internal void RecordCacheInvalidation(
+        CacheInvalidationScope scope,
+        int rowsRemoved,
+        int tablesCleared,
+        int providerKeyCount,
+        int changedColumnCount,
+        int changedIndexValueCount,
+        bool usedConservativeFallback,
+        TimeSpan duration)
+    {
+        Interlocked.Increment(ref cacheInvalidationOperations);
+        Interlocked.Add(ref cacheInvalidationRowsRemoved, rowsRemoved);
+        Interlocked.Add(ref cacheInvalidationTablesCleared, tablesCleared);
+        Interlocked.Add(ref cacheInvalidationProviderKeys, providerKeyCount);
+        Interlocked.Add(ref cacheInvalidationChangedColumns, changedColumnCount);
+        Interlocked.Add(ref cacheInvalidationChangedIndexValues, changedIndexValueCount);
+        Interlocked.Add(
+            ref cacheInvalidationApproximateWork,
+            CacheInvalidationMetricsSnapshot.GetApproximateWork(
+                rowsRemoved,
+                tablesCleared,
+                providerKeyCount,
+                changedColumnCount,
+                changedIndexValueCount));
+
+        if (usedConservativeFallback)
+            Interlocked.Increment(ref cacheInvalidationConservativeFallbackOperations);
+        else
+            Interlocked.Increment(ref cacheInvalidationPreciseOperations);
+
+        switch (scope)
+        {
+            case CacheInvalidationScope.Database:
+                Interlocked.Increment(ref cacheInvalidationDatabaseScopeOperations);
+                break;
+            case CacheInvalidationScope.Table:
+                Interlocked.Increment(ref cacheInvalidationTableScopeOperations);
+                break;
+            case CacheInvalidationScope.Row:
+                Interlocked.Increment(ref cacheInvalidationRowScopeOperations);
+                break;
+            case CacheInvalidationScope.Rows:
+                Interlocked.Increment(ref cacheInvalidationRowsScopeOperations);
+                break;
+        }
+
+        Interlocked.Add(ref cacheInvalidationDurationMicroseconds, ToMicroseconds(duration));
+    }
+
     internal void RecordRelationReferenceCacheHit() => Interlocked.Increment(ref relationReferenceCacheHits);
     internal void RecordRelationReferenceLoad() => Interlocked.Increment(ref relationReferenceLoads);
     internal void RecordRelationCollectionCacheHit() => Interlocked.Increment(ref relationCollectionCacheHits);
@@ -418,6 +501,20 @@ internal sealed class DataLinqTableMetricsState
         Interlocked.Exchange(ref cacheCleanupOperations, 0);
         Interlocked.Exchange(ref cacheCleanupRowsRemoved, 0);
         Interlocked.Exchange(ref cacheCleanupDurationMicroseconds, 0);
+        Interlocked.Exchange(ref cacheInvalidationOperations, 0);
+        Interlocked.Exchange(ref cacheInvalidationRowsRemoved, 0);
+        Interlocked.Exchange(ref cacheInvalidationTablesCleared, 0);
+        Interlocked.Exchange(ref cacheInvalidationProviderKeys, 0);
+        Interlocked.Exchange(ref cacheInvalidationChangedColumns, 0);
+        Interlocked.Exchange(ref cacheInvalidationChangedIndexValues, 0);
+        Interlocked.Exchange(ref cacheInvalidationApproximateWork, 0);
+        Interlocked.Exchange(ref cacheInvalidationPreciseOperations, 0);
+        Interlocked.Exchange(ref cacheInvalidationConservativeFallbackOperations, 0);
+        Interlocked.Exchange(ref cacheInvalidationDatabaseScopeOperations, 0);
+        Interlocked.Exchange(ref cacheInvalidationTableScopeOperations, 0);
+        Interlocked.Exchange(ref cacheInvalidationRowScopeOperations, 0);
+        Interlocked.Exchange(ref cacheInvalidationRowsScopeOperations, 0);
+        Interlocked.Exchange(ref cacheInvalidationDurationMicroseconds, 0);
         Interlocked.Exchange(ref rowCacheHits, 0);
         Interlocked.Exchange(ref rowCacheMisses, 0);
         Interlocked.Exchange(ref databaseRowsLoaded, 0);
@@ -459,6 +556,9 @@ internal sealed class DataLinqTableMetricsState
            Interlocked.Read(ref mutationAffectedRows) != 0 ||
            Interlocked.Read(ref cacheCleanupOperations) != 0 ||
            Interlocked.Read(ref cacheCleanupRowsRemoved) != 0 ||
+           Interlocked.Read(ref cacheInvalidationOperations) != 0 ||
+           Interlocked.Read(ref cacheInvalidationRowsRemoved) != 0 ||
+           Interlocked.Read(ref cacheInvalidationTablesCleared) != 0 ||
            Interlocked.Read(ref rowCacheHits) != 0 ||
            Interlocked.Read(ref rowCacheMisses) != 0 ||
            Interlocked.Read(ref databaseRowsLoaded) != 0 ||
@@ -493,6 +593,21 @@ internal sealed class DataLinqTableMetricsState
                 Operations: Interlocked.Read(ref cacheCleanupOperations),
                 RowsRemoved: Interlocked.Read(ref cacheCleanupRowsRemoved),
                 TotalDurationMicroseconds: Interlocked.Read(ref cacheCleanupDurationMicroseconds)),
+            CacheInvalidations: new CacheInvalidationMetricsSnapshot(
+                Operations: Interlocked.Read(ref cacheInvalidationOperations),
+                RowsRemoved: Interlocked.Read(ref cacheInvalidationRowsRemoved),
+                TablesCleared: Interlocked.Read(ref cacheInvalidationTablesCleared),
+                ProviderKeys: Interlocked.Read(ref cacheInvalidationProviderKeys),
+                ChangedColumns: Interlocked.Read(ref cacheInvalidationChangedColumns),
+                ChangedIndexValues: Interlocked.Read(ref cacheInvalidationChangedIndexValues),
+                ApproximateWork: Interlocked.Read(ref cacheInvalidationApproximateWork),
+                PreciseOperations: Interlocked.Read(ref cacheInvalidationPreciseOperations),
+                ConservativeFallbackOperations: Interlocked.Read(ref cacheInvalidationConservativeFallbackOperations),
+                DatabaseScopeOperations: Interlocked.Read(ref cacheInvalidationDatabaseScopeOperations),
+                TableScopeOperations: Interlocked.Read(ref cacheInvalidationTableScopeOperations),
+                RowScopeOperations: Interlocked.Read(ref cacheInvalidationRowScopeOperations),
+                RowsScopeOperations: Interlocked.Read(ref cacheInvalidationRowsScopeOperations),
+                TotalDurationMicroseconds: Interlocked.Read(ref cacheInvalidationDurationMicroseconds)),
             Relations: new RelationMetricsSnapshot(
                 ReferenceCacheHits: Interlocked.Read(ref relationReferenceCacheHits),
                 ReferenceLoads: Interlocked.Read(ref relationReferenceLoads),
@@ -581,6 +696,7 @@ public static class DataLinqMetrics
             Mutations: MutationMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Mutations)),
             Occupancy: CacheOccupancyMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Occupancy)),
             Cleanup: CacheCleanupMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Cleanup)),
+            CacheInvalidations: CacheInvalidationMetricsSnapshot.Sum(providerSnapshots.Select(x => x.CacheInvalidations)),
             Relations: RelationMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Relations)),
             RowCache: RowCacheMetricsSnapshot.Sum(providerSnapshots.Select(x => x.RowCache)),
             CacheNotifications: CacheNotificationMetricsSnapshot.Sum(providerSnapshots.Select(x => x.CacheNotifications)),
@@ -620,6 +736,29 @@ public static class DataLinqMetrics
         provider.RecordMutationExecution(mutationType, succeeded, affectedRows, duration);
         provider.GetOrCreateTable(tableName).RecordMutationExecution(mutationType, succeeded, affectedRows, duration);
     }
+
+    internal static void RecordCacheInvalidation(
+        DataLinqTelemetryContext telemetryContext,
+        string tableName,
+        CacheInvalidationScope scope,
+        int rowsRemoved,
+        int tablesCleared,
+        int providerKeyCount,
+        int changedColumnCount,
+        int changedIndexValueCount,
+        bool usedConservativeFallback,
+        TimeSpan duration) =>
+        GetOrCreateProvider(telemetryContext)
+            .GetOrCreateTable(tableName)
+            .RecordCacheInvalidation(
+                scope,
+                rowsRemoved,
+                tablesCleared,
+                providerKeyCount,
+                changedColumnCount,
+                changedIndexValueCount,
+                usedConservativeFallback,
+                duration);
 
     private static DataLinqProviderMetricsState GetOrCreateProvider(IDatabaseProvider databaseProvider)
         => providers.GetOrAdd(databaseProvider.TelemetryInstanceId, _ => new DataLinqProviderMetricsState(databaseProvider));

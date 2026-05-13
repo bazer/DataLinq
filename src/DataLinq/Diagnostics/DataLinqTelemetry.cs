@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using DataLinq.Cache;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
 
@@ -98,6 +99,26 @@ internal static class DataLinqTelemetry
         "datalinq.cache.maintenance.duration",
         unit: "ms",
         description: "Duration of DataLinq cache maintenance operations in milliseconds.");
+    private static readonly Counter<long> CacheInvalidationCounter = Meter.CreateCounter<long>(
+        "datalinq.cache.invalidations",
+        unit: "{invalidation}",
+        description: "Number of DataLinq cache invalidation records.");
+    private static readonly Counter<long> CacheInvalidationRowsRemovedCounter = Meter.CreateCounter<long>(
+        "datalinq.cache.invalidation.rows_removed",
+        unit: "{row}",
+        description: "Number of rows removed by DataLinq cache invalidation.");
+    private static readonly Counter<long> CacheInvalidationTablesClearedCounter = Meter.CreateCounter<long>(
+        "datalinq.cache.invalidation.tables_cleared",
+        unit: "{table}",
+        description: "Number of table caches cleared by DataLinq cache invalidation.");
+    private static readonly Counter<long> CacheInvalidationWorkCounter = Meter.CreateCounter<long>(
+        "datalinq.cache.invalidation.work",
+        unit: "{item}",
+        description: "Approximate invalidation work units: rows removed, table clears, provider keys, changed columns, and changed index descriptors.");
+    private static readonly Histogram<double> CacheInvalidationDuration = Meter.CreateHistogram<double>(
+        "datalinq.cache.invalidation.duration",
+        unit: "ms",
+        description: "Duration of DataLinq cache invalidation operations in milliseconds.");
     private static readonly ObservableGauge<long> CacheRowsGauge = Meter.CreateObservableGauge<long>(
         "datalinq.cache.rows",
         ObserveCacheRows,
@@ -112,7 +133,7 @@ internal static class DataLinqTelemetry
         "datalinq.cache.bytes",
         ObserveCacheBytes,
         unit: "By",
-        description: "Current estimated size of DataLinq row caches in bytes.");
+        description: "Current estimated row-payload bytes in DataLinq row caches, not total cache memory footprint.");
     private static readonly ObservableGauge<long> CacheIndexEntriesGauge = Meter.CreateObservableGauge<long>(
         "datalinq.cache.index.entries",
         ObserveCacheIndexEntries,
@@ -360,6 +381,59 @@ internal static class DataLinqTelemetry
             CacheRowsRemovedCounter.Add(rowsRemoved, tags);
     }
 
+    internal static void RecordCacheInvalidation(
+        DataLinqTelemetryContext context,
+        string tableName,
+        string source,
+        CacheInvalidationScope scope,
+        CacheFreshnessState freshnessState,
+        int rowsRemoved,
+        int tablesCleared,
+        int providerKeyCount,
+        int changedColumnCount,
+        int changedIndexValueCount,
+        bool usedConservativeFallback,
+        TimeSpan duration)
+    {
+        var tags = CreateTableTags(context, tableName);
+        var approximateWork = CacheInvalidationMetricsSnapshot.GetApproximateWork(
+            rowsRemoved,
+            tablesCleared,
+            providerKeyCount,
+            changedColumnCount,
+            changedIndexValueCount);
+
+        tags.Add("datalinq.cache.invalidation.source", NormalizeDimension(source, CacheInvalidationSources.External));
+        tags.Add("datalinq.cache.invalidation.scope", GetCacheInvalidationScopeName(scope));
+        tags.Add("datalinq.cache.invalidation.path", usedConservativeFallback ? "conservative_fallback" : "provider_key_precise");
+        tags.Add("datalinq.cache.invalidation.work", GetCacheInvalidationWorkName(scope, tablesCleared, providerKeyCount, approximateWork));
+        tags.Add("datalinq.cache.freshness_state", CacheFreshnessStateNames.GetName(freshnessState));
+
+        CacheInvalidationCounter.Add(1, tags);
+
+        if (rowsRemoved > 0)
+            CacheInvalidationRowsRemovedCounter.Add(rowsRemoved, tags);
+
+        if (tablesCleared > 0)
+            CacheInvalidationTablesClearedCounter.Add(tablesCleared, tags);
+
+        if (approximateWork > 0)
+            CacheInvalidationWorkCounter.Add(approximateWork, tags);
+
+        CacheInvalidationDuration.Record(duration.TotalMilliseconds, tags);
+        DataLinqMetrics.RecordCacheInvalidation(
+            context,
+            tableName,
+            scope,
+            rowsRemoved,
+            tablesCleared,
+            providerKeyCount,
+            changedColumnCount,
+            changedIndexValueCount,
+            usedConservativeFallback,
+            duration);
+    }
+
     internal static void RecordRowCacheAccess(
         DataLinqTelemetryContext context,
         string tableName,
@@ -443,6 +517,45 @@ internal static class DataLinqTelemetry
             TransactionChangeType.Delete => "delete",
             _ => "unknown"
         };
+
+    private static string GetCacheInvalidationScopeName(CacheInvalidationScope scope)
+        => scope switch
+        {
+            CacheInvalidationScope.Database => "database",
+            CacheInvalidationScope.Table => "table",
+            CacheInvalidationScope.Row => "row",
+            CacheInvalidationScope.Rows => "rows",
+            _ => "unknown"
+        };
+
+    private static string GetCacheInvalidationWorkName(
+        CacheInvalidationScope scope,
+        int tablesCleared,
+        int providerKeyCount,
+        long approximateWork)
+    {
+        if (scope is CacheInvalidationScope.Database)
+            return "database";
+
+        if (tablesCleared > 0 || scope is CacheInvalidationScope.Table)
+            return "table";
+
+        if (providerKeyCount <= 1)
+            return "single_row";
+
+        if (providerKeyCount <= 32)
+            return "rows_small";
+
+        if (approximateWork <= 256)
+            return "rows_medium";
+
+        return "rows_many";
+    }
+
+    private static string NormalizeDimension(string? value, string fallback)
+        => string.IsNullOrWhiteSpace(value)
+            ? fallback
+            : value.Trim().ToLowerInvariant();
 
     private static IEnumerable<Measurement<long>> ObserveCacheRows()
         => ObserveCacheGauge(snapshot => snapshot.Rows);

@@ -9,6 +9,7 @@ namespace DataLinq.Diagnostics;
 /// <param name="Mutations">Mutation metrics summed across all provider instances.</param>
 /// <param name="Occupancy">Current cache occupancy summed across all provider instances.</param>
 /// <param name="Cleanup">Cache maintenance metrics summed across all provider instances.</param>
+/// <param name="CacheInvalidations">Cache invalidation metrics summed across all provider instances.</param>
 /// <param name="Relations">Relation metrics summed across all provider instances.</param>
 /// <param name="RowCache">Row cache metrics summed across all provider instances.</param>
 /// <param name="CacheNotifications">Cache notification metrics summed across all provider instances.</param>
@@ -20,6 +21,7 @@ public readonly record struct DataLinqMetricsSnapshot(
     MutationMetricsSnapshot Mutations,
     CacheOccupancyMetricsSnapshot Occupancy,
     CacheCleanupMetricsSnapshot Cleanup,
+    CacheInvalidationMetricsSnapshot CacheInvalidations,
     RelationMetricsSnapshot Relations,
     RowCacheMetricsSnapshot RowCache,
     CacheNotificationMetricsSnapshot CacheNotifications,
@@ -39,6 +41,12 @@ public readonly record struct DataLinqMetricsSnapshot(
            $"cache-bytes-current={Occupancy.Bytes}, cache-index-entries-current={Occupancy.IndexEntries}, " +
            $"cache-cleanup-ops={Cleanup.Operations}, cache-cleanup-rows-removed={Cleanup.RowsRemoved}, " +
            $"cache-cleanup-duration-ms={Cleanup.TotalDurationMilliseconds:0.###}, " +
+           $"cache-invalidation-ops={CacheInvalidations.Operations}, cache-invalidation-rows-removed={CacheInvalidations.RowsRemoved}, " +
+           $"cache-invalidation-tables-cleared={CacheInvalidations.TablesCleared}, cache-invalidation-keys={CacheInvalidations.ProviderKeys}, " +
+           $"cache-invalidation-work={CacheInvalidations.ApproximateWork}, " +
+           $"cache-invalidation-precise-ops={CacheInvalidations.PreciseOperations}, " +
+           $"cache-invalidation-conservative-ops={CacheInvalidations.ConservativeFallbackOperations}, " +
+           $"cache-invalidation-duration-ms={CacheInvalidations.TotalDurationMilliseconds:0.###}, " +
            $"row-cache-hits={RowCache.Hits}, row-cache-misses={RowCache.Misses}, database-rows={RowCache.DatabaseRowsLoaded}, " +
            $"materializations={RowCache.Materializations}, row-cache-stores={RowCache.Stores}, " +
            $"relation-ref-hits={Relations.ReferenceCacheHits}, relation-ref-loads={Relations.ReferenceLoads}, " +

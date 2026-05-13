@@ -7,6 +7,7 @@ namespace DataLinq.Diagnostics;
 /// <param name="Mutations">Mutation metrics owned by this table.</param>
 /// <param name="Occupancy">Current cache occupancy owned by this table.</param>
 /// <param name="Cleanup">Cache maintenance metrics owned by this table.</param>
+/// <param name="CacheInvalidations">Cache invalidation metrics owned by this table.</param>
 /// <param name="Relations">Relation metrics owned by this table.</param>
 /// <param name="RowCache">Row cache metrics owned by this table.</param>
 /// <param name="CacheNotifications">Cache notification metrics owned by this table.</param>
@@ -15,6 +16,7 @@ public readonly record struct DataLinqTableMetricsSnapshot(
     MutationMetricsSnapshot Mutations,
     CacheOccupancyMetricsSnapshot Occupancy,
     CacheCleanupMetricsSnapshot Cleanup,
+    CacheInvalidationMetricsSnapshot CacheInvalidations,
     RelationMetricsSnapshot Relations,
     RowCacheMetricsSnapshot RowCache,
     CacheNotificationMetricsSnapshot CacheNotifications);

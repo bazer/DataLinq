@@ -56,6 +56,7 @@ The ownership model is what keeps the sums honest.
 - `MutationMetricsSnapshot` is table-owned, then summed upward at provider and runtime level.
 - `CacheOccupancyMetricsSnapshot` is table-owned, then summed upward.
 - `CacheCleanupMetricsSnapshot` is table-owned, then summed upward.
+- `CacheInvalidationMetricsSnapshot` is table-owned, then summed upward.
 - `RelationMetricsSnapshot` is table-owned.
 - `RowCacheMetricsSnapshot` is table-owned.
 - `CacheNotificationMetricsSnapshot` is table-owned.
@@ -64,8 +65,8 @@ So:
 
 - runtime `Queries` is the sum of provider `Queries`
 - runtime `Commands` and `Transactions` are sums of provider-owned values
-- provider `Mutations`, `Occupancy`, `Cleanup`, `Relations`, `RowCache`, and `CacheNotifications` are sums of that provider's tables
-- runtime `Mutations`, `Occupancy`, `Cleanup`, `Relations`, `RowCache`, and `CacheNotifications` are sums of all providers
+- provider `Mutations`, `Occupancy`, `Cleanup`, `CacheInvalidations`, `Relations`, `RowCache`, and `CacheNotifications` are sums of that provider's tables
+- runtime `Mutations`, `Occupancy`, `Cleanup`, `CacheInvalidations`, `Relations`, `RowCache`, and `CacheNotifications` are sums of all providers
 
 Query metrics are intentionally not forced into tables. A single query can touch several tables, and fake table attribution would make the totals look cleaner while making them less true.
 
@@ -82,6 +83,7 @@ DataLinqMetricsSnapshot
     MutationMetricsSnapshot Mutations;
     CacheOccupancyMetricsSnapshot Occupancy;
     CacheCleanupMetricsSnapshot Cleanup;
+    CacheInvalidationMetricsSnapshot CacheInvalidations;
     RelationMetricsSnapshot Relations;
     RowCacheMetricsSnapshot RowCache;
     CacheNotificationMetricsSnapshot CacheNotifications;
@@ -104,6 +106,7 @@ DataLinqProviderMetricsSnapshot
     MutationMetricsSnapshot Mutations;
     CacheOccupancyMetricsSnapshot Occupancy;
     CacheCleanupMetricsSnapshot Cleanup;
+    CacheInvalidationMetricsSnapshot CacheInvalidations;
     RelationMetricsSnapshot Relations;
     RowCacheMetricsSnapshot RowCache;
     CacheNotificationMetricsSnapshot CacheNotifications;
@@ -120,6 +123,7 @@ DataLinqTableMetricsSnapshot
     MutationMetricsSnapshot Mutations;
     CacheOccupancyMetricsSnapshot Occupancy;
     CacheCleanupMetricsSnapshot Cleanup;
+    CacheInvalidationMetricsSnapshot CacheInvalidations;
     RelationMetricsSnapshot Relations;
     RowCacheMetricsSnapshot RowCache;
     CacheNotificationMetricsSnapshot CacheNotifications;
@@ -158,12 +162,25 @@ This is where people most often fool themselves.
 - `Rows`, `TransactionRows`, `Bytes`, and `IndexEntries` are gauges.
 - They describe current state, not cumulative history.
 - They are table-owned and summed upward.
+- `Bytes` is estimated row-payload bytes. It is not total cache memory footprint and does not include row-store overhead, transaction cache structures, index dictionaries, relation objects, notification queues, or cache history.
 
 ### Cache cleanup metrics
 
 - `Operations` and `RowsRemoved` are counters.
 - `TotalDurationMicroseconds` is cumulative cleanup duration.
 - They are table-owned and summed upward.
+
+### Cache invalidation metrics
+
+- `Operations` counts table-level invalidation records. A database-scope invalidation records one child operation per table so the table dimension stays useful.
+- `RowsRemoved`, `TablesCleared`, `ProviderKeys`, `ChangedColumns`, `ChangedIndexValues`, and `ApproximateWork` are counters.
+- `PreciseOperations` counts provider-key precise invalidation records.
+- `ConservativeFallbackOperations` counts invalidation records that cleared a table or database because the signal was intentionally broad or missing enough relation/index detail.
+- `DatabaseScopeOperations`, `TableScopeOperations`, `RowScopeOperations`, and `RowsScopeOperations` split records by invalidation scope.
+- `TotalDurationMicroseconds` is cumulative invalidation duration.
+- They are table-owned and summed upward.
+
+These counters tell you what DataLinq did after an explicit signal. They do not prove the database row is fresh, and they do not imply automatic distributed cache coherence.
 
 ### Row cache metrics
 
@@ -200,6 +217,7 @@ var totalMutationRows = snapshot.Mutations.AffectedRows;
 var totalCachedRows = snapshot.Occupancy.Rows;
 var totalRowCacheHits = snapshot.RowCache.Hits;
 var totalNotificationDepth = snapshot.CacheNotifications.ApproximateCurrentQueueDepth;
+var totalInvalidationRows = snapshot.CacheInvalidations.RowsRemoved;
 
 // Provider-level drilldown
 foreach (var provider in snapshot.Providers)
@@ -218,6 +236,7 @@ foreach (var provider in snapshot.Providers)
         Console.WriteLine($"      Mutations: {table.Mutations.TotalExecutions}");
         Console.WriteLine($"      Cached rows: {table.Occupancy.Rows}");
         Console.WriteLine($"      Row cache hits: {table.RowCache.Hits}");
+        Console.WriteLine($"      Invalidation rows removed: {table.CacheInvalidations.RowsRemoved}");
         Console.WriteLine($"      Notification depth: {table.CacheNotifications.ApproximateCurrentQueueDepth}");
     }
 }
@@ -254,11 +273,25 @@ The exported surface now covers the main runtime paths:
 - mutation count, affected rows, and duration
 - row-cache hit/miss/store counters
 - relation cache hit/load counters
-- cache occupancy gauges for rows, transaction rows, bytes, and index entries
+- cache occupancy gauges for rows, transaction rows, estimated row-payload bytes, and index entries
 - cache-notification queue depth gauges
 - cache maintenance counters and duration
+- cache invalidation counters and duration, tagged by source, scope, table, fallback path, freshness state, and approximate work bucket
 
 SQL text is still a logging concern, not a metric tag. That is deliberate. Putting SQL text into metric tags would be a cardinality bug.
+
+### Cache invalidation tags
+
+Invalidation metrics use low-cardinality tags:
+
+- `datalinq.cache.invalidation.source`: `manual`, `external`, `mutation`, `cleanup`, `freshness`, or `memory_pressure`
+- `datalinq.cache.invalidation.scope`: `database`, `table`, `row`, or `rows`
+- `datalinq.table`: the table touched by the invalidation record
+- `datalinq.cache.invalidation.path`: `provider_key_precise` or `conservative_fallback`
+- `datalinq.cache.invalidation.work`: `single_row`, `rows_small`, `rows_medium`, `rows_many`, `table`, or `database`
+- `datalinq.cache.freshness_state`: stable freshness vocabulary such as `externally_invalidated`
+
+There is intentionally no CDC-specific source constant yet. A Debezium/Kafka/trigger adapter can feed `external` events today and map to a more specific source only after that adapter exists as shipped behavior.
 
 ## Local Inspection with `dotnet-counters`
 

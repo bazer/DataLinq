@@ -15,6 +15,7 @@ namespace DataLinq.Diagnostics;
 /// <param name="Mutations">Mutation metrics owned by this provider instance.</param>
 /// <param name="Occupancy">Current cache occupancy summed from this provider instance's tables.</param>
 /// <param name="Cleanup">Cache maintenance metrics summed from this provider instance's tables.</param>
+/// <param name="CacheInvalidations">Cache invalidation metrics summed from this provider instance's tables.</param>
 /// <param name="Relations">Relation metrics summed from this provider instance's tables.</param>
 /// <param name="RowCache">Row cache metrics summed from this provider instance's tables.</param>
 /// <param name="CacheNotifications">Cache notification metrics summed from this provider instance's tables.</param>
@@ -30,6 +31,7 @@ public readonly record struct DataLinqProviderMetricsSnapshot(
     MutationMetricsSnapshot Mutations,
     CacheOccupancyMetricsSnapshot Occupancy,
     CacheCleanupMetricsSnapshot Cleanup,
+    CacheInvalidationMetricsSnapshot CacheInvalidations,
     RelationMetricsSnapshot Relations,
     RowCacheMetricsSnapshot RowCache,
     CacheNotificationMetricsSnapshot CacheNotifications,

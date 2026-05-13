@@ -39,12 +39,30 @@ public class DataLinqMetricsTests
         employeesA.RecordRelationReferenceLoad();
         employeesA.RecordCacheNotificationSubscribe(5);
         employeesA.RecordCacheNotificationNotifySweep(snapshotEntries: 5, liveSubscribers: 4, currentQueueDepth: 1);
+        employeesA.RecordCacheInvalidation(
+            CacheInvalidationScope.Row,
+            rowsRemoved: 1,
+            tablesCleared: 0,
+            providerKeyCount: 1,
+            changedColumnCount: 1,
+            changedIndexValueCount: 0,
+            usedConservativeFallback: false,
+            duration: TimeSpan.FromMilliseconds(2));
 
         deptEmpA.RecordRowCacheHits(3);
         deptEmpA.RecordRelationCollectionCacheHit();
         deptEmpA.RecordRelationCollectionLoad();
         deptEmpA.RecordCacheNotificationSubscribe(7);
         deptEmpA.RecordCacheNotificationCleanSweep(snapshotEntries: 7, requeuedSubscribers: 6, droppedSubscribers: 1, currentQueueDepth: 6);
+        deptEmpA.RecordCacheInvalidation(
+            CacheInvalidationScope.Table,
+            rowsRemoved: 3,
+            tablesCleared: 1,
+            providerKeyCount: 0,
+            changedColumnCount: 0,
+            changedIndexValueCount: 0,
+            usedConservativeFallback: true,
+            duration: TimeSpan.FromMilliseconds(3));
 
         employeesB.RecordRowCacheMisses(4);
         employeesB.RecordDatabaseRowsLoaded(4);
@@ -54,6 +72,15 @@ public class DataLinqMetricsTests
         employeesB.RecordRelationReferenceLoad();
         employeesB.RecordCacheNotificationSubscribe(3);
         employeesB.RecordCacheNotificationCleanBusySkip();
+        employeesB.RecordCacheInvalidation(
+            CacheInvalidationScope.Rows,
+            rowsRemoved: 4,
+            tablesCleared: 0,
+            providerKeyCount: 4,
+            changedColumnCount: 0,
+            changedIndexValueCount: 0,
+            usedConservativeFallback: false,
+            duration: TimeSpan.FromMilliseconds(5));
 
         var snapshot = DataLinqMetrics.Snapshot();
 
@@ -94,6 +121,17 @@ public class DataLinqMetricsTests
         await Assert.That(providerSnapshotA.CacheNotifications.LastCleanDroppedSubscribers).IsEqualTo(1);
         await Assert.That(providerSnapshotA.CacheNotifications.CleanDroppedSubscribers).IsEqualTo(1);
         await Assert.That(providerSnapshotA.CacheNotifications.ApproximatePeakQueueDepth).IsEqualTo(7);
+        await Assert.That(providerSnapshotA.CacheInvalidations.Operations).IsEqualTo(2);
+        await Assert.That(providerSnapshotA.CacheInvalidations.RowsRemoved).IsEqualTo(4);
+        await Assert.That(providerSnapshotA.CacheInvalidations.TablesCleared).IsEqualTo(1);
+        await Assert.That(providerSnapshotA.CacheInvalidations.ProviderKeys).IsEqualTo(1);
+        await Assert.That(providerSnapshotA.CacheInvalidations.ChangedColumns).IsEqualTo(1);
+        await Assert.That(providerSnapshotA.CacheInvalidations.ApproximateWork).IsEqualTo(7);
+        await Assert.That(providerSnapshotA.CacheInvalidations.PreciseOperations).IsEqualTo(1);
+        await Assert.That(providerSnapshotA.CacheInvalidations.ConservativeFallbackOperations).IsEqualTo(1);
+        await Assert.That(providerSnapshotA.CacheInvalidations.RowScopeOperations).IsEqualTo(1);
+        await Assert.That(providerSnapshotA.CacheInvalidations.TableScopeOperations).IsEqualTo(1);
+        await Assert.That(providerSnapshotA.CacheInvalidations.TotalDurationMicroseconds).IsEqualTo(5000);
 
         await Assert.That(providerSnapshotB.RowCache.Hits).IsEqualTo(0);
         await Assert.That(providerSnapshotB.RowCache.Misses).IsEqualTo(4);
@@ -104,6 +142,12 @@ public class DataLinqMetricsTests
         await Assert.That(providerSnapshotB.CacheNotifications.Subscriptions).IsEqualTo(1);
         await Assert.That(providerSnapshotB.CacheNotifications.CleanBusySkips).IsEqualTo(1);
         await Assert.That(providerSnapshotB.CacheNotifications.ApproximatePeakQueueDepth).IsEqualTo(3);
+        await Assert.That(providerSnapshotB.CacheInvalidations.Operations).IsEqualTo(1);
+        await Assert.That(providerSnapshotB.CacheInvalidations.RowsRemoved).IsEqualTo(4);
+        await Assert.That(providerSnapshotB.CacheInvalidations.ProviderKeys).IsEqualTo(4);
+        await Assert.That(providerSnapshotB.CacheInvalidations.ApproximateWork).IsEqualTo(8);
+        await Assert.That(providerSnapshotB.CacheInvalidations.PreciseOperations).IsEqualTo(1);
+        await Assert.That(providerSnapshotB.CacheInvalidations.RowsScopeOperations).IsEqualTo(1);
 
         await Assert.That(snapshot.Queries.EntityExecutions).IsEqualTo(
             providerSnapshotA.Queries.EntityExecutions + providerSnapshotB.Queries.EntityExecutions);
@@ -126,6 +170,15 @@ public class DataLinqMetricsTests
         await Assert.That(snapshot.CacheNotifications.CleanBusySkips).IsEqualTo(
             providerSnapshotA.CacheNotifications.CleanBusySkips + providerSnapshotB.CacheNotifications.CleanBusySkips);
         await Assert.That(snapshot.CacheNotifications.ApproximatePeakQueueDepth).IsEqualTo(7);
+        await Assert.That(snapshot.CacheInvalidations.Operations).IsEqualTo(
+            providerSnapshotA.CacheInvalidations.Operations + providerSnapshotB.CacheInvalidations.Operations);
+        await Assert.That(snapshot.CacheInvalidations.RowsRemoved).IsEqualTo(
+            providerSnapshotA.CacheInvalidations.RowsRemoved + providerSnapshotB.CacheInvalidations.RowsRemoved);
+        await Assert.That(snapshot.CacheInvalidations.TablesCleared).IsEqualTo(1);
+        await Assert.That(snapshot.CacheInvalidations.ProviderKeys).IsEqualTo(5);
+        await Assert.That(snapshot.CacheInvalidations.ApproximateWork).IsEqualTo(15);
+        await Assert.That(snapshot.CacheInvalidations.PreciseOperations).IsEqualTo(2);
+        await Assert.That(snapshot.CacheInvalidations.ConservativeFallbackOperations).IsEqualTo(1);
     }
 
     private sealed class FakeDatabaseProvider(string telemetryInstanceId, string databaseName, DatabaseType databaseType) : IDatabaseProvider

@@ -72,7 +72,33 @@ Relations are backed by index caches that map foreign-key values to related prim
 
 The useful consequence is simple: relation traversal gets cheaper after the first lookup, and relation-aware writes can update what the in-memory graph sees.
 
-If you need to inspect what the cache subsystem is actually doing at runtime, see [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md). That page documents the shipped `DataLinqMetrics` API, including row-cache, relation, and cache-notification metrics.
+If you need to inspect what the cache subsystem is actually doing at runtime, see [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md). That page documents the shipped `DataLinqMetrics` API, including row-cache, relation, invalidation, and cache-notification metrics.
+
+## Explicit Cache Invalidation
+
+Applications can explicitly invalidate DataLinq caches through `database.Cache`.
+
+The shipped scopes are deliberately simple:
+
+- `database.Cache.Clear()` clears all table caches for the database.
+- `database.Cache.ClearTable<TModel>()` and `database.Cache.ClearTable(table)` clear one table cache.
+- `database.Cache.Invalidate<TModel, TKey>(key)` invalidates one provider primary key.
+- `database.Cache.InvalidateMany<TModel>(keys)` invalidates several provider primary keys.
+- `database.Cache.Invalidate(CacheInvalidationEvent)` applies a normalized database, table, row, or rows invalidation envelope.
+
+Row and rows invalidation is provider-key precise when the event has enough key and relation/index detail. Table and database invalidation are conservative by definition. Row invalidation also falls back conservatively when changed columns imply relation/index state may have moved but the event does not include the old and new relation key values needed for precise cleanup.
+
+`CacheInvalidationEvent` is the integration boundary for work that happens outside the current `Database` instance. It is not an automatic distributed cache system. DataLinq does not ship Kafka, Debezium, trigger, or database CDC clients in this phase. If your application receives an external change signal, map it to an explicit event and call `database.Cache.Invalidate(...)`.
+
+Invalidation results report:
+
+- rows removed
+- tables cleared
+- whether a conservative fallback was used
+- freshness state, currently `ExternallyInvalidated` for event-driven invalidation
+- optional freshness token echoed from the event
+
+That last distinction matters. Invalidation says "drop what may be wrong." It does not prove the next row is fresh until a later read actually queries the provider.
 
 ## Mutation Model
 
@@ -171,6 +197,7 @@ For example:
 - row cache hits and misses tell you whether you are actually reusing rows
 - relation metrics show whether relation traversal is repeatedly reloading instead of hitting cache
 - cache-notification metrics show whether subscriber queues are growing, draining, or getting compacted
+- cache-invalidation metrics show explicit invalidation source, scope, precise versus fallback path, rows removed, tables cleared, and approximate work
 
 The detailed semantics and migration notes are documented in [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md).
 

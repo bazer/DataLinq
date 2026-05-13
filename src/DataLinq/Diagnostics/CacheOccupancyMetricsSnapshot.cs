@@ -7,7 +7,7 @@ namespace DataLinq.Diagnostics;
 /// </summary>
 /// <param name="Rows">Current number of rows stored in the row cache.</param>
 /// <param name="TransactionRows">Current number of rows stored in transaction-local caches.</param>
-/// <param name="Bytes">Current estimated row cache size in bytes.</param>
+/// <param name="Bytes">Current estimated row-payload bytes in the row cache, not total cache memory footprint.</param>
 /// <param name="IndexEntries">Current number of cached index entries.</param>
 public readonly record struct CacheOccupancyMetricsSnapshot(
     long Rows,

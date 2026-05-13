@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -23,7 +25,27 @@ public sealed class DatabaseCacheFacade<TDatabase>
     /// <summary>
     /// Clears all row and index caches for the database.
     /// </summary>
-    public void Clear() => database.Provider.State.Cache.ClearCache();
+    public void Clear()
+    {
+        foreach (var tableCache in database.Provider.State.Cache.TableCaches.Values.ToArray())
+        {
+            var rowsRemoved = tableCache.RowCount;
+            var startedAt = Stopwatch.GetTimestamp();
+            tableCache.ClearCache();
+            RecordInvalidation(
+                tableCache,
+                CacheInvalidationSources.Manual,
+                CacheInvalidationScope.Database,
+                CacheFreshnessState.Unknown,
+                rowsRemoved,
+                tablesCleared: 1,
+                providerKeyCount: 0,
+                changedColumnCount: 0,
+                changedIndexValueCount: 0,
+                usedConservativeFallback: true,
+                duration: Stopwatch.GetElapsedTime(startedAt));
+        }
+    }
 
     /// <summary>
     /// Clears row and index caches for the table that backs <typeparamref name="TModel"/>.
@@ -31,7 +53,7 @@ public sealed class DatabaseCacheFacade<TDatabase>
     public void ClearTable<TModel>()
         where TModel : IImmutableInstance
     {
-        ResolveTableCache<TModel>().ClearCache();
+        ClearTableCache(ResolveTableCache<TModel>(), CacheInvalidationScope.Table);
     }
 
     /// <summary>
@@ -39,7 +61,7 @@ public sealed class DatabaseCacheFacade<TDatabase>
     /// </summary>
     public void ClearTable(TableDefinition table)
     {
-        ResolveTableCache(table).ClearCache();
+        ClearTableCache(ResolveTableCache(table), CacheInvalidationScope.Table);
     }
 
     /// <summary>
@@ -57,7 +79,22 @@ public sealed class DatabaseCacheFacade<TDatabase>
         var normalizedKey = ToDataLinqKey(providerPrimaryKey);
         ValidateProviderPrimaryKey(tableCache.Table, normalizedKey, nameof(providerPrimaryKey));
 
-        return tableCache.InvalidateProviderKey(providerPrimaryKey, normalizedKey) > 0;
+        var startedAt = Stopwatch.GetTimestamp();
+        var rowsRemoved = tableCache.InvalidateProviderKey(providerPrimaryKey, normalizedKey);
+        RecordInvalidation(
+            tableCache,
+            CacheInvalidationSources.Manual,
+            CacheInvalidationScope.Row,
+            CacheFreshnessState.Unknown,
+            rowsRemoved,
+            tablesCleared: 0,
+            providerKeyCount: 1,
+            changedColumnCount: 0,
+            changedIndexValueCount: 0,
+            usedConservativeFallback: false,
+            duration: Stopwatch.GetElapsedTime(startedAt));
+
+        return rowsRemoved > 0;
     }
 
     /// <summary>
@@ -71,7 +108,22 @@ public sealed class DatabaseCacheFacade<TDatabase>
         var normalizedKey = providerPrimaryKey.ToDataLinqKey();
         ValidateProviderPrimaryKey(tableCache.Table, normalizedKey, nameof(providerPrimaryKey));
 
-        return tableCache.InvalidateProviderKey(normalizedKey, normalizedKey) > 0;
+        var startedAt = Stopwatch.GetTimestamp();
+        var rowsRemoved = tableCache.InvalidateProviderKey(normalizedKey, normalizedKey);
+        RecordInvalidation(
+            tableCache,
+            CacheInvalidationSources.Manual,
+            CacheInvalidationScope.Row,
+            CacheFreshnessState.Unknown,
+            rowsRemoved,
+            tablesCleared: 0,
+            providerKeyCount: 1,
+            changedColumnCount: 0,
+            changedIndexValueCount: 0,
+            usedConservativeFallback: false,
+            duration: Stopwatch.GetElapsedTime(startedAt));
+
+        return rowsRemoved > 0;
     }
 
     /// <summary>
@@ -84,7 +136,22 @@ public sealed class DatabaseCacheFacade<TDatabase>
         var normalizedKey = providerPrimaryKey.ToDataLinqKey();
         ValidateProviderPrimaryKey(tableCache.Table, normalizedKey, nameof(providerPrimaryKey));
 
-        return tableCache.InvalidateProviderKey(normalizedKey, normalizedKey) > 0;
+        var startedAt = Stopwatch.GetTimestamp();
+        var rowsRemoved = tableCache.InvalidateProviderKey(normalizedKey, normalizedKey);
+        RecordInvalidation(
+            tableCache,
+            CacheInvalidationSources.Manual,
+            CacheInvalidationScope.Row,
+            CacheFreshnessState.Unknown,
+            rowsRemoved,
+            tablesCleared: 0,
+            providerKeyCount: 1,
+            changedColumnCount: 0,
+            changedIndexValueCount: 0,
+            usedConservativeFallback: false,
+            duration: Stopwatch.GetElapsedTime(startedAt));
+
+        return rowsRemoved > 0;
     }
 
     /// <summary>
@@ -104,7 +171,22 @@ public sealed class DatabaseCacheFacade<TDatabase>
             ValidateProviderPrimaryKey(tableCache.Table, normalizedKeys[i], $"{nameof(providerPrimaryKeys)}[{i}]");
         }
 
-        return tableCache.InvalidateProviderKeys(normalizedKeys);
+        var startedAt = Stopwatch.GetTimestamp();
+        var rowsRemoved = tableCache.InvalidateProviderKeys(normalizedKeys);
+        RecordInvalidation(
+            tableCache,
+            CacheInvalidationSources.Manual,
+            CacheInvalidationScope.Rows,
+            CacheFreshnessState.Unknown,
+            rowsRemoved,
+            tablesCleared: 0,
+            providerKeyCount: normalizedKeys.Length,
+            changedColumnCount: 0,
+            changedIndexValueCount: 0,
+            usedConservativeFallback: false,
+            duration: Stopwatch.GetElapsedTime(startedAt));
+
+        return rowsRemoved;
     }
 
     /// <summary>
@@ -125,7 +207,22 @@ public sealed class DatabaseCacheFacade<TDatabase>
             ValidateProviderPrimaryKey(tableCache.Table, normalizedKeys[i], $"{nameof(providerPrimaryKeys)}[{i}]");
         }
 
-        return tableCache.InvalidateProviderKeys(normalizedKeys);
+        var startedAt = Stopwatch.GetTimestamp();
+        var rowsRemoved = tableCache.InvalidateProviderKeys(normalizedKeys);
+        RecordInvalidation(
+            tableCache,
+            CacheInvalidationSources.Manual,
+            CacheInvalidationScope.Rows,
+            CacheFreshnessState.Unknown,
+            rowsRemoved,
+            tablesCleared: 0,
+            providerKeyCount: normalizedKeys.Length,
+            changedColumnCount: 0,
+            changedIndexValueCount: 0,
+            usedConservativeFallback: false,
+            duration: Stopwatch.GetElapsedTime(startedAt));
+
+        return rowsRemoved;
     }
 
     /// <summary>
@@ -195,9 +292,27 @@ public sealed class DatabaseCacheFacade<TDatabase>
 
     private CacheInvalidationResult InvalidateDatabaseEvent(CacheInvalidationEvent invalidationEvent)
     {
-        var rows = database.Provider.State.Cache.TableCaches.Values.Sum(x => x.RowCount);
-        var tables = database.Provider.State.Cache.TableCaches.Count;
-        Clear();
+        var tableCaches = database.Provider.State.Cache.TableCaches.Values.ToArray();
+        var rows = 0;
+        var tables = tableCaches.Length;
+
+        foreach (var tableCache in tableCaches)
+        {
+            var tableRows = tableCache.RowCount;
+            var startedAt = Stopwatch.GetTimestamp();
+            tableCache.ClearCache();
+            rows += tableRows;
+            RecordEventInvalidation(
+                tableCache,
+                invalidationEvent,
+                tableRows,
+                tablesCleared: 1,
+                providerKeyCount: 0,
+                changedColumnCount: invalidationEvent.ChangedColumns.Count,
+                changedIndexValueCount: invalidationEvent.ChangedIndexValues.Count,
+                usedConservativeFallback: true,
+                duration: Stopwatch.GetElapsedTime(startedAt));
+        }
 
         return CreateInvalidationResult(rows, tables, usedConservativeFallback: true, invalidationEvent);
     }
@@ -206,7 +321,18 @@ public sealed class DatabaseCacheFacade<TDatabase>
     {
         var tableCache = ResolveTableCache(GetRequiredTableName(invalidationEvent));
         var rows = tableCache.RowCount;
+        var startedAt = Stopwatch.GetTimestamp();
         tableCache.ClearCache();
+        RecordEventInvalidation(
+            tableCache,
+            invalidationEvent,
+            rows,
+            tablesCleared: 1,
+            providerKeyCount: 0,
+            changedColumnCount: invalidationEvent.ChangedColumns.Count,
+            changedIndexValueCount: invalidationEvent.ChangedIndexValues.Count,
+            usedConservativeFallback: true,
+            duration: Stopwatch.GetElapsedTime(startedAt));
 
         return CreateInvalidationResult(rows, tablesCleared: 1, usedConservativeFallback: true, invalidationEvent);
     }
@@ -216,7 +342,18 @@ public sealed class DatabaseCacheFacade<TDatabase>
         var tableCache = ResolveTableCache(GetRequiredTableName(invalidationEvent));
         var primaryKeys = NormalizePrimaryKeys(tableCache.Table, invalidationEvent.ProviderPrimaryKeys, expectedSingleRow);
         var impact = BuildImpact(tableCache.Table, invalidationEvent, primaryKeys, out var usedConservativeFallback);
+        var startedAt = Stopwatch.GetTimestamp();
         var rowsRemoved = tableCache.InvalidateProviderKeys(primaryKeys, impact);
+        RecordEventInvalidation(
+            tableCache,
+            invalidationEvent,
+            rowsRemoved,
+            tablesCleared: 0,
+            providerKeyCount: primaryKeys.Length,
+            changedColumnCount: invalidationEvent.ChangedColumns.Count,
+            changedIndexValueCount: invalidationEvent.ChangedIndexValues.Count,
+            usedConservativeFallback: usedConservativeFallback,
+            duration: Stopwatch.GetElapsedTime(startedAt));
 
         return CreateInvalidationResult(
             rowsRemoved,
@@ -236,6 +373,76 @@ public sealed class DatabaseCacheFacade<TDatabase>
             usedConservativeFallback,
             CacheFreshnessState.ExternallyInvalidated,
             invalidationEvent.FreshnessToken);
+
+    private void ClearTableCache(TableCache tableCache, CacheInvalidationScope scope)
+    {
+        var rowsRemoved = tableCache.RowCount;
+        var startedAt = Stopwatch.GetTimestamp();
+        tableCache.ClearCache();
+        RecordInvalidation(
+            tableCache,
+            CacheInvalidationSources.Manual,
+            scope,
+            CacheFreshnessState.Unknown,
+            rowsRemoved,
+            tablesCleared: 1,
+            providerKeyCount: 0,
+            changedColumnCount: 0,
+            changedIndexValueCount: 0,
+            usedConservativeFallback: true,
+            duration: Stopwatch.GetElapsedTime(startedAt));
+    }
+
+    private void RecordEventInvalidation(
+        TableCache tableCache,
+        CacheInvalidationEvent invalidationEvent,
+        int rowsRemoved,
+        int tablesCleared,
+        int providerKeyCount,
+        int changedColumnCount,
+        int changedIndexValueCount,
+        bool usedConservativeFallback,
+        TimeSpan duration) =>
+        RecordInvalidation(
+            tableCache,
+            invalidationEvent.Source,
+            invalidationEvent.Scope,
+            CacheFreshnessState.ExternallyInvalidated,
+            rowsRemoved,
+            tablesCleared,
+            providerKeyCount,
+            changedColumnCount,
+            changedIndexValueCount,
+            usedConservativeFallback,
+            duration);
+
+    private void RecordInvalidation(
+        TableCache tableCache,
+        string source,
+        CacheInvalidationScope scope,
+        CacheFreshnessState freshnessState,
+        int rowsRemoved,
+        int tablesCleared,
+        int providerKeyCount,
+        int changedColumnCount,
+        int changedIndexValueCount,
+        bool usedConservativeFallback,
+        TimeSpan duration)
+    {
+        DataLinqTelemetry.RecordCacheInvalidation(
+            DataLinqTelemetryContext.FromProvider(database.Provider),
+            tableCache.Table.DbName,
+            source,
+            scope,
+            freshnessState,
+            rowsRemoved,
+            tablesCleared,
+            providerKeyCount,
+            changedColumnCount,
+            changedIndexValueCount,
+            usedConservativeFallback,
+            duration);
+    }
 
     private void ValidateDatabaseName(CacheInvalidationEvent invalidationEvent)
     {

@@ -160,6 +160,70 @@ public class EmployeesPublicCacheInvalidationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Cache_ConcurrentExternalInvalidationDuringReads_ReturnsExpectedRows(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Cache_ConcurrentExternalInvalidationDuringReads_ReturnsExpectedRows),
+            EmployeesSeedMode.Bogus);
+
+        var database = databaseScope.Database;
+        database.Provider.State.ClearCache();
+
+        var employeeNumbers = database.Query().Employees
+            .OrderBy(x => x.emp_no)
+            .Select(x => x.emp_no!.Value)
+            .Take(provider.IsServerDatabase ? 8 : 16)
+            .ToArray();
+
+        foreach (var employeeNumber in employeeNumbers)
+            _ = database.Query().Employees.Single(x => x.emp_no == employeeNumber);
+
+        var iterations = provider.IsServerDatabase ? 24 : 80;
+        var readerTasks = Enumerable.Range(0, 4)
+            .Select(worker => Task.Run(() =>
+            {
+                var checksum = 0;
+                for (var i = 0; i < iterations; i++)
+                {
+                    var employeeNumber = employeeNumbers[(i + worker) % employeeNumbers.Length];
+                    var employee = database.Query().Employees.Single(x => x.emp_no == employeeNumber);
+                    checksum += employee.emp_no!.Value;
+                }
+
+                return checksum;
+            }))
+            .ToArray();
+
+        var invalidationTask = Task.Run(() =>
+        {
+            var removed = 0;
+            for (var i = 0; i < iterations; i++)
+            {
+                var employeeNumber = employeeNumbers[i % employeeNumbers.Length];
+                var result = database.Cache.Invalidate(CacheInvalidationEvent.Row(
+                    "employees",
+                    DataLinqKeyComponents.FromValue(employeeNumber),
+                    changedColumns: [nameof(Employee.first_name)],
+                    source: CacheInvalidationSources.External));
+
+                removed += result.RowsRemoved;
+            }
+
+            return removed;
+        });
+
+        await Task.WhenAll(readerTasks.Concat([invalidationTask]));
+
+        foreach (var employeeNumber in employeeNumbers)
+        {
+            var employee = database.Query().Employees.Single(x => x.emp_no == employeeNumber);
+            await Assert.That(employee.emp_no).IsEqualTo(employeeNumber);
+        }
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateUnknownProviderKey_IsNoOp(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(

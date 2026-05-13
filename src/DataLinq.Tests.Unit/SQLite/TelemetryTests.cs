@@ -265,6 +265,80 @@ public sealed class TelemetryTests
 
     [Test]
     [NotInParallel]
+    public async Task MeterAndSnapshot_ExposeCacheInvalidationMetricsForSQLite()
+    {
+        await WithTelemetryDatabase(async db =>
+        {
+            var longMeasurements = new List<(string InstrumentName, long Value, Dictionary<string, object?> Tags)>();
+
+            using var listener = new MeterListener();
+            listener.InstrumentPublished = (instrument, meterListener) =>
+            {
+                if (instrument.Meter.Name == "DataLinq")
+                    meterListener.EnableMeasurementEvents(instrument);
+            };
+            listener.SetMeasurementEventCallback<long>((instrument, measurement, tags, _) =>
+            {
+                longMeasurements.Add((instrument.Name, measurement, ToTagDictionary(tags)));
+            });
+            listener.Start();
+
+            await Assert.That(db.Provider.DatabaseAccess.ExecuteNonQuery("INSERT INTO telemetryrows (name) VALUES ('zeta')")).IsEqualTo(1);
+            var cachedRow = db.Query().Rows.Single(x => x.Name == "zeta");
+            await Assert.That(cachedRow.Id).IsNotNull();
+
+            DataLinqMetrics.Reset();
+            longMeasurements.Clear();
+
+            var result = db.Cache.Invalidate(CacheInvalidationEvent.Row(
+                "telemetryrows",
+                DataLinqKeyComponents.FromValue(cachedRow.Id!.Value),
+                changedColumns: [nameof(SQLiteTelemetryRow.Name)],
+                source: CacheInvalidationSources.External));
+
+            await Assert.That(result.RowsRemoved).IsEqualTo(1);
+            await Assert.That(result.UsedConservativeFallback).IsFalse();
+
+            var snapshot = DataLinqMetrics.Snapshot();
+            var provider = snapshot.Providers.Single();
+            var table = provider.Tables.Single(x => x.TableName == "telemetryrows");
+
+            await Assert.That(snapshot.CacheInvalidations.Operations).IsEqualTo(1);
+            await Assert.That(snapshot.CacheInvalidations.RowsRemoved).IsEqualTo(1);
+            await Assert.That(snapshot.CacheInvalidations.ProviderKeys).IsEqualTo(1);
+            await Assert.That(snapshot.CacheInvalidations.ChangedColumns).IsEqualTo(1);
+            await Assert.That(snapshot.CacheInvalidations.ApproximateWork).IsEqualTo(3);
+            await Assert.That(snapshot.CacheInvalidations.PreciseOperations).IsEqualTo(1);
+            await Assert.That(snapshot.CacheInvalidations.RowScopeOperations).IsEqualTo(1);
+            await Assert.That(provider.CacheInvalidations).IsEqualTo(snapshot.CacheInvalidations);
+            await Assert.That(table.CacheInvalidations).IsEqualTo(snapshot.CacheInvalidations);
+
+            var invalidationOperation = longMeasurements.Single(x =>
+                x.InstrumentName == "datalinq.cache.invalidations" &&
+                HasTag(x.Tags, "datalinq.table", "telemetryrows") &&
+                HasTag(x.Tags, "datalinq.cache.invalidation.source", "external") &&
+                HasTag(x.Tags, "datalinq.cache.invalidation.scope", "row") &&
+                HasTag(x.Tags, "datalinq.cache.invalidation.path", "provider_key_precise") &&
+                HasTag(x.Tags, "datalinq.cache.invalidation.work", "single_row") &&
+                HasTag(x.Tags, "datalinq.cache.freshness_state", "externally_invalidated"));
+            await Assert.That(invalidationOperation.Value).IsEqualTo(1L);
+
+            var rowsRemoved = longMeasurements.Single(x =>
+                x.InstrumentName == "datalinq.cache.invalidation.rows_removed" &&
+                HasTag(x.Tags, "datalinq.table", "telemetryrows") &&
+                HasTag(x.Tags, "datalinq.cache.invalidation.source", "external"));
+            await Assert.That(rowsRemoved.Value).IsEqualTo(1L);
+
+            var approximateWork = longMeasurements.Single(x =>
+                x.InstrumentName == "datalinq.cache.invalidation.work" &&
+                HasTag(x.Tags, "datalinq.table", "telemetryrows") &&
+                HasTag(x.Tags, "datalinq.cache.invalidation.work", "single_row"));
+            await Assert.That(approximateWork.Value).IsEqualTo(3L);
+        });
+    }
+
+    [Test]
+    [NotInParallel]
     public async Task Meter_ExposesCacheOccupancyAndCleanupMetricsForSQLite()
     {
         await WithTelemetryDatabase(async db =>
