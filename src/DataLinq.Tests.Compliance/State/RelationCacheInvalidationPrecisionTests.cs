@@ -162,6 +162,7 @@ public class RelationCacheInvalidationPrecisionTests
                 ]));
 
             await Assert.That(result.UsedConservativeFallback).IsFalse();
+            await Assert.That(result.FreshnessState).IsEqualTo(CacheFreshnessState.ExternallyInvalidated);
             await Assert.That(firstCreatedInvoices).IsEmpty();
             await Assert.That(secondCreatedInvoices.Select(x => x.Id).Order().ToArray()).IsEquivalentTo([100, 101]);
             await Assert.That(firstApprovedInvoices.Select(x => x.Id).ToArray()).IsEquivalentTo([101]);
@@ -219,6 +220,7 @@ public class RelationCacheInvalidationPrecisionTests
                 changedColumns: ["created_by_account_id"]));
 
             await Assert.That(result.UsedConservativeFallback).IsTrue();
+            await Assert.That(result.FreshnessState).IsEqualTo(CacheFreshnessState.ExternallyInvalidated);
             await Assert.That(firstCreatedInvoices).IsEmpty();
             await Assert.That(secondCreatedInvoices.Select(x => x.Id).Order().ToArray()).IsEquivalentTo([100, 101]);
             await Assert.That(firstApprovedInvoices.Select(x => x.Id).ToArray()).IsEquivalentTo([101]);
@@ -496,6 +498,7 @@ public class RelationCacheInvalidationPrecisionTests
                 changedColumns: ["name"]));
 
             await Assert.That(result.UsedConservativeFallback).IsFalse();
+            await Assert.That(result.FreshnessState).IsEqualTo(CacheFreshnessState.ExternallyInvalidated);
             await Assert.That(invoice.CreatedByAccount.Name).IsEqualTo("Creator Event");
 
             var afterInvalidate = GetTableMetrics(databaseScope.Database, "runtime_accounts");

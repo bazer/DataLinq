@@ -140,7 +140,7 @@ public sealed class DatabaseCacheFacade<TDatabase>
 
         return invalidationEvent.Scope switch
         {
-            CacheInvalidationScope.Database => InvalidateDatabaseEvent(),
+            CacheInvalidationScope.Database => InvalidateDatabaseEvent(invalidationEvent),
             CacheInvalidationScope.Table => InvalidateTableEvent(invalidationEvent),
             CacheInvalidationScope.Row => InvalidateRowsEvent(invalidationEvent, expectedSingleRow: true),
             CacheInvalidationScope.Rows => InvalidateRowsEvent(invalidationEvent, expectedSingleRow: false),
@@ -193,13 +193,13 @@ public sealed class DatabaseCacheFacade<TDatabase>
         return DataLinqKey.FromValue(providerPrimaryKey);
     }
 
-    private CacheInvalidationResult InvalidateDatabaseEvent()
+    private CacheInvalidationResult InvalidateDatabaseEvent(CacheInvalidationEvent invalidationEvent)
     {
         var rows = database.Provider.State.Cache.TableCaches.Values.Sum(x => x.RowCount);
         var tables = database.Provider.State.Cache.TableCaches.Count;
         Clear();
 
-        return new CacheInvalidationResult(rows, tables, UsedConservativeFallback: true);
+        return CreateInvalidationResult(rows, tables, usedConservativeFallback: true, invalidationEvent);
     }
 
     private CacheInvalidationResult InvalidateTableEvent(CacheInvalidationEvent invalidationEvent)
@@ -208,7 +208,7 @@ public sealed class DatabaseCacheFacade<TDatabase>
         var rows = tableCache.RowCount;
         tableCache.ClearCache();
 
-        return new CacheInvalidationResult(rows, TablesCleared: 1, UsedConservativeFallback: true);
+        return CreateInvalidationResult(rows, tablesCleared: 1, usedConservativeFallback: true, invalidationEvent);
     }
 
     private CacheInvalidationResult InvalidateRowsEvent(CacheInvalidationEvent invalidationEvent, bool expectedSingleRow)
@@ -218,11 +218,24 @@ public sealed class DatabaseCacheFacade<TDatabase>
         var impact = BuildImpact(tableCache.Table, invalidationEvent, primaryKeys, out var usedConservativeFallback);
         var rowsRemoved = tableCache.InvalidateProviderKeys(primaryKeys, impact);
 
-        return new CacheInvalidationResult(
+        return CreateInvalidationResult(
             rowsRemoved,
-            TablesCleared: 0,
-            usedConservativeFallback);
+            tablesCleared: 0,
+            usedConservativeFallback,
+            invalidationEvent);
     }
+
+    private static CacheInvalidationResult CreateInvalidationResult(
+        int rowsRemoved,
+        int tablesCleared,
+        bool usedConservativeFallback,
+        CacheInvalidationEvent invalidationEvent) =>
+        new(
+            rowsRemoved,
+            tablesCleared,
+            usedConservativeFallback,
+            CacheFreshnessState.ExternallyInvalidated,
+            invalidationEvent.FreshnessToken);
 
     private void ValidateDatabaseName(CacheInvalidationEvent invalidationEvent)
     {

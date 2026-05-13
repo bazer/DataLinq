@@ -121,10 +121,13 @@ public class EmployeesPublicCacheInvalidationTests
         var result = database.Cache.Invalidate(CacheInvalidationEvent.Row(
             "employees",
             DataLinqKeyComponents.FromValue(employeeNumber),
-            changedColumns: [nameof(Employee.first_name)]));
+            changedColumns: [nameof(Employee.first_name)],
+            freshnessToken: "employees-100"));
 
         await Assert.That(result.RowsRemoved).IsEqualTo(1);
         await Assert.That(result.UsedConservativeFallback).IsFalse();
+        await Assert.That(result.FreshnessState).IsEqualTo(CacheFreshnessState.ExternallyInvalidated);
+        await Assert.That(result.FreshnessToken).IsEqualTo("employees-100");
         await Assert.That(employeeCache.RowCount).IsEqualTo(0);
     }
 
@@ -150,6 +153,7 @@ public class EmployeesPublicCacheInvalidationTests
 
         await Assert.That(result.TablesCleared).IsEqualTo(1);
         await Assert.That(result.UsedConservativeFallback).IsTrue();
+        await Assert.That(result.FreshnessState).IsEqualTo(CacheFreshnessState.ExternallyInvalidated);
         await Assert.That(employeeCache.RowCount).IsEqualTo(0);
         await Assert.That(departmentCache.RowCount).IsEqualTo(1);
     }

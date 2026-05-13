@@ -23,6 +23,35 @@ public static class CacheInvalidationSources
     public const string MemoryPressure = "memory_pressure";
 }
 
+public enum CacheFreshnessState
+{
+    Unknown,
+    AssumedFresh,
+    ExternallyInvalidated,
+    FreshnessChecked,
+    Stale
+}
+
+public static class CacheFreshnessStateNames
+{
+    public const string Unknown = "unknown";
+    public const string AssumedFresh = "assumed_fresh";
+    public const string ExternallyInvalidated = "externally_invalidated";
+    public const string FreshnessChecked = "freshness_checked";
+    public const string Stale = "stale";
+
+    public static string GetName(CacheFreshnessState state) =>
+        state switch
+        {
+            CacheFreshnessState.Unknown => Unknown,
+            CacheFreshnessState.AssumedFresh => AssumedFresh,
+            CacheFreshnessState.ExternallyInvalidated => ExternallyInvalidated,
+            CacheFreshnessState.FreshnessChecked => FreshnessChecked,
+            CacheFreshnessState.Stale => Stale,
+            _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Unsupported cache freshness state.")
+        };
+}
+
 public sealed class CacheIndexInvalidation
 {
     public IReadOnlyList<string> Columns { get; init; } = [];
@@ -188,4 +217,6 @@ public sealed class CacheInvalidationEvent
 public readonly record struct CacheInvalidationResult(
     int RowsRemoved,
     int TablesCleared,
-    bool UsedConservativeFallback);
+    bool UsedConservativeFallback,
+    CacheFreshnessState FreshnessState = CacheFreshnessState.Unknown,
+    string? FreshnessToken = null);

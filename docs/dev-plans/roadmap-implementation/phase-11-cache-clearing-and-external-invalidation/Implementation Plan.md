@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 11 Implementation Plan: Cache Clearing and External Invalidation
 
-**Status:** In progress. Workstreams A, B, and C implemented on 2026-05-13.
+**Status:** In progress. Workstreams A, B, C, and D implemented on 2026-05-13.
 
 ## Purpose
 
@@ -277,20 +277,46 @@ Goals:
 
 Tasks:
 
-1. Define freshness states:
+1. [x] Define freshness states:
    - unknown
    - assumed fresh within current cache policy
    - externally invalidated
    - freshness checked
    - stale
-2. Decide which states are represented in code now versus planning only.
-3. Add telemetry names that do not need to change when provider-backed freshness checks arrive later.
-4. Document that Phase 11 invalidation does not prove external freshness; it reacts to explicit signals.
+2. [x] Decide which states are represented in code now versus planning only.
+3. [x] Add telemetry names that do not need to change when provider-backed freshness checks arrive later.
+4. [x] Document that Phase 11 invalidation does not prove external freshness; it reacts to explicit signals.
+
+Implementation status, 2026-05-13:
+
+- Added `CacheFreshnessState` with `Unknown`, `AssumedFresh`, `ExternallyInvalidated`, `FreshnessChecked`, and `Stale`.
+- Added `CacheFreshnessStateNames` so future telemetry can use stable lowercase labels: `unknown`, `assumed_fresh`, `externally_invalidated`, `freshness_checked`, and `stale`.
+- Extended `CacheInvalidationResult` with `FreshnessState` and `FreshnessToken`.
+- Event-driven invalidation returns `CacheFreshnessState.ExternallyInvalidated` and echoes the optional event freshness token.
+- Phase 11 still does not claim provider-backed freshness checks. No path returns `FreshnessChecked`, `AssumedFresh`, or `Stale` yet; those states are reserved vocabulary for later row-version, row-hash, and result-set cache work.
+- Kept direct clear/invalidate methods focused on eviction and no-op row removal semantics. Freshness-state reporting currently belongs to normalized event invalidation because that is the event envelope future adapters will feed.
+- Added unit coverage for stable freshness state labels and compliance coverage that invalidation results report external invalidation, not freshness proof.
 
 Exit criteria:
 
 - code and docs can distinguish invalidation from freshness proof
 - result-set caching and row-version work can reuse the vocabulary
+
+Workstream D verification, 2026-05-13:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 build src\DataLinq\DataLinq.csproj -c Debug -v minimal --no-incremental
+.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj -c Debug -v minimal --no-incremental
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --alias quick --output failures --build
+```
+
+Results:
+
+- `DataLinq` build passed for `net8.0`, `net9.0`, and `net10.0`.
+- Compliance build passed for `net10.0`.
+- Compliance quick passed: 453/453 against `sqlite-file` and `sqlite-memory`.
+- Unit quick passed: 549/549.
 
 ## Workstream E: Diagnostics, Benchmarks, And Closeout
 
