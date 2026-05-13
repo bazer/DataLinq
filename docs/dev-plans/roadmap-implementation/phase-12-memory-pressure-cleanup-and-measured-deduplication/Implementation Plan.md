@@ -139,6 +139,7 @@ Exit criteria:
 Implementation notes:
 
 - 2026-05-13: Started component accounting with internal row-store estimates. `RowCache` now reports row payload separately from row-store overhead, with per-row overhead counters updated on add/remove/clear and transaction-local row caches remapped into transaction payload/overhead at the table estimate boundary.
+- 2026-05-13: Added index-cache estimates for retained primary-key arrays, foreign-key dictionaries, reverse-map dictionaries, `ImmutableArray` backing arrays, and tick queues. Reverse-map mutation now runs under the cache lock with explicit counter adjustments instead of optimistic `ConcurrentDictionary` update delegates.
 
 ## Workstream C: Diagnostics And Byte-Limit Cutover
 

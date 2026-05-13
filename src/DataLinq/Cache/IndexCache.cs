@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using DataLinq.Instances;
 
 namespace DataLinq.Cache;
@@ -13,6 +14,7 @@ internal interface IIndexCache
     int Count { get; }
     IEnumerable<DataLinqKey[]> Values { get; }
 
+    CacheMemoryEstimate GetMemoryEstimate();
     bool TryAdd<TKey>(TKey foreignKey, DataLinqKey[] primaryKeys)
         where TKey : notnull;
     bool TryRemove<TKey>(TKey foreignKey, out int numRowsRemoved)
@@ -36,13 +38,50 @@ internal class TypedIndexCache<TKey> : IIndexCache
     private (TKey keys, long ticks)? oldestTick;
     private readonly Queue<(TKey keys, long ticks)> ticks = new();
 
-    private readonly ConcurrentDictionary<DataLinqKey, ImmutableArray<TKey>> primaryKeysToForeignKeys = new();
+    private readonly Dictionary<DataLinqKey, ImmutableArray<TKey>> primaryKeysToForeignKeys = new();
 
     protected readonly ConcurrentDictionary<TKey, DataLinqKey[]> foreignKeys = new();
+    private long indexPayloadBytes;
+    private long reverseMappingValueBytes;
 
     public int Count => foreignKeys.Count;
 
     public Type KeyType => typeof(TKey);
+
+    public CacheMemoryEstimate GetMemoryEstimate()
+    {
+        int foreignKeyCount;
+        int reverseMapCount;
+        int tickCount;
+
+        lock (ticksQueueLock)
+        {
+            tickCount = ticks.Count;
+            lock (cacheLock)
+            {
+                foreignKeyCount = foreignKeys.Count;
+                reverseMapCount = primaryKeysToForeignKeys.Count;
+            }
+        }
+
+        var overheadBytes = CacheMemoryEstimator.IndexCacheContainerBytes;
+        overheadBytes = CacheMemoryEstimator.SaturatingAdd(
+            overheadBytes,
+            CacheMemoryEstimator.ConcurrentDictionaryOverheadBytes(foreignKeyCount));
+        overheadBytes = CacheMemoryEstimator.SaturatingAdd(
+            overheadBytes,
+            CacheMemoryEstimator.DictionaryOverheadBytes(reverseMapCount));
+        overheadBytes = CacheMemoryEstimator.SaturatingAdd(
+            overheadBytes,
+            Interlocked.Read(ref reverseMappingValueBytes));
+        overheadBytes = CacheMemoryEstimator.SaturatingAdd(
+            overheadBytes,
+            CacheMemoryEstimator.QueueOverheadBytes(tickCount, CacheMemoryEstimator.TickQueueEntryBytes(typeof(TKey))));
+
+        return new CacheMemoryEstimate(
+            IndexPayloadBytes: Interlocked.Read(ref indexPayloadBytes),
+            IndexOverheadBytes: overheadBytes);
+    }
 
     public bool TryAdd<TProviderKey>(TProviderKey foreignKey, DataLinqKey[] primaryKeys)
         where TProviderKey : notnull
@@ -61,6 +100,8 @@ internal class TypedIndexCache<TKey> : IIndexCache
             {
                 if (!foreignKeys.TryAdd(foreignKey, primaryKeys))
                     return false;
+
+                Interlocked.Add(ref indexPayloadBytes, EstimatePrimaryKeyArrayBytes(primaryKeys));
 
                 foreach (var primaryKey in primaryKeys)
                     AddReverseMapping(primaryKey, foreignKey);
@@ -91,18 +132,15 @@ internal class TypedIndexCache<TKey> : IIndexCache
 
         lock (cacheLock)
         {
-            if (foreignKeys.ContainsKey(foreignKey))
+            if (foreignKeys.TryRemove(foreignKey, out var pks))
             {
-                if (foreignKeys.TryRemove(foreignKey, out var pks))
-                {
-                    numRowsRemoved = 1;
-                    foreach (var pk in pks)
-                        RemoveReverseMapping(pk, foreignKey);
+                Interlocked.Add(ref indexPayloadBytes, -EstimatePrimaryKeyArrayBytes(pks));
 
-                    return true;
-                }
-                else
-                    return false;
+                numRowsRemoved = 1;
+                foreach (var pk in pks)
+                    RemoveReverseMapping(pk, foreignKey);
+
+                return true;
             }
         }
 
@@ -185,6 +223,8 @@ internal class TypedIndexCache<TKey> : IIndexCache
             {
                 foreignKeys.Clear();
                 primaryKeysToForeignKeys.Clear();
+                Interlocked.Exchange(ref indexPayloadBytes, 0);
+                Interlocked.Exchange(ref reverseMappingValueBytes, 0);
             }
 
             ticks.Clear();
@@ -194,12 +234,22 @@ internal class TypedIndexCache<TKey> : IIndexCache
 
     private void AddReverseMapping(DataLinqKey primaryKey, TKey foreignKey)
     {
-        primaryKeysToForeignKeys.AddOrUpdate(
-            primaryKey,
-            ImmutableArray.Create(foreignKey),
-            (_, existingForeignKeys) => existingForeignKeys.Contains(foreignKey)
-                ? existingForeignKeys
-                : existingForeignKeys.Add(foreignKey));
+        if (!primaryKeysToForeignKeys.TryGetValue(primaryKey, out var existingForeignKeys))
+        {
+            var created = ImmutableArray.Create(foreignKey);
+            primaryKeysToForeignKeys.Add(primaryKey, created);
+            Interlocked.Add(ref reverseMappingValueBytes, EstimateImmutableArrayBytes(created));
+            return;
+        }
+
+        if (existingForeignKeys.Contains(foreignKey))
+            return;
+
+        var updatedForeignKeys = existingForeignKeys.Add(foreignKey);
+        primaryKeysToForeignKeys[primaryKey] = updatedForeignKeys;
+        Interlocked.Add(
+            ref reverseMappingValueBytes,
+            EstimateImmutableArrayBytes(updatedForeignKeys) - EstimateImmutableArrayBytes(existingForeignKeys));
     }
 
     private void RemoveReverseMapping(DataLinqKey primaryKey, TKey foreignKey)
@@ -209,9 +259,34 @@ internal class TypedIndexCache<TKey> : IIndexCache
 
         var updatedForeignKeys = existingForeignKeys.Remove(foreignKey);
         if (updatedForeignKeys.IsDefaultOrEmpty)
-            primaryKeysToForeignKeys.TryRemove(primaryKey, out _);
+        {
+            primaryKeysToForeignKeys.Remove(primaryKey);
+            Interlocked.Add(ref reverseMappingValueBytes, -EstimateImmutableArrayBytes(existingForeignKeys));
+        }
         else
+        {
             primaryKeysToForeignKeys[primaryKey] = updatedForeignKeys;
+            Interlocked.Add(
+                ref reverseMappingValueBytes,
+                EstimateImmutableArrayBytes(updatedForeignKeys) - EstimateImmutableArrayBytes(existingForeignKeys));
+        }
+    }
+
+    private static long EstimatePrimaryKeyArrayBytes(DataLinqKey[] primaryKeys)
+    {
+        var bytes = CacheMemoryEstimator.DataLinqKeyArrayBytes(primaryKeys.Length);
+        for (var i = 0; i < primaryKeys.Length; i++)
+            bytes = CacheMemoryEstimator.SaturatingAdd(bytes, CacheMemoryEstimator.EstimateDataLinqKeyPayloadBytes(primaryKeys[i]));
+
+        return bytes;
+    }
+
+    private static long EstimateImmutableArrayBytes(ImmutableArray<TKey> values)
+    {
+        if (values.IsDefaultOrEmpty)
+            return 0;
+
+        return CacheMemoryEstimator.ImmutableArrayBackingBytes(typeof(TKey), values.Length);
     }
 
     private bool TryConvertProviderKey<TProviderKey>(TProviderKey key, out TKey providerKey)

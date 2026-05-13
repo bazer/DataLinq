@@ -91,6 +91,50 @@ internal static class CacheMemoryEstimator
         return SaturatingAdd(queueObjectBytes, ArrayBytes(count, entryBytes));
     }
 
+    public static long IndexCacheContainerBytes =>
+        AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 5) + sizeof(long));
+
+    public static long TickQueueEntryBytes(Type keyType) =>
+        AlignToPointer(EstimateArrayElementBytes(keyType) + sizeof(long));
+
+    public static long ImmutableArrayBackingBytes(Type elementType, int length) =>
+        length <= 0 ? 0 : ArrayBytes(length, EstimateArrayElementBytes(elementType));
+
+    public static long EstimateArrayElementBytes(Type elementType)
+    {
+        if (!elementType.IsValueType)
+            return ReferenceSize;
+
+        if (elementType == typeof(byte) || elementType == typeof(bool))
+            return 1;
+
+        if (elementType == typeof(short) || elementType == typeof(ushort) || elementType == typeof(char))
+            return 2;
+
+        if (elementType == typeof(int) || elementType == typeof(uint) || elementType.IsEnum)
+            return 4;
+
+        if (elementType == typeof(long) ||
+            elementType == typeof(ulong) ||
+            elementType == typeof(double) ||
+            elementType == typeof(DateTime) ||
+            elementType == typeof(DateOnly))
+        {
+            return 8;
+        }
+
+        if (elementType == typeof(float))
+            return 4;
+
+        if (elementType == typeof(Guid))
+            return 16;
+
+        if (elementType == typeof(DataLinqKey))
+            return DataLinqKeyStructBytes;
+
+        return ReferenceSize * 2;
+    }
+
     public static long RowStoreContainerBytes =>
         AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 2) + sizeof(long));
 

@@ -228,6 +228,62 @@ public class CacheMemoryEstimateTests
         await Assert.That(clearedEstimate.EstimatedCacheBytes).IsLessThan(occupiedEstimate.EstimatedCacheBytes);
     }
 
+    [Test]
+    public async Task IndexCache_GetMemoryEstimate_CountsPrimaryKeyPayloadAndOverhead()
+    {
+        var cache = new TypedIndexCache<int>();
+        var primaryKeys = new[]
+        {
+            DataLinqKey.FromValues([1, "dept-1"]),
+            DataLinqKey.FromValue(2)
+        };
+
+        await Assert.That(cache.TryAdd(10, primaryKeys)).IsTrue();
+
+        var estimate = cache.GetMemoryEstimate();
+
+        await Assert.That(estimate.IndexPayloadBytes).IsGreaterThan(0);
+        await Assert.That(estimate.IndexOverheadBytes).IsGreaterThan(0);
+        await Assert.That(estimate.EstimatedCacheBytes).IsEqualTo(
+            estimate.IndexPayloadBytes + estimate.IndexOverheadBytes);
+    }
+
+    [Test]
+    public async Task IndexCache_GetMemoryEstimate_DropsPayloadAndOverheadOnClear()
+    {
+        var cache = new TypedIndexCache<string>();
+
+        await Assert.That(cache.TryAdd("dept-1", [DataLinqKey.FromValue(1), DataLinqKey.FromValue(2)])).IsTrue();
+        await Assert.That(cache.TryAdd("dept-2", [DataLinqKey.FromValue(3)])).IsTrue();
+        var occupiedEstimate = cache.GetMemoryEstimate();
+
+        cache.Clear();
+
+        var clearedEstimate = cache.GetMemoryEstimate();
+
+        await Assert.That(clearedEstimate.IndexPayloadBytes).IsEqualTo(0);
+        await Assert.That(clearedEstimate.IndexOverheadBytes).IsLessThan(occupiedEstimate.IndexOverheadBytes);
+        await Assert.That(clearedEstimate.EstimatedCacheBytes).IsLessThan(occupiedEstimate.EstimatedCacheBytes);
+    }
+
+    [Test]
+    public async Task IndexCache_RemovePrimaryKey_RemovesReverseMappingsUnderCacheLock()
+    {
+        var cache = new TypedIndexCache<int>();
+        var primaryKey = DataLinqKey.FromValue(42);
+
+        await Assert.That(cache.TryAdd(1, [primaryKey])).IsTrue();
+        await Assert.That(cache.TryAdd(2, [primaryKey])).IsTrue();
+
+        await Assert.That(cache.TryRemove(1, out var removedByForeignKey)).IsTrue();
+        await Assert.That(removedByForeignKey).IsEqualTo(1);
+        await Assert.That(cache.TryRemovePrimaryKey(primaryKey, out var removedByPrimaryKey)).IsTrue();
+
+        await Assert.That(removedByPrimaryKey).IsEqualTo(1);
+        await Assert.That(cache.Count).IsEqualTo(0);
+        await Assert.That(cache.GetMemoryEstimate().IndexPayloadBytes).IsEqualTo(0);
+    }
+
     private static TableDefinition CreateMemoryEstimateTable()
     {
         var draft = new MetadataDatabaseDraft(
