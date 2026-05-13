@@ -69,5 +69,5 @@ Phase 12 is done when:
 - cache occupancy reporting exposes enough component detail to explain the estimate
 - cache internals avoid known concurrency and byte-accounting smells
 - existing byte-based cache limits use estimated cache footprint without adding parallel cache-limit settings
-- any deduplication strategy has benchmark evidence and a retention story
+- any adopted deduplication strategy has benchmark evidence and a retention story
 - no unbounded global interner is introduced as a shortcut

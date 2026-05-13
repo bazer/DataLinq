@@ -302,7 +302,7 @@ public class EmployeesBenchmarks : IDisposable
         context!.ResetScalarRowCacheProbe();
     }
 
-    [BenchmarkCategory(Phase10KeyFoundationCategory)]
+    [BenchmarkCategory(Phase10KeyFoundationCategory, Phase12CacheMemoryCategory)]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Scalar row-cache add/get/remove")]
     public int ScalarRowCacheAddGetRemove()
     {

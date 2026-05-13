@@ -265,7 +265,7 @@ Implementation notes:
 
 ## Workstream E: Measured Deduplication And Scoped Interning
 
-Status: in progress.
+Status: implemented.
 
 Goals:
 
@@ -314,6 +314,10 @@ Exit criteria:
 Implementation notes:
 
 - 2026-05-13: Added the Phase 12 benchmark lane and `--phase12-cache-memory` CLI selector. The lane covers warm primary-key fetch with cache-estimate reads, warm relation traversal with cache-estimate reads, row-cache add/get/remove through the existing Phase 10 benchmark, large relation-index preload, composite dynamic key creation, and benchmark-only high/low-cardinality string-pool probes. No production dedup strategy has been adopted yet.
+- 2026-05-13: Ran `DATALINQ_BENCHMARK_PROVIDERS=sqlite-memory` with `DataLinq.Benchmark.CLI run --phase12-cache-memory --profile default --history-json artifacts\benchmarks\history\phase12-cache-memory-20260513.json`. The run was noisy, but it is good enough for the adoption decision because the benchmark-only bounded string pool did not reduce allocation and was slower. Low-cardinality strings measured 0.0145 us/op and 51.2 B/op baseline versus 0.0462 us/op and 51.2 B/op with the bounded pool. High-cardinality strings measured 0.0236 us/op and 51.2 B/op baseline versus 0.0532 us/op and 51.2 B/op with the bounded pool. Production string interning is rejected for now.
+- 2026-05-13: Composite dynamic key creation now has a baseline lane: 0.0896 us/op and 245.76 B/op in the same noisy default run. No component-array dedup was adopted because the safe implementation would require a new immutable owned-key representation, and the current evidence does not justify adding that complexity.
+- 2026-05-13: Relation/index key-array reuse was not adopted. `IndexCache` stores caller-owned `DataLinqKey[]` arrays as cache state, and reusing those arrays without a stronger ownership contract risks aliasing correctness bugs. The large relation preload lane now measures that path directly: 14,720.5333 us/op and 1,475,225.6 B/op for the 2026-05-13 sqlite-memory run.
+- 2026-05-13: Workstream E closes with no production deduplication or interning added. That is the correct outcome for this slice: the adopted benchmark lane remains, the unsafe or losing candidates are documented, and Phase 12 avoids shipping a global or scoped retention mechanism that has not cleared the allocation/throughput gates.
 
 ## Workstream F: Verification, Documentation, And Closeout
 
