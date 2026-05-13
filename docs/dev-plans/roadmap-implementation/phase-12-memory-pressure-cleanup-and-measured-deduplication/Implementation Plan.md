@@ -259,6 +259,7 @@ Exit criteria:
 Implementation notes:
 
 - 2026-05-13: Replaced the overwritten `DatabaseCache.CleanCacheWorker` constructor loop with one coordinated `CacheCleanupScheduler` that owns all configured cleanup intervals. The scheduler uses an injected `TimeProvider`, has deterministic `RunDueScheduledCleanup(...)` coverage for tests, and `Dispose()` stops the single background loop.
+- 2026-05-13: Added the memory-pressure vocabulary: public `CacheMemoryPressureCleanupPolicy`, internal `IMemoryPressureReader`, GC/unsupported reader implementations, `MemoryPressureSnapshot`, and a policy evaluator with disabled/unsupported/low-pressure/minimum-cache/cooldown no-op reasons plus bounded target-byte/row decisions.
 
 ## Workstream E: Measured Deduplication And Scoped Interning
 
