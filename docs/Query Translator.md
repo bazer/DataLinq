@@ -1,108 +1,113 @@
-## Query Translation and Execution
+# Query Translation and Execution
 
-DataLinq's LINQ translation layer is real, but it is intentionally narrower than the whole `Query` namespace might make you assume at first glance.
+DataLinq's LINQ translator supports a useful, test-backed subset of LINQ. It is not a general LINQ provider, and the docs should not imply that every expression tree can become SQL.
 
-The important distinction is this:
+The lower-level SQL builder also has classes such as `Join`, `Insert`, `Update`, and `Delete`. Those are not automatic proof that equivalent high-level LINQ operators are supported. Public LINQ support is defined by the translator and the compliance tests.
 
-- the LINQ translator supports a tested subset of query shapes
-- the lower-level SQL builder classes also exist for manual query construction
+For the user-facing contract, start with [Supported LINQ Queries](Supported%20LINQ%20Queries.md). This page explains the internal shape.
 
-Do not look at `Join.cs`, `Insert.cs`, or `Update.cs` and conclude that LINQ `Join`, arbitrary projections, or arbitrary aggregates are therefore supported. That is not how this codebase works.
+## Parser Boundary
 
-## 1. Expression Simplification and Evaluation
+DataLinq currently uses `Remotion.Linq` to parse LINQ expression trees into query models. That dependency is still part of the reason the broad AOT/trimming claim remains narrow.
 
-**Evaluator.cs**
-- **Purpose:** Before translation begins, DataLinq partially evaluates the expression tree to simplify constant sub-expressions.
-- **Key Components:**
-  - **Nominator:** Traverses the tree to determine which nodes can be evaluated locally. Parameters are explicitly excluded so that only independent expressions are replaced.
-  - **SubtreeEvaluator:** Replaces nominated subtrees with constant expressions by compiling and invoking them.
-- **Outcome:** This reduces the complexity of the expression tree and ensures that only the relevant, variable-dependent parts are translated into SQL.
+The long-term direction is to isolate or replace that parser behind a DataLinq-owned query plan, but that is future work. The current translator should therefore stay conservative: translate known shapes, reject unknown shapes clearly, and keep the support matrix honest.
 
-## 2. Queryable Interface and Integration
+## Main Execution Paths
 
-**Queryable.cs**
-- **Role:** This class provides the entry point for LINQ queries on DataLinq. It integrates with Remotion.Linq to interpret the LINQ expression trees.
-- **Mechanism:**
-  - The default query parser is used to generate a `QueryModel`.
-  - The `Queryable` then hands off the `QueryModel` to the custom query executor.
+### Entity and Scalar Queries
 
-## 3. Query Execution via `QueryExecutor`
+The ordinary collection path:
 
-**QueryExecutor.cs**
-- **Overview:**
-  - `QueryExecutor` is responsible for turning a `QueryModel` into an executable query.
-- **Steps in translation:**
-  - **Extract QueryModel:**
-    - The executor recursively unwraps subqueries, member access, method calls, and unary expressions until it finds the innermost source `QueryModel`.
-    - Nested query models are composed inner-first: the inner model builds the base `SqlQuery<T>`, and the outer model then applies its own body clauses and result operators. This is what preserves normal fluent composition such as `Where(a).Where(b)` and `Where(a).OrderBy(...).Where(b)`.
-  - **Parse body clauses:**
-    - In practice, the current implementation handles `WhereClause` and `OrderByClause`.
-  - **Apply result operators:**
-    - `Take`, `Skip`, `First`, `Single`, and `Any` affect `LIMIT` and `OFFSET` behavior.
-    - Final terminal semantics are still applied in the executor itself.
-  - **Build projections:**
-    - `GetSelectFunc<T>` supports the entity itself, member-access chains, and simple constructor-based anonymous projections.
-    - Unsupported selector shapes fail explicitly with `QueryTranslationException`.
-- **Execution:**
-  - The executor builds a `SqlQuery<T>`, executes it, and maps results through projection delegates.
-  - For entity reads, that path integrates with DataLinq's cache-aware row materialization.
+1. partially evaluates local, query-independent expression subtrees
+2. parses the expression through `Remotion.Linq`
+3. composes accepted `Where` and `OrderBy` clauses
+4. applies supported result operators such as paging and single-row limits
+5. executes SQL
+6. materializes rows through cache-aware table access
+7. applies supported scalar, anonymous, or computed row-local projections after materialization
 
-## 4. Clause Visitors
+Entity reads remain cache-aware. DataLinq usually selects primary keys first, checks row cache state, and fetches missing rows rather than blindly rebuilding every row instance.
 
-**OrderByVisitor.cs**
-- Walks the expression tree for `OrderBy` clauses.
-- Extracts column information from member expressions and adds ordering instructions to the SQL query.
+### Scalar Results
 
-**WhereVisitor.cs**
-- Traverses the expression tree representing a `Where` clause.
-- Handles comparisons, logical composition, string methods, list-based `Contains`, projected local collection extraction, and local `Any(predicate)` equality-membership cases that can become `IN` predicates.
-- Unsupported methods fail with `QueryTranslationException` instead of quietly degrading into nonsense.
+`Count`, `Any`, `Sum`, `Min`, `Max`, and `Average` are handled as scalar SQL where supported.
 
-## 5. Building WHERE Clauses
+The aggregate boundary is deliberately narrow:
 
-**Where.cs and WhereGroup.cs**
-- **Where.cs**
-  - Represents individual predicates.
-  - Supports parameterized equality, inequality, `LIKE`, `IN`, and range comparisons.
-- **WhereGroup.cs**
-  - Groups predicates with Boolean logic.
-  - Supports nesting and parenthesized combinations.
-  - Works together with `WhereVisitor` to build the full WHERE tree.
+- direct numeric member selectors
+- nullable numeric members
+- nullable `.Value` member selectors
+- filtered sequences
 
-## 6. SQL Query Construction
+Computed aggregate selectors, grouped aggregates, and relation-property aggregates are not part of the supported surface.
 
-**SqlQuery.cs**
-- Aggregates query pieces into a complete SQL statement.
-- Handles table names, aliases, selected columns, ordering, and limits.
-- Delegates clause construction to the query builder and visitors.
+### Explicit Joins
 
-**Sql.cs**
-- Acts as a mutable SQL builder.
-- Stores parameter state and command text.
-- Produces the final SQL string and parameter collection.
+Current explicit LINQ join support is a first baseline, not a full join engine.
 
-## 7. What Is Not Part of LINQ Translation
+Supported:
 
-- `Insert.cs`, `Update.cs`, and `Delete.cs` support the write/query-builder side of the library.
-- `Join.cs` supports the lower-level SQL builder.
-- Those classes are useful, but they are not proof that equivalent high-level LINQ operators are implemented.
+- one explicit inner `Join(...)`
+- two direct DataLinq query sources
+- direct member equality keys
+- nullable `.Value` key normalization
+- row-local projection from the joined rows
 
-## 8. Miscellaneous Utilities
+Not supported yet:
 
-- **Literal.cs**
-  - Represents literal SQL fragments when the lower-level query builder needs them.
-- **QueryUtils.cs**
-  - Contains helpers for parsing table names, aliases, and related query metadata.
-- **OrderBy.cs**
-  - Encapsulates ordering details such as column, alias, and direction.
+- multiple explicit joins
+- `GroupJoin(...)`
+- outer joins
+- composite anonymous-object keys
+- filtering, ordering, paging, or result operators over joined row shapes
+- relation-property projection inside the joined selector
 
-## Summary
+Joined execution selects primary keys for each joined source, materializes rows through the relevant table caches, and evaluates the result selector client-side over those materialized rows.
 
-The translator's real job is narrow and useful:
+## Predicate Translation
 
-- parse supported LINQ through Remotion.Linq
-- translate `Where` and `OrderBy` plus a tested subset of result operators
-- project entities, scalar members, and simple anonymous shapes
-- fail loudly when the expression shape is outside the implemented surface
+The predicate translator handles the common shapes that are covered by tests:
 
-If you want the exact supported surface, the [Supported LINQ Queries](Supported%20LINQ%20Queries.md) page is the better source than this internals overview. If you need the test-backed maintenance evidence, use the [LINQ Translation Support Matrix](support-matrices/LINQ%20Translation%20Support%20Matrix.md).
+- scalar equality and inequality
+- range comparisons
+- property-to-property comparisons in narrow translated forms
+- boolean grouping with `&&`, `||`, and `!`
+- nullable boolean and nullable value predicates
+- string methods such as prefix/suffix/content search, casing, trimming, length, substring, and null/whitespace checks
+- date/time member access for documented members
+- local `Contains(...)` over arrays, lists, sets, spans, and safe local projections
+- equality-shaped local `Any(predicate)` membership
+- fixed true/false conditions for empty local collections
+- one-to-many relation `Any(...)` and existence-equivalent `Count()` predicates translated as correlated `EXISTS`
+
+Unsupported predicate methods and unsupported expression shapes should throw `QueryTranslationException`. Silent client-side predicate fallback would be a correctness bug.
+
+## Projection Model
+
+Projection is intentionally split:
+
+- SQL is used for filtering, ordering, paging, scalar result operators, and join key selection.
+- Row-local projection can run after materialization for supported scalar, anonymous, and computed shapes.
+
+Relation-property projection is rejected. That prevents hidden N+1 behavior from being smuggled into what looks like a single provider query.
+
+## Important Internals
+
+`Evaluator`
+: Partially evaluates local subtrees that do not depend on query parameters.
+
+`QueryExecutor`
+: Owns query-model execution, result operators, explicit join handling, scalar result execution, and projection evaluation.
+
+`QueryBuilder`
+: Builds translated predicate SQL, including local collection membership and relation-backed `EXISTS` predicates.
+
+`Where` and `WhereGroup`
+: Represent SQL predicates and grouped boolean logic.
+
+`SqlQuery`, `Select`, and `Sql`
+: Build SQL text, parameters, selected columns, ordering, paging, joins, and scalar command execution.
+
+## Maintenance Rule
+
+If a query shape is not covered in the compliance tests, do not describe it as supported. Add the regression test first, then update [Supported LINQ Queries](Supported%20LINQ%20Queries.md) and the [LINQ Translation Support Matrix](support-matrices/LINQ%20Translation%20Support%20Matrix.md).

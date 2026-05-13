@@ -112,6 +112,10 @@ If the selected database contains more than one connection type, pass `-t`.
 ## Code Example
 
 ```csharp
+using DataLinq;
+using DataLinq.MySql;
+using MyApp.Models;
+
 var db = new MySqlDatabase<AppDb>(connectionString);
 
 var activeUsers = db.Query().Users
@@ -130,6 +134,8 @@ If you want the website-first docs experience, start here:
 
 - [Website Home](index.md)
 - [Docs Intro](docs/index.md)
+- [Changelog](CHANGELOG.md)
+- [Roadmap](docs/Roadmap.md)
 - [Installation](docs/getting-started/Installation.md)
 - [Configuration and Model Generation](docs/getting-started/Configuration%20and%20Model%20Generation.md)
 - [Your First Query and Update](docs/getting-started/Your%20First%20Query%20and%20Update.md)

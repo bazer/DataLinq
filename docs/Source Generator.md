@@ -1,95 +1,101 @@
-## Source Generator Overview
+# Source Generator
 
-The DataLinq source generator automates the creation of immutable and mutable model classes, along with associated interfaces and extension methods. Its primary goal is to eliminate boilerplate code while ensuring that the generated models accurately reflect the underlying database schema and developer-defined attributes. The source generator accomplishes this by analyzing existing source code to build a comprehensive metadata representation, then using that metadata to produce additional source files that are incorporated into the compilation.
+DataLinq's source generator is not only a boilerplate reducer. In current DataLinq it is part of the runtime contract.
+
+Generated database models implement `IDataLinqGeneratedDatabaseModel<TDatabase>`, provide complete generated metadata, install generated metadata back into the database type, and generate table/model helpers that the runtime expects to exist. Stale generated output should fail early rather than silently falling back to reflection-heavy startup.
+
+## Generated Surface
+
+For a configured database, the generator produces:
+
+- a partial database model implementing `IDataLinqGeneratedDatabaseModel<TDatabase>`
+- `GetDataLinqGeneratedMetadata()` returning a generated metadata draft
+- `SetDataLinqGeneratedMetadata(...)` for binding finalized runtime metadata back to the generated type
+- immutable model classes
+- mutable model classes
+- relation accessors and mutation helpers
+- generated static primary-key lookup helpers
+- provider-key row-store accessors for scalar and composite primary keys
+- generated `DataLinqPrimaryKey` structs for composite primary-key shapes
+- indexed value, mutable, and relation handles where those avoid runtime lookup
+
+The practical result is simple: normal runtime startup should consume generated metadata, not rediscover model shape from ordinary runtime reflection.
+
+## Runtime Startup Contract
 
 ```mermaid
----
-config:
-  theme: neo
-  look: classic
----
 flowchart TD
-    A["Developer Defines Model<br>(Using Abstract Classes<br>and Attributes)"] -- Compile Time --> B(("DataLinq Source Generator"))
-    B -- Generates --> C["Generated Code<br>- Immutable Classes<br>- Mutable Classes<br>- Interfaces<br>- Extensions"]
-    C -- Compiled Into --> D["Application Assembly (.dll)"]
-     B:::Aqua
-     B:::Sky
-    classDef Aqua stroke-width:1px, stroke-dasharray:none, stroke:#46EDC8, fill:#DEFFF8, color:#378E7A
-    classDef Sky stroke-width:1px, stroke-dasharray:none, stroke:#374D7C, fill:#E2EBFF, color:#374D7C
-    style D fill:#ccf,stroke:#333,stroke-width:2px
-    linkStyle 0 stroke:#000000
+    A["Generated database type"] --> B["GetDataLinqGeneratedMetadata()"]
+    B --> C["MetadataDefinitionFactory"]
+    C --> D["Frozen DatabaseDefinition"]
+    D --> E["SetDataLinqGeneratedMetadata(...)"]
+    E --> F["Provider startup and runtime execution"]
 ```
 
----
+Provider construction calls the generated metadata hook, builds a finalized `DatabaseDefinition` through `MetadataDefinitionFactory`, and binds that finalized metadata back to the generated database model.
 
-## Key Components and Workflow
+If the generated type is missing the complete metadata hook, returns invalid metadata, or cannot bind the finalized metadata, DataLinq reports a model failure. That behavior is intentional. Hiding stale generated output behind a compatibility fallback makes package upgrades and AOT/trimming claims much harder to trust.
 
-### 1. **Model and Syntax Collection**
+## Generation Workflow
 
-- **Syntax Provider:**  
-  The generator starts by scanning the source code using Roslyn’s syntax provider.  
-  - It identifies candidate model declarations by checking for classes that implement the model interfaces DataLinq recognizes (for example `ITableModel` and `IViewModel`).
-  - The predicate function (`IsModelDeclaration`) quickly filters out irrelevant syntax nodes, while a transformation function extracts the corresponding `TypeDeclarationSyntax` for further analysis.
+### 1. Model Discovery
 
-### 2. **Metadata Extraction**
+The generator uses Roslyn to find candidate model declarations. DataLinq models are source-defined abstract types that describe tables and views through model interfaces and attributes.
 
-- **SyntaxParser:**  
-  Processes the collected syntax trees to extract model information.
-  - It parses class declarations to create a `ModelDefinition` that includes C# type details, properties, attributes, and using directives.
-  - It distinguishes between value properties and relation properties, building a detailed blueprint for each model.
+The generator collects:
 
-- **Metadata Factories:**  
-  Two primary factories convert syntax into metadata:
-  - **MetadataFromModelsFactory:**  
-    Consumes the `TypeDeclarationSyntax` nodes to produce a `DatabaseDefinition` that aggregates all model definitions, table definitions, and relational mappings.
-  - **MetadataFromFileFactory:**  
-    Offers an alternative approach by reading source files from specified directories, enabling external models to be integrated into the metadata.
+- database model declarations
+- table and view model declarations
+- scalar value properties
+- relation properties
+- attributes such as table names, column names, keys, defaults, comments, checks, cache settings, and relations
+- using directives and C# type information needed to emit valid generated code
 
-- **MetadataFactory and Transformers:**  
-  - The **MetadataFactory** converts `ModelDefinition` instances into `TableDefinition` or `ViewDefinition` objects, applying attributes such as `[Table]`, `[UseCache]`, and caching limits.
-  - The **MetadataTransformer** further refines the metadata, for example, by removing interface prefixes and updating constraint names as needed.
-  - **MetadataTypeConverter** assists by mapping C# type names to their database equivalents and calculating sizes and nullability.
+### 2. Metadata Construction
 
-### 3. **File Generation**
+Source metadata is converted into typed metadata drafts and then validated through `MetadataDefinitionFactory`.
 
-- **GeneratorFileFactory:**  
-  This component is responsible for producing the output files based on the extracted metadata.
-  - It defines options such as namespace, tab indentation, and whether to generate records or use file-scoped namespaces.
-  - The factory constructs file headers (including using directives and namespace declarations), generates the body of the file by combining model properties, attributes, and method definitions, and then appends footers.
-  - It produces files for both the main database definition and each individual table or view model.
+That factory boundary matters. It centralizes construction, validation, finalization, and freezing of runtime metadata instead of letting scattered mutable metadata objects become the source of truth.
 
-- **ModelFileFactory:**  
-  Further refines the file generation for individual models.
-  - It creates files that include generated interfaces, immutable class definitions, mutable class definitions, and extension methods.
-  - This component ensures that all aspects of a model (from column mapping to relation handling) are represented in the generated code.
+The finalized metadata model carries:
 
-### 4. **Integration into Compilation**
+- database, table, view, column, index, relation, and cache policy metadata
+- provider/model key shape details
+- frozen lookup maps for common table and column resolution
+- generated declaration metadata
+- provider-key row-store accessor hooks
+- scalar-converter slots reserved for future converter work
 
-- **ModelGenerator (IIncrementalGenerator):**  
-  The entry point for the source generator.
-  - It registers the syntax provider to continuously monitor changes in the source code.
-  - The generator combines the collected syntax nodes with the overall compilation and then passes them to the metadata factories.
-  - Generated files are then added to the compilation context via `context.AddSource`, ensuring that they become part of the project without requiring manual inclusion.
+### 3. Source Emission
 
-- **Configuration and Options:**  
-  The generator checks compilation options (such as nullable reference types) and applies settings accordingly. This ensures that generated code aligns with the project’s language version and coding standards.
+After metadata construction, the generator emits the database file and one generated file per table/view model.
 
----
+Generated model code is responsible for the repetitive but important parts:
 
-## Summary
+- immutable and mutable property surfaces
+- constructor and factory paths
+- relation properties
+- `Mutate`, `Save`, `Insert`, and `Update` helper methods
+- generated direct `Get(...)` methods for primary-key lookup
+- provider-key extraction from row data, readers, dynamic keys, and model instances
+- generated metadata drafts for runtime startup
 
-The DataLinq source generator operates in four key phases:
+### 4. Runtime Use
 
-1. **Collection:**  
-   It scans the codebase for model declarations using Roslyn’s syntax provider.
+Runtime systems use generated hooks instead of guessing:
 
-2. **Metadata Extraction:**  
-   It transforms syntax nodes into rich metadata representations, capturing database schema, column definitions, relations, and model attributes.
+- providers build metadata through the generated database contract
+- `InstanceFactory` uses generated metadata and instance hooks
+- row caches use generated provider-key accessors where available
+- relation traversal uses generated relation/key handles
+- query materialization reads provider primary-key values and asks the relevant table cache for rows
 
-3. **File Generation:**  
-   Using the metadata, it generates source files that define immutable and mutable models, interfaces, and extension methods.
+## Platform Boundary
 
-4. **Compilation Integration:**  
-   The generated files are seamlessly added to the compilation, ensuring that the ORM remains in sync with the underlying model definitions.
+Roslyn and source parsing belong at build time. Runtime packages should not carry compiler assemblies as runtime dependencies. Current public compatibility wording depends on that split.
 
-This modular approach minimizes boilerplate, enforces consistency, and allows developers to focus on business logic rather than repetitive code. The source generator’s design also facilitates easy customization and extension, making it a core strength of the DataLinq project.
+This does not make every DataLinq query AOT-safe. The query pipeline still uses `Remotion.Linq`, and the public AOT/WebAssembly claim remains the narrow generated SQLite smoke boundary described in [Platform Compatibility](Platform%20Compatibility.md).
+
+## Maintenance Rule
+
+When a runtime feature needs model shape, prefer a generated hook or finalized metadata handle over new runtime reflection. Reflection-heavy discovery in normal provider startup is a regression unless it is explicitly a diagnostic or tooling-only path.

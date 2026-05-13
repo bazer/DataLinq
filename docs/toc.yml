@@ -87,8 +87,10 @@
       href: contributing/DataLinq.Benchmark.CLI.md
     - name: AI Assistant Guidance
       href: contributing/AI Assistant Guidance.md
-- name: Roadmap and Specs
+- name: Release and Roadmap
   expanded: true
   items:
-    - name: Project Specification
-      href: Project Specification.md
+    - name: Changelog
+      href: ../CHANGELOG.md
+    - name: Roadmap
+      href: Roadmap.md

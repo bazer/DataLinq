@@ -1,0 +1,68 @@
+# DataLinq Roadmap
+
+This page is the public roadmap snapshot. It describes direction, not shipped behavior. For current product behavior, use the usage docs, support matrices, and changelog.
+
+## Current 0.7.0 Baseline
+
+DataLinq is currently a source-generated, immutable-first ORM for MySQL, MariaDB, and SQLite. The stable public shape is:
+
+- generated immutable and mutable model classes
+- cache-aware reads and relation traversal
+- explicit mutation and transaction workflows
+- schema validation through `datalinq validate`
+- conservative schema diff scripts through `datalinq diff`
+- a documented LINQ subset with tests behind the support matrix
+- explicit cache clearing and external invalidation APIs
+- estimated cache-memory accounting and memory-pressure cleanup on supported runtimes
+- a narrow generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary
+
+The important non-claims are just as important:
+
+- DataLinq does not ship full migration execution yet.
+- DataLinq does not translate arbitrary LINQ.
+- DataLinq is not broadly AOT-compatible across every provider and query shape.
+- DataLinq does not ship distributed CDC or message-bus integrations.
+- SQLite browser/WebAssembly support is limited to the documented generated AOT smoke path.
+
+For release-level detail, see the [changelog](../CHANGELOG.md).
+
+## Near-Term Direction
+
+### Explicit Multi-Join Composition
+
+The next broad query priority is standard explicit inner-join composition:
+
+- C# query-syntax joins as a documented path
+- multiple explicit inner joins
+- filtering, ordering, paging, and result operators over joined row shapes
+- joined materialization that keeps using provider-key components
+
+The first shipped join support is intentionally narrow. The next step is to make explicit joins useful without hiding complexity behind relation-aware syntax too early.
+
+### Relation-Aware Joins and Left Joins
+
+After explicit joins are stronger, relation metadata can become a safer query-building input:
+
+- `JoinBy(...)` and `JoinMany(...)`
+- join-local predicates
+- left joins with honest nullability behavior
+- clear documentation for `ON` versus `WHERE` semantics
+
+This should build on the explicit join engine, not replace it with a magical relation API.
+
+### Scalar Converters and Typed Keys
+
+The cache and metadata layers now distinguish provider-key identity from model-facing values. That gives scalar converters a credible place to land later:
+
+- explicit converter metadata
+- model-to-provider normalization for reads, writes, query constants, keys, joins, and relations
+- typed-ID equality and membership queries
+- schema validation based on provider storage types, not only model CLR types
+
+## Later Work
+
+Dependency-tracked result-set caching remains deferred until joins, projection semantics, invalidation, and freshness vocabulary are stronger. A cached result-set feature without a boring correctness story would be clever in the worst way.
+
+The query-plan and Remotion isolation work is also later. It matters for a stronger AOT/trimming story, but it is a high-regression-risk query-pipeline migration. It should follow the nearer join and key/converter work unless constrained-platform query support becomes the immediate blocker.
+
+Full migration execution also remains future work. `validate` and `diff` are real product features today; `add-migration`, `update-database`, migration history tracking, and runtime migration APIs are not.

@@ -3,7 +3,7 @@
 
 # LINQ Translation Support Matrix
 
-**Status:** Current Phase 7 implemented baseline; update whenever LINQ translator support changes.
+**Status:** Current test-backed LINQ translator baseline; update whenever LINQ translator support changes.
 
 This matrix records what the active compliance tests prove today, where the public support docs are accurate, and which gaps remain outside the documented support boundary.
 
@@ -19,14 +19,14 @@ The evidence column intentionally points at test files instead of implementation
 | Property-to-property comparison | equality, inequality, greater-than, less-than-or-equal comparisons between translated operands | `EmployeesQueryBehaviorTests.cs` | Public docs mention this, but the coverage is narrow and should not be generalized to arbitrary expressions. |
 | Boolean grouping | `&&`, `||`, `!`, nested grouped predicates, De Morgan-style groups | `Translation/EmployeesBooleanLogicTests.cs`, `EmployeesQueryBehaviorTests.cs` | Public docs match this at a high level. Fixed true/false conditions now have dedicated regression coverage. |
 | Nullable boolean predicates | nullable bool compared to `true`, `false`, and `null`; negated equality forms | `Translation/EmployeesNullableBooleanTests.cs` | Public docs match this. |
-| Nullable value predicates | `.HasValue`, `!HasValue`, guarded `.Value` comparisons, selected guarded date/time member access, and mixed nullable/non-nullable equality and inequality | `Translation/EmployeesNullablePredicateTests.cs`, `Translation/EmployeesDateTimeMemberTests.cs` | Phase 7 Workstream C documents the support boundary. `nullable != nonNullable` includes null rows to match C# lifted nullable semantics. |
+| Nullable value predicates | `.HasValue`, `!HasValue`, guarded `.Value` comparisons, selected guarded date/time member access, and mixed nullable/non-nullable equality and inequality | `Translation/EmployeesNullablePredicateTests.cs`, `Translation/EmployeesDateTimeMemberTests.cs` | The support boundary is intentionally documented. `nullable != nonNullable` includes null rows to match C# lifted nullable semantics. |
 | Character predicates | LINQ char predicate matches raw SQL parameter behavior | `Translation/CharPredicateTranslationTests.cs`, `Query/SQLiteInMemoryBehaviorTests.cs` | Public docs did not call this out; it is a narrow parameter/type-fidelity case. |
 
 ## Relation Predicate Translation
 
 | Area | Currently tested support | Evidence | Audit notes |
 | --- | --- | --- | --- |
-| One-to-many relation existence | generated collection relation `Any()`, `Any(predicate)`, negated `Any(predicate)`, and existence-equivalent `Count()` comparisons | `Translation/EmployeesRelationPredicateTranslationTests.cs` | Phase 7 Workstream E translates these to correlated `EXISTS` subqueries. `Count()` support is deliberately limited to forms reducible to existence or non-existence. |
+| One-to-many relation existence | generated collection relation `Any()`, `Any(predicate)`, negated `Any(predicate)`, and existence-equivalent `Count()` comparisons | `Translation/EmployeesRelationPredicateTranslationTests.cs` | These translate to correlated `EXISTS` subqueries. `Count()` support is deliberately limited to forms reducible to existence or non-existence. |
 | Related-row predicate body | direct related-row member comparisons against local values, plus simple `&&` and `||` groups | `Translation/EmployeesRelationPredicateTranslationTests.cs` | This is not arbitrary predicate translation for a second query source. Relation traversal from the related row remains rejected. |
 | Unsupported relation predicate shapes | relation traversal inside the related-row predicate and unsupported `Count()` thresholds fail with `QueryTranslationException` | `Translation/EmployeesRelationPredicateTranslationTests.cs` | Many-to-one relation predicates, relation projections, and relation aggregates beyond existence-equivalent `Count()` forms remain outside the documented boundary. |
 
@@ -38,10 +38,10 @@ The evidence column intentionally points at test files instead of implementation
 | `Contains` over `List<T>` and `HashSet<T>` | list/set membership over local values | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesEmptyListQueryTests.cs` | Public docs match this. |
 | `Contains` over `ReadOnlySpan<T>` | span-backed membership over local arrays | `Translation/EmployeesContainsTranslationTests.cs` | Public docs understated this. Keep the claim narrow: this proves the tested span shape, not arbitrary span pipelines. |
 | Multiple collection predicates | combined local collection membership with `&&`, additional string predicates, and range predicates | `EmployeesQueryBehaviorTests.cs` | Useful coverage for local-sequence regression safety. |
-| Empty local `Contains` | false fixed condition, negated true condition, direct composition, nested `AND`/`OR`, negated groups, and unsupported item expressions skipped when the empty list already determines the result | `Translation/EmployeesContainsTranslationTests.cs`, `Translation/EmployeesEmptyListQueryTests.cs`, `Translation/EmployeesBooleanLogicTests.cs` | Phase 6 documented the fixed-condition truth table and locked down grouping behavior. |
+| Empty local `Contains` | false fixed condition, negated true condition, direct composition, nested `AND`/`OR`, negated groups, and unsupported item expressions skipped when the empty list already determines the result | `Translation/EmployeesContainsTranslationTests.cs`, `Translation/EmployeesEmptyListQueryTests.cs`, `Translation/EmployeesBooleanLogicTests.cs` | The fixed-condition truth table and grouping behavior are covered by focused tests. |
 | Constant-item `Contains` | constant true and constant false predicates collapse to fixed conditions | `Translation/EmployeesContainsTranslationTests.cs` | Public docs did not call this out. This is implementation behavior worth preserving. |
-| Empty local `Any(predicate)` | false fixed condition, negated true condition, direct composition, nested `AND`/`OR`, negated groups; complex or otherwise unsupported predicate bodies are ignored when the sequence is empty | `Translation/EmployeesEmptyListQueryTests.cs`, `Translation/EmployeesBooleanLogicTests.cs` | Public docs now distinguish empty fixed-condition behavior from non-empty equality membership. Phase 6 documented the fixed-condition truth table. |
-| Projected local `Contains` | `localObjects.Select(x => x.Value).Contains(row.NullableColumn.Value)` and empty projected local sequences | `Translation/EmployeesContainsTranslationTests.cs` | Phase 6 added guarded local sequence extraction and regression coverage. This is now tested for safe local projections that do not reference the database query source. |
+| Empty local `Any(predicate)` | false fixed condition, negated true condition, direct composition, nested `AND`/`OR`, negated groups; complex or otherwise unsupported predicate bodies are ignored when the sequence is empty | `Translation/EmployeesEmptyListQueryTests.cs`, `Translation/EmployeesBooleanLogicTests.cs` | Public docs distinguish empty fixed-condition behavior from non-empty equality membership. |
+| Projected local `Contains` | `localObjects.Select(x => x.Value).Contains(row.NullableColumn.Value)` and empty projected local sequences | `Translation/EmployeesContainsTranslationTests.cs` | Guarded local sequence extraction is tested for safe local projections that do not reference the database query source. |
 | Local object-list `Any(predicate)` | scalar item equality, object-member equality, reversed equality, nullable wrapper normalization, and negated `NOT IN` membership | `Translation/EmployeesEmptyListQueryTests.cs`, `Translation/EmployeesLocalAnyPredicateTests.cs` | Equality-membership shapes are covered. Compound non-empty local predicates remain unsupported. |
 
 ### Fixed-Condition Truth Table
@@ -83,18 +83,18 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | Single-row operators | `Single(predicate)`, `SingleOrDefault(predicate)`, `First(predicate)`, `FirstOrDefault(predicate)` | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesStringMemberTests.cs` | Public docs match this. |
 | Last-row operators | `Last()`, `LastOrDefault(predicate)` in ordered scenarios | `EmployeesQueryBehaviorTests.cs` | Public docs match this but should keep the existing advice to order explicitly. |
 | Unsupported tail/while operators | `TakeLast`, `SkipLast`, `TakeWhile`, `SkipWhile` throw `NotSupportedException` | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
-| Scalar aggregates | `Sum`, `Min`, `Max`, `Average` over direct numeric members, nullable numeric members, nullable `.Value`, and filtered sequences | `Translation/EmployeesAggregateTranslationTests.cs` | Phase 7 Workstream A keeps the boundary narrow: no computed selector aggregates, grouped aggregates, or relation-property aggregates. |
+| Scalar aggregates | `Sum`, `Min`, `Max`, `Average` over direct numeric members, nullable numeric members, nullable `.Value`, and filtered sequences | `Translation/EmployeesAggregateTranslationTests.cs` | The boundary is narrow: no computed selector aggregates, grouped aggregates, or relation-property aggregates. |
 
 ## Ordering, Paging, and Projection
 
 | Area | Currently tested support | Evidence | Audit notes |
 | --- | --- | --- | --- |
 | Ordering | `OrderBy`, `OrderByDescending`, `ThenBy`, `ThenByDescending`, mixed ascending/descending ordering | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
-| Paging | `Skip`, `Take`, `Skip(...).Take(...)` with ordered queries and composed chained predicates | `EmployeesQueryBehaviorTests.cs` | Phase 6 includes a chained-filter paging regression. |
-| Ordering plus filtering | `Where(...).OrderBy(...)`, `OrderBy(...).Where(...)`, and `Where(...).OrderBy(...).Where(...)` | `EmployeesQueryBehaviorTests.cs` | Phase 6 has a focused regression proving the outer predicate is preserved after an inner ordering clause. |
+| Paging | `Skip`, `Take`, `Skip(...).Take(...)` with ordered queries and composed chained predicates | `EmployeesQueryBehaviorTests.cs` | Chained-filter paging has focused regression coverage. |
+| Ordering plus filtering | `Where(...).OrderBy(...)`, `OrderBy(...).Where(...)`, and `Where(...).OrderBy(...).Where(...)` | `EmployeesQueryBehaviorTests.cs` | Focused regression coverage proves the outer predicate is preserved after an inner ordering clause. |
 | Full-model projection | selecting the model entity | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
 | Scalar projection | `Select(x => x.Property)` | `EmployeesQueryBehaviorTests.cs`, translation tests | Public docs match this. |
-| Anonymous projection | `Select(x => new { ... })` for simple property members and row-local computed expressions | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesProjectionTranslationTests.cs` | Phase 7 Workstream B documents these as post-materialization projections, not SQL-backed `SELECT`-list expressions. Relation-property projections remain rejected to avoid hidden N+1 behavior. |
+| Anonymous projection | `Select(x => new { ... })` for simple property members and row-local computed expressions | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesProjectionTranslationTests.cs` | These are post-materialization projections, not SQL-backed `SELECT`-list expressions. Relation-property projections remain rejected to avoid hidden N+1 behavior. |
 | Computed scalar projection | row-local string concatenation and materialized member chains after SQL filtering, ordering, and paging | `Translation/EmployeesProjectionTranslationTests.cs` | Client projection is deliberate here. Do not generalize this to SQL predicate method translation. |
 | Views and primary-key lookup | querying generated views and direct `Get<T>(key)` lookup | `SeededEmployeesQueryTests.cs`, `EmployeesQueryBehaviorTests.cs` | Direct lookup is not a LINQ predicate but belongs in the surrounding query support docs. |
 
@@ -102,7 +102,7 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 
 | Area | Currently tested support | Evidence | Audit notes |
 | --- | --- | --- | --- |
-| Inner `Join(...)` | one explicit inner join between two direct DataLinq query sources, direct member equality keys, nullable `.Value` key normalization, and row-local result projection from both sides | `Translation/EmployeesJoinTranslationTests.cs` | Phase 7 Workstream D keeps this deliberately narrow. SQL selects primary keys from both sides, then DataLinq materializes rows and applies the result selector client-side. |
+| Inner `Join(...)` | one explicit inner join between two direct DataLinq query sources, direct member equality keys, nullable `.Value` key normalization, and row-local result projection from both sides | `Translation/EmployeesJoinTranslationTests.cs` | This is deliberately narrow. SQL selects primary keys from both sides, then DataLinq materializes rows and applies the result selector client-side. |
 | Unsupported join shapes | composite anonymous-object keys, `GroupJoin(...)`, filtering over the joined result, and relation-property result projection fail with `QueryTranslationException` | `Translation/EmployeesJoinTranslationTests.cs` | Outer joins, additional ordering/paging/result operators over joined results, relation-property joins, and multi-join pipelines are outside the documented boundary. |
 
 ## Unsupported or Not Yet Proven
@@ -123,7 +123,7 @@ Unsupported predicate methods, non-empty compound local `Any(predicate)` shapes,
 
 ## Regression Coverage Notes
 
-Phase 6 added regression tests that make dropped predicates hard to miss:
+The regression suite includes tests that make dropped predicates hard to miss:
 
 1. `Where(a).Where(b)` where each predicate excludes different seeded rows and the combined result is strictly smaller than either single predicate.
 2. `Where(a).OrderBy(...).Where(b)` if Remotion emits a nested query shape the current parser accepts.

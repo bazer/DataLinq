@@ -14,6 +14,8 @@ Use the runtime provider that matches your database:
 
 ```csharp
 using DataLinq;
+using DataLinq.MySql;
+using DataLinq.SQLite;
 using MyApp.Models;
 
 var db = new MySqlDatabase<AppDb>(connectionString);

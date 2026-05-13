@@ -71,4 +71,4 @@ Not accurate yet:
 
 The second statement has to wait until the query dependency boundary and remaining third-party warning work are cleaned up.
 
-For the engineering evidence, see the Phase 8 [Compatibility Results](dev-plans/archive/roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md) and the repo-local `DataLinq.Dev.CLI` `size-report` and `package-report` commands.
+The detailed engineering notes live in the repo's internal `docs/dev-plans` tree. The public verification hooks are the repo-local `DataLinq.Dev.CLI` `size-report` and `package-report` commands plus the constrained-platform smoke projects that back this narrow claim.

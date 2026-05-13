@@ -43,6 +43,7 @@ If you are new to DataLinq, this is the shortest sensible path:
 
 ```csharp
 using DataLinq;
+using DataLinq.MySql;
 using MyApp.Models;
 
 var db = new MySqlDatabase<AppDb>(connectionString);
@@ -71,6 +72,8 @@ Once you are through the onboarding flow, the docs split into the main working a
 - [Usage](docs/Querying.md)
 - [Diagnostics and Metrics](docs/Diagnostics%20and%20Metrics.md)
 - [Platform Compatibility](docs/Platform%20Compatibility.md)
+- [Changelog](CHANGELOG.md)
+- [Roadmap](docs/Roadmap.md)
 - [Providers](docs/backends/MySQL-MariaDB.md)
 - [Internals](docs/Technical%20documentation.md)
 - [Contributing](docs/Contributing.md)

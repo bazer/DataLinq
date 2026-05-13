@@ -59,6 +59,7 @@ Once the basics are in place, move into the deeper working docs:
 - [Supported LINQ Queries](Supported%20LINQ%20Queries.md)
 - [Support Matrices](support-matrices/index.md)
 - [Platform Compatibility](Platform%20Compatibility.md)
+- [Roadmap](Roadmap.md)
 
 ## Documentation Areas
 
@@ -92,3 +93,8 @@ If you already know what you need, jump directly to the major sections:
 - [Technical Documentation](Technical%20documentation.md)
 - [Source Generator](Source%20Generator.md)
 - [Query Translator](Query%20Translator.md)
+
+### Release and Roadmap
+
+- [Changelog](../CHANGELOG.md)
+- [Roadmap](Roadmap.md)

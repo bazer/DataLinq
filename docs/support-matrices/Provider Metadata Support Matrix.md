@@ -2,7 +2,7 @@
 > This matrix is the current metadata-fidelity support boundary. It is not an exhaustive DDL compatibility promise. If a provider feature is not listed as supported and backed by tests, treat it as unsupported.
 # Provider Metadata Support Matrix
 
-**Status:** Current provider metadata matrix; moved from the Phase 4 roadmap folder after the Phase 5 validation boundary consumed it.
+**Status:** Current provider metadata matrix for schema roundtrips, validation, and conservative diff generation.
 
 This matrix records the metadata subset DataLinq preserves through provider roundtrips for MySQL, MariaDB, and SQLite, plus the provider details that remain outside the current contract.
 
@@ -17,7 +17,7 @@ Blunt rule: if a feature is not covered by tests, it should not be promoted to s
 
 ## Roundtrip Contract
 
-The Phase 4 roundtrip contract is:
+The provider metadata roundtrip contract is:
 
 1. create a provider schema
 2. read it into `DatabaseDefinition`
@@ -26,7 +26,7 @@ The Phase 4 roundtrip contract is:
 5. read the fresh schema
 6. compare the supported subset only
 
-The comparison is deliberately lower-level than the future schema validation comparer. It exists to prove provider metadata fidelity, not to report production drift.
+The roundtrip comparison is deliberately lower-level than the public schema validator. It proves provider metadata fidelity. The `validate` and `diff` commands then consume the same supported metadata boundary to report production drift and generate conservative SQL suggestions.
 
 ## Current Matrix
 
@@ -95,9 +95,9 @@ Initial provider tests:
 - `src/DataLinq.Tests.MySql/MetadataFromServerFactoryTests.cs`
 - `src/DataLinq.Tests.MySql/ProviderMetadataRoundtripTests.cs`
 
-## Phase 4 Closeout Status
+## Implementation Notes
 
-Phase 4 moved these entries from partially supported or unknown toward supported only where roundtrip tests prove them:
+The following areas are supported only where roundtrip tests prove them:
 
 - column names with spaces, punctuation, reserved C# word shapes, and leading digits
 - foreign-key columns that also have ordinary indexes
@@ -108,13 +108,13 @@ Phase 4 moved these entries from partially supported or unknown toward supported
 - MySQL/MariaDB raw check expressions and comments as provider-scoped metadata
 - unsupported advanced index, collation, generated-column, and referential-action details are documented rather than treated as comparable validation facts
 
-Identifier casing comparison is documented here as provider behavior and consumed in Phase 5 as validation semantics. SQLite table and column presence checks are case-insensitive. MySQL/MariaDB column matching is case-insensitive, while table-name casing still depends on provider/server configuration such as `lower_case_table_names`.
+Identifier casing comparison is documented here as provider behavior and consumed by validation semantics. SQLite table and column presence checks are case-insensitive. MySQL/MariaDB column matching is case-insensitive, while table-name casing still depends on provider/server configuration such as `lower_case_table_names`.
 
 This matrix should continue to be updated when DataLinq adds first-class metadata for deferred provider features. Until then, unsupported details should stay out of authoritative schema validation.
 
-## Phase 4B Closeout Status
+## Recent Hardening Notes
 
-Phase 4B hardened the practical gaps found in the Phase 4 review:
+Recent provider metadata hardening added these practical guarantees:
 
 - foreign-key referential actions are represented on `[ForeignKey]` and `RelationDefinition`
 - generated provider SQL preserves explicit `ON UPDATE` and `ON DELETE` actions

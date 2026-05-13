@@ -26,6 +26,8 @@ graph TD
         CLI -- command --> Validate["validate<br/><i>Report schema drift</i>"]
         CLI -- command --> Diff["diff<br/><i>Generate conservative drift SQL</i>"]
         CLI -- command --> ListCmd["list<br/><i>List configured databases</i>"]
+        CLI -- command --> HelpCmd["help<br/><i>Show parser help</i>"]
+        CLI -- command --> VersionCmd["version<br/><i>Show tool version</i>"]
 
         CreateDB -- Options --> CD_Opts["-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
         CreateSQL -- Options --> CS_Opts["<b>-o, --output path</b> (Required)<br/>-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
@@ -41,6 +43,8 @@ graph TD
         Validate:::CommandStyle
         Diff:::CommandStyle
         ListCmd:::CommandStyle
+        HelpCmd:::CommandStyle
+        VersionCmd:::CommandStyle
         CD_Opts:::OptionsStyle
         CS_Opts:::OptionsStyle
         CM_Opts:::OptionsStyle
@@ -87,6 +91,8 @@ In the CLI entry point, the built-in registered providers are:
 - `MySQL`
 - `MariaDB`
 - `SQLite`
+
+The command-line parser also exposes built-in `help` and `version` commands. They do not read `datalinq.json`; they are parser/tool metadata commands.
 
 ---
 

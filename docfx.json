@@ -31,12 +31,11 @@
     "content": [
       {
         "files": [
-          "*.md",
+          "README.md",
+          "index.md",
+          "CHANGELOG.md",
+          "LICENSE.md",
           "toc.yml"
-        ],
-        "exclude": [
-          "obj/**",
-          "_site/**"
         ]
       },
       {
@@ -49,6 +48,9 @@
         "files": [
           "docs/**/*.md",
           "docs/**/toc.yml"
+        ],
+        "exclude": [
+          "docs/dev-plans/**"
         ]
       }
     ],
@@ -56,6 +58,18 @@
       {
         "files": [
           "images/**"
+        ]
+      },
+      {
+        "src": "docfx/datalinq/public",
+        "files": [
+          "**"
+        ],
+        "dest": "public"
+      },
+      {
+        "files": [
+          "public/**"
         ]
       }
     ],

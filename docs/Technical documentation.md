@@ -124,7 +124,7 @@ DataLinq is organized into several interconnected layers:
 - **TableCache:**
   Owns the cache state for a table and coordinates updates after writes.
 
-### 3.6 Runtime Metrics
+### 3.4 Runtime Metrics
 
 The shipped metrics API is `DataLinq.Diagnostics.DataLinqMetrics`.
 
@@ -148,14 +148,14 @@ The ownership rules are:
 
 Runtime values are then computed by summing the right children. Peak queue depth is the notable exception: that one is a max, not a sum.
 
-### 3.4 Query Handling
+### 3.5 Query Handling
 
 - **LINQ Integration:**
   Queries are written in LINQ, and the query engine translates supported shapes into backend-specific SQL commands.
 - **Cache-Aware Query Execution:**
   Repeated reads can reuse cached rows rather than re-materializing them.
 
-### 3.5 Testing and Examples
+### 3.6 Testing and Examples
 
 - **Unit Tests:**
   Cover cache behavior, metadata parsing, mutation lifecycle, equality, and query translation.

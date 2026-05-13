@@ -38,18 +38,18 @@ That rule is the important part. DataLinq should not store the same row under bo
 
 ## Scalar Converter Boundary
 
-Phase 10 does not implement scalar converters, but the row-cache key shape now separates model metadata from provider metadata:
+DataLinq 0.7.0 does not implement scalar converters, but the row-cache key shape now separates model metadata from provider metadata:
 
 - `TableKeyComponentDefinition.ModelCsType` and `ModelClrType` describe the value exposed by generated model APIs.
 - `TableKeyComponentDefinition.ProviderCsType` and `ProviderClrType` describe the value used by readers, query parameters, row stores, and relation index stores.
 - `TableKeyComponentDefinition.ProviderStoreKind` selects scalar cache/index stores. The old ambiguous `StoreKind` surface is gone because cache identity is provider identity.
-- `TableKeyComponentDefinition.ScalarConverterHandle` is currently `null`; it is the Phase 15 metadata slot for resolved converter information.
+- `TableKeyComponentDefinition.ScalarConverterHandle` is currently `null`; it is the reserved metadata slot for resolved converter information.
 
 Today, model and provider types are the same. That is an implementation state, not an architectural rule. The rule remains:
 
 > Cache keys and relation index keys are provider values.
 
-Phase 15 scalar converter work should plug into these exact places:
+Future scalar converter work should plug into these exact places:
 
 - Generated `Get(...)` methods should keep their model-shaped public signatures, then convert model key arguments to provider values before calling `GetByProviderKey(...)`.
 - Generated relation traversal should convert foreign-key model properties to provider values before entering `GetImmutableRelation<..., TProviderKey>(...)`, `GetImmutableForeignKey<..., TProviderKey>(...)`, and `TypedIndexCache<TKey>`.
@@ -202,9 +202,9 @@ The cache key architecture depends on these invariants:
 
 If a future change stores the same row under two key representations, it is almost certainly the wrong design.
 
-## Phase 11 Handoff
+## Invalidation Integration
 
-Phase 11 cache clearing and external invalidation should start from these concrete Phase 10 artifacts:
+Current cache clearing and external invalidation use these provider-key artifacts:
 
 - `TableDefinition.PrimaryKeyShape` is the table/key descriptor. Its components expose provider/model CLR types, provider store kind, nullability, column ordinals, and the scalar-converter placeholder.
 - Generated table models install `IProviderKeyRowStoreAccessor` or `IProviderKeyDataReaderRowStoreAccessor` when a table has primary-key metadata. That accessor is the bridge from bounded dynamic components into the table's exact provider-key type.
@@ -212,8 +212,8 @@ Phase 11 cache clearing and external invalidation should start from these concre
 - `RowCache.TryRemoveProviderKey<TKey>(...)` removes a row from the single typed row store without constructing `IKey` or a duplicate side key.
 - Internal `TableCache.TryRemoveProviderKey<TKey>(...)` applies provider-key row removal to the active read/transaction cache.
 - Internal `TableCache.TryRemoveForeignKeyIndex<TKey>(...)` removes scalar relation/index buckets by provider foreign-key values. Internal `TableCache.TryRemovePrimaryKeyIndex(...)` removes relation index entries that point at a primary key carrier.
-- `TableCache.ClearCache()`, `ClearRows()`, and `ClearIndex()` are the conservative table-level fallback when a future external invalidation signal cannot provide precise provider-key components.
+- `TableCache.ClearCache()`, `ClearRows()`, and `ClearIndex()` are the conservative table-level fallback when an external invalidation signal cannot provide precise provider-key components.
 - Cache maintenance telemetry uses the `datalinq.cache.operation` tag. The current operation names are centralized in `CacheMaintenanceOperations`: `state_change_precise`, `state_change_table`, `transaction_state_change`, `transaction_state_change_table`, `transaction_remove`, `clear`, `row_limit`, `size_limit`, `age_limit`, and `limit`.
 - Production source has no remaining `IKey` dependency. `DataLinqKey` remains as the bounded dynamic provider-key carrier, not as a universal row-store identity.
 
-The practical Phase 11 rule is simple: public invalidation can expose convenient model/table APIs, but the point where it touches row or relation caches must be provider-key values or a conservative table clear. Reintroducing a universal key interface would undo the main Phase 10 cleanup.
+The practical invalidation rule is simple: public invalidation can expose convenient model/table APIs, but the point where it touches row or relation caches must be provider-key values or a conservative table clear. Reintroducing a universal key interface would undo the main provider-key cache cleanup.

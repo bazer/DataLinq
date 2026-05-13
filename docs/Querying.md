@@ -12,6 +12,7 @@ At runtime you connect with a normal connection string. The JSON config files ar
 
 ```csharp
 using DataLinq;
+using DataLinq.MySql;
 using DataLinq.Tests.Models.Employees;
 
 var connectionString = "server=localhost;user=root;database=employees;password=yourpassword;";
