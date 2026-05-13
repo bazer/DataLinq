@@ -24,6 +24,9 @@ public class RowCache
 
     public void ClearRows() => rowStore?.Clear();
 
+    internal CacheMemoryEstimate GetMemoryEstimate() =>
+        rowStore?.GetMemoryEstimate() ?? CacheMemoryEstimate.Empty;
+
     public int RemoveRowsOverRowLimit(int maxRows) =>
         rowStore?.RemoveRowsOverRowLimit(maxRows) ?? 0;
 
@@ -90,18 +93,46 @@ public class RowCache
     }
 
     internal bool TryAddRow(DataLinqKey key, RowData data, IImmutableInstance instance) =>
-        TryAddRow(key, data.Size, instance);
+        TryAddRow(key, data, instance, static (cache, rowKey, rowSize, rowContainerBytes, row) =>
+            cache.TryAddRow(rowKey, rowSize, rowContainerBytes, row));
+
+    public bool TryAddRow<TKey>(
+        TKey key,
+        RowData data,
+        IImmutableInstance instance)
+        where TKey : notnull =>
+        TryAddRow(key, data, instance, static (cache, rowKey, rowSize, rowContainerBytes, row) =>
+            cache.TryAddRow(rowKey, rowSize, rowContainerBytes, row));
 
     public bool TryAddRow<TKey>(
         TKey key,
         int size,
         IImmutableInstance instance)
         where TKey : notnull
+        => TryAddRow(key, size, rowContainerBytes: 0, instance);
+
+    private bool TryAddRow<TKey>(
+        TKey key,
+        RowData data,
+        IImmutableInstance instance,
+        Func<RowCache, TKey, int, long, IImmutableInstance, bool> add)
+        where TKey : notnull
+    {
+        var rowContainerBytes = CacheMemoryEstimator.RowDataContainerBytes(data.Table.ColumnCount);
+        return add(this, key, data.Size, rowContainerBytes, instance);
+    }
+
+    private bool TryAddRow<TKey>(
+        TKey key,
+        int size,
+        long rowContainerBytes,
+        IImmutableInstance instance)
+        where TKey : notnull
     {
         if (key is null)
             return false;
 
-        return GetOrCreateStore<TKey>().TryAdd(key, size, instance);
+        return GetOrCreateStore<TKey>().TryAdd(key, size, rowContainerBytes, instance);
     }
 
     private IRowStore<TKey> GetOrCreateStore<TKey>()

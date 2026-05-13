@@ -78,6 +78,14 @@ public partial class TableCache
         return new(Table.DbName, RowCount, RowPayloadBytes, NewestTick, OldestTick, IndicesCount.ToArray());
     }
 
+    internal CacheMemoryEstimate GetMemoryEstimate()
+    {
+        var estimate = rowCache?.GetMemoryEstimate() ?? CacheMemoryEstimate.Empty;
+        var transactionEstimate = GetTransactionRowsMemoryEstimate();
+
+        return estimate + transactionEstimate;
+    }
+
     internal void UnregisterTelemetry()
     {
         DataLinqTelemetry.UnregisterTableCache(telemetryContext, Table.DbName);
@@ -93,6 +101,22 @@ public partial class TableCache
     private void RefreshOccupancyMetrics()
     {
         MetricsHandle.UpdateCacheOccupancy(GetOccupancySnapshot());
+    }
+
+    private CacheMemoryEstimate GetTransactionRowsMemoryEstimate()
+    {
+        var rowsByTransaction = transactionRows;
+        if (rowsByTransaction is null)
+            return CacheMemoryEstimate.Empty;
+
+        var rowEstimate = CacheMemoryEstimate.Sum(rowsByTransaction.Values.Select(x => x.GetMemoryEstimate()));
+        var transactionRowStoreOverheadBytes = CacheMemoryEstimator.SaturatingAdd(
+            rowEstimate.RowStoreOverheadBytes,
+            CacheMemoryEstimator.ConcurrentDictionaryOverheadBytes(rowsByTransaction.Count));
+
+        return new CacheMemoryEstimate(
+            TransactionRowPayloadBytes: rowEstimate.RowPayloadBytes,
+            TransactionRowStoreOverheadBytes: transactionRowStoreOverheadBytes);
     }
 
     private static string GetCacheLimitOperationName(CacheLimitType limitType)

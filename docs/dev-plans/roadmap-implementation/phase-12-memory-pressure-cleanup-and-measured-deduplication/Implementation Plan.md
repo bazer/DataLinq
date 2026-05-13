@@ -92,6 +92,8 @@ Implementation notes:
 
 ## Workstream B: Component-Level Cache Accounting
 
+Status: in progress.
+
 Goals:
 
 - account for every major cache-owned structure cheaply enough for normal use
@@ -133,6 +135,10 @@ Exit criteria:
 - component estimates drop when those structures are cleared
 - relation-object accounting does not introduce strong references
 - estimates are cheap enough to read from metrics without surprising allocations
+
+Implementation notes:
+
+- 2026-05-13: Started component accounting with internal row-store estimates. `RowCache` now reports row payload separately from row-store overhead, with per-row overhead counters updated on add/remove/clear and transaction-local row caches remapped into transaction payload/overhead at the table estimate boundary.
 
 ## Workstream C: Diagnostics And Byte-Limit Cutover
 

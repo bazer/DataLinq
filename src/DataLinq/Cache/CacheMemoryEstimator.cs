@@ -21,6 +21,12 @@ internal static class CacheMemoryEstimator
     public static long ObjectArrayBytes(int length) =>
         ArrayBytes(length, ReferenceSize);
 
+    public static long ArrayBytes(int length, long elementBytes)
+    {
+        var count = Math.Max(length, 0);
+        return SaturatingAdd(ArrayHeaderBytes, SaturatingMultiply(count, elementBytes));
+    }
+
     public static long ByteArrayBytes(int length) =>
         ArrayBytes(length, sizeof(byte));
 
@@ -42,6 +48,12 @@ internal static class CacheMemoryEstimator
     public static long DataLinqKeyComponentArrayBytes(int componentCount) =>
         componentCount <= 1 ? 0 : ObjectArrayBytes(componentCount);
 
+    public static long DataLinqKeyArrayBytes(int length) =>
+        ArrayBytes(length, DataLinqKeyStructBytes);
+
+    public static int DataLinqKeyStructBytes =>
+        AlignToPointer((ReferenceSize * 2) + (sizeof(int) * 2));
+
     public static long DictionaryBucketArrayBytes(int bucketCount) =>
         ArrayBytes(bucketCount, sizeof(int));
 
@@ -60,6 +72,74 @@ internal static class CacheMemoryEstimator
         var bucketBytes = DictionaryBucketArrayBytes(count);
         var entryBytes = DictionaryEntryArrayBytes(count);
         return SaturatingAdd(SaturatingAdd(dictionaryObjectBytes, bucketBytes), entryBytes);
+    }
+
+    public static long ConcurrentDictionaryOverheadBytes(int entryCount)
+    {
+        var count = Math.Max(entryCount, 0);
+        var dictionaryObjectBytes = AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 6) + (sizeof(int) * 2));
+        var tableBytes = AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 3));
+        var bucketBytes = ObjectArrayBytes(count);
+        var nodeBytes = SaturatingMultiply(count, AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 3) + sizeof(int)));
+        return SaturatingAdd(SaturatingAdd(dictionaryObjectBytes, tableBytes), SaturatingAdd(bucketBytes, nodeBytes));
+    }
+
+    public static long QueueOverheadBytes(int entryCount, long entryBytes)
+    {
+        var count = Math.Max(entryCount, 0);
+        var queueObjectBytes = AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 2) + (sizeof(int) * 4));
+        return SaturatingAdd(queueObjectBytes, ArrayBytes(count, entryBytes));
+    }
+
+    public static long RowStoreContainerBytes =>
+        AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 2) + sizeof(long));
+
+    public static long RowEntryBytes =>
+        AlignToPointer(ObjectHeaderBytes + ReferenceSize + sizeof(int) + sizeof(long));
+
+    public static long RowDataContainerBytes(int columnCount)
+    {
+        var rowDataObjectBytes = AlignToPointer(ObjectHeaderBytes + ReferenceSize + sizeof(int));
+        return SaturatingAdd(rowDataObjectBytes, ObjectArrayBytes(columnCount));
+    }
+
+    public static long ImmutableRowInstanceBytes =>
+        AlignToPointer(ObjectHeaderBytes + (ReferenceSize * 5));
+
+    public static long EstimateKeyPayloadBytes(object? key)
+    {
+        if (key is null)
+            return 0;
+
+        if (key is string text)
+            return StringBytes(text);
+
+        if (key is byte[] bytes)
+            return ByteArrayBytes(bytes.Length);
+
+        if (key is DataLinqKey dataLinqKey)
+            return EstimateDataLinqKeyPayloadBytes(dataLinqKey);
+
+        if (key is IProviderKey providerKey)
+        {
+            var total = providerKey.ValueCount <= 1 ? 0 : ObjectArrayBytes(providerKey.ValueCount);
+            for (var i = 0; i < providerKey.ValueCount; i++)
+                total = SaturatingAdd(total, EstimateKeyPayloadBytes(providerKey.GetValue(i)));
+
+            return total;
+        }
+
+        return key.GetType().IsValueType ? 0 : ObjectHeaderBytes;
+    }
+
+    public static long EstimateDataLinqKeyPayloadBytes(DataLinqKey key)
+    {
+        var total = DataLinqKeyComponentArrayBytes(key);
+
+        for (var i = 0; i < key.ValueCount; i++)
+            total = SaturatingAdd(total, EstimateKeyPayloadBytes(key.GetValue(i)));
+
+        return total;
     }
 
     public static long SaturatingAdd(long left, long right)
@@ -102,9 +182,4 @@ internal static class CacheMemoryEstimator
         return remainder == 0 ? bytes : SaturatingAdd(bytes, pointerSize - remainder);
     }
 
-    private static long ArrayBytes(int length, long elementBytes)
-    {
-        var count = Math.Max(length, 0);
-        return SaturatingAdd(ArrayHeaderBytes, SaturatingMultiply(count, elementBytes));
-    }
 }

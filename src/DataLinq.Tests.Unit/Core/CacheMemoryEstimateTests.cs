@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Cache;
+using DataLinq.Core.Factories;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
@@ -186,7 +189,108 @@ public class CacheMemoryEstimateTests
         await Assert.That(occupancy.RowPayloadBytes).IsEqualTo(occupancy.Bytes);
     }
 
-    private sealed class TestImmutableInstance(DataLinqKey primaryKeys) : IImmutableInstance
+    [Test]
+    public async Task RowCache_GetMemoryEstimate_SeparatesRowPayloadFromRowStoreOverhead()
+    {
+        var table = CreateMemoryEstimateTable();
+        using var reader = new FakeDataLinqDataReader([1, "Ada"]);
+        var rowData = new RowData(reader, table, table.Columns, hasIndexedColumns: true);
+        var cache = new RowCache();
+        var row = new TestImmutableInstance(DataLinqKey.FromValue(1), rowData);
+
+        await Assert.That(cache.TryAddRow(1, rowData, row)).IsTrue();
+
+        var estimate = cache.GetMemoryEstimate();
+
+        await Assert.That(estimate.RowPayloadBytes).IsEqualTo(rowData.Size);
+        await Assert.That(estimate.RowStoreOverheadBytes).IsGreaterThan(0);
+        await Assert.That(estimate.EstimatedCacheBytes).IsGreaterThan(estimate.RowPayloadBytes);
+    }
+
+    [Test]
+    public async Task RowCache_GetMemoryEstimate_DropsRowPayloadAndOwnedOverheadOnClear()
+    {
+        var table = CreateMemoryEstimateTable();
+        using var reader = new FakeDataLinqDataReader([1, "Ada"]);
+        var rowData = new RowData(reader, table, table.Columns, hasIndexedColumns: true);
+        var cache = new RowCache();
+        var row = new TestImmutableInstance(DataLinqKey.FromValue(1), rowData);
+
+        await Assert.That(cache.TryAddRow(1, rowData, row)).IsTrue();
+        var occupiedEstimate = cache.GetMemoryEstimate();
+
+        cache.ClearRows();
+
+        var clearedEstimate = cache.GetMemoryEstimate();
+
+        await Assert.That(clearedEstimate.RowPayloadBytes).IsEqualTo(0);
+        await Assert.That(clearedEstimate.RowStoreOverheadBytes).IsLessThan(occupiedEstimate.RowStoreOverheadBytes);
+        await Assert.That(clearedEstimate.EstimatedCacheBytes).IsLessThan(occupiedEstimate.EstimatedCacheBytes);
+    }
+
+    private static TableDefinition CreateMemoryEstimateTable()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "MemoryEstimateTestDb",
+            new CsTypeDeclaration("MemoryEstimateTestDb", "DataLinq.Tests.Unit.Core", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration("MemoryEstimateTestRow", "DataLinq.Tests.Unit.Core", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.SQLite, "integer")]
+                                })
+                            {
+                                CsSize = sizeof(int)
+                            },
+                            new MetadataValuePropertyDraft(
+                                "Name",
+                                new CsTypeDeclaration(typeof(string)),
+                                new MetadataColumnDraft("name")
+                                {
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.SQLite, "text")]
+                                })
+                        ]
+                    },
+                    new MetadataTableDraft("memory_estimate_rows"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException().TableModels.Single().Table;
+    }
+
+    private sealed class FakeDataLinqDataReader(IReadOnlyList<object?> values) : IDataLinqDataReader
+    {
+        public object GetValue(int ordinal) => values[ordinal]!;
+        public T? GetValue<T>(ColumnDefinition column) => (T?)values[column.Index];
+        public T? GetValue<T>(ColumnDefinition column, int ordinal) => (T?)values[ordinal];
+        public void Dispose()
+        {
+        }
+
+        public int GetOrdinal(string name) => throw new NotSupportedException();
+        public string GetString(int ordinal) => throw new NotSupportedException();
+        public bool GetBoolean(int ordinal) => throw new NotSupportedException();
+        public int GetInt32(int ordinal) => throw new NotSupportedException();
+        public DateOnly GetDateOnly(int ordinal) => throw new NotSupportedException();
+        public Guid GetGuid(int ordinal) => throw new NotSupportedException();
+        public byte[]? GetBytes(int ordinal) => throw new NotSupportedException();
+        public long GetBytes(int ordinal, Span<byte> buffer) => throw new NotSupportedException();
+        public bool ReadNextRow() => throw new NotSupportedException();
+        public bool IsDbNull(int ordinal) => values[ordinal] is null;
+    }
+
+    private sealed class TestImmutableInstance(DataLinqKey primaryKeys, IRowData? rowData = null) : IImmutableInstance
     {
         public object? this[string propertyName] => throw new NotSupportedException();
         public object? this[ColumnDefinition column] => throw new NotSupportedException();
@@ -196,7 +300,7 @@ public class CacheMemoryEstimateTests
         public bool HasPrimaryKeysSet() => true;
         public ModelDefinition Metadata() => throw new NotSupportedException();
         public DataLinqKey PrimaryKeys() => primaryKeys;
-        public IRowData GetRowData() => throw new NotSupportedException();
+        public IRowData GetRowData() => rowData ?? throw new NotSupportedException();
         IRowData IModelInstance.GetRowData() => GetRowData();
         public void ClearLazy() { }
         public V? GetLazy<V>(string name, Func<V> fetchCode) => fetchCode();

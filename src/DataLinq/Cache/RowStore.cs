@@ -16,12 +16,13 @@ internal interface IRowStore
     long? OldestTick { get; }
     long? NewestTick { get; }
 
+    CacheMemoryEstimate GetMemoryEstimate();
     void Clear();
     int RemoveRowsOverRowLimit(int maxRows);
     int RemoveRowsOverSizeLimit(long maxSize);
     int RemoveRowsInsertedBeforeTick(long tick);
     bool TryGetKey(DataLinqKey key, out IImmutableInstance? row);
-    bool TryAddKey(DataLinqKey key, int size, IImmutableInstance row);
+    bool TryAddKey(DataLinqKey key, int size, long rowContainerBytes, IImmutableInstance row);
     bool TryRemoveKey(DataLinqKey key, out int numRowsRemoved);
 }
 
@@ -29,23 +30,25 @@ internal interface IRowStore<TKey> : IRowStore
     where TKey : notnull
 {
     bool TryGet(TKey key, out IImmutableInstance? row);
-    bool TryAdd(TKey key, int size, IImmutableInstance row);
+    bool TryAdd(TKey key, int size, long rowContainerBytes, IImmutableInstance row);
     bool TryRemove(TKey key, out int numRowsRemoved);
 }
 
 internal sealed class RowStore<TKey> : IRowStore<TKey>
     where TKey : notnull
 {
-    private sealed class RowEntry(IImmutableInstance row, int size, long ticks)
+    private sealed class RowEntry(IImmutableInstance row, int size, long overheadBytes, long ticks)
     {
         public IImmutableInstance Row { get; } = row;
         public int Size { get; } = size;
+        public long OverheadBytes { get; } = overheadBytes;
         public long Ticks { get; } = ticks;
     }
 
     private readonly object rowsLock = new();
     private readonly Dictionary<TKey, RowEntry> rows = new();
     private long rowPayloadBytes;
+    private long rowOwnedOverheadBytes;
 
     public Type KeyType => typeof(TKey);
 
@@ -71,6 +74,24 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
 
     public long TotalBytes => RowPayloadBytes;
 
+    public CacheMemoryEstimate GetMemoryEstimate()
+    {
+        int count;
+        lock (rowsLock)
+            count = rows.Count;
+
+        var rowStoreOverheadBytes = CacheMemoryEstimator.SaturatingAdd(
+            CacheMemoryEstimator.RowStoreContainerBytes,
+            CacheMemoryEstimator.DictionaryOverheadBytes(count));
+        rowStoreOverheadBytes = CacheMemoryEstimator.SaturatingAdd(
+            rowStoreOverheadBytes,
+            Interlocked.Read(ref rowOwnedOverheadBytes));
+
+        return new CacheMemoryEstimate(
+            RowPayloadBytes: RowPayloadBytes,
+            RowStoreOverheadBytes: rowStoreOverheadBytes);
+    }
+
     public long? OldestTick
     {
         get
@@ -95,6 +116,7 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
         {
             rows.Clear();
             Interlocked.Exchange(ref rowPayloadBytes, 0);
+            Interlocked.Exchange(ref rowOwnedOverheadBytes, 0);
         }
     }
 
@@ -162,17 +184,19 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
         return false;
     }
 
-    public bool TryAdd(TKey key, int size, IImmutableInstance row)
+    public bool TryAdd(TKey key, int size, long rowContainerBytes, IImmutableInstance row)
     {
         var ticks = DateTime.Now.Ticks;
+        var overheadBytes = EstimateRowEntryOverhead(key, rowContainerBytes);
 
         lock (rowsLock)
         {
             if (rows.ContainsKey(key))
                 return false;
 
-            rows.Add(key, new RowEntry(row, size, ticks));
+            rows.Add(key, new RowEntry(row, size, overheadBytes, ticks));
             Interlocked.Add(ref rowPayloadBytes, size);
+            Interlocked.Add(ref rowOwnedOverheadBytes, overheadBytes);
             return true;
         }
     }
@@ -195,10 +219,10 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
         return false;
     }
 
-    public bool TryAddKey(DataLinqKey key, int size, IImmutableInstance row)
+    public bool TryAddKey(DataLinqKey key, int size, long rowContainerBytes, IImmutableInstance row)
     {
         return TryConvertKey(key, out var providerKey) &&
-            TryAdd(providerKey, size, row);
+            TryAdd(providerKey, size, rowContainerBytes, row);
     }
 
     public bool TryRemoveKey(DataLinqKey key, out int numRowsRemoved)
@@ -251,6 +275,15 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
             return 0;
 
         Interlocked.Add(ref rowPayloadBytes, -entry.Size);
+        Interlocked.Add(ref rowOwnedOverheadBytes, -entry.OverheadBytes);
         return 1;
+    }
+
+    private static long EstimateRowEntryOverhead(TKey key, long rowContainerBytes)
+    {
+        var overhead = CacheMemoryEstimator.RowEntryBytes;
+        overhead = CacheMemoryEstimator.SaturatingAdd(overhead, CacheMemoryEstimator.EstimateKeyPayloadBytes(key));
+        overhead = CacheMemoryEstimator.SaturatingAdd(overhead, CacheMemoryEstimator.ImmutableRowInstanceBytes);
+        return CacheMemoryEstimator.SaturatingAdd(overhead, rowContainerBytes);
     }
 }

@@ -118,11 +118,11 @@ public partial class TableCache
     {
         row = InstanceFactory.NewImmutableRow(rowData, dataSource);
 
-        var added = (dataSource is ReadOnlyAccess && (!Table.UseCache || GetOrCreateRowCache().TryAddRow(primaryKey, rowData.Size, row)))
+        var added = (dataSource is ReadOnlyAccess && (!Table.UseCache || GetOrCreateRowCache().TryAddRow(primaryKey, rowData, row)))
             || (dataSource is Transaction transaction &&
                 transactionRows is not null &&
                 transactionRows.TryGetValue(transaction, out var transactionRowCache) &&
-                transactionRowCache.TryAddRow(primaryKey, rowData.Size, row));
+                transactionRowCache.TryAddRow(primaryKey, rowData, row));
 
         if (added)
         {
@@ -147,10 +147,10 @@ public partial class TableCache
 
             return Table.PrimaryKeyShape[0].ProviderStoreKind switch
             {
-                TableKeyComponentStoreKind.Int32 when value is int intKey => cache.TryAddRow(intKey, rowData.Size, row),
-                TableKeyComponentStoreKind.Int64 when value is long longKey => cache.TryAddRow(longKey, rowData.Size, row),
-                TableKeyComponentStoreKind.Guid when value is Guid guidKey => cache.TryAddRow(guidKey, rowData.Size, row),
-                TableKeyComponentStoreKind.String when value is string stringKey => cache.TryAddRow(stringKey, rowData.Size, row),
+                TableKeyComponentStoreKind.Int32 when value is int intKey => cache.TryAddRow(intKey, rowData, row),
+                TableKeyComponentStoreKind.Int64 when value is long longKey => cache.TryAddRow(longKey, rowData, row),
+                TableKeyComponentStoreKind.Guid when value is Guid guidKey => cache.TryAddRow(guidKey, rowData, row),
+                TableKeyComponentStoreKind.String when value is string stringKey => cache.TryAddRow(stringKey, rowData, row),
                 _ => false
             };
         }
