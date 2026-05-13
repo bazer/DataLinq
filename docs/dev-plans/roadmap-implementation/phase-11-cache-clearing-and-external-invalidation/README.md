@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 11: Cache Clearing and External Invalidation
 
-**Status:** Next implementation priority.
+**Status:** In progress. Workstream A public cache clearing surface is implemented.
 
 ## Purpose
 

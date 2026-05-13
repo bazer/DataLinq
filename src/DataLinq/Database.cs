@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using System.Linq;
+using DataLinq.Cache;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -27,6 +28,11 @@ public abstract class Database<T> : IDisposable, IDataSourceAccess<T>
     /// </summary>
     public IDatabaseProvider<T> Provider { get; }
 
+    /// <summary>
+    /// Gets explicit cache clearing and invalidation operations for this database.
+    /// </summary>
+    public DatabaseCacheFacade<T> Cache { get; }
+
     IDatabaseProvider IDataSourceAccess.Provider => Provider;
 
     IDatabaseAccess IDataSourceAccess.DatabaseAccess => Provider.DatabaseAccess;
@@ -38,6 +44,7 @@ public abstract class Database<T> : IDisposable, IDataSourceAccess<T>
     public Database(DatabaseProvider<T> provider)
     {
         this.Provider = provider;
+        this.Cache = new DatabaseCacheFacade<T>(this);
     }
 
     /// <summary>

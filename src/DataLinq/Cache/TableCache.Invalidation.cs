@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -155,6 +156,66 @@ public partial class TableCache
         return rowCache is not null
             ? TryRemoveProviderKeyFromCache(rowCache, primaryKey, out numRowsRemoved)
             : RemoveNoRows(out numRowsRemoved);
+    }
+
+    internal int InvalidateProviderKey<TKey>(TKey providerPrimaryKey, DataLinqKey normalizedPrimaryKey)
+        where TKey : notnull
+    {
+        var startedAt = Stopwatch.GetTimestamp();
+        var numRows = 0;
+
+        if (rowCache is not null)
+        {
+            if (TryRemoveProviderKeyFromCache(rowCache, providerPrimaryKey, out var providerRows))
+                numRows += providerRows;
+
+            if (providerRows == 0 && providerPrimaryKey is not DataLinqKey)
+            {
+                if (TryRemoveRowFromCache(rowCache, normalizedPrimaryKey, out var dynamicRows))
+                    numRows += dynamicRows;
+            }
+        }
+
+        TryRemoveRowFromAllIndices(normalizedPrimaryKey, out var indexRows);
+        numRows += indexRows;
+
+        RecordManualInvalidation(numRows, Stopwatch.GetElapsedTime(startedAt));
+
+        return numRows;
+    }
+
+    internal int InvalidateProviderKeys(IReadOnlyList<DataLinqKey> normalizedPrimaryKeys)
+    {
+        if (normalizedPrimaryKeys.Count == 0)
+            return 0;
+
+        var startedAt = Stopwatch.GetTimestamp();
+        var numRows = 0;
+
+        for (var i = 0; i < normalizedPrimaryKeys.Count; i++)
+        {
+            var primaryKey = normalizedPrimaryKeys[i];
+            if (rowCache is not null && TryRemoveRowFromCache(rowCache, primaryKey, out var rows))
+                numRows += rows;
+
+            TryRemoveRowFromAllIndices(primaryKey, out var indexRows);
+            numRows += indexRows;
+        }
+
+        RecordManualInvalidation(numRows, Stopwatch.GetElapsedTime(startedAt));
+
+        return numRows;
+    }
+
+    private void RecordManualInvalidation(int rowsRemoved, TimeSpan duration)
+    {
+        if (rowsRemoved == 0)
+            return;
+
+        RefreshOccupancyMetrics();
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.ManualInvalidate, rowsRemoved, duration);
+        MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
+        OnRowChanged();
     }
 
     public bool TryRemoveTransaction(Transaction transaction)

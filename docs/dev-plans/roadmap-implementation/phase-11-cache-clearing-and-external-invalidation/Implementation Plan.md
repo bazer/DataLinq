@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 11 Implementation Plan: Cache Clearing and External Invalidation
 
-**Status:** Next implementation priority.
+**Status:** In progress. Workstream A implemented on 2026-05-13.
 
 ## Purpose
 
@@ -65,6 +65,17 @@ Goals:
 - give applications explicit cache clearing tools
 - keep the API boring enough to reason about
 
+Implementation status, 2026-05-13:
+
+- Added `Database<T>.Cache` as the public cache coordination entry point.
+- Added database and table clearing through `database.Cache.Clear()`, `database.Cache.ClearTable<TModel>()`, and `database.Cache.ClearTable(TableDefinition)`.
+- Added provider-primary-key invalidation through `database.Cache.Invalidate<TModel, TKey>(TKey providerPrimaryKey)`.
+- Added dynamic metadata invalidation through `DataLinqKeyComponents`, including table-metadata and many-row overloads.
+- Chose no-op semantics for well-formed unknown row keys: invalidation returns `false` or `0` when no cached row or index entry is removed.
+- Chose clear failure semantics for malformed keys: wrong arity, wrong provider component type, null key components, and no-primary-key tables throw before cache internals are touched.
+- Manual row invalidation records cache maintenance telemetry with `datalinq.cache.operation=manual_invalidate` when cached rows or index entries are removed.
+- Current row invalidation removes matching row-cache entries and removes matching primary keys from loaded index caches, then uses the existing table-wide relation notification as the Workstream B conservative fallback.
+
 Candidate shape:
 
 ```csharp
@@ -81,12 +92,12 @@ The exact public shape can differ. The important boundary is that generated and 
 
 Tasks:
 
-1. Decide where the public surface belongs: `Database`, provider state, cache facade, or a dedicated cache coordinator.
-2. Add table-level and database-level clear operations.
-3. Add primary-key invalidation through Phase 10 generated/provider-key accessors.
-4. Add a dynamic metadata fallback for composite provider-key invalidation without requiring `object?[]` on generated hot paths.
-5. Define unknown-key behavior: no-op, diagnostic event, or exception depending on API shape.
-6. Add unit tests for clear all, clear table, clear one row, clear many rows, composite keys, and unknown row signals.
+1. [x] Decide where the public surface belongs: `Database`, provider state, cache facade, or a dedicated cache coordinator.
+2. [x] Add table-level and database-level clear operations.
+3. [x] Add primary-key invalidation through Phase 10 generated/provider-key accessors.
+4. [x] Add a dynamic metadata fallback for composite provider-key invalidation without requiring `object?[]` on generated hot paths.
+5. [x] Define unknown-key behavior: no-op, diagnostic event, or exception depending on API shape.
+6. [x] Add tests for clear all, clear table, clear one row, clear many rows, composite keys, dynamic table metadata, malformed key validation, and unknown row signals.
 
 Exit criteria:
 
@@ -94,6 +105,22 @@ Exit criteria:
 - generated table APIs can call invalidation without constructing `IKey`
 - dynamic invalidation uses a bounded provider-key component carrier, not `IKey` or a revived universal key interface
 - table-level clear exists as a conservative fallback
+
+Workstream A verification, 2026-05-13:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 build src\DataLinq\DataLinq.csproj -c Debug -v minimal --no-incremental
+.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj -c Debug -v minimal --no-incremental
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --alias quick --output failures --build
+```
+
+Results:
+
+- `DataLinq` build passed for `net8.0`, `net9.0`, and `net10.0`.
+- Compliance build passed for `net10.0`.
+- Compliance quick passed: 423/423 against `sqlite-file` and `sqlite-memory`.
+- Unit quick passed: 547/547.
 
 ## Workstream B: Relation And Index Invalidation
 
