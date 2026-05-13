@@ -17,6 +17,7 @@ public class EmployeesBenchmarks : IDisposable
     private const string Phase3QueryHotPathCategory = "phase3-query-hotpath";
     private const string Phase10KeyFoundationCategory = "phase10-key-foundation";
     private const string Phase11CacheInvalidationCategory = "phase11-cache-invalidation";
+    private const string Phase12CacheMemoryCategory = "phase12-cache-memory";
     private const string MacroReadWriteCategory = "macro-readwrite";
     private const string MacroBulkCategory = "macro-bulk";
     private BenchmarkContext? context;
@@ -307,6 +308,61 @@ public class EmployeesBenchmarks : IDisposable
     {
         executedScenario = BenchmarkScenario.ScalarRowCacheAddGetRemove;
         return context!.AddGetRemoveScalarRowCacheEntries();
+    }
+
+    [IterationSetup(Target = nameof(WarmPrimaryKeyFetchWithCacheEstimate))]
+    public void SetupWarmPrimaryKeyFetchWithCacheEstimate()
+    {
+        context!.ResetState(clearCache: true);
+        _ = context.LoadEmployeesByPrimaryKeyBatch();
+        DataLinqMetrics.Reset();
+    }
+
+    [BenchmarkCategory(Phase12CacheMemoryCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Warm PK with cache estimate")]
+    public int WarmPrimaryKeyFetchWithCacheEstimate()
+    {
+        executedScenario = BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate;
+        return context!.LoadEmployeesByPrimaryKeyBatchWithCacheEstimate();
+    }
+
+    [IterationSetup(Target = nameof(WarmRelationTraversalWithCacheEstimate))]
+    public void SetupWarmRelationTraversalWithCacheEstimate()
+    {
+        context!.ResetState(clearCache: true);
+        context.ClearWarmRelationTraversalCache();
+        _ = context.TraverseWarmDepartmentNamesBatch();
+        DataLinqMetrics.Reset();
+    }
+
+    [BenchmarkCategory(Phase12CacheMemoryCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Warm relation with cache estimate")]
+    public int WarmRelationTraversalWithCacheEstimate()
+    {
+        executedScenario = BenchmarkScenario.WarmRelationTraversalWithCacheEstimate;
+        return context!.TraverseWarmDepartmentNamesBatchWithCacheEstimate();
+    }
+
+    [IterationSetup(Target = nameof(LargeRelationIndexPreload))]
+    public void SetupLargeRelationIndexPreload()
+    {
+        context!.ResetState(clearCache: true);
+    }
+
+    [BenchmarkCategory(Phase12CacheMemoryCategory)]
+    [Benchmark(Description = "Large relation index preload")]
+    public int LargeRelationIndexPreload()
+    {
+        executedScenario = BenchmarkScenario.LargeRelationIndexPreload;
+        return context!.PreloadLargeRelationIndex();
+    }
+
+    [BenchmarkCategory(Phase12CacheMemoryCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Composite dynamic key workload")]
+    public int CompositeDynamicKeyWorkload()
+    {
+        executedScenario = BenchmarkScenario.CompositeDynamicKeyWorkload;
+        return context!.CreateCompositeDynamicKeys();
     }
 
     [IterationSetup(Target = nameof(InvalidateOneEmployeeRow))]

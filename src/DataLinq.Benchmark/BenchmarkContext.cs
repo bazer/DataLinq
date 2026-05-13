@@ -174,6 +174,12 @@ internal sealed class BenchmarkContext : IDisposable
         return checksum;
     }
 
+    public int LoadEmployeesByPrimaryKeyBatchWithCacheEstimate()
+    {
+        var checksum = LoadEmployeesByPrimaryKeyBatch();
+        return AddEstimatedCacheBytesChecksum(checksum);
+    }
+
     public int LoadEmployeesByNonPrimaryKeyEqualityBatch()
     {
         var checksum = 0;
@@ -242,6 +248,49 @@ internal sealed class BenchmarkContext : IDisposable
 
         foreach (var employee in sampleEmployeesWithDepartments)
             checksum += employee.dept_emp.First().departments.Name.Length;
+
+        return checksum;
+    }
+
+    public int TraverseWarmDepartmentNamesBatchWithCacheEstimate()
+    {
+        var checksum = TraverseWarmDepartmentNamesBatch();
+        return AddEstimatedCacheBytesChecksum(checksum);
+    }
+
+    public int PreloadLargeRelationIndex()
+    {
+        var checksum = 0;
+        var departments = Database.Query().Departments
+            .OrderBy(x => x.DeptNo)
+            .ToArray();
+
+        foreach (var department in departments)
+        {
+            var employees = department.DepartmentEmployees.ToArray();
+            checksum += employees.Length;
+            if (employees.Length > 0)
+                checksum += employees[0].emp_no;
+        }
+
+        return AddEstimatedCacheBytesChecksum(checksum);
+    }
+
+    public int CreateCompositeDynamicKeys()
+    {
+        var checksum = 0;
+
+        for (var i = 0; i < sampleEmployeeNumbers.Length; i++)
+        {
+            var key = DataLinqKey.FromValues(
+            [
+                sampleEmployeeNumbers[i],
+                sampleEmployeeLastNames[i],
+                sampleEmployeeGenders[i]
+            ]);
+
+            checksum += key.GetHashCode();
+        }
 
         return checksum;
     }
@@ -502,6 +551,15 @@ internal sealed class BenchmarkContext : IDisposable
                     _ = TraverseWarmDepartmentNamesBatch();
                     DataLinqMetrics.Reset();
                     break;
+                case BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate:
+                    _ = LoadEmployeesByPrimaryKeyBatch();
+                    DataLinqMetrics.Reset();
+                    break;
+                case BenchmarkScenario.WarmRelationTraversalWithCacheEstimate:
+                    ClearWarmRelationTraversalCache();
+                    _ = TraverseWarmDepartmentNamesBatch();
+                    DataLinqMetrics.Reset();
+                    break;
                 case BenchmarkScenario.InvalidateOneEmployeeRow:
                 case BenchmarkScenario.InvalidateManyEmployeeRows:
                 case BenchmarkScenario.InvalidateEmployeeTable:
@@ -549,6 +607,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => LoadEmployeesByNonPrimaryKeyEqualityBatch(),
             BenchmarkScenario.RepeatedInPredicateFetch => LoadEmployeesByInPredicateBatch(),
             BenchmarkScenario.RepeatedScalarAny => ExecuteScalarAnyBatch(),
+            BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => LoadEmployeesByPrimaryKeyBatchWithCacheEstimate(),
+            BenchmarkScenario.WarmRelationTraversalWithCacheEstimate => TraverseWarmDepartmentNamesBatchWithCacheEstimate(),
+            BenchmarkScenario.LargeRelationIndexPreload => PreloadLargeRelationIndex(),
+            BenchmarkScenario.CompositeDynamicKeyWorkload => CreateCompositeDynamicKeys(),
             _ => throw new InvalidOperationException($"Unsupported benchmark scenario '{scenario}'.")
         };
 
@@ -649,6 +711,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => BatchOperationCount,
             BenchmarkScenario.RepeatedInPredicateFetch => BatchOperationCount,
             BenchmarkScenario.RepeatedScalarAny => BatchOperationCount,
+            BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => BatchOperationCount,
+            BenchmarkScenario.WarmRelationTraversalWithCacheEstimate => BatchOperationCount,
+            BenchmarkScenario.LargeRelationIndexPreload => 1,
+            BenchmarkScenario.CompositeDynamicKeyWorkload => BatchOperationCount,
             _ => throw new InvalidOperationException($"Unsupported benchmark scenario '{scenario}'.")
         };
 
@@ -700,8 +766,18 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => "Repeated non-PK equality fetch",
             BenchmarkScenario.RepeatedInPredicateFetch => "Repeated IN predicate fetch",
             BenchmarkScenario.RepeatedScalarAny => "Repeated scalar Any",
+            BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => "Warm PK with cache estimate",
+            BenchmarkScenario.WarmRelationTraversalWithCacheEstimate => "Warm relation with cache estimate",
+            BenchmarkScenario.LargeRelationIndexPreload => "Large relation index preload",
+            BenchmarkScenario.CompositeDynamicKeyWorkload => "Composite dynamic key workload",
             _ => throw new InvalidOperationException($"Unsupported benchmark scenario '{scenario}'.")
         };
+
+    private static int AddEstimatedCacheBytesChecksum(int checksum)
+    {
+        var estimatedBytes = DataLinqMetrics.Snapshot().Occupancy.EstimatedCacheBytes;
+        return unchecked(checksum + (int)(estimatedBytes & 0x7fffffff));
+    }
 
     private readonly record struct InsertEmployeeTemplate(
         DateOnly BirthDate,

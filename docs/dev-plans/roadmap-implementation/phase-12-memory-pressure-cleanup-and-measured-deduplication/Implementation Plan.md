@@ -265,6 +265,8 @@ Implementation notes:
 
 ## Workstream E: Measured Deduplication And Scoped Interning
 
+Status: in progress.
+
 Goals:
 
 - reduce retained cache memory only where repeated values make it worthwhile
@@ -308,6 +310,10 @@ Exit criteria:
 - every adopted dedup strategy has before/after benchmark evidence
 - every adopted pool is bounded and has a retention story
 - rejected prototypes are recorded with enough data to avoid repeating the same experiment blindly
+
+Implementation notes:
+
+- 2026-05-13: Added the Phase 12 benchmark lane and `--phase12-cache-memory` CLI selector. The lane covers warm primary-key fetch with cache-estimate reads, warm relation traversal with cache-estimate reads, row-cache add/get/remove through the existing Phase 10 benchmark, large relation-index preload, composite dynamic key creation, and benchmark-only high/low-cardinality string-pool probes. No production dedup strategy has been adopted yet.
 
 ## Workstream F: Verification, Documentation, And Closeout
 

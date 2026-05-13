@@ -26,6 +26,7 @@ internal sealed class BenchmarkHarnessRunner
     internal const string Phase3QueryHotPathCategory = "phase3-query-hotpath";
     internal const string Phase10KeyFoundationCategory = "phase10-key-foundation";
     internal const string Phase11CacheInvalidationCategory = "phase11-cache-invalidation";
+    internal const string Phase12CacheMemoryCategory = "phase12-cache-memory";
     internal const string MacroReadWriteCategory = "macro-readwrite";
     internal const string MacroBulkCategory = "macro-bulk";
     private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
@@ -82,6 +83,7 @@ internal sealed class BenchmarkHarnessRunner
         bool phase3QueryHotPath,
         bool phase10KeyFoundation,
         bool phase11CacheInvalidation,
+        bool phase12CacheMemory,
         string? historyJsonPath,
         string? baselinePath,
         string? comparisonJsonPath,
@@ -90,10 +92,10 @@ internal sealed class BenchmarkHarnessRunner
     {
         settings.EnsureDirectories();
 
-        if (new[] { phase2Watch, phase3QueryHotPath, phase10KeyFoundation, phase11CacheInvalidation }.Count(static selected => selected) > 1)
+        if (new[] { phase2Watch, phase3QueryHotPath, phase10KeyFoundation, phase11CacheInvalidation, phase12CacheMemory }.Count(static selected => selected) > 1)
         {
             throw new InvalidOperationException(
-                "Benchmark category options '--phase2-watch', '--phase3-query-hotpath', '--phase10-key-foundation', and '--phase11-cache-invalidation' cannot be combined.");
+                "Benchmark category options '--phase2-watch', '--phase3-query-hotpath', '--phase10-key-foundation', '--phase11-cache-invalidation', and '--phase12-cache-memory' cannot be combined.");
         }
 
         if (!noBuild)
@@ -129,6 +131,9 @@ internal sealed class BenchmarkHarnessRunner
 
         if (phase11CacheInvalidation)
             arguments.AddRange(["--anyCategories", Phase11CacheInvalidationCategory]);
+
+        if (phase12CacheMemory)
+            arguments.AddRange(["--anyCategories", Phase12CacheMemoryCategory]);
 
         arguments.AddRange(additionalArgs);
 
@@ -951,6 +956,14 @@ internal sealed class BenchmarkHarnessRunner
             "Invalidate many employee rows" => Phase11CacheInvalidationCategory,
             "Invalidate employee table" => Phase11CacheInvalidationCategory,
             "Invalidate database" => Phase11CacheInvalidationCategory,
+            "Warm PK with cache estimate" => Phase12CacheMemoryCategory,
+            "Warm relation with cache estimate" => Phase12CacheMemoryCategory,
+            "Large relation index preload" => Phase12CacheMemoryCategory,
+            "Composite dynamic key workload" => Phase12CacheMemoryCategory,
+            "High-cardinality strings baseline" => Phase12CacheMemoryCategory,
+            "High-cardinality strings bounded pool" => Phase12CacheMemoryCategory,
+            "Low-cardinality strings baseline" => Phase12CacheMemoryCategory,
+            "Low-cardinality strings bounded pool" => Phase12CacheMemoryCategory,
             _ => null
         };
 
@@ -968,6 +981,14 @@ internal sealed class BenchmarkHarnessRunner
             "Cold relation traversal" => "relation-traversal",
             "Warm relation traversal" => "relation-traversal",
             "Scalar row-cache add/get/remove" => "cache-hotpath",
+            "Warm PK with cache estimate" => "cache-memory",
+            "Warm relation with cache estimate" => "cache-memory",
+            "Large relation index preload" => "cache-memory",
+            "Composite dynamic key workload" => "cache-memory",
+            "High-cardinality strings baseline" => "cache-memory",
+            "High-cardinality strings bounded pool" => "cache-memory",
+            "Low-cardinality strings baseline" => "cache-memory",
+            "Low-cardinality strings bounded pool" => "cache-memory",
             "Invalidate one employee row" => "cache-invalidation",
             "Invalidate many employee rows" => "cache-invalidation",
             "Invalidate employee table" => "cache-invalidation",

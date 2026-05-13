@@ -20,5 +20,9 @@ internal enum BenchmarkScenario
     InvalidateDatabase,
     RepeatedNonPrimaryKeyEqualityFetch,
     RepeatedInPredicateFetch,
-    RepeatedScalarAny
+    RepeatedScalarAny,
+    WarmPrimaryKeyFetchWithCacheEstimate,
+    WarmRelationTraversalWithCacheEstimate,
+    LargeRelationIndexPreload,
+    CompositeDynamicKeyWorkload
 }
