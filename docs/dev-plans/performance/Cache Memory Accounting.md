@@ -2,28 +2,32 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Cache Memory Accounting
 
-**Status:** Design input for Phases 11 and 12.
+**Status:** Phase 12 implementation notes. The row-payload compatibility fields and estimated-cache-footprint fields are now both exposed.
 
 ## Purpose
 
-DataLinq currently reports cache "bytes", but that value is not a managed-memory footprint. It is a cheap estimate of row payload bytes.
+DataLinq reports two different byte concepts, and they should not be confused:
 
-That distinction matters because cache limits, diagnostics, and future memory-pressure cleanup can become actively misleading if they pretend the existing number includes keys, dictionaries, index caches, relation caches, transaction caches, and runtime object overhead. It does not.
+- `Bytes`, `TotalBytes`, and `RowPayloadBytes` are row-payload compatibility values.
+- `EstimatedCacheBytes` is the broader estimated cache footprint used by byte-based cleanup limits.
+
+That distinction matters because cache limits, diagnostics, and future memory-pressure cleanup are actively misleading if they pretend row payload includes keys, dictionaries, index caches, relation caches, transaction caches, and runtime object overhead. It does not.
 
 The right fix is not to chase exact CLR heap accounting row by row. Exact object-size accounting in .NET is brittle, runtime-dependent, expensive, and usually false precision. The right fix is to name the current value honestly, then add a broader estimated footprint model whose components are explicit enough to reason about and cheap enough to maintain.
 
 ## Current Behavior
 
-The current byte path is:
+The row-payload compatibility path is:
 
 ```text
 RowData.Size
   -> RowStore<TKey>.RowEntry.Size
-  -> RowStore<TKey>.TotalBytes
-  -> RowCache.TotalBytes
-  -> TableCache.TotalBytes
-  -> CacheOccupancyMetricsSnapshot.Bytes
+  -> RowStore<TKey>.RowPayloadBytes / TotalBytes
+  -> RowCache.RowPayloadBytes / TotalBytes
+  -> TableCache.RowPayloadBytes / TotalBytes
+  -> CacheOccupancyMetricsSnapshot.RowPayloadBytes / Bytes
   -> datalinq.cache.bytes
+  -> datalinq.cache.row_payload.bytes
 ```
 
 `RowData.Size` is computed while reading column values:
@@ -35,9 +39,23 @@ RowData.Size
 
 That value is useful, but it is row payload accounting. It is not total cache memory accounting.
 
-## What Is Missing
+The estimated-footprint path is:
 
-The current byte value does not include:
+```text
+CacheMemoryEstimate
+  -> TableCache.GetMemoryEstimate().EstimatedCacheBytes
+  -> DatabaseCache.GetMemoryEstimate().EstimatedCacheBytes
+  -> TableCacheSnapshot.EstimatedCacheBytes
+  -> DatabaseCacheSnapshot.EstimatedCacheBytes
+  -> CacheOccupancyMetricsSnapshot.EstimatedCacheBytes
+  -> datalinq.cache.estimated.bytes
+```
+
+Byte-based table and database cache limits now use `EstimatedCacheBytes`, not row payload.
+
+## What Row Payload Still Excludes
+
+The row-payload compatibility value does not include:
 
 - `RowData` object overhead
 - the dense `object?[]` backing array inside each `RowData`
@@ -53,7 +71,7 @@ The current byte value does not include:
 - cache-notification queues, weak references, and subscription records
 - cache snapshot/history objects
 
-The practical result is blunt: a table can report modest `Bytes` while retaining substantial memory through relation indexes, relation-object caches, transaction caches, and dictionary/key overhead.
+The practical result is blunt: a table can report modest `Bytes` while retaining substantial memory through relation indexes, relation-object caches, transaction caches, and dictionary/key overhead. Use `EstimatedCacheBytes` and the component fields to diagnose that footprint.
 
 ## Terminology
 
@@ -121,16 +139,16 @@ Phase 12 owns the implementation of broader estimated cache memory accounting.
 
 Tasks:
 
-1. Preserve the existing byte-limit settings and enum values while changing their accounting basis to estimated cache footprint.
-2. Add a `CacheMemoryEstimate` or equivalent internal snapshot with component-level byte counts.
-3. Make row stores report both payload and estimated overhead.
-4. Make transaction-local row caches contribute to memory estimates.
-5. Make index caches report entry counts plus estimated payload and overhead.
-6. Decide whether relation-object caches are cache-owned enough to report directly, or whether subscription telemetry should report their approximate retained values.
-7. Add notification queue memory estimates.
-8. Decide whether `CacheHistory` should be included in cache memory estimates or separately reported as diagnostics overhead.
-9. Update existing size-based cleanup to use `EstimatedCacheBytes`, not row-payload bytes.
-10. Expand diagnostics/reporting so operators can see the corrected total estimate and the important component estimates.
+1. Preserve the existing byte-limit settings and enum values while changing their accounting basis to estimated cache footprint. Implemented for Workstream C.
+2. Add a `CacheMemoryEstimate` or equivalent internal snapshot with component-level byte counts. Implemented.
+3. Make row stores report both payload and estimated overhead. Implemented.
+4. Make transaction-local row caches contribute to memory estimates. Implemented.
+5. Make index caches report entry counts plus estimated payload and overhead. Implemented.
+6. Decide whether relation-object caches are cache-owned enough to report directly, or whether subscription telemetry should report their approximate retained values. Implemented through retained relation subscription key and loaded-primary-key estimates.
+7. Add notification queue memory estimates. Implemented.
+8. Decide whether `CacheHistory` should be included in cache memory estimates or separately reported as diagnostics overhead. Implemented as `SnapshotBytes`.
+9. Update existing size-based cleanup to use `EstimatedCacheBytes`, not row-payload bytes. Implemented for table and database byte limits.
+10. Expand diagnostics/reporting so operators can see the corrected total estimate and the important component estimates. Implemented in snapshots and OpenTelemetry gauges.
 11. Add benchmarks that compare the estimate with observed managed heap deltas under controlled scenarios.
 
 Exit condition for Phase 12:
@@ -187,11 +205,11 @@ Do not call the result exact. It will not be exact. It needs to be stable, compa
 
 ## Cleanup Policy Implications
 
-Current `CacheLimitType.Bytes`, `Kilobytes`, `Megabytes`, and `Gigabytes` act on the current row-payload estimate. That is not wrong if documented as row payload, but it is wrong if sold as total cache memory.
+`CacheLimitType.Bytes`, `Kilobytes`, `Megabytes`, and `Gigabytes` now act on `EstimatedCacheBytes`. That is a behavioral break from the old row-payload basis, and it is the correct break.
 
-The project decision is to take the behavioral break for cache limit cleanup and keep the existing byte-limit settings as-is. Phase 12 should make the existing byte-based limit types use the corrected `EstimatedCacheBytes` basis. Do not add parallel row-payload or estimated-footprint limit settings just to preserve the old behavior.
+The project decision was to take the behavioral break for cache limit cleanup and keep the existing byte-limit settings as-is. Do not add parallel row-payload or estimated-footprint limit settings just to preserve the old behavior.
 
-This limit-setting decision does not block adding richer reporting fields. In fact, adding component-level reporting is required so users can understand why a byte limit is being hit. The old cleanup behavior was not a useful contract; it was a misleading implementation detail. Keeping the cache limit values and fixing the basis makes user code simpler and makes the docs more honest. The closeout notes must call out the breaking semantic change clearly.
+This limit-setting decision does not block richer reporting fields. In fact, component-level reporting is required so users can understand why a byte limit is being hit. The old cleanup behavior was not a useful contract; it was a misleading implementation detail. Keeping the cache limit values and fixing the basis makes user code simpler and makes the docs more honest.
 
 ## Verification Plan
 

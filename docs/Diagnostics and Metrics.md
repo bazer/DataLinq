@@ -159,10 +159,14 @@ This is where people most often fool themselves.
 
 ### Cache occupancy metrics
 
-- `Rows`, `TransactionRows`, `Bytes`, and `IndexEntries` are gauges.
+- `Rows`, `TransactionRows`, `Bytes`, `RowPayloadBytes`, `EstimatedCacheBytes`, component byte fields, and `IndexEntries` are gauges.
 - They describe current state, not cumulative history.
 - They are table-owned and summed upward.
-- `Bytes` is estimated row-payload bytes. It is not total cache memory footprint and does not include row-store overhead, transaction cache structures, index dictionaries, relation objects, notification queues, or cache history.
+- `Bytes` is the legacy alias for `RowPayloadBytes`. It is estimated row-payload bytes, not total cache memory footprint.
+- `EstimatedCacheBytes` is the broader cache footprint estimate used by byte-based cleanup limits.
+- Component fields split the estimate into row-store overhead, transaction row payload/overhead, index payload/overhead, relation object bytes, notification bytes, and snapshot bytes.
+
+The breaking semantic change is deliberate: `CacheLimitType.Bytes`, `Kilobytes`, `Megabytes`, and `Gigabytes` now compare against `EstimatedCacheBytes`, while `Bytes` and `TotalBytes` remain row-payload compatibility names for diagnostics.
 
 ### Cache cleanup metrics
 
@@ -215,6 +219,7 @@ var totalCommandCount = snapshot.Commands.TotalExecutions;
 var totalTransactionStarts = snapshot.Transactions.Starts;
 var totalMutationRows = snapshot.Mutations.AffectedRows;
 var totalCachedRows = snapshot.Occupancy.Rows;
+var totalEstimatedCacheBytes = snapshot.Occupancy.EstimatedCacheBytes;
 var totalRowCacheHits = snapshot.RowCache.Hits;
 var totalNotificationDepth = snapshot.CacheNotifications.ApproximateCurrentQueueDepth;
 var totalInvalidationRows = snapshot.CacheInvalidations.RowsRemoved;
@@ -235,6 +240,7 @@ foreach (var provider in snapshot.Providers)
         Console.WriteLine($"    {table.TableName}:");
         Console.WriteLine($"      Mutations: {table.Mutations.TotalExecutions}");
         Console.WriteLine($"      Cached rows: {table.Occupancy.Rows}");
+        Console.WriteLine($"      Estimated cache bytes: {table.Occupancy.EstimatedCacheBytes}");
         Console.WriteLine($"      Row cache hits: {table.RowCache.Hits}");
         Console.WriteLine($"      Invalidation rows removed: {table.CacheInvalidations.RowsRemoved}");
         Console.WriteLine($"      Notification depth: {table.CacheNotifications.ApproximateCurrentQueueDepth}");
@@ -273,7 +279,7 @@ The exported surface now covers the main runtime paths:
 - mutation count, affected rows, and duration
 - row-cache hit/miss/store counters
 - relation cache hit/load counters
-- cache occupancy gauges for rows, transaction rows, estimated row-payload bytes, and index entries
+- cache occupancy gauges for rows, transaction rows, row-payload bytes, estimated cache bytes, major component byte estimates, and index entries
 - cache-notification queue depth gauges
 - cache maintenance counters and duration
 - cache invalidation counters and duration, tagged by source, scope, table, fallback path, freshness state, and approximate work bucket
@@ -292,6 +298,17 @@ Invalidation metrics use low-cardinality tags:
 - `datalinq.cache.freshness_state`: stable freshness vocabulary such as `externally_invalidated`
 
 There is intentionally no CDC-specific source constant yet. A Debezium/Kafka/trigger adapter can feed `external` events today and map to a more specific source only after that adapter exists as shipped behavior.
+
+### Cache maintenance tags
+
+Maintenance metrics keep the stable operation tag and add low-cardinality explanation tags:
+
+- `datalinq.cache.operation`: stable operation name such as `clear`, `row_limit`, `size_limit`, `age_limit`, or `state_change_precise`
+- `datalinq.cache.cleanup.trigger`: why cleanup ran from the scheduler/process perspective, such as `manual`, `scheduled`, `mutation`, `transaction`, or `memory_pressure`
+- `datalinq.cache.cleanup.reason`: policy reason such as `row_limit`, `size_limit`, `age_limit`, `clear`, `state_change`, or `transaction`
+- `datalinq.cache.cleanup.basis`: unit used by the cleanup decision, such as `row_count`, `estimated_cache_bytes`, `cache_age`, `state_change`, or `manual`
+
+For size cleanup, the basis is `estimated_cache_bytes`. That is the important part: the old row-payload byte value is still observable, but it is no longer the byte-limit decision basis.
 
 ## Local Inspection with `dotnet-counters`
 

@@ -145,7 +145,7 @@ Implementation notes:
 
 ## Workstream C: Diagnostics And Byte-Limit Cutover
 
-Status: in progress.
+Status: implemented.
 
 Goals:
 
@@ -199,6 +199,7 @@ Implementation notes:
 - 2026-05-13: Added OpenTelemetry gauges for explicit row payload, estimated cache bytes, and major component estimates while preserving `datalinq.cache.bytes` as the existing row-payload gauge.
 - 2026-05-13: Changed row and byte limit eviction to collect removed primary keys, clear matching loaded index entries, and notify relation subscriptions with precise row impact. Table byte limits now use `EstimatedCacheBytes`; database byte limits now target the total database estimate instead of applying the same byte cap independently to each table.
 - 2026-05-13: Extended cache maintenance telemetry with `datalinq.cache.cleanup.trigger`, `datalinq.cache.cleanup.reason`, and `datalinq.cache.cleanup.basis`. `size_limit` maintenance now reports `estimated_cache_bytes` as the cleanup basis, and background worker cleanup reports the `scheduled` trigger.
+- 2026-05-13: Completed the Workstream C docs closeout in `docs/Diagnostics and Metrics.md` and `docs/dev-plans/performance/Cache Memory Accounting.md`, including the byte-limit semantic break from row payload to estimated cache footprint.
 
 ## Workstream D: Memory-Pressure Policy And Cleanup Scheduling
 
