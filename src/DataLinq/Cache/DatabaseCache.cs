@@ -173,12 +173,45 @@ public class DatabaseCache : IDisposable
 
     public IEnumerable<(TableCache table, int numRows)> RemoveRowsByLimit(CacheLimitType limitType, long amount)
     {
+        if (TableCache.IsByteCacheLimit(limitType))
+        {
+            foreach (var rows in RemoveRowsByDatabaseByteLimit(TableCache.ConvertByteLimitToBytes(limitType, amount)))
+                yield return rows;
+
+            yield break;
+        }
+
         foreach (var table in TableCaches.Values)
         {
             var numRows = table.RemoveRowsByLimit(limitType, amount);
 
             if (numRows > 0)
                 yield return (table, numRows);
+        }
+    }
+
+    private IEnumerable<(TableCache table, int numRows)> RemoveRowsByDatabaseByteLimit(long maxBytes)
+    {
+        while (GetMemoryEstimate().EstimatedCacheBytes > maxBytes)
+        {
+            var tableEstimate = TableCaches.Values
+                .Where(x => x.RowCount > 0)
+                .Select(x => (table: x, estimatedBytes: x.GetMemoryEstimate().EstimatedCacheBytes))
+                .Where(x => x.estimatedBytes > 0)
+                .OrderByDescending(x => x.estimatedBytes)
+                .FirstOrDefault();
+
+            if (tableEstimate.table is null)
+                yield break;
+
+            var overflowBytes = GetMemoryEstimate().EstimatedCacheBytes - maxBytes;
+            var tableTargetBytes = Math.Max(0, tableEstimate.estimatedBytes - overflowBytes);
+            var numRows = tableEstimate.table.RemoveRowsByEstimatedCacheByteLimit(tableTargetBytes);
+
+            if (numRows <= 0)
+                yield break;
+
+            yield return (tableEstimate.table, numRows);
         }
     }
 

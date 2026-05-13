@@ -134,11 +134,11 @@ public class EmployeesCacheTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task Cache_RemoveRowsByByteLimit_CapsTotalBytes(TestProviderDescriptor provider)
+    public async Task Cache_RemoveRowsByByteLimit_CapsDatabaseEstimatedCacheBytes(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(Cache_RemoveRowsByByteLimit_CapsTotalBytes),
+            nameof(Cache_RemoveRowsByByteLimit_CapsDatabaseEstimatedCacheBytes),
             EmployeesSeedMode.Bogus);
 
         var employeesDatabase = databaseScope.Database;
@@ -150,17 +150,18 @@ public class EmployeesCacheTests
 
         var primaryDepartment = employeesDatabase.Query().Departments.Single(x => x.DeptNo == setup.PrimaryDepartmentNumber);
         await Assert.That(primaryDepartment.DepartmentEmployees.Count()).IsEqualTo(setup.PrimaryDepartmentCount);
-        await Assert.That(cache.TotalBytes).IsGreaterThan(0);
+        var beforeEstimate = employeesDatabase.Provider.State.Cache.GetMemoryEstimate().EstimatedCacheBytes;
+        await Assert.That(cache.EstimatedCacheBytes).IsGreaterThan(cache.RowPayloadBytes);
+        await Assert.That(beforeEstimate).IsGreaterThan(0);
 
-        var targetBytes = Math.Max(1, cache.TotalBytes / 2);
+        var targetBytes = Math.Max(1, beforeEstimate / 2);
         var removedTables = employeesDatabase.Provider.State.Cache
             .RemoveRowsByLimit(CacheLimitType.Bytes, targetBytes)
             .ToList();
 
-        await Assert.That(removedTables.Count).IsEqualTo(1);
-        await Assert.That(removedTables[0].table.Table.DbName).IsEqualTo("dept-emp");
-        await Assert.That(removedTables[0].numRows).IsGreaterThan(0);
-        await Assert.That(cache.TotalBytes).IsLessThanOrEqualTo(targetBytes);
+        await Assert.That(removedTables.Count).IsGreaterThan(0);
+        await Assert.That(removedTables.Sum(x => x.numRows)).IsGreaterThan(0);
+        await Assert.That(employeesDatabase.Provider.State.Cache.GetMemoryEstimate().EstimatedCacheBytes).IsLessThanOrEqualTo(targetBytes);
     }
 
     [Test]

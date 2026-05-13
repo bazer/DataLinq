@@ -19,8 +19,12 @@ internal interface IRowStore
     CacheMemoryEstimate GetMemoryEstimate();
     void Clear();
     int RemoveRowsOverRowLimit(int maxRows);
+    IReadOnlyList<DataLinqKey> RemoveRowsOverRowLimitAndReturnKeys(int maxRows);
     int RemoveRowsOverSizeLimit(long maxSize);
+    IReadOnlyList<DataLinqKey> RemoveRowsOverSizeLimitAndReturnKeys(long maxSize);
     int RemoveRowsInsertedBeforeTick(long tick);
+    IReadOnlyList<DataLinqKey> RemoveRowsInsertedBeforeTickAndReturnKeys(long tick);
+    IReadOnlyList<DataLinqKey> RemoveOldestRows(int maxRows);
     bool TryGetKey(DataLinqKey key, out IImmutableInstance? row);
     bool TryAddKey(DataLinqKey key, int size, long rowContainerBytes, IImmutableInstance row);
     bool TryRemoveKey(DataLinqKey key, out int numRowsRemoved);
@@ -120,9 +124,12 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
         }
     }
 
-    public int RemoveRowsOverRowLimit(int maxRows)
+    public int RemoveRowsOverRowLimit(int maxRows) =>
+        RemoveRowsOverRowLimitAndReturnKeys(maxRows).Count;
+
+    public IReadOnlyList<DataLinqKey> RemoveRowsOverRowLimitAndReturnKeys(int maxRows)
     {
-        var removed = 0;
+        var removedKeys = new List<DataLinqKey>();
 
         lock (rowsLock)
         {
@@ -131,16 +138,19 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
                 if (!TryFindOldestKey(out var oldestKey, out _))
                     break;
 
-                removed += RemoveExisting(oldestKey);
+                RemoveExisting(oldestKey, removedKeys);
             }
         }
 
-        return removed;
+        return removedKeys;
     }
 
-    public int RemoveRowsOverSizeLimit(long maxSize)
+    public int RemoveRowsOverSizeLimit(long maxSize) =>
+        RemoveRowsOverSizeLimitAndReturnKeys(maxSize).Count;
+
+    public IReadOnlyList<DataLinqKey> RemoveRowsOverSizeLimitAndReturnKeys(long maxSize)
     {
-        var removed = 0;
+        var removedKeys = new List<DataLinqKey>();
 
         lock (rowsLock)
         {
@@ -149,24 +159,48 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
                 if (!TryFindOldestKey(out var oldestKey, out _))
                     break;
 
-                removed += RemoveExisting(oldestKey);
+                RemoveExisting(oldestKey, removedKeys);
             }
         }
 
-        return removed;
+        return removedKeys;
     }
 
-    public int RemoveRowsInsertedBeforeTick(long tick)
+    public int RemoveRowsInsertedBeforeTick(long tick) =>
+        RemoveRowsInsertedBeforeTickAndReturnKeys(tick).Count;
+
+    public IReadOnlyList<DataLinqKey> RemoveRowsInsertedBeforeTickAndReturnKeys(long tick)
     {
-        var removed = 0;
+        var removedKeys = new List<DataLinqKey>();
 
         lock (rowsLock)
         {
             foreach (var key in rows.Where(x => x.Value.Ticks < tick).Select(x => x.Key).ToArray())
-                removed += RemoveExisting(key);
+                RemoveExisting(key, removedKeys);
         }
 
-        return removed;
+        return removedKeys;
+    }
+
+    public IReadOnlyList<DataLinqKey> RemoveOldestRows(int maxRows)
+    {
+        if (maxRows <= 0)
+            return [];
+
+        var removedKeys = new List<DataLinqKey>(maxRows);
+
+        lock (rowsLock)
+        {
+            while (removedKeys.Count < maxRows)
+            {
+                if (!TryFindOldestKey(out var oldestKey, out _))
+                    break;
+
+                RemoveExisting(oldestKey, removedKeys);
+            }
+        }
+
+        return removedKeys;
     }
 
     public bool TryGet(TKey key, out IImmutableInstance? row)
@@ -269,13 +303,14 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
         return entry is not null;
     }
 
-    private int RemoveExisting(TKey key)
+    private int RemoveExisting(TKey key, List<DataLinqKey>? removedKeys = null)
     {
         if (!rows.Remove(key, out var entry))
             return 0;
 
         Interlocked.Add(ref rowPayloadBytes, -entry.Size);
         Interlocked.Add(ref rowOwnedOverheadBytes, -entry.OverheadBytes);
+        removedKeys?.Add(ProviderKeyComponents.ToDataLinqKey(key));
         return 1;
     }
 

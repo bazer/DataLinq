@@ -388,6 +388,97 @@ public class CacheMemoryEstimateTests
 
     [Test]
     [NotInParallel]
+    public async Task TableCache_RemoveRowsByByteLimit_UsesEstimatedCacheBytes()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+        DataLinqMetrics.Reset();
+
+        try
+        {
+            var metadata = CreateMemoryEstimateDatabase();
+            var provider = new FakeDatabaseProvider(metadata);
+            using var databaseCache = new DatabaseCache(provider, DataLinqLoggingConfiguration.NullConfiguration);
+            provider.Cache = databaseCache;
+            var tableCache = databaseCache.TableCaches.Values.Single();
+            var rowCache = new RowCache();
+
+            await Assert.That(rowCache.TryAddRow(1, 1, new TestImmutableInstance(DataLinqKey.FromValue(1)))).IsTrue();
+            SetPrivateField(tableCache, "rowCache", rowCache);
+
+            var estimate = tableCache.GetMemoryEstimate();
+            await Assert.That(tableCache.RowPayloadBytes).IsEqualTo(1);
+            await Assert.That(estimate.EstimatedCacheBytes).IsGreaterThan(tableCache.RowPayloadBytes);
+
+            var rowsRemoved = tableCache.RemoveRowsByLimit(CacheLimitType.Bytes, tableCache.RowPayloadBytes);
+
+            await Assert.That(rowsRemoved).IsEqualTo(1);
+            await Assert.That(tableCache.RowCount).IsEqualTo(0);
+        }
+        finally
+        {
+            DataLinqMetrics.Reset();
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task TableCache_RemoveRowsByLimit_CleansLoadedIndexesAndRelationSubscriptions()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+        DataLinqMetrics.Reset();
+
+        try
+        {
+            var metadata = CreateMemoryEstimateDatabase();
+            var provider = new FakeDatabaseProvider(metadata);
+            using var databaseCache = new DatabaseCache(provider, DataLinqLoggingConfiguration.NullConfiguration);
+            provider.Cache = databaseCache;
+            var tableCache = databaseCache.TableCaches.Values.Single();
+            var table = tableCache.Table;
+            var rowCache = new RowCache();
+            var firstKey = DataLinqKey.FromValue(1);
+            var secondKey = DataLinqKey.FromValue(2);
+
+            await Assert.That(rowCache.TryAddRow(1, 128, new TestImmutableInstance(firstKey))).IsTrue();
+            await Assert.That(rowCache.TryAddRow(2, 128, new TestImmutableInstance(secondKey))).IsTrue();
+            SetPrivateField(tableCache, "rowCache", rowCache);
+
+            var indexCache = new TypedIndexCache<int>();
+            await Assert.That(indexCache.TryAdd(10, [firstKey, secondKey])).IsTrue();
+            SetPrivateField(
+                tableCache,
+                "indexCaches",
+                new Dictionary<ColumnIndex, IIndexCache>
+                {
+                    [table.ColumnIndices.Single(x => x.Characteristic == IndexCharacteristic.PrimaryKey)] = indexCache
+                });
+
+            var subscriber = new TestCacheNotification();
+            tableCache.SubscribeToChanges(
+                subscriber,
+                transaction: null,
+                relationKey: null,
+                loadedPrimaryKeys: [firstKey, secondKey]);
+
+            var rowsRemoved = tableCache.RemoveRowsByLimit(CacheLimitType.Rows, 0);
+
+            await Assert.That(rowsRemoved).IsEqualTo(2);
+            await Assert.That(tableCache.RowCount).IsEqualTo(0);
+            await Assert.That(indexCache.Count).IsEqualTo(0);
+            await Assert.That(subscriber.ClearCount).IsEqualTo(1);
+        }
+        finally
+        {
+            DataLinqMetrics.Reset();
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    [NotInParallel]
     public async Task DatabaseCache_GetMemoryEstimate_AggregatesProviderCacheAndTransactionRemoval()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
@@ -549,8 +640,11 @@ public class CacheMemoryEstimateTests
 
     private sealed class TestCacheNotification : ICacheNotification
     {
+        public int ClearCount { get; private set; }
+
         public void Clear()
         {
+            ClearCount++;
         }
     }
 

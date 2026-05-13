@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Diagnostics;
+using DataLinq.Instances;
 
 namespace DataLinq.Cache;
 
@@ -46,18 +48,25 @@ public partial class TableCache
         var startedAt = Stopwatch.GetTimestamp();
         var rowsRemoved = limitType switch
         {
-            CacheLimitType.Rows => rowCache?.RemoveRowsOverRowLimit((int)amount) ?? 0,
-            CacheLimitType.Bytes => rowCache?.RemoveRowsOverSizeLimit(amount) ?? 0,
-            CacheLimitType.Kilobytes => rowCache?.RemoveRowsOverSizeLimit(amount * 1024) ?? 0,
-            CacheLimitType.Megabytes => rowCache?.RemoveRowsOverSizeLimit(amount * 1024 * 1024) ?? 0,
-            CacheLimitType.Gigabytes => rowCache?.RemoveRowsOverSizeLimit(amount * 1024 * 1024 * 1024) ?? 0,
+            CacheLimitType.Rows => RemoveRowsOverRowLimit(NormalizeRowLimit(amount)),
+            CacheLimitType.Bytes => RemoveRowsOverEstimatedSizeLimit(ConvertByteLimitToBytes(limitType, amount)),
+            CacheLimitType.Kilobytes => RemoveRowsOverEstimatedSizeLimit(ConvertByteLimitToBytes(limitType, amount)),
+            CacheLimitType.Megabytes => RemoveRowsOverEstimatedSizeLimit(ConvertByteLimitToBytes(limitType, amount)),
+            CacheLimitType.Gigabytes => RemoveRowsOverEstimatedSizeLimit(ConvertByteLimitToBytes(limitType, amount)),
             _ => throw new NotImplementedException($"CacheLimitType '{limitType}' is not implemented.")
         };
 
         var duration = Stopwatch.GetElapsedTime(startedAt);
-        RefreshOccupancyMetrics();
-        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, GetCacheLimitOperationName(limitType), rowsRemoved, duration);
-        MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
+        RecordCacheLimitCleanup(GetCacheLimitOperationName(limitType), rowsRemoved, duration);
+        return rowsRemoved;
+    }
+
+    internal int RemoveRowsByEstimatedCacheByteLimit(long maxBytes)
+    {
+        var startedAt = Stopwatch.GetTimestamp();
+        var rowsRemoved = RemoveRowsOverEstimatedSizeLimit(maxBytes);
+        var duration = Stopwatch.GetElapsedTime(startedAt);
+        RecordCacheLimitCleanup(CacheMaintenanceOperations.SizeLimit, rowsRemoved, duration);
         return rowsRemoved;
     }
 
@@ -65,11 +74,9 @@ public partial class TableCache
     {
         var startedAt = Stopwatch.GetTimestamp();
         RemoveAllIndicesInsertedBeforeTick(tick);
-        var rowsRemoved = rowCache?.RemoveRowsInsertedBeforeTick(tick) ?? 0;
+        var rowsRemoved = ProcessRemovedRowsAndNotify(rowCache?.RemoveRowsInsertedBeforeTickAndReturnKeys(tick) ?? []);
         var duration = Stopwatch.GetElapsedTime(startedAt);
-        RefreshOccupancyMetrics();
-        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.AgeLimit, rowsRemoved, duration);
-        MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
+        RecordCacheLimitCleanup(CacheMaintenanceOperations.AgeLimit, rowsRemoved, duration);
         return rowsRemoved;
     }
 
@@ -118,6 +125,61 @@ public partial class TableCache
         MetricsHandle.UpdateCacheOccupancy(GetOccupancySnapshot());
     }
 
+    private int RemoveRowsOverRowLimit(int maxRows) =>
+        ProcessRemovedRowsAndNotify(rowCache?.RemoveRowsOverRowLimitAndReturnKeys(maxRows) ?? []);
+
+    private int RemoveRowsOverEstimatedSizeLimit(long maxBytes)
+    {
+        var rowsRemoved = 0;
+        var impactBuilder = new CacheInvalidationImpactBuilder();
+
+        while (GetMemoryEstimate().EstimatedCacheBytes > maxBytes)
+        {
+            var removedKeys = rowCache?.RemoveOldestRows(1) ?? [];
+            if (removedKeys.Count == 0)
+                break;
+
+            rowsRemoved += ProcessRemovedRows(removedKeys, impactBuilder);
+        }
+
+        NotifyRemovedRows(impactBuilder);
+        return rowsRemoved;
+    }
+
+    private int ProcessRemovedRowsAndNotify(IReadOnlyList<DataLinqKey> removedKeys)
+    {
+        var impactBuilder = new CacheInvalidationImpactBuilder();
+        var rowsRemoved = ProcessRemovedRows(removedKeys, impactBuilder);
+        NotifyRemovedRows(impactBuilder);
+        return rowsRemoved;
+    }
+
+    private int ProcessRemovedRows(IReadOnlyList<DataLinqKey> removedKeys, CacheInvalidationImpactBuilder impactBuilder)
+    {
+        for (var i = 0; i < removedKeys.Count; i++)
+        {
+            var primaryKey = removedKeys[i];
+            TryRemoveRowFromAllIndices(primaryKey, out _);
+            impactBuilder.AddPrimaryKey(primaryKey);
+        }
+
+        return removedKeys.Count;
+    }
+
+    private void NotifyRemovedRows(CacheInvalidationImpactBuilder impactBuilder)
+    {
+        var impact = impactBuilder.Build();
+        if (!impact.IsEmpty)
+            OnRowChanged(impact);
+    }
+
+    private void RecordCacheLimitCleanup(string operationName, int rowsRemoved, TimeSpan duration)
+    {
+        RefreshOccupancyMetrics();
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, operationName, rowsRemoved, duration);
+        MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
+    }
+
     private CacheMemoryEstimate GetTransactionRowsMemoryEstimate()
     {
         var rowsByTransaction = transactionRows;
@@ -132,6 +194,30 @@ public partial class TableCache
         return new CacheMemoryEstimate(
             TransactionRowPayloadBytes: rowEstimate.RowPayloadBytes,
             TransactionRowStoreOverheadBytes: transactionRowStoreOverheadBytes);
+    }
+
+    internal static bool IsByteCacheLimit(CacheLimitType limitType) =>
+        limitType is CacheLimitType.Bytes or CacheLimitType.Kilobytes or CacheLimitType.Megabytes or CacheLimitType.Gigabytes;
+
+    internal static long ConvertByteLimitToBytes(CacheLimitType limitType, long amount)
+        => limitType switch
+        {
+            CacheLimitType.Bytes => Math.Max(amount, 0),
+            CacheLimitType.Kilobytes => CacheMemoryEstimator.SaturatingMultiply(amount, 1024),
+            CacheLimitType.Megabytes => CacheMemoryEstimator.SaturatingMultiply(amount, 1024 * 1024),
+            CacheLimitType.Gigabytes => CacheMemoryEstimator.SaturatingMultiply(amount, 1024L * 1024L * 1024L),
+            _ => throw new ArgumentOutOfRangeException(nameof(limitType), limitType, "Cache limit is not byte-based.")
+        };
+
+    private static int NormalizeRowLimit(long amount)
+    {
+        if (amount > int.MaxValue)
+            return int.MaxValue;
+
+        if (amount < int.MinValue)
+            return int.MinValue;
+
+        return (int)amount;
     }
 
     private static string GetCacheLimitOperationName(CacheLimitType limitType)

@@ -30,11 +30,23 @@ public class RowCache
     public int RemoveRowsOverRowLimit(int maxRows) =>
         rowStore?.RemoveRowsOverRowLimit(maxRows) ?? 0;
 
+    internal IReadOnlyList<DataLinqKey> RemoveRowsOverRowLimitAndReturnKeys(int maxRows) =>
+        rowStore?.RemoveRowsOverRowLimitAndReturnKeys(maxRows) ?? [];
+
     public int RemoveRowsOverSizeLimit(long maxSize) =>
         rowStore?.RemoveRowsOverSizeLimit(maxSize) ?? 0;
 
+    internal IReadOnlyList<DataLinqKey> RemoveRowsOverSizeLimitAndReturnKeys(long maxSize) =>
+        rowStore?.RemoveRowsOverSizeLimitAndReturnKeys(maxSize) ?? [];
+
     public int RemoveRowsInsertedBeforeTick(long tick) =>
         rowStore?.RemoveRowsInsertedBeforeTick(tick) ?? 0;
+
+    internal IReadOnlyList<DataLinqKey> RemoveRowsInsertedBeforeTickAndReturnKeys(long tick) =>
+        rowStore?.RemoveRowsInsertedBeforeTickAndReturnKeys(tick) ?? [];
+
+    internal IReadOnlyList<DataLinqKey> RemoveOldestRows(int maxRows) =>
+        rowStore?.RemoveOldestRows(maxRows) ?? [];
 
     internal bool TryGetValue(DataLinqKey primaryKey, out IImmutableInstance? row)
     {
