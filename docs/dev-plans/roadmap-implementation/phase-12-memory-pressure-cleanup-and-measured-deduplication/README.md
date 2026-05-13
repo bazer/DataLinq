@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 12: Memory-Pressure Cleanup and Measured Deduplication
 
-**Status:** Planned after Phase 11.
+**Status:** Ready for implementation after the Phase 11 merge. The implementation plan was drafted on 2026-05-13.
 
 ## Purpose
 
@@ -38,6 +38,7 @@ Out of scope:
 
 ## Source Plans
 
+- [Implementation Plan](Implementation%20Plan.md)
 - [Cache Memory Accounting](../../performance/Cache%20Memory%20Accounting.md)
 - [Memory Optimization and Deduplication](../../performance/Memory%20Optimization%20and%20Deduplication.md)
 - [Memory management](../../performance/Memory%20management.md)
