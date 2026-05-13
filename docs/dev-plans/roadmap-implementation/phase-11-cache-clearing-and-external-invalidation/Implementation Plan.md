@@ -44,6 +44,7 @@ As of 2026-05-12, Phase 11 can rely on these artifacts:
 - avoid broad loaded-relation clearing when mutation or external invalidation impacts can be described by provider primary keys and relation keys
 - define an invalidation event envelope for future CDC/message-bus adapters
 - define a minimal row freshness vocabulary without forcing provider-backed hashes into this phase
+- keep cache byte terminology honest so current row-payload estimates are not presented as total cache memory usage
 - make invalidation telemetry identify source, scope, and cost
 
 ## Non-Goals
@@ -53,6 +54,7 @@ As of 2026-05-12, Phase 11 can rely on these artifacts:
 - dependency-tracked result-set caching
 - memory-pressure cleanup and adaptive scheduling
 - value/key interning or deduplication
+- full cache memory-footprint accounting beyond terminology and Phase 12 handoff
 - query parser replacement
 - full migration execution
 
@@ -194,6 +196,7 @@ Goals:
 
 - prove invalidation correctness and cost
 - keep public docs honest
+- characterize the current cache byte metric as row-payload-oriented, not total cache memory
 
 Tasks:
 
@@ -201,8 +204,10 @@ Tasks:
 2. Add stress tests for concurrent external invalidation during reads.
 3. Add benchmark probes for invalidating one row, many rows, a table, and a database.
 4. Record whether invalidation used precise provider-key removal or conservative table fallback.
-5. Update cache documentation only for shipped behavior.
-6. Leave CDC, adaptive policy, and result-set caching explicitly deferred.
+5. Avoid using the current cache byte gauge as the cost basis for invalidation unless it is named as approximate row payload bytes.
+6. Document the Phase 12 handoff for cache memory accounting: row payload, row-store overhead, transaction caches, index caches, relation-object caches, notification queues, and cache history.
+7. Update cache documentation only for shipped behavior.
+8. Leave CDC, adaptive policy, memory-pressure cleanup, full memory accounting, and result-set caching explicitly deferred.
 
 Exit criteria:
 
@@ -210,6 +215,11 @@ Exit criteria:
 - telemetry can explain why a cache entry disappeared
 - benchmark evidence exists for invalidation overhead
 - closeout states which invalidation paths are provider-key precise and which are conservative fallbacks
+- no Phase 11 metric or doc claims current `Bytes`/`datalinq.cache.bytes` represents total cache memory footprint
+
+Required companion design:
+
+- [Cache Memory Accounting](../../performance/Cache%20Memory%20Accounting.md)
 
 ## Verification
 

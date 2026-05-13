@@ -381,6 +381,7 @@ Goals:
 - invalidate relation and index cache entries through the same mechanics as mutation invalidation
 - invalidate loaded relation objects by affected relation key or loaded primary key instead of clearing every relation subscriber for a changed table when precision is available
 - define a minimal row freshness vocabulary without forcing provider hash/version checks into the first invalidation slice
+- keep cache byte terminology honest so row-payload estimates are not presented as total cache memory usage
 - make invalidation telemetry identify source, scope, table, and approximate cost
 
 Why after Phase 10:
@@ -394,6 +395,7 @@ Key related plans:
 - `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/README.md`
 - `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/Implementation Plan.md`
 - `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/Precise Relation Cache Invalidation.md`
+- `performance/Cache Memory Accounting.md`
 - `architecture/Distributed Cache Coordination and CDC.md`
 - `performance/Memory management.md`
 
@@ -404,8 +406,9 @@ Status: planned after Phase 11.
 Goals:
 
 - make cache cleanup react to memory pressure through a testable abstraction
+- add component-level cache memory estimates that separate row payload from estimated cache footprint
 - add better cleanup scheduling without unbounded background work
-- clean cache internals such as lazy snapshots, index reverse-map concurrency, and row-cache byte accounting
+- clean cache internals such as lazy snapshots, index reverse-map concurrency, and byte accounting
 - evaluate value/key deduplication and scoped interning with retention and contention evidence
 - keep adaptive policy conservative and overrideable
 
@@ -418,6 +421,7 @@ Why after explicit invalidation:
 Key related plans:
 
 - `roadmap-implementation/phase-12-memory-pressure-cleanup-and-measured-deduplication/README.md`
+- `performance/Cache Memory Accounting.md`
 - `performance/Memory Optimization and Deduplication.md`
 - `performance/Memory management.md`
 - `performance/Allocation Reduction Audit.md`
