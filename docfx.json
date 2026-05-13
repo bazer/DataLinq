@@ -74,7 +74,7 @@
       }
     ],
     "sitemap": {
-      "baseUrl": "https://bazer.github.io/datalinq",
+      "baseUrl": "https://bazer.github.io/DataLinq",
       "priority": 0.5,
       "changefreq": "daily"
     },

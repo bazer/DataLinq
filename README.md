@@ -9,9 +9,9 @@
 [![NuGet DataLinq.CLI](https://img.shields.io/nuget/v/DataLinq.CLI?logo=nuget)](https://www.nuget.org/packages/DataLinq.CLI/)
 [![License: MIT](https://img.shields.io/github/license/bazer/DataLinq)](https://github.com/bazer/DataLinq/blob/master/LICENSE.md)
 [![.NET 8, 9, 10](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010-512BD4?logo=dotnet)](https://github.com/bazer/DataLinq#installation)
-[![Supported targets](https://img.shields.io/badge/targets-SQLite%20%7C%20MySQL%208.4%20%7C%20MariaDB%2010.11%2F11.4%2F11.8-0A7BBB)](https://bazer.github.io/datalinq/)
+[![Supported targets](https://img.shields.io/badge/targets-SQLite%20%7C%20MySQL%208.4%20%7C%20MariaDB%2010.11%2F11.4%2F11.8-0A7BBB)](https://bazer.github.io/DataLinq/)
 
-[Documentation website](https://bazer.github.io/datalinq/) | [Getting started](https://bazer.github.io/datalinq/docs/getting-started/Installation.html) | [Changelog](https://bazer.github.io/datalinq/CHANGELOG.html)
+[Documentation website](https://bazer.github.io/DataLinq/) | [Getting started](https://bazer.github.io/DataLinq/docs/getting-started/Installation.html) | [Changelog](https://bazer.github.io/DataLinq/CHANGELOG.html)
 
 DataLinq is an immutable-first, source-generated ORM for .NET. It is built for applications where repeated reads, relation traversal, predictable object state, and cache behavior matter more than having an ORM translate every possible LINQ expression.
 
@@ -137,25 +137,25 @@ var updatedUser = user.Mutate(x => x.DisplayName = "Updated Name").Save();
 
 If you want the website-first docs experience, start here:
 
-- [Website Home](https://bazer.github.io/datalinq/)
-- [Docs Intro](https://bazer.github.io/datalinq/docs/)
-- [Changelog](https://bazer.github.io/datalinq/CHANGELOG.html)
-- [Roadmap](https://bazer.github.io/datalinq/docs/Roadmap.html)
-- [Installation](https://bazer.github.io/datalinq/docs/getting-started/Installation.html)
-- [Configuration and Model Generation](https://bazer.github.io/datalinq/docs/getting-started/Configuration%20and%20Model%20Generation.html)
-- [Your First Query and Update](https://bazer.github.io/datalinq/docs/getting-started/Your%20First%20Query%20and%20Update.html)
+- [Website Home](https://bazer.github.io/DataLinq/)
+- [Docs Intro](https://bazer.github.io/DataLinq/docs/)
+- [Changelog](https://bazer.github.io/DataLinq/CHANGELOG.html)
+- [Roadmap](https://bazer.github.io/DataLinq/docs/Roadmap.html)
+- [Installation](https://bazer.github.io/DataLinq/docs/getting-started/Installation.html)
+- [Configuration and Model Generation](https://bazer.github.io/DataLinq/docs/getting-started/Configuration%20and%20Model%20Generation.html)
+- [Your First Query and Update](https://bazer.github.io/DataLinq/docs/getting-started/Your%20First%20Query%20and%20Update.html)
 
 After that, the deeper working docs are:
 
-- [Querying](https://bazer.github.io/datalinq/docs/Querying.html)
-- [Caching and Mutation](https://bazer.github.io/datalinq/docs/Caching%20and%20Mutation.html)
-- [Diagnostics and Metrics](https://bazer.github.io/datalinq/docs/Diagnostics%20and%20Metrics.html)
-- [Supported LINQ Queries](https://bazer.github.io/datalinq/docs/Supported%20LINQ%20Queries.html)
-- [Platform Compatibility](https://bazer.github.io/datalinq/docs/Platform%20Compatibility.html)
-- [Transactions](https://bazer.github.io/datalinq/docs/Transactions.html)
-- [Attributes and Model Definitions](https://bazer.github.io/datalinq/docs/Attributes%20and%20Model%20Definitions.html)
-- [Internals](https://bazer.github.io/datalinq/docs/internals/)
-- [Troubleshooting](https://bazer.github.io/datalinq/docs/Troubleshooting.html)
+- [Querying](https://bazer.github.io/DataLinq/docs/Querying.html)
+- [Caching and Mutation](https://bazer.github.io/DataLinq/docs/Caching%20and%20Mutation.html)
+- [Diagnostics and Metrics](https://bazer.github.io/DataLinq/docs/Diagnostics%20and%20Metrics.html)
+- [Supported LINQ Queries](https://bazer.github.io/DataLinq/docs/Supported%20LINQ%20Queries.html)
+- [Platform Compatibility](https://bazer.github.io/DataLinq/docs/Platform%20Compatibility.html)
+- [Transactions](https://bazer.github.io/DataLinq/docs/Transactions.html)
+- [Attributes and Model Definitions](https://bazer.github.io/DataLinq/docs/Attributes%20and%20Model%20Definitions.html)
+- [Internals](https://bazer.github.io/DataLinq/docs/internals/)
+- [Troubleshooting](https://bazer.github.io/DataLinq/docs/Troubleshooting.html)
 
 ### License
 DataLinq is open source and distributed under the MIT License. See the [LICENSE](LICENSE.md) file for more details.
