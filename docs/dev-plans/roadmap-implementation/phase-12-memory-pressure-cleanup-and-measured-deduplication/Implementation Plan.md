@@ -196,6 +196,7 @@ Exit criteria:
 Implementation notes:
 
 - 2026-05-13: Started the diagnostics cutover by expanding `CacheOccupancyMetricsSnapshot`, `DataLinqMetrics` table/provider/runtime aggregation, and cache snapshots with explicit `RowPayloadBytes`, `EstimatedCacheBytes`, and component estimate fields. `Bytes` and `TotalBytes` remain row-payload compatibility aliases.
+- 2026-05-13: Added OpenTelemetry gauges for explicit row payload, estimated cache bytes, and major component estimates while preserving `datalinq.cache.bytes` as the existing row-payload gauge.
 
 ## Workstream D: Memory-Pressure Policy And Cleanup Scheduling
 

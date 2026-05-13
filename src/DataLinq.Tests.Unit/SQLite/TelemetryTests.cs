@@ -372,6 +372,21 @@ public sealed class TelemetryTests
                 HasTag(x.Tags, "datalinq.table", "telemetryrows"));
             await Assert.That(bytesGauge.Value).IsGreaterThan(0L);
 
+            var rowPayloadGauge = longMeasurements.Single(x =>
+                x.InstrumentName == "datalinq.cache.row_payload.bytes" &&
+                HasTag(x.Tags, "datalinq.table", "telemetryrows"));
+            await Assert.That(rowPayloadGauge.Value).IsEqualTo(bytesGauge.Value);
+
+            var estimatedBytesGauge = longMeasurements.Single(x =>
+                x.InstrumentName == "datalinq.cache.estimated.bytes" &&
+                HasTag(x.Tags, "datalinq.table", "telemetryrows"));
+            await Assert.That(estimatedBytesGauge.Value).IsGreaterThan(bytesGauge.Value);
+
+            var rowStoreOverheadGauge = longMeasurements.Single(x =>
+                x.InstrumentName == "datalinq.cache.row_store_overhead.bytes" &&
+                HasTag(x.Tags, "datalinq.table", "telemetryrows"));
+            await Assert.That(rowStoreOverheadGauge.Value).IsGreaterThan(0L);
+
             var transactionRowsGauge = longMeasurements.Single(x =>
                 x.InstrumentName == "datalinq.cache.transaction.rows" &&
                 HasTag(x.Tags, "datalinq.table", "telemetryrows"));

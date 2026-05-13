@@ -134,6 +134,56 @@ internal static class DataLinqTelemetry
         ObserveCacheBytes,
         unit: "By",
         description: "Current estimated row-payload bytes in DataLinq row caches, not total cache memory footprint.");
+    private static readonly ObservableGauge<long> CacheRowPayloadBytesGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.row_payload.bytes",
+        ObserveCacheRowPayloadBytes,
+        unit: "By",
+        description: "Current estimated row-payload bytes in DataLinq row caches. This is an explicit alias for datalinq.cache.bytes.");
+    private static readonly ObservableGauge<long> CacheEstimatedBytesGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.estimated.bytes",
+        ObserveCacheEstimatedBytes,
+        unit: "By",
+        description: "Current estimated DataLinq cache memory footprint across row payloads and tracked cache containers.");
+    private static readonly ObservableGauge<long> CacheRowStoreOverheadBytesGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.row_store_overhead.bytes",
+        ObserveCacheRowStoreOverheadBytes,
+        unit: "By",
+        description: "Current estimated DataLinq row-cache container overhead bytes.");
+    private static readonly ObservableGauge<long> CacheTransactionRowPayloadBytesGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.transaction.row_payload.bytes",
+        ObserveCacheTransactionRowPayloadBytes,
+        unit: "By",
+        description: "Current estimated row-payload bytes retained by DataLinq transaction-local caches.");
+    private static readonly ObservableGauge<long> CacheTransactionRowStoreOverheadBytesGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.transaction.row_store_overhead.bytes",
+        ObserveCacheTransactionRowStoreOverheadBytes,
+        unit: "By",
+        description: "Current estimated container overhead bytes retained by DataLinq transaction-local caches.");
+    private static readonly ObservableGauge<long> CacheIndexPayloadBytesGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.index.payload.bytes",
+        ObserveCacheIndexPayloadBytes,
+        unit: "By",
+        description: "Current estimated payload bytes retained by loaded DataLinq index caches.");
+    private static readonly ObservableGauge<long> CacheIndexOverheadBytesGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.index.overhead.bytes",
+        ObserveCacheIndexOverheadBytes,
+        unit: "By",
+        description: "Current estimated container overhead bytes retained by loaded DataLinq index caches.");
+    private static readonly ObservableGauge<long> CacheRelationObjectBytesGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.relation_object.bytes",
+        ObserveCacheRelationObjectBytes,
+        unit: "By",
+        description: "Current estimated bytes retained by DataLinq relation object metadata.");
+    private static readonly ObservableGauge<long> CacheNotificationBytesGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.notification.bytes",
+        ObserveCacheNotificationBytes,
+        unit: "By",
+        description: "Current estimated bytes retained by DataLinq cache notification managers.");
+    private static readonly ObservableGauge<long> CacheSnapshotBytesGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.snapshot.bytes",
+        ObserveCacheSnapshotBytes,
+        unit: "By",
+        description: "Current estimated bytes retained by DataLinq cache history snapshots.");
     private static readonly ObservableGauge<long> CacheIndexEntriesGauge = Meter.CreateObservableGauge<long>(
         "datalinq.cache.index.entries",
         ObserveCacheIndexEntries,
@@ -565,6 +615,36 @@ internal static class DataLinqTelemetry
 
     private static IEnumerable<Measurement<long>> ObserveCacheBytes()
         => ObserveCacheGauge(snapshot => snapshot.Bytes);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheRowPayloadBytes()
+        => ObserveCacheGauge(snapshot => snapshot.RowPayloadBytes);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheEstimatedBytes()
+        => ObserveCacheGauge(snapshot => snapshot.EstimatedCacheBytes);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheRowStoreOverheadBytes()
+        => ObserveCacheGauge(snapshot => snapshot.RowStoreOverheadBytes);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheTransactionRowPayloadBytes()
+        => ObserveCacheGauge(snapshot => snapshot.TransactionRowPayloadBytes);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheTransactionRowStoreOverheadBytes()
+        => ObserveCacheGauge(snapshot => snapshot.TransactionRowStoreOverheadBytes);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheIndexPayloadBytes()
+        => ObserveCacheGauge(snapshot => snapshot.IndexPayloadBytes);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheIndexOverheadBytes()
+        => ObserveCacheGauge(snapshot => snapshot.IndexOverheadBytes);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheRelationObjectBytes()
+        => ObserveCacheGauge(snapshot => snapshot.RelationObjectBytes);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheNotificationBytes()
+        => ObserveCacheGauge(snapshot => snapshot.NotificationBytes);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheSnapshotBytes()
+        => ObserveCacheGauge(snapshot => snapshot.SnapshotBytes);
 
     private static IEnumerable<Measurement<long>> ObserveCacheIndexEntries()
         => ObserveCacheGauge(snapshot => snapshot.IndexEntries);
