@@ -1,11 +1,14 @@
+> [!WARNING]
+> This archived document is historical planning material. It is not current execution guidance or a shipped compatibility claim.
+
 # Specification: Native AOT & WebAssembly Strategy
 
-**Status:** Draft
+**Status:** Archived historical Phase 8 strategy. Current bounded compatibility work is tracked in [Practical AOT and Size Plan](../../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md).
 **Goal:** Eliminate runtime code generation (JIT) and reflection from the "Hot Path" to enable DataLinq to run efficiently in **Native AOT** environments (AWS Lambda, CLI tools) and **WebAssembly** (Blazor Wasm in the browser).
 
 **Roadmap placement:** Main roadmap Phase 8, after provider metadata fidelity, product-trust work, the LINQ translation coverage pass, and the LINQ feature-expansion pass, before the deeper cache/invalidation work.
 
-**Follow-up:** Phase 8 proved the generated SQLite AOT/WASM AOT smoke path. The remaining practical work for clean warnings and reasonable payload size is tracked in [Practical AOT and Size Plan](Practical%20AOT%20and%20Size%20Plan.md).
+**Follow-up:** Phase 8 proved the generated SQLite AOT/WASM AOT smoke path. The remaining practical work for clean warnings and reasonable payload size is tracked in [Practical AOT and Size Plan](../../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md).
 
 ---
 

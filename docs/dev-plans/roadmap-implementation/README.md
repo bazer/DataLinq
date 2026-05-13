@@ -20,16 +20,13 @@ Active or deferred execution plans:
 
 | Phase | Status | Directory |
 | --- | --- | --- |
-| Phase 10: Key and Allocation Foundation | Complete | `phase-10-key-and-allocation-foundation/` |
-| Phase 11: Cache Clearing and External Invalidation | Complete | `phase-11-cache-clearing-and-external-invalidation/` |
-| Phase 12: Memory-Pressure Cleanup and Measured Deduplication | Complete | `phase-12-memory-pressure-cleanup-and-measured-deduplication/` |
 | Phase 13: Explicit Multi-Join Composition | Next implementation priority | `phase-13-explicit-multi-join-composition/` |
 | Phase 14: Relation-Aware Joins and Left Joins | Planned join API phase | `phase-14-relation-aware-joins-and-left-joins/` |
 | Phase 15: Scalar Converters and Typed-Key Ergonomics | Planned conversion/key ergonomics phase | `phase-15-scalar-converters-and-typed-key-ergonomics/` |
 | Phase 16: Dependency-Tracked Result-Set Caching | Deferred semantic cache phase | `phase-16-dependency-tracked-result-set-caching/` |
 | Phase 17: Query Plan and Remotion Isolation | Deferred query-boundary and WebAssembly warning phase | `phase-17-query-plan-and-remotion-isolation/` |
 
-Completed execution records for Phases 1 through 9A live in [`../archive/roadmap-implementation/README.md`](../archive/roadmap-implementation/README.md).
+Completed execution records for Phases 1 through 12 live in [`../archive/roadmap-implementation/README.md`](../archive/roadmap-implementation/README.md).
 
 ## Current Roadmap Position
 

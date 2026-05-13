@@ -48,10 +48,10 @@ Out of scope:
 ## Source Plans
 
 - [Implementation Plan](Implementation%20Plan.md)
-- [Cache Memory Accounting](../../performance/Cache%20Memory%20Accounting.md)
-- [Memory Optimization and Deduplication](../../performance/Memory%20Optimization%20and%20Deduplication.md)
+- [Cache Memory Accounting](../../../performance/Cache%20Memory%20Accounting.md)
+- [Memory Optimization and Deduplication](../../../performance/Memory%20Optimization%20and%20Deduplication.md)
 - [Memory management](../../performance/Memory%20management.md)
-- [Allocation Reduction Audit](../../performance/Allocation%20Reduction%20Audit.md)
+- [Allocation Reduction Audit](../../../performance/Allocation%20Reduction%20Audit.md)
 - [Phase 11 Cache Clearing and External Invalidation](../phase-11-cache-clearing-and-external-invalidation/README.md)
 
 ## Recommended Order

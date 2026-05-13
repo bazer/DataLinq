@@ -45,12 +45,12 @@ The shipped invalidation source constants are `manual`, `external`, `mutation`, 
 - [Implementation Plan](Implementation%20Plan.md)
 - [Precise Relation Cache Invalidation](Precise%20Relation%20Cache%20Invalidation.md)
 - [Phase 10 Implementation Plan](../phase-10-key-and-allocation-foundation/Implementation%20Plan.md)
-- [Provider-Key Row Cache Architecture](../../../Provider-Key%20Row%20Cache%20Architecture.md)
-- [Cache Memory Accounting](../../performance/Cache%20Memory%20Accounting.md)
-- [Phase 9A Implementation Plan](../../archive/roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Implementation%20Plan.md)
-- [Distributed Cache Coordination and CDC](../../architecture/Distributed%20Cache%20Coordination%20and%20CDC.md)
+- [Provider-Key Row Cache Architecture](../../../../Provider-Key%20Row%20Cache%20Architecture.md)
+- [Cache Memory Accounting](../../../performance/Cache%20Memory%20Accounting.md)
+- [Phase 9A Implementation Plan](../phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Implementation%20Plan.md)
+- [Distributed Cache Coordination and CDC](../../../architecture/Distributed%20Cache%20Coordination%20and%20CDC.md)
 - [Memory management](../../performance/Memory%20management.md)
-- [Result set caching](../../query-and-runtime/Result%20set%20caching.md)
+- [Result set caching](../../../query-and-runtime/Result%20set%20caching.md)
 
 ## Exit Criteria
 

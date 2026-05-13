@@ -3,7 +3,7 @@
 
 # Allocation Reduction Audit
 
-**Status:** Draft audit, refreshed with 2026-05-10 local benchmark data. Remaining execution is split between Phase 10 key/allocation foundation and Phase 12 memory-pressure cleanup/deduplication.
+**Status:** Historical allocation audit with Phase 10 and Phase 12 closeout notes. The 2026-05-10 numbers are useful baseline evidence, but the proposed workstreams below are no longer the active execution order. Rerun the benchmark lanes before using this document to schedule new optimization work.
 **Created:** 2026-05-09  
 **Scope:** provider initialization, generated metadata startup, metadata access, keys, row data, cache internals, and query construction.
 
@@ -63,6 +63,21 @@ The benchmark artifacts from this refresh are:
 - `artifacts/benchmarks/results/20260510-122228296-b2428406423d436b81c711cb4487a3c5-summary.json`
 - `artifacts/benchmarks/history/allocation-audit-phase2-watch-20260510.json`
 - `artifacts/benchmarks/history/allocation-audit-phase3-query-hotpath-20260510.json`
+
+## Phase 10 and Phase 12 Closeout
+
+Treat the detailed findings below as May 2026 audit evidence, not as a fresh backlog.
+
+Phase 10 consumed the core key/allocation findings: metadata collection shape was cleaned up, frozen lookup paths were added, generated provider-key cache paths landed, generated relation lookup moved away from the lookup-only `IKey` path, scalar-converter seams were left in the cache identity model, and allocation closeout evidence was recorded.
+
+Phase 11 and Phase 12 consumed the cache-management findings: explicit invalidation APIs, invalidation envelopes, freshness vocabulary, cache telemetry, estimated cache-footprint accounting, byte limits based on estimated footprint, bounded memory-pressure cleanup, and cleanup telemetry have landed. Phase 12 also rejected production value/key deduplication on measurement grounds rather than turning the old global-dedup idea into shipped behavior.
+
+The remaining useful guidance is narrower:
+
+- Use this document to understand why Phases 10 through 12 existed.
+- Do not treat the May 10 allocation numbers as current baselines.
+- Do not revive row hashing, global key deduplication, or broad cache policy work without new benchmark evidence and a concrete correctness story.
+- If provider initialization or query construction becomes a priority again, start with a new benchmark refresh and allocation attribution pass rather than copying the historical workstream list.
 
 ## What Phase 8 Already Improved
 
@@ -371,7 +386,9 @@ Use `StringBuilder` for command construction, but accept that the final SQL stri
 
 Do not pool long-lived metadata arrays. Pooling is wrong for frozen metadata because the arrays need to stay alive for the lifetime of the metadata. Pooling helps temporary buffers, not persistent object graphs.
 
-## Proposed Workstreams
+## Historical Proposed Workstreams
+
+The workstreams below are retained for traceability. They explain the execution thinking that fed Phases 10 through 12, but they are not the current roadmap queue.
 
 ### P0: Keep Measurement Honest
 
@@ -524,7 +541,7 @@ Acceptance criteria:
 - index reverse mappings are thread-safe
 - telemetry still reports the same logical values
 
-## Suggested Priority Order
+## Historical Suggested Priority Order
 
 1. Keep benchmark measurement current.
 2. Replace metadata array APIs with read-only collections and add internal non-copying accessors where useful.
@@ -537,7 +554,7 @@ Acceptance criteria:
 
 This order matters. If we start with generated metadata builder work before removing metadata getter copies, we risk making a large generator change while leaving the most obvious runtime allocation pattern intact.
 
-## Target Outcomes
+## Historical Target Outcomes
 
 The first serious optimization pass should aim for measurable, conservative wins:
 

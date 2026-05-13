@@ -23,7 +23,6 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ### Platform compatibility
 
-- `platform-compatibility/AOT and WebAssembly Strategy.md`
 - `platform-compatibility/Practical AOT and Size Plan.md`
 
 ### Tooling
@@ -38,21 +37,14 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ### Performance
 
-- `performance/Memory management.md`
+- `performance/Cache Memory Accounting.md`
 - `performance/Memory Optimization and Deduplication.md`
-- `performance/Generated Provider-Key Cache Design.md`
 - `performance/Allocation Reduction Audit.md`
 - `performance/Representative Benchmark Suite and Website Trends.md`
 
 ### Roadmap implementation
 
 - `roadmap-implementation/README.md`
-- `roadmap-implementation/phase-10-key-and-allocation-foundation/README.md`
-- `roadmap-implementation/phase-10-key-and-allocation-foundation/Implementation Plan.md`
-- `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/README.md`
-- `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/Implementation Plan.md`
-- `roadmap-implementation/phase-12-memory-pressure-cleanup-and-measured-deduplication/README.md`
-- `roadmap-implementation/phase-12-memory-pressure-cleanup-and-measured-deduplication/Implementation Plan.md`
 - `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
 - `roadmap-implementation/phase-14-relation-aware-joins-and-left-joins/README.md`
 - `roadmap-implementation/phase-15-scalar-converters-and-typed-key-ergonomics/README.md`
@@ -90,6 +82,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `archive/documentation/README.md`
 - `archive/metadata-and-generation/README.md`
 - `archive/performance/README.md`
+- `archive/platform-compatibility/README.md`
 - `archive/query-and-runtime/README.md`
 - `archive/roadmap-implementation/README.md`
 - `archive/testing/README.md`

@@ -12,7 +12,7 @@ This is a crude compromise. A 5-minute TTL means data can be stale for up to 4 m
 
 **The DataLinq Principle:** Caching should be based on data *validity*, not arbitrary timers. A cached result is valid until the moment one of its underlying data sources is modified.
 
-**The Vision for v0.8:** To provide a first-class mechanism for caching *computed results* (like view models or DTOs) and have DataLinq automatically and instantly invalidate them when—and only when—the source data they depend on actually changes. This will enable developers to cache complex results indefinitely, with the confidence that they will be automatically refreshed the moment they become stale.
+**The Phase 16 vision:** Provide a first-class mechanism for caching *computed results* such as view models or DTOs, then validate those results against the rows and tables they actually read. The goal is not a magic transparent LINQ cache. The safer shape is an explicit application-cache coordination feature: user code chooses the computation boundary, while DataLinq records enough dependency information to decide whether a stamped result is still trustworthy.
 
 ---
 
@@ -44,22 +44,28 @@ To achieve this vision, DataLinq will introduce several new high-level concepts.
 
 *   **The Cached Scope:** A disposable, read-only data source that creates a transactional boundary for reads. Its primary purpose is to monitor and record the identities of all data rows accessed within its lifetime.
 
-*   **The Dependency Fingerprint:** When a Cached Scope is completed, the collection of all unique rows it observed is converted into a "Dependency Fingerprint." This is a lightweight, serializable piece of metadata containing two key pieces of information for each dependency:
-    1.  The unique **Primary Key** of the row.
-    2.  A **Version Marker** (a hash) representing the exact state of that row at the moment it was read.
+*   **The Dependency Fingerprint:** When a Cached Scope is completed, the collection of all unique rows it observed is converted into a "Dependency Fingerprint." This is a lightweight, serializable piece of metadata containing at least:
+    1.  the table and provider-key identity of the row
+    2.  a freshness marker for the dependency at the moment it was read
+
+    The marker format is deliberately not fixed here. It could be an invalidation generation, a provider version token, a provider-specific hash, or a combination. Row hashing is an optional precision tool, not a hard prerequisite for the first result-cache slice.
 
 *   **The Stamped Result:** A "stamped" object is any user-created object (like a DTO or ViewModel) that has a Dependency Fingerprint attached to it. This attachment is invisible to the user's code but allows DataLinq to later identify the object and its dependencies.
 
-*   **The Validation Check:** This is the process of taking a stamped result, extracting its fingerprint, and performing a highly optimized check against the database. The check does not re-load the data; it simply asks the database for the *current* version markers of all the rows listed in the fingerprint and compares them to the markers stored in the fingerprint. If any marker has changed, the result is invalid.
+*   **The Validation Check:** This is the process of taking a stamped result, extracting its fingerprint, and checking the stored dependency markers against current invalidation or row-state markers. The check should avoid reloading full rows. If any dependency can no longer be proven fresh, the result is invalid.
 
 ---
 
-#### **4. Dependencies on the Memory management Specification**
+#### **4. Dependencies on Current Cache and Query Foundations**
 
-This feature is a natural evolution that builds directly on top of the foundational work planned for v0.7.
+This feature is a natural evolution of the cache, invalidation, and query-shape work that now sits behind Phase 16.
 
-1.  **Row Versioning via Hashing:** The concept of a "Version Marker" in the Dependency Fingerprint is synonymous with the row hash feature from the v0.7 plan. The ability for the database provider to calculate a hash for any given row is a **hard prerequisite**.
+1.  **Phase 11 invalidation and freshness vocabulary:** Result validation needs explicit database/table/provider-key invalidation APIs, invalidation envelopes, and shared freshness terms. Those primitives now exist as the foundation this design should consume.
 
-2.  **Optimized Hash Retrieval:** The "Validation Check" must be extremely fast to be effective. It cannot involve re-reading full rows. This necessitates a new, optimized capability in the database providers to efficiently fetch *only the current hashes* for a given batch of primary keys. This aligns with the v0.7 goal of improving provider-specific performance and capabilities.
+2.  **Phase 12 cache-footprint accounting and cleanup behavior:** Result-set caching must report and bound its own overhead honestly. It should not reuse old row-payload byte terminology or pretend stamped result metadata is free.
 
-By building on these v0.7 features, the v0.8 implementation can focus purely on the logic of scope management, dependency tracking, and validation, rather than reinventing the underlying versioning mechanism.
+3.  **Phase 13 and Phase 14 join semantics:** Dependency tracking has to understand joined rows, relation-aware joins, left-join nullability, and projection boundaries. Otherwise it will either over-invalidate everything or under-track the rows that actually make a computed result stale.
+
+4.  **Projection and view semantics:** A result cache is only credible when the computation boundary is explicit. Views, projections, aggregates, and DTO construction need enough diagnostics to explain what was tracked and what was intentionally unsupported.
+
+Phase 16 should start from these shipped foundations and design the smallest useful validation model. Provider hash/version retrieval can improve precision later, but requiring it up front would turn result-set caching into a provider-versioning project before the explicit tracking API has proven itself.

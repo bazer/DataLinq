@@ -48,7 +48,7 @@ Out of scope:
 - [Representative Benchmark Suite and Website Trends](../../../performance/Representative%20Benchmark%20Suite%20and%20Website%20Trends.md)
 - [Allocation Reduction Audit](../../../performance/Allocation%20Reduction%20Audit.md)
 - [Memory Optimization and Deduplication](../../../performance/Memory%20Optimization%20and%20Deduplication.md)
-- [Memory management](../../../performance/Memory%20management.md)
+- [Memory management](../../performance/Memory%20management.md)
 
 ## Recommended Order
 

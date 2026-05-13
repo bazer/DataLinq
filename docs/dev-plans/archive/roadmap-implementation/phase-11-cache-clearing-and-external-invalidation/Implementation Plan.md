@@ -383,7 +383,7 @@ Results:
 
 Required companion design:
 
-- [Cache Memory Accounting](../../performance/Cache%20Memory%20Accounting.md)
+- [Cache Memory Accounting](../../../performance/Cache%20Memory%20Accounting.md)
 
 ## Verification
 

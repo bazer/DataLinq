@@ -245,7 +245,7 @@ Key related plans:
 - `archive/roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/Implementation Plan.md`
 - `archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/README.md`
 - `archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation Plan.md`
-- `platform-compatibility/AOT and WebAssembly Strategy.md`
+- `archive/platform-compatibility/AOT and WebAssembly Strategy.md`
 - `platform-compatibility/Practical AOT and Size Plan.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
 - `query-and-runtime/Remotion.Linq Replacement Plan.md`
@@ -342,7 +342,7 @@ Key related plans:
 - `performance/Representative Benchmark Suite and Website Trends.md`
 - `performance/Allocation Reduction Audit.md`
 - `performance/Memory Optimization and Deduplication.md`
-- `performance/Memory management.md`
+- `archive/performance/Memory management.md`
 
 ### Phase 10: Key and Allocation Foundation
 
@@ -364,9 +364,9 @@ Why first:
 
 Key related plans:
 
-- `roadmap-implementation/phase-10-key-and-allocation-foundation/README.md`
-- `roadmap-implementation/phase-10-key-and-allocation-foundation/Implementation Plan.md`
-- `performance/Generated Provider-Key Cache Design.md`
+- `archive/roadmap-implementation/phase-10-key-and-allocation-foundation/README.md`
+- `archive/roadmap-implementation/phase-10-key-and-allocation-foundation/Implementation Plan.md`
+- `archive/performance/Generated Provider-Key Cache Design.md`
 - `performance/Allocation Reduction Audit.md`
 - `metadata-and-generation/Scalar Converter Support.md`
 
@@ -392,12 +392,12 @@ Why after Phase 10:
 
 Key related plans:
 
-- `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/README.md`
-- `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/Implementation Plan.md`
-- `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/Precise Relation Cache Invalidation.md`
+- `archive/roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/README.md`
+- `archive/roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/Precise Relation Cache Invalidation.md`
 - `performance/Cache Memory Accounting.md`
 - `architecture/Distributed Cache Coordination and CDC.md`
-- `performance/Memory management.md`
+- `archive/performance/Memory management.md`
 
 ### Phase 12: Memory-Pressure Cleanup and Measured Deduplication
 
@@ -422,11 +422,11 @@ Why after explicit invalidation:
 
 Key related plans:
 
-- `roadmap-implementation/phase-12-memory-pressure-cleanup-and-measured-deduplication/README.md`
-- `roadmap-implementation/phase-12-memory-pressure-cleanup-and-measured-deduplication/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-12-memory-pressure-cleanup-and-measured-deduplication/README.md`
+- `archive/roadmap-implementation/phase-12-memory-pressure-cleanup-and-measured-deduplication/Implementation Plan.md`
 - `performance/Cache Memory Accounting.md`
 - `performance/Memory Optimization and Deduplication.md`
-- `performance/Memory management.md`
+- `archive/performance/Memory management.md`
 - `performance/Allocation Reduction Audit.md`
 
 ### Phase 13: Explicit Multi-Join Composition
@@ -498,7 +498,7 @@ Key related plans:
 
 - `roadmap-implementation/phase-15-scalar-converters-and-typed-key-ergonomics/README.md`
 - `metadata-and-generation/Scalar Converter Support.md`
-- `performance/Generated Provider-Key Cache Design.md`
+- `../Provider-Key Row Cache Architecture.md`
 
 ### Phase 16: Dependency-Tracked Result-Set Caching
 

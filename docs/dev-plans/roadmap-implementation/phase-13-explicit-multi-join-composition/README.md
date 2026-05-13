@@ -32,7 +32,7 @@ Out of scope:
 
 - [Relation-Aware Join API](../../query-and-runtime/Relation-Aware%20Join%20API.md)
 - [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md)
-- [Phase 10 Key and Allocation Foundation](../phase-10-key-and-allocation-foundation/README.md)
+- [Phase 10 Key and Allocation Foundation](../../archive/roadmap-implementation/phase-10-key-and-allocation-foundation/README.md)
 
 ## Recommended Order
 

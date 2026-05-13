@@ -2,7 +2,7 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 ### **Specification for Advanced Caching and Memory Management**
 
-**Status:** Older broad cache specification. Phase 10 owns generated key/cache identity, Phase 11 owns explicit cache clearing and external invalidation, and Phase 12 owns memory-pressure cleanup and measured deduplication.
+**Status:** Archived historical broad cache specification. Current cache memory accounting guidance lives in [Cache Memory Accounting](../../performance/Cache%20Memory%20Accounting.md), while Phase 11 and Phase 12 record the shipped invalidation and memory-pressure cleanup boundaries.
 
 #### **1. Overview**
 

@@ -32,7 +32,7 @@ Out of scope:
 
 - [Result set caching](../../query-and-runtime/Result%20set%20caching.md)
 - [Projections and Views](../../query-and-runtime/Projections%20and%20Views.md)
-- [Phase 11 Cache Clearing and External Invalidation](../phase-11-cache-clearing-and-external-invalidation/README.md)
+- [Phase 11 Cache Clearing and External Invalidation](../../archive/roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/README.md)
 - [Phase 13 Explicit Multi-Join Composition](../phase-13-explicit-multi-join-composition/README.md)
 - [Phase 14 Relation-Aware Joins and Left Joins](../phase-14-relation-aware-joins-and-left-joins/README.md)
 

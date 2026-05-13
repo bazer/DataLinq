@@ -28,6 +28,12 @@ This folder contains historical roadmap implementation checkpoints that are no l
   Implemented package graph, complete generated metadata startup, generated indexed access, and public compatibility wording cleanup.
 - `phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/`
   Implemented release-hardening, benchmark-history, allocation, and conservative cache-invalidation cleanup.
+- `phase-10-key-and-allocation-foundation/`
+  Implemented metadata collection cleanup, frozen lookups, provider-key row stores, generated relation access, scalar-converter seams, and allocation closeout evidence.
+- `phase-11-cache-clearing-and-external-invalidation/`
+  Implemented explicit database/table/provider-key invalidation APIs, relation/index invalidation, invalidation envelopes, freshness vocabulary, and cache telemetry.
+- `phase-12-memory-pressure-cleanup-and-measured-deduplication/`
+  Implemented estimated cache memory accounting, estimated-footprint byte limits, memory-pressure-aware cleanup, cleanup telemetry, and benchmark-led rejection of production value/key deduplication.
 - `Phase 4 and 5 Status Review.md`
   Historical closeout review from 2026-05-02. It explains the provider-fidelity and product-trust boundary that later phases consumed, but its "start Phase 6 next" recommendation is no longer current.
 

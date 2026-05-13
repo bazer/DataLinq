@@ -3,9 +3,9 @@
 
 # Generated Provider-Key Cache Design
 
-**Status:** Draft design. Roadmap execution starts in Phase 10 key and allocation foundation.
+**Status:** Archived historical Phase 10 design. The shipped provider-key row-cache architecture is documented in [Provider-Key Row Cache Architecture](../../../Provider-Key%20Row%20Cache%20Architecture.md), and the execution closeout lives in [Phase 10 Key and Allocation Foundation](../roadmap-implementation/phase-10-key-and-allocation-foundation/README.md).
 **Created:** 2026-05-11
-**Updated:** 2026-05-11
+**Updated:** 2026-05-13
 **Scope:** generated primary-key lookup, row-cache keys, relation/index-cache keys, scalar converter integration, and removal of the legacy `IKey` abstraction.
 
 ## Problem

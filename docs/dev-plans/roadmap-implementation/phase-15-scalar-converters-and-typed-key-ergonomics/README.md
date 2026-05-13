@@ -33,8 +33,8 @@ Out of scope:
 ## Source Plans
 
 - [Scalar Converter Support](../../metadata-and-generation/Scalar%20Converter%20Support.md)
-- [Generated Provider-Key Cache Design](../../performance/Generated%20Provider-Key%20Cache%20Design.md)
-- [Phase 10 Key and Allocation Foundation](../phase-10-key-and-allocation-foundation/README.md)
+- [Provider-Key Row Cache Architecture](../../../Provider-Key%20Row%20Cache%20Architecture.md)
+- [Phase 10 Key and Allocation Foundation](../../archive/roadmap-implementation/phase-10-key-and-allocation-foundation/README.md)
 
 ## Recommended Order
 

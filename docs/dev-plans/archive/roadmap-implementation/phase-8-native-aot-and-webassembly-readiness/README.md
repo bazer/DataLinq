@@ -50,7 +50,7 @@ Relevant tests and verification lanes:
 
 Relevant docs:
 
-- [`../../../platform-compatibility/AOT and WebAssembly Strategy.md`](../../../platform-compatibility/AOT%20and%20WebAssembly%20Strategy.md)
+- [`../../platform-compatibility/AOT and WebAssembly Strategy.md`](../../platform-compatibility/AOT%20and%20WebAssembly%20Strategy.md)
 - [`../../../metadata-and-generation/Source Generator Optimizations.md`](../../../metadata-and-generation/Source%20Generator%20Optimizations.md)
 - [`../../../query-and-runtime/Query Pipeline Abstraction.md`](../../../query-and-runtime/Query%20Pipeline%20Abstraction.md)
 
