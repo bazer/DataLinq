@@ -103,10 +103,7 @@ Tasks:
 
 1. Characterize the current `Bytes` metric as estimated row payload bytes in Phase 11 closeout notes.
 2. Avoid using current `Bytes` as the cost basis for invalidation telemetry.
-3. If public names are touched, prefer additive naming over breaking renames:
-   - keep existing `Bytes` temporarily if compatibility matters
-   - add or plan `RowPayloadBytes`
-   - document that `Bytes` is legacy row-payload estimate, not total memory
+3. Document the Phase 12 decision: keep the existing byte-limit settings and enum values, but change their implementation basis from row payload to estimated cache footprint.
 4. Ensure invalidation telemetry reports units honestly:
    - rows removed
    - index entries removed
@@ -124,7 +121,7 @@ Phase 12 owns the implementation of broader estimated cache memory accounting.
 
 Tasks:
 
-1. Replace ambiguous internal naming around `TotalBytes` with row-payload-specific names where feasible.
+1. Preserve the existing byte-limit settings and enum values while changing their accounting basis to estimated cache footprint.
 2. Add a `CacheMemoryEstimate` or equivalent internal snapshot with component-level byte counts.
 3. Make row stores report both payload and estimated overhead.
 4. Make transaction-local row caches contribute to memory estimates.
@@ -132,15 +129,13 @@ Tasks:
 6. Decide whether relation-object caches are cache-owned enough to report directly, or whether subscription telemetry should report their approximate retained values.
 7. Add notification queue memory estimates.
 8. Decide whether `CacheHistory` should be included in cache memory estimates or separately reported as diagnostics overhead.
-9. Update size-based cleanup to use explicit policy:
-   - row-payload limit
-   - estimated-cache-byte limit
-   - memory-pressure-triggered cleanup
-10. Add benchmarks that compare the estimate with observed managed heap deltas under controlled scenarios.
+9. Update existing size-based cleanup to use `EstimatedCacheBytes`, not row-payload bytes.
+10. Expand diagnostics/reporting so operators can see the corrected total estimate and the important component estimates.
+11. Add benchmarks that compare the estimate with observed managed heap deltas under controlled scenarios.
 
 Exit condition for Phase 12:
 
-- operators can distinguish row payload size from estimated cache footprint, and size-based cleanup uses an explicitly documented basis
+- existing `Bytes`, `Kilobytes`, `Megabytes`, and `Gigabytes` limits use the corrected estimated-cache-footprint basis, and operators can still inspect row payload size as a component when needed
 
 ## Suggested Internal Shapes
 
@@ -171,7 +166,7 @@ internal readonly record struct CacheMemoryEstimate(
 }
 ```
 
-Public diagnostics may expose fewer fields, but the internal accounting should keep components separate. A single opaque estimate is hard to debug and easy to misuse.
+Public diagnostics should expose enough fields to make the estimate explainable. At minimum, expose `RowPayloadBytes` and `EstimatedCacheBytes`; preferably expose the major components as well. The internal accounting should always keep components separate. A single opaque estimate is hard to debug and easy to misuse.
 
 ## Estimation Guidance
 
@@ -194,20 +189,9 @@ Do not call the result exact. It will not be exact. It needs to be stable, compa
 
 Current `CacheLimitType.Bytes`, `Kilobytes`, `Megabytes`, and `Gigabytes` act on the current row-payload estimate. That is not wrong if documented as row payload, but it is wrong if sold as total cache memory.
 
-Phase 12 should decide between:
+The project decision is to take the behavioral break for cache limit cleanup and keep the existing byte-limit settings as-is. Phase 12 should make the existing byte-based limit types use the corrected `EstimatedCacheBytes` basis. Do not add parallel row-payload or estimated-footprint limit settings just to preserve the old behavior.
 
-- preserving existing limit types as row-payload limits and adding new estimated-footprint limit types
-- changing their basis in a major-version break
-- introducing a policy option that selects the byte-accounting basis
-
-The conservative route is additive:
-
-```text
-CacheLimitType.RowPayloadBytes
-CacheLimitType.EstimatedCacheBytes
-```
-
-The exact API shape can differ, but the basis must be explicit.
+This limit-setting decision does not block adding richer reporting fields. In fact, adding component-level reporting is required so users can understand why a byte limit is being hit. The old cleanup behavior was not a useful contract; it was a misleading implementation detail. Keeping the cache limit values and fixing the basis makes user code simpler and makes the docs more honest. The closeout notes must call out the breaking semantic change clearly.
 
 ## Verification Plan
 
@@ -219,8 +203,9 @@ Minimum tests:
 - composite keys and dynamic `DataLinqKey` component arrays contribute to estimates
 - relation-object estimates or relation subscription diagnostics reflect loaded collections
 - notification queue estimates increase on subscribe and drop after notify/clean
-- size-based cleanup uses the configured byte basis
+- size-based cleanup uses the existing byte-limit settings with the corrected estimated-cache-footprint basis
 - telemetry/snapshot sums match table-to-provider-to-runtime aggregation
+- public diagnostics expose corrected total estimate plus row-payload/component detail
 
 Benchmark probes:
 

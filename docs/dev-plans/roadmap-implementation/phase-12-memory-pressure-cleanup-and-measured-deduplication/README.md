@@ -12,6 +12,8 @@ This is where memory-pressure-aware cleanup, adaptive scheduling, and scoped val
 
 Phase 12 also owns broad cache memory accounting. The existing cache byte value is a row-payload estimate, not a full managed-memory footprint. Memory-pressure cleanup should not be built on that number without first separating row payload, row-store overhead, transaction caches, index caches, relation-object caches, notification queues, and snapshot/history overhead.
 
+The byte-limit settings should stay as-is. Phase 12 may make the breaking behavioral change that existing byte-based limits use the corrected estimated cache footprint rather than the old row-payload estimate. Reporting is different: diagnostics should grow enough fields to explain the estimate.
+
 ## Execution Boundary
 
 In scope:
@@ -19,9 +21,10 @@ In scope:
 - memory-pressure-aware cleanup through a testable abstraction
 - cleanup scheduling that can react to churn without unbounded background work
 - component-level cache memory estimates that distinguish row payload from broader cache footprint
+- expanded cache occupancy reporting for corrected total estimate and major component estimates
 - lazy cache snapshot/history work where behavior allows
 - `IndexCache` reverse-map concurrency cleanup
-- row-payload byte counters with honest naming and low-cost broader cache-memory telemetry
+- corrected byte-based cleanup using estimated cache footprint while keeping the existing limit settings
 - measured value/key deduplication or scoped interning only where benchmarks prove a win
 
 Out of scope:
@@ -44,14 +47,15 @@ Out of scope:
 ## Recommended Order
 
 1. Make provider construction avoid eager cache-history work where behavior allows.
-2. Rename or supplement ambiguous byte accounting so row payload and estimated cache footprint are separate concepts.
+2. Rename or supplement ambiguous internal byte accounting so row payload and estimated cache footprint are separate concepts.
 3. Add component-level memory estimates for row stores, transaction caches, index caches, relation-object caches, notification queues, and snapshot/history overhead.
-4. Add an injectable memory-pressure reader and cleanup policy tests.
-5. Add deterministic cleanup scheduling tests with a fake clock.
-6. Fix correctness-adjacent cache internals such as mutable reverse-index buckets.
-7. Decide whether size-based cleanup uses row-payload bytes, estimated cache bytes, or a configurable accounting basis.
-8. Benchmark scoped value/key deduplication prototypes under allocation, contention, and retention checks.
-9. Adopt only the deduplication strategies that clearly win.
+4. Expand diagnostics/reporting with corrected total cache estimate plus row-payload/component details.
+5. Add an injectable memory-pressure reader and cleanup policy tests.
+6. Add deterministic cleanup scheduling tests with a fake clock.
+7. Fix correctness-adjacent cache internals such as mutable reverse-index buckets.
+8. Change existing size-based cleanup to use estimated cache bytes, and call out the breaking semantic change in closeout notes.
+9. Benchmark scoped value/key deduplication prototypes under allocation, contention, and retention checks.
+10. Adopt only the deduplication strategies that clearly win.
 
 ## Exit Criteria
 
@@ -61,7 +65,8 @@ Phase 12 is done when:
 - users can configure or disable pressure-triggered cleanup
 - cache cleanup telemetry explains why cleanup ran
 - diagnostics distinguish estimated row payload bytes from estimated total cache footprint
+- cache occupancy reporting exposes enough component detail to explain the estimate
 - cache internals avoid known concurrency and byte-accounting smells
-- size-based cleanup has an explicit byte-accounting basis
+- existing byte-based cache limits use estimated cache footprint without adding parallel cache-limit settings
 - any deduplication strategy has benchmark evidence and a retention story
 - no unbounded global interner is introduced as a shortcut

@@ -407,8 +407,10 @@ Goals:
 
 - make cache cleanup react to memory pressure through a testable abstraction
 - add component-level cache memory estimates that separate row payload from estimated cache footprint
+- expand cache occupancy reporting so the corrected estimate is explainable
 - add better cleanup scheduling without unbounded background work
 - clean cache internals such as lazy snapshots, index reverse-map concurrency, and byte accounting
+- keep existing byte-limit settings while changing them to calculate against estimated cache footprint
 - evaluate value/key deduplication and scoped interning with retention and contention evidence
 - keep adaptive policy conservative and overrideable
 

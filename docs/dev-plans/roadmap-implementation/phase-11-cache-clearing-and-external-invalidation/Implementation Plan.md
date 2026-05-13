@@ -206,8 +206,10 @@ Tasks:
 4. Record whether invalidation used precise provider-key removal or conservative table fallback.
 5. Avoid using the current cache byte gauge as the cost basis for invalidation unless it is named as approximate row payload bytes.
 6. Document the Phase 12 handoff for cache memory accounting: row payload, row-store overhead, transaction caches, index caches, relation-object caches, notification queues, and cache history.
-7. Update cache documentation only for shipped behavior.
-8. Leave CDC, adaptive policy, memory-pressure cleanup, full memory accounting, and result-set caching explicitly deferred.
+7. Record that Phase 12 should keep the existing byte-limit settings and enum values but change byte-based cleanup to use estimated cache footprint.
+8. Record that Phase 12 may expand cache occupancy reporting with row-payload, component, and corrected total estimate fields.
+9. Update cache documentation only for shipped behavior.
+10. Leave CDC, adaptive policy, memory-pressure cleanup, full memory accounting, and result-set caching explicitly deferred.
 
 Exit criteria:
 
