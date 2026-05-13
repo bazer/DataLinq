@@ -188,10 +188,14 @@ public class CacheMemoryEstimateTests
         await Assert.That(tableSnapshot.RowPayloadBytes).IsEqualTo(1536);
         await Assert.That(tableSnapshot.TotalBytes).IsEqualTo(tableSnapshot.RowPayloadBytes);
         await Assert.That(tableSnapshot.TotalBytesFormatted).IsEqualTo(tableSnapshot.RowPayloadBytesFormatted);
+        await Assert.That(tableSnapshot.EstimatedCacheBytes).IsEqualTo(tableSnapshot.RowPayloadBytes);
+        await Assert.That(tableSnapshot.EstimatedCacheBytesFormatted).IsEqualTo(tableSnapshot.RowPayloadBytesFormatted);
 
         await Assert.That(databaseSnapshot.RowPayloadBytes).IsEqualTo(2048);
         await Assert.That(databaseSnapshot.TotalBytes).IsEqualTo(databaseSnapshot.RowPayloadBytes);
         await Assert.That(databaseSnapshot.TotalBytesFormatted).IsEqualTo(databaseSnapshot.RowPayloadBytesFormatted);
+        await Assert.That(databaseSnapshot.EstimatedCacheBytes).IsEqualTo(databaseSnapshot.RowPayloadBytes);
+        await Assert.That(databaseSnapshot.EstimatedCacheBytesFormatted).IsEqualTo(databaseSnapshot.RowPayloadBytesFormatted);
 
         await Assert.That(occupancy.RowPayloadBytes).IsEqualTo(occupancy.Bytes);
     }
@@ -357,6 +361,7 @@ public class CacheMemoryEstimateTests
             tableCache.SubscribeToChanges(subscriber);
 
             var estimate = tableCache.GetMemoryEstimate();
+            var snapshot = tableCache.MakeSnapshot();
 
             await Assert.That(estimate.RowPayloadBytes).IsGreaterThan(0);
             await Assert.That(estimate.RowStoreOverheadBytes).IsGreaterThan(0);
@@ -365,6 +370,14 @@ public class CacheMemoryEstimateTests
             await Assert.That(estimate.IndexPayloadBytes).IsGreaterThan(0);
             await Assert.That(estimate.IndexOverheadBytes).IsGreaterThan(0);
             await Assert.That(estimate.NotificationBytes).IsGreaterThan(0);
+            await Assert.That(snapshot.RowPayloadBytes).IsEqualTo(estimate.RowPayloadBytes);
+            await Assert.That(snapshot.EstimatedCacheBytes).IsEqualTo(estimate.EstimatedCacheBytes);
+            await Assert.That(snapshot.RowStoreOverheadBytes).IsEqualTo(estimate.RowStoreOverheadBytes);
+            await Assert.That(snapshot.TransactionRowPayloadBytes).IsEqualTo(estimate.TransactionRowPayloadBytes);
+            await Assert.That(snapshot.TransactionRowStoreOverheadBytes).IsEqualTo(estimate.TransactionRowStoreOverheadBytes);
+            await Assert.That(snapshot.IndexPayloadBytes).IsEqualTo(estimate.IndexPayloadBytes);
+            await Assert.That(snapshot.IndexOverheadBytes).IsEqualTo(estimate.IndexOverheadBytes);
+            await Assert.That(snapshot.NotificationBytes).IsEqualTo(estimate.NotificationBytes);
         }
         finally
         {

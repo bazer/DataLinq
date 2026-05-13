@@ -305,6 +305,15 @@ internal sealed class DataLinqTableMetricsState
     private long currentRows;
     private long currentTransactionRows;
     private long currentBytes;
+    private long currentEstimatedCacheBytes;
+    private long currentRowStoreOverheadBytes;
+    private long currentTransactionRowPayloadBytes;
+    private long currentTransactionRowStoreOverheadBytes;
+    private long currentIndexPayloadBytes;
+    private long currentIndexOverheadBytes;
+    private long currentRelationObjectBytes;
+    private long currentNotificationBytes;
+    private long currentSnapshotBytes;
     private long currentIndexEntries;
     private long mutationInserts;
     private long mutationUpdates;
@@ -394,7 +403,16 @@ internal sealed class DataLinqTableMetricsState
     {
         Interlocked.Exchange(ref currentRows, snapshot.Rows);
         Interlocked.Exchange(ref currentTransactionRows, snapshot.TransactionRows);
-        Interlocked.Exchange(ref currentBytes, snapshot.Bytes);
+        Interlocked.Exchange(ref currentBytes, snapshot.RowPayloadBytes);
+        Interlocked.Exchange(ref currentEstimatedCacheBytes, snapshot.EstimatedCacheBytes);
+        Interlocked.Exchange(ref currentRowStoreOverheadBytes, snapshot.RowStoreOverheadBytes);
+        Interlocked.Exchange(ref currentTransactionRowPayloadBytes, snapshot.TransactionRowPayloadBytes);
+        Interlocked.Exchange(ref currentTransactionRowStoreOverheadBytes, snapshot.TransactionRowStoreOverheadBytes);
+        Interlocked.Exchange(ref currentIndexPayloadBytes, snapshot.IndexPayloadBytes);
+        Interlocked.Exchange(ref currentIndexOverheadBytes, snapshot.IndexOverheadBytes);
+        Interlocked.Exchange(ref currentRelationObjectBytes, snapshot.RelationObjectBytes);
+        Interlocked.Exchange(ref currentNotificationBytes, snapshot.NotificationBytes);
+        Interlocked.Exchange(ref currentSnapshotBytes, snapshot.SnapshotBytes);
         Interlocked.Exchange(ref currentIndexEntries, snapshot.IndexEntries);
     }
 
@@ -495,6 +513,15 @@ internal sealed class DataLinqTableMetricsState
         Interlocked.Exchange(ref currentRows, 0);
         Interlocked.Exchange(ref currentTransactionRows, 0);
         Interlocked.Exchange(ref currentBytes, 0);
+        Interlocked.Exchange(ref currentEstimatedCacheBytes, 0);
+        Interlocked.Exchange(ref currentRowStoreOverheadBytes, 0);
+        Interlocked.Exchange(ref currentTransactionRowPayloadBytes, 0);
+        Interlocked.Exchange(ref currentTransactionRowStoreOverheadBytes, 0);
+        Interlocked.Exchange(ref currentIndexPayloadBytes, 0);
+        Interlocked.Exchange(ref currentIndexOverheadBytes, 0);
+        Interlocked.Exchange(ref currentRelationObjectBytes, 0);
+        Interlocked.Exchange(ref currentNotificationBytes, 0);
+        Interlocked.Exchange(ref currentSnapshotBytes, 0);
         Interlocked.Exchange(ref currentIndexEntries, 0);
         Interlocked.Exchange(ref mutationInserts, 0);
         Interlocked.Exchange(ref mutationUpdates, 0);
@@ -552,6 +579,15 @@ internal sealed class DataLinqTableMetricsState
         => Interlocked.Read(ref currentRows) != 0 ||
            Interlocked.Read(ref currentTransactionRows) != 0 ||
            Interlocked.Read(ref currentBytes) != 0 ||
+           Interlocked.Read(ref currentEstimatedCacheBytes) != 0 ||
+           Interlocked.Read(ref currentRowStoreOverheadBytes) != 0 ||
+           Interlocked.Read(ref currentTransactionRowPayloadBytes) != 0 ||
+           Interlocked.Read(ref currentTransactionRowStoreOverheadBytes) != 0 ||
+           Interlocked.Read(ref currentIndexPayloadBytes) != 0 ||
+           Interlocked.Read(ref currentIndexOverheadBytes) != 0 ||
+           Interlocked.Read(ref currentRelationObjectBytes) != 0 ||
+           Interlocked.Read(ref currentNotificationBytes) != 0 ||
+           Interlocked.Read(ref currentSnapshotBytes) != 0 ||
            Interlocked.Read(ref currentIndexEntries) != 0 ||
            Interlocked.Read(ref mutationInserts) != 0 ||
            Interlocked.Read(ref mutationUpdates) != 0 ||
@@ -591,7 +627,16 @@ internal sealed class DataLinqTableMetricsState
             Occupancy: new CacheOccupancyMetricsSnapshot(
                 Rows: Interlocked.Read(ref currentRows),
                 TransactionRows: Interlocked.Read(ref currentTransactionRows),
-                Bytes: Interlocked.Read(ref currentBytes),
+                RowPayloadBytes: Interlocked.Read(ref currentBytes),
+                EstimatedCacheBytes: Interlocked.Read(ref currentEstimatedCacheBytes),
+                RowStoreOverheadBytes: Interlocked.Read(ref currentRowStoreOverheadBytes),
+                TransactionRowPayloadBytes: Interlocked.Read(ref currentTransactionRowPayloadBytes),
+                TransactionRowStoreOverheadBytes: Interlocked.Read(ref currentTransactionRowStoreOverheadBytes),
+                IndexPayloadBytes: Interlocked.Read(ref currentIndexPayloadBytes),
+                IndexOverheadBytes: Interlocked.Read(ref currentIndexOverheadBytes),
+                RelationObjectBytes: Interlocked.Read(ref currentRelationObjectBytes),
+                NotificationBytes: Interlocked.Read(ref currentNotificationBytes),
+                SnapshotBytes: Interlocked.Read(ref currentSnapshotBytes),
                 IndexEntries: Interlocked.Read(ref currentIndexEntries)),
             Cleanup: new CacheCleanupMetricsSnapshot(
                 Operations: Interlocked.Read(ref cacheCleanupOperations),

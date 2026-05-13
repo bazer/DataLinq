@@ -55,6 +55,9 @@ public partial class TableCache
     /// <summary>Estimated bytes for row values only, excluding cache container overhead.</summary>
     public long RowPayloadBytes => rowCache?.RowPayloadBytes ?? 0;
     public string RowPayloadBytesFormatted => RowPayloadBytes.ToFileSize();
+    /// <summary>Estimated bytes retained by row payloads and tracked cache containers.</summary>
+    public long EstimatedCacheBytes => GetMemoryEstimate().EstimatedCacheBytes;
+    public string EstimatedCacheBytesFormatted => EstimatedCacheBytes.ToFileSize();
     /// <summary>Compatibility alias for <see cref="RowPayloadBytes"/>.</summary>
     public long TotalBytes => RowPayloadBytes;
     public string TotalBytesFormatted => RowPayloadBytesFormatted;

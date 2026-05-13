@@ -75,7 +75,7 @@ public partial class TableCache
 
     public TableCacheSnapshot MakeSnapshot()
     {
-        return new(Table.DbName, RowCount, RowPayloadBytes, NewestTick, OldestTick, IndicesCount.ToArray());
+        return new(Table.DbName, RowCount, GetMemoryEstimate(), NewestTick, OldestTick, IndicesCount.ToArray());
     }
 
     internal CacheMemoryEstimate GetMemoryEstimate()
@@ -94,11 +94,24 @@ public partial class TableCache
     }
 
     private CacheOccupancyMetricsSnapshot GetOccupancySnapshot()
-        => new(
+    {
+        var estimate = GetMemoryEstimate();
+
+        return new CacheOccupancyMetricsSnapshot(
             Rows: RowCount,
             TransactionRows: transactionRows?.Values.Sum(x => (long)x.Count) ?? 0,
-            Bytes: RowPayloadBytes,
+            RowPayloadBytes: estimate.RowPayloadBytes,
+            EstimatedCacheBytes: estimate.EstimatedCacheBytes,
+            RowStoreOverheadBytes: estimate.RowStoreOverheadBytes,
+            TransactionRowPayloadBytes: estimate.TransactionRowPayloadBytes,
+            TransactionRowStoreOverheadBytes: estimate.TransactionRowStoreOverheadBytes,
+            IndexPayloadBytes: estimate.IndexPayloadBytes,
+            IndexOverheadBytes: estimate.IndexOverheadBytes,
+            RelationObjectBytes: estimate.RelationObjectBytes,
+            NotificationBytes: estimate.NotificationBytes,
+            SnapshotBytes: estimate.SnapshotBytes,
             IndexEntries: GetLoadedIndexCaches().Sum(x => (long)x.Count));
+    }
 
     private void RefreshOccupancyMetrics()
     {

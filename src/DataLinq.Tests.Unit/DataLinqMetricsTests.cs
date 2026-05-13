@@ -52,6 +52,49 @@ public class DataLinqMetricsTests
         DataLinqMetrics.RecordEntityQueryExecution(providerA);
         DataLinqMetrics.RecordScalarQueryExecution(providerB);
 
+        employeesA.UpdateCacheOccupancy(new CacheOccupancyMetricsSnapshot(
+            Rows: 2,
+            TransactionRows: 1,
+            RowPayloadBytes: 100,
+            EstimatedCacheBytes: 200,
+            RowStoreOverheadBytes: 10,
+            TransactionRowPayloadBytes: 20,
+            TransactionRowStoreOverheadBytes: 5,
+            IndexPayloadBytes: 30,
+            IndexOverheadBytes: 15,
+            RelationObjectBytes: 7,
+            NotificationBytes: 8,
+            SnapshotBytes: 9,
+            IndexEntries: 3));
+        deptEmpA.UpdateCacheOccupancy(new CacheOccupancyMetricsSnapshot(
+            Rows: 1,
+            TransactionRows: 0,
+            RowPayloadBytes: 40,
+            EstimatedCacheBytes: 60,
+            RowStoreOverheadBytes: 4,
+            TransactionRowPayloadBytes: 0,
+            TransactionRowStoreOverheadBytes: 0,
+            IndexPayloadBytes: 6,
+            IndexOverheadBytes: 3,
+            RelationObjectBytes: 2,
+            NotificationBytes: 5,
+            SnapshotBytes: 0,
+            IndexEntries: 1));
+        employeesB.UpdateCacheOccupancy(new CacheOccupancyMetricsSnapshot(
+            Rows: 4,
+            TransactionRows: 2,
+            RowPayloadBytes: 300,
+            EstimatedCacheBytes: 500,
+            RowStoreOverheadBytes: 40,
+            TransactionRowPayloadBytes: 50,
+            TransactionRowStoreOverheadBytes: 20,
+            IndexPayloadBytes: 60,
+            IndexOverheadBytes: 25,
+            RelationObjectBytes: 10,
+            NotificationBytes: 12,
+            SnapshotBytes: 14,
+            IndexEntries: 5));
+
         employeesA.RecordRowCacheHits(10);
         employeesA.RecordRowCacheMisses(2);
         employeesA.RecordDatabaseRowsLoaded(2);
@@ -121,6 +164,27 @@ public class DataLinqMetricsTests
         await Assert.That(providerSnapshotB.Queries.EntityExecutions).IsEqualTo(0);
         await Assert.That(providerSnapshotB.Queries.ScalarExecutions).IsEqualTo(1);
 
+        await Assert.That(providerSnapshotA.Occupancy.Rows).IsEqualTo(3);
+        await Assert.That(providerSnapshotA.Occupancy.TransactionRows).IsEqualTo(1);
+        await Assert.That(providerSnapshotA.Occupancy.Bytes).IsEqualTo(140);
+        await Assert.That(providerSnapshotA.Occupancy.RowPayloadBytes).IsEqualTo(140);
+        await Assert.That(providerSnapshotA.Occupancy.EstimatedCacheBytes).IsEqualTo(260);
+        await Assert.That(providerSnapshotA.Occupancy.RowStoreOverheadBytes).IsEqualTo(14);
+        await Assert.That(providerSnapshotA.Occupancy.TransactionRowPayloadBytes).IsEqualTo(20);
+        await Assert.That(providerSnapshotA.Occupancy.TransactionRowStoreOverheadBytes).IsEqualTo(5);
+        await Assert.That(providerSnapshotA.Occupancy.IndexPayloadBytes).IsEqualTo(36);
+        await Assert.That(providerSnapshotA.Occupancy.IndexOverheadBytes).IsEqualTo(18);
+        await Assert.That(providerSnapshotA.Occupancy.RelationObjectBytes).IsEqualTo(9);
+        await Assert.That(providerSnapshotA.Occupancy.NotificationBytes).IsEqualTo(13);
+        await Assert.That(providerSnapshotA.Occupancy.SnapshotBytes).IsEqualTo(9);
+        await Assert.That(providerSnapshotA.Occupancy.IndexEntries).IsEqualTo(4);
+
+        await Assert.That(providerSnapshotB.Occupancy.Rows).IsEqualTo(4);
+        await Assert.That(providerSnapshotB.Occupancy.TransactionRows).IsEqualTo(2);
+        await Assert.That(providerSnapshotB.Occupancy.RowPayloadBytes).IsEqualTo(300);
+        await Assert.That(providerSnapshotB.Occupancy.EstimatedCacheBytes).IsEqualTo(500);
+        await Assert.That(providerSnapshotB.Occupancy.IndexEntries).IsEqualTo(5);
+
         await Assert.That(providerSnapshotA.RowCache.Hits).IsEqualTo(13);
         await Assert.That(providerSnapshotA.RowCache.Misses).IsEqualTo(2);
         await Assert.That(providerSnapshotA.RowCache.DatabaseRowsLoaded).IsEqualTo(2);
@@ -175,6 +239,20 @@ public class DataLinqMetricsTests
             providerSnapshotA.Queries.EntityExecutions + providerSnapshotB.Queries.EntityExecutions);
         await Assert.That(snapshot.Queries.ScalarExecutions).IsEqualTo(
             providerSnapshotA.Queries.ScalarExecutions + providerSnapshotB.Queries.ScalarExecutions);
+        await Assert.That(snapshot.Occupancy.Rows).IsEqualTo(7);
+        await Assert.That(snapshot.Occupancy.TransactionRows).IsEqualTo(3);
+        await Assert.That(snapshot.Occupancy.Bytes).IsEqualTo(440);
+        await Assert.That(snapshot.Occupancy.RowPayloadBytes).IsEqualTo(440);
+        await Assert.That(snapshot.Occupancy.EstimatedCacheBytes).IsEqualTo(760);
+        await Assert.That(snapshot.Occupancy.RowStoreOverheadBytes).IsEqualTo(54);
+        await Assert.That(snapshot.Occupancy.TransactionRowPayloadBytes).IsEqualTo(70);
+        await Assert.That(snapshot.Occupancy.TransactionRowStoreOverheadBytes).IsEqualTo(25);
+        await Assert.That(snapshot.Occupancy.IndexPayloadBytes).IsEqualTo(96);
+        await Assert.That(snapshot.Occupancy.IndexOverheadBytes).IsEqualTo(43);
+        await Assert.That(snapshot.Occupancy.RelationObjectBytes).IsEqualTo(19);
+        await Assert.That(snapshot.Occupancy.NotificationBytes).IsEqualTo(25);
+        await Assert.That(snapshot.Occupancy.SnapshotBytes).IsEqualTo(23);
+        await Assert.That(snapshot.Occupancy.IndexEntries).IsEqualTo(9);
         await Assert.That(snapshot.RowCache.Hits).IsEqualTo(
             providerSnapshotA.RowCache.Hits + providerSnapshotB.RowCache.Hits);
         await Assert.That(snapshot.RowCache.Misses).IsEqualTo(

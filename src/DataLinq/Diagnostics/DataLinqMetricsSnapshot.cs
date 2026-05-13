@@ -38,7 +38,13 @@ public readonly record struct DataLinqMetricsSnapshot(
            $"mutation-deletes={Mutations.Deletes}, mutation-failures={Mutations.Failures}, mutation-affected-rows={Mutations.AffectedRows}, " +
            $"mutation-duration-ms={Mutations.TotalDurationMilliseconds:0.###}, " +
            $"cache-rows-current={Occupancy.Rows}, cache-transaction-rows-current={Occupancy.TransactionRows}, " +
-           $"cache-bytes-current={Occupancy.Bytes}, cache-index-entries-current={Occupancy.IndexEntries}, " +
+           $"cache-bytes-current={Occupancy.Bytes}, cache-row-payload-bytes-current={Occupancy.RowPayloadBytes}, " +
+           $"cache-estimated-bytes-current={Occupancy.EstimatedCacheBytes}, cache-row-store-overhead-bytes-current={Occupancy.RowStoreOverheadBytes}, " +
+           $"cache-transaction-payload-bytes-current={Occupancy.TransactionRowPayloadBytes}, " +
+           $"cache-transaction-overhead-bytes-current={Occupancy.TransactionRowStoreOverheadBytes}, " +
+           $"cache-index-payload-bytes-current={Occupancy.IndexPayloadBytes}, cache-index-overhead-bytes-current={Occupancy.IndexOverheadBytes}, " +
+           $"cache-relation-object-bytes-current={Occupancy.RelationObjectBytes}, cache-notification-bytes-current={Occupancy.NotificationBytes}, " +
+           $"cache-snapshot-bytes-current={Occupancy.SnapshotBytes}, cache-index-entries-current={Occupancy.IndexEntries}, " +
            $"cache-cleanup-ops={Cleanup.Operations}, cache-cleanup-rows-removed={Cleanup.RowsRemoved}, " +
            $"cache-cleanup-duration-ms={Cleanup.TotalDurationMilliseconds:0.###}, " +
            $"cache-invalidation-ops={CacheInvalidations.Operations}, cache-invalidation-rows-removed={CacheInvalidations.RowsRemoved}, " +

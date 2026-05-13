@@ -145,6 +145,8 @@ Implementation notes:
 
 ## Workstream C: Diagnostics And Byte-Limit Cutover
 
+Status: in progress.
+
 Goals:
 
 - expose the corrected total estimate and its components
@@ -190,6 +192,10 @@ Exit criteria:
 - byte-based cache limits use estimated footprint
 - stale index/relation state is not left behind by limit-driven row eviction
 - docs clearly call out the breaking byte-limit semantic change
+
+Implementation notes:
+
+- 2026-05-13: Started the diagnostics cutover by expanding `CacheOccupancyMetricsSnapshot`, `DataLinqMetrics` table/provider/runtime aggregation, and cache snapshots with explicit `RowPayloadBytes`, `EstimatedCacheBytes`, and component estimate fields. `Bytes` and `TotalBytes` remain row-payload compatibility aliases.
 
 ## Workstream D: Memory-Pressure Policy And Cleanup Scheduling
 
