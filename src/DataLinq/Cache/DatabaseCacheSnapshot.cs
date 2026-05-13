@@ -12,8 +12,12 @@ public class DatabaseCacheSnapshot(DateTime timestamp, TableCacheSnapshot[] tabl
     public long? NewestTick => TableCaches.Max(x => x.NewestTick);
     public long? OldestTick => TableCaches.Min(x => x.OldestTick);
     public int RowCount => TableCaches.Sum(x => x.RowCount);
-    public long TotalBytes => TableCaches.Sum(x => x.TotalBytes);
-    public string TotalBytesFormatted => TotalBytes.ToFileSize();
+    /// <summary>Estimated bytes for row values only, excluding cache container overhead.</summary>
+    public long RowPayloadBytes => TableCaches.Sum(x => x.RowPayloadBytes);
+    public string RowPayloadBytesFormatted => RowPayloadBytes.ToFileSize();
+    /// <summary>Compatibility alias for <see cref="RowPayloadBytes"/>.</summary>
+    public long TotalBytes => RowPayloadBytes;
+    public string TotalBytesFormatted => RowPayloadBytesFormatted;
     public DateTime? NewestDateTime => NewestTick.HasValue ? new(NewestTick.Value) : null;
     public DateTime? OldestDateTime => OldestTick.HasValue ? new(OldestTick.Value) : null;
 }

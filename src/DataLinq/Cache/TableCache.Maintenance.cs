@@ -75,7 +75,7 @@ public partial class TableCache
 
     public TableCacheSnapshot MakeSnapshot()
     {
-        return new(Table.DbName, RowCount, TotalBytes, NewestTick, OldestTick, IndicesCount.ToArray());
+        return new(Table.DbName, RowCount, RowPayloadBytes, NewestTick, OldestTick, IndicesCount.ToArray());
     }
 
     internal void UnregisterTelemetry()
@@ -87,7 +87,7 @@ public partial class TableCache
         => new(
             Rows: RowCount,
             TransactionRows: transactionRows?.Values.Sum(x => (long)x.Count) ?? 0,
-            Bytes: TotalBytes,
+            Bytes: RowPayloadBytes,
             IndexEntries: GetLoadedIndexCaches().Sum(x => (long)x.Count));
 
     private void RefreshOccupancyMetrics()

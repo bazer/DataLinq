@@ -15,8 +15,12 @@ public class RowCache
 
     public long? OldestTick => rowStore?.OldestTick;
     public long? NewestTick => rowStore?.NewestTick;
-    public long TotalBytes => rowStore?.TotalBytes ?? 0;
-    public string TotalBytesFormatted => TotalBytes.ToFileSize();
+    /// <summary>Estimated bytes for row values only, excluding cache container overhead.</summary>
+    public long RowPayloadBytes => rowStore?.RowPayloadBytes ?? 0;
+    public string RowPayloadBytesFormatted => RowPayloadBytes.ToFileSize();
+    /// <summary>Compatibility alias for <see cref="RowPayloadBytes"/>.</summary>
+    public long TotalBytes => RowPayloadBytes;
+    public string TotalBytesFormatted => RowPayloadBytesFormatted;
 
     public void ClearRows() => rowStore?.Clear();
 

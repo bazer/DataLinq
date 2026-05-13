@@ -13,8 +13,12 @@ public class TableCacheSnapshot(string tableName, int rowCount, long totalBytes,
     public (string index, int count)[] Indices { get; }  = indices;
     public string IndicesFormatted => Indices.Select(x => $"{x.index} ({x.count})").ToJoinedString(", ");
     public int RowCount { get; } = rowCount;
-    public long TotalBytes { get; } = totalBytes;
-    public string TotalBytesFormatted => TotalBytes.ToFileSize();
+    /// <summary>Estimated bytes for row values only, excluding cache container overhead.</summary>
+    public long RowPayloadBytes { get; } = totalBytes;
+    public string RowPayloadBytesFormatted => RowPayloadBytes.ToFileSize();
+    /// <summary>Compatibility alias for <see cref="RowPayloadBytes"/>.</summary>
+    public long TotalBytes => RowPayloadBytes;
+    public string TotalBytesFormatted => RowPayloadBytesFormatted;
     public DateTime? NewestDateTime => NewestTick.HasValue ? new(NewestTick.Value) : null;
     public DateTime? OldestDateTime => OldestTick.HasValue ? new(OldestTick.Value) : null;
 }

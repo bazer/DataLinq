@@ -11,6 +11,7 @@ internal interface IRowStore
     Type KeyType { get; }
     IEnumerable<IImmutableInstance> Rows { get; }
     int Count { get; }
+    long RowPayloadBytes { get; }
     long TotalBytes { get; }
     long? OldestTick { get; }
     long? NewestTick { get; }
@@ -44,7 +45,7 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
 
     private readonly object rowsLock = new();
     private readonly Dictionary<TKey, RowEntry> rows = new();
-    private long totalBytes;
+    private long rowPayloadBytes;
 
     public Type KeyType => typeof(TKey);
 
@@ -66,7 +67,9 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
         }
     }
 
-    public long TotalBytes => Interlocked.Read(ref totalBytes);
+    public long RowPayloadBytes => Interlocked.Read(ref rowPayloadBytes);
+
+    public long TotalBytes => RowPayloadBytes;
 
     public long? OldestTick
     {
@@ -91,7 +94,7 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
         lock (rowsLock)
         {
             rows.Clear();
-            Interlocked.Exchange(ref totalBytes, 0);
+            Interlocked.Exchange(ref rowPayloadBytes, 0);
         }
     }
 
@@ -119,7 +122,7 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
 
         lock (rowsLock)
         {
-            while (TotalBytes > maxSize)
+            while (RowPayloadBytes > maxSize)
             {
                 if (!TryFindOldestKey(out var oldestKey, out _))
                     break;
@@ -169,7 +172,7 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
                 return false;
 
             rows.Add(key, new RowEntry(row, size, ticks));
-            Interlocked.Add(ref totalBytes, size);
+            Interlocked.Add(ref rowPayloadBytes, size);
             return true;
         }
     }
@@ -247,7 +250,7 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
         if (!rows.Remove(key, out var entry))
             return 0;
 
-        Interlocked.Add(ref totalBytes, -entry.Size);
+        Interlocked.Add(ref rowPayloadBytes, -entry.Size);
         return 1;
     }
 }

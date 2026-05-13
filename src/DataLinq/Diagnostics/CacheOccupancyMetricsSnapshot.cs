@@ -15,6 +15,11 @@ public readonly record struct CacheOccupancyMetricsSnapshot(
     long Bytes,
     long IndexEntries)
 {
+    /// <summary>
+    /// Current estimated row-payload bytes. This is the explicit name for the legacy <see cref="Bytes"/> value.
+    /// </summary>
+    public long RowPayloadBytes => Bytes;
+
     internal static CacheOccupancyMetricsSnapshot Sum(IEnumerable<CacheOccupancyMetricsSnapshot> snapshots)
     {
         long rows = 0;

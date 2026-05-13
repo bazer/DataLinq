@@ -44,6 +44,8 @@ Current cache state to build on:
 
 ## Workstream A: Memory Estimate Vocabulary And Primitives
 
+Status: implemented.
+
 Goals:
 
 - establish one internal estimate model for cache-owned memory
@@ -83,6 +85,10 @@ Exit criteria:
 - new cache accounting code never has to guess what `Bytes` means
 - row payload and estimated footprint can be tested independently
 - public compatibility aliases are deliberate, not accidental
+
+Implementation notes:
+
+- 2026-05-13: Added the first vocabulary layer: `CacheMemoryEstimate`, `CacheMemoryEstimator`, and explicit row-payload aliases on existing cache byte surfaces. Existing `TotalBytes`/`Bytes` names remain compatibility aliases for row payload; Workstream B owns non-row component counters and Workstream C owns public diagnostic expansion.
 
 ## Workstream B: Component-Level Cache Accounting
 

@@ -52,8 +52,12 @@ public partial class TableCache
     public long? OldestTick => rowCache?.OldestTick;
     public long? NewestTick => rowCache?.NewestTick;
     public int RowCount => rowCache?.Count ?? 0;
-    public long TotalBytes => rowCache?.TotalBytes ?? 0;
-    public string TotalBytesFormatted => TotalBytes.ToFileSize();
+    /// <summary>Estimated bytes for row values only, excluding cache container overhead.</summary>
+    public long RowPayloadBytes => rowCache?.RowPayloadBytes ?? 0;
+    public string RowPayloadBytesFormatted => RowPayloadBytes.ToFileSize();
+    /// <summary>Compatibility alias for <see cref="RowPayloadBytes"/>.</summary>
+    public long TotalBytes => RowPayloadBytes;
+    public string TotalBytesFormatted => RowPayloadBytesFormatted;
     public int TransactionRowsCount => transactionRows?.Count ?? 0;
     public IEnumerable<(string index, int count)> IndicesCount => indices.Select(x => (x.Name, TryGetIndexCache(x)?.Count ?? 0));
 
