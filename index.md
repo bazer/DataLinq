@@ -1,6 +1,6 @@
 # DataLinq
 
-DataLinq is an immutable-first, source-generated ORM for .NET that is built to be fast on repeated reads and honest about what it supports.
+DataLinq is an immutable-first, source-generated ORM for .NET. It is designed around a narrow but useful idea: push model shape and metadata into generated code so runtime reads, relations, mutations, validation, and caching can be explicit and predictable.
 
 It is a strong fit when you want:
 
@@ -8,6 +8,7 @@ It is a strong fit when you want:
 - generated types instead of reflection-heavy runtime mapping
 - aggressive row and relation caching
 - a query surface that is grounded in tests instead of ORM wishful thinking
+- schema validation and conservative diff tooling without committing to automatic migrations
 
 ## Why It Exists
 
@@ -21,6 +22,26 @@ It pushes more work to code generation and metadata so the runtime can stay simp
 - supported LINQ is deliberately narrower than "all of LINQ", which keeps the behavior easier to reason about
 
 That trade is especially useful in read-heavy applications where object identity, predictable behavior, and low repeated allocation matter.
+
+## The Mental Model
+
+```mermaid
+flowchart LR
+    Schema[("Database schema")] --> CLI["DataLinq CLI"]
+    CLI --> Models["Abstract source models"]
+    Models --> Generator["Source generator"]
+    Generator --> Generated["Immutable and mutable generated types"]
+    Generated --> Runtime["Runtime API"]
+    Runtime --> Cache["Provider-key row and relation cache"]
+    Runtime --> Provider["SQLite / MySQL / MariaDB provider"]
+    Provider --> Schema
+```
+
+The key is that generated code is not decoration. It is part of the runtime contract: generated metadata, generated factories, generated relation handles, and generated key accessors all help keep runtime behavior boring in the best possible way.
+
+## What It Is Not
+
+DataLinq is not trying to be a universal EF replacement, a full migration engine, or an arbitrary LINQ translator. The public docs describe the supported boundaries because those boundaries matter.
 
 ## Start Here
 

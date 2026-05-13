@@ -11,27 +11,32 @@
 [![.NET 8, 9, 10](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010-512BD4?logo=dotnet)](https://github.com/bazer/DataLinq#installation)
 [![Supported targets](https://img.shields.io/badge/targets-SQLite%20%7C%20MySQL%208.4%20%7C%20MariaDB%2010.11%2F11.4%2F11.8-0A7BBB)](https://bazer.github.io/datalinq/)
 
-DataLinq is a lightweight, high-performance ORM that uses source generators and immutable models to prioritize data integrity, thread safety, and efficient caching. It is designed to lean heavily on the cache to trade memory usage for speed.
+[Documentation website](https://bazer.github.io/datalinq/) | [Getting started](https://bazer.github.io/datalinq/docs/getting-started/Installation.html) | [Changelog](https://bazer.github.io/datalinq/CHANGELOG.html)
 
-### Goal
-The aim of the library is to minimize memory allocations and maximize speed of data retrieval, with the main focus being on read-heavy applications on small to medium projects. One focus area is to solve the classical N+1 problem, making access to related entities as close as possible to reading a local variable.
+DataLinq is an immutable-first, source-generated ORM for .NET. It is built for applications where repeated reads, relation traversal, predictable object state, and cache behavior matter more than having an ORM translate every possible LINQ expression.
 
-### Motivation
-DataLinq is an exploration of combining immutability, indirect querying, and caching. It is also an exploration of using source generators to minimize the reflection overhead that usually plagues ORM libraries.
+The short version: DataLinq moves work into generation and metadata so the runtime can do less guessing.
 
-### Core Philosophy
-- **Immutability First:**  
-  All data read from the database is represented as immutable objects, ensuring thread safety and predictable behavior. When modifications are required, DataLinq provides a mechanism to create mutable copies, update them, and synchronize the changes.
-- **Efficient Caching:**  
-  The framework leverages both global and transaction-specific caching, dramatically reducing database hits.
-- **LINQ Querying:**  
-  Built on LINQ, DataLinq translates supported query shapes into backend-specific commands without exposing you to the underlying complexities.
-- **Minimize boilerplate:**  
-  Use the CLI tool to create model classes that define types and database structure, then let DataLinq generate immutable and mutable classes with the built-in source generator.
-- **Compile time errors:**  
-  Move as many errors as possible from runtime to compile time. For example, required fields can be enforced by the compiler instead of failing only when inserting into the database.
-- **Extensibility:**  
-  Although current support includes MySQL/MariaDB and SQLite, the modular architecture makes it possible to extend to other SQL-like data sources.
+### Why DataLinq Exists
+
+Most ORMs optimize for convenience first. That is useful, but it often means mutable tracked entities, runtime mapping, hidden query behavior, and late surprises.
+
+DataLinq makes a narrower trade:
+
+- **Generated model surface:** source generators create the concrete immutable and mutable types.
+- **Immutable reads:** query results are stable objects, not ambient mutable state.
+- **Explicit writes:** updates go through mutable wrappers and transactions instead of hidden dirty tracking.
+- **Cache-aware relations:** repeated primary-key reads and relation traversal can reuse cached rows.
+- **Honest LINQ support:** documented query shapes are backed by tests; unsupported shapes should fail clearly.
+- **Schema trust tooling:** `validate` and `diff` compare generated model metadata against live provider metadata without pretending to be full migrations.
+
+It is currently focused on SQLite, MySQL, and MariaDB for .NET 8, .NET 9, and .NET 10.
+
+### When It Fits
+
+DataLinq is a strong fit for read-heavy applications, small-to-medium relational databases, generated model workflows, and systems where explicit mutation boundaries are a feature rather than a nuisance.
+
+It is not trying to be a universal EF replacement, a full migration engine, or a provider that translates arbitrary LINQ. That restraint is intentional.
 
 ---
 
@@ -132,24 +137,25 @@ var updatedUser = user.Mutate(x => x.DisplayName = "Updated Name").Save();
 
 If you want the website-first docs experience, start here:
 
-- [Website Home](index.md)
-- [Docs Intro](docs/index.md)
-- [Changelog](CHANGELOG.md)
-- [Roadmap](docs/Roadmap.md)
-- [Installation](docs/getting-started/Installation.md)
-- [Configuration and Model Generation](docs/getting-started/Configuration%20and%20Model%20Generation.md)
-- [Your First Query and Update](docs/getting-started/Your%20First%20Query%20and%20Update.md)
+- [Website Home](https://bazer.github.io/datalinq/)
+- [Docs Intro](https://bazer.github.io/datalinq/docs/)
+- [Changelog](https://bazer.github.io/datalinq/CHANGELOG.html)
+- [Roadmap](https://bazer.github.io/datalinq/docs/Roadmap.html)
+- [Installation](https://bazer.github.io/datalinq/docs/getting-started/Installation.html)
+- [Configuration and Model Generation](https://bazer.github.io/datalinq/docs/getting-started/Configuration%20and%20Model%20Generation.html)
+- [Your First Query and Update](https://bazer.github.io/datalinq/docs/getting-started/Your%20First%20Query%20and%20Update.html)
 
 After that, the deeper working docs are:
 
-- [Querying](docs/Querying.md)
-- [Caching and Mutation](docs/Caching%20and%20Mutation.md)
-- [Diagnostics and Metrics](docs/Diagnostics%20and%20Metrics.md)
-- [Supported LINQ Queries](docs/Supported%20LINQ%20Queries.md)
-- [Platform Compatibility](docs/Platform%20Compatibility.md)
-- [Transactions](docs/Transactions.md)
-- [Attributes and Model Definitions](docs/Attributes%20and%20Model%20Definitions.md)
-- [Troubleshooting](docs/Troubleshooting.md)
+- [Querying](https://bazer.github.io/datalinq/docs/Querying.html)
+- [Caching and Mutation](https://bazer.github.io/datalinq/docs/Caching%20and%20Mutation.html)
+- [Diagnostics and Metrics](https://bazer.github.io/datalinq/docs/Diagnostics%20and%20Metrics.html)
+- [Supported LINQ Queries](https://bazer.github.io/datalinq/docs/Supported%20LINQ%20Queries.html)
+- [Platform Compatibility](https://bazer.github.io/datalinq/docs/Platform%20Compatibility.html)
+- [Transactions](https://bazer.github.io/datalinq/docs/Transactions.html)
+- [Attributes and Model Definitions](https://bazer.github.io/datalinq/docs/Attributes%20and%20Model%20Definitions.html)
+- [Internals](https://bazer.github.io/datalinq/docs/internals/)
+- [Troubleshooting](https://bazer.github.io/datalinq/docs/Troubleshooting.html)
 
 ### License
 DataLinq is open source and distributed under the MIT License. See the [LICENSE](LICENSE.md) file for more details.
