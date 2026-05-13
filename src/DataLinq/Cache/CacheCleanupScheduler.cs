@@ -13,17 +13,23 @@ public sealed class CacheCleanupScheduler : IDisposable
     private readonly object lifecycleGate = new();
     private readonly DatabaseCache cache;
     private readonly TimeProvider timeProvider;
+    private readonly IMemoryPressureReader memoryPressureReader;
+    private readonly CacheCleanupPolicyEvaluator cleanupPolicyEvaluator = new();
     private readonly List<ScheduledCleanupInterval> schedules;
     private CancellationTokenSource? cancellationTokenSource;
     private Task? workerTask;
+    private DateTimeOffset? lastPressureCleanupAt;
+    private DateTimeOffset nextPressureCheck;
 
     internal CacheCleanupScheduler(
         DatabaseCache cache,
         IReadOnlyList<(CacheCleanupType cleanupType, long amount)> cleanupIntervals,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        IMemoryPressureReader memoryPressureReader)
     {
         this.cache = cache;
         this.timeProvider = timeProvider;
+        this.memoryPressureReader = memoryPressureReader;
         schedules = cleanupIntervals
             .Select(x => new ScheduledCleanupInterval(ConvertCleanupIntervalToTimeSpan(x.cleanupType, x.amount)))
             .Where(x => x.Interval > TimeSpan.Zero)
@@ -38,7 +44,7 @@ public sealed class CacheCleanupScheduler : IDisposable
 
     public void Start()
     {
-        if (schedules.Count == 0)
+        if (!HasWorkToSchedule())
             return;
 
         lock (lifecycleGate)
@@ -54,6 +60,12 @@ public sealed class CacheCleanupScheduler : IDisposable
                 TaskCreationOptions.LongRunning,
                 TaskScheduler.Default).Unwrap();
         }
+    }
+
+    public void Restart()
+    {
+        Stop();
+        Start();
     }
 
     public void Stop()
@@ -124,18 +136,85 @@ public sealed class CacheCleanupScheduler : IDisposable
             RunScheduledCleanup();
     }
 
+    internal CacheCleanupPassResult RunMemoryPressureCleanup(DateTimeOffset now)
+    {
+        var cacheEstimate = cache.GetMemoryEstimate();
+        var beforeEstimate = cacheEstimate.EstimatedCacheBytes;
+        var decision = cleanupPolicyEvaluator.EvaluateMemoryPressure(
+            memoryPressureReader.GetSnapshot(),
+            cacheEstimate,
+            cache.MemoryPressureCleanupPolicy,
+            now,
+            lastPressureCleanupAt);
+
+        if (!decision.ShouldClean || !decision.TargetEstimatedCacheBytes.HasValue)
+        {
+            return new CacheCleanupPassResult(
+                decision.Reason,
+                decision.Trigger,
+                decision.Basis,
+                RowsRemoved: 0,
+                EstimatedBytesBefore: beforeEstimate,
+                EstimatedBytesAfter: beforeEstimate,
+                TargetEstimatedCacheBytes: null,
+                decision.NoopReason);
+        }
+
+        var result = cache.RemoveRowsForMemoryPressure(
+            decision.TargetEstimatedCacheBytes.Value,
+            decision.MaxRowsToRemove);
+        lastPressureCleanupAt = now;
+        return result;
+    }
+
+    internal CacheCleanupPassResult RunDueMemoryPressureCleanup(DateTimeOffset now)
+    {
+        if (!cache.MemoryPressureCleanupPolicy.Enabled)
+        {
+            var estimatedBytes = cache.GetMemoryEstimate().EstimatedCacheBytes;
+            return new CacheCleanupPassResult(
+                CacheMaintenanceReasons.Unknown,
+                CacheMaintenanceTriggers.MemoryPressure,
+                CacheMaintenanceBases.EstimatedCacheBytes,
+                RowsRemoved: 0,
+                EstimatedBytesBefore: estimatedBytes,
+                EstimatedBytesAfter: estimatedBytes,
+                TargetEstimatedCacheBytes: null,
+                NoopReason: "disabled");
+        }
+
+        if (nextPressureCheck != default && nextPressureCheck > now)
+        {
+            var estimatedBytes = cache.GetMemoryEstimate().EstimatedCacheBytes;
+            return new CacheCleanupPassResult(
+                CacheMaintenanceReasons.Unknown,
+                CacheMaintenanceTriggers.MemoryPressure,
+                CacheMaintenanceBases.EstimatedCacheBytes,
+                RowsRemoved: 0,
+                EstimatedBytesBefore: estimatedBytes,
+                EstimatedBytesAfter: estimatedBytes,
+                TargetEstimatedCacheBytes: null,
+                NoopReason: "not_due");
+        }
+
+        nextPressureCheck = now + cache.MemoryPressureCleanupPolicy.Normalize().CheckInterval;
+        return RunMemoryPressureCleanup(now);
+    }
+
     private async Task RunLoopAsync(CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
         for (var i = 0; i < schedules.Count; i++)
             schedules[i].MarkDue(now);
+        nextPressureCheck = now;
 
         while (!cancellationToken.IsCancellationRequested)
         {
             now = timeProvider.GetUtcNow();
             RunDueScheduledCleanup(now);
+            RunDueMemoryPressureCleanup(now);
 
-            var delay = GetDelayUntilNextSchedule(now);
+            var delay = GetDelayUntilNextWork(now);
             if (delay <= TimeSpan.Zero)
                 continue;
 
@@ -143,15 +222,25 @@ public sealed class CacheCleanupScheduler : IDisposable
         }
     }
 
-    private TimeSpan GetDelayUntilNextSchedule(DateTimeOffset now)
+    private TimeSpan GetDelayUntilNextWork(DateTimeOffset now)
     {
         var nextDue = schedules
             .Select(x => x.NextDue)
-            .DefaultIfEmpty(now)
+            .DefaultIfEmpty(DateTimeOffset.MaxValue)
             .Min();
+
+        if (cache.MemoryPressureCleanupPolicy.Enabled)
+            nextDue = nextPressureCheck <= now
+                ? now
+                : (nextPressureCheck < nextDue ? nextPressureCheck : nextDue);
+
+        if (nextDue == DateTimeOffset.MaxValue)
+            return TimeSpan.FromMinutes(1);
 
         return nextDue <= now ? TimeSpan.Zero : nextDue - now;
     }
+
+    private bool HasWorkToSchedule() => schedules.Count > 0 || cache.MemoryPressureCleanupPolicy.Enabled;
 
     public void Dispose()
     {
@@ -186,4 +275,5 @@ internal readonly record struct CacheCleanupPassResult(
     int RowsRemoved,
     long EstimatedBytesBefore,
     long EstimatedBytesAfter,
-    long? TargetEstimatedCacheBytes);
+    long? TargetEstimatedCacheBytes,
+    string NoopReason = "");

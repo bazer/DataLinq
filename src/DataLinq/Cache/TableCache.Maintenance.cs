@@ -70,6 +70,30 @@ public partial class TableCache
         return rowsRemoved;
     }
 
+    internal int RemoveRowsForMemoryPressure(long maxBytes, int maxRows, long targetEstimatedBytes)
+    {
+        var startedAt = Stopwatch.GetTimestamp();
+        var estimatedBytesBefore = GetMemoryEstimate().EstimatedCacheBytes;
+        var rowsRemoved = RemoveRowsOverEstimatedSizeLimit(maxBytes, maxRows);
+        var estimatedBytesAfter = GetMemoryEstimate().EstimatedCacheBytes;
+        var duration = Stopwatch.GetElapsedTime(startedAt);
+        RefreshOccupancyMetrics();
+        DataLinqTelemetry.RecordCacheMaintenance(
+            telemetryContext,
+            Table.DbName,
+            CacheMaintenanceOperations.MemoryPressure,
+            rowsRemoved,
+            duration,
+            cleanupTrigger: CacheMaintenanceTriggers.MemoryPressure,
+            cleanupReason: CacheMaintenanceReasons.MemoryPressure,
+            cleanupBasis: CacheMaintenanceBases.EstimatedCacheBytes,
+            estimatedBytesBefore: estimatedBytesBefore,
+            estimatedBytesAfter: estimatedBytesAfter,
+            targetEstimatedBytes: targetEstimatedBytes);
+        MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
+        return rowsRemoved;
+    }
+
     public int RemoveRowsInsertedBeforeTick(long tick, string cleanupTrigger = CacheMaintenanceTriggers.Manual)
     {
         var startedAt = Stopwatch.GetTimestamp();
@@ -128,12 +152,12 @@ public partial class TableCache
     private int RemoveRowsOverRowLimit(int maxRows) =>
         ProcessRemovedRowsAndNotify(rowCache?.RemoveRowsOverRowLimitAndReturnKeys(maxRows) ?? []);
 
-    private int RemoveRowsOverEstimatedSizeLimit(long maxBytes)
+    private int RemoveRowsOverEstimatedSizeLimit(long maxBytes, int maxRows = int.MaxValue)
     {
         var rowsRemoved = 0;
         var impactBuilder = new CacheInvalidationImpactBuilder();
 
-        while (GetMemoryEstimate().EstimatedCacheBytes > maxBytes)
+        while (GetMemoryEstimate().EstimatedCacheBytes > maxBytes && rowsRemoved < maxRows)
         {
             var removedKeys = rowCache?.RemoveOldestRows(1) ?? [];
             if (removedKeys.Count == 0)

@@ -99,6 +99,10 @@ internal static class DataLinqTelemetry
         "datalinq.cache.maintenance.duration",
         unit: "ms",
         description: "Duration of DataLinq cache maintenance operations in milliseconds.");
+    private static readonly Histogram<long> CacheCleanupEstimatedBytes = Meter.CreateHistogram<long>(
+        "datalinq.cache.cleanup.estimated_bytes",
+        unit: "By",
+        description: "Estimated cache bytes before, after, and targeted by DataLinq cache cleanup.");
     private static readonly Counter<long> CacheInvalidationCounter = Meter.CreateCounter<long>(
         "datalinq.cache.invalidations",
         unit: "{invalidation}",
@@ -422,7 +426,10 @@ internal static class DataLinqTelemetry
         TimeSpan duration,
         string? cleanupTrigger = null,
         string? cleanupReason = null,
-        string? cleanupBasis = null)
+        string? cleanupBasis = null,
+        long? estimatedBytesBefore = null,
+        long? estimatedBytesAfter = null,
+        long? targetEstimatedBytes = null)
     {
         var tags = CreateTableTags(context, tableName);
         tags.Add("datalinq.cache.operation", operation);
@@ -432,6 +439,9 @@ internal static class DataLinqTelemetry
 
         CacheMaintenanceCounter.Add(1, tags);
         CacheMaintenanceDuration.Record(duration.TotalMilliseconds, tags);
+        RecordCleanupEstimatedBytes(estimatedBytesBefore, "before", tags);
+        RecordCleanupEstimatedBytes(estimatedBytesAfter, "after", tags);
+        RecordCleanupEstimatedBytes(targetEstimatedBytes, "target", tags);
 
         if (rowsRemoved > 0)
             CacheRowsRemovedCounter.Add(rowsRemoved, tags);
@@ -621,6 +631,7 @@ internal static class DataLinqTelemetry
             CacheMaintenanceOperations.RowLimit => CacheMaintenanceTriggers.Manual,
             CacheMaintenanceOperations.SizeLimit => CacheMaintenanceTriggers.Manual,
             CacheMaintenanceOperations.AgeLimit => CacheMaintenanceTriggers.Manual,
+            CacheMaintenanceOperations.MemoryPressure => CacheMaintenanceTriggers.MemoryPressure,
             CacheMaintenanceOperations.Limit => CacheMaintenanceTriggers.Manual,
             _ => CacheMaintenanceTriggers.Unknown
         };
@@ -638,6 +649,7 @@ internal static class DataLinqTelemetry
             CacheMaintenanceOperations.RowLimit => CacheMaintenanceReasons.RowLimit,
             CacheMaintenanceOperations.SizeLimit => CacheMaintenanceReasons.SizeLimit,
             CacheMaintenanceOperations.AgeLimit => CacheMaintenanceReasons.AgeLimit,
+            CacheMaintenanceOperations.MemoryPressure => CacheMaintenanceReasons.MemoryPressure,
             CacheMaintenanceOperations.Limit => CacheMaintenanceReasons.Limit,
             _ => CacheMaintenanceReasons.Unknown
         };
@@ -655,9 +667,20 @@ internal static class DataLinqTelemetry
             CacheMaintenanceOperations.RowLimit => CacheMaintenanceBases.RowCount,
             CacheMaintenanceOperations.SizeLimit => CacheMaintenanceBases.EstimatedCacheBytes,
             CacheMaintenanceOperations.AgeLimit => CacheMaintenanceBases.CacheAge,
+            CacheMaintenanceOperations.MemoryPressure => CacheMaintenanceBases.EstimatedCacheBytes,
             CacheMaintenanceOperations.Limit => CacheMaintenanceBases.Unknown,
             _ => CacheMaintenanceBases.Unknown
         };
+
+    private static void RecordCleanupEstimatedBytes(long? bytes, string phase, TagList tags)
+    {
+        if (!bytes.HasValue)
+            return;
+
+        var phaseTags = tags;
+        phaseTags.Add("datalinq.cache.cleanup.estimate", phase);
+        CacheCleanupEstimatedBytes.Record(bytes.Value, phaseTags);
+    }
 
     private static string NormalizeDimension(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value)

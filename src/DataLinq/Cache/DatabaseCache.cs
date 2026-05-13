@@ -15,6 +15,8 @@ public class DatabaseCache : IDisposable
 {
     internal static Func<bool> IsBrowserRuntime { get; set; } = static () => OperatingSystem.IsBrowser();
     internal static Func<TimeProvider> TimeProviderFactory { get; set; } = static () => TimeProvider.System;
+    internal static Func<IMemoryPressureReader> MemoryPressureReaderFactory { get; set; } =
+        static () => IsBrowserRuntime() ? UnsupportedMemoryPressureReader.Instance : GcMemoryPressureReader.Instance;
 
     public IDatabaseProvider Database { get; set; }
     internal DatabaseCachePolicy Policy { get; }
@@ -23,6 +25,7 @@ public class DatabaseCache : IDisposable
 
     public CleanCacheWorker? CleanCacheWorker => null;
     public CacheCleanupScheduler? CleanupScheduler { get; }
+    public CacheMemoryPressureCleanupPolicy MemoryPressureCleanupPolicy { get; private set; } = CacheMemoryPressureCleanupPolicy.Disabled;
 
     public CacheHistory History { get; } = new();
 
@@ -40,7 +43,7 @@ public class DatabaseCache : IDisposable
 
         if (!IsBrowserRuntime())
         {
-            CleanupScheduler = new CacheCleanupScheduler(this, Policy.CacheCleanup, TimeProviderFactory());
+            CleanupScheduler = new CacheCleanupScheduler(this, Policy.CacheCleanup, TimeProviderFactory(), MemoryPressureReaderFactory());
             CleanupScheduler.Start();
         }
     }
@@ -70,6 +73,16 @@ public class DatabaseCache : IDisposable
 
     internal CacheMemoryEstimate GetMemoryEstimate() =>
         CacheMemoryEstimate.Sum(TableCaches.Values.Select(x => x.GetMemoryEstimate())) + History.GetMemoryEstimate();
+
+    public void ConfigureMemoryPressureCleanup(CacheMemoryPressureCleanupPolicy policy)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+
+        MemoryPressureCleanupPolicy = policy.Normalize();
+
+        if (!IsBrowserRuntime())
+            CleanupScheduler?.Restart();
+    }
 
     public (IndexCacheType, int? amount) GetIndexCachePolicy()
         => GetIndexCachePolicy(Policy.IndexCache);
@@ -202,6 +215,46 @@ public class DatabaseCache : IDisposable
 
             yield return (tableEstimate.table, numRows);
         }
+    }
+
+    internal CacheCleanupPassResult RemoveRowsForMemoryPressure(long targetEstimatedBytes, int maxRows)
+    {
+        var beforeEstimate = GetMemoryEstimate().EstimatedCacheBytes;
+        var rowsRemoved = 0;
+
+        while (GetMemoryEstimate().EstimatedCacheBytes > targetEstimatedBytes && rowsRemoved < maxRows)
+        {
+            var tableEstimate = TableCaches.Values
+                .Where(x => x.RowCount > 0)
+                .Select(x => (table: x, estimatedBytes: x.GetMemoryEstimate().EstimatedCacheBytes))
+                .Where(x => x.estimatedBytes > 0)
+                .OrderByDescending(x => x.estimatedBytes)
+                .FirstOrDefault();
+
+            if (tableEstimate.table is null)
+                break;
+
+            var overflowBytes = GetMemoryEstimate().EstimatedCacheBytes - targetEstimatedBytes;
+            var tableTargetBytes = Math.Max(0, tableEstimate.estimatedBytes - overflowBytes);
+            var rowsForTable = tableEstimate.table.RemoveRowsForMemoryPressure(
+                tableTargetBytes,
+                maxRows - rowsRemoved,
+                tableTargetBytes);
+
+            if (rowsForTable <= 0)
+                break;
+
+            rowsRemoved += rowsForTable;
+        }
+
+        return new CacheCleanupPassResult(
+            CacheMaintenanceReasons.MemoryPressure,
+            CacheMaintenanceTriggers.MemoryPressure,
+            CacheMaintenanceBases.EstimatedCacheBytes,
+            rowsRemoved,
+            beforeEstimate,
+            GetMemoryEstimate().EstimatedCacheBytes,
+            targetEstimatedBytes);
     }
 
     public IEnumerable<(TableCache table, int numRows)> RemoveRowsInsertedBeforeTick(long tick)

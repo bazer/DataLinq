@@ -1,9 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Data;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Cache;
 using DataLinq.Core.Factories;
+using DataLinq.Diagnostics;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
@@ -115,13 +120,158 @@ public class DatabaseCacheTests
             using var scheduler = new CacheCleanupScheduler(
                 cache,
                 cache.Policy.CacheCleanup,
-                TimeProvider.System);
+                TimeProvider.System,
+                UnsupportedMemoryPressureReader.Instance);
 
             scheduler.RunDueScheduledCleanup(new DateTimeOffset(2026, 5, 13, 12, 0, 0, TimeSpan.Zero));
 
             await Assert.That(scheduler.ActiveScheduleCount).IsEqualTo(2);
             await Assert.That(scheduler.BackgroundWorkerCount).IsEqualTo(0);
             await Assert.That(scheduler.IsRunning).IsFalse();
+        }
+        finally
+        {
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task CleanupScheduler_RunMemoryPressureCleanup_RemovesBoundedRows()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+
+        try
+        {
+            using var cache = new DatabaseCache(
+                new FakeDatabaseProvider(CreateMetadataWithExplicitCachePolicy()),
+                DataLinqLoggingConfiguration.NullConfiguration);
+            var tableCache = cache.TableCaches.Values.Single();
+            var rowCache = new RowCache();
+            await Assert.That(rowCache.TryAddRow(1, 128, new TestImmutableInstance(DataLinqKey.FromValue(1)))).IsTrue();
+            await Assert.That(rowCache.TryAddRow(2, 128, new TestImmutableInstance(DataLinqKey.FromValue(2)))).IsTrue();
+            await Assert.That(rowCache.TryAddRow(3, 128, new TestImmutableInstance(DataLinqKey.FromValue(3)))).IsTrue();
+            SetPrivateField(tableCache, "rowCache", rowCache);
+            cache.ConfigureMemoryPressureCleanup(CacheMemoryPressureCleanupPolicy.Conservative with
+            {
+                HighMemoryLoadThresholdPercent = 80,
+                MinimumCacheBytes = 1,
+                TargetReductionPercent = 100,
+                Cooldown = TimeSpan.FromMinutes(5),
+                MaxRowsPerPass = 1
+            });
+
+            using var scheduler = new CacheCleanupScheduler(
+                cache,
+                Array.Empty<(CacheCleanupType cleanupType, long amount)>(),
+                TimeProvider.System,
+                new FixedMemoryPressureReader(HighPressure()));
+            var now = new DateTimeOffset(2026, 5, 13, 12, 0, 0, TimeSpan.Zero);
+
+            var result = scheduler.RunMemoryPressureCleanup(now);
+            var cooldownResult = scheduler.RunMemoryPressureCleanup(now.AddMinutes(1));
+
+            await Assert.That(result.RowsRemoved).IsEqualTo(1);
+            await Assert.That(result.Trigger).IsEqualTo(CacheMaintenanceTriggers.MemoryPressure);
+            await Assert.That(result.Reason).IsEqualTo(CacheMaintenanceReasons.MemoryPressure);
+            await Assert.That(result.Basis).IsEqualTo(CacheMaintenanceBases.EstimatedCacheBytes);
+            await Assert.That(result.TargetEstimatedCacheBytes).IsNotNull();
+            await Assert.That(result.EstimatedBytesAfter).IsLessThan(result.EstimatedBytesBefore);
+            await Assert.That(tableCache.RowCount).IsEqualTo(2);
+            await Assert.That(cooldownResult.RowsRemoved).IsEqualTo(0);
+            await Assert.That(cooldownResult.NoopReason).IsEqualTo("cooldown");
+            await Assert.That(tableCache.RowCount).IsEqualTo(2);
+        }
+        finally
+        {
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task CleanupScheduler_RunDueMemoryPressureCleanup_RespectsCheckInterval()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+
+        try
+        {
+            using var cache = new DatabaseCache(
+                new FakeDatabaseProvider(CreateMetadataWithExplicitCachePolicy()),
+                DataLinqLoggingConfiguration.NullConfiguration);
+            var tableCache = cache.TableCaches.Values.Single();
+            var rowCache = new RowCache();
+            await Assert.That(rowCache.TryAddRow(1, 128, new TestImmutableInstance(DataLinqKey.FromValue(1)))).IsTrue();
+            await Assert.That(rowCache.TryAddRow(2, 128, new TestImmutableInstance(DataLinqKey.FromValue(2)))).IsTrue();
+            await Assert.That(rowCache.TryAddRow(3, 128, new TestImmutableInstance(DataLinqKey.FromValue(3)))).IsTrue();
+            SetPrivateField(tableCache, "rowCache", rowCache);
+            cache.ConfigureMemoryPressureCleanup(CacheMemoryPressureCleanupPolicy.Conservative with
+            {
+                HighMemoryLoadThresholdPercent = 80,
+                MinimumCacheBytes = 1,
+                TargetReductionPercent = 100,
+                Cooldown = TimeSpan.Zero,
+                CheckInterval = TimeSpan.FromMinutes(10),
+                MaxRowsPerPass = 1
+            });
+
+            using var scheduler = new CacheCleanupScheduler(
+                cache,
+                Array.Empty<(CacheCleanupType cleanupType, long amount)>(),
+                TimeProvider.System,
+                new FixedMemoryPressureReader(HighPressure()));
+            var now = new DateTimeOffset(2026, 5, 13, 12, 0, 0, TimeSpan.Zero);
+
+            var firstResult = scheduler.RunDueMemoryPressureCleanup(now);
+            var notDueResult = scheduler.RunDueMemoryPressureCleanup(now.AddMinutes(1));
+            var secondResult = scheduler.RunDueMemoryPressureCleanup(now.AddMinutes(11));
+
+            await Assert.That(firstResult.RowsRemoved).IsEqualTo(1);
+            await Assert.That(notDueResult.RowsRemoved).IsEqualTo(0);
+            await Assert.That(notDueResult.NoopReason).IsEqualTo("not_due");
+            await Assert.That(secondResult.RowsRemoved).IsEqualTo(1);
+            await Assert.That(tableCache.RowCount).IsEqualTo(1);
+        }
+        finally
+        {
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task CleanupScheduler_RunMemoryPressureCleanup_SkipsUnsupportedReader()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+
+        try
+        {
+            using var cache = new DatabaseCache(
+                new FakeDatabaseProvider(CreateMetadataWithExplicitCachePolicy()),
+                DataLinqLoggingConfiguration.NullConfiguration);
+            var tableCache = cache.TableCaches.Values.Single();
+            var rowCache = new RowCache();
+            await Assert.That(rowCache.TryAddRow(1, 128, new TestImmutableInstance(DataLinqKey.FromValue(1)))).IsTrue();
+            SetPrivateField(tableCache, "rowCache", rowCache);
+            cache.ConfigureMemoryPressureCleanup(CacheMemoryPressureCleanupPolicy.Conservative with
+            {
+                MinimumCacheBytes = 1
+            });
+
+            using var scheduler = new CacheCleanupScheduler(
+                cache,
+                Array.Empty<(CacheCleanupType cleanupType, long amount)>(),
+                TimeProvider.System,
+                UnsupportedMemoryPressureReader.Instance);
+
+            var result = scheduler.RunMemoryPressureCleanup(new DateTimeOffset(2026, 5, 13, 12, 0, 0, TimeSpan.Zero));
+
+            await Assert.That(result.RowsRemoved).IsEqualTo(0);
+            await Assert.That(result.NoopReason).IsEqualTo("unsupported");
+            await Assert.That(tableCache.RowCount).IsEqualTo(1);
         }
         finally
         {
@@ -321,6 +471,44 @@ public class DatabaseCacheTests
         };
 
         return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static MemoryPressureSnapshot HighPressure() => new(
+        IsSupported: true,
+        MemoryLoadBytes: 95,
+        HighMemoryLoadThresholdBytes: 100,
+        TotalAvailableMemoryBytes: 100,
+        TotalManagedMemoryBytes: 10);
+
+    private static void SetPrivateField<T>(object target, string fieldName, T value)
+    {
+        var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        if (field is null)
+            throw new MissingFieldException(target.GetType().FullName, fieldName);
+
+        field.SetValue(target, value);
+    }
+
+    private sealed class FixedMemoryPressureReader(MemoryPressureSnapshot snapshot) : IMemoryPressureReader
+    {
+        public MemoryPressureSnapshot GetSnapshot() => snapshot;
+    }
+
+    private sealed class TestImmutableInstance(DataLinqKey primaryKeys) : IImmutableInstance
+    {
+        public object? this[string propertyName] => throw new NotSupportedException();
+        public object? this[ColumnDefinition column] => throw new NotSupportedException();
+
+        public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues() => [];
+        public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues(IEnumerable<ColumnDefinition> columns) => [];
+        public bool HasPrimaryKeysSet() => true;
+        public ModelDefinition Metadata() => throw new NotSupportedException();
+        public DataLinqKey PrimaryKeys() => primaryKeys;
+        public IRowData GetRowData() => throw new NotSupportedException();
+        IRowData IModelInstance.GetRowData() => GetRowData();
+        public void ClearLazy() { }
+        public V? GetLazy<V>(string name, Func<V> fetchCode) => fetchCode();
+        public IDataSourceAccess GetDataSource() => throw new NotSupportedException();
     }
 
     private sealed class CacheDefaultsDatabaseModel

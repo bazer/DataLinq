@@ -12,6 +12,7 @@ internal static class CacheMaintenanceOperations
     public const string RowLimit = "row_limit";
     public const string SizeLimit = "size_limit";
     public const string AgeLimit = "age_limit";
+    public const string MemoryPressure = "memory_pressure";
     public const string Limit = "limit";
 }
 

@@ -13,6 +13,7 @@ public sealed record CacheMemoryPressureCleanupPolicy
     public long MinimumCacheBytes { get; init; } = 16L * 1024L * 1024L;
     public int TargetReductionPercent { get; init; } = 25;
     public TimeSpan Cooldown { get; init; } = TimeSpan.FromMinutes(1);
+    public TimeSpan CheckInterval { get; init; } = TimeSpan.FromSeconds(10);
     public int MaxRowsPerPass { get; init; } = 1024;
     public long MaxBytesPerPass { get; init; } = 64L * 1024L * 1024L;
 
@@ -23,6 +24,7 @@ public sealed record CacheMemoryPressureCleanupPolicy
             MinimumCacheBytes = Math.Max(MinimumCacheBytes, 0),
             TargetReductionPercent = Math.Clamp(TargetReductionPercent, 1, 100),
             Cooldown = Cooldown < TimeSpan.Zero ? TimeSpan.Zero : Cooldown,
+            CheckInterval = CheckInterval <= TimeSpan.Zero ? TimeSpan.FromSeconds(10) : CheckInterval,
             MaxRowsPerPass = Math.Max(MaxRowsPerPass, 1),
             MaxBytesPerPass = Math.Max(MaxBytesPerPass, 1)
         };
