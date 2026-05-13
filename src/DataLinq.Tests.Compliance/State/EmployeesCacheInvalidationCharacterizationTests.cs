@@ -284,13 +284,13 @@ public class EmployeesCacheInvalidationCharacterizationTests
     [Test]
     [NotInParallel]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task Cache_UnchangedForeignKeyUpdate_CurrentlyClearsRelationCollectionsBroadly(TestProviderDescriptor provider)
+    public async Task Cache_UnchangedForeignKeyUpdate_ClearsRelationCollectionsContainingChangedRows(TestProviderDescriptor provider)
     {
         DataLinqMetrics.Reset();
 
         using var databaseScope = TemporaryModelTestDatabase<MultipleForeignKeyRelationDb>.Create(
             provider,
-            nameof(Cache_UnchangedForeignKeyUpdate_CurrentlyClearsRelationCollectionsBroadly));
+            nameof(Cache_UnchangedForeignKeyUpdate_ClearsRelationCollectionsContainingChangedRows));
 
         try
         {

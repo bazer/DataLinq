@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Precise Relation Cache Invalidation
 
-**Status:** Required Phase 11 design input.
+**Status:** Implemented for Phase 11 Workstream B on 2026-05-13; retained as design rationale.
 
 ## Purpose
 
@@ -170,7 +170,7 @@ Add tests for:
 - table-wide fallback still clears all subscribers when old/new relation values are unavailable
 - external invalidation uses the same matching behavior as local mutation invalidation
 
-The existing characterization test named `Cache_UnchangedForeignKeyUpdate_CurrentlyClearsRelationCollectionsBroadly` should become a regression test for the improved behavior, not remain a permanent acceptance target.
+The previous broad-clear characterization was converted into `Cache_UnchangedForeignKeyUpdate_ClearsRelationCollectionsContainingChangedRows` so it now describes the improved behavior rather than preserving the old table-wide behavior as an acceptance target.
 
 ## Exit Criteria
 

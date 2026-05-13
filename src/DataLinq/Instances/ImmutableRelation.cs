@@ -236,8 +236,6 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
         var source = GetDataSource();
         var tableCache = GetTableCache(source);
 
-        tableCache.SubscribeToChanges(this, source as Transaction);
-
         relationValues = tableCache
             .GetRows(foreignKey, property, source)
             .Select(x => (T)x)
@@ -245,8 +243,22 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
 
         relationValuesLoaded = true;
         tableCache.MetricsHandle.RecordRelationCollectionLoad();
+        tableCache.SubscribeToChanges(
+            this,
+            source as Transaction,
+            GetRelationCacheKey(),
+            relationValues.Select(x => x.PrimaryKeys()).ToArray());
 
         return relationValues;
+    }
+
+    private RelationCacheKey? GetRelationCacheKey()
+    {
+        if (ProviderKeyComponents.IsNull(foreignKey))
+            return null;
+
+        var index = property.RelationPart.GetOtherSide().ColumnIndex;
+        return new RelationCacheKey(index, ProviderKeyComponents.ToDataLinqKey(foreignKey));
     }
 
     public void Clear()

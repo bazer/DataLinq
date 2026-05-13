@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
+using System.Linq;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Metadata;
@@ -14,6 +15,9 @@ namespace DataLinq.Mutation;
 /// </summary>
 public class StateChange
 {
+    private readonly IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> changes;
+    private readonly Dictionary<ColumnDefinition, object?> originalValues = new();
+
     /// <summary>
     /// Gets the type of change that will be applied to the model.
     /// </summary>
@@ -74,12 +78,32 @@ public class StateChange
         Type = type;
 
         PrimaryKeys = model.PrimaryKeys();
+        changes = CaptureChanges(model);
+        CaptureOriginalValues(model);
     }
 
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges() =>
-        Model is IMutableInstance mutable
-        ? mutable.GetChanges()
-        : [];
+        changes;
+
+    internal bool TryGetOriginalValue(ColumnDefinition column, out object? value) =>
+        originalValues.TryGetValue(column, out value);
+
+    private static IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> CaptureChanges(IModelInstance model) =>
+        model is IMutableInstance mutable
+            ? mutable.GetChanges().ToArray()
+            : [];
+
+    private void CaptureOriginalValues(IModelInstance model)
+    {
+        if (model.GetRowData() is not MutableRowData rowData)
+            return;
+
+        foreach (var change in changes)
+        {
+            if (rowData.TryGetOriginalValue(change.Key, out var value))
+                originalValues[change.Key] = value;
+        }
+    }
 
     /// <summary>
     /// Executes the query associated with the state change on the given transaction.

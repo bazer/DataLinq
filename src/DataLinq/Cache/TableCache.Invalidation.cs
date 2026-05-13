@@ -36,10 +36,13 @@ public partial class TableCache
     private int ApplyTransactionChanges(IReadOnlyList<StateChange> changes, Transaction transaction)
     {
         var startedAt = Stopwatch.GetTimestamp();
+        var impactBuilder = new CacheInvalidationImpactBuilder();
         var numRows = 0;
 
         foreach (var change in changes)
         {
+            AddStateChangeImpact(change, impactBuilder);
+
             if (change.Type == TransactionChangeType.Delete || change.Type == TransactionChangeType.Update)
             {
                 if (TryRemoveTransactionRow(change.PrimaryKeys, transaction, out var transRows))
@@ -58,7 +61,7 @@ public partial class TableCache
         DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.TransactionStateChangeTable, 0, duration);
 
         RefreshOccupancyMetrics();
-        OnRowChanged(transaction);
+        OnRowChanged(impactBuilder.Build(), transaction);
 
         return numRows;
     }
@@ -66,10 +69,13 @@ public partial class TableCache
     private int ApplyCommittedChanges(IReadOnlyList<StateChange> changes)
     {
         var startedAt = Stopwatch.GetTimestamp();
+        var impactBuilder = new CacheInvalidationImpactBuilder();
         var numRows = 0;
 
         foreach (var change in changes)
         {
+            AddStateChangeImpact(change, impactBuilder);
+
             if (change.Type == TransactionChangeType.Delete || change.Type == TransactionChangeType.Update)
             {
                 if (rowCache is not null && TryRemoveRowFromCache(rowCache, change.PrimaryKeys, out var rows))
@@ -113,7 +119,7 @@ public partial class TableCache
         DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.StateChangeTable, 0, duration);
 
         RefreshOccupancyMetrics();
-        OnRowChanged();
+        OnRowChanged(impactBuilder.Build());
 
         return numRows;
 
@@ -130,6 +136,77 @@ public partial class TableCache
 
             return numRows;
         }
+    }
+
+    private static void AddStateChangeImpact(StateChange change, CacheInvalidationImpactBuilder impactBuilder)
+    {
+        if (change.PrimaryKeys.IsNull)
+            impactBuilder.ClearTable();
+        else
+            impactBuilder.AddPrimaryKey(change.PrimaryKeys);
+
+        switch (change.Type)
+        {
+            case TransactionChangeType.Insert:
+            case TransactionChangeType.Delete:
+                AddCurrentRelationKeys(change.Model, change.Table.ColumnIndices, impactBuilder);
+                break;
+            case TransactionChangeType.Update:
+                AddUpdatedRelationKeys(change, impactBuilder);
+                break;
+        }
+    }
+
+    private static void AddCurrentRelationKeys(
+        IModelInstance model,
+        IEnumerable<ColumnIndex> indices,
+        CacheInvalidationImpactBuilder impactBuilder)
+    {
+        foreach (var index in indices)
+            impactBuilder.AddRelationKey(index, KeyFactory.GetKey(model, index.Columns));
+    }
+
+    private static void AddUpdatedRelationKeys(StateChange change, CacheInvalidationImpactBuilder impactBuilder)
+    {
+        var invalidatedIndices = new HashSet<ColumnIndex>();
+        foreach (var changedValue in change.GetChanges())
+        {
+            var columnIndices = change.Table.GetColumnIndices(changedValue.Key);
+            for (var i = 0; i < columnIndices.Count; i++)
+            {
+                var columnIndex = columnIndices[i];
+                if (!invalidatedIndices.Add(columnIndex))
+                    continue;
+
+                impactBuilder.AddRelationKey(columnIndex, KeyFactory.GetKey(change.Model, columnIndex.Columns));
+
+                if (TryGetOriginalKey(change, columnIndex.Columns, out var originalKey))
+                    impactBuilder.AddRelationKey(columnIndex, originalKey);
+                else
+                    impactBuilder.ClearTable();
+            }
+        }
+    }
+
+    private static bool TryGetOriginalKey(
+        StateChange change,
+        IReadOnlyList<ColumnDefinition> columns,
+        out DataLinqKey key)
+    {
+        var values = new object?[columns.Count];
+        for (var i = 0; i < columns.Count; i++)
+        {
+            if (!change.TryGetOriginalValue(columns[i], out var value))
+            {
+                key = DataLinqKey.Null;
+                return false;
+            }
+
+            values[i] = value;
+        }
+
+        key = DataLinqKey.FromValues(values);
+        return true;
     }
 
     internal bool TryRemoveTransactionRow(DataLinqKey primaryKeys, Transaction transaction, out int numRowsRemoved)
@@ -179,7 +256,7 @@ public partial class TableCache
         TryRemoveRowFromAllIndices(normalizedPrimaryKey, out var indexRows);
         numRows += indexRows;
 
-        RecordManualInvalidation(numRows, Stopwatch.GetElapsedTime(startedAt));
+        RecordManualInvalidation(numRows, Stopwatch.GetElapsedTime(startedAt), notifySubscribers: true);
 
         return numRows;
     }
@@ -202,20 +279,22 @@ public partial class TableCache
             numRows += indexRows;
         }
 
-        RecordManualInvalidation(numRows, Stopwatch.GetElapsedTime(startedAt));
+        RecordManualInvalidation(numRows, Stopwatch.GetElapsedTime(startedAt), notifySubscribers: true);
 
         return numRows;
     }
 
-    private void RecordManualInvalidation(int rowsRemoved, TimeSpan duration)
+    private void RecordManualInvalidation(int rowsRemoved, TimeSpan duration, bool notifySubscribers = false)
     {
-        if (rowsRemoved == 0)
+        if (rowsRemoved == 0 && !notifySubscribers)
             return;
 
         RefreshOccupancyMetrics();
         DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.ManualInvalidate, rowsRemoved, duration);
         MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
-        OnRowChanged();
+
+        if (notifySubscribers)
+            OnRowChanged();
     }
 
     public bool TryRemoveTransaction(Transaction transaction)

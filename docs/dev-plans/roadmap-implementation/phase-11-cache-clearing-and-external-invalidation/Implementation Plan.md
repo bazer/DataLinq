@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 11 Implementation Plan: Cache Clearing and External Invalidation
 
-**Status:** In progress. Workstream A implemented on 2026-05-13.
+**Status:** In progress. Workstreams A and B implemented on 2026-05-13.
 
 ## Purpose
 
@@ -73,8 +73,8 @@ Implementation status, 2026-05-13:
 - Added dynamic metadata invalidation through `DataLinqKeyComponents`, including table-metadata and many-row overloads.
 - Chose no-op semantics for well-formed unknown row keys: invalidation returns `false` or `0` when no cached row or index entry is removed.
 - Chose clear failure semantics for malformed keys: wrong arity, wrong provider component type, null key components, and no-primary-key tables throw before cache internals are touched.
-- Manual row invalidation records cache maintenance telemetry with `datalinq.cache.operation=manual_invalidate` when cached rows or index entries are removed.
-- Current row invalidation removes matching row-cache entries and removes matching primary keys from loaded index caches, then uses the existing table-wide relation notification as the Workstream B conservative fallback.
+- Manual row invalidation records cache maintenance telemetry with `datalinq.cache.operation=manual_invalidate`; explicit row invalidation also notifies relation subscribers through the conservative table-wide fallback even when no row-cache entry was physically present.
+- Current row invalidation removes matching row-cache entries and removes matching primary keys from loaded index caches, then uses Workstream B's impact notification model with a table-wide fallback because old/new relation values are not yet supplied by the public manual API.
 
 Candidate shape:
 
@@ -133,15 +133,26 @@ Goals:
 
 Tasks:
 
-1. Reuse mutation invalidation internals where possible.
-2. Invalidate relation indexes affected by provider key components.
-3. Add an internal invalidation impact model that can carry table fallback, changed primary keys, and changed relation keys.
-4. Extend relation-object subscription and notification matching so loaded relation objects are cleared by affected relation key or by intersection with changed loaded primary keys.
-5. Normalize local `StateChange` mutation effects into that impact model before notifying relation subscribers.
-6. Invalidate table-level relation/index state when key-level precision is unavailable or when Phase 10 left only a conservative fallback.
-7. Add tests for FK relation loading followed by external parent/child invalidation.
-8. Add tests for changed relation/index columns where external invalidation cannot know the old value.
-9. Convert the current broad relation-clear characterization into a regression test for precise invalidation.
+1. [x] Reuse mutation invalidation internals where possible.
+2. [x] Invalidate relation indexes affected by provider key components.
+3. [x] Add an internal invalidation impact model that can carry table fallback, changed primary keys, and changed relation keys.
+4. [x] Extend relation-object subscription and notification matching so loaded relation objects are cleared by affected relation key or by intersection with changed loaded primary keys.
+5. [x] Normalize local `StateChange` mutation effects into that impact model before notifying relation subscribers.
+6. [x] Invalidate table-level relation/index state when key-level precision is unavailable or when Phase 10 left only a conservative fallback.
+7. [x] Add tests for FK relation loading followed by external parent/child invalidation.
+8. [x] Add tests for changed relation/index columns where external invalidation cannot know the old value.
+9. [x] Convert the current broad relation-clear characterization into a regression test for precise invalidation.
+
+Implementation status, 2026-05-13:
+
+- Added `CacheInvalidationImpact` and `RelationCacheKey` as the internal payload used by relation notifications.
+- Extended notification subscriptions so loaded relation objects carry their relation bucket key and the primary keys materialized into the relation.
+- Changed local mutation invalidation to notify by precise impact instead of table-wide clearing when primary keys and relation keys are known.
+- Snapshotted `StateChange` changed columns and original column values at mutation creation time. This is essential because `Transaction.Update` resets the mutable model after execution, before commit-time cache maintenance runs.
+- Updated `ImmutableRelation<T>` and `ImmutableForeignKey<T>` to subscribe after loading with relation-key and loaded-primary-key metadata.
+- Kept public/manual row invalidation conservative: row/index entries are removed by provider primary key, and relation subscribers are notified table-wide because the public manual API does not yet carry old/new relation-key values.
+- Added compliance coverage for non-relation row updates, foreign-key moves, duplicate same-target foreign keys with identical scalar values, insert/delete membership changes, reference relation refresh, and manual external parent/child invalidation.
+- Renamed the old broad invalidation characterization into `Cache_UnchangedForeignKeyUpdate_ClearsRelationCollectionsContainingChangedRows`.
 
 Exit criteria:
 
@@ -150,6 +161,22 @@ Exit criteria:
 - duplicate same-target foreign keys are invalidated independently rather than by raw key value alone
 - table-level invalidation remains a correct fallback when precise relation keys are unavailable
 - mutation and external invalidation share the same core cache invalidation mechanics
+
+Workstream B verification, 2026-05-13:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 build src\DataLinq\DataLinq.csproj -c Debug -v minimal --no-incremental
+.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj -c Debug -v minimal --no-incremental
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --alias quick --output failures --build
+```
+
+Results:
+
+- `DataLinq` build passed for `net8.0`, `net9.0`, and `net10.0`.
+- Compliance build passed for `net10.0`.
+- Compliance quick passed: 439/439 against `sqlite-file` and `sqlite-memory`.
+- Unit quick passed: 547/547.
 
 Required companion design:
 

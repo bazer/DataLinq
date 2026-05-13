@@ -73,10 +73,14 @@ public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dat
                 {
                     var source = GetDataSource();
                     var tableCache = GetTableCache(source);
+                    var instance = LoadInstance(tableCache, source);
 
-                    tableCache.SubscribeToChanges(this, source as Transaction);
-
-                    valueHolder = new(LoadInstance(tableCache, source));
+                    valueHolder = new(instance);
+                    tableCache.SubscribeToChanges(
+                        this,
+                        source as Transaction,
+                        GetRelationCacheKey(tableCache),
+                        instance is null ? [] : [instance.PrimaryKeys()]);
 
                     tableCache.MetricsHandle.RecordRelationReferenceLoad();
                 }
@@ -95,6 +99,18 @@ public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dat
         return (T?)tableCache
             .GetRows(foreignKey, property, source)
             .SingleOrDefault();
+    }
+
+    private RelationCacheKey? GetRelationCacheKey(TableCache tableCache)
+    {
+        if (ProviderKeyComponents.IsNull(foreignKey))
+            return null;
+
+        var index = property.RelationPart.GetOtherSide().ColumnIndex;
+        if (!ReferenceEquals(index.Table, tableCache.Table))
+            return null;
+
+        return new RelationCacheKey(index, ProviderKeyComponents.ToDataLinqKey(foreignKey));
     }
 
     public void Clear()

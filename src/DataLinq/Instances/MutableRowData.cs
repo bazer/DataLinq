@@ -50,6 +50,18 @@ public class MutableRowData : IRowData
 
     public object? GetValue(int columnIndex) => GetValue(Table.Columns[columnIndex]);
 
+    internal bool TryGetOriginalValue(ColumnDefinition column, out object? value)
+    {
+        if (ImmutableRowData is null)
+        {
+            value = null;
+            return false;
+        }
+
+        value = ImmutableRowData.GetValue(column);
+        return true;
+    }
+
     public IEnumerable<object?> GetValues(IEnumerable<ColumnDefinition> columns)
     {
         foreach (var column in columns)

@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using DataLinq.Diagnostics;
+using DataLinq.Instances;
+using DataLinq.Metadata;
 using DataLinq.Mutation;
 
 namespace DataLinq.Cache;
@@ -17,7 +21,41 @@ public partial class TableCache
     {
         private sealed record CacheNotificationSubscription(
             WeakReference<ICacheNotification> Subscriber,
-            Transaction? Transaction);
+            Transaction? Transaction,
+            bool TableWide,
+            RelationCacheKey? RelationKey,
+            DataLinqKey[] LoadedPrimaryKeys)
+        {
+            internal bool Matches(CacheInvalidationImpact impact)
+            {
+                if (TableWide || impact.ClearTable)
+                    return true;
+
+                if (RelationKey is { } relationKey)
+                {
+                    if (impact.ChangedRelationKeys.Contains(relationKey))
+                        return true;
+
+                    if (IsPrimaryKeyIndex(relationKey.Index) &&
+                        impact.ChangedPrimaryKeys.Contains(relationKey.ProviderKey))
+                    {
+                        return true;
+                    }
+                }
+
+                for (var i = 0; i < LoadedPrimaryKeys.Length; i++)
+                {
+                    if (impact.ChangedPrimaryKeys.Contains(LoadedPrimaryKeys[i]))
+                        return true;
+                }
+
+                return false;
+            }
+
+            private static bool IsPrimaryKeyIndex(ColumnIndex index) =>
+                index.Columns.Count == index.Table.PrimaryKeyColumns.Count &&
+                index.Columns.SequenceEqual(index.Table.PrimaryKeyColumns);
+        }
 
         // Use ConcurrentQueue. Subscribe stays lock-free and O(1).
         // Notify self-clears by swapping the queue, and Clean compacts dead
@@ -35,17 +73,42 @@ public partial class TableCache
         internal void Subscribe(ICacheNotification subscriber) => Subscribe(subscriber, null);
 
         internal void Subscribe(ICacheNotification subscriber, Transaction? transaction)
+            => Subscribe(subscriber, transaction, tableWide: true, relationKey: null, loadedPrimaryKeys: []);
+
+        internal void Subscribe(
+            ICacheNotification subscriber,
+            Transaction? transaction,
+            RelationCacheKey? relationKey,
+            IReadOnlyCollection<DataLinqKey> loadedPrimaryKeys)
+            => Subscribe(subscriber, transaction, tableWide: false, relationKey, loadedPrimaryKeys);
+
+        private void Subscribe(
+            ICacheNotification subscriber,
+            Transaction? transaction,
+            bool tableWide,
+            RelationCacheKey? relationKey,
+            IReadOnlyCollection<DataLinqKey> loadedPrimaryKeys)
         {
             // This is a fully thread-safe, lock-free, O(1) operation.
-            _subscribers.Enqueue(new CacheNotificationSubscription(new WeakReference<ICacheNotification>(subscriber), transaction));
+            _subscribers.Enqueue(new CacheNotificationSubscription(
+                new WeakReference<ICacheNotification>(subscriber),
+                transaction,
+                tableWide,
+                relationKey,
+                loadedPrimaryKeys.Count == 0 ? [] : loadedPrimaryKeys.ToArray()));
             var approximateQueueDepth = Interlocked.Increment(ref _approximateSubscriberCount);
             metricsHandle.RecordCacheNotificationSubscribe(approximateQueueDepth);
         }
 
         internal void Notify() => Notify(null);
 
-        internal void Notify(Transaction? transaction)
+        internal void Notify(Transaction? transaction) => Notify(CacheInvalidationImpact.TableWide, transaction);
+
+        internal void Notify(CacheInvalidationImpact impact, Transaction? transaction = null)
         {
+            if (impact.IsEmpty)
+                return;
+
             // 1. Check if there's anything to do. This is a quick, lock-free check.
             if (_subscribers.IsEmpty)
             {
@@ -88,7 +151,8 @@ public partial class TableCache
                 snapshotEntries++;
                 if (subscription.Subscriber.TryGetTarget(out var subscriber))
                 {
-                    if (transaction == null || ReferenceEquals(subscription.Transaction, transaction))
+                    if ((transaction == null || ReferenceEquals(subscription.Transaction, transaction)) &&
+                        subscription.Matches(impact))
                     {
                         liveSubscribers++;
                         subscriber.Clear();
@@ -159,9 +223,23 @@ public partial class TableCache
         (notificationManager ??= new CacheNotificationManager(MetricsHandle)).Subscribe(subscriber, transaction);
     }
 
+    internal void SubscribeToChanges(
+        ICacheNotification subscriber,
+        Transaction? transaction,
+        RelationCacheKey? relationKey,
+        IReadOnlyCollection<DataLinqKey> loadedPrimaryKeys)
+    {
+        (notificationManager ??= new CacheNotificationManager(MetricsHandle)).Subscribe(subscriber, transaction, relationKey, loadedPrimaryKeys);
+    }
+
     protected virtual void OnRowChanged(Transaction? transaction = null)
     {
         notificationManager?.Notify(transaction);
+    }
+
+    private void OnRowChanged(CacheInvalidationImpact impact, Transaction? transaction = null)
+    {
+        notificationManager?.Notify(impact, transaction);
     }
 
     public void CleanRelationNotifications()
