@@ -492,6 +492,10 @@ internal sealed class DataLinqTableMetricsState
 
     internal void Reset()
     {
+        Interlocked.Exchange(ref currentRows, 0);
+        Interlocked.Exchange(ref currentTransactionRows, 0);
+        Interlocked.Exchange(ref currentBytes, 0);
+        Interlocked.Exchange(ref currentIndexEntries, 0);
         Interlocked.Exchange(ref mutationInserts, 0);
         Interlocked.Exchange(ref mutationUpdates, 0);
         Interlocked.Exchange(ref mutationDeletes, 0);

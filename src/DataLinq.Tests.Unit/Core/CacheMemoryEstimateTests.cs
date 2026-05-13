@@ -1,13 +1,20 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
+using DataLinq.Attributes;
 using DataLinq.Cache;
 using DataLinq.Core.Factories;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Logging;
 using DataLinq.Metadata;
+using DataLinq.Mutation;
+using DataLinq.Query;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
@@ -311,7 +318,122 @@ public class CacheMemoryEstimateTests
         await Assert.That(history.GetMemoryEstimate().SnapshotBytes).IsLessThan(occupiedEstimate.SnapshotBytes);
     }
 
-    private static TableDefinition CreateMemoryEstimateTable()
+    [Test]
+    [NotInParallel]
+    public async Task TableCache_GetMemoryEstimate_AggregatesLoadedComponents()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+        DataLinqMetrics.Reset();
+
+        try
+        {
+            var metadata = CreateMemoryEstimateDatabase();
+            var provider = new FakeDatabaseProvider(metadata);
+            using var databaseCache = new DatabaseCache(provider, DataLinqLoggingConfiguration.NullConfiguration);
+            provider.Cache = databaseCache;
+            var tableCache = databaseCache.TableCaches.Values.Single();
+            var table = tableCache.Table;
+            var transaction = new Transaction(provider, TransactionType.ReadAndWrite);
+
+            SetPrivateField(tableCache, "rowCache", CreatePopulatedRowCache(table, 1, "Ada"));
+            SetPrivateField(
+                tableCache,
+                "transactionRows",
+                new ConcurrentDictionary<Transaction, RowCache>(
+                    new[] { new KeyValuePair<Transaction, RowCache>(transaction, CreatePopulatedRowCache(table, 2, "Grace")) }));
+
+            var indexCache = new TypedIndexCache<int>();
+            await Assert.That(indexCache.TryAdd(1, [DataLinqKey.FromValue(1)])).IsTrue();
+            SetPrivateField(
+                tableCache,
+                "indexCaches",
+                new Dictionary<ColumnIndex, IIndexCache>
+                {
+                    [table.ColumnIndices.Single(x => x.Characteristic == IndexCharacteristic.PrimaryKey)] = indexCache
+                });
+
+            var subscriber = new TestCacheNotification();
+            tableCache.SubscribeToChanges(subscriber);
+
+            var estimate = tableCache.GetMemoryEstimate();
+
+            await Assert.That(estimate.RowPayloadBytes).IsGreaterThan(0);
+            await Assert.That(estimate.RowStoreOverheadBytes).IsGreaterThan(0);
+            await Assert.That(estimate.TransactionRowPayloadBytes).IsGreaterThan(0);
+            await Assert.That(estimate.TransactionRowStoreOverheadBytes).IsGreaterThan(0);
+            await Assert.That(estimate.IndexPayloadBytes).IsGreaterThan(0);
+            await Assert.That(estimate.IndexOverheadBytes).IsGreaterThan(0);
+            await Assert.That(estimate.NotificationBytes).IsGreaterThan(0);
+        }
+        finally
+        {
+            DataLinqMetrics.Reset();
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task DatabaseCache_GetMemoryEstimate_AggregatesProviderCacheAndTransactionRemoval()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+        DataLinqMetrics.Reset();
+
+        try
+        {
+            var metadata = CreateMemoryEstimateDatabase();
+            var provider = new FakeDatabaseProvider(metadata);
+            using var databaseCache = new DatabaseCache(provider, DataLinqLoggingConfiguration.NullConfiguration);
+            provider.Cache = databaseCache;
+            var tableCache = databaseCache.TableCaches.Values.Single();
+            var transaction = new Transaction(provider, TransactionType.ReadAndWrite);
+
+            SetPrivateField(
+                tableCache,
+                "transactionRows",
+                new ConcurrentDictionary<Transaction, RowCache>(
+                    new[] { new KeyValuePair<Transaction, RowCache>(transaction, CreatePopulatedRowCache(tableCache.Table, 1, "Ada")) }));
+
+            var occupiedEstimate = databaseCache.GetMemoryEstimate();
+
+            await Assert.That(occupiedEstimate.TransactionRowPayloadBytes).IsGreaterThan(0);
+            await Assert.That(occupiedEstimate.TransactionRowStoreOverheadBytes).IsGreaterThan(0);
+
+            databaseCache.RemoveTransaction(transaction);
+
+            var removedEstimate = databaseCache.GetMemoryEstimate();
+
+            await Assert.That(removedEstimate.TransactionRowPayloadBytes).IsEqualTo(0);
+            await Assert.That(removedEstimate.TransactionRowStoreOverheadBytes).IsLessThan(occupiedEstimate.TransactionRowStoreOverheadBytes);
+
+            _ = databaseCache.MakeSnapshot();
+
+            await Assert.That(databaseCache.GetMemoryEstimate().SnapshotBytes).IsGreaterThan(removedEstimate.SnapshotBytes);
+        }
+        finally
+        {
+            DataLinqMetrics.Reset();
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    public async Task RuntimeAggregation_CanSumProviderMemoryEstimates()
+    {
+        var providerA = new CacheMemoryEstimate(RowPayloadBytes: 10, IndexPayloadBytes: 20);
+        var providerB = new CacheMemoryEstimate(RowPayloadBytes: 5, NotificationBytes: 7);
+
+        var runtimeEstimate = CacheMemoryEstimate.Sum([providerA, providerB]);
+
+        await Assert.That(runtimeEstimate.RowPayloadBytes).IsEqualTo(15);
+        await Assert.That(runtimeEstimate.IndexPayloadBytes).IsEqualTo(20);
+        await Assert.That(runtimeEstimate.NotificationBytes).IsEqualTo(7);
+        await Assert.That(runtimeEstimate.EstimatedCacheBytes).IsEqualTo(42);
+    }
+
+    private static DatabaseDefinition CreateMemoryEstimateDatabase()
     {
         var draft = new MetadataDatabaseDraft(
             "MemoryEstimateTestDb",
@@ -349,7 +471,29 @@ public class CacheMemoryEstimateTests
             ]
         };
 
-        return new MetadataDefinitionFactory().Build(draft).ValueOrException().TableModels.Single().Table;
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static TableDefinition CreateMemoryEstimateTable() =>
+        CreateMemoryEstimateDatabase().TableModels.Single().Table;
+
+    private static RowCache CreatePopulatedRowCache(TableDefinition table, int id, string name)
+    {
+        using var reader = new FakeDataLinqDataReader([id, name]);
+        var rowData = new RowData(reader, table, table.Columns, hasIndexedColumns: true);
+        var cache = new RowCache();
+        var row = new TestImmutableInstance(DataLinqKey.FromValue(id), rowData);
+        cache.TryAddRow(id, rowData, row);
+        return cache;
+    }
+
+    private static void SetPrivateField<T>(object target, string fieldName, T value)
+    {
+        var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        if (field is null)
+            throw new MissingFieldException(target.GetType().FullName, fieldName);
+
+        field.SetValue(target, value);
     }
 
     private sealed class FakeDataLinqDataReader(IReadOnlyList<object?> values) : IDataLinqDataReader
@@ -388,5 +532,71 @@ public class CacheMemoryEstimateTests
         public void ClearLazy() { }
         public V? GetLazy<V>(string name, Func<V> fetchCode) => fetchCode();
         public IDataSourceAccess GetDataSource() => throw new NotSupportedException();
+    }
+
+    private sealed class TestCacheNotification : ICacheNotification
+    {
+        public void Clear()
+        {
+        }
+    }
+
+    private sealed class FakeDatabaseProvider(DatabaseDefinition metadata) : IDatabaseProvider
+    {
+        public DatabaseCache? Cache { get; set; }
+
+        public string TelemetryInstanceId { get; } = Guid.NewGuid().ToString("N");
+        public string DatabaseName => metadata.DbName;
+        public string ConnectionString => throw new NotSupportedException();
+        public DatabaseDefinition Metadata => metadata;
+        public DatabaseAccess DatabaseAccess => throw new NotSupportedException();
+        public State State => throw new NotSupportedException();
+        public IDatabaseProviderConstants Constants => throw new NotSupportedException();
+        public ReadOnlyAccess ReadOnlyAccess => new(this);
+        public DatabaseType DatabaseType => DatabaseType.SQLite;
+
+        public IDbCommand ToDbCommand(IQuery query) => throw new NotSupportedException();
+        public Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite) => new(this, transactionType);
+        public DatabaseTransaction GetNewDatabaseTransaction(TransactionType type) => new FakeDatabaseTransaction(type);
+        public DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) => throw new NotSupportedException();
+        public string GetLastIdQuery() => throw new NotSupportedException();
+        public string GetSqlForFunction(SqlFunctionType functionType, string columnName, object[]? arguments) => throw new NotSupportedException();
+        public TableCache GetTableCache(TableDefinition table) =>
+            Cache?.GetTableCache(table) ?? throw new NotSupportedException();
+        public string GetOperatorSql(Operator @operator) => throw new NotSupportedException();
+        public Sql GetParameter(Sql sql, string key, object? value) => throw new NotSupportedException();
+        public Sql GetParameterValue(Sql sql, string key) => throw new NotSupportedException();
+        public string GetParameterName(Operator relation, string[] key) => throw new NotSupportedException();
+        public Sql GetParameterComparison(Sql sql, string field, Operator @operator, string[] prefix) => throw new NotSupportedException();
+        public Sql GetLimitOffset(Sql sql, int? limit, int? offset) => throw new NotSupportedException();
+        public bool DatabaseExists(string? databaseName = null) => throw new NotSupportedException();
+        public bool FileOrServerExists() => throw new NotSupportedException();
+        public IDataLinqDataWriter GetWriter() => throw new NotSupportedException();
+        public Sql GetTableName(Sql sql, string tableName, string? alias = null) => throw new NotSupportedException();
+        public M Commit<M>(Func<Transaction, M> func) => throw new NotSupportedException();
+        public void Commit(Action<Transaction> action) => throw new NotSupportedException();
+        public bool TableExists(string tableName, string? databaseName = null) => throw new NotSupportedException();
+        public IDbConnection GetDbConnection() => throw new NotSupportedException();
+        public Sql GetCreateSql() => throw new NotSupportedException();
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class FakeDatabaseTransaction(TransactionType type) : DatabaseTransaction(type)
+    {
+        public override IDataLinqDataReader ExecuteReader(IDbCommand command) => throw new NotSupportedException();
+        public override IDataLinqDataReader ExecuteReader(string query) => throw new NotSupportedException();
+        public override object? ExecuteScalar(IDbCommand command) => throw new NotSupportedException();
+        public override T ExecuteScalar<T>(IDbCommand command) => throw new NotSupportedException();
+        public override object? ExecuteScalar(string query) => throw new NotSupportedException();
+        public override T ExecuteScalar<T>(string query) => throw new NotSupportedException();
+        public override int ExecuteNonQuery(IDbCommand command) => throw new NotSupportedException();
+        public override int ExecuteNonQuery(string query) => throw new NotSupportedException();
+        public override void Rollback() => throw new NotSupportedException();
+        public override void Commit() => throw new NotSupportedException();
+        public override void Dispose()
+        {
+        }
     }
 }

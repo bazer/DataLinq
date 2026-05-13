@@ -15,6 +15,28 @@ public class DataLinqMetricsTests
 {
     [Test]
     [NotInParallel]
+    public async Task Reset_ClearsCurrentOccupancyActivity()
+    {
+        DataLinqMetrics.Reset();
+
+        var provider = new FakeDatabaseProvider("occupancy-provider", "employees", DatabaseType.MySQL);
+        var employees = DataLinqMetrics.RegisterTable(provider, "employees");
+
+        employees.UpdateCacheOccupancy(new CacheOccupancyMetricsSnapshot(
+            Rows: 1,
+            TransactionRows: 1,
+            Bytes: 128,
+            IndexEntries: 1));
+
+        await Assert.That(DataLinqMetrics.Snapshot().Providers.Length).IsEqualTo(1);
+
+        DataLinqMetrics.Reset();
+
+        await Assert.That(DataLinqMetrics.Snapshot().Providers.Length).IsEqualTo(0);
+    }
+
+    [Test]
+    [NotInParallel]
     public async Task Snapshot_AggregatesProvidersAndTablesWithoutDoubleCounting()
     {
         DataLinqMetrics.Reset();
