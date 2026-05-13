@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 11 Implementation Plan: Cache Clearing and External Invalidation
 
-**Status:** In progress. Workstreams A, B, C, and D implemented on 2026-05-13.
+**Status:** Implemented on 2026-05-13. Workstreams A, B, C, D, and E are complete; deferred items are assigned to later roadmap phases below.
 
 ## Purpose
 
@@ -328,16 +328,28 @@ Goals:
 
 Tasks:
 
-1. Add telemetry dimensions for invalidation source, scope, table, and approximate work performed.
-2. Add stress tests for concurrent external invalidation during reads.
-3. Add benchmark probes for invalidating one row, many rows, a table, and a database.
-4. Record whether invalidation used precise provider-key removal or conservative table fallback.
-5. Avoid using the current cache byte gauge as the cost basis for invalidation unless it is named as approximate row payload bytes.
-6. Document the Phase 12 handoff for cache memory accounting: row payload, row-store overhead, transaction caches, index caches, relation-object caches, notification queues, and cache history.
-7. Record that Phase 12 should keep the existing byte-limit settings and enum values but change byte-based cleanup to use estimated cache footprint.
-8. Record that Phase 12 may expand cache occupancy reporting with row-payload, component, and corrected total estimate fields.
-9. Update cache documentation only for shipped behavior.
-10. Leave CDC, adaptive policy, memory-pressure cleanup, full memory accounting, and result-set caching explicitly deferred.
+1. [x] Add telemetry dimensions for invalidation source, scope, table, and approximate work performed.
+2. [x] Add stress tests for concurrent external invalidation during reads.
+3. [x] Add benchmark probes for invalidating one row, many rows, a table, and a database.
+4. [x] Record whether invalidation used precise provider-key removal or conservative table fallback.
+5. [x] Avoid using the current cache byte gauge as the cost basis for invalidation unless it is named as approximate row payload bytes.
+6. [x] Document the Phase 12 handoff for cache memory accounting: row payload, row-store overhead, transaction caches, index caches, relation-object caches, notification queues, and cache history.
+7. [x] Record that Phase 12 should keep the existing byte-limit settings and enum values but change byte-based cleanup to use estimated cache footprint.
+8. [x] Record that Phase 12 may expand cache occupancy reporting with row-payload, component, and corrected total estimate fields.
+9. [x] Update cache documentation only for shipped behavior.
+10. [x] Leave CDC, adaptive policy, memory-pressure cleanup, full memory accounting, and result-set caching explicitly deferred.
+
+Implementation status, 2026-05-13:
+
+- Added `CacheInvalidationMetricsSnapshot` and included invalidation totals in runtime, provider, and table snapshots.
+- Added standard .NET invalidation metrics under the `DataLinq` meter with source, scope, table, precise/fallback path, freshness state, and approximate work-bucket tags.
+- Recorded event-driven invalidation as `externally_invalidated`, and recorded direct public cache API calls as `manual`.
+- Kept the shipped source vocabulary honest: `manual`, `external`, `mutation`, `cleanup`, `freshness`, and `memory_pressure`. No CDC-specific constant or adapter shipped in Phase 11.
+- Added unit telemetry coverage for invalidation source/scope/path/work tags and snapshot aggregation.
+- Added compliance stress coverage for concurrent external invalidation during reads.
+- Added benchmark probes and a `--phase11-cache-invalidation` Benchmark CLI lane for one-row, many-row, table, and database invalidation.
+- Updated shipped cache diagnostics docs to describe `Bytes`/`datalinq.cache.bytes` as estimated row-payload bytes, not total cache memory footprint.
+- Documented Phase 12 ownership for component-level memory accounting and corrected byte-based cleanup semantics.
 
 Exit criteria:
 
@@ -346,6 +358,28 @@ Exit criteria:
 - benchmark evidence exists for invalidation overhead
 - closeout states which invalidation paths are provider-key precise and which are conservative fallbacks
 - no Phase 11 metric or doc claims current `Bytes`/`datalinq.cache.bytes` represents total cache memory footprint
+
+Workstream E verification, 2026-05-13:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 build src\DataLinq\DataLinq.csproj -c Debug -v minimal --no-incremental
+.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug -v minimal --no-incremental
+.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj -c Debug -v minimal --no-incremental
+.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Benchmark.CLI\DataLinq.Benchmark.CLI.csproj -c Debug -v minimal --no-incremental
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --alias quick --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
+$env:DATALINQ_BENCHMARK_PROVIDERS='sqlite-memory'; .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase11-cache-invalidation --profile smoke --filter "*Invalidate*"
+& 'C:\Program Files\PowerShell\7\pwsh.exe' -Command "docfx build docfx.json"
+```
+
+Results:
+
+- `DataLinq` build passed for `net8.0`, `net9.0`, and `net10.0`.
+- Unit, compliance, and benchmark CLI builds passed.
+- Unit quick passed: 550/550.
+- Compliance quick passed: 455/455 against `sqlite-file` and `sqlite-memory`.
+- Phase 11 benchmark smoke lane passed for `sqlite-memory`; the dry-profile output emitted row, rows, table, and database invalidation probes with invalidation telemetry deltas.
+- DocFX build succeeded with one pre-existing `InvalidFileLink` warning in `docs/Benchmark Results.md` for `~/public/benchmark-results.js`.
 
 Required companion design:
 

@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 11: Cache Clearing and External Invalidation
 
-**Status:** In progress. Workstream A public cache clearing surface is implemented.
+**Status:** Implemented on 2026-05-13. Workstreams A through E are complete; remaining work belongs to later phases called out below.
 
 ## Purpose
 
@@ -22,6 +22,7 @@ In scope:
 - cache telemetry that identifies mutation, external, cleanup, memory-pressure, and freshness-related invalidation sources
 - cache-byte terminology that does not treat the current row-payload estimate as total cache memory usage
 - a minimal row freshness vocabulary for later validation and result-set caching work
+- benchmark probes for row, rows, table, and database invalidation overhead
 
 Out of scope:
 
@@ -32,6 +33,12 @@ Out of scope:
 - broad cache memory-footprint accounting beyond honest terminology and telemetry handoff
 - broad provider-backed row hashing
 - query-plan migration or Remotion replacement
+
+## Closeout Notes
+
+The shipped invalidation source constants are `manual`, `external`, `mutation`, `cleanup`, `freshness`, and `memory_pressure`. Phase 11 does not ship a CDC adapter or CDC-specific source constant; applications that already receive bus/CDC/changefeed signals should map those signals to `external` invalidation events.
+
+`datalinq.cache.bytes` and `CacheOccupancyMetricsSnapshot.Bytes` remain estimated row-payload bytes. They are intentionally not used as the cost basis for invalidation telemetry and should not be read as total cache memory footprint. Phase 12 owns broader cache memory accounting.
 
 ## Source Plans
 
