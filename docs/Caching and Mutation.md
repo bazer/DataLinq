@@ -74,6 +74,65 @@ The useful consequence is simple: relation traversal gets cheaper after the firs
 
 If you need to inspect what the cache subsystem is actually doing at runtime, see [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md). That page documents the shipped `DataLinqMetrics` API, including row-cache, relation, invalidation, and cache-notification metrics.
 
+## Cache Limits and Memory Pressure
+
+`[UseCache]`, `[CacheLimit(...)]`, and `[CacheCleanup(...)]` are the model-level knobs for ordinary cache retention. Put them on the database or table shape you want to tune; do not scatter them around just because a property exists.
+
+The important byte rule is blunt: byte-based limits now use estimated cache footprint, not just row payload.
+
+That means these limit types:
+
+- `CacheLimitType.Bytes`
+- `CacheLimitType.Kilobytes`
+- `CacheLimitType.Megabytes`
+- `CacheLimitType.Gigabytes`
+
+compare against `EstimatedCacheBytes`. The legacy `Bytes` and `TotalBytes` diagnostic names still mean row-payload bytes for compatibility. If a cache starts cleaning sooner than an older build did, that is usually not a bug. The newer estimate includes row-store overhead, transaction-local rows, index caches, relation subscription state, notification queues, and cache snapshots.
+
+Use `DataLinqMetrics.Snapshot()` when you need to see the split:
+
+```csharp
+using DataLinq.Diagnostics;
+
+var occupancy = DataLinqMetrics.Snapshot().Occupancy;
+
+Console.WriteLine($"Rows: {occupancy.Rows}");
+Console.WriteLine($"Row payload bytes: {occupancy.RowPayloadBytes}");
+Console.WriteLine($"Estimated cache bytes: {occupancy.EstimatedCacheBytes}");
+Console.WriteLine($"Index bytes: {occupancy.IndexPayloadBytes + occupancy.IndexOverheadBytes}");
+Console.WriteLine($"Notification bytes: {occupancy.NotificationBytes}");
+```
+
+The estimate is not a heap profiler. It is an operational cleanup signal. Treat it as stable and directionally honest, not byte-for-byte CLR object accounting.
+
+### Configure memory-pressure cleanup
+
+Scheduled cleanup follows `[CacheCleanup(...)]`. Memory-pressure cleanup is runtime policy because process memory pressure depends on the host process, not the database model.
+
+Configure it on the provider cache:
+
+```csharp
+using DataLinq.Cache;
+
+database.Provider.State.Cache.ConfigureMemoryPressureCleanup(
+    CacheMemoryPressureCleanupPolicy.Conservative with
+    {
+        HighMemoryLoadThresholdPercent = 90,
+        MinimumCacheBytes = 16 * 1024 * 1024,
+        TargetReductionPercent = 25,
+        Cooldown = TimeSpan.FromMinutes(1),
+        CheckInterval = TimeSpan.FromSeconds(10),
+        MaxRowsPerPass = 1024,
+        MaxBytesPerPass = 64 * 1024 * 1024
+    });
+```
+
+Use `CacheMemoryPressureCleanupPolicy.Disabled` to turn it off.
+
+Pressure cleanup is bounded. A single pass has row and estimated-byte budgets, and repeated pressure checks respect the cooldown/check interval. That is intentional; an ORM cache should not enter an unbounded cleanup loop just because the process is under sustained pressure.
+
+Browser/WebAssembly runtimes do not start memory-pressure cleanup. The runtime reports that pressure cleanup is unsupported there.
+
 ## Explicit Cache Invalidation
 
 Applications can explicitly invalidate DataLinq caches through `database.Cache`.

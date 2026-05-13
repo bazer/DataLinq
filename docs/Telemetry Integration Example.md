@@ -63,8 +63,9 @@ With that wiring in place, DataLinq contributes:
 - DB command count and command duration
 - transaction start/completion count and duration
 - mutation count, affected rows, and mutation duration
-- cache occupancy gauges
+- cache occupancy gauges, including row payload bytes and estimated cache footprint bytes
 - cache maintenance counters and duration
+- cache cleanup estimate histograms tagged by trigger, reason, and cleanup basis
 - query, command, transaction, and mutation spans
 
 That is enough to answer real operational questions like:
@@ -73,6 +74,8 @@ That is enough to answer real operational questions like:
 - are transactions getting slower?
 - are mutations spiking?
 - is the cache growing or cleaning up as expected?
+
+For cache memory questions, prefer `datalinq.cache.estimated.bytes` over `datalinq.cache.bytes`. The older `datalinq.cache.bytes` gauge is retained as a row-payload compatibility signal; it is not the total cache footprint. Watch the cleanup tags `datalinq.cache.cleanup.trigger`, `datalinq.cache.cleanup.reason`, and `datalinq.cache.cleanup.basis` when you need to distinguish scheduled cleanup from memory-pressure cleanup or byte-limit cleanup.
 
 ## Local Debug Example Without OpenTelemetry
 

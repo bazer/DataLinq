@@ -87,3 +87,30 @@ So cross-connection visibility of uncommitted writes is not identical. Write tes
 If several related operations must behave as one unit, do them inside one explicit transaction and read through `transaction.Query()`.
 
 That keeps the read and write path inside the same transaction-aware cache context.
+
+## Byte Cache Limits Remove Rows Earlier Than Expected
+
+Byte-based cache limits use `EstimatedCacheBytes`, not the old row-payload-only value.
+
+That is deliberate. Row payload alone ignores row-store objects, provider keys, transaction-local caches, index caches, relation subscriptions, notification queues, and cache snapshots. If a `CacheLimitType.Megabytes` limit now removes rows sooner than an older build did, check:
+
+- `DataLinqMetrics.Snapshot().Occupancy.RowPayloadBytes`
+- `DataLinqMetrics.Snapshot().Occupancy.EstimatedCacheBytes`
+- the component byte fields such as index, notification, transaction, and snapshot bytes
+
+If `EstimatedCacheBytes` is high while `RowPayloadBytes` is modest, the cache is probably retaining memory in indexes, relation state, or transaction-local rows. That is exactly the case the newer estimate is meant to reveal.
+
+## Memory-Pressure Cleanup Does Not Run
+
+Memory-pressure cleanup is disabled by default and unsupported in browser/WebAssembly runtimes.
+
+For server or desktop runtimes, configure it explicitly:
+
+```csharp
+using DataLinq.Cache;
+
+database.Provider.State.Cache.ConfigureMemoryPressureCleanup(
+    CacheMemoryPressureCleanupPolicy.Conservative);
+```
+
+It still will not run unless the runtime reports high memory load and the cache is at least `MinimumCacheBytes`. Cooldown and per-pass row/byte budgets also limit how much one cleanup pass can remove.

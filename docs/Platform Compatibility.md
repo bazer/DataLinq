@@ -51,8 +51,11 @@ The browser proof is also intentionally narrow:
 - generated models only
 - in-memory smoke behavior only
 - WebAssembly AOT only
+- no background memory-pressure cache cleanup
 
 It does not prove MySQL/MariaDB browser support, OPFS/file-backed browser storage, arbitrary LINQ, or a small production payload.
+
+Memory-pressure cleanup is a server/desktop runtime feature. Browser/WebAssembly runtimes report it as unsupported and do not start the pressure cleanup worker, even if ordinary model-level cache cleanup metadata exists.
 
 Payload numbers should be read from the compatibility size report with symbol files excluded, and symbol packages should be treated as separate release artifacts. Counting `.pdb` or `.snupkg` payload as deployed constrained-platform runtime size is misleading accounting.
 
