@@ -54,6 +54,74 @@ public class DatabaseCacheTests
                 DataLinqLoggingConfiguration.NullConfiguration);
 
             await Assert.That(cache.CleanCacheWorker).IsNull();
+            await Assert.That(cache.CleanupScheduler).IsNull();
+        }
+        finally
+        {
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task Constructor_MultipleCleanupIntervals_StartsOneCoordinatedScheduler()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        var previousTimeProviderFactory = DatabaseCache.TimeProviderFactory;
+        DatabaseCache.IsBrowserRuntime = static () => false;
+        DatabaseCache.TimeProviderFactory = static () => TimeProvider.System;
+
+        try
+        {
+            var cache = new DatabaseCache(
+                new FakeDatabaseProvider(CreateMetadataWithMultipleCleanupIntervals()),
+                DataLinqLoggingConfiguration.NullConfiguration);
+            var scheduler = cache.CleanupScheduler;
+
+            try
+            {
+                await Assert.That(cache.CleanCacheWorker).IsNull();
+                await Assert.That(scheduler).IsNotNull();
+                await Assert.That(scheduler!.ActiveScheduleCount).IsEqualTo(2);
+                await Assert.That(scheduler.BackgroundWorkerCount).IsEqualTo(1);
+            }
+            finally
+            {
+                cache.Dispose();
+            }
+
+            await Assert.That(scheduler!.IsRunning).IsFalse();
+            await Assert.That(scheduler.BackgroundWorkerCount).IsEqualTo(0);
+        }
+        finally
+        {
+            DatabaseCache.TimeProviderFactory = previousTimeProviderFactory;
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task CleanupScheduler_RunDueScheduledCleanup_IsDeterministicWithoutBackgroundWorker()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+
+        try
+        {
+            using var cache = new DatabaseCache(
+                new FakeDatabaseProvider(CreateMetadataWithMultipleCleanupIntervals()),
+                DataLinqLoggingConfiguration.NullConfiguration);
+            using var scheduler = new CacheCleanupScheduler(
+                cache,
+                cache.Policy.CacheCleanup,
+                TimeProvider.System);
+
+            scheduler.RunDueScheduledCleanup(new DateTimeOffset(2026, 5, 13, 12, 0, 0, TimeSpan.Zero));
+
+            await Assert.That(scheduler.ActiveScheduleCount).IsEqualTo(2);
+            await Assert.That(scheduler.BackgroundWorkerCount).IsEqualTo(0);
+            await Assert.That(scheduler.IsRunning).IsFalse();
         }
         finally
         {
@@ -233,6 +301,22 @@ public class DatabaseCacheTests
                         CacheLimits = [(CacheLimitType.Rows, 50)],
                         IndexCache = [(IndexCacheType.MaxAmountRows, 100)]
                     })
+            ]
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static DatabaseDefinition CreateMetadataWithMultipleCleanupIntervals()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "cachetest",
+            new CsTypeDeclaration("CacheTestDb", "DataLinq.Tests.Unit", ModelCsType.Class))
+        {
+            CacheCleanup =
+            [
+                (CacheCleanupType.Seconds, 30),
+                (CacheCleanupType.Minutes, 5)
             ]
         };
 

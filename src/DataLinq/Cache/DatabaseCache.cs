@@ -14,13 +14,15 @@ namespace DataLinq.Cache;
 public class DatabaseCache : IDisposable
 {
     internal static Func<bool> IsBrowserRuntime { get; set; } = static () => OperatingSystem.IsBrowser();
+    internal static Func<TimeProvider> TimeProviderFactory { get; set; } = static () => TimeProvider.System;
 
     public IDatabaseProvider Database { get; set; }
     internal DatabaseCachePolicy Policy { get; }
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
     public Dictionary<TableDefinition, TableCache> TableCaches { get; }
 
-    public CleanCacheWorker? CleanCacheWorker { get; }
+    public CleanCacheWorker? CleanCacheWorker => null;
+    public CacheCleanupScheduler? CleanupScheduler { get; }
 
     public CacheHistory History { get; } = new();
 
@@ -36,15 +38,10 @@ public class DatabaseCache : IDisposable
             this.TableCaches.Add(table, new TableCache(table, this, loggingConfiguration));
         }
 
-        if (IsBrowserRuntime())
-            return;
-
-        for (var i = 0; i < Policy.CacheCleanup.Count; i++)
+        if (!IsBrowserRuntime())
         {
-            var cacheCleanup = Policy.CacheCleanup[i];
-            var timespan = GetFromCacheCleanupType(cacheCleanup.cleanupType, cacheCleanup.amount);
-            this.CleanCacheWorker = new CleanCacheWorker(database, new LongRunningTaskCreator(), timespan);
-            this.CleanCacheWorker.Start();
+            CleanupScheduler = new CacheCleanupScheduler(this, Policy.CacheCleanup, TimeProviderFactory());
+            CleanupScheduler.Start();
         }
     }
 
@@ -73,18 +70,6 @@ public class DatabaseCache : IDisposable
 
     internal CacheMemoryEstimate GetMemoryEstimate() =>
         CacheMemoryEstimate.Sum(TableCaches.Values.Select(x => x.GetMemoryEstimate())) + History.GetMemoryEstimate();
-
-    private TimeSpan GetFromCacheCleanupType(CacheCleanupType type, long amount)
-    {
-        return type switch
-        {
-            CacheCleanupType.Seconds => TimeSpan.FromSeconds(amount),
-            CacheCleanupType.Minutes => TimeSpan.FromMinutes(amount),
-            CacheCleanupType.Hours => TimeSpan.FromHours(amount),
-            CacheCleanupType.Days => TimeSpan.FromDays(amount),
-            _ => throw new NotImplementedException(),
-        };
-    }
 
     public (IndexCacheType, int? amount) GetIndexCachePolicy()
         => GetIndexCachePolicy(Policy.IndexCache);
@@ -240,7 +225,7 @@ public class DatabaseCache : IDisposable
 
     public void Dispose()
     {
-        this.CleanCacheWorker?.Stop();
+        this.CleanupScheduler?.Stop();
         foreach (var table in TableCaches.Values)
             table.UnregisterTelemetry();
         this.ClearCache();

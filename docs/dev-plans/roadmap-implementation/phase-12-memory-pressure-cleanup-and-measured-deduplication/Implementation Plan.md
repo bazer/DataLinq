@@ -203,6 +203,8 @@ Implementation notes:
 
 ## Workstream D: Memory-Pressure Policy And Cleanup Scheduling
 
+Status: in progress.
+
 Goals:
 
 - make cleanup react to process memory pressure through a testable abstraction
@@ -253,6 +255,10 @@ Exit criteria:
 - users can configure or disable pressure-triggered cleanup
 - scheduler behavior is deterministic under unit tests
 - background cleanup cannot spin indefinitely under sustained pressure
+
+Implementation notes:
+
+- 2026-05-13: Replaced the overwritten `DatabaseCache.CleanCacheWorker` constructor loop with one coordinated `CacheCleanupScheduler` that owns all configured cleanup intervals. The scheduler uses an injected `TimeProvider`, has deterministic `RunDueScheduledCleanup(...)` coverage for tests, and `Dispose()` stops the single background loop.
 
 ## Workstream E: Measured Deduplication And Scoped Interning
 
