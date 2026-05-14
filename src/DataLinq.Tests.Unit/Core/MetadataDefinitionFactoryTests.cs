@@ -2419,6 +2419,41 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_MultipleGeneratedRelationPropertyNameCollisions_ReturnsAllInvalidModelFailures()
+    {
+        var database = CreateRelationTypedDraft(
+            orderAdditionalValueProperties:
+            [
+                CreateTypedValueProperty(
+                    "Customer",
+                    typeof(string),
+                    "customer_label",
+                    attributes: [new ColumnAttribute("customer_label")]),
+                CreateTypedValueProperty(
+                    "Approver",
+                    typeof(string),
+                    "approver_label",
+                    attributes: [new ColumnAttribute("approver_label")]),
+                CreateTypedForeignKeyProperty(
+                    "ApproverId",
+                    "approver_id",
+                    new ForeignKeyAttribute("users", "user_id", "FK_Order_Approver_User"))
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.Aggregation);
+        await Assert.That(failure.InnerFailures.Length).IsEqualTo(2);
+        await Assert.That(failure.Message).Contains("Foreign key 'FK_Order_User'");
+        await Assert.That(failure.Message).Contains("would generate relation property 'Order.Customer'");
+        await Assert.That(failure.Message).Contains("Foreign key 'FK_Order_Approver_User'");
+        await Assert.That(failure.Message).Contains("would generate relation property 'Order.Approver'");
+    }
+
+    [Test]
     public async Task Build_TableModelPropertyMatchingDatabaseType_RenamesBuiltDatabaseTypeWithoutMutatingDraft()
     {
         var database = CreateSingleTableTypedDraft(

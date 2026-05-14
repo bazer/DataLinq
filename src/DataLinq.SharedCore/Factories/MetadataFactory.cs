@@ -3681,18 +3681,19 @@ public static class MetadataFactory
             }
 
             var relationFailures = new List<IDLOptionFailure>();
-            if (!TryGetRelationProperty(
+            var manyRelationPropertyResolved = TryGetRelationProperty(
                 manySideModel,
                 oneSideModel.Table.DbName,
                 candidateColumns,
                 firstAttribute.Name,
                 out var manyToOneProp,
-                out var manyToOnePropertyFailure))
+                out var manyToOnePropertyFailure);
+            if (!manyRelationPropertyResolved)
             {
                 relationFailures.Add(manyToOnePropertyFailure);
             }
 
-            var manyToOnePropName = manyToOneProp is null
+            var manyToOnePropName = manyRelationPropertyResolved && manyToOneProp is null
                 ? GetForeignKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute)
                 : null;
             if (manyToOnePropName != null &&
@@ -3701,18 +3702,19 @@ public static class MetadataFactory
                 relationFailures.Add(manySideGeneratedPropertyFailure);
             }
 
-            if (!TryGetRelationProperty(
+            var oneRelationPropertyResolved = TryGetRelationProperty(
                 oneSideModel,
                 manySideModel.Table.DbName,
                 foreignKeyColumns,
                 firstAttribute.Name,
                 out var oneToManyProp,
-                out var oneToManyPropertyFailure))
+                out var oneToManyPropertyFailure);
+            if (!oneRelationPropertyResolved)
             {
                 relationFailures.Add(oneToManyPropertyFailure);
             }
 
-            var oneToManyPropName = oneToManyProp is null
+            var oneToManyPropName = oneRelationPropertyResolved && oneToManyProp is null
                 ? GetCandidateKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute)
                 : null;
             if (oneToManyPropName != null &&
