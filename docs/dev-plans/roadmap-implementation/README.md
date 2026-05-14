@@ -20,7 +20,8 @@ Active or deferred execution plans:
 
 | Phase | Status | Directory |
 | --- | --- | --- |
-| Phase 13: Explicit Multi-Join Composition | Next implementation priority | `phase-13-explicit-multi-join-composition/` |
+| Phase 12B: Generation Trust and Diagnostics Hardening | Next implementation priority | `phase-12b-generation-trust-and-diagnostics-hardening/` |
+| Phase 13: Explicit Multi-Join Composition | Planned after Phase 12B | `phase-13-explicit-multi-join-composition/` |
 | Phase 14: Relation-Aware Joins and Left Joins | Planned join API phase | `phase-14-relation-aware-joins-and-left-joins/` |
 | Phase 15: Scalar Converters and Typed-Key Ergonomics | Planned conversion/key ergonomics phase | `phase-15-scalar-converters-and-typed-key-ergonomics/` |
 | Phase 16: Dependency-Tracked Result-Set Caching | Deferred semantic cache phase | `phase-16-dependency-tracked-result-set-caching/` |
@@ -30,7 +31,7 @@ Completed execution records for Phases 1 through 12 live in [`../archive/roadmap
 
 ## Current Roadmap Position
 
-As of 2026-05-13, Phases 1 through 12 are closed execution history. The active implementation frontier should not jump straight to a broad "AOT-compatible ORM" story.
+As of 2026-05-14, Phases 1 through 12 are closed execution history. Phase 12B is inserted as generation-trust hardening before the roadmap moves on to query API expansion.
 
 Phase 4 has the support matrix and provider roundtrip boundary that schema validation needed. Phase 5 has the comparer, validation CLI, conservative diff-script generator, and first snapshot migration contract. Full versioned migration execution is not a remaining Phase 5 cleanup task; it is a separate future product surface.
 
@@ -46,7 +47,9 @@ The query-plan, Remotion isolation, supported-subset parser, and SQLitePCLRaw wa
 
 Phase 9A is complete for warning cleanup, benchmark-history and website trends, allocation reduction, and conservative cache invalidation hardening. Its benchmark closeout supports allocation and invalidation claims, not latency claims.
 
-Phase 10 is complete for the key/allocation foundation: metadata collection and lookup cleanup, provider-key row stores, generated relation access, query/materialization provider-key reads, scalar-converter seams, and Phase 11 handoff artifacts. Phase 11 is complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led deduplication rejection. The remaining roadmap now starts at Phase 13 with explicit multi-join composition, then moves through relation-aware joins, scalar converters, result-set caching, and finally Remotion isolation.
+Phase 10 is complete for the key/allocation foundation: metadata collection and lookup cleanup, provider-key row stores, generated relation access, query/materialization provider-key reads, scalar-converter seams, and Phase 11 handoff artifacts. Phase 11 is complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led deduplication rejection.
+
+Phase 12B now owns generation trust before the runtime/query roadmap resumes: aggregate validation diagnostics, source-location fidelity, safe CLI generation, partial source-generator output, generated-file banners, optional header stamping, and nullable-reference-generation defaults. After Phase 12B, the roadmap continues with Phase 13 explicit multi-join composition, then relation-aware joins, scalar converters, result-set caching, and Remotion isolation.
 
 For the older Phase 4/5 checkpoint, see the archived [Phase 4 and 5 Status Review](../archive/roadmap-implementation/Phase%204%20and%205%20Status%20Review.md).
 
