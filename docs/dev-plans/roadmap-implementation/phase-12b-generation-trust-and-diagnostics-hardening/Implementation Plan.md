@@ -269,6 +269,7 @@ Exit criteria:
 
 Implementation status, 2026-05-14:
 
+- Workstream D is complete for the planned generated C# file surface: generated files now carry stable DataLinq banners, optional CLI stamps, explicit nullable directives, default-on nullable reference generation, explicit opt-out, and source-generator nullable-context recognition.
 - Started Workstream D by adding a shared generated-file preamble renderer.
 - `ModelFileFactory` and `GeneratorFileFactory` now emit the DataLinq generated-file banner and an explicit nullable directive before `using` statements.
 - Added `create-models --stamp-generated-header`, which stamps CLI-generated model files with the CLI version and one UTC generation timestamp captured for the run.
