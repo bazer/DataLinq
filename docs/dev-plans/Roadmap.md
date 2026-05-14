@@ -429,9 +429,38 @@ Key related plans:
 - `archive/performance/Memory management.md`
 - `performance/Allocation Reduction Audit.md`
 
-### Phase 13: Explicit Multi-Join Composition
+### Phase 12B: Generation Trust and Diagnostics Hardening
 
 Status: next implementation priority.
+
+Goals:
+
+- make CLI validation and generation report all reachable independent errors
+- preserve safe CLI filesystem behavior by writing no generated artifacts when validation or rendering fails
+- make source generation report multiple precise diagnostics and still emit safe output for unaffected scopes
+- report exact line/column source locations when possible, with honest file-level or provider-object fallback
+- add stable generated-file banners and optional CLI version/timestamp stamping
+- enable nullable reference type generation by default while preserving explicit opt-out
+- make generated files declare their nullable context and teach the source generator to follow file-level nullable directives
+
+Why before Phase 13:
+
+- query API expansion will create more generated and diagnostic surface area; the generation boundary should be trustworthy first
+- users fixing model/schema problems should not need repeated CLI or IDE cycles to discover one error at a time
+- generated files should be self-identifying and deterministic before broader regeneration churn from later runtime work
+
+Key related plans:
+
+- `roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/README.md`
+- `roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/Implementation Plan.md`
+- `metadata-and-generation/Validation Diagnostics and Partial Generation.md`
+- `metadata-and-generation/Source Location Diagnostic Fidelity.md`
+- `metadata-and-generation/Generated File Headers and Stamping.md`
+- `metadata-and-generation/Nullable Reference Type Generation Defaults.md`
+
+### Phase 13: Explicit Multi-Join Composition
+
+Status: planned after Phase 12B.
 
 Goals:
 
@@ -577,7 +606,7 @@ Phase 10 is now complete: metadata collection and lookup cleanup, generated prov
 
 Phase 11 is now complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is now complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led rejection of production interning.
 
-The next broad runtime priority should be Phase 13 explicit multi-join composition. That should be followed by the relation-aware join work in Phase 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
+The next priority should be Phase 12B generation trust and diagnostics hardening. After that, the next broad runtime priority should be Phase 13 explicit multi-join composition, followed by the relation-aware join work in Phase 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

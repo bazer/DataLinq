@@ -32,8 +32,11 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ### Metadata and generation
 
+- `metadata-and-generation/Generated File Headers and Stamping.md`
 - `metadata-and-generation/Metadata Architecture.md`
+- `metadata-and-generation/Nullable Reference Type Generation Defaults.md`
 - `metadata-and-generation/Scalar Converter Support.md`
+- `metadata-and-generation/Source Location Diagnostic Fidelity.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
 - `metadata-and-generation/Validation Diagnostics and Partial Generation.md`
 
@@ -47,6 +50,8 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Roadmap implementation
 
 - `roadmap-implementation/README.md`
+- `roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/README.md`
+- `roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/Implementation Plan.md`
 - `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
 - `roadmap-implementation/phase-14-relation-aware-joins-and-left-joins/README.md`
 - `roadmap-implementation/phase-15-scalar-converters-and-typed-key-ergonomics/README.md`
@@ -116,13 +121,14 @@ As of the Phase 12 closeout on 2026-05-13:
 - Phase 10 key and allocation foundation is complete: metadata collection shape, frozen lookups, generated provider-key cache paths, relation lookup without lookup-only `IKey`, scalar-converter seams, and allocation closeout evidence have landed.
 - Phase 11 cache clearing and external invalidation is complete: explicit database/table/provider-key invalidation APIs, relation/index invalidation, invalidation envelopes, freshness vocabulary, and cache telemetry have landed.
 - Phase 12 memory-pressure cleanup and measured deduplication is complete: estimated cache memory accounting, estimated-footprint byte limits, memory-pressure-aware cleanup, coordinated cleanup scheduling, cleanup telemetry, and benchmark-led rejection of production value/key deduplication have landed.
-- Phase 13 explicit multi-join composition is the next implementation priority before relation-aware join syntax: standard query-syntax joins, multiple explicit joins, and filtering/ordering/paging/counting over joined rows.
+- Phase 12B generation trust and diagnostics hardening is the next implementation priority before query API expansion: aggregate validation diagnostics, source-location fidelity, safe CLI generation, partial source-generator output, generated-file preambles, and nullable-reference-generation defaults.
+- Phase 13 explicit multi-join composition follows Phase 12B before relation-aware join syntax: standard query-syntax joins, multiple explicit joins, and filtering/ordering/paging/counting over joined rows.
 - Phase 14 relation-aware joins and left joins owns `JoinBy(...)`, `JoinMany(...)`, join-local `on:` predicates, and left-join nullability semantics.
 - Phase 15 scalar converters and typed-key ergonomics owns provider/model value conversion after the provider-key cache design has room for it.
 - Phase 16 dependency-tracked result-set caching remains deferred until cache invalidation, freshness vocabulary, joins, and projection semantics are stronger.
 - Phase 17 query plan and Remotion isolation is deferred to the back of the roadmap. It owns the DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
 - Completed phase records and superseded implementation plans have moved under `archive/`; active docs should describe future work or current strategy.
 
-The next broad runtime work should be Phase 13 explicit multi-join composition, followed by relation-aware joins. The Remotion/parser rewrite should stay out of the immediate queue unless constrained-platform query support becomes the concrete blocker.
+The next work should be Phase 12B generation trust and diagnostics hardening. After that, the next broad runtime work should be Phase 13 explicit multi-join composition, followed by relation-aware joins. The Remotion/parser rewrite should stay out of the immediate queue unless constrained-platform query support becomes the concrete blocker.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.
