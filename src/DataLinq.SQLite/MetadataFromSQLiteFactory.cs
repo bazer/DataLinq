@@ -43,6 +43,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             dbName);
         if (!dbAccess
             .ReadReader("SELECT *\r\nFROM sqlite_master m\r\nWHERE\r\nm.type <> 'index' AND\r\nm.tbl_name <> 'sqlite_sequence'")
+            .Where(x => IsTableOrViewNameInOptionsList(x.GetString(2)))
             .Select(x => ParseTable(database, x, dbAccess))
             .Transpose()
             .TryUnwrap(out var tableModels, out var tableFailure))
@@ -75,10 +76,18 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     }
     private bool IsTableOrViewInOptionsList(SQLiteProviderTableModelDraft tableModel)
     {
+        return IsTableOrViewNameInOptionsList(tableModel.Table.DbName);
+    }
+
+    private bool IsTableOrViewNameInOptionsList(string? tableName)
+    {
         if (options.Include == null || !options.Include.Any())
             return true;
 
-        return options.Include.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase));
+        if (string.IsNullOrWhiteSpace(tableName))
+            return false;
+
+        return options.Include.Any(x => x.Equals(tableName, StringComparison.OrdinalIgnoreCase));
     }
 
     private void ParseIndices(SQLiteProviderDatabaseDraft database, DatabaseAccess dbAccess)

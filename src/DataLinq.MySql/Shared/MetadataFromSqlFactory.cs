@@ -57,12 +57,26 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
     }
     protected bool IsTableOrViewInOptionsList(ProviderTableModelDraft tableModel)
     {
+        return IsTableOrViewNameInOptionsList(tableModel.Table.DbName);
+    }
+
+    protected bool IsTableOrViewNameInOptionsList(string? tableName)
+    {
         // If the Include list is null or empty, always include the item.
         if (options.Include == null || !options.Include.Any())
             return true;
 
+        if (string.IsNullOrWhiteSpace(tableName))
+            return false;
+
         // Otherwise, the table/view name must exist in the Include list.
-        return options.Include.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase));
+        return options.Include.Any(x => x.Equals(tableName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    protected static bool IsTableOrViewImported(ProviderDatabaseDraft database, string? tableName)
+    {
+        return !string.IsNullOrWhiteSpace(tableName) &&
+            database.TableModels.Any(x => x.Table.DbName.Equals(tableName, StringComparison.OrdinalIgnoreCase));
     }
 
     protected Option<ProviderColumnImport, IDLOptionFailure> ParseColumn(ProviderTableDraft table, ICOLUMNS dbColumns)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -94,6 +95,52 @@ public class MetadataFromServerFactoryTests
         await Assert.That(viewsOnly.TableModels.Length).IsEqualTo(1);
         await Assert.That(viewsOnly.TableModels[0].Table.DbName).IsEqualTo("view2");
         await Assert.That(viewsOnly.TableModels[0].Table.Type).IsEqualTo(TableType.View);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseDatabase_IncludeFilter_SuppressesWarningsForExcludedTables(TestProviderDescriptor provider)
+    {
+        using var schema = ServerSchemaDatabase.Create(
+            provider,
+            nameof(ParseDatabase_IncludeFilter_SuppressesWarningsForExcludedTables),
+            """
+            CREATE TABLE ignored_parent (
+                id INT PRIMARY KEY
+            );
+            """,
+            """
+            CREATE TABLE included_child (
+                id INT PRIMARY KEY,
+                parent_id INT NOT NULL,
+                CONSTRAINT fk_included_ignored_parent FOREIGN KEY (parent_id) REFERENCES ignored_parent(id)
+            );
+            """,
+            """
+            CREATE TABLE ignored_indexes (
+                id INT PRIMARY KEY,
+                display_name VARCHAR(64) NOT NULL,
+                INDEX idx_ignored_display_name (display_name(8))
+            );
+            """);
+        var warnings = new List<string>();
+
+        var database = schema.ParseDatabase(
+            "TestDb",
+            "TestDb",
+            "TestNs",
+            new MetadataFromDatabaseFactoryOptions
+            {
+                Include = ["included_child"],
+                Log = warnings.Add
+            });
+
+        await Assert.That(database.TableModels.Length).IsEqualTo(1);
+        await Assert.That(database.TableModels[0].Table.DbName).IsEqualTo("included_child");
+        await Assert.That(warnings.Any(x => x.Contains("fk_included_ignored_parent", StringComparison.Ordinal))).IsTrue();
+        await Assert.That(warnings.Any(x =>
+            x.Contains("idx_ignored_display_name", StringComparison.Ordinal) ||
+            x.Contains("ignored_indexes", StringComparison.Ordinal))).IsFalse();
     }
 
     [Test]

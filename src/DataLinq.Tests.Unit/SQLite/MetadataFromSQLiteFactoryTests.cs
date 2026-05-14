@@ -55,6 +55,53 @@ public class MetadataFromSQLiteFactoryTests
     }
 
     [Test]
+    public async Task ParseDatabase_IncludeFilter_SuppressesWarningsForExcludedTables()
+    {
+        using var fixture = SqliteMetadataFixture.Create(
+            """
+            CREATE TABLE ignored_parent (
+                id INTEGER PRIMARY KEY
+            );
+            """,
+            """
+            CREATE TABLE included_child (
+                id INTEGER PRIMARY KEY,
+                parent_id INTEGER NOT NULL REFERENCES ignored_parent(id)
+            );
+            """,
+            """
+            CREATE TABLE ignored_defaults (
+                id INTEGER PRIMARY KEY,
+                count INTEGER NOT NULL DEFAULT (0 + 1)
+            );
+            """,
+            """
+            CREATE TABLE ignored_indexes (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE INDEX idx_ignored_expression ON ignored_indexes (lower(name));
+            """);
+        var warnings = new List<string>();
+
+        var database = fixture.ParseDatabase("TempSqliteDb", "TempSqliteDb", "DataLinq.Tests", new MetadataFromDatabaseFactoryOptions
+        {
+            Include = ["included_child"],
+            Log = warnings.Add
+        });
+
+        await Assert.That(database.TableModels.Length).IsEqualTo(1);
+        await Assert.That(database.TableModels[0].Table.DbName).IsEqualTo("included_child");
+        await Assert.That(warnings.Any(x => x.Contains("referenced table 'ignored_parent'", StringComparison.Ordinal))).IsTrue();
+        await Assert.That(warnings.Any(x =>
+            x.Contains("ignored_defaults", StringComparison.Ordinal) ||
+            x.Contains("idx_ignored_expression", StringComparison.Ordinal) ||
+            x.Contains("ignored_indexes", StringComparison.Ordinal))).IsFalse();
+    }
+
+    [Test]
     public async Task ParseColumns_MapsSQLiteTypesAndDefaultNames()
     {
         using var fixture = SqliteMetadataFixture.CreateEmployeesSchema();

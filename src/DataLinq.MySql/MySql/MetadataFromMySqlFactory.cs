@@ -43,6 +43,7 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
         if (!informationSchemaDb.Query()
             .TABLES.Where(x => x.TABLE_SCHEMA == dbName)
             .AsEnumerable()
+            .Where(x => IsTableOrViewNameInOptionsList(x.TABLE_NAME))
             .Select(x => ParseTable(database, informationSchemaDb, x))
             .Transpose()
             .TryUnwrap(out var tableModels, out var tableFailure))
@@ -90,14 +91,6 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
 
         foreach (var dbIndexGroup in indexGroups)
         {
-            var indexedColumns = dbIndexGroup.OrderBy(x => x.SEQ_IN_INDEX).ToList();
-            var unsupportedIndexReason = GetUnsupportedIndexReason(indexedColumns);
-            if (unsupportedIndexReason != null)
-            {
-                options.Log?.Invoke($"Warning: Skipping unsupported MySQL {unsupportedIndexReason} index '{dbIndexGroup.First().INDEX_NAME}' on table '{dbIndexGroup.First().TABLE_NAME}'.");
-                continue;
-            }
-
             var dbIndex = dbIndexGroup.First();
             if (string.IsNullOrWhiteSpace(dbIndex.TABLE_NAME) || string.IsNullOrWhiteSpace(dbIndex.INDEX_NAME))
             {
@@ -107,6 +100,17 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
 
             var tableName = dbIndex.TABLE_NAME;
             var indexName = dbIndex.INDEX_NAME;
+            if (!IsTableOrViewImported(database, tableName))
+                continue;
+
+            var indexedColumns = dbIndexGroup.OrderBy(x => x.SEQ_IN_INDEX).ToList();
+            var unsupportedIndexReason = GetUnsupportedIndexReason(indexedColumns);
+            if (unsupportedIndexReason != null)
+            {
+                options.Log?.Invoke($"Warning: Skipping unsupported MySQL {unsupportedIndexReason} index '{indexName}' on table '{tableName}'.");
+                continue;
+            }
+
             if (!ParseIndexType(dbIndex.INDEX_TYPE, tableName, indexName).TryUnwrap(out var indexType, out var indexTypeFailure))
             {
                 failures.Add(indexTypeFailure);
@@ -127,7 +131,7 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
 
                 if (column == null)
                 {
-                    options.Log?.Invoke($"Warning: Skipping MySQL index '{dbIndexGroup.First().INDEX_NAME}' on table '{dbIndexGroup.First().TABLE_NAME}' because column '{indexColumn.COLUMN_NAME}' was not imported.");
+                    options.Log?.Invoke($"Warning: Skipping MySQL index '{indexName}' on table '{tableName}' because column '{indexColumn.COLUMN_NAME}' was not imported.");
                     skipIndex = true;
                     break;
                 }
@@ -173,6 +177,9 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
         foreach (var key in informationSchemaDb.Query()
             .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME != null))
         {
+            if (!string.IsNullOrWhiteSpace(key.TABLE_NAME) && !IsTableOrViewImported(database, key.TABLE_NAME))
+                continue;
+
             if (!ParseForeignKeyReference(
                 database.DbName,
                 key.TABLE_NAME,
