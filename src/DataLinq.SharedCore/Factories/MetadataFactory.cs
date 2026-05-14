@@ -2200,6 +2200,8 @@ public static class MetadataFactory
 
     public static Option<bool, IDLOptionFailure> ValidateExistingColumnIndices(DatabaseDefinition database)
     {
+        var failures = new List<IDLOptionFailure>();
+
         foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
         {
             var table = tableModel.Table;
@@ -2207,55 +2209,92 @@ public static class MetadataFactory
             foreach (var index in table.ColumnIndices)
             {
                 if (index is null)
-                    return CreateColumnIndexFailure(
+                {
+                    failures.Add(CreateColumnIndexFailure(
                         table,
-                        $"Table '{table.DbName}' contains a null column index.");
+                        $"Table '{table.DbName}' contains a null column index."));
+                    continue;
+                }
+
+                var indexHasShapeFailure = false;
 
                 if (!Enum.IsDefined(typeof(IndexCharacteristic), index.Characteristic))
-                    return CreateColumnIndexFailure(
+                {
+                    failures.Add(CreateColumnIndexFailure(
                         table,
-                        $"Index '{index.Name}' on table '{table.DbName}' uses unsupported index characteristic '{index.Characteristic}'.");
+                        $"Index '{index.Name}' on table '{table.DbName}' uses unsupported index characteristic '{index.Characteristic}'."));
+                    indexHasShapeFailure = true;
+                }
 
                 if (!Enum.IsDefined(typeof(IndexType), index.Type))
-                    return CreateColumnIndexFailure(
+                {
+                    failures.Add(CreateColumnIndexFailure(
                         table,
-                        $"Index '{index.Name}' on table '{table.DbName}' uses unsupported index type '{index.Type}'.");
+                        $"Index '{index.Name}' on table '{table.DbName}' uses unsupported index type '{index.Type}'."));
+                    indexHasShapeFailure = true;
+                }
 
                 if (index.Columns.Count == 0)
-                    return CreateColumnIndexFailure(
+                {
+                    failures.Add(CreateColumnIndexFailure(
                         table,
-                        $"Index '{index.Name}' on table '{table.DbName}' must include at least one column.");
+                        $"Index '{index.Name}' on table '{table.DbName}' must include at least one column."));
+                    indexHasShapeFailure = true;
+                }
 
                 if (!ReferenceEquals(index.Table, table))
                 {
                     var indexTableName = index.Table?.DbName ?? "<unknown>";
-                    return CreateColumnIndexFailure(
+                    failures.Add(CreateColumnIndexFailure(
                         table,
-                        $"Index '{index.Name}' is attached to table '{table.DbName}', but the index belongs to table '{indexTableName}'. Column indices must be stored on the table that owns their columns.");
+                        $"Index '{index.Name}' is attached to table '{table.DbName}', but the index belongs to table '{indexTableName}'. Column indices must be stored on the table that owns their columns."));
+                    indexHasShapeFailure = true;
                 }
 
                 if (index.RelationParts is null)
-                    return CreateColumnIndexFailure(
+                {
+                    failures.Add(CreateColumnIndexFailure(
                         table,
-                        $"Index '{index.Name}' on table '{table.DbName}' has a null relation-part collection.");
+                        $"Index '{index.Name}' on table '{table.DbName}' has a null relation-part collection."));
+                    indexHasShapeFailure = true;
+                }
 
+                if (indexHasShapeFailure)
+                    continue;
+
+                var indexHasColumnFailure = false;
                 foreach (var column in index.Columns)
                 {
                     if (column is null)
-                        return CreateColumnIndexFailure(
+                    {
+                        failures.Add(CreateColumnIndexFailure(
                             table,
-                            $"Index '{index.Name}' on table '{table.DbName}' contains a null column reference.");
+                            $"Index '{index.Name}' on table '{table.DbName}' contains a null column reference."));
+                        indexHasColumnFailure = true;
+                        break;
+                    }
 
                     if (!ReferenceEquals(column.Table, table))
-                        return CreateColumnIndexFailure(
+                    {
+                        failures.Add(CreateColumnIndexFailure(
                             table,
-                            $"Index '{index.Name}' on table '{table.DbName}' references column '{column.Table?.DbName ?? "<unknown>"}.{column.DbName}', but index columns must belong to the table that stores the index.");
+                            $"Index '{index.Name}' on table '{table.DbName}' references column '{column.Table?.DbName ?? "<unknown>"}.{column.DbName}', but index columns must belong to the table that stores the index."));
+                        indexHasColumnFailure = true;
+                        break;
+                    }
 
                     if (!table.Columns.Contains(column))
-                        return CreateColumnIndexFailure(
+                    {
+                        failures.Add(CreateColumnIndexFailure(
                             table,
-                            $"Index '{index.Name}' on table '{table.DbName}' references column '{column.DbName}', but that column is not registered on the table.");
+                            $"Index '{index.Name}' on table '{table.DbName}' references column '{column.DbName}', but that column is not registered on the table."));
+                        indexHasColumnFailure = true;
+                        break;
+                    }
                 }
+
+                if (indexHasColumnFailure)
+                    continue;
 
                 var duplicateColumnGroup = index.Columns
                     .GroupBy(column => column)
@@ -2263,18 +2302,20 @@ public static class MetadataFactory
 
                 if (duplicateColumnGroup != null)
                 {
-                    return CreateColumnIndexFailure(
+                    failures.Add(CreateColumnIndexFailure(
                         table,
-                        $"Index '{index.Name}' on table '{table.DbName}' contains duplicate column reference '{duplicateColumnGroup.Key.DbName}'. Index columns must be unique within an index.");
+                        $"Index '{index.Name}' on table '{table.DbName}' contains duplicate column reference '{duplicateColumnGroup.Key.DbName}'. Index columns must be unique within an index."));
+                    continue;
                 }
 
                 if (index.Characteristic == IndexCharacteristic.PrimaryKey &&
                     !ColumnsMatch(index.Columns, table.PrimaryKeyColumns))
                 {
                     var primaryKeyColumns = table.PrimaryKeyColumns.Select(column => column.DbName).ToJoinedString(", ");
-                    return CreateColumnIndexFailure(
+                    failures.Add(CreateColumnIndexFailure(
                         table,
-                        $"Primary-key index '{index.Name}' on table '{table.DbName}' must match the table primary-key columns '{primaryKeyColumns}'.");
+                        $"Primary-key index '{index.Name}' on table '{table.DbName}' must match the table primary-key columns '{primaryKeyColumns}'."));
+                    continue;
                 }
 
                 if (index.Characteristic == IndexCharacteristic.ForeignKey)
@@ -2282,25 +2323,30 @@ public static class MetadataFactory
                     var nonForeignKeyColumn = index.Columns.FirstOrDefault(column => !column.ForeignKey);
                     if (nonForeignKeyColumn != null)
                     {
-                        return CreateColumnIndexFailure(
+                        failures.Add(CreateColumnIndexFailure(
                             table,
-                            $"Foreign-key index '{index.Name}' on table '{table.DbName}' references column '{nonForeignKeyColumn.DbName}', but foreign-key index columns must be marked as foreign keys.");
+                            $"Foreign-key index '{index.Name}' on table '{table.DbName}' references column '{nonForeignKeyColumn.DbName}', but foreign-key index columns must be marked as foreign keys."));
+                        continue;
                     }
                 }
             }
 
-            var duplicateIndexGroup = table.ColumnIndices
+            var duplicateIndexGroups = table.ColumnIndices
                 .Where(index => index is not null)
                 .GroupBy(index => index.Name, StringComparer.Ordinal)
-                .FirstOrDefault(group => group.Count() > 1);
+                .Where(group => group.Count() > 1);
 
-            if (duplicateIndexGroup != null)
-                return CreateColumnIndexFailure(
+            foreach (var duplicateIndexGroup in duplicateIndexGroups)
+            {
+                failures.Add(CreateColumnIndexFailure(
                     table,
-                    $"Table '{table.DbName}' contains duplicate column index name '{duplicateIndexGroup.Key}'. Index names must be unique within a table.");
+                    $"Table '{table.DbName}' contains duplicate column index name '{duplicateIndexGroup.Key}'. Index names must be unique within a table."));
+            }
         }
 
-        return true;
+        return failures.Count == 0
+            ? true
+            : SingleOrAggregate(failures);
     }
 
     private static IDLOptionFailure CreateColumnIndexFailure(TableDefinition table, string message) =>

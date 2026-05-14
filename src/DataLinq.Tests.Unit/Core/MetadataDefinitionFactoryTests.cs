@@ -3350,6 +3350,42 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_MultipleExistingIndexFailures_ReturnsAllFailuresBeforeSnapshot()
+    {
+        var database = new DatabaseDefinition(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+        var itemModel = CreateTableModel(database, "Items", "Item", "items").Model;
+        var orderModel = CreateTableModel(database, "Orders", "Order", "orders").Model;
+        AddValueProperties(
+            itemModel,
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
+            ("Code", typeof(string), [new ColumnAttribute("code")]));
+        AddValueProperties(
+            orderModel,
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
+            ("Code", typeof(string), [new ColumnAttribute("code")]));
+        SetDatabaseTableModels(database, [itemModel.TableModel, orderModel.TableModel]);
+        var itemCodeColumn = itemModel.Table.Columns.Single(column => column.DbName == "code");
+        var orderCodeColumn = orderModel.Table.Columns.Single(column => column.DbName == "code");
+        AddMetadataListItem(itemModel.Table.ColumnIndices, new ColumnIndex("idx_items_duplicate", IndexCharacteristic.Simple, IndexType.BTREE, [itemCodeColumn, itemCodeColumn]));
+        AddMetadataListItem(orderModel.Table.ColumnIndices, new ColumnIndex("idx_orders_duplicate", IndexCharacteristic.Simple, IndexType.BTREE, [orderCodeColumn, orderCodeColumn]));
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        var issues = DataLinqDiagnosticIssue.FromFailure(failure);
+        await Assert.That(issues.Count).IsEqualTo(2);
+        await Assert.That(issues.Any(issue =>
+            issue.Message.Contains("idx_items_duplicate", StringComparison.Ordinal) &&
+            issue.Message.Contains("items", StringComparison.Ordinal))).IsTrue();
+        await Assert.That(issues.Any(issue =>
+            issue.Message.Contains("idx_orders_duplicate", StringComparison.Ordinal) &&
+            issue.Message.Contains("orders", StringComparison.Ordinal))).IsTrue();
+    }
+
+    [Test]
     public async Task Build_ExistingIndexWithUnsupportedCharacteristic_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
