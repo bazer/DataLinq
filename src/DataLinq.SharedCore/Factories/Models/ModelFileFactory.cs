@@ -136,7 +136,7 @@ public class ModelFileFactory
 
         foreach (var t in database.TableModels.OrderBy(x => x.Table.DbName))
         {
-            yield return $"{namespaceTab}{tab}public DbRead<{t.Model.CsType.Name}> {t.CsPropertyName} {{ get; }} = new DbRead<{t.Model.CsType.Name}>(dataSource);";
+            yield return $"{namespaceTab}{tab}public DbRead<{t.Model.CsType.Name}> {t.CsPropertyName} {{ get; }} = new(dataSource);";
             //yield return $"{namespaceTab}{tab}DbRead<I{t.Model.CsTypeName}> {t.CsPropertyName} {{ get; }}";
         }
 

@@ -100,6 +100,19 @@ public class ModelFileFactoryTests
     }
 
     [Test]
+    public async Task CreateModelFiles_DatabaseModel_UsesTargetTypedDbReadInitialization()
+    {
+        var database = CreateDatabaseWithDefaultValue(new CsTypeDeclaration(typeof(string)), "generated");
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "QuoteDb.cs");
+
+        await Assert.That(generatedFile.contents).Contains("public DbRead<QuoteModel> QuoteModels { get; } = new(dataSource);");
+        await Assert.That(generatedFile.contents).DoesNotContain("new DbRead<QuoteModel>(dataSource)");
+    }
+
+    [Test]
     public async Task CreateModelFiles_DefaultCharDoubleQuote_EscapesValue()
     {
         var database = CreateDatabaseWithDefaultValue(new CsTypeDeclaration(typeof(char)), '"');
