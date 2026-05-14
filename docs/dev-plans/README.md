@@ -34,6 +34,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 - `metadata-and-generation/Generated File Headers and Stamping.md`
 - `metadata-and-generation/Metadata Architecture.md`
+- `metadata-and-generation/Nullable Reference Type Generation Defaults.md`
 - `metadata-and-generation/Scalar Converter Support.md`
 - `metadata-and-generation/Source Location Diagnostic Fidelity.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
