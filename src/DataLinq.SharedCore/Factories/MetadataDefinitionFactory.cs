@@ -8,11 +8,14 @@ namespace DataLinq.Core.Factories;
 
 public sealed class MetadataDefinitionFactory
 {
-    private readonly Action<string>? log;
-
-    public MetadataDefinitionFactory(Action<string>? log = null)
+    public MetadataDefinitionFactory()
     {
-        this.log = log;
+    }
+
+    // Kept for source compatibility. Generated-name diagnostics are emitted after source transforms.
+    public MetadataDefinitionFactory(Action<string>? log)
+    {
+        _ = log;
     }
 
     [Obsolete(MetadataMutationGuard.MutableFactoryInputObsoleteMessage)]
@@ -154,7 +157,7 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateExistingRelationParts(draft).TryUnwrap(out _, out var relationPartFailure))
             return relationPartFailure;
 
-        if (!MetadataFactory.ParseRelationsCore(draft, out var generatedRelationProperties, log).TryUnwrap(out _, out var relationFailure))
+        if (!MetadataFactory.ParseRelationsCore(draft, out var generatedRelationProperties).TryUnwrap(out _, out var relationFailure))
             return relationFailure;
 
         if (generatedRelationProperties &&

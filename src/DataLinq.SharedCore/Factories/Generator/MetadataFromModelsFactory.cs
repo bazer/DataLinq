@@ -51,7 +51,7 @@ public class MetadataFromModelsFactory
             .Where(cls => ImplementsInterface(cls, modelSyntaxes, x => x == "IDatabaseModel"))
             .ToList();
 
-        var parsedDatabases = ParseDatabaseModels(modelSyntaxes, syntaxParser, dbModelClasses, options.AllowMissingTableModels, Log).ToList();
+        var parsedDatabases = ParseDatabaseModels(modelSyntaxes, syntaxParser, dbModelClasses, options.AllowMissingTableModels).ToList();
         return ValidateUniqueDatabaseNames(parsedDatabases);
     });
 
@@ -170,19 +170,17 @@ public class MetadataFromModelsFactory
         ImmutableArray<TypeDeclarationSyntax> modelSyntaxes,
         SyntaxParser syntaxParser,
         List<ClassDeclarationSyntax> dbModelClasses,
-        bool allowMissingTableModels,
-        Action<string>? log)
+        bool allowMissingTableModels)
     {
         foreach (var dbType in dbModelClasses)
-            yield return ParseDatabaseModel(modelSyntaxes, syntaxParser, dbType, allowMissingTableModels, log);
+            yield return ParseDatabaseModel(modelSyntaxes, syntaxParser, dbType, allowMissingTableModels);
     }
 
     private static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseModel(
         ImmutableArray<TypeDeclarationSyntax> modelSyntaxes,
         SyntaxParser syntaxParser,
         ClassDeclarationSyntax dbType,
-        bool allowMissingTableModels,
-        Action<string>? log)
+        bool allowMissingTableModels)
     {
         if (dbType == null)
             return DLOptionFailure.Fail("Database model class not found");
@@ -262,7 +260,7 @@ public class MetadataFromModelsFactory
             TableModels = tableModels
         };
 
-        if (!new MetadataDefinitionFactory(log).Build(database).TryUnwrap(out var builtDatabase, out var buildFailure))
+        if (!new MetadataDefinitionFactory().Build(database).TryUnwrap(out var builtDatabase, out var buildFailure))
             return buildFailure;
 
         return builtDatabase;

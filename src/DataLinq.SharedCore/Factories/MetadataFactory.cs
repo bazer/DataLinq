@@ -3549,14 +3549,6 @@ public static class MetadataFactory
         DatabaseDefinition database,
         out bool generatedRelationProperties)
     {
-        return ParseRelationsCore(database, out generatedRelationProperties, log: null);
-    }
-
-    internal static Option<bool, IDLOptionFailure> ParseRelationsCore(
-        DatabaseDefinition database,
-        out bool generatedRelationProperties,
-        Action<string>? log)
-    {
         generatedRelationProperties = false;
         var foreignKeys = new List<ForeignKeyColumn>();
         var failures = new List<IDLOptionFailure>();
@@ -3705,7 +3697,7 @@ public static class MetadataFactory
                 ? GetForeignKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute)
                 : null;
             if (manyToOnePropName != null)
-                manyToOnePropName = ResolveGeneratedRelationPropertyName(manySideModel, manyToOnePropName, firstForeignKey.Column, firstAttribute, log);
+                manyToOnePropName = ResolveGeneratedRelationPropertyName(manySideModel, manyToOnePropName);
 
             var oneRelationPropertyResolved = TryGetRelationProperty(
                 oneSideModel,
@@ -3723,7 +3715,7 @@ public static class MetadataFactory
                 ? GetCandidateKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute)
                 : null;
             if (oneToManyPropName != null)
-                oneToManyPropName = ResolveGeneratedRelationPropertyName(oneSideModel, oneToManyPropName, firstForeignKey.Column, firstAttribute, log);
+                oneToManyPropName = ResolveGeneratedRelationPropertyName(oneSideModel, oneToManyPropName);
 
             if (relationFailures.Count > 0)
             {
@@ -4019,46 +4011,148 @@ public static class MetadataFactory
         return names.ToJoinedString(", ");
     }
 
-    private static string ResolveGeneratedRelationPropertyName(
-        ModelDefinition model,
-        string propertyName,
-        ColumnDefinition foreignKeyColumn,
-        ForeignKeyAttribute attribute,
-        Action<string>? log)
+    public static bool TryGetGeneratedRelationPropertyFallback(
+        RelationProperty relationProperty,
+        out string preferredPropertyName,
+        out string existingPropertyKind)
     {
-        var existingKind = model.ValueProperties.ContainsKey(propertyName)
-            ? "value property"
-            : model.RelationProperties.ContainsKey(propertyName)
-                ? "relation property"
-                : null;
+        preferredPropertyName = string.Empty;
+        existingPropertyKind = string.Empty;
 
+        if (!TryGetGeneratedRelationPropertyName(relationProperty, out preferredPropertyName))
+            return false;
+
+        if (string.Equals(relationProperty.PropertyName, preferredPropertyName, StringComparison.Ordinal))
+            return false;
+
+        var existingKind = GetExistingPropertyKind(relationProperty.Model, preferredPropertyName, relationProperty);
         if (existingKind is null)
-            return propertyName;
+            return false;
 
-        var resolvedPropertyName = GetAvailableGeneratedRelationPropertyName(model, propertyName);
-        log?.Invoke(
-            $"Warning: Foreign key '{attribute.Name}' on table '{foreignKeyColumn.Table.DbName}' would generate relation property '{model.CsType.Name}.{propertyName}', but model '{model.CsType.Name}' already defines a {existingKind} with that name. Generated relation property '{model.CsType.Name}.{resolvedPropertyName}' instead. Add an explicit [Relation] property with a non-conflicting name to control this.");
-        return resolvedPropertyName;
+        var fallbackPropertyName = GetAvailableGeneratedRelationPropertyName(
+            relationProperty.Model,
+            preferredPropertyName,
+            relationProperty);
+        if (!string.Equals(relationProperty.PropertyName, fallbackPropertyName, StringComparison.Ordinal))
+            return false;
+
+        existingPropertyKind = existingKind;
+        return true;
     }
 
-    private static string GetAvailableGeneratedRelationPropertyName(ModelDefinition model, string propertyName)
+    private static string ResolveGeneratedRelationPropertyName(ModelDefinition model, string propertyName)
+    {
+        return GetExistingPropertyKind(model, propertyName) is null
+            ? propertyName
+            : GetAvailableGeneratedRelationPropertyName(model, propertyName);
+    }
+
+    private static bool TryGetGeneratedRelationPropertyName(RelationProperty relationProperty, out string propertyName)
+    {
+        propertyName = string.Empty;
+
+        if (relationProperty.RelationPart is null)
+            return false;
+
+        var relation = relationProperty.RelationPart.Relation;
+        var foreignKeyPart = relation.ForeignKey;
+        var candidateKeyPart = relation.CandidateKey;
+        var foreignKeyColumns = foreignKeyPart.ColumnIndex.Columns;
+        if (foreignKeyColumns.Count == 0)
+            return false;
+
+        if (!TryGetFirstForeignKeyAttribute(relation, out var firstAttribute))
+            return false;
+
+        var manySideModel = foreignKeyPart.ColumnIndex.Table.Model;
+        var oneSideModel = candidateKeyPart.ColumnIndex.Table.Model;
+        propertyName = relationProperty.RelationPart.Type == RelationPartType.ForeignKey
+            ? GetForeignKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute)
+            : GetCandidateKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute);
+        return true;
+    }
+
+    private static bool TryGetFirstForeignKeyAttribute(RelationDefinition relation, out ForeignKeyAttribute attribute)
+    {
+        var foreignKeyColumns = relation.ForeignKey.ColumnIndex.Columns;
+        var candidateColumns = relation.CandidateKey.ColumnIndex.Columns;
+        for (var i = 0; i < foreignKeyColumns.Count; i++)
+        {
+            var candidateColumn = i < candidateColumns.Count ? candidateColumns[i] : null;
+            foreach (var foreignKeyAttribute in foreignKeyColumns[i].ValueProperty.Attributes.OfType<ForeignKeyAttribute>())
+            {
+                if (ForeignKeyAttributeMatchesRelation(foreignKeyAttribute, relation, candidateColumn))
+                {
+                    attribute = foreignKeyAttribute;
+                    return true;
+                }
+            }
+        }
+
+        foreach (var foreignKeyAttribute in foreignKeyColumns.SelectMany(static column => column.ValueProperty.Attributes.OfType<ForeignKeyAttribute>()))
+        {
+            if (string.Equals(foreignKeyAttribute.Name, relation.ConstraintName, StringComparison.Ordinal))
+            {
+                attribute = foreignKeyAttribute;
+                return true;
+            }
+        }
+
+        attribute = null!;
+        return false;
+    }
+
+    private static bool ForeignKeyAttributeMatchesRelation(
+        ForeignKeyAttribute attribute,
+        RelationDefinition relation,
+        ColumnDefinition? candidateColumn)
+    {
+        return candidateColumn is not null &&
+               string.Equals(attribute.Name, relation.ConstraintName, StringComparison.Ordinal) &&
+               string.Equals(attribute.Table, candidateColumn.Table.DbName, StringComparison.Ordinal) &&
+               string.Equals(attribute.Column, candidateColumn.DbName, StringComparison.Ordinal);
+    }
+
+    private static string GetAvailableGeneratedRelationPropertyName(
+        ModelDefinition model,
+        string propertyName,
+        RelationProperty? ignoredRelationProperty = null)
     {
         var fallbackName = $"{propertyName}Relation";
-        if (!ModelDefinesProperty(model, fallbackName))
+        if (!ModelDefinesProperty(model, fallbackName, ignoredRelationProperty))
             return fallbackName;
 
         for (var suffix = 2; ; suffix++)
         {
             var candidateName = $"{fallbackName}{suffix}";
-            if (!ModelDefinesProperty(model, candidateName))
+            if (!ModelDefinesProperty(model, candidateName, ignoredRelationProperty))
                 return candidateName;
         }
     }
 
-    private static bool ModelDefinesProperty(ModelDefinition model, string propertyName)
+    private static bool ModelDefinesProperty(
+        ModelDefinition model,
+        string propertyName,
+        RelationProperty? ignoredRelationProperty = null)
     {
         return model.ValueProperties.ContainsKey(propertyName) ||
-               model.RelationProperties.ContainsKey(propertyName);
+               model.RelationProperties.TryGetValue(propertyName, out var relationProperty) &&
+               !ReferenceEquals(relationProperty, ignoredRelationProperty);
+    }
+
+    private static string? GetExistingPropertyKind(
+        ModelDefinition model,
+        string propertyName,
+        RelationProperty? ignoredRelationProperty = null)
+    {
+        if (model.ValueProperties.ContainsKey(propertyName))
+            return "value property";
+
+        if (model.RelationProperties.TryGetValue(propertyName, out var relationProperty) &&
+            !ReferenceEquals(relationProperty, ignoredRelationProperty))
+            return "relation property";
+
+        return null;
     }
 
     private static IDLOptionFailure CreateRelationPropertyFailure(

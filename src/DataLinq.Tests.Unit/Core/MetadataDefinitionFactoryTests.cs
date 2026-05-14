@@ -2371,7 +2371,7 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
-    public async Task Build_GeneratedManyToOneRelationPropertyNameCollision_GeneratesFallbackNameAndWarns()
+    public async Task Build_GeneratedManyToOneRelationPropertyNameCollision_GeneratesFallbackName()
     {
         var database = CreateRelationTypedDraft(
             orderAdditionalValueProperties:
@@ -2382,23 +2382,24 @@ public class MetadataDefinitionFactoryTests
                     "customer_label",
                     attributes: [new ColumnAttribute("customer_label")])
             ]);
-        var warnings = new List<string>();
 
-        var built = new MetadataDefinitionFactory(warnings.Add)
+        var built = new MetadataDefinitionFactory()
             .Build(database)
             .ValueOrException();
         var orderModel = built.TableModels.Single(tableModel => tableModel.Model.CsType.Name == "Order").Model;
+        var relationProperty = orderModel.RelationProperties["CustomerRelation"];
 
         await Assert.That(orderModel.RelationProperties.ContainsKey("CustomerRelation")).IsTrue();
-        await Assert.That(warnings.Count).IsEqualTo(1);
-        await Assert.That(warnings[0]).Contains("Warning: Foreign key 'FK_Order_User'");
-        await Assert.That(warnings[0]).Contains("would generate relation property 'Order.Customer'");
-        await Assert.That(warnings[0]).Contains("already defines a value property");
-        await Assert.That(warnings[0]).Contains("Generated relation property 'Order.CustomerRelation' instead");
+        await Assert.That(MetadataFactory.TryGetGeneratedRelationPropertyFallback(
+            relationProperty,
+            out var preferredPropertyName,
+            out var existingPropertyKind)).IsTrue();
+        await Assert.That(preferredPropertyName).IsEqualTo("Customer");
+        await Assert.That(existingPropertyKind).IsEqualTo("value property");
     }
 
     [Test]
-    public async Task Build_GeneratedOneToManyRelationPropertyNameCollision_GeneratesFallbackNameAndWarns()
+    public async Task Build_GeneratedOneToManyRelationPropertyNameCollision_GeneratesFallbackName()
     {
         var database = CreateRelationTypedDraft(
             userAdditionalValueProperties:
@@ -2409,23 +2410,24 @@ public class MetadataDefinitionFactoryTests
                     "sort_order",
                     attributes: [new ColumnAttribute("sort_order")])
             ]);
-        var warnings = new List<string>();
 
-        var built = new MetadataDefinitionFactory(warnings.Add)
+        var built = new MetadataDefinitionFactory()
             .Build(database)
             .ValueOrException();
         var userModel = built.TableModels.Single(tableModel => tableModel.Model.CsType.Name == "User").Model;
+        var relationProperty = userModel.RelationProperties["OrderRelation"];
 
         await Assert.That(userModel.RelationProperties.ContainsKey("OrderRelation")).IsTrue();
-        await Assert.That(warnings.Count).IsEqualTo(1);
-        await Assert.That(warnings[0]).Contains("Warning: Foreign key 'FK_Order_User'");
-        await Assert.That(warnings[0]).Contains("would generate relation property 'User.Order'");
-        await Assert.That(warnings[0]).Contains("already defines a value property");
-        await Assert.That(warnings[0]).Contains("Generated relation property 'User.OrderRelation' instead");
+        await Assert.That(MetadataFactory.TryGetGeneratedRelationPropertyFallback(
+            relationProperty,
+            out var preferredPropertyName,
+            out var existingPropertyKind)).IsTrue();
+        await Assert.That(preferredPropertyName).IsEqualTo("Order");
+        await Assert.That(existingPropertyKind).IsEqualTo("value property");
     }
 
     [Test]
-    public async Task Build_MultipleGeneratedRelationPropertyNameCollisions_GeneratesFallbackNamesAndWarns()
+    public async Task Build_MultipleGeneratedRelationPropertyNameCollisions_GeneratesFallbackNames()
     {
         var database = CreateRelationTypedDraft(
             orderAdditionalValueProperties:
@@ -2445,18 +2447,58 @@ public class MetadataDefinitionFactoryTests
                     "approver_id",
                     new ForeignKeyAttribute("users", "user_id", "FK_Order_Approver_User"))
             ]);
-        var warnings = new List<string>();
 
-        var built = new MetadataDefinitionFactory(warnings.Add)
+        var built = new MetadataDefinitionFactory()
             .Build(database)
             .ValueOrException();
         var orderModel = built.TableModels.Single(tableModel => tableModel.Model.CsType.Name == "Order").Model;
 
         await Assert.That(orderModel.RelationProperties.ContainsKey("CustomerRelation")).IsTrue();
         await Assert.That(orderModel.RelationProperties.ContainsKey("ApproverRelation")).IsTrue();
-        await Assert.That(warnings.Count).IsEqualTo(2);
-        await Assert.That(warnings.Any(warning => warning.Contains("FK_Order_User") && warning.Contains("Order.CustomerRelation"))).IsTrue();
-        await Assert.That(warnings.Any(warning => warning.Contains("FK_Order_Approver_User") && warning.Contains("Order.ApproverRelation"))).IsTrue();
+        await Assert.That(MetadataFactory.TryGetGeneratedRelationPropertyFallback(
+            orderModel.RelationProperties["CustomerRelation"],
+            out var customerPreferredPropertyName,
+            out _)).IsTrue();
+        await Assert.That(customerPreferredPropertyName).IsEqualTo("Customer");
+        await Assert.That(MetadataFactory.TryGetGeneratedRelationPropertyFallback(
+            orderModel.RelationProperties["ApproverRelation"],
+            out var approverPreferredPropertyName,
+            out _)).IsTrue();
+        await Assert.That(approverPreferredPropertyName).IsEqualTo("Approver");
+    }
+
+    [Test]
+    public async Task Build_ExplicitRelationNameAvoidsGeneratedFallbackDiagnostic()
+    {
+        var database = CreateRelationTypedDraft(
+            orderRelationProperties:
+            [
+                new MetadataRelationPropertyDraft(
+                    "Customer_dl",
+                    new CsTypeDeclaration("User", "TestNamespace", ModelCsType.Class))
+                {
+                    Attributes = [new RelationAttribute("users", "user_id", "FK_Order_User")]
+                }
+            ],
+            orderAdditionalValueProperties:
+            [
+                CreateTypedValueProperty(
+                    "Customer",
+                    typeof(string),
+                    "customer_label",
+                    attributes: [new ColumnAttribute("customer_label")])
+            ]);
+
+        var built = new MetadataDefinitionFactory()
+            .Build(database)
+            .ValueOrException();
+        var orderModel = built.TableModels.Single(tableModel => tableModel.Model.CsType.Name == "Order").Model;
+
+        await Assert.That(orderModel.RelationProperties.ContainsKey("Customer_dl")).IsTrue();
+        await Assert.That(MetadataFactory.TryGetGeneratedRelationPropertyFallback(
+            orderModel.RelationProperties["Customer_dl"],
+            out _,
+            out _)).IsFalse();
     }
 
     [Test]

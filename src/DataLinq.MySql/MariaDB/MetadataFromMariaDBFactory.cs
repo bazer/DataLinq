@@ -65,7 +65,7 @@ public class MetadataFromMariaDBFactory : MetadataFromSqlFactory
             return relationFailure;
 
         ParseCheckConstraints(database, informationSchemaDb.Provider.DatabaseAccess);
-        return new MetadataDefinitionFactory(options.Log)
+        return new MetadataDefinitionFactory()
             .BuildProviderMetadata(database.ToMetadataDraft());
     });
 

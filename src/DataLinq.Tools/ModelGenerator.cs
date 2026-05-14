@@ -127,6 +127,7 @@ public class ModelGenerator : Generator
         log("");
 
         var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
+        var sourceRelationPropertyKeys = new HashSet<string>(StringComparer.Ordinal);
         if (this.options.ReadSourceModels)
         {
             if (db.SourceDirectories == null || !db.SourceDirectories.Any())
@@ -149,6 +150,8 @@ public class ModelGenerator : Generator
                 if (srcMetadata.Name != db.Name)
                     return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Database name in model files does not match the database name. Expected: {db.Name}, Found: {srcMetadata.Name}");
 
+                sourceRelationPropertyKeys = GetRelationPropertyKeys(srcMetadata);
+
                 log($"Tables in source model files: {srcMetadata.TableModels.Length}");
                 log("");
 
@@ -161,6 +164,7 @@ public class ModelGenerator : Generator
             }
         }
 
+        LogGeneratedRelationFallbackWarnings(dbMetadata, sourceRelationPropertyKeys);
 
         var options = new ModelFileFactoryOptions
         {
@@ -189,5 +193,64 @@ public class ModelGenerator : Generator
 
         return dbMetadata;
     }
+
+    private void LogGeneratedRelationFallbackWarnings(
+        DatabaseDefinition database,
+        IReadOnlySet<string> sourceRelationPropertyKeys)
+    {
+        foreach (var relationProperty in database.TableModels
+            .Where(tableModel => !tableModel.IsStub)
+            .SelectMany(tableModel => tableModel.Model.RelationProperties.Values))
+        {
+            if (TryGetRelationPropertyKey(relationProperty, out var relationPropertyKey) &&
+                sourceRelationPropertyKeys.Contains(relationPropertyKey))
+            {
+                continue;
+            }
+
+            if (!MetadataFactory.TryGetGeneratedRelationPropertyFallback(
+                relationProperty,
+                out var preferredPropertyName,
+                out var existingPropertyKind))
+            {
+                continue;
+            }
+
+            var relation = relationProperty.RelationPart.Relation;
+            log(
+                $"Warning: Foreign key '{relation.ConstraintName}' on table '{relation.ForeignKey.ColumnIndex.Table.DbName}' would generate relation property '{relationProperty.Model.CsType.Name}.{preferredPropertyName}', but model '{relationProperty.Model.CsType.Name}' already defines a {existingPropertyKind} with that name. Generated relation property '{relationProperty.Model.CsType.Name}.{relationProperty.PropertyName}' instead. Add an explicit [Relation] property with a non-conflicting name to control this.");
+        }
+    }
+
+    private static HashSet<string> GetRelationPropertyKeys(DatabaseDefinition database)
+    {
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var relationProperty in database.TableModels
+            .Where(tableModel => !tableModel.IsStub)
+            .SelectMany(tableModel => tableModel.Model.RelationProperties.Values))
+        {
+            if (TryGetRelationPropertyKey(relationProperty, out var key))
+                keys.Add(key);
+        }
+
+        return keys;
+    }
+
+    private static bool TryGetRelationPropertyKey(RelationProperty relationProperty, out string key)
+    {
+        key = string.Empty;
+        if (relationProperty.RelationPart is null)
+            return false;
+
+        var part = relationProperty.RelationPart;
+        var otherSide = part.GetOtherSide();
+        key =
+            $"{otherSide.ColumnIndex.Table.DbName}.({FormatColumnNames(otherSide.ColumnIndex.Columns)})->" +
+            $"{part.ColumnIndex.Table.DbName}.({FormatColumnNames(part.ColumnIndex.Columns)})";
+        return true;
+    }
+
+    private static string FormatColumnNames(IReadOnlyList<ColumnDefinition> columns) =>
+        string.Join(",", columns.Select(static column => column.DbName));
 
 }

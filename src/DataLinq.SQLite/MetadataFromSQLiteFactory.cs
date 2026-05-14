@@ -61,7 +61,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         if (!ParseRelations(database, dbAccess).TryUnwrap(out _, out var relationFailure))
             return relationFailure;
 
-        return new MetadataDefinitionFactory(options.Log)
+        return new MetadataDefinitionFactory()
             .BuildProviderMetadata(database.ToMetadataDraft());
     });
 
