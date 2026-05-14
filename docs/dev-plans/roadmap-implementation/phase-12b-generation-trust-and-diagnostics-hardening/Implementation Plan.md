@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 12B Implementation Plan: Generation Trust and Diagnostics Hardening
 
-**Status:** Draft execution plan.
+**Status:** Complete as of 2026-05-14.
 
 ## Purpose
 
@@ -309,7 +309,7 @@ Exit criteria:
 
 Implementation status, 2026-05-14:
 
-- Workstream E documentation updates are in progress against shipped behavior, not roadmap intent.
+- Workstream E is complete for the planned documentation, release-note, and support-boundary surface.
 - Updated configuration, CLI, getting-started, troubleshooting, README, and source-generator internals docs for generated-file banners, optional CLI header stamping, nullable-reference default-on behavior, explicit opt-out, validation issue reporting, JSON `issues`, safe `diff`, and source-generator nullable-context recognition.
 - Added changelog release notes and upgrade notes covering first-time generated C# diffs, `UseNullableReferenceTypes` default-on behavior, `UseNullableReferenceTypes: false` opt-out, and timestamp stamp churn.
 - No committed generated example files were regenerated in this slice; the user-facing docs now use short header snippets rather than stale generated-output snapshots.
@@ -377,3 +377,14 @@ Phase 12B can close when:
 - generated C# preambles and nullable directives are covered by tests
 - user docs and release notes reflect shipped behavior
 - the roadmap implementation index marks Phase 13 as the next priority after 12B
+
+Closeout status, 2026-05-14:
+
+- Closed. The four source plans have all been implemented for the scoped Phase 12B surface.
+- CLI validation, diagnostic issue projection, safe generated-file writes, generated-file preambles, nullable defaults, source-generator multi-diagnostics, partial output, and source-level nullable context are covered by targeted unit/generator tests.
+- User docs and release notes now describe shipped behavior, including expected generated-file churn and the `UseNullableReferenceTypes: false` opt-out.
+- Roadmap implementation pointers now mark Phase 12B complete and Phase 13 as the next implementation priority.
+- Closeout verification passed:
+  - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore`: 607 passed
+  - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Generators.Tests\DataLinq.Generators.Tests.csproj -c Debug --no-restore`: 38 passed
+  - `docfx build docfx.json`: 0 warnings, 0 errors

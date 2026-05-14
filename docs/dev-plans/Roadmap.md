@@ -431,7 +431,7 @@ Key related plans:
 
 ### Phase 12B: Generation Trust and Diagnostics Hardening
 
-Status: next implementation priority.
+Status: complete as of 2026-05-14.
 
 Goals:
 
@@ -449,6 +449,14 @@ Why before Phase 13:
 - users fixing model/schema problems should not need repeated CLI or IDE cycles to discover one error at a time
 - generated files should be self-identifying and deterministic before broader regeneration churn from later runtime work
 
+Closeout result:
+
+- CLI validation and `diff` now report structured leaf issues and preserve the no-write-on-error rule.
+- `create-models` validates and renders before replacing generated output.
+- source generation reports multiple focused diagnostics, emits safe scoped output, and suppresses incomplete bootstraps.
+- generated C# files carry DataLinq banners, optional CLI stamps, explicit nullable directives, default-on nullable reference generation, and explicit opt-out.
+- user docs and release notes describe the shipped behavior and expected generated-file diffs.
+
 Key related plans:
 
 - `roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/README.md`
@@ -460,7 +468,7 @@ Key related plans:
 
 ### Phase 13: Explicit Multi-Join Composition
 
-Status: planned after Phase 12B.
+Status: next implementation priority.
 
 Goals:
 
@@ -606,7 +614,7 @@ Phase 10 is now complete: metadata collection and lookup cleanup, generated prov
 
 Phase 11 is now complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is now complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led rejection of production interning.
 
-The next priority should be Phase 12B generation trust and diagnostics hardening. After that, the next broad runtime priority should be Phase 13 explicit multi-join composition, followed by the relation-aware join work in Phase 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
+The next priority should be Phase 13 explicit multi-join composition, followed by the relation-aware join work in Phase 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

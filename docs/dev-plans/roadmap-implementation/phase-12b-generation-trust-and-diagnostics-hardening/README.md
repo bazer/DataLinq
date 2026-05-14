@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 12B: Generation Trust and Diagnostics Hardening
 
-**Status:** Next implementation priority before Phase 13.
+**Status:** Complete as of 2026-05-14.
 
 ## Purpose
 
