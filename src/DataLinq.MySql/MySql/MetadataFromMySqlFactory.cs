@@ -70,6 +70,8 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
 
     protected Option<bool, IDLOptionFailure> ParseIndices(ProviderDatabaseDraft database, MySqlDatabase<MySQLInformationSchema> informationSchemaDb)
     {
+        var failures = new List<IDLOptionFailure>();
+
         // Fetch table-column pairs that are part of a foreign key relationship
         var foreignKeyColumns = informationSchemaDb.Query()
             .KEY_COLUMN_USAGE
@@ -98,12 +100,18 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
 
             var dbIndex = dbIndexGroup.First();
             if (string.IsNullOrWhiteSpace(dbIndex.TABLE_NAME) || string.IsNullOrWhiteSpace(dbIndex.INDEX_NAME))
-                return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"MySQL index metadata is missing a table or index name in database '{database.DbName}'.");
+            {
+                failures.Add(DLOptionFailure.Fail(DLFailureType.InvalidModel, $"MySQL index metadata is missing a table or index name in database '{database.DbName}'."));
+                continue;
+            }
 
             var tableName = dbIndex.TABLE_NAME;
             var indexName = dbIndex.INDEX_NAME;
             if (!ParseIndexType(dbIndex.INDEX_TYPE, tableName, indexName).TryUnwrap(out var indexType, out var indexTypeFailure))
-                return indexTypeFailure;
+            {
+                failures.Add(indexTypeFailure);
+                continue;
+            }
 
             var indexCharacteristic = dbIndex.NON_UNIQUE == 0
                 ? IndexCharacteristic.Unique
@@ -135,7 +143,9 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
                 column.Attributes.Add(new IndexAttribute(indexName, indexCharacteristic, indexType, columnNames));
         }
 
-        return true;
+        return failures.Count == 0
+            ? true
+            : SingleOrAggregate(failures);
     }
 
     private static string? GetUnsupportedIndexReason(IReadOnlyList<STATISTICS> indexedColumns)
@@ -157,6 +167,7 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
 
     protected Option<bool, IDLOptionFailure> ParseRelations(ProviderDatabaseDraft database, MySqlDatabase<MySQLInformationSchema> informationSchemaDb)
     {
+        var failures = new List<IDLOptionFailure>();
         var referentialActions = ParseReferentialActions(database, informationSchemaDb.Provider.DatabaseAccess);
 
         foreach (var key in informationSchemaDb.Query()
@@ -169,7 +180,10 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
                 key.REFERENCED_TABLE_NAME,
                 key.REFERENCED_COLUMN_NAME,
                 key.CONSTRAINT_NAME).TryUnwrap(out var foreignKey, out var foreignKeyFailure))
-                return foreignKeyFailure;
+            {
+                failures.Add(foreignKeyFailure);
+                continue;
+            }
 
             var foreignKeyColumn = database
                 .TableModels.SingleOrDefault(x => x.Table.DbName == foreignKey.TableName)?
@@ -201,7 +215,9 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
                 actions.OnDelete));
         }
 
-        return true;
+        return failures.Count == 0
+            ? true
+            : SingleOrAggregate(failures);
     }
 
     protected Option<ProviderTableModelDraft, IDLOptionFailure> ParseTable(ProviderDatabaseDraft database, MySqlDatabase<MySQLInformationSchema> informationSchemaDb, TABLES dbTables)

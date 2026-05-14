@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using DataLinq.Core.Factories.Models;
+using DataLinq.ErrorHandling;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
@@ -54,6 +55,23 @@ public class MetadataFromFileFactoryTests
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.Failure.Value).IsNotNull();
         await Assert.That(result.Failure.ToString()!).Contains("Path not found");
+    }
+
+    [Test]
+    public async Task ReadFiles_InvalidPaths_ReturnsAllPathFailures()
+    {
+        using var fixture = new MetadataFromFileFactoryFixture();
+        var factory = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions());
+        var firstInvalidPath = Path.Combine(fixture.TempDirectory, "missing-one.cs");
+        var secondInvalidPath = Path.Combine(fixture.TempDirectory, "missing-two.cs");
+
+        var result = factory.ReadFiles("AnyDb", [firstInvalidPath, secondInvalidPath]);
+
+        await Assert.That(result.HasValue).IsFalse();
+        var issues = DataLinqDiagnosticIssue.FromFailure(result.Failure);
+        await Assert.That(issues.Count).IsEqualTo(2);
+        await Assert.That(issues[0].Message).Contains("missing-one.cs");
+        await Assert.That(issues[1].Message).Contains("missing-two.cs");
     }
 
     [Test]

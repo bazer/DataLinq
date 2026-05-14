@@ -171,6 +171,8 @@ Implementation status, 2026-05-14:
 - Added structured `issues` output for `validate --output json` on validation failures and successful validation results.
 - Changed `create-models` to render every generated model file into memory before replacing any target file.
 - Added a staged generated-file writer that writes temporary files first and rolls back previously replaced files if a later replacement fails.
+- Changed file metadata loading to aggregate every reachable path/read failure before returning.
+- Changed provider index and relation parsing loops for SQLite, MySQL, and MariaDB to accumulate independent malformed metadata failures within the same phase.
 
 ## Workstream C: Source Generator Partial Output and Multi-Diagnostics
 

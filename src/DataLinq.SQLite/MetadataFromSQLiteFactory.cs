@@ -171,6 +171,8 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
     private Option<bool, IDLOptionFailure> ParseRelations(SQLiteProviderDatabaseDraft database, DatabaseAccess dbAccess)
     {
+        var failures = new List<IDLOptionFailure>();
+
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
             foreach (var reader in dbAccess.ReadReader($"SELECT id, seq, \"table\", \"from\", \"to\", on_update, on_delete FROM pragma_foreign_key_list({QuoteSqlLiteral(tableModel.Table.DbName)})"))
@@ -184,9 +186,12 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                 var onDelete = ParseReferentialAction(reader.GetString(6));
 
                 if (string.IsNullOrWhiteSpace(tableName) || string.IsNullOrWhiteSpace(fromColumnName))
-                    return DLOptionFailure.Fail(
-                        DLFailureType.InvalidModel,
-                        $"Malformed SQLite foreign-key metadata row in table '{tableModel.Table.DbName}': referenced table and source column are required.");
+                {
+                    failures.Add(DLOptionFailure.Fail(
+                            DLFailureType.InvalidModel,
+                            $"Malformed SQLite foreign-key metadata row in table '{tableModel.Table.DbName}': referenced table and source column are required."));
+                    continue;
+                }
 
                 var foreignKeyColumn = tableModel
                     .Table.Columns.SingleOrDefault(x => x.Column.DbName == fromColumnName);
@@ -209,9 +214,10 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                     var primaryKeyColumns = candidateTable.Columns.Where(x => x.Column.PrimaryKey).ToArray();
                     if (primaryKeyColumns.Length != 1)
                     {
-                        return DLOptionFailure.Fail(
-                            DLFailureType.InvalidModel,
-                            $"SQLite foreign key '{keyName}' on table '{tableModel.Table.DbName}' omits the referenced column, but referenced table '{tableName}' does not have exactly one imported primary-key column.");
+                        failures.Add(DLOptionFailure.Fail(
+                                DLFailureType.InvalidModel,
+                                $"SQLite foreign key '{keyName}' on table '{tableModel.Table.DbName}' omits the referenced column, but referenced table '{tableName}' does not have exactly one imported primary-key column."));
+                        continue;
                     }
 
                     toColumnName = primaryKeyColumns[0].Column.DbName;
@@ -230,7 +236,9 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             }
         }
 
-        return true;
+        return failures.Count == 0
+            ? true
+            : SingleOrAggregate(failures);
     }
 
     private static ReferentialAction ParseReferentialAction(string? value)
