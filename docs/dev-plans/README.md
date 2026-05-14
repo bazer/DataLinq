@@ -35,6 +35,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `metadata-and-generation/Metadata Architecture.md`
 - `metadata-and-generation/Scalar Converter Support.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
+- `metadata-and-generation/Validation Diagnostics and Partial Generation.md`
 
 ### Performance
 
