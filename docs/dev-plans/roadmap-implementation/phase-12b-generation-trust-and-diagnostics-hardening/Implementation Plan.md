@@ -108,6 +108,15 @@ Exit criteria:
 - aggregate failures no longer force a single "most relevant" diagnostic when multiple leaf locations exist
 - common table/column/property failures retain specific source spans where the parser captured them
 
+Implementation status, 2026-05-14:
+
+- Added `DataLinqDiagnosticIssue` as the shared leaf-issue projection over `IDLOptionFailure`.
+- Added deterministic issue ordering by source file/span, object path, failure type, then message.
+- Added source-location line/column formatting that falls back to file-level output when source text is unavailable.
+- Added object-path extraction for database, model, table, column, property, and index definitions.
+- Improved `DLOptionFailure.Fail(..., IDefinition)` fallback locations for table, column, property, and index definitions.
+- Added unit coverage for aggregate flattening, line/column formatting, and table/column source-location fallback.
+
 ## Workstream B: CLI Validation, Diff, and Safe File Writes
 
 Goals:
