@@ -1210,7 +1210,8 @@ public class SyntaxParser
         if (!ParsePropertyCsType(propSyntax).TryUnwrap(out var csType, out var csTypeFailure))
             return csTypeFailure;
 
-        var enumDeclaration = FindEnumDeclaration(csType.Name);
+        var enumDeclaration = FindEnumDeclaration(csType.Name, propSyntax);
+        var enumDeclarationInPropertyFile = IsDeclaredInSameSyntaxTree(propSyntax, enumDeclaration);
         if (enumDeclaration != null)
             csType = CreateEnumCsTypeDeclaration(csType, enumDeclaration);
 
@@ -1241,6 +1242,11 @@ public class SyntaxParser
                 var declaredInClass = parentClassSyntax?.Members
                     .OfType<EnumDeclarationSyntax>()
                     .Any(enumDecl => enumDecl.Identifier.ValueText == valueProp.CsType.Name) ?? false;
+                var declaredInModelFile = enumDeclarationInPropertyFile &&
+                    (declaredInClass || !HasExternalTopLevelEnumDeclaration(
+                        valueProp.CsType.Name,
+                        enumDeclaration != null ? CsTypeDeclarationSyntax.GetNamespace(enumDeclaration) : CsTypeDeclarationSyntax.GetNamespace(propSyntax),
+                        propSyntax));
 
                 var csEnumValues = new List<(string name, int value)>();
 
@@ -1264,7 +1270,11 @@ public class SyntaxParser
                     }
                 }
 
-                valueProp.SetEnumPropertyCore(new EnumProperty(enumValueList, csEnumValues, declaredInClass));
+                valueProp.SetEnumPropertyCore(new EnumProperty(
+                    enumValueList,
+                    csEnumValues,
+                    declaredInClass,
+                    declaredInModelFile));
             }
             else
             {
@@ -1300,7 +1310,8 @@ public class SyntaxParser
         if (!ParsePropertyCsType(propSyntax).TryUnwrap(out var csType, out var csTypeFailure))
             return csTypeFailure;
 
-        var enumDeclaration = FindEnumDeclaration(csType.Name);
+        var enumDeclaration = FindEnumDeclaration(csType.Name, propSyntax);
+        var enumDeclarationInPropertyFile = IsDeclaredInSameSyntaxTree(propSyntax, enumDeclaration);
         if (enumDeclaration != null)
             csType = CreateEnumCsTypeDeclaration(csType, enumDeclaration);
 
@@ -1338,6 +1349,11 @@ public class SyntaxParser
             var declaredInClass = parentClassSyntax?.Members
                 .OfType<EnumDeclarationSyntax>()
                 .Any(enumDecl => enumDecl.Identifier.ValueText == csType.Name) ?? false;
+            var declaredInModelFile = enumDeclarationInPropertyFile &&
+                (declaredInClass || !HasExternalTopLevelEnumDeclaration(
+                    csType.Name,
+                    enumDeclaration != null ? CsTypeDeclarationSyntax.GetNamespace(enumDeclaration) : CsTypeDeclarationSyntax.GetNamespace(propSyntax),
+                    propSyntax));
             var csEnumValues = new List<(string name, int value)>();
 
             if (enumDeclaration != null)
@@ -1360,7 +1376,11 @@ public class SyntaxParser
                 }
             }
 
-            enumProperty = new EnumProperty(enumValueList, csEnumValues, declaredInClass);
+            enumProperty = new EnumProperty(
+                enumValueList,
+                csEnumValues,
+                declaredInClass,
+                declaredInModelFile);
         }
         else
         {
@@ -1440,13 +1460,34 @@ public class SyntaxParser
         };
     }
 
-    private EnumDeclarationSyntax? FindEnumDeclaration(string enumName)
+    private static bool IsDeclaredInSameSyntaxTree(SyntaxNode source, SyntaxNode? declaration)
+    {
+        if (declaration == null)
+            return false;
+
+        if (ReferenceEquals(source.SyntaxTree, declaration.SyntaxTree))
+            return true;
+
+        return !string.IsNullOrWhiteSpace(source.SyntaxTree.FilePath) &&
+            string.Equals(source.SyntaxTree.FilePath, declaration.SyntaxTree.FilePath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool HasExternalTopLevelEnumDeclaration(string enumName, string enumNamespace, SyntaxNode source)
+    {
+        return enumSyntaxes
+            .Where(e => e.Identifier.ValueText == enumName)
+            .Where(e => !IsDeclaredInSameSyntaxTree(source, e))
+            .Any(e => string.Equals(CsTypeDeclarationSyntax.GetNamespace(e), enumNamespace, StringComparison.Ordinal));
+    }
+
+    private EnumDeclarationSyntax? FindEnumDeclaration(string enumName, SyntaxNode source)
     {
         var allEnums = modelSyntaxes
             .SelectMany(x => x.DescendantNodesAndSelf().OfType<EnumDeclarationSyntax>())
             .Concat(enumSyntaxes);
 
-        return allEnums.FirstOrDefault(e => e.Identifier.ValueText == enumName);
+        return allEnums.FirstOrDefault(e => e.Identifier.ValueText == enumName && IsDeclaredInSameSyntaxTree(source, e))
+            ?? allEnums.FirstOrDefault(e => e.Identifier.ValueText == enumName);
     }
 
     private static CsTypeDeclaration CreateEnumCsTypeDeclaration(

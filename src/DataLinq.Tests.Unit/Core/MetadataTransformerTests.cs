@@ -11,7 +11,7 @@ namespace DataLinq.Tests.Unit.Core;
 
 public class MetadataTransformerTests
 {
-    private static DatabaseDefinition CreateDestinationDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "raw_table", bool includeStatusDefault = false)
+    private static DatabaseDefinition CreateDestinationDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "raw_table", bool includeStatusDefault = false, bool includeStatusEnum = false)
     {
         var iTableModel = new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface);
         var dbCsType = new CsTypeDeclaration(dbName, "RawNamespace", ModelCsType.Class);
@@ -20,6 +20,12 @@ public class MetadataTransformerTests
         var statusAttributes = includeStatusDefault
             ? new Attribute[] { new ColumnAttribute("status_db"), new DefaultAttribute(1) }
             : [new ColumnAttribute("status_db")];
+        var statusType = includeStatusEnum
+            ? new CsTypeDeclaration("StatusDb", "RawNamespace", ModelCsType.Enum)
+            : new CsTypeDeclaration(typeof(int));
+        var statusEnum = includeStatusEnum
+            ? new EnumProperty(enumValues: [("Active", 1), ("Inactive", 2)])
+            : (EnumProperty?)null;
 
         return Build(new MetadataDatabaseDraft(dbName, dbCsType)
         {
@@ -48,9 +54,10 @@ public class MetadataTransformerTests
                             attributes: [new ColumnAttribute("col2_db")]),
                         CreateValueProperty(
                             "status_db",
-                            typeof(int),
+                            statusType,
                             "status_db",
-                            attributes: statusAttributes)
+                            attributes: statusAttributes,
+                            enumProperty: statusEnum)
                     ],
                     originalInterfaces: [iTableModel],
                     relationProperties:
@@ -76,13 +83,16 @@ public class MetadataTransformerTests
         });
     }
 
-    private static DatabaseDefinition CreateSourceDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "MyModel", string interfaceName = "IMyModel", bool includeEnumDefault = false)
+    private static DatabaseDefinition CreateSourceDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "MyModel", string interfaceName = "IMyModel", bool includeEnumDefault = false, bool useExternalStatusEnum = false)
     {
         var iTableModel = new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface);
         var dbCsType = new CsTypeDeclaration("MyDatabaseCsType", "SourceNamespace", ModelCsType.Class);
         var modelCsType = new CsTypeDeclaration(modelName, "SourceNamespace", ModelCsType.Class);
         var interfaceType = new CsTypeDeclaration(interfaceName, "SourceNamespace", ModelCsType.Interface);
         var enumType = new CsTypeDeclaration("MyStatusEnum", "SourceNamespace", ModelCsType.Enum);
+        var statusType = useExternalStatusEnum
+            ? new CsTypeDeclaration("ExternalStatus", "ExternalNamespace", ModelCsType.Class)
+            : enumType;
         var statusAttributes = includeEnumDefault
             ? new Attribute[]
             {
@@ -93,8 +103,9 @@ public class MetadataTransformerTests
             : [new ColumnAttribute("status_db"), new EnumAttribute("Active", "Inactive")];
         var statusEnum = new EnumProperty(
             enumValues: [("Active", 1), ("Inactive", 2)],
-            csEnumValues: [("Active", 1), ("Inactive", 2)],
-            declaredInClass: false);
+            csEnumValues: useExternalStatusEnum ? [] : [("Active", 1), ("Inactive", 2)],
+            declaredInClass: false,
+            declaredInModelFile: !useExternalStatusEnum);
         var otherModelCsType = new CsTypeDeclaration("MyOtherModel", "SourceNamespace", ModelCsType.Class);
 
         return Build(new MetadataDatabaseDraft(dbName, dbCsType)
@@ -126,7 +137,7 @@ public class MetadataTransformerTests
                             attributes: [new ColumnAttribute("col2_db")]),
                         CreateValueProperty(
                             "Status",
-                            enumType,
+                            statusType,
                             "status_db",
                             attributes: statusAttributes,
                             enumProperty: statusEnum)
@@ -186,7 +197,8 @@ public class MetadataTransformerTests
         string columnName,
         bool primaryKey = false,
         bool csNullable = false,
-        Attribute[]? attributes = null)
+        Attribute[]? attributes = null,
+        EnumProperty? enumProperty = null)
     {
         return CreateValueProperty(
             propertyName,
@@ -194,7 +206,8 @@ public class MetadataTransformerTests
             columnName,
             primaryKey,
             csNullable,
-            attributes);
+            attributes,
+            enumProperty);
     }
 
     private static MetadataValuePropertyDraft CreateValueProperty(
@@ -380,6 +393,29 @@ public class MetadataTransformerTests
         await Assert.That(transformedProperty.CsType.Name).IsEqualTo("MyStatusEnum");
         await Assert.That(transformedProperty.EnumProperty.HasValue).IsTrue();
         await Assert.That(transformedProperty.Column.DbName).IsEqualTo("status_db");
+    }
+
+    [Test]
+    public async Task OverwriteTypes_True_PreservesExternalEnumReferenceWithoutGeneratingEnum()
+    {
+        var sourceDatabase = CreateSourceDatabase(useExternalStatusEnum: true);
+        var destinationDatabase = CreateDestinationDatabase(includeStatusEnum: true);
+        var transformer = new MetadataTransformer(new MetadataTransformerOptions { OverwritePropertyTypes = true });
+
+        destinationDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
+
+        var transformedProperty = destinationDatabase.TableModels[0].Model.ValueProperties["Status"];
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(destinationDatabase)
+            .Single(file => file.path == "MyModel.cs");
+
+        await Assert.That(transformedProperty.PropertyName).IsEqualTo("Status");
+        await Assert.That(transformedProperty.CsType.Name).IsEqualTo("ExternalStatus");
+        await Assert.That(transformedProperty.EnumProperty.HasValue).IsTrue();
+        await Assert.That(transformedProperty.EnumProperty!.Value.DeclaredInModelFile).IsFalse();
+        await Assert.That(generatedFile.contents).Contains("public abstract ExternalStatus Status { get; }");
+        await Assert.That(generatedFile.contents).Contains(@"[Enum(""Active"", ""Inactive"")]");
+        await Assert.That(generatedFile.contents).DoesNotContain("public enum ExternalStatus");
     }
 
     [Test]

@@ -190,6 +190,12 @@ public class ValueProperty : PropertyDefinition
         EnumProperty = enumProperty;
     }
 
+    internal void ClearEnumPropertyCore()
+    {
+        ThrowIfFrozen();
+        EnumProperty = null;
+    }
+
     public ValueProperty(string propertyName, CsTypeDeclaration csType, ModelDefinition model, IEnumerable<Attribute> attributes) : base(propertyName, csType, model, attributes)
     {
         Type = PropertyType.Value;
@@ -305,11 +311,16 @@ public record struct EnumProperty
     private readonly MetadataCollection<(string name, int value)>? dbEnumValues;
     private readonly MetadataCollection<(string name, int value)>? csEnumValues;
 
-    public EnumProperty(IEnumerable<(string name, int value)>? enumValues = null, IEnumerable<(string name, int value)>? csEnumValues = null, bool declaredInClass = true)
+    public EnumProperty(
+        IEnumerable<(string name, int value)>? enumValues = null,
+        IEnumerable<(string name, int value)>? csEnumValues = null,
+        bool declaredInClass = true,
+        bool declaredInModelFile = true)
     {
         dbEnumValues = new MetadataCollection<(string name, int value)>(enumValues ?? []);
         this.csEnumValues = new MetadataCollection<(string name, int value)>(csEnumValues ?? []);
         DeclaredInClass = declaredInClass;
+        DeclaredInModelFile = declaredInModelFile;
     }
 
     public MetadataCollection<(string name, int value)> DbEnumValues =>
@@ -325,6 +336,11 @@ public record struct EnumProperty
         DbEnumValues.Count > 0 ? DbEnumValues : CsEnumValues;
 
     public bool DeclaredInClass { get; }
+
+    public bool DeclaredInModelFile { get; }
+
+    public EnumProperty WithDeclaredInModelFile(bool declaredInModelFile) =>
+        new(DbEnumValues, CsEnumValues, DeclaredInClass, declaredInModelFile);
 }
 
 public class RelationProperty : PropertyDefinition

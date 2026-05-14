@@ -150,6 +150,24 @@ public abstract Guid UserId { get; }
 
 Associates enum values with a database enum representation.
 
+The attribute is metadata for how stored values map to a C# enum type. It does not, by itself, mean the model generator owns the enum declaration.
+
+When regenerating models:
+
+- database enum columns can produce generated C# enum declarations
+- enum declarations already present in the model file are preserved
+- enum types declared elsewhere are treated as external custom types; DataLinq preserves the property type and `[Enum(...)]` metadata, but does not generate another enum declaration with the same name
+
+Use this when several model files share the same enum type:
+
+```csharp
+[Enum("Active", "Inactive")]
+[Column("status")]
+public abstract AccountStatus Status { get; }
+```
+
+`AccountStatus` can live in a separate source file. The source generator still uses the enum metadata for runtime conversion, but `create-models` will not duplicate the enum declaration in every generated model file.
+
 ### `[Default(...)]`
 
 Assigns a default value in the DataLinq metadata model.

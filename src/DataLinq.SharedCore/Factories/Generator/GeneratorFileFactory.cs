@@ -608,7 +608,7 @@ public class GeneratorFileFactory
             return "null";
 
         var value = enumProperty.Value;
-        return $"new global::DataLinq.Metadata.EnumProperty({FormatEnumTupleArray(value.DbEnumValues)}, {FormatEnumTupleArray(value.CsEnumValues)}, {FormatBool(value.DeclaredInClass)})";
+        return $"new global::DataLinq.Metadata.EnumProperty({FormatEnumTupleArray(value.DbEnumValues)}, {FormatEnumTupleArray(value.CsEnumValues)}, {FormatBool(value.DeclaredInClass)}, {FormatBool(value.DeclaredInModelFile)})";
     }
 
     private static string FormatEnumTupleArray(IReadOnlyList<(string name, int value)> values) =>

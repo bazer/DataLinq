@@ -105,6 +105,18 @@ You should treat the generated output as generated output. Do not hand-edit it a
 
 Put custom code in source model files or partials instead.
 
+## Regenerating With Custom Types
+
+When `create-models` runs against existing source models, DataLinq preserves source-defined C# property types that it cannot safely infer from database metadata. This is especially important for enums shared across several model files.
+
+For MySQL and MariaDB `ENUM` columns:
+
+- if the enum is not already represented in source, `create-models` generates a C# enum declaration
+- if the enum declaration is in the model file, regeneration keeps that declaration
+- if the property references an enum declared in another source file, regeneration keeps the property type and `[Enum(...)]` metadata but does not emit a duplicate enum declaration into the model file
+
+That lets you centralize shared enum types in a partials or shared-model folder without fighting regeneration.
+
 ## Optional: Generate SQL From Models
 
 If you want schema SQL from the model metadata:

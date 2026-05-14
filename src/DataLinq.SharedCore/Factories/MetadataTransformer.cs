@@ -134,16 +134,30 @@ public class MetadataTransformer
             if (srcProperty.SourceInfo != null)
                 destProperty.SetSourceInfoCore(srcProperty.SourceInfo.Value);
 
-            if (srcProperty.EnumProperty != null)
-                destProperty.SetEnumPropertyCore(srcProperty.EnumProperty.Value);
+            var sourceEnumProperty = srcProperty.EnumProperty.GetValueOrDefault();
+            var sourceHasEnumProperty = srcProperty.EnumProperty.HasValue;
+            var sourceUsesKnownType = MetadataTypeConverter.IsKnownCsType(srcProperty.CsType.Name);
+
+            if (sourceHasEnumProperty)
+            {
+                destProperty.SetEnumPropertyCore(sourceEnumProperty);
+            }
+            else if (!sourceUsesKnownType && destProperty.EnumProperty.HasValue)
+            {
+                destProperty.SetEnumPropertyCore(destProperty.EnumProperty.Value.WithDeclaredInModelFile(false));
+            }
+            else
+            {
+                destProperty.ClearEnumPropertyCore();
+            }
 
             // Only apply the type information from the source file IF:
             // 1. The overwrite option is OFF, OR
-            // 2. The source property is an ENUM (we always want to preserve enums), OR
+            // 2. The source property carries enum metadata (including externally declared enums), OR
             // 3. The source property's C# type is NOT a simple, known type (i.e., it's a custom user type).
             if (!options.OverwritePropertyTypes ||
-                srcProperty.EnumProperty != null ||
-                !MetadataTypeConverter.IsKnownCsType(srcProperty.CsType.Name))
+                sourceHasEnumProperty ||
+                !sourceUsesKnownType)
             {
                 destProperty.SetCsTypeCore(srcProperty.CsType);
                 destProperty.SetCsNullableCore(srcProperty.CsNullable);
@@ -151,7 +165,7 @@ public class MetadataTransformer
             }
 
             if (srcProperty.HasDefaultValue() &&
-                (srcProperty.EnumProperty != null || !MetadataTypeConverter.IsKnownCsType(srcProperty.CsType.Name)))
+                (sourceHasEnumProperty || !sourceUsesKnownType))
             {
                 var sourceDefault = srcProperty.GetDefaultAttribute();
                 destProperty.SetAttributesCore(

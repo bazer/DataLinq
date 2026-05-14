@@ -833,9 +833,9 @@ public class ModelGenerationLogicTests : GeneratorTestBase
 
         var generatedCode = string.Join(Environment.NewLine, generatedTrees.Select(x => x.ToString()));
         await Assert.That(generatedCode.Contains("public partial class ImmutableHealthyRow", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(generatedCode.Contains("public partial class HealthyDb : global::DataLinq.Interfaces.IDataLinqGeneratedDatabaseModel<HealthyDb>", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(generatedCode.Contains("public partial class HealthyDb : global::DataLinq.Interfaces.IDatabaseModel<HealthyDb>", StringComparison.Ordinal)).IsTrue();
         await Assert.That(generatedCode.Contains("ImmutableBrokenRow", StringComparison.Ordinal)).IsFalse();
-        await Assert.That(generatedCode.Contains("IDataLinqGeneratedDatabaseModel<BrokenDb>", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(generatedCode.Contains("IDatabaseModel<BrokenDb>", StringComparison.Ordinal)).IsFalse();
     }
 
     [Test]

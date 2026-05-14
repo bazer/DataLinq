@@ -509,6 +509,150 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParsePropertySyntax_TopLevelEnumInSameFile_PopulatesCsEnumValues()
+    {
+        const string code = """
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public enum StatusEnum
+{
+    Active = 1,
+    Inactive = 2
+}
+
+public partial class TestDb : IDatabaseModel { public TestDb(DataSourceAccess dsa) {} }
+
+public abstract partial class TestModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<TestModel, TestDb>(rowData, dataSource), ITableModel<TestDb>
+{
+    [Column("status_col"), Enum("Active", "Inactive")] public StatusEnum Status { get; }
+}
+""";
+        var syntaxTree = CSharpSyntaxTree.ParseText(code, path: "Model.cs");
+        var root = syntaxTree.GetCompilationUnitRoot();
+        var propertySyntax = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var classSyntax = root.DescendantNodes().OfType<TypeDeclarationSyntax>().Single(x => x.Identifier.Text == "TestModel");
+        var modelSyntaxes = root.DescendantNodes().OfType<TypeDeclarationSyntax>().ToImmutableArray();
+        var enumSyntaxes = root.DescendantNodes().OfType<EnumDeclarationSyntax>().ToImmutableArray();
+        var parser = new SyntaxParser(modelSyntaxes, enumSyntaxes);
+        var db = new DatabaseDefinition("TestDb", new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+        var model = ParseMutableTableModel(parser, db, classSyntax, "TestModels").Model;
+
+        var property = (ValueProperty)ParseMutableProperty(parser, propertySyntax, model);
+
+        await Assert.That(property.EnumProperty.HasValue).IsTrue();
+        await Assert.That(property.EnumProperty!.Value.CsEnumValues.Select(x => x.name).ToArray()).IsEquivalentTo(["Active", "Inactive"]);
+        await Assert.That(property.EnumProperty!.Value.DeclaredInClass).IsFalse();
+        await Assert.That(property.EnumProperty!.Value.DeclaredInModelFile).IsTrue();
+    }
+
+    [Test]
+    public async Task ParsePropertySyntax_ExternalEnumDeclaration_MarksEnumAsExternal()
+    {
+        const string modelCode = """
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial class TestDb : IDatabaseModel { public TestDb(DataSourceAccess dsa) {} }
+
+public abstract partial class TestModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<TestModel, TestDb>(rowData, dataSource), ITableModel<TestDb>
+{
+    [Column("status_col"), Enum("Active", "Inactive")] public StatusEnum Status { get; }
+}
+""";
+        const string enumCode = """
+namespace TestNamespace;
+
+public enum StatusEnum
+{
+    Active = 1,
+    Inactive = 2
+}
+""";
+        var modelTree = CSharpSyntaxTree.ParseText(modelCode, path: "Model.cs");
+        var enumTree = CSharpSyntaxTree.ParseText(enumCode, path: "Enums.cs");
+        var modelRoot = modelTree.GetCompilationUnitRoot();
+        var enumRoot = enumTree.GetCompilationUnitRoot();
+        var propertySyntax = modelRoot.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var classSyntax = modelRoot.DescendantNodes().OfType<TypeDeclarationSyntax>().Single(x => x.Identifier.Text == "TestModel");
+        var modelSyntaxes = modelRoot.DescendantNodes().OfType<TypeDeclarationSyntax>().ToImmutableArray();
+        var enumSyntaxes = enumRoot.DescendantNodes().OfType<EnumDeclarationSyntax>().ToImmutableArray();
+        var parser = new SyntaxParser(modelSyntaxes, enumSyntaxes);
+        var db = new DatabaseDefinition("TestDb", new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+        var model = ParseMutableTableModel(parser, db, classSyntax, "TestModels").Model;
+
+        var property = (ValueProperty)ParseMutableProperty(parser, propertySyntax, model);
+
+        await Assert.That(property.CsType.Name).IsEqualTo("StatusEnum");
+        await Assert.That(property.EnumProperty.HasValue).IsTrue();
+        await Assert.That(property.EnumProperty!.Value.DbEnumValues.Select(x => x.name).ToArray()).IsEquivalentTo(["Active", "Inactive"]);
+        await Assert.That(property.EnumProperty!.Value.CsEnumValues.Select(x => x.name).ToArray()).IsEquivalentTo(["Active", "Inactive"]);
+        await Assert.That(property.EnumProperty!.Value.DeclaredInModelFile).IsFalse();
+    }
+
+    [Test]
+    public async Task ParsePropertySyntax_DuplicateExternalEnumDeclaration_MarksSameFileEnumAsExternal()
+    {
+        const string modelCode = """
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public enum StatusEnum
+{
+    Active = 1,
+    Inactive = 2
+}
+
+public partial class TestDb : IDatabaseModel { public TestDb(DataSourceAccess dsa) {} }
+
+public abstract partial class TestModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<TestModel, TestDb>(rowData, dataSource), ITableModel<TestDb>
+{
+    [Column("status_col"), Enum("Active", "Inactive")] public StatusEnum Status { get; }
+}
+""";
+        const string enumCode = """
+namespace TestNamespace;
+
+public enum StatusEnum
+{
+    Active = 1,
+    Inactive = 2
+}
+""";
+        var modelTree = CSharpSyntaxTree.ParseText(modelCode, path: "Model.cs");
+        var enumTree = CSharpSyntaxTree.ParseText(enumCode, path: "Enums.cs");
+        var modelRoot = modelTree.GetCompilationUnitRoot();
+        var enumRoot = enumTree.GetCompilationUnitRoot();
+        var propertySyntax = modelRoot.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var classSyntax = modelRoot.DescendantNodes().OfType<TypeDeclarationSyntax>().Single(x => x.Identifier.Text == "TestModel");
+        var modelSyntaxes = modelRoot.DescendantNodes().OfType<TypeDeclarationSyntax>().ToImmutableArray();
+        var enumSyntaxes = modelRoot.DescendantNodes().OfType<EnumDeclarationSyntax>()
+            .Concat(enumRoot.DescendantNodes().OfType<EnumDeclarationSyntax>())
+            .ToImmutableArray();
+        var parser = new SyntaxParser(modelSyntaxes, enumSyntaxes);
+        var db = new DatabaseDefinition("TestDb", new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+        var model = ParseMutableTableModel(parser, db, classSyntax, "TestModels").Model;
+
+        var property = (ValueProperty)ParseMutableProperty(parser, propertySyntax, model);
+
+        await Assert.That(property.EnumProperty.HasValue).IsTrue();
+        await Assert.That(property.EnumProperty!.Value.CsEnumValues.Select(x => x.name).ToArray()).IsEquivalentTo(["Active", "Inactive"]);
+        await Assert.That(property.EnumProperty!.Value.DeclaredInModelFile).IsFalse();
+    }
+
+    [Test]
     public async Task ParsePropertySyntax_MultipleEnumAttributes_ReturnsInvalidModelFailure()
     {
         var (parser, _, model) = GetPropertySyntax(@"[Column(""id""), PrimaryKey] public int Id { get; }");

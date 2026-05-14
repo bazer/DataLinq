@@ -148,7 +148,7 @@ public class ModelFileFactory
             .ThenBy(x => x.PropertyName)
             .ToList();
 
-        foreach (var row in valueProps.Where(x => x.EnumProperty != null && !x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(options, x)))
+        foreach (var row in valueProps.Where(x => x.EnumProperty != null && x.EnumProperty.Value.DeclaredInModelFile && !x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(options, x)))
             yield return row;
 
         if (model.ModelInstanceInterface != null)
@@ -227,7 +227,7 @@ public class ModelFileFactory
 
         yield return namespaceTab + "{";
 
-        foreach (var row in valueProps.Where(x => x.EnumProperty != null && x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(options, x)))
+        foreach (var row in valueProps.Where(x => x.EnumProperty != null && x.EnumProperty.Value.DeclaredInModelFile && x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(options, x)))
             yield return tab + row;
 
         foreach (var valueProperty in valueProps)
