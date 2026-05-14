@@ -16,7 +16,7 @@ public class GeneratorFileFactoryOptions
     public string Tab { get; set; } = "    ";
     public bool UseRecords { get; set; } = false;
     public bool UseFileScopedNamespaces { get; set; } = false;
-    public bool UseNullableReferenceTypes { get; set; } = false;
+    public bool UseNullableReferenceTypes { get; set; } = true;
     public bool SeparateTablesAndViews { get; set; } = false;
     public IReadOnlyCollection<ValueProperty> SuppressedDefaultValueProperties { get; set; } = [];
     public List<string> Usings { get; set; } = new List<string> { "System", "System.Diagnostics.CodeAnalysis", "DataLinq", "DataLinq.Interfaces", "DataLinq.Instances", "DataLinq.Attributes", "DataLinq.Mutation" };

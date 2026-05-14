@@ -18,7 +18,7 @@ public readonly struct GeneratedFileStamp
 
 public sealed class GeneratedFilePreambleOptions
 {
-    public bool UseNullableReferenceTypes { get; set; }
+    public bool UseNullableReferenceTypes { get; set; } = true;
     public GeneratedFileStamp? Stamp { get; set; }
 }
 

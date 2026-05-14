@@ -273,6 +273,8 @@ Implementation status, 2026-05-14:
 - `ModelFileFactory` and `GeneratorFileFactory` now emit the DataLinq generated-file banner and an explicit nullable directive before `using` statements.
 - Added `create-models --stamp-generated-header`, which stamps CLI-generated model files with the CLI version and one UTC generation timestamp captured for the run.
 - Source-generator output uses the same banner and nullable directive but never emits CLI stamp lines.
+- Changed `UseNullableReferenceTypes` defaults to true in configuration and generated-file factory options.
+- Preserved explicit opt-out through `UseNullableReferenceTypes: false`, which now emits `#nullable disable`.
 
 ## Workstream E: Documentation, Release Notes, and Support Boundary
 

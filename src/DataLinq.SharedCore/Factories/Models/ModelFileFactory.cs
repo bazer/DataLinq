@@ -18,7 +18,7 @@ public class ModelFileFactoryOptions
     public bool UseRecords { get; set; } = true;
     //public bool UseCache { get; set; } = true;
     public bool UseFileScopedNamespaces { get; set; }
-    public bool UseNullableReferenceTypes { get; set; }
+    public bool UseNullableReferenceTypes { get; set; } = true;
     public bool SeparateTablesAndViews { get; set; } = false;
     public GeneratedFileStamp? GeneratedFileStamp { get; set; }
     public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes", "DataLinq.Instances", "DataLinq.Mutation" };

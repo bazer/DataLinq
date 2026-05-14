@@ -159,7 +159,7 @@ public record DataLinqDatabaseConfig
         Include = database.Include ?? new List<string>();
         UseRecord = database.UseRecord ?? false;
         UseFileScopedNamespaces = database.UseFileScopedNamespaces ?? false;
-        UseNullableReferenceTypes = database.UseNullableReferenceTypes ?? false;
+        UseNullableReferenceTypes = database.UseNullableReferenceTypes ?? true;
         CapitalizeNames = database.CapitalizeNames ?? false;
         RemoveInterfacePrefix = database.RemoveInterfacePrefix ?? true;
         SeparateTablesAndViews = database.SeparateTablesAndViews ?? false;
