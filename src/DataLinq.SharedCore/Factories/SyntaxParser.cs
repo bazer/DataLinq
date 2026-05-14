@@ -1204,7 +1204,8 @@ public class SyntaxParser
         if (failures.Any())
             return DLOptionFailure.Fail($"Parsing attributes for {propSyntax.Identifier.Text}", model, failures);
 
-        if (!ParsePropertyCsType(propSyntax).TryUnwrap(out var csType, out var csTypeFailure))
+        var isRelationProperty = parsedAttributes.Any(attribute => attribute is RelationAttribute);
+        if (!ParsePropertyCsType(propSyntax, preserveSourceTypeName: !isRelationProperty).TryUnwrap(out var csType, out var csTypeFailure))
             return csTypeFailure;
 
         var enumDeclaration = FindEnumDeclaration(csType.Name, propSyntax);
@@ -1212,7 +1213,7 @@ public class SyntaxParser
         if (enumDeclaration != null)
             csType = CreateEnumCsTypeDeclaration(csType, enumDeclaration);
 
-        PropertyDefinition property = parsedAttributes.Any(attribute => attribute is RelationAttribute)
+        PropertyDefinition property = isRelationProperty
             ? new RelationProperty(propSyntax.Identifier.Text, csType, model, parsedAttributes)
             : new ValueProperty(propSyntax.Identifier.Text, csType, model, parsedAttributes);
 
@@ -1304,7 +1305,8 @@ public class SyntaxParser
         if (failures.Any())
             return DLOptionFailure.Fail($"Parsing attributes for {propSyntax.Identifier.Text}", failures);
 
-        if (!ParsePropertyCsType(propSyntax).TryUnwrap(out var csType, out var csTypeFailure))
+        var isRelationProperty = parsedAttributes.Any(attribute => attribute is RelationAttribute);
+        if (!ParsePropertyCsType(propSyntax, preserveSourceTypeName: !isRelationProperty).TryUnwrap(out var csType, out var csTypeFailure))
             return csTypeFailure;
 
         var enumDeclaration = FindEnumDeclaration(csType.Name, propSyntax);
@@ -1316,7 +1318,7 @@ public class SyntaxParser
             new SourceTextSpan(propSyntax.SpanStart, propSyntax.Span.Length),
             GetDefaultValueExpressionSourceSpan(propSyntax));
 
-        if (parsedAttributes.Any(attribute => attribute is RelationAttribute))
+        if (isRelationProperty)
         {
             return new MetadataRelationPropertyDraft(propSyntax.Identifier.Text, csType)
             {
@@ -1420,11 +1422,15 @@ public class SyntaxParser
         return true;
     }
 
-    private static Option<CsTypeDeclaration, IDLOptionFailure> ParsePropertyCsType(PropertyDeclarationSyntax propSyntax)
+    private static Option<CsTypeDeclaration, IDLOptionFailure> ParsePropertyCsType(
+        PropertyDeclarationSyntax propSyntax,
+        bool preserveSourceTypeName)
     {
         try
         {
-            return CsTypeDeclarationSyntax.Create(propSyntax);
+            return preserveSourceTypeName
+                ? CsTypeDeclarationSyntax.CreatePreservingSourceType(propSyntax)
+                : CsTypeDeclarationSyntax.Create(propSyntax);
         }
         catch (NotImplementedException exception)
         {

@@ -26,6 +26,12 @@ internal static class CsTypeDeclarationSyntax
             GetNamespace(propertyDeclarationSyntax),
             ParseModelCsType(propertyDeclarationSyntax.Type));
 
+    public static CsTypeDeclaration CreatePreservingSourceType(PropertyDeclarationSyntax propertyDeclarationSyntax) =>
+        new(
+            MetadataTypeConverter.GetKeywordName(ParseSourceTypeName(propertyDeclarationSyntax.Type) ?? string.Empty),
+            GetNamespace(propertyDeclarationSyntax),
+            ParseModelCsType(propertyDeclarationSyntax.Type));
+
     public static CsTypeDeclaration Create(BaseTypeSyntax baseTypeSyntax) =>
         new(
             MetadataTypeConverter.GetKeywordName(ParseTypeName(baseTypeSyntax.Type) ?? string.Empty),
@@ -34,6 +40,11 @@ internal static class CsTypeDeclarationSyntax
 
     private static string ParseTypeName(TypeSyntax baseTypeSyntax) =>
         ParseTypeName(baseTypeSyntax, stripTopLevelNullable: true);
+
+    private static string ParseSourceTypeName(TypeSyntax typeSyntax) =>
+        typeSyntax is NullableTypeSyntax nullableType
+            ? nullableType.ElementType.ToString().Trim()
+            : typeSyntax.ToString().Trim();
 
     private static string ParseTypeName(TypeSyntax typeSyntax, bool stripTopLevelNullable)
     {

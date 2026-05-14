@@ -269,6 +269,18 @@ public class ModelFileFactoryTests
         await Assert.That(viewFile.contents).Contains("namespace Existing.Views;");
     }
 
+    [Test]
+    public async Task CreateModelFiles_PreservesFullyQualifiedValuePropertyType()
+    {
+        var database = CreateDatabaseWithCustomQualifiedPropertyType();
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "ExternalStatusModel.cs");
+
+        await Assert.That(generatedFile.contents).Contains("public abstract External.Namespace.DocumentStatusCode Status { get; }");
+    }
+
     private static DatabaseDefinition CreateDatabaseWithDefaultValue(CsTypeDeclaration propertyType, object defaultValue)
     {
         var draft = new MetadataDatabaseDraft(
@@ -298,6 +310,37 @@ public class ModelFileFactoryTests
                         ]
                     },
                     new MetadataTableDraft("quote_table"))
+            ]
+        };
+
+        return Build(draft);
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithCustomQualifiedPropertyType()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "ExternalStatusDb",
+            new CsTypeDeclaration("ExternalStatusDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "ExternalStatusModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("ExternalStatusModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            CreateValueProperty("Id", typeof(int), "id", "int", primaryKey: true),
+                            new MetadataValuePropertyDraft(
+                                "Status",
+                                new CsTypeDeclaration("External.Namespace.DocumentStatusCode", "TestNamespace", ModelCsType.Class),
+                                new MetadataColumnDraft("status")
+                                {
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.MySQL, "tinyint", 4UL)]
+                                })
+                        ]
+                    },
+                    new MetadataTableDraft("external_status"))
             ]
         };
 

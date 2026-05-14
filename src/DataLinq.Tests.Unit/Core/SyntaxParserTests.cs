@@ -469,6 +469,16 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParsePropertySyntax_QualifiedValueType_PreservesSourceTypeName()
+    {
+        var (parser, syntax, model) = GetPropertySyntax(@"[Column(""status"")] public External.Namespace.DocumentStatusCode Status { get; }");
+        var property = (ValueProperty)ParseMutableProperty(parser, syntax, model);
+
+        await Assert.That(property.PropertyName).IsEqualTo("Status");
+        await Assert.That(property.CsType.Name).IsEqualTo("External.Namespace.DocumentStatusCode");
+    }
+
+    [Test]
     public async Task ParsePropertySyntax_Relation()
     {
         var (parser, syntax, model) = GetPropertySyntax(@"[Relation(""Other"", ""FkId"")] public Other Related { get; }");
