@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.Core.Factories;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
@@ -17,8 +18,9 @@ public class ModelFileFactoryOptions
     public bool UseRecords { get; set; } = true;
     //public bool UseCache { get; set; } = true;
     public bool UseFileScopedNamespaces { get; set; }
-    public bool UseNullableReferenceTypes { get; set; }
+    public bool UseNullableReferenceTypes { get; set; } = true;
     public bool SeparateTablesAndViews { get; set; } = false;
+    public GeneratedFileStamp? GeneratedFileStamp { get; set; }
     public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes", "DataLinq.Instances", "DataLinq.Mutation" };
 }
 
@@ -449,6 +451,13 @@ public class ModelFileFactory
 
     private IEnumerable<string> FileHeader(string namespaceName, bool useFileScopedNamespaces, IEnumerable<string> usings)
     {
+        foreach (var row in GeneratedFilePreamble.Create(new GeneratedFilePreambleOptions
+        {
+            UseNullableReferenceTypes = options.UseNullableReferenceTypes,
+            Stamp = options.GeneratedFileStamp
+        }))
+            yield return row;
+
         foreach (var row in usings)
             yield return $"using {row};";
 

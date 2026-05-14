@@ -71,6 +71,8 @@ public class MetadataFromMariaDBFactory : MetadataFromSqlFactory
 
     protected Option<bool, IDLOptionFailure> ParseIndices(ProviderDatabaseDraft database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb)
     {
+        var failures = new List<IDLOptionFailure>();
+
         // Fetch table-column pairs that are part of a foreign key relationship
         var foreignKeyColumns = informationSchemaDb.Query().KEY_COLUMN_USAGE
             .Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_TABLE_NAME != null)
@@ -98,12 +100,18 @@ public class MetadataFromMariaDBFactory : MetadataFromSqlFactory
 
             var dbIndex = dbIndexGroup.First();
             if (string.IsNullOrWhiteSpace(dbIndex.TABLE_NAME) || string.IsNullOrWhiteSpace(dbIndex.INDEX_NAME))
-                return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"MariaDB index metadata is missing a table or index name in database '{database.DbName}'.");
+            {
+                failures.Add(DLOptionFailure.Fail(DLFailureType.InvalidModel, $"MariaDB index metadata is missing a table or index name in database '{database.DbName}'."));
+                continue;
+            }
 
             var tableName = dbIndex.TABLE_NAME;
             var indexName = dbIndex.INDEX_NAME;
             if (!ParseIndexType(dbIndex.INDEX_TYPE, tableName, indexName).TryUnwrap(out var indexType, out var indexTypeFailure))
-                return indexTypeFailure;
+            {
+                failures.Add(indexTypeFailure);
+                continue;
+            }
 
             var indexCharacteristic = dbIndex.NON_UNIQUE == 0
                 ? IndexCharacteristic.Unique
@@ -135,7 +143,9 @@ public class MetadataFromMariaDBFactory : MetadataFromSqlFactory
                 column.Attributes.Add(new IndexAttribute(indexName, indexCharacteristic, indexType, columnNames));
         }
 
-        return true;
+        return failures.Count == 0
+            ? true
+            : SingleOrAggregate(failures);
     }
 
     private static string? GetUnsupportedIndexReason(IReadOnlyList<STATISTICS> indexedColumns)
@@ -154,6 +164,7 @@ public class MetadataFromMariaDBFactory : MetadataFromSqlFactory
 
     protected Option<bool, IDLOptionFailure> ParseRelations(ProviderDatabaseDraft database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb)
     {
+        var failures = new List<IDLOptionFailure>();
         var referentialActions = ParseReferentialActions(database, informationSchemaDb.Provider.DatabaseAccess);
 
         foreach (var key in informationSchemaDb.Query()
@@ -166,7 +177,10 @@ public class MetadataFromMariaDBFactory : MetadataFromSqlFactory
                 key.REFERENCED_TABLE_NAME,
                 key.REFERENCED_COLUMN_NAME,
                 key.CONSTRAINT_NAME).TryUnwrap(out var foreignKey, out var foreignKeyFailure))
-                return foreignKeyFailure;
+            {
+                failures.Add(foreignKeyFailure);
+                continue;
+            }
 
             var foreignKeyColumn = database
                 .TableModels.SingleOrDefault(x => x.Table.DbName == foreignKey.TableName)?
@@ -198,7 +212,9 @@ public class MetadataFromMariaDBFactory : MetadataFromSqlFactory
                 actions.OnDelete));
         }
 
-        return true;
+        return failures.Count == 0
+            ? true
+            : SingleOrAggregate(failures);
     }
 
     protected Option<ProviderTableModelDraft, IDLOptionFailure> ParseTable(ProviderDatabaseDraft database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb, TABLES dbTables)

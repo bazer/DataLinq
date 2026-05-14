@@ -42,6 +42,7 @@ public class MetadataFromFileFactory
     public Option<List<DatabaseDefinition>, IDLOptionFailure> ReadFiles(string csType, IEnumerable<string> srcPaths) => DLOptionFailure.CatchAll<List<DatabaseDefinition>>(() =>
     {
         var trees = new List<SyntaxTree>();
+        var failures = new List<IDLOptionFailure>();
 
         foreach (var path in srcPaths)
         {
@@ -87,14 +88,17 @@ public class MetadataFromFileFactory
                 }
                 else
                 {
-                    return DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Path not found: {path}");
+                    failures.Add(DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Path not found: {path}"));
                 }
             }
             catch (Exception ex)
             {
-                return DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Error processing path '{path}': {ex.Message}");
+                failures.Add(DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Error processing path '{path}': {ex.Message}"));
             }
         }
+
+        if (trees.Count == 0 && failures.Count != 0)
+            return FailIfNeeded(failures);
 
         var modelSyntaxes = trees
             .Where(x => x.HasCompilationUnitRoot)
@@ -118,11 +122,19 @@ public class MetadataFromFileFactory
             .ReadSyntaxTrees(modelSyntaxes, enumSyntaxes)
             .Transpose()
             .TryUnwrap(out var models, out var modelFailures))
-            return DLOptionFailure.AggregateFail(modelFailures);
+            failures.AddRange(modelFailures);
+
+        if (failures.Count != 0)
+            return FailIfNeeded(failures);
 
         return models;
         //return ReadSyntaxTrees(modelSyntaxes);
     });
+
+    private static IDLOptionFailure FailIfNeeded(IReadOnlyList<IDLOptionFailure> failures) =>
+        failures.Count == 1
+            ? failures[0]
+            : DLOptionFailure.AggregateFail(failures);
 
     //private Option<DatabaseDefinition, IDLOptionFailure> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
     //{

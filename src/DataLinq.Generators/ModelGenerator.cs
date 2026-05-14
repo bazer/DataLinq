@@ -121,10 +121,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
     {
         if (db.HasFailed)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                GeneratorDiagnostics.MetadataGenerationFailed,
-                ResolveFailureLocation(db.Failure.Value, compilation),
-                $"{db.Failure.Value}"));
+            ReportFailureDiagnostics(db.Failure.Value, compilation, context);
             return;
         }
 
@@ -134,26 +131,183 @@ public sealed class ModelGenerator : IIncrementalGenerator
             foreach (var validator in validators)
                 validator.Validate(db.Value, compilation, context, validationContext);
 
-            var fileFactory = new GeneratorFileFactory(new GeneratorFileFactoryOptions
+            GeneratorFileFactoryOptions CreateOptions(bool nullableReferenceTypes) => new()
             {
-                UseNullableReferenceTypes = useNullableReferenceTypes,
+                UseNullableReferenceTypes = nullableReferenceTypes,
                 SuppressedDefaultValueProperties = validationContext.SuppressedDefaultValueProperties,
-            });
+            };
 
-            foreach (var (path, contents) in fileFactory.CreateModelFiles(db.Value))
-                context.AddSource($"{db.Value.Name}/{path}", contents);
+            var databaseNullableContext = ResolveDatabaseNullableReferenceTypes(db.Value, compilation, useNullableReferenceTypes);
+            var emissionResult = EmitGeneratedSources(
+                db.Value,
+                table => CreateOptions(ResolveTableNullableReferenceTypes(table, compilation, databaseNullableContext)),
+                () => CreateOptions(databaseNullableContext));
+
+            foreach (var sourceFile in emissionResult.SourceFiles)
+                context.AddSource(sourceFile.HintName, sourceFile.Contents);
+
+            foreach (var failure in emissionResult.Failures)
+                ReportGenerationFailureDiagnostic(failure.Exception, db.Value, compilation, context);
         }
         catch (Exception e)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                GeneratorDiagnostics.ModelFileGenerationFailed,
-                ResolveGenerationFailureLocation(e, db.Value, compilation),
-                $"{e.Message}\n{e.StackTrace}"));
+            ReportGenerationFailureDiagnostic(e, db.Value, compilation, context);
         }
     }
 
-    private static Location ResolveFailureLocation(IDLOptionFailure failure, Compilation compilation)
-        => ResolveSourceLocation(failure.GetMostRelevantSourceLocation(), compilation);
+    internal static GeneratedDatabaseEmissionResult EmitGeneratedSources(
+        DatabaseDefinition database,
+        GeneratorFileFactoryOptions fileFactoryOptions)
+        => EmitGeneratedSources(database, _ => fileFactoryOptions, () => fileFactoryOptions);
+
+    internal static GeneratedDatabaseEmissionResult EmitGeneratedSources(
+        DatabaseDefinition database,
+        Func<TableModel, GeneratorFileFactoryOptions> tableFileOptionsFactory,
+        Func<GeneratorFileFactoryOptions> databaseFileOptionsFactory)
+    {
+        var sourceFiles = new List<GeneratedSourceFile>();
+        var failures = new List<GeneratedDatabaseEmissionFailure>();
+        var hasTableModel = false;
+
+        foreach (var table in database.TableModels.Where(static tableModel => !tableModel.IsStub))
+        {
+            hasTableModel = true;
+            try
+            {
+                var fileFactory = new GeneratorFileFactory(tableFileOptionsFactory(table));
+                var (path, contents) = fileFactory.CreateModelFile(table);
+                sourceFiles.Add(new GeneratedSourceFile($"{database.Name}/{path}", contents));
+            }
+            catch (Exception exception)
+            {
+                failures.Add(new GeneratedDatabaseEmissionFailure(exception));
+            }
+        }
+
+        if (hasTableModel && failures.Count == 0)
+        {
+            try
+            {
+                var fileFactory = new GeneratorFileFactory(databaseFileOptionsFactory());
+                var (path, contents) = fileFactory.CreateDatabaseMetadataBootstrapFile(database);
+                sourceFiles.Add(new GeneratedSourceFile($"{database.Name}/{path}", contents));
+            }
+            catch (Exception exception)
+            {
+                failures.Add(new GeneratedDatabaseEmissionFailure(exception));
+            }
+        }
+
+        return new GeneratedDatabaseEmissionResult(sourceFiles, failures);
+    }
+
+    private static bool ResolveDatabaseNullableReferenceTypes(
+        DatabaseDefinition database,
+        Compilation compilation,
+        bool fallback)
+    {
+        if (TryResolveNullableReferenceTypes(database.GetSourceLocation(), compilation, out var enabled))
+            return enabled;
+
+        foreach (var table in database.TableModels.Where(static tableModel => !tableModel.IsStub))
+        {
+            if (TryResolveNullableReferenceTypes(table.Model.GetSourceLocation(), compilation, out enabled))
+                return enabled;
+        }
+
+        return fallback;
+    }
+
+    private static bool ResolveTableNullableReferenceTypes(
+        TableModel table,
+        Compilation compilation,
+        bool fallback)
+    {
+        if (TryResolveNullableReferenceTypes(table.Model.GetSourceLocation(), compilation, out var enabled))
+            return enabled;
+
+        return fallback;
+    }
+
+    private static bool TryResolveNullableReferenceTypes(
+        SourceLocation? sourceLocation,
+        Compilation compilation,
+        out bool enabled)
+    {
+        enabled = false;
+        if (!sourceLocation.HasValue)
+            return false;
+
+        var filePath = sourceLocation.Value.File.FullPath;
+        var syntaxTree = compilation.SyntaxTrees.FirstOrDefault(x =>
+            string.Equals(x.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+
+        if (syntaxTree == null)
+            return false;
+
+        var position = sourceLocation.Value.Span?.Start ?? 0;
+        if (position < 0)
+            position = 0;
+        else
+        {
+            var textLength = syntaxTree.GetText().Length;
+            if (position > textLength)
+                position = textLength;
+        }
+
+        var nullableContext = compilation.GetSemanticModel(syntaxTree).GetNullableContext(position);
+        enabled =
+            (nullableContext & NullableContext.Enabled) == NullableContext.Enabled ||
+            (nullableContext & NullableContext.AnnotationsEnabled) == NullableContext.AnnotationsEnabled;
+        return true;
+    }
+
+    private static void ReportFailureDiagnostics(
+        IDLOptionFailure failure,
+        Compilation compilation,
+        SourceProductionContext context)
+    {
+        var issues = DataLinqDiagnosticIssue.FromFailure(failure);
+        if (issues.Count == 0)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                GeneratorDiagnostics.MetadataGenerationFailed,
+                ResolveSourceLocation(failure.GetMostRelevantSourceLocation(), compilation),
+                $"{failure}"));
+            return;
+        }
+
+        foreach (var issue in issues)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                GeneratorDiagnostics.MetadataGenerationFailed,
+                ResolveSourceLocation(issue.SourceLocation, compilation),
+                FormatDiagnosticIssueMessage(issue)));
+        }
+    }
+
+    private static string FormatDiagnosticIssueMessage(DataLinqDiagnosticIssue issue)
+    {
+        var contextMessages = issue.ContextMessages
+            .Where(static message => !string.IsNullOrWhiteSpace(message));
+
+        var message = $"[{issue.FailureType}] {issue.Message}";
+        return string.Join(
+            "\n",
+            contextMessages.Append(message));
+    }
+
+    private static void ReportGenerationFailureDiagnostic(
+        Exception exception,
+        DatabaseDefinition database,
+        Compilation compilation,
+        SourceProductionContext context)
+    {
+        context.ReportDiagnostic(Diagnostic.Create(
+            GeneratorDiagnostics.ModelFileGenerationFailed,
+            ResolveGenerationFailureLocation(exception, database, compilation),
+            exception.Message));
+    }
 
     private static Location ResolveGenerationFailureLocation(Exception exception, DatabaseDefinition database, Compilation compilation)
     {
@@ -185,4 +339,40 @@ public sealed class ModelGenerator : IIncrementalGenerator
         var span = sourceLocation.Value.Span.Value;
         return syntaxTree.GetLocation(new TextSpan(span.Start, span.Length));
     }
+}
+
+internal sealed class GeneratedDatabaseEmissionResult
+{
+    public GeneratedDatabaseEmissionResult(
+        IReadOnlyList<GeneratedSourceFile> sourceFiles,
+        IReadOnlyList<GeneratedDatabaseEmissionFailure> failures)
+    {
+        SourceFiles = sourceFiles;
+        Failures = failures;
+    }
+
+    public IReadOnlyList<GeneratedSourceFile> SourceFiles { get; }
+    public IReadOnlyList<GeneratedDatabaseEmissionFailure> Failures { get; }
+}
+
+internal readonly struct GeneratedSourceFile
+{
+    public GeneratedSourceFile(string hintName, string contents)
+    {
+        HintName = hintName;
+        Contents = contents;
+    }
+
+    public string HintName { get; }
+    public string Contents { get; }
+}
+
+internal sealed class GeneratedDatabaseEmissionFailure
+{
+    public GeneratedDatabaseEmissionFailure(Exception exception)
+    {
+        Exception = exception;
+    }
+
+    public Exception Exception { get; }
 }

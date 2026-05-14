@@ -93,13 +93,15 @@ Generate your data models directly from your database schema:
 datalinq create-models -n AppDb
 ```
 
+Generated C# files are marked as DataLinq-generated and declare their nullable context. Nullable reference generation is enabled by default; set `"UseNullableReferenceTypes": false` in the database config to opt out.
+
 Validate your configured models against the live database:
 
 ```bash
 datalinq validate -n AppDb
 ```
 
-`validate` exits with `0` when no drift is found, `1` when schema drift is detected, and `2` for command or configuration failures. Use `--output json` when wiring the result into automation.
+`validate` exits with `0` when no drift is found, `1` when schema drift is detected, and `2` for command, configuration, metadata, or validation issues. Use `--output json` when wiring the result into automation; JSON output includes structured validation `issues` as well as drift `differences`.
 
 Generate a conservative SQL suggestion script for supported additive drift:
 
@@ -108,6 +110,7 @@ datalinq diff -n AppDb -o update_schema.sql
 ```
 
 `diff` is read-only. It comments destructive, ambiguous, or unsupported changes instead of applying them.
+If validation issues exist, `diff` reports them and writes no SQL file.
 
 If your config contains more than one database, pass `-n`.
 If the selected database contains more than one connection type, pass `-t`.

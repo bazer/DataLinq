@@ -120,7 +120,8 @@ public sealed class SchemaValidationRunResult
         string dataSourceName,
         int modelTableCount,
         int databaseTableCount,
-        IReadOnlyList<SchemaDifference> differences)
+        IReadOnlyList<SchemaDifference> differences,
+        IReadOnlyList<DataLinqDiagnosticIssue>? issues = null)
     {
         DatabaseName = databaseName;
         DatabaseType = databaseType;
@@ -128,6 +129,7 @@ public sealed class SchemaValidationRunResult
         ModelTableCount = modelTableCount;
         DatabaseTableCount = databaseTableCount;
         Differences = differences;
+        Issues = issues ?? [];
     }
 
     public string DatabaseName { get; }
@@ -135,6 +137,8 @@ public sealed class SchemaValidationRunResult
     public string DataSourceName { get; }
     public int ModelTableCount { get; }
     public int DatabaseTableCount { get; }
+    public IReadOnlyList<DataLinqDiagnosticIssue> Issues { get; }
     public IReadOnlyList<SchemaDifference> Differences { get; }
+    public bool HasIssues => Issues.Count > 0;
     public bool HasDifferences => Differences.Count > 0;
 }

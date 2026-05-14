@@ -63,6 +63,9 @@ public class IncrementalGeneratorBehaviorTests
         }
         """;
 
+    private const string NullableDisableSource = "#nullable disable\n" + InitialSource;
+    private const string NullableEnableSource = "#nullable enable\n" + InitialSource;
+
     [Test]
     public async Task TriviaOnlyModelChanges_DoNotModifyStructuralDeclarationSteps()
     {
@@ -80,6 +83,27 @@ public class IncrementalGeneratorBehaviorTests
         await Assert.That(generatorResult.Diagnostics.Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)).IsFalse();
     }
 
+    [Test]
+    public async Task NullableDirectiveOnlyModelChanges_UpdateGeneratedNullableContext()
+    {
+        var driver = CreateTrackedDriver();
+
+        driver = driver.RunGenerators(CreateCompilation(NullableDisableSource, NullableContextOptions.Disable));
+        var disabledResult = driver.GetRunResult().Results.Single();
+        var disabledGenerated = GetGeneratedSource(disabledResult, "IncrementalRow.cs");
+
+        driver = driver.RunGenerators(CreateCompilation(NullableEnableSource, NullableContextOptions.Disable));
+        var enabledResult = driver.GetRunResult().Results.Single();
+        var enabledGenerated = GetGeneratedSource(enabledResult, "IncrementalRow.cs");
+
+        await Assert.That(disabledGenerated).Contains("#nullable disable");
+        await Assert.That(enabledGenerated).Contains("#nullable enable");
+        await Assert.That(enabledGenerated).Contains("MutateOrNew(this IncrementalRow? model)");
+
+        AssertStepOutputsWereReused(enabledResult, ModelGeneratorTrackingNames.MetadataResults);
+        await Assert.That(enabledResult.Diagnostics.Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)).IsFalse();
+    }
+
     private static GeneratorDriver CreateTrackedDriver()
     {
         IIncrementalGenerator generator = new ModelGenerator();
@@ -90,7 +114,9 @@ public class IncrementalGeneratorBehaviorTests
                 trackIncrementalGeneratorSteps: true));
     }
 
-    private static Compilation CreateCompilation(string source)
+    private static Compilation CreateCompilation(
+        string source,
+        NullableContextOptions nullableContextOptions = NullableContextOptions.Enable)
     {
         var references = AppDomain.CurrentDomain.GetAssemblies()
             .Where(static assembly => !assembly.IsDynamic && !string.IsNullOrEmpty(assembly.Location))
@@ -108,7 +134,15 @@ public class IncrementalGeneratorBehaviorTests
             [CSharpSyntaxTree.ParseText(source, path: SourcePath)],
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-                .WithNullableContextOptions(NullableContextOptions.Enable));
+                .WithNullableContextOptions(nullableContextOptions));
+    }
+
+    private static string GetGeneratedSource(GeneratorRunResult generatorResult, string fileNameSuffix)
+    {
+        var generatedSource = generatorResult.GeneratedSources.Single(source =>
+            source.HintName.EndsWith(fileNameSuffix, StringComparison.Ordinal));
+
+        return generatedSource.SourceText.ToString();
     }
 
     private static void AssertStepOutputsWereReused(GeneratorRunResult generatorResult, string trackingName)

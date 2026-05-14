@@ -16,7 +16,7 @@ public class GeneratorFileFactoryOptions
     public string Tab { get; set; } = "    ";
     public bool UseRecords { get; set; } = false;
     public bool UseFileScopedNamespaces { get; set; } = false;
-    public bool UseNullableReferenceTypes { get; set; } = false;
+    public bool UseNullableReferenceTypes { get; set; } = true;
     public bool SeparateTablesAndViews { get; set; } = false;
     public IReadOnlyCollection<ValueProperty> SuppressedDefaultValueProperties { get; set; } = [];
     public List<string> Usings { get; set; } = new List<string> { "System", "System.Diagnostics.CodeAnalysis", "DataLinq", "DataLinq.Interfaces", "DataLinq.Instances", "DataLinq.Attributes", "DataLinq.Mutation" };
@@ -56,14 +56,20 @@ public class GeneratorFileFactory
 
     public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseDefinition database)
     {
-        foreach (var table in database.TableModels.Where(x => !x.IsStub))
-            yield return CreateModelFile(table);
+        foreach (var file in CreateTableModelFiles(database))
+            yield return file;
 
         if (database.TableModels.Any(static x => !x.IsStub))
             yield return CreateDatabaseMetadataBootstrapFile(database);
     }
 
-    private (string path, string contents) CreateDatabaseMetadataBootstrapFile(DatabaseDefinition database)
+    internal IEnumerable<(string path, string contents)> CreateTableModelFiles(DatabaseDefinition database)
+    {
+        foreach (var table in database.TableModels.Where(static x => !x.IsStub))
+            yield return CreateModelFile(table);
+    }
+
+    internal (string path, string contents) CreateDatabaseMetadataBootstrapFile(DatabaseDefinition database)
     {
         var namespaceName = Options.NamespaceName ?? database.CsType.Namespace;
         if (string.IsNullOrWhiteSpace(namespaceName))
@@ -86,7 +92,7 @@ public class GeneratorFileFactory
         return ($"{database.CsType.Name}.DataLinqMetadata.cs", file);
     }
 
-    private (string path, string contents) CreateModelFile(TableModel table)
+    internal (string path, string contents) CreateModelFile(TableModel table)
     {
         try
         {
@@ -1501,6 +1507,12 @@ public class GeneratorFileFactory
 
     private IEnumerable<string> FileHeader(string namespaceName, bool useFileScopedNamespaces, IEnumerable<string> usings)
     {
+        foreach (var row in GeneratedFilePreamble.Create(new GeneratedFilePreambleOptions
+        {
+            UseNullableReferenceTypes = Options.UseNullableReferenceTypes
+        }))
+            yield return row;
+
         foreach (var row in usings)
             yield return $"using {row};";
 

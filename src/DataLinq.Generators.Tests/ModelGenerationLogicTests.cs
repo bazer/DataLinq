@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using DataLinq.Metadata;
+using DataLinq.SourceGenerators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -12,6 +14,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
 {
     private static readonly string InvalidDefaultValueSourcePath = GeneratorTestPaths.TestModel("InvalidDefaultModel.cs");
     private static readonly string InvalidCacheLimitSourcePath = GeneratorTestPaths.TestModel("InvalidCacheLimitModel.cs");
+    private static readonly string MultipleInvalidMetadataAttributeSourcePath = GeneratorTestPaths.TestModel("MultipleInvalidMetadataAttributeModel.cs");
     private static readonly string InvalidCacheLimitAmountSourcePath = GeneratorTestPaths.TestModel("InvalidCacheLimitAmountModel.cs");
     private static readonly string InvalidTypeAttributeSourcePath = GeneratorTestPaths.TestModel("InvalidTypeAttributeModel.cs");
     private static readonly string InvalidInterfaceAttributeSourcePath = GeneratorTestPaths.TestModel("InvalidInterfaceAttributeModel.cs");
@@ -29,6 +32,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     private static readonly string InvalidTablePropertySourcePath = GeneratorTestPaths.TestModel("InvalidTablePropertyModel.cs");
     private static readonly string MissingTableModelSourcePath = GeneratorTestPaths.TestModel("MissingTableModel.cs");
     private static readonly string InvalidQualifiedDefaultValueSourcePath = GeneratorTestPaths.TestModel("InvalidQualifiedDefaultModel.cs");
+    private static readonly string ValidAndInvalidDatabasesSourcePath = GeneratorTestPaths.TestModel("ValidAndInvalidDatabasesModel.cs");
 
     private const string DefaultValueTestModelSource = @"
     using DataLinq.Attributes;
@@ -140,6 +144,31 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     [Table(""rows"")]
     public abstract partial class InvalidCacheLimitModel(IRowData rowData, IDataSourceAccess dataSource)
         : Immutable<InvalidCacheLimitModel, InvalidCacheLimitDb>(rowData, dataSource), ITableModel<InvalidCacheLimitDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+    }";
+
+    private const string MultipleInvalidMetadataAttributeModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestMultipleInvalidMetadataAttributeNamespace;
+
+    [CacheLimit((CacheLimitType)999, 1)]
+    [CacheCleanup((CacheCleanupType)999, 1)]
+    public partial class MultipleInvalidMetadataAttributeDb : IDatabaseModel
+    {
+        public MultipleInvalidMetadataAttributeDb(DataSourceAccess dsa){}
+        public DbRead<MultipleInvalidMetadataAttributeModel> Rows { get; }
+    }
+
+    [Table(""rows"")]
+    public abstract partial class MultipleInvalidMetadataAttributeModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<MultipleInvalidMetadataAttributeModel, MultipleInvalidMetadataAttributeDb>(rowData, dataSource), ITableModel<MultipleInvalidMetadataAttributeDb>
     {
         [PrimaryKey, AutoIncrement, Column(""id"")]
         public abstract int? Id { get; }
@@ -271,6 +300,44 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     [Table(""rows"")]
     public abstract partial class MissingNamespaceModel(IRowData rowData, IDataSourceAccess dataSource)
         : Immutable<MissingNamespaceModel, MissingNamespaceDb>(rowData, dataSource), ITableModel<MissingNamespaceDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+    }";
+
+    private const string ValidAndInvalidDatabasesModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestValidAndInvalidDatabasesNamespace;
+
+    [CacheLimit((CacheLimitType)999, 1)]
+    public partial class BrokenDb : IDatabaseModel
+    {
+        public BrokenDb(DataSourceAccess dsa){}
+        public DbRead<BrokenRow> BrokenRows { get; }
+    }
+
+    [Table(""broken_rows"")]
+    public abstract partial class BrokenRow(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<BrokenRow, BrokenDb>(rowData, dataSource), ITableModel<BrokenDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+    }
+
+    public partial class HealthyDb : IDatabaseModel
+    {
+        public HealthyDb(DataSourceAccess dsa){}
+        public DbRead<HealthyRow> Rows { get; }
+    }
+
+    [Table(""healthy_rows"")]
+    public abstract partial class HealthyRow(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<HealthyRow, HealthyDb>(rowData, dataSource), ITableModel<HealthyDb>
     {
         [PrimaryKey, AutoIncrement, Column(""id"")]
         public abstract int? Id { get; }
@@ -687,6 +754,55 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     }
 
     [Test]
+    public async Task SourceGenerator_UsesSourceNullableEnable_WhenProjectNullableIsDisabled()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(
+            "#nullable enable\n" + DefaultValueTestModelSource,
+            path: GeneratorTestPaths.TestModel("NullableEnableModel.cs"));
+
+        var (_, _, generatedTrees) = RunGeneratorWithDiagnostics(
+            [inputTree],
+            nullableContextOptions: NullableContextOptions.Disable);
+
+        var generatedFile = generatedTrees
+            .Single(tree => Path.GetFileName(tree.FilePath).EndsWith("TestDefaultModel.cs", StringComparison.Ordinal))
+            .ToString();
+
+        await Assert.That(generatedFile).StartsWith(
+            """
+            // <auto-generated />
+            // This file was generated by DataLinq. Do not edit this file directly.
+            #nullable enable
+            """);
+        await Assert.That(generatedFile).Contains("MutateOrNew(this TestDefaultModel? model,");
+    }
+
+    [Test]
+    public async Task SourceGenerator_UsesSourceNullableDisable_WhenProjectNullableIsEnabled()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(
+            "#nullable disable\n" + DefaultValueTestModelSource,
+            path: GeneratorTestPaths.TestModel("NullableDisableModel.cs"));
+
+        var (_, _, generatedTrees) = RunGeneratorWithDiagnostics(
+            [inputTree],
+            nullableContextOptions: NullableContextOptions.Enable);
+
+        var generatedFile = generatedTrees
+            .Single(tree => Path.GetFileName(tree.FilePath).EndsWith("TestDefaultModel.cs", StringComparison.Ordinal))
+            .ToString();
+
+        await Assert.That(generatedFile).StartsWith(
+            """
+            // <auto-generated />
+            // This file was generated by DataLinq. Do not edit this file directly.
+            #nullable disable
+            """);
+        await Assert.That(generatedFile).Contains("MutateOrNew(this TestDefaultModel model,");
+        await Assert.That(generatedFile).DoesNotContain("MutateOrNew(this TestDefaultModel? model,");
+    }
+
+    [Test]
     public async Task Property_WithInvalidDefault_ShouldReportDiagnosticOnSourceAttribute_AndSkipBrokenAssignment()
     {
         var inputTree = CSharpSyntaxTree.ParseText(InvalidDefaultValueTestModelSource, path: InvalidDefaultValueSourcePath);
@@ -704,6 +820,22 @@ public class ModelGenerationLogicTests : GeneratorTestBase
 
         var generatedCode = string.Join(Environment.NewLine, generatedTrees.Select(x => x.ToString()));
         await Assert.That(generatedCode.Contains("this.Kontotexten = 56;", StringComparison.Ordinal)).IsFalse();
+    }
+
+    [Test]
+    public async Task InvalidDatabaseMetadata_ShouldNotSuppressValidDatabaseOutput()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(ValidAndInvalidDatabasesModelSource, path: ValidAndInvalidDatabasesSourcePath);
+
+        var (_, diagnostics, generatedTrees) = RunGeneratorWithDiagnostics([inputTree]);
+
+        await Assert.That(diagnostics.Count(x => x.Id == "DLG001")).IsEqualTo(1);
+
+        var generatedCode = string.Join(Environment.NewLine, generatedTrees.Select(x => x.ToString()));
+        await Assert.That(generatedCode.Contains("public partial class ImmutableHealthyRow", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(generatedCode.Contains("public partial class HealthyDb : global::DataLinq.Interfaces.IDataLinqGeneratedDatabaseModel<HealthyDb>", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(generatedCode.Contains("ImmutableBrokenRow", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(generatedCode.Contains("IDataLinqGeneratedDatabaseModel<BrokenDb>", StringComparison.Ordinal)).IsFalse();
     }
 
     [Test]
@@ -733,6 +865,25 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(string.IsNullOrWhiteSpace(highlightedSource)).IsFalse();
         await Assert.That(highlightedSource.Contains("CacheLimit", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("Invalid CacheLimitType value", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task MultipleInvalidMetadataAttributes_ShouldReportMultipleDiagnostics()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(MultipleInvalidMetadataAttributeModelSource, path: MultipleInvalidMetadataAttributeSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnosticsWithId = diagnostics
+            .Where(x => x.Id == "DLG001")
+            .OrderBy(x => x.Location.SourceSpan.Start)
+            .ToList();
+
+        await Assert.That(diagnosticsWithId.Count).IsEqualTo(2);
+        await Assert.That(inputTree.GetText().ToString(diagnosticsWithId[0].Location.SourceSpan)).IsEqualTo("CacheLimit((CacheLimitType)999, 1)");
+        await Assert.That(inputTree.GetText().ToString(diagnosticsWithId[1].Location.SourceSpan)).IsEqualTo("CacheCleanup((CacheCleanupType)999, 1)");
+        await Assert.That(diagnosticsWithId[0].GetMessage().Contains("Invalid CacheLimitType value", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnosticsWithId[1].GetMessage().Contains("Invalid CacheCleanupType value", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]
@@ -986,4 +1137,56 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(diagnostic.GetMessage().Contains("MissingRows", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("MissingRowModel", StringComparison.Ordinal)).IsTrue();
     }
+
+    [Test]
+    public async Task EmissionFailure_ShouldKeepValidTableOutputAndSuppressBootstrap()
+    {
+        var database = CreateDatabaseWithBrokenTableEmission();
+
+        var result = ModelGenerator.EmitGeneratedSources(database, new GeneratorFileFactoryOptions());
+
+        await Assert.That(result.Failures.Count).IsEqualTo(1);
+        await Assert.That(result.Failures[0].Exception.Message).Contains("BrokenRow");
+        await Assert.That(result.SourceFiles.Count).IsEqualTo(1);
+        await Assert.That(result.SourceFiles[0].HintName).EndsWith("GoodRow.cs");
+        await Assert.That(result.SourceFiles.Any(x => x.HintName.EndsWith("PartialEmissionDb.DataLinqMetadata.cs", StringComparison.Ordinal))).IsFalse();
+    }
+
+#pragma warning disable CS0618
+    private static DatabaseDefinition CreateDatabaseWithBrokenTableEmission()
+    {
+        var database = new DatabaseDefinition(
+            "PartialEmissionDb",
+            new CsTypeDeclaration("PartialEmissionDb", "PartialEmissionTests", ModelCsType.Class));
+
+        var goodTableModel = CreateEmissionTableModel(
+            database,
+            "GoodRows",
+            "good_rows",
+            "GoodRow",
+            "PartialEmissionTests");
+
+        var brokenTableModel = CreateEmissionTableModel(
+            database,
+            "BrokenRows",
+            "broken_rows",
+            "BrokenRow",
+            "");
+
+        database.SetTableModels([goodTableModel, brokenTableModel]);
+        return database;
+    }
+
+    private static TableModel CreateEmissionTableModel(
+        DatabaseDefinition database,
+        string propertyName,
+        string tableName,
+        string modelName,
+        string modelNamespace)
+    {
+        var model = new ModelDefinition(new CsTypeDeclaration(modelName, modelNamespace, ModelCsType.Class));
+        var table = new TableDefinition(tableName);
+        return new TableModel(propertyName, database, model, table);
+    }
+#pragma warning restore CS0618
 }

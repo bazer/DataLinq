@@ -25,6 +25,42 @@ Generated output is generated output. Do not hand-edit it and then act surprised
 
 Keep hand-written changes in your source model files or partial classes, not in generated files.
 
+Newer generated C# files also start with a DataLinq generated-file banner and an explicit `#nullable` directive. Those lines are owned by DataLinq too.
+
+If you pass `--stamp-generated-header`, the generated header includes the CLI version and a UTC timestamp. That is useful for provenance, but it creates a source diff every time. Leave it off when you want deterministic regenerated files.
+
+## Generated Files Suddenly Have Nullable Reference Annotations
+
+That is intentional.
+
+`UseNullableReferenceTypes` now defaults to enabled. Omitted config behaves like:
+
+```json
+{
+  "UseNullableReferenceTypes": true
+}
+```
+
+Generated files declare their own nullable context with `#nullable enable`, so they do not depend on your project-level nullable setting.
+
+If you need the old generated shape, opt out explicitly:
+
+```json
+{
+  "UseNullableReferenceTypes": false
+}
+```
+
+That makes DataLinq emit `#nullable disable` in generated files and avoid nullable reference annotations.
+
+## `validate` Reports Several Errors At Once
+
+That is a feature, not a cascade by default.
+
+The CLI now reports all independent validation issues it can reach. If one broken attribute prevents one table from being trustworthy, DataLinq should still report unrelated broken attributes or provider metadata issues it can honestly inspect.
+
+The rule is still conservative: when validation issues exist, `diff` writes no SQL file and `create-models` does not replace generated model files after validation or rendering errors.
+
 ## A Query Throws `QueryTranslationException`
 
 That usually means the LINQ translator does not support the exact expression shape you wrote.

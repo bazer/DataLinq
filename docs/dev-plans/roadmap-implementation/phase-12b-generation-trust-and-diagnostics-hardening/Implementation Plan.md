@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 12B Implementation Plan: Generation Trust and Diagnostics Hardening
 
-**Status:** Draft execution plan.
+**Status:** Complete as of 2026-05-14.
 
 ## Purpose
 
@@ -108,6 +108,15 @@ Exit criteria:
 - aggregate failures no longer force a single "most relevant" diagnostic when multiple leaf locations exist
 - common table/column/property failures retain specific source spans where the parser captured them
 
+Implementation status, 2026-05-14:
+
+- Added `DataLinqDiagnosticIssue` as the shared leaf-issue projection over `IDLOptionFailure`.
+- Added deterministic issue ordering by source file/span, object path, failure type, then message.
+- Added source-location line/column formatting that falls back to file-level output when source text is unavailable.
+- Added object-path extraction for database, model, table, column, property, and index definitions.
+- Improved `DLOptionFailure.Fail(..., IDefinition)` fallback locations for table, column, property, and index definitions.
+- Added unit coverage for aggregate flattening, line/column formatting, and table/column source-location fallback.
+
 ## Workstream B: CLI Validation, Diff, and Safe File Writes
 
 Goals:
@@ -155,6 +164,17 @@ Exit criteria:
 - `create-models` leaves existing files untouched when any validation/rendering error exists
 - valid `create-models` behavior still writes all expected database/table/view model files
 
+Implementation status, 2026-05-14:
+
+- Workstream B is complete for the CLI surface. Successful validation results now carry an `issues` collection, while validation failures are projected to the shared issue shape at the command boundary so `validate`, `validate --output json`, and `diff` all report structured leaf issues without writing artifacts.
+- Started CLI issue output conversion by routing `IDLOptionFailure` values through the shared `DataLinqDiagnosticIssue` projection.
+- Added line/column-aware text formatting for CLI failures when source text is available, with file-level fallback when it is not.
+- Added structured `issues` output for `validate --output json` on validation failures and successful validation results.
+- Changed `create-models` to render every generated model file into memory before replacing any target file.
+- Added a staged generated-file writer that writes temporary files first and rolls back previously replaced files if a later replacement fails.
+- Changed file metadata loading to aggregate every reachable path/read failure before returning.
+- Changed provider index and relation parsing loops for SQLite, MySQL, and MariaDB to accumulate independent malformed metadata failures within the same phase.
+
 ## Workstream C: Source Generator Partial Output and Multi-Diagnostics
 
 Goals:
@@ -194,6 +214,16 @@ Exit criteria:
 - valid tables/databases still get generated output where safe
 - incomplete graph bootstraps are suppressed rather than silently partial
 - tests prove secondary compiler noise is not introduced for planned error cases
+
+Implementation status, 2026-05-14:
+
+- Workstream C is complete for the planned generator surface: metadata failures are reported as leaf diagnostics, valid database/table output is preserved where coherent, and database bootstraps are suppressed after scoped table emission failures.
+- Started Workstream C by projecting source-generator metadata failures through `DataLinqDiagnosticIssue`.
+- Aggregate metadata failures now produce one `DLG001` diagnostic per leaf issue instead of one collapsed diagnostic blob.
+- Added generator coverage for multiple invalid metadata attributes producing multiple source-located diagnostics.
+- Changed source generation emission to render table files independently before attempting the database metadata bootstrap.
+- Suppressed the bootstrap when any table file fails to render, while preserving generated output for successfully rendered tables.
+- Added coverage proving an invalid database does not suppress another valid database, and that a table rendering failure keeps valid table output while suppressing the bootstrap.
 
 ## Workstream D: Generated File Preamble and Nullable Defaults
 
@@ -237,6 +267,20 @@ Exit criteria:
 - explicit opt-out remains supported
 - source-generator output follows `#nullable enable` / `#nullable disable` in model files
 
+Implementation status, 2026-05-14:
+
+- Workstream D is complete for the planned generated C# file surface: generated files now carry stable DataLinq banners, optional CLI stamps, explicit nullable directives, default-on nullable reference generation, explicit opt-out, and source-generator nullable-context recognition.
+- Started Workstream D by adding a shared generated-file preamble renderer.
+- `ModelFileFactory` and `GeneratorFileFactory` now emit the DataLinq generated-file banner and an explicit nullable directive before `using` statements.
+- Added `create-models --stamp-generated-header`, which stamps CLI-generated model files with the CLI version and one UTC generation timestamp captured for the run.
+- Source-generator output uses the same banner and nullable directive but never emits CLI stamp lines.
+- Changed `UseNullableReferenceTypes` defaults to true in configuration and generated-file factory options.
+- Preserved explicit opt-out through `UseNullableReferenceTypes: false`, which now emits `#nullable disable`.
+- Source-generator table output now resolves nullable context from each table model declaration, falling back through the database declaration and then project settings.
+- Source-generator database bootstrap output now resolves nullable context from the database declaration, with a table/project fallback when needed.
+- Added generator coverage for model-file `#nullable enable` / `#nullable disable` overriding project nullable settings, including inherited project-level nullable context when no file directive is present.
+- Added incremental generator coverage proving a nullable-directive-only model change refreshes generated nullable output while preserving reused metadata parsing.
+
 ## Workstream E: Documentation, Release Notes, and Support Boundary
 
 Goals:
@@ -262,6 +306,13 @@ Exit criteria:
 - user docs describe implemented behavior, not planned behavior
 - generated examples match the new preamble and nullable policy
 - compatibility notes explain the expected one-time source diffs
+
+Implementation status, 2026-05-14:
+
+- Workstream E is complete for the planned documentation, release-note, and support-boundary surface.
+- Updated configuration, CLI, getting-started, troubleshooting, README, and source-generator internals docs for generated-file banners, optional CLI header stamping, nullable-reference default-on behavior, explicit opt-out, validation issue reporting, JSON `issues`, safe `diff`, and source-generator nullable-context recognition.
+- Added changelog release notes and upgrade notes covering first-time generated C# diffs, `UseNullableReferenceTypes` default-on behavior, `UseNullableReferenceTypes: false` opt-out, and timestamp stamp churn.
+- No committed generated example files were regenerated in this slice; the user-facing docs now use short header snippets rather than stale generated-output snapshots.
 
 ## Recommended Execution Order
 
@@ -326,3 +377,14 @@ Phase 12B can close when:
 - generated C# preambles and nullable directives are covered by tests
 - user docs and release notes reflect shipped behavior
 - the roadmap implementation index marks Phase 13 as the next priority after 12B
+
+Closeout status, 2026-05-14:
+
+- Closed. The four source plans have all been implemented for the scoped Phase 12B surface.
+- CLI validation, diagnostic issue projection, safe generated-file writes, generated-file preambles, nullable defaults, source-generator multi-diagnostics, partial output, and source-level nullable context are covered by targeted unit/generator tests.
+- User docs and release notes now describe shipped behavior, including expected generated-file churn and the `UseNullableReferenceTypes: false` opt-out.
+- Roadmap implementation pointers now mark Phase 12B complete and Phase 13 as the next implementation priority.
+- Closeout verification passed:
+  - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore`: 607 passed
+  - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Generators.Tests\DataLinq.Generators.Tests.csproj -c Debug --no-restore`: 38 passed
+  - `docfx build docfx.json`: 0 warnings, 0 errors

@@ -70,6 +70,8 @@ The finalized metadata model carries:
 
 After metadata construction, the generator emits the database file and one generated file per table/view model.
 
+Generated source starts with the same stable DataLinq banner and nullable directive used by CLI-written generated files. Source-generator output is deterministic: it does not include timestamps or CLI version stamps.
+
 Generated model code is responsible for the repetitive but important parts:
 
 - immutable and mutable property surfaces
@@ -79,6 +81,14 @@ Generated model code is responsible for the repetitive but important parts:
 - generated direct `Get(...)` methods for primary-key lookup
 - provider-key extraction from row data, readers, dynamic keys, and model instances
 - generated metadata drafts for runtime startup
+
+The generator follows nullable context from source declarations. A model file with `#nullable enable` produces generated output with nullable reference annotations and `#nullable enable`, even if the project default is nullable-disabled. A model file with `#nullable disable` opts that generated table output out. When no declaration-level context is available, generation falls back through the database declaration and then the project nullable setting.
+
+### Diagnostics and Partial Output
+
+Metadata and rendering failures are reported as focused diagnostics where possible. Aggregate failures are flattened into individual diagnostics so users can fix more than one independent source issue per compile.
+
+The generator still emits valid generated table files for unaffected database/table scopes when it can do so without lying about the runtime metadata graph. If a table render fails, the generator suppresses the database metadata bootstrap for that database, because a partial bootstrap would make runtime startup look complete when it is not.
 
 ### 4. Runtime Use
 
