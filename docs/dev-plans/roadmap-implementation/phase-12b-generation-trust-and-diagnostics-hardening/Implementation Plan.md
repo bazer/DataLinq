@@ -267,6 +267,13 @@ Exit criteria:
 - explicit opt-out remains supported
 - source-generator output follows `#nullable enable` / `#nullable disable` in model files
 
+Implementation status, 2026-05-14:
+
+- Started Workstream D by adding a shared generated-file preamble renderer.
+- `ModelFileFactory` and `GeneratorFileFactory` now emit the DataLinq generated-file banner and an explicit nullable directive before `using` statements.
+- Added `create-models --stamp-generated-header`, which stamps CLI-generated model files with the CLI version and one UTC generation timestamp captured for the run.
+- Source-generator output uses the same banner and nullable directive but never emits CLI stamp lines.
+
 ## Workstream E: Documentation, Release Notes, and Support Boundary
 
 Goals:

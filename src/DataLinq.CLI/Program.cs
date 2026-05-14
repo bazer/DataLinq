@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using CommandLine;
 using DataLinq.Config;
+using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
 using DataLinq.MariaDB;
 using DataLinq.Metadata;
@@ -36,6 +38,9 @@ static class Program
 
         [Option("overwrite-types", Required = false, HelpText = "Force overwriting C# property types in existing models with types inferred from the database schema.")]
         public bool OverwriteTypes { get; set; }
+
+        [Option("stamp-generated-header", Required = false, HelpText = "Include the DataLinq CLI version and UTC generation timestamp in generated model file headers.")]
+        public bool StampGeneratedHeader { get; set; }
     }
 
     [Verb("validate", HelpText = "Validate configured model metadata against a live database.")]
@@ -192,7 +197,10 @@ static class Program
                     ReadSourceModels = !options.SkipSource,
                     CapitalizeNames = db.CapitalizeNames,
                     Include = db.Include,
-                    OverwritePropertyTypes = options.OverwriteTypes
+                    OverwritePropertyTypes = options.OverwriteTypes,
+                    GeneratedFileStamp = options.StampGeneratedHeader
+                        ? new GeneratedFileStamp(GetCliVersion(), DateTimeOffset.UtcNow)
+                        : null
                 });
 
                 var databaseMetadata = generator.CreateModels(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? db.Name);
@@ -525,5 +533,13 @@ static class Program
     {
         Text,
         Json
+    }
+
+    private static string GetCliVersion()
+    {
+        var assembly = typeof(Program).Assembly;
+        return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? assembly.GetName().Version?.ToString()
+            ?? "unknown";
     }
 }

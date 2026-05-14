@@ -1507,6 +1507,12 @@ public class GeneratorFileFactory
 
     private IEnumerable<string> FileHeader(string namespaceName, bool useFileScopedNamespaces, IEnumerable<string> usings)
     {
+        foreach (var row in GeneratedFilePreamble.Create(new GeneratedFilePreambleOptions
+        {
+            UseNullableReferenceTypes = Options.UseNullableReferenceTypes
+        }))
+            yield return row;
+
         foreach (var row in usings)
             yield return $"using {row};";
 

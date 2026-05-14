@@ -78,6 +78,7 @@ public struct ModelGeneratorOptions
     public bool SeparateTablesAndViews { get; set; } = false;
     public List<string> Include { get; set; } = [];
     public bool OverwritePropertyTypes { get; set; } = false;
+    public GeneratedFileStamp? GeneratedFileStamp { get; set; }
 
     public ModelGeneratorOptions()
     {
@@ -172,7 +173,8 @@ public class ModelGenerator : Generator
             UseRecords = db.UseRecord,
             UseFileScopedNamespaces = db.UseFileScopedNamespaces,
             UseNullableReferenceTypes = db.UseNullableReferenceTypes,
-            SeparateTablesAndViews = db.SeparateTablesAndViews
+            SeparateTablesAndViews = db.SeparateTablesAndViews,
+            GeneratedFileStamp = this.options.GeneratedFileStamp
         };
 
         List<(string path, string contents)> modelFiles;
