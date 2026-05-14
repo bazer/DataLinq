@@ -169,6 +169,8 @@ Implementation status, 2026-05-14:
 - Started CLI issue output conversion by routing `IDLOptionFailure` values through the shared `DataLinqDiagnosticIssue` projection.
 - Added line/column-aware text formatting for CLI failures when source text is available, with file-level fallback when it is not.
 - Added structured `issues` output for `validate --output json` on validation failures and successful validation results.
+- Changed `create-models` to render every generated model file into memory before replacing any target file.
+- Added a staged generated-file writer that writes temporary files first and rolls back previously replaced files if a later replacement fails.
 
 ## Workstream C: Source Generator Partial Output and Multi-Diagnostics
 

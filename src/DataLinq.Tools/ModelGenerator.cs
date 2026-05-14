@@ -126,7 +126,7 @@ public class ModelGenerator : Generator
         log($"Tables read from database: {dbMetadata.TableModels.Length}");
         log("");
 
-        var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
+        var destDir = Path.GetFullPath(Path.Combine(basePath, db.DestinationDirectory ?? ""));
         var sourceRelationPropertyKeys = new HashSet<string>(StringComparer.Ordinal);
         if (this.options.ReadSourceModels)
         {
@@ -175,23 +175,43 @@ public class ModelGenerator : Generator
             SeparateTablesAndViews = db.SeparateTablesAndViews
         };
 
-        //log($"Writing models to:");
-        foreach (var file in new ModelFileFactory(options).CreateModelFiles(dbMetadata))
+        List<(string path, string contents)> modelFiles;
+        try
         {
-            var filepath = $"{destDir}{Path.DirectorySeparatorChar}{file.path}";
-            log($"Writing {filepath}");
-
-            if (!File.Exists(filepath))
-            {
-                var directory = Path.GetDirectoryName(filepath);
-                if (!string.IsNullOrEmpty(directory))
-                    Directory.CreateDirectory(directory);
-            }
-
-            File.WriteAllText(filepath, file.contents, fileEncoding);
+            modelFiles = new ModelFileFactory(options)
+                .CreateModelFiles(dbMetadata)
+                .Select(file => (Path.GetFullPath(Path.Combine(destDir, file.path)), file.contents))
+                .ToList();
+        }
+        catch (Exception exception)
+        {
+            return CreateModelFileRenderingFailure(exception);
         }
 
+        var writeResult = SafeGeneratedFileWriter.WriteAll(modelFiles, fileEncoding, log);
+        if (writeResult.HasFailed)
+            return writeResult.Failure;
+
         return dbMetadata;
+    }
+
+    private static IDLOptionFailure CreateModelFileRenderingFailure(Exception exception)
+    {
+        if (exception is ModelFileGenerationException modelFileGenerationException)
+        {
+            var sourceLocation = modelFileGenerationException.GetSourceLocation();
+            if (sourceLocation.HasValue)
+            {
+                return DLOptionFailure.Fail(
+                    DLFailureType.Exception,
+                    modelFileGenerationException.Message,
+                    sourceLocation.Value);
+            }
+        }
+
+        return DLOptionFailure.Fail(
+            DLFailureType.Exception,
+            $"Failed to render generated model files. {exception.Message}");
     }
 
     private void LogGeneratedRelationFallbackWarnings(
