@@ -48,7 +48,7 @@ public class MetadataFromModelsFactory
         // Identify classes implementing the interfaces of interest
         var dbModelClasses = modelSyntaxes
             .OfType<ClassDeclarationSyntax>()
-            .Where(cls => ImplementsInterface(cls, modelSyntaxes, x => x == "IDatabaseModel"))
+            .Where(cls => ImplementsInterface(cls, modelSyntaxes, SyntaxParser.IsDatabaseModelContract))
             .ToList();
 
         var parsedDatabases = ParseDatabaseModels(modelSyntaxes, syntaxParser, dbModelClasses, options.AllowMissingTableModels).ToList();

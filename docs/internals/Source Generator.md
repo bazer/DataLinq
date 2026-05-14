@@ -2,13 +2,13 @@
 
 DataLinq's source generator is not only a boilerplate reducer. In current DataLinq it is part of the runtime contract.
 
-Generated database models implement `IDataLinqGeneratedDatabaseModel<TDatabase>`, provide complete generated metadata, install generated metadata back into the database type, and generate table/model helpers that the runtime expects to exist. Stale generated output should fail early rather than silently falling back to reflection-heavy startup.
+Generated database models implement `IDatabaseModel<TDatabase>`, provide complete generated metadata, install generated metadata back into the database type, and generate table/model helpers that the runtime expects to exist. Stale generated output should fail early rather than silently falling back to reflection-heavy startup.
 
 ## Generated Surface
 
 For a configured database, the generator produces:
 
-- a partial database model implementing `IDataLinqGeneratedDatabaseModel<TDatabase>`
+- a partial database model implementing `IDatabaseModel<TDatabase>`
 - `GetDataLinqGeneratedMetadata()` returning a generated metadata draft
 - `SetDataLinqGeneratedMetadata(...)` for binding finalized runtime metadata back to the generated type
 - immutable model classes

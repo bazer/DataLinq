@@ -54,9 +54,12 @@ public class SyntaxParser
 
         if (string.Equals(genericName, "IDatabaseModel", StringComparison.Ordinal))
         {
+            if (typeArguments.Count == 1)
+                return false;
+
             contractName = genericName;
             typeArgumentCount = typeArguments.Count;
-            expectedDescription = "must be non-generic";
+            expectedDescription = "must be non-generic or use exactly one database type argument";
             return true;
         }
 
@@ -74,8 +77,8 @@ public class SyntaxParser
         return false;
     }
 
-    private static bool IsDatabaseModelContract(string interfaceName) =>
-        MatchesModelInterfaceContract(interfaceName, "IDatabaseModel", allowSingleGenericArgument: false);
+    internal static bool IsDatabaseModelContract(string interfaceName) =>
+        MatchesModelInterfaceContract(interfaceName, "IDatabaseModel", allowSingleGenericArgument: true);
 
     private static bool IsModelInstanceContract(string interfaceName) =>
         MatchesModelInterfaceContract(interfaceName, "IModelInstance", allowSingleGenericArgument: true);

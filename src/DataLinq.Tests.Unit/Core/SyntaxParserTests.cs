@@ -55,6 +55,7 @@ public class SyntaxParserTests
     public async Task IsModelInterface_QualifiedNames_ReturnsTrue()
     {
         await Assert.That(SyntaxParser.IsModelInterface("DataLinq.Interfaces.IDatabaseModel")).IsTrue();
+        await Assert.That(SyntaxParser.IsModelInterface("DataLinq.Interfaces.IDatabaseModel<TestNamespace.TestDb>")).IsTrue();
         await Assert.That(SyntaxParser.IsModelInterface("global::DataLinq.Interfaces.ITableModel<TestNamespace.TestDb>")).IsTrue();
         await Assert.That(SyntaxParser.IsModelInterface(SyntaxFactory.ParseTypeName("DataLinq.Interfaces.IViewModel<TestNamespace.TestDb>"))).IsTrue();
     }
@@ -70,7 +71,7 @@ public class SyntaxParserTests
     [Test]
     public async Task IsModelInterface_InvalidGenericArity_ReturnsFalse()
     {
-        await Assert.That(SyntaxParser.IsModelInterface("DataLinq.Interfaces.IDatabaseModel<TestNamespace.TestDb>")).IsFalse();
+        await Assert.That(SyntaxParser.IsModelInterface("DataLinq.Interfaces.IDatabaseModel<TestNamespace.TestDb, TestNamespace.OtherDb>")).IsFalse();
         await Assert.That(SyntaxParser.IsModelInterface("global::DataLinq.Interfaces.ITableModel<TestNamespace.TestDb, TestNamespace.OtherDb>")).IsFalse();
         await Assert.That(SyntaxParser.IsModelInterface(SyntaxFactory.ParseTypeName("DataLinq.Interfaces.IViewModel<>"))).IsFalse();
         await Assert.That(SyntaxParser.IsModelInterface("DataLinq.Instances.IModelInstance<TestNamespace.TestDb, TestNamespace.OtherDb>")).IsFalse();

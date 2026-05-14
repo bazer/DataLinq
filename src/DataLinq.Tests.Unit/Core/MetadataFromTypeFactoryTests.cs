@@ -351,7 +351,7 @@ public class MetadataFromTypeFactoryTests
     }
 }
 
-public sealed class BootstrapHookDb : IDatabaseModel, IDataLinqGeneratedDatabaseModel<BootstrapHookDb>
+public sealed class BootstrapHookDb : IDatabaseModel<BootstrapHookDb>
 {
     public static BootstrapHookDb NewDataLinqDatabase(IDataSourceAccess dataSource) => new();
 
@@ -375,7 +375,7 @@ public sealed class BootstrapHookDb : IDatabaseModel, IDataLinqGeneratedDatabase
         ]);
 }
 
-public sealed class RuntimeInterfaceSelectionDb : IDatabaseModel, IDataLinqGeneratedDatabaseModel<RuntimeInterfaceSelectionDb>
+public sealed class RuntimeInterfaceSelectionDb : IDatabaseModel<RuntimeInterfaceSelectionDb>
 {
     public static RuntimeInterfaceSelectionDb NewDataLinqDatabase(IDataSourceAccess dataSource) => new();
 

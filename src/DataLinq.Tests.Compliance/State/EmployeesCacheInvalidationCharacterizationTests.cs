@@ -431,7 +431,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
 
     private static TableCache GetTableCache<TModel, TDatabase>(Database<TDatabase> database)
         where TModel : class, IImmutableInstance
-        where TDatabase : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<TDatabase>
+        where TDatabase : class, IDatabaseModel<TDatabase>
     {
         var table = database.Provider.Metadata.GetTableModel(typeof(TModel)).Table;
         return database.Provider.GetTableCache(table);
@@ -440,7 +440,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
     private static DataLinqTableMetricsSnapshot GetTableMetrics<TDatabase>(
         Database<TDatabase> database,
         string tableName)
-        where TDatabase : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<TDatabase>
+        where TDatabase : class, IDatabaseModel<TDatabase>
     {
         return DataLinqMetrics.Snapshot()
             .Providers

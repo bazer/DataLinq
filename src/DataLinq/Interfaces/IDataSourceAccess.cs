@@ -7,7 +7,7 @@ public interface IDataSourceAccess
 }
 
 public interface IDataSourceAccess<T> : IDataSourceAccess
-    where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
+    where T : class, IDatabaseModel<T>
 {
     new IDatabaseProvider<T> Provider { get; }
     public T Query();

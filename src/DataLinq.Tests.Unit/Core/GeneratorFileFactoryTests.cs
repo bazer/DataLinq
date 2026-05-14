@@ -23,7 +23,7 @@ public class GeneratorFileFactoryTests
             .Single(file => file.path == "GeneratorDb.DataLinqMetadata.cs");
 
         await Assert.That(generatedFile.contents.Contains(
-            "public partial class GeneratorDb : global::DataLinq.Interfaces.IDataLinqGeneratedDatabaseModel<GeneratorDb>"))
+            "public partial class GeneratorDb : global::DataLinq.Interfaces.IDatabaseModel<GeneratorDb>"))
             .IsTrue();
         await Assert.That(generatedFile.contents.Contains(
             "public static global::DataLinq.Metadata.GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>"))

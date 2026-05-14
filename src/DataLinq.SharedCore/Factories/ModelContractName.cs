@@ -27,9 +27,12 @@ internal static class ModelContractName
 
         if (string.Equals(genericName, "IDatabaseModel", StringComparison.Ordinal))
         {
+            if (typeArguments.Count == 1)
+                return false;
+
             contractName = genericName;
             typeArgumentCount = typeArguments.Count;
-            expectedDescription = "must be non-generic";
+            expectedDescription = "must be non-generic or use exactly one database type argument";
             return true;
         }
 

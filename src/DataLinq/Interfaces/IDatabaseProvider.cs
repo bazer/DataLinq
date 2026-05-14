@@ -61,7 +61,7 @@ public interface IDatabaseProvider : IDisposable
 }
 
 public interface IDatabaseProvider<T> : IDatabaseProvider
-    where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
+    where T : class, IDatabaseModel<T>
 {
     new ReadOnlyAccess<T> ReadOnlyAccess { get; }
 }
