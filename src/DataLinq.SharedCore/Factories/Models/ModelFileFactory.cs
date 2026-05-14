@@ -322,7 +322,7 @@ public class ModelFileFactory
                     yield return $"{namespaceTab}{tab}[Default({valueProperty.GetDefaultValueCode()})]";
             }
 
-            if (valueProperty.EnumProperty != null)
+            if (valueProperty.EnumProperty != null && HasDatabaseEnumType(valueProperty))
                 yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.CsValuesOrDbValues.Select(x => FormatStringLiteral(x.name)))})]";
 
             yield return $"{namespaceTab}{tab}[Column({FormatStringLiteral(c.DbName)})]";
@@ -387,6 +387,9 @@ public class ModelFileFactory
 
     private static string FormatStringLiteral(string value) =>
         SymbolDisplay.FormatLiteral(value, quote: true);
+
+    private static bool HasDatabaseEnumType(ValueProperty property) =>
+        property.Column.DbTypes.Any(x => string.Equals(x.Name, "enum", StringComparison.OrdinalIgnoreCase));
 
     private static string? GetDocumentationComment(IEnumerable<Attribute> attributes)
     {
