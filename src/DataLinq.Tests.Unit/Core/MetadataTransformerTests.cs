@@ -83,10 +83,10 @@ public class MetadataTransformerTests
         });
     }
 
-    private static DatabaseDefinition CreateSourceDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "MyModel", string interfaceName = "IMyModel", bool includeEnumDefault = false, bool useExternalStatusEnum = false, bool includeUsings = false)
+    private static DatabaseDefinition CreateSourceDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "MyModel", string interfaceName = "IMyModel", bool includeEnumDefault = false, bool useExternalStatusEnum = false, bool includeUsings = false, string databaseCsTypeName = "MyDatabaseCsType")
     {
         var iTableModel = new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface);
-        var dbCsType = new CsTypeDeclaration("MyDatabaseCsType", "SourceNamespace", ModelCsType.Class);
+        var dbCsType = new CsTypeDeclaration(databaseCsTypeName, "SourceNamespace", ModelCsType.Class);
         var modelCsType = new CsTypeDeclaration(modelName, "SourceNamespace", ModelCsType.Class);
         var interfaceType = new CsTypeDeclaration(interfaceName, "SourceNamespace", ModelCsType.Interface);
         var enumType = new CsTypeDeclaration("MyStatusEnum", "SourceNamespace", ModelCsType.Enum);
@@ -339,6 +339,25 @@ public class MetadataTransformerTests
         await Assert.That(destinationDatabase.Usings.Select(x => x.FullNamespaceName).ToArray()).Contains("Source.Database.Helpers");
         await Assert.That(destinationTableModel.Model.CsType.Namespace).IsEqualTo("SourceNamespace");
         await Assert.That(destinationTableModel.Model.Usings.Select(x => x.FullNamespaceName).ToArray()).Contains("Source.Model.Helpers");
+    }
+
+    [Test]
+    public async Task TransformDatabaseSnapshot_PreservesSourceNamespaceWhenTypeNamesMatch()
+    {
+        var sourceDatabase = CreateSourceDatabase(
+            modelName: "raw_table",
+            databaseCsTypeName: "MyDatabase");
+        var destinationDatabase = CreateDestinationDatabase();
+        var transformer = new MetadataTransformer(new MetadataTransformerOptions());
+
+        destinationDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
+
+        var destinationTableModel = destinationDatabase.TableModels.First(tm => tm.Table.DbName == "my_table");
+
+        await Assert.That(destinationDatabase.CsType.Name).IsEqualTo("MyDatabase");
+        await Assert.That(destinationDatabase.CsType.Namespace).IsEqualTo("SourceNamespace");
+        await Assert.That(destinationTableModel.Model.CsType.Name).IsEqualTo("raw_table");
+        await Assert.That(destinationTableModel.Model.CsType.Namespace).IsEqualTo("SourceNamespace");
     }
 
     [Test]

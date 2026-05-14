@@ -41,7 +41,8 @@ public class MetadataTransformer
                 modelCsTypeName = modelCsTypeName.Substring(1);
         }
 
-        if (destCsType.Name != modelCsTypeName)
+        if (destCsType.Name != modelCsTypeName ||
+            destCsType.Namespace != srcCsType.Namespace)
             return destCsType
                 .MutateName(modelCsTypeName)
                 .MutateNamespace(srcCsType.Namespace);
