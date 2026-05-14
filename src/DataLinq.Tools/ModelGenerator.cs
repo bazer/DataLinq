@@ -121,7 +121,7 @@ public class ModelGenerator : Generator
             .GetMetadataFromSqlFactory(sqlOptions)
             .ParseDatabase(db.Name, db.CsType, db.Namespace, databaseName, connectionString.Original)
             .TryUnwrap(out var dbMetadata, out var dbFailure))
-            return DLOptionFailure.Fail(dbFailure);
+            return dbFailure;
 
         log($"Tables read from database: {dbMetadata.TableModels.Length}");
         log("");

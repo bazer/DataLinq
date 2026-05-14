@@ -8,6 +8,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<InternalsVisibleTo Include="DataLinq.Tests.Unit" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="CommandLineParser" />
 		<PackageReference Include="Microsoft.SourceLink.GitHub">
 			<PrivateAssets>all</PrivateAssets>

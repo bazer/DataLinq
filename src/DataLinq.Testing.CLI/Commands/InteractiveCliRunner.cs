@@ -125,6 +125,7 @@ internal static class InteractiveCliRunner
             selection,
             suite,
             null,
+            filter: null,
             configuration,
             build,
             batchSize,

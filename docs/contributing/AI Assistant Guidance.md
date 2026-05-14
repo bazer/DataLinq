@@ -77,6 +77,15 @@ For targeted tests:
 ./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Dev.CLI -- test src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj
 ```
 
+For targeted `DataLinq.Testing.CLI` suite runs, use `run --filter` with TUnit tree-node filter syntax. The active suites are TUnit/Microsoft.Testing.Platform executable test projects, so old VSTest filter expressions such as `FullyQualifiedName~Foo` are the wrong syntax here.
+
+```powershell
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CacheNotificationManagerTests/*" --output failures
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/*/HandleEvent_NoSubscribers_DoesNotThrow" --output failures
+```
+
+The filter shape is `/<Assembly>/<Namespace>/<Class name>/<Test name>`, and wildcards are supported. Use this when validating a specific class, namespace, or test method through the same suite orchestration path the repo uses for broader runs.
+
 For provider-matrix or server-backed runs:
 
 ```powershell

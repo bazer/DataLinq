@@ -136,6 +136,12 @@ dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --alias late
 dotnet run --project DataLinq.Testing.CLI -- run --suite mysql --alias latest --batch-size 4
 ```
 
+Run a focused subset inside a suite with a TUnit tree-node filter:
+
+```bash
+dotnet run --project DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
+```
+
 When invoking the CLI repeatedly from the same build output, prefer `--no-build` together with an explicit configuration and framework:
 
 ```bash

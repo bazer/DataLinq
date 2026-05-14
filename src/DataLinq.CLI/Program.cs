@@ -82,12 +82,12 @@ static class Program
 
     static public bool ReadConfig(Action<string>? log = null)
     {
-        var configLog = log ?? Console.WriteLine;
+        var configLog = log ?? ConsoleDiagnosticWriter.WriteLogLine;
         var config = DataLinqConfig.FindAndReadConfigs(ConfigPath, configLog);
 
         if (config.HasFailed)
         {
-            Console.WriteLine(config.Failure);
+            ConsoleDiagnosticWriter.WriteFailure(config.Failure);
             return false;
         }
 
@@ -143,12 +143,12 @@ static class Program
 
                     Console.WriteLine();
 
-                    var reader = new ModelReader(Console.WriteLine);
+                    var reader = new ModelReader(ConsoleDiagnosticWriter.WriteLogLine);
                     var result = reader.Read(ConfigFile, ConfigBasePath);
 
                     if (result.HasFailed)
                     {
-                        Console.WriteLine(result.Failure);
+                        ConsoleDiagnosticWriter.WriteFailure(result.Failure);
                         exitCode = 2;
                         return;
                     }
@@ -167,13 +167,13 @@ static class Program
                 var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
                 if (result.HasFailed)
                 {
-                    Console.WriteLine(result.Failure);
+                    ConsoleDiagnosticWriter.WriteFailure(result.Failure);
                     exitCode = 2;
                     return;
                 }
 
                 var (db, connection) = result.Value;
-                var generator = new ModelGenerator(Console.WriteLine, new ModelGeneratorOptions
+                var generator = new ModelGenerator(ConsoleDiagnosticWriter.WriteLogLine, new ModelGeneratorOptions
                 {
                     OverwriteExistingModels = true,
                     ReadSourceModels = !options.SkipSource,
@@ -186,7 +186,7 @@ static class Program
 
                 if (databaseMetadata.HasFailed)
                 {
-                    Console.WriteLine(databaseMetadata.Failure);
+                    ConsoleDiagnosticWriter.WriteFailure(databaseMetadata.Failure);
                     exitCode = 2;
                     return;
                 }
@@ -202,13 +202,13 @@ static class Program
                 var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
                 if (result.HasFailed)
                 {
-                    Console.WriteLine(result.Failure);
+                    ConsoleDiagnosticWriter.WriteFailure(result.Failure);
                     exitCode = 2;
                     return;
                 }
 
                 var (db, connection) = result.Value;
-                var generator = new SqlGenerator(Console.WriteLine, new SqlGeneratorOptions
+                var generator = new SqlGenerator(ConsoleDiagnosticWriter.WriteLogLine, new SqlGeneratorOptions
                 {
                 });
 
@@ -216,7 +216,7 @@ static class Program
 
                 if (sql.HasFailed)
                 {
-                    Console.WriteLine(sql.Failure);
+                    ConsoleDiagnosticWriter.WriteFailure(sql.Failure);
                     exitCode = 2;
                     return;
                 }
@@ -232,20 +232,20 @@ static class Program
                 var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
                 if (result.HasFailed)
                 {
-                    Console.WriteLine(result.Failure);
+                    ConsoleDiagnosticWriter.WriteFailure(result.Failure);
                     exitCode = 2;
                     return;
                 }
 
                 var (db, connection) = result.Value;
-                var generator = new DatabaseCreator(Console.WriteLine, new DatabaseCreatorOptions
+                var generator = new DatabaseCreator(ConsoleDiagnosticWriter.WriteLogLine, new DatabaseCreatorOptions
                 {
                 });
 
                 var createResult = generator.Create(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? db.Name);
                 if (createResult.HasFailed)
                 {
-                    Console.WriteLine(createResult.Failure);
+                    ConsoleDiagnosticWriter.WriteFailure(createResult.Failure);
                     exitCode = 2;
                     return;
                 }
@@ -315,7 +315,7 @@ static class Program
 
         var configLog = quietConfig
             ? new Action<string>(_ => { })
-            : Console.WriteLine;
+            : ConsoleDiagnosticWriter.WriteLogLine;
 
         if (ReadConfig(configLog) == false)
             return false;
@@ -323,16 +323,16 @@ static class Program
         var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
         if (result.HasFailed)
         {
-            Console.WriteLine(result.Failure);
+            ConsoleDiagnosticWriter.WriteFailure(result.Failure);
             return false;
         }
 
         var (_, connection) = result.Value;
-        var validator = new SchemaValidator(options.Verbose ? Console.WriteLine : _ => { });
+        var validator = new SchemaValidator(options.Verbose ? ConsoleDiagnosticWriter.WriteLogLine : _ => { });
         var validation = validator.Validate(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? options.Name);
         if (validation.HasFailed)
         {
-            Console.WriteLine(validation.Failure);
+            ConsoleDiagnosticWriter.WriteFailure(validation.Failure);
             return false;
         }
 
