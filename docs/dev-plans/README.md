@@ -72,6 +72,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 - `query-and-runtime/Async and Lazy Loading.md`
 - `query-and-runtime/Batched mutations.md`
+- `query-and-runtime/Mutable Instance Lifecycle.md`
 - `query-and-runtime/Projections and Views.md`
 - `query-and-runtime/Query Pipeline Abstraction.md`
 - `query-and-runtime/Relation-Aware Join API.md`
