@@ -307,6 +307,13 @@ Exit criteria:
 - generated examples match the new preamble and nullable policy
 - compatibility notes explain the expected one-time source diffs
 
+Implementation status, 2026-05-14:
+
+- Workstream E documentation updates are in progress against shipped behavior, not roadmap intent.
+- Updated configuration, CLI, getting-started, troubleshooting, README, and source-generator internals docs for generated-file banners, optional CLI header stamping, nullable-reference default-on behavior, explicit opt-out, validation issue reporting, JSON `issues`, safe `diff`, and source-generator nullable-context recognition.
+- Added changelog release notes and upgrade notes covering first-time generated C# diffs, `UseNullableReferenceTypes` default-on behavior, `UseNullableReferenceTypes: false` opt-out, and timestamp stamp churn.
+- No committed generated example files were regenerated in this slice; the user-facing docs now use short header snippets rather than stale generated-output snapshots.
+
 ## Recommended Execution Order
 
 1. Add characterization tests for current diagnostic and generated-file behavior.
