@@ -70,7 +70,7 @@ public class SchemaValidator : Generator
             .GetMetadataFromSqlFactory(databaseOptions)
             .ParseDatabase(db.Name, db.CsType, db.Namespace, resolvedDatabaseName, connectionString.Original)
             .TryUnwrap(out var databaseMetadata, out var databaseFailure))
-            return DLOptionFailure.Fail(databaseFailure);
+            return databaseFailure;
 
         var differences = SchemaComparer.Compare(modelMetadata, databaseMetadata, connection.Type);
         return new SchemaValidationRunResult(

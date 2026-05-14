@@ -15,6 +15,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\DataLinq\DataLinq.csproj" />
 		<ProjectReference Include="..\DataLinq.Benchmark.CLI\DataLinq.Benchmark.CLI.csproj" />
+		<ProjectReference Include="..\DataLinq.CLI\DataLinq.CLI.csproj" />
 		<ProjectReference Include="..\DataLinq.DevTools\DataLinq.DevTools.csproj" />
 		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 		<ProjectReference Include="..\DataLinq.PlatformCompatibility.Smoke\DataLinq.PlatformCompatibility.Smoke.csproj" />
