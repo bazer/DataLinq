@@ -76,6 +76,7 @@ Runs the selected suite or suites against the selected targets.
 dotnet run --project DataLinq.Testing.CLI -- run --suite all --alias quick
 dotnet run --project DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
 dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --targets mysql-8.4,mariadb-11.8
+dotnet run --project DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
 ```
 
 ## Target Selection
@@ -116,6 +117,8 @@ Supported suites:
   Defaults to `all`.
 - `--project`
   Optional project override for a single-suite run.
+- `--filter`
+  Optional TUnit tree-node filter expression. The CLI forwards this to the test host as `--treenode-filter`.
 - `--configuration`
   Defaults to `Debug`.
 - `--build`
@@ -134,6 +137,22 @@ Supported suites:
   Controls the repo-local execution profile used when invoking `dotnet`.
 
 `--project` cannot be combined with `--suite all`. That combination is nonsense, and the CLI rejects it.
+
+The active suites run on TUnit and Microsoft.Testing.Platform, so this is not the old VSTest `FullyQualifiedName~Foo` filter grammar. Use the TUnit tree-node shape:
+
+```text
+/<Assembly>/<Namespace>/<Class name>/<Test name>
+```
+
+Useful examples:
+
+```bash
+dotnet run --project DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
+dotnet run --project DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/*/HandleEvent_NoSubscribers_DoesNotThrow"
+dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --alias quick --filter "/*/DataLinq.Tests.Compliance.Query/*/*"
+```
+
+Wildcards are supported. For the underlying syntax, see the [TUnit test filter documentation](https://tunit.dev/docs/execution/test-filters/).
 
 ## Interactive Mode
 

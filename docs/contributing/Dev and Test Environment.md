@@ -227,6 +227,12 @@ dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --alias late
 dotnet run --project DataLinq.Testing.CLI -- run --suite mysql --alias latest --batch-size 4
 ```
 
+Run a focused subset inside a suite with a TUnit tree-node filter:
+
+```powershell
+dotnet run --project DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
+```
+
 Use failure-focused output while iterating:
 
 ```powershell

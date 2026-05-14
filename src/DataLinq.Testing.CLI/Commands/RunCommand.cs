@@ -29,6 +29,11 @@ internal static class RunCommand
         {
             Description = "Optional project path override for a single-suite run."
         };
+        var filterOption = new Option<string?>("--filter")
+        {
+            Description = "Optional TUnit tree-node filter expression. Forwarded to the test host as --treenode-filter."
+        };
+        filterOption.Aliases.Add("--treenode-filter");
         var configurationOption = new Option<string>("--configuration")
         {
             Description = "Build configuration.",
@@ -61,6 +66,7 @@ internal static class RunCommand
         command.Options.Add(outputOption);
         command.Options.Add(profileOption);
         command.Options.Add(projectOption);
+        command.Options.Add(filterOption);
         command.Options.Add(configurationOption);
         command.Options.Add(buildOption);
         command.Options.Add(batchSizeOption);
@@ -90,6 +96,7 @@ internal static class RunCommand
                 selection,
                 parseResult.GetValue(suiteOption) ?? TestCliSuiteCatalog.AllSuites,
                 parseResult.GetValue(projectOption),
+                parseResult.GetValue(filterOption),
                 parseResult.GetValue(configurationOption) ?? throw new InvalidOperationException("A build configuration is required."),
                 parseResult.GetValue(buildOption),
                 batchSize,
@@ -112,6 +119,7 @@ internal static class RunCommand
         CliTargetSelection selection,
         string suiteName,
         string? projectPathOverride,
+        string? filter,
         string configuration,
         bool buildProject,
         int batchSize,
@@ -121,7 +129,7 @@ internal static class RunCommand
         TestCliOutputMode outputMode,
         ToolingProfile profile)
     {
-        var exitCode = ExecuteSafely(() => RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, configuration, buildProject, batchSize, parallelSuites, tearDown, summaryJsonPath, outputMode, profile));
+        var exitCode = ExecuteSafely(() => RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, filter, configuration, buildProject, batchSize, parallelSuites, tearDown, summaryJsonPath, outputMode, profile));
         if (exitCode != 0)
             Environment.ExitCode = exitCode;
     }
@@ -145,6 +153,7 @@ internal static class RunCommand
         CliTargetSelection selection,
         string suiteName,
         string? projectPathOverride,
+        string? filter,
         string configuration,
         bool buildProject,
         int batchSize,
@@ -180,6 +189,7 @@ internal static class RunCommand
                             settings,
                             repositoryRoot,
                             configuration,
+                            filter,
                             buildProject,
                             batchSize,
                             orchestrator,
@@ -222,6 +232,7 @@ internal static class RunCommand
                         settings,
                         repositoryRoot,
                         configuration,
+                        filter,
                         buildProject,
                         batchSize,
                         orchestrator,
@@ -256,6 +267,7 @@ internal static class RunCommand
         TestInfraCliSettings settings,
         string repositoryRoot,
         string configuration,
+        string? filter,
         bool buildProject,
         int batchSize,
         TestInfraOrchestrator orchestrator,
@@ -301,7 +313,7 @@ internal static class RunCommand
                 orchestrator.Up(batch, recreate: false);
 
                 var start = Stopwatch.StartNew();
-                var result = ExecuteTestRun(projectPath, configuration, buildProject, settings, batch, suite.Name, batchIndex: index + 1, profile);
+                var result = ExecuteTestRun(projectPath, configuration, filter, buildProject, settings, batch, suite.Name, batchIndex: index + 1, profile);
                 start.Stop();
 
                 var runResult = CreateRunResult(
@@ -329,7 +341,7 @@ internal static class RunCommand
             }
 
             var start = Stopwatch.StartNew();
-            var result = ExecuteTestRun(projectPath, configuration, buildProject, settings, selection: null, suite.Name, batchIndex: null, profile);
+            var result = ExecuteTestRun(projectPath, configuration, filter, buildProject, settings, selection: null, suite.Name, batchIndex: null, profile);
             start.Stop();
 
             var runResult = CreateRunResult(
@@ -373,6 +385,7 @@ internal static class RunCommand
     private static LoggedCommandResult ExecuteTestRun(
         string projectPath,
         string configuration,
+        string? filter,
         bool usePrebuiltProject,
         TestInfraCliSettings settings,
         CliTargetSelection? selection,
@@ -400,6 +413,9 @@ internal static class RunCommand
 
         if (usePrebuiltProject)
             arguments.Add("--no-build");
+
+        if (!string.IsNullOrWhiteSpace(filter))
+            arguments.AddRange(["--", "--treenode-filter", filter]);
 
         return ExecuteDotnet(
             arguments,

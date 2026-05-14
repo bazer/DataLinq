@@ -3551,6 +3551,7 @@ public static class MetadataFactory
     {
         generatedRelationProperties = false;
         var foreignKeys = new List<ForeignKeyColumn>();
+        var failures = new List<IDLOptionFailure>();
         foreach (var tableModel in database.TableModels)
         {
             if (tableModel.IsStub || tableModel.Table.Type != TableType.Table)
@@ -3574,7 +3575,10 @@ public static class MetadataFactory
             }
 
             if (primaryKeyColumns.Count == 0)
-                return CreateMissingPrimaryKeyFailure(table);
+            {
+                failures.Add(CreateMissingPrimaryKeyFailure(table));
+                continue;
+            }
 
             if (!HasColumnIndex(table, IndexCharacteristic.PrimaryKey))
                 table.ColumnIndices.AddCore(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, primaryKeyColumns));
@@ -3607,24 +3611,35 @@ public static class MetadataFactory
             var firstAttribute = firstForeignKey.Attribute;
             var foreignKeyTable = firstForeignKey.Column.Table;
             if (!database.TryGetTableModel(firstAttribute.Table, out var candidateTableModel))
-                return CreateForeignKeyFailure(
+            {
+                failures.Add(CreateForeignKeyFailure(
                     firstForeignKey.Column,
                     firstAttribute,
-                    $"Foreign key '{firstAttribute.Name}' on table '{foreignKeyTable.DbName}' references table '{firstAttribute.Table}', but no matching table exists in database '{database.DbName}'.");
+                    $"Foreign key '{firstAttribute.Name}' on table '{foreignKeyTable.DbName}' references table '{firstAttribute.Table}', but no matching table exists in database '{database.DbName}'."));
+                continue;
+            }
 
             var candidateColumns = new List<ColumnDefinition>();
+            var hasCandidateColumnFailures = false;
             foreach (var foreignKey in orderedForeignKeys)
             {
                 var foreignKeyColumn = foreignKey.Column;
                 var attribute = foreignKey.Attribute;
                 if (!candidateTableModel.Table.TryGetColumnByDbName(attribute.Column, out var candidateColumn))
-                    return CreateForeignKeyFailure(
+                {
+                    failures.Add(CreateForeignKeyFailure(
                         foreignKeyColumn,
                         attribute,
-                        $"Foreign key '{attribute.Name}' on column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' references column '{attribute.Table}.{attribute.Column}', but that column does not exist.");
+                        $"Foreign key '{attribute.Name}' on column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' references column '{attribute.Table}.{attribute.Column}', but that column does not exist."));
+                    hasCandidateColumnFailures = true;
+                    continue;
+                }
 
                 candidateColumns.Add(candidateColumn);
             }
+
+            if (hasCandidateColumnFailures)
+                continue;
 
             var foreignKeyColumns = orderedForeignKeys.Select(x => x.Column).ToList();
             var manySideModel = foreignKeyTable.Model;
@@ -3634,6 +3649,7 @@ public static class MetadataFactory
                 x.Characteristic == IndexCharacteristic.ForeignKey &&
                 x.Name == firstAttribute.Name &&
                 ColumnsMatch(x.Columns, foreignKeyColumns));
+            var shouldAddForeignKeyIndex = false;
             if (foreignKeyIndex == null)
             {
                 if (!TryCreateColumnIndex(
@@ -3644,21 +3660,75 @@ public static class MetadataFactory
                     out foreignKeyIndex,
                     out var foreignKeyIndexFailure))
                 {
-                    return CreateForeignKeyFailure(
+                    failures.Add(CreateForeignKeyFailure(
                         firstForeignKey.Column,
                         firstAttribute,
-                        $"Foreign key '{firstAttribute.Name}' on table '{foreignKeyTable.DbName}' could not create its index: {foreignKeyIndexFailure}");
+                        $"Foreign key '{firstAttribute.Name}' on table '{foreignKeyTable.DbName}' could not create its index: {foreignKeyIndexFailure}"));
+                    continue;
                 }
 
-                foreignKeyTable.ColumnIndices.AddCore(foreignKeyIndex);
+                shouldAddForeignKeyIndex = true;
             }
 
             var candidateKeyIndex = FindCandidateKeyIndex(candidateTableModel.Table, candidateColumns);
             if (candidateKeyIndex == null)
-                return CreateForeignKeyFailure(
+            {
+                failures.Add(CreateForeignKeyFailure(
                     firstForeignKey.Column,
                     firstAttribute,
-                    $"Foreign key '{firstAttribute.Name}' on table '{foreignKeyTable.DbName}' references columns '{candidateColumns.Select(x => x.DbName).ToJoinedString(", ")}' on table '{candidateTableModel.Table.DbName}', but no matching primary or unique key exists.");
+                    $"Foreign key '{firstAttribute.Name}' on table '{foreignKeyTable.DbName}' references columns '{candidateColumns.Select(x => x.DbName).ToJoinedString(", ")}' on table '{candidateTableModel.Table.DbName}', but no matching primary or unique key exists."));
+                continue;
+            }
+
+            var relationFailures = new List<IDLOptionFailure>();
+            if (!TryGetRelationProperty(
+                manySideModel,
+                oneSideModel.Table.DbName,
+                candidateColumns,
+                firstAttribute.Name,
+                out var manyToOneProp,
+                out var manyToOnePropertyFailure))
+            {
+                relationFailures.Add(manyToOnePropertyFailure);
+            }
+
+            var manyToOnePropName = manyToOneProp is null
+                ? GetForeignKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute)
+                : null;
+            if (manyToOnePropName != null &&
+                !ValidateGeneratedRelationPropertyName(manySideModel, manyToOnePropName, firstForeignKey.Column, firstAttribute).TryUnwrap(out _, out var manySideGeneratedPropertyFailure))
+            {
+                relationFailures.Add(manySideGeneratedPropertyFailure);
+            }
+
+            if (!TryGetRelationProperty(
+                oneSideModel,
+                manySideModel.Table.DbName,
+                foreignKeyColumns,
+                firstAttribute.Name,
+                out var oneToManyProp,
+                out var oneToManyPropertyFailure))
+            {
+                relationFailures.Add(oneToManyPropertyFailure);
+            }
+
+            var oneToManyPropName = oneToManyProp is null
+                ? GetCandidateKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute)
+                : null;
+            if (oneToManyPropName != null &&
+                !ValidateGeneratedRelationPropertyName(oneSideModel, oneToManyPropName, firstForeignKey.Column, firstAttribute).TryUnwrap(out _, out var oneSideGeneratedPropertyFailure))
+            {
+                relationFailures.Add(oneSideGeneratedPropertyFailure);
+            }
+
+            if (relationFailures.Count > 0)
+            {
+                failures.AddRange(relationFailures);
+                continue;
+            }
+
+            if (shouldAddForeignKeyIndex)
+                foreignKeyTable.ColumnIndices.AddCore(foreignKeyIndex);
 
             var relation = new RelationDefinition(firstAttribute.Name, RelationType.OneToMany);
             relation.SetOnUpdateCore(firstAttribute.OnUpdate);
@@ -3669,17 +3739,6 @@ public static class MetadataFactory
             relation.SetCandidateKeyCore(oneSidePart);
 
             // --- Link or Create Many-to-One Property ---
-            if (!TryGetRelationProperty(
-                manySideModel,
-                oneSideModel.Table.DbName,
-                candidateColumns,
-                firstAttribute.Name,
-                out var manyToOneProp,
-                out var manyToOnePropertyFailure))
-            {
-                return manyToOnePropertyFailure;
-            }
-
             if (manyToOneProp != null)
             {
                 manyToOneProp.SetRelationPartCore(manySidePart);
@@ -3688,28 +3747,13 @@ public static class MetadataFactory
             }
             else
             {
-                var propName = GetForeignKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute);
-                if (!ValidateGeneratedRelationPropertyName(manySideModel, propName, firstForeignKey.Column, firstAttribute).TryUnwrap(out _, out var generatedPropertyFailure))
-                    return generatedPropertyFailure;
-
                 var propType = oneSideModel.CsType;
                 var propAttr = new RelationAttribute(oneSideModel.Table.DbName, candidateColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
-                AddRelationPropertyCore(manySideModel, propName, propType, manySidePart, propAttr);
+                AddRelationPropertyCore(manySideModel, manyToOnePropName!, propType, manySidePart, propAttr);
                 generatedRelationProperties = true;
             }
 
             // --- Link or Create One-to-Many Property ---
-            if (!TryGetRelationProperty(
-                oneSideModel,
-                manySideModel.Table.DbName,
-                foreignKeyColumns,
-                firstAttribute.Name,
-                out var oneToManyProp,
-                out var oneToManyPropertyFailure))
-            {
-                return oneToManyPropertyFailure;
-            }
-
             if (oneToManyProp != null)
             {
                 oneToManyProp.SetRelationPartCore(oneSidePart);
@@ -3718,20 +3762,24 @@ public static class MetadataFactory
             }
             else
             {
-                var propName = GetCandidateKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute);
-                if (!ValidateGeneratedRelationPropertyName(oneSideModel, propName, firstForeignKey.Column, firstAttribute).TryUnwrap(out _, out var generatedPropertyFailure))
-                    return generatedPropertyFailure;
-
                 var genericTypeName = manySideModel.CsType.Name;
                 var propType = new CsTypeDeclaration($"IImmutableRelation<{genericTypeName}>", "DataLinq.Instances", ModelCsType.Interface);
                 var propAttr = new RelationAttribute(manySideModel.Table.DbName, foreignKeyColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
-                AddRelationPropertyCore(oneSideModel, propName, propType, oneSidePart, propAttr);
+                AddRelationPropertyCore(oneSideModel, oneToManyPropName!, propType, oneSidePart, propAttr);
                 generatedRelationProperties = true;
             }
         }
 
+        if (failures.Count > 0)
+            return SingleOrAggregate(failures);
+
         return ValidateResolvedRelationProperties(database);
     }
+
+    private static IDLOptionFailure SingleOrAggregate(IReadOnlyCollection<IDLOptionFailure> failures) =>
+        failures.Count == 1
+            ? failures.First()
+            : DLOptionFailure.AggregateFail(failures);
 
     private static bool HasColumnIndex(TableDefinition table, IndexCharacteristic characteristic)
     {
