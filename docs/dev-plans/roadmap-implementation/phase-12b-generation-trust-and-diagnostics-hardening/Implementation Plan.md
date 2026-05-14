@@ -217,6 +217,7 @@ Exit criteria:
 
 Implementation status, 2026-05-14:
 
+- Workstream C is complete for the planned generator surface: metadata failures are reported as leaf diagnostics, valid database/table output is preserved where coherent, and database bootstraps are suppressed after scoped table emission failures.
 - Started Workstream C by projecting source-generator metadata failures through `DataLinqDiagnosticIssue`.
 - Aggregate metadata failures now produce one `DLG001` diagnostic per leaf issue instead of one collapsed diagnostic blob.
 - Added generator coverage for multiple invalid metadata attributes producing multiple source-located diagnostics.
