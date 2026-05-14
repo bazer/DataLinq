@@ -22,7 +22,7 @@ public class InstanceFactoryTests
         await Assert.That(database.DataSource).IsSameReferenceAs(dataSource);
     }
 
-    private sealed class FactoryDatabase : IDatabaseModel, IDataLinqGeneratedDatabaseModel<FactoryDatabase>
+    private sealed class FactoryDatabase : IDatabaseModel<FactoryDatabase>
     {
         public FactoryDatabase(DataSourceAccess dataSource)
         {

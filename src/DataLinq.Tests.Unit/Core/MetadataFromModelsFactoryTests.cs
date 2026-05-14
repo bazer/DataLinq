@@ -104,6 +104,41 @@ public abstract partial class OrderModel(IRowData rowData, IDataSourceAccess dat
     }
 
     [Test]
+    public async Task ReadSyntaxTrees_GenericDatabaseModelContract_DiscoversDatabase()
+    {
+        const string code = """
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+[Database("test_db")]
+public partial class TestDb : IDatabaseModel<TestDb>
+{
+    public TestDb(DataSourceAccess dataSource) { }
+    public DbRead<UserModel> Users { get; }
+}
+
+[Table("users")]
+public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, TestDb>(rowData, dataSource), ITableModel<TestDb>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+}
+""";
+
+        var declarations = GetSyntaxDeclarations(code);
+        var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+        var resultList = factory.ReadSyntaxTrees(declarations);
+
+        await Assert.That(resultList.Count).IsEqualTo(1);
+        await Assert.That(resultList[0].HasValue).IsTrue();
+        await Assert.That(resultList[0].Value.CsType.Name).IsEqualTo("TestDb");
+        await Assert.That(resultList[0].Value.TableModels.Single().Model.CsType.Name).IsEqualTo("UserModel");
+    }
+
+    [Test]
     public async Task ReadSyntaxTrees_MissingNamespace_ReturnsInvalidModelFailure()
     {
         const string code = """

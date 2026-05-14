@@ -20,7 +20,7 @@ public class SqlProviderConstants : IDatabaseProviderConstants
 }
 
 public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
-    where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
+    where T : class, IDatabaseModel<T>
 {
     private readonly SqlDataLinqDataWriter dataWriter;
     private readonly MySqlDataSource dataSource;

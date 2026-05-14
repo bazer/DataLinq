@@ -118,7 +118,7 @@ public class ModelFileFactory
             yield return $"{namespaceTab}{FormatIndexCacheAttribute(indexCache)}";
 
         yield return $"{namespaceTab}[Database({FormatStringLiteral(database.Name)})]";
-        yield return $"{namespaceTab}public partial class {dbName}(DataSourceAccess dataSource) : IDatabaseModel";
+        yield return $"{namespaceTab}public partial class {dbName}(DataSourceAccess dataSource) : IDatabaseModel<{dbName}>";
         //yield return $"{namespaceTab}public interface {dbName} : IDatabaseModel";
         yield return namespaceTab + "{";
 

@@ -177,7 +177,7 @@ public class GeneratorFileFactory
             .OrderBy(static x => x.CsPropertyName, StringComparer.Ordinal)
             .ToArray();
 
-        yield return $"{namespaceTab}public partial class {database.CsType.Name} : global::DataLinq.Interfaces.IDataLinqGeneratedDatabaseModel<{database.CsType.Name}>";
+        yield return $"{namespaceTab}public partial class {database.CsType.Name} : global::DataLinq.Interfaces.IDatabaseModel<{database.CsType.Name}>";
         yield return namespaceTab + "{";
         yield return $"{namespaceTab}{tab}public static {database.CsType.Name} NewDataLinqDatabase(global::DataLinq.Interfaces.IDataSourceAccess dataSource) =>";
         yield return $"{namespaceTab}{tab}{tab}new {GetGlobalTypeName(database.CsType)}((global::DataLinq.Mutation.DataSourceAccess)dataSource);";
@@ -1305,11 +1305,11 @@ public class GeneratorFileFactory
         }
 
         //Insert
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Insert(transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
         yield return $"{namespaceTab}{tab}{tab}transaction.Insert(model.Mutate(changes));";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert<T>(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert<T>(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Insert(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert(this Transaction transaction, Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Insert(changes, transaction);";
@@ -1319,11 +1319,11 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}{tab}model.GetDataSource().Provider.Commit(transaction => model.Update(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
         yield return $"{namespaceTab}{tab}{tab}transaction.Update(model.Mutate(changes));";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update<T>(this Database<T> database, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update<T>(this Database<T> database, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) where T : class, IDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Update(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update(this Transaction transaction, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Update(changes, transaction);";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Update(transaction));";
 
         //Save
@@ -1331,18 +1331,18 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}{tab}model.Update(changes);";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Update(changes, transaction);";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Database<T> database, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Database<T> database, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) where T : class, IDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Update(model, changes);";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Transaction transaction, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Update(changes, transaction);";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Save(changes, transaction));";
 
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Save(transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
         yield return $"{namespaceTab}{tab}{tab}transaction.Save(model.Mutate(changes));";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Save(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Mutable{model.CsType.Name} model, Transaction transaction) =>";
         yield return $"{namespaceTab}{tab}{tab}transaction.Save(model);";

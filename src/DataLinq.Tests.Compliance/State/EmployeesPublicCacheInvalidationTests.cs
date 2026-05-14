@@ -383,14 +383,14 @@ public class EmployeesPublicCacheInvalidationTests
 
     private static TableDefinition GetTable<TModel, TDatabase>(Database<TDatabase> database)
         where TModel : class, IImmutableInstance
-        where TDatabase : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<TDatabase>
+        where TDatabase : class, IDatabaseModel<TDatabase>
     {
         return database.Provider.Metadata.GetTableModel(typeof(TModel)).Table;
     }
 
     private static TableCache GetTableCache<TModel, TDatabase>(Database<TDatabase> database)
         where TModel : class, IImmutableInstance
-        where TDatabase : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<TDatabase>
+        where TDatabase : class, IDatabaseModel<TDatabase>
     {
         return database.Provider.GetTableCache(GetTable<TModel, TDatabase>(database));
     }

@@ -101,7 +101,7 @@ public static class InstanceFactory
     }
 
     public static T NewDatabase<T>(IDataSourceAccess dataSource)
-        where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
+        where T : class, IDatabaseModel<T>
     {
         return T.NewDataLinqDatabase(dataSource);
     }

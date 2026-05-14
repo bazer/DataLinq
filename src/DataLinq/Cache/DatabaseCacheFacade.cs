@@ -13,7 +13,7 @@ namespace DataLinq.Cache;
 /// Provides explicit cache clearing and provider-key invalidation operations for a database.
 /// </summary>
 public sealed class DatabaseCacheFacade<TDatabase>
-    where TDatabase : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<TDatabase>
+    where TDatabase : class, IDatabaseModel<TDatabase>
 {
     private readonly Database<TDatabase> database;
 

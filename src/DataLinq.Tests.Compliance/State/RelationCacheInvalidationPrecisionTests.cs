@@ -651,7 +651,7 @@ public class RelationCacheInvalidationPrecisionTests
     private static DataLinqTableMetricsSnapshot GetTableMetrics<TDatabase>(
         Database<TDatabase> database,
         string tableName)
-        where TDatabase : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<TDatabase>
+        where TDatabase : class, IDatabaseModel<TDatabase>
     {
         return DataLinqMetrics.Snapshot()
             .Providers

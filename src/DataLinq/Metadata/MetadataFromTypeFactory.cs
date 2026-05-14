@@ -15,7 +15,7 @@ public static class MetadataFromTypeFactory
     private const string GeneratedMetadataBindingMethodName = "SetDataLinqGeneratedMetadata";
 
     public static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromDatabaseModel<TDatabase>()
-        where TDatabase : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<TDatabase> =>
+        where TDatabase : class, IDatabaseModel<TDatabase> =>
         BuildGeneratedMetadata(
             typeof(TDatabase),
             () => TDatabase.GetDataLinqGeneratedMetadata(),

@@ -19,7 +19,7 @@ namespace DataLinq;
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
 public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<T>
-    where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
+    where T : class, IDatabaseModel<T>
 {
     //public static DatabaseProvider<T> GetPrimaryProvider()
     //{

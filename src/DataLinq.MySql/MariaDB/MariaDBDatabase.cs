@@ -14,7 +14,7 @@ public class MariaDBDatabaseCreator : IDatabaseProviderCreator
         return typeName.Equals("mariadb", System.StringComparison.OrdinalIgnoreCase);
     }
 
-    public Database<T> GetDatabaseProvider<T>(string connectionString, string databaseName) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
+    public Database<T> GetDatabaseProvider<T>(string connectionString, string databaseName) where T : class, IDatabaseModel<T>
     {
         return new MariaDBDatabase<T>(connectionString, databaseName, loggerFactory);
     }
@@ -27,7 +27,7 @@ public class MariaDBDatabaseCreator : IDatabaseProviderCreator
 }
 
 public class MariaDBDatabase<T> : Database<T>
-     where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
+     where T : class, IDatabaseModel<T>
 {
     /// <summary>
     /// Initializes a new instance of the MySqlDatabase with the specified connection string.

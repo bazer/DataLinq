@@ -10,7 +10,7 @@ namespace DataLinq.Metadata;
 
 public interface IDatabaseProviderCreator
 {
-    Database<T> GetDatabaseProvider<T>(string connectionString, string databaseName) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>;
+    Database<T> GetDatabaseProvider<T>(string connectionString, string databaseName) where T : class, IDatabaseModel<T>;
     bool IsDatabaseType(string typeName);
     IDatabaseProviderCreator UseLoggerFactory(ILoggerFactory? loggerFactory);
 }

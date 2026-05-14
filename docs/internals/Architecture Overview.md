@@ -57,7 +57,7 @@ The important projects are grouped by job, not by accident:
 
 ### Generated Code Is Part Of The Runtime Contract
 
-Generated database models implement `IDataLinqGeneratedDatabaseModel<TDatabase>`. The runtime expects generated metadata hooks, generated instance hooks, generated key accessors, and generated relation handles to exist.
+Generated database models implement `IDatabaseModel<TDatabase>`. The runtime expects generated metadata hooks, generated instance hooks, generated key accessors, and generated relation handles to exist.
 
 That is deliberate. Reflection-heavy discovery is the wrong default for this design because it makes startup slower, weakens AOT/trimming claims, and hides stale generated output.
 

@@ -27,7 +27,7 @@ public class MySQLProvider : IDatabaseProviderRegister
     }
 }
 
-public class MySqlProvider<T> : SqlProvider<T> where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
+public class MySqlProvider<T> : SqlProvider<T> where T : class, IDatabaseModel<T>
 {
     static MySqlProvider()
     {

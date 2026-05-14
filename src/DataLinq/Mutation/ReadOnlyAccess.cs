@@ -66,7 +66,7 @@ public class ReadOnlyAccess : DataSourceAccess
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
 public class ReadOnlyAccess<T> : ReadOnlyAccess, IDataSourceAccess<T>
-    where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
+    where T : class, IDatabaseModel<T>
 {
     /// <summary>
     /// Gets the database for the transaction.
