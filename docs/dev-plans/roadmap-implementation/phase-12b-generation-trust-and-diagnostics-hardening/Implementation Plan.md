@@ -275,6 +275,10 @@ Implementation status, 2026-05-14:
 - Source-generator output uses the same banner and nullable directive but never emits CLI stamp lines.
 - Changed `UseNullableReferenceTypes` defaults to true in configuration and generated-file factory options.
 - Preserved explicit opt-out through `UseNullableReferenceTypes: false`, which now emits `#nullable disable`.
+- Source-generator table output now resolves nullable context from each table model declaration, falling back through the database declaration and then project settings.
+- Source-generator database bootstrap output now resolves nullable context from the database declaration, with a table/project fallback when needed.
+- Added generator coverage for model-file `#nullable enable` / `#nullable disable` overriding project nullable settings, including inherited project-level nullable context when no file directive is present.
+- Added incremental generator coverage proving a nullable-directive-only model change refreshes generated nullable output while preserving reused metadata parsing.
 
 ## Workstream E: Documentation, Release Notes, and Support Boundary
 

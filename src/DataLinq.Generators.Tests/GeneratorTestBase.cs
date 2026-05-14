@@ -10,7 +10,10 @@ namespace DataLinq.Generators.Tests;
 
 public abstract class GeneratorTestBase
 {
-    protected (Compilation outputCompilation, ImmutableArray<Diagnostic> diagnostics, IEnumerable<SyntaxTree> generatedTrees) RunGeneratorWithDiagnostics(IEnumerable<SyntaxTree> syntaxTrees, CSharpParseOptions? parseOptions = null)
+    protected (Compilation outputCompilation, ImmutableArray<Diagnostic> diagnostics, IEnumerable<SyntaxTree> generatedTrees) RunGeneratorWithDiagnostics(
+        IEnumerable<SyntaxTree> syntaxTrees,
+        CSharpParseOptions? parseOptions = null,
+        NullableContextOptions nullableContextOptions = NullableContextOptions.Enable)
     {
         var references = AppDomain.CurrentDomain.GetAssemblies()
             .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
@@ -27,7 +30,7 @@ public abstract class GeneratorTestBase
             syntaxTrees,
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-                .WithNullableContextOptions(NullableContextOptions.Enable));
+                .WithNullableContextOptions(nullableContextOptions));
 
         IIncrementalGenerator generator = new ModelGenerator();
         var driver = CSharpGeneratorDriver.Create(generator.AsSourceGenerator());
@@ -39,9 +42,12 @@ public abstract class GeneratorTestBase
         return (outputCompilation, diagnostics, generatedTrees);
     }
 
-    protected IEnumerable<SyntaxTree> RunGenerator(IEnumerable<SyntaxTree> syntaxTrees, CSharpParseOptions? parseOptions = null)
+    protected IEnumerable<SyntaxTree> RunGenerator(
+        IEnumerable<SyntaxTree> syntaxTrees,
+        CSharpParseOptions? parseOptions = null,
+        NullableContextOptions nullableContextOptions = NullableContextOptions.Enable)
     {
-        var (_, diagnostics, generatedTrees) = RunGeneratorWithDiagnostics(syntaxTrees, parseOptions);
+        var (_, diagnostics, generatedTrees) = RunGeneratorWithDiagnostics(syntaxTrees, parseOptions, nullableContextOptions);
 
         var generatorErrors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         if (generatorErrors.Any())

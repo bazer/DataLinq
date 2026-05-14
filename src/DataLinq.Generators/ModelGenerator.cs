@@ -131,11 +131,17 @@ public sealed class ModelGenerator : IIncrementalGenerator
             foreach (var validator in validators)
                 validator.Validate(db.Value, compilation, context, validationContext);
 
-            var emissionResult = EmitGeneratedSources(db.Value, new GeneratorFileFactoryOptions
+            GeneratorFileFactoryOptions CreateOptions(bool nullableReferenceTypes) => new()
             {
-                UseNullableReferenceTypes = useNullableReferenceTypes,
+                UseNullableReferenceTypes = nullableReferenceTypes,
                 SuppressedDefaultValueProperties = validationContext.SuppressedDefaultValueProperties,
-            });
+            };
+
+            var databaseNullableContext = ResolveDatabaseNullableReferenceTypes(db.Value, compilation, useNullableReferenceTypes);
+            var emissionResult = EmitGeneratedSources(
+                db.Value,
+                table => CreateOptions(ResolveTableNullableReferenceTypes(table, compilation, databaseNullableContext)),
+                () => CreateOptions(databaseNullableContext));
 
             foreach (var sourceFile in emissionResult.SourceFiles)
                 context.AddSource(sourceFile.HintName, sourceFile.Contents);
@@ -152,8 +158,13 @@ public sealed class ModelGenerator : IIncrementalGenerator
     internal static GeneratedDatabaseEmissionResult EmitGeneratedSources(
         DatabaseDefinition database,
         GeneratorFileFactoryOptions fileFactoryOptions)
+        => EmitGeneratedSources(database, _ => fileFactoryOptions, () => fileFactoryOptions);
+
+    internal static GeneratedDatabaseEmissionResult EmitGeneratedSources(
+        DatabaseDefinition database,
+        Func<TableModel, GeneratorFileFactoryOptions> tableFileOptionsFactory,
+        Func<GeneratorFileFactoryOptions> databaseFileOptionsFactory)
     {
-        var fileFactory = new GeneratorFileFactory(fileFactoryOptions);
         var sourceFiles = new List<GeneratedSourceFile>();
         var failures = new List<GeneratedDatabaseEmissionFailure>();
         var hasTableModel = false;
@@ -163,6 +174,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
             hasTableModel = true;
             try
             {
+                var fileFactory = new GeneratorFileFactory(tableFileOptionsFactory(table));
                 var (path, contents) = fileFactory.CreateModelFile(table);
                 sourceFiles.Add(new GeneratedSourceFile($"{database.Name}/{path}", contents));
             }
@@ -176,6 +188,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
         {
             try
             {
+                var fileFactory = new GeneratorFileFactory(databaseFileOptionsFactory());
                 var (path, contents) = fileFactory.CreateDatabaseMetadataBootstrapFile(database);
                 sourceFiles.Add(new GeneratedSourceFile($"{database.Name}/{path}", contents));
             }
@@ -186,6 +199,67 @@ public sealed class ModelGenerator : IIncrementalGenerator
         }
 
         return new GeneratedDatabaseEmissionResult(sourceFiles, failures);
+    }
+
+    private static bool ResolveDatabaseNullableReferenceTypes(
+        DatabaseDefinition database,
+        Compilation compilation,
+        bool fallback)
+    {
+        if (TryResolveNullableReferenceTypes(database.GetSourceLocation(), compilation, out var enabled))
+            return enabled;
+
+        foreach (var table in database.TableModels.Where(static tableModel => !tableModel.IsStub))
+        {
+            if (TryResolveNullableReferenceTypes(table.Model.GetSourceLocation(), compilation, out enabled))
+                return enabled;
+        }
+
+        return fallback;
+    }
+
+    private static bool ResolveTableNullableReferenceTypes(
+        TableModel table,
+        Compilation compilation,
+        bool fallback)
+    {
+        if (TryResolveNullableReferenceTypes(table.Model.GetSourceLocation(), compilation, out var enabled))
+            return enabled;
+
+        return fallback;
+    }
+
+    private static bool TryResolveNullableReferenceTypes(
+        SourceLocation? sourceLocation,
+        Compilation compilation,
+        out bool enabled)
+    {
+        enabled = false;
+        if (!sourceLocation.HasValue)
+            return false;
+
+        var filePath = sourceLocation.Value.File.FullPath;
+        var syntaxTree = compilation.SyntaxTrees.FirstOrDefault(x =>
+            string.Equals(x.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+
+        if (syntaxTree == null)
+            return false;
+
+        var position = sourceLocation.Value.Span?.Start ?? 0;
+        if (position < 0)
+            position = 0;
+        else
+        {
+            var textLength = syntaxTree.GetText().Length;
+            if (position > textLength)
+                position = textLength;
+        }
+
+        var nullableContext = compilation.GetSemanticModel(syntaxTree).GetNullableContext(position);
+        enabled =
+            (nullableContext & NullableContext.Enabled) == NullableContext.Enabled ||
+            (nullableContext & NullableContext.AnnotationsEnabled) == NullableContext.AnnotationsEnabled;
+        return true;
     }
 
     private static void ReportFailureDiagnostics(
