@@ -8,6 +8,13 @@ namespace DataLinq.Core.Factories;
 
 public sealed class MetadataDefinitionFactory
 {
+    private readonly Action<string>? log;
+
+    public MetadataDefinitionFactory(Action<string>? log = null)
+    {
+        this.log = log;
+    }
+
     [Obsolete(MetadataMutationGuard.MutableFactoryInputObsoleteMessage)]
     public Option<DatabaseDefinition, IDLOptionFailure> Build(DatabaseDefinition draft)
     {
@@ -70,14 +77,14 @@ public sealed class MetadataDefinitionFactory
         return DLOptionFailure.CatchAll(() => BuildProviderMetadataCore(constructionGraph));
     }
 
-    private static Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadataCore(DatabaseDefinition draft)
+    private Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadataCore(DatabaseDefinition draft)
     {
         MetadataFactory.ParseInterfacesCore(draft);
 
         return BuildCore(draft);
     }
 
-    private static Option<DatabaseDefinition, IDLOptionFailure> BuildCore(DatabaseDefinition draft)
+    private Option<DatabaseDefinition, IDLOptionFailure> BuildCore(DatabaseDefinition draft)
     {
         if (!MetadataFactory.ValidateExistingTableModels(draft).TryUnwrap(out _, out var tableModelFailure))
             return tableModelFailure;
@@ -147,7 +154,7 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateExistingRelationParts(draft).TryUnwrap(out _, out var relationPartFailure))
             return relationPartFailure;
 
-        if (!MetadataFactory.ParseRelationsCore(draft, out var generatedRelationProperties).TryUnwrap(out _, out var relationFailure))
+        if (!MetadataFactory.ParseRelationsCore(draft, out var generatedRelationProperties, log).TryUnwrap(out _, out var relationFailure))
             return relationFailure;
 
         if (generatedRelationProperties &&

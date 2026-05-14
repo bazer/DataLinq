@@ -3549,6 +3549,14 @@ public static class MetadataFactory
         DatabaseDefinition database,
         out bool generatedRelationProperties)
     {
+        return ParseRelationsCore(database, out generatedRelationProperties, log: null);
+    }
+
+    internal static Option<bool, IDLOptionFailure> ParseRelationsCore(
+        DatabaseDefinition database,
+        out bool generatedRelationProperties,
+        Action<string>? log)
+    {
         generatedRelationProperties = false;
         var foreignKeys = new List<ForeignKeyColumn>();
         var failures = new List<IDLOptionFailure>();
@@ -3696,11 +3704,8 @@ public static class MetadataFactory
             var manyToOnePropName = manyRelationPropertyResolved && manyToOneProp is null
                 ? GetForeignKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute)
                 : null;
-            if (manyToOnePropName != null &&
-                !ValidateGeneratedRelationPropertyName(manySideModel, manyToOnePropName, firstForeignKey.Column, firstAttribute).TryUnwrap(out _, out var manySideGeneratedPropertyFailure))
-            {
-                relationFailures.Add(manySideGeneratedPropertyFailure);
-            }
+            if (manyToOnePropName != null)
+                manyToOnePropName = ResolveGeneratedRelationPropertyName(manySideModel, manyToOnePropName, firstForeignKey.Column, firstAttribute, log);
 
             var oneRelationPropertyResolved = TryGetRelationProperty(
                 oneSideModel,
@@ -3717,11 +3722,8 @@ public static class MetadataFactory
             var oneToManyPropName = oneRelationPropertyResolved && oneToManyProp is null
                 ? GetCandidateKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute)
                 : null;
-            if (oneToManyPropName != null &&
-                !ValidateGeneratedRelationPropertyName(oneSideModel, oneToManyPropName, firstForeignKey.Column, firstAttribute).TryUnwrap(out _, out var oneSideGeneratedPropertyFailure))
-            {
-                relationFailures.Add(oneSideGeneratedPropertyFailure);
-            }
+            if (oneToManyPropName != null)
+                oneToManyPropName = ResolveGeneratedRelationPropertyName(oneSideModel, oneToManyPropName, firstForeignKey.Column, firstAttribute, log);
 
             if (relationFailures.Count > 0)
             {
@@ -4017,11 +4019,12 @@ public static class MetadataFactory
         return names.ToJoinedString(", ");
     }
 
-    private static Option<bool, IDLOptionFailure> ValidateGeneratedRelationPropertyName(
+    private static string ResolveGeneratedRelationPropertyName(
         ModelDefinition model,
         string propertyName,
         ColumnDefinition foreignKeyColumn,
-        ForeignKeyAttribute attribute)
+        ForeignKeyAttribute attribute,
+        Action<string>? log)
     {
         var existingKind = model.ValueProperties.ContainsKey(propertyName)
             ? "value property"
@@ -4030,12 +4033,32 @@ public static class MetadataFactory
                 : null;
 
         if (existingKind is null)
-            return true;
+            return propertyName;
 
-        return CreateForeignKeyFailure(
-            foreignKeyColumn,
-            attribute,
-            $"Foreign key '{attribute.Name}' on table '{foreignKeyColumn.Table.DbName}' would generate relation property '{model.CsType.Name}.{propertyName}', but model '{model.CsType.Name}' already defines a {existingKind} with that name. Add an explicit [Relation] property with a non-conflicting name or rename the existing property.");
+        var resolvedPropertyName = GetAvailableGeneratedRelationPropertyName(model, propertyName);
+        log?.Invoke(
+            $"Warning: Foreign key '{attribute.Name}' on table '{foreignKeyColumn.Table.DbName}' would generate relation property '{model.CsType.Name}.{propertyName}', but model '{model.CsType.Name}' already defines a {existingKind} with that name. Generated relation property '{model.CsType.Name}.{resolvedPropertyName}' instead. Add an explicit [Relation] property with a non-conflicting name to control this.");
+        return resolvedPropertyName;
+    }
+
+    private static string GetAvailableGeneratedRelationPropertyName(ModelDefinition model, string propertyName)
+    {
+        var fallbackName = $"{propertyName}Relation";
+        if (!ModelDefinesProperty(model, fallbackName))
+            return fallbackName;
+
+        for (var suffix = 2; ; suffix++)
+        {
+            var candidateName = $"{fallbackName}{suffix}";
+            if (!ModelDefinesProperty(model, candidateName))
+                return candidateName;
+        }
+    }
+
+    private static bool ModelDefinesProperty(ModelDefinition model, string propertyName)
+    {
+        return model.ValueProperties.ContainsKey(propertyName) ||
+               model.RelationProperties.ContainsKey(propertyName);
     }
 
     private static IDLOptionFailure CreateRelationPropertyFailure(
