@@ -215,6 +215,12 @@ Exit criteria:
 - incomplete graph bootstraps are suppressed rather than silently partial
 - tests prove secondary compiler noise is not introduced for planned error cases
 
+Implementation status, 2026-05-14:
+
+- Started Workstream C by projecting source-generator metadata failures through `DataLinqDiagnosticIssue`.
+- Aggregate metadata failures now produce one `DLG001` diagnostic per leaf issue instead of one collapsed diagnostic blob.
+- Added generator coverage for multiple invalid metadata attributes producing multiple source-located diagnostics.
+
 ## Workstream D: Generated File Preamble and Nullable Defaults
 
 Goals:

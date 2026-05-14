@@ -121,10 +121,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
     {
         if (db.HasFailed)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                GeneratorDiagnostics.MetadataGenerationFailed,
-                ResolveFailureLocation(db.Failure.Value, compilation),
-                $"{db.Failure.Value}"));
+            ReportFailureDiagnostics(db.Failure.Value, compilation, context);
             return;
         }
 
@@ -152,8 +149,40 @@ public sealed class ModelGenerator : IIncrementalGenerator
         }
     }
 
-    private static Location ResolveFailureLocation(IDLOptionFailure failure, Compilation compilation)
-        => ResolveSourceLocation(failure.GetMostRelevantSourceLocation(), compilation);
+    private static void ReportFailureDiagnostics(
+        IDLOptionFailure failure,
+        Compilation compilation,
+        SourceProductionContext context)
+    {
+        var issues = DataLinqDiagnosticIssue.FromFailure(failure);
+        if (issues.Count == 0)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                GeneratorDiagnostics.MetadataGenerationFailed,
+                ResolveSourceLocation(failure.GetMostRelevantSourceLocation(), compilation),
+                $"{failure}"));
+            return;
+        }
+
+        foreach (var issue in issues)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                GeneratorDiagnostics.MetadataGenerationFailed,
+                ResolveSourceLocation(issue.SourceLocation, compilation),
+                FormatDiagnosticIssueMessage(issue)));
+        }
+    }
+
+    private static string FormatDiagnosticIssueMessage(DataLinqDiagnosticIssue issue)
+    {
+        var contextMessages = issue.ContextMessages
+            .Where(static message => !string.IsNullOrWhiteSpace(message));
+
+        var message = $"[{issue.FailureType}] {issue.Message}";
+        return string.Join(
+            "\n",
+            contextMessages.Append(message));
+    }
 
     private static Location ResolveGenerationFailureLocation(Exception exception, DatabaseDefinition database, Compilation compilation)
     {

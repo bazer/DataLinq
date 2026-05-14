@@ -12,6 +12,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
 {
     private static readonly string InvalidDefaultValueSourcePath = GeneratorTestPaths.TestModel("InvalidDefaultModel.cs");
     private static readonly string InvalidCacheLimitSourcePath = GeneratorTestPaths.TestModel("InvalidCacheLimitModel.cs");
+    private static readonly string MultipleInvalidMetadataAttributeSourcePath = GeneratorTestPaths.TestModel("MultipleInvalidMetadataAttributeModel.cs");
     private static readonly string InvalidCacheLimitAmountSourcePath = GeneratorTestPaths.TestModel("InvalidCacheLimitAmountModel.cs");
     private static readonly string InvalidTypeAttributeSourcePath = GeneratorTestPaths.TestModel("InvalidTypeAttributeModel.cs");
     private static readonly string InvalidInterfaceAttributeSourcePath = GeneratorTestPaths.TestModel("InvalidInterfaceAttributeModel.cs");
@@ -140,6 +141,31 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     [Table(""rows"")]
     public abstract partial class InvalidCacheLimitModel(IRowData rowData, IDataSourceAccess dataSource)
         : Immutable<InvalidCacheLimitModel, InvalidCacheLimitDb>(rowData, dataSource), ITableModel<InvalidCacheLimitDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+    }";
+
+    private const string MultipleInvalidMetadataAttributeModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestMultipleInvalidMetadataAttributeNamespace;
+
+    [CacheLimit((CacheLimitType)999, 1)]
+    [CacheCleanup((CacheCleanupType)999, 1)]
+    public partial class MultipleInvalidMetadataAttributeDb : IDatabaseModel
+    {
+        public MultipleInvalidMetadataAttributeDb(DataSourceAccess dsa){}
+        public DbRead<MultipleInvalidMetadataAttributeModel> Rows { get; }
+    }
+
+    [Table(""rows"")]
+    public abstract partial class MultipleInvalidMetadataAttributeModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<MultipleInvalidMetadataAttributeModel, MultipleInvalidMetadataAttributeDb>(rowData, dataSource), ITableModel<MultipleInvalidMetadataAttributeDb>
     {
         [PrimaryKey, AutoIncrement, Column(""id"")]
         public abstract int? Id { get; }
@@ -733,6 +759,25 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(string.IsNullOrWhiteSpace(highlightedSource)).IsFalse();
         await Assert.That(highlightedSource.Contains("CacheLimit", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("Invalid CacheLimitType value", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task MultipleInvalidMetadataAttributes_ShouldReportMultipleDiagnostics()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(MultipleInvalidMetadataAttributeModelSource, path: MultipleInvalidMetadataAttributeSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnosticsWithId = diagnostics
+            .Where(x => x.Id == "DLG001")
+            .OrderBy(x => x.Location.SourceSpan.Start)
+            .ToList();
+
+        await Assert.That(diagnosticsWithId.Count).IsEqualTo(2);
+        await Assert.That(inputTree.GetText().ToString(diagnosticsWithId[0].Location.SourceSpan)).IsEqualTo("CacheLimit((CacheLimitType)999, 1)");
+        await Assert.That(inputTree.GetText().ToString(diagnosticsWithId[1].Location.SourceSpan)).IsEqualTo("CacheCleanup((CacheCleanupType)999, 1)");
+        await Assert.That(diagnosticsWithId[0].GetMessage().Contains("Invalid CacheLimitType value", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnosticsWithId[1].GetMessage().Contains("Invalid CacheCleanupType value", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]
