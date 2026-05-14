@@ -56,14 +56,20 @@ public class GeneratorFileFactory
 
     public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseDefinition database)
     {
-        foreach (var table in database.TableModels.Where(x => !x.IsStub))
-            yield return CreateModelFile(table);
+        foreach (var file in CreateTableModelFiles(database))
+            yield return file;
 
         if (database.TableModels.Any(static x => !x.IsStub))
             yield return CreateDatabaseMetadataBootstrapFile(database);
     }
 
-    private (string path, string contents) CreateDatabaseMetadataBootstrapFile(DatabaseDefinition database)
+    internal IEnumerable<(string path, string contents)> CreateTableModelFiles(DatabaseDefinition database)
+    {
+        foreach (var table in database.TableModels.Where(static x => !x.IsStub))
+            yield return CreateModelFile(table);
+    }
+
+    internal (string path, string contents) CreateDatabaseMetadataBootstrapFile(DatabaseDefinition database)
     {
         var namespaceName = Options.NamespaceName ?? database.CsType.Namespace;
         if (string.IsNullOrWhiteSpace(namespaceName))
@@ -86,7 +92,7 @@ public class GeneratorFileFactory
         return ($"{database.CsType.Name}.DataLinqMetadata.cs", file);
     }
 
-    private (string path, string contents) CreateModelFile(TableModel table)
+    internal (string path, string contents) CreateModelFile(TableModel table)
     {
         try
         {

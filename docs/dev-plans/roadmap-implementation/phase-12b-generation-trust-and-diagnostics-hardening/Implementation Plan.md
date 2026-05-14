@@ -220,6 +220,9 @@ Implementation status, 2026-05-14:
 - Started Workstream C by projecting source-generator metadata failures through `DataLinqDiagnosticIssue`.
 - Aggregate metadata failures now produce one `DLG001` diagnostic per leaf issue instead of one collapsed diagnostic blob.
 - Added generator coverage for multiple invalid metadata attributes producing multiple source-located diagnostics.
+- Changed source generation emission to render table files independently before attempting the database metadata bootstrap.
+- Suppressed the bootstrap when any table file fails to render, while preserving generated output for successfully rendered tables.
+- Added coverage proving an invalid database does not suppress another valid database, and that a table rendering failure keeps valid table output while suppressing the bootstrap.
 
 ## Workstream D: Generated File Preamble and Nullable Defaults
 

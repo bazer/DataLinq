@@ -131,22 +131,61 @@ public sealed class ModelGenerator : IIncrementalGenerator
             foreach (var validator in validators)
                 validator.Validate(db.Value, compilation, context, validationContext);
 
-            var fileFactory = new GeneratorFileFactory(new GeneratorFileFactoryOptions
+            var emissionResult = EmitGeneratedSources(db.Value, new GeneratorFileFactoryOptions
             {
                 UseNullableReferenceTypes = useNullableReferenceTypes,
                 SuppressedDefaultValueProperties = validationContext.SuppressedDefaultValueProperties,
             });
 
-            foreach (var (path, contents) in fileFactory.CreateModelFiles(db.Value))
-                context.AddSource($"{db.Value.Name}/{path}", contents);
+            foreach (var sourceFile in emissionResult.SourceFiles)
+                context.AddSource(sourceFile.HintName, sourceFile.Contents);
+
+            foreach (var failure in emissionResult.Failures)
+                ReportGenerationFailureDiagnostic(failure.Exception, db.Value, compilation, context);
         }
         catch (Exception e)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                GeneratorDiagnostics.ModelFileGenerationFailed,
-                ResolveGenerationFailureLocation(e, db.Value, compilation),
-                $"{e.Message}\n{e.StackTrace}"));
+            ReportGenerationFailureDiagnostic(e, db.Value, compilation, context);
         }
+    }
+
+    internal static GeneratedDatabaseEmissionResult EmitGeneratedSources(
+        DatabaseDefinition database,
+        GeneratorFileFactoryOptions fileFactoryOptions)
+    {
+        var fileFactory = new GeneratorFileFactory(fileFactoryOptions);
+        var sourceFiles = new List<GeneratedSourceFile>();
+        var failures = new List<GeneratedDatabaseEmissionFailure>();
+        var hasTableModel = false;
+
+        foreach (var table in database.TableModels.Where(static tableModel => !tableModel.IsStub))
+        {
+            hasTableModel = true;
+            try
+            {
+                var (path, contents) = fileFactory.CreateModelFile(table);
+                sourceFiles.Add(new GeneratedSourceFile($"{database.Name}/{path}", contents));
+            }
+            catch (Exception exception)
+            {
+                failures.Add(new GeneratedDatabaseEmissionFailure(exception));
+            }
+        }
+
+        if (hasTableModel && failures.Count == 0)
+        {
+            try
+            {
+                var (path, contents) = fileFactory.CreateDatabaseMetadataBootstrapFile(database);
+                sourceFiles.Add(new GeneratedSourceFile($"{database.Name}/{path}", contents));
+            }
+            catch (Exception exception)
+            {
+                failures.Add(new GeneratedDatabaseEmissionFailure(exception));
+            }
+        }
+
+        return new GeneratedDatabaseEmissionResult(sourceFiles, failures);
     }
 
     private static void ReportFailureDiagnostics(
@@ -184,6 +223,18 @@ public sealed class ModelGenerator : IIncrementalGenerator
             contextMessages.Append(message));
     }
 
+    private static void ReportGenerationFailureDiagnostic(
+        Exception exception,
+        DatabaseDefinition database,
+        Compilation compilation,
+        SourceProductionContext context)
+    {
+        context.ReportDiagnostic(Diagnostic.Create(
+            GeneratorDiagnostics.ModelFileGenerationFailed,
+            ResolveGenerationFailureLocation(exception, database, compilation),
+            exception.Message));
+    }
+
     private static Location ResolveGenerationFailureLocation(Exception exception, DatabaseDefinition database, Compilation compilation)
     {
         if (exception is ModelFileGenerationException modelFileGenerationException)
@@ -214,4 +265,40 @@ public sealed class ModelGenerator : IIncrementalGenerator
         var span = sourceLocation.Value.Span.Value;
         return syntaxTree.GetLocation(new TextSpan(span.Start, span.Length));
     }
+}
+
+internal sealed class GeneratedDatabaseEmissionResult
+{
+    public GeneratedDatabaseEmissionResult(
+        IReadOnlyList<GeneratedSourceFile> sourceFiles,
+        IReadOnlyList<GeneratedDatabaseEmissionFailure> failures)
+    {
+        SourceFiles = sourceFiles;
+        Failures = failures;
+    }
+
+    public IReadOnlyList<GeneratedSourceFile> SourceFiles { get; }
+    public IReadOnlyList<GeneratedDatabaseEmissionFailure> Failures { get; }
+}
+
+internal readonly struct GeneratedSourceFile
+{
+    public GeneratedSourceFile(string hintName, string contents)
+    {
+        HintName = hintName;
+        Contents = contents;
+    }
+
+    public string HintName { get; }
+    public string Contents { get; }
+}
+
+internal sealed class GeneratedDatabaseEmissionFailure
+{
+    public GeneratedDatabaseEmissionFailure(Exception exception)
+    {
+        Exception = exception;
+    }
+
+    public Exception Exception { get; }
 }
