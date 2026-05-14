@@ -10,14 +10,16 @@ For the normal Windows contributor path, install Git, the .NET 10 SDK, and Podma
 
 ```powershell
 git clone https://github.com/bazer/DataLinq.git
-cd DataLinq
+cd DataLinq/src
+
+dotnet workload restore
 
 podman machine init # first time only; skip if the default machine already exists
 podman machine start
 
-dotnet run --project src/DataLinq.Dev.CLI -- build
+dotnet run --project DataLinq.Dev.CLI -- build
 
-dotnet run --project src/DataLinq.Testing.CLI -- run --alias latest --batch-size 4 --output failures
+dotnet run --project DataLinq.Testing.CLI -- run --alias latest --batch-size 4 --output failures
 ```
 
 `build` restores packages as part of normal .NET behavior. The test CLI brings missing server containers up before running server-backed batches.
@@ -81,7 +83,7 @@ Clone the repo:
 
 ```powershell
 git clone https://github.com/bazer/DataLinq.git
-cd DataLinq
+cd DataLinq/src
 ```
 
 Check the installed .NET SDKs:
@@ -92,17 +94,29 @@ dotnet --info
 
 You need a .NET 10 SDK because the active test projects target `net10.0`. The library packages also target .NET 8 and .NET 9, but the contributor test lane is a .NET 10 lane.
 
+Restore the WebAssembly workload used by the Blazor WebAssembly smoke project. Run this from the `src` folder so `dotnet` discovers `DataLinq.sln`:
+
+```powershell
+dotnet workload restore
+```
+
+.NET workloads are resolved per SDK feature band. If a new .NET SDK is installed or Visual Studio starts using a different SDK feature band, rerun the workload restore command. The command should report `wasm-tools` for the active SDK:
+
+```powershell
+dotnet workload list
+```
+
 Run the repo-local environment check:
 
 ```powershell
-dotnet run --project src/DataLinq.Dev.CLI -- doctor --profile repo
+dotnet run --project DataLinq.Dev.CLI -- doctor --profile repo
 ```
 
 Restore and build through the developer wrapper:
 
 ```powershell
-dotnet run --project src/DataLinq.Dev.CLI -- restore
-dotnet run --project src/DataLinq.Dev.CLI -- build
+dotnet run --project DataLinq.Dev.CLI -- restore
+dotnet run --project DataLinq.Dev.CLI -- build
 ```
 
 Raw `dotnet restore` and `dotnet build` can work, but the wrapper is the better default because it keeps repo-local caches and artifacts predictable.
@@ -138,7 +152,7 @@ The central target inventory is the [Test Provider Matrix](../support-matrices/T
 List the suites, aliases, targets, and current runtime state:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- list
+dotnet run --project DataLinq.Testing.CLI -- list
 ```
 
 ## Bring Containers Up
@@ -146,22 +160,22 @@ dotnet run --project src/DataLinq.Testing.CLI -- list
 Start the normal latest server-backed environment:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- up --alias latest
+dotnet run --project DataLinq.Testing.CLI -- up --alias latest
 ```
 
 Start the full server matrix:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- up --alias all
+dotnet run --project DataLinq.Testing.CLI -- up --alias all
 ```
 
 Start specific targets:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- up --targets mysql-8.4,mariadb-11.8
+dotnet run --project DataLinq.Testing.CLI -- up --targets mysql-8.4,mariadb-11.8
 ```
 
-The CLI pulls missing images, creates containers, waits for readiness, provisions the test users, and writes runtime state to:
+The CLI pulls missing images, creates containers, waits for readiness, provisions the test users, and writes runtime state to this repo-root path:
 
 ```text
 artifacts/testdata/testinfra-state.json
@@ -189,40 +203,40 @@ podman ps
 Fast local SQLite-only run:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- run --alias quick
+dotnet run --project DataLinq.Testing.CLI -- run --alias quick
 ```
 
 Normal contributor run:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- run --alias latest --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --alias latest --batch-size 4
 ```
 
 Full provider matrix:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- run --alias all --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --alias all --batch-size 4
 ```
 
 Run specific suites:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite generators
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite unit
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite compliance --alias latest --batch-size 4
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite mysql --alias latest --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --suite generators
+dotnet run --project DataLinq.Testing.CLI -- run --suite unit
+dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --alias latest --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --suite mysql --alias latest --batch-size 4
 ```
 
 Use failure-focused output while iterating:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- run --alias latest --output failures
+dotnet run --project DataLinq.Testing.CLI -- run --alias latest --output failures
 ```
 
 On a fresh checkout, do not add `--no-build` to the outer `dotnet run` command. Let the CLI and `dotnet run` build what is missing. Use `--no-build` only after the CLI project has already been built:
 
 ```powershell
-dotnet run --no-build --project src/DataLinq.Testing.CLI -c Debug --framework net10.0 -- run --alias latest --batch-size 4
+dotnet run --no-build --project DataLinq.Testing.CLI -c Debug --framework net10.0 -- run --alias latest --batch-size 4
 ```
 
 ## Stop or Reset Containers
@@ -230,19 +244,19 @@ dotnet run --no-build --project src/DataLinq.Testing.CLI -c Debug --framework ne
 Stop the test containers but keep them around:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- down
+dotnet run --project DataLinq.Testing.CLI -- down
 ```
 
 Remove them:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- down --remove
+dotnet run --project DataLinq.Testing.CLI -- down --remove
 ```
 
 Recreate selected targets from scratch:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- reset --targets mysql-8.4
+dotnet run --project DataLinq.Testing.CLI -- reset --targets mysql-8.4
 ```
 
 ## Common Problems
@@ -265,7 +279,7 @@ podman machine start
 Then rerun:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- up --alias latest
+dotnet run --project DataLinq.Testing.CLI -- up --alias latest
 ```
 
 ### Missing Test Executable Path
@@ -280,8 +294,23 @@ The system cannot find the file specified.
 the test project was not built for that configuration. Run without outer `--no-build`, or force a build:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- run --alias latest --build
+dotnet run --project DataLinq.Testing.CLI -- run --alias latest --build
 ```
+
+### Visual Studio Reports Missing wasm-tools
+
+The full solution includes `src\DataLinq.BlazorWasm`, which requires the .NET WebAssembly build workload. If Visual Studio fails with `NETSDK1147` and says `wasm-tools` must be installed, verify the active command-line SDK first:
+
+```powershell
+dotnet --info
+dotnet workload list
+dotnet workload restore
+dotnet build .\DataLinq.BlazorWasm\DataLinq.BlazorWasm.csproj -c Debug --no-restore
+```
+
+If that command-line build succeeds, fully close and reopen Visual Studio. Visual Studio can hold stale workload resolver state after workload restore. If it still fails after restart, use Visual Studio Installer and make sure the ASP.NET/web workload includes the .NET WebAssembly build tools.
+
+The `WASM0001` warnings from `SQLitePCLRaw.provider.e_sqlite3` are separate from this setup problem. They are real WebAssembly compatibility warnings and should not be suppressed as an environment fix.
 
 ### Port Already in Use
 
@@ -298,7 +327,7 @@ artifacts/testdata/testinfra-state.json
 Refresh it by rerunning:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- up --alias latest
+dotnet run --project DataLinq.Testing.CLI -- up --alias latest
 ```
 
 The refreshed state is based on containers that are actually running, not only the alias in the command. If it lists extra server targets, stop or remove those containers explicitly.
@@ -306,8 +335,8 @@ The refreshed state is based on containers that are actually running, not only t
 or remove and recreate containers:
 
 ```powershell
-dotnet run --project src/DataLinq.Testing.CLI -- down --remove
-dotnet run --project src/DataLinq.Testing.CLI -- up --alias latest
+dotnet run --project DataLinq.Testing.CLI -- down --remove
+dotnet run --project DataLinq.Testing.CLI -- up --alias latest
 ```
 
 ## Practical First Run
@@ -316,19 +345,20 @@ For a new Windows contributor, this is the compact version:
 
 ```powershell
 git clone https://github.com/bazer/DataLinq.git
-cd DataLinq
+cd DataLinq/src
 
 dotnet --info
+dotnet workload restore
 podman machine init # first time only; skip if the default machine already exists
 podman machine start
 podman info
 
-dotnet run --project src/DataLinq.Dev.CLI -- doctor --profile repo
-dotnet run --project src/DataLinq.Dev.CLI -- restore
-dotnet run --project src/DataLinq.Dev.CLI -- build
+dotnet run --project DataLinq.Dev.CLI -- doctor --profile repo
+dotnet run --project DataLinq.Dev.CLI -- restore
+dotnet run --project DataLinq.Dev.CLI -- build
 
-dotnet run --project src/DataLinq.Testing.CLI -- up --alias latest
-dotnet run --project src/DataLinq.Testing.CLI -- run --alias latest --batch-size 4 --output failures
+dotnet run --project DataLinq.Testing.CLI -- up --alias latest
+dotnet run --project DataLinq.Testing.CLI -- run --alias latest --batch-size 4 --output failures
 ```
 
 Use `--alias quick` when you do not need containers. Use `--alias all` before broad provider changes.

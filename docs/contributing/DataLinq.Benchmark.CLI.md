@@ -12,12 +12,14 @@ The CLI standardizes restore/build behavior, keeps artifacts under repo control,
 
 ## Commands
 
+The command examples assume your current directory is the repo's `src` folder.
+
 ### `list`
 
 Lists the available benchmark methods.
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- list
+dotnet run --project DataLinq.Benchmark.CLI -- list
 ```
 
 Useful options:
@@ -34,14 +36,14 @@ You can also pass extra BenchmarkDotNet arguments after `--`.
 Runs the benchmark harness with compact output.
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- run
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --filter "*WarmPrimaryKeyFetch*"
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --profile smoke
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --profile heavy
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase2-watch
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase3-query-hotpath
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase10-key-foundation
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase11-cache-invalidation
+dotnet run --project DataLinq.Benchmark.CLI -- run
+dotnet run --project DataLinq.Benchmark.CLI -- run --filter "*WarmPrimaryKeyFetch*"
+dotnet run --project DataLinq.Benchmark.CLI -- run --profile smoke
+dotnet run --project DataLinq.Benchmark.CLI -- run --profile heavy
+dotnet run --project DataLinq.Benchmark.CLI -- run --phase2-watch
+dotnet run --project DataLinq.Benchmark.CLI -- run --phase3-query-hotpath
+dotnet run --project DataLinq.Benchmark.CLI -- run --phase10-key-foundation
+dotnet run --project DataLinq.Benchmark.CLI -- run --phase11-cache-invalidation
 ```
 
 Important options:
@@ -78,7 +80,7 @@ Additional BenchmarkDotNet arguments can be passed after `--`.
 Example:
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- run -- --anyCategories stable macro-readwrite macro-bulk
+dotnet run --project DataLinq.Benchmark.CLI -- run -- --anyCategories stable macro-readwrite macro-bulk
 ```
 
 ## Phase 2 Watchpoints
@@ -97,13 +99,13 @@ That category intentionally contains only:
 Run the watchpoints with:
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase2-watch
+dotnet run --project DataLinq.Benchmark.CLI -- run --phase2-watch
 ```
 
 For quick local smoke validation, combine the category with the dry profile:
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase2-watch --profile smoke
+dotnet run --project DataLinq.Benchmark.CLI -- run --phase2-watch --profile smoke
 ```
 
 The dry profile is useful for checking harness wiring. It is not a trustworthy performance result.
@@ -124,13 +126,13 @@ That category intentionally contains:
 Run the lane with:
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase3-query-hotpath
+dotnet run --project DataLinq.Benchmark.CLI -- run --phase3-query-hotpath
 ```
 
 For quick local smoke validation:
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase3-query-hotpath --profile smoke
+dotnet run --project DataLinq.Benchmark.CLI -- run --phase3-query-hotpath --profile smoke
 ```
 
 Use the smoke profile only to prove the lane is wired correctly. Use the default or heavy profile before interpreting performance.
@@ -151,13 +153,13 @@ That category intentionally contains:
 Run the lane with:
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase10-key-foundation
+dotnet run --project DataLinq.Benchmark.CLI -- run --phase10-key-foundation
 ```
 
 For quick local smoke validation:
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase10-key-foundation --profile smoke
+dotnet run --project DataLinq.Benchmark.CLI -- run --phase10-key-foundation --profile smoke
 ```
 
 Use the smoke profile only to prove the lane is wired correctly. Use the default or heavy profile before interpreting performance.
@@ -180,13 +182,13 @@ That category intentionally contains:
 Run the lane with:
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase11-cache-invalidation
+dotnet run --project DataLinq.Benchmark.CLI -- run --phase11-cache-invalidation
 ```
 
 For quick local smoke validation:
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase11-cache-invalidation --profile smoke
+dotnet run --project DataLinq.Benchmark.CLI -- run --phase11-cache-invalidation --profile smoke
 ```
 
 Use the smoke profile only to prove the lane is wired correctly. Use the default or heavy profile before interpreting performance.
@@ -198,21 +200,21 @@ The CLI passes through the `DATALINQ_BENCHMARK_PROVIDERS` environment variable.
 Example:
 
 ```bash
-DATALINQ_BENCHMARK_PROVIDERS=sqlite-memory dotnet run --project src/DataLinq.Benchmark.CLI -- run
+DATALINQ_BENCHMARK_PROVIDERS=sqlite-memory dotnet run --project DataLinq.Benchmark.CLI -- run
 ```
 
 PowerShell:
 
 ```powershell
 $env:DATALINQ_BENCHMARK_PROVIDERS='sqlite-memory'
-dotnet run --project src/DataLinq.Benchmark.CLI -- run
+dotnet run --project DataLinq.Benchmark.CLI -- run
 ```
 
 That is the clean way to narrow provider scope for local trend runs or CI-like validation.
 
 ## Artifacts
 
-Artifacts are written under:
+Artifacts are written under this repo-root path:
 
 ```text
 artifacts/benchmarks/

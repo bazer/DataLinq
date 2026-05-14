@@ -14,6 +14,8 @@ Maintaining both shell scripts and a .NET CLI for the same test infrastructure i
 
 ## Command Surface
 
+The command examples assume your current directory is the repo's `src` folder.
+
 ### `list`
 
 Lists:
@@ -24,7 +26,7 @@ Lists:
 - current runtime state
 
 ```bash
-dotnet run --project src/DataLinq.Testing.CLI -- list
+dotnet run --project DataLinq.Testing.CLI -- list
 ```
 
 ### `up`
@@ -32,8 +34,8 @@ dotnet run --project src/DataLinq.Testing.CLI -- list
 Starts the selected server targets and waits for readiness.
 
 ```bash
-dotnet run --project src/DataLinq.Testing.CLI -- up --alias latest
-dotnet run --project src/DataLinq.Testing.CLI -- up --targets mysql-8.4,mariadb-11.8
+dotnet run --project DataLinq.Testing.CLI -- up --alias latest
+dotnet run --project DataLinq.Testing.CLI -- up --targets mysql-8.4,mariadb-11.8
 ```
 
 Useful option:
@@ -46,7 +48,7 @@ Useful option:
 Waits for the selected targets to become ready and refreshes runtime state from the containers that are actually running.
 
 ```bash
-dotnet run --project src/DataLinq.Testing.CLI -- wait --alias latest
+dotnet run --project DataLinq.Testing.CLI -- wait --alias latest
 ```
 
 ### `down`
@@ -54,8 +56,8 @@ dotnet run --project src/DataLinq.Testing.CLI -- wait --alias latest
 Stops or removes the selected targets.
 
 ```bash
-dotnet run --project src/DataLinq.Testing.CLI -- down
-dotnet run --project src/DataLinq.Testing.CLI -- down --remove
+dotnet run --project DataLinq.Testing.CLI -- down
+dotnet run --project DataLinq.Testing.CLI -- down --remove
 ```
 
 ### `reset`
@@ -63,7 +65,7 @@ dotnet run --project src/DataLinq.Testing.CLI -- down --remove
 Recreates the selected targets from scratch.
 
 ```bash
-dotnet run --project src/DataLinq.Testing.CLI -- reset --targets mysql-8.4
+dotnet run --project DataLinq.Testing.CLI -- reset --targets mysql-8.4
 ```
 
 ### `run`
@@ -71,9 +73,9 @@ dotnet run --project src/DataLinq.Testing.CLI -- reset --targets mysql-8.4
 Runs the selected suite or suites against the selected targets.
 
 ```bash
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite all --alias quick
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite compliance --targets mysql-8.4,mariadb-11.8
+dotnet run --project DataLinq.Testing.CLI -- run --suite all --alias quick
+dotnet run --project DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --targets mysql-8.4,mariadb-11.8
 ```
 
 ## Target Selection
@@ -140,12 +142,12 @@ If you run the CLI with no arguments, it starts the interactive workflow.
 You can also request interactive prompts for a command explicitly:
 
 ```bash
-dotnet run --project src/DataLinq.Testing.CLI -- wait --interactive
+dotnet run --project DataLinq.Testing.CLI -- wait --interactive
 ```
 
 ## Runtime State and Logs
 
-The CLI writes runtime state to:
+The CLI writes runtime state to this repo-root path:
 
 ```text
 artifacts/testdata/testinfra-state.json

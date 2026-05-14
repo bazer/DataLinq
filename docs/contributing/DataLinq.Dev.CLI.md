@@ -12,12 +12,14 @@ The wrapper normalizes repo-local execution roots, keeps logs under `artifacts/d
 
 ## Commands
 
+The command examples assume your current directory is the repo's `src` folder. The Dev CLI runs inner `dotnet` commands from the repo root, so explicit target paths passed to the Dev CLI are still repo-root-relative.
+
 ### `doctor`
 
 Diagnoses the local `dotnet` and NuGet execution environment.
 
 ```bash
-dotnet run --project src/DataLinq.Dev.CLI -- doctor --profile repo
+dotnet run --project DataLinq.Dev.CLI -- doctor --profile repo
 ```
 
 What it checks:
@@ -38,8 +40,8 @@ Use this first when the environment looks suspicious.
 Runs `dotnet restore` with the repo-local execution profile.
 
 ```bash
-dotnet run --project src/DataLinq.Dev.CLI -- restore
-dotnet run --project src/DataLinq.Dev.CLI -- restore src/DataLinq.sln --output summary
+dotnet run --project DataLinq.Dev.CLI -- restore
+dotnet run --project DataLinq.Dev.CLI -- restore --output summary
 ```
 
 ### `build`
@@ -47,8 +49,8 @@ dotnet run --project src/DataLinq.Dev.CLI -- restore src/DataLinq.sln --output s
 Runs `dotnet build` with concise default output.
 
 ```bash
-dotnet run --project src/DataLinq.Dev.CLI -- build
-dotnet run --project src/DataLinq.Dev.CLI -- build src/DataLinq.sln --output errors
+dotnet run --project DataLinq.Dev.CLI -- build
+dotnet run --project DataLinq.Dev.CLI -- build --output errors
 ```
 
 Useful options:
@@ -67,8 +69,8 @@ Useful options:
 Runs `dotnet test` with concise failure-focused output.
 
 ```bash
-dotnet run --project src/DataLinq.Dev.CLI -- test src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj
-dotnet run --project src/DataLinq.Dev.CLI -- test src/DataLinq.Generators.Tests/DataLinq.Generators.Tests.csproj --output failures
+dotnet run --project DataLinq.Dev.CLI -- test src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj
+dotnet run --project DataLinq.Dev.CLI -- test src/DataLinq.Generators.Tests/DataLinq.Generators.Tests.csproj --output failures
 ```
 
 Useful options:
@@ -91,9 +93,9 @@ The optional target defaults to `src/DataLinq.sln`.
 Publishes the Phase 8C constrained-platform smoke targets and writes a repeatable compatibility payload report.
 
 ```bash
-dotnet run --project src/DataLinq.Dev.CLI -- size-report --target phase8c
-dotnet run --project src/DataLinq.Dev.CLI -- size-report --targets aot,trim --no-restore
-dotnet run --project src/DataLinq.Dev.CLI -- size-report --targets wasm,wasm-aot --format markdown
+dotnet run --project DataLinq.Dev.CLI -- size-report --target phase8c
+dotnet run --project DataLinq.Dev.CLI -- size-report --targets aot,trim --no-restore
+dotnet run --project DataLinq.Dev.CLI -- size-report --targets wasm,wasm-aot --format markdown
 ```
 
 The default `phase8c` target set includes:
@@ -135,8 +137,8 @@ Reports are written under `artifacts/dev/compat-size-report/<timestamp>/` as `re
 Inspects packed NuGet output for the public package set.
 
 ```bash
-dotnet run --project src/DataLinq.Dev.CLI -- package-report --package-dir artifacts/nuget-release/<timestamp>
-dotnet run --project src/DataLinq.Dev.CLI -- package-report --package-dir artifacts/nuget-release/<timestamp> --format markdown
+dotnet run --project DataLinq.Dev.CLI -- package-report --package-dir artifacts/nuget-release/<timestamp>
+dotnet run --project DataLinq.Dev.CLI -- package-report --package-dir artifacts/nuget-release/<timestamp> --format markdown
 ```
 
 Use this after `publish-nuget.ps1 -PackOnly` or another fresh pack output directory. Do not point it at a long-lived package cache if you want release evidence; stale packages make the report noisy on purpose.
@@ -189,8 +191,8 @@ Reports are written under `artifacts/dev/package-report/<timestamp>/` as `report
 Runs an arbitrary `dotnet` command through the same repo-local execution profile.
 
 ```bash
-dotnet run --project src/DataLinq.Dev.CLI -- exec -- --info
-dotnet run --project src/DataLinq.Dev.CLI -- exec -- build src/DataLinq.sln -c Release
+dotnet run --project DataLinq.Dev.CLI -- exec -- --info
+dotnet run --project DataLinq.Dev.CLI -- exec -- build src/DataLinq.sln -c Release
 ```
 
 This is the escape hatch, not the main workflow.
@@ -238,7 +240,7 @@ Each command also accepts extra `dotnet` arguments after `--`.
 Example:
 
 ```bash
-dotnet run --project src/DataLinq.Dev.CLI -- build src/DataLinq.sln -- --no-incremental
+dotnet run --project DataLinq.Dev.CLI -- build src/DataLinq.sln -- --no-incremental
 ```
 
 ## Artifacts

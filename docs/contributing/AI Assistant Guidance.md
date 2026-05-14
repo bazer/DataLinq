@@ -52,6 +52,8 @@ Using raw `dotnet`, raw Podman commands, or direct BenchmarkDotNet invocation as
 
 ## Preferred Workflow
 
+The agent workflow examples in this section run from the repo root because they call the root-level sandbox wrapper scripts. Human-facing setup and CLI examples generally assume the current directory is `src`.
+
 For normal code work:
 
 ```powershell

@@ -10,9 +10,10 @@ Clone the repo and work from the solution under `src`:
 
 ```bash
 git clone https://github.com/bazer/DataLinq.git
-cd DataLinq
-dotnet restore src/DataLinq.sln
-dotnet build src/DataLinq.sln
+cd DataLinq/src
+dotnet workload restore
+dotnet restore DataLinq.sln
+dotnet build DataLinq.sln
 ```
 
 The repo also carries a root `global.json` that opts `dotnet test` into the .NET 10 `Microsoft.Testing.Platform` runner.
@@ -22,6 +23,8 @@ The active solution file is:
 ```text
 src/DataLinq.sln
 ```
+
+Unless noted otherwise, the command examples below assume your current directory is the repo's `src` folder.
 
 The repo currently targets .NET 8, .NET 9, and .NET 10. The active TUnit suites target `net10.0`.
 
@@ -82,16 +85,18 @@ Detailed tool documentation lives here:
 Check the local `dotnet` execution profile before you start blaming the repo:
 
 ```bash
-dotnet run --project src/DataLinq.Dev.CLI -- doctor --profile repo
+dotnet run --project DataLinq.Dev.CLI -- doctor --profile repo
 ```
 
 Prefer the developer wrapper for restore/build so the repo uses its local `.dotnet` home, AppData, NuGet cache, and artifact paths:
 
 ```bash
-dotnet run --project src/DataLinq.Dev.CLI -- restore
-dotnet run --project src/DataLinq.Dev.CLI -- build
-dotnet run --project src/DataLinq.Dev.CLI -- test src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj
+dotnet run --project DataLinq.Dev.CLI -- restore
+dotnet run --project DataLinq.Dev.CLI -- build
+dotnet run --project DataLinq.Dev.CLI -- test src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj
 ```
+
+The wrapper resolves explicit target paths from the repo root, so target arguments still use `src/...` paths even though you invoke the wrapper from inside `src`.
 
 Useful output modes:
 
@@ -107,34 +112,34 @@ Useful output modes:
 List the available targets, aliases, suites, and current runtime state:
 
 ```bash
-dotnet run --project src/DataLinq.Testing.CLI -- list
+dotnet run --project DataLinq.Testing.CLI -- list
 ```
 
 Run the fast local lane:
 
 ```bash
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite all --alias quick
+dotnet run --project DataLinq.Testing.CLI -- run --suite all --alias quick
 ```
 
 Run the main latest server-backed lane:
 
 ```bash
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
 ```
 
 Run only a specific suite:
 
 ```bash
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite generators
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite unit
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite compliance --alias latest --batch-size 4
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite mysql --alias latest --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --suite generators
+dotnet run --project DataLinq.Testing.CLI -- run --suite unit
+dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --alias latest --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --suite mysql --alias latest --batch-size 4
 ```
 
 When invoking the CLI repeatedly from the same build output, prefer `--no-build` together with an explicit configuration and framework:
 
 ```bash
-dotnet run --no-build --project src/DataLinq.Testing.CLI -c Debug --framework net10.0 -- run --suite all --alias latest --batch-size 4
+dotnet run --no-build --project DataLinq.Testing.CLI -c Debug --framework net10.0 -- run --suite all --alias latest --batch-size 4
 ```
 
 Visual Studio runsettings live under `src`:
@@ -148,8 +153,8 @@ If you are only changing one slice of the codebase, prefer targeted suite runs o
 For benchmark work, use the benchmark wrapper instead of calling BenchmarkDotNet directly:
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- list
-dotnet run --project src/DataLinq.Benchmark.CLI -- run
+dotnet run --project DataLinq.Benchmark.CLI -- list
+dotnet run --project DataLinq.Benchmark.CLI -- run
 ```
 
 ## 4. Documentation Changes
