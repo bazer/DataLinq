@@ -166,6 +166,7 @@ Exit criteria:
 
 Implementation status, 2026-05-14:
 
+- Workstream B is complete for the CLI surface. Successful validation results now carry an `issues` collection, while validation failures are projected to the shared issue shape at the command boundary so `validate`, `validate --output json`, and `diff` all report structured leaf issues without writing artifacts.
 - Started CLI issue output conversion by routing `IDLOptionFailure` values through the shared `DataLinqDiagnosticIssue` projection.
 - Added line/column-aware text formatting for CLI failures when source text is available, with file-level fallback when it is not.
 - Added structured `issues` output for `validate --output json` on validation failures and successful validation results.
