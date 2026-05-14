@@ -239,6 +239,7 @@ public class MetadataFromModelsFactory
                 ? new CsFileDeclaration(dbType.SyntaxTree.FilePath)
                 : null,
             SourceSpan = new SourceTextSpan(dbType.SpanStart, dbType.Span.Length),
+            Usings = SyntaxParser.ParseUsings(dbType.SyntaxTree),
             Attributes = parsedAttributes,
             AttributeSourceSpans = attributeSourceSpans,
             UseCache = parsedAttributes

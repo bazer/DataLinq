@@ -51,8 +51,19 @@ public class ModelFileFactory
         //    ? $"I{database.CsTypeName}Db"
         //    : $"I{database.CsTypeName}";
 
+        var databaseNamespaceName = options.NamespaceName ?? database.CsType.Namespace;
+        var databaseUsings = options.Usings
+            .Where(name => name != databaseNamespaceName)
+            .Concat(database.Usings?.Select(x => x.FullNamespaceName) ?? new List<string>())
+            .Distinct()
+            .Where(x => x != null)
+            .Select(name => (name.StartsWith("System"), name))
+            .OrderByDescending(x => x.Item1)
+            .ThenBy(x => x.name)
+            .Select(x => x.name);
+
         yield return ($"{database.CsType.Name}.cs",
-                FileHeader(options.NamespaceName ?? database.CsType.Namespace, options.UseFileScopedNamespaces, options.Usings)
+                FileHeader(databaseNamespaceName, options.UseFileScopedNamespaces, databaseUsings)
                 .Concat(DatabaseFileContents(database, database.CsType.Name, options))
                 .Concat(FileFooter(options.UseFileScopedNamespaces))
                 .ToJoinedString("\n"));
@@ -63,14 +74,15 @@ public class ModelFileFactory
             if (namespaceName == null)
                 throw new Exception($"Namespace is null for '{table.Model.CsType.Name}'");
 
+            var sourceUsings = table.Model.Usings?.Select(x => x.FullNamespaceName) ?? new List<string>();
             var usings = options.Usings
-                .Concat(table.Model.Usings?.Select(x => x.FullNamespaceName) ?? new List<string>())
+                .Where(name => name != namespaceName)
+                .Concat(sourceUsings)
                 .Concat(table.Model.RelationProperties.Values
                     .Where(x => x.RelationPart.Type == RelationPartType.CandidateKey)
                     .Select(x => "System.Collections.Generic"))
                 .Distinct()
                 .Where(x => x != null)
-                .Where(name => name != namespaceName)
                 .Select(name => (name.StartsWith("System"), name))
                 .OrderByDescending(x => x.Item1)
                 .ThenBy(x => x.name)

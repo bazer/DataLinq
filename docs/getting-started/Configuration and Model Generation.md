@@ -117,6 +117,10 @@ For MySQL and MariaDB `ENUM` columns:
 
 That lets you centralize shared enum types in a partials or shared-model folder without fighting regeneration.
 
+### Existing Namespaces and Usings
+
+If `create-models` updates existing source model files, it preserves the namespace and existing `using` directives for the database, table, and view files it can match. New files still use the namespace from `datalinq.json`.
+
 ## Optional: Generate SQL From Models
 
 If you want schema SQL from the model metadata:

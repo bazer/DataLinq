@@ -83,7 +83,7 @@ public class MetadataTransformerTests
         });
     }
 
-    private static DatabaseDefinition CreateSourceDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "MyModel", string interfaceName = "IMyModel", bool includeEnumDefault = false, bool useExternalStatusEnum = false)
+    private static DatabaseDefinition CreateSourceDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "MyModel", string interfaceName = "IMyModel", bool includeEnumDefault = false, bool useExternalStatusEnum = false, bool includeUsings = false)
     {
         var iTableModel = new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface);
         var dbCsType = new CsTypeDeclaration("MyDatabaseCsType", "SourceNamespace", ModelCsType.Class);
@@ -111,6 +111,7 @@ public class MetadataTransformerTests
         return Build(new MetadataDatabaseDraft(dbName, dbCsType)
         {
             Attributes = [new DatabaseAttribute(dbName)],
+            Usings = includeUsings ? [new ModelUsing("Source.Database.Helpers")] : [],
             TableModels =
             [
                 CreateTable(
@@ -143,6 +144,7 @@ public class MetadataTransformerTests
                             enumProperty: statusEnum)
                     ],
                     attributes: [new TableAttribute(tableDbName), new InterfaceAttribute(interfaceName)],
+                    usings: includeUsings ? [new ModelUsing("Source.Model.Helpers")] : null,
                     originalInterfaces: [iTableModel],
                     modelInstanceInterface: interfaceType,
                     relationProperties:
@@ -174,6 +176,7 @@ public class MetadataTransformerTests
         string tableName,
         MetadataValuePropertyDraft[] valueProperties,
         Attribute[]? attributes = null,
+        ModelUsing[]? usings = null,
         CsTypeDeclaration[]? originalInterfaces = null,
         CsTypeDeclaration? modelInstanceInterface = null,
         MetadataRelationPropertyDraft[]? relationProperties = null)
@@ -183,6 +186,7 @@ public class MetadataTransformerTests
             new MetadataModelDraft(modelCsType)
             {
                 Attributes = attributes ?? [],
+                Usings = usings ?? [],
                 OriginalInterfaces = originalInterfaces ?? [],
                 ModelInstanceInterface = modelInstanceInterface,
                 ValueProperties = valueProperties,
@@ -318,6 +322,23 @@ public class MetadataTransformerTests
         await Assert.That(transformedTableModel.Model.ValueProperties["Id"].Column.Table).IsSameReferenceAs(transformedTableModel.Table);
         await Assert.That(transformedTableModel.Model.RelationProperties.ContainsKey("RelatedItems")).IsTrue();
         await Assert.That(transformedTableModel.Model.RelationProperties["RelatedItems"].RelationPart).IsNotNull();
+    }
+
+    [Test]
+    public async Task TransformDatabaseSnapshot_PreservesSourceNamespacesAndUsings()
+    {
+        var sourceDatabase = CreateSourceDatabase(includeUsings: true);
+        var destinationDatabase = CreateDestinationDatabase();
+        var transformer = new MetadataTransformer(new MetadataTransformerOptions());
+
+        destinationDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
+
+        var destinationTableModel = destinationDatabase.TableModels.First(tm => tm.Table.DbName == "my_table");
+
+        await Assert.That(destinationDatabase.CsType.Namespace).IsEqualTo("SourceNamespace");
+        await Assert.That(destinationDatabase.Usings.Select(x => x.FullNamespaceName).ToArray()).Contains("Source.Database.Helpers");
+        await Assert.That(destinationTableModel.Model.CsType.Namespace).IsEqualTo("SourceNamespace");
+        await Assert.That(destinationTableModel.Model.Usings.Select(x => x.FullNamespaceName).ToArray()).Contains("Source.Model.Helpers");
     }
 
     [Test]

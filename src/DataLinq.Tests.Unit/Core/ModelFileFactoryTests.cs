@@ -232,6 +232,30 @@ public class ModelFileFactoryTests
         await Assert.That(modelSyntaxErrors).IsEmpty();
     }
 
+    [Test]
+    public async Task CreateModelFiles_PreservesPerFileNamespacesAndUsings()
+    {
+        var database = CreateDatabaseWithPerFileNamespacesAndUsings();
+        var generatedFiles = new ModelFileFactory(new ModelFileFactoryOptions { UseFileScopedNamespaces = true })
+            .CreateModelFiles(database)
+            .ToList();
+
+        var databaseFile = generatedFiles.Single(file => file.path == "PreserveDb.cs");
+        await Assert.That(databaseFile.contents).Contains("using Existing.Database;");
+        await Assert.That(databaseFile.contents).Contains("using Existing.Database.Helpers;");
+        await Assert.That(databaseFile.contents).Contains("namespace Existing.Database;");
+
+        var tableFile = generatedFiles.Single(file => file.path == "PreservedTable.cs");
+        await Assert.That(tableFile.contents).Contains("using Existing.Tables;");
+        await Assert.That(tableFile.contents).Contains("using Existing.Table.Helpers;");
+        await Assert.That(tableFile.contents).Contains("namespace Existing.Tables;");
+
+        var viewFile = generatedFiles.Single(file => file.path == "PreservedView.cs");
+        await Assert.That(viewFile.contents).Contains("using Existing.Views;");
+        await Assert.That(viewFile.contents).Contains("using Existing.View.Helpers;");
+        await Assert.That(viewFile.contents).Contains("namespace Existing.Views;");
+    }
+
     private static DatabaseDefinition CreateDatabaseWithDefaultValue(CsTypeDeclaration propertyType, object defaultValue)
     {
         var draft = new MetadataDatabaseDraft(
@@ -261,6 +285,47 @@ public class ModelFileFactoryTests
                         ]
                     },
                     new MetadataTableDraft("quote_table"))
+            ]
+        };
+
+        return Build(draft);
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithPerFileNamespacesAndUsings()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "PreserveDb",
+            new CsTypeDeclaration("PreserveDb", "Existing.Database", ModelCsType.Class))
+        {
+            Usings = [new ModelUsing("Existing.Database"), new ModelUsing("Existing.Database.Helpers")],
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Tables",
+                    new MetadataModelDraft(new CsTypeDeclaration("PreservedTable", "Existing.Tables", ModelCsType.Class))
+                    {
+                        Usings = [new ModelUsing("Existing.Tables"), new ModelUsing("Existing.Table.Helpers")],
+                        ValueProperties =
+                        [
+                            CreateValueProperty("Id", typeof(int), "id", "int", primaryKey: true)
+                        ]
+                    },
+                    new MetadataTableDraft("preserved_table")),
+                new MetadataTableModelDraft(
+                    "Views",
+                    new MetadataModelDraft(new CsTypeDeclaration("PreservedView", "Existing.Views", ModelCsType.Class))
+                    {
+                        Usings = [new ModelUsing("Existing.Views"), new ModelUsing("Existing.View.Helpers")],
+                        ValueProperties =
+                        [
+                            CreateValueProperty("Id", typeof(int), "id", "int")
+                        ]
+                    },
+                    new MetadataTableDraft("preserved_view")
+                    {
+                        Type = TableType.View,
+                        Definition = "select 1 as id"
+                    })
             ]
         };
 

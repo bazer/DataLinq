@@ -404,15 +404,7 @@ public class SyntaxParser
 
         model.AddPropertiesCore(properties);
 
-        model.SetUsingsCore(typeSyntax.SyntaxTree.GetRoot()
-            .DescendantNodes()
-            .OfType<UsingDirectiveSyntax>()
-            .Select(uds => uds?.Name?.ToString())
-            .Where(x => !string.IsNullOrEmpty(x))
-            .Distinct()
-            .OrderBy(ns => ns!.StartsWith("System"))
-            .ThenBy(ns => ns)
-            .Select(ns => new ModelUsing(ns!)));
+        model.SetUsingsCore(ParseUsings(typeSyntax.SyntaxTree));
 
         return model;
     }
@@ -485,16 +477,7 @@ public class SyntaxParser
         var relationProperties = properties
             .OfType<MetadataRelationPropertyDraft>()
             .ToArray();
-        var usings = typeSyntax.SyntaxTree.GetRoot()
-            .DescendantNodes()
-            .OfType<UsingDirectiveSyntax>()
-            .Select(uds => uds?.Name?.ToString())
-            .Where(x => !string.IsNullOrEmpty(x))
-            .Distinct()
-            .OrderBy(ns => ns!.StartsWith("System"))
-            .ThenBy(ns => ns)
-            .Select(ns => new ModelUsing(ns!))
-            .ToArray();
+        var usings = ParseUsings(typeSyntax.SyntaxTree);
 
         return new MetadataModelDraft(csType)
         {
@@ -510,6 +493,20 @@ public class SyntaxParser
             ValueProperties = valueProperties,
             RelationProperties = relationProperties
         };
+    }
+
+    internal static ModelUsing[] ParseUsings(SyntaxTree syntaxTree)
+    {
+        return syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<UsingDirectiveSyntax>()
+            .Select(uds => uds?.Name?.ToString())
+            .Where(x => !string.IsNullOrEmpty(x))
+            .Distinct()
+            .OrderBy(ns => ns!.StartsWith("System"))
+            .ThenBy(ns => ns)
+            .Select(ns => new ModelUsing(ns!))
+            .ToArray();
     }
 
     private static Option<MetadataTableDraft, IDLOptionFailure> ParseTableDraft(MetadataModelDraft model)

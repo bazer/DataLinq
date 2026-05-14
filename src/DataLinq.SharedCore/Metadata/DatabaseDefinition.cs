@@ -10,6 +10,7 @@ public class DatabaseDefinition : IDefinition
 {
     private static readonly ConcurrentDictionary<Type, DatabaseDefinition> loadedDatabases = new();
     private MetadataCollection<Attribute> attributes = MetadataCollection<Attribute>.Empty;
+    private MetadataCollection<ModelUsing> usings = MetadataCollection<ModelUsing>.Empty;
     private MetadataCollection<TableModel> tableModels = MetadataCollection<TableModel>.Empty;
     private Dictionary<Type, TableModel>? tableModelsByModelType;
     private Dictionary<string, TableModel>? tableModelsByDbName;
@@ -128,6 +129,20 @@ public class DatabaseDefinition : IDefinition
     }
 
     public MetadataCollection<Attribute> Attributes => attributes;
+
+    public MetadataCollection<ModelUsing> Usings => usings;
+
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
+    public void SetUsings(IEnumerable<ModelUsing> usings)
+    {
+        SetUsingsCore(usings);
+    }
+
+    internal void SetUsingsCore(IEnumerable<ModelUsing> usings)
+    {
+        ThrowIfFrozen();
+        this.usings = new MetadataCollection<ModelUsing>(usings);
+    }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributes(IEnumerable<Attribute> attributes)

@@ -176,6 +176,7 @@ public class MetadataDefinitionFactoryTests
 
         await AssertReadOnlyCollectionIsStable(() => built.TableModels);
         await AssertReadOnlyCollectionIsStable(() => built.Attributes);
+        await AssertReadOnlyCollectionIsStable(() => built.Usings);
         await AssertReadOnlyCollectionIsStable(() => orderTable.Columns);
         await AssertReadOnlyCollectionIsStable(() => orderTable.PrimaryKeyColumns);
         await AssertReadOnlyCollectionIsStable(() => orderModel.OriginalInterfaces);
@@ -188,6 +189,7 @@ public class MetadataDefinitionFactoryTests
         await AssertFrozenMutation(() => SetDatabaseDbName(built, "changed"));
         await AssertFrozenMutation(() => SetDatabaseCsType(built, changedClass));
         await AssertFrozenMutation(() => SetDatabaseCsFile(built, changedFile));
+        await AssertFrozenMutation(() => SetDatabaseUsings(built, [new ModelUsing("Other.Namespace")]));
         await AssertFrozenMutation(() => SetDatabaseCache(built, true));
         await AssertFrozenMutation(() => SetDatabaseAttributes(built, [databaseAttribute]));
         await AssertFrozenMutation(() => SetDatabaseSourceSpan(built, sourceSpan));
@@ -390,7 +392,7 @@ public class MetadataDefinitionFactoryTests
     {
         var missingMethods = new (Type Type, string[] MethodNames)[]
             {
-                (typeof(DatabaseDefinition), new[] { nameof(DatabaseDefinition.SetName), nameof(DatabaseDefinition.SetDbName), nameof(DatabaseDefinition.SetCsType), nameof(DatabaseDefinition.SetCsFile), nameof(DatabaseDefinition.SetCache), nameof(DatabaseDefinition.SetAttributes), nameof(DatabaseDefinition.SetSourceSpan), nameof(DatabaseDefinition.SetAttributeSourceSpan), nameof(DatabaseDefinition.SetTableModels) }),
+                (typeof(DatabaseDefinition), new[] { nameof(DatabaseDefinition.SetName), nameof(DatabaseDefinition.SetDbName), nameof(DatabaseDefinition.SetCsType), nameof(DatabaseDefinition.SetCsFile), nameof(DatabaseDefinition.SetUsings), nameof(DatabaseDefinition.SetCache), nameof(DatabaseDefinition.SetAttributes), nameof(DatabaseDefinition.SetSourceSpan), nameof(DatabaseDefinition.SetAttributeSourceSpan), nameof(DatabaseDefinition.SetTableModels) }),
                 (typeof(TableModel), [nameof(TableModel.SetCsPropertyName)]),
                 (typeof(TableDefinition), [nameof(TableDefinition.SetDbName), nameof(TableDefinition.SetColumns), nameof(TableDefinition.AddPrimaryKeyColumn), nameof(TableDefinition.RemovePrimaryKeyColumn)]),
                 (typeof(ViewDefinition), [nameof(ViewDefinition.SetDefinition)]),
@@ -4251,6 +4253,9 @@ public class MetadataDefinitionFactoryTests
             "TestDb",
             new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
         {
+            Usings = includeFreezeCoverageMetadata
+                ? [new ModelUsing("System")]
+                : [],
             Attributes = includeFreezeCoverageMetadata
                 ? [new DatabaseAttribute("TestDb")]
                 : [],
@@ -4803,6 +4808,9 @@ public class MetadataDefinitionFactoryTests
 
     private static void SetDatabaseCsFile(DatabaseDefinition database, CsFileDeclaration csFile) =>
         database.SetCsFile(csFile);
+
+    private static void SetDatabaseUsings(DatabaseDefinition database, IEnumerable<ModelUsing> usings) =>
+        database.SetUsings(usings);
 
     private static void SetDatabaseCache(DatabaseDefinition database, bool useCache) =>
         database.SetCache(useCache);

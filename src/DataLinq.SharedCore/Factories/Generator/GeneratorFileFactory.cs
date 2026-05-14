@@ -76,8 +76,10 @@ public class GeneratorFileFactory
             throw new Exception($"Namespace is missing for '{database.CsType.Name}'");
 
         var usings = Options.Usings
-            .Distinct()
             .Where(name => name != namespaceName)
+            .Concat(database.Usings?.Select(x => x.FullNamespaceName) ?? new List<string>())
+            .Distinct()
+            .Where(x => x != null)
             .Select(name => (name.StartsWith("System"), name))
             .OrderByDescending(x => x.Item1)
             .ThenBy(x => x.name)
@@ -100,14 +102,15 @@ public class GeneratorFileFactory
             if (string.IsNullOrWhiteSpace(namespaceName))
                 throw new Exception($"Namespace is missing for '{table.Model.CsType.Name}'");
 
+            var sourceUsings = table.Model.Usings?.Select(x => x.FullNamespaceName) ?? new List<string>();
             var usings = Options.Usings
-                .Concat(table.Model.Usings?.Select(x => x.FullNamespaceName) ?? new List<string>())
+                .Where(name => name != namespaceName)
+                .Concat(sourceUsings)
                 .Concat(table.Model.RelationProperties.Values
                     .Where(x => x.RelationPart.Type == RelationPartType.CandidateKey)
                     .Select(x => "System.Collections.Generic"))
                 .Distinct()
                 .Where(x => x != null)
-                .Where(name => name != namespaceName)
                 .Select(name => (name.StartsWith("System"), name))
                 .OrderByDescending(x => x.Item1)
                 .ThenBy(x => x.name)
@@ -237,6 +240,8 @@ public class GeneratorFileFactory
         yield return $"{indent3}{FormatRuntimeCsTypeDeclaration(database.CsType)})";
         yield return $"{indent2}{{";
         yield return $"{indent3}DbName = {FormatStringLiteral(database.DbName)},";
+        foreach (var row in ModelUsingCollection("Usings", database.Usings, indent3))
+            yield return row;
         foreach (var row in AttributeCollection("Attributes", database.Attributes, indent3))
             yield return row;
         yield return $"{indent3}UseCache = {FormatBool(database.UseCache)},";

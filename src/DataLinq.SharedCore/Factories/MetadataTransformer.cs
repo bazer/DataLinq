@@ -74,6 +74,10 @@ public class MetadataTransformer
         destMetadata.CacheCleanup.ClearCore();
         destMetadata.CacheCleanup.AddRangeCore(srcMetadata.CacheCleanup);
 
+        if (srcMetadata.CsFile != null)
+            destMetadata.SetCsFileCore(srcMetadata.CsFile.Value);
+
+        destMetadata.SetUsingsCore(srcMetadata.Usings);
         destMetadata.SetCsTypeCore(TransformCsType(srcMetadata.CsType, destMetadata.CsType));
 
         foreach (var srcTable in srcMetadata.TableModels)

@@ -210,6 +210,7 @@ public abstract partial class UserModel(IRowData rowData, IDataSourceAccess data
         var databaseDefinition = factory.ReadSyntaxTrees(declarations).Single().Value;
 
         await Assert.That(databaseDefinition.CsFile.HasValue).IsTrue();
+        await Assert.That(databaseDefinition.Usings.Any(u => u.FullNamespaceName == "DataLinq.Attributes")).IsTrue();
         await Assert.That(databaseDefinition.GetAttributeSourceLocation(databaseDefinition.Attributes.OfType<DatabaseAttribute>().Single()).HasValue).IsTrue();
 
         var userModel = databaseDefinition.TableModels.Single().Model;

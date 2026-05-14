@@ -462,6 +462,27 @@ public static class MetadataFactory
                 $"Database '{database.DbName}' uses C# type kind '{database.CsType.ModelCsType}', but database types must be classes.",
                 database);
 
+        foreach (var databaseUsing in database.Usings)
+        {
+            if (databaseUsing is null)
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Database '{database.DbName}' contains a null using namespace.",
+                    database);
+
+            if (string.IsNullOrWhiteSpace(databaseUsing.FullNamespaceName))
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Database '{database.DbName}' contains an empty using namespace.",
+                    database);
+
+            if (!IsValidCSharpNamespace(databaseUsing.FullNamespaceName))
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Database '{database.DbName}' uses C# using namespace '{databaseUsing.FullNamespaceName}', which is not a valid unescaped C# namespace.",
+                    database);
+        }
+
         foreach (var tableModel in database.TableModels)
         {
             if (!IsValidCSharpIdentifier(tableModel.CsPropertyName))

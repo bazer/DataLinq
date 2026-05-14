@@ -129,6 +129,7 @@ public class ModelGenerator : Generator
 
         var destDir = Path.GetFullPath(Path.Combine(basePath, db.DestinationDirectory ?? ""));
         var sourceRelationPropertyKeys = new HashSet<string>(StringComparer.Ordinal);
+        var sourceModelsApplied = false;
         if (this.options.ReadSourceModels)
         {
             if (db.SourceDirectories == null || !db.SourceDirectories.Any())
@@ -162,6 +163,7 @@ public class ModelGenerator : Generator
                 );
                 var transformer = new MetadataTransformer(transformerOptions);
                 dbMetadata = transformer.TransformDatabaseSnapshot(srcMetadata, dbMetadata);
+                sourceModelsApplied = true;
             }
         }
 
@@ -169,7 +171,7 @@ public class ModelGenerator : Generator
 
         var options = new ModelFileFactoryOptions
         {
-            NamespaceName = db.Namespace,
+            NamespaceName = sourceModelsApplied ? null : db.Namespace,
             UseRecords = db.UseRecord,
             UseFileScopedNamespaces = db.UseFileScopedNamespaces,
             UseNullableReferenceTypes = db.UseNullableReferenceTypes,

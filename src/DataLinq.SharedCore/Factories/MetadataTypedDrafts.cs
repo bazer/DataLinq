@@ -13,6 +13,7 @@ public sealed record MetadataDatabaseDraft(string Name, CsTypeDeclaration CsType
     public string? DbName { get; init; }
     public CsFileDeclaration? CsFile { get; init; }
     public SourceTextSpan? SourceSpan { get; init; }
+    public IReadOnlyList<ModelUsing> Usings { get; init; } = [];
     public IReadOnlyList<Attribute> Attributes { get; init; } = [];
     public IReadOnlyList<(Attribute Attribute, SourceTextSpan Span)> AttributeSourceSpans { get; init; } = [];
     public bool UseCache { get; init; }
@@ -107,6 +108,7 @@ internal static class MetadataTypedDraftConverter
         if (draft.SourceSpan.HasValue)
             database.SetSourceSpanCore(draft.SourceSpan.Value);
 
+        database.SetUsingsCore(draft.Usings ?? []);
         database.SetAttributesCore(draft.Attributes ?? []);
         ApplyAttributeSourceSpans(draft.AttributeSourceSpans, database.SetAttributeSourceSpanCore);
         database.SetCacheCore(draft.UseCache);

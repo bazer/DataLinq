@@ -52,6 +52,7 @@ internal static class MetadataDefinitionSnapshot
         if (source.SourceSpan.HasValue)
             destination.SetSourceSpanCore(source.SourceSpan.Value);
 
+        destination.SetUsingsCore(source.Usings);
         destination.SetAttributesCore(source.Attributes);
         CopyAttributeSpans(source.Attributes, source.GetAttributeSourceLocation, destination.SetAttributeSourceSpanCore);
 
