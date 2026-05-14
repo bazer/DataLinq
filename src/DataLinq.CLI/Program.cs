@@ -1,10 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using CommandLine;
 using DataLinq.Config;
+using DataLinq.ErrorHandling;
 using DataLinq.MariaDB;
+using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.SQLite;
 using DataLinq.Tools;
@@ -82,17 +85,27 @@ static class Program
 
     static public bool ReadConfig(Action<string>? log = null)
     {
+        if (TryReadConfig(log, out var failure))
+            return true;
+
+        ConsoleDiagnosticWriter.WriteFailure(failure);
+        return false;
+    }
+
+    private static bool TryReadConfig(Action<string>? log, out object? failure)
+    {
         var configLog = log ?? ConsoleDiagnosticWriter.WriteLogLine;
         var config = DataLinqConfig.FindAndReadConfigs(ConfigPath, configLog);
 
         if (config.HasFailed)
         {
-            ConsoleDiagnosticWriter.WriteFailure(config.Failure);
+            failure = config.Failure;
             return false;
         }
 
         configLog("");
         ConfigFile = config.Value;
+        failure = null;
 
         return true;
     }
@@ -277,8 +290,15 @@ static class Program
             return 2;
         }
 
-        if (!TryValidateSchema(options, output == ValidationOutput.Json && !options.Verbose, out var validation))
+        if (!TryValidateSchema(options, output == ValidationOutput.Json && !options.Verbose, out var validation, out var issues))
+        {
+            if (output == ValidationOutput.Json)
+                WriteValidationFailureJson(issues);
+            else
+                ConsoleDiagnosticWriter.WriteIssues(issues);
+
             return 2;
+        }
 
         if (output == ValidationOutput.Json)
             WriteValidationJson(validation);
@@ -290,8 +310,11 @@ static class Program
 
     private static int Diff(DiffOptions options)
     {
-        if (!TryValidateSchema(options, !options.Verbose, out var validation))
+        if (!TryValidateSchema(options, !options.Verbose, out var validation, out var issues))
+        {
+            ConsoleDiagnosticWriter.WriteIssues(issues);
             return 2;
+        }
 
         var script = new SchemaDiffScriptGenerator().Generate(validation.DatabaseType, validation.Differences);
 
@@ -309,21 +332,31 @@ static class Program
         return 0;
     }
 
-    private static bool TryValidateSchema(CreateOptions options, bool quietConfig, out SchemaValidationRunResult validationResult)
+    private static bool TryValidateSchema(
+        CreateOptions options,
+        bool quietConfig,
+        out SchemaValidationRunResult validationResult,
+        out IReadOnlyList<DataLinqDiagnosticIssue> issues)
     {
         validationResult = null!;
+        issues = [];
 
         var configLog = quietConfig
             ? new Action<string>(_ => { })
             : ConsoleDiagnosticWriter.WriteLogLine;
 
-        if (ReadConfig(configLog) == false)
+        if (TryReadConfig(configLog, out var configFailure) == false)
+        {
+            if (configFailure != null)
+                issues = CreateIssues(configFailure);
+
             return false;
+        }
 
         var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
         if (result.HasFailed)
         {
-            ConsoleDiagnosticWriter.WriteFailure(result.Failure);
+            issues = CreateIssues(result.Failure);
             return false;
         }
 
@@ -332,7 +365,7 @@ static class Program
         var validation = validator.Validate(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? options.Name);
         if (validation.HasFailed)
         {
-            ConsoleDiagnosticWriter.WriteFailure(validation.Failure);
+            issues = CreateIssues(validation.Failure);
             return false;
         }
 
@@ -379,6 +412,7 @@ static class Program
             modelTableCount = result.ModelTableCount,
             databaseTableCount = result.DatabaseTableCount,
             hasDifferences = result.HasDifferences,
+            issues = result.Issues.Select(CreateIssueJson),
             differences = result.Differences.Select(difference => new
             {
                 kind = difference.Kind.ToString(),
@@ -393,6 +427,98 @@ static class Program
         {
             WriteIndented = true
         }));
+    }
+
+    private static void WriteValidationFailureJson(IReadOnlyList<DataLinqDiagnosticIssue> issues)
+    {
+        var payload = new
+        {
+            hasIssues = issues.Count > 0,
+            issues = issues.Select(CreateIssueJson),
+            hasDifferences = false,
+            differences = Array.Empty<object>()
+        };
+
+        Console.WriteLine(JsonSerializer.Serialize(payload, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        }));
+    }
+
+    private static IReadOnlyList<DataLinqDiagnosticIssue> CreateIssues(object failure)
+    {
+        if (failure is IDLOptionFailure optionFailure)
+            return DataLinqDiagnosticIssue.FromFailure(optionFailure);
+
+        return
+        [
+            new DataLinqDiagnosticIssue(
+                DataLinqDiagnosticSeverity.Error,
+                DLFailureType.Unspecified,
+                failure.ToString() ?? "Unknown DataLinq failure.")
+        ];
+    }
+
+    private static object CreateIssueJson(DataLinqDiagnosticIssue issue)
+    {
+        SourceLinePosition? linePosition = null;
+        if (issue.SourceLocation.HasValue &&
+            issue.SourceLocation.Value.Span.HasValue &&
+            TryReadSourceText(issue.SourceLocation.Value, out var sourceText) &&
+            SourceLocationFormatter.TryGetLinePosition(
+                sourceText,
+                issue.SourceLocation.Value.Span.Value,
+                out var resolvedLinePosition))
+        {
+            linePosition = resolvedLinePosition;
+        }
+
+        object? location = null;
+        if (issue.SourceLocation.HasValue)
+        {
+            var sourceLocation = issue.SourceLocation.Value;
+            location = new
+            {
+                file = sourceLocation.File.FullPath,
+                start = sourceLocation.Span?.Start,
+                length = sourceLocation.Span?.Length,
+                line = linePosition?.StartLine,
+                column = linePosition?.StartColumn,
+                endLine = linePosition?.EndLine,
+                endColumn = linePosition?.EndColumn
+            };
+        }
+
+        return new
+        {
+            severity = issue.Severity.ToString(),
+            failureType = issue.FailureType.ToString(),
+            message = issue.Message,
+            location,
+            objectPath = issue.ObjectPath,
+            context = issue.ContextMessages
+        };
+    }
+
+    private static bool TryReadSourceText(SourceLocation sourceLocation, out string sourceText)
+    {
+        try
+        {
+            if (File.Exists(sourceLocation.File.FullPath))
+            {
+                sourceText = File.ReadAllText(sourceLocation.File.FullPath);
+                return true;
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        sourceText = "";
+        return false;
     }
 
     private enum ValidationOutput

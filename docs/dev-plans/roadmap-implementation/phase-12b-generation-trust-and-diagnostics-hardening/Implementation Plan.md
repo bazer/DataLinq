@@ -164,6 +164,12 @@ Exit criteria:
 - `create-models` leaves existing files untouched when any validation/rendering error exists
 - valid `create-models` behavior still writes all expected database/table/view model files
 
+Implementation status, 2026-05-14:
+
+- Started CLI issue output conversion by routing `IDLOptionFailure` values through the shared `DataLinqDiagnosticIssue` projection.
+- Added line/column-aware text formatting for CLI failures when source text is available, with file-level fallback when it is not.
+- Added structured `issues` output for `validate --output json` on validation failures and successful validation results.
+
 ## Workstream C: Source Generator Partial Output and Multi-Diagnostics
 
 Goals:
