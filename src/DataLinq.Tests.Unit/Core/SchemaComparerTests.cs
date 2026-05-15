@@ -290,7 +290,10 @@ public class SchemaComparerTests
         var differences = SchemaComparer.Compare(model, database, DatabaseType.SQLite);
 
         await Assert.That(differences.Select(x => x.Kind).ToArray())
-            .IsEquivalentTo([SchemaDifferenceKind.MissingForeignKey, SchemaDifferenceKind.ExtraForeignKey]);
+            .IsEquivalentTo([SchemaDifferenceKind.ForeignKeyActionMismatch]);
+        await Assert.That(differences.Single().Message).Contains("ON UPDATE Cascade, ON DELETE SetNull");
+        await Assert.That(differences.Single().Message).Contains("ON UPDATE NoAction, ON DELETE NoAction");
+        await Assert.That(differences.Single().Safety).IsEqualTo(SchemaDifferenceSafety.Ambiguous);
     }
 
     [Test]

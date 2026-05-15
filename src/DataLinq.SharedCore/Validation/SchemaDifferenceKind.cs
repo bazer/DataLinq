@@ -16,6 +16,7 @@ public enum SchemaDifferenceKind
     ExtraIndex,
     MissingForeignKey,
     ExtraForeignKey,
+    ForeignKeyActionMismatch,
     MissingCheck,
     ExtraCheck,
     TableCommentMismatch,

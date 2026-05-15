@@ -13,6 +13,7 @@ using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.SQLite;
 using DataLinq.Tools;
+using DataLinq.Validation;
 
 namespace DataLinq.CLI;
 
@@ -402,12 +403,60 @@ static class Program
             return;
         }
 
-        Console.WriteLine($"Schema drift detected: {result.Differences.Count} difference(s).");
-        foreach (var difference in result.Differences)
+        Console.WriteLine($"Schema drift detected: {FormatDifferenceCount(result.Differences.Count)} ({FormatDifferenceSummary(result.Differences)}).");
+
+        foreach (var group in result.Differences
+            .OrderByDescending(difference => difference.Severity)
+            .ThenBy(difference => difference.Safety)
+            .ThenBy(difference => difference.Kind)
+            .ThenBy(difference => difference.Path, StringComparer.Ordinal)
+            .GroupBy(difference => difference.Severity))
         {
-            Console.WriteLine(
-                $"{difference.Severity} {difference.Kind} {difference.Path} [{difference.Safety}]: {difference.Message}");
+            Console.WriteLine();
+            Console.WriteLine($"{FormatSeverityHeading(group.Key)}:");
+
+            foreach (var difference in group)
+            {
+                Console.WriteLine($"  - {difference.Kind} [{difference.Safety}] {difference.Path}");
+                Console.WriteLine($"    {difference.Message}");
+            }
         }
+    }
+
+    private static string FormatSeverityHeading(SchemaDifferenceSeverity severity) =>
+        severity switch
+        {
+            SchemaDifferenceSeverity.Error => "Errors",
+            SchemaDifferenceSeverity.Warning => "Warnings",
+            SchemaDifferenceSeverity.Info => "Info",
+            _ => severity.ToString()
+        };
+
+    private static string FormatDifferenceCount(int count) =>
+        count == 1 ? "1 difference" : $"{count} differences";
+
+    private static string FormatDifferenceSummary(IReadOnlyList<SchemaDifference> differences)
+    {
+        var parts = new List<string>();
+        AddSeverityCount(parts, differences, SchemaDifferenceSeverity.Error, "error", "errors");
+        AddSeverityCount(parts, differences, SchemaDifferenceSeverity.Warning, "warning", "warnings");
+        AddSeverityCount(parts, differences, SchemaDifferenceSeverity.Info, "info", "info");
+
+        return string.Join(", ", parts);
+    }
+
+    private static void AddSeverityCount(
+        List<string> parts,
+        IReadOnlyList<SchemaDifference> differences,
+        SchemaDifferenceSeverity severity,
+        string singular,
+        string plural)
+    {
+        var count = differences.Count(difference => difference.Severity == severity);
+        if (count == 0)
+            return;
+
+        parts.Add(count == 1 ? $"1 {singular}" : $"{count} {plural}");
     }
 
     private static void WriteValidationJson(SchemaValidationRunResult result)

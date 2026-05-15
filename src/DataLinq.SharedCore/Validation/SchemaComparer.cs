@@ -302,11 +302,28 @@ public sealed class SchemaComparer
             .ToDictionary(x => x.Key, StringComparer.Ordinal);
         var databaseForeignKeys = GetComparableForeignKeys(databaseTable)
             .ToDictionary(x => x.Key, StringComparer.Ordinal);
+        var modelForeignKeysByShape = GetComparableForeignKeys(modelTable)
+            .ToDictionary(x => x.ShapeKey, StringComparer.Ordinal);
+        var databaseForeignKeysByShape = GetComparableForeignKeys(databaseTable)
+            .ToDictionary(x => x.ShapeKey, StringComparer.Ordinal);
 
         foreach (var modelForeignKey in modelForeignKeys.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
             if (databaseForeignKeys.ContainsKey(modelForeignKey.Key))
                 continue;
+
+            if (databaseForeignKeysByShape.TryGetValue(modelForeignKey.ShapeKey, out var databaseForeignKey))
+            {
+                differences.Add(new SchemaDifference(
+                    SchemaDifferenceKind.ForeignKeyActionMismatch,
+                    SchemaDifferenceSeverity.Error,
+                    SchemaDifferenceSafety.Ambiguous,
+                    $"{modelForeignKey.ForeignKeyTable}.{modelForeignKey.ConstraintName}",
+                    $"Foreign key '{modelForeignKey.ConstraintName}' exists, but referential actions differ. Model: ON UPDATE {FormatReferentialAction(modelForeignKey.OnUpdate)}, ON DELETE {FormatReferentialAction(modelForeignKey.OnDelete)}; database: ON UPDATE {FormatReferentialAction(databaseForeignKey.OnUpdate)}, ON DELETE {FormatReferentialAction(databaseForeignKey.OnDelete)}.",
+                    modelTable,
+                    databaseTable));
+                continue;
+            }
 
             differences.Add(new SchemaDifference(
                 SchemaDifferenceKind.MissingForeignKey,
@@ -321,6 +338,9 @@ public sealed class SchemaComparer
         foreach (var databaseForeignKey in databaseForeignKeys.Values.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
             if (modelForeignKeys.ContainsKey(databaseForeignKey.Key))
+                continue;
+
+            if (modelForeignKeysByShape.ContainsKey(databaseForeignKey.ShapeKey))
                 continue;
 
             differences.Add(new SchemaDifference(
@@ -557,6 +577,11 @@ public sealed class SchemaComparer
     private static string FormatObjectKind(TableDefinition table) =>
         table.Type == TableType.View ? "view" : "table";
 
+    private static string FormatReferentialAction(ReferentialAction action) =>
+        action == ReferentialAction.Unspecified
+            ? "not specified"
+            : action.ToString();
+
     private sealed class IndexSignature
     {
         public IndexSignature(ColumnIndex index, string name, IndexCharacteristic characteristic, IndexType type, string columns)
@@ -603,6 +628,7 @@ public sealed class SchemaComparer
         public string CandidateKeyColumns { get; }
         public ReferentialAction OnUpdate { get; }
         public ReferentialAction OnDelete { get; }
+        public string ShapeKey => $"{ConstraintName}|{ForeignKeyTable}|{ForeignKeyColumns}|{CandidateKeyTable}|{CandidateKeyColumns}";
         public string Key => $"{ConstraintName}|{ForeignKeyTable}|{ForeignKeyColumns}|{CandidateKeyTable}|{CandidateKeyColumns}|{OnUpdate}|{OnDelete}";
     }
 

@@ -61,8 +61,8 @@ public class SchemaDiffScriptGeneratorTests
         var script = new SchemaDiffScriptGenerator().Generate(DatabaseType.MySQL, differences);
 
         await Assert.That(script).Contains("ALTER TABLE `account` ADD COLUMN `nickname` VARCHAR(40) DEFAULT 'new' NULL;");
-        await Assert.That(script).Contains("-- DESTRUCTIVE ExtraColumn account.legacy_name");
-        await Assert.That(script).Contains("-- Manual review required. No SQL was generated for this difference.");
+        await Assert.That(script).Contains("-- REVIEW REQUIRED Warning/Destructive ExtraColumn account.legacy_name");
+        await Assert.That(script).Contains("-- No SQL generated: destructive change.");
     }
 
     [Test]
@@ -90,6 +90,74 @@ public class SchemaDiffScriptGeneratorTests
         var script = new SchemaDiffScriptGenerator().Generate(DatabaseType.MariaDB, differences);
 
         await Assert.That(script).Contains("CREATE UNIQUE INDEX `ux_account_tenant_account` USING BTREE ON `account` (`tenant_id`, `account_no`);");
+    }
+
+    [Test]
+    public async Task Generate_ForeignKeyActionMismatch_ExplainsReviewOnlyDifference()
+    {
+        var model = CreateDatabase(
+            CreateTable(
+                "account",
+                [CreateColumn("id", typeof(int), nullable: false, primaryKey: true)]),
+            CreateTable(
+                "invoice",
+                [
+                    CreateColumn(
+                        "account_id",
+                        typeof(int),
+                        nullable: false,
+                        primaryKey: true,
+                        attributes: [new ForeignKeyAttribute("account", "id", "FK_invoice_account")])
+                ]));
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [CreateColumn("id", typeof(int), nullable: false, primaryKey: true)]),
+            CreateTable(
+                "invoice",
+                [
+                    CreateColumn(
+                        "account_id",
+                        typeof(int),
+                        nullable: false,
+                        primaryKey: true,
+                        attributes: [new ForeignKeyAttribute("account", "id", "FK_invoice_account", ReferentialAction.Restrict, ReferentialAction.Restrict)])
+                ]));
+
+        var differences = SchemaComparer.Compare(model, database, DatabaseType.MariaDB);
+
+        var script = new SchemaDiffScriptGenerator().Generate(DatabaseType.MariaDB, differences);
+
+        await Assert.That(script).Contains("-- REVIEW REQUIRED Error/Ambiguous ForeignKeyActionMismatch invoice.FK_invoice_account");
+        await Assert.That(script).Contains("Model: ON UPDATE not specified, ON DELETE not specified; database: ON UPDATE Restrict, ON DELETE Restrict.");
+        await Assert.That(script).Contains("-- No SQL generated: ambiguous change.");
+    }
+
+    [Test]
+    public async Task Generate_InformationalDifference_UsesInfoComment()
+    {
+        var model = CreateDatabase(
+            CreateTable(
+                "account",
+                [CreateColumn("id", typeof(int), nullable: false, primaryKey: true)]));
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn(
+                        "id",
+                        typeof(int),
+                        nullable: false,
+                        primaryKey: true,
+                        attributes: [new CommentAttribute(DatabaseType.MariaDB, "database comment")])
+                ]));
+
+        var differences = SchemaComparer.Compare(model, database, DatabaseType.MariaDB);
+
+        var script = new SchemaDiffScriptGenerator().Generate(DatabaseType.MariaDB, differences);
+
+        await Assert.That(script).Contains("-- INFO ColumnCommentMismatch account.id");
+        await Assert.That(script).Contains("-- No SQL generated for informational metadata drift.");
     }
 
     private static DatabaseDefinition CreateDatabase(params MetadataTableModelDraft[] tableModels)
