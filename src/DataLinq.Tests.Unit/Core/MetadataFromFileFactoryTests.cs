@@ -29,6 +29,36 @@ public class MetadataFromFileFactoryTests
     }
 
     [Test]
+    public async Task ReadFiles_FromDuplicateDirectory_ParsesFilesOnce()
+    {
+        using var fixture = new MetadataFromFileFactoryFixture();
+        var factory = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions());
+
+        var databaseDefinitions = factory.ReadFiles(
+            fixture.DatabaseNameFromAttribute,
+            [fixture.TempDirectory, fixture.TempDirectory]).ValueOrException();
+
+        await Assert.That(databaseDefinitions.Count).IsEqualTo(1);
+        await Assert.That(databaseDefinitions[0].DbName).IsEqualTo(fixture.DatabaseNameFromAttribute);
+        await Assert.That(databaseDefinitions[0].TableModels.Length).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task ReadFiles_FromOverlappingDirectoryAndFile_ParsesFileOnce()
+    {
+        using var fixture = new MetadataFromFileFactoryFixture();
+        var factory = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions());
+
+        var databaseDefinitions = factory.ReadFiles(
+            fixture.DatabaseNameFromAttribute,
+            [fixture.TempDirectory, fixture.DbFilePath]).ValueOrException();
+
+        await Assert.That(databaseDefinitions.Count).IsEqualTo(1);
+        await Assert.That(databaseDefinitions[0].DbName).IsEqualTo(fixture.DatabaseNameFromAttribute);
+        await Assert.That(databaseDefinitions[0].TableModels.Length).IsEqualTo(2);
+    }
+
+    [Test]
     public async Task ReadFiles_FromExplicitFiles_ReturnsExpectedDatabaseDefinition()
     {
         using var fixture = new MetadataFromFileFactoryFixture();

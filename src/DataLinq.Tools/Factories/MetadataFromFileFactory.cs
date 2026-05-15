@@ -43,6 +43,7 @@ public class MetadataFromFileFactory
     {
         var trees = new List<SyntaxTree>();
         var failures = new List<IDLOptionFailure>();
+        var parsedFilePaths = new HashSet<string>(GetFilePathComparer());
 
         foreach (var path in srcPaths)
         {
@@ -58,6 +59,9 @@ public class MetadataFromFileFactory
                     {
                         // Use FileInfo.FullName to get the correct case-preserved path
                         var fullPath = fileInfo.FullName;
+                        if (!parsedFilePaths.Add(fullPath))
+                            continue;
+
                         var sourceText = File.ReadAllText(fullPath, this.options.FileEncoding);
 
                         var syntaxTree = CSharpSyntaxTree.ParseText(
@@ -75,6 +79,9 @@ public class MetadataFromFileFactory
                 {
                     var fileInfo = new FileInfo(path);
                     var fullPath = fileInfo.FullName; // Get proper case
+                    if (!parsedFilePaths.Add(fullPath))
+                        continue;
+
                     var sourceText = File.ReadAllText(fullPath, this.options.FileEncoding);
 
                     var syntaxTree = CSharpSyntaxTree.ParseText(
@@ -130,6 +137,11 @@ public class MetadataFromFileFactory
         return models;
         //return ReadSyntaxTrees(modelSyntaxes);
     });
+
+    private static StringComparer GetFilePathComparer() =>
+        OperatingSystem.IsWindows()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
 
     private static IDLOptionFailure FailIfNeeded(IReadOnlyList<IDLOptionFailure> failures) =>
         failures.Count == 1
