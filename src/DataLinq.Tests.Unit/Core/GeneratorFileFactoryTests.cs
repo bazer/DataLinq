@@ -119,6 +119,26 @@ public class GeneratorFileFactoryTests
 
             using System;
             """);
+        await Assert.That(generatedFile.contents).Contains("out global::DataLinq.Instances.IImmutableInstance row)");
+        await Assert.That(generatedFile.contents).DoesNotContain("out global::DataLinq.Instances.IImmutableInstance? row)");
+    }
+
+    [Test]
+    public async Task CreateModelFiles_ExplicitNullableOptOut_CompositePrimaryKey_DoesNotEmitNullableReferenceAnnotations()
+    {
+        var database = CreateDatabaseWithCompositePrimaryKey();
+
+        var generatedFile = new GeneratorFileFactory(new GeneratorFileFactoryOptions
+        {
+            UseNullableReferenceTypes = false
+        })
+            .CreateModelFiles(database)
+            .Single(file => file.path == "CompositeModel.cs");
+
+        await Assert.That(generatedFile.contents).Contains("#nullable disable");
+        await Assert.That(generatedFile.contents).Contains("public object GetValue(int index) => index switch");
+        await Assert.That(generatedFile.contents).DoesNotContain("public object? GetValue(int index)");
+        await Assert.That(generatedFile.contents).DoesNotContain("out global::DataLinq.Instances.IImmutableInstance? row)");
     }
 
     [Test]
@@ -257,6 +277,45 @@ public class GeneratorFileFactoryTests
                         ]
                     },
                     new MetadataTableDraft("generator_table"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithCompositePrimaryKey()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "CompositeDb",
+            new CsTypeDeclaration("CompositeDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "CompositeModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("CompositeModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "FirstId",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("first_id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.MySQL, "int")]
+                                }),
+                            new MetadataValuePropertyDraft(
+                                "SecondId",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("second_id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.MySQL, "int")]
+                                })
+                        ]
+                    },
+                    new MetadataTableDraft("composite_table"))
             ]
         };
 

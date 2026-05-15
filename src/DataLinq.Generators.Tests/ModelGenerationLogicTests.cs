@@ -800,6 +800,8 @@ public class ModelGenerationLogicTests : GeneratorTestBase
             """);
         await Assert.That(generatedFile).Contains("MutateOrNew(this TestDefaultModel model,");
         await Assert.That(generatedFile).DoesNotContain("MutateOrNew(this TestDefaultModel? model,");
+        await Assert.That(generatedFile).Contains("out global::DataLinq.Instances.IImmutableInstance row)");
+        await Assert.That(generatedFile).DoesNotContain("out global::DataLinq.Instances.IImmutableInstance? row)");
     }
 
     [Test]

@@ -852,7 +852,7 @@ public class GeneratorFileFactory
                     yield return $"{namespaceTab}{tab}internal readonly record struct {keyTypeName}({keyTypeParameters}) : IProviderKey";
                     yield return $"{namespaceTab}{tab}" + "{";
                     yield return $"{namespaceTab}{tab}{tab}public int ValueCount => {primaryKeys.Count.ToString(CultureInfo.InvariantCulture)};";
-                    yield return $"{namespaceTab}{tab}{tab}public object? GetValue(int index) => index switch";
+                    yield return $"{namespaceTab}{tab}{tab}public object{GetUseNullableReferenceTypes()} GetValue(int index) => index switch";
                     yield return $"{namespaceTab}{tab}{tab}" + "{";
                     for (var i = 0; i < primaryKeys.Count; i++)
                         yield return $"{namespaceTab}{tab}{tab}{tab}{i.ToString(CultureInfo.InvariantCulture)} => {primaryKeys[i].PropertyName.ToCamelCase()},";
@@ -954,7 +954,7 @@ public class GeneratorFileFactory
                 yield return $"{namespaceTab}{tab}{tab}{tab}return cache.TryAddRow(providerKey, rowData.Size, row);";
                 yield return $"{namespaceTab}{tab}{tab}" + "}";
                 yield return "";
-                yield return $"{namespaceTab}{tab}{tab}public bool TryGetRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.DataLinqKey key, out global::DataLinq.Instances.IImmutableInstance? row)";
+                yield return $"{namespaceTab}{tab}{tab}public bool TryGetRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.DataLinqKey key, out global::DataLinq.Instances.IImmutableInstance{GetUseNullableReferenceTypes()} row)";
                 yield return $"{namespaceTab}{tab}{tab}" + "{";
                 yield return $"{namespaceTab}{tab}{tab}{tab}if (!TryCreateDataLinqPrimaryKey(key, out var providerKey))";
                 yield return $"{namespaceTab}{tab}{tab}{tab}" + "{";
@@ -966,7 +966,7 @@ public class GeneratorFileFactory
                 yield return $"{namespaceTab}{tab}{tab}" + "}";
                 yield return "";
 
-                yield return $"{namespaceTab}{tab}{tab}public bool TryGetRow(global::DataLinq.Cache.TableCache tableCache, global::DataLinq.IDataLinqDataReader reader, global::System.Collections.Generic.IReadOnlyList<int> primaryKeyOrdinals, global::DataLinq.Interfaces.IDataSourceAccess dataSource, out global::DataLinq.Instances.IImmutableInstance? row)";
+                yield return $"{namespaceTab}{tab}{tab}public bool TryGetRow(global::DataLinq.Cache.TableCache tableCache, global::DataLinq.IDataLinqDataReader reader, global::System.Collections.Generic.IReadOnlyList<int> primaryKeyOrdinals, global::DataLinq.Interfaces.IDataSourceAccess dataSource, out global::DataLinq.Instances.IImmutableInstance{GetUseNullableReferenceTypes()} row)";
                 yield return $"{namespaceTab}{tab}{tab}" + "{";
                 yield return $"{namespaceTab}{tab}{tab}{tab}if (!TryCreateDataLinqPrimaryKey(reader, primaryKeyOrdinals, out var providerKey))";
                 yield return $"{namespaceTab}{tab}{tab}{tab}" + "{";
@@ -1094,7 +1094,7 @@ public class GeneratorFileFactory
 
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
             {
-                var nullableChar = relationProperty.CsNullable ? "?" : "";
+                var nullableChar = Options.UseNullableReferenceTypes && relationProperty.CsNullable ? "?" : "";
                 // Conditionally add parentheses and the null-forgiving operator.
                 var expressionPrefix = (Options.UseNullableReferenceTypes && !relationProperty.CsNullable) ? "(" : "";
                 var expressionSuffix = (Options.UseNullableReferenceTypes && !relationProperty.CsNullable) ? ")!" : "";
