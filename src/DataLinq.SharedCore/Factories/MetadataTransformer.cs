@@ -50,6 +50,16 @@ public class MetadataTransformer
         return destCsType;
     }
 
+    private static bool GetMergedRelationNullable(RelationProperty srcRelation, RelationProperty destRelation, RelationPart relationPart)
+    {
+        if (relationPart.Type != RelationPartType.ForeignKey)
+            return false;
+
+        return srcRelation.CsNullable ||
+               destRelation.CsNullable ||
+               relationPart.ColumnIndex.Columns.Any(static column => column.Nullable);
+    }
+
     public DatabaseDefinition TransformDatabaseSnapshot(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
     {
         var transformedMetadata = MetadataDefinitionSnapshot.Copy(destMetadata);
@@ -252,6 +262,7 @@ public class MetadataTransformer
                 );
 
                 finalRelationProperty.SetRelationPartCore(finalRelationPart);
+                finalRelationProperty.SetCsNullableCore(GetMergedRelationNullable(srcRelation, destRelation, finalRelationPart));
                 finalRelations.Add(finalRelationProperty);
             }
             else

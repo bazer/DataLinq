@@ -11,12 +11,18 @@ namespace DataLinq.Tests.Unit.Core;
 
 public class MetadataTransformerTests
 {
-    private static DatabaseDefinition CreateDestinationDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "raw_table", bool includeStatusDefault = false, bool includeStatusEnum = false)
+    private static DatabaseDefinition CreateDestinationDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "raw_table", bool includeStatusDefault = false, bool includeStatusEnum = false, bool nullableForeignKeyRelation = false)
     {
         var iTableModel = new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface);
         var dbCsType = new CsTypeDeclaration(dbName, "RawNamespace", ModelCsType.Class);
         var modelCsType = new CsTypeDeclaration(modelName, "RawNamespace", ModelCsType.Class);
         var otherModelCsType = new CsTypeDeclaration("OtherRaw", "RawNamespace", ModelCsType.Class);
+        var idAttributes = nullableForeignKeyRelation
+            ? new Attribute[] { new ColumnAttribute("col1_db"), new PrimaryKeyAttribute() }
+            : [new ColumnAttribute("col1_db"), new PrimaryKeyAttribute(), new ForeignKeyAttribute("other_table", "other_id", "FK_DestConstraint")];
+        var relatedIdAttributes = nullableForeignKeyRelation
+            ? new Attribute[] { new ColumnAttribute("col2_db"), new ForeignKeyAttribute("other_table", "other_id", "FK_DestConstraint") }
+            : [new ColumnAttribute("col2_db")];
         var statusAttributes = includeStatusDefault
             ? new Attribute[] { new ColumnAttribute("status_db"), new DefaultAttribute(1) }
             : [new ColumnAttribute("status_db")];
@@ -41,17 +47,14 @@ public class MetadataTransformerTests
                             typeof(int),
                             "col1_db",
                             primaryKey: true,
-                            attributes:
-                            [
-                                new ColumnAttribute("col1_db"),
-                                new PrimaryKeyAttribute(),
-                                new ForeignKeyAttribute("other_table", "other_id", "FK_DestConstraint")
-                            ]),
+                            attributes: idAttributes),
                         CreateValueProperty(
                             "col2_db",
                             typeof(int),
                             "col2_db",
-                            attributes: [new ColumnAttribute("col2_db")]),
+                            csNullable: nullableForeignKeyRelation,
+                            columnNullable: nullableForeignKeyRelation,
+                            attributes: relatedIdAttributes),
                         CreateValueProperty(
                             "status_db",
                             statusType,
@@ -89,7 +92,7 @@ public class MetadataTransformerTests
         });
     }
 
-    private static DatabaseDefinition CreateSourceDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "MyModel", string interfaceName = "IMyModel", bool includeEnumDefault = false, bool useExternalStatusEnum = false, bool includeUsings = false, string databaseCsTypeName = "MyDatabaseCsType")
+    private static DatabaseDefinition CreateSourceDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "MyModel", string interfaceName = "IMyModel", bool includeEnumDefault = false, bool useExternalStatusEnum = false, bool includeUsings = false, string databaseCsTypeName = "MyDatabaseCsType", bool nullableForeignKeyRelation = false)
     {
         var iTableModel = new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface);
         var dbCsType = new CsTypeDeclaration(databaseCsTypeName, "SourceNamespace", ModelCsType.Class);
@@ -113,6 +116,16 @@ public class MetadataTransformerTests
             declaredInClass: false,
             declaredInModelFile: !useExternalStatusEnum);
         var otherModelCsType = new CsTypeDeclaration("MyOtherModel", "SourceNamespace", ModelCsType.Class);
+        var idAttributes = nullableForeignKeyRelation
+            ? new Attribute[] { new ColumnAttribute("col1_db"), new PrimaryKeyAttribute() }
+            : [new ColumnAttribute("col1_db"), new PrimaryKeyAttribute(), new ForeignKeyAttribute("other_table", "other_id", "FK_FROM_SOURCE")];
+        var secondPropertyName = nullableForeignKeyRelation ? "OtherId" : "Name";
+        var secondPropertyType = nullableForeignKeyRelation
+            ? new CsTypeDeclaration(typeof(int))
+            : new CsTypeDeclaration(typeof(string));
+        var secondPropertyAttributes = nullableForeignKeyRelation
+            ? new Attribute[] { new ColumnAttribute("col2_db"), new ForeignKeyAttribute("other_table", "other_id", "FK_FROM_SOURCE") }
+            : [new ColumnAttribute("col2_db")];
 
         return Build(new MetadataDatabaseDraft(dbName, dbCsType)
         {
@@ -130,18 +143,14 @@ public class MetadataTransformerTests
                             typeof(int),
                             "col1_db",
                             primaryKey: true,
-                            attributes:
-                            [
-                                new ColumnAttribute("col1_db"),
-                                new PrimaryKeyAttribute(),
-                                new ForeignKeyAttribute("other_table", "other_id", "FK_FROM_SOURCE")
-                            ]),
+                            attributes: idAttributes),
                         CreateValueProperty(
-                            "Name",
-                            typeof(string),
+                            secondPropertyName,
+                            secondPropertyType,
                             "col2_db",
                             csNullable: true,
-                            attributes: [new ColumnAttribute("col2_db")]),
+                            columnNullable: nullableForeignKeyRelation,
+                            attributes: secondPropertyAttributes),
                         CreateValueProperty(
                             "Status",
                             statusType,
@@ -158,7 +167,8 @@ public class MetadataTransformerTests
                         CreateRelationProperty(
                             "RelatedItems",
                             otherModelCsType,
-                            [new RelationAttribute("other_table", "other_id", "FK_FROM_SOURCE")])
+                            [new RelationAttribute("other_table", "other_id", "FK_FROM_SOURCE")],
+                            csNullable: nullableForeignKeyRelation)
                     ]),
                 CreateTable(
                     "MyOtherModels",
@@ -207,6 +217,7 @@ public class MetadataTransformerTests
         string columnName,
         bool primaryKey = false,
         bool csNullable = false,
+        bool columnNullable = false,
         Attribute[]? attributes = null,
         EnumProperty? enumProperty = null,
         DatabaseColumnType[]? dbTypes = null)
@@ -217,6 +228,7 @@ public class MetadataTransformerTests
             columnName,
             primaryKey,
             csNullable,
+            columnNullable,
             attributes,
             enumProperty,
             dbTypes);
@@ -228,6 +240,7 @@ public class MetadataTransformerTests
         string columnName,
         bool primaryKey = false,
         bool csNullable = false,
+        bool columnNullable = false,
         Attribute[]? attributes = null,
         EnumProperty? enumProperty = null,
         DatabaseColumnType[]? dbTypes = null)
@@ -241,7 +254,8 @@ public class MetadataTransformerTests
             {
                 DbTypes = dbTypes ?? [],
                 PrimaryKey = primaryKey,
-                ForeignKey = propertyAttributes.Any(static x => x is ForeignKeyAttribute)
+                ForeignKey = propertyAttributes.Any(static x => x is ForeignKeyAttribute),
+                Nullable = columnNullable
             })
         {
             Attributes = propertyAttributes,
@@ -253,11 +267,13 @@ public class MetadataTransformerTests
     private static MetadataRelationPropertyDraft CreateRelationProperty(
         string propertyName,
         CsTypeDeclaration csType,
-        Attribute[] attributes)
+        Attribute[] attributes,
+        bool csNullable = false)
     {
         return new MetadataRelationPropertyDraft(propertyName, csType)
         {
-            Attributes = attributes
+            Attributes = attributes,
+            CsNullable = csNullable
         };
     }
 
@@ -305,6 +321,27 @@ public class MetadataTransformerTests
         await Assert.That(destinationModel.RelationProperties.ContainsKey("RelatedItems")).IsTrue();
         await Assert.That(destinationModel.RelationProperties.ContainsKey("rel_prop_db")).IsFalse();
         await Assert.That(destinationModel.RelationProperties["RelatedItems"].PropertyName).IsEqualTo("RelatedItems");
+    }
+
+    [Test]
+    public async Task TransformDatabaseSnapshot_PreservesNullableForeignKeyRelation()
+    {
+        var sourceDatabase = CreateSourceDatabase(nullableForeignKeyRelation: true);
+        var destinationDatabase = CreateDestinationDatabase(nullableForeignKeyRelation: true);
+        var transformer = new MetadataTransformer(new MetadataTransformerOptions());
+
+        destinationDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
+
+        var destinationModel = destinationDatabase.TableModels.First(tm => tm.Table.DbName == "my_table").Model;
+        var relationProperty = destinationModel.RelationProperties["RelatedItems"];
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions { UseNullableReferenceTypes = true })
+            .CreateModelFiles(destinationDatabase)
+            .Single(file => file.path == "MyModel.cs");
+
+        await Assert.That(relationProperty.RelationPart).IsNotNull();
+        await Assert.That(relationProperty.RelationPart!.Type).IsEqualTo(RelationPartType.ForeignKey);
+        await Assert.That(relationProperty.CsNullable).IsTrue();
+        await Assert.That(generatedFile.contents).Contains("public abstract MyOtherModel? RelatedItems { get; }");
     }
 
     [Test]
