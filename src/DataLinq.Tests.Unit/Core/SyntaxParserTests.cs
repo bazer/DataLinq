@@ -372,6 +372,39 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParseAttributeSyntax_DefaultValue_DoubleLiteral_UsesTypedValue()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[Default(0D)]");
+        var attribute = (DefaultAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.Value).IsTypeOf<double>();
+        await Assert.That(attribute.Value).IsEqualTo(0D);
+        await Assert.That(attribute.CodeExpression).IsEqualTo("0D");
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_DefaultValue_NegativeDecimalLiteral_UsesTypedValue()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[Default(-12.50M)]");
+        var attribute = (DefaultAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.Value).IsTypeOf<decimal>();
+        await Assert.That(attribute.Value).IsEqualTo(-12.50M);
+        await Assert.That(attribute.CodeExpression).IsEqualTo("-12.50M");
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_DefaultValue_BoolLiteral_UsesTypedValue()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[Default(true)]");
+        var attribute = (DefaultAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.Value).IsTypeOf<bool>();
+        await Assert.That((bool)attribute.Value).IsTrue();
+        await Assert.That(attribute.CodeExpression).IsEqualTo("true");
+    }
+
+    [Test]
     public async Task ParseAttributeSyntax_DefaultValue_EnumExpression_PreservesCodeExpression()
     {
         var (parser, syntax) = GetAttributeSyntax(@"[Default(StatusEnum.Active)]");

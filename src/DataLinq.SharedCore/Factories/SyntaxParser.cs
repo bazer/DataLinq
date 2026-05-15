@@ -892,8 +892,9 @@ public class SyntaxParser
             if (arguments.Count != 1)
                 return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
 
-            var codeExpression = attributeSyntax.ArgumentList?.Arguments[0].Expression.ToString();
-            return new DefaultAttribute(arguments[0], codeExpression);
+            var argument = attributeSyntax.ArgumentList!.Arguments[0];
+            var codeExpression = argument.Expression.ToString();
+            return new DefaultAttribute(ParseDefaultAttributeValue(argument), codeExpression);
         }
 
         if (name == "DefaultSql")
@@ -1115,6 +1116,72 @@ public class SyntaxParser
             return stringValue;
 
         return argument.Expression.ToString().Trim('"');
+    }
+
+    private static object ParseDefaultAttributeValue(AttributeArgumentSyntax argument)
+    {
+        return TryParseLiteralAttributeValue(argument.Expression, out var value)
+            ? value
+            : ParseAttributeArgument(argument);
+    }
+
+    private static bool TryParseLiteralAttributeValue(ExpressionSyntax expression, out object value)
+    {
+        if (expression is ParenthesizedExpressionSyntax parenthesizedExpression)
+            return TryParseLiteralAttributeValue(parenthesizedExpression.Expression, out value);
+
+        if (expression is LiteralExpressionSyntax literal && literal.Token.Value is { } literalValue)
+        {
+            value = literalValue;
+            return true;
+        }
+
+        if (expression is PrefixUnaryExpressionSyntax unaryExpression)
+        {
+            if (unaryExpression.OperatorToken.Text == "+")
+                return TryParseLiteralAttributeValue(unaryExpression.Operand, out value);
+
+            if (unaryExpression.OperatorToken.Text == "-" &&
+                TryParseLiteralAttributeValue(unaryExpression.Operand, out var operand) &&
+                TryNegateLiteralValue(operand, out value))
+            {
+                return true;
+            }
+        }
+
+        value = null!;
+        return false;
+    }
+
+    private static bool TryNegateLiteralValue(object operand, out object value)
+    {
+        switch (operand)
+        {
+            case sbyte typedValue:
+                value = (sbyte)-typedValue;
+                return true;
+            case short typedValue:
+                value = (short)-typedValue;
+                return true;
+            case int typedValue:
+                value = -typedValue;
+                return true;
+            case long typedValue:
+                value = -typedValue;
+                return true;
+            case float typedValue:
+                value = -typedValue;
+                return true;
+            case double typedValue:
+                value = -typedValue;
+                return true;
+            case decimal typedValue:
+                value = -typedValue;
+                return true;
+            default:
+                value = null!;
+                return false;
+        }
     }
 
     private static string[] ParseAttributeStringArrayArgument(AttributeArgumentSyntax argument)
