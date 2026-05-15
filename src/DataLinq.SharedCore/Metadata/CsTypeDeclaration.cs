@@ -58,6 +58,9 @@ public readonly partial record struct CsTypeDeclaration
         if (type.IsInterface)
             return ModelCsType.Interface;
 
+        if (type.IsEnum)
+            return ModelCsType.Enum;
+
         if (type.IsValueType)
         {
             if (type.IsPrimitive)

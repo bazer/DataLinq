@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using DataLinq.Core.Factories;
 using DataLinq.Metadata;
 
 namespace DataLinq.Instances;
@@ -118,6 +119,13 @@ public sealed class RowData : IRowData, IEquatable<RowData>
 
         if (column.ValueProperty.CsSize.HasValue)
             return column.ValueProperty.CsSize.Value;
+
+        if (column.ValueProperty.CsType.Type is { } runtimeType &&
+            MetadataTypeConverter.CsTypeSize(runtimeType) is { } runtimeSize)
+            return runtimeSize;
+
+        if (column.ValueProperty.CsType.ModelCsType == ModelCsType.Enum || value is Enum)
+            return MetadataTypeConverter.CsTypeSize("enum")!.Value;
 
         if (column.ValueProperty.CsType.Type == typeof(string) && value is string s)
             return s.Length * sizeof(char) + sizeof(int);

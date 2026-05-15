@@ -6,6 +6,7 @@ using DataLinq.Core.Factories;
 namespace DataLinq.Tests.Unit.Core;
 
 public sealed record CsTypeSizeCase(string TypeName, int? ExpectedSize);
+public sealed record CsRuntimeTypeSizeCase(Type Type, int? ExpectedSize);
 public sealed record TypeKeywordCase(Type Type, string ExpectedName);
 public sealed record StringKeywordCase(string TypeName, string ExpectedKeyword);
 public sealed record FullTypeNameCase(string TypeName, string ExpectedFullName);
@@ -18,6 +19,13 @@ public class MetadataTypeConverterTests
     public async Task CsTypeSize_ReturnsCorrectSize(CsTypeSizeCase testCase)
     {
         await Assert.That(MetadataTypeConverter.CsTypeSize(testCase.TypeName)).IsEqualTo(testCase.ExpectedSize);
+    }
+
+    [Test]
+    [MethodDataSource(nameof(CsRuntimeTypeSizeCases))]
+    public async Task CsTypeSize_FromRuntimeType_ReturnsCorrectSize(CsRuntimeTypeSizeCase testCase)
+    {
+        await Assert.That(MetadataTypeConverter.CsTypeSize(testCase.Type)).IsEqualTo(testCase.ExpectedSize);
     }
 
     [Test]
@@ -92,6 +100,15 @@ public class MetadataTypeConverterTests
         yield return () => new CsTypeSizeCase("String", null);
         yield return () => new CsTypeSizeCase("byte[]", null);
         yield return () => new CsTypeSizeCase("MyCustomClass", null);
+    }
+
+    public static IEnumerable<Func<CsRuntimeTypeSizeCase>> CsRuntimeTypeSizeCases()
+    {
+        yield return () => new CsRuntimeTypeSizeCase(typeof(int), sizeof(int));
+        yield return () => new CsRuntimeTypeSizeCase(typeof(int?), sizeof(int));
+        yield return () => new CsRuntimeTypeSizeCase(typeof(RuntimeIntEnum), sizeof(int));
+        yield return () => new CsRuntimeTypeSizeCase(typeof(RuntimeShortEnum), sizeof(int));
+        yield return () => new CsRuntimeTypeSizeCase(typeof(string), null);
     }
 
     public static IEnumerable<Func<TypeKeywordCase>> TypeKeywordCases()
@@ -182,5 +199,15 @@ public class MetadataTypeConverterTests
         yield return () => new StringKeywordCase("MyIClass", "MyIClass");
         yield return () => new StringKeywordCase(string.Empty, string.Empty);
         yield return () => new StringKeywordCase("Customer", "Customer");
+    }
+
+    private enum RuntimeIntEnum
+    {
+        Value = 1
+    }
+
+    private enum RuntimeShortEnum : short
+    {
+        Value = 1
     }
 }

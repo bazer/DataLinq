@@ -106,7 +106,7 @@ internal static class CsTypeDeclarationSyntax
         }
 
         if (syntaxNode is EnumDeclarationSyntax)
-            return ModelCsType.Struct;
+            return ModelCsType.Enum;
 
         throw new NotImplementedException($"Unknown type of SyntaxNode '{syntaxNode}'");
     }

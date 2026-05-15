@@ -30,6 +30,14 @@ public static class MetadataTypeConverter
         _ => null
     };
 
+    public static int? CsTypeSize(Type type)
+    {
+        var unwrappedType = Nullable.GetUnderlyingType(type) ?? type;
+        return unwrappedType.IsEnum
+            ? CsTypeSize("enum")
+            : CsTypeSize(GetKeywordName(unwrappedType));
+    }
+
     public static string GetKeywordName(Type type)
     {
         if (type.IsGenericType)
