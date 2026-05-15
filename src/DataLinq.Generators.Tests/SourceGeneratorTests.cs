@@ -109,4 +109,55 @@ public class SourceGeneratorTests : GeneratorTestBase
         await Assert.That(code.Contains("public partial class ImmutablePayment", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("public partial class MutableEmployee", StringComparison.Ordinal)).IsTrue();
     }
+
+    [Test]
+    public async Task GeneratedMetadata_ReferencedCustomEnumWithoutDataLinqEnumMetadata_UsesRuntimeType()
+    {
+        var source = CSharpSyntaxTree.ParseText(
+            """
+            using DataLinq;
+            using DataLinq.Attributes;
+            using DataLinq.Instances;
+            using DataLinq.Interfaces;
+            using DataLinq.Mutation;
+            using DataLinq.Generators.Tests;
+
+            namespace RuntimeTypeTest;
+
+            [Database("runtime_type")]
+            public partial class RuntimeTypeDb(DataSourceAccess dataSource) : IDatabaseModel<RuntimeTypeDb>
+            {
+                public DbRead<RuntimeTypeRow> Rows { get; } = new(dataSource);
+            }
+
+            [Table("runtime_type_rows")]
+            public abstract partial class RuntimeTypeRow(IRowData rowData, IDataSourceAccess dataSource) : Immutable<RuntimeTypeRow, RuntimeTypeDb>(rowData, dataSource), ITableModel<RuntimeTypeDb>
+            {
+                [PrimaryKey]
+                [Type(DatabaseType.MariaDB, "int", 11)]
+                [Column("id")]
+                public abstract int Id { get; }
+
+                [Type(DatabaseType.MariaDB, "smallint", 5, false)]
+                [Column("status")]
+                public abstract ExternalNumericStatus Status { get; }
+            }
+            """,
+            path: "RuntimeTypeSource.cs");
+
+        var (_, diagnostics, generatedTrees) = RunGeneratorWithDiagnostics([source]);
+        var code = SyntaxTreesToString(generatedTrees);
+
+        var generatorErrors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+
+        await Assert.That(generatorErrors).IsEmpty();
+        await Assert.That(code).Contains("new global::DataLinq.Metadata.CsTypeDeclaration(typeof(global::DataLinq.Generators.Tests.ExternalNumericStatus))");
+        await Assert.That(code).DoesNotContain("new global::DataLinq.Metadata.CsTypeDeclaration(\"ExternalNumericStatus\"");
+    }
+}
+
+public enum ExternalNumericStatus : short
+{
+    Unknown = 0,
+    Active = 1
 }

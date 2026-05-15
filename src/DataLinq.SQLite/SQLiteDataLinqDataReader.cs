@@ -145,13 +145,15 @@ public class SQLiteDataLinqDataReader : IDataLinqDataReader
 
         if (csType.IsEnum)
         {
-            var enumProperty = column.ValueProperty.EnumProperty
-                ?? throw new InvalidOperationException($"Column '{column.Table.DbName}.{column.DbName}' is mapped to enum type '{csType.Name}', but enum metadata is missing.");
             var enumValue = GetValue(ordinal);
             if (enumValue is string stringValue)
+            {
+                var enumProperty = column.ValueProperty.EnumProperty
+                    ?? throw new InvalidOperationException($"Column '{column.Table.DbName}.{column.DbName}' is mapped to enum type '{csType.Name}', but enum metadata is missing.");
                 return (T?)Enum.ToObject(csType, enumProperty.DbValuesOrCsValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
-            else
-                return (T?)Enum.ToObject(csType, enumValue);
+            }
+
+            return (T?)Enum.ToObject(csType, enumValue);
         }
 
         var value = GetValue(ordinal);

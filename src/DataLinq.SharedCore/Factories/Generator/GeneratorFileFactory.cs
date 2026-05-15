@@ -18,6 +18,7 @@ public class GeneratorFileFactoryOptions
     public bool UseFileScopedNamespaces { get; set; } = false;
     public bool UseNullableReferenceTypes { get; set; } = true;
     public bool SeparateTablesAndViews { get; set; } = false;
+    public IReadOnlyDictionary<ValueProperty, string> RuntimeValuePropertyTypeNames { get; set; } = new Dictionary<ValueProperty, string>();
     public IReadOnlyCollection<ValueProperty> SuppressedDefaultValueProperties { get; set; } = [];
     public List<string> Usings { get; set; } = new List<string> { "System", "System.Diagnostics.CodeAnalysis", "DataLinq", "DataLinq.Interfaces", "DataLinq.Instances", "DataLinq.Attributes", "DataLinq.Mutation" };
 }
@@ -503,7 +504,7 @@ public class GeneratorFileFactory
             ? FormatCsTypeDeclaration(csType.Value)
             : "null";
 
-    private static string FormatValuePropertyCsTypeDeclaration(ValueProperty property)
+    private string FormatValuePropertyCsTypeDeclaration(ValueProperty property)
     {
         var runtimeTypeName = GetValuePropertyRuntimeTypeName(property);
         return runtimeTypeName is null
@@ -511,8 +512,11 @@ public class GeneratorFileFactory
             : FormatRuntimeCsTypeDeclaration(runtimeTypeName);
     }
 
-    private static string? GetValuePropertyRuntimeTypeName(ValueProperty property)
+    private string? GetValuePropertyRuntimeTypeName(ValueProperty property)
     {
+        if (Options.RuntimeValuePropertyTypeNames.TryGetValue(property, out var resolvedRuntimeTypeName))
+            return resolvedRuntimeTypeName;
+
         if (property.EnumProperty?.DeclaredInClass == true)
             return $"{GetGlobalTypeName(property.Model.CsType)}.{property.CsType.Name}";
 

@@ -3099,10 +3099,23 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
-    public async Task Build_EnumClrTypeWithoutEnumMetadata_ReturnsInvalidModelFailureBeforeSnapshot()
+    public async Task Build_NumericEnumClrTypeWithoutEnumMetadata_Succeeds()
     {
         var database = CreateSingleTableTypedDraft(
             valuePropertyCsType: new CsTypeDeclaration(typeof(RuntimeStatus)));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsTrue();
+    }
+
+    [Test]
+    public async Task Build_DatabaseEnumClrTypeWithoutEnumMetadata_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyCsType: new CsTypeDeclaration(typeof(RuntimeStatus)),
+            valueColumnDbTypes: [new DatabaseColumnType(DatabaseType.MariaDB, "enum")]);
 
         var result = new MetadataDefinitionFactory()
             .Build(database);

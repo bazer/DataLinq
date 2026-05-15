@@ -131,9 +131,15 @@ public sealed class ModelGenerator : IIncrementalGenerator
             foreach (var validator in validators)
                 validator.Validate(db.Value, compilation, context, validationContext);
 
+            var runtimeValuePropertyTypeNames = ResolveRuntimeValuePropertyTypeNames(
+                db.Value,
+                compilation,
+                context.CancellationToken);
+
             GeneratorFileFactoryOptions CreateOptions(bool nullableReferenceTypes) => new()
             {
                 UseNullableReferenceTypes = nullableReferenceTypes,
+                RuntimeValuePropertyTypeNames = runtimeValuePropertyTypeNames,
                 SuppressedDefaultValueProperties = validationContext.SuppressedDefaultValueProperties,
             };
 
@@ -159,6 +165,28 @@ public sealed class ModelGenerator : IIncrementalGenerator
         DatabaseDefinition database,
         GeneratorFileFactoryOptions fileFactoryOptions)
         => EmitGeneratedSources(database, _ => fileFactoryOptions, () => fileFactoryOptions);
+
+    private static IReadOnlyDictionary<ValueProperty, string> ResolveRuntimeValuePropertyTypeNames(
+        DatabaseDefinition database,
+        Compilation compilation,
+        System.Threading.CancellationToken cancellationToken)
+    {
+        var runtimeTypeNames = new Dictionary<ValueProperty, string>();
+
+        foreach (var property in database.TableModels
+            .Where(static tableModel => !tableModel.IsStub)
+            .SelectMany(static tableModel => tableModel.Model.ValueProperties.Values))
+        {
+            if (SourceModelSyntaxResolver.TryGetRuntimeTypeName(
+                property,
+                compilation,
+                cancellationToken,
+                out var runtimeTypeName))
+                runtimeTypeNames[property] = runtimeTypeName;
+        }
+
+        return runtimeTypeNames;
+    }
 
     internal static GeneratedDatabaseEmissionResult EmitGeneratedSources(
         DatabaseDefinition database,

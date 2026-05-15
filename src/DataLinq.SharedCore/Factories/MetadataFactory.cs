@@ -2734,10 +2734,10 @@ public static class MetadataFactory
                             property,
                             $"Value property '{GetValuePropertyDisplayName(property)}' declares EnumAttribute metadata, but no enum property metadata is attached.");
 
-                    if (property.CsType.Type?.IsEnum == true)
+                    if (property.CsType.Type?.IsEnum == true && HasDatabaseEnumType(property))
                         return CreateValuePropertyFailure(
                             property,
-                            $"Value property '{GetValuePropertyDisplayName(property)}' has enum C# type '{property.CsType.Name}', but no enum metadata is attached.");
+                            $"Value property '{GetValuePropertyDisplayName(property)}' maps a database enum column to C# enum type '{property.CsType.Name}', but no enum metadata is attached.");
 
                     continue;
                 }
@@ -2793,6 +2793,9 @@ public static class MetadataFactory
 
         return true;
     }
+
+    private static bool HasDatabaseEnumType(ValueProperty property) =>
+        property.Column.DbTypes.Any(x => string.Equals(x.Name, "enum", StringComparison.OrdinalIgnoreCase));
 
     private static bool IsValidCSharpIdentifier(string? value)
     {
