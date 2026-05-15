@@ -240,8 +240,6 @@ public class GeneratorFileFactory
         yield return $"{indent3}{FormatRuntimeCsTypeDeclaration(database.CsType)})";
         yield return $"{indent2}{{";
         yield return $"{indent3}DbName = {FormatStringLiteral(database.DbName)},";
-        foreach (var row in ModelUsingCollection("Usings", database.Usings, indent3))
-            yield return row;
         foreach (var row in AttributeCollection("Attributes", database.Attributes, indent3))
             yield return row;
         yield return $"{indent3}UseCache = {FormatBool(database.UseCache)},";
@@ -300,8 +298,6 @@ public class GeneratorFileFactory
         yield return $"{childIndent}MutableType = {FormatNullableRuntimeCsTypeDeclaration(mutableType)},";
         yield return $"{childIndent}ModelInstanceInterface = {FormatNullableCsTypeDeclaration(model.ModelInstanceInterface)},";
         foreach (var row in CsTypeCollection("OriginalInterfaces", model.OriginalInterfaces, childIndent))
-            yield return row;
-        foreach (var row in ModelUsingCollection("Usings", model.Usings, childIndent))
             yield return row;
         foreach (var row in AttributeCollection("Attributes", model.Attributes, childIndent))
             yield return row;
@@ -435,17 +431,6 @@ public class GeneratorFileFactory
 
         foreach (var csType in csTypes)
             yield return $"{indent}{tab}{FormatCsTypeDeclaration(csType)},";
-
-        yield return $"{indent}],";
-    }
-
-    private IEnumerable<string> ModelUsingCollection(string propertyName, IEnumerable<ModelUsing> usings, string indent)
-    {
-        yield return $"{indent}{propertyName} =";
-        yield return $"{indent}[";
-
-        foreach (var modelUsing in usings)
-            yield return $"{indent}{tab}new global::DataLinq.Metadata.ModelUsing({FormatStringLiteral(modelUsing.FullNamespaceName)}),";
 
         yield return $"{indent}],";
     }

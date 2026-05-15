@@ -40,6 +40,8 @@ public class GeneratorFileFactoryTests
         await Assert.That(generatedFile.contents.Contains(
             "new global::DataLinq.Core.Factories.MetadataValuePropertyDraft("))
             .IsTrue();
+        await Assert.That(generatedFile.contents).DoesNotContain("Usings =");
+        await Assert.That(generatedFile.contents).DoesNotContain("new global::DataLinq.Metadata.ModelUsing(");
         await Assert.That(generatedFile.contents.Contains(
             "public static global::DataLinq.Metadata.GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>"))
             .IsFalse();
