@@ -394,6 +394,17 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParseAttributeSyntax_DefaultValue_CastLiteral_UsesTypedValue()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[Default((sbyte)0)]");
+        var attribute = (DefaultAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.Value).IsTypeOf<sbyte>();
+        await Assert.That(attribute.Value).IsEqualTo((sbyte)0);
+        await Assert.That(attribute.CodeExpression).IsEqualTo("(sbyte)0");
+    }
+
+    [Test]
     public async Task ParseAttributeSyntax_DefaultValue_BoolLiteral_UsesTypedValue()
     {
         var (parser, syntax) = GetAttributeSyntax(@"[Default(true)]");

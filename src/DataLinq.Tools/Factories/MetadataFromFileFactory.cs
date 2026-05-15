@@ -26,6 +26,7 @@ public class MetadataFromFileFactoryOptions
 {
     public Encoding FileEncoding { get; set; } = new UTF8Encoding(false);
     public bool RemoveInterfacePrefix { get; set; } = true;
+    public bool IncludeExternalProjectEnums { get; set; } = true;
 }
 
 public class MetadataFromFileFactory
@@ -107,6 +108,10 @@ public class MetadataFromFileFactory
         if (trees.Count == 0 && failures.Count != 0)
             return FailIfNeeded(failures);
 
+        var externalEnumTrees = options.IncludeExternalProjectEnums
+            ? ReadExternalProjectEnumSyntaxTrees(srcPaths, parsedFilePaths).ToList()
+            : [];
+
         var modelSyntaxes = trees
             .Where(x => x.HasCompilationUnitRoot)
             .SelectMany(x => x.GetCompilationUnitRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
@@ -114,6 +119,7 @@ public class MetadataFromFileFactory
                     SyntaxParser.IsModelInterface(baseType.Type)) == true))
             .ToImmutableArray();
         var enumSyntaxes = trees
+            .Concat(externalEnumTrees)
             .Where(x => x.HasCompilationUnitRoot)
             .SelectMany(x => x.GetCompilationUnitRoot().DescendantNodes().OfType<EnumDeclarationSyntax>())
             .ToImmutableArray();
@@ -137,6 +143,95 @@ public class MetadataFromFileFactory
         return models;
         //return ReadSyntaxTrees(modelSyntaxes);
     });
+
+    private IEnumerable<SyntaxTree> ReadExternalProjectEnumSyntaxTrees(
+        IEnumerable<string> srcPaths,
+        HashSet<string> parsedFilePaths)
+    {
+        foreach (var projectRoot in FindProjectRoots(srcPaths))
+        {
+            foreach (var fileInfo in EnumerateProjectSourceFiles(projectRoot))
+            {
+                var fullPath = fileInfo.FullName;
+                if (!parsedFilePaths.Add(fullPath))
+                    continue;
+
+                string sourceText;
+                try
+                {
+                    sourceText = File.ReadAllText(fullPath, options.FileEncoding);
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    Log?.Invoke($"Warning: Could not read enum context file '{fullPath}': {exception.Message}");
+                    continue;
+                }
+
+                if (!sourceText.Contains("enum", StringComparison.Ordinal))
+                    continue;
+
+                var syntaxTree = CSharpSyntaxTree.ParseText(
+                    sourceText,
+                    CSharpParseOptions.Default,
+                    path: fullPath);
+
+                if (syntaxTree.HasCompilationUnitRoot &&
+                    syntaxTree.GetCompilationUnitRoot().DescendantNodes().OfType<EnumDeclarationSyntax>().Any())
+                {
+                    yield return syntaxTree;
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<DirectoryInfo> FindProjectRoots(IEnumerable<string> srcPaths)
+    {
+        var returnedRoots = new HashSet<string>(GetFilePathComparer());
+
+        foreach (var path in srcPaths)
+        {
+            var directory = Directory.Exists(path)
+                ? new DirectoryInfo(path)
+                : new FileInfo(path).Directory;
+
+            while (directory != null)
+            {
+                if (directory.EnumerateFiles("*.csproj").Any())
+                {
+                    if (returnedRoots.Add(directory.FullName))
+                        yield return directory;
+
+                    break;
+                }
+
+                directory = directory.Parent;
+            }
+        }
+    }
+
+    private static IEnumerable<FileInfo> EnumerateProjectSourceFiles(DirectoryInfo projectRoot)
+    {
+        return projectRoot
+            .EnumerateFiles("*.cs", SearchOption.AllDirectories)
+            .Where(static file => !IsBuildOutputPath(file));
+    }
+
+    private static bool IsBuildOutputPath(FileInfo file)
+    {
+        var directory = file.Directory;
+        while (directory != null)
+        {
+            if (directory.Name.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+                directory.Name.Equals("obj", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            directory = directory.Parent;
+        }
+
+        return false;
+    }
 
     private static StringComparer GetFilePathComparer() =>
         OperatingSystem.IsWindows()

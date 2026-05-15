@@ -230,8 +230,8 @@ public sealed class SchemaComparer
                 SchemaDifferenceKind.ColumnDefaultMismatch,
                 path,
                 "default value",
-                FormatDefault(modelColumn.ValueProperty.GetDefaultAttribute()),
-                FormatDefault(databaseColumn.ValueProperty.GetDefaultAttribute()),
+                FormatDefault(modelColumn),
+                FormatDefault(databaseColumn),
                 modelColumn,
                 databaseColumn);
         }
@@ -522,8 +522,9 @@ public sealed class SchemaComparer
             type.Signed?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
 
-    private string? FormatDefault(DefaultAttribute? attribute)
+    private string? FormatDefault(ColumnDefinition column)
     {
+        var attribute = column.ValueProperty.GetDefaultAttribute();
         if (attribute == null)
             return null;
 
@@ -536,6 +537,9 @@ public sealed class SchemaComparer
             return $"{attribute.GetType().Name}|{defaultSql.DatabaseType}|{NormalizeSql(defaultSql.Expression)}";
         }
 
+        if (TryGetEnumDefaultNumericValue(column.ValueProperty, attribute, out var enumNumericValue))
+            return $"{attribute.GetType().Name}|{enumNumericValue.ToString(CultureInfo.InvariantCulture)}";
+
         var value = attribute.Value switch
         {
             null => "",
@@ -544,6 +548,53 @@ public sealed class SchemaComparer
         };
 
         return $"{attribute.GetType().Name}|{value}";
+    }
+
+    private static bool TryGetEnumDefaultNumericValue(
+        ValueProperty property,
+        DefaultAttribute attribute,
+        out int numericValue)
+    {
+        if (!property.EnumProperty.HasValue)
+        {
+            numericValue = default;
+            return false;
+        }
+
+        var enumProperty = property.EnumProperty.Value;
+        if (attribute.Value is Enum enumValue)
+        {
+            numericValue = Convert.ToInt32(enumValue, CultureInfo.InvariantCulture);
+            return true;
+        }
+
+        if (attribute.Value is string stringValue)
+        {
+            if (int.TryParse(stringValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out numericValue))
+                return true;
+
+            var memberName = stringValue.Split('.').Last();
+            var enumMatch = enumProperty.CsValuesOrDbValues.FirstOrDefault(x => x.name == memberName);
+            if (enumMatch.name == null)
+                enumMatch = enumProperty.DbValuesOrCsValues.FirstOrDefault(x => x.name == stringValue);
+
+            if (enumMatch.name != null)
+            {
+                numericValue = enumMatch.value;
+                return true;
+            }
+        }
+
+        try
+        {
+            numericValue = Convert.ToInt32(attribute.Value, CultureInfo.InvariantCulture);
+            return true;
+        }
+        catch
+        {
+            numericValue = default;
+            return false;
+        }
     }
 
     private static string NormalizeSql(string sql) =>

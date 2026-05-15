@@ -144,6 +144,63 @@ public class SchemaComparerTests
     }
 
     [Test]
+    public async Task Compare_EnumDefaultExpressionAndNumericDefault_UsesEnumValue()
+    {
+        var enumProperty = new EnumProperty(csEnumValues: [("Active", 1), ("Inactive", 2)]);
+        var model = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateEnumColumn(
+                        "status",
+                        "AccountStatus",
+                        enumProperty,
+                        new DefaultAttribute("AccountStatus.Inactive", "AccountStatus.Inactive"))
+                ]));
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn("status", typeof(int), nullable: false, defaultValue: 2)
+                ]));
+
+        var differences = SchemaComparer.Compare(model, database, DatabaseType.MariaDB);
+
+        await Assert.That(differences).IsEmpty();
+    }
+
+    [Test]
+    public async Task Compare_EnumDefaultExpressionAndDifferentNumericDefault_ReturnsMismatch()
+    {
+        var enumProperty = new EnumProperty(csEnumValues: [("Active", 1), ("Inactive", 2)]);
+        var model = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateEnumColumn(
+                        "status",
+                        "AccountStatus",
+                        enumProperty,
+                        new DefaultAttribute("AccountStatus.Active", "AccountStatus.Active"))
+                ]));
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn("status", typeof(int), nullable: false, defaultValue: 2)
+                ]));
+
+        var differences = SchemaComparer.Compare(model, database, DatabaseType.MariaDB);
+
+        await Assert.That(differences.Select(x => x.Kind).ToArray())
+            .IsEquivalentTo([SchemaDifferenceKind.ColumnDefaultMismatch]);
+    }
+
+    [Test]
     public async Task Compare_RawProviderDefaults_CompareProviderExpression()
     {
         var model = CreateDatabase(
@@ -462,6 +519,32 @@ public class SchemaComparerTests
         {
             Attributes = propertyAttributes,
             CsNullable = nullable || autoIncrement
+        };
+    }
+
+    private static MetadataValuePropertyDraft CreateEnumColumn(
+        string columnName,
+        string enumTypeName,
+        EnumProperty enumProperty,
+        DefaultAttribute defaultAttribute)
+    {
+        return new MetadataValuePropertyDraft(
+            ToCsName(columnName),
+            new CsTypeDeclaration(enumTypeName, "DataLinq.Tests", ModelCsType.Enum),
+            new MetadataColumnDraft(columnName)
+            {
+                Nullable = false,
+                DbTypes =
+                [
+                    GetColumnType(DatabaseType.SQLite, typeof(int)),
+                    GetColumnType(DatabaseType.MySQL, typeof(int)),
+                    GetColumnType(DatabaseType.MariaDB, typeof(int))
+                ]
+            })
+        {
+            Attributes = [defaultAttribute],
+            CsNullable = false,
+            EnumProperty = enumProperty
         };
     }
 

@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using DataLinq.Attributes;
 using DataLinq.Core.Factories.Models;
 using DataLinq.ErrorHandling;
 using ThrowAway.Extensions;
@@ -138,6 +139,32 @@ public class MetadataFromFileFactoryTests
         await Assert.That(userModel.ModelInstanceInterface!.Value.Name).IsEqualTo("IUserModelFromFile");
     }
 
+    [Test]
+    public async Task ReadFiles_ModelDirectoryInsideProject_LoadsExternalEnumDeclarations()
+    {
+        using var fixture = new ExternalEnumProjectFixture();
+        var factory = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions());
+
+        var databaseDefinitions = factory.ReadFiles(
+            "ExternalEnumDb",
+            [fixture.ModelDirectory]).ValueOrException();
+
+        var statusProperty = databaseDefinitions
+            .Single()
+            .TableModels.Single()
+            .Model.ValueProperties["Status"];
+        var defaultAttribute = (DefaultAttribute)statusProperty.GetDefaultAttribute()!;
+
+        await Assert.That(statusProperty.EnumProperty.HasValue).IsTrue();
+        await Assert.That(statusProperty.EnumProperty!.Value.CsEnumValues.Select(x => x.name).ToArray())
+            .IsEquivalentTo(["Active", "Inactive"]);
+        await Assert.That(statusProperty.EnumProperty!.Value.CsEnumValues.Select(x => x.value).ToArray())
+            .IsEquivalentTo([1, 2]);
+        await Assert.That(statusProperty.EnumProperty!.Value.DeclaredInModelFile).IsFalse();
+        await Assert.That(defaultAttribute.Value).IsEqualTo("ExternalStatus.Inactive");
+        await Assert.That(defaultAttribute.CodeExpression).IsEqualTo("ExternalStatus.Inactive");
+    }
+
     private sealed class MetadataFromFileFactoryFixture : IDisposable
     {
         public MetadataFromFileFactoryFixture()
@@ -216,6 +243,77 @@ public abstract partial class OrderModelFromFile(IRowData rowData, IDataSourceAc
     [Column("order_id"), PrimaryKey] public abstract int OrderId { get; }
     [Column("user_id"), ForeignKey("users_file", "id", "FK_Order_User_File")] public abstract int UserId { get; }
     [Relation("users_file", "id", "FK_Order_User_File")] public abstract UserModelFromFile User { get; }
+}
+""";
+    }
+
+    private sealed class ExternalEnumProjectFixture : IDisposable
+    {
+        public ExternalEnumProjectFixture()
+        {
+            ProjectDirectory = Path.Combine(Path.GetTempPath(), "DataLinqExternalEnumTest_" + Guid.NewGuid().ToString("N"));
+            ModelDirectory = Path.Combine(ProjectDirectory, "DataLinq");
+            Directory.CreateDirectory(ModelDirectory);
+
+            File.WriteAllText(Path.Combine(ProjectDirectory, "ExternalEnumTest.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(ProjectDirectory, "ExternalStatus.cs"), ExternalEnumCode, Encoding.UTF8);
+            File.WriteAllText(Path.Combine(ModelDirectory, "ExternalEnumDb.cs"), DbModelCode, Encoding.UTF8);
+            File.WriteAllText(Path.Combine(ModelDirectory, "ExternalEnumRow.cs"), RowModelCode, Encoding.UTF8);
+        }
+
+        private string ProjectDirectory { get; }
+        public string ModelDirectory { get; }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(ProjectDirectory))
+                Directory.Delete(ProjectDirectory, recursive: true);
+        }
+
+        private const string ExternalEnumCode = """
+namespace ExternalEnumProject;
+
+public enum ExternalStatus
+{
+    Active = 1,
+    Inactive = 2
+}
+""";
+
+        private const string DbModelCode = """
+using DataLinq;
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Mutation;
+
+namespace ExternalEnumProject;
+
+[Database("external_enum")]
+public partial class ExternalEnumDb : IDatabaseModel
+{
+    public ExternalEnumDb(DataSourceAccess dsa) {}
+    public DbRead<ExternalEnumRow> Rows { get; }
+}
+""";
+
+        private const string RowModelCode = """
+using DataLinq;
+using DataLinq.Attributes;
+using DataLinq.Instances;
+using DataLinq.Interfaces;
+using DataLinq.Mutation;
+
+namespace ExternalEnumProject;
+
+[Table("rows")]
+public abstract partial class ExternalEnumRow(IRowData rowData, IDataSourceAccess dataSource)
+    : Immutable<ExternalEnumRow, ExternalEnumDb>(rowData, dataSource), ITableModel<ExternalEnumDb>
+{
+    [Column("id"), PrimaryKey]
+    public abstract int Id { get; }
+
+    [Column("status"), Default(ExternalStatus.Inactive)]
+    public abstract ExternalStatus Status { get; }
 }
 """;
     }

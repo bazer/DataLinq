@@ -1136,6 +1136,13 @@ public class SyntaxParser
             return true;
         }
 
+        if (expression is CastExpressionSyntax castExpression &&
+            TryParseLiteralAttributeValue(castExpression.Expression, out var castOperand) &&
+            TryCastLiteralValue(castExpression.Type, castOperand, out value))
+        {
+            return true;
+        }
+
         if (expression is PrefixUnaryExpressionSyntax unaryExpression)
         {
             if (unaryExpression.OperatorToken.Text == "+")
@@ -1151,6 +1158,38 @@ public class SyntaxParser
 
         value = null!;
         return false;
+    }
+
+    private static bool TryCastLiteralValue(TypeSyntax typeSyntax, object operand, out object value)
+    {
+        var typeName = GetUnqualifiedTypeName(typeSyntax);
+
+        try
+        {
+            value = typeName switch
+            {
+                "sbyte" => Convert.ToSByte(operand, CultureInfo.InvariantCulture),
+                "byte" => Convert.ToByte(operand, CultureInfo.InvariantCulture),
+                "short" => Convert.ToInt16(operand, CultureInfo.InvariantCulture),
+                "ushort" => Convert.ToUInt16(operand, CultureInfo.InvariantCulture),
+                "int" => Convert.ToInt32(operand, CultureInfo.InvariantCulture),
+                "uint" => Convert.ToUInt32(operand, CultureInfo.InvariantCulture),
+                "long" => Convert.ToInt64(operand, CultureInfo.InvariantCulture),
+                "ulong" => Convert.ToUInt64(operand, CultureInfo.InvariantCulture),
+                "float" => Convert.ToSingle(operand, CultureInfo.InvariantCulture),
+                "double" => Convert.ToDouble(operand, CultureInfo.InvariantCulture),
+                "decimal" => Convert.ToDecimal(operand, CultureInfo.InvariantCulture),
+                "char" => Convert.ToChar(operand, CultureInfo.InvariantCulture),
+                _ => null!
+            };
+
+            return value is not null;
+        }
+        catch
+        {
+            value = null!;
+            return false;
+        }
     }
 
     private static bool TryNegateLiteralValue(object operand, out object value)
