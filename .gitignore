@@ -13,6 +13,7 @@ TestResults
 *.ncrunchproject
 *.ncrunchsolution
 *.cache
+*.SdkResolver.*.proj.Backup.tmp
 
 /src/_NCrunch_DataLinq
 /src/DataLinq.Tests/*.db
