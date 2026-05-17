@@ -3,7 +3,7 @@
 # Specification: Config JSON Schema and Autocomplete
 
 **Status:** Draft implementation plan.
-**Goal:** Provide first-class editor autocomplete and validation for `datalinq.json` and `datalinq.user.json` through a published JSON Schema, schema-aware `init` output, a CLI schema command, and SchemaStore integration.
+**Goal:** Provide first-class editor autocomplete and validation for `datalinq.json` and `datalinq.user.json` through a published JSON Schema, schema-aware `config init` output, a `config schema` command, and SchemaStore integration.
 
 ## Executive Position
 
@@ -283,9 +283,9 @@ For `ConnectionString`, include examples:
 
 Do not require secret references. Plain connection strings remain valid, especially for SQLite and non-secret local development.
 
-## `datalinq init` Integration
+## `datalinq config init` Integration
 
-Once `init` exists, generated main config files should include:
+Once `config init` exists, generated main config files should include:
 
 ```json
 "$schema": "https://datalinq.org/schemas/datalinq.schema.json"
@@ -304,13 +304,13 @@ I lean toward adding `$schema` only to the shared main config. Editors commonly 
 Add:
 
 ```bash
-datalinq schema
+datalinq config schema
 ```
 
 Default behavior:
 
 ```bash
-datalinq schema
+datalinq config schema
 ```
 
 prints the embedded schema JSON to stdout.
@@ -318,7 +318,7 @@ prints the embedded schema JSON to stdout.
 Optional output:
 
 ```bash
-datalinq schema -o datalinq.schema.json
+datalinq config schema -o datalinq.schema.json
 ```
 
 writes the embedded schema to a file.
@@ -326,8 +326,8 @@ writes the embedded schema to a file.
 Optional future flags:
 
 ```bash
-datalinq schema --url
-datalinq schema --validate datalinq.json
+datalinq config schema --url
+datalinq config schema --validate datalinq.json
 ```
 
 Do not add validation in V1 unless it is trivial. Editor support and schema publication are the primary goal.
@@ -336,7 +336,7 @@ Do not add validation in V1 unless it is trivial. Editor support and schema publ
 
 The CLI should embed the schema as a resource or include it as content in a reliable way.
 
-Do not make `datalinq schema` depend on the working directory or installed docs files. A globally installed tool should be able to print its schema anywhere.
+Do not make `datalinq config schema` depend on the working directory or installed docs files. A globally installed tool should be able to print its schema anywhere.
 
 ## Website Publication
 
@@ -446,12 +446,12 @@ When creating a new main config, add:
 
 Do not rewrite existing configs just to add it in V1.
 
-### 4. Add `datalinq schema`
+### 4. Add `datalinq config schema`
 
-Add a CLI verb:
+Add a nested config command:
 
-```csharp
-[Verb("schema", HelpText = "Print the DataLinq JSON Schema for datalinq.json.")]
+```bash
+datalinq config schema
 ```
 
 Support stdout and optional `-o` output.
@@ -501,13 +501,13 @@ After implementation, update:
 - `docs/Configuration files.md`
 - `docs/getting-started/Configuration and Model Generation.md`
 - `docs/CLI Documentation.md`
-- `datalinq init` docs once that command exists
+- `datalinq config init` docs once that command exists
 
 Document:
 
 - `$schema`
 - editor autocomplete
-- `datalinq schema`
+- `datalinq config schema`
 - public schema URL
 - SchemaStore support
 - how comments interact with editor validation
@@ -528,8 +528,8 @@ Document:
 - The schema provides autocomplete/validation coverage for current and planned public config fields.
 - The schema marks `SourceDirectories` as deprecated.
 - The schema marks `DestinationDirectory` as deprecated once `ModelDirectory` exists.
-- `datalinq init` writes `$schema` into new main configs.
-- `datalinq schema` prints the embedded schema and can write it to a file.
+- `datalinq config init` writes `$schema` into new main configs.
+- `datalinq config schema` prints the embedded schema and can write it to a file.
 - The docs site publishes the schema at `https://datalinq.org/schemas/datalinq.schema.json`.
 - A SchemaStore submission is part of the V1 work.
 - Tests validate representative config examples against the schema and prove misspelled fields are rejected.

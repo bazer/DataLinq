@@ -243,7 +243,7 @@ Then redact output from:
 - config read logs
 - verbose logs
 - validation output
-- create-models output
+- generate models output
 - provider connection failures where possible
 - JSON output
 - exception text surfaced by CLI commands
@@ -318,9 +318,9 @@ DataLinqConfig.FindAndReadConfigs(configPath, log, secretResolutionContext)
 
 If a caller does not provide a resolver and the config contains secret references, fail with a clear message rather than passing unresolved placeholders into providers.
 
-## Interaction With `datalinq init`
+## Interaction With `datalinq config init`
 
-The `init` wizard should prefer secret references for passwords once this feature exists.
+The `config init` wizard should prefer secret references for passwords once this feature exists.
 
 Recommended prompt:
 
@@ -442,7 +442,7 @@ After implementation, update:
 - `docs/Configuration files.md`
 - `docs/CLI Documentation.md`
 - `docs/getting-started/Configuration and Model Generation.md`
-- the planned `datalinq init` docs
+- the planned `datalinq config init` docs
 
 Document:
 
@@ -480,4 +480,4 @@ Do not document this before it ships.
 - Resolved secret values are redacted from CLI-controlled output.
 - `datalinq secrets set/list/remove` or equivalent V1 verbs exist for local secrets.
 - Local secret storage never silently falls back to plaintext.
-- `datalinq init` can write secret references instead of plaintext passwords once both features are implemented.
+- `datalinq config init` can write secret references instead of plaintext passwords once both features are implemented.

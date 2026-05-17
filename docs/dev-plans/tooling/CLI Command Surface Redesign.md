@@ -17,6 +17,8 @@ The main issue is vocabulary:
 - `--type` really means provider.
 - `--name` really means configured database name.
 - `--output` means format for `validate`, but file path for `diff` and `create-sql`.
+- `list` lists config entries, not live server databases.
+- `init` initializes config files, not a global DataLinq environment.
 - planned `secrets set/list/remove` and `config schema/validate` are naturally nested commands.
 
 The right move is to switch `DataLinq.CLI` to `System.CommandLine`, align it with the other repo CLIs, and use a command grammar that distinguishes generated artifacts from database mutation.
@@ -24,9 +26,6 @@ The right move is to switch `DataLinq.CLI` to `System.CommandLine`, align it wit
 Recommended primary surface:
 
 ```text
-datalinq init
-datalinq list [--recursive]
-
 datalinq generate models [target] [--all] [--recursive] [--fresh] [--overwrite-types] [--stamp-generated-header]
 datalinq generate sql [target] --output path
 datalinq database create [target]
@@ -34,6 +33,8 @@ datalinq database create [target]
 datalinq validate [target] [--all] [--recursive] [--format text|json]
 datalinq diff [target] [--output path]
 
+datalinq config init
+datalinq config list [--recursive]
 datalinq config schema [--output path]
 datalinq config validate [--format text|json]
 
@@ -42,7 +43,7 @@ datalinq secrets set <name>
 datalinq secrets remove <name>
 ```
 
-This is a better shape than `datalinq create models` because "generate" is the right verb for model files and SQL scripts. Reserve "create" for the database mutation command.
+This is a better shape than `datalinq create models` because "generate" is the right verb for model files and SQL scripts. Reserve "create" for the database mutation command. `init` and `list` belong under `config` because they create, complete, or inspect DataLinq config files.
 
 ## Current CLI Surface
 
@@ -77,8 +78,10 @@ diff -o, --output path
 create-sql -o, --output path
 ```
 
-This works, but it is too flat for:
+This works, but it is too flat and too vague for:
 
+- `config init`
+- `config list`
 - `config schema`
 - `config validate`
 - `secrets list/set/remove`
@@ -150,12 +153,16 @@ Rationale:
 Use:
 
 ```text
+datalinq config init
+datalinq config list
 datalinq config schema
 datalinq config validate
 ```
 
 Rationale:
 
+- `config init` creates or completes `datalinq.json` and `datalinq.user.json`
+- `config list` lists configured database entries and connections
 - plain `datalinq schema` is too ambiguous in an ORM CLI
 - users may think "schema" means database schema
 - `config schema` is precise: it prints the JSON Schema for config files
@@ -179,21 +186,19 @@ Rationale:
 
 ### Root Commands
 
-Keep root-level:
+Keep only the workflow commands root-level:
 
 ```text
-datalinq init
-datalinq list
 datalinq validate
 datalinq diff
 ```
 
 Rationale:
 
-- `init` is a top-level onboarding action
-- `list` is a top-level inventory action
-- `validate` and `diff` are core workflows, not merely config or model subcommands
-- pushing everything under nouns would make common commands longer without adding clarity
+- `validate` and `diff` are core model/database workflows
+- `init` is config initialization, so it belongs under `config`
+- `list` is config inventory, so it belongs under `config`
+- keeping only actual workflows root-level makes root help cleaner
 
 ## Target Option Names
 
@@ -206,35 +211,23 @@ Use target vocabulary consistently:
 --data-source name
 ```
 
-Compatibility aliases:
-
-```text
---name        -> --database
---type        -> --provider
--t            -> --provider
---datasource  -> --data-source
--d            -> --data-source
-```
-
-Do not document the old aliases as primary. They can remain hidden or shown as deprecated depending on `System.CommandLine` support.
-
 ### Why `--database`
 
 `--name` is too generic. It means the database entry name in `datalinq.json`, so `--database` is more intuitive.
 
-Keep `-n` as the short alias because `-d` is already overloaded historically and `-n` still means "configured database name."
+Use `-n` as the short option because `-d` is already overloaded historically and `-n` still means "configured database name."
 
 ### Why `--provider`
 
 `--type` is vague. The value is not a .NET type or model type; it is the database provider.
 
-Use `-p` as the new short alias.
+Use `-p` as the short option.
 
 ### Why `--data-source`
 
 `--datasource` should become `--data-source` for normal CLI spelling.
 
-Do not assign a new short alias in docs. Keep `-d` only as a compatibility alias.
+Do not assign a short option for this in V1. Do not keep `--datasource` or `-d`; the new spelling is `--data-source`.
 
 ## Output Options
 
@@ -263,14 +256,6 @@ Changes:
 - `generate sql --output path` stays file output
 - `config validate --format text|json`
 
-Compatibility alias:
-
-```text
-validate --output text|json -> validate --format text|json
-```
-
-with a deprecation warning.
-
 ## Planned Command Details
 
 ### `datalinq generate models`
@@ -296,8 +281,9 @@ Deprecated aliases:
 
 ```text
 create-models
---skip-source -> --fresh
 ```
+
+`create-models` is the only old command alias worth keeping initially because it is the current core generation command and is likely to appear in early scripts and docs.
 
 ### `datalinq generate sql`
 
@@ -314,11 +300,7 @@ target options
 -o, --output path
 ```
 
-Deprecated alias:
-
-```text
-create-sql
-```
+No deprecated `create-sql` alias in the new pre-1.0 surface.
 
 ### `datalinq database create`
 
@@ -334,11 +316,7 @@ Options:
 target options
 ```
 
-Deprecated alias:
-
-```text
-create-database
-```
+No deprecated `create-database` alias in the new pre-1.0 surface.
 
 ### `datalinq validate`
 
@@ -351,11 +329,7 @@ target options
 --format text|json
 ```
 
-Deprecated alias:
-
-```text
---output text|json -> --format text|json
-```
+No deprecated `--output` format alias in the new pre-1.0 surface. `--output` should mean file path everywhere it appears.
 
 ### `datalinq diff`
 
@@ -395,21 +369,22 @@ This command should not replace `validate`, which checks model/database schema d
 
 ## Compatibility Policy
 
-Because DataLinq is pre-1.0, breaking cleanup is acceptable. Still, compatibility aliases are cheap and humane.
+Because DataLinq is pre-1.0, breaking cleanup is acceptable and preferable to carrying confusing aliases.
 
 Recommended policy:
 
 1. Implement the new command surface as primary.
-2. Keep old flat commands as deprecated aliases for one compatibility window.
-3. Print one warning per invocation:
+2. Keep only `create-models` as a deprecated alias for `generate models`.
+3. Do not keep root `init`, root `list`, `create-sql`, `create-database`, or old option names.
+4. Print one warning when the `create-models` alias is used:
 
 ```text
 warning DeprecatedCommand: create-models is deprecated. Use generate models.
 ```
 
-4. Remove old commands in 1.0 or the first explicit breaking release, depending on project policy.
+5. Remove the `create-models` alias in 1.0 or the first explicit breaking release, depending on project policy.
 
-If keeping old aliases makes implementation messy, prefer the clean new surface. Pre-1.0 is exactly when to pay this cost.
+If keeping the `create-models` alias makes implementation messy, prefer the clean new surface. Pre-1.0 is exactly when to pay this cost.
 
 ## Help Output
 
@@ -418,9 +393,6 @@ Help text should teach the new grammar.
 Root help should group commands:
 
 ```text
-Setup:
-  init
-
 Generate:
   generate models
   generate sql
@@ -433,6 +405,8 @@ Validation:
   diff
 
 Configuration:
+  config init
+  config list
   config schema
   config validate
 
@@ -441,8 +415,6 @@ Secrets:
   secrets set
   secrets remove
 
-Inventory:
-  list
 ```
 
 If `System.CommandLine` default help cannot group commands this way easily, keep the default help for the first code slice and document the grouped surface in docs. Do not overbuild custom help before the command behavior is stable.
@@ -487,8 +459,6 @@ ValidateCommand.cs
 DiffCommand.cs
 ConfigCommand.cs
 SecretsCommand.cs
-InitCommand.cs
-ListCommand.cs
 ```
 
 This is not abstraction theater. A nested command surface in one file will become unreadable fast.
@@ -520,34 +490,26 @@ Wire new primary commands:
 - `database create`
 - `validate`
 - `diff`
-- `list`
+- `config init`
+- `config list`
 
 Then add planned command stubs or full commands depending on which feature lands first:
 
-- `init`
 - `config schema`
 - `config validate`
 - `secrets list/set/remove`
 
 If a planned command is not implemented yet, do not expose it as a stub that fails. It is better for help output to show only working commands.
 
-### 5. Add Deprecated Aliases
+### 5. Add the One Deprecated Alias
 
-Add old flat commands as compatibility aliases or hidden commands:
+Add exactly one old flat command as a deprecated compatibility command:
 
 - `create-models`
-- `create-sql`
-- `create-database`
-
-Add deprecated option aliases:
-
-- `--skip-source`
-- `--name`
-- `--type`
-- `--datasource`
-- `--output` for validate format
 
 Emit warnings through the new diagnostic style.
+
+Do not add deprecated aliases for the old option names. Since the CLI is pre-1.0, the cleaner behavior is to fail and show the new option names in help.
 
 ### 6. Preserve Exit Codes
 
@@ -564,13 +526,10 @@ New parser failures should also return `2`.
 Add tests for:
 
 - new command parsing
-- old command aliases
-- deprecated option warnings
-- target option aliases
+- `create-models` deprecated command alias
+- missing old option aliases fail with useful parser output
 - `validate --format json`
-- `validate --output json` compatibility
 - `generate models --fresh`
-- `create-models --skip-source` compatibility
 - command help includes new commands
 
 Existing `CliDiagnosticWriterTests` should be updated by the diagnostics-output plan.
@@ -595,6 +554,8 @@ Before implementation lands, dev-plan docs may continue mentioning old commands 
 - Do not keep `CommandLineParser` after nested commands are introduced.
 - Do not rename `validate` or `diff`; they are already clear.
 - Do not use `datalinq schema`; use `datalinq config schema`.
+- Do not keep root `init` or root `list`; use `config init` and `config list`.
+- Do not keep `create-sql`, `create-database`, or old target option aliases in the new pre-1.0 surface.
 
 ## Acceptance Criteria
 
@@ -604,8 +565,11 @@ Before implementation lands, dev-plan docs may continue mentioning old commands 
 - Primary database creation command is `datalinq database create`.
 - Config schema command is `datalinq config schema`.
 - Config validation command is `datalinq config validate` when implemented.
+- Config initialization command is `datalinq config init` when implemented.
+- Config inventory command is `datalinq config list`.
 - Secrets commands use `datalinq secrets list/set/remove` when implemented.
 - Target options use `--database`, `--provider`, and `--data-source` as primary names.
 - `validate` uses `--format` as the primary format option.
-- Old flat commands and old option names are either removed deliberately before 1.0 or kept as deprecated aliases with warnings.
+- Only `create-models` is kept as a temporary deprecated alias for `generate models`.
+- Old option names are removed instead of carried as aliases.
 - User-facing docs use the new command surface.
