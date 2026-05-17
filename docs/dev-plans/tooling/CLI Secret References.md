@@ -359,15 +359,7 @@ datalinq secrets set <name>
 datalinq secrets remove <name>
 ```
 
-With the current `CommandLineParser` setup, this may require either:
-
-- subverbs if the library supports them cleanly
-- flat verbs for V1:
-  - `secrets-list`
-  - `secrets-set`
-  - `secrets-remove`
-
-Subcommands are nicer, but do not contort the parser if it becomes ugly. If the main CLI is later moved to `System.CommandLine`, this gets easier.
+Implement these as nested commands after the CLI moves to `System.CommandLine`. Do not add temporary flat commands such as `secrets-list`; the CLI is still pre-1.0 and the nested command shape is the one worth teaching.
 
 Recommended UX:
 

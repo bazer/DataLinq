@@ -466,9 +466,45 @@ Key related plans:
 - `metadata-and-generation/Generated File Headers and Stamping.md`
 - `metadata-and-generation/Nullable Reference Type Generation Defaults.md`
 
-### Phase 13: Explicit Multi-Join Composition
+### Phase 12C: CLI Configuration and Regeneration Workflow
 
 Status: next implementation priority.
+
+Goals:
+
+- migrate `DataLinq.CLI` to `System.CommandLine` and adopt a coherent nested command surface
+- make `generate models` the primary model generation command, with only `create-models` kept as a temporary deprecated alias
+- move config setup and inventory under `config init` and `config list`
+- replace separate `SourceDirectories`/`DestinationDirectory` generation behavior with `ModelDirectory`
+- add config-driven generated-model layout settings with deterministic defaults
+- add batch/recursive support for model generation, validation, and config inventory
+- add interactive config initialization for new projects and missing local user configs
+- add JSON Schema/autocomplete support, config schema publication, and secret references
+- make CLI errors and warnings visually consistent and cross-platform
+
+Why before Phase 13:
+
+- this is the last clean pre-1.0 moment to fix confusing command names and option vocabulary
+- query API work will be easier to document and validate if the CLI setup/regeneration path is already coherent
+- recursive validation and generation are high-leverage developer workflows independent of query expansion
+- config schema, init, and secrets reduce onboarding friction before more runtime features increase the surface area
+
+Key related plans:
+
+- `roadmap-implementation/phase-12c-cli-configuration-and-regeneration-workflow/README.md`
+- `roadmap-implementation/phase-12c-cli-configuration-and-regeneration-workflow/Implementation Plan.md`
+- `tooling/CLI Command Surface Redesign.md`
+- `tooling/CLI Diagnostics Output Style.md`
+- `metadata-and-generation/Model Directory Regeneration Workflow.md`
+- `metadata-and-generation/Create Models Layout Configuration.md`
+- `tooling/CLI Batch and Recursive Targets.md`
+- `tooling/CLI Init Wizard.md`
+- `tooling/CLI Secret References.md`
+- `tooling/Config JSON Schema and Autocomplete.md`
+
+### Phase 13: Explicit Multi-Join Composition
+
+Status: planned after Phase 12C.
 
 Goals:
 
@@ -614,7 +650,7 @@ Phase 10 is now complete: metadata collection and lookup cleanup, generated prov
 
 Phase 11 is now complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is now complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led rejection of production interning.
 
-The next priority should be Phase 13 explicit multi-join composition, followed by the relation-aware join work in Phase 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
+The next priority should be Phase 12C CLI configuration and regeneration workflow, followed by Phase 13 explicit multi-join composition and the relation-aware join work in Phase 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

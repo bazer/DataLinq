@@ -376,14 +376,14 @@ Phase 12B can close when:
 - source-generator multi-diagnostic and partial-output behavior is covered by tests
 - generated C# preambles and nullable directives are covered by tests
 - user docs and release notes reflect shipped behavior
-- the roadmap implementation index marks Phase 13 as the next priority after 12B
+- the roadmap implementation index marks the next active priority after 12B explicitly
 
 Closeout status, 2026-05-14:
 
 - Closed. The four source plans have all been implemented for the scoped Phase 12B surface.
 - CLI validation, diagnostic issue projection, safe generated-file writes, generated-file preambles, nullable defaults, source-generator multi-diagnostics, partial output, and source-level nullable context are covered by targeted unit/generator tests.
 - User docs and release notes now describe shipped behavior, including expected generated-file churn and the `UseNullableReferenceTypes: false` opt-out.
-- Roadmap implementation pointers now mark Phase 12B complete and Phase 13 as the next implementation priority.
+- Roadmap implementation pointers mark Phase 12B complete. Phase 12C was later inserted before Phase 13 for pre-1.0 CLI configuration and regeneration cleanup.
 - Closeout verification passed:
   - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore`: 607 passed
   - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Generators.Tests\DataLinq.Generators.Tests.csproj -c Debug --no-restore`: 38 passed

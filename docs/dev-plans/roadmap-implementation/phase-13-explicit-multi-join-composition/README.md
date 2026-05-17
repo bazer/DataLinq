@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 13: Explicit Multi-Join Composition
 
-**Status:** Next implementation priority after Phase 12B closeout.
+**Status:** Planned after Phase 12C CLI configuration and regeneration workflow.
 
 ## Purpose
 

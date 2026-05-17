@@ -170,7 +170,7 @@ Add:
 --fresh
 ```
 
-to `datalinq create-models`.
+to `datalinq generate models` after the command-surface redesign.
 
 Meaning:
 
@@ -182,15 +182,15 @@ This is the right name because it describes the outcome without exposing the old
 
 ### `--skip-source`
 
-Keep `--skip-source` as a deprecated alias for `--fresh` for one compatibility window.
+Do not keep `--skip-source` as a deprecated alias in Phase 12C.
 
-When used, emit a warning:
+Earlier drafts considered a compatibility alias:
 
 ```text
 Warning: --skip-source is deprecated. Use --fresh. create-models now reads existing models from ModelDirectory, not SourceDirectories.
 ```
 
-Do not keep both names indefinitely. `--skip-source` becomes actively misleading once `SourceDirectories` is gone.
+The final command-surface decision is stricter: DataLinq is still pre-1.0, `SourceDirectories` is being removed from the generation workflow, and `--skip-source` becomes actively misleading once the command reads existing models from `ModelDirectory`. Users should get the parser's normal unknown-option error and the help text should show `--fresh`.
 
 ### `--overwrite-types`
 
@@ -499,10 +499,10 @@ Config tests:
 
 CLI/generator tests:
 
-- first-time `create-models` works when `ModelDirectory` does not exist
+- first-time `generate models` works when `ModelDirectory` does not exist
 - existing model files in `ModelDirectory` are parsed and preserve supported names/types
 - `--fresh` ignores existing model files
-- deprecated `--skip-source` behaves like `--fresh`
+- `--skip-source` is rejected by the new parser and help shows `--fresh`
 - invalid existing model files fail unless `--fresh`
 
 Validator tests:
@@ -541,7 +541,7 @@ Users who actually maintained a separate source model directory need a migration
 1. Move any supported model declaration choices into the files under `ModelDirectory`, or regenerate once and edit the generated declarations there.
 2. Move arbitrary custom code into partial classes outside `ModelDirectory` or into ordinary application files.
 3. Remove `SourceDirectories`.
-4. Replace `--skip-source` usage with `--fresh`.
+4. Replace any old `--skip-source` usage with `--fresh`.
 
 This change may make some old workflows noisier for one release, but the long-term product shape is much cleaner.
 
@@ -561,10 +561,10 @@ This change may make some old workflows noisier for one release, but the long-te
 - `ModelDirectory` is the documented config field for generated model files.
 - `DestinationDirectory` remains a compatibility alias.
 - Conflicting `ModelDirectory` and `DestinationDirectory` values fail loudly.
-- `SourceDirectories` is no longer used by `create-models`, `validate`, or `diff`.
-- `create-models` reads existing model files from `ModelDirectory` unless `--fresh` is used.
+- `SourceDirectories` is no longer used by `generate models`, `validate`, or `diff`.
+- `generate models` reads existing model files from `ModelDirectory` unless `--fresh` is used.
 - `--fresh` ignores existing model files and generates from database metadata plus config.
-- `--skip-source` remains temporarily as a deprecated alias for `--fresh`.
+- `--skip-source` is not kept as an alias in the new pre-1.0 CLI surface.
 - Supported edits to class names, property names, relation names, and C# property types are preserved from existing model files in `ModelDirectory`.
 - Generated CLI model headers link to documentation that explains supported edits, partials, and `--fresh`.
 - User-facing docs explain that class and property names/types are intentionally editable, while arbitrary behavior belongs in partials.
