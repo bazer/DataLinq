@@ -45,6 +45,7 @@ Implemented:
 - Windows Credential Manager backend
 - explicit unavailable-secret-store behavior on macOS/Linux instead of plaintext fallback
 - config loading resolves secret references before building `DataLinqConfig`
+- secret-resolution diagnostics route through the shared CLI diagnostics renderer
 
 Remaining work worth doing:
 
@@ -52,7 +53,6 @@ Remaining work worth doing:
 2. Improve `config init` so MySQL/MariaDB password prompts offer local secret, environment variable, runtime prompt, or direct plaintext with a warning. Current defaults use prompt references for server providers, which is safe but not as ergonomic as the planned menu.
 3. Add a non-interactive `secrets set --stdin` only if automation needs it. Do not add plaintext command-line value arguments.
 4. Expand redaction keys later if providers need `Access Token`, `Token`, `ApiKey`, or `Secret`. V1 intentionally covers database `Password`/`Pwd`.
-5. Route secret-resolution diagnostics through the future diagnostics renderer once that slice lands.
 
 ## Why Not .NET User Secrets First?
 

@@ -2,7 +2,7 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: CLI Command Surface Redesign
 
-**Status:** Implemented with two deliberate follow-ups.
+**Status:** Implemented with one deliberate refactor follow-up.
 **Goal:** Keep the DataLinq CLI command surface consistent, understandable, and ready for planned features before 1.0.
 
 ## Executive Position
@@ -60,7 +60,7 @@ Implemented:
 Remaining implementation polish:
 
 - `Program.cs` decomposition
-  The parser migration landed, but the command wiring and command handlers still live mostly in one large `Program.cs`. Split it when doing the next CLI slice, not as busywork: `GenerateCommand`, `DatabaseCommand`, `ValidateCommand`, `DiffCommand`, `ConfigCommand`, `SecretsCommand`, and shared target/output helpers would be the obvious shape.
+  The parser migration and diagnostics cleanup landed, but the command wiring and command handlers still live mostly in one large `Program.cs`. Split it when doing the next CLI slice that needs command-surface changes, not as busywork: `GenerateCommand`, `DatabaseCommand`, `ValidateCommand`, `DiffCommand`, `ConfigCommand`, `SecretsCommand`, and shared target/output helpers would be the obvious shape.
 
 ## Legacy CLI Surface At Plan Creation
 
@@ -543,7 +543,7 @@ Add tests for:
 - `generate models --fresh`
 - command help includes new commands
 
-Existing `CliDiagnosticWriterTests` should be updated by the diagnostics-output plan.
+`CliDiagnosticWriterTests` now cover the diagnostics-output plan.
 
 ### 8. Update Docs After Implementation
 

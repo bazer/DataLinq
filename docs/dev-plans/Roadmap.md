@@ -512,7 +512,7 @@ Closeout result:
 
 ### Phase 13: Explicit Multi-Join Composition
 
-Status: planned after Phase 12C.
+Status: next implementation priority after completed Phase 12C.
 
 Goals:
 

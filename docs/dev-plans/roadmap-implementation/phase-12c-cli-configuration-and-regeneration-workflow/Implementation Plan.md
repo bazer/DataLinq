@@ -525,3 +525,10 @@ Phase 12C can close when:
 - secret reference resolution and redaction are covered by tests
 - user-facing docs describe the shipped CLI accurately
 - roadmap implementation pointers mark Phase 12C complete and Phase 13 as the next implementation priority
+
+Closeout status as of 2026-05-18: complete. Remaining items in the source tooling docs are deliberately future or external follow-ups, not blockers for Phase 12C:
+
+- public schema URL and SchemaStore verification after deployment
+- macOS Keychain and Linux Secret Service/libsecret local-secret backends
+- optional `config init` connection testing, optional generation, and richer secret-storage choices
+- `Program.cs` decomposition during the next CLI surface change
