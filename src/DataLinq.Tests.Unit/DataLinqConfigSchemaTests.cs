@@ -136,6 +136,7 @@ public class DataLinqConfigSchemaTests
         await Assert.That(exitCode).IsEqualTo(0);
         await Assert.That(File.ReadAllText(fixture.OutputPath)).IsEqualTo(CliConfigSchema.ReadSchemaJson());
         await Assert.That(output).Contains($"Wrote DataLinq config schema to {fixture.OutputPath}");
+        await Assert.That(output).Contains("Run again with --update-config");
     }
 
     [Test]
@@ -210,6 +211,77 @@ public class DataLinqConfigSchemaTests
         await Assert.That(exitCode).IsEqualTo(2);
         await Assert.That(output).Contains("Use either --stdout or --output, not both.");
         await Assert.That(File.Exists(fixture.OutputPath)).IsFalse();
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task ConfigSchemaCommand_UpdateConfig_AddsMissingLocalSchemaReferenceToExistingConfigFiles()
+    {
+        using var fixture = SchemaCommandFixture.Create();
+        fixture.WriteConfig("datalinq.json", """{ "Databases": [] }""");
+        fixture.WriteConfig("datalinq.user.json", """{ "Databases": [] }""");
+
+        var (exitCode, output) = await InvokeWithOutput(
+            "config",
+            "schema",
+            "--config",
+            fixture.BasePath,
+            "--update-config");
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(File.ReadAllText(fixture.OutputPath)).IsEqualTo(CliConfigSchema.ReadSchemaJson());
+        await Assert.That(File.ReadAllText(fixture.ConfigPath)).Contains("\"$schema\": \"./datalinq.schema.json\"");
+        await Assert.That(File.ReadAllText(fixture.UserConfigPath)).Contains("\"$schema\": \"./datalinq.schema.json\"");
+        await Assert.That(output).Contains($"Updated '{fixture.ConfigPath}'");
+        await Assert.That(output).Contains($"Updated '{fixture.UserConfigPath}'");
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task ConfigSchemaCommand_UpdateConfig_LeavesExistingSchemaReferenceUnchanged()
+    {
+        using var fixture = SchemaCommandFixture.Create();
+        fixture.WriteConfig(
+            "datalinq.json",
+            """
+            {
+              "$schema": "https://datalinq.org/schemas/datalinq.schema.json",
+              "Databases": []
+            }
+            """);
+
+        var (exitCode, output) = await InvokeWithOutput(
+            "config",
+            "schema",
+            "--config",
+            fixture.BasePath,
+            "--update-config");
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(File.ReadAllText(fixture.ConfigPath)).Contains("\"$schema\": \"https://datalinq.org/schemas/datalinq.schema.json\"");
+        await Assert.That(File.ReadAllText(fixture.ConfigPath)).DoesNotContain("\"$schema\": \"./datalinq.schema.json\"");
+        await Assert.That(output).Contains("already has \"$schema\"");
+        await Assert.That(output).Contains("JSON config files support one top-level $schema reference");
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task ConfigSchemaCommand_UpdateConfig_RejectsStdout()
+    {
+        using var fixture = SchemaCommandFixture.Create();
+        fixture.WriteConfig("datalinq.json", """{ "Databases": [] }""");
+
+        var (exitCode, output) = await InvokeWithOutput(
+            "config",
+            "schema",
+            "--config",
+            fixture.BasePath,
+            "--stdout",
+            "--update-config");
+
+        await Assert.That(exitCode).IsEqualTo(2);
+        await Assert.That(output).Contains("--update-config needs a schema file");
+        await Assert.That(File.ReadAllText(fixture.ConfigPath)).DoesNotContain("$schema");
     }
 
     private static JsonObject ReadSchema() =>
@@ -351,12 +423,21 @@ public class DataLinqConfigSchemaTests
 
         public string BasePath { get; }
         public string OutputPath { get; }
+        public string ConfigPath => Path.Combine(BasePath, "datalinq.json");
+        public string UserConfigPath => Path.Combine(BasePath, "datalinq.user.json");
 
         public static SchemaCommandFixture Create()
         {
             var basePath = Path.Combine(Path.GetTempPath(), $"datalinq-schema-command-{Guid.NewGuid():N}");
             Directory.CreateDirectory(basePath);
             return new SchemaCommandFixture(basePath);
+        }
+
+        public void WriteConfig(string relativePath, string content)
+        {
+            var path = Path.Combine(BasePath, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, content);
         }
 
         public void Dispose()

@@ -78,9 +78,12 @@ You can also write the embedded schema from the CLI. Without `--output`, the com
 
 ```bash
 datalinq config schema
+datalinq config schema --update-config
 datalinq config schema --output datalinq.schema.json
 datalinq config schema --stdout
 ```
+
+Editors do not auto-discover a local `datalinq.schema.json` file. The config file needs one top-level `$schema` value, such as `"$schema": "./datalinq.schema.json"`. JSON Schema tooling does not support multiple top-level `$schema` references in one file; if the config already points at the public URL, replace it with the local file reference when you want local schema validation. `--update-config` adds the local reference only when the file does not already have `$schema`.
 
 DataLinq accepts comments in config files, but editor behavior depends on the editor. If your editor treats `.json` files as strict JSON, it may warn about comments even though the CLI accepts them.
 

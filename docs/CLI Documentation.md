@@ -132,9 +132,12 @@ Writes the JSON Schema used for DataLinq config autocomplete and validation. Wit
 
 ```bash
 datalinq config schema
+datalinq config schema --update-config
 datalinq config schema --output datalinq.schema.json
 datalinq config schema --stdout
 ```
+
+Editors use the schema only when `datalinq.json` or `datalinq.user.json` has a top-level `$schema` value, for example `"$schema": "./datalinq.schema.json"`. JSON supports one top-level `$schema` reference per file; use the public URL or the local file, not both. `--update-config` adds the local reference only to existing config files that do not already have a `$schema` value.
 
 The published schema URL is:
 

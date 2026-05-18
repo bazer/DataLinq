@@ -223,12 +223,17 @@ internal static class Program
         {
             Description = "Write the schema JSON to stdout instead of a file."
         };
+        var updateConfigOption = new Option<bool>("--update-config")
+        {
+            Description = "Add a local $schema reference to datalinq.json and datalinq.user.json when they exist and do not already have one."
+        };
         command.Options.Add(outputOption);
         command.Options.Add(stdoutOption);
+        command.Options.Add(updateConfigOption);
 
         command.SetAction(parseResult =>
         {
-            var options = ReadConfigSchemaOptions(parseResult, commonOptions, outputOption, stdoutOption);
+            var options = ReadConfigSchemaOptions(parseResult, commonOptions, outputOption, stdoutOption, updateConfigOption);
             Environment.ExitCode = ExecuteConfigSchema(options);
         });
 
@@ -458,12 +463,14 @@ internal static class Program
         ParseResult parseResult,
         CommonOptionSet commonOptions,
         Option<string?> outputOption,
-        Option<bool> stdoutOption)
+        Option<bool> stdoutOption,
+        Option<bool> updateConfigOption)
     {
         var schemaOptions = new ConfigSchemaOptions
         {
             OutputFile = parseResult.GetValue(outputOption) ?? "",
-            Stdout = parseResult.GetValue(stdoutOption)
+            Stdout = parseResult.GetValue(stdoutOption),
+            UpdateConfig = parseResult.GetValue(updateConfigOption)
         };
         ApplyCommonOptions(schemaOptions, parseResult, commonOptions);
         return schemaOptions;
@@ -575,6 +582,10 @@ internal static class Program
 
         File.WriteAllText(outputPath, schemaJson);
         Console.WriteLine($"Wrote DataLinq config schema to {outputPath}");
+        if (options.UpdateConfig)
+            UpdateConfigSchemaReferences(outputPath);
+        else
+            WriteConfigSchemaReferenceHint(outputPath);
 
         return 0;
     }
@@ -586,6 +597,12 @@ internal static class Program
             !IsStdoutOutputPath(options.OutputFile))
         {
             ConsoleDiagnosticWriter.WriteError("InvalidArgument", "Use either --stdout or --output, not both.");
+            return false;
+        }
+
+        if (options.UpdateConfig && ShouldWriteConfigSchemaToStdout(options))
+        {
+            ConsoleDiagnosticWriter.WriteError("InvalidArgument", "--update-config needs a schema file. Do not combine it with --stdout or --output -.");
             return false;
         }
 
@@ -622,6 +639,199 @@ internal static class Program
         }
 
         return Path.GetFullPath(Path.Combine(directory, "datalinq.schema.json"));
+    }
+
+    private static void WriteConfigSchemaReferenceHint(string schemaPath)
+    {
+        var configPath = CliConfigDiscovery.ResolveConfigFilePath(ConfigPath);
+        var localReference = FormatJsonSchemaPathReference(configPath, schemaPath);
+
+        Console.WriteLine($"To use this local schema, set \"$schema\": \"{localReference}\" in datalinq.json.");
+        Console.WriteLine("Run again with --update-config to add that reference to existing DataLinq config files that do not already have a $schema value.");
+    }
+
+    private static void UpdateConfigSchemaReferences(string schemaPath)
+    {
+        var configPath = CliConfigDiscovery.ResolveConfigFilePath(ConfigPath);
+        var userConfigPath = GetUserConfigPath(configPath);
+        var configPaths = new[] { configPath, userConfigPath }
+            .Where(File.Exists)
+            .ToArray();
+
+        if (configPaths.Length == 0)
+        {
+            ConsoleDiagnosticWriter.WriteWarning("ConfigNotFound", $"No datalinq.json or datalinq.user.json file was found from '{ConfigPath}'.");
+            return;
+        }
+
+        foreach (var path in configPaths)
+        {
+            var schemaReference = FormatJsonSchemaPathReference(path, schemaPath);
+            if (!TryAddSchemaReference(path, schemaReference, out var changed, out var message))
+            {
+                ConsoleDiagnosticWriter.WriteWarning("SchemaReferenceNotUpdated", message);
+                continue;
+            }
+
+            if (changed)
+                Console.WriteLine(message);
+            else
+                ConsoleDiagnosticWriter.WriteWarning("SchemaReferenceExists", message);
+        }
+    }
+
+    private static string GetUserConfigPath(string configPath)
+    {
+        var directory = Path.GetDirectoryName(configPath) ?? Directory.GetCurrentDirectory();
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(configPath);
+        return Path.Combine(directory, $"{fileNameWithoutExtension}.user.json");
+    }
+
+    private static string FormatJsonSchemaPathReference(string configPath, string schemaPath)
+    {
+        var configDirectory = Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? Directory.GetCurrentDirectory();
+        var relativePath = Path.GetRelativePath(configDirectory, Path.GetFullPath(schemaPath)).Replace('\\', '/');
+
+        return relativePath.StartsWith(".", StringComparison.Ordinal)
+            ? relativePath
+            : $"./{relativePath}";
+    }
+
+    private static bool TryAddSchemaReference(
+        string configPath,
+        string schemaReference,
+        out bool changed,
+        out string message)
+    {
+        changed = false;
+
+        string text;
+        try
+        {
+            text = File.ReadAllText(configPath);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            message = $"Could not read '{configPath}'. {exception.Message}";
+            return false;
+        }
+
+        if (!TryReadExistingSchemaReference(configPath, text, out var hasExistingSchemaReference, out var existingSchemaReference, out message))
+            return false;
+
+        if (hasExistingSchemaReference)
+        {
+            message = $"'{configPath}' already has \"$schema\": {FormatExistingSchemaReference(existingSchemaReference)}. JSON config files support one top-level $schema reference, so the file was left unchanged.";
+            return true;
+        }
+
+        var updatedText = AddTopLevelSchemaReference(text, schemaReference);
+        try
+        {
+            File.WriteAllText(configPath, updatedText);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            message = $"Could not update '{configPath}'. {exception.Message}";
+            return false;
+        }
+
+        changed = true;
+        message = $"Updated '{configPath}' with \"$schema\": \"{schemaReference}\".";
+        return true;
+    }
+
+    private static bool TryReadExistingSchemaReference(
+        string configPath,
+        string text,
+        out bool hasSchemaReference,
+        out string? schemaReference,
+        out string message)
+    {
+        hasSchemaReference = false;
+        schemaReference = null;
+        message = "";
+
+        try
+        {
+            using var document = JsonDocument.Parse(text, new JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip
+            });
+
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                message = $"'{configPath}' is not a JSON object.";
+                return false;
+            }
+
+            if (document.RootElement.TryGetProperty("$schema", out var property))
+            {
+                hasSchemaReference = true;
+                schemaReference = property.ValueKind == JsonValueKind.String
+                    ? property.GetString()
+                    : property.GetRawText();
+            }
+
+            return true;
+        }
+        catch (JsonException exception)
+        {
+            message = $"Could not parse '{configPath}'. {exception.Message}";
+            return false;
+        }
+    }
+
+    private static string FormatExistingSchemaReference(string? schemaReference) =>
+        string.IsNullOrWhiteSpace(schemaReference)
+            ? "<empty>"
+            : $"\"{schemaReference}\"";
+
+    private static string AddTopLevelSchemaReference(string text, string schemaReference)
+    {
+        var openingBraceIndex = text.IndexOf('{');
+        if (openingBraceIndex < 0)
+            return text;
+
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var indent = "  ";
+        var schemaValue = JsonSerializer.Serialize(schemaReference);
+        var afterOpeningBrace = text[(openingBraceIndex + 1)..];
+        var nextNonWhitespaceIndex = 0;
+        while (nextNonWhitespaceIndex < afterOpeningBrace.Length &&
+               char.IsWhiteSpace(afterOpeningBrace[nextNonWhitespaceIndex]))
+        {
+            nextNonWhitespaceIndex++;
+        }
+
+        if (nextNonWhitespaceIndex < afterOpeningBrace.Length &&
+            afterOpeningBrace[nextNonWhitespaceIndex] == '}')
+        {
+            return string.Concat(
+                text[..(openingBraceIndex + 1)],
+                newline,
+                indent,
+                "\"$schema\": ",
+                schemaValue,
+                newline,
+                afterOpeningBrace[nextNonWhitespaceIndex..]);
+        }
+
+        var afterStartsWithNewline = afterOpeningBrace.StartsWith("\r\n", StringComparison.Ordinal) ||
+                                     afterOpeningBrace.StartsWith('\n');
+        var separator = afterStartsWithNewline ? "" : $"{newline}{indent}";
+        var remainingText = afterStartsWithNewline ? afterOpeningBrace : afterOpeningBrace.TrimStart();
+
+        return string.Concat(
+            text[..(openingBraceIndex + 1)],
+            newline,
+            indent,
+            "\"$schema\": ",
+            schemaValue,
+            ",",
+            separator,
+            remainingText);
     }
 
     private static int ExecuteConfigInit(ConfigInitOptions options)
@@ -1660,6 +1870,8 @@ internal static class Program
         public string OutputFile { get; set; } = "";
 
         public bool Stdout { get; set; }
+
+        public bool UpdateConfig { get; set; }
     }
 
     private enum ValidationOutput
