@@ -176,6 +176,17 @@ Verification after checkpoint 3:
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/ModelFileFactoryTests/*"`
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Generators.Tests\DataLinq.Generators.Tests.csproj -c Debug --no-restore --treenode-filter "/*/*/ModelGenerationLogicTests/SourceGenerator_UsesSourceNullable*"`
 
+Checkpoint 4 added generation-level coverage for the new model-directory workflow:
+
+- first-time `generate models` succeeds when `ModelDirectory` does not exist yet
+- `--fresh` behavior ignores invalid existing model files
+- normal regeneration fails when existing model files are invalid
+- supported edits to model class names, scalar property names, and C# property types are preserved from existing files in `ModelDirectory`
+
+Verification after checkpoint 4:
+
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/ModelGeneratorModelDirectoryTests/*"`
+
 ## Workstream C: Batch and Recursive Commands
 
 ### Goals
