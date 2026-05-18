@@ -11,8 +11,14 @@ public static class ConfigReader
 {
     public static DatabaseType ParseDatabaseType(string? typeName)
     {
-        if (typeName == null)
+        if (string.IsNullOrWhiteSpace(typeName))
             return DatabaseType.Unknown;
+
+        if (Enum.TryParse<DatabaseType>(typeName, ignoreCase: true, out var parsed) &&
+            Enum.IsDefined(parsed))
+        {
+            return parsed;
+        }
 
         foreach (var (type, provider) in PluginHook.DatabaseProviders)
         {
@@ -114,5 +120,6 @@ public static class ConfigReader
 
 }
 
+[JsonSourceGenerationOptions(UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]
 [JsonSerializable(typeof(ConfigFile))]
 internal partial class DataLinqConfigJsonContext : JsonSerializerContext;

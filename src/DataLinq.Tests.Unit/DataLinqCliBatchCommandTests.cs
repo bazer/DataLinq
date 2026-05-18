@@ -31,6 +31,46 @@ public class DataLinqCliBatchCommandTests
 
     [Test]
     [NotInParallel]
+    public async Task ConfigValidate_RejectsUnknownMembers()
+    {
+        using var fixture = CliBatchCommandFixture.Create();
+        fixture.WriteConfigWithOldKeyPlacement("datalinq.json");
+
+        var (exitCode, output) = await InvokeWithOutput(
+            "config",
+            "validate",
+            "--config",
+            fixture.BasePath);
+
+        await Assert.That(exitCode).IsEqualTo(2);
+        await Assert.That(output).Contains("Failed to validate config");
+        await Assert.That(output).Contains("KeyPlacement");
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task ConfigValidate_Recursive_ContinuesThroughInvalidConfigs()
+    {
+        using var fixture = CliBatchCommandFixture.Create();
+        fixture.WriteConfig(Path.Combine("valid", "datalinq.json"));
+        fixture.WriteConfigWithOldKeyPlacement(Path.Combine("broken", "datalinq.json"));
+
+        var (exitCode, output) = await InvokeWithOutput(
+            "config",
+            "validate",
+            "--config",
+            fixture.BasePath,
+            "--recursive");
+
+        await Assert.That(exitCode).IsEqualTo(2);
+        await Assert.That(output).Contains("Config valid:");
+        await Assert.That(output).Contains("Failed to validate config");
+        await Assert.That(output).Contains("KeyPlacement");
+        await Assert.That(output).Contains("Configs validated: 1; failures: yes");
+    }
+
+    [Test]
+    [NotInParallel]
     public async Task Validate_Recursive_ContinuesThroughExpansionAndTargetFailures()
     {
         using var fixture = CliBatchCommandFixture.Create();
@@ -153,6 +193,26 @@ public class DataLinqCliBatchCommandTests
             var path = Path.Combine(BasePath, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, "{ invalid");
+        }
+
+        public void WriteConfigWithOldKeyPlacement(string relativePath)
+        {
+            var path = Path.Combine(BasePath, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(
+                path,
+                """
+                {
+                  "Databases": [
+                    {
+                      "Name": "AppDb",
+                      "ModelLayout": {
+                        "KeyPlacement": "Top"
+                      }
+                    }
+                  ]
+                }
+                """);
         }
 
         public void WriteGenerateProject(string relativeDirectory, bool hasInvalidExistingModel)

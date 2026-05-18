@@ -89,7 +89,7 @@ public class DataLinqCliTargetResolverTests
                           "ConnectionString": "Data Source=app.db"
                         },
                         {
-                          "Type": "Unknown",
+                          "Type": "MariaDB",
                           "DataSourceName": "ignored.db",
                           "ConnectionString": "Data Source=ignored.db"
                         }

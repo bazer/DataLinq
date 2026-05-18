@@ -73,8 +73,7 @@ Minimal example:
       "Name": "AppDb",
       "CsType": "AppDb",
       "Namespace": "MyApp.Models",
-      "SourceDirectories": [ "Models/Source" ],
-      "DestinationDirectory": "Models/Generated",
+      "ModelDirectory": "Models",
       "Connections": [
         {
           "Type": "MariaDB",

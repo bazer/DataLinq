@@ -69,6 +69,7 @@ internal static class Program
         var configCommand = new Command("config", "Inspect and manage DataLinq configuration.");
         configCommand.Subcommands.Add(CreateConfigInitCommand());
         configCommand.Subcommands.Add(CreateConfigListCommand());
+        configCommand.Subcommands.Add(CreateConfigValidateCommand());
         configCommand.Subcommands.Add(CreateConfigSchemaCommand());
 
         var secretsCommand = new Command("secrets", "Manage DataLinq local secrets.");
@@ -191,6 +192,20 @@ internal static class Program
         {
             var listOptions = ReadListOptions(parseResult, options);
             Environment.ExitCode = ExecuteList(listOptions);
+        });
+
+        return command;
+    }
+
+    private static Command CreateConfigValidateCommand()
+    {
+        var command = new Command("validate", "Validate DataLinq config files without connecting to databases.");
+        var options = AddConfigListOptions(command);
+
+        command.SetAction(parseResult =>
+        {
+            var validateOptions = ReadConfigValidateOptions(parseResult, options);
+            Environment.ExitCode = ExecuteConfigValidate(validateOptions);
         });
 
         return command;
@@ -452,6 +467,14 @@ internal static class Program
         return listOptions;
     }
 
+    private static ConfigValidateOptions ReadConfigValidateOptions(ParseResult parseResult, ConfigListOptionSet options)
+    {
+        var validateOptions = new ConfigValidateOptions();
+        ApplyCommonOptions(validateOptions, parseResult, options.CommonOptions);
+        validateOptions.Recursive = parseResult.GetValue(options.RecursiveOption);
+        return validateOptions;
+    }
+
     private static ConfigInitOptions ReadConfigInitOptions(ParseResult parseResult, CommonOptionSet options)
     {
         var initOptions = new ConfigInitOptions();
@@ -546,6 +569,74 @@ internal static class Program
 
         Console.WriteLine($"Configs listed: {listedCount}; failures: {(hadFailure ? "yes" : "no")}");
         return hadFailure ? 2 : 0;
+    }
+
+    private static int ExecuteConfigValidate(ConfigValidateOptions options)
+    {
+        if (options.Recursive)
+            return ExecuteRecursiveConfigValidate(options);
+
+        var configPath = CliConfigDiscovery.ResolveConfigFilePath(ConfigPath);
+        if (!TryValidateConfigFile(configPath, options.Verbose, out var config, out var failure))
+        {
+            ConsoleDiagnosticWriter.WriteError("ConfigInvalid", $"Failed to validate config '{configPath}'.");
+            ConsoleDiagnosticWriter.WriteFailure(failure);
+            return 2;
+        }
+
+        WriteConfigValidationSuccess(config, configPath);
+        return 0;
+    }
+
+    private static int ExecuteRecursiveConfigValidate(ConfigValidateOptions options)
+    {
+        var configPaths = CliConfigDiscovery.DiscoverConfigFiles(ConfigPath);
+        if (configPaths.Count == 0)
+        {
+            ConsoleDiagnosticWriter.WriteError(
+                "ConfigNotFound",
+                $"No datalinq.json files were found under '{CliConfigDiscovery.ResolveDiscoveryRoot(ConfigPath)}'.");
+            return 2;
+        }
+
+        var hadFailure = false;
+        var validCount = 0;
+        foreach (var configPath in configPaths)
+        {
+            if (!TryValidateConfigFile(configPath, options.Verbose, out var config, out var failure))
+            {
+                hadFailure = true;
+                ConsoleDiagnosticWriter.WriteError("ConfigInvalid", $"Failed to validate config '{configPath}'.");
+                ConsoleDiagnosticWriter.WriteFailure(failure);
+                Console.WriteLine();
+                continue;
+            }
+
+            WriteConfigValidationSuccess(config, configPath);
+            validCount++;
+        }
+
+        Console.WriteLine($"Configs validated: {validCount}; failures: {(hadFailure ? "yes" : "no")}");
+        return hadFailure ? 2 : 0;
+    }
+
+    private static bool TryValidateConfigFile(
+        string configPath,
+        bool verbose,
+        out DataLinqConfig config,
+        out object failure)
+    {
+        var configLog = verbose
+            ? ConsoleDiagnosticWriter.WriteLogLine
+            : new Action<string>(_ => { });
+
+        return CliConfigLoader.TryRead(configPath, configLog, out config, out failure);
+    }
+
+    private static void WriteConfigValidationSuccess(DataLinqConfig config, string configPath)
+    {
+        Console.WriteLine($"Config valid: {configPath}");
+        Console.WriteLine($"Databases: {config.Databases.Count}");
     }
 
     private static void WriteConfigList(DataLinqConfig config, string configPath)
@@ -1865,6 +1956,11 @@ internal static class Program
     }
 
     internal sealed class ListOptions : Options
+    {
+        public bool Recursive { get; set; }
+    }
+
+    internal sealed class ConfigValidateOptions : Options
     {
         public bool Recursive { get; set; }
     }

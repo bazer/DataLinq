@@ -147,7 +147,6 @@ public record DataLinqDatabaseConfig
     public string? DestinationDirectory { get; private set; }
     public List<string> Include { get; private set; }
     //public bool UseCache { get; }
-    public bool UseRecord { get; private set; }
     public bool UseFileScopedNamespaces { get; private set; }
     public bool UseNullableReferenceTypes { get; private set; }
     public bool CapitalizeNames { get; private set; }
@@ -167,7 +166,6 @@ public record DataLinqDatabaseConfig
         ModelDirectory = ResolveModelDirectory(database, Name);
         DestinationDirectory = ModelDirectory;
         Include = database.Include ?? new List<string>();
-        UseRecord = database.UseRecord ?? false;
         UseFileScopedNamespaces = database.UseFileScopedNamespaces ?? false;
         UseNullableReferenceTypes = database.UseNullableReferenceTypes ?? true;
         CapitalizeNames = database.CapitalizeNames ?? false;
@@ -201,9 +199,6 @@ public record DataLinqDatabaseConfig
 
         if (database.Include != null)
             Include = database.Include;
-
-        if (database.UseRecord != null)
-            UseRecord = database.UseRecord.Value;
 
         if (database.UseFileScopedNamespaces != null)
             UseFileScopedNamespaces = database.UseFileScopedNamespaces.Value;
@@ -296,7 +291,21 @@ public record DataLinqDatabaseConnection
     {
         DatabaseConfig = databaseConfig;
         DataSourceName = connection.DataSourceName ?? connection.DatabaseName ?? throw new ArgumentNullException(nameof(connection.DataSourceName));
-        Type = ConfigReader.ParseDatabaseType(connection.Type); // ?? throw new ArgumentException($"Couldn't find database type for '{connection.Type}'");
+        Type = ConfigReader.ParseDatabaseType(connection.Type);
+        if (!string.IsNullOrWhiteSpace(connection.Type) && !IsAllowedConnectionType(Type))
+            throw new ArgumentException(
+                $"Unknown Connections.Type value '{connection.Type}' in database '{databaseConfig.Name}'. Allowed values: {GetAllowedConnectionTypeValues()}.");
+
         ConnectionString = new DataLinqConnectionString(connection.ConnectionString);
     }
+
+    private static string GetAllowedConnectionTypeValues() =>
+        string.Join(
+            ", ",
+            Enum.GetNames<DatabaseType>()
+                .Where(name => name is not nameof(DatabaseType.Unknown) and not nameof(DatabaseType.Default))
+                .OrderBy(name => name));
+
+    private static bool IsAllowedConnectionType(DatabaseType type) =>
+        type is not DatabaseType.Unknown and not DatabaseType.Default;
 }

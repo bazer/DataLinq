@@ -46,7 +46,6 @@ public class DataLinqConfigSchemaTests
             "SourceDirectories",
             "ModelLayout",
             "Include",
-            "UseRecord",
             "UseFileScopedNamespaces",
             "UseNullableReferenceTypes",
             "CapitalizeNames",

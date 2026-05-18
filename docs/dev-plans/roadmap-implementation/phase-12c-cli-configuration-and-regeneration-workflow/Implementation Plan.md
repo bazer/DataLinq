@@ -165,7 +165,7 @@ Verification after checkpoint 2:
 Checkpoint 3 updated generated-file guidance:
 
 - CLI model declaration files now say that supported model class names, property names, relation names, and C# property types may be edited.
-- The declaration header links to `https://datalinq.org/docs/model-generation.html#editing-generated-models`.
+- The declaration header links to `https://datalinq.org/docs/model-generation.html`.
 - Source-generator implementation files now use a stricter header that says not to edit compiler-generated implementation files.
 - Public docs now include a model-generation page backing the header link, and the CLI docs match the nested command surface introduced in Workstream A.
 

@@ -22,7 +22,6 @@ public record ConfigFileDatabase
     public string? DestinationDirectory { get; set; }
     public ConfigFileModelLayout? ModelLayout { get; set; }
     public List<string>? Include { get; set; }
-    public bool? UseRecord { get; set; }
     public bool? UseFileScopedNamespaces { get; set; }
     public bool? UseNullableReferenceTypes { get; set; }
     public bool? CapitalizeNames { get; set; }

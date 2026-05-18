@@ -14,7 +14,6 @@ public class GeneratorFileFactoryOptions
 {
     public string? NamespaceName { get; set; } = null;
     public string Tab { get; set; } = "    ";
-    public bool UseRecords { get; set; } = false;
     public bool UseFileScopedNamespaces { get; set; } = false;
     public bool UseNullableReferenceTypes { get; set; } = true;
     public bool SeparateTablesAndViews { get; set; } = false;
@@ -49,7 +48,6 @@ public class GeneratorFileFactory
     public GeneratorFileFactory(GeneratorFileFactoryOptions options)
     {
         this.Options = options;
-        this.Options.UseRecords = false;
 
         namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
         tab = options.Tab;
@@ -789,7 +787,7 @@ public class GeneratorFileFactory
         foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(model.Attributes), namespaceTab))
             yield return row;
 
-        yield return $"{namespaceTab}public abstract partial {(options.UseRecords ? "record" : "class")} {model.CsType.Name}{(model.ModelInstanceInterface != null ? $": {model.ModelInstanceInterface.Value.Name}" : "")}";
+        yield return $"{namespaceTab}public abstract partial class {model.CsType.Name}{(model.ModelInstanceInterface != null ? $": {model.ModelInstanceInterface.Value.Name}" : "")}";
         yield return namespaceTab + "{";
         yield return $"{namespaceTab}{tab}private static global::DataLinq.Metadata.ModelDefinition DataLinqGeneratedModel = null!;";
         yield return $"{namespaceTab}{tab}internal static global::DataLinq.Metadata.ModelDefinition DataLinqModel => DataLinqGeneratedModel ?? throw new global::System.InvalidOperationException(\"Generated DataLinq metadata for '{model.CsType.Name}' has not been initialized. Initialize a generated DataLinq provider before creating mutable instances.\");";
@@ -1070,7 +1068,7 @@ public class GeneratorFileFactory
         foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(model.Attributes), namespaceTab))
             yield return row;
 
-        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Immutable{model.CsType.Name}(IRowData rowData, IDataSourceAccess dataSource) : {model.CsType.Name}(rowData, dataSource)";
+        yield return $"{namespaceTab}public partial class Immutable{model.CsType.Name}(IRowData rowData, IDataSourceAccess dataSource) : {model.CsType.Name}(rowData, dataSource)";
         yield return namespaceTab + "{";
         yield return $"{namespaceTab}{tab}public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new Immutable{model.CsType.Name}(rowData, dataSource);";
         yield return "";
@@ -1181,7 +1179,7 @@ public class GeneratorFileFactory
         foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(model.Attributes), namespaceTab))
             yield return row;
 
-        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Mutable{model.CsType.Name} : Mutable<{model.CsType.Name}>, {interfaces.ToJoinedString(", ")}";
+        yield return $"{namespaceTab}public partial class Mutable{model.CsType.Name} : Mutable<{model.CsType.Name}>, {interfaces.ToJoinedString(", ")}";
         yield return namespaceTab + "{";
 
         var defaultProps = GetDefaultValueProperties(model);
