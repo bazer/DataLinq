@@ -62,6 +62,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Providers and features
 
 - `providers-and-features/In-Memory Provider.md`
+- `providers-and-features/Generated Column Support.md`
 - `providers-and-features/JSON Data Type Support.md`
 - `providers-and-features/Check Constraint Metadata Design.md`
 - `providers-and-features/Migrations and Validation.md`
