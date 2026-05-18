@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datalinq.org/schemas/datalinq.schema.json",
+  "title": "DataLinq configuration",
+  "description": "Configuration for the DataLinq CLI and model-generation workflow.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "Databases"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema URL used by editors for autocomplete and validation.",
+      "default": "https://datalinq.org/schemas/datalinq.schema.json"
+    },
+    "Databases": {
+      "type": "array",
+      "description": "Logical database configurations used by DataLinq CLI commands.",
+      "items": {
+        "$ref": "#/$defs/database"
+      },
+      "default": []
+    }
+  },
+  "$defs": {
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Name"
+      ],
+      "properties": {
+        "Name": {
+          "type": "string",
+          "description": "Database entry name used by CLI selection through --database."
+        },
+        "CsType": {
+          "type": "string",
+          "description": "C# database model type name. Defaults to Name when omitted."
+        },
+        "Namespace": {
+          "type": "string",
+          "description": "C# namespace used for generated model declaration files. Defaults to Models when omitted."
+        },
+        "ModelDirectory": {
+          "type": "string",
+          "description": "Directory where DataLinq writes generated model declaration files and reads existing declaration files during regeneration."
+        },
+        "DestinationDirectory": {
+          "type": "string",
+          "deprecated": true,
+          "description": "Deprecated compatibility alias for ModelDirectory. Prefer ModelDirectory in new config files."
+        },
+        "SourceDirectories": {
+          "type": "array",
+          "deprecated": true,
+          "description": "Deprecated. Existing model declaration files are read from ModelDirectory instead of a separate source directory.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ModelLayout": {
+          "$ref": "#/$defs/modelLayout"
+        },
+        "Include": {
+          "type": "array",
+          "description": "Optional table or view names to include during generation.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "UseRecord": {
+          "type": "boolean",
+          "description": "Generate record-style model declarations. Defaults to false."
+        },
+        "UseFileScopedNamespaces": {
+          "type": "boolean",
+          "description": "Generate file-scoped namespace declarations. Defaults to false."
+        },
+        "UseNullableReferenceTypes": {
+          "type": "boolean",
+          "description": "Generate nullable reference annotations and #nullable enable in generated model files. Defaults to true."
+        },
+        "CapitalizeNames": {
+          "type": "boolean",
+          "description": "Capitalize generated C# names inferred from database names. Defaults to false."
+        },
+        "RemoveInterfacePrefix": {
+          "type": "boolean",
+          "description": "Remove leading interface prefixes when reading existing model declarations. Defaults to true."
+        },
+        "SeparateTablesAndViews": {
+          "type": "boolean",
+          "description": "Generate tables and views into separate files where supported. Defaults to false."
+        },
+        "Connections": {
+          "type": "array",
+          "description": "Provider connection entries. Prefer local or secret-bearing connection strings in datalinq.user.json rather than committed datalinq.json.",
+          "items": {
+            "$ref": "#/$defs/connection"
+          },
+          "default": []
+        },
+        "FileEncoding": {
+          "type": "string",
+          "description": "Encoding used when reading and writing generated model declaration files.",
+          "default": "UTF8",
+          "examples": [
+            "UTF8",
+            "UTF8BOM",
+            "UTF-8"
+          ]
+        }
+      }
+    },
+    "modelLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Controls generated model member ordering.",
+      "properties": {
+        "PropertyOrder": {
+          "type": "string",
+          "description": "Order scalar properties by database column order or C# property name.",
+          "enum": [
+            "Column",
+            "Alphabetical"
+          ],
+          "default": "Column"
+        },
+        "KeyPlacement": {
+          "type": "string",
+          "description": "Place primary-key scalar properties at the top or leave them inline with the selected property order.",
+          "enum": [
+            "Top",
+            "Inline"
+          ],
+          "default": "Top"
+        },
+        "RelationPlacement": {
+          "type": "string",
+          "description": "Place relation properties at the bottom, top, or near their foreign-key scalar property group.",
+          "enum": [
+            "Bottom",
+            "Top",
+            "WithForeignKey"
+          ],
+          "default": "Bottom"
+        }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "Type": {
+          "type": "string",
+          "description": "Built-in database provider used by this connection.",
+          "enum": [
+            "SQLite",
+            "MySQL",
+            "MariaDB"
+          ]
+        },
+        "DatabaseName": {
+          "type": "string",
+          "description": "Compatibility alias for DataSourceName. Prefer DataSourceName in new config files."
+        },
+        "DataSourceName": {
+          "type": "string",
+          "description": "Logical database name, server-side database name, or SQLite file path depending on provider."
+        },
+        "ConnectionString": {
+          "type": "string",
+          "description": "Provider connection string. Prefer local values or secret references in datalinq.user.json.",
+          "examples": [
+            "Data Source=app.db;Cache=Shared;",
+            "Server=localhost;Database=appdb;User ID=app;Password=${env:DATALINQ_APPDB_PASSWORD};",
+            "Server=localhost;Database=appdb;User ID=app;Password=${secret:datalinq/AppDb/password};",
+            "Server=localhost;Database=appdb;User ID=app;Password=${prompt:AppDb password};"
+          ]
+        }
+      }
+    }
+  }
+}

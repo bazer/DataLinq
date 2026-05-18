@@ -27,4 +27,8 @@
 		<ProjectReference Include="..\DataLinq.Tools\DataLinq.Tools.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<EmbeddedResource Include="..\..\docs\schemas\datalinq.schema.json" LogicalName="DataLinq.CLI.Schemas.datalinq.schema.json" />
+	</ItemGroup>
+
 </Project>

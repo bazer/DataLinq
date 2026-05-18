@@ -304,6 +304,23 @@ Workstream C is complete. Final verification:
 - `.gitignore` update tests
 - docs-site build or targeted static verification for schema publication
 
+### Progress
+
+Checkpoint 1 added config schema support:
+
+- added `docs/schemas/datalinq.schema.json` with `$id` `https://datalinq.org/schemas/datalinq.schema.json`
+- covered current public config fields, `ModelLayout`, built-in provider names, and connection-string examples
+- marked `SourceDirectories` and `DestinationDirectory` as deprecated in the schema
+- added explicit `$schema` support to the raw config DTO
+- embedded the schema in `DataLinq.CLI`
+- added `datalinq config schema` with stdout output and optional `--output` / `-o`
+- added schema smoke validation tests proving a representative config validates and a misspelled field is rejected
+
+Verification after checkpoint 1:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqConfigSchemaTests/*|/*/*/DataLinqCliCommandSurfaceTests/*"`
+
 ## Workstream E: Secret References
 
 ### Goals

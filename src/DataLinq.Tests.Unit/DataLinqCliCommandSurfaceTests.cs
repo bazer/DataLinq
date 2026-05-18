@@ -97,6 +97,14 @@ public class DataLinqCliCommandSurfaceTests
     }
 
     [Test]
+    public async Task ConfigSchema_IsNestedAndAcceptsOutputPath()
+    {
+        await Assert.That(ParseErrors("config", "schema")).IsEqualTo(0);
+        await Assert.That(ParseErrors("config", "schema", "--output", "datalinq.schema.json")).IsEqualTo(0);
+        await Assert.That(ParseErrors("schema")).IsGreaterThan(0);
+    }
+
+    [Test]
     public async Task RecursiveConfigDiscovery_SkipsGeneratedAndInfrastructureDirectories()
     {
         using var fixture = CliDiscoveryFixture.Create();

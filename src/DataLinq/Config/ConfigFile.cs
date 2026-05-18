@@ -6,6 +6,9 @@ namespace DataLinq.Config;
 
 public record ConfigFile
 {
+    [JsonPropertyName("$schema")]
+    public string? Schema { get; set; }
+
     public List<ConfigFileDatabase> Databases { get; set; } = new();
 }
 

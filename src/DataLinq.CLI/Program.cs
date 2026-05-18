@@ -67,6 +67,7 @@ internal static class Program
 
         var configCommand = new Command("config", "Inspect and manage DataLinq configuration.");
         configCommand.Subcommands.Add(CreateConfigListCommand());
+        configCommand.Subcommands.Add(CreateConfigSchemaCommand());
 
         rootCommand.Subcommands.Add(generateCommand);
         rootCommand.Subcommands.Add(databaseCommand);
@@ -182,6 +183,22 @@ internal static class Program
         {
             var listOptions = ReadListOptions(parseResult, options);
             Environment.ExitCode = ExecuteList(listOptions);
+        });
+
+        return command;
+    }
+
+    private static Command CreateConfigSchemaCommand()
+    {
+        var command = new Command("schema", "Print or write the DataLinq JSON Schema for config files.");
+        var commonOptions = AddCommonOptions(command);
+        var outputOption = OutputFileOption(required: false);
+        command.Options.Add(outputOption);
+
+        command.SetAction(parseResult =>
+        {
+            var options = ReadConfigSchemaOptions(parseResult, commonOptions, outputOption);
+            Environment.ExitCode = ExecuteConfigSchema(options);
         });
 
         return command;
@@ -356,6 +373,19 @@ internal static class Program
         return listOptions;
     }
 
+    private static ConfigSchemaOptions ReadConfigSchemaOptions(
+        ParseResult parseResult,
+        CommonOptionSet commonOptions,
+        Option<string?> outputOption)
+    {
+        var schemaOptions = new ConfigSchemaOptions
+        {
+            OutputFile = parseResult.GetValue(outputOption) ?? ""
+        };
+        ApplyCommonOptions(schemaOptions, parseResult, commonOptions);
+        return schemaOptions;
+    }
+
     private static T ReadTargetOptions<T>(ParseResult parseResult, TargetOptionSet options)
         where T : CreateOptions, new()
     {
@@ -441,6 +471,27 @@ internal static class Program
 
             Console.WriteLine();
         }
+    }
+
+    private static int ExecuteConfigSchema(ConfigSchemaOptions options)
+    {
+        var schemaJson = CliConfigSchema.ReadSchemaJson();
+        if (string.IsNullOrWhiteSpace(options.OutputFile))
+        {
+            Console.Write(schemaJson);
+            return 0;
+        }
+
+        var outputPath = Path.GetFullPath(options.OutputFile);
+        var directory = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrWhiteSpace(directory))
+            Directory.CreateDirectory(directory);
+
+        File.WriteAllText(outputPath, schemaJson);
+        if (options.Verbose)
+            Console.WriteLine($"Wrote DataLinq config schema to {outputPath}");
+
+        return 0;
     }
 
     private static int ExecuteCreateModels(CreateModelsOptions options)
@@ -1250,6 +1301,11 @@ internal static class Program
     internal sealed class ListOptions : Options
     {
         public bool Recursive { get; set; }
+    }
+
+    internal sealed class ConfigSchemaOptions : Options
+    {
+        public string OutputFile { get; set; } = "";
     }
 
     private enum ValidationOutput
