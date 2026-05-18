@@ -52,6 +52,29 @@ public class DataLinqCliCommandSurfaceTests
     }
 
     [Test]
+    public async Task GenerateSql_RequiresOutputFile()
+    {
+        await Assert.That(ParseErrors("generate", "sql", "-n", "AppDb", "-p", "SQLite")).IsGreaterThan(0);
+    }
+
+    [Test]
+    public async Task Diff_AcceptsNewTargetOptionsAndOutputPath()
+    {
+        var errors = ParseErrors(
+            "diff",
+            "--database",
+            "AppDb",
+            "--provider",
+            "SQLite",
+            "--data-source",
+            "app.db",
+            "--output",
+            "diff.sql");
+
+        await Assert.That(errors).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task ConfigList_IsNestedAndRootListIsNotKept()
     {
         await Assert.That(ParseErrors("config", "list")).IsEqualTo(0);
@@ -80,6 +103,14 @@ public class DataLinqCliCommandSurfaceTests
         await Assert.That(ParseErrors("generate", "models", "--type", "SQLite")).IsGreaterThan(0);
         await Assert.That(ParseErrors("generate", "models", "--datasource", "app.db")).IsGreaterThan(0);
         await Assert.That(ParseErrors("create-models", "--skip-source")).IsGreaterThan(0);
+    }
+
+    [Test]
+    public async Task ParserFailuresReturnExitCodeTwo()
+    {
+        var exitCode = await Program.InvokeAsync(["validate", "--output", "json"]);
+
+        await Assert.That(exitCode).IsEqualTo(2);
     }
 
     private static int ParseErrors(params string[] args) =>

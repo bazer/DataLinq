@@ -86,6 +86,15 @@ Verification after this checkpoint:
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore`
 - CLI smoke checks for root help, `config list --help`, rejected `--skip-source`, and rejected `validate --output json`
 
+Follow-up parser coverage completed the Workstream A test boundary:
+
+- `diff` accepts the new target options and file output option
+- `generate sql` requires `--output`
+- parser failures return exit code `2`
+- unit coverage increased to 653 passing tests
+
+Workstream A is complete for the currently implemented command surface. Later workstreams will add `config init`, `config schema`, `config validate`, and `secrets` as real commands when their behavior lands.
+
 ## Workstream B: Model Directory and Generation Layout
 
 ### Goals
