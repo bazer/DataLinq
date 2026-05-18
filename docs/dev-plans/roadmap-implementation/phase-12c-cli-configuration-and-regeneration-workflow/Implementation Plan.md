@@ -238,6 +238,24 @@ Verification after checkpoint 1:
 - `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliCommandSurfaceTests/*"`
 
+Checkpoint 2 added shared target expansion and recursive validation:
+
+- batch target expansion now resolves concrete targets as config path, database name, provider, and data source.
+- `--provider` and `--database` act as filters in batch modes.
+- malformed configs and unreadable configs are converted into CLI failures instead of escaping as parser exceptions.
+- recursive expansion continues through config read failures and returns both target results and independent failures.
+- `validate --all` and `validate --recursive` validate every expanded target, continue through target-level failures, and return:
+  - `2` when any expansion or validation target fails
+  - `1` when all targets ran but schema drift was found
+  - `0` when all targets ran and no drift was found
+- `validate --format json` in batch mode emits one aggregate payload instead of concatenating per-target JSON documents.
+
+Verification after checkpoint 2:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliTargetResolverTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliBatchCommandTests/*"`
+
 ## Workstream D: Config Schema and Init
 
 ### Goals

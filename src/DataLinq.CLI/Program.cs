@@ -411,18 +411,16 @@ internal static class Program
             var configLog = options.Verbose
                 ? ConsoleDiagnosticWriter.WriteLogLine
                 : new Action<string>(_ => { });
-            var config = DataLinqConfig.FindAndReadConfigs(configPath, configLog);
-
-            if (config.HasFailed)
+            if (!CliConfigLoader.TryRead(configPath, configLog, out var config, out var failure))
             {
                 hadFailure = true;
                 ConsoleDiagnosticWriter.WriteError("ConfigReadFailed", $"Failed to read config '{configPath}'.");
-                ConsoleDiagnosticWriter.WriteFailure(config.Failure);
+                ConsoleDiagnosticWriter.WriteFailure(failure);
                 Console.WriteLine();
                 continue;
             }
 
-            WriteConfigList(config.Value, configPath);
+            WriteConfigList(config, configPath);
             listedCount++;
         }
 
@@ -545,6 +543,9 @@ internal static class Program
             return 2;
         }
 
+        if (options.All || options.Recursive)
+            return ValidateBatch(options, output.Value);
+
         if (!TryValidateSchema(options, output == ValidationOutput.Json && !options.Verbose, out var validation, out var issues))
         {
             if (output == ValidationOutput.Json)
@@ -561,6 +562,93 @@ internal static class Program
             WriteValidationText(validation);
 
         return validation.HasDifferences ? 1 : 0;
+    }
+
+    private static int ValidateBatch(ValidateOptions options, ValidationOutput output)
+    {
+        if (!TryValidateBatchOptions(options, options.All, options.Recursive))
+            return 2;
+
+        var expansion = CliTargetResolver.Expand(
+            ConfigPath,
+            new CliTargetFilter(options.Database, options.Provider),
+            options.Recursive,
+            output == ValidationOutput.Json || !options.Verbose
+                ? _ => { }
+                : ConsoleDiagnosticWriter.WriteLogLine);
+
+        if (expansion.Targets.Count == 0 && expansion.Failures.Count == 0)
+        {
+            ConsoleDiagnosticWriter.WriteError("TargetNotFound", "No validation targets matched the selected config filters.");
+            return 2;
+        }
+
+        return output == ValidationOutput.Json
+            ? ValidateBatchJson(expansion, options)
+            : ValidateBatchText(expansion, options);
+    }
+
+    private static int ValidateBatchText(CliTargetExpansion expansion, ValidateOptions options)
+    {
+        var hadFailure = false;
+        var hasDifferences = false;
+
+        foreach (var failure in expansion.Failures)
+        {
+            hadFailure = true;
+            ConsoleDiagnosticWriter.WriteError("TargetFailed", $"Failed to prepare targets from '{failure.ConfigPath}'.");
+            ConsoleDiagnosticWriter.WriteIssues(CreateIssues(failure.Failure));
+        }
+
+        foreach (var target in expansion.Targets)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"Target: {FormatTargetIdentity(target.Identity)}");
+
+            if (!TryValidateTarget(target, options.Verbose, out var validation, out var issues))
+            {
+                hadFailure = true;
+                ConsoleDiagnosticWriter.WriteIssues(issues);
+                continue;
+            }
+
+            WriteValidationText(validation);
+            hasDifferences |= validation.HasDifferences;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"Validation targets: {expansion.Targets.Count}; failures: {(hadFailure ? "yes" : "no")}; drift: {(hasDifferences ? "yes" : "no")}");
+
+        if (hadFailure)
+            return 2;
+
+        return hasDifferences ? 1 : 0;
+    }
+
+    private static int ValidateBatchJson(CliTargetExpansion expansion, ValidateOptions options)
+    {
+        var failures = expansion.Failures
+            .Select(failure => new ValidationBatchFailure(null, CreateIssues(failure.Failure)))
+            .ToList();
+        var results = new List<SchemaValidationRunResult>();
+
+        foreach (var target in expansion.Targets)
+        {
+            if (!TryValidateTarget(target, options.Verbose, out var validation, out var issues))
+            {
+                failures.Add(new ValidationBatchFailure(target.Identity, issues));
+                continue;
+            }
+
+            results.Add(validation);
+        }
+
+        WriteValidationBatchJson(results, failures);
+
+        if (failures.Count > 0)
+            return 2;
+
+        return results.Any(result => result.HasDifferences) ? 1 : 0;
     }
 
     private static int Diff(DiffOptions options)
@@ -628,6 +716,50 @@ internal static class Program
         return true;
     }
 
+    private static bool TryValidateTarget(
+        CliConfigTarget target,
+        bool verbose,
+        out SchemaValidationRunResult validationResult,
+        out IReadOnlyList<DataLinqDiagnosticIssue> issues)
+    {
+        validationResult = null!;
+        issues = [];
+
+        var validator = new SchemaValidator(verbose ? ConsoleDiagnosticWriter.WriteLogLine : _ => { });
+        var validation = validator.Validate(
+            target.Connection,
+            target.Config.BasePath,
+            target.Connection.DataSourceName);
+        if (validation.HasFailed)
+        {
+            issues = CreateIssues(validation.Failure);
+            return false;
+        }
+
+        validationResult = validation.Value;
+        return true;
+    }
+
+    private static bool TryValidateBatchOptions(
+        CreateOptions options,
+        bool all,
+        bool recursive)
+    {
+        if (all && recursive)
+        {
+            ConsoleDiagnosticWriter.WriteError("InvalidArgument", "Use either --all or --recursive, not both.");
+            return false;
+        }
+
+        if ((all || recursive) && !string.IsNullOrWhiteSpace(options.DataSource))
+        {
+            ConsoleDiagnosticWriter.WriteError("InvalidArgument", "--data-source cannot be used with --all or --recursive.");
+            return false;
+        }
+
+        return true;
+    }
+
     private static bool ReadConfig(Action<string>? log = null)
     {
         if (TryReadConfig(log, out var failure))
@@ -640,16 +772,14 @@ internal static class Program
     private static bool TryReadConfig(Action<string>? log, out object? failure)
     {
         var configLog = log ?? ConsoleDiagnosticWriter.WriteLogLine;
-        var config = DataLinqConfig.FindAndReadConfigs(ConfigPath, configLog);
-
-        if (config.HasFailed)
+        if (!CliConfigLoader.TryRead(ConfigPath, configLog, out var config, out var readFailure))
         {
-            failure = config.Failure;
+            failure = readFailure;
             return false;
         }
 
         configLog("");
-        ConfigFile = config.Value;
+        ConfigFile = config;
         failure = null;
 
         return true;
@@ -774,6 +904,56 @@ internal static class Program
             WriteIndented = true
         }));
     }
+
+    private static void WriteValidationBatchJson(
+        IReadOnlyList<SchemaValidationRunResult> results,
+        IReadOnlyList<ValidationBatchFailure> failures)
+    {
+        var payload = new
+        {
+            hasFailures = failures.Count > 0,
+            hasDifferences = results.Any(result => result.HasDifferences),
+            results = results.Select(result => new
+            {
+                database = result.DatabaseName,
+                databaseType = result.DatabaseType.ToString(),
+                dataSource = result.DataSourceName,
+                modelTableCount = result.ModelTableCount,
+                databaseTableCount = result.DatabaseTableCount,
+                hasDifferences = result.HasDifferences,
+                issues = result.Issues.Select(CreateIssueJson),
+                differences = result.Differences.Select(difference => new
+                {
+                    kind = difference.Kind.ToString(),
+                    severity = difference.Severity.ToString(),
+                    safety = difference.Safety.ToString(),
+                    path = difference.Path,
+                    message = difference.Message
+                })
+            }),
+            failures = failures.Select(failure => new
+            {
+                target = failure.Target == null
+                    ? null
+                    : new
+                    {
+                        config = failure.Target.ConfigPath,
+                        database = failure.Target.DatabaseName,
+                        databaseType = failure.Target.Provider.ToString(),
+                        dataSource = failure.Target.DataSourceName
+                    },
+                issues = failure.Issues.Select(CreateIssueJson)
+            })
+        };
+
+        Console.WriteLine(JsonSerializer.Serialize(payload, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        }));
+    }
+
+    private static string FormatTargetIdentity(CliConfigTargetIdentity identity) =>
+        $"{identity.ConfigPath} :: {identity.DatabaseName} [{identity.Provider}] ({identity.DataSourceName})";
 
     private static IReadOnlyList<DataLinqDiagnosticIssue> CreateIssues(object failure)
     {
@@ -957,4 +1137,8 @@ internal static class Program
         Text,
         Json
     }
+
+    private sealed record ValidationBatchFailure(
+        CliConfigTargetIdentity? Target,
+        IReadOnlyList<DataLinqDiagnosticIssue> Issues);
 }
