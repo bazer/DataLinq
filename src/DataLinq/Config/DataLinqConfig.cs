@@ -47,7 +47,14 @@ public record DataLinqConfig
         if (basePath == null)
             return $"Couldn't get directory name of path '{configPath}'";
 
-        return new DataLinqConfig(basePath, configs.ToArray());
+        try
+        {
+            return new DataLinqConfig(basePath, configs.ToArray());
+        }
+        catch (ArgumentException exception)
+        {
+            return exception.Message;
+        }
     }
 
     public List<DataLinqDatabaseConfig> Databases { get; }
@@ -88,7 +95,7 @@ public record DataLinqConfig
     public Option<(DataLinqDatabaseConfig db, DataLinqDatabaseConnection connection)> GetConnection(string? dbName, DatabaseType databaseType)
     {
         if (string.IsNullOrEmpty(dbName) && Databases.Count != 1)
-            return $"The config file has more than one database specified. Use name (-n or --name) to select one:\n{Databases.Select(x => x.Name).ToJoinedString()}";
+            return $"The config file has more than one database specified. Use database (-n or --database) to select one:\n{Databases.Select(x => x.Name).ToJoinedString()}";
 
 
         var db = string.IsNullOrEmpty(dbName)
@@ -107,7 +114,7 @@ public record DataLinqConfig
 
         if (db.Connections.Count > 1 && databaseType == DatabaseType.Unknown)
         {
-            return $"Database '{db.Name}' has more than one type of connection to read from, you need to select which one (-t or --type):\n{db.Connections.Select(x => x.Type).ToJoinedString()}";
+            return $"Database '{db.Name}' has more than one type of connection to read from, you need to select which one (-p or --provider):\n{db.Connections.Select(x => x.Type).ToJoinedString()}";
         }
 
         DataLinqDatabaseConnection? connection = null;
@@ -136,6 +143,7 @@ public record DataLinqDatabaseConfig
     public string CsType { get; private set; }
     public string Namespace { get; private set; }
     public List<string> SourceDirectories { get; private set; }
+    public string? ModelDirectory { get; private set; }
     public string? DestinationDirectory { get; private set; }
     public List<string> Include { get; private set; }
     //public bool UseCache { get; }
@@ -145,6 +153,7 @@ public record DataLinqDatabaseConfig
     public bool CapitalizeNames { get; private set; }
     public bool RemoveInterfacePrefix { get; private set; }
     public bool SeparateTablesAndViews { get; private set; }
+    public DataLinqModelLayoutConfig ModelLayout { get; private set; }
     public List<DataLinqDatabaseConnection> Connections { get; private set; } = new();
     public Encoding FileEncoding { get; private set; }
 
@@ -155,7 +164,8 @@ public record DataLinqDatabaseConfig
         CsType = database.CsType ?? database.Name;
         Namespace = database.Namespace ?? "Models";
         SourceDirectories = database.SourceDirectories ?? new List<string>();
-        DestinationDirectory = database.DestinationDirectory;
+        ModelDirectory = ResolveModelDirectory(database, Name);
+        DestinationDirectory = ModelDirectory;
         Include = database.Include ?? new List<string>();
         UseRecord = database.UseRecord ?? false;
         UseFileScopedNamespaces = database.UseFileScopedNamespaces ?? false;
@@ -163,6 +173,7 @@ public record DataLinqDatabaseConfig
         CapitalizeNames = database.CapitalizeNames ?? false;
         RemoveInterfacePrefix = database.RemoveInterfacePrefix ?? true;
         SeparateTablesAndViews = database.SeparateTablesAndViews ?? false;
+        ModelLayout = MergeModelLayout(DataLinqModelLayoutConfig.Default, database.ModelLayout);
         Connections = database.Connections.Select(x => new DataLinqDatabaseConnection(this, x)).ToList();
         FileEncoding = ConfigReader.ParseFileEncoding(database.FileEncoding);
     }
@@ -181,8 +192,12 @@ public record DataLinqDatabaseConfig
         if (database.SourceDirectories != null)
             SourceDirectories = database.SourceDirectories;
 
-        if (database.DestinationDirectory != null)
-            DestinationDirectory = database.DestinationDirectory;
+        var modelDirectory = ResolveModelDirectory(database, Name);
+        if (modelDirectory != null)
+        {
+            ModelDirectory = modelDirectory;
+            DestinationDirectory = modelDirectory;
+        }
 
         if (database.Include != null)
             Include = database.Include;
@@ -205,12 +220,54 @@ public record DataLinqDatabaseConfig
         if (database.SeparateTablesAndViews != null)
             SeparateTablesAndViews = database.SeparateTablesAndViews.Value;
 
+        if (database.ModelLayout != null)
+            ModelLayout = MergeModelLayout(ModelLayout, database.ModelLayout);
+
         if (database.Connections != null)
             Connections = database.Connections.Select(x => new DataLinqDatabaseConnection(this, x)).ToList();
 
         if (database.FileEncoding != null)
             FileEncoding = ConfigReader.ParseFileEncoding(database.FileEncoding);
     }
+
+    private static DataLinqModelLayoutConfig MergeModelLayout(
+        DataLinqModelLayoutConfig current,
+        ConfigFileModelLayout? layout)
+    {
+        if (layout == null)
+            return current;
+
+        return current.Merge(layout.PropertyOrder, layout.KeyPlacement, layout.RelationPlacement);
+    }
+
+    private static string? ResolveModelDirectory(ConfigFileDatabase database, string databaseName)
+    {
+        var modelDirectory = NormalizeNullablePath(database.ModelDirectory);
+        var destinationDirectory = NormalizeNullablePath(database.DestinationDirectory);
+
+        if (modelDirectory != null &&
+            destinationDirectory != null &&
+            !ConfigPathsEqual(modelDirectory, destinationDirectory))
+        {
+            throw new ArgumentException(
+                $"Database '{databaseName}' config sets both ModelDirectory and DestinationDirectory to different values. Use ModelDirectory for the model path and remove DestinationDirectory.");
+        }
+
+        return modelDirectory ?? destinationDirectory;
+    }
+
+    private static string? NormalizeNullablePath(string? path) =>
+        string.IsNullOrWhiteSpace(path)
+            ? null
+            : path.Trim();
+
+    private static bool ConfigPathsEqual(string left, string right) =>
+        NormalizeConfigPath(left) == NormalizeConfigPath(right);
+
+    private static string NormalizeConfigPath(string path) =>
+        path
+            .Replace('\\', '/')
+            .TrimEnd('/');
 }
 
 public record DataLinqDatabaseConnection

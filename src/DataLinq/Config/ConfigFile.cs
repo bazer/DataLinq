@@ -15,7 +15,9 @@ public record ConfigFileDatabase
     public string? CsType { get; set; }
     public string? Namespace { get; set; }
     public List<string>? SourceDirectories { get; set; }
+    public string? ModelDirectory { get; set; }
     public string? DestinationDirectory { get; set; }
+    public ConfigFileModelLayout? ModelLayout { get; set; }
     public List<string>? Include { get; set; }
     public bool? UseRecord { get; set; }
     public bool? UseFileScopedNamespaces { get; set; }
@@ -26,6 +28,13 @@ public record ConfigFileDatabase
     public List<ConfigFileDatabaseConnection> Connections { get; set; } = new();
     public string FileEncoding { get; set; } = "UTF8";
     public Encoding ParseFileEncoding() => ConfigReader.ParseFileEncoding(FileEncoding);
+}
+
+public record ConfigFileModelLayout
+{
+    public string? PropertyOrder { get; set; }
+    public string? KeyPlacement { get; set; }
+    public string? RelationPlacement { get; set; }
 }
 
 public record ConfigFileDatabaseConnection

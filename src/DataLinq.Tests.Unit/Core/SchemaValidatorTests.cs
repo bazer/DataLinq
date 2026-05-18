@@ -136,7 +136,8 @@ public class SchemaValidatorTests
                             Name = "validation_db",
                             CsType = "ValidationDb",
                             Namespace = "DataLinq.Tests.SchemaValidation",
-                            SourceDirectories = ["models"],
+                            SourceDirectories = ["ignored-source-models"],
+                            ModelDirectory = "models",
                             FileEncoding = "UTF-8",
                             Connections =
                             [

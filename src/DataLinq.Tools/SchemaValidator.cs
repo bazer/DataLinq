@@ -82,33 +82,15 @@ public class SchemaValidator : Generator
             differences);
     }
 
-    private static IEnumerable<Option<string, IDLOptionFailure>> GetModelPaths(DataLinqDatabaseConfig db, string basePath)
+    private IEnumerable<Option<string, IDLOptionFailure>> GetModelPaths(DataLinqDatabaseConfig db, string basePath)
     {
-        foreach (var path in GetExistingPaths(basePath, db.SourceDirectories))
-            yield return path;
+        LogIgnoredSourceDirectories(db);
 
-        if (!string.IsNullOrWhiteSpace(db.DestinationDirectory))
-        {
-            var destinationPath = Path.GetFullPath(Path.Combine(basePath, db.DestinationDirectory));
-            if (Directory.Exists(destinationPath))
-                yield return new DirectoryInfo(destinationPath).FullName;
-            else
-                yield return DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Couldn't find path '{destinationPath}'");
-        }
-    }
-
-    private static IEnumerable<Option<string, IDLOptionFailure>> GetExistingPaths(string basePath, IEnumerable<string> paths)
-    {
-        foreach (var relativePath in paths)
-        {
-            var path = Path.GetFullPath(Path.Combine(basePath, relativePath));
-            if (Directory.Exists(path))
-                yield return new DirectoryInfo(path).FullName;
-            else if (File.Exists(path))
-                yield return new FileInfo(path).FullName;
-            else
-                yield return DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Couldn't find path '{path}'");
-        }
+        var modelDirectoryPath = GetModelDirectoryPath(db, basePath);
+        if (Directory.Exists(modelDirectoryPath))
+            yield return new DirectoryInfo(modelDirectoryPath).FullName;
+        else
+            yield return DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Couldn't find model directory '{modelDirectoryPath}'");
     }
 }
 

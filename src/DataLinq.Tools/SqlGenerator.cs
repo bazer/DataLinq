@@ -47,10 +47,11 @@ public class SqlGenerator : Generator
 
         var db = connection.DatabaseConfig;
         var fileEncoding = db.FileEncoding;
+        LogIgnoredSourceDirectories(db);
 
-        var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
+        var destDir = GetModelDirectoryPath(db, basePath);
         if (!Directory.Exists(destDir))
-            return DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Couldn't find dir: {destDir}");
+            return DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Couldn't find model directory '{destDir}'");
 
         //var assemblyPathsExists = ParseExistingFilesAndDirs(basePath, db.AssemblyDirectories).ToList();
         //if (assemblyPathsExists.Any())

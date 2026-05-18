@@ -131,6 +131,24 @@ Workstream A is complete for the currently implemented command surface. Later wo
 - layout tests for property/key/relation ordering
 - tests for unknown layout values
 
+### Implementation Notes
+
+Checkpoint 1 added the config and active path migration:
+
+- `ConfigFileDatabase` accepts `ModelDirectory` and nested `ModelLayout`.
+- `DataLinqDatabaseConfig.ModelDirectory` is now the effective model path.
+- `DestinationDirectory` remains accepted as a compatibility alias and resolves to the same effective value.
+- Conflicting `ModelDirectory` and `DestinationDirectory` values on the same database fail clearly.
+- `generate models`, `validate`, `diff`, `generate sql`, `database create`, and model reading now use `ModelDirectory`.
+- `SourceDirectories` is still parsed for compatibility, but active tools warn that it is deprecated and ignore it.
+- Focused tests cover the alias behavior, default/merged layout config, unknown layout values, and validation ignoring a missing source directory.
+
+Verification after checkpoint 1:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqConfigTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/SchemaValidatorTests/*"`
+
 ## Workstream C: Batch and Recursive Commands
 
 ### Goals

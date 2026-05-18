@@ -31,24 +31,18 @@ public class ModelReader : Generator
     public Option<bool, IDLOptionFailure> Read(DataLinqDatabaseConfig db, string basePath)
     {
         log($"Reading database: {db.Name}");
+        LogIgnoredSourceDirectories(db);
 
-        if (!ParseExistingFilesAndDirs(basePath, db.SourceDirectories)
-            .ToList()
-            .Transpose()
-            .TryUnwrap(out var paths, out var failures))
-            return DLOptionFailure.AggregateFail(failures);
-
-        log($"Reading models from:");
-        foreach (var srcPath in paths)
-            log(srcPath);
-
-        if (db.DestinationDirectory != null)
-            paths.Add(basePath + Path.DirectorySeparatorChar + db.DestinationDirectory);
+        var modelDirectoryPath = GetModelDirectoryPath(db, basePath);
+        if (!Directory.Exists(modelDirectoryPath))
+            return DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Couldn't find model directory '{modelDirectoryPath}'");
 
         var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = db.FileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
-        if (!ParseDatabaseDefinitionFromFiles(metadataOptions, db.CsType, paths).TryUnwrap(out var srcMetadata, out var srcFailure))
+        if (!ParseDatabaseDefinitionFromFiles(metadataOptions, db.CsType, [modelDirectoryPath]).TryUnwrap(out var srcMetadata, out var srcFailure))
             return srcFailure;
 
+        log("Reading models from:");
+        log(new DirectoryInfo(modelDirectoryPath).FullName);
         log($"Tables in model files: {srcMetadata.TableModels.Length}");
 
         var sqlOptions = new MetadataFromDatabaseFactoryOptions

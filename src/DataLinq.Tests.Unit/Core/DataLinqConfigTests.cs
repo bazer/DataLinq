@@ -41,13 +41,169 @@ public class DataLinqConfigTests
         await Assert.That(config.Databases.Single().UseNullableReferenceTypes).IsFalse();
     }
 
-    private static ConfigFileDatabase CreateDatabaseConfig(bool? useNullableReferenceTypes = null) =>
+    [Test]
+    public async Task DatabaseConfig_ModelDirectory_UsesDestinationDirectoryAlias()
+    {
+        using var fixture = DataLinqConfigFixture.Create();
+
+        var config = new DataLinqConfig(
+            fixture.BasePath,
+            new ConfigFile
+            {
+                Databases = [CreateDatabaseConfig(destinationDirectory: "Models/Generated")]
+            });
+
+        var database = config.Databases.Single();
+        await Assert.That(database.ModelDirectory).IsEqualTo("Models/Generated");
+        await Assert.That(database.DestinationDirectory).IsEqualTo("Models/Generated");
+    }
+
+    [Test]
+    public async Task DatabaseConfig_ModelDirectory_UsesNewName()
+    {
+        using var fixture = DataLinqConfigFixture.Create();
+
+        var config = new DataLinqConfig(
+            fixture.BasePath,
+            new ConfigFile
+            {
+                Databases =
+                [
+                    CreateDatabaseConfig(
+                        modelDirectory: "Models",
+                        destinationDirectory: null)
+                ]
+            });
+
+        var database = config.Databases.Single();
+        await Assert.That(database.ModelDirectory).IsEqualTo("Models");
+        await Assert.That(database.DestinationDirectory).IsEqualTo("Models");
+    }
+
+    [Test]
+    public async Task DatabaseConfig_ModelDirectoryAndDestinationDirectoryConflict_ThrowsClearError()
+    {
+        using var fixture = DataLinqConfigFixture.Create();
+
+        ArgumentException? exception = null;
+        try
+        {
+            new DataLinqConfig(
+                fixture.BasePath,
+                new ConfigFile
+                {
+                    Databases =
+                    [
+                        CreateDatabaseConfig(
+                            modelDirectory: "Models",
+                            destinationDirectory: "Generated")
+                    ]
+                });
+        }
+        catch (ArgumentException caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("ModelDirectory and DestinationDirectory");
+    }
+
+    [Test]
+    public async Task DatabaseConfig_ModelLayout_DefaultsToColumnTopBottom()
+    {
+        using var fixture = DataLinqConfigFixture.Create();
+
+        var config = new DataLinqConfig(
+            fixture.BasePath,
+            new ConfigFile
+            {
+                Databases = [CreateDatabaseConfig()]
+            });
+
+        var layout = config.Databases.Single().ModelLayout;
+        await Assert.That(layout.PropertyOrder).IsEqualTo(DataLinqModelPropertyOrder.Column);
+        await Assert.That(layout.KeyPlacement).IsEqualTo(DataLinqModelKeyPlacement.Top);
+        await Assert.That(layout.RelationPlacement).IsEqualTo(DataLinqModelRelationPlacement.Bottom);
+    }
+
+    [Test]
+    public async Task DatabaseConfig_ModelLayout_MergesPartialValues()
+    {
+        using var fixture = DataLinqConfigFixture.Create();
+
+        var config = new DataLinqConfig(
+            fixture.BasePath,
+            new ConfigFile
+            {
+                Databases =
+                [
+                    CreateDatabaseConfig(modelLayout: new ConfigFileModelLayout
+                    {
+                        PropertyOrder = "Alphabetical"
+                    })
+                ]
+            },
+            new ConfigFile
+            {
+                Databases =
+                [
+                    CreateDatabaseConfig(modelLayout: new ConfigFileModelLayout
+                    {
+                        RelationPlacement = "WithForeignKey"
+                    })
+                ]
+            });
+
+        var layout = config.Databases.Single().ModelLayout;
+        await Assert.That(layout.PropertyOrder).IsEqualTo(DataLinqModelPropertyOrder.Alphabetical);
+        await Assert.That(layout.KeyPlacement).IsEqualTo(DataLinqModelKeyPlacement.Top);
+        await Assert.That(layout.RelationPlacement).IsEqualTo(DataLinqModelRelationPlacement.WithForeignKey);
+    }
+
+    [Test]
+    public async Task DatabaseConfig_ModelLayout_UnknownValueThrowsClearError()
+    {
+        using var fixture = DataLinqConfigFixture.Create();
+
+        ArgumentException? exception = null;
+        try
+        {
+            new DataLinqConfig(
+                fixture.BasePath,
+                new ConfigFile
+                {
+                    Databases =
+                    [
+                        CreateDatabaseConfig(modelLayout: new ConfigFileModelLayout
+                        {
+                            PropertyOrder = "Source"
+                        })
+                    ]
+                });
+        }
+        catch (ArgumentException caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("Unknown ModelLayout.PropertyOrder value 'Source'");
+    }
+
+    private static ConfigFileDatabase CreateDatabaseConfig(
+        bool? useNullableReferenceTypes = null,
+        string? modelDirectory = null,
+        string? destinationDirectory = "Models",
+        ConfigFileModelLayout? modelLayout = null) =>
         new()
         {
             Name = "test_db",
             CsType = "TestDb",
             Namespace = "TestModels",
-            DestinationDirectory = "Models",
+            ModelDirectory = modelDirectory,
+            DestinationDirectory = destinationDirectory,
+            ModelLayout = modelLayout,
             UseNullableReferenceTypes = useNullableReferenceTypes,
             Connections =
             [

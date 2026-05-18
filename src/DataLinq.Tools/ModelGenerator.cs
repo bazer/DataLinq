@@ -62,6 +62,17 @@ public class Generator
 
         return srcMetadata[0];
     }
+
+    protected string GetModelDirectoryPath(DataLinqDatabaseConfig db, string basePath) =>
+        Path.GetFullPath(Path.Combine(basePath, db.ModelDirectory ?? ""));
+
+    protected void LogIgnoredSourceDirectories(DataLinqDatabaseConfig db)
+    {
+        if (db.SourceDirectories.Count == 0)
+            return;
+
+        log("Warning: SourceDirectories is deprecated and ignored. Existing model files are read from ModelDirectory.");
+    }
 }
 
 public enum ModelGeneratorError
@@ -127,23 +138,27 @@ public class ModelGenerator : Generator
         log($"Tables read from database: {dbMetadata.TableModels.Length}");
         log("");
 
-        var destDir = Path.GetFullPath(Path.Combine(basePath, db.DestinationDirectory ?? ""));
+        var destDir = GetModelDirectoryPath(db, basePath);
         var sourceRelationPropertyKeys = new HashSet<string>(StringComparer.Ordinal);
         var sourceModelsApplied = false;
+        LogIgnoredSourceDirectories(db);
         if (this.options.ReadSourceModels)
         {
-            if (db.SourceDirectories == null || !db.SourceDirectories.Any())
+            if (!Directory.Exists(destDir))
             {
-                log($"No source directory set. Skipping reading of sources.");
+                log($"ModelDirectory '{destDir}' does not exist yet. Skipping existing model read.");
+            }
+            else if (!Directory.EnumerateFiles(destDir, "*.cs", SearchOption.AllDirectories).Any())
+            {
+                log($"No existing model files found in ModelDirectory '{destDir}'. Skipping existing model read.");
             }
             else
             {
-                if (!ParseExistingFilesAndDirs(basePath, db.SourceDirectories).Transpose().TryUnwrap(out var srcPathsExists, out var srcPathsFailures))
-                    return DLOptionFailure.AggregateFail(srcPathsFailures);
+                var modelPath = new DirectoryInfo(destDir).FullName;
+                var srcPathsExists = modelPath.Yield().ToList();
 
-                log($"Reading models from:");
-                foreach (var srcPath in srcPathsExists)
-                    log($"{srcPath}");
+                log("Reading existing models from ModelDirectory:");
+                log(modelPath);
 
                 var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
                 if (!ParseDatabaseDefinitionFromFiles(metadataOptions, db.CsType, srcPathsExists).TryUnwrap(out var srcMetadata, out var srcFailure))

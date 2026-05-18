@@ -46,11 +46,12 @@ public class DatabaseCreator : Generator
 
         var db = connection.DatabaseConfig;
         var fileEncoding = db.FileEncoding;
+        LogIgnoredSourceDirectories(db);
 
-        var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
+        var destDir = GetModelDirectoryPath(db, basePath);
         if (!Directory.Exists(destDir))
         {
-            log($"Couldn't find dir: {destDir}");
+            log($"Couldn't find model directory '{destDir}'");
             return DLOptionFailure.Fail(DatabaseCreatorError.DestDirectoryNotFound);
         }
 
