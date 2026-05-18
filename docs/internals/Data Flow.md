@@ -40,13 +40,13 @@ The core loop is:
 ```mermaid
 sequenceDiagram
     participant Dev as Developer
-    participant CLI as datalinq create-models
+    participant CLI as datalinq generate models
     participant Provider as Provider metadata reader
     participant Models as Source model files
     participant Generator as Source generator
     participant Output as Generated model files
 
-    Dev->>CLI: Run create-models
+    Dev->>CLI: Run generate models
     CLI->>Provider: Read live schema
     Provider-->>CLI: DatabaseDefinition boundary
     CLI->>Models: Create or refresh abstract models

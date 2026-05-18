@@ -1503,7 +1503,8 @@ public class GeneratorFileFactory
     {
         foreach (var row in GeneratedFilePreamble.Create(new GeneratedFilePreambleOptions
         {
-            UseNullableReferenceTypes = Options.UseNullableReferenceTypes
+            UseNullableReferenceTypes = Options.UseNullableReferenceTypes,
+            Kind = GeneratedFilePreambleKind.CompilerGeneratedImplementation
         }))
             yield return row;
 

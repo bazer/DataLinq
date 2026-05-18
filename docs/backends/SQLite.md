@@ -14,7 +14,7 @@ That is important because SQLite is structurally different from the MySQL/MariaD
 
 ## Type Mapping and Affinities
 
-SQLite uses a flexible affinity system rather than strict static types. DataLinq's `create-models` behavior for SQLite is therefore partly type-based and partly convention-based.
+SQLite uses a flexible affinity system rather than strict static types. DataLinq's `generate models` behavior for SQLite is therefore partly type-based and partly convention-based.
 
 ### Standard Affinity Mapping
 
@@ -40,7 +40,7 @@ SQLite "smart" typing in DataLinq is based on column naming conventions, not mag
 
 ### Enum Handling
 
-SQLite does not have a native `ENUM` type. Define enums in your C# models if you want enum semantics. `create-models` will not infer them from an `INTEGER` column.
+SQLite does not have a native `ENUM` type. Define enums in your C# models if you want enum semantics. `generate models` will not infer them from an `INTEGER` column.
 
 ## Default Value Handling
 

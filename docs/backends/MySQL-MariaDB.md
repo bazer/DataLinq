@@ -14,7 +14,7 @@ That matters because MariaDB-specific behavior only appears when the connection 
 
 ## Schema Introspection and Type Mapping
 
-`create-models` reads schema metadata from `information_schema` and maps backend types to C# types. The mapping is aware of signedness, length, defaults, foreign keys, indices, and enum definitions.
+`generate models` reads schema metadata from `information_schema` and maps backend types to C# types. The mapping is aware of signedness, length, defaults, foreign keys, indices, and enum definitions.
 
 | MySQL/MariaDB Type | Maps to C# Type |
 | :--- | :--- |
@@ -46,7 +46,7 @@ Additional notes:
 
 ## Default Value Handling
 
-`create-models` imports MySQL and MariaDB defaults into DataLinq metadata instead of treating them as raw schema text.
+`generate models` imports MySQL and MariaDB defaults into DataLinq metadata instead of treating them as raw schema text.
 
 That includes:
 

@@ -37,6 +37,8 @@
       href: Transactions.md
     - name: Attributes and Model Definitions
       href: Attributes and Model Definitions.md
+    - name: Model Generation
+      href: model-generation.md
     - name: CLI Documentation
       href: CLI Documentation.md
     - name: Configuration Files

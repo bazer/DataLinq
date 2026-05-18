@@ -557,7 +557,8 @@ public class ModelFileFactory
         foreach (var row in GeneratedFilePreamble.Create(new GeneratedFilePreambleOptions
         {
             UseNullableReferenceTypes = options.UseNullableReferenceTypes,
-            Stamp = options.GeneratedFileStamp
+            Stamp = options.GeneratedFileStamp,
+            Kind = GeneratedFilePreambleKind.ModelDeclaration
         }))
             yield return row;
 

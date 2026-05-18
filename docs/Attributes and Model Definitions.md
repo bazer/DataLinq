@@ -166,7 +166,7 @@ Use this when several model files share the same enum type:
 public abstract AccountStatus Status { get; }
 ```
 
-`AccountStatus` can live in a separate source file. The source generator still uses the enum metadata for runtime conversion, but `create-models` will not duplicate the enum declaration in every generated model file.
+`AccountStatus` can live in a separate source file. The source generator still uses the enum metadata for runtime conversion, but `generate models` will not duplicate the enum declaration in every generated model file.
 
 ### `[Default(...)]`
 
@@ -179,7 +179,7 @@ Practical implications:
 - the default expression must be compatible with the property type
 - source-defined defaults are validated by the source generator
 - invalid defaults are reported on the model source itself rather than surfacing later as broken generated code
-- when `create-models` preserves an overridden C# property type from an existing source model, it also preserves the existing source default expression for that property instead of blindly replacing it with a database primitive
+- when `generate models` preserves an overridden C# property type from an existing model declaration, it also preserves the existing source default expression for that property instead of blindly replacing it with a database primitive
 
 Examples:
 
@@ -297,5 +297,5 @@ That is a good example of where the cache-related attributes belong: on the data
 - Prefer provider-specific `[Type(...)]` overrides only when you actually need provider-specific behavior.
 - Keep relation definitions simple and explicit.
 - Treat cache attributes as advanced tuning, not as required setup.
-- Use `[Definition(...)]` for views you expect `create-sql` to emit correctly.
+- Use `[Definition(...)]` for views you expect `generate sql` to emit correctly.
 - If you are unsure how an attribute should look, copy a real example from the generated test models and adjust it rather than inventing syntax from memory.

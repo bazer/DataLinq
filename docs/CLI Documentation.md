@@ -1,404 +1,127 @@
 # DataLinq CLI Documentation
 
-The DataLinq CLI tool lets you inspect configuration, generate models, generate SQL, create databases, validate model metadata against a live database, and generate conservative schema diff scripts from the command line. It is installed as the global `datalinq` tool.
+The `datalinq` CLI reads `datalinq.json`, optionally merges `datalinq.user.json`, and runs configuration-driven model, SQL, database, validation, diff, and config inspection commands.
 
-## Overview
+## Global Options
 
-```mermaid
----
-config:
-  theme: neo
-  look: classic
----
-graph TD
-    subgraph "DataLinq CLI Tool"
+All commands accept:
 
-            ConfigFile["datalinq.json<br/><b>(Required Config)</b>"]:::FileStyle
-            UserConfigFile["datalinq.user.json<br/><i>(Optional Overrides)</i>"]:::FileStyle
-        CLI(datalinq):::ToolStyle -- Global Options --> GlobalOpts["-v, --verbose<br/>-c, --config path-or-directory"]
+- `-c`, `--config`: path to `datalinq.json` or a directory containing it
+- `-v`, `--verbose`: print verbose messages
 
-        ConfigFile -- Reads --> CLI
-        UserConfigFile -.->|Overrides| ConfigFile
+## Target Options
 
-        CLI -- command --> CreateDB["create-database<br/><i>Create target database</i>"]
-        CLI -- command --> CreateSQL["create-sql<br/><i>Generate schema SQL script</i>"]
-        CLI -- command --> CreateModels["create-models<br/><i>Generate models from DB</i>"]
-        CLI -- command --> Validate["validate<br/><i>Report schema drift</i>"]
-        CLI -- command --> Diff["diff<br/><i>Generate conservative drift SQL</i>"]
-        CLI -- command --> ListCmd["list<br/><i>List configured databases</i>"]
-        CLI -- command --> HelpCmd["help<br/><i>Show parser help</i>"]
-        CLI -- command --> VersionCmd["version<br/><i>Show tool version</i>"]
+Commands that operate on a database target accept:
 
-        CreateDB -- Options --> CD_Opts["-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
-        CreateSQL -- Options --> CS_Opts["<b>-o, --output path</b> (Required)<br/>-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
-        CreateModels -- Options --> CM_Opts["--skip-source<br/>--overwrite-types<br/>--stamp-generated-header<br/>-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
-        Validate -- Options --> Val_Opts["--output text|json<br/>-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
-        Diff -- Options --> Diff_Opts["-o, --output path<br/>-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
-        ListCmd -- Options --> List_Opts["(Uses global options)"]
+- `-n`, `--database`: database entry name in `datalinq.json`
+- `-p`, `--provider`: provider on the selected database entry, such as `MySQL`, `MariaDB`, or `SQLite`
+- `--data-source`: database name or file path override for the selected run
 
-        CLI:::ToolStyle
-        CreateDB:::CommandStyle
-        CreateSQL:::CommandStyle
-        CreateModels:::CommandStyle
-        Validate:::CommandStyle
-        Diff:::CommandStyle
-        ListCmd:::CommandStyle
-        HelpCmd:::CommandStyle
-        VersionCmd:::CommandStyle
-        CD_Opts:::OptionsStyle
-        CS_Opts:::OptionsStyle
-        CM_Opts:::OptionsStyle
-        Val_Opts:::OptionsStyle
-        Diff_Opts:::OptionsStyle
-        List_Opts:::OptionsStyle
-        GlobalOpts:::OptionsStyle
-        ConfigFile:::FileStyle
-        UserConfigFile:::FileStyle
-
-    end
-
-    classDef ToolStyle stroke-width:2px, stroke:#FFB74D, fill:#FFF8E1, color:#E65100
-    classDef CommandStyle stroke-width:1px, stroke:#374D7C, fill:#E2EBFF, color:#374D7C
-    classDef OptionsStyle stroke-width:1px, stroke:#AAAAAA, fill:#FAFAFA, color:#333333, font-family:monospace, font-size:0.9em
-    classDef FileStyle stroke-width:1px, stroke:#81C784, fill:#E8F5E9, color:#1B5E20
-    linkStyle default stroke:#000000
-    linkStyle 1 stroke-dasharray: 5 5
-```
-
----
-
-## General Options
-
-All commands accept the following general options:
-
-- **-v, --verbose**  
-  Enable verbose output for more detailed logging.
-
-- **-c, --config**  
-  Specify either the path to `datalinq.json` or a directory containing it.  
-  *(Optional)*
-
-## Selection Rules
-
-The CLI resolves a target database from the config before it can do any work.
-
-- If the config contains more than one database, you must pass `-n` or `--name`.
-- If the selected database contains more than one connection type, you must pass `-t` or `--type`.
-- `datalinq.user.json` is discovered by replacing `.json` with `.user.json` next to the main config file, then merged on top.
-
-In the CLI entry point, the built-in registered providers are:
-
-- `MySQL`
-- `MariaDB`
-- `SQLite`
-
-The command-line parser also exposes built-in `help` and `version` commands. They do not read `datalinq.json`; they are parser/tool metadata commands.
-
----
+If the config contains more than one database, pass `--database`. If the selected database has more than one connection type, pass `--provider`.
 
 ## Commands
 
-### 1. create-database
+### `generate models`
 
-**Purpose:**  
-Creates the target database using the model metadata and configuration settings.
+Generates C# model declaration files from database metadata.
 
-**Usage:**  
 ```bash
-datalinq create-database [options]
+datalinq generate models -n AppDb -p SQLite
 ```
 
-**Options:**
+Options:
 
-- **-d, --datasource**  
-  *Description:* Name of the database instance on the server or the file on disk (depending on the connection type).  
-  *Optional*
+- `--fresh`: ignore existing files in `ModelDirectory` and regenerate from database metadata plus config
+- `--overwrite-types`: replace preserved C# property types with database-inferred types
+- `--stamp-generated-header`: add the CLI version and one UTC timestamp to generated file headers
 
-- **-n, --name**  
-  *Description:* The name as defined in the DataLinq configuration file.  
-  *Optional*
+By default, `generate models` reads existing files from `ModelDirectory` before writing. That is how supported class names, property names, relation names, and C# property types are preserved. See [Model Generation](model-generation.md).
 
-- **-t, --type**  
-  *Description:* Specifies the database connection type to create the database for (e.g., MySQL, SQLite).  
-  *Optional*
+`create-models` remains as a deprecated compatibility alias for `generate models`.
 
----
+### `generate sql`
 
-### 2. create-sql
+Generates a schema SQL script from the configured model files.
 
-**Purpose:**  
-Generates SQL scripts for creating the database schema based on the model definitions.
-
-**Usage:**  
 ```bash
-datalinq create-sql -o <output-file> [other options]
+datalinq generate sql -n AppDb -p SQLite -o schema.sql
 ```
 
-**Options:**
+Options:
 
-- **-o, --output**  
-  *Description:* Path to the output file where the generated SQL script will be saved.  
-  *Required*
+- `-o`, `--output`: required output path
 
-- **-d, --datasource**  
-  *Description:* Name of the database instance on the server or the file on disk.  
-  *Optional*
+### `database create`
 
-- **-n, --name**  
-  *Description:* The name as defined in the DataLinq configuration file.  
-  *Optional*
+Creates the selected database from configured model metadata.
 
-- **-t, --type**  
-  *Description:* Specifies the database connection type (e.g., MySQL, SQLite).  
-  *Optional*
-
-- Additionally, the general options (`-v, --verbose` and `-c, --config`) can also be used.
-
----
-
-### 3. create-models
-
-**Purpose:**  
-Generates data model classes directly from your database schema.
-
-**Usage:**  
 ```bash
-datalinq create-models [options]
+datalinq database create -n AppDb -p SQLite
 ```
 
-**Options:**
+### `validate`
 
-- **--skip-source**  
-  *Description:* Skip reading from source models during generation.
-  *Optional*
+Compares configured model metadata with live database metadata.
 
-- **--overwrite-types**  
-  *Description:* Force C# property types in your model files to be overwritten with the types inferred from the database. By default, existing C# types (especially enums) are preserved.
-  *Optional*
+```bash
+datalinq validate -n AppDb -p SQLite
+```
 
-- **--stamp-generated-header**  
-  *Description:* Add the DataLinq CLI version and one UTC generation timestamp to generated model file headers. This is opt-in because timestamps create source diffs on every generation run.
-  *Optional*
+Options:
 
-- **-d, --datasource**  
-  *Description:* Name of the database instance on the server or the file on disk.  
-  *Optional*
+- `--format`: `text` or `json`, default `text`
 
-- **-n, --name**  
-  *Description:* The name as defined in the DataLinq configuration file.  
-  *Optional*
+Exit codes:
 
-- **-t, --type**  
-  *Description:* Specifies the database connection type (e.g., MySQL, SQLite).  
-  *Optional*
+- `0`: validation completed and no drift was detected
+- `1`: validation completed and drift was detected
+- `2`: command, configuration, connection, model parsing, or metadata loading failed
 
-- General options (`-v, --verbose` and `-c, --config`) are also available.
+### `diff`
 
-**Important:**  
-`create-models` is not a dry-run command. It writes generated files to the configured destination directory and is intended to refresh generated model output.
+Runs validation and emits a conservative SQL suggestion script for supported additive drift.
 
-Generated C# files start with a DataLinq generated-file banner and an explicit nullable directive:
+```bash
+datalinq diff -n AppDb -p MariaDB -o update_schema.sql
+```
+
+Options:
+
+- `-o`, `--output`: optional output path; if omitted, SQL is written to stdout
+
+If validation issues are found, `diff` reports them and writes no SQL output file.
+
+### `config list`
+
+Lists databases and connections in the selected config.
+
+```bash
+datalinq config list -c ./datalinq.json
+```
+
+## Generated File Headers
+
+CLI-generated model declaration files start with:
 
 ```csharp
 // <auto-generated />
-// This file was generated by DataLinq. Do not edit this file directly.
+// Generated by DataLinq. Supported model class names, property names, relation names, and C# property types may be edited.
+// See https://datalinq.org/docs/model-generation.html#editing-generated-models before changing mapping attributes or using --fresh.
 #nullable enable
 ```
 
 If the selected database config has `"UseNullableReferenceTypes": false`, DataLinq emits `#nullable disable` instead.
 
-`create-models` validates and renders generated files before replacing output. If validation or rendering reports errors, the command reports the issues and does not replace generated model files.
+Source-generator implementation files use a stricter banner:
 
----
-
-### 4. validate
-
-**Purpose:**  
-Loads the configured C# model metadata, reads live database metadata through the selected provider, and reports schema drift without applying changes.
-
-**Usage:**  
-```bash
-datalinq validate [options]
+```csharp
+// <auto-generated />
+// Generated by DataLinq. Do not edit this compiler-generated implementation file.
 ```
-
-**Options:**
-
-- **--output**  
-  *Description:* Output format. Supported values are `text` and `json`.  
-  *Default:* `text`
-
-- **-d, --datasource**  
-  *Description:* Name of the database instance on the server or the file on disk.  
-  *Optional*
-
-- **-n, --name**  
-  *Description:* The name as defined in the DataLinq configuration file.  
-  *Optional*
-
-- **-t, --type**  
-  *Description:* Specifies the database connection type (e.g., MySQL, MariaDB, SQLite).  
-  *Optional*
-
-- General options (`-v, --verbose` and `-c, --config`) are also available.
-
-**Exit codes:**
-
-- `0`: validation completed and no schema drift was detected
-- `1`: validation completed and schema drift was detected
-- `2`: command, configuration, connection, model parsing, or metadata loading failed
-
-**Important:**  
-`validate` is read-only. It reports drift; it does not generate migration scripts or apply schema changes. When metadata loading or validation finds multiple independent issues, the CLI reports every reachable issue it can honestly identify instead of stopping at the first one.
-
-For text output, issue locations are printed as line/column locations when DataLinq can map the source span. When only the file is known, output falls back to file-level location. Provider metadata issues may use an object path instead of pretending to have a C# source location.
-
-For JSON output, validation failures and successful validation runs both include an `issues` array. Each issue object has:
-
-- `severity`
-- `failureType`
-- `message`
-- `location`
-- `objectPath`
-- `context`
-
-`location` is `null` when there is no source file. When present, it includes `file`, character `start` and `length`, and line/column fields when those can be resolved.
-
-For the provider metadata boundary behind validation, see the [Provider Metadata Support Matrix](support-matrices/Provider%20Metadata%20Support%20Matrix.md).
-
----
-
-### 5. diff
-
-**Purpose:**
-Runs schema validation and emits a conservative SQL suggestion script for supported additive drift. The command is read-only and does not apply changes.
-
-**Usage:**
-```bash
-datalinq diff [options]
-```
-
-**Options:**
-
-- **-o, --output**
-  *Description:* Path to the SQL script file. If omitted, the script is written to stdout.
-  *Optional*
-
-- **-d, --datasource**
-  *Description:* Name of the database instance on the server or the file on disk.
-  *Optional*
-
-- **-n, --name**
-  *Description:* The name as defined in the DataLinq configuration file.
-  *Optional*
-
-- **-t, --type**
-  *Description:* Specifies the database connection type (e.g., MySQL, MariaDB, SQLite).
-  *Optional*
-
-- General options (`-v, --verbose` and `-c, --config`) are also available.
-
-**Generated SQL boundary:**
-
-- executable SQL is generated for missing tables, supported missing columns, and supported missing simple or unique indexes
-- destructive, ambiguous, and unsupported changes are emitted as SQL comments with manual-review text
-- primary-key column additions are commented because they usually require provider-specific table rebuild or migration handling
-
-For the metadata subset that `diff` can reason about, see the [Provider Metadata Support Matrix](support-matrices/Provider%20Metadata%20Support%20Matrix.md).
-
-If validation issues are found, `diff` reports them and writes no SQL output file.
-
----
-
-### 6. list
-
-**Purpose:**  
-Lists all databases defined in your DataLinq configuration file.
-
-**Usage:**  
-```bash
-datalinq list [options]
-```
-
-**Options:**
-
-- **-v, --verbose**  
-  *Description:* Enable verbose output for detailed listing.  
-  *Optional*
-
-- **-c, --config**  
-  *Description:* Path to the configuration file (e.g., `datalinq.json`).  
-  *Optional*
-
----
-
-## Example Usages
-
-- **Creating a Database:**
-  ```bash
-  datalinq create-database -n MyDatabase -t MySQL
-  ```
-
-- **Generating SQL Script:**
-  ```bash
-  datalinq create-sql -o schema.sql -n MyDatabase -t SQLite
-  ```
-
-- **Generating Models:**
-  ```bash
-  datalinq create-models -n MyDatabase
-  ```
-
-- **Generating Models and Forcing Type Overwrite:**
-  ```bash
-  datalinq create-models -n MyDatabase --overwrite-types
-  ```
-
-- **Generating Models With Version/Timestamp Stamped Headers:**
-  ```bash
-  datalinq create-models -n MyDatabase --stamp-generated-header
-  ```
-
-- **Validating Models Against a Live Database:**
-  ```bash
-  datalinq validate -n MyDatabase -t SQLite
-  ```
-
-- **Validating with JSON Output:**
-  ```bash
-  datalinq validate -n MyDatabase --output json
-  ```
-
-- **Generating a Conservative Diff Script:**
-  ```bash
-  datalinq diff -n MyDatabase -t MariaDB -o update_schema.sql
-  ```
-
-- **Listing Databases from Config:**
-  ```bash
-  datalinq list -c ./datalinq.json -v
-  ```
-
-- **Using a directory instead of a file for config discovery:**
-  ```bash
-  datalinq create-models -c . -n MyDatabase
-  ```
 
 ## Common Failure Cases
 
-- **More than one database in config and no `-n`:**  
-  The command cannot choose a database automatically and fails until you specify `--name`.
-
-- **More than one connection type on the selected database and no `-t`:**  
-  The command cannot choose a provider automatically and fails until you specify `--type`.
-
-- **Using `datalinq.user.json` for overrides:**  
-  The CLI does not scan for arbitrary override files. It only looks for the file created by replacing `.json` with `.user.json` next to the main config file.
-
-- **Running `create-models`:**  
-  This command refreshes generated output in the configured destination directory. Treat those files as generated code. If validation or rendering fails, DataLinq reports the issues before replacing generated files.
-
-- **Running `validate`:**  
-  This command reads live database metadata and can return exit code `1` for real schema drift even when the command itself succeeds. Treat exit code `1` as a validation result, not a CLI crash. Exit code `2` means validation could not produce a trustworthy comparison; use `--output json` if automation needs structured `issues`.
-
-- **Running `diff`:**
-  This command suggests SQL from current model-vs-database state. It is stateless, so it cannot infer renames. Review the script before executing it. If validation issues exist, no SQL file is written.
+- More than one database in config and no `--database`: the command fails until you select one.
+- More than one provider on the selected database and no `--provider`: the command fails until you select one.
+- `generate models --fresh` ignores existing model declarations, so supported C# surface edits are not preserved.
+- Validation exit code `1` means real drift, not a CLI crash. Exit code `2` means validation could not produce a trustworthy comparison.

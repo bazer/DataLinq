@@ -162,6 +162,20 @@ Verification after checkpoint 2:
 - `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/ModelFileFactoryTests/*"`
 
+Checkpoint 3 updated generated-file guidance:
+
+- CLI model declaration files now say that supported model class names, property names, relation names, and C# property types may be edited.
+- The declaration header links to `https://datalinq.org/docs/model-generation.html#editing-generated-models`.
+- Source-generator implementation files now use a stricter header that says not to edit compiler-generated implementation files.
+- Public docs now include a model-generation page backing the header link, and the CLI docs match the nested command surface introduced in Workstream A.
+
+Verification after checkpoint 3:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/GeneratorFileFactoryTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/ModelFileFactoryTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Generators.Tests\DataLinq.Generators.Tests.csproj -c Debug --no-restore --treenode-filter "/*/*/ModelGenerationLogicTests/SourceGenerator_UsesSourceNullable*"`
+
 ## Workstream C: Batch and Recursive Commands
 
 ### Goals

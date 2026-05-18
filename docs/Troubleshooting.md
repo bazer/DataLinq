@@ -6,13 +6,13 @@ This page is for the failure modes that are actually common in DataLinq, not gen
 
 If your `datalinq.json` contains more than one database entry, pass `-n`.
 
-If the selected database contains more than one connection type, pass `-t`.
+If the selected database contains more than one connection type, pass `-p`.
 
 Examples:
 
 ```bash
-datalinq create-models -n AppDb
-datalinq create-models -n AppDb -t MariaDB
+datalinq generate models -n AppDb
+datalinq generate models -n AppDb -p MariaDB
 ```
 
 If you do not disambiguate, the CLI has to guess. Guessing is how bad tooling earns a reputation.
@@ -21,9 +21,11 @@ If you do not disambiguate, the CLI has to guess. Guessing is how bad tooling ea
 
 That is expected.
 
-Generated output is generated output. Do not hand-edit it and then act surprised when regeneration replaces it.
+Generated output is generated output, but CLI model declaration files have a supported edit surface.
 
-Keep hand-written changes in your source model files or partial classes, not in generated files.
+It is OK to rename generated model classes, scalar properties, relation properties, and C# property types in `ModelDirectory`. DataLinq reads those files on the next regeneration and preserves supported edits.
+
+Keep custom methods and behavior in separate partial classes. Do not change mapping attributes unless the database mapping itself changed. See [Model Generation](model-generation.md) for the exact rules.
 
 Newer generated C# files also start with a DataLinq generated-file banner and an explicit `#nullable` directive. Those lines are owned by DataLinq too.
 
@@ -59,7 +61,7 @@ That is a feature, not a cascade by default.
 
 The CLI now reports all independent validation issues it can reach. If one broken attribute prevents one table from being trustworthy, DataLinq should still report unrelated broken attributes or provider metadata issues it can honestly inspect.
 
-The rule is still conservative: when validation issues exist, `diff` writes no SQL file and `create-models` does not replace generated model files after validation or rendering errors.
+The rule is still conservative: when validation issues exist, `diff` writes no SQL file and `generate models` does not replace generated model files after validation or rendering errors.
 
 ## A Query Throws `QueryTranslationException`
 
