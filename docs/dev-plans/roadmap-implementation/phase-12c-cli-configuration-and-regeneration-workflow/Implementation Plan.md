@@ -354,6 +354,12 @@ Verification after checkpoint 3:
 - `_site/schemas/datalinq.schema.json` was generated.
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqConfigSchemaTests/*|/*/*/DataLinqConfigInitTests/*|/*/*/DataLinqCliCommandSurfaceTests/*"`
 
+Workstream D is complete. Final verification:
+
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore` passed with 686 tests.
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental` passed.
+- `docfx build docfx.json` passed with 0 warnings and 0 errors.
+
 ## Workstream E: Secret References
 
 ### Goals
