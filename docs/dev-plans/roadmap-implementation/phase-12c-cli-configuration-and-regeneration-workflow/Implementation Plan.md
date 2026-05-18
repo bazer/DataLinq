@@ -187,6 +187,11 @@ Verification after checkpoint 4:
 
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/ModelGeneratorModelDirectoryTests/*"`
 
+Workstream B is complete for the configured model-directory and layout surface. Final verification:
+
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore` passed with 667 tests.
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Generators.Tests\DataLinq.Generators.Tests.csproj -c Debug --no-restore` passed with 39 tests.
+
 ## Workstream C: Batch and Recursive Commands
 
 ### Goals
