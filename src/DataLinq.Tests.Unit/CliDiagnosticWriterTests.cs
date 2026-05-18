@@ -59,6 +59,28 @@ public class CliDiagnosticWriterTests
     }
 
     [Test]
+    public async Task FormatFailureText_RedactsRegisteredSecrets()
+    {
+        var originalRedactor = ConsoleDiagnosticWriter.Redactor;
+        try
+        {
+            var redactor = new SecretRedactor();
+            redactor.Register("super-secret");
+            ConsoleDiagnosticWriter.Redactor = redactor;
+
+            var output = ConsoleDiagnosticWriter.FormatFailureText(
+                DLOptionFailure.Fail(DLFailureType.InvalidModel, "Connection failed with super-secret"));
+
+            await Assert.That(output).DoesNotContain("super-secret");
+            await Assert.That(output).Contains("********");
+        }
+        finally
+        {
+            ConsoleDiagnosticWriter.Redactor = originalRedactor;
+        }
+    }
+
+    [Test]
     public async Task FormatIssuesText_PrintsLineAndColumnWhenSourceTextIsAvailable()
     {
         var sourceLocation = new SourceLocation(

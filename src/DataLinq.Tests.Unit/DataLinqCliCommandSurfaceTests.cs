@@ -113,6 +113,16 @@ public class DataLinqCliCommandSurfaceTests
     }
 
     [Test]
+    public async Task SecretsCommands_AreNested()
+    {
+        await Assert.That(ParseErrors("secrets", "list")).IsEqualTo(0);
+        await Assert.That(ParseErrors("secrets", "set", "datalinq/AppDb/password")).IsEqualTo(0);
+        await Assert.That(ParseErrors("secrets", "remove", "datalinq/AppDb/password")).IsEqualTo(0);
+        await Assert.That(ParseErrors("secrets", "set")).IsGreaterThan(0);
+        await Assert.That(ParseErrors("secrets-list")).IsGreaterThan(0);
+    }
+
+    [Test]
     public async Task RecursiveConfigDiscovery_SkipsGeneratedAndInfrastructureDirectories()
     {
         using var fixture = CliDiscoveryFixture.Create();

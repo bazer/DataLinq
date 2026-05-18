@@ -43,7 +43,8 @@ internal static class CliTargetResolver
         string configPath,
         CliTargetFilter filter,
         bool recursive,
-        Action<string> log)
+        Action<string> log,
+        SecretResolutionContext? secrets = null)
     {
         if (!TryParseProviderFilter(filter.ProviderName, out var provider, out var providerFailure))
         {
@@ -72,7 +73,7 @@ internal static class CliTargetResolver
 
         foreach (var discoveredConfigPath in configPaths)
         {
-            if (!CliConfigLoader.TryRead(discoveredConfigPath, log, out var config, out var failure))
+            if (!CliConfigLoader.TryRead(discoveredConfigPath, log, out var config, out var failure, secrets))
             {
                 failures.Add(new CliTargetExpansionFailure(discoveredConfigPath, failure));
                 continue;

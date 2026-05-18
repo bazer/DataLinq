@@ -26,6 +26,7 @@ internal static class Program
     private static string ConfigPath = DefaultConfigPath;
     private static DataLinqConfig ConfigFile = null!;
     private static string ConfigBasePath => ConfigFile.BasePath;
+    private static SecretResolutionContext SecretContext = null!;
 
     public static async Task<int> Main(string[] args)
     {
@@ -70,11 +71,17 @@ internal static class Program
         configCommand.Subcommands.Add(CreateConfigListCommand());
         configCommand.Subcommands.Add(CreateConfigSchemaCommand());
 
+        var secretsCommand = new Command("secrets", "Manage DataLinq local secrets.");
+        secretsCommand.Subcommands.Add(CreateSecretsListCommand());
+        secretsCommand.Subcommands.Add(CreateSecretsSetCommand());
+        secretsCommand.Subcommands.Add(CreateSecretsRemoveCommand());
+
         rootCommand.Subcommands.Add(generateCommand);
         rootCommand.Subcommands.Add(databaseCommand);
         rootCommand.Subcommands.Add(CreateValidateCommand());
         rootCommand.Subcommands.Add(CreateDiffCommand());
         rootCommand.Subcommands.Add(configCommand);
+        rootCommand.Subcommands.Add(secretsCommand);
         rootCommand.Subcommands.Add(CreateDeprecatedCreateModelsCommand());
 
         return rootCommand;
@@ -214,6 +221,49 @@ internal static class Program
         {
             var options = ReadConfigSchemaOptions(parseResult, commonOptions, outputOption);
             Environment.ExitCode = ExecuteConfigSchema(options);
+        });
+
+        return command;
+    }
+
+    private static Command CreateSecretsListCommand()
+    {
+        var command = new Command("list", "List DataLinq local secret names.");
+        command.SetAction(_ => Environment.ExitCode = ExecuteSecretsList());
+        return command;
+    }
+
+    private static Command CreateSecretsSetCommand()
+    {
+        var command = new Command("set", "Set a DataLinq local secret value.");
+        var nameArgument = new Argument<string>("name")
+        {
+            Description = "Secret name, such as datalinq/AppDb/password."
+        };
+        command.Arguments.Add(nameArgument);
+
+        command.SetAction(parseResult =>
+        {
+            var name = parseResult.GetValue(nameArgument) ?? "";
+            Environment.ExitCode = ExecuteSecretsSet(name);
+        });
+
+        return command;
+    }
+
+    private static Command CreateSecretsRemoveCommand()
+    {
+        var command = new Command("remove", "Remove a DataLinq local secret.");
+        var nameArgument = new Argument<string>("name")
+        {
+            Description = "Secret name to remove."
+        };
+        command.Arguments.Add(nameArgument);
+
+        command.SetAction(parseResult =>
+        {
+            var name = parseResult.GetValue(nameArgument) ?? "";
+            Environment.ExitCode = ExecuteSecretsRemove(name);
         });
 
         return command;
@@ -489,7 +539,7 @@ internal static class Program
             Console.WriteLine(db.Name);
             Console.WriteLine("Connections:");
             foreach (var connection in db.Connections)
-                Console.WriteLine($"{connection.Type} ({connection.DataSourceName})");
+                Console.WriteLine($"{connection.Type} ({Redact(connection.DataSourceName)})");
 
             Console.WriteLine();
         }
@@ -595,6 +645,28 @@ internal static class Program
         WritePlanPreview(plan);
         return 0;
     }
+
+    private static int ExecuteSecretsList()
+        => CliSecretCommandService.List(
+            SecretContext.LocalSecrets,
+            Console.WriteLine,
+            ConsoleDiagnosticWriter.WriteError);
+
+    private static int ExecuteSecretsSet(string name)
+        => CliSecretCommandService.Set(
+            SecretContext.LocalSecrets,
+            SecretContext.Prompt,
+            name,
+            Console.WriteLine,
+            ConsoleDiagnosticWriter.WriteError);
+
+    private static int ExecuteSecretsRemove(string name)
+        => CliSecretCommandService.Remove(
+            SecretContext.LocalSecrets,
+            name,
+            secretName => Confirm($"Remove secret '{secretName}'?", defaultValue: false),
+            Console.WriteLine,
+            ConsoleDiagnosticWriter.WriteError);
 
     private static int ExecuteRepairOrphanedUserConfigInit(ConfigInitState state)
     {
@@ -755,7 +827,8 @@ internal static class Program
             ConfigPath,
             new CliTargetFilter(options.Database, options.Provider),
             options.Recursive,
-            options.Verbose ? ConsoleDiagnosticWriter.WriteLogLine : _ => { });
+            options.Verbose ? ConsoleDiagnosticWriter.WriteLogLine : _ => { },
+            SecretContext);
 
         if (expansion.Targets.Count == 0 && expansion.Failures.Count == 0)
         {
@@ -959,7 +1032,8 @@ internal static class Program
             options.Recursive,
             output == ValidationOutput.Json || !options.Verbose
                 ? _ => { }
-                : ConsoleDiagnosticWriter.WriteLogLine);
+                : ConsoleDiagnosticWriter.WriteLogLine,
+            SecretContext);
 
         if (expansion.Targets.Count == 0 && expansion.Failures.Count == 0)
         {
@@ -1156,7 +1230,7 @@ internal static class Program
     private static bool TryReadConfig(Action<string>? log, out object? failure)
     {
         var configLog = log ?? ConsoleDiagnosticWriter.WriteLogLine;
-        if (!CliConfigLoader.TryRead(ConfigPath, configLog, out var config, out var readFailure))
+        if (!CliConfigLoader.TryRead(ConfigPath, configLog, out var config, out var readFailure, SecretContext))
         {
             failure = readFailure;
             return false;
@@ -1181,7 +1255,7 @@ internal static class Program
 
     private static void WriteValidationText(SchemaValidationRunResult result)
     {
-        Console.WriteLine($"Validation target: {result.DatabaseName} [{result.DatabaseType}] ({result.DataSourceName})");
+        Console.WriteLine($"Validation target: {result.DatabaseName} [{result.DatabaseType}] ({Redact(result.DataSourceName)})");
         Console.WriteLine($"Model tables: {result.ModelTableCount}; database tables: {result.DatabaseTableCount}");
 
         if (!result.HasDifferences)
@@ -1205,7 +1279,7 @@ internal static class Program
             foreach (var difference in group)
             {
                 Console.WriteLine($"  - {difference.Kind} [{difference.Safety}] {difference.Path}");
-                Console.WriteLine($"    {difference.Message}");
+                Console.WriteLine($"    {Redact(difference.Message)}");
             }
         }
     }
@@ -1252,7 +1326,7 @@ internal static class Program
         {
             database = result.DatabaseName,
             databaseType = result.DatabaseType.ToString(),
-            dataSource = result.DataSourceName,
+            dataSource = Redact(result.DataSourceName),
             modelTableCount = result.ModelTableCount,
             databaseTableCount = result.DatabaseTableCount,
             hasDifferences = result.HasDifferences,
@@ -1263,7 +1337,7 @@ internal static class Program
                 severity = difference.Severity.ToString(),
                 safety = difference.Safety.ToString(),
                 path = difference.Path,
-                message = difference.Message
+                message = Redact(difference.Message)
             })
         };
 
@@ -1301,7 +1375,7 @@ internal static class Program
             {
                 database = result.DatabaseName,
                 databaseType = result.DatabaseType.ToString(),
-                dataSource = result.DataSourceName,
+                dataSource = Redact(result.DataSourceName),
                 modelTableCount = result.ModelTableCount,
                 databaseTableCount = result.DatabaseTableCount,
                 hasDifferences = result.HasDifferences,
@@ -1312,7 +1386,7 @@ internal static class Program
                     severity = difference.Severity.ToString(),
                     safety = difference.Safety.ToString(),
                     path = difference.Path,
-                    message = difference.Message
+                    message = Redact(difference.Message)
                 })
             }),
             failures = failures.Select(failure => new
@@ -1324,7 +1398,7 @@ internal static class Program
                         config = failure.Target.ConfigPath,
                         database = failure.Target.DatabaseName,
                         databaseType = failure.Target.Provider.ToString(),
-                        dataSource = failure.Target.DataSourceName
+                        dataSource = Redact(failure.Target.DataSourceName)
                     },
                 issues = failure.Issues.Select(CreateIssueJson)
             })
@@ -1337,7 +1411,7 @@ internal static class Program
     }
 
     private static string FormatTargetIdentity(CliConfigTargetIdentity identity) =>
-        $"{identity.ConfigPath} :: {identity.DatabaseName} [{identity.Provider}] ({identity.DataSourceName})";
+        $"{identity.ConfigPath} :: {identity.DatabaseName} [{identity.Provider}] ({Redact(identity.DataSourceName)})";
 
     private static IReadOnlyList<DataLinqDiagnosticIssue> CreateIssues(object failure)
     {
@@ -1387,12 +1461,15 @@ internal static class Program
         {
             severity = issue.Severity.ToString(),
             failureType = issue.FailureType.ToString(),
-            message = issue.Message,
+            message = Redact(issue.Message),
             location,
             objectPath = issue.ObjectPath,
-            context = issue.ContextMessages
+            context = issue.ContextMessages.Select(Redact)
         };
     }
+
+    private static string Redact(string? value) =>
+        ConsoleDiagnosticWriter.Redactor.Redact(value);
 
     private static bool TryReadSourceText(SourceLocation sourceLocation, out string sourceText)
     {
@@ -1426,6 +1503,8 @@ internal static class Program
     {
         ConfigPath = DefaultConfigPath;
         ConfigFile = null!;
+        SecretContext = SecretResolutionContext.CreateDefault();
+        ConsoleDiagnosticWriter.Redactor = SecretContext.Redactor;
     }
 
     private static string GetCliVersion()

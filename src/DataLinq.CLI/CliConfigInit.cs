@@ -181,8 +181,8 @@ internal static class CliConfigInit
         provider switch
         {
             "SQLite" => $"Data Source={dataSourceName};Cache=Shared;",
-            "MySQL" => $"Server=localhost;Database={dataSourceName};User ID=root;Password=;",
-            "MariaDB" => $"Server=localhost;Database={dataSourceName};User ID=root;Password=;",
+            "MySQL" => $"Server=localhost;Database={dataSourceName};User ID=root;Password=${{prompt:{dataSourceName} password}};",
+            "MariaDB" => $"Server=localhost;Database={dataSourceName};User ID=root;Password=${{prompt:{dataSourceName} password}};",
             _ => $"Data Source={dataSourceName};"
         };
 

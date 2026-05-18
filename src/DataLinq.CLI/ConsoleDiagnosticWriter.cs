@@ -14,6 +14,8 @@ internal static class ConsoleDiagnosticWriter
     private const ConsoleColor ErrorColor = ConsoleColor.Red;
     private const ConsoleColor WarningColor = ConsoleColor.Yellow;
 
+    public static SecretRedactor Redactor { get; set; } = new();
+
     public static void WriteError(string message) =>
         WritePrefixedLines(ErrorPrefix, ErrorColor, message);
 
@@ -76,6 +78,7 @@ internal static class ConsoleDiagnosticWriter
 
     public static void WriteLogLine(string message)
     {
+        message = Redactor.Redact(message);
         if (TryGetDiagnosticPrefix(message, out var prefix, out var color))
         {
             WriteColoredPrefix(prefix, color);
@@ -109,7 +112,7 @@ internal static class ConsoleDiagnosticWriter
 
     private static void WritePrefixedLines(string prefix, ConsoleColor color, string message)
     {
-        var lines = message.ReplaceLineEndings("\n").Split('\n');
+        var lines = Redactor.Redact(message).ReplaceLineEndings("\n").Split('\n');
         foreach (var line in lines)
         {
             if (line.Length == 0)
@@ -125,7 +128,7 @@ internal static class ConsoleDiagnosticWriter
 
     private static string FormatPrefixedLines(string prefix, string message)
     {
-        var lines = message.ReplaceLineEndings("\n").Split('\n');
+        var lines = Redactor.Redact(message).ReplaceLineEndings("\n").Split('\n');
         return string.Join(
             Environment.NewLine,
             Array.ConvertAll(lines, line => line.Length == 0 ? "" : $"{prefix} {line}")) + Environment.NewLine;

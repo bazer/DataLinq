@@ -390,6 +390,28 @@ Workstream D is complete. Final verification:
 - local secret command tests with fake backends
 - non-interactive prompt failure tests
 
+### Progress
+
+Checkpoint 1 added the core secret-reference implementation:
+
+- `SecretReferenceResolver` supports `${env:NAME}`, `${secret:name}`, and `${prompt:label}`.
+- Connection-string placeholders are resolved through `DbConnectionStringBuilder`, so password values containing semicolons are quoted safely instead of being concatenated into raw connection-string text.
+- Whole-connection-string secret references are supported for cases such as `${secret:datalinq/AppDb/connection-string}`.
+- Prompt references cache values for the current CLI invocation and fail clearly when input is non-interactive.
+- Resolved values, raw secret references, and password-like connection-string values are registered with the CLI redactor.
+- CLI config loading resolves secret references at command boundaries before constructing `DataLinqConfig`.
+- `datalinq secrets list`, `datalinq secrets set <name>`, and `datalinq secrets remove <name>` are wired into the nested command surface.
+- The local secret store uses Windows Credential Manager on Windows and fails clearly on platforms where a secure backend has not landed yet.
+- `config init` now defaults MySQL/MariaDB password-bearing connection strings to `${prompt:<data-source> password}` rather than normalizing plaintext passwords.
+
+Verification after checkpoint 1:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqSecretReferenceTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqSecretCommandTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliCommandSurfaceTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/CliDiagnosticWriterTests/*"`
+
 ## Documentation Workstream
 
 Update docs only after behavior lands:
