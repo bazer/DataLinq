@@ -14,6 +14,18 @@ internal static class ConsoleDiagnosticWriter
     private const ConsoleColor ErrorColor = ConsoleColor.Red;
     private const ConsoleColor WarningColor = ConsoleColor.Yellow;
 
+    public static void WriteError(string message) =>
+        WritePrefixedLines(ErrorPrefix, ErrorColor, message);
+
+    public static void WriteError(string? code, string message) =>
+        WriteError(FormatCodeMessage(code, message));
+
+    public static void WriteWarning(string message) =>
+        WritePrefixedLines(WarningPrefix, WarningColor, message);
+
+    public static void WriteWarning(string? code, string message) =>
+        WriteWarning(FormatCodeMessage(code, message));
+
     public static void WriteFailure(object? failure)
     {
         if (failure is IDLOptionFailure optionFailure)
@@ -22,11 +34,25 @@ internal static class ConsoleDiagnosticWriter
             return;
         }
 
-        WritePrefixedLines(ErrorPrefix, ErrorColor, failure?.ToString() ?? "");
+        WriteError(failure?.ToString() ?? "");
     }
 
-    public static void WriteIssues(IEnumerable<DataLinqDiagnosticIssue> issues) =>
-        WritePrefixedLines(ErrorPrefix, ErrorColor, FormatIssuesMessage(issues, TryReadSourceText));
+    public static void WriteIssues(IEnumerable<DataLinqDiagnosticIssue> issues)
+    {
+        var issueList = issues.ToList();
+        if (issueList.Count == 0)
+        {
+            WriteError("Unknown DataLinq failure.");
+            return;
+        }
+
+        foreach (var issue in issueList)
+        {
+            var prefix = PrefixFor(issue.Severity);
+            var color = ColorFor(issue.Severity);
+            WritePrefixedLines(prefix, color, FormatIssueMessage(issue, TryReadSourceText));
+        }
+    }
 
     internal static string FormatFailureText(object? failure)
     {
@@ -38,8 +64,15 @@ internal static class ConsoleDiagnosticWriter
 
     internal static string FormatIssuesText(
         IEnumerable<DataLinqDiagnosticIssue> issues,
-        Func<SourceLocation, string?>? sourceTextProvider = null) =>
-        FormatPrefixedLines(ErrorPrefix, FormatIssuesMessage(issues, sourceTextProvider));
+        Func<SourceLocation, string?>? sourceTextProvider = null)
+    {
+        var issueList = issues.ToList();
+        if (issueList.Count == 0)
+            return FormatPrefixedLines(ErrorPrefix, "Unknown DataLinq failure.");
+
+        return string.Concat(issueList.Select(issue =>
+            FormatPrefixedLines(PrefixFor(issue.Severity), FormatIssueMessage(issue, sourceTextProvider))));
+    }
 
     public static void WriteLogLine(string message)
     {
@@ -98,27 +131,20 @@ internal static class ConsoleDiagnosticWriter
             Array.ConvertAll(lines, line => line.Length == 0 ? "" : $"{prefix} {line}")) + Environment.NewLine;
     }
 
-    private static string FormatIssuesMessage(
-        IEnumerable<DataLinqDiagnosticIssue> issues,
+    private static string FormatIssueMessage(
+        DataLinqDiagnosticIssue issue,
         Func<SourceLocation, string?>? sourceTextProvider)
     {
-        var issueList = issues.ToList();
-        if (issueList.Count == 0)
-            return "Unknown DataLinq failure.";
-
         var lines = new List<string>();
-        foreach (var issue in issueList)
-        {
-            var location = FormatIssueLocation(issue, sourceTextProvider);
-            var issueText = string.IsNullOrWhiteSpace(location)
-                ? $"[{issue.FailureType}] {issue.Message}"
-                : $"{location}: [{issue.FailureType}] {issue.Message}";
+        var location = FormatIssueLocation(issue, sourceTextProvider);
+        var issueText = string.IsNullOrWhiteSpace(location)
+            ? FormatCodeMessage(issue.FailureType.ToString(), issue.Message)
+            : $"{location}: {FormatCodeMessage(issue.FailureType.ToString(), issue.Message)}";
 
-            lines.Add(issueText);
+        lines.Add(issueText);
 
-            foreach (var contextMessage in issue.ContextMessages.Where(static message => !string.IsNullOrWhiteSpace(message)))
-                lines.Add($"  context: {contextMessage}");
-        }
+        foreach (var contextMessage in issue.ContextMessages.Where(static message => !string.IsNullOrWhiteSpace(message)))
+            lines.Add($"  context: {contextMessage}");
 
         return string.Join(Environment.NewLine, lines);
     }
@@ -152,6 +178,21 @@ internal static class ConsoleDiagnosticWriter
             return null;
         }
     }
+
+    private static string PrefixFor(DataLinqDiagnosticSeverity severity) =>
+        severity == DataLinqDiagnosticSeverity.Warning
+            ? WarningPrefix
+            : ErrorPrefix;
+
+    private static ConsoleColor ColorFor(DataLinqDiagnosticSeverity severity) =>
+        severity == DataLinqDiagnosticSeverity.Warning
+            ? WarningColor
+            : ErrorColor;
+
+    private static string FormatCodeMessage(string? code, string message) =>
+        string.IsNullOrWhiteSpace(code)
+            ? message
+            : $"{code}: {message}";
 
     private static void WriteColoredPrefix(string prefix, ConsoleColor color)
     {

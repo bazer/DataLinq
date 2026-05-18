@@ -14,7 +14,7 @@ public class CliDiagnosticWriterTests
         var output = ConsoleDiagnosticWriter.FormatFailureText(
             DLOptionFailure.Fail(DLFailureType.InvalidModel, "Broken model"));
 
-        await Assert.That(output).IsEqualTo($"Error: [InvalidModel] Broken model{Environment.NewLine}");
+        await Assert.That(output).IsEqualTo($"Error: InvalidModel: Broken model{Environment.NewLine}");
     }
 
     [Test]
@@ -54,8 +54,8 @@ public class CliDiagnosticWriterTests
             ]));
 
         await Assert.That(output).IsEqualTo(
-            $"Error: [FileNotFound] Second problem{Environment.NewLine}" +
-            $"Error: [InvalidModel] First problem{Environment.NewLine}");
+            $"Error: FileNotFound: Second problem{Environment.NewLine}" +
+            $"Error: InvalidModel: First problem{Environment.NewLine}");
     }
 
     [Test]
@@ -75,6 +75,20 @@ public class CliDiagnosticWriterTests
             _ => "line 1\npublic abstract string Name { get; }");
 
         await Assert.That(output).IsEqualTo(
-            $"Error: Account.cs:2:1: [InvalidModel] Broken property{Environment.NewLine}");
+            $"Error: Account.cs:2:1: InvalidModel: Broken property{Environment.NewLine}");
+    }
+
+    [Test]
+    public async Task FormatIssuesText_UsesWarningPrefixForWarningIssues()
+    {
+        var issue = new DataLinqDiagnosticIssue(
+            DataLinqDiagnosticSeverity.Warning,
+            DLFailureType.InvalidModel,
+            "Suspicious property");
+
+        var output = ConsoleDiagnosticWriter.FormatIssuesText([issue]);
+
+        await Assert.That(output).IsEqualTo(
+            $"Warning: InvalidModel: Suspicious property{Environment.NewLine}");
     }
 }

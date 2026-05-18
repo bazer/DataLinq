@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.CommandLine;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
-using CommandLine;
+using System.Threading.Tasks;
 using DataLinq.Config;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
@@ -17,285 +18,459 @@ using DataLinq.Validation;
 
 namespace DataLinq.CLI;
 
-static class Program
+internal static class Program
 {
-    [Verb("create-database", HelpText = "Create selected database")]
-    public class CreateDatabaseOptions : CreateOptions
+    private static readonly string DefaultConfigPath =
+        $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}datalinq.json";
+
+    private static string ConfigPath = DefaultConfigPath;
+    private static DataLinqConfig ConfigFile = null!;
+    private static string ConfigBasePath => ConfigFile.BasePath;
+
+    public static async Task<int> Main(string[] args)
     {
+        var exitCode = await InvokeAsync(args);
+        Environment.ExitCode = exitCode;
+        return exitCode;
     }
 
-    [Verb("create-sql", HelpText = "Create SQL for selected database")]
-    public class CreateSqlOptions : CreateOptions
+    internal static async Task<int> InvokeAsync(string[] args)
     {
-        [Option('o', "output", HelpText = "Path to output file", Required = true)]
-        public string OutputFile { get; set; } = string.Empty;
-    }
+        RegisterProviders();
+        ResetState();
 
-    [Verb("create-models", HelpText = "Create models for selected database")]
-    public class CreateModelsOptions : CreateOptions
-    {
-        [Option("skip-source", HelpText = "Skip reading from source models", Required = false)]
-        public bool SkipSource { get; set; }
-
-        [Option("overwrite-types", Required = false, HelpText = "Force overwriting C# property types in existing models with types inferred from the database schema.")]
-        public bool OverwriteTypes { get; set; }
-
-        [Option("stamp-generated-header", Required = false, HelpText = "Include the DataLinq CLI version and UTC generation timestamp in generated model file headers.")]
-        public bool StampGeneratedHeader { get; set; }
-    }
-
-    [Verb("validate", HelpText = "Validate configured model metadata against a live database.")]
-    public class ValidateOptions : CreateOptions
-    {
-        [Option("output", Required = false, Default = "text", HelpText = "Output format: text or json.")]
-        public string Output { get; set; } = "text";
-    }
-
-    [Verb("diff", HelpText = "Generate a conservative SQL script for configured model drift.")]
-    public class DiffOptions : CreateOptions
-    {
-        [Option('o', "output", HelpText = "Path to output file. If omitted, the script is written to stdout.", Required = false)]
-        public string OutputFile { get; set; } = "";
-    }
-
-    public class CreateOptions : Options
-    {
-        [Option('d', "datasource", HelpText = "Name of the database instance on the server or file on disk, depending on the connection type", Required = false)]
-        public string? DataSource { get; set; }
-
-        [Option('n', "name", HelpText = "Name in the DataLinq config file", Required = false)]
-        public string? Name { get; set; }
-
-        [Option('t', "type", HelpText = "Which database connection type to create the database for", Required = false)]
-        public string? ConnectionType { get; set; }
-    }
-
-
-    [Verb("list", HelpText = "List all databases in config.")]
-    public class ListOptions : Options
-    {
-    }
-
-    public class Options
-    {
-        [Option('v', "verbose", Required = false, HelpText = "Set output to verbose messages.")]
-        public bool Verbose { get; set; }
-
-        [Option('c', "config", Required = false, HelpText = "Path to config file")]
-        public string? ConfigPath { get; set; }
-    }
-
-    static string ConfigPath = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}datalinq.json";
-    static DataLinqConfig ConfigFile = null!;
-    static string ConfigBasePath => ConfigFile.BasePath;
-
-    static public bool ReadConfig(Action<string>? log = null)
-    {
-        if (TryReadConfig(log, out var failure))
-            return true;
-
-        ConsoleDiagnosticWriter.WriteFailure(failure);
-        return false;
-    }
-
-    private static bool TryReadConfig(Action<string>? log, out object? failure)
-    {
-        var configLog = log ?? ConsoleDiagnosticWriter.WriteLogLine;
-        var config = DataLinqConfig.FindAndReadConfigs(ConfigPath, configLog);
-
-        if (config.HasFailed)
+        var rootCommand = CreateRootCommand();
+        var parseResult = rootCommand.Parse(args);
+        if (parseResult.Errors.Count > 0)
         {
-            failure = config.Failure;
-            return false;
+            foreach (var error in parseResult.Errors)
+                ConsoleDiagnosticWriter.WriteError("InvalidCommand", error.Message);
+
+            return 2;
         }
 
-        configLog("");
-        ConfigFile = config.Value;
-        failure = null;
-
-        return true;
+        Environment.ExitCode = 0;
+        var exitCode = await parseResult.InvokeAsync();
+        return Environment.ExitCode != 0 ? Environment.ExitCode : exitCode;
     }
 
-    static void Main(string[] args)
+    internal static RootCommand CreateRootCommand()
     {
-        MySQLProvider.RegisterProvider();
-        MariaDBProvider.RegisterProvider();
-        SQLiteProvider.RegisterProvider();
+        var rootCommand = new RootCommand("DataLinq command-line tools.");
 
-        var exitCode = 0;
+        var generateCommand = new Command("generate", "Generate DataLinq artifacts.");
+        generateCommand.Subcommands.Add(CreateGenerateModelsCommand());
+        generateCommand.Subcommands.Add(CreateGenerateSqlCommand());
 
-        var parserResult = Parser.Default
-            .ParseArguments<Options, CreateModelsOptions, CreateSqlOptions, CreateDatabaseOptions, ValidateOptions, DiffOptions, ListOptions>(args);
+        var databaseCommand = new Command("database", "Manage configured databases.");
+        databaseCommand.Subcommands.Add(CreateDatabaseCreateCommand());
 
-        parserResult
-            .WithParsed<Options>(options =>
+        var configCommand = new Command("config", "Inspect and manage DataLinq configuration.");
+        configCommand.Subcommands.Add(CreateConfigListCommand());
+
+        rootCommand.Subcommands.Add(generateCommand);
+        rootCommand.Subcommands.Add(databaseCommand);
+        rootCommand.Subcommands.Add(CreateValidateCommand());
+        rootCommand.Subcommands.Add(CreateDiffCommand());
+        rootCommand.Subcommands.Add(configCommand);
+        rootCommand.Subcommands.Add(CreateDeprecatedCreateModelsCommand());
+
+        return rootCommand;
+    }
+
+    private static Command CreateGenerateModelsCommand()
+    {
+        var command = new Command("models", "Generate C# models for the selected database.");
+        var options = AddModelGenerationOptions(command);
+
+        command.SetAction(parseResult =>
+        {
+            var createOptions = ReadCreateModelsOptions(parseResult, options);
+            Environment.ExitCode = ExecuteCreateModels(createOptions);
+        });
+
+        return command;
+    }
+
+    private static Command CreateDeprecatedCreateModelsCommand()
+    {
+        var command = new Command("create-models", "Deprecated. Use 'generate models'.");
+        var options = AddModelGenerationOptions(command);
+
+        command.SetAction(parseResult =>
+        {
+            ConsoleDiagnosticWriter.WriteWarning("DeprecatedCommand", "create-models is deprecated. Use generate models.");
+            var createOptions = ReadCreateModelsOptions(parseResult, options);
+            Environment.ExitCode = ExecuteCreateModels(createOptions);
+        });
+
+        return command;
+    }
+
+    private static Command CreateGenerateSqlCommand()
+    {
+        var command = new Command("sql", "Generate SQL for the selected database.");
+        var targetOptions = AddTargetOptions(command);
+        var outputOption = OutputFileOption(required: true);
+        command.Options.Add(outputOption);
+
+        command.SetAction(parseResult =>
+        {
+            var options = ReadCreateSqlOptions(parseResult, targetOptions, outputOption);
+            Environment.ExitCode = ExecuteCreateSql(options);
+        });
+
+        return command;
+    }
+
+    private static Command CreateDatabaseCreateCommand()
+    {
+        var command = new Command("create", "Create the selected database.");
+        var targetOptions = AddTargetOptions(command);
+
+        command.SetAction(parseResult =>
+        {
+            var options = ReadCreateDatabaseOptions(parseResult, targetOptions);
+            Environment.ExitCode = ExecuteCreateDatabase(options);
+        });
+
+        return command;
+    }
+
+    private static Command CreateValidateCommand()
+    {
+        var command = new Command("validate", "Validate configured model metadata against a live database.");
+        var targetOptions = AddTargetOptions(command);
+        var formatOption = new Option<string>("--format")
+        {
+            Description = "Output format: text or json.",
+            DefaultValueFactory = _ => "text"
+        };
+        command.Options.Add(formatOption);
+
+        command.SetAction(parseResult =>
+        {
+            var options = ReadValidateOptions(parseResult, targetOptions, formatOption);
+            Environment.ExitCode = Validate(options);
+        });
+
+        return command;
+    }
+
+    private static Command CreateDiffCommand()
+    {
+        var command = new Command("diff", "Generate a conservative SQL script for configured model drift.");
+        var targetOptions = AddTargetOptions(command);
+        var outputOption = OutputFileOption(required: false);
+        command.Options.Add(outputOption);
+
+        command.SetAction(parseResult =>
+        {
+            var options = ReadDiffOptions(parseResult, targetOptions, outputOption);
+            Environment.ExitCode = Diff(options);
+        });
+
+        return command;
+    }
+
+    private static Command CreateConfigListCommand()
+    {
+        var command = new Command("list", "List databases and connections in the selected config.");
+        var options = AddCommonOptions(command);
+
+        command.SetAction(parseResult =>
+        {
+            var listOptions = ReadListOptions(parseResult, options);
+            Environment.ExitCode = ExecuteList(listOptions);
+        });
+
+        return command;
+    }
+
+    private static ModelGenerationOptionSet AddModelGenerationOptions(Command command)
+    {
+        var targetOptions = AddTargetOptions(command);
+        var freshOption = new Option<bool>("--fresh")
+        {
+            Description = "Ignore existing model source and generate from database metadata plus datalinq.json only."
+        };
+        var overwriteTypesOption = new Option<bool>("--overwrite-types")
+        {
+            Description = "Force overwriting C# property types in existing models with types inferred from the database schema."
+        };
+        var stampGeneratedHeaderOption = new Option<bool>("--stamp-generated-header")
+        {
+            Description = "Include the DataLinq CLI version and UTC generation timestamp in generated model file headers."
+        };
+
+        command.Options.Add(freshOption);
+        command.Options.Add(overwriteTypesOption);
+        command.Options.Add(stampGeneratedHeaderOption);
+
+        return new ModelGenerationOptionSet(
+            targetOptions,
+            freshOption,
+            overwriteTypesOption,
+            stampGeneratedHeaderOption);
+    }
+
+    private static TargetOptionSet AddTargetOptions(Command command)
+    {
+        var commonOptions = AddCommonOptions(command);
+        var dataSourceOption = new Option<string?>("--data-source")
+        {
+            Description = "Name of the database instance on the server or file on disk, depending on the connection type."
+        };
+        var databaseOption = new Option<string?>("--database")
+        {
+            Description = "Database name in datalinq.json."
+        };
+        databaseOption.Aliases.Add("-n");
+        var providerOption = new Option<string?>("--provider")
+        {
+            Description = "Database provider to use for the selected config entry."
+        };
+        providerOption.Aliases.Add("-p");
+
+        command.Options.Add(dataSourceOption);
+        command.Options.Add(databaseOption);
+        command.Options.Add(providerOption);
+
+        return new TargetOptionSet(commonOptions, dataSourceOption, databaseOption, providerOption);
+    }
+
+    private static CommonOptionSet AddCommonOptions(Command command)
+    {
+        var verboseOption = new Option<bool>("--verbose")
+        {
+            Description = "Print verbose messages."
+        };
+        verboseOption.Aliases.Add("-v");
+
+        var configOption = new Option<string?>("--config")
+        {
+            Description = "Path to datalinq.json or its containing directory."
+        };
+        configOption.Aliases.Add("-c");
+
+        command.Options.Add(verboseOption);
+        command.Options.Add(configOption);
+
+        return new CommonOptionSet(verboseOption, configOption);
+    }
+
+    private static Option<string?> OutputFileOption(bool required)
+    {
+        var option = new Option<string?>("--output")
+        {
+            Description = required
+                ? "Path to output file."
+                : "Path to output file. If omitted, output is written to stdout.",
+            Required = required
+        };
+        option.Aliases.Add("-o");
+        return option;
+    }
+
+    private static CreateModelsOptions ReadCreateModelsOptions(ParseResult parseResult, ModelGenerationOptionSet options)
+    {
+        var createOptions = ReadTargetOptions<CreateModelsOptions>(parseResult, options.TargetOptions);
+        createOptions.Fresh = parseResult.GetValue(options.FreshOption);
+        createOptions.OverwriteTypes = parseResult.GetValue(options.OverwriteTypesOption);
+        createOptions.StampGeneratedHeader = parseResult.GetValue(options.StampGeneratedHeaderOption);
+        return createOptions;
+    }
+
+    private static CreateSqlOptions ReadCreateSqlOptions(
+        ParseResult parseResult,
+        TargetOptionSet targetOptions,
+        Option<string?> outputOption)
+    {
+        var createOptions = ReadTargetOptions<CreateSqlOptions>(parseResult, targetOptions);
+        createOptions.OutputFile = parseResult.GetValue(outputOption) ?? "";
+        return createOptions;
+    }
+
+    private static CreateDatabaseOptions ReadCreateDatabaseOptions(ParseResult parseResult, TargetOptionSet targetOptions) =>
+        ReadTargetOptions<CreateDatabaseOptions>(parseResult, targetOptions);
+
+    private static ValidateOptions ReadValidateOptions(
+        ParseResult parseResult,
+        TargetOptionSet targetOptions,
+        Option<string> formatOption)
+    {
+        var validateOptions = ReadTargetOptions<ValidateOptions>(parseResult, targetOptions);
+        validateOptions.Format = parseResult.GetValue(formatOption) ?? "text";
+        return validateOptions;
+    }
+
+    private static DiffOptions ReadDiffOptions(
+        ParseResult parseResult,
+        TargetOptionSet targetOptions,
+        Option<string?> outputOption)
+    {
+        var diffOptions = ReadTargetOptions<DiffOptions>(parseResult, targetOptions);
+        diffOptions.OutputFile = parseResult.GetValue(outputOption) ?? "";
+        return diffOptions;
+    }
+
+    private static ListOptions ReadListOptions(ParseResult parseResult, CommonOptionSet options)
+    {
+        var listOptions = new ListOptions();
+        ApplyCommonOptions(listOptions, parseResult, options);
+        return listOptions;
+    }
+
+    private static T ReadTargetOptions<T>(ParseResult parseResult, TargetOptionSet options)
+        where T : CreateOptions, new()
+    {
+        var createOptions = new T
+        {
+            DataSource = parseResult.GetValue(options.DataSourceOption),
+            Database = parseResult.GetValue(options.DatabaseOption),
+            Provider = parseResult.GetValue(options.ProviderOption)
+        };
+        ApplyCommonOptions(createOptions, parseResult, options.CommonOptions);
+        return createOptions;
+    }
+
+    private static void ApplyCommonOptions(Options options, ParseResult parseResult, CommonOptionSet optionSet)
+    {
+        options.Verbose = parseResult.GetValue(optionSet.VerboseOption);
+        options.ConfigPath = parseResult.GetValue(optionSet.ConfigOption);
+
+        if (options.Verbose)
+            Console.WriteLine("Verbose output enabled.");
+
+        if (options.ConfigPath != null)
+            ConfigPath = Path.GetFullPath(options.ConfigPath);
+    }
+
+    private static int ExecuteList(ListOptions options)
+    {
+        if (ReadConfig() == false)
+            return 2;
+
+        Console.WriteLine("Databases in config:");
+        foreach (var db in ConfigFile.Databases)
+        {
+            Console.WriteLine(db.Name);
+            Console.WriteLine("Connections:");
+            foreach (var connection in db.Connections)
+                Console.WriteLine($"{connection.Type} ({connection.DataSourceName})");
+
+            Console.WriteLine();
+
+            var reader = new ModelReader(ConsoleDiagnosticWriter.WriteLogLine);
+            var result = reader.Read(ConfigFile, ConfigBasePath);
+
+            if (result.HasFailed)
             {
-                if (options.Verbose)
-                {
-                    Console.WriteLine($"Verbose output enabled.");
-                }
+                ConsoleDiagnosticWriter.WriteFailure(result.Failure);
+                return 2;
+            }
+        }
 
-                if (options.ConfigPath != null)
-                {
-                    ConfigPath = Path.GetFullPath(options.ConfigPath);
-                    //Console.WriteLine($"Reading config from {ConfigPath}");
-                }
-            })
-            .WithParsed<ListOptions>(options =>
-            {
-                if (ReadConfig() == false)
-                {
-                    exitCode = 2;
-                    return;
-                }
+        return 0;
+    }
 
+    private static int ExecuteCreateModels(CreateModelsOptions options)
+    {
+        if (ReadConfig() == false)
+            return 2;
 
-                Console.WriteLine($"Databases in config:");
-                foreach (var db in ConfigFile.Databases)
-                {
-                    Console.WriteLine($"{db.Name}");
-                    Console.WriteLine("Connections:");
-                    foreach (var connection in db.Connections)
-                    {
-                        Console.WriteLine($"{connection.Type} ({connection.DataSourceName})");
-                    }
+        var result = ConfigFile.GetConnection(options.Database, ConfigReader.ParseDatabaseType(options.Provider));
+        if (result.HasFailed)
+        {
+            ConsoleDiagnosticWriter.WriteFailure(result.Failure);
+            return 2;
+        }
 
-                    Console.WriteLine();
+        var (db, connection) = result.Value;
+        var generator = new ModelGenerator(ConsoleDiagnosticWriter.WriteLogLine, new ModelGeneratorOptions
+        {
+            OverwriteExistingModels = true,
+            ReadSourceModels = !options.Fresh,
+            CapitalizeNames = db.CapitalizeNames,
+            Include = db.Include,
+            OverwritePropertyTypes = options.OverwriteTypes,
+            GeneratedFileStamp = options.StampGeneratedHeader
+                ? new GeneratedFileStamp(GetCliVersion(), DateTimeOffset.UtcNow)
+                : null
+        });
 
-                    var reader = new ModelReader(ConsoleDiagnosticWriter.WriteLogLine);
-                    var result = reader.Read(ConfigFile, ConfigBasePath);
+        var databaseMetadata = generator.CreateModels(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? db.Name);
 
-                    if (result.HasFailed)
-                    {
-                        ConsoleDiagnosticWriter.WriteFailure(result.Failure);
-                        exitCode = 2;
-                        return;
-                    }
+        if (databaseMetadata.HasFailed)
+        {
+            ConsoleDiagnosticWriter.WriteFailure(databaseMetadata.Failure);
+            return 2;
+        }
 
-                    //Console.WriteLine();
-                }
-            })
-            .WithParsed<CreateModelsOptions>(options =>
-            {
-                if (ReadConfig() == false)
-                {
-                    exitCode = 2;
-                    return;
-                }
+        return 0;
+    }
 
-                var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
-                if (result.HasFailed)
-                {
-                    ConsoleDiagnosticWriter.WriteFailure(result.Failure);
-                    exitCode = 2;
-                    return;
-                }
+    private static int ExecuteCreateSql(CreateSqlOptions options)
+    {
+        if (ReadConfig() == false)
+            return 2;
 
-                var (db, connection) = result.Value;
-                var generator = new ModelGenerator(ConsoleDiagnosticWriter.WriteLogLine, new ModelGeneratorOptions
-                {
-                    OverwriteExistingModels = true,
-                    ReadSourceModels = !options.SkipSource,
-                    CapitalizeNames = db.CapitalizeNames,
-                    Include = db.Include,
-                    OverwritePropertyTypes = options.OverwriteTypes,
-                    GeneratedFileStamp = options.StampGeneratedHeader
-                        ? new GeneratedFileStamp(GetCliVersion(), DateTimeOffset.UtcNow)
-                        : null
-                });
+        var result = ConfigFile.GetConnection(options.Database, ConfigReader.ParseDatabaseType(options.Provider));
+        if (result.HasFailed)
+        {
+            ConsoleDiagnosticWriter.WriteFailure(result.Failure);
+            return 2;
+        }
 
-                var databaseMetadata = generator.CreateModels(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? db.Name);
+        var (_, connection) = result.Value;
+        var generator = new SqlGenerator(ConsoleDiagnosticWriter.WriteLogLine, new SqlGeneratorOptions
+        {
+        });
 
-                if (databaseMetadata.HasFailed)
-                {
-                    ConsoleDiagnosticWriter.WriteFailure(databaseMetadata.Failure);
-                    exitCode = 2;
-                    return;
-                }
-            })
-            .WithParsed<CreateSqlOptions>(options =>
-            {
-                if (ReadConfig() == false)
-                {
-                    exitCode = 2;
-                    return;
-                }
+        var sql = generator.Create(connection, ConfigBasePath, options.OutputFile);
 
-                var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
-                if (result.HasFailed)
-                {
-                    ConsoleDiagnosticWriter.WriteFailure(result.Failure);
-                    exitCode = 2;
-                    return;
-                }
+        if (sql.HasFailed)
+        {
+            ConsoleDiagnosticWriter.WriteFailure(sql.Failure);
+            return 2;
+        }
 
-                var (db, connection) = result.Value;
-                var generator = new SqlGenerator(ConsoleDiagnosticWriter.WriteLogLine, new SqlGeneratorOptions
-                {
-                });
+        return 0;
+    }
 
-                var sql = generator.Create(connection, ConfigBasePath, options.OutputFile);
+    private static int ExecuteCreateDatabase(CreateDatabaseOptions options)
+    {
+        if (ReadConfig() == false)
+            return 2;
 
-                if (sql.HasFailed)
-                {
-                    ConsoleDiagnosticWriter.WriteFailure(sql.Failure);
-                    exitCode = 2;
-                    return;
-                }
-            })
-            .WithParsed<CreateDatabaseOptions>(options =>
-            {
-                if (ReadConfig() == false)
-                {
-                    exitCode = 2;
-                    return;
-                }
+        var result = ConfigFile.GetConnection(options.Database, ConfigReader.ParseDatabaseType(options.Provider));
+        if (result.HasFailed)
+        {
+            ConsoleDiagnosticWriter.WriteFailure(result.Failure);
+            return 2;
+        }
 
-                var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
-                if (result.HasFailed)
-                {
-                    ConsoleDiagnosticWriter.WriteFailure(result.Failure);
-                    exitCode = 2;
-                    return;
-                }
+        var (db, connection) = result.Value;
+        var generator = new DatabaseCreator(ConsoleDiagnosticWriter.WriteLogLine, new DatabaseCreatorOptions
+        {
+        });
 
-                var (db, connection) = result.Value;
-                var generator = new DatabaseCreator(ConsoleDiagnosticWriter.WriteLogLine, new DatabaseCreatorOptions
-                {
-                });
+        var createResult = generator.Create(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? db.Name);
+        if (createResult.HasFailed)
+        {
+            ConsoleDiagnosticWriter.WriteFailure(createResult.Failure);
+            return 2;
+        }
 
-                var createResult = generator.Create(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? db.Name);
-                if (createResult.HasFailed)
-                {
-                    ConsoleDiagnosticWriter.WriteFailure(createResult.Failure);
-                    exitCode = 2;
-                    return;
-                }
-            })
-            .WithParsed<ValidateOptions>(options =>
-            {
-                exitCode = Validate(options);
-            })
-            .WithParsed<DiffOptions>(options =>
-            {
-                exitCode = Diff(options);
-            })
-            .WithNotParsed(options =>
-            {
-                Console.WriteLine($"Usage: datalinq [command] -n name");
-                exitCode = 2;
-                //Console.WriteLine(HelpText.AutoBuild(parserResult, _ => _, _ => _));
-            });
-
-        Environment.ExitCode = exitCode;
+        return 0;
     }
 
     private static int Validate(ValidateOptions options)
     {
-        var output = ParseValidationOutput(options.Output);
+        var output = ParseValidationOutput(options.Format);
         if (output == null)
         {
-            Console.WriteLine("Invalid output format. Expected 'text' or 'json'.");
+            ConsoleDiagnosticWriter.WriteError("InvalidArgument", "Invalid output format. Expected 'text' or 'json'.");
             return 2;
         }
 
@@ -362,7 +537,7 @@ static class Program
             return false;
         }
 
-        var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
+        var result = ConfigFile.GetConnection(options.Database, ConfigReader.ParseDatabaseType(options.Provider));
         if (result.HasFailed)
         {
             issues = CreateIssues(result.Failure);
@@ -371,7 +546,7 @@ static class Program
 
         var (_, connection) = result.Value;
         var validator = new SchemaValidator(options.Verbose ? ConsoleDiagnosticWriter.WriteLogLine : _ => { });
-        var validation = validator.Validate(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? options.Name);
+        var validation = validator.Validate(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? options.Database);
         if (validation.HasFailed)
         {
             issues = CreateIssues(validation.Failure);
@@ -382,9 +557,36 @@ static class Program
         return true;
     }
 
+    private static bool ReadConfig(Action<string>? log = null)
+    {
+        if (TryReadConfig(log, out var failure))
+            return true;
+
+        ConsoleDiagnosticWriter.WriteFailure(failure);
+        return false;
+    }
+
+    private static bool TryReadConfig(Action<string>? log, out object? failure)
+    {
+        var configLog = log ?? ConsoleDiagnosticWriter.WriteLogLine;
+        var config = DataLinqConfig.FindAndReadConfigs(ConfigPath, configLog);
+
+        if (config.HasFailed)
+        {
+            failure = config.Failure;
+            return false;
+        }
+
+        configLog("");
+        ConfigFile = config.Value;
+        failure = null;
+
+        return true;
+    }
+
     private static ValidationOutput? ParseValidationOutput(string value)
     {
-        return value?.ToLowerInvariant() switch
+        return value.ToLowerInvariant() switch
         {
             "text" => ValidationOutput.Text,
             "json" => ValidationOutput.Json,
@@ -578,10 +780,17 @@ static class Program
         return false;
     }
 
-    private enum ValidationOutput
+    private static void RegisterProviders()
     {
-        Text,
-        Json
+        MySQLProvider.RegisterProvider();
+        MariaDBProvider.RegisterProvider();
+        SQLiteProvider.RegisterProvider();
+    }
+
+    private static void ResetState()
+    {
+        ConfigPath = DefaultConfigPath;
+        ConfigFile = null!;
     }
 
     private static string GetCliVersion()
@@ -590,5 +799,71 @@ static class Program
         return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? assembly.GetName().Version?.ToString()
             ?? "unknown";
+    }
+
+    private sealed record CommonOptionSet(
+        Option<bool> VerboseOption,
+        Option<string?> ConfigOption);
+
+    private sealed record TargetOptionSet(
+        CommonOptionSet CommonOptions,
+        Option<string?> DataSourceOption,
+        Option<string?> DatabaseOption,
+        Option<string?> ProviderOption);
+
+    private sealed record ModelGenerationOptionSet(
+        TargetOptionSet TargetOptions,
+        Option<bool> FreshOption,
+        Option<bool> OverwriteTypesOption,
+        Option<bool> StampGeneratedHeaderOption);
+
+    internal class Options
+    {
+        public bool Verbose { get; set; }
+
+        public string? ConfigPath { get; set; }
+    }
+
+    internal class CreateOptions : Options
+    {
+        public string? DataSource { get; set; }
+
+        public string? Database { get; set; }
+
+        public string? Provider { get; set; }
+    }
+
+    internal sealed class CreateDatabaseOptions : CreateOptions;
+
+    internal sealed class CreateSqlOptions : CreateOptions
+    {
+        public string OutputFile { get; set; } = "";
+    }
+
+    internal sealed class CreateModelsOptions : CreateOptions
+    {
+        public bool Fresh { get; set; }
+
+        public bool OverwriteTypes { get; set; }
+
+        public bool StampGeneratedHeader { get; set; }
+    }
+
+    internal sealed class ValidateOptions : CreateOptions
+    {
+        public string Format { get; set; } = "text";
+    }
+
+    internal sealed class DiffOptions : CreateOptions
+    {
+        public string OutputFile { get; set; } = "";
+    }
+
+    internal sealed class ListOptions : Options;
+
+    private enum ValidationOutput
+    {
+        Text,
+        Json
     }
 }
