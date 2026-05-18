@@ -71,6 +71,13 @@
         "files": [
           "public/**"
         ]
+      },
+      {
+        "src": "docs/schemas",
+        "files": [
+          "*.json"
+        ],
+        "dest": "schemas"
       }
     ],
     "sitemap": {

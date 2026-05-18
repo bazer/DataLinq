@@ -4,16 +4,38 @@ For most new projects, the CLI-driven path is the right way to get started.
 
 The job here is simple:
 
-1. describe your database in `datalinq.json`
+1. create or complete `datalinq.json` and `datalinq.user.json`
 2. run `generate models`
 3. inspect the generated output
 
-## Create `datalinq.json`
+## Create the Config Files
+
+For a new project, run:
+
+```bash
+datalinq config init
+```
+
+The wizard writes shared structure to `datalinq.json` and local connection details to `datalinq.user.json`.
+
+When you clone a project that already has `datalinq.json`, run the same command. If `datalinq.user.json` is missing, DataLinq switches into local setup mode and creates only the user file.
+
+New shared configs include the public schema URL for editor autocomplete:
+
+```json
+{
+  "$schema": "https://datalinq.org/schemas/datalinq.schema.json",
+  "Databases": []
+}
+```
+
+You can also write the config by hand.
 
 Minimal MariaDB or MySQL example:
 
 ```json
 {
+  "$schema": "https://datalinq.org/schemas/datalinq.schema.json",
   "Databases": [
     {
       "Name": "AppDb",
@@ -38,6 +60,7 @@ Minimal SQLite example:
 
 ```json
 {
+  "$schema": "https://datalinq.org/schemas/datalinq.schema.json",
   "Databases": [
     {
       "Name": "AppDb",

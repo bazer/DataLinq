@@ -34,8 +34,12 @@ Options:
 - `--fresh`: ignore existing files in `ModelDirectory` and regenerate from database metadata plus config
 - `--overwrite-types`: replace preserved C# property types with database-inferred types
 - `--stamp-generated-header`: add the CLI version and one UTC timestamp to generated file headers
+- `--all`: generate models for all databases and connections in the selected config
+- `--recursive`: discover `datalinq.json` files recursively and generate matching targets
 
 By default, `generate models` reads existing files from `ModelDirectory` before writing. That is how supported class names, property names, relation names, and C# property types are preserved. See [Model Generation](model-generation.md).
+
+For batch generation with `--all` or `--recursive`, DataLinq renders every target first. If any target fails before writing starts, no generated files are written.
 
 `create-models` remains as a deprecated compatibility alias for `generate models`.
 
@@ -70,6 +74,8 @@ datalinq validate -n AppDb -p SQLite
 Options:
 
 - `--format`: `text` or `json`, default `text`
+- `--all`: validate all databases and connections in the selected config
+- `--recursive`: discover `datalinq.json` files recursively and validate matching targets
 
 Exit codes:
 
@@ -97,6 +103,42 @@ Lists databases and connections in the selected config.
 
 ```bash
 datalinq config list -c ./datalinq.json
+```
+
+Options:
+
+- `--recursive`: discover and list every readable `datalinq.json` under the selected directory or config location
+
+### `config init`
+
+Interactively creates or completes DataLinq config files.
+
+```bash
+datalinq config init
+```
+
+Behavior depends on the files it finds:
+
+- if neither file exists, it creates `datalinq.json` and `datalinq.user.json`
+- if `datalinq.json` exists but `datalinq.user.json` is missing, it creates only the missing local user file
+- if both files exist, it summarizes the current setup and changes nothing
+- if only `datalinq.user.json` exists, it can create the missing shared config without rewriting the user file
+
+New shared configs include the public JSON Schema URL and use `ModelDirectory`. Local connection details are written to `datalinq.user.json`.
+
+### `config schema`
+
+Prints or writes the JSON Schema used for DataLinq config autocomplete and validation.
+
+```bash
+datalinq config schema
+datalinq config schema --output datalinq.schema.json
+```
+
+The published schema URL is:
+
+```text
+https://datalinq.org/schemas/datalinq.schema.json
 ```
 
 ## Generated File Headers

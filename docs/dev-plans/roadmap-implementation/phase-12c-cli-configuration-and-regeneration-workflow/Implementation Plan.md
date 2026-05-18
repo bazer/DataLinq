@@ -341,6 +341,19 @@ Verification after checkpoint 2:
 - `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqConfigInitTests/*|/*/*/DataLinqCliCommandSurfaceTests/*"`
 
+Checkpoint 3 published and documented the schema/init surface:
+
+- DocFX now copies `docs/schemas/datalinq.schema.json` to `_site/schemas/datalinq.schema.json`
+- CLI docs describe `config init`, `config schema`, and the batch/recursive options that landed in Workstream C
+- configuration docs describe `$schema`, editor autocomplete, the public schema URL, and `config schema`
+- getting-started docs now start with `datalinq config init` while still showing hand-written examples
+
+Verification after checkpoint 3:
+
+- `docfx build docfx.json` passed with 0 warnings and 0 errors.
+- `_site/schemas/datalinq.schema.json` was generated.
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqConfigSchemaTests/*|/*/*/DataLinqConfigInitTests/*|/*/*/DataLinqCliCommandSurfaceTests/*"`
+
 ## Workstream E: Secret References
 
 ### Goals

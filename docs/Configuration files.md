@@ -9,6 +9,12 @@ There are two files:
 
 The CLI reads the main file first, then looks for a matching `.user.json` file next to it by replacing the extension. The user file is then merged on top.
 
+For new projects, the easiest way to create both files is:
+
+```bash
+datalinq config init
+```
+
 ## What This Config Is For
 
 This config is used by the `datalinq` CLI.
@@ -51,10 +57,39 @@ That means comment-bearing JSON examples work in practice even though standard J
 
 ---
 
+## Editor Autocomplete and Validation
+
+DataLinq publishes a JSON Schema for config files:
+
+```text
+https://datalinq.org/schemas/datalinq.schema.json
+```
+
+New `datalinq config init` shared configs include it automatically:
+
+```json
+{
+  "$schema": "https://datalinq.org/schemas/datalinq.schema.json",
+  "Databases": []
+}
+```
+
+You can also print or write the embedded schema from the CLI:
+
+```bash
+datalinq config schema
+datalinq config schema --output datalinq.schema.json
+```
+
+DataLinq accepts comments in config files, but editor behavior depends on the editor. If your editor treats `.json` files as strict JSON, it may warn about comments even though the CLI accepts them.
+
+---
+
 ## Minimal Example: MariaDB or MySQL
 
 ```json
 {
+  "$schema": "https://datalinq.org/schemas/datalinq.schema.json",
   "Databases": [
     {
       "Name": "AppDb",
@@ -93,6 +128,7 @@ If you want MySQL instead of MariaDB, change `"Type": "MariaDB"` to `"Type": "My
 
 ```json
 {
+  "$schema": "https://datalinq.org/schemas/datalinq.schema.json",
   "Databases": [
     {
       "Name": "AppDb",
@@ -126,6 +162,7 @@ Example shared config:
 
 ```json
 {
+  "$schema": "https://datalinq.org/schemas/datalinq.schema.json",
   "Databases": [
     {
       "Name": "AppDb",
