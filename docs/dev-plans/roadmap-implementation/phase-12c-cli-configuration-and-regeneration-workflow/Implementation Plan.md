@@ -42,8 +42,8 @@ The detailed source plans should stay separate. They are the right level for des
    - `config init`
    - `config list`
    - `config schema`
-   - `config validate` when schema validation lands
-   - `secrets list/set/remove` when local secrets land
+   - `config validate`
+   - `secrets list/set/remove`
 4. Add only the `create-models` deprecated compatibility command.
 5. Route all errors and warnings through one diagnostic writer.
 6. Remove square-bracket error styles and make severity formatting consistent.
@@ -78,7 +78,7 @@ Checkpoint `30cd4b46` started Workstream A:
 - added parser and diagnostic unit coverage
 - removed the now-unused `CommandLineParser` package version from central package management
 
-The first checkpoint intentionally does not expose `config init`, `config schema`, `config validate`, or `secrets` commands yet. Those belong to later workstreams and should not appear as nonfunctional stubs.
+The first checkpoint intentionally did not expose `config init`, `config schema`, `config validate`, or `secrets` commands. Those belonged to later workstreams and were only exposed once behavior landed.
 
 Verification after this checkpoint:
 
@@ -93,7 +93,7 @@ Follow-up parser coverage completed the Workstream A test boundary:
 - parser failures return exit code `2`
 - unit coverage increased to 653 passing tests
 
-Workstream A is complete for the currently implemented command surface. Later workstreams will add `config init`, `config schema`, `config validate`, and `secrets` as real commands when their behavior lands.
+Workstream A is complete for the parser and command surface. Later workstreams added `config init`, `config schema`, `config validate`, and `secrets` as real commands when their behavior landed. The diagnostics output style remains the outstanding Workstream A follow-up.
 
 ## Workstream B: Model Directory and Generation Layout
 

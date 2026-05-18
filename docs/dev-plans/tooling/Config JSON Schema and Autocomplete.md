@@ -45,6 +45,7 @@ Implemented:
 - `ConfigFile` has an explicit top-level `$schema` property.
 - `datalinq config init` writes the public schema URL into new shared `datalinq.json` files.
 - `datalinq config schema` prints the embedded schema, writes a local schema file, and can add local `$schema` references to existing configs with `--update-config`.
+- `datalinq config validate` validates one config or recursively validates discovered configs without connecting to databases.
 - DocFX copies `docs/schemas/datalinq.schema.json` to `_site/schemas/datalinq.schema.json`.
 - Unit tests parse the schema, check important fields/deprecations, smoke-validate representative config, reject a misspelled property, and exercise `config schema`.
 
@@ -53,7 +54,7 @@ Remaining work worth doing:
 1. Verify the live public URL after the next docs deployment: `https://datalinq.org/schemas/datalinq.schema.json`.
 2. Submit or update the SchemaStore entry once the public URL is definitely serving raw JSON.
 3. Add a real JSON Schema validator package to tests if schema complexity grows. The current smoke validator is intentionally small and good enough for the present schema, but it is not a full draft 2020-12 validator.
-4. Wire the future `datalinq config validate` command to the same schema and semantic config checks. Editor validation is helpful, but a CLI command is still needed for CI and scripted setup.
+4. Keep `datalinq config validate` aligned with the schema and semantic config checks as config fields evolve.
 
 ## V1 Scope and Current Completion
 
@@ -353,7 +354,7 @@ datalinq config schema --url
 datalinq config schema --validate datalinq.json
 ```
 
-Validation did not land in `config schema`; put config validation in the future `datalinq config validate` command instead.
+Validation does not live in `config schema`; use `datalinq config validate` for offline config validation.
 
 ### Embedding
 
@@ -478,6 +479,17 @@ datalinq config schema
 Support stdout and optional `-o` output.
 
 Use the embedded schema content.
+
+### 4B. Add `datalinq config validate`
+
+Implemented:
+
+```bash
+datalinq config validate
+datalinq config validate --recursive
+```
+
+This command validates the selected config file, or every discovered `datalinq.json` in recursive mode, without connecting to databases. It uses the normal config loader so parser errors, unknown config members, merge conflicts such as conflicting `ModelDirectory`/`DestinationDirectory`, provider parsing, and secret-reference resolution failures surface through the same path real commands use.
 
 ### 5. Publish Through Docs Site
 

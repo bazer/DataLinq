@@ -36,6 +36,7 @@ datalinq diff [target] [--output path]
 datalinq config init
 datalinq config list [--recursive]
 datalinq config schema [--output path]
+datalinq config validate [--recursive]
 
 datalinq secrets list
 datalinq secrets set <name>
@@ -49,17 +50,15 @@ This is a better shape than `datalinq create models` because "generate" is the r
 Implemented:
 
 - `src/DataLinq.CLI` now uses `System.CommandLine`.
-- Primary commands are nested as `generate models`, `generate sql`, `database create`, `config init`, `config list`, `config schema`, and `secrets list/set/remove`.
+- Primary commands are nested as `generate models`, `generate sql`, `database create`, `config init`, `config list`, `config validate`, `config schema`, and `secrets list/set/remove`.
 - `validate` and `diff` remain root workflow commands.
 - Target options now use `--database`, `--provider`, and `--data-source`; `-n` and `-p` are retained as the useful short aliases.
 - `validate` uses `--format text|json`; old `validate --output json` is rejected.
 - The only kept flat compatibility command is `create-models`, and it warns as deprecated.
 - User-facing docs now describe the new command surface.
 
-Not implemented, and still worth doing:
+Remaining implementation polish:
 
-- `datalinq config validate`
-  This should validate config shape and semantic rules without opening a database. The JSON Schema catches editor-time shape errors, but the CLI still needs an offline command that checks merged `datalinq.json`/`datalinq.user.json`, provider names, model-directory conflicts, missing names, connection-entry sanity, and secret-reference resolution behavior.
 - `Program.cs` decomposition
   The parser migration landed, but the command wiring and command handlers still live mostly in one large `Program.cs`. Split it when doing the next CLI slice, not as busywork: `GenerateCommand`, `DatabaseCommand`, `ValidateCommand`, `DiffCommand`, `ConfigCommand`, `SecretsCommand`, and shared target/output helpers would be the obvious shape.
 
@@ -174,6 +173,7 @@ Use:
 datalinq config init
 datalinq config list
 datalinq config schema
+datalinq config validate
 ```
 
 Rationale:
@@ -183,7 +183,7 @@ Rationale:
 - plain `datalinq schema` is too ambiguous in an ORM CLI
 - users may think "schema" means database schema
 - `config schema` is precise: it prints the JSON Schema for config files
-- `config validate` remains the right future name for offline config validation, but it is not currently exposed
+- `config validate` validates merged config files without connecting to a database
 
 ### Secrets Group
 
@@ -371,13 +371,13 @@ Options:
 
 Prints or writes the JSON Schema for DataLinq config files.
 
-### Future `datalinq config validate`
+### `datalinq config validate`
 
 Options:
 
 ```text
 -c, --config path
---format text|json
+--recursive
 ```
 
 Validates config file shape and semantic config rules without connecting to configured databases.
@@ -425,7 +425,7 @@ Configuration:
   config init
   config list
   config schema
-  config validate   (future)
+  config validate
 
 Secrets:
   secrets list
@@ -510,10 +510,6 @@ Wire new primary commands:
 - `config init`
 - `config list`
 
-Then add planned command stubs or full commands depending on which feature lands first:
-
-- `config validate`
-
 If a planned command is not implemented yet, do not expose it as a stub that fails. It is better for help output to show only working commands.
 
 ### 5. Add the One Deprecated Alias
@@ -579,7 +575,7 @@ Before implementation lands, dev-plan docs may continue mentioning old commands 
 - Primary SQL script generation command is `datalinq generate sql`.
 - Primary database creation command is `datalinq database create`.
 - Config schema command is `datalinq config schema`.
-- Config validation command is `datalinq config validate` when implemented.
+- Config validation command is `datalinq config validate`.
 - Config initialization command is `datalinq config init`.
 - Config inventory command is `datalinq config list`.
 - Secrets commands use `datalinq secrets list/set/remove`.
