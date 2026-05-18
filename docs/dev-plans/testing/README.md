@@ -1,10 +1,12 @@
 # Testing Dev Plans
 
-This folder is currently a placeholder for future testing-related dev-plan material.
+This folder contains active testing-related dev-plan material.
 
 ## Active Documents
 
-There are no active testing execution plans at the moment. Current testing workflow documentation lives in [`../../contributing/DataLinq.Testing.CLI.md`](../../contributing/DataLinq.Testing.CLI.md).
+- `Model Testing and Mocking Support.md`
+
+Current testing workflow documentation lives in [`../../contributing/DataLinq.Testing.CLI.md`](../../contributing/DataLinq.Testing.CLI.md).
 
 ## Historical Material
 
