@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using DataLinq.CLI;
+using Microsoft.Data.Sqlite;
 
 namespace DataLinq.Tests.Unit;
 
@@ -48,6 +49,30 @@ public class DataLinqCliBatchCommandTests
         await Assert.That(output).Contains("Failed to prepare targets");
         await Assert.That(output).Contains("Target:");
         await Assert.That(output).Contains("Validation targets: 2; failures: yes");
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task GenerateModels_Recursive_WritesNothingWhenAnyTargetFails()
+    {
+        using var fixture = CliBatchCommandFixture.Create();
+        fixture.WriteGenerateProject("good", hasInvalidExistingModel: false);
+        fixture.WriteGenerateProject("bad", hasInvalidExistingModel: true);
+
+        var exitCode = await Program.InvokeAsync(
+        [
+            "generate",
+            "models",
+            "--config",
+            fixture.BasePath,
+            "--recursive",
+            "--provider",
+            "SQLite"
+        ]);
+
+        await Assert.That(exitCode).IsEqualTo(2);
+        await Assert.That(File.Exists(Path.Combine(fixture.BasePath, "good", "Models", "AppDb.cs"))).IsFalse();
+        await Assert.That(File.Exists(Path.Combine(fixture.BasePath, "good", "Models", "Account.cs"))).IsFalse();
     }
 
     private static async Task<(int ExitCode, string Output)> InvokeWithOutput(params string[] args)
@@ -128,6 +153,56 @@ public class DataLinqCliBatchCommandTests
             var path = Path.Combine(BasePath, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, "{ invalid");
+        }
+
+        public void WriteGenerateProject(string relativeDirectory, bool hasInvalidExistingModel)
+        {
+            var projectPath = Path.Combine(BasePath, relativeDirectory);
+            Directory.CreateDirectory(projectPath);
+
+            var databasePath = Path.Combine(projectPath, "app.db");
+            using var connection = new SqliteConnection($"Data Source={databasePath}");
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText =
+                """
+                CREATE TABLE "account" (
+                    "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    "display_name" TEXT NOT NULL
+                );
+                """;
+            command.ExecuteNonQuery();
+
+            if (hasInvalidExistingModel)
+            {
+                var modelPath = Path.Combine(projectPath, "Models");
+                Directory.CreateDirectory(modelPath);
+                File.WriteAllText(Path.Combine(modelPath, "Broken.cs"), "this is not valid csharp");
+            }
+
+            File.WriteAllText(
+                Path.Combine(projectPath, "datalinq.json"),
+                """
+                {
+                  "Databases": [
+                    {
+                      "Name": "app_db",
+                      "CsType": "AppDb",
+                      "Namespace": "DataLinq.Tests.GeneratedModels",
+                      "ModelDirectory": "Models",
+                      "CapitalizeNames": true,
+                      "FileEncoding": "UTF-8",
+                      "Connections": [
+                        {
+                          "Type": "SQLite",
+                          "DataSourceName": "app.db",
+                          "ConnectionString": "Data Source=app.db"
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """);
         }
 
         public void Dispose()

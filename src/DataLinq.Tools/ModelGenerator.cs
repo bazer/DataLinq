@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using DataLinq.Config;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
@@ -96,6 +97,15 @@ public struct ModelGeneratorOptions
     }
 }
 
+public sealed record GeneratedModelWritePlan(
+    DatabaseDefinition Database,
+    IReadOnlyList<(string path, string contents)> Files,
+    Encoding FileEncoding)
+{
+    public Option<bool, IDLOptionFailure> Write(Action<string>? log = null) =>
+        SafeGeneratedFileWriter.WriteAll(Files, FileEncoding, log);
+}
+
 public class ModelGenerator : Generator
 {
     private readonly ModelGeneratorOptions options;
@@ -106,6 +116,22 @@ public class ModelGenerator : Generator
     }
 
     public Option<DatabaseDefinition, IDLOptionFailure> CreateModels(DataLinqDatabaseConnection connection, string basePath, string databaseName)
+    {
+        var writePlan = CreateModelWritePlan(connection, basePath, databaseName);
+        if (writePlan.HasFailed)
+            return writePlan.Failure;
+
+        var writeResult = writePlan.Value.Write(log);
+        if (writeResult.HasFailed)
+            return writeResult.Failure;
+
+        return writePlan.Value.Database;
+    }
+
+    public Option<GeneratedModelWritePlan, IDLOptionFailure> CreateModelWritePlan(
+        DataLinqDatabaseConnection connection,
+        string basePath,
+        string databaseName)
     {
         var db = connection.DatabaseConfig;
 
@@ -208,11 +234,7 @@ public class ModelGenerator : Generator
             return CreateModelFileRenderingFailure(exception);
         }
 
-        var writeResult = SafeGeneratedFileWriter.WriteAll(modelFiles, fileEncoding, log);
-        if (writeResult.HasFailed)
-            return writeResult.Failure;
-
-        return dbMetadata;
+        return new GeneratedModelWritePlan(dbMetadata, modelFiles, fileEncoding);
     }
 
     private static IDLOptionFailure CreateModelFileRenderingFailure(Exception exception)

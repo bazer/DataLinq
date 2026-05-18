@@ -445,6 +445,9 @@ internal static class Program
 
     private static int ExecuteCreateModels(CreateModelsOptions options)
     {
+        if (options.All || options.Recursive)
+            return ExecuteCreateModelsBatch(options);
+
         if (ReadConfig() == false)
             return 2;
 
@@ -479,6 +482,87 @@ internal static class Program
         return 0;
     }
 
+    private static int ExecuteCreateModelsBatch(CreateModelsOptions options)
+    {
+        if (!TryValidateBatchOptions(options, options.All, options.Recursive))
+            return 2;
+
+        var expansion = CliTargetResolver.Expand(
+            ConfigPath,
+            new CliTargetFilter(options.Database, options.Provider),
+            options.Recursive,
+            options.Verbose ? ConsoleDiagnosticWriter.WriteLogLine : _ => { });
+
+        if (expansion.Targets.Count == 0 && expansion.Failures.Count == 0)
+        {
+            ConsoleDiagnosticWriter.WriteError("TargetNotFound", "No model generation targets matched the selected config filters.");
+            return 2;
+        }
+
+        var hadFailure = false;
+        var writePlans = new List<GeneratedModelWritePlan>();
+        GeneratedFileStamp? generatedFileStamp = options.StampGeneratedHeader
+            ? new GeneratedFileStamp(GetCliVersion(), DateTimeOffset.UtcNow)
+            : null;
+
+        foreach (var failure in expansion.Failures)
+        {
+            hadFailure = true;
+            ConsoleDiagnosticWriter.WriteError("TargetFailed", $"Failed to prepare targets from '{failure.ConfigPath}'.");
+            ConsoleDiagnosticWriter.WriteIssues(CreateIssues(failure.Failure));
+        }
+
+        foreach (var target in expansion.Targets)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"Target: {FormatTargetIdentity(target.Identity)}");
+
+            var generator = CreateModelGenerator(target.Database, options, generatedFileStamp);
+            var writePlan = generator.CreateModelWritePlan(
+                target.Connection,
+                target.Config.BasePath,
+                target.Connection.DataSourceName);
+
+            if (writePlan.HasFailed)
+            {
+                hadFailure = true;
+                ConsoleDiagnosticWriter.WriteFailure(writePlan.Failure);
+                continue;
+            }
+
+            writePlans.Add(writePlan.Value);
+        }
+
+        if (TryFindDuplicateGeneratedPath(writePlans, out var duplicatePath))
+        {
+            hadFailure = true;
+            ConsoleDiagnosticWriter.WriteError(
+                "InvalidOutput",
+                $"Batch model generation produced duplicate target path '{duplicatePath}'. No files were written.");
+        }
+
+        if (hadFailure)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"Model generation targets: {expansion.Targets.Count}; failures: yes; files written: no");
+            return 2;
+        }
+
+        foreach (var writePlan in writePlans)
+        {
+            var writeResult = writePlan.Write(ConsoleDiagnosticWriter.WriteLogLine);
+            if (writeResult.HasFailed)
+            {
+                ConsoleDiagnosticWriter.WriteFailure(writeResult.Failure);
+                return 2;
+            }
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"Model generation targets: {writePlans.Count}; failures: no; files written: yes");
+        return 0;
+    }
+
     private static int ExecuteCreateSql(CreateSqlOptions options)
     {
         if (ReadConfig() == false)
@@ -506,6 +590,42 @@ internal static class Program
 
         return 0;
     }
+
+    private static ModelGenerator CreateModelGenerator(
+        DataLinqDatabaseConfig database,
+        CreateModelsOptions options,
+        GeneratedFileStamp? generatedFileStamp) =>
+        new(ConsoleDiagnosticWriter.WriteLogLine, new ModelGeneratorOptions
+        {
+            OverwriteExistingModels = true,
+            ReadSourceModels = !options.Fresh,
+            CapitalizeNames = database.CapitalizeNames,
+            Include = database.Include,
+            OverwritePropertyTypes = options.OverwriteTypes,
+            GeneratedFileStamp = generatedFileStamp
+        });
+
+    private static bool TryFindDuplicateGeneratedPath(
+        IEnumerable<GeneratedModelWritePlan> writePlans,
+        out string duplicatePath)
+    {
+        duplicatePath = "";
+        var duplicate = writePlans
+            .SelectMany(writePlan => writePlan.Files.Select(file => file.path))
+            .GroupBy(path => Path.GetFullPath(path), GetPathComparer())
+            .FirstOrDefault(group => group.Count() > 1);
+
+        if (duplicate == null)
+            return false;
+
+        duplicatePath = duplicate.Key;
+        return true;
+    }
+
+    private static StringComparer GetPathComparer() =>
+        OperatingSystem.IsWindows()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
 
     private static int ExecuteCreateDatabase(CreateDatabaseOptions options)
     {

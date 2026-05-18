@@ -256,6 +256,20 @@ Verification after checkpoint 2:
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliTargetResolverTests/*"`
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliBatchCommandTests/*"`
 
+Checkpoint 3 added batch model generation:
+
+- `ModelGenerator` can now render a `GeneratedModelWritePlan` without writing files.
+- single-target `generate models` still uses the same public `CreateModels` behavior by rendering and immediately writing one plan.
+- `generate models --all` and `generate models --recursive` render every expanded target before writing any files.
+- expansion failures, render failures, and duplicate generated target paths stop the batch with `files written: no`.
+- a recursive regression test covers the important failure mode: one target renders successfully, a later target fails while reading existing model files, and the successful target still writes no generated files.
+
+Verification after checkpoint 3:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliBatchCommandTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/ModelGeneratorModelDirectoryTests/*"`
+
 ## Workstream D: Config Schema and Init
 
 ### Goals
