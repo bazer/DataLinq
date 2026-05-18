@@ -321,6 +321,26 @@ Verification after checkpoint 1:
 - `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqConfigSchemaTests/*|/*/*/DataLinqCliCommandSurfaceTests/*"`
 
+Checkpoint 2 added config init:
+
+- added `datalinq config init`
+- added path/state detection for:
+  - missing `datalinq.json` and missing `datalinq.user.json`
+  - existing shared config with missing user config
+  - existing shared and user config files
+  - orphaned user config without a shared config
+- new-project init plans create both `datalinq.json` and `datalinq.user.json`
+- generated shared configs include `$schema` and use `ModelDirectory`
+- generated user configs contain full connection entries and no shared structure beyond database names
+- existing main configs are not rewritten when creating a missing user config
+- `.gitignore` updates use narrow config-relative entries and avoid duplicates
+- fixed config comment stripping so URLs such as `https://datalinq.org/schemas/datalinq.schema.json` are preserved inside JSON strings
+
+Verification after checkpoint 2:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqConfigInitTests/*|/*/*/DataLinqCliCommandSurfaceTests/*"`
+
 ## Workstream E: Secret References
 
 ### Goals

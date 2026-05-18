@@ -66,6 +66,7 @@ internal static class Program
         databaseCommand.Subcommands.Add(CreateDatabaseCreateCommand());
 
         var configCommand = new Command("config", "Inspect and manage DataLinq configuration.");
+        configCommand.Subcommands.Add(CreateConfigInitCommand());
         configCommand.Subcommands.Add(CreateConfigListCommand());
         configCommand.Subcommands.Add(CreateConfigSchemaCommand());
 
@@ -183,6 +184,20 @@ internal static class Program
         {
             var listOptions = ReadListOptions(parseResult, options);
             Environment.ExitCode = ExecuteList(listOptions);
+        });
+
+        return command;
+    }
+
+    private static Command CreateConfigInitCommand()
+    {
+        var command = new Command("init", "Interactively create or complete DataLinq config files.");
+        var options = AddCommonOptions(command);
+
+        command.SetAction(parseResult =>
+        {
+            var initOptions = ReadConfigInitOptions(parseResult, options);
+            Environment.ExitCode = ExecuteConfigInit(initOptions);
         });
 
         return command;
@@ -373,6 +388,13 @@ internal static class Program
         return listOptions;
     }
 
+    private static ConfigInitOptions ReadConfigInitOptions(ParseResult parseResult, CommonOptionSet options)
+    {
+        var initOptions = new ConfigInitOptions();
+        ApplyCommonOptions(initOptions, parseResult, options);
+        return initOptions;
+    }
+
     private static ConfigSchemaOptions ReadConfigSchemaOptions(
         ParseResult parseResult,
         CommonOptionSet commonOptions,
@@ -492,6 +514,197 @@ internal static class Program
             Console.WriteLine($"Wrote DataLinq config schema to {outputPath}");
 
         return 0;
+    }
+
+    private static int ExecuteConfigInit(ConfigInitOptions options)
+    {
+        var state = CliConfigInit.DetectState(ConfigPath);
+        Console.WriteLine("DataLinq config init");
+        Console.WriteLine($"Main config: {state.Paths.MainConfigPath}");
+        Console.WriteLine($"User config: {state.Paths.UserConfigPath}");
+        Console.WriteLine();
+
+        return state.Mode switch
+        {
+            ConfigInitMode.NewProject => ExecuteNewProjectInit(state),
+            ConfigInitMode.CompleteUserConfig => ExecuteMissingUserConfigInit(state, options),
+            ConfigInitMode.InspectExisting => ExecuteInspectExistingInit(state, options),
+            ConfigInitMode.RepairOrphanedUserConfig => ExecuteRepairOrphanedUserConfigInit(state),
+            _ => 2
+        };
+    }
+
+    private static int ExecuteNewProjectInit(ConfigInitState state)
+    {
+        var database = PromptDatabaseInput("AppDb", "AppDb", "Models", "Models", "SQLite", "app.db");
+        var addGitignore = Confirm("Add datalinq.user.json to .gitignore?", defaultValue: true);
+        var plan = CliConfigInit.CreateNewProjectPlan(state.Paths, database, addGitignore);
+        return PreviewConfirmAndApply(plan);
+    }
+
+    private static int ExecuteMissingUserConfigInit(ConfigInitState state, Options options)
+    {
+        if (!CliConfigLoader.TryRead(
+            state.Paths.MainConfigPath,
+            options.Verbose ? ConsoleDiagnosticWriter.WriteLogLine : _ => { },
+            out var config,
+            out var failure))
+        {
+            ConsoleDiagnosticWriter.WriteFailure(failure);
+            return 2;
+        }
+
+        var connections = new List<ConfigInitConnectionInput>();
+        foreach (var database in config.Databases)
+        {
+            if (!Confirm($"Configure local connection for database '{database.Name}'?", defaultValue: true))
+                continue;
+
+            var defaultConnection = database.Connections.FirstOrDefault();
+            var defaultProvider = defaultConnection?.Type == DatabaseType.Unknown
+                ? "SQLite"
+                : defaultConnection?.Type.ToString() ?? "SQLite";
+            var defaultDataSource = defaultConnection?.DataSourceName ?? database.Name;
+            connections.Add(PromptConnectionInput(database.Name, defaultProvider, defaultDataSource));
+        }
+
+        if (connections.Count == 0)
+        {
+            Console.WriteLine("No local connections selected. No files changed.");
+            return 0;
+        }
+
+        var addGitignore = Confirm("Add datalinq.user.json to .gitignore?", defaultValue: true);
+        var plan = CliConfigInit.CreateMissingUserConfigPlan(state.Paths, connections, addGitignore);
+        return PreviewConfirmAndApply(plan);
+    }
+
+    private static int ExecuteInspectExistingInit(ConfigInitState state, Options options)
+    {
+        if (!CliConfigLoader.TryRead(
+            state.Paths.MainConfigPath,
+            options.Verbose ? ConsoleDiagnosticWriter.WriteLogLine : _ => { },
+            out var config,
+            out var failure))
+        {
+            ConsoleDiagnosticWriter.WriteFailure(failure);
+            return 2;
+        }
+
+        var plan = CliConfigInit.CreateInspectExistingPlan(state, config);
+        WritePlanPreview(plan);
+        return 0;
+    }
+
+    private static int ExecuteRepairOrphanedUserConfigInit(ConfigInitState state)
+    {
+        ConsoleDiagnosticWriter.WriteWarning(
+            "OrphanedUserConfig",
+            "Found datalinq.user.json without a matching datalinq.json.");
+        if (!Confirm("Create a new datalinq.json without changing the existing user file?", defaultValue: false))
+        {
+            Console.WriteLine("No files changed.");
+            return 0;
+        }
+
+        var database = PromptDatabaseInput("AppDb", "AppDb", "Models", "Models", "SQLite", "app.db");
+        var plan = CliConfigInit.CreateMainConfigOnlyPlan(state.Paths, database);
+        return PreviewConfirmAndApply(plan);
+    }
+
+    private static ConfigInitDatabaseInput PromptDatabaseInput(
+        string defaultName,
+        string defaultCsType,
+        string defaultNamespace,
+        string defaultModelDirectory,
+        string defaultProvider,
+        string defaultDataSource)
+    {
+        var name = Prompt("Database config name", defaultName);
+        var csType = Prompt("C# database type", string.IsNullOrWhiteSpace(defaultCsType) ? name : defaultCsType);
+        var namespaceName = Prompt("Model namespace", defaultNamespace);
+        var modelDirectory = Prompt("Model directory", defaultModelDirectory);
+        var useNullableReferenceTypes = Confirm("Enable nullable reference types in generated models?", defaultValue: true);
+        var useFileScopedNamespaces = Confirm("Use file-scoped namespaces?", defaultValue: true);
+        var connection = PromptConnectionInput(name, defaultProvider, defaultDataSource);
+
+        return new ConfigInitDatabaseInput(
+            name,
+            csType,
+            namespaceName,
+            modelDirectory,
+            useNullableReferenceTypes,
+            useFileScopedNamespaces,
+            connection);
+    }
+
+    private static ConfigInitConnectionInput PromptConnectionInput(
+        string databaseName,
+        string defaultProvider,
+        string defaultDataSource)
+    {
+        var provider = Prompt("Provider (SQLite, MySQL, MariaDB)", defaultProvider);
+        var dataSource = Prompt("Local data source name", defaultDataSource);
+        var defaultConnectionString = CliConfigInit.CreateDefaultConnectionString(provider, dataSource);
+        var connectionString = Prompt("Local connection string", defaultConnectionString);
+
+        return new ConfigInitConnectionInput(databaseName, provider, dataSource, connectionString);
+    }
+
+    private static int PreviewConfirmAndApply(ConfigInitPlan plan)
+    {
+        WritePlanPreview(plan);
+        if (!plan.HasWrites)
+            return 0;
+
+        if (!Confirm("Apply this plan?", defaultValue: true))
+        {
+            Console.WriteLine("No files changed.");
+            return 0;
+        }
+
+        try
+        {
+            CliConfigInit.Apply(plan);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            ConsoleDiagnosticWriter.WriteError("InitFailed", exception.Message);
+            return 2;
+        }
+
+        Console.WriteLine("Config init complete.");
+        Console.WriteLine("Next step: datalinq generate models --database <name> --provider <provider>");
+        return 0;
+    }
+
+    private static void WritePlanPreview(ConfigInitPlan plan)
+    {
+        Console.WriteLine("Plan:");
+        foreach (var line in plan.PreviewLines)
+            Console.WriteLine($"  - {line}");
+
+        Console.WriteLine();
+    }
+
+    private static string Prompt(string label, string defaultValue)
+    {
+        Console.Write($"{label} [{defaultValue}]: ");
+        var input = Console.ReadLine();
+        return string.IsNullOrWhiteSpace(input)
+            ? defaultValue
+            : input.Trim();
+    }
+
+    private static bool Confirm(string label, bool defaultValue)
+    {
+        var suffix = defaultValue ? "Y/n" : "y/N";
+        Console.Write($"{label} [{suffix}]: ");
+        var input = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(input))
+            return defaultValue;
+
+        return input.Trim().StartsWith("y", StringComparison.OrdinalIgnoreCase);
     }
 
     private static int ExecuteCreateModels(CreateModelsOptions options)
@@ -1302,6 +1515,8 @@ internal static class Program
     {
         public bool Recursive { get; set; }
     }
+
+    internal sealed class ConfigInitOptions : Options;
 
     internal sealed class ConfigSchemaOptions : Options
     {

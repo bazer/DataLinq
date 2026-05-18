@@ -105,6 +105,14 @@ public class DataLinqCliCommandSurfaceTests
     }
 
     [Test]
+    public async Task ConfigInit_IsNestedAndAcceptsConfigPath()
+    {
+        await Assert.That(ParseErrors("config", "init")).IsEqualTo(0);
+        await Assert.That(ParseErrors("config", "init", "--config", "src/MyApp")).IsEqualTo(0);
+        await Assert.That(ParseErrors("init")).IsGreaterThan(0);
+    }
+
+    [Test]
     public async Task RecursiveConfigDiscovery_SkipsGeneratedAndInfrastructureDirectories()
     {
         using var fixture = CliDiscoveryFixture.Create();
