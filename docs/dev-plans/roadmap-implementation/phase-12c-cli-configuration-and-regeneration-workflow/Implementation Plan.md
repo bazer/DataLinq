@@ -149,6 +149,19 @@ Verification after checkpoint 1:
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqConfigTests/*"`
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/SchemaValidatorTests/*"`
 
+Checkpoint 2 wired `ModelLayout` into CLI model rendering:
+
+- `ModelFileFactoryOptions.ModelLayout` carries the effective config into generated C# model files.
+- `PropertyOrder: "Column"` keeps configured column order, while `"Alphabetical"` sorts scalar properties by C# property name.
+- `KeyPlacement: "Top"` moves primary-key scalar properties ahead of other scalar properties; `"Inline"` leaves them in the selected property order.
+- `RelationPlacement: "Bottom"` keeps existing bottom placement, `"Top"` emits relations before scalar properties, and `"WithForeignKey"` emits many-to-one relations after the configured foreign-key scalar property group while leaving remaining relations at the bottom.
+- Focused model-factory tests cover default key placement, alphabetical inline ordering, top relation placement, and foreign-key-adjacent relation placement.
+
+Verification after checkpoint 2:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/ModelFileFactoryTests/*"`
+
 ## Workstream C: Batch and Recursive Commands
 
 ### Goals

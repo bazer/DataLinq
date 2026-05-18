@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.Config;
 using DataLinq.Core.Factories;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
@@ -21,6 +22,7 @@ public class ModelFileFactoryOptions
     public bool UseNullableReferenceTypes { get; set; } = true;
     public bool SeparateTablesAndViews { get; set; } = false;
     public GeneratedFileStamp? GeneratedFileStamp { get; set; }
+    public DataLinqModelLayoutConfig ModelLayout { get; set; } = DataLinqModelLayoutConfig.Default;
     public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes", "DataLinq.Instances", "DataLinq.Mutation" };
 }
 
@@ -145,20 +147,8 @@ public class ModelFileFactory
 
     private IEnumerable<string> ModelFileContents(ModelDefinition model, ModelFileFactoryOptions options)
     {
-        var valueProps = model.ValueProperties.Values
-            .OrderBy(x => x.Column.Index)
-            .ThenBy(x => x.Type)
-            .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
-            .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
-            .ThenBy(x => x.PropertyName)
-            .ToList();
-
-        var relationProps = model.RelationProperties.Values
-            .OrderBy(x => x.Type)
-            .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
-            .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
-            .ThenBy(x => x.PropertyName)
-            .ToList();
+        var valueProps = OrderValueProperties(model, options.ModelLayout);
+        var relationProps = OrderRelationProperties(model);
 
         foreach (var row in valueProps.Where(x => x.EnumProperty != null && x.EnumProperty.Value.DeclaredInModelFile && !x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(options, x)))
             yield return row;
@@ -170,6 +160,38 @@ public class ModelFileFactory
         foreach (var row in WriteClass(model, options, valueProps, relationProps))
             yield return row;
     }
+
+    private static List<ValueProperty> OrderValueProperties(
+        ModelDefinition model,
+        DataLinqModelLayoutConfig layout)
+    {
+        IEnumerable<ValueProperty> ordered = layout.PropertyOrder switch
+        {
+            DataLinqModelPropertyOrder.Alphabetical => model.ValueProperties.Values
+                .OrderBy(static property => property.PropertyName, StringComparer.Ordinal),
+            _ => model.ValueProperties.Values
+                .OrderBy(static property => property.Column.Index)
+                .ThenBy(static property => property.Type)
+                .ThenBy(static property => property.PropertyName, StringComparer.Ordinal)
+        };
+
+        if (layout.KeyPlacement == DataLinqModelKeyPlacement.Top)
+        {
+            ordered = ordered
+                .Select(static (property, index) => new { property, index })
+                .OrderByDescending(static item => item.property.Column.PrimaryKey)
+                .ThenBy(static item => item.index)
+                .Select(static item => item.property);
+        }
+
+        return ordered.ToList();
+    }
+
+    private static List<RelationProperty> OrderRelationProperties(ModelDefinition model) =>
+        model.RelationProperties.Values
+            .OrderBy(static property => property.Type)
+            .ThenBy(static property => property.PropertyName, StringComparer.Ordinal)
+            .ToList();
 
     private IEnumerable<string> WriteInterface(CsTypeDeclaration modelInterface)
     {
@@ -242,123 +264,189 @@ public class ModelFileFactory
         foreach (var row in valueProps.Where(x => x.EnumProperty != null && x.EnumProperty.Value.DeclaredInModelFile && x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(options, x)))
             yield return tab + row;
 
+        var unwrittenRelations = new HashSet<RelationProperty>(relationProps);
+        if (options.ModelLayout.RelationPlacement == DataLinqModelRelationPlacement.Top)
+        {
+            foreach (var relationProperty in relationProps)
+            {
+                foreach (var row in WriteRelationProperty(relationProperty, options))
+                    yield return row;
+
+                unwrittenRelations.Remove(relationProperty);
+            }
+        }
+
         foreach (var valueProperty in valueProps)
         {
-            var c = valueProperty.Column;
-
-            foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(valueProperty.Attributes), $"{namespaceTab}{tab}"))
+            foreach (var row in WriteValueProperty(valueProperty))
                 yield return row;
 
-            foreach (var comment in valueProperty.Attributes.OfType<CommentAttribute>())
-                yield return $"{namespaceTab}{tab}{FormatCommentAttribute(comment)}";
+            if (options.ModelLayout.RelationPlacement != DataLinqModelRelationPlacement.WithForeignKey)
+                continue;
 
-            if (c.PrimaryKey)
-                yield return $"{namespaceTab}{tab}[PrimaryKey]";
-
-            foreach (var index in c.ColumnIndices.Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey && x.Characteristic != IndexCharacteristic.ForeignKey && x.Characteristic != IndexCharacteristic.VirtualDataLinq && x.Columns.Count == 1))
+            foreach (var relationProperty in GetRelationsAfterValueProperty(valueProperty, valueProps, relationProps))
             {
-                yield return $"{namespaceTab}{tab}[Index({FormatStringLiteral(index.Name)}, IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type})]";
+                if (!unwrittenRelations.Remove(relationProperty))
+                    continue;
+
+                foreach (var row in WriteRelationProperty(relationProperty, options))
+                    yield return row;
             }
-
-            foreach (var index in c.ColumnIndices)
-            {
-                foreach (var relationPart in index.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
-                {
-                    var columnOrdinal = relationPart.ColumnIndex.Columns.IndexOf(c);
-                    var candidateColumn = relationPart.Relation.CandidateKey.ColumnIndex.Columns[columnOrdinal];
-                    var foreignKeyArguments = new List<string>
-                    {
-                        SymbolDisplay.FormatLiteral(relationPart.Relation.CandidateKey.ColumnIndex.Table.DbName, quote: true),
-                        SymbolDisplay.FormatLiteral(candidateColumn.DbName, quote: true),
-                        SymbolDisplay.FormatLiteral(relationPart.Relation.ConstraintName, quote: true)
-                    };
-
-                    if (relationPart.ColumnIndex.Columns.Count > 1)
-                        foreignKeyArguments.Add((columnOrdinal + 1).ToString());
-
-                    if (relationPart.Relation.OnUpdate != ReferentialAction.Unspecified ||
-                        relationPart.Relation.OnDelete != ReferentialAction.Unspecified)
-                    {
-                        foreignKeyArguments.Add($"ReferentialAction.{relationPart.Relation.OnUpdate}");
-                        foreignKeyArguments.Add($"ReferentialAction.{relationPart.Relation.OnDelete}");
-                    }
-
-                    yield return $"{namespaceTab}{tab}[ForeignKey({foreignKeyArguments.ToJoinedString(", ")})]";
-                }
-            }
-
-            if (c.AutoIncrement)
-                yield return $"{namespaceTab}{tab}[AutoIncrement]";
-
-            if (c.Nullable)
-                yield return $"{namespaceTab}{tab}[Nullable]";
-
-            foreach (var dbType in c.DbTypes.OrderBy(x => x.DatabaseType))
-            {
-                if (dbType.Signed.HasValue && dbType.Decimals.HasValue && dbType.Length.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {dbType.Decimals}, {(dbType.Signed.Value ? "true" : "false")})]";
-                else if (dbType.Signed.HasValue && dbType.Length.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {(dbType.Signed.Value ? "true" : "false")})]";
-                else if (dbType.Signed.HasValue && !dbType.Length.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {(dbType.Signed.Value ? "true" : "false")})]";
-                else if (dbType.Length.HasValue && dbType.Decimals.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {dbType.Decimals})]";
-                else if (dbType.Length.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length})]";
-                else
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)})]";
-            }
-
-            if (valueProperty.HasDefaultValue())
-            {
-                var defaultAttr = valueProperty.GetDefaultAttribute();
-                if (defaultAttr is DefaultCurrentTimestampAttribute)
-                    yield return $"{namespaceTab}{tab}[DefaultCurrentTimestamp]";
-                else if (defaultAttr is DefaultNewUUIDAttribute)
-                    yield return $"{namespaceTab}{tab}[DefaultNewUUID]";
-                else if (defaultAttr is DefaultSqlAttribute defaultSql)
-                    yield return $"{namespaceTab}{tab}[DefaultSql(DatabaseType.{defaultSql.DatabaseType}, {SymbolDisplay.FormatLiteral(defaultSql.Expression, quote: true)})]";
-                else if (defaultAttr != null)
-                    yield return $"{namespaceTab}{tab}[Default({valueProperty.GetDefaultValueCode()})]";
-            }
-
-            if (valueProperty.EnumProperty != null && HasDatabaseEnumType(valueProperty))
-                yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.CsValuesOrDbValues.Select(x => FormatStringLiteral(x.name)))})]";
-
-            yield return $"{namespaceTab}{tab}[Column({FormatStringLiteral(c.DbName)})]";
-            yield return $"{namespaceTab}{tab}public abstract {c.ValueProperty.CsType.Name}{GetPropertyNullable(c)} {c.ValueProperty.PropertyName} {{ get; }}";
-            yield return $"";
         }
 
         foreach (var relationProperty in relationProps)
         {
-            var otherPart = relationProperty.RelationPart.GetOtherSide();
+            if (!unwrittenRelations.Remove(relationProperty))
+                continue;
 
-            List<string> relationParameters = [FormatStringLiteral(otherPart.ColumnIndex.Table.DbName)];
-
-            if (otherPart.ColumnIndex.Columns.Count == 1)
-                relationParameters.Add(FormatStringLiteral(otherPart.ColumnIndex.Columns[0].DbName));
-            else
-                relationParameters.Add($"new string[] {{ {otherPart.ColumnIndex.Columns.Select(x => FormatStringLiteral(x.DbName)).ToJoinedString(", ")} }}");
-
-            if (relationProperty.RelationName != null)
-                relationParameters.Add(FormatStringLiteral(relationProperty.RelationName));
-
-            yield return $"{namespaceTab}{tab}[Relation({relationParameters.ToJoinedString(", ")})]";
-
-
-            if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
-            {
-                var nullableAnnotation = options.UseNullableReferenceTypes && relationProperty.CsNullable ? "?" : "";
-                yield return $"{namespaceTab}{tab}public abstract {otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableAnnotation} {relationProperty.PropertyName} {{ get; }}";
-            }
-            else
-                yield return $"{namespaceTab}{tab}public abstract IImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} {{ get; }}";
-
-            yield return $"";
+            foreach (var row in WriteRelationProperty(relationProperty, options))
+                yield return row;
         }
 
         yield return namespaceTab + "}";
+    }
+
+    private IEnumerable<string> WriteValueProperty(ValueProperty valueProperty)
+    {
+        var c = valueProperty.Column;
+
+        foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(valueProperty.Attributes), $"{namespaceTab}{tab}"))
+            yield return row;
+
+        foreach (var comment in valueProperty.Attributes.OfType<CommentAttribute>())
+            yield return $"{namespaceTab}{tab}{FormatCommentAttribute(comment)}";
+
+        if (c.PrimaryKey)
+            yield return $"{namespaceTab}{tab}[PrimaryKey]";
+
+        foreach (var index in c.ColumnIndices.Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey && x.Characteristic != IndexCharacteristic.ForeignKey && x.Characteristic != IndexCharacteristic.VirtualDataLinq && x.Columns.Count == 1))
+        {
+            yield return $"{namespaceTab}{tab}[Index({FormatStringLiteral(index.Name)}, IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type})]";
+        }
+
+        foreach (var index in c.ColumnIndices)
+        {
+            foreach (var relationPart in index.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
+            {
+                var columnOrdinal = relationPart.ColumnIndex.Columns.IndexOf(c);
+                var candidateColumn = relationPart.Relation.CandidateKey.ColumnIndex.Columns[columnOrdinal];
+                var foreignKeyArguments = new List<string>
+                {
+                    SymbolDisplay.FormatLiteral(relationPart.Relation.CandidateKey.ColumnIndex.Table.DbName, quote: true),
+                    SymbolDisplay.FormatLiteral(candidateColumn.DbName, quote: true),
+                    SymbolDisplay.FormatLiteral(relationPart.Relation.ConstraintName, quote: true)
+                };
+
+                if (relationPart.ColumnIndex.Columns.Count > 1)
+                    foreignKeyArguments.Add((columnOrdinal + 1).ToString());
+
+                if (relationPart.Relation.OnUpdate != ReferentialAction.Unspecified ||
+                    relationPart.Relation.OnDelete != ReferentialAction.Unspecified)
+                {
+                    foreignKeyArguments.Add($"ReferentialAction.{relationPart.Relation.OnUpdate}");
+                    foreignKeyArguments.Add($"ReferentialAction.{relationPart.Relation.OnDelete}");
+                }
+
+                yield return $"{namespaceTab}{tab}[ForeignKey({foreignKeyArguments.ToJoinedString(", ")})]";
+            }
+        }
+
+        if (c.AutoIncrement)
+            yield return $"{namespaceTab}{tab}[AutoIncrement]";
+
+        if (c.Nullable)
+            yield return $"{namespaceTab}{tab}[Nullable]";
+
+        foreach (var dbType in c.DbTypes.OrderBy(x => x.DatabaseType))
+        {
+            if (dbType.Signed.HasValue && dbType.Decimals.HasValue && dbType.Length.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {dbType.Decimals}, {(dbType.Signed.Value ? "true" : "false")})]";
+            else if (dbType.Signed.HasValue && dbType.Length.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {(dbType.Signed.Value ? "true" : "false")})]";
+            else if (dbType.Signed.HasValue && !dbType.Length.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {(dbType.Signed.Value ? "true" : "false")})]";
+            else if (dbType.Length.HasValue && dbType.Decimals.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {dbType.Decimals})]";
+            else if (dbType.Length.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length})]";
+            else
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)})]";
+        }
+
+        if (valueProperty.HasDefaultValue())
+        {
+            var defaultAttr = valueProperty.GetDefaultAttribute();
+            if (defaultAttr is DefaultCurrentTimestampAttribute)
+                yield return $"{namespaceTab}{tab}[DefaultCurrentTimestamp]";
+            else if (defaultAttr is DefaultNewUUIDAttribute)
+                yield return $"{namespaceTab}{tab}[DefaultNewUUID]";
+            else if (defaultAttr is DefaultSqlAttribute defaultSql)
+                yield return $"{namespaceTab}{tab}[DefaultSql(DatabaseType.{defaultSql.DatabaseType}, {SymbolDisplay.FormatLiteral(defaultSql.Expression, quote: true)})]";
+            else if (defaultAttr != null)
+                yield return $"{namespaceTab}{tab}[Default({valueProperty.GetDefaultValueCode()})]";
+        }
+
+        if (valueProperty.EnumProperty != null && HasDatabaseEnumType(valueProperty))
+            yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.CsValuesOrDbValues.Select(x => FormatStringLiteral(x.name)))})]";
+
+        yield return $"{namespaceTab}{tab}[Column({FormatStringLiteral(c.DbName)})]";
+        yield return $"{namespaceTab}{tab}public abstract {c.ValueProperty.CsType.Name}{GetPropertyNullable(c)} {c.ValueProperty.PropertyName} {{ get; }}";
+        yield return "";
+    }
+
+    private IEnumerable<string> WriteRelationProperty(
+        RelationProperty relationProperty,
+        ModelFileFactoryOptions options)
+    {
+        var otherPart = relationProperty.RelationPart.GetOtherSide();
+
+        List<string> relationParameters = [FormatStringLiteral(otherPart.ColumnIndex.Table.DbName)];
+
+        if (otherPart.ColumnIndex.Columns.Count == 1)
+            relationParameters.Add(FormatStringLiteral(otherPart.ColumnIndex.Columns[0].DbName));
+        else
+            relationParameters.Add($"new string[] {{ {otherPart.ColumnIndex.Columns.Select(x => FormatStringLiteral(x.DbName)).ToJoinedString(", ")} }}");
+
+        if (relationProperty.RelationName != null)
+            relationParameters.Add(FormatStringLiteral(relationProperty.RelationName));
+
+        yield return $"{namespaceTab}{tab}[Relation({relationParameters.ToJoinedString(", ")})]";
+
+        if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
+        {
+            var nullableAnnotation = options.UseNullableReferenceTypes && relationProperty.CsNullable ? "?" : "";
+            yield return $"{namespaceTab}{tab}public abstract {otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableAnnotation} {relationProperty.PropertyName} {{ get; }}";
+        }
+        else
+        {
+            yield return $"{namespaceTab}{tab}public abstract IImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} {{ get; }}";
+        }
+
+        yield return "";
+    }
+
+    private static IEnumerable<RelationProperty> GetRelationsAfterValueProperty(
+        ValueProperty valueProperty,
+        IReadOnlyList<ValueProperty> valueProperties,
+        IEnumerable<RelationProperty> relationProperties)
+    {
+        foreach (var relationProperty in relationProperties)
+        {
+            var relationPart = relationProperty.RelationPart;
+            if (relationPart.Type != RelationPartType.ForeignKey)
+                continue;
+
+            var foreignKeyColumns = relationPart.ColumnIndex.Columns;
+            if (!foreignKeyColumns.Contains(valueProperty.Column))
+                continue;
+
+            var lastForeignKeyValueProperty = valueProperties
+                .Where(property => foreignKeyColumns.Contains(property.Column))
+                .LastOrDefault();
+
+            if (ReferenceEquals(lastForeignKeyValueProperty?.Column, valueProperty.Column))
+                yield return relationProperty;
+        }
     }
 
     private static string FormatCommentAttribute(CommentAttribute comment)

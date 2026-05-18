@@ -191,6 +191,7 @@ public class ModelGenerator : Generator
             UseFileScopedNamespaces = db.UseFileScopedNamespaces,
             UseNullableReferenceTypes = db.UseNullableReferenceTypes,
             SeparateTablesAndViews = db.SeparateTablesAndViews,
+            ModelLayout = db.ModelLayout,
             GeneratedFileStamp = this.options.GeneratedFileStamp
         };
 

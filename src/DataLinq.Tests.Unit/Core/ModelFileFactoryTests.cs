@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Config;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
@@ -281,6 +282,90 @@ public class ModelFileFactoryTests
         await Assert.That(generatedFile.contents).Contains("public abstract External.Namespace.DocumentStatusCode Status { get; }");
     }
 
+    [Test]
+    public async Task CreateModelFiles_DefaultLayout_PutsPrimaryKeysBeforeEarlierColumns()
+    {
+        var database = CreateDatabaseWithLayoutProperties();
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "LayoutModel.cs");
+
+        await AssertContainsInOrder(
+            generatedFile.contents,
+            "public abstract int ZuluId { get; }",
+            "public abstract string Name { get; }",
+            "public abstract string Alpha { get; }");
+    }
+
+    [Test]
+    public async Task CreateModelFiles_AlphabeticalInlineLayout_DoesNotMovePrimaryKeys()
+    {
+        var database = CreateDatabaseWithLayoutProperties();
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions
+        {
+            ModelLayout = new DataLinqModelLayoutConfig(
+                DataLinqModelPropertyOrder.Alphabetical,
+                DataLinqModelKeyPlacement.Inline,
+                DataLinqModelRelationPlacement.Bottom)
+        })
+            .CreateModelFiles(database)
+            .Single(file => file.path == "LayoutModel.cs");
+
+        await AssertContainsInOrder(
+            generatedFile.contents,
+            "public abstract string Alpha { get; }",
+            "public abstract string Name { get; }",
+            "public abstract int ZuluId { get; }");
+    }
+
+    [Test]
+    public async Task CreateModelFiles_RelationPlacementTop_EmitsRelationsBeforeValueProperties()
+    {
+        var database = CreateDatabaseWithRelationLayout();
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions
+        {
+            ModelLayout = new DataLinqModelLayoutConfig(
+                DataLinqModelPropertyOrder.Column,
+                DataLinqModelKeyPlacement.Top,
+                DataLinqModelRelationPlacement.Top)
+        })
+            .CreateModelFiles(database)
+            .Single(file => file.path == "Order.cs");
+
+        await AssertContainsInOrder(
+            generatedFile.contents,
+            "public abstract User Customer { get; }",
+            "public abstract int OrderId { get; }",
+            "public abstract int CustomerId { get; }",
+            "public abstract decimal Amount { get; }");
+    }
+
+    [Test]
+    public async Task CreateModelFiles_RelationPlacementWithForeignKey_EmitsRelationAfterForeignKeyProperty()
+    {
+        var database = CreateDatabaseWithRelationLayout();
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions
+        {
+            ModelLayout = new DataLinqModelLayoutConfig(
+                DataLinqModelPropertyOrder.Column,
+                DataLinqModelKeyPlacement.Top,
+                DataLinqModelRelationPlacement.WithForeignKey)
+        })
+            .CreateModelFiles(database)
+            .Single(file => file.path == "Order.cs");
+
+        await AssertContainsInOrder(
+            generatedFile.contents,
+            "public abstract int OrderId { get; }",
+            "public abstract int CustomerId { get; }",
+            "public abstract User Customer { get; }",
+            "public abstract decimal Amount { get; }");
+    }
+
     private static DatabaseDefinition CreateDatabaseWithDefaultValue(CsTypeDeclaration propertyType, object defaultValue)
     {
         var draft = new MetadataDatabaseDraft(
@@ -310,6 +395,83 @@ public class ModelFileFactoryTests
                         ]
                     },
                     new MetadataTableDraft("quote_table"))
+            ]
+        };
+
+        return Build(draft);
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithLayoutProperties()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "LayoutDb",
+            new CsTypeDeclaration("LayoutDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "LayoutModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("LayoutModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            CreateValueProperty("Name", typeof(string), "name", "varchar", length: 255),
+                            CreateValueProperty("ZuluId", typeof(int), "zulu_id", "int", primaryKey: true),
+                            CreateValueProperty("Alpha", typeof(string), "alpha", "varchar", length: 255)
+                        ]
+                    },
+                    new MetadataTableDraft("layout_model"))
+            ]
+        };
+
+        return Build(draft);
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithRelationLayout()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "OrderDb",
+            new CsTypeDeclaration("OrderDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Users",
+                    new MetadataModelDraft(new CsTypeDeclaration("User", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            CreateValueProperty("UserId", typeof(int), "user_id", "int", primaryKey: true),
+                            CreateValueProperty("Name", typeof(string), "name", "varchar", length: 255)
+                        ]
+                    },
+                    new MetadataTableDraft("users")),
+                new MetadataTableModelDraft(
+                    "Orders",
+                    new MetadataModelDraft(new CsTypeDeclaration("Order", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            CreateValueProperty("OrderId", typeof(int), "order_id", "int", primaryKey: true),
+                            new MetadataValuePropertyDraft(
+                                "CustomerId",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("customer_id")
+                                {
+                                    ForeignKey = true,
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.MySQL, "int")]
+                                })
+                            {
+                                Attributes =
+                                [
+                                    new ForeignKeyAttribute("users", "user_id", "FK_Order_User"),
+                                    new ColumnAttribute("customer_id")
+                                ]
+                            },
+                            CreateValueProperty("Amount", typeof(decimal), "amount", "decimal")
+                        ]
+                    },
+                    new MetadataTableDraft("orders"))
             ]
         };
 
@@ -568,4 +730,15 @@ public class ModelFileFactoryTests
 
     private static DatabaseDefinition Build(MetadataDatabaseDraft draft)
         => new MetadataDefinitionFactory().Build(draft).ValueOrException();
+
+    private static async Task AssertContainsInOrder(string contents, params string[] markers)
+    {
+        var previousIndex = -1;
+        foreach (var marker in markers)
+        {
+            var index = contents.IndexOf(marker, previousIndex + 1, StringComparison.Ordinal);
+            await Assert.That(index).IsGreaterThan(previousIndex);
+            previousIndex = index;
+        }
+    }
 }
