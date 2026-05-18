@@ -2,12 +2,12 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: CLI Secret References
 
-**Status:** Draft implementation plan.
-**Goal:** Let `datalinq.json` and `datalinq.user.json` reference secrets without storing secret values directly in config files. V1 should support environment variables, DataLinq local secrets, and prompt-at-runtime secrets.
+**Status:** Implemented for V1 on Windows; cross-platform local secret backends and wizard polish remain.
+**Goal:** Let `datalinq.json` and `datalinq.user.json` reference secrets without storing secret values directly in config files. V1 supports environment variables, DataLinq local secrets, and prompt-at-runtime secrets.
 
 ## Executive Position
 
-DataLinq should support secret references, not encrypted config blobs.
+DataLinq supports secret references, not encrypted config blobs.
 
 Encrypted values inside config files usually become theater unless key management is solved. If the encrypted value and the key needed to decrypt it both live in the same repo, user profile, or command line, the system is more complicated without being meaningfully safer.
 
@@ -19,13 +19,40 @@ The right model is:
 
 The config file stores a reference. The secret value lives somewhere else and is resolved only when the CLI needs to connect.
 
-V1 should support exactly these providers:
+V1 supports exactly these providers:
 
 - `${env:NAME}`
 - `${secret:name}`
 - `${prompt:label}`
 
 Do not add Azure Key Vault, AWS Secrets Manager, HashiCorp Vault, or .NET User Secrets in V1. Those can come later. The first slice should get the resolution model, redaction behavior, local secret store, and CLI commands right.
+
+## Current Implementation Status
+
+Implemented:
+
+- `${env:NAME}`
+- `${secret:name}`
+- `${prompt:label}`
+- whole-connection-string secret references
+- placeholder resolution inside connection-string values through `DbConnectionStringBuilder`
+- prompt caching per process
+- secret redaction for resolved values and raw secret references in CLI-controlled output
+- password/pwd connection-string redaction
+- `datalinq secrets list`
+- `datalinq secrets set <name>`
+- `datalinq secrets remove <name>`
+- Windows Credential Manager backend
+- explicit unavailable-secret-store behavior on macOS/Linux instead of plaintext fallback
+- config loading resolves secret references before building `DataLinqConfig`
+
+Remaining work worth doing:
+
+1. Add macOS Keychain and Linux Secret Service/libsecret backends if cross-platform local secrets become a priority.
+2. Improve `config init` so MySQL/MariaDB password prompts offer local secret, environment variable, runtime prompt, or direct plaintext with a warning. Current defaults use prompt references for server providers, which is safe but not as ergonomic as the planned menu.
+3. Add a non-interactive `secrets set --stdin` only if automation needs it. Do not add plaintext command-line value arguments.
+4. Expand redaction keys later if providers need `Access Token`, `Token`, `ApiKey`, or `Secret`. V1 intentionally covers database `Password`/`Pwd`.
+5. Route secret-resolution diagnostics through the future diagnostics renderer once that slice lands.
 
 ## Why Not .NET User Secrets First?
 
@@ -218,13 +245,13 @@ Credential Manager is more semantically correct for named secrets, but DPAPI-pro
 
 ### macOS
 
-Use Keychain when implemented.
+Remaining work: use Keychain.
 
-If Keychain support is not implemented in the first code slice, `${secret:...}` should report that local DataLinq secrets are unavailable on this platform and suggest `${env:...}` or `${prompt:...}`.
+Current behavior: `${secret:...}` reports that local DataLinq secrets are unavailable on this platform and suggests `${env:...}` or `${prompt:...}`.
 
 ### Linux
 
-Use Secret Service/libsecret when implemented.
+Remaining work: use Secret Service/libsecret.
 
 Linux developer machines vary. If no supported secret service is available, fail clearly. Do not write plaintext secrets to `~/.config/datalinq` and call it secure.
 
@@ -320,7 +347,7 @@ If a caller does not provide a resolver and the config contains secret reference
 
 ## Interaction With `datalinq config init`
 
-The `config init` wizard should prefer secret references for passwords once this feature exists.
+The `config init` wizard should prefer secret references for passwords. The current server-provider defaults use `${prompt:...}`; the richer storage-choice prompt below is still future work.
 
 Recommended prompt:
 
@@ -429,12 +456,12 @@ Use fake secret providers for unit tests. Do not require actual DPAPI, Keychain,
 
 ## Documentation Plan
 
-After implementation, update:
+Updated:
 
 - `docs/Configuration files.md`
 - `docs/CLI Documentation.md`
 - `docs/getting-started/Configuration and Model Generation.md`
-- the planned `datalinq config init` docs
+- `datalinq config init` docs
 
 Document:
 
@@ -447,7 +474,7 @@ Document:
 - that prompt secrets are not suitable for automation
 - that .NET User Secrets are not the same feature
 
-Do not document this before it ships.
+These docs now describe shipped V1 behavior. Keep future provider/backend notes clearly labeled as future work.
 
 ## Non-Goals
 

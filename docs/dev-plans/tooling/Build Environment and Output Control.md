@@ -3,7 +3,7 @@
 > [!WARNING]
 > This document is an implementation plan for developer tooling. It is not user-facing product documentation.
 
-**Status:** Active implementation document  
+**Status:** Implemented first slice; remaining work is adoption and hardening.
 **Goal:** Make `dotnet`/MSBuild/NuGet execution reliable in constrained environments and make build/test output concise, structured, and useful by default.
 
 ## 0. Current State
@@ -30,8 +30,15 @@ Validated outcomes from implementation:
 Still intentionally left for later:
 
 - CI adoption
-- any generic `exec` passthrough
 - deeper output shaping beyond distinct diagnostics and test-failure extraction
+- broader parser coverage for host/workload/NuGet failures as new failure shapes are observed
+
+Implemented after the original first slice:
+
+- `DataLinq.Dev.CLI exec`
+  A generic dotnet passthrough now exists and uses the repo-local execution profile, raw log artifacts, output modes, and automatic build binlogs when the command can be classified as a build.
+- compatibility/package reporting
+  `size-report` and `package-report` now live beside `doctor`, `restore`, `build`, `test`, and `exec`, because constrained-platform/package validation is part of developer-tooling health.
 
 ## 1. Problem Statement
 
@@ -394,7 +401,7 @@ Raw logs should be easy to inspect, but not spammed into the conversation by def
 3. Add wrapped `restore` and `build` commands with `quiet`, `summary`, and `errors` modes.
 4. Add log artifacting and optional binlog generation.
 5. Add `test` wrapping with failure-only summaries.
-6. Decide later whether a generic command proxy mode is worth adding.
+6. Add the generic command proxy only after the core wrapper commands prove the execution profile.
 
 That sequence matters.
 
@@ -408,11 +415,12 @@ These were decided during implementation:
 - the new tool lives in `src/DataLinq.Dev.CLI`
 - output parsing and process/environment handling were extracted into `src/DataLinq.DevTools` and reused by `DataLinq.Testing.CLI` and `DataLinq.Benchmark.CLI`
 - `.binlog` generation defaults to `auto`, which means generate it during build runs and surface it primarily on failure
+- the generic `exec` passthrough is useful enough to keep, but it should remain an escape hatch rather than the primary UX
 
 Still open:
 
 - whether CI should switch to the wrapper immediately or only after a follow-up hardening pass
-- whether an `exec` escape hatch is worth adding at all
+- whether the output analyzer should grow additional first-class classifications for workload, restore, and test-host failures observed in the wild
 
 ## 11. Recommended Decision
 

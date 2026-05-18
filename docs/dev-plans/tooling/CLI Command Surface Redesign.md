@@ -2,12 +2,12 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: CLI Command Surface Redesign
 
-**Status:** Draft implementation plan.
-**Goal:** Redesign the DataLinq CLI command surface before 1.0 so command names, option names, nested command groups, and parser infrastructure are consistent, understandable, and ready for planned features.
+**Status:** Implemented with two deliberate follow-ups.
+**Goal:** Keep the DataLinq CLI command surface consistent, understandable, and ready for planned features before 1.0.
 
 ## Executive Position
 
-Do this before 1.0. The current CLI is small enough that a breaking cleanup is still cheap, and the planned features make the old flat command shape awkward.
+This cleanup has landed and should stay landed before 1.0. The old flat command vocabulary was too vague, and carrying it forward would have made every later CLI feature harder to explain.
 
 The main issue is vocabulary:
 
@@ -23,7 +23,7 @@ The main issue is vocabulary:
 
 The right move is to switch `DataLinq.CLI` to `System.CommandLine`, align it with the other repo CLIs, and use a command grammar that distinguishes generated artifacts from database mutation.
 
-Recommended primary surface:
+Current primary surface:
 
 ```text
 datalinq generate models [target] [--all] [--recursive] [--fresh] [--overwrite-types] [--stamp-generated-header]
@@ -36,7 +36,6 @@ datalinq diff [target] [--output path]
 datalinq config init
 datalinq config list [--recursive]
 datalinq config schema [--output path]
-datalinq config validate [--format text|json]
 
 datalinq secrets list
 datalinq secrets set <name>
@@ -45,9 +44,28 @@ datalinq secrets remove <name>
 
 This is a better shape than `datalinq create models` because "generate" is the right verb for model files and SQL scripts. Reserve "create" for the database mutation command. `init` and `list` belong under `config` because they create, complete, or inspect DataLinq config files.
 
-## Current CLI Surface
+## Current Implementation Status
 
-`src/DataLinq.CLI/Program.cs` currently uses `CommandLineParser` and flat verbs:
+Implemented:
+
+- `src/DataLinq.CLI` now uses `System.CommandLine`.
+- Primary commands are nested as `generate models`, `generate sql`, `database create`, `config init`, `config list`, `config schema`, and `secrets list/set/remove`.
+- `validate` and `diff` remain root workflow commands.
+- Target options now use `--database`, `--provider`, and `--data-source`; `-n` and `-p` are retained as the useful short aliases.
+- `validate` uses `--format text|json`; old `validate --output json` is rejected.
+- The only kept flat compatibility command is `create-models`, and it warns as deprecated.
+- User-facing docs now describe the new command surface.
+
+Not implemented, and still worth doing:
+
+- `datalinq config validate`
+  This should validate config shape and semantic rules without opening a database. The JSON Schema catches editor-time shape errors, but the CLI still needs an offline command that checks merged `datalinq.json`/`datalinq.user.json`, provider names, model-directory conflicts, missing names, connection-entry sanity, and secret-reference resolution behavior.
+- `Program.cs` decomposition
+  The parser migration landed, but the command wiring and command handlers still live mostly in one large `Program.cs`. Split it when doing the next CLI slice, not as busywork: `GenerateCommand`, `DatabaseCommand`, `ValidateCommand`, `DiffCommand`, `ConfigCommand`, `SecretsCommand`, and shared target/output helpers would be the obvious shape.
+
+## Legacy CLI Surface At Plan Creation
+
+Before this work, `src/DataLinq.CLI/Program.cs` used `CommandLineParser` and flat verbs:
 
 ```text
 create-database
@@ -91,7 +109,7 @@ This works, but it is too flat and too vague for:
 
 ## Parser Direction
 
-Switch `DataLinq.CLI` from `CommandLineParser` to `System.CommandLine`.
+Implemented: `DataLinq.CLI` switched from `CommandLineParser` to `System.CommandLine`.
 
 Reasons:
 
@@ -105,7 +123,7 @@ Reasons:
 - help output is more flexible
 - planned command families map cleanly to subcommands
 
-Do not keep `CommandLineParser` just to avoid a package change. The rest of the repo has already made the better parser choice.
+Do not reintroduce `CommandLineParser` just to avoid parser cleanup. The rest of the repo has already made the better parser choice.
 
 ## Command Grammar
 
@@ -156,7 +174,6 @@ Use:
 datalinq config init
 datalinq config list
 datalinq config schema
-datalinq config validate
 ```
 
 Rationale:
@@ -166,7 +183,7 @@ Rationale:
 - plain `datalinq schema` is too ambiguous in an ORM CLI
 - users may think "schema" means database schema
 - `config schema` is precise: it prints the JSON Schema for config files
-- `config validate` can validate `datalinq.json`/`datalinq.user.json` without connecting to a database
+- `config validate` remains the right future name for offline config validation, but it is not currently exposed
 
 ### Secrets Group
 
@@ -354,7 +371,7 @@ Options:
 
 Prints or writes the JSON Schema for DataLinq config files.
 
-### `datalinq config validate`
+### Future `datalinq config validate`
 
 Options:
 
@@ -408,7 +425,7 @@ Configuration:
   config init
   config list
   config schema
-  config validate
+  config validate   (future)
 
 Secrets:
   secrets list
@@ -495,9 +512,7 @@ Wire new primary commands:
 
 Then add planned command stubs or full commands depending on which feature lands first:
 
-- `config schema`
 - `config validate`
-- `secrets list/set/remove`
 
 If a planned command is not implemented yet, do not expose it as a stub that fails. It is better for help output to show only working commands.
 
@@ -565,9 +580,9 @@ Before implementation lands, dev-plan docs may continue mentioning old commands 
 - Primary database creation command is `datalinq database create`.
 - Config schema command is `datalinq config schema`.
 - Config validation command is `datalinq config validate` when implemented.
-- Config initialization command is `datalinq config init` when implemented.
+- Config initialization command is `datalinq config init`.
 - Config inventory command is `datalinq config list`.
-- Secrets commands use `datalinq secrets list/set/remove` when implemented.
+- Secrets commands use `datalinq secrets list/set/remove`.
 - Target options use `--database`, `--provider`, and `--data-source` as primary names.
 - `validate` uses `--format` as the primary format option.
 - Only `create-models` is kept as a temporary deprecated alias for `generate models`.

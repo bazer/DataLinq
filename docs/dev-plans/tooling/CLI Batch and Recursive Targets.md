@@ -2,12 +2,12 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: CLI Batch and Recursive Targets
 
-**Status:** Draft implementation plan.
+**Status:** Mostly implemented; remaining work is semantic polish and edge-case hardening.
 **Goal:** Let the DataLinq CLI run the most useful read/generation workflows across many configured databases: `generate models --all/--recursive`, `validate --all/--recursive`, and `config list --recursive`.
 
 ## Executive Position
 
-This is worth doing, but it needs a real target-expansion layer instead of sprinkling loops into each command.
+This is worth doing, and the main version has landed. The implementation uses real config discovery and target expansion instead of sprinkling loops into each command.
 
 The useful user stories are simple:
 
@@ -28,7 +28,32 @@ Batch `generate models` should keep checking every target, but should not write 
 
 That makes `generate models --all` and `generate models --recursive` safe enough to use as "refresh the whole repo" commands. If one sample database is broken, the command should report that target and still inspect the rest, but it should leave all model directories untouched.
 
-## Scope for This Slice
+## Current Implementation Status
+
+Implemented:
+
+- `generate models --all`
+- `generate models --recursive`
+- `validate --all`
+- `validate --recursive`
+- `validate --format json` for batch output as one aggregate JSON payload
+- `config list --recursive`
+- deterministic recursive discovery of `datalinq.json`
+- continued processing after unreadable/invalid configs
+- render-before-write for batch model generation
+- duplicate generated-path detection before writing
+- staged generated-file writes with rollback for late I/O failures
+
+The implementation is stronger than the original minimum on file writes. The draft only required "no writes before all targets pass preflight"; the current writer stages temp files and attempts to restore replaced files if a later write fails.
+
+Remaining work worth doing:
+
+1. Add `.vs` and `.idea` to recursive discovery exclusions.
+2. Split target expansion semantics by command kind. `validate --all` should expand every matching connection. `generate models --all` should select one writable target per logical database or report a pre-render ambiguity. The current shared expansion can discover multiple connections for the same database and only catches duplicate output paths after render plans are built.
+3. Decide whether `--all --database AppDb` should remain a useful filter or be rejected as the original draft said. Keeping it as a filter is defensible, but the docs and tests should say that explicitly.
+4. Improve batch summaries from boolean `failures: yes/no` lines to counts: configs, targets, succeeded, drift, failed.
+
+## Implemented Scope
 
 Implement batch/recursive support for:
 
@@ -60,17 +85,18 @@ Current rules:
 
 That is right for single-target commands, but too narrow for batch commands.
 
-### Current Model Generation Command
+### Model Generation Command
 
-The existing `create-models` command currently:
+The current `generate models` command, plus the deprecated `create-models` alias:
 
 1. reads one config
 2. resolves one connection
 3. creates one `ModelGenerator`
 4. calls `CreateModels(...)`
-5. writes files during the generator flow
+5. renders a `GeneratedModelWritePlan`
+6. writes the plan through `SafeGeneratedFileWriter`
 
-The generator now materializes rendered files before writing for one target, but the command still writes target by target. Batch mode needs a preflight/render phase for every target before any target writes.
+Single-target and batch mode now share the same render-plan path. Batch mode renders every selected target before any target writes.
 
 ### `validate`
 
@@ -138,13 +164,13 @@ under that tree.
 Discovery should ignore obvious generated/noisy directories:
 
 - `.git`
-- `.vs`
-- `.idea`
 - `bin`
 - `obj`
 - `node_modules`
 - `artifacts`
 - `_site`
+
+Currently implemented exclusions are `.git`, `bin`, `obj`, `node_modules`, `artifacts`, and `_site`. Add `.vs` and `.idea` as a small hardening follow-up.
 
 Order should be deterministic: sort config paths by normalized full path using ordinal comparison.
 
@@ -196,7 +222,7 @@ Meaning:
 Run this command for every applicable database target in the selected config.
 ```
 
-`--all` cannot be combined with `-n` / `--database` in the first implementation. That combination is a filter language, not "all", and it can wait.
+Original design said `--all` could not be combined with `-n` / `--database`. Current implementation allows it as a database filter. That is defensible, but it should be documented and tested as intentional if we keep it.
 
 `-p` / `--provider` may be combined with `--all` as a provider filter.
 
@@ -216,7 +242,7 @@ Find every datalinq.json under the search root and run the command across them.
 
 For `generate models` and `validate`, `--recursive` implies `--all`.
 
-`--recursive` cannot be combined with `-n` / `--database` in the first implementation.
+Original design said `--recursive` could not be combined with `-n` / `--database`. Current implementation allows it as a database filter. Same recommendation: either document and test it as a useful filter, or reject it consistently.
 
 `-p` / `--provider` may be combined with `--recursive` as a provider filter.
 
@@ -243,7 +269,7 @@ Model generation writes to the model directory, so multiple connections for the 
 Rules:
 
 - no `-p`: databases with exactly one connection become targets
-- no `-p`: databases with multiple connections produce an ambiguity issue and are not rendered
+- no `-p`: databases with multiple connections should produce an ambiguity issue before rendering and should not be rendered
 - with `-p`: select the matching connection for each database
 - with `-p`: databases with no matching connection produce a target-selection issue
 
@@ -531,7 +557,7 @@ Add focused tests for:
 - `generate models --all` renders all targets before writing any target
 - `generate models --all` writes nothing when any target render fails
 - `generate models --all -p SQLite` filters connections
-- `generate models --all` reports ambiguity for a database with multiple connections and no `-p`
+- `generate models --all` reports ambiguity for a database with multiple connections and no `-p` before rendering that database
 - `validate --all` validates all connections when no type filter is supplied
 - `validate --all -p MariaDB` filters validation targets
 - `validate --all` continues after one target failure

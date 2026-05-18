@@ -2,19 +2,18 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: CLI Diagnostics Output Style
 
-**Status:** Draft implementation plan.
+**Status:** Partially implemented; this is the main remaining tooling UX slice.
 **Goal:** Make DataLinq CLI errors and warnings readable, consistent, colorized, and portable across Windows, Linux, and macOS.
 
 ## Executive Position
 
-The CLI already has the beginning of a diagnostic system, but the text shape is not good enough yet.
+The CLI has a diagnostic system, but the text shape is still not good enough yet.
 
 Current output mixes:
 
 - `Error:` prefixes
 - `Warning:` prefixes
-- bracketed failure types such as `[InvalidModel]`
-- unbracketed ad hoc errors
+- old-style capitalized diagnostic prefixes
 - validation drift lines with bracketed safety tags
 - warning strings passed through generic log callbacks
 
@@ -43,6 +42,24 @@ Colors:
 
 ## Current Code Audit
 
+Implemented since the original draft:
+
+- CLI failures are flattened into `DataLinqDiagnosticIssue` before formatting.
+- Human failure text no longer uses `[InvalidModel]` square brackets around failure types.
+- Many formerly ad hoc command/parser failures now go through `ConsoleDiagnosticWriter.WriteError(...)`.
+- `ConsoleDiagnosticWriter` has explicit `WriteError` and `WriteWarning` overloads that accept a code.
+- Secret redaction is integrated into diagnostic formatting.
+- JSON validation output redacts known secret values.
+
+Still not implemented:
+
+- The human format is still `Error: InvalidModel: ...` / `Warning: ...`, not `error InvalidModel: ...` / `warning: ...`.
+- Diagnostics still write through `Console.WriteLine` in `ConsoleDiagnosticWriter`, so operational errors and warnings go to stdout instead of stderr.
+- Color auto-detection checks `Console.IsOutputRedirected`, not an error-stream policy.
+- `DLFailureType.Unspecified` is still printed as a code when surfaced through `DataLinqDiagnosticIssue`.
+- Validation drift text still uses `Kind [Safety] path`.
+- Lower-level tooling warnings still encode severity in strings such as `Warning: ...`; prefix parsing remains a compatibility bridge.
+
 ### ConsoleDiagnosticWriter
 
 `src/DataLinq.CLI/ConsoleDiagnosticWriter.cs` currently has:
@@ -63,42 +80,35 @@ Console.Write(prefix);
 
 This is good because `Console.ForegroundColor` is supported across normal Windows, Linux, and macOS terminals. It also avoids emitting raw ANSI escapes into redirected output.
 
-But issue formatting currently uses square brackets:
+Issue formatting currently produces:
 
 ```csharp
-$"[{issue.FailureType}] {issue.Message}"
+Error: InvalidModel: Broken model
 ```
 
 and with source locations:
 
 ```csharp
-$"{location}: [{issue.FailureType}] {issue.Message}"
+Error: Account.cs:2:1: InvalidModel: Broken property
 ```
 
-The tests in `src/DataLinq.Tests.Unit/CliDiagnosticWriterTests.cs` lock this in today.
+The tests in `src/DataLinq.Tests.Unit/CliDiagnosticWriterTests.cs` lock this in today. The next slice should deliberately break and update those tests.
 
 ### Failure Formatting
 
-`src/DataLinq.SharedCore/ErrorHandling/DLOptionFailure.cs` also formats failures directly as:
+`src/DataLinq.SharedCore/ErrorHandling/DLOptionFailure.cs` still formats failures directly as:
 
 ```csharp
 $"[{FailureType}] {Failure}"
 ```
 
-The CLI should avoid using raw `IDLOptionFailure.ToString()` for human output. It should flatten failures into `DataLinqDiagnosticIssue` and apply the CLI's diagnostic format.
+The CLI mostly avoids using raw `IDLOptionFailure.ToString()` for human output now. Keep that rule: flatten failures into `DataLinqDiagnosticIssue` and apply the CLI's diagnostic format.
 
 `IDLOptionFailure.ToString()` can remain as a low-level/debug representation if changing it would be too disruptive.
 
 ### Ad Hoc Console Errors
 
-`src/DataLinq.CLI/Program.cs` has ad hoc output such as:
-
-```csharp
-Console.WriteLine("Invalid output format. Expected 'text' or 'json'.");
-Console.WriteLine($"Usage: datalinq [command] -n name");
-```
-
-Those should go through the diagnostic writer.
+Most operational command errors in `src/DataLinq.CLI/Program.cs` now go through the diagnostic writer. Continue converting any new parser/config/secret failures through the renderer rather than adding raw `Console.WriteLine` errors.
 
 ### Warnings From Tools
 
@@ -311,11 +321,11 @@ can remain as-is.
 
 Text style changes should not break JSON consumers.
 
-## Implementation Plan
+## Remaining Implementation Plan
 
 ### 1. Introduce a Diagnostic Renderer
 
-Refactor `ConsoleDiagnosticWriter` around a renderer that takes structured values:
+Refactor `ConsoleDiagnosticWriter` around a renderer that takes structured values and a target stream:
 
 ```csharp
 internal sealed record CliDiagnostic(
@@ -334,13 +344,15 @@ The important result:
 - color is centralized
 - stream choice is centralized
 - tests assert one format
+- `FormatIssuesText(...)` and `WriteIssues(...)` use the same renderer
+- redaction remains one layer, not scattered call-site string replacement
 
 ### 2. Remove Bracketed Failure Type Formatting From CLI Output
 
-Change CLI issue text from:
+Change CLI issue text from the current:
 
 ```text
-Error: [InvalidModel] Broken model
+Error: InvalidModel: Broken model
 ```
 
 to:
@@ -358,6 +370,18 @@ Account.cs:2:1: error InvalidModel: Broken property
 Update `CliDiagnosticWriterTests`.
 
 Do not rely on `IDLOptionFailure.ToString()` for CLI-facing output.
+
+Also omit meaningless codes:
+
+```text
+error: Couldn't find database with name 'Foo'.
+```
+
+not:
+
+```text
+error Unspecified: Couldn't find database with name 'Foo'.
+```
 
 ### 3. Add Warning Writer APIs
 
@@ -391,6 +415,8 @@ Color detection should check the target stream:
 
 Keep JSON output on stdout.
 
+Be careful with tests: existing tests often capture only stdout. Add a small test helper that captures stdout and stderr separately so parser failures, config failures, and warnings prove they land on stderr while JSON/list/diff output stays on stdout.
+
 ### 5. Normalize Ad Hoc CLI Errors
 
 Replace ad hoc errors in `Program.cs`:
@@ -421,6 +447,20 @@ error ColumnTypeMismatch: path
 
 Color `error` and `warning` labels if validation output remains on an interactive terminal.
 
+Recommended final text for a mixed drift report:
+
+```text
+Schema drift detected: 2 differences (1 error, 1 warning).
+
+error ColumnTypeMismatch: employee.birth_date
+  safety: ReviewRequired
+  Model type 'date' does not match database type 'datetime'.
+
+warning MissingColumn: employee.name
+  safety: Safe
+  Column 'name' exists in model but not database.
+```
+
 ### 7. Keep Cross-Platform Color Boring
 
 Use `Console.ForegroundColor`.
@@ -443,6 +483,22 @@ Update and add tests for:
 - redirected output disables color under auto policy
 - JSON validation output has no color escapes
 - validation drift output uses no bracketed safety tags
+- diagnostics are written to stderr
+- stdout remains clean for JSON output and generated SQL output
+
+### 9. Migration Notes
+
+Do this as one focused breaking-output slice. The current tests intentionally lock the old `Error:` shape, so a half-migration will be worse than no migration.
+
+Suggested order:
+
+1. Add pure formatting tests for the desired renderer output.
+2. Switch `ConsoleDiagnosticWriter.FormatIssuesText(...)` and `FormatFailureText(...)`.
+3. Switch `WriteError`, `WriteWarning`, `WriteFailure`, and `WriteIssues` to stderr.
+4. Update command-level tests that capture output.
+5. Update validation drift formatting.
+6. Keep `WriteLogLine("Warning: ...")` compatibility temporarily, but make it render as `warning: ...`.
+7. Sweep docs and troubleshooting examples for `Error:` examples.
 
 ## Non-Goals
 

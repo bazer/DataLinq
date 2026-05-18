@@ -2,12 +2,12 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Config JSON Schema and Autocomplete
 
-**Status:** Draft implementation plan.
-**Goal:** Provide first-class editor autocomplete and validation for `datalinq.json` and `datalinq.user.json` through a published JSON Schema, schema-aware `config init` output, a `config schema` command, and SchemaStore integration.
+**Status:** Implemented in the repo; external publication tasks remain.
+**Goal:** Provide first-class editor autocomplete and validation for `datalinq.json` and `datalinq.user.json` through a checked-in JSON Schema, schema-aware `config init` output, a `config schema` command, docs-site publication, and optional SchemaStore integration.
 
 ## Executive Position
 
-JSON Schema is the right answer. It is boring, standard, and widely supported by the editors DataLinq users are likely to use. A good schema gives users:
+JSON Schema was the right answer. It is boring, standard, and widely supported by the editors DataLinq users are likely to use. A good schema gives users:
 
 - autocomplete
 - enum suggestions
@@ -18,7 +18,7 @@ JSON Schema is the right answer. It is boring, standard, and widely supported by
 
 This should be a V1 feature for config UX, not a later polish item. Configuration is one of the first things users touch. If the config feels guessy, the product feels immature even when the runtime is solid.
 
-Recommended top of a generated config:
+Current top of a generated shared config:
 
 ```json
 {
@@ -33,17 +33,40 @@ The public schema URL should use the real project domain:
 https://datalinq.org/schemas/datalinq.schema.json
 ```
 
-## V1 Scope
+## Current Implementation Status
+
+Implemented:
+
+- `docs/schemas/datalinq.schema.json` exists and uses `$id` `https://datalinq.org/schemas/datalinq.schema.json`.
+- The schema is handwritten, strict with `additionalProperties: false`, and covers the current public config surface.
+- `SourceDirectories` and `DestinationDirectory` are marked deprecated.
+- `ModelDirectory` and `ModelLayout` are included.
+- `ConnectionString` examples cover plain SQLite, `${env:...}`, `${secret:...}`, `${prompt:...}`, and whole-connection-string secret references.
+- `ConfigFile` has an explicit top-level `$schema` property.
+- `datalinq config init` writes the public schema URL into new shared `datalinq.json` files.
+- `datalinq config schema` prints the embedded schema, writes a local schema file, and can add local `$schema` references to existing configs with `--update-config`.
+- DocFX copies `docs/schemas/datalinq.schema.json` to `_site/schemas/datalinq.schema.json`.
+- Unit tests parse the schema, check important fields/deprecations, smoke-validate representative config, reject a misspelled property, and exercise `config schema`.
+
+Remaining work worth doing:
+
+1. Verify the live public URL after the next docs deployment: `https://datalinq.org/schemas/datalinq.schema.json`.
+2. Submit or update the SchemaStore entry once the public URL is definitely serving raw JSON.
+3. Add a real JSON Schema validator package to tests if schema complexity grows. The current smoke validator is intentionally small and good enough for the present schema, but it is not a full draft 2020-12 validator.
+4. Wire the future `datalinq config validate` command to the same schema and semantic config checks. Editor validation is helpful, but a CLI command is still needed for CI and scripted setup.
+
+## V1 Scope and Current Completion
 
 V1 should include all of the useful pieces, not a partial local-only version:
 
-- checked-in schema file
-- schema URL in `init`-generated configs
-- CLI command to print or write the embedded schema
-- documentation for manual schema use
-- website publication at `datalinq.org`
-- SchemaStore submission
-- deprecation annotations for old config fields
+- checked-in schema file: implemented
+- schema URL in `init`-generated configs: implemented
+- CLI command to print or write the embedded schema: implemented
+- documentation for manual schema use: implemented
+- docs-build publication into `_site/schemas`: implemented
+- live website publication at `datalinq.org`: release verification still needed
+- SchemaStore submission: still external follow-up
+- deprecation annotations for old config fields: implemented
 
 This is a small enough feature that doing only half of it would be mostly self-inflicted friction.
 
@@ -84,7 +107,7 @@ Connection fields currently include:
 - `DataSourceName`
 - `ConnectionString`
 
-Current dev plans add or rename relevant config concepts:
+Recent config work added or renamed relevant config concepts:
 
 - `ModelDirectory`
 - `ModelLayout`
@@ -93,13 +116,13 @@ Current dev plans add or rename relevant config concepts:
 - `ModelLayout.RelationPlacement`
 - secret references in connection strings
 
-The schema should reflect planned user-facing config, not merely the older internal class names.
+The schema reflects the current user-facing config, not merely the older internal class names.
 
 ### `$schema` Handling
 
-`System.Text.Json` ignores unknown JSON properties by default in this config path. That means existing config reading can tolerate a top-level `$schema` property even before the config model exposes it.
+`System.Text.Json` ignores unknown JSON properties by default in this config path. The config model now also exposes a top-level `$schema` property so generated config output can be explicit and clean.
 
-For clean `init` output and future config writing, add an explicit property or a dedicated writer model:
+The implemented property is:
 
 ```csharp
 [JsonPropertyName("$schema")]
@@ -122,13 +145,13 @@ Do not make the schema file itself JSON-with-comments. Schema files should be va
 
 ## Schema File
 
-Add:
+Implemented:
 
 ```text
 docs/schemas/datalinq.schema.json
 ```
 
-Recommended top-level schema metadata:
+Top-level schema metadata:
 
 ```json
 {
@@ -254,7 +277,7 @@ This should remain in the schema during the compatibility window so old config f
 
 ### DestinationDirectory
 
-Mark as deprecated once `ModelDirectory` exists:
+Marked as deprecated because `ModelDirectory` now exists:
 
 ```json
 "DestinationDirectory": {
@@ -285,7 +308,7 @@ Do not require secret references. Plain connection strings remain valid, especia
 
 ## `datalinq config init` Integration
 
-Once `config init` exists, generated main config files should include:
+`config init` now writes this into new shared main config files:
 
 ```json
 "$schema": "https://datalinq.org/schemas/datalinq.schema.json"
@@ -297,11 +320,11 @@ Rules:
 - do not add `$schema` automatically to existing configs unless the user explicitly chooses an update
 - do not put `$schema` in `datalinq.user.json` by default if it would feel redundant, but it is allowed
 
-I lean toward adding `$schema` only to the shared main config. Editors commonly associate the schema with both files through SchemaStore once that lands. The user file can still include `$schema` manually if needed.
+The implemented default adds `$schema` only to the shared main config. Editors can associate the schema with both files through SchemaStore once the external entry lands. The user file can still include `$schema` manually if needed, and `datalinq config schema --update-config` can add a local reference to both existing config files.
 
 ## CLI Schema Command
 
-Add:
+Implemented:
 
 ```bash
 datalinq config schema
@@ -313,7 +336,7 @@ Default behavior:
 datalinq config schema
 ```
 
-prints the embedded schema JSON to stdout.
+writes `datalinq.schema.json` next to the selected config path. Use `--stdout` or `--output -` to print the embedded schema JSON to stdout.
 
 Optional output:
 
@@ -330,11 +353,11 @@ datalinq config schema --url
 datalinq config schema --validate datalinq.json
 ```
 
-Do not add validation in V1 unless it is trivial. Editor support and schema publication are the primary goal.
+Validation did not land in `config schema`; put config validation in the future `datalinq config validate` command instead.
 
 ### Embedding
 
-The CLI should embed the schema as a resource or include it as content in a reliable way.
+The CLI embeds the schema as a resource.
 
 Do not make `datalinq config schema` depend on the working directory or installed docs files. A globally installed tool should be able to print its schema anywhere.
 
@@ -346,7 +369,7 @@ Publish the schema at:
 https://datalinq.org/schemas/datalinq.schema.json
 ```
 
-If DocFX owns the site, configure the docs build so `docs/schemas/datalinq.schema.json` is copied to:
+DocFX is configured so `docs/schemas/datalinq.schema.json` is copied to:
 
 ```text
 _site/schemas/datalinq.schema.json
@@ -395,14 +418,14 @@ Hand-write the schema.
 
 Do not blindly generate it from C# config types. Generated schemas are usually technically acceptable and human-hostile. The value here is high-quality descriptions, examples, defaults, and deprecation annotations.
 
-Add tests to keep it honest instead of auto-generating it:
+Tests keep it honest instead of auto-generating it:
 
 - schema parses as JSON
 - schema validates documented minimal examples
 - schema rejects misspelled properties
 - schema allows `$schema`
 - schema marks `SourceDirectories` as deprecated
-- schema marks `DestinationDirectory` as deprecated once `ModelDirectory` exists
+- schema marks `DestinationDirectory` as deprecated
 - schema contains all public config fields
 - provider enum values stay in sync with supported built-in providers
 - model layout enum values stay in sync with implementation
@@ -425,16 +448,14 @@ https://datalinq.org/schemas/datalinq.schema.json
 
 ### 2. Add `$schema` Support to Config Writing
 
-Add either:
+Implemented:
 
 ```csharp
 [JsonPropertyName("$schema")]
 public string? Schema { get; set; }
 ```
 
-to `ConfigFile`, or use a dedicated writer DTO for `init`.
-
-Since config reading already tolerates unknown properties, this is mostly about clean generation and testing.
+in `ConfigFile`, with a dedicated writer DTO also used by `config init`.
 
 ### 3. Update `init`
 
@@ -460,7 +481,7 @@ Use the embedded schema content.
 
 ### 5. Publish Through Docs Site
 
-Configure the docs/site build to copy the schema into:
+Implemented in `docfx.json`: the docs/site build copies the schema into:
 
 ```text
 schemas/datalinq.schema.json
@@ -468,7 +489,7 @@ schemas/datalinq.schema.json
 
 under the generated site.
 
-Verify the generated `_site` output.
+The remaining release task is to verify the deployed public URL after the docs site is published.
 
 ### 6. Submit to SchemaStore
 
@@ -496,12 +517,12 @@ Tests should cover:
 
 ### 8. Update Docs
 
-After implementation, update:
+Updated:
 
 - `docs/Configuration files.md`
 - `docs/getting-started/Configuration and Model Generation.md`
 - `docs/CLI Documentation.md`
-- `datalinq config init` docs once that command exists
+- `datalinq config init` docs
 
 Document:
 
@@ -527,9 +548,9 @@ Document:
 - The schema uses `$id` `https://datalinq.org/schemas/datalinq.schema.json`.
 - The schema provides autocomplete/validation coverage for current and planned public config fields.
 - The schema marks `SourceDirectories` as deprecated.
-- The schema marks `DestinationDirectory` as deprecated once `ModelDirectory` exists.
+- The schema marks `DestinationDirectory` as deprecated.
 - `datalinq config init` writes `$schema` into new main configs.
 - `datalinq config schema` prints the embedded schema and can write it to a file.
-- The docs site publishes the schema at `https://datalinq.org/schemas/datalinq.schema.json`.
-- A SchemaStore submission is part of the V1 work.
+- The docs build publishes the schema to `_site/schemas/datalinq.schema.json`; the deployed public URL still needs release verification.
+- A SchemaStore submission remains the external completion task after the public URL is live.
 - Tests validate representative config examples against the schema and prove misspelled fields are rejected.

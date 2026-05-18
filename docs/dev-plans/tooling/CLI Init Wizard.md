@@ -2,12 +2,12 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: CLI Init Wizard
 
-**Status:** Draft implementation plan.
-**Goal:** Add `datalinq config init`, an interactive setup guide that creates or completes `datalinq.json` and `datalinq.user.json` for new projects and new developer environments.
+**Status:** Implemented for conservative V1; optional connection testing and model generation remain future work.
+**Goal:** Maintain `datalinq config init` as an interactive setup guide that creates or completes `datalinq.json` and `datalinq.user.json` for new projects and new developer environments.
 
 ## Executive Position
 
-`datalinq config init` is a high-leverage CLI feature. DataLinq onboarding is not hard because the generation command is hard to type. It is hard because users need to know:
+`datalinq config init` is a high-leverage CLI feature, and the conservative V1 exists. DataLinq onboarding is not hard because the generation command is hard to type. It is hard because users need to know:
 
 - which file should contain shared project structure
 - which file should contain local connection details and secrets
@@ -18,15 +18,38 @@
 
 An interactive guide is the right tool for that.
 
-The wizard should be boring, explicit, and safe. It should not try to be a magic project generator. Its job is to ask the few questions that matter, write predictable config files, and explain what it did.
+The wizard should stay boring, explicit, and safe. It should not try to be a magic project generator. Its job is to ask the few questions that matter, write predictable config files, and explain what it did.
 
-Recommended command:
+Implemented command:
 
 ```bash
 datalinq config init
 ```
 
-## Scope for V1
+## Current Implementation Status
+
+Implemented:
+
+- `datalinq config init`
+- new project bootstrap when neither config file exists
+- local setup when `datalinq.json` exists and `datalinq.user.json` is missing
+- inspect-only behavior when both files exist
+- orphaned-user-config repair mode that can create a main config without rewriting the existing user file
+- generated shared config uses `$schema`, `ModelDirectory`, nullable-reference preference, and file-scoped namespace preference
+- generated user config contains complete connection entries and no shared structural fields beyond database names
+- `.gitignore` updates use a narrow config-relative `datalinq.user.json` path
+- preview before writes
+- refusal to overwrite existing files
+- existing commented `datalinq.json` files are not rewritten
+
+Remaining work worth doing:
+
+1. Add optional connection testing after config creation. Use the normal merged config path and provider metadata read. Warn before testing a missing SQLite file because opening it may create the file.
+2. Add optional `generate models` after successful setup. This should call the same `generate models` command path, not duplicate generation logic.
+3. Integrate secret-storage choices into the wizard for MySQL/MariaDB passwords. The default generated connection strings already use `${prompt:...}` for server providers, but a better flow would offer DataLinq local secret, environment variable, runtime prompt, or explicit plaintext with a warning.
+4. Add an explicit non-interactive/preview mode only if there is real demand. The current command is intentionally interactive.
+
+## Implemented V1 Scope
 
 Support one command:
 
@@ -59,20 +82,20 @@ This is the right two-file model.
 
 ### Current Config Shape
 
-Current docs and config use:
+Legacy docs and config used:
 
 ```json
 "SourceDirectories": [ "Models/Source" ],
 "DestinationDirectory": "Models/Generated"
 ```
 
-but current dev plans propose:
+Current docs and config use:
 
 ```json
 "ModelDirectory": "Models"
 ```
 
-`config init` should use the new vocabulary once `ModelDirectory` exists. New users should not learn `DestinationDirectory` if it is only a compatibility alias.
+`config init` uses the new vocabulary. New users should not learn `DestinationDirectory`; it remains a compatibility alias.
 
 ### User File Merge Sharp Edge
 
@@ -233,7 +256,7 @@ Choose your metadata persistence strategy:
 
 Use clear defaults and show the resulting files before writing.
 
-For V1, plain console prompts are acceptable. Do not add a prompt dependency only for this command unless the rest of `DataLinq.CLI` is being moved deliberately from `CommandLineParser` to another command framework.
+For V1, plain console prompts are acceptable. `DataLinq.CLI` now uses `System.CommandLine`, but that does not justify adding a prompt dependency solely for this command.
 
 If password-specific prompts are added, hide password input. If the wizard asks for a full connection string, assume it is visible input and warn that it will be written to `datalinq.user.json`.
 
@@ -290,9 +313,9 @@ Do not add a broad `*.user.json` pattern unless the user explicitly asks. Broad 
 
 If no Git repository is detected, say so and skip this step.
 
-## Connection Testing
+## Future Connection Testing
 
-After writing or previewing config, offer:
+This did not land in V1. A future slice should offer this after writing or previewing config:
 
 ```text
 Test connection now? [Y/n]
@@ -309,19 +332,17 @@ For SQLite, opening the database file may create a new file depending on provide
 
 If testing fails, do not delete the written config. Print the failure and tell the user they can edit `datalinq.user.json` and rerun `datalinq config init` or a future test command.
 
-## Optional Model Generation
+## Future Optional Model Generation
 
-After successful config writing and optional connection testing, offer:
+This did not land in V1. A future slice should offer this after successful config writing and optional connection testing:
 
 ```text
 Run generate models now? [Y/n]
 ```
 
-If the batch/recursive plan has landed, this should call the same generation path as `generate models`, not duplicate generation logic.
+The batch/recursive plan has landed, so this should call the same generation path as `generate models`, not duplicate generation logic.
 
-If the model-directory regeneration plan has landed, `config init` should use `ModelDirectory` and respect `--fresh` semantics if the user chooses a fresh generation.
-
-For V1, it is acceptable to leave generation as a follow-up instruction instead of running it directly if the command plumbing would make `config init` too large.
+`config init` already uses `ModelDirectory`; optional generation should respect normal `--fresh` semantics if the user chooses fresh generation.
 
 ## File Writing Rules
 
@@ -444,9 +465,7 @@ For new projects:
 - create user `ConfigFile` with matching database name and full connection entry
 - serialize both
 
-Use `ModelDirectory`, not `DestinationDirectory`, once that config field exists.
-
-If `ModelDirectory` has not landed yet, either sequence this feature after it or use `DestinationDirectory` temporarily with a clear migration note. Sequencing after `ModelDirectory` is cleaner.
+Use `ModelDirectory`, not `DestinationDirectory`.
 
 ### 6. Generate Missing User File From Existing Main Config
 
@@ -473,13 +492,13 @@ It should:
 - append only if missing
 - preserve existing file contents
 
-### 8. Optional Connection Test
+### 8. Future Optional Connection Test
 
 Reuse provider metadata reading rather than inventing a separate connection stack.
 
 This can be added after file writing so the test exercises exactly what normal commands will read.
 
-### 9. Optional Generate Models
+### 9. Future Optional Generate Models
 
 Call the normal `generate models` path if the user opts in.
 
@@ -525,7 +544,7 @@ datalinq config init
 
 and explain that when `datalinq.json` already exists, `config init` creates the missing local `datalinq.user.json`.
 
-Do not document `config init` before it ships.
+The user-facing docs now describe shipped V1 behavior. Keep optional connection testing, optional model generation, and richer secret-storage prompts labeled as future work until they land.
 
 ## Non-Goals
 
@@ -542,7 +561,7 @@ Do not document `config init` before it ships.
 - `datalinq config init` can create `datalinq.json` and `datalinq.user.json` for a new project.
 - `datalinq config init` detects an existing `datalinq.json` with missing `datalinq.user.json` and creates the missing user file for local connection settings.
 - `datalinq config init` does not rewrite existing `datalinq.json` in V1.
-- Generated shared config uses `ModelDirectory` once that field exists.
+- Generated shared config uses `ModelDirectory`.
 - Generated user config contains complete connection entries and no shared structural fields beyond database names.
 - The wizard offers to add the user config file to `.gitignore` with a narrow path.
 - The wizard previews planned writes before applying them.
