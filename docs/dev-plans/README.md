@@ -69,6 +69,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `providers-and-features/Provider Metadata Roundtrip Fidelity.md`
 - `providers-and-features/Schema Validation Hooks.md`
 - `providers-and-features/SQLite Transaction Isolation Alignment.md`
+- `providers-and-features/UUID Storage Format Support.md`
 
 ### Query and runtime
 
