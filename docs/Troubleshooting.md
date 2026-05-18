@@ -17,6 +17,39 @@ datalinq generate models -n AppDb -p MariaDB
 
 If you do not disambiguate, the CLI has to guess. Guessing is how bad tooling earns a reputation.
 
+## Secret Reference Cannot Be Resolved
+
+Secret references are resolved only when a CLI command needs the value.
+
+Common causes:
+
+- `${env:NAME}` fails when the environment variable is missing or empty.
+- `${secret:name}` fails when the DataLinq local secret does not exist.
+- `${secret:name}` also fails on platforms without a secure local backend. The current local backend is Windows Credential Manager.
+- `${prompt:label}` fails in non-interactive runs such as CI.
+
+For CI, prefer environment variables:
+
+```json
+{
+  "ConnectionString": "Server=localhost;Database=appdb;User ID=app;Password=${env:DATALINQ_APPDB_PASSWORD};"
+}
+```
+
+For local Windows development, store the value once:
+
+```bash
+datalinq secrets set datalinq/AppDb/password
+```
+
+then reference it:
+
+```json
+{
+  "ConnectionString": "Server=localhost;Database=appdb;User ID=app;Password=${secret:datalinq/AppDb/password};"
+}
+```
+
 ## Generated Files Keep Getting Overwritten
 
 That is expected.

@@ -16,7 +16,7 @@ For a new project, run:
 datalinq config init
 ```
 
-The wizard writes shared structure to `datalinq.json` and local connection details to `datalinq.user.json`.
+The wizard writes shared structure to `datalinq.json` and local connection details to `datalinq.user.json`. For MySQL and MariaDB password-bearing connection strings, the default password slot is a prompt reference instead of plaintext.
 
 When you clone a project that already has `datalinq.json`, run the same command. If `datalinq.user.json` is missing, DataLinq switches into local setup mode and creates only the user file.
 
@@ -46,7 +46,7 @@ Minimal MariaDB or MySQL example:
         {
           "Type": "MariaDB",
           "DataSourceName": "appdb",
-          "ConnectionString": "Server=localhost;Database=appdb;User ID=app;Password=secret;"
+          "ConnectionString": "Server=localhost;Database=appdb;User ID=app;Password=${env:DATALINQ_APPDB_PASSWORD};"
         }
       ]
     }
@@ -87,6 +87,20 @@ That is the sane setup:
 
 - `datalinq.json` for shared structure
 - `datalinq.user.json` for local connection details
+
+For secrets inside CLI connection strings, use one of these references:
+
+- `${env:DATALINQ_APPDB_PASSWORD}` for CI and shell-managed local setup
+- `${secret:datalinq/AppDb/password}` for DataLinq local secrets
+- `${prompt:AppDb password}` for interactive one-off runs
+
+Set a DataLinq local secret with:
+
+```bash
+datalinq secrets set datalinq/AppDb/password
+```
+
+Local DataLinq secrets currently use Windows Credential Manager on Windows. On macOS and Linux, use environment variables or prompt references until a secure local backend is available.
 
 If you want the exact merge behavior and full field reference, use [Configuration Files](../Configuration%20files.md).
 

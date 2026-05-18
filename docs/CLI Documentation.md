@@ -1,6 +1,6 @@
 # DataLinq CLI Documentation
 
-The `datalinq` CLI reads `datalinq.json`, optionally merges `datalinq.user.json`, and runs configuration-driven model, SQL, database, validation, diff, and config inspection commands.
+The `datalinq` CLI reads `datalinq.json`, optionally merges `datalinq.user.json`, resolves configured secret references when a command needs a database connection, and runs configuration-driven model, SQL, database, validation, diff, and config inspection commands.
 
 ## Global Options
 
@@ -140,6 +140,20 @@ The published schema URL is:
 ```text
 https://datalinq.org/schemas/datalinq.schema.json
 ```
+
+### `secrets`
+
+Manages DataLinq local secret values used by `${secret:name}` config references.
+
+```bash
+datalinq secrets list
+datalinq secrets set datalinq/AppDb/password
+datalinq secrets remove datalinq/AppDb/password
+```
+
+`list` prints names only. `set` prompts for the value and confirmation without putting the secret on the command line. `remove` asks for confirmation before deleting the entry.
+
+Local secrets currently use Windows Credential Manager on Windows. On macOS and Linux, use `${env:NAME}` or `${prompt:label}` until a secure platform backend is available.
 
 ## Generated File Headers
 

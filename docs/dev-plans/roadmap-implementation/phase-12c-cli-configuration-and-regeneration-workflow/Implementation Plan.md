@@ -412,6 +412,19 @@ Verification after checkpoint 1:
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliCommandSurfaceTests/*"`
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/CliDiagnosticWriterTests/*"`
 
+Checkpoint 2 documented the shipped secret-reference surface:
+
+- CLI docs now describe `datalinq secrets list`, `datalinq secrets set <name>`, and `datalinq secrets remove <name>`.
+- Configuration docs describe `${env:...}`, `${secret:...}`, and `${prompt:...}` references, including whole-connection-string secrets and prompt/non-interactive behavior.
+- Getting-started docs steer password-bearing examples away from committed plaintext passwords.
+- Troubleshooting docs cover missing environment variables, missing local secrets, unavailable local secret backends, and prompt references in CI.
+- The published JSON Schema examples now include secret-reference connection strings and whole-string local secret references.
+
+Verification after checkpoint 2:
+
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqConfigSchemaTests/*|/*/*/DataLinqConfigInitTests/*"`
+- `docfx build docfx.json`
+
 ## Documentation Workstream
 
 Update docs only after behavior lands:

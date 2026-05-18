@@ -100,7 +100,7 @@ DataLinq accepts comments in config files, but editor behavior depends on the ed
         {
           "Type": "MariaDB",
           "DataSourceName": "appdb",
-          "ConnectionString": "Server=localhost;Database=appdb;User ID=app;Password=secret;"
+          "ConnectionString": "Server=localhost;Database=appdb;User ID=app;Password=${env:DATALINQ_APPDB_PASSWORD};"
         }
       ]
     }
@@ -120,7 +120,7 @@ Generate SQL:
 datalinq generate sql -n AppDb -o schema.sql
 ```
 
-If you want MySQL instead of MariaDB, change `"Type": "MariaDB"` to `"Type": "MySQL"`.
+If you want MySQL instead of MariaDB, change `"Type": "MariaDB"` to `"Type": "MySQL"`. The password in this example comes from an environment variable so it does not need to be committed to the config file.
 
 ---
 
@@ -147,7 +147,7 @@ If you want MySQL instead of MariaDB, change `"Type": "MariaDB"` to `"Type": "My
 }
 ```
 
-The `DataSourceName` is also used as the default target file name for SQLite operations unless you override it with `-d`.
+The `DataSourceName` is also used as the default target file name for SQLite operations unless you override it with `--data-source`.
 
 ---
 
@@ -200,6 +200,54 @@ Overrides are applied per database name.
 In practice, you should treat `Connections` as a replacing value, not as a deep-merged list. If you override a database entry in `datalinq.user.json`, include the full `Connections` array you want to use.
 
 That matters for secrets too. If your shared config does not contain safe-to-commit connection strings, put the real connection details in `datalinq.user.json` and keep that file out of source control.
+
+---
+
+## Secret References
+
+Connection strings can contain secret references. DataLinq resolves them when a CLI command needs to connect to the database and redacts resolved values from CLI-controlled diagnostics.
+
+Supported references:
+
+- `${env:NAME}` reads an environment variable. This is the best choice for CI.
+- `${secret:name}` reads a DataLinq local secret set with `datalinq secrets set <name>`.
+- `${prompt:label}` prompts during the current CLI run and keeps the value only in memory.
+
+Examples:
+
+```json
+{
+  "ConnectionString": "Server=localhost;Database=appdb;User ID=app;Password=${env:DATALINQ_APPDB_PASSWORD};"
+}
+```
+
+```json
+{
+  "ConnectionString": "Server=localhost;Database=appdb;User ID=app;Password=${secret:datalinq/AppDb/password};"
+}
+```
+
+```json
+{
+  "ConnectionString": "${secret:datalinq/AppDb/connection-string}"
+}
+```
+
+For inline connection-string values, DataLinq resolves placeholders through the connection-string builder. A password containing a semicolon is escaped as a password value, not spliced into raw connection-string text.
+
+Use local secrets like this:
+
+```bash
+datalinq secrets set datalinq/AppDb/password
+datalinq secrets list
+datalinq secrets remove datalinq/AppDb/password
+```
+
+`secrets list` prints names only. `secrets set` prompts for the value and confirmation instead of accepting a plaintext command-line argument.
+
+Local DataLinq secrets currently use Windows Credential Manager on Windows. On macOS and Linux, `${secret:...}` fails clearly instead of writing a plaintext fallback file; use `${env:...}` or `${prompt:...}` there for now.
+
+Prompt references are useful for local one-off commands, but they are the wrong choice for unattended automation. In non-interactive runs, `${prompt:...}` fails with an error instead of hanging or storing the value.
 
 ---
 
@@ -271,7 +319,7 @@ Each entry in `Connections` describes one provider-specific connection.
   Required in practice unless `DatabaseName` is present. This is the logical database name, server-side database name, or file name depending on provider.
 
 - `ConnectionString`  
-  Required in practice. The runtime connection-string parser expects a real connection string here.
+  Required in practice. May contain `${env:...}`, `${secret:...}`, or `${prompt:...}` references when used through the CLI.
 
 ---
 
