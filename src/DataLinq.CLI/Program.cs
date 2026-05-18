@@ -140,7 +140,7 @@ internal static class Program
     private static Command CreateValidateCommand()
     {
         var command = new Command("validate", "Validate configured model metadata against a live database.");
-        var targetOptions = AddTargetOptions(command);
+        var targetOptions = AddBatchTargetOptions(command);
         var formatOption = new Option<string>("--format")
         {
             Description = "Output format: text or json.",
@@ -176,7 +176,7 @@ internal static class Program
     private static Command CreateConfigListCommand()
     {
         var command = new Command("list", "List databases and connections in the selected config.");
-        var options = AddCommonOptions(command);
+        var options = AddConfigListOptions(command);
 
         command.SetAction(parseResult =>
         {
@@ -189,7 +189,7 @@ internal static class Program
 
     private static ModelGenerationOptionSet AddModelGenerationOptions(Command command)
     {
-        var targetOptions = AddTargetOptions(command);
+        var targetOptions = AddBatchTargetOptions(command);
         var freshOption = new Option<bool>("--fresh")
         {
             Description = "Ignore existing model source and generate from database metadata plus datalinq.json only."
@@ -212,6 +212,24 @@ internal static class Program
             freshOption,
             overwriteTypesOption,
             stampGeneratedHeaderOption);
+    }
+
+    private static BatchTargetOptionSet AddBatchTargetOptions(Command command)
+    {
+        var targetOptions = AddTargetOptions(command);
+        var allOption = new Option<bool>("--all")
+        {
+            Description = "Run against all databases and connections in the selected config."
+        };
+        var recursiveOption = new Option<bool>("--recursive")
+        {
+            Description = "Discover datalinq.json files recursively and run against all matching targets."
+        };
+
+        command.Options.Add(allOption);
+        command.Options.Add(recursiveOption);
+
+        return new BatchTargetOptionSet(targetOptions, allOption, recursiveOption);
     }
 
     private static TargetOptionSet AddTargetOptions(Command command)
@@ -259,6 +277,18 @@ internal static class Program
         return new CommonOptionSet(verboseOption, configOption);
     }
 
+    private static ConfigListOptionSet AddConfigListOptions(Command command)
+    {
+        var commonOptions = AddCommonOptions(command);
+        var recursiveOption = new Option<bool>("--recursive")
+        {
+            Description = "Discover datalinq.json files recursively and list each readable config."
+        };
+        command.Options.Add(recursiveOption);
+
+        return new ConfigListOptionSet(commonOptions, recursiveOption);
+    }
+
     private static Option<string?> OutputFileOption(bool required)
     {
         var option = new Option<string?>("--output")
@@ -274,7 +304,9 @@ internal static class Program
 
     private static CreateModelsOptions ReadCreateModelsOptions(ParseResult parseResult, ModelGenerationOptionSet options)
     {
-        var createOptions = ReadTargetOptions<CreateModelsOptions>(parseResult, options.TargetOptions);
+        var createOptions = ReadTargetOptions<CreateModelsOptions>(parseResult, options.TargetOptions.TargetOptions);
+        createOptions.All = parseResult.GetValue(options.TargetOptions.AllOption);
+        createOptions.Recursive = parseResult.GetValue(options.TargetOptions.RecursiveOption);
         createOptions.Fresh = parseResult.GetValue(options.FreshOption);
         createOptions.OverwriteTypes = parseResult.GetValue(options.OverwriteTypesOption);
         createOptions.StampGeneratedHeader = parseResult.GetValue(options.StampGeneratedHeaderOption);
@@ -296,10 +328,12 @@ internal static class Program
 
     private static ValidateOptions ReadValidateOptions(
         ParseResult parseResult,
-        TargetOptionSet targetOptions,
+        BatchTargetOptionSet targetOptions,
         Option<string> formatOption)
     {
-        var validateOptions = ReadTargetOptions<ValidateOptions>(parseResult, targetOptions);
+        var validateOptions = ReadTargetOptions<ValidateOptions>(parseResult, targetOptions.TargetOptions);
+        validateOptions.All = parseResult.GetValue(targetOptions.AllOption);
+        validateOptions.Recursive = parseResult.GetValue(targetOptions.RecursiveOption);
         validateOptions.Format = parseResult.GetValue(formatOption) ?? "text";
         return validateOptions;
     }
@@ -314,10 +348,11 @@ internal static class Program
         return diffOptions;
     }
 
-    private static ListOptions ReadListOptions(ParseResult parseResult, CommonOptionSet options)
+    private static ListOptions ReadListOptions(ParseResult parseResult, ConfigListOptionSet options)
     {
         var listOptions = new ListOptions();
-        ApplyCommonOptions(listOptions, parseResult, options);
+        ApplyCommonOptions(listOptions, parseResult, options.CommonOptions);
+        listOptions.Recursive = parseResult.GetValue(options.RecursiveOption);
         return listOptions;
     }
 
@@ -348,11 +383,58 @@ internal static class Program
 
     private static int ExecuteList(ListOptions options)
     {
+        if (options.Recursive)
+            return ExecuteRecursiveList(options);
+
         if (ReadConfig() == false)
             return 2;
 
-        Console.WriteLine("Databases in config:");
-        foreach (var db in ConfigFile.Databases)
+        WriteConfigList(ConfigFile, CliConfigDiscovery.ResolveConfigFilePath(ConfigPath));
+        return 0;
+    }
+
+    private static int ExecuteRecursiveList(ListOptions options)
+    {
+        var configPaths = CliConfigDiscovery.DiscoverConfigFiles(ConfigPath);
+        if (configPaths.Count == 0)
+        {
+            ConsoleDiagnosticWriter.WriteError(
+                "ConfigNotFound",
+                $"No datalinq.json files were found under '{CliConfigDiscovery.ResolveDiscoveryRoot(ConfigPath)}'.");
+            return 2;
+        }
+
+        var hadFailure = false;
+        var listedCount = 0;
+        foreach (var configPath in configPaths)
+        {
+            var configLog = options.Verbose
+                ? ConsoleDiagnosticWriter.WriteLogLine
+                : new Action<string>(_ => { });
+            var config = DataLinqConfig.FindAndReadConfigs(configPath, configLog);
+
+            if (config.HasFailed)
+            {
+                hadFailure = true;
+                ConsoleDiagnosticWriter.WriteError("ConfigReadFailed", $"Failed to read config '{configPath}'.");
+                ConsoleDiagnosticWriter.WriteFailure(config.Failure);
+                Console.WriteLine();
+                continue;
+            }
+
+            WriteConfigList(config.Value, configPath);
+            listedCount++;
+        }
+
+        Console.WriteLine($"Configs listed: {listedCount}; failures: {(hadFailure ? "yes" : "no")}");
+        return hadFailure ? 2 : 0;
+    }
+
+    private static void WriteConfigList(DataLinqConfig config, string configPath)
+    {
+        Console.WriteLine($"Config: {configPath}");
+        Console.WriteLine("Databases:");
+        foreach (var db in config.Databases)
         {
             Console.WriteLine(db.Name);
             Console.WriteLine("Connections:");
@@ -360,18 +442,7 @@ internal static class Program
                 Console.WriteLine($"{connection.Type} ({connection.DataSourceName})");
 
             Console.WriteLine();
-
-            var reader = new ModelReader(ConsoleDiagnosticWriter.WriteLogLine);
-            var result = reader.Read(ConfigFile, ConfigBasePath);
-
-            if (result.HasFailed)
-            {
-                ConsoleDiagnosticWriter.WriteFailure(result.Failure);
-                return 2;
-            }
         }
-
-        return 0;
     }
 
     private static int ExecuteCreateModels(CreateModelsOptions options)
@@ -811,8 +882,17 @@ internal static class Program
         Option<string?> DatabaseOption,
         Option<string?> ProviderOption);
 
-    private sealed record ModelGenerationOptionSet(
+    private sealed record BatchTargetOptionSet(
         TargetOptionSet TargetOptions,
+        Option<bool> AllOption,
+        Option<bool> RecursiveOption);
+
+    private sealed record ConfigListOptionSet(
+        CommonOptionSet CommonOptions,
+        Option<bool> RecursiveOption);
+
+    private sealed record ModelGenerationOptionSet(
+        BatchTargetOptionSet TargetOptions,
         Option<bool> FreshOption,
         Option<bool> OverwriteTypesOption,
         Option<bool> StampGeneratedHeaderOption);
@@ -842,6 +922,10 @@ internal static class Program
 
     internal sealed class CreateModelsOptions : CreateOptions
     {
+        public bool All { get; set; }
+
+        public bool Recursive { get; set; }
+
         public bool Fresh { get; set; }
 
         public bool OverwriteTypes { get; set; }
@@ -851,6 +935,10 @@ internal static class Program
 
     internal sealed class ValidateOptions : CreateOptions
     {
+        public bool All { get; set; }
+
+        public bool Recursive { get; set; }
+
         public string Format { get; set; } = "text";
     }
 
@@ -859,7 +947,10 @@ internal static class Program
         public string OutputFile { get; set; } = "";
     }
 
-    internal sealed class ListOptions : Options;
+    internal sealed class ListOptions : Options
+    {
+        public bool Recursive { get; set; }
+    }
 
     private enum ValidationOutput
     {

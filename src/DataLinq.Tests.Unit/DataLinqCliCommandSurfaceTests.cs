@@ -1,3 +1,6 @@
+using System;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.CLI;
 
@@ -22,6 +25,16 @@ public class DataLinqCliCommandSurfaceTests
             "--stamp-generated-header");
 
         await Assert.That(errors).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task GenerateModels_AndValidate_AcceptBatchOptions()
+    {
+        await Assert.That(ParseErrors("generate", "models", "--all")).IsEqualTo(0);
+        await Assert.That(ParseErrors("generate", "models", "--recursive")).IsEqualTo(0);
+        await Assert.That(ParseErrors("create-models", "--all")).IsEqualTo(0);
+        await Assert.That(ParseErrors("validate", "--all")).IsEqualTo(0);
+        await Assert.That(ParseErrors("validate", "--recursive")).IsEqualTo(0);
     }
 
     [Test]
@@ -78,7 +91,30 @@ public class DataLinqCliCommandSurfaceTests
     public async Task ConfigList_IsNestedAndRootListIsNotKept()
     {
         await Assert.That(ParseErrors("config", "list")).IsEqualTo(0);
+        await Assert.That(ParseErrors("config", "list", "--recursive")).IsEqualTo(0);
+        await Assert.That(ParseErrors("config", "list", "--all")).IsGreaterThan(0);
         await Assert.That(ParseErrors("list")).IsGreaterThan(0);
+    }
+
+    [Test]
+    public async Task RecursiveConfigDiscovery_SkipsGeneratedAndInfrastructureDirectories()
+    {
+        using var fixture = CliDiscoveryFixture.Create();
+        fixture.WriteConfig("datalinq.json");
+        fixture.WriteConfig(Path.Combine("src", "App", "datalinq.json"));
+        fixture.WriteConfig(Path.Combine(".git", "datalinq.json"));
+        fixture.WriteConfig(Path.Combine("bin", "datalinq.json"));
+        fixture.WriteConfig(Path.Combine("obj", "datalinq.json"));
+        fixture.WriteConfig(Path.Combine("node_modules", "pkg", "datalinq.json"));
+        fixture.WriteConfig(Path.Combine("artifacts", "run", "datalinq.json"));
+        fixture.WriteConfig(Path.Combine("_site", "datalinq.json"));
+
+        var discovered = CliConfigDiscovery
+            .DiscoverConfigFiles(Path.Combine(fixture.BasePath, "datalinq.json"))
+            .Select(path => Path.GetRelativePath(fixture.BasePath, path).Replace('\\', '/'))
+            .ToArray();
+
+        await Assert.That(discovered).IsEquivalentTo(["datalinq.json", "src/App/datalinq.json"]);
     }
 
     [Test]
@@ -115,4 +151,43 @@ public class DataLinqCliCommandSurfaceTests
 
     private static int ParseErrors(params string[] args) =>
         Program.CreateRootCommand().Parse(args).Errors.Count;
+
+    private sealed class CliDiscoveryFixture : IDisposable
+    {
+        private CliDiscoveryFixture(string basePath)
+        {
+            BasePath = basePath;
+        }
+
+        public string BasePath { get; }
+
+        public static CliDiscoveryFixture Create()
+        {
+            var basePath = Path.Combine(Path.GetTempPath(), $"datalinq-cli-discovery-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(basePath);
+            return new CliDiscoveryFixture(basePath);
+        }
+
+        public void WriteConfig(string relativePath)
+        {
+            var path = Path.Combine(BasePath, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """{ "Databases": [] }""");
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (Directory.Exists(BasePath))
+                    Directory.Delete(BasePath, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+    }
 }

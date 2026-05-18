@@ -223,6 +223,21 @@ Workstream B is complete for the configured model-directory and layout surface. 
 - validation aggregate exit-code tests
 - `config list --recursive` read-failure continuation tests
 
+### Progress
+
+Checkpoint 1 added the recursive discovery foundation:
+
+- `generate models`, deprecated `create-models`, and `validate` now expose `--all` and `--recursive` parser options.
+- `config list` now exposes `--recursive` without accepting `--all`.
+- recursive discovery searches from the selected config path or containing directory and skips `.git`, `bin`, `obj`, `node_modules`, `artifacts`, and `_site`.
+- `config list` now lists only config contents and no longer reads generated model files as a side effect.
+- `config list --recursive` reads every discovered config independently, reports config read failures, continues through the remaining configs, and returns failure if any config could not be read.
+
+Verification after checkpoint 1:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliCommandSurfaceTests/*"`
+
 ## Workstream D: Config Schema and Init
 
 ### Goals
