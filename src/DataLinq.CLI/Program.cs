@@ -854,7 +854,7 @@ internal static class Program
 
     private static int ExecuteNewProjectInit(ConfigInitState state)
     {
-        var database = PromptDatabaseInput("AppDb", "AppDb", "Models", "Models", "SQLite", "app.db");
+        var database = PromptDatabaseInput("AppDb", "", "Models", "Models", "SQLite", "app.db");
         var addGitignore = Confirm("Add datalinq.user.json to .gitignore?", defaultValue: true);
         var plan = CliConfigInit.CreateNewProjectPlan(state.Paths, database, addGitignore);
         return PreviewConfirmAndApply(plan);
@@ -947,7 +947,7 @@ internal static class Program
             return 0;
         }
 
-        var database = PromptDatabaseInput("AppDb", "AppDb", "Models", "Models", "SQLite", "app.db");
+        var database = PromptDatabaseInput("AppDb", "", "Models", "Models", "SQLite", "app.db", promptConnection: false);
         var plan = CliConfigInit.CreateMainConfigOnlyPlan(state.Paths, database);
         return PreviewConfirmAndApply(plan);
     }
@@ -958,7 +958,8 @@ internal static class Program
         string defaultNamespace,
         string defaultModelDirectory,
         string defaultProvider,
-        string defaultDataSource)
+        string defaultDataSource,
+        bool promptConnection = true)
     {
         var name = Prompt("Database config name", defaultName);
         var csType = Prompt("C# database type", string.IsNullOrWhiteSpace(defaultCsType) ? name : defaultCsType);
@@ -966,7 +967,12 @@ internal static class Program
         var modelDirectory = Prompt("Model directory", defaultModelDirectory);
         var useNullableReferenceTypes = Confirm("Enable nullable reference types in generated models?", defaultValue: true);
         var useFileScopedNamespaces = Confirm("Use file-scoped namespaces?", defaultValue: true);
-        var connection = PromptConnectionInput(name, defaultProvider, defaultDataSource);
+        var connection = promptConnection
+            ? PromptConnectionInput(name, defaultProvider, defaultDataSource)
+            : CliConfigInit.CreateDefaultConnectionInput(
+                name,
+                ConfigReader.ParseDatabaseType(defaultProvider),
+                defaultDataSource);
 
         return new ConfigInitDatabaseInput(
             name,

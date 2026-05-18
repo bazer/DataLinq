@@ -129,6 +129,75 @@ public class DataLinqConfigInitTests
         await Assert.That(entries.Length).IsEqualTo(1);
     }
 
+    [Test]
+    [NotInParallel]
+    public async Task ConfigInit_OrphanedUserConfig_AsksOnlyForMainConfigFields()
+    {
+        using var fixture = ConfigInitFixture.Create();
+        fixture.WriteUserConfig();
+        var originalUserConfig = File.ReadAllText(fixture.UserConfigPath);
+
+        var (exitCode, output) = await InvokeWithInput(
+            [
+                "config",
+                "init",
+                "--config",
+                fixture.BasePath
+            ],
+            string.Join(
+                Environment.NewLine,
+                [
+                    "y",
+                    "LmData",
+                    "",
+                    "LmData.Logic.Entities",
+                    "DataLinq",
+                    "y",
+                    "y",
+                    "y"
+                ]) + Environment.NewLine);
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(output).Contains("C# database type [LmData]:");
+        await Assert.That(output).DoesNotContain("Provider (SQLite, MySQL, MariaDB)");
+        await Assert.That(output).DoesNotContain("Local data source name");
+        await Assert.That(output).DoesNotContain("Local connection string");
+        await Assert.That(File.ReadAllText(fixture.UserConfigPath)).IsEqualTo(originalUserConfig);
+
+        var mainConfig = ConfigReader.Read(fixture.ConfigPath)!;
+        var database = mainConfig.Databases.Single();
+        await Assert.That(database.Name).IsEqualTo("LmData");
+        await Assert.That(database.CsType).IsEqualTo("LmData");
+        await Assert.That(database.Namespace).IsEqualTo("LmData.Logic.Entities");
+        await Assert.That(database.ModelDirectory).IsEqualTo("DataLinq");
+        await Assert.That(database.Connections).IsEmpty();
+    }
+
+    private static async Task<(int ExitCode, string Output)> InvokeWithInput(string[] args, string input)
+    {
+        var originalIn = Console.In;
+        var originalOut = Console.Out;
+        using var reader = new StringReader(input);
+        using var writer = new StringWriter();
+
+        try
+        {
+#pragma warning disable TUnit0055
+            Console.SetIn(reader);
+            Console.SetOut(writer);
+#pragma warning restore TUnit0055
+            var exitCode = await Program.InvokeAsync(args);
+            return (exitCode, writer.ToString());
+        }
+        finally
+        {
+#pragma warning disable TUnit0055
+            Console.SetIn(originalIn);
+            Console.SetOut(originalOut);
+#pragma warning restore TUnit0055
+        }
+    }
+
     private static ConfigInitDatabaseInput CreateDatabaseInput() =>
         new(
             "AppDb",
