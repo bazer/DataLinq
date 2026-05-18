@@ -16,7 +16,7 @@ public class DataLinqCliBatchCommandTests
         fixture.WriteConfig(Path.Combine("valid", "datalinq.json"));
         fixture.WriteInvalidConfig(Path.Combine("broken", "datalinq.json"));
 
-        var (exitCode, output) = await InvokeWithOutput(
+        var (exitCode, stdout, stderr) = await InvokeWithOutput(
             "config",
             "list",
             "--config",
@@ -24,9 +24,9 @@ public class DataLinqCliBatchCommandTests
             "--recursive");
 
         await Assert.That(exitCode).IsEqualTo(2);
-        await Assert.That(output).Contains("Config:");
-        await Assert.That(output).Contains("Failed to read config");
-        await Assert.That(output).Contains("Config list summary: configs: 2; listed: 1; failed: 1");
+        await Assert.That(stdout).Contains("Config:");
+        await Assert.That(stdout).Contains("Config list summary: configs: 2; listed: 1; failed: 1");
+        await Assert.That(stderr).Contains("Failed to read config");
     }
 
     [Test]
@@ -36,15 +36,16 @@ public class DataLinqCliBatchCommandTests
         using var fixture = CliBatchCommandFixture.Create();
         fixture.WriteConfigWithOldKeyPlacement("datalinq.json");
 
-        var (exitCode, output) = await InvokeWithOutput(
+        var (exitCode, stdout, stderr) = await InvokeWithOutput(
             "config",
             "validate",
             "--config",
             fixture.BasePath);
 
         await Assert.That(exitCode).IsEqualTo(2);
-        await Assert.That(output).Contains("Failed to validate config");
-        await Assert.That(output).Contains("KeyPlacement");
+        await Assert.That(stdout).IsEmpty();
+        await Assert.That(stderr).Contains("Failed to validate config");
+        await Assert.That(stderr).Contains("KeyPlacement");
     }
 
     [Test]
@@ -55,7 +56,7 @@ public class DataLinqCliBatchCommandTests
         fixture.WriteConfig(Path.Combine("valid", "datalinq.json"));
         fixture.WriteConfigWithOldKeyPlacement(Path.Combine("broken", "datalinq.json"));
 
-        var (exitCode, output) = await InvokeWithOutput(
+        var (exitCode, stdout, stderr) = await InvokeWithOutput(
             "config",
             "validate",
             "--config",
@@ -63,10 +64,10 @@ public class DataLinqCliBatchCommandTests
             "--recursive");
 
         await Assert.That(exitCode).IsEqualTo(2);
-        await Assert.That(output).Contains("Config valid:");
-        await Assert.That(output).Contains("Failed to validate config");
-        await Assert.That(output).Contains("KeyPlacement");
-        await Assert.That(output).Contains("Config validation summary: configs: 2; valid: 1; failed: 1");
+        await Assert.That(stdout).Contains("Config valid:");
+        await Assert.That(stdout).Contains("Config validation summary: configs: 2; valid: 1; failed: 1");
+        await Assert.That(stderr).Contains("Failed to validate config");
+        await Assert.That(stderr).Contains("KeyPlacement");
     }
 
     [Test]
@@ -77,7 +78,7 @@ public class DataLinqCliBatchCommandTests
         fixture.WriteConfig(Path.Combine("valid", "datalinq.json"));
         fixture.WriteInvalidConfig(Path.Combine("broken", "datalinq.json"));
 
-        var (exitCode, output) = await InvokeWithOutput(
+        var (exitCode, stdout, stderr) = await InvokeWithOutput(
             "validate",
             "--config",
             fixture.BasePath,
@@ -86,9 +87,9 @@ public class DataLinqCliBatchCommandTests
             "SQLite");
 
         await Assert.That(exitCode).IsEqualTo(2);
-        await Assert.That(output).Contains("Failed to prepare targets");
-        await Assert.That(output).Contains("Target:");
-        await Assert.That(output).Contains("Validation summary: configs: 2; targets: 2; succeeded: 0; drift: 0; failed: 3");
+        await Assert.That(stderr).Contains("Failed to prepare targets");
+        await Assert.That(stdout).Contains("Target:");
+        await Assert.That(stdout).Contains("Validation summary: configs: 2; targets: 2; succeeded: 0; drift: 0; failed: 3");
     }
 
     [Test]
@@ -115,23 +116,27 @@ public class DataLinqCliBatchCommandTests
         await Assert.That(File.Exists(Path.Combine(fixture.BasePath, "good", "Models", "Account.cs"))).IsFalse();
     }
 
-    private static async Task<(int ExitCode, string Output)> InvokeWithOutput(params string[] args)
+    private static async Task<(int ExitCode, string Stdout, string Stderr)> InvokeWithOutput(params string[] args)
     {
         var originalOut = Console.Out;
-        using var writer = new StringWriter();
+        var originalError = Console.Error;
+        using var stdout = new StringWriter();
+        using var stderr = new StringWriter();
 
         try
         {
 #pragma warning disable TUnit0055
-            Console.SetOut(writer);
+            Console.SetOut(stdout);
+            Console.SetError(stderr);
 #pragma warning restore TUnit0055
             var exitCode = await Program.InvokeAsync(args);
-            return (exitCode, writer.ToString());
+            return (exitCode, stdout.ToString(), stderr.ToString());
         }
         finally
         {
 #pragma warning disable TUnit0055
             Console.SetOut(originalOut);
+            Console.SetError(originalError);
 #pragma warning restore TUnit0055
         }
     }

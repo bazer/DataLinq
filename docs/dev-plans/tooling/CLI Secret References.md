@@ -408,25 +408,25 @@ Examples:
 Missing env var:
 
 ```text
-Error: Secret reference ${env:DATALINQ_APPDB_PASSWORD} could not be resolved because environment variable 'DATALINQ_APPDB_PASSWORD' is not set.
+error: Secret reference ${env:DATALINQ_APPDB_PASSWORD} could not be resolved because environment variable 'DATALINQ_APPDB_PASSWORD' is not set.
 ```
 
 Missing local secret:
 
 ```text
-Error: Secret reference ${secret:datalinq/AppDb/password} could not be resolved because that DataLinq local secret does not exist.
+error: Secret reference ${secret:datalinq/AppDb/password} could not be resolved because that DataLinq local secret does not exist.
 ```
 
 Prompt in non-interactive run:
 
 ```text
-Error: Secret reference ${prompt:AppDb password} requires interactive input, but standard input is not interactive.
+error: Secret reference ${prompt:AppDb password} requires interactive input, but standard input is not interactive.
 ```
 
 Unknown provider:
 
 ```text
-Error: Unknown secret reference provider 'vault'. Supported providers: env, secret, prompt.
+error: Unknown secret reference provider 'vault'. Supported providers: env, secret, prompt.
 ```
 
 Do not print the resolved value in errors.

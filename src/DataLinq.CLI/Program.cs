@@ -1662,31 +1662,31 @@ internal static class Program
 
         Console.WriteLine($"Schema drift detected: {FormatDifferenceCount(result.Differences.Count)} ({FormatDifferenceSummary(result.Differences)}).");
 
-        foreach (var group in result.Differences
+        foreach (var difference in result.Differences
             .OrderByDescending(difference => difference.Severity)
             .ThenBy(difference => difference.Safety)
             .ThenBy(difference => difference.Kind)
-            .ThenBy(difference => difference.Path, StringComparer.Ordinal)
-            .GroupBy(difference => difference.Severity))
+            .ThenBy(difference => difference.Path, StringComparer.Ordinal))
         {
             Console.WriteLine();
-            Console.WriteLine($"{FormatSeverityHeading(group.Key)}:");
-
-            foreach (var difference in group)
-            {
-                Console.WriteLine($"  - {difference.Kind} [{difference.Safety}] {difference.Path}");
-                Console.WriteLine($"    {Redact(difference.Message)}");
-            }
+            Console.WriteLine(FormatValidationDifferenceText(difference));
         }
     }
 
-    private static string FormatSeverityHeading(SchemaDifferenceSeverity severity) =>
+    internal static string FormatValidationDifferenceText(SchemaDifference difference) =>
+        string.Join(
+            Environment.NewLine,
+            $"{FormatDifferenceSeverity(difference.Severity)} {difference.Kind}: {difference.Path}",
+            $"  safety: {difference.Safety}",
+            $"  {Redact(difference.Message)}");
+
+    private static string FormatDifferenceSeverity(SchemaDifferenceSeverity severity) =>
         severity switch
         {
-            SchemaDifferenceSeverity.Error => "Errors",
-            SchemaDifferenceSeverity.Warning => "Warnings",
-            SchemaDifferenceSeverity.Info => "Info",
-            _ => severity.ToString()
+            SchemaDifferenceSeverity.Error => "error",
+            SchemaDifferenceSeverity.Warning => "warning",
+            SchemaDifferenceSeverity.Info => "info",
+            _ => severity.ToString().ToLowerInvariant()
         };
 
     private static string FormatDifferenceCount(int count) =>

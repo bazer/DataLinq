@@ -93,7 +93,25 @@ Follow-up parser coverage completed the Workstream A test boundary:
 - parser failures return exit code `2`
 - unit coverage increased to 653 passing tests
 
-Workstream A is complete for the parser and command surface. Later workstreams added `config init`, `config schema`, `config validate`, and `secrets` as real commands when their behavior landed. The diagnostics output style remains the outstanding Workstream A follow-up.
+Diagnostics follow-up completed the Workstream A output boundary:
+
+- CLI diagnostics now use lowercase severity labels: `error`, `warning`, and optional codes.
+- source locations now lead the diagnostic line, for example `Account.cs:2:1: error InvalidModel: Broken property`.
+- `DLFailureType.Unspecified` is omitted from human text.
+- operational errors and warnings write to stderr.
+- normal command output, summaries, and JSON remain on stdout.
+- validation drift output no longer uses bracketed safety tags.
+- the legacy `Warning:` / `Error:` log-string bridge remains, but it renders through the new diagnostic writer.
+
+Verification after diagnostics follow-up:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/CliDiagnosticWriterTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliBatchCommandTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqConfigSchemaTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore` passed with 721 tests.
+
+Workstream A is complete. Later workstreams added `config init`, `config schema`, `config validate`, and `secrets` as real commands when their behavior landed.
 
 ## Workstream B: Model Directory and Generation Layout
 

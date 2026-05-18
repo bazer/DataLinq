@@ -128,7 +128,7 @@ public class DataLinqConfigSchemaTests
     {
         using var fixture = SchemaCommandFixture.Create();
 
-        var (exitCode, output) = await InvokeWithOutput(
+        var (exitCode, output, _) = await InvokeWithOutput(
             "config",
             "schema",
             "--config",
@@ -148,7 +148,7 @@ public class DataLinqConfigSchemaTests
 
         var customOutputPath = Path.Combine(fixture.BasePath, "schema", "custom.schema.json");
 
-        var (exitCode, output) = await InvokeWithOutput(
+        var (exitCode, output, _) = await InvokeWithOutput(
             "config",
             "schema",
             "--output",
@@ -165,7 +165,7 @@ public class DataLinqConfigSchemaTests
     {
         using var fixture = SchemaCommandFixture.Create();
 
-        var (exitCode, output) = await InvokeWithOutput(
+        var (exitCode, output, _) = await InvokeWithOutput(
             "config",
             "schema",
             "--config",
@@ -183,7 +183,7 @@ public class DataLinqConfigSchemaTests
     {
         using var fixture = SchemaCommandFixture.Create();
 
-        var (exitCode, output) = await InvokeWithOutput(
+        var (exitCode, output, _) = await InvokeWithOutput(
             "config",
             "schema",
             "--config",
@@ -202,7 +202,7 @@ public class DataLinqConfigSchemaTests
     {
         using var fixture = SchemaCommandFixture.Create();
 
-        var (exitCode, output) = await InvokeWithOutput(
+        var (exitCode, output, error) = await InvokeWithOutput(
             "config",
             "schema",
             "--stdout",
@@ -210,7 +210,8 @@ public class DataLinqConfigSchemaTests
             fixture.OutputPath);
 
         await Assert.That(exitCode).IsEqualTo(2);
-        await Assert.That(output).Contains("Use either --stdout or --output, not both.");
+        await Assert.That(output).IsEmpty();
+        await Assert.That(error).Contains("Use either --stdout or --output, not both.");
         await Assert.That(File.Exists(fixture.OutputPath)).IsFalse();
     }
 
@@ -222,7 +223,7 @@ public class DataLinqConfigSchemaTests
         fixture.WriteConfig("datalinq.json", """{ "Databases": [] }""");
         fixture.WriteConfig("datalinq.user.json", """{ "Databases": [] }""");
 
-        var (exitCode, output) = await InvokeWithOutput(
+        var (exitCode, output, _) = await InvokeWithOutput(
             "config",
             "schema",
             "--config",
@@ -251,7 +252,7 @@ public class DataLinqConfigSchemaTests
             }
             """);
 
-        var (exitCode, output) = await InvokeWithOutput(
+        var (exitCode, output, error) = await InvokeWithOutput(
             "config",
             "schema",
             "--config",
@@ -261,8 +262,9 @@ public class DataLinqConfigSchemaTests
         await Assert.That(exitCode).IsEqualTo(0);
         await Assert.That(File.ReadAllText(fixture.ConfigPath)).Contains("\"$schema\": \"https://datalinq.org/schemas/datalinq.schema.json\"");
         await Assert.That(File.ReadAllText(fixture.ConfigPath)).DoesNotContain("\"$schema\": \"./datalinq.schema.json\"");
-        await Assert.That(output).Contains("already has \"$schema\"");
-        await Assert.That(output).Contains("JSON config files support one top-level $schema reference");
+        await Assert.That(output).Contains($"Wrote DataLinq config schema to {fixture.OutputPath}");
+        await Assert.That(error).Contains("already has \"$schema\"");
+        await Assert.That(error).Contains("JSON config files support one top-level $schema reference");
     }
 
     [Test]
@@ -272,7 +274,7 @@ public class DataLinqConfigSchemaTests
         using var fixture = SchemaCommandFixture.Create();
         fixture.WriteConfig("datalinq.json", """{ "Databases": [] }""");
 
-        var (exitCode, output) = await InvokeWithOutput(
+        var (exitCode, output, error) = await InvokeWithOutput(
             "config",
             "schema",
             "--config",
@@ -281,30 +283,35 @@ public class DataLinqConfigSchemaTests
             "--update-config");
 
         await Assert.That(exitCode).IsEqualTo(2);
-        await Assert.That(output).Contains("--update-config needs a schema file");
+        await Assert.That(output).IsEmpty();
+        await Assert.That(error).Contains("--update-config needs a schema file");
         await Assert.That(File.ReadAllText(fixture.ConfigPath)).DoesNotContain("$schema");
     }
 
     private static JsonObject ReadSchema() =>
         JsonNode.Parse(CliConfigSchema.ReadSchemaJson())!.AsObject();
 
-    private static async Task<(int ExitCode, string Output)> InvokeWithOutput(params string[] args)
+    private static async Task<(int ExitCode, string Output, string Error)> InvokeWithOutput(params string[] args)
     {
         var originalOut = Console.Out;
-        using var writer = new StringWriter();
+        var originalError = Console.Error;
+        using var stdout = new StringWriter();
+        using var stderr = new StringWriter();
 
         try
         {
 #pragma warning disable TUnit0055
-            Console.SetOut(writer);
+            Console.SetOut(stdout);
+            Console.SetError(stderr);
 #pragma warning restore TUnit0055
             var exitCode = await Program.InvokeAsync(args);
-            return (exitCode, writer.ToString());
+            return (exitCode, stdout.ToString(), stderr.ToString());
         }
         finally
         {
 #pragma warning disable TUnit0055
             Console.SetOut(originalOut);
+            Console.SetError(originalError);
 #pragma warning restore TUnit0055
         }
     }

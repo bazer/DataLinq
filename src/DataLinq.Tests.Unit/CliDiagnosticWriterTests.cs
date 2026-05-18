@@ -1,8 +1,10 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using DataLinq.CLI;
 using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
+using DataLinq.Validation;
 
 namespace DataLinq.Tests.Unit;
 
@@ -14,7 +16,7 @@ public class CliDiagnosticWriterTests
         var output = ConsoleDiagnosticWriter.FormatFailureText(
             DLOptionFailure.Fail(DLFailureType.InvalidModel, "Broken model"));
 
-        await Assert.That(output).IsEqualTo($"Error: InvalidModel: Broken model{Environment.NewLine}");
+        await Assert.That(output).IsEqualTo($"error InvalidModel: Broken model{Environment.NewLine}");
     }
 
     [Test]
@@ -44,6 +46,28 @@ public class CliDiagnosticWriterTests
     }
 
     [Test]
+    [NotInParallel]
+    public async Task WriteLogLine_RendersLegacyWarningPrefixAsStderrDiagnostic()
+    {
+        var (stdout, stderr) = CaptureConsole(() =>
+            ConsoleDiagnosticWriter.WriteLogLine("Warning: Skipping foreign key 'FK'."));
+
+        await Assert.That(stdout).IsEmpty();
+        await Assert.That(stderr).IsEqualTo($"warning: Skipping foreign key 'FK'.{Environment.NewLine}");
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task WriteError_WritesToStderr()
+    {
+        var (stdout, stderr) = CaptureConsole(() =>
+            ConsoleDiagnosticWriter.WriteError("InvalidArgument", "Bad option."));
+
+        await Assert.That(stdout).IsEmpty();
+        await Assert.That(stderr).IsEqualTo($"error InvalidArgument: Bad option.{Environment.NewLine}");
+    }
+
+    [Test]
     public async Task FormatFailureText_FlattensAggregateFailures()
     {
         var output = ConsoleDiagnosticWriter.FormatFailureText(
@@ -54,8 +78,18 @@ public class CliDiagnosticWriterTests
             ]));
 
         await Assert.That(output).IsEqualTo(
-            $"Error: FileNotFound: Second problem{Environment.NewLine}" +
-            $"Error: InvalidModel: First problem{Environment.NewLine}");
+            $"error FileNotFound: Second problem{Environment.NewLine}" +
+            $"error InvalidModel: First problem{Environment.NewLine}");
+    }
+
+    [Test]
+    public async Task FormatFailureText_OmitsUnspecifiedFailureCode()
+    {
+        var output = ConsoleDiagnosticWriter.FormatFailureText(
+            DLOptionFailure.Fail("Couldn't find database with name 'Foo'."));
+
+        await Assert.That(output).IsEqualTo(
+            $"error: Couldn't find database with name 'Foo'.{Environment.NewLine}");
     }
 
     [Test]
@@ -97,7 +131,7 @@ public class CliDiagnosticWriterTests
             _ => "line 1\npublic abstract string Name { get; }");
 
         await Assert.That(output).IsEqualTo(
-            $"Error: Account.cs:2:1: InvalidModel: Broken property{Environment.NewLine}");
+            $"Account.cs:2:1: error InvalidModel: Broken property{Environment.NewLine}");
     }
 
     [Test]
@@ -111,6 +145,72 @@ public class CliDiagnosticWriterTests
         var output = ConsoleDiagnosticWriter.FormatIssuesText([issue]);
 
         await Assert.That(output).IsEqualTo(
-            $"Warning: InvalidModel: Suspicious property{Environment.NewLine}");
+            $"warning InvalidModel: Suspicious property{Environment.NewLine}");
+    }
+
+    [Test]
+    public async Task FormatIssuesText_PrintsIndentedContextLines()
+    {
+        var issue = new DataLinqDiagnosticIssue(
+            DataLinqDiagnosticSeverity.Error,
+            DLFailureType.InvalidModel,
+            "Broken property",
+            contextMessages:
+            [
+                "Parsing properties for Employee",
+                "Parsing models from Models/Employee.cs"
+            ]);
+
+        var output = ConsoleDiagnosticWriter.FormatIssuesText([issue]);
+
+        await Assert.That(output).IsEqualTo(
+            $"error InvalidModel: Broken property{Environment.NewLine}" +
+            $"  context: Parsing properties for Employee{Environment.NewLine}" +
+            $"  context: Parsing models from Models/Employee.cs{Environment.NewLine}");
+    }
+
+    [Test]
+    public async Task FormatValidationDifferenceText_UsesDiagnosticStyleWithoutSafetyBrackets()
+    {
+        var difference = new SchemaDifference(
+            SchemaDifferenceKind.ColumnTypeMismatch,
+            SchemaDifferenceSeverity.Error,
+            SchemaDifferenceSafety.Ambiguous,
+            "employee.birth_date",
+            "Model type 'date' does not match database type 'datetime'.");
+
+        var output = Program.FormatValidationDifferenceText(difference);
+
+        await Assert.That(output).IsEqualTo(
+            $"error ColumnTypeMismatch: employee.birth_date{Environment.NewLine}" +
+            $"  safety: Ambiguous{Environment.NewLine}" +
+            "  Model type 'date' does not match database type 'datetime'.");
+        await Assert.That(output).DoesNotContain("[");
+        await Assert.That(output).DoesNotContain("]");
+    }
+
+    private static (string Stdout, string Stderr) CaptureConsole(Action action)
+    {
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+        using var stdout = new StringWriter();
+        using var stderr = new StringWriter();
+
+        try
+        {
+#pragma warning disable TUnit0055
+            Console.SetOut(stdout);
+            Console.SetError(stderr);
+#pragma warning restore TUnit0055
+            action();
+            return (stdout.ToString(), stderr.ToString());
+        }
+        finally
+        {
+#pragma warning disable TUnit0055
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+#pragma warning restore TUnit0055
+        }
     }
 }
