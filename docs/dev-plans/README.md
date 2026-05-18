@@ -20,6 +20,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 - `architecture/Aspirational Product Specification.md`
 - `architecture/Applications patterns.md`
+- `architecture/Dependency Injection and Hosting Integration.md`
 - `architecture/Distributed Cache Coordination and CDC.md`
 
 ### Platform compatibility
