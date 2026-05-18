@@ -12,6 +12,8 @@ internal static class CliConfigDiscovery
     private static readonly HashSet<string> ExcludedDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
     {
         ".git",
+        ".vs",
+        ".idea",
         "bin",
         "obj",
         "node_modules",

@@ -141,6 +141,8 @@ public class DataLinqCliCommandSurfaceTests
         fixture.WriteConfig("datalinq.json");
         fixture.WriteConfig(Path.Combine("src", "App", "datalinq.json"));
         fixture.WriteConfig(Path.Combine(".git", "datalinq.json"));
+        fixture.WriteConfig(Path.Combine(".vs", "datalinq.json"));
+        fixture.WriteConfig(Path.Combine(".idea", "datalinq.json"));
         fixture.WriteConfig(Path.Combine("bin", "datalinq.json"));
         fixture.WriteConfig(Path.Combine("obj", "datalinq.json"));
         fixture.WriteConfig(Path.Combine("node_modules", "pkg", "datalinq.json"));

@@ -26,7 +26,7 @@ public class DataLinqCliBatchCommandTests
         await Assert.That(exitCode).IsEqualTo(2);
         await Assert.That(output).Contains("Config:");
         await Assert.That(output).Contains("Failed to read config");
-        await Assert.That(output).Contains("Configs listed: 1; failures: yes");
+        await Assert.That(output).Contains("Config list summary: configs: 2; listed: 1; failed: 1");
     }
 
     [Test]
@@ -66,7 +66,7 @@ public class DataLinqCliBatchCommandTests
         await Assert.That(output).Contains("Config valid:");
         await Assert.That(output).Contains("Failed to validate config");
         await Assert.That(output).Contains("KeyPlacement");
-        await Assert.That(output).Contains("Configs validated: 1; failures: yes");
+        await Assert.That(output).Contains("Config validation summary: configs: 2; valid: 1; failed: 1");
     }
 
     [Test]
@@ -88,7 +88,7 @@ public class DataLinqCliBatchCommandTests
         await Assert.That(exitCode).IsEqualTo(2);
         await Assert.That(output).Contains("Failed to prepare targets");
         await Assert.That(output).Contains("Target:");
-        await Assert.That(output).Contains("Validation targets: 2; failures: yes");
+        await Assert.That(output).Contains("Validation summary: configs: 2; targets: 2; succeeded: 0; drift: 0; failed: 3");
     }
 
     [Test]

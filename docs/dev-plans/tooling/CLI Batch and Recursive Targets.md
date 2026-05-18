@@ -2,7 +2,7 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: CLI Batch and Recursive Targets
 
-**Status:** Mostly implemented; remaining work is semantic polish and edge-case hardening.
+**Status:** Implemented for the V1 command set; future work is limited to explicitly out-of-scope command families.
 **Goal:** Let the DataLinq CLI run the most useful read/generation workflows across many configured databases: `generate models --all/--recursive`, `validate --all/--recursive`, and `config list --recursive`.
 
 ## Executive Position
@@ -43,15 +43,14 @@ Implemented:
 - render-before-write for batch model generation
 - duplicate generated-path detection before writing
 - staged generated-file writes with rollback for late I/O failures
+- recursive discovery skips `.git`, `.vs`, `.idea`, `bin`, `obj`, `node_modules`, `artifacts`, and `_site`
+- command-specific target expansion: validation expands every matching connection, while model generation requires one writable connection per logical database
+- count-based summaries for recursive config commands, batch validation, and batch model generation
+- `--database` remains an intentional filter for `--all` and `--recursive`
 
 The implementation is stronger than the original minimum on file writes. The draft only required "no writes before all targets pass preflight"; the current writer stages temp files and attempts to restore replaced files if a later write fails.
 
-Remaining work worth doing:
-
-1. Add `.vs` and `.idea` to recursive discovery exclusions.
-2. Split target expansion semantics by command kind. `validate --all` should expand every matching connection. `generate models --all` should select one writable target per logical database or report a pre-render ambiguity. The current shared expansion can discover multiple connections for the same database and only catches duplicate output paths after render plans are built.
-3. Decide whether `--all --database AppDb` should remain a useful filter or be rejected as the original draft said. Keeping it as a filter is defensible, but the docs and tests should say that explicitly.
-4. Improve batch summaries from boolean `failures: yes/no` lines to counts: configs, targets, succeeded, drift, failed.
+No remaining V1 implementation work is tracked in this document. Batch support for `diff`, `generate sql`, and `database create` remains deliberately out of scope.
 
 ## Implemented Scope
 
@@ -164,13 +163,13 @@ under that tree.
 Discovery should ignore obvious generated/noisy directories:
 
 - `.git`
+- `.vs`
+- `.idea`
 - `bin`
 - `obj`
 - `node_modules`
 - `artifacts`
 - `_site`
-
-Currently implemented exclusions are `.git`, `bin`, `obj`, `node_modules`, `artifacts`, and `_site`. Add `.vs` and `.idea` as a small hardening follow-up.
 
 Order should be deterministic: sort config paths by normalized full path using ordinal comparison.
 
@@ -222,7 +221,7 @@ Meaning:
 Run this command for every applicable database target in the selected config.
 ```
 
-Original design said `--all` could not be combined with `-n` / `--database`. Current implementation allows it as a database filter. That is defensible, but it should be documented and tested as intentional if we keep it.
+`-n` / `--database` may be combined with `--all` as a database filter. This is intentionally more useful than the original draft, because it lets callers run the batch path against one logical database while still taking advantage of provider filtering, preflight, and aggregate summaries.
 
 `-p` / `--provider` may be combined with `--all` as a provider filter.
 
@@ -242,7 +241,7 @@ Find every datalinq.json under the search root and run the command across them.
 
 For `generate models` and `validate`, `--recursive` implies `--all`.
 
-Original design said `--recursive` could not be combined with `-n` / `--database`. Current implementation allows it as a database filter. Same recommendation: either document and test it as a useful filter, or reject it consistently.
+`-n` / `--database` may be combined with `--recursive` as a database filter.
 
 `-p` / `--provider` may be combined with `--recursive` as a provider filter.
 
@@ -258,7 +257,8 @@ Rules:
 
 - no `-p`: every database/connection pair is a target
 - with `-p`: only matching connection types are targets
-- if a database has no matching connection under the filter, report a target-selection issue
+- if a database has no matching connection under the filter, skip that database
+- if no targets match overall, report `TargetNotFound`
 
 This is what "validate everything" should mean.
 
@@ -271,7 +271,8 @@ Rules:
 - no `-p`: databases with exactly one connection become targets
 - no `-p`: databases with multiple connections should produce an ambiguity issue before rendering and should not be rendered
 - with `-p`: select the matching connection for each database
-- with `-p`: databases with no matching connection produce a target-selection issue
+- with `-p`: databases with no matching connection are skipped
+- if no targets match overall, report `TargetNotFound`
 
 This preserves the current single-target safety rule while still making the ordinary one-connection-per-database case pleasant.
 
@@ -281,10 +282,10 @@ For now, output everything directly to the console. Do not add artifact director
 
 ### Batch Text Output
 
-Each target should have a compact heading:
+Each target has a compact heading:
 
 ```text
-== src/App/datalinq.json :: AppDb [SQLite] (app.db) ==
+Target: src/App/datalinq.json :: AppDb [SQLite] (app.db)
 ```
 
 Then command-specific output follows.
@@ -319,22 +320,16 @@ One or more model-generation targets failed. No model files were written.
 
 ### Summary
 
-Every batch command should end with a summary:
+Every batch command ends with a count-based summary. Current text examples:
 
 ```text
-Summary:
-  Configs: 4
-  Targets: 9
-  Succeeded: 7
-  Drift: 1
-  Failed: 1
+Config list summary: configs: 4; listed: 3; failed: 1
+Config validation summary: configs: 4; valid: 3; failed: 1
+Validation summary: configs: 4; targets: 9; succeeded: 7; drift: 1; failed: 1
+Model generation summary: configs: 4; targets: 9; rendered: 8; failed: 1; files written: no
 ```
 
-Use categories that fit the command:
-
-- `list`: configs read, configs failed, databases, connections
-- `validate`: succeeded, drift, failed
-- `generate models`: rendered, skipped due to errors, written
+The JSON batch validation output also includes a `summary` object with `configs`, `targets`, `succeeded`, `drift`, and `failed`.
 
 ### JSON Output for Batch Validate
 
@@ -552,7 +547,7 @@ Do not use `ModelReader` from `config list`.
 
 Add focused tests for:
 
-- recursive discovery ignores `.git`, `bin`, `obj`, `node_modules`, `artifacts`, and `_site`
+- recursive discovery ignores `.git`, `.vs`, `.idea`, `bin`, `obj`, `node_modules`, `artifacts`, and `_site`
 - `--recursive` implies all target expansion
 - `generate models --all` renders all targets before writing any target
 - `generate models --all` writes nothing when any target render fails

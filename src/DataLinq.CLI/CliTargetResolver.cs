@@ -10,6 +10,12 @@ internal sealed record CliTargetFilter(
     string? DatabaseName,
     string? ProviderName);
 
+internal enum CliTargetExpansionMode
+{
+    Validation,
+    ModelGeneration
+}
+
 internal sealed record CliConfigTarget(
     string ConfigPath,
     DataLinqConfig Config,
@@ -30,6 +36,7 @@ internal sealed record CliConfigTargetIdentity(
     string DataSourceName);
 
 internal sealed record CliTargetExpansion(
+    int ConfigCount,
     IReadOnlyList<CliConfigTarget> Targets,
     IReadOnlyList<CliTargetExpansionFailure> Failures);
 
@@ -44,11 +51,13 @@ internal static class CliTargetResolver
         CliTargetFilter filter,
         bool recursive,
         Action<string> log,
-        SecretResolutionContext? secrets = null)
+        SecretResolutionContext? secrets = null,
+        CliTargetExpansionMode mode = CliTargetExpansionMode.Validation)
     {
         if (!TryParseProviderFilter(filter.ProviderName, out var provider, out var providerFailure))
         {
             return new CliTargetExpansion(
+                1,
                 [],
                 [new CliTargetExpansionFailure(configPath, providerFailure!)]);
         }
@@ -60,6 +69,7 @@ internal static class CliTargetResolver
         if (recursive && configPaths.Count == 0)
         {
             return new CliTargetExpansion(
+                0,
                 [],
                 [
                     new CliTargetExpansionFailure(
@@ -89,12 +99,37 @@ internal static class CliTargetResolver
                     continue;
                 }
 
-                foreach (var connection in FilterConnections(database.Connections, provider))
+                var matchingConnections = FilterConnections(database.Connections, provider).ToArray();
+                if (matchingConnections.Length == 0)
+                    continue;
+
+                if (mode == CliTargetExpansionMode.ModelGeneration && matchingConnections.Length > 1)
+                {
+                    failures.Add(new CliTargetExpansionFailure(
+                        discoveredConfigPath,
+                        CreateModelGenerationAmbiguityMessage(database, provider, matchingConnections)));
+                    continue;
+                }
+
+                foreach (var connection in matchingConnections)
                     targets.Add(new CliConfigTarget(discoveredConfigPath, config, database, connection));
             }
         }
 
-        return new CliTargetExpansion(targets, failures);
+        return new CliTargetExpansion(configPaths.Count, targets, failures);
+    }
+
+    private static string CreateModelGenerationAmbiguityMessage(
+        DataLinqDatabaseConfig database,
+        DatabaseType provider,
+        IReadOnlyList<DataLinqDatabaseConnection> connections)
+    {
+        var providerDescription = provider == DatabaseType.Unknown
+            ? "multiple connections"
+            : $"multiple {provider} connections";
+        var dataSources = string.Join(", ", connections.Select(connection => $"'{connection.DataSourceName}'"));
+
+        return $"Database '{database.Name}' has {providerDescription} ({dataSources}) that would write to the same ModelDirectory. Pass --provider to select one provider or split the targets before running batch model generation.";
     }
 
     private static bool TryParseProviderFilter(

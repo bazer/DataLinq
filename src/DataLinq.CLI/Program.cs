@@ -547,7 +547,6 @@ internal static class Program
             return 2;
         }
 
-        var hadFailure = false;
         var listedCount = 0;
         foreach (var configPath in configPaths)
         {
@@ -556,7 +555,6 @@ internal static class Program
                 : new Action<string>(_ => { });
             if (!CliConfigLoader.TryRead(configPath, configLog, out var config, out var failure))
             {
-                hadFailure = true;
                 ConsoleDiagnosticWriter.WriteError("ConfigReadFailed", $"Failed to read config '{configPath}'.");
                 ConsoleDiagnosticWriter.WriteFailure(failure);
                 Console.WriteLine();
@@ -567,8 +565,9 @@ internal static class Program
             listedCount++;
         }
 
-        Console.WriteLine($"Configs listed: {listedCount}; failures: {(hadFailure ? "yes" : "no")}");
-        return hadFailure ? 2 : 0;
+        var failedCount = configPaths.Count - listedCount;
+        Console.WriteLine($"Config list summary: configs: {configPaths.Count}; listed: {listedCount}; failed: {failedCount}");
+        return failedCount > 0 ? 2 : 0;
     }
 
     private static int ExecuteConfigValidate(ConfigValidateOptions options)
@@ -599,13 +598,11 @@ internal static class Program
             return 2;
         }
 
-        var hadFailure = false;
         var validCount = 0;
         foreach (var configPath in configPaths)
         {
             if (!TryValidateConfigFile(configPath, options.Verbose, out var config, out var failure))
             {
-                hadFailure = true;
                 ConsoleDiagnosticWriter.WriteError("ConfigInvalid", $"Failed to validate config '{configPath}'.");
                 ConsoleDiagnosticWriter.WriteFailure(failure);
                 Console.WriteLine();
@@ -616,8 +613,9 @@ internal static class Program
             validCount++;
         }
 
-        Console.WriteLine($"Configs validated: {validCount}; failures: {(hadFailure ? "yes" : "no")}");
-        return hadFailure ? 2 : 0;
+        var failedCount = configPaths.Count - validCount;
+        Console.WriteLine($"Config validation summary: configs: {configPaths.Count}; valid: {validCount}; failed: {failedCount}");
+        return failedCount > 0 ? 2 : 0;
     }
 
     private static bool TryValidateConfigFile(
@@ -1193,7 +1191,8 @@ internal static class Program
             new CliTargetFilter(options.Database, options.Provider),
             options.Recursive,
             options.Verbose ? ConsoleDiagnosticWriter.WriteLogLine : _ => { },
-            SecretContext);
+            SecretContext,
+            CliTargetExpansionMode.ModelGeneration);
 
         if (expansion.Targets.Count == 0 && expansion.Failures.Count == 0)
         {
@@ -1201,7 +1200,7 @@ internal static class Program
             return 2;
         }
 
-        var hadFailure = false;
+        var failureCount = 0;
         var writePlans = new List<GeneratedModelWritePlan>();
         GeneratedFileStamp? generatedFileStamp = options.StampGeneratedHeader
             ? new GeneratedFileStamp(GetCliVersion(), DateTimeOffset.UtcNow)
@@ -1209,7 +1208,7 @@ internal static class Program
 
         foreach (var failure in expansion.Failures)
         {
-            hadFailure = true;
+            failureCount++;
             ConsoleDiagnosticWriter.WriteError("TargetFailed", $"Failed to prepare targets from '{failure.ConfigPath}'.");
             ConsoleDiagnosticWriter.WriteIssues(CreateIssues(failure.Failure));
         }
@@ -1227,7 +1226,7 @@ internal static class Program
 
             if (writePlan.HasFailed)
             {
-                hadFailure = true;
+                failureCount++;
                 ConsoleDiagnosticWriter.WriteFailure(writePlan.Failure);
                 continue;
             }
@@ -1237,33 +1236,57 @@ internal static class Program
 
         if (TryFindDuplicateGeneratedPath(writePlans, out var duplicatePath))
         {
-            hadFailure = true;
+            failureCount++;
             ConsoleDiagnosticWriter.WriteError(
                 "InvalidOutput",
                 $"Batch model generation produced duplicate target path '{duplicatePath}'. No files were written.");
         }
 
-        if (hadFailure)
+        if (failureCount > 0)
         {
             Console.WriteLine();
-            Console.WriteLine($"Model generation targets: {expansion.Targets.Count}; failures: yes; files written: no");
+            Console.WriteLine(FormatModelGenerationSummary(
+                expansion,
+                renderedCount: writePlans.Count,
+                failureCount,
+                filesWritten: "no"));
             return 2;
         }
 
+        var successfulWrites = 0;
         foreach (var writePlan in writePlans)
         {
             var writeResult = writePlan.Write(ConsoleDiagnosticWriter.WriteLogLine);
             if (writeResult.HasFailed)
             {
                 ConsoleDiagnosticWriter.WriteFailure(writeResult.Failure);
+                Console.WriteLine();
+                Console.WriteLine(FormatModelGenerationSummary(
+                    expansion,
+                    renderedCount: writePlans.Count,
+                    failureCount: 1,
+                    filesWritten: successfulWrites > 0 ? "partial" : "no"));
                 return 2;
             }
+
+            successfulWrites++;
         }
 
         Console.WriteLine();
-        Console.WriteLine($"Model generation targets: {writePlans.Count}; failures: no; files written: yes");
+        Console.WriteLine(FormatModelGenerationSummary(
+            expansion,
+            renderedCount: writePlans.Count,
+            failureCount: 0,
+            filesWritten: writePlans.Count > 0 ? "yes" : "no"));
         return 0;
     }
+
+    private static string FormatModelGenerationSummary(
+        CliTargetExpansion expansion,
+        int renderedCount,
+        int failureCount,
+        string filesWritten) =>
+        $"Model generation summary: configs: {expansion.ConfigCount}; targets: {expansion.Targets.Count}; rendered: {renderedCount}; failed: {failureCount}; files written: {filesWritten}";
 
     private static int ExecuteCreateSql(CreateSqlOptions options)
     {
@@ -1413,12 +1436,13 @@ internal static class Program
 
     private static int ValidateBatchText(CliTargetExpansion expansion, ValidateOptions options)
     {
-        var hadFailure = false;
-        var hasDifferences = false;
+        var succeededCount = 0;
+        var driftCount = 0;
+        var failedCount = 0;
 
         foreach (var failure in expansion.Failures)
         {
-            hadFailure = true;
+            failedCount++;
             ConsoleDiagnosticWriter.WriteError("TargetFailed", $"Failed to prepare targets from '{failure.ConfigPath}'.");
             ConsoleDiagnosticWriter.WriteIssues(CreateIssues(failure.Failure));
         }
@@ -1430,22 +1454,29 @@ internal static class Program
 
             if (!TryValidateTarget(target, options.Verbose, out var validation, out var issues))
             {
-                hadFailure = true;
+                failedCount++;
                 ConsoleDiagnosticWriter.WriteIssues(issues);
                 continue;
             }
 
             WriteValidationText(validation);
-            hasDifferences |= validation.HasDifferences;
+            if (validation.HasDifferences)
+                driftCount++;
+            else
+                succeededCount++;
         }
 
         Console.WriteLine();
-        Console.WriteLine($"Validation targets: {expansion.Targets.Count}; failures: {(hadFailure ? "yes" : "no")}; drift: {(hasDifferences ? "yes" : "no")}");
+        Console.WriteLine(FormatValidationBatchSummary(
+            expansion,
+            succeededCount,
+            driftCount,
+            failedCount));
 
-        if (hadFailure)
+        if (failedCount > 0)
             return 2;
 
-        return hasDifferences ? 1 : 0;
+        return driftCount > 0 ? 1 : 0;
     }
 
     private static int ValidateBatchJson(CliTargetExpansion expansion, ValidateOptions options)
@@ -1466,7 +1497,7 @@ internal static class Program
             results.Add(validation);
         }
 
-        WriteValidationBatchJson(results, failures);
+        WriteValidationBatchJson(results, failures, expansion);
 
         if (failures.Count > 0)
             return 2;
@@ -1730,12 +1761,21 @@ internal static class Program
 
     private static void WriteValidationBatchJson(
         IReadOnlyList<SchemaValidationRunResult> results,
-        IReadOnlyList<ValidationBatchFailure> failures)
+        IReadOnlyList<ValidationBatchFailure> failures,
+        CliTargetExpansion expansion)
     {
         var payload = new
         {
             hasFailures = failures.Count > 0,
             hasDifferences = results.Any(result => result.HasDifferences),
+            summary = new
+            {
+                configs = expansion.ConfigCount,
+                targets = expansion.Targets.Count,
+                succeeded = results.Count(result => !result.HasDifferences),
+                drift = results.Count(result => result.HasDifferences),
+                failed = failures.Count
+            },
             results = results.Select(result => new
             {
                 database = result.DatabaseName,
@@ -1774,6 +1814,13 @@ internal static class Program
             WriteIndented = true
         }));
     }
+
+    private static string FormatValidationBatchSummary(
+        CliTargetExpansion expansion,
+        int succeededCount,
+        int driftCount,
+        int failedCount) =>
+        $"Validation summary: configs: {expansion.ConfigCount}; targets: {expansion.Targets.Count}; succeeded: {succeededCount}; drift: {driftCount}; failed: {failedCount}";
 
     private static string FormatTargetIdentity(CliConfigTargetIdentity identity) =>
         $"{identity.ConfigPath} :: {identity.DatabaseName} [{identity.Provider}] ({Redact(identity.DataSourceName)})";

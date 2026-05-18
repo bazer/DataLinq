@@ -270,9 +270,27 @@ Verification after checkpoint 3:
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliBatchCommandTests/*"`
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/ModelGeneratorModelDirectoryTests/*"`
 
+Checkpoint 4 hardened the completed batch implementation:
+
+- recursive discovery now also skips `.vs` and `.idea`.
+- target expansion now has command-specific semantics:
+  - validation expands every matching connection.
+  - model generation requires one selected connection per logical database and reports ambiguity before rendering.
+- `--database` is intentionally supported as a filter with `--all` and `--recursive`.
+- recursive config commands, batch validation, and batch model generation now print count-based summaries instead of `failures: yes/no`.
+- batch validation JSON now includes a `summary` object.
+
+Verification after checkpoint 4:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliTargetResolverTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliBatchCommandTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliCommandSurfaceTests/*"`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore` passed with 716 tests.
+
 Workstream C is complete. Final verification:
 
-- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore` passed with 674 tests.
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore` passed with 716 tests.
 - `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental` passed.
 
 ## Workstream D: Config Schema and Init

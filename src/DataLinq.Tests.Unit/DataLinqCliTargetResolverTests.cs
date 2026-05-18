@@ -35,6 +35,71 @@ public class DataLinqCliTargetResolverTests
 
     [Test]
     [NotInParallel]
+    public async Task Expand_ValidationMode_ExpandsEveryMatchingConnection()
+    {
+        SQLiteProvider.RegisterProvider();
+        using var fixture = CliTargetResolverFixture.Create();
+        fixture.WriteConfig();
+
+        var expansion = CliTargetResolver.Expand(
+            fixture.ConfigPath,
+            new CliTargetFilter(null, null),
+            recursive: false,
+            _ => { });
+
+        await Assert.That(expansion.Failures).IsEmpty();
+        await Assert.That(expansion.ConfigCount).IsEqualTo(1);
+        await Assert.That(expansion.Targets.Count).IsEqualTo(3);
+        await Assert.That(expansion.Targets.Select(target => target.Identity.DataSourceName))
+            .IsEquivalentTo(["app.db", "ignored.db", "logs.db"]);
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task Expand_ModelGenerationMode_ReportsAmbiguousDatabaseBeforeRendering()
+    {
+        SQLiteProvider.RegisterProvider();
+        using var fixture = CliTargetResolverFixture.Create();
+        fixture.WriteConfig();
+
+        var expansion = CliTargetResolver.Expand(
+            fixture.ConfigPath,
+            new CliTargetFilter(null, null),
+            recursive: false,
+            _ => { },
+            mode: CliTargetExpansionMode.ModelGeneration);
+
+        await Assert.That(expansion.ConfigCount).IsEqualTo(1);
+        await Assert.That(expansion.Targets.Count).IsEqualTo(1);
+        await Assert.That(expansion.Targets.Single().Identity.DatabaseName).IsEqualTo("LogDb");
+        await Assert.That(expansion.Failures.Count).IsEqualTo(1);
+        await Assert.That(expansion.Failures.Single().Failure.ToString()).Contains("multiple connections");
+        await Assert.That(expansion.Failures.Single().Failure.ToString()).Contains("Pass --provider");
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task Expand_ModelGenerationMode_UsesProviderFilterToResolveAmbiguity()
+    {
+        SQLiteProvider.RegisterProvider();
+        using var fixture = CliTargetResolverFixture.Create();
+        fixture.WriteConfig();
+
+        var expansion = CliTargetResolver.Expand(
+            fixture.ConfigPath,
+            new CliTargetFilter(null, "SQLite"),
+            recursive: false,
+            _ => { },
+            mode: CliTargetExpansionMode.ModelGeneration);
+
+        await Assert.That(expansion.Failures).IsEmpty();
+        await Assert.That(expansion.Targets.Count).IsEqualTo(2);
+        await Assert.That(expansion.Targets.Select(target => target.Identity.DataSourceName))
+            .IsEquivalentTo(["app.db", "logs.db"]);
+    }
+
+    [Test]
+    [NotInParallel]
     public async Task Expand_Recursive_ContinuesThroughUnreadableConfigs()
     {
         SQLiteProvider.RegisterProvider();
