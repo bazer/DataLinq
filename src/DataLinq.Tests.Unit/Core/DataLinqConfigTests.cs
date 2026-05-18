@@ -110,7 +110,7 @@ public class DataLinqConfigTests
     }
 
     [Test]
-    public async Task DatabaseConfig_ModelLayout_DefaultsToColumnTopBottom()
+    public async Task DatabaseConfig_ModelLayout_DefaultsToColumnTopInlineBottom()
     {
         using var fixture = DataLinqConfigFixture.Create();
 
@@ -123,7 +123,8 @@ public class DataLinqConfigTests
 
         var layout = config.Databases.Single().ModelLayout;
         await Assert.That(layout.PropertyOrder).IsEqualTo(DataLinqModelPropertyOrder.Column);
-        await Assert.That(layout.KeyPlacement).IsEqualTo(DataLinqModelKeyPlacement.Top);
+        await Assert.That(layout.PrimaryKeyPlacement).IsEqualTo(DataLinqModelPrimaryKeyPlacement.Top);
+        await Assert.That(layout.ForeignKeyPlacement).IsEqualTo(DataLinqModelForeignKeyPlacement.Inline);
         await Assert.That(layout.RelationPlacement).IsEqualTo(DataLinqModelRelationPlacement.Bottom);
     }
 
@@ -150,6 +151,8 @@ public class DataLinqConfigTests
                 [
                     CreateDatabaseConfig(modelLayout: new ConfigFileModelLayout
                     {
+                        PrimaryKeyPlacement = "Inline",
+                        ForeignKeyPlacement = "Top",
                         RelationPlacement = "WithForeignKey"
                     })
                 ]
@@ -157,7 +160,8 @@ public class DataLinqConfigTests
 
         var layout = config.Databases.Single().ModelLayout;
         await Assert.That(layout.PropertyOrder).IsEqualTo(DataLinqModelPropertyOrder.Alphabetical);
-        await Assert.That(layout.KeyPlacement).IsEqualTo(DataLinqModelKeyPlacement.Top);
+        await Assert.That(layout.PrimaryKeyPlacement).IsEqualTo(DataLinqModelPrimaryKeyPlacement.Inline);
+        await Assert.That(layout.ForeignKeyPlacement).IsEqualTo(DataLinqModelForeignKeyPlacement.Top);
         await Assert.That(layout.RelationPlacement).IsEqualTo(DataLinqModelRelationPlacement.WithForeignKey);
     }
 

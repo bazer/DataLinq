@@ -128,7 +128,7 @@
           ],
           "default": "Column"
         },
-        "KeyPlacement": {
+        "PrimaryKeyPlacement": {
           "type": "string",
           "description": "Place primary-key scalar properties at the top or leave them inline with the selected property order.",
           "enum": [
@@ -136,6 +136,15 @@
             "Inline"
           ],
           "default": "Top"
+        },
+        "ForeignKeyPlacement": {
+          "type": "string",
+          "description": "Place foreign-key scalar properties at the top or leave them inline with the selected property order.",
+          "enum": [
+            "Top",
+            "Inline"
+          ],
+          "default": "Inline"
         },
         "RelationPlacement": {
           "type": "string",

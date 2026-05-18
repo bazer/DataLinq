@@ -36,7 +36,8 @@ public record ConfigFileDatabase
 public record ConfigFileModelLayout
 {
     public string? PropertyOrder { get; set; }
-    public string? KeyPlacement { get; set; }
+    public string? PrimaryKeyPlacement { get; set; }
+    public string? ForeignKeyPlacement { get; set; }
     public string? RelationPlacement { get; set; }
 }
 

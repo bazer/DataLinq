@@ -165,10 +165,15 @@ internal static class CliConfigLoader
                     return propertyOrderResult;
                 database.ModelLayout.PropertyOrder = propertyOrderResult.Value;
 
-                var keyPlacementResult = ResolveNullableString(database.ModelLayout.KeyPlacement, secrets);
-                if (!keyPlacementResult.Succeeded)
-                    return keyPlacementResult;
-                database.ModelLayout.KeyPlacement = keyPlacementResult.Value;
+                var primaryKeyPlacementResult = ResolveNullableString(database.ModelLayout.PrimaryKeyPlacement, secrets);
+                if (!primaryKeyPlacementResult.Succeeded)
+                    return primaryKeyPlacementResult;
+                database.ModelLayout.PrimaryKeyPlacement = primaryKeyPlacementResult.Value;
+
+                var foreignKeyPlacementResult = ResolveNullableString(database.ModelLayout.ForeignKeyPlacement, secrets);
+                if (!foreignKeyPlacementResult.Succeeded)
+                    return foreignKeyPlacementResult;
+                database.ModelLayout.ForeignKeyPlacement = foreignKeyPlacementResult.Value;
 
                 var relationPlacementResult = ResolveNullableString(database.ModelLayout.RelationPlacement, secrets);
                 if (!relationPlacementResult.Succeeded)

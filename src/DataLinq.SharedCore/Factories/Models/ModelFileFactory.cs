@@ -175,17 +175,42 @@ public class ModelFileFactory
                 .ThenBy(static property => property.PropertyName, StringComparer.Ordinal)
         };
 
-        if (layout.KeyPlacement == DataLinqModelKeyPlacement.Top)
+        if (layout.PrimaryKeyPlacement == DataLinqModelPrimaryKeyPlacement.Top ||
+            layout.ForeignKeyPlacement == DataLinqModelForeignKeyPlacement.Top)
         {
             ordered = ordered
                 .Select(static (property, index) => new { property, index })
-                .OrderByDescending(static item => item.property.Column.PrimaryKey)
+                .OrderBy(item => GetValuePropertyPlacementRank(item.property, layout))
                 .ThenBy(static item => item.index)
                 .Select(static item => item.property);
         }
 
         return ordered.ToList();
     }
+
+    private static int GetValuePropertyPlacementRank(
+        ValueProperty property,
+        DataLinqModelLayoutConfig layout)
+    {
+        if (layout.PrimaryKeyPlacement == DataLinqModelPrimaryKeyPlacement.Top &&
+            property.Column.PrimaryKey)
+        {
+            return 0;
+        }
+
+        if (layout.ForeignKeyPlacement == DataLinqModelForeignKeyPlacement.Top &&
+            IsForeignKeyValueProperty(property))
+        {
+            return layout.PrimaryKeyPlacement == DataLinqModelPrimaryKeyPlacement.Top ? 1 : 0;
+        }
+
+        return 2;
+    }
+
+    private static bool IsForeignKeyValueProperty(ValueProperty property) =>
+        property.Column.ForeignKey ||
+        property.Column.ColumnIndices.Any(static index =>
+            index.RelationParts.Any(static relationPart => relationPart.Type == RelationPartType.ForeignKey));
 
     private static List<RelationProperty> OrderRelationProperties(ModelDefinition model) =>
         model.RelationProperties.Values

@@ -65,7 +65,8 @@ public class DataLinqConfigSchemaTests
         await Assert.That(layoutProperties.Select(property => property.Key).ToArray()).IsEquivalentTo(
         [
             "PropertyOrder",
-            "KeyPlacement",
+            "PrimaryKeyPlacement",
+            "ForeignKeyPlacement",
             "RelationPlacement"
         ]);
     }
@@ -86,7 +87,8 @@ public class DataLinqConfigSchemaTests
                   "ModelDirectory": "Models",
                   "ModelLayout": {
                     "PropertyOrder": "Alphabetical",
-                    "KeyPlacement": "Inline",
+                    "PrimaryKeyPlacement": "Inline",
+                    "ForeignKeyPlacement": "Top",
                     "RelationPlacement": "WithForeignKey"
                   },
                   "UseNullableReferenceTypes": true,

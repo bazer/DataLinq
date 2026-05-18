@@ -278,7 +278,7 @@ Each item in `Databases` describes one logical database definition.
   Deprecated compatibility alias for `ModelDirectory`. If both names are present for the same database, they must point to the same path.
 
 - `ModelLayout`  
-  Optional. Controls generated model member order. Defaults to `PropertyOrder: "Column"`, `KeyPlacement: "Top"`, and `RelationPlacement: "Bottom"`.
+  Optional. Controls generated model member order. Defaults to `PropertyOrder: "Column"`, `PrimaryKeyPlacement: "Top"`, `ForeignKeyPlacement: "Inline"`, and `RelationPlacement: "Bottom"`.
 
 - `Include`  
   Optional. Limits generation to selected tables or views.

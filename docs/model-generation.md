@@ -37,7 +37,8 @@ Generated member order is project configuration, not a local CLI preference. Con
 {
   "ModelLayout": {
     "PropertyOrder": "Column",
-    "KeyPlacement": "Top",
+    "PrimaryKeyPlacement": "Top",
+    "ForeignKeyPlacement": "Inline",
     "RelationPlacement": "Bottom"
   }
 }
@@ -46,10 +47,11 @@ Generated member order is project configuration, not a local CLI preference. Con
 Supported values:
 
 - `PropertyOrder`: `Column`, `Alphabetical`
-- `KeyPlacement`: `Top`, `Inline`
+- `PrimaryKeyPlacement`: `Top`, `Inline`
+- `ForeignKeyPlacement`: `Top`, `Inline`
 - `RelationPlacement`: `Bottom`, `Top`, `WithForeignKey`
 
-The default is column order, primary keys at the top, and relation properties at the bottom.
+The default is column order, primary keys at the top, foreign keys inline with the selected scalar property order, and relation properties at the bottom.
 
 ## Compiler-Generated Files
 

@@ -9,7 +9,13 @@ public enum DataLinqModelPropertyOrder
     Alphabetical
 }
 
-public enum DataLinqModelKeyPlacement
+public enum DataLinqModelPrimaryKeyPlacement
+{
+    Top,
+    Inline
+}
+
+public enum DataLinqModelForeignKeyPlacement
 {
     Top,
     Inline
@@ -24,22 +30,26 @@ public enum DataLinqModelRelationPlacement
 
 public sealed record DataLinqModelLayoutConfig(
     DataLinqModelPropertyOrder PropertyOrder,
-    DataLinqModelKeyPlacement KeyPlacement,
+    DataLinqModelPrimaryKeyPlacement PrimaryKeyPlacement,
+    DataLinqModelForeignKeyPlacement ForeignKeyPlacement,
     DataLinqModelRelationPlacement RelationPlacement)
 {
     public static DataLinqModelLayoutConfig Default { get; } = new(
         DataLinqModelPropertyOrder.Column,
-        DataLinqModelKeyPlacement.Top,
+        DataLinqModelPrimaryKeyPlacement.Top,
+        DataLinqModelForeignKeyPlacement.Inline,
         DataLinqModelRelationPlacement.Bottom);
 
     public DataLinqModelLayoutConfig Merge(
         string? propertyOrder,
-        string? keyPlacement,
+        string? primaryKeyPlacement,
+        string? foreignKeyPlacement,
         string? relationPlacement)
     {
         return new DataLinqModelLayoutConfig(
             Parse(propertyOrder, PropertyOrder, nameof(PropertyOrder)),
-            Parse(keyPlacement, KeyPlacement, nameof(KeyPlacement)),
+            Parse(primaryKeyPlacement, PrimaryKeyPlacement, nameof(PrimaryKeyPlacement)),
+            Parse(foreignKeyPlacement, ForeignKeyPlacement, nameof(ForeignKeyPlacement)),
             Parse(relationPlacement, RelationPlacement, nameof(RelationPlacement)));
     }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
@@ -310,7 +311,8 @@ public class ModelFileFactoryTests
         {
             ModelLayout = new DataLinqModelLayoutConfig(
                 DataLinqModelPropertyOrder.Alphabetical,
-                DataLinqModelKeyPlacement.Inline,
+                DataLinqModelPrimaryKeyPlacement.Inline,
+                DataLinqModelForeignKeyPlacement.Inline,
                 DataLinqModelRelationPlacement.Bottom)
         })
             .CreateModelFiles(database)
@@ -332,7 +334,8 @@ public class ModelFileFactoryTests
         {
             ModelLayout = new DataLinqModelLayoutConfig(
                 DataLinqModelPropertyOrder.Column,
-                DataLinqModelKeyPlacement.Top,
+                DataLinqModelPrimaryKeyPlacement.Top,
+                DataLinqModelForeignKeyPlacement.Inline,
                 DataLinqModelRelationPlacement.Top)
         })
             .CreateModelFiles(database)
@@ -355,7 +358,8 @@ public class ModelFileFactoryTests
         {
             ModelLayout = new DataLinqModelLayoutConfig(
                 DataLinqModelPropertyOrder.Column,
-                DataLinqModelKeyPlacement.Top,
+                DataLinqModelPrimaryKeyPlacement.Top,
+                DataLinqModelForeignKeyPlacement.Inline,
                 DataLinqModelRelationPlacement.WithForeignKey)
         })
             .CreateModelFiles(database)
@@ -366,6 +370,29 @@ public class ModelFileFactoryTests
             "public abstract int OrderId { get; }",
             "public abstract int CustomerId { get; }",
             "public abstract User Customer { get; }",
+            "public abstract decimal Amount { get; }");
+    }
+
+    [Test]
+    public async Task CreateModelFiles_ForeignKeyPlacementTop_EmitsForeignKeysBeforeEarlierOrdinaryColumns()
+    {
+        var database = CreateDatabaseWithRelationLayout(amountBeforeForeignKey: true);
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions
+        {
+            ModelLayout = new DataLinqModelLayoutConfig(
+                DataLinqModelPropertyOrder.Column,
+                DataLinqModelPrimaryKeyPlacement.Top,
+                DataLinqModelForeignKeyPlacement.Top,
+                DataLinqModelRelationPlacement.Bottom)
+        })
+            .CreateModelFiles(database)
+            .Single(file => file.path == "Order.cs");
+
+        await AssertContainsInOrder(
+            generatedFile.contents,
+            "public abstract int OrderId { get; }",
+            "public abstract int CustomerId { get; }",
             "public abstract decimal Amount { get; }");
     }
 
@@ -430,8 +457,41 @@ public class ModelFileFactoryTests
         return Build(draft);
     }
 
-    private static DatabaseDefinition CreateDatabaseWithRelationLayout()
+    private static DatabaseDefinition CreateDatabaseWithRelationLayout(bool amountBeforeForeignKey = false)
     {
+        var orderValueProperties = new List<MetadataValuePropertyDraft>
+        {
+            CreateValueProperty("OrderId", typeof(int), "order_id", "int", primaryKey: true)
+        };
+
+        var amountProperty = CreateValueProperty("Amount", typeof(decimal), "amount", "decimal");
+        var customerIdProperty = new MetadataValuePropertyDraft(
+            "CustomerId",
+            new CsTypeDeclaration(typeof(int)),
+            new MetadataColumnDraft("customer_id")
+            {
+                ForeignKey = true,
+                DbTypes = [new DatabaseColumnType(DatabaseType.MySQL, "int")]
+            })
+        {
+            Attributes =
+            [
+                new ForeignKeyAttribute("users", "user_id", "FK_Order_User"),
+                new ColumnAttribute("customer_id")
+            ]
+        };
+
+        if (amountBeforeForeignKey)
+        {
+            orderValueProperties.Add(amountProperty);
+            orderValueProperties.Add(customerIdProperty);
+        }
+        else
+        {
+            orderValueProperties.Add(customerIdProperty);
+            orderValueProperties.Add(amountProperty);
+        }
+
         var draft = new MetadataDatabaseDraft(
             "OrderDb",
             new CsTypeDeclaration("OrderDb", "TestNamespace", ModelCsType.Class))
@@ -453,26 +513,7 @@ public class ModelFileFactoryTests
                     "Orders",
                     new MetadataModelDraft(new CsTypeDeclaration("Order", "TestNamespace", ModelCsType.Class))
                     {
-                        ValueProperties =
-                        [
-                            CreateValueProperty("OrderId", typeof(int), "order_id", "int", primaryKey: true),
-                            new MetadataValuePropertyDraft(
-                                "CustomerId",
-                                new CsTypeDeclaration(typeof(int)),
-                                new MetadataColumnDraft("customer_id")
-                                {
-                                    ForeignKey = true,
-                                    DbTypes = [new DatabaseColumnType(DatabaseType.MySQL, "int")]
-                                })
-                            {
-                                Attributes =
-                                [
-                                    new ForeignKeyAttribute("users", "user_id", "FK_Order_User"),
-                                    new ColumnAttribute("customer_id")
-                                ]
-                            },
-                            CreateValueProperty("Amount", typeof(decimal), "amount", "decimal")
-                        ]
+                        ValueProperties = orderValueProperties
                     },
                     new MetadataTableDraft("orders"))
             ]

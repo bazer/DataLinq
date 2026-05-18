@@ -237,7 +237,11 @@ public record DataLinqDatabaseConfig
         if (layout == null)
             return current;
 
-        return current.Merge(layout.PropertyOrder, layout.KeyPlacement, layout.RelationPlacement);
+        return current.Merge(
+            layout.PropertyOrder,
+            layout.PrimaryKeyPlacement,
+            layout.ForeignKeyPlacement,
+            layout.RelationPlacement);
     }
 
     private static string? ResolveModelDirectory(ConfigFileDatabase database, string databaseName)
