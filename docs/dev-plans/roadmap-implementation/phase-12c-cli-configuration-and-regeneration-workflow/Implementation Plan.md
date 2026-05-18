@@ -270,6 +270,11 @@ Verification after checkpoint 3:
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqCliBatchCommandTests/*"`
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/ModelGeneratorModelDirectoryTests/*"`
 
+Workstream C is complete. Final verification:
+
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore` passed with 674 tests.
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental` passed.
+
 ## Workstream D: Config Schema and Init
 
 ### Goals

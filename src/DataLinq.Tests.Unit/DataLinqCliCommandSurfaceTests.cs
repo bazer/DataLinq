@@ -142,6 +142,7 @@ public class DataLinqCliCommandSurfaceTests
     }
 
     [Test]
+    [NotInParallel]
     public async Task ParserFailuresReturnExitCodeTwo()
     {
         var exitCode = await Program.InvokeAsync(["validate", "--output", "json"]);

@@ -11,6 +11,7 @@ namespace DataLinq.Tests.Unit;
 public class DataLinqCliTargetResolverTests
 {
     [Test]
+    [NotInParallel]
     public async Task Expand_FiltersTargetsByDatabaseAndProvider()
     {
         SQLiteProvider.RegisterProvider();
@@ -33,6 +34,7 @@ public class DataLinqCliTargetResolverTests
     }
 
     [Test]
+    [NotInParallel]
     public async Task Expand_Recursive_ContinuesThroughUnreadableConfigs()
     {
         SQLiteProvider.RegisterProvider();
