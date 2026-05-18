@@ -97,6 +97,15 @@ public class DataLinqCliCommandSurfaceTests
     }
 
     [Test]
+    public async Task ConfigValidate_IsNestedAndAcceptsRecursive()
+    {
+        await Assert.That(ParseErrors("config", "validate")).IsEqualTo(0);
+        await Assert.That(ParseErrors("config", "validate", "--recursive")).IsEqualTo(0);
+        await Assert.That(ParseErrors("config", "validate", "--all")).IsGreaterThan(0);
+        await Assert.That(ParseErrors("validate-config")).IsGreaterThan(0);
+    }
+
+    [Test]
     public async Task ConfigSchema_IsNestedAndAcceptsOutputPath()
     {
         await Assert.That(ParseErrors("config", "schema")).IsEqualTo(0);

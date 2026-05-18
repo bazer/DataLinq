@@ -57,6 +57,21 @@ That means comment-bearing JSON examples work in practice even though standard J
 
 ---
 
+## CLI Validation
+
+DataLinq reads config files strictly. Unknown properties and unsupported option values fail fast instead of being ignored, so stale fields such as `KeyPlacement` are treated as configuration errors.
+
+Run a config-only check when editing shared or user config:
+
+```bash
+datalinq config validate
+datalinq config validate --recursive
+```
+
+This command reads `datalinq.json`, merges the matching `datalinq.user.json` when present, and validates the config shape without opening a database connection.
+
+---
+
 ## Editor Autocomplete and Validation
 
 DataLinq publishes a JSON Schema for config files:

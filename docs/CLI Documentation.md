@@ -109,6 +109,19 @@ Options:
 
 - `--recursive`: discover and list every readable `datalinq.json` under the selected directory or config location
 
+### `config validate`
+
+Validates `datalinq.json` and the matching `datalinq.user.json` without connecting to any database. This catches misspelled config properties, stale options such as `KeyPlacement`, unsupported enum values, and invalid merge state before generation or schema validation starts.
+
+```bash
+datalinq config validate -c ./datalinq.json
+datalinq config validate --recursive
+```
+
+Options:
+
+- `--recursive`: discover and validate every `datalinq.json` under the selected directory or config location
+
 ### `config init`
 
 Interactively creates or completes DataLinq config files.

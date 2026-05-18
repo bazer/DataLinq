@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using DataLinq.Config;
 
@@ -195,11 +196,73 @@ public class DataLinqConfigTests
         await Assert.That(exception!.Message).Contains("Unknown ModelLayout.PropertyOrder value 'Source'");
     }
 
+    [Test]
+    public async Task ConfigReader_RejectsUnknownConfigMembers()
+    {
+        using var fixture = DataLinqConfigFixture.Create();
+        var configPath = Path.Combine(fixture.BasePath, "datalinq.json");
+        File.WriteAllText(
+            configPath,
+            """
+            {
+              "Databases": [
+                {
+                  "Name": "test_db",
+                  "ModelLayout": {
+                    "KeyPlacement": "Top"
+                  }
+                }
+              ]
+            }
+            """);
+
+        JsonException? exception = null;
+        try
+        {
+            ConfigReader.Read(configPath);
+        }
+        catch (JsonException caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("KeyPlacement");
+    }
+
+    [Test]
+    public async Task DatabaseConfig_UnknownConnectionTypeThrowsClearError()
+    {
+        using var fixture = DataLinqConfigFixture.Create();
+
+        ArgumentException? exception = null;
+        try
+        {
+            new DataLinqConfig(
+                fixture.BasePath,
+                new ConfigFile
+                {
+                    Databases =
+                    [
+                        CreateDatabaseConfig(connectionType: "MariaDBB")
+                    ]
+                });
+        }
+        catch (ArgumentException caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("Unknown Connections.Type value 'MariaDBB'");
+    }
+
     private static ConfigFileDatabase CreateDatabaseConfig(
         bool? useNullableReferenceTypes = null,
         string? modelDirectory = null,
         string? destinationDirectory = "Models",
-        ConfigFileModelLayout? modelLayout = null) =>
+        ConfigFileModelLayout? modelLayout = null,
+        string? connectionType = "SQLite") =>
         new()
         {
             Name = "test_db",
@@ -213,7 +276,7 @@ public class DataLinqConfigTests
             [
                 new ConfigFileDatabaseConnection
                 {
-                    Type = "SQLite",
+                    Type = connectionType,
                     DataSourceName = "test.db",
                     ConnectionString = "Data Source=test.db"
                 }

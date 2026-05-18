@@ -296,7 +296,21 @@ public record DataLinqDatabaseConnection
     {
         DatabaseConfig = databaseConfig;
         DataSourceName = connection.DataSourceName ?? connection.DatabaseName ?? throw new ArgumentNullException(nameof(connection.DataSourceName));
-        Type = ConfigReader.ParseDatabaseType(connection.Type); // ?? throw new ArgumentException($"Couldn't find database type for '{connection.Type}'");
+        Type = ConfigReader.ParseDatabaseType(connection.Type);
+        if (!string.IsNullOrWhiteSpace(connection.Type) && !IsAllowedConnectionType(Type))
+            throw new ArgumentException(
+                $"Unknown Connections.Type value '{connection.Type}' in database '{databaseConfig.Name}'. Allowed values: {GetAllowedConnectionTypeValues()}.");
+
         ConnectionString = new DataLinqConnectionString(connection.ConnectionString);
     }
+
+    private static string GetAllowedConnectionTypeValues() =>
+        string.Join(
+            ", ",
+            Enum.GetNames<DatabaseType>()
+                .Where(name => name is not nameof(DatabaseType.Unknown) and not nameof(DatabaseType.Default))
+                .OrderBy(name => name));
+
+    private static bool IsAllowedConnectionType(DatabaseType type) =>
+        type is not DatabaseType.Unknown and not DatabaseType.Default;
 }
