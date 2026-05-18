@@ -41,7 +41,7 @@ internal static class Program
         ResetState();
 
         var rootCommand = CreateRootCommand();
-        var parseResult = rootCommand.Parse(args);
+        var parseResult = rootCommand.Parse(args.Length == 0 ? ["--help"] : args);
         if (parseResult.Errors.Count > 0)
         {
             foreach (var error in parseResult.Errors)

@@ -169,6 +169,35 @@ public class DataLinqCliCommandSurfaceTests
 
     [Test]
     [NotInParallel]
+    public async Task EmptyInvocation_PrintsHelp()
+    {
+        var originalOut = Console.Out;
+        using var writer = new StringWriter();
+
+        try
+        {
+#pragma warning disable TUnit0055
+            Console.SetOut(writer);
+#pragma warning restore TUnit0055
+            var exitCode = await Program.InvokeAsync([]);
+            var output = writer.ToString();
+
+            await Assert.That(exitCode).IsEqualTo(0);
+            await Assert.That(output).Contains("DataLinq command-line tools.");
+            await Assert.That(output).Contains("generate");
+            await Assert.That(output).Contains("validate");
+            await Assert.That(output).DoesNotContain("Reading config");
+        }
+        finally
+        {
+#pragma warning disable TUnit0055
+            Console.SetOut(originalOut);
+#pragma warning restore TUnit0055
+        }
+    }
+
+    [Test]
+    [NotInParallel]
     public async Task ParserFailuresReturnExitCodeTwo()
     {
         var exitCode = await Program.InvokeAsync(["validate", "--output", "json"]);
