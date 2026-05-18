@@ -298,9 +298,6 @@ Each item in `Databases` describes one logical database definition.
 - `Include`  
   Optional. Limits generation to selected tables or views.
 
-- `UseRecord`  
-  Optional. Defaults to `false`.
-
 - `UseFileScopedNamespaces`  
   Optional. Defaults to `false`.
 

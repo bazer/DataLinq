@@ -147,7 +147,6 @@ public record DataLinqDatabaseConfig
     public string? DestinationDirectory { get; private set; }
     public List<string> Include { get; private set; }
     //public bool UseCache { get; }
-    public bool UseRecord { get; private set; }
     public bool UseFileScopedNamespaces { get; private set; }
     public bool UseNullableReferenceTypes { get; private set; }
     public bool CapitalizeNames { get; private set; }
@@ -167,7 +166,6 @@ public record DataLinqDatabaseConfig
         ModelDirectory = ResolveModelDirectory(database, Name);
         DestinationDirectory = ModelDirectory;
         Include = database.Include ?? new List<string>();
-        UseRecord = database.UseRecord ?? false;
         UseFileScopedNamespaces = database.UseFileScopedNamespaces ?? false;
         UseNullableReferenceTypes = database.UseNullableReferenceTypes ?? true;
         CapitalizeNames = database.CapitalizeNames ?? false;
@@ -201,9 +199,6 @@ public record DataLinqDatabaseConfig
 
         if (database.Include != null)
             Include = database.Include;
-
-        if (database.UseRecord != null)
-            UseRecord = database.UseRecord.Value;
 
         if (database.UseFileScopedNamespaces != null)
             UseFileScopedNamespaces = database.UseFileScopedNamespaces.Value;

@@ -213,7 +213,6 @@ public class ModelGenerator : Generator
         var options = new ModelFileFactoryOptions
         {
             NamespaceName = sourceModelsApplied ? null : db.Namespace,
-            UseRecords = db.UseRecord,
             UseFileScopedNamespaces = db.UseFileScopedNamespaces,
             UseNullableReferenceTypes = db.UseNullableReferenceTypes,
             SeparateTablesAndViews = db.SeparateTablesAndViews,

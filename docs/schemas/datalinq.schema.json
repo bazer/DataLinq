@@ -70,10 +70,6 @@
             "type": "string"
           }
         },
-        "UseRecord": {
-          "type": "boolean",
-          "description": "Generate record-style model declarations. Defaults to false."
-        },
         "UseFileScopedNamespaces": {
           "type": "boolean",
           "description": "Generate file-scoped namespace declarations. Defaults to false."

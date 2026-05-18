@@ -16,7 +16,6 @@ public class ModelFileFactoryOptions
 {
     public string? NamespaceName { get; set; } = null; //"Models";
     public string Tab { get; set; } = "    ";
-    public bool UseRecords { get; set; } = true;
     //public bool UseCache { get; set; } = true;
     public bool UseFileScopedNamespaces { get; set; }
     public bool UseNullableReferenceTypes { get; set; } = true;
@@ -282,7 +281,6 @@ public class ModelFileFactory
         //    interfaces += ", " + model.Interfaces.Select(x => x.Name).ToJoinedString(", ");
 
         yield return $"{namespaceTab}public abstract partial class {table.Model.CsType.Name}(IRowData rowData, IDataSourceAccess dataSource) : Immutable<{table.Model.CsType.Name}, {model.Database.CsType.Name}>(rowData, dataSource), {interfaces}";
-        //yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} {table.Model.CsTypeName} : {interfaces}";
 
         yield return namespaceTab + "{";
 
