@@ -425,6 +425,12 @@ Verification after checkpoint 2:
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore --treenode-filter "/*/*/DataLinqConfigSchemaTests/*|/*/*/DataLinqConfigInitTests/*"`
 - `docfx build docfx.json`
 
+Workstream E is complete. Final verification:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental` passed.
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore` passed with 698 tests.
+- `docfx build docfx.json` passed with 0 warnings and 0 errors.
+
 ## Documentation Workstream
 
 Update docs only after behavior lands:

@@ -468,7 +468,7 @@ Key related plans:
 
 ### Phase 12C: CLI Configuration and Regeneration Workflow
 
-Status: next implementation priority.
+Status: complete as of 2026-05-18.
 
 Goals:
 
@@ -501,6 +501,14 @@ Key related plans:
 - `tooling/CLI Init Wizard.md`
 - `tooling/CLI Secret References.md`
 - `tooling/Config JSON Schema and Autocomplete.md`
+
+Closeout result:
+
+- `DataLinq.CLI` now uses `System.CommandLine` with the nested `generate`, `database`, `config`, and `secrets` command surface.
+- `create-models` remains only as a deprecated compatibility alias for `generate models`.
+- `generate models` uses `ModelDirectory`, supports `--fresh`, applies config-driven `ModelLayout`, and preserves the supported model edit surface.
+- `generate models --all/--recursive`, `validate --all/--recursive`, and `config list --recursive` support solution/subfolder workflows with aggregate failure behavior.
+- `config init`, `config schema`, schema publication, secret references, local secret commands, and user-facing docs are implemented for the shipped behavior.
 
 ### Phase 13: Explicit Multi-Join Composition
 
@@ -650,7 +658,7 @@ Phase 10 is now complete: metadata collection and lookup cleanup, generated prov
 
 Phase 11 is now complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is now complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led rejection of production interning.
 
-The next priority should be Phase 12C CLI configuration and regeneration workflow, followed by Phase 13 explicit multi-join composition and the relation-aware join work in Phase 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
+The next priority should be Phase 13 explicit multi-join composition, followed by the relation-aware join work in Phase 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

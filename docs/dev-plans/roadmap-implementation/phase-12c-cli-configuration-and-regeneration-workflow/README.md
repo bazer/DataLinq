@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 12C: CLI Configuration and Regeneration Workflow
 
-**Status:** Next implementation priority after Phase 12B.
+**Status:** Complete as of 2026-05-18.
 
 ## Purpose
 
