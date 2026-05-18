@@ -212,14 +212,23 @@ internal static class Program
 
     private static Command CreateConfigSchemaCommand()
     {
-        var command = new Command("schema", "Print or write the DataLinq JSON Schema for config files.");
+        var command = new Command("schema", "Write the DataLinq JSON Schema for config files.");
         var commonOptions = AddCommonOptions(command);
-        var outputOption = OutputFileOption(required: false);
+        var outputOption = new Option<string?>("--output")
+        {
+            Description = "Path to schema output file. If omitted, datalinq.schema.json is written next to the selected config."
+        };
+        outputOption.Aliases.Add("-o");
+        var stdoutOption = new Option<bool>("--stdout")
+        {
+            Description = "Write the schema JSON to stdout instead of a file."
+        };
         command.Options.Add(outputOption);
+        command.Options.Add(stdoutOption);
 
         command.SetAction(parseResult =>
         {
-            var options = ReadConfigSchemaOptions(parseResult, commonOptions, outputOption);
+            var options = ReadConfigSchemaOptions(parseResult, commonOptions, outputOption, stdoutOption);
             Environment.ExitCode = ExecuteConfigSchema(options);
         });
 
@@ -448,11 +457,13 @@ internal static class Program
     private static ConfigSchemaOptions ReadConfigSchemaOptions(
         ParseResult parseResult,
         CommonOptionSet commonOptions,
-        Option<string?> outputOption)
+        Option<string?> outputOption,
+        Option<bool> stdoutOption)
     {
         var schemaOptions = new ConfigSchemaOptions
         {
-            OutputFile = parseResult.GetValue(outputOption) ?? ""
+            OutputFile = parseResult.GetValue(outputOption) ?? "",
+            Stdout = parseResult.GetValue(stdoutOption)
         };
         ApplyCommonOptions(schemaOptions, parseResult, commonOptions);
         return schemaOptions;
@@ -547,23 +558,70 @@ internal static class Program
 
     private static int ExecuteConfigSchema(ConfigSchemaOptions options)
     {
+        if (!TryValidateConfigSchemaOptions(options))
+            return 2;
+
         var schemaJson = CliConfigSchema.ReadSchemaJson();
-        if (string.IsNullOrWhiteSpace(options.OutputFile))
+        if (ShouldWriteConfigSchemaToStdout(options))
         {
             Console.Write(schemaJson);
             return 0;
         }
 
-        var outputPath = Path.GetFullPath(options.OutputFile);
+        var outputPath = ResolveConfigSchemaOutputPath(options);
         var directory = Path.GetDirectoryName(outputPath);
         if (!string.IsNullOrWhiteSpace(directory))
             Directory.CreateDirectory(directory);
 
         File.WriteAllText(outputPath, schemaJson);
-        if (options.Verbose)
-            Console.WriteLine($"Wrote DataLinq config schema to {outputPath}");
+        Console.WriteLine($"Wrote DataLinq config schema to {outputPath}");
 
         return 0;
+    }
+
+    private static bool TryValidateConfigSchemaOptions(ConfigSchemaOptions options)
+    {
+        if (options.Stdout &&
+            !string.IsNullOrWhiteSpace(options.OutputFile) &&
+            !IsStdoutOutputPath(options.OutputFile))
+        {
+            ConsoleDiagnosticWriter.WriteError("InvalidArgument", "Use either --stdout or --output, not both.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool ShouldWriteConfigSchemaToStdout(ConfigSchemaOptions options) =>
+        options.Stdout || IsStdoutOutputPath(options.OutputFile);
+
+    private static bool IsStdoutOutputPath(string? outputFile) =>
+        string.Equals(outputFile, "-", StringComparison.Ordinal);
+
+    private static string ResolveConfigSchemaOutputPath(ConfigSchemaOptions options) =>
+        !string.IsNullOrWhiteSpace(options.OutputFile)
+            ? Path.GetFullPath(options.OutputFile)
+            : ResolveDefaultConfigSchemaOutputPath(ConfigPath);
+
+    private static string ResolveDefaultConfigSchemaOutputPath(string configPath)
+    {
+        var fullPath = Path.GetFullPath(configPath);
+        string directory;
+
+        if (Directory.Exists(fullPath))
+        {
+            directory = fullPath;
+        }
+        else
+        {
+            var fileName = Path.GetFileName(fullPath);
+            directory = fileName.Equals("datalinq.json", StringComparison.OrdinalIgnoreCase) ||
+                        Path.HasExtension(fullPath)
+                ? Path.GetDirectoryName(fullPath) ?? Directory.GetCurrentDirectory()
+                : fullPath;
+        }
+
+        return Path.GetFullPath(Path.Combine(directory, "datalinq.schema.json"));
     }
 
     private static int ExecuteConfigInit(ConfigInitOptions options)
@@ -1600,6 +1658,8 @@ internal static class Program
     internal sealed class ConfigSchemaOptions : Options
     {
         public string OutputFile { get; set; } = "";
+
+        public bool Stdout { get; set; }
     }
 
     private enum ValidationOutput

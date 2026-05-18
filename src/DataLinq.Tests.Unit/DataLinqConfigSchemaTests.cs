@@ -123,24 +123,118 @@ public class DataLinqConfigSchemaTests
 
     [Test]
     [NotInParallel]
+    public async Task ConfigSchemaCommand_WritesSchemaToDefaultFileNextToSelectedConfig()
+    {
+        using var fixture = SchemaCommandFixture.Create();
+
+        var (exitCode, output) = await InvokeWithOutput(
+            "config",
+            "schema",
+            "--config",
+            fixture.BasePath);
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(File.ReadAllText(fixture.OutputPath)).IsEqualTo(CliConfigSchema.ReadSchemaJson());
+        await Assert.That(output).Contains($"Wrote DataLinq config schema to {fixture.OutputPath}");
+    }
+
+    [Test]
+    [NotInParallel]
     public async Task ConfigSchemaCommand_WritesEmbeddedSchemaToOutputFile()
     {
         using var fixture = SchemaCommandFixture.Create();
 
-        var exitCode = await Program.InvokeAsync(
-        [
+        var customOutputPath = Path.Combine(fixture.BasePath, "schema", "custom.schema.json");
+
+        var (exitCode, output) = await InvokeWithOutput(
             "config",
             "schema",
             "--output",
-            fixture.OutputPath
-        ]);
+            customOutputPath);
 
         await Assert.That(exitCode).IsEqualTo(0);
-        await Assert.That(File.ReadAllText(fixture.OutputPath)).IsEqualTo(CliConfigSchema.ReadSchemaJson());
+        await Assert.That(File.ReadAllText(customOutputPath)).IsEqualTo(CliConfigSchema.ReadSchemaJson());
+        await Assert.That(output).Contains($"Wrote DataLinq config schema to {customOutputPath}");
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task ConfigSchemaCommand_Stdout_PrintsSchemaWithoutWritingDefaultFile()
+    {
+        using var fixture = SchemaCommandFixture.Create();
+
+        var (exitCode, output) = await InvokeWithOutput(
+            "config",
+            "schema",
+            "--config",
+            fixture.BasePath,
+            "--stdout");
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(output).IsEqualTo(CliConfigSchema.ReadSchemaJson());
+        await Assert.That(File.Exists(fixture.OutputPath)).IsFalse();
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task ConfigSchemaCommand_OutputDash_PrintsSchemaWithoutWritingDefaultFile()
+    {
+        using var fixture = SchemaCommandFixture.Create();
+
+        var (exitCode, output) = await InvokeWithOutput(
+            "config",
+            "schema",
+            "--config",
+            fixture.BasePath,
+            "--output",
+            "-");
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(output).IsEqualTo(CliConfigSchema.ReadSchemaJson());
+        await Assert.That(File.Exists(fixture.OutputPath)).IsFalse();
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task ConfigSchemaCommand_RejectsStdoutWithOutputFile()
+    {
+        using var fixture = SchemaCommandFixture.Create();
+
+        var (exitCode, output) = await InvokeWithOutput(
+            "config",
+            "schema",
+            "--stdout",
+            "--output",
+            fixture.OutputPath);
+
+        await Assert.That(exitCode).IsEqualTo(2);
+        await Assert.That(output).Contains("Use either --stdout or --output, not both.");
+        await Assert.That(File.Exists(fixture.OutputPath)).IsFalse();
     }
 
     private static JsonObject ReadSchema() =>
         JsonNode.Parse(CliConfigSchema.ReadSchemaJson())!.AsObject();
+
+    private static async Task<(int ExitCode, string Output)> InvokeWithOutput(params string[] args)
+    {
+        var originalOut = Console.Out;
+        using var writer = new StringWriter();
+
+        try
+        {
+#pragma warning disable TUnit0055
+            Console.SetOut(writer);
+#pragma warning restore TUnit0055
+            var exitCode = await Program.InvokeAsync(args);
+            return (exitCode, writer.ToString());
+        }
+        finally
+        {
+#pragma warning disable TUnit0055
+            Console.SetOut(originalOut);
+#pragma warning restore TUnit0055
+        }
+    }
 
     private static class SchemaSmokeValidator
     {

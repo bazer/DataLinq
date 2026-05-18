@@ -128,11 +128,12 @@ New shared configs include the public JSON Schema URL and use `ModelDirectory`. 
 
 ### `config schema`
 
-Prints or writes the JSON Schema used for DataLinq config autocomplete and validation.
+Writes the JSON Schema used for DataLinq config autocomplete and validation. Without `--output`, it writes `datalinq.schema.json` next to the selected config path.
 
 ```bash
 datalinq config schema
 datalinq config schema --output datalinq.schema.json
+datalinq config schema --stdout
 ```
 
 The published schema URL is:

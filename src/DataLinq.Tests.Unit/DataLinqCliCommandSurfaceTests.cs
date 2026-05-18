@@ -101,6 +101,8 @@ public class DataLinqCliCommandSurfaceTests
     {
         await Assert.That(ParseErrors("config", "schema")).IsEqualTo(0);
         await Assert.That(ParseErrors("config", "schema", "--output", "datalinq.schema.json")).IsEqualTo(0);
+        await Assert.That(ParseErrors("config", "schema", "--stdout")).IsEqualTo(0);
+        await Assert.That(ParseErrors("config", "schema", "--output", "-")).IsEqualTo(0);
         await Assert.That(ParseErrors("schema")).IsGreaterThan(0);
     }
 

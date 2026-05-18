@@ -74,11 +74,12 @@ New `datalinq config init` shared configs include it automatically:
 }
 ```
 
-You can also print or write the embedded schema from the CLI:
+You can also write the embedded schema from the CLI. Without `--output`, the command writes `datalinq.schema.json` next to the selected config path; use `--stdout` when you specifically want terminal output.
 
 ```bash
 datalinq config schema
 datalinq config schema --output datalinq.schema.json
+datalinq config schema --stdout
 ```
 
 DataLinq accepts comments in config files, but editor behavior depends on the editor. If your editor treats `.json` files as strict JSON, it may warn about comments even though the CLI accepts them.
