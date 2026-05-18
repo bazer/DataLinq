@@ -57,6 +57,35 @@ The detailed source plans should stay separate. They are the right level for des
 - diagnostic writer tests for error/warning format and color mode
 - CLI smoke tests for help output and exit codes
 
+### Progress
+
+Checkpoint `30cd4b46` started Workstream A:
+
+- replaced `CommandLineParser` with `System.CommandLine` in `DataLinq.CLI`
+- added the implemented nested command surface:
+  - `generate models`
+  - `generate sql`
+  - `database create`
+  - `validate`
+  - `diff`
+  - `config list`
+- kept only the deprecated flat `create-models` command
+- renamed target options to `--database`, `--provider`, and `--data-source`
+- renamed validation format output to `--format`
+- rejected old command and option names through parser errors
+- routed parser errors and invalid validation format errors through `ConsoleDiagnosticWriter`
+- removed square-bracket diagnostic code formatting from CLI diagnostic text
+- added parser and diagnostic unit coverage
+- removed the now-unused `CommandLineParser` package version from central package management
+
+The first checkpoint intentionally does not expose `config init`, `config schema`, `config validate`, or `secrets` commands yet. Those belong to later workstreams and should not appear as nonfunctional stubs.
+
+Verification after this checkpoint:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.CLI\DataLinq.CLI.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-restore`
+- CLI smoke checks for root help, `config list --help`, rejected `--skip-source`, and rejected `validate --output json`
+
 ## Workstream B: Model Directory and Generation Layout
 
 ### Goals
