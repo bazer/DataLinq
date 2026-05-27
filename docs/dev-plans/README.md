@@ -27,6 +27,12 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 - `platform-compatibility/Practical AOT and Size Plan.md`
 
+### Incubating companion projects
+
+- `DataLinq.Store/README.md`
+- `DataLinq.Store/State Sync Architecture.md`
+- `DataLinq.Store/WASM and Interop Strategy.md`
+
 ### Tooling
 
 - `tooling/Build Environment and Output Control.md`
