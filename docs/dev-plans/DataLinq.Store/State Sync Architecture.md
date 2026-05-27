@@ -194,6 +194,8 @@ public static StateModule<ProjectWorkspaceParams> ProjectWorkspace(
 
 The syntax is not final. The principle is final: named, versionable module contracts beat arbitrary browser-supplied expression trees.
 
+The generated server adapters, C# clients, WebAssembly exports, and JavaScript/TypeScript bindings for these contracts are specified in [API and Binding Generation](API%20and%20Binding%20Generation.md).
+
 ## Protocol Messages
 
 Minimum message families:

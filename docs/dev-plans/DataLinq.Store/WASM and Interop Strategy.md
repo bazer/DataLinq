@@ -14,7 +14,8 @@ The browser story should be:
 ```text
 DataLinq.Store runtime
   -> browser WebAssembly
-  -> JavaScript export facade
+  -> generated WebAssembly export facade
+  -> generated JavaScript/TypeScript bindings
   -> optional Blazor adapter
   -> optional framework adapters
 ```
@@ -39,6 +40,8 @@ The Store runtime should expose a coarse JavaScript API around:
 - diagnostics
 
 The JavaScript boundary should not expose one interop call per node field. Interop should batch work by command, module patch, module snapshot, or subscription notification.
+
+The generated API and binding layer is specified in [API and Binding Generation](API%20and%20Binding%20Generation.md). This document focuses on platform and interop constraints.
 
 ### Blazor WebAssembly
 
@@ -124,7 +127,7 @@ Compatibility fallbacks can exist for server or desktop hosts, but they should n
 
 ## JavaScript API Shape
 
-The JavaScript facade should be small and coarse.
+The generated JavaScript facade should be small and coarse. It should call into generated C# WebAssembly exports, not directly bypass the Store runtime with ad hoc server calls.
 
 Sketch:
 
@@ -152,7 +155,7 @@ The facade should hide .NET runtime details once initialized. Consumers should n
 
 ## TypeScript Declarations
 
-TypeScript declarations are a major usability feature, but they do not have to be in the first runtime slice.
+TypeScript declarations are a major usability feature and should be generated from Store contracts. They do not have to cover every advanced feature in the first runtime slice.
 
 Eventual generation target:
 
@@ -166,6 +169,8 @@ store facade types
 ```
 
 The generator should come from DataLinq model metadata and named module/command declarations, not from hand-written TypeScript.
+
+Custom client-side C# actions should also be exposed through generated TypeScript wrappers when explicitly marked for export.
 
 ## Blazor API Shape
 
@@ -189,6 +194,8 @@ Components need reliable render behavior:
 - optimistic command state is observable
 
 The adapter should not require components to know whether the underlying transport is SignalR, WebSocket, in-process, or test fake.
+
+Blazor should use the generated C# client directly. JavaScript bindings are only needed when external JavaScript needs to call Store actions or when a non-Blazor page hosts the WebAssembly Store runtime.
 
 ## Persistence Strategy
 

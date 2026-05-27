@@ -60,6 +60,8 @@ ProjectWorkspace {
 
 Commands are easier to authorize, validate, audit, retry, reject, and map to DataLinq transactions.
 
+Command contracts and generated client/server bindings are specified in [API and Binding Generation](API%20and%20Binding%20Generation.md). This document focuses on the state transition and invalidation semantics after a command exists.
+
 ### Server Transactions Are Authoritative
 
 The client can predict state. The server decides state.

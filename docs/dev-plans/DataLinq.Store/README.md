@@ -27,6 +27,7 @@ This is intentionally not "Redux in C#." The valuable shape is a relational stat
 - derived module queries
 - server-authorized state sync
 - coarse JavaScript and Blazor integration
+- generated server, C# client, and JS/TS bindings
 
 ## Design Stance
 
@@ -66,6 +67,7 @@ The most relevant existing planning documents are:
 
 - [State Modules and Graph Cache](State%20Modules%20and%20Graph%20Cache.md)
 - [Mutation and Invalidation Loop](Mutation%20and%20Invalidation%20Loop.md)
+- [API and Binding Generation](API%20and%20Binding%20Generation.md)
 - [Result set caching](../query-and-runtime/Result%20set%20caching.md)
 - [Phase 16: Dependency-Tracked Result-Set Caching](../roadmap-implementation/phase-16-dependency-tracked-result-set-caching/README.md)
 - [Distributed Cache Coordination and CDC](../architecture/Distributed%20Cache%20Coordination%20and%20CDC.md)
@@ -89,6 +91,12 @@ DataLinq.Store.Blazor
 
 DataLinq.Store.Js
   Browser WebAssembly JS export facade and TypeScript declaration generation.
+
+DataLinq.Store.Bindings.AspNetCore
+  Generated ASP.NET endpoint adapters for Store modules and commands.
+
+DataLinq.Store.Bindings.TypeScript
+  Generated JavaScript wrappers and TypeScript declarations for the browser facade.
 
 DataLinq.Sync.Abstractions
   Protocol contracts for module snapshots, patches, invalidation, subscriptions, freshness tokens, and schema versions.
@@ -120,6 +128,8 @@ The minimum credible Store runtime needs:
 - optimistic overlays
 - transactional patch application
 - module impact analysis
+- generated C# client proxy
+- generated JS/TS facade
 - module-level and node-level subscriptions
 - stale/loading/error state per subscription
 - generated model metadata consumption
@@ -139,6 +149,7 @@ The minimum credible Sync layer needs:
 - module patch messages
 - module invalidation messages
 - command status messages
+- generated server endpoint adapters
 - reconnect and resync behavior
 - explicit ordering and freshness semantics
 
@@ -173,6 +184,7 @@ It should make these workflows boring:
 - invalidate and refetch when precision is unavailable
 - hydrate after reload
 - expose stable state to Blazor and JavaScript
+- call server modules and commands through generated bindings
 
 It should also make failures explicit:
 
@@ -204,13 +216,14 @@ Browser WebAssembly should be a first-class target, but the first Store proof sh
 2. Define the sync protocol DTOs independently of transport.
 3. Design the client module graph store and patch application semantics.
 4. Design the command, optimistic overlay, and module invalidation loop.
-5. Design server named-module subscriptions over DataLinq result-cache concepts.
-6. Define AOT and WebAssembly constraints for the supported client path.
-7. Build a small in-memory proof against generated test models.
-8. Add Blazor integration.
-9. Add browser WebAssembly JavaScript facade.
-10. Add hydration/persistence after the runtime semantics are stable.
-11. Only then evaluate SQLite/OPFS and broader local querying.
+5. Design the contract-first API and binding generation layer.
+6. Design server named-module subscriptions over DataLinq result-cache concepts.
+7. Define AOT and WebAssembly constraints for the supported client path.
+8. Build a small in-memory proof against generated test models.
+9. Add Blazor integration.
+10. Add browser WebAssembly JavaScript facade.
+11. Add hydration/persistence after the runtime semantics are stable.
+12. Only then evaluate SQLite/OPFS and broader local querying.
 
 ## Exit Criteria For Planning
 
@@ -220,6 +233,7 @@ This incubation plan is ready to move toward implementation when:
 - client store semantics distinguish modules, nodes, and edges
 - server subscription semantics distinguish module snapshots, patches, and invalidations
 - mutation semantics distinguish client commands, optimistic overlays, server transactions, and authoritative module patches
+- binding semantics distinguish Store contracts, generated server adapters, generated C# clients, generated WASM exports, and generated JS/TS wrappers
 - authorization and schema-version boundaries are explicit
 - AOT/browser unsupported behavior is named up front
 - the first demo scope is small enough to finish without building distributed sync infrastructure first
