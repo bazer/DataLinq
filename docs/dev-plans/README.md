@@ -30,6 +30,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Incubating companion projects
 
 - `DataLinq.Store/README.md`
+- `DataLinq.Store/State Modules and Graph Cache.md`
 - `DataLinq.Store/State Sync Architecture.md`
 - `DataLinq.Store/WASM and Interop Strategy.md`
 
@@ -140,7 +141,7 @@ As of the Phase 12 closeout on 2026-05-13:
 - Phase 13 explicit multi-join composition is the next implementation priority before relation-aware join syntax: standard query-syntax joins, multiple explicit joins, and filtering/ordering/paging/counting over joined rows.
 - Phase 14 relation-aware joins and left joins owns `JoinBy(...)`, `JoinMany(...)`, join-local `on:` predicates, and left-join nullability semantics.
 - Phase 15 scalar converters and typed-key ergonomics owns provider/model value conversion after the provider-key cache design has room for it.
-- Phase 16 dependency-tracked result-set caching remains deferred until cache invalidation, freshness vocabulary, joins, and projection semantics are stronger.
+- Phase 16 dependency-tracked result and module caching remains deferred until cache invalidation, freshness vocabulary, joins, projection semantics, and the DataLinq.Store module contract are stronger.
 - Phase 17 query plan and Remotion isolation is deferred to the back of the roadmap. It owns the DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
 - Completed phase records and superseded implementation plans have moved under `archive/`; active docs should describe future work or current strategy.
 

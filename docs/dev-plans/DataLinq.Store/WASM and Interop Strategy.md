@@ -31,13 +31,13 @@ The Store runtime should expose a coarse JavaScript API around:
 
 - store creation
 - subscription registration
-- snapshot reads
-- patch application
+- module snapshot reads
+- module patch application
 - command dispatch
 - hydration and serialization
 - diagnostics
 
-The JavaScript boundary should not expose one interop call per row property. Interop should batch work by command, patch, snapshot, or subscription notification.
+The JavaScript boundary should not expose one interop call per node field. Interop should batch work by command, module patch, module snapshot, or subscription notification.
 
 ### Blazor WebAssembly
 
@@ -110,6 +110,8 @@ The supported browser path should avoid:
 The supported browser path should prefer:
 
 - generated table descriptors
+- generated module descriptors
+- generated node and edge descriptors
 - generated property accessors
 - generated primary-key access
 - generated serializer metadata
@@ -131,12 +133,12 @@ const store = await DataLinqStore.create({
   transport: syncTransport
 });
 
-const subscription = await store.subscribe("EmployeesByDepartment", {
-  departmentId: 4
+const subscription = await store.subscribeModule("ProjectWorkspace", {
+  projectId: 42
 });
 
 subscription.onSnapshot(snapshot => {
-  render(snapshot.rows);
+  render(snapshot.nodes, snapshot.edges);
 });
 
 await store.dispatch("RenameEmployee", {
@@ -154,15 +156,15 @@ TypeScript declarations are a major usability feature, but they do not have to b
 Eventual generation target:
 
 ```text
-model row types
-query parameter types
-query result types
+module parameter types
+module node types
+module edge types
 command parameter types
-snapshot/patch message types
+module snapshot/patch message types
 store facade types
 ```
 
-The generator should come from DataLinq model metadata and named query/command declarations, not from hand-written TypeScript.
+The generator should come from DataLinq model metadata and named module/command declarations, not from hand-written TypeScript.
 
 ## Blazor API Shape
 
@@ -170,7 +172,7 @@ The Blazor adapter should feel natural to .NET users:
 
 ```csharp
 var subscription = await Store.SubscribeAsync(
-    StoreQueries.EmployeesByDepartment(departmentId),
+    StoreModules.ProjectWorkspace(projectId),
     cancellationToken);
 
 var snapshot = subscription.Current;
@@ -220,8 +222,8 @@ Minimum browser/WASM evidence:
 
 - store initializes in browser without Blazor
 - generated schema loads
-- snapshot applies
-- patch applies transactionally
+- module snapshot applies
+- module patch applies transactionally
 - subscription callback fires once per committed patch
 - stale/invalidate state works
 - JS facade smoke passes

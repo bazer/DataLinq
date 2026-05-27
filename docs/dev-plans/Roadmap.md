@@ -581,27 +581,30 @@ Key related plans:
 - `metadata-and-generation/Scalar Converter Support.md`
 - `../Provider-Key Row Cache Architecture.md`
 
-### Phase 16: Dependency-Tracked Result-Set Caching
+### Phase 16: Dependency-Tracked Result And Module Caching
 
-Status: deferred until cache invalidation, freshness vocabulary, joins, and projection semantics are stronger.
+Status: deferred until cache invalidation, freshness vocabulary, joins, projection semantics, and the DataLinq.Store module contract are stronger.
 
 Goals:
 
 - support explicit cached computation scopes
 - record dependency fingerprints for rows read during a computation
-- validate stamped results against current dependency state
+- validate state module snapshots and stamped application results against current dependency state
+- make state modules the concrete cacheable/syncable graph shape for DataLinq.Store
 - integrate result invalidation with the cache/key/join foundations instead of arbitrary TTLs
 
 Why late:
 
 - this is not SQL-generation optimization; it is a semantic caching feature
 - it depends on invalidation behavior, freshness vocabulary, projection/view semantics, joins, and observability
+- module snapshots need stable field, edge, key, authorization, and serialization contracts before they can be a sync boundary
 - shipping it too early would create a clever cache whose correctness story is harder to defend than the performance win
 
 Key related plans:
 
 - `roadmap-implementation/phase-16-dependency-tracked-result-set-caching/README.md`
 - `query-and-runtime/Result set caching.md`
+- `DataLinq.Store/State Modules and Graph Cache.md`
 - `query-and-runtime/Projections and Views.md`
 
 ### Phase 17: Query Plan and Remotion Isolation
