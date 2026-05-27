@@ -258,7 +258,7 @@ The blunt version is still useful. A correct invalidate/refetch loop is better t
 
 ## Optimistic Mutations
 
-Optimistic updates should be command-based, not raw row edits sent directly to the database.
+Optimistic updates should be command-based, not raw graph edits sent directly to the database.
 
 Client flow:
 
@@ -271,6 +271,8 @@ Client flow:
 ```
 
 The overlay should be visibly separate from authoritative module graph state so rejected commands can be rolled back without corrupting server state.
+
+The detailed mutation design lives in [Mutation and Invalidation Loop](Mutation%20and%20Invalidation%20Loop.md). This architecture document only needs the high-level contract: commands cross the wire, optimistic overlays are local predictions, and server patches are authoritative.
 
 ## Security Boundaries
 
@@ -301,6 +303,7 @@ Minimum diagnostics:
 - refetches requested
 - sequence gaps detected
 - optimistic commands pending/rejected/confirmed
+- patch classifications: no-effect, field, node, edge, fragment refetch, full invalidation
 - bytes received per message family
 - render notifications emitted per subscription
 
@@ -317,6 +320,7 @@ The first demo should be deliberately small:
 - in-memory client store
 - server sends full module snapshot on subscribe
 - server sends full replacement module snapshot after mutation
+- client uses an optimistic overlay while the mutation is pending
 - client hydrates the graph and updates one subscribed view
 
 That proves the architecture without pretending patch precision, persistence, offline conflict resolution, or CDC are already solved.

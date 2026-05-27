@@ -338,6 +338,8 @@ Patch operations should include:
 
 The first implementation can use full replacement snapshots after invalidation. Incremental patches should be added only when dependency and ordering semantics are clear.
 
+Mutation-driven patches are specified in [Mutation and Invalidation Loop](Mutation%20and%20Invalidation%20Loop.md). The important rule is that module patches should be as precise as the module impact analysis can prove, and no more precise than that.
+
 ## Security
 
 Modules are a security boundary.
@@ -371,6 +373,7 @@ State modules add the product/API contract:
 - what result shape exists
 - how it can be serialized
 - how it can be patched
+- how mutations impact it
 - how the client can query it
 - how authorization applies to it
 
@@ -388,7 +391,8 @@ The first useful slice should avoid overreach:
 6. serialize compact JSON
 7. hydrate in a client in-memory store
 8. query loaded module nodes locally
-9. invalidate and refetch the module after a server mutation
+9. dispatch one command to mutate server state
+10. invalidate and refetch the module after the server mutation
 
 No incremental patches, SQLite/OPFS, offline conflict resolution, CDC, or cross-module deduplication are required for the first proof.
 

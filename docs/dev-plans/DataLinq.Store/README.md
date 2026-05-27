@@ -65,6 +65,7 @@ DataLinq.Store depends on several DataLinq concepts that are either shipped or a
 The most relevant existing planning documents are:
 
 - [State Modules and Graph Cache](State%20Modules%20and%20Graph%20Cache.md)
+- [Mutation and Invalidation Loop](Mutation%20and%20Invalidation%20Loop.md)
 - [Result set caching](../query-and-runtime/Result%20set%20caching.md)
 - [Phase 16: Dependency-Tracked Result-Set Caching](../roadmap-implementation/phase-16-dependency-tracked-result-set-caching/README.md)
 - [Distributed Cache Coordination and CDC](../architecture/Distributed%20Cache%20Coordination%20and%20CDC.md)
@@ -115,7 +116,10 @@ The minimum credible Store runtime needs:
 - node storage by module/node type/key
 - edge storage by module/source/edge name
 - immutable read snapshots
+- command-based mutations
+- optimistic overlays
 - transactional patch application
+- module impact analysis
 - module-level and node-level subscriptions
 - stale/loading/error state per subscription
 - generated model metadata consumption
@@ -134,6 +138,7 @@ The minimum credible Sync layer needs:
 - module snapshot messages
 - module patch messages
 - module invalidation messages
+- command status messages
 - reconnect and resync behavior
 - explicit ordering and freshness semantics
 
@@ -160,9 +165,10 @@ It should make these workflows boring:
 
 - subscribe to a server-authorized module
 - render the current module snapshot
+- dispatch a command
+- apply an optimistic overlay
 - apply server patches transactionally
 - update every affected local view from one module patch
-- perform optimistic local mutations
 - reconcile server acknowledgments
 - invalidate and refetch when precision is unavailable
 - hydrate after reload
@@ -177,6 +183,7 @@ It should also make failures explicit:
 - unsupported module query shape
 - transport reconnect
 - optimistic mutation rejected
+- command conflict
 
 ## AOT And WebAssembly Position
 
@@ -193,16 +200,17 @@ Browser WebAssembly should be a first-class target, but the first Store proof sh
 
 ## Recommended Incubation Order
 
-1. Define the product vocabulary: store, module, node, edge, graph, snapshot, patch, subscription, freshness token.
+1. Define the product vocabulary: store, module, node, edge, graph, command, overlay, snapshot, patch, subscription, freshness token.
 2. Define the sync protocol DTOs independently of transport.
 3. Design the client module graph store and patch application semantics.
-4. Design server named-module subscriptions over DataLinq result-cache concepts.
-5. Define AOT and WebAssembly constraints for the supported client path.
-6. Build a small in-memory proof against generated test models.
-7. Add Blazor integration.
-8. Add browser WebAssembly JavaScript facade.
-9. Add hydration/persistence after the runtime semantics are stable.
-10. Only then evaluate SQLite/OPFS and broader local querying.
+4. Design the command, optimistic overlay, and module invalidation loop.
+5. Design server named-module subscriptions over DataLinq result-cache concepts.
+6. Define AOT and WebAssembly constraints for the supported client path.
+7. Build a small in-memory proof against generated test models.
+8. Add Blazor integration.
+9. Add browser WebAssembly JavaScript facade.
+10. Add hydration/persistence after the runtime semantics are stable.
+11. Only then evaluate SQLite/OPFS and broader local querying.
 
 ## Exit Criteria For Planning
 
@@ -211,6 +219,7 @@ This incubation plan is ready to move toward implementation when:
 - the protocol messages are specified enough to write compatibility tests
 - client store semantics distinguish modules, nodes, and edges
 - server subscription semantics distinguish module snapshots, patches, and invalidations
+- mutation semantics distinguish client commands, optimistic overlays, server transactions, and authoritative module patches
 - authorization and schema-version boundaries are explicit
 - AOT/browser unsupported behavior is named up front
 - the first demo scope is small enough to finish without building distributed sync infrastructure first

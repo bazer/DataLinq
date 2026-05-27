@@ -34,6 +34,7 @@ The Store runtime should expose a coarse JavaScript API around:
 - module snapshot reads
 - module patch application
 - command dispatch
+- command status observation
 - hydration and serialization
 - diagnostics
 
@@ -224,6 +225,7 @@ Minimum browser/WASM evidence:
 - generated schema loads
 - module snapshot applies
 - module patch applies transactionally
+- optimistic overlay applies and rolls back
 - subscription callback fires once per committed patch
 - stale/invalidate state works
 - JS facade smoke passes
