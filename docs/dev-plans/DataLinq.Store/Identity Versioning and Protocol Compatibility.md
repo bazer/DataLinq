@@ -211,6 +211,8 @@ Reconnect flow:
 
 If the server cannot prove patch continuity, it must not guess. Replace or invalidate.
 
+Server-side replay and refetch decisions are also constrained by [Server Subscription and Module Cache Architecture](Server%20Subscription%20and%20Module%20Cache%20Architecture.md): a subscribed client cannot assume the server retained its module snapshot.
+
 ## Browser Bundle And Server Drift
 
 Normal web deployment can serve an old JS/WASM bundle while the server has moved on.

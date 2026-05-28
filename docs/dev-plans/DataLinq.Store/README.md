@@ -70,6 +70,7 @@ The most relevant existing planning documents are:
 - [Security and Authorization Model](Security%20and%20Authorization%20Model.md)
 - [Identity, Versioning, and Protocol Compatibility](Identity%20Versioning%20and%20Protocol%20Compatibility.md)
 - [Module Paging, Lifetimes, and Retention](Module%20Paging%20Lifetimes%20and%20Retention.md)
+- [Server Subscription and Module Cache Architecture](Server%20Subscription%20and%20Module%20Cache%20Architecture.md)
 - [Mutation and Invalidation Loop](Mutation%20and%20Invalidation%20Loop.md)
 - [API and Binding Generation](API%20and%20Binding%20Generation.md)
 - [Result set caching](../query-and-runtime/Result%20set%20caching.md)
@@ -77,7 +78,7 @@ The most relevant existing planning documents are:
 - [Distributed Cache Coordination and CDC](../architecture/Distributed%20Cache%20Coordination%20and%20CDC.md)
 - [Practical AOT and Size Plan](../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md)
 
-The accepted decisions currently include contract-first APIs, module-level authorization only, module-scoped graph storage first, online-first stale hydration, full module replacement before incremental patches, first-class paged edges, generated C# clients as the primary client surface, explicit compatibility failure, application-owned command handlers, and security before reuse.
+The accepted decisions currently include contract-first APIs, module-level authorization only, module-scoped graph storage first, online-first stale hydration, full module replacement before incremental patches, first-class paged edges, generated C# clients as the primary client surface, explicit compatibility failure, application-owned command handlers, and security before reuse. The server-side cache stance is similarly conservative: subscriptions are lightweight, module snapshots are shared and evictable, and persistent server snapshot caches are optional adapters rather than correctness infrastructure.
 
 DataLinq.Store should not broaden DataLinq's current AOT or WebAssembly support claims by implication. The Store design should define its own constrained-runtime support boundary and prove it with dedicated smoke projects later.
 
@@ -230,16 +231,17 @@ Browser WebAssembly should be a first-class target, but the first Store proof sh
 2. Define the sync protocol DTOs independently of transport.
 3. Design security, authorization, identity, versioning, and compatibility rules.
 4. Design lazy/paged module edge loading and retention policy.
-5. Design the client module graph store and patch application semantics.
-6. Design the command, optimistic overlay, and module invalidation loop.
-7. Design the contract-first API and binding generation layer.
-8. Design server named-module subscriptions over DataLinq result-cache concepts.
-9. Define AOT and WebAssembly constraints for the supported client path.
-10. Build a small in-memory proof against generated test models.
-11. Add Blazor integration.
-12. Add browser WebAssembly JavaScript facade.
-13. Add hydration/persistence after the runtime semantics are stable.
-14. Only then evaluate SQLite/OPFS and broader local querying.
+5. Design lightweight server subscriptions and shared evictable module cache behavior.
+6. Design the client module graph store and patch application semantics.
+7. Design the command, optimistic overlay, and module invalidation loop.
+8. Design the contract-first API and binding generation layer.
+9. Design server named-module subscriptions over DataLinq result-cache concepts.
+10. Define AOT and WebAssembly constraints for the supported client path.
+11. Build a small in-memory proof against generated test models.
+12. Add Blazor integration.
+13. Add browser WebAssembly JavaScript facade.
+14. Add hydration/persistence after the runtime semantics are stable.
+15. Only then evaluate SQLite/OPFS and broader local querying.
 
 ## Exit Criteria For Planning
 
@@ -252,6 +254,7 @@ This incubation plan is ready to move toward implementation when:
 - binding semantics distinguish Store contracts, generated server adapters, generated C# clients, generated WASM exports, and generated JS/TS wrappers
 - authorization, identity, schema-version, and protocol-compatibility boundaries are explicit
 - lazy edge and retention policies avoid both giant module snapshots and one-row-at-a-time fetches
+- server subscription and module-cache semantics keep idle clients lightweight and allow subscribed module cache entries to be evicted
 - AOT/browser unsupported behavior is named up front
 - the first demo scope is small enough to finish without building distributed sync infrastructure first
 

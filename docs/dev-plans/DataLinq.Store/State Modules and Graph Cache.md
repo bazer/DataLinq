@@ -231,6 +231,8 @@ The cache can validate a module without reloading the full module when dependenc
 
 If precision cannot be proven, the server invalidates the module and recomputes it.
 
+Server module cache retention and eviction are specified in [Server Subscription and Module Cache Architecture](Server%20Subscription%20and%20Module%20Cache%20Architecture.md). Module cache entries are optimization artifacts, not correctness requirements.
+
 ## Client Module Store
 
 The client stores module snapshots as graph state:

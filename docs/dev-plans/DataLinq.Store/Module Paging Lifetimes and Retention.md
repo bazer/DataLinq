@@ -15,6 +15,8 @@ The core rule is:
 
 A module can represent a full screen or even a whole app state, but it should not force every relation and collection to be fully hydrated. Large module edges need policies for paging, windowing, prefetching, retention, and eviction.
 
+This document focuses on client-side module lifetimes. Server-side subscription and module snapshot cache lifetimes are specified separately in [Server Subscription and Module Cache Architecture](Server%20Subscription%20and%20Module%20Cache%20Architecture.md).
+
 ## Module Loading Policies
 
 Module root policy:

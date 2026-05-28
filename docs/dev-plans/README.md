@@ -36,6 +36,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `DataLinq.Store/Module Paging Lifetimes and Retention.md`
 - `DataLinq.Store/Mutation and Invalidation Loop.md`
 - `DataLinq.Store/Security and Authorization Model.md`
+- `DataLinq.Store/Server Subscription and Module Cache Architecture.md`
 - `DataLinq.Store/State Modules and Graph Cache.md`
 - `DataLinq.Store/State Sync Architecture.md`
 - `DataLinq.Store/WASM and Interop Strategy.md`
