@@ -81,13 +81,12 @@ NodeType
 NodeKey
 ```
 
-The first implementation should prefer module-scoped graph storage. Cross-module node deduplication is tempting but risky because field shape, authorization, and key policy may differ across modules.
+The first implementation should prefer module-scoped graph storage. Cross-module node deduplication is tempting but risky because contract shape, authorization ownership, and key policy may differ across modules.
 
 Cross-module deduplication can be added later when the system can prove:
 
 - same node type contract
 - same node version
-- same field visibility
 - same key policy
 - compatible authorization ownership
 

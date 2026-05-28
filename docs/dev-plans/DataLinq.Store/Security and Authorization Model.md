@@ -11,9 +11,11 @@ Authorization is a central module concept, not a wrapper around endpoints.
 
 The hard rule is:
 
-> A client only receives module graph state it is authorized to see at that moment, and every patch obeys the same authorization rules as the original snapshot.
+> Authorization applies to the whole module instance. If the user is authorized, they can receive the complete module contract. If not, they receive none of it.
 
-Generated bindings, TypeScript types, WebAssembly exports, optimistic overlays, and client-side C# are ergonomics. They are not security boundaries. The server must validate every command, module subscription, parameter set, field, edge, patch, and refetch.
+DataLinq.Store will not support field-level, node-level, or edge-level authorization inside one module contract. Different visibility must be modeled as different modules or different module contracts.
+
+Generated bindings, TypeScript types, WebAssembly exports, optimistic overlays, and client-side C# are ergonomics. They are not security boundaries. The server must validate every command, module subscription, parameter set, patch, refetch, and persisted-state hydration decision.
 
 ## Threat Model
 
@@ -35,22 +37,20 @@ Therefore, no client-side check is authoritative.
 
 ## Authorization Surfaces
 
-Authorization applies at multiple levels:
+Authorization applies at these boundaries:
 
 - API access
 - module subscription
 - module parameters
-- node existence
-- node fields
-- edges
-- edge items
-- commands
-- command fields
+- command execution
+- command parameters
 - optimistic overlay acceptance
-- patches
+- module snapshot delivery
+- module patch delivery
+- module refetch
 - persisted client state hydration
 
-Endpoint-level authorization is necessary but insufficient. A user authorized to call `ProjectWorkspace` may only be authorized for one `ProjectId`, may only see some task nodes, and may only see selected fields.
+Endpoint-level authorization is necessary but insufficient. A user authorized to call the Store sync endpoint may only be authorized for some module ids and some parameter values.
 
 ## Module Authorization Contract
 
@@ -60,11 +60,7 @@ The contract should answer:
 
 - who can subscribe to this module?
 - which parameter values are allowed?
-- which node types are visible?
-- which node instances are visible?
-- which fields are visible?
-- which edges are visible?
-- which edge items are visible?
+- what authorization context stamp should identify this module instance?
 - what should happen when authorization changes?
 
 Conceptual sketch:
@@ -75,37 +71,57 @@ Conceptual sketch:
 public static StateModule<ProjectWorkspaceParams> ProjectWorkspace(...)
 ```
 
-The syntax is open. The requirement is not: authorization is part of the module contract and affects cache keys, snapshots, patches, and diagnostics.
+The syntax is open. The requirement is not: authorization is part of the module contract and affects cache keys, snapshots, patches, persistence, and diagnostics.
 
-## Field And Edge Security
+## No Field-Level Authorization
 
-Do not ship hidden fields for future convenience.
+One module contract has one visibility shape.
+
+Do not put privileged and non-privileged state in the same module and try to hide parts of it per user.
 
 Bad:
 
 ```text
-TaskCard {
-  Title,
-  Status,
-  InternalCost,
-  SecurityLabel
-}
+ProjectWorkspace
+  TaskCard:
+    Title
+    Status
+    InternalCost
+    SecurityLabel
 ```
 
-with UI code hiding `InternalCost`.
+with `InternalCost` and `SecurityLabel` hidden for some users.
 
 Good:
 
 ```text
-TaskCard {
-  Title,
-  Status
-}
+ProjectWorkspace
+  TaskCard:
+    Title
+    Status
+
+ProjectWorkspaceAdmin
+  TaskCardAdmin:
+    Title
+    Status
+    InternalCost
+    SecurityLabel
 ```
 
-with a separate privileged module or field policy when privileged users need more state.
+If users see different state, define different modules. This keeps generated TypeScript, serialized snapshots, patches, client persistence, cache keys, and tests honest.
 
-Edges can leak too. The existence, count, order, or absence of an edge item can reveal sensitive information. Authorization must apply to edge membership, not only node fields.
+## Edge And Count Leakage
+
+Because authorization is module-level, the module author must avoid exposing edges that leak information to unauthorized users.
+
+Examples:
+
+- a hidden `AuditEntries` edge reveals that audit entries exist
+- a count-only edge reveals hidden row counts
+- edge ordering reveals priority or security classification
+- a missing node reveals deletion or lack of access
+
+If this information is sensitive, put it behind a separate authorized module.
 
 ## Client Keys And Identifier Leakage
 
@@ -130,7 +146,7 @@ The server owns key mapping. The client only needs stable identity within the au
 
 ## Authorization Context And Cache Keys
 
-Module cache keys must include authorization when authorization affects shape.
+Module cache keys must include authorization context whenever authorization affects module visibility.
 
 Cache key components may include:
 
@@ -144,7 +160,7 @@ Cache key components may include:
 - permission version
 - data-visibility scope
 
-The exact stamp should be application-configurable. The dangerous case is using a module snapshot generated for an admin as the cached result for a non-admin. If there is doubt, isolate the cache entry by user/session or do not cache that module.
+The exact stamp should be application-configurable. The dangerous case is using a module snapshot generated for one authorization context as the cached result for a different context. If there is doubt, isolate the cache entry by user/session or do not cache that module.
 
 ## Authorization Changes
 
@@ -154,7 +170,7 @@ Authorization can change because:
 - membership changed
 - object ACL changed
 - tenant boundary changed
-- command changed ownership or visibility fields
+- command changed ownership or visibility data
 - external system updated permissions
 - session expired
 
@@ -167,7 +183,7 @@ Authorization change detected
   -> require refetch under current authorization
 ```
 
-Precise authorization patches are possible later, but the first implementation should favor invalidation/refetch. Data leaks are not an optimization problem.
+Precise authorization patches are out of scope. Authorization changes invalidate or clear whole module instances.
 
 ## Commands
 
@@ -177,7 +193,7 @@ The server should check:
 
 - can the user execute this command?
 - are the command parameters valid for this user?
-- is the target node/module visible enough for this command?
+- is the target module visible enough for this command?
 - is the command allowed in the current state?
 - does the expected version/sequence still match?
 
@@ -185,17 +201,15 @@ Client-side validation can provide fast feedback. Server-side validation decides
 
 ## Patches
 
-Patches must obey the same authorization rules as snapshots.
+Patches must obey the same module authorization rules as snapshots.
 
 A patch cannot include:
 
-- a hidden field
-- a hidden node
-- a hidden edge
-- an unauthorized edge item
+- a module the user is no longer authorized to see
 - an internal provider key when opaque keys are required
+- a node or edge that is outside the module contract
 
-If a mutation affects a module through authorization-sensitive data, the safe default is module invalidation and refetch.
+If a mutation affects authorization-sensitive data, the safe default is module invalidation and refetch.
 
 ## Client Persistence
 
@@ -216,8 +230,8 @@ Do not assume IndexedDB is private enough for sensitive state. It is browser sto
 Generated bindings should make secure use easy:
 
 - generated server adapters call authorization hooks
-- generated client APIs do not expose hidden fields
-- generated TypeScript types reflect the authorized module contract shape, not database rows
+- generated client APIs expose module contracts, not database rows
+- generated TypeScript types reflect module contracts
 - generated command methods include version/sequence parameters where needed
 - generated WebAssembly exports stay coarse and do not expose internal provider operations
 
@@ -232,7 +246,6 @@ Security diagnostics should include:
 - denied commands
 - authorization-context cache key components, redacted where needed
 - authorization-driven invalidations
-- hidden field/edge decisions in debug builds
 - schema/client mismatch rejections
 - attempts to call unknown module or command ids
 - stale persisted state rejected on hydration
@@ -245,10 +258,10 @@ Minimum tests:
 
 - unauthorized module subscription is rejected
 - unauthorized parameter value is rejected
-- hidden fields are absent from snapshots and patches
-- hidden edges are absent from snapshots and patches
+- module snapshot includes only the declared module contract
+- module patch includes only the declared module contract
 - authorization change invalidates or clears affected module state
-- admin and non-admin module cache entries do not cross-contaminate
+- admin and non-admin modules use separate module contracts or separate authorization cache identities
 - command authorization is enforced server-side even when client validation is bypassed
 - persisted state is rejected after authorization context mismatch
 - opaque keys prevent provider-key leakage where configured
@@ -258,8 +271,7 @@ These should run as normal .NET tests where possible, with browser smoke tests f
 ## Open Questions
 
 - How should applications declare authorization context stamps without exploding module cache cardinality?
-- Should field-level authorization be first-class, or should developers define separate module node types for privileged views?
 - Should persisted sensitive modules be opt-in or opt-out?
 - Should opaque keys be default for browser modules?
-- How should authorization diagnostics explain hidden graph state without leaking it?
+- How should authorization diagnostics explain rejected graph state without leaking it?
 - Should `AuthorizationRevoked` clear the whole module immediately or mark stale until refetch confirms visibility?

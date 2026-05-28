@@ -264,8 +264,7 @@ The server must remain authoritative for:
 - command validation
 - module parameter validation
 - tenant boundaries
-- field visibility
-- relation visibility
+- module visibility
 - mutation permission
 
 Client-side C# can improve ergonomics and early feedback, but it cannot be trusted. Everything crossing from client to server must be treated as hostile.

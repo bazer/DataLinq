@@ -30,6 +30,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Incubating companion projects
 
 - `DataLinq.Store/README.md`
+- `DataLinq.Store/Accepted High-Level Decisions.md`
 - `DataLinq.Store/API and Binding Generation.md`
 - `DataLinq.Store/Identity Versioning and Protocol Compatibility.md`
 - `DataLinq.Store/Module Paging Lifetimes and Retention.md`

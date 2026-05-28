@@ -65,6 +65,7 @@ DataLinq.Store depends on several DataLinq concepts that are either shipped or a
 
 The most relevant existing planning documents are:
 
+- [Accepted High-Level Decisions](Accepted%20High-Level%20Decisions.md)
 - [State Modules and Graph Cache](State%20Modules%20and%20Graph%20Cache.md)
 - [Security and Authorization Model](Security%20and%20Authorization%20Model.md)
 - [Identity, Versioning, and Protocol Compatibility](Identity%20Versioning%20and%20Protocol%20Compatibility.md)
@@ -75,6 +76,8 @@ The most relevant existing planning documents are:
 - [Phase 16: Dependency-Tracked Result-Set Caching](../roadmap-implementation/phase-16-dependency-tracked-result-set-caching/README.md)
 - [Distributed Cache Coordination and CDC](../architecture/Distributed%20Cache%20Coordination%20and%20CDC.md)
 - [Practical AOT and Size Plan](../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md)
+
+The accepted decisions currently include contract-first APIs, module-level authorization only, module-scoped graph storage first, online-first stale hydration, full module replacement before incremental patches, first-class paged edges, generated C# clients as the primary client surface, explicit compatibility failure, application-owned command handlers, and security before reuse.
 
 DataLinq.Store should not broaden DataLinq's current AOT or WebAssembly support claims by implication. The Store design should define its own constrained-runtime support boundary and prove it with dedicated smoke projects later.
 
@@ -257,6 +260,5 @@ This incubation plan is ready to move toward implementation when:
 - Should the first implementation live as projects in the DataLinq solution, or should DataLinq.Store get a separate repo immediately after the protocol is drafted?
 - Should query descriptors be generated from attributed methods, source-generated static classes, or explicit registration code?
 - Should the first transport be SignalR, raw WebSocket, Server-Sent Events, or in-process test transport?
-- Should optimistic mutations call DataLinq-generated mutation endpoints, or should they use application-defined command handlers?
 - How much local querying should the browser store support over loaded module graphs before it asks the server for another module?
 - Should TypeScript declarations be generated from DataLinq metadata in the first browser proof, or deferred?
