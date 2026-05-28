@@ -356,6 +356,8 @@ Rules:
 
 The client must never be trusted to define arbitrary module shape.
 
+The full security design lives in [Security and Authorization Model](Security%20and%20Authorization%20Model.md). Module identity, versioning, and compatibility details live in [Identity, Versioning, and Protocol Compatibility](Identity%20Versioning%20and%20Protocol%20Compatibility.md). Lazy edge, paging, and retention policy lives in [Module Paging, Lifetimes, and Retention](Module%20Paging%20Lifetimes%20and%20Retention.md).
+
 ## Relationship To Result-Set Caching
 
 DataLinq's result-cache work should treat module snapshots as the main concrete result shape.

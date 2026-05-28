@@ -196,6 +196,8 @@ The syntax is not final. The principle is final: named, versionable module contr
 
 The generated server adapters, C# clients, WebAssembly exports, and JavaScript/TypeScript bindings for these contracts are specified in [API and Binding Generation](API%20and%20Binding%20Generation.md).
 
+Identity, versioning, and compatibility requirements for these contracts are specified in [Identity, Versioning, and Protocol Compatibility](Identity%20Versioning%20and%20Protocol%20Compatibility.md).
+
 ## Protocol Messages
 
 Minimum message families:
@@ -290,6 +292,8 @@ Therefore:
 - module patches must only include data the client is authorized to see
 
 If authorization changes while a subscription is active, the server sends `AuthorizationRevoked` and the client clears affected module graph state if it is no longer covered by another authorized subscription.
+
+The full authorization model lives in [Security and Authorization Model](Security%20and%20Authorization%20Model.md).
 
 ## Diagnostics
 

@@ -66,6 +66,9 @@ DataLinq.Store depends on several DataLinq concepts that are either shipped or a
 The most relevant existing planning documents are:
 
 - [State Modules and Graph Cache](State%20Modules%20and%20Graph%20Cache.md)
+- [Security and Authorization Model](Security%20and%20Authorization%20Model.md)
+- [Identity, Versioning, and Protocol Compatibility](Identity%20Versioning%20and%20Protocol%20Compatibility.md)
+- [Module Paging, Lifetimes, and Retention](Module%20Paging%20Lifetimes%20and%20Retention.md)
 - [Mutation and Invalidation Loop](Mutation%20and%20Invalidation%20Loop.md)
 - [API and Binding Generation](API%20and%20Binding%20Generation.md)
 - [Result set caching](../query-and-runtime/Result%20set%20caching.md)
@@ -135,6 +138,9 @@ The minimum credible Store runtime needs:
 - generated model metadata consumption
 - generated module metadata consumption
 - deterministic serialization and hydration
+- authorization-aware module visibility
+- lazy/paged edge loading
+- retention and persistence policy
 - diagnostics for module count, node count, edge count, subscription count, patch volume, and invalidation behavior
 
 The minimum credible Sync layer needs:
@@ -145,6 +151,7 @@ The minimum credible Sync layer needs:
 - parameter serialization and hashing
 - server authorization per subscription
 - schema/model version negotiation
+- protocol compatibility checks
 - module snapshot messages
 - module patch messages
 - module invalidation messages
@@ -162,6 +169,7 @@ Do not make the first version responsible for:
 - transparent distributed consistency
 - replacing the database as the source of truth
 - full offline conflict-free replication
+- one-row-at-a-time lazy loading as the default large-edge strategy
 - SQLite/OPFS persistence as a required baseline
 - a general-purpose JavaScript state manager for tiny apps
 - query syntax that hides unsupported server behavior
@@ -196,6 +204,9 @@ It should also make failures explicit:
 - transport reconnect
 - optimistic mutation rejected
 - command conflict
+- persisted state rejected
+- schema or protocol incompatibility
+- lazy edge fetch failed
 
 ## AOT And WebAssembly Position
 
@@ -214,16 +225,18 @@ Browser WebAssembly should be a first-class target, but the first Store proof sh
 
 1. Define the product vocabulary: store, module, node, edge, graph, command, overlay, snapshot, patch, subscription, freshness token.
 2. Define the sync protocol DTOs independently of transport.
-3. Design the client module graph store and patch application semantics.
-4. Design the command, optimistic overlay, and module invalidation loop.
-5. Design the contract-first API and binding generation layer.
-6. Design server named-module subscriptions over DataLinq result-cache concepts.
-7. Define AOT and WebAssembly constraints for the supported client path.
-8. Build a small in-memory proof against generated test models.
-9. Add Blazor integration.
-10. Add browser WebAssembly JavaScript facade.
-11. Add hydration/persistence after the runtime semantics are stable.
-12. Only then evaluate SQLite/OPFS and broader local querying.
+3. Design security, authorization, identity, versioning, and compatibility rules.
+4. Design lazy/paged module edge loading and retention policy.
+5. Design the client module graph store and patch application semantics.
+6. Design the command, optimistic overlay, and module invalidation loop.
+7. Design the contract-first API and binding generation layer.
+8. Design server named-module subscriptions over DataLinq result-cache concepts.
+9. Define AOT and WebAssembly constraints for the supported client path.
+10. Build a small in-memory proof against generated test models.
+11. Add Blazor integration.
+12. Add browser WebAssembly JavaScript facade.
+13. Add hydration/persistence after the runtime semantics are stable.
+14. Only then evaluate SQLite/OPFS and broader local querying.
 
 ## Exit Criteria For Planning
 
@@ -234,7 +247,8 @@ This incubation plan is ready to move toward implementation when:
 - server subscription semantics distinguish module snapshots, patches, and invalidations
 - mutation semantics distinguish client commands, optimistic overlays, server transactions, and authoritative module patches
 - binding semantics distinguish Store contracts, generated server adapters, generated C# clients, generated WASM exports, and generated JS/TS wrappers
-- authorization and schema-version boundaries are explicit
+- authorization, identity, schema-version, and protocol-compatibility boundaries are explicit
+- lazy edge and retention policies avoid both giant module snapshots and one-row-at-a-time fetches
 - AOT/browser unsupported behavior is named up front
 - the first demo scope is small enough to finish without building distributed sync infrastructure first
 

@@ -374,6 +374,8 @@ Safe behavior:
 
 Precise auth patches can come later. Data leaks are not a performance tradeoff.
 
+The full authorization model lives in [Security and Authorization Model](Security%20and%20Authorization%20Model.md).
+
 ## Diagnostics
 
 Mutation and invalidation diagnostics should include:

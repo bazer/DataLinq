@@ -270,6 +270,8 @@ The server must remain authoritative for:
 
 Client-side C# can improve ergonomics and early feedback, but it cannot be trusted. Everything crossing from client to server must be treated as hostile.
 
+The full module authorization model lives in [Security and Authorization Model](Security%20and%20Authorization%20Model.md).
+
 ## Error Contracts
 
 The generated API should avoid throwing transport-specific exceptions into UI code.
@@ -306,6 +308,8 @@ Generated artifacts need compatibility metadata:
 - minimum compatible client version
 
 On mismatch, the client should fail explicitly. A silent mismatch between generated TS, generated C# WASM, and server endpoints will produce nonsense bugs.
+
+The full identity and protocol compatibility model lives in [Identity, Versioning, and Protocol Compatibility](Identity%20Versioning%20and%20Protocol%20Compatibility.md).
 
 ## Transport Choices
 

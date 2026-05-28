@@ -211,6 +211,8 @@ Recommended order:
 
 SQLite/OPFS may become valuable for offline-heavy relational applications, but it adds payload size, native WebAssembly warnings, and storage complexity. It should be an adapter, not the baseline.
 
+Module retention, persisted hydration, lazy edges, paging, and multi-tab behavior are specified in [Module Paging, Lifetimes, and Retention](Module%20Paging%20Lifetimes%20and%20Retention.md).
+
 ## Payload Discipline
 
 The browser payload target should be honest:
