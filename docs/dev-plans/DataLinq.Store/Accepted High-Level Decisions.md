@@ -25,7 +25,9 @@ The generator should parse developer-authored C# into one normalized contract de
 
 ## 3. Analyzable Module Definitions
 
-**Decision:** State modules are authored in a source-generator-recognized subset. The supported direction is a hybrid of attributed C# module/node types and a constrained functional builder for data sources, edges, paging, and policies.
+**Decision:** State modules are authored in a source-generator-recognized subset. The supported direction is a hybrid of attributed C# module/node types, projection-first roots/collections, and a constrained functional builder for data sources, edges, paging, and policies.
+
+Projection-heavy modules must not require per-field hand mapping in the module declaration. A projected node type can define the contract fields, while the module binds a root or collection to the DataLinq query that materializes that type.
 
 Arbitrary imperative code is allowed in command handlers, query helpers, selectors, and client actions, but not in the contract-critical module shape unless the generator can analyze it.
 
@@ -104,6 +106,7 @@ These decisions imply:
 - no field-level authorization in generated module contracts
 - no independent generators that rediscover Store contract shape separately
 - no arbitrary imperative module contract shape in V1
+- no projection-heavy authoring model that requires repeated per-field mapping when a projected node type already defines the contract
 - no client selector that silently becomes a server query
 - no arbitrary ASP.NET action generation as the first API surface
 - no cross-module node deduplication in V1

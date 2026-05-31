@@ -211,6 +211,48 @@ This example is not an API commitment. It shows the requirements:
 - explicit edges
 - generated descriptor potential
 
+For projection-heavy modules, the projected node type should be allowed to define the contract fields directly. The module author should not need to repeat every projected field in the module declaration when one DataLinq query already materializes a stable Store node type.
+
+Conceptual projection-first shape:
+
+```csharp
+[StateNode]
+public sealed record TaskCard(
+    [property: StateKey] TaskRef Id,
+    string Title,
+    TaskStatus Status,
+    UserRef? AssigneeId,
+    int SortOrder);
+
+[StateModule("ProjectTasks", Version = 1)]
+[AuthorizeModule(Policy = "CanViewProject")]
+public sealed partial class ProjectTasksModule
+{
+    [ModuleParameter]
+    public required ProjectId ProjectId { get; init; }
+
+    [StateCollection(PageSize = 100)]
+    public StateList<TaskCard> Tasks { get; private init; } = default!;
+
+    static partial void Configure(StateModuleBuilder<ProjectTasksModule> module)
+    {
+        module.Collection(x => x.Tasks)
+            .From((ProjectDb db, ProjectTasksModule p) =>
+                db.Tasks
+                    .Where(task => task.ProjectId == p.ProjectId)
+                    .OrderBy(task => task.SortOrder)
+                    .Select(task => new TaskCard(
+                        new TaskRef(task.Id),
+                        task.Title,
+                        task.Status,
+                        task.AssigneeId == null ? null : new UserRef(task.AssigneeId.Value),
+                        task.SortOrder)));
+    }
+}
+```
+
+The detailed authoring options, including projection-only module sugar and graph-row projection, live in [Store Contract IR and Module Authoring Model](Store%20Contract%20IR%20and%20Module%20Authoring%20Model.md).
+
 ## Server Module Cache
 
 The server-side cache should cache module snapshots or validated module fragments, not arbitrary raw query results.
