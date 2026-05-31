@@ -66,6 +66,7 @@ DataLinq.Store depends on several DataLinq concepts that are either shipped or a
 The most relevant existing planning documents are:
 
 - [Accepted High-Level Decisions](Accepted%20High-Level%20Decisions.md)
+- [Store Contract IR and Module Authoring Model](Store%20Contract%20IR%20and%20Module%20Authoring%20Model.md)
 - [State Modules and Graph Cache](State%20Modules%20and%20Graph%20Cache.md)
 - [Security and Authorization Model](Security%20and%20Authorization%20Model.md)
 - [Identity, Versioning, and Protocol Compatibility](Identity%20Versioning%20and%20Protocol%20Compatibility.md)
@@ -78,7 +79,7 @@ The most relevant existing planning documents are:
 - [Distributed Cache Coordination and CDC](../architecture/Distributed%20Cache%20Coordination%20and%20CDC.md)
 - [Practical AOT and Size Plan](../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md)
 
-The accepted decisions currently include contract-first APIs, module-level authorization only, module-scoped graph storage first, online-first stale hydration, full module replacement before incremental patches, first-class paged edges, generated C# clients as the primary client surface, explicit compatibility failure, application-owned command handlers, and security before reuse. The server-side cache stance is similarly conservative: subscriptions are lightweight, module snapshots are shared and evictable, and persistent server snapshot caches are optional adapters rather than correctness infrastructure.
+The accepted decisions currently include a single Store Contract IR, contract-first APIs, analyzable module definitions, separated modules/selectors/commands/client actions, module-level authorization only, module-scoped graph storage first, online-first stale hydration, full module replacement before incremental patches, first-class paged edges, generated C# clients as the primary client surface, explicit compatibility failure, application-owned command handlers, and security before reuse. The server-side cache stance is similarly conservative: subscriptions are lightweight, module snapshots are shared and evictable, and persistent server snapshot caches are optional adapters rather than correctness infrastructure.
 
 DataLinq.Store should not broaden DataLinq's current AOT or WebAssembly support claims by implication. The Store design should define its own constrained-runtime support boundary and prove it with dedicated smoke projects later.
 
@@ -91,7 +92,7 @@ DataLinq.Store
   Client state-module graph engine.
 
 DataLinq.Store.Generators
-  Generated module descriptors, accessors, node descriptors, edge descriptors, query descriptors, and serializer hints.
+  Store Contract IR generation plus generated module descriptors, accessors, node descriptors, edge descriptors, query descriptors, and serializer hints.
 
 DataLinq.Store.Blazor
   Blazor service registration, component notification helpers, and renderer-friendly subscription APIs.
@@ -228,26 +229,28 @@ Browser WebAssembly should be a first-class target, but the first Store proof sh
 ## Recommended Incubation Order
 
 1. Define the product vocabulary: store, module, node, edge, graph, command, overlay, snapshot, patch, subscription, freshness token.
-2. Define the sync protocol DTOs independently of transport.
-3. Design security, authorization, identity, versioning, and compatibility rules.
-4. Design lazy/paged module edge loading and retention policy.
-5. Design lightweight server subscriptions and shared evictable module cache behavior.
-6. Design the client module graph store and patch application semantics.
-7. Design the command, optimistic overlay, and module invalidation loop.
-8. Design the contract-first API and binding generation layer.
-9. Design server named-module subscriptions over DataLinq result-cache concepts.
-10. Define AOT and WebAssembly constraints for the supported client path.
-11. Build a small in-memory proof against generated test models.
-12. Add Blazor integration.
-13. Add browser WebAssembly JavaScript facade.
-14. Add hydration/persistence after the runtime semantics are stable.
-15. Only then evaluate SQLite/OPFS and broader local querying.
+2. Define the Store Contract IR and the supported module authoring subset.
+3. Define the sync protocol DTOs independently of transport.
+4. Design security, authorization, identity, versioning, and compatibility rules.
+5. Design lazy/paged module edge loading and retention policy.
+6. Design lightweight server subscriptions and shared evictable module cache behavior.
+7. Design the client module graph store and patch application semantics.
+8. Design the command, optimistic overlay, and module invalidation loop.
+9. Design the contract-first API and binding generation layer.
+10. Design server named-module subscriptions over DataLinq result-cache concepts.
+11. Define AOT and WebAssembly constraints for the supported client path.
+12. Build a small in-memory proof against generated test models.
+13. Add Blazor integration.
+14. Add browser WebAssembly JavaScript facade.
+15. Add hydration/persistence after the runtime semantics are stable.
+16. Only then evaluate SQLite/OPFS and broader local querying.
 
 ## Exit Criteria For Planning
 
 This incubation plan is ready to move toward implementation when:
 
 - the protocol messages are specified enough to write compatibility tests
+- Store Contract IR semantics are specified enough that modules, commands, bindings, serializers, and TypeScript are generated from one descriptor model
 - client store semantics distinguish modules, nodes, and edges
 - server subscription semantics distinguish module snapshots, patches, and invalidations
 - mutation semantics distinguish client commands, optimistic overlays, server transactions, and authoritative module patches

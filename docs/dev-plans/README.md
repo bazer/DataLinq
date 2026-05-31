@@ -39,6 +39,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `DataLinq.Store/Server Subscription and Module Cache Architecture.md`
 - `DataLinq.Store/State Modules and Graph Cache.md`
 - `DataLinq.Store/State Sync Architecture.md`
+- `DataLinq.Store/Store Contract IR and Module Authoring Model.md`
 - `DataLinq.Store/WASM and Interop Strategy.md`
 
 ### Tooling

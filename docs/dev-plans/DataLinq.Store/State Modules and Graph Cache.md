@@ -383,6 +383,8 @@ State modules add the product/API contract:
 
 In other words, result-set caching is the engine. State modules are the cacheable and syncable vehicle.
 
+The supported module authoring direction and shared Store Contract IR are specified in [Store Contract IR and Module Authoring Model](Store%20Contract%20IR%20and%20Module%20Authoring%20Model.md).
+
 ## First Useful Slice
 
 The first useful slice should avoid overreach:
