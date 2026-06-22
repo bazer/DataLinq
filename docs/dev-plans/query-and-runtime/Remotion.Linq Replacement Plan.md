@@ -178,6 +178,28 @@ DataLinqQueryPlan
 
 The plan should be immutable after parsing. Translators can then safely cache and reuse it with different captured values.
 
+The simple field list above is not permission to erase LINQ operator order. Ordering and paging are order-sensitive once a row-limiting operator appears before a later ordering operator. The plan needs either a small operator pipeline or nested plan nodes so these shapes remain distinguishable:
+
+```csharp
+source.OrderBy(x => x.Name).Take(10)
+source.Take(10).OrderBy(x => x.Name)
+source.OrderBy(x => x.HireDate).Take(10).OrderBy(x => x.Name)
+```
+
+The first shape can render as one flat SQL query with `ORDER BY Name` and `LIMIT 10`. The second and third shapes need subquery pushdown so the later ordering applies to the already-limited source, matching EF Core's relational behavior:
+
+```sql
+SELECT *
+FROM (
+    SELECT *
+    FROM Employees
+    LIMIT 10
+) AS t
+ORDER BY t.Name
+```
+
+`Take` or `Skip` without an earlier deterministic `OrderBy` is still legal LINQ, but the selected rows are nondeterministic in SQL. DataLinq should document or warn about that nondeterminism; it should not silently rewrite `Take(...).OrderBy(...)` into `OrderBy(...).Take(...)`.
+
 ### Source Slots
 
 Every query source needs a stable source slot:

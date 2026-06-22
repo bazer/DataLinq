@@ -58,23 +58,25 @@ Tasks:
 1. Treat [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md) as the parity contract.
 2. Add missing tests for high-risk support-matrix shapes before changing the query boundary.
 3. Define immutable plan nodes for source slots, predicates, orderings, paging, projections, joins, local sequences, and result operators.
-4. Add a `RemotionQueryPlanAdapter` that converts existing `QueryModel` output to the DataLinq plan.
-5. Move `QueryExecutor` and SQL generation to consume the DataLinq plan while Remotion remains the producer.
-6. Replace `SqlQuery<T>.Where(WhereClause)` and `OrderBy(OrderByClause)` as the main translation boundary.
-7. Preserve fixed true/false condition behavior, local sequence semantics, nullable comparison semantics, scalar aggregate behavior, join behavior, and relation `EXISTS` behavior.
-8. Add plan snapshot tests for representative queries.
+4. Represent operator-order-sensitive ordering and paging explicitly. `OrderBy(...).Take(...)` may render as one flat SQL query, but `Take(...).OrderBy(...)`, `Skip(...).OrderBy(...)`, and `OrderBy(...).Take(...).OrderBy(...)` must preserve LINQ order by pushing the already-limited/offset source into a subquery before applying the later ordering.
+5. Add a `RemotionQueryPlanAdapter` that converts existing `QueryModel` output to the DataLinq plan.
+6. Move `QueryExecutor` and SQL generation to consume the DataLinq plan while Remotion remains the producer.
+7. Replace `SqlQuery<T>.Where(WhereClause)` and `OrderBy(OrderByClause)` as the main translation boundary.
+8. Preserve fixed true/false condition behavior, local sequence semantics, nullable comparison semantics, scalar aggregate behavior, join behavior, relation `EXISTS` behavior, and EF-style ordering/paging operator order.
+9. Add plan snapshot tests for representative queries.
 
 Design stance:
 
 - The plan should represent query intent, not SQL text.
 - Source slots should be explicit so joins and relation subqueries do not rely on visitor-global assumptions.
 - Captured values should be separated from query shape so plan caching and parameter rebinding remain possible later.
+- Ordering and paging should preserve LINQ operator order instead of flattening to final SQL clause order. If a later `OrderBy` is applied after `Take` or `Skip`, SQL generation should use subquery pushdown, matching EF Core's relational behavior. A row-limiting operation without a preceding deterministic ordering should remain legal but documented as nondeterministic.
 
 Exit criteria:
 
 - Remotion still parses queries, but SQL generation consumes DataLinq plan nodes
 - supported single-source queries generate equivalent SQL/results
-- plan tests cover local collections, nullable predicates, projections, scalar aggregates, joins, and relation predicates
+- plan tests cover local collections, nullable predicates, projections, scalar aggregates, joins, relation predicates, and ordering/paging operator-order cases
 - unsupported query diagnostics remain specific and DataLinq-owned
 
 ## Workstream B: Supported-Subset Expression Parser And AOT Boundary Switch
@@ -154,12 +156,13 @@ Exit criteria:
 
 1. Lock down query support-matrix parity gaps.
 2. Introduce `DataLinqQueryPlan` with a Remotion adapter.
-3. Move SQL generation behind the DataLinq plan.
-4. Build the supported-subset expression parser.
-5. Add dual-run parser parity tests.
-6. Move generated/AOT smoke projects to the DataLinq parser.
-7. Remove or isolate Remotion from the generated/AOT support boundary.
-8. Investigate SQLitePCLRaw WebAssembly warnings and document or eliminate them.
+3. Add operator-order tests for `Take`/`Skip` before later `OrderBy` and verify the expected subquery shape.
+4. Move SQL generation behind the DataLinq plan.
+5. Build the supported-subset expression parser.
+6. Add dual-run parser parity tests.
+7. Move generated/AOT smoke projects to the DataLinq parser.
+8. Remove or isolate Remotion from the generated/AOT support boundary.
+9. Investigate SQLitePCLRaw WebAssembly warnings and document or eliminate them.
 
 Removing Remotion before there is a plan boundary is a rewrite. Suppressing SQLitePCLRaw warnings before call-path analysis is pretending. Both are bad trades.
 
@@ -201,6 +204,7 @@ Blazor WebAssembly builds are known to be unreliable inside the Codex sandbox on
 | --- | --- | --- |
 | Query plan becomes SQL-shaped by accident | Medium | Keep plan nodes backend-neutral and require SQL translation to be one consumer of the plan, not the plan itself. |
 | Parser rewrite regresses supported LINQ behavior | High | Use the support matrix, plan snapshots, dual-run parity, and provider compliance tests before flipping defaults. |
+| Ordering and paging are silently flattened into SQL clause order | High | Add explicit plan nodes and SQL tests for `Take(...).OrderBy(...)`, `Skip(...).OrderBy(...)`, and reordered limited subsets. Require subquery pushdown when later operators must apply outside an already-limited source. |
 | Projection execution reintroduces reflection invocation debt | High | Inventory reflection invocation and keep unsupported projection shapes rejected in generated/AOT mode. |
 | Remotion compatibility path becomes permanent | Medium | Define removal/isolation exit criteria and keep it outside the practical AOT support statement. |
 | SQLitePCLRaw warning suppression hides a real browser failure | High | Suppress only after managed/native call-path proof and keep suppression local. |
@@ -216,4 +220,3 @@ Phase 17 is complete when:
 - main runtime package has no `Remotion.Linq` dependency, or Remotion is isolated outside the practical AOT support boundary
 - WASM AOT browser smoke still passes
 - SQLitePCLRaw WebAssembly warning disposition is documented with call-path evidence
-
