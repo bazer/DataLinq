@@ -274,7 +274,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             table.Definition = ParseViewDefinition(reader.GetString(4));
 
         if (!dbAccess
-            .ReadReader($"SELECT * FROM pragma_table_info(\"{table.DbName}\")")
+            .ReadReader($"SELECT * FROM pragma_table_info({QuoteSqlLiteral(table.DbName)})")
             .Select(x => ParseColumn(table, x, dbAccess))
             .Transpose()
             .TryUnwrap(out var columns, out var columnFailure))
@@ -318,7 +318,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
         var dbName = reader.GetString(1);
 
-        var createStatement = dbAccess.ExecuteScalar<string>($"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table.DbName}'");
+        var createStatement = dbAccess.ExecuteScalar<string>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = {QuoteSqlLiteral(table.DbName)}");
         var hasAutoIncrement = false;
 
         if (createStatement != null)
