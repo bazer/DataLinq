@@ -4,6 +4,66 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.7.1 - SQLite Metadata Fixes, CLI Polish, and Dependency Maintenance](https://github.com/bazer/DataLinq/releases/tag/0.7.1)
+
+**Released on:** 2026-06-25
+
+This is a focused patch release. The honest headline is simple: 0.7.1 keeps the 0.7.0 work usable against newer package/runtime combinations, fixes a real SQLite metadata import break, and tightens the CLI output introduced around the new config and validation workflows.
+
+It is not a feature release. Most of the large diff is roadmap and incubation documentation, especially around DataLinq.Store. Those docs matter, but they are plans, not shipped APIs.
+
+## Highlights
+
+* **Fixed SQLite metadata import with newer native SQLite builds.**  
+  SQLite table metadata now uses proper SQL string literals for table-valued `PRAGMA` calls and `sqlite_master` lookups, instead of relying on the old accidental double-quoted string-literal behavior.
+
+* **Cleared the SQLite native package audit issue without suppressing warnings.**  
+  SQLite-consuming projects now reference `SQLitePCLRaw.bundle_e_sqlite3` 3.0.3 so NuGet resolves the newer native SQLite package path.
+
+* **CLI diagnostics are more script-friendly.**  
+  Errors and warnings now go to stderr, diagnostic severities use lowercase `error` / `warning`, meaningless `Unspecified` codes are omitted, and batch summaries report concrete counts instead of vague yes/no failure flags.
+
+* **Batch generation is safer around ambiguous targets.**  
+  Validation can still expand every matching connection, but batch model generation now reports ambiguous multi-connection targets before rendering files when multiple connections would write to the same model directory.
+
+* **DocFX metadata extraction works again after package updates.**  
+  The repo keeps Roslyn at the version DocFX can load for source-generator metadata extraction and excludes local `artifacts/**` scratch projects from DocFX project discovery.
+
+## Fixes and Behavior Changes
+
+* Fixed SQLite metadata parsing for table names and quoted-identifier schemas on newer SQLite builds.
+* Added explicit `SQLitePCLRaw.bundle_e_sqlite3` references to `DataLinq.SQLite` and `DataLinq.Testing`.
+* Updated package versions including `Microsoft.Data.Sqlite`, Blazor WebAssembly packages, `Microsoft.Extensions.Logging.Abstractions`, `Microsoft.SourceLink.GitHub`, `MySqlConnector`, `Spectre.Console`, `System.CommandLine`, and `TUnit`.
+* Kept `Microsoft.CodeAnalysis.CSharp` pinned to 5.0.0 because newer Roslyn packages currently break DocFX metadata extraction in this repo.
+* Excluded `.vs` and `.idea` from recursive config discovery.
+* Changed recursive `config list` output to report `configs`, `listed`, and `failed` counts.
+* Changed recursive `config validate` output to report `configs`, `valid`, and `failed` counts.
+* Changed validation batch text output to report `configs`, `targets`, `succeeded`, `drift`, and `failed` counts.
+* Added a validation batch JSON `summary` object with the same count breakdown.
+* Changed schema-drift text output to use diagnostic-style lines such as `error ColumnTypeMismatch: ...` with a separate `safety:` line.
+* Routed CLI operational errors and warnings to stderr while keeping successful command output on stdout.
+
+## Documentation and Planning
+
+* Marked Phase 12C CLI configuration and regeneration workflow as complete.
+* Moved Phase 13 explicit multi-join composition into the next implementation-priority slot.
+* Added DataLinq.Store incubation plans covering state modules, sync, mutation flow, security, lifecycle, API/binding generation, server subscription caches, WASM interop, and contract IR.
+* Added dev plans for dependency injection and hosting integration, model testing/mocking support, schema validation hooks, generated columns, and UUID storage formats.
+* Updated result caching planning so future work is framed around dependency-tracked result and module caching.
+* Documented that future query-plan work must preserve LINQ ordering/paging operator order, including `Take(...).OrderBy(...)` and `Skip(...).OrderBy(...)` subquery behavior.
+
+## Upgrade Notes
+
+* **Update CLI-output assertions or scripts.** If you parse DataLinq CLI output, expect diagnostics on stderr and count-based summaries instead of the old yes/no summary text.
+* **Check native SQLite package convergence if you pin SQLitePCLRaw packages yourself.** DataLinq now intentionally pulls the newer bundled native SQLite path.
+* **No model regeneration is required for this patch.** The generated model contract changes were in 0.7.0; 0.7.1 does not add another generated-code migration.
+
+## Full Changelog
+
+https://github.com/bazer/DataLinq/compare/0.7.0...0.7.1
+
+---
+
 ## [DataLinq v0.7.0 - Schema Trust, LINQ Coverage, AOT Proofs, and Cache Control](https://github.com/bazer/DataLinq/releases/tag/0.7.0)
 
 **Released on:** 2026-05-18
@@ -850,3 +910,5 @@ First release with basic functionality.
 * Support for lazy loading of model properties
 
 ---
+
+
