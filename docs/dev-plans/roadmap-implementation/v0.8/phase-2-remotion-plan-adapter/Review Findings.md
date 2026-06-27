@@ -6,9 +6,17 @@
 
 **Reviewed scope:** Phase 2 commits from `1209601f` through `f11f212a`, excluding later Phase 3 planning material.
 
-## Findings
+**Follow-up review date:** 2026-06-27.
+
+**Follow-up reviewed scope:** `dc928bef` (`Fix 0.8 phase 2 review findings`).
+
+**Current status:** Resolved. No open Phase 2 review findings remain from this pass.
+
+## Resolved Findings
 
 ### P2: Unsupported projections can become client-expression plan nodes
+
+**Status:** Resolved in `dc928bef`.
 
 **File:** `src/DataLinq/Linq/Planning/RemotionQueryPlanAdapter.cs`
 
@@ -30,7 +38,16 @@ Required fix:
 - Throw `QueryTranslationException` with DataLinq-owned wording.
 - Add focused `QueryPlanAdapterUnsupportedShapeTests` coverage for relation projection, nested database subquery projection, and relation-property projection in explicit join selectors.
 
+Resolution review:
+
+- `CreateProjection(...)` now calls projection-shape validation before the generic computed/client projection fallback.
+- Relation-property projections now throw a focused `QueryTranslationException`.
+- Nested database subquery projections now throw a focused `QueryTranslationException`.
+- Unsupported-shape coverage was added for direct relation projection, nested database subquery projection, and relation-property projection inside an explicit join selector.
+
 ### P2: Captured nullable null values get the wrong inequality null semantics
+
+**Status:** Resolved in `dc928bef`.
 
 **File:** `src/DataLinq/Linq/Planning/RemotionQueryPlanAdapter.cs`
 
@@ -65,9 +82,16 @@ Required fix:
 - Add snapshot coverage for captured-null and captured-non-null nullable inequality.
 - Keep actual captured values redacted; only nullness/semantic class needs to be visible.
 
+Resolution review:
+
+- Nullable inequality null semantics are now derived through `GetComparisonNullSemantics(...)`, which checks scalar binding values for captured nulls.
+- Captured null nullable inequality no longer records `CSharpNullableNotEqualIncludesNull`.
+- Captured non-null nullable inequality still records `CSharpNullableNotEqualIncludesNull`.
+- Unit and snapshot coverage now distinguish literal-null, captured-null, and captured-non-null nullable inequality shapes while keeping captured values redacted.
+
 ## Verification Context
 
-Focused checks run during review:
+Focused checks run during the original review:
 
 ```powershell
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/QueryPlanNodeTests/*" --output failures --build
@@ -82,3 +106,17 @@ Results:
 - `QueryPlanAdapterUnsupportedShapeTests`: 3/3 passed per batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
 
 One compliance build attempt was blocked by an existing `docfx` process holding `src/DataLinq.Generators/bin/Release/netstandard2.0/DataLinq.Generators.dll`; rerunning the compliance filters with `--no-build` succeeded.
+
+Focused checks run during the follow-up review:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/QueryPlanNodeTests/*" --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSnapshotTests/*" --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanAdapterUnsupportedShapeTests/*" --output failures --build
+```
+
+Results:
+
+- `QueryPlanNodeTests`: 5/5 passed.
+- `QueryPlanSnapshotTests`: 9/9 passed per batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
+- `QueryPlanAdapterUnsupportedShapeTests`: 6/6 passed per batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
