@@ -275,7 +275,7 @@ internal sealed class ExpressionQueryPlanParser
         QueryPlanValue aggregateSelector = null!;
         WithSource(selector.Parameters[0], parsed.RootSource, () =>
         {
-            projection = CreateProjection(selector.Body, selector.ReturnType);
+            projection = CreateProjection(selector.Body, resultType);
             aggregateSelector = GetAggregateSelector(selector.Body, methodCall.Method.Name);
         });
 
@@ -873,9 +873,6 @@ internal sealed class ExpressionQueryPlanParser
             return true;
         }
 
-        if (TryConvertFunctionValue(expression, out value))
-            return true;
-
         if (!ContainsQueryReference(expression))
         {
             if (expression is ConstantExpression { Value: null })
@@ -887,6 +884,9 @@ internal sealed class ExpressionQueryPlanParser
             value = bindings.CaptureScalar(EvaluateScalar(expression), expression.Type);
             return true;
         }
+
+        if (TryConvertFunctionValue(expression, out value))
+            return true;
 
         value = null!;
         return false;
@@ -1014,80 +1014,49 @@ internal sealed class ExpressionQueryPlanParser
 
     private static bool TryGetDateTimePart(MemberExpression memberExpression, out QueryPlanFunctionKind functionKind)
     {
-        var declaringType = GetNonNullableType(memberExpression.Member.DeclaringType ?? memberExpression.Expression?.Type ?? memberExpression.Type);
-        switch (declaringType)
+        var sourceType = memberExpression.Expression is null
+            ? null
+            : GetNonNullableType(memberExpression.Expression.Type);
+
+        if (sourceType == typeof(DateOnly) || sourceType == typeof(DateTime))
         {
-            case var type when type == typeof(DateTime) || type == typeof(DateOnly):
-                switch (memberExpression.Member.Name)
-                {
-                    case nameof(DateTime.Year):
-                        functionKind = QueryPlanFunctionKind.DatePartYear;
-                        return true;
-                    case nameof(DateTime.Month):
-                        functionKind = QueryPlanFunctionKind.DatePartMonth;
-                        return true;
-                    case nameof(DateTime.Day):
-                        functionKind = QueryPlanFunctionKind.DatePartDay;
-                        return true;
-                    case nameof(DateTime.DayOfYear):
-                        functionKind = QueryPlanFunctionKind.DatePartDayOfYear;
-                        return true;
-                    case nameof(DateTime.DayOfWeek):
-                        functionKind = QueryPlanFunctionKind.DatePartDayOfWeek;
-                        return true;
-                }
-                break;
+            switch (memberExpression.Member.Name)
+            {
+                case nameof(DateTime.Year):
+                    functionKind = QueryPlanFunctionKind.DatePartYear;
+                    return true;
+                case nameof(DateTime.Month):
+                    functionKind = QueryPlanFunctionKind.DatePartMonth;
+                    return true;
+                case nameof(DateTime.Day):
+                    functionKind = QueryPlanFunctionKind.DatePartDay;
+                    return true;
+                case nameof(DateTime.DayOfYear):
+                    functionKind = QueryPlanFunctionKind.DatePartDayOfYear;
+                    return true;
+                case nameof(DateTime.DayOfWeek):
+                    functionKind = QueryPlanFunctionKind.DatePartDayOfWeek;
+                    return true;
+            }
+        }
 
-            case var type when type == typeof(DateTimeOffset):
-                switch (memberExpression.Member.Name)
-                {
-                    case nameof(DateTimeOffset.Year):
-                        functionKind = QueryPlanFunctionKind.DatePartYear;
-                        return true;
-                    case nameof(DateTimeOffset.Month):
-                        functionKind = QueryPlanFunctionKind.DatePartMonth;
-                        return true;
-                    case nameof(DateTimeOffset.Day):
-                        functionKind = QueryPlanFunctionKind.DatePartDay;
-                        return true;
-                    case nameof(DateTimeOffset.DayOfYear):
-                        functionKind = QueryPlanFunctionKind.DatePartDayOfYear;
-                        return true;
-                    case nameof(DateTimeOffset.DayOfWeek):
-                        functionKind = QueryPlanFunctionKind.DatePartDayOfWeek;
-                        return true;
-                    case nameof(DateTimeOffset.Hour):
-                        functionKind = QueryPlanFunctionKind.TimePartHour;
-                        return true;
-                    case nameof(DateTimeOffset.Minute):
-                        functionKind = QueryPlanFunctionKind.TimePartMinute;
-                        return true;
-                    case nameof(DateTimeOffset.Second):
-                        functionKind = QueryPlanFunctionKind.TimePartSecond;
-                        return true;
-                    case nameof(DateTimeOffset.Millisecond):
-                        functionKind = QueryPlanFunctionKind.TimePartMillisecond;
-                        return true;
-                }
-                break;
-
-            case var type when type == typeof(TimeOnly):
-                switch (memberExpression.Member.Name)
-                {
-                    case nameof(TimeOnly.Hour):
-                        functionKind = QueryPlanFunctionKind.TimePartHour;
-                        return true;
-                    case nameof(TimeOnly.Minute):
-                        functionKind = QueryPlanFunctionKind.TimePartMinute;
-                        return true;
-                    case nameof(TimeOnly.Second):
-                        functionKind = QueryPlanFunctionKind.TimePartSecond;
-                        return true;
-                    case nameof(TimeOnly.Millisecond):
-                        functionKind = QueryPlanFunctionKind.TimePartMillisecond;
-                        return true;
-                }
-                break;
+        if (sourceType == typeof(TimeOnly) || sourceType == typeof(DateTime))
+        {
+            switch (memberExpression.Member.Name)
+            {
+                case nameof(DateTime.Hour):
+                    functionKind = QueryPlanFunctionKind.TimePartHour;
+                    return true;
+                case nameof(DateTime.Minute):
+                    functionKind = QueryPlanFunctionKind.TimePartMinute;
+                    return true;
+                case nameof(DateTime.Second):
+                    functionKind = QueryPlanFunctionKind.TimePartSecond;
+                    return true;
+                case nameof(DateTime.Millisecond):
+                    functionKind = QueryPlanFunctionKind.TimePartMillisecond;
+                    return true;
+            }
         }
 
         functionKind = default;

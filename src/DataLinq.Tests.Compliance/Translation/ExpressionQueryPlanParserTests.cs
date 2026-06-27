@@ -90,6 +90,69 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
+    public async Task ExpressionParser_StringDateNullableAndBooleanShapesMatchRemotionPlan()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_StringDateNullableAndBooleanShapesMatchRemotionPlan),
+            EmployeesSeedMode.Bogus);
+
+        var login = new TimeOnly(9, 15, 0);
+        var testDate = new DateOnly(2021, 7, 3);
+        var testDateTime = new DateTime(2021, 7, 3, 11, 23, 42, 123);
+
+        await AssertParserMatchesRemotion(
+            databaseScope.Database,
+            databaseScope.Database.Query().Departments.Where(x =>
+                !x.DeptNo.StartsWith("d00") ||
+                x.Name.Contains("Sales") ||
+                string.IsNullOrWhiteSpace(x.Name)));
+
+        await AssertParserMatchesRemotion(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees.Where(x =>
+                x.from_date.Year == testDate.Year &&
+                x.from_date.DayOfWeek == testDate.DayOfWeek));
+
+        await AssertParserMatchesRemotion(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees.Where(x =>
+                x.last_login != null &&
+                x.last_login != login &&
+                x.created_at!.Value.Minute == testDateTime.Minute));
+
+        await AssertParserMatchesRemotion(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees.Where(x =>
+                x.emp_no.HasValue &&
+                (x.gender == Employee.Employeegender.M || x.gender == Employee.Employeegender.F)));
+    }
+
+    [Test]
+    public async Task ExpressionParser_LocalSequenceAndAggregateVariantsMatchRemotionPlan()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_LocalSequenceAndAggregateVariantsMatchRemotionPlan),
+            EmployeesSeedMode.Bogus);
+
+        var employeeNumbers = new[] { 10001, 10002, 10003 };
+        var departmentNumbers = new[] { "d001", "d002" };
+
+        await AssertParserMatchesRemotion(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees.Where(x => employeeNumbers.Contains(x.emp_no!.Value)));
+
+        await AssertParserMatchesRemotion(
+            databaseScope.Database,
+            databaseScope.Database.Query().Departments.Where(x => !departmentNumbers.Contains(x.DeptNo)));
+
+        await AssertParserMatchesRemotion(databaseScope.Database, () => databaseScope.Database.Query().Managers.Min(x => x.emp_no));
+        await AssertParserMatchesRemotion(databaseScope.Database, () => databaseScope.Database.Query().Managers.Max(x => x.emp_no));
+        await AssertParserMatchesRemotion(databaseScope.Database, () => databaseScope.Database.Query().Managers.Average(x => x.emp_no));
+    }
+
+    [Test]
     public async Task ExpressionParser_ExplicitJoinShapeMatchesRemotionPlan()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
