@@ -2,13 +2,15 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 13: Explicit Multi-Join Composition
 
-**Status:** Next implementation priority after completed Phase 12C CLI configuration and regeneration workflow.
+**Status:** Planned follow-up. This was the next implementation priority after completed Phase 12C, but the 0.8 branch now pulls Phase 17 query-plan and Remotion-isolation work forward.
 
 ## Purpose
 
 Phase 13 makes ordinary explicit joins genuinely useful before DataLinq adds prettier relation-aware join syntax.
 
 The rule is simple: if DataLinq cannot compose standard C# query-syntax joins with filtering, ordering, paging, and result operators, then `JoinBy(...)` would just be attractive syntax over a weak engine.
+
+For 0.8, broad join expansion should wait until the source-slot-aware DataLinq query plan exists. Extending the old Remotion-shaped boundary first would increase the migration surface for the parser replacement.
 
 ## Execution Boundary
 

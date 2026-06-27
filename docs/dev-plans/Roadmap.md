@@ -512,7 +512,7 @@ Closeout result:
 
 ### Phase 13: Explicit Multi-Join Composition
 
-Status: next implementation priority after completed Phase 12C.
+Status: planned follow-up. This was the next implementation priority after Phase 12C, but the 0.8 branch now pulls Phase 17 forward so broad join expansion can be built on a DataLinq-owned query plan instead of the old Remotion-shaped boundary.
 
 Goals:
 
@@ -609,7 +609,7 @@ Key related plans:
 
 ### Phase 17: Query Plan and Remotion Isolation
 
-Status: deferred to the back of the roadmap.
+Status: pulled forward as the 0.8 query-parser theme after the 0.7.1 release.
 
 Goals:
 
@@ -620,15 +620,22 @@ Goals:
 - investigate SQLitePCLRaw WebAssembly warnings with exact call-path evidence
 - keep no-AOT browser WebAssembly unsupported unless it actually runs
 
-Why last:
+Why this was originally last:
 
 - this is a query-pipeline migration, not a cleanup task
 - it has high regression risk across the LINQ support matrix
-- key/cache and join work are more important right now
+- key/cache and join work were considered more important when this was parked
 - Phase 8C cleaned the package/generated-runtime surface without forcing a parser rewrite
+
+Why 0.8 pulls it forward:
+
+- the remaining Remotion dependency is now the obvious practical AOT/query-boundary debt
+- expanding joins on the old parser first would increase the surface area that must immediately be migrated
+- the source-slot-aware query plan needed for Remotion replacement is also the foundation later join work wants
 
 Key related plans:
 
+- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/0.8 Query Parser Overview.md`
 - `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/README.md`
 - `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation Plan.md`
 - `query-and-runtime/Remotion.Linq Replacement Plan.md`
@@ -661,7 +668,9 @@ Phase 10 is now complete: metadata collection and lookup cleanup, generated prov
 
 Phase 11 is now complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is now complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led rejection of production interning.
 
-The next priority should be Phase 13 explicit multi-join composition, followed by the relation-aware join work in Phase 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
+After the 0.7.1 release, the `v0.8` branch deliberately pulls Phase 17 forward. The next priority is now the query-plan and Remotion-isolation work: introduce a DataLinq-owned plan behind Remotion, move SQL generation behind that plan, build the supported-subset expression parser, and remove or isolate Remotion from the practical AOT support boundary.
+
+Phase 13 explicit multi-join composition and Phase 14 relation-aware joins should remain planned follow-up work, but they should be rebased on the source-slot-aware query plan instead of broadening the old Remotion boundary first.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 
@@ -675,7 +684,7 @@ These may still be good ideas, but they should not lead the queue:
 - large documentation rewrites unrelated to immediate product clarity
 - query abstraction for hypothetical future backends before the current SQL path is fully measured
 - committing to a magical lazy-loading async API before sync/async boundaries are tested and defended
-- Remotion replacement before the nearer key/cache and join phases force a real parser-boundary decision
+- broad join API expansion before the source-slot-aware query plan exists
 
 ## Review Trigger
 

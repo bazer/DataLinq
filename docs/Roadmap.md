@@ -2,7 +2,7 @@
 
 This page is the public roadmap snapshot. It describes direction, not shipped behavior. For current product behavior, use the usage docs, support matrices, and changelog.
 
-## Current 0.7.0 Baseline
+## Current 0.7.1 Baseline
 
 DataLinq is currently a source-generated, immutable-first ORM for MySQL, MariaDB, and SQLite. The stable public shape is:
 
@@ -28,9 +28,21 @@ For release-level detail, see the [changelog](../CHANGELOG.md).
 
 ## Near-Term Direction
 
+### Query Plan and Remotion Isolation
+
+The 0.8 branch pulls the query-parser boundary forward as the next major theme:
+
+- introduce a DataLinq-owned query plan behind the current Remotion parser
+- move SQL generation and query diagnostics behind that plan
+- build a supported-subset expression parser over `System.Linq.Expressions`
+- dual-run parser parity against the documented LINQ support matrix
+- remove or isolate `Remotion.Linq` from the practical AOT support boundary
+
+This should not become a general LINQ-provider rewrite. The parser should target the documented supported subset first, preserve current tested behavior where practical, and reject unsupported shapes with specific diagnostics.
+
 ### Explicit Multi-Join Composition
 
-The next broad query priority is standard explicit inner-join composition:
+After the query plan exists, the next broad query priority is standard explicit inner-join composition:
 
 - C# query-syntax joins as a documented path
 - multiple explicit inner joins
@@ -62,7 +74,5 @@ The cache and metadata layers now distinguish provider-key identity from model-f
 ## Later Work
 
 Dependency-tracked result-set caching remains deferred until joins, projection semantics, invalidation, and freshness vocabulary are stronger. A cached result-set feature without a boring correctness story would be clever in the worst way.
-
-The query-plan and Remotion isolation work is also later. It matters for a stronger AOT/trimming story, but it is a high-regression-risk query-pipeline migration. It should follow the nearer join and key/converter work unless constrained-platform query support becomes the immediate blocker.
 
 Full migration execution also remains future work. `validate` and `diff` are real product features today; `add-migration`, `update-database`, migration history tracking, and runtime migration APIs are not.

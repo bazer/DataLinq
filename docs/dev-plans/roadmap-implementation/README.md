@@ -22,17 +22,17 @@ Active or deferred execution plans:
 | --- | --- | --- |
 | Phase 12B: Generation Trust and Diagnostics Hardening | Complete as of 2026-05-14 | `phase-12b-generation-trust-and-diagnostics-hardening/` |
 | Phase 12C: CLI Configuration and Regeneration Workflow | Complete as of 2026-05-18 | `phase-12c-cli-configuration-and-regeneration-workflow/` |
-| Phase 13: Explicit Multi-Join Composition | Next implementation priority | `phase-13-explicit-multi-join-composition/` |
+| Phase 13: Explicit Multi-Join Composition | Planned follow-up; no longer the immediate 0.8 priority | `phase-13-explicit-multi-join-composition/` |
 | Phase 14: Relation-Aware Joins and Left Joins | Planned join API phase | `phase-14-relation-aware-joins-and-left-joins/` |
 | Phase 15: Scalar Converters and Typed-Key Ergonomics | Planned conversion/key ergonomics phase | `phase-15-scalar-converters-and-typed-key-ergonomics/` |
 | Phase 16: Dependency-Tracked Result-Set Caching | Deferred semantic cache phase | `phase-16-dependency-tracked-result-set-caching/` |
-| Phase 17: Query Plan and Remotion Isolation | Deferred query-boundary and WebAssembly warning phase | `phase-17-query-plan-and-remotion-isolation/` |
+| Phase 17: Query Plan and Remotion Isolation | Pulled forward as the 0.8 query-parser theme | `phase-17-query-plan-and-remotion-isolation/` |
 
 Completed execution records for Phases 1 through 12 live in [`../archive/roadmap-implementation/README.md`](../archive/roadmap-implementation/README.md).
 
 ## Current Roadmap Position
 
-As of 2026-05-18, Phases 1 through 12C are closed execution history. Phase 12B completed generation-trust hardening, and Phase 12C completed the CLI, configuration, regeneration, schema, diagnostics, and secrets workflow before returning to query API expansion. Phase 13 is now the next implementation priority.
+As of 2026-05-18, Phases 1 through 12C are closed execution history. Phase 12B completed generation-trust hardening, and Phase 12C completed the CLI, configuration, regeneration, schema, diagnostics, and secrets workflow before returning to query API expansion. After the 0.7.1 release, the `v0.8` branch pulled Phase 17 forward as the next implementation theme so the Remotion/query-parser boundary can be addressed before broadening the old query pipeline.
 
 Phase 4 has the support matrix and provider roundtrip boundary that schema validation needed. Phase 5 has the comparer, validation CLI, conservative diff-script generator, and first snapshot migration contract. Full versioned migration execution is not a remaining Phase 5 cleanup task; it is a separate future product surface.
 
@@ -44,7 +44,7 @@ The Phase 7 plan completed scalar aggregates, projection expansion, nullable pre
 
 The Phase 8 plan closed with executable generated SQLite smoke coverage for Native AOT, trimmed publish, and Blazor WebAssembly AOT. Phase 8B closed the generated-contract and immutable metadata foundation. Phase 8C then completed the bounded package/generated-runtime cleanup: repeatable size reports, Roslyn removal from runtime dependency groups, complete generated metadata startup, runtime reflection metadata-discovery removal, generated indexed access, and package/public wording.
 
-The query-plan, Remotion isolation, supported-subset parser, and SQLitePCLRaw warning work remain Phase 17 at the back of the roadmap.
+The query-plan, Remotion isolation, and supported-subset parser work are now the 0.8 focus. SQLitePCLRaw warning disposition remains in the Phase 17 plan, but should not distract from the parser replacement unless the 0.8 release explicitly includes browser warning cleanup.
 
 Phase 9A is complete for warning cleanup, benchmark-history and website trends, allocation reduction, and conservative cache invalidation hardening. Its benchmark closeout supports allocation and invalidation claims, not latency claims.
 

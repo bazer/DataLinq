@@ -146,13 +146,13 @@ As of the Phase 12 closeout on 2026-05-13:
 - Phase 12 memory-pressure cleanup and measured deduplication is complete: estimated cache memory accounting, estimated-footprint byte limits, memory-pressure-aware cleanup, coordinated cleanup scheduling, cleanup telemetry, and benchmark-led rejection of production value/key deduplication have landed.
 - Phase 12B generation trust and diagnostics hardening is complete: aggregate validation diagnostics, source-location fidelity, safe CLI generation, partial source-generator output, generated-file preambles, and nullable-reference-generation defaults.
 - Phase 12C CLI configuration and regeneration workflow is complete: nested CLI commands, config init/schema/validate, batch generation and validation, diagnostics output, and secret references have landed.
-- Phase 13 explicit multi-join composition is the next implementation priority before relation-aware join syntax: standard query-syntax joins, multiple explicit joins, and filtering/ordering/paging/counting over joined rows.
+- Phase 13 explicit multi-join composition is planned follow-up work after the 0.8 query-plan push: standard query-syntax joins, multiple explicit joins, and filtering/ordering/paging/counting over joined rows should build on the source-slot-aware plan instead of broadening the old Remotion boundary first.
 - Phase 14 relation-aware joins and left joins owns `JoinBy(...)`, `JoinMany(...)`, join-local `on:` predicates, and left-join nullability semantics.
 - Phase 15 scalar converters and typed-key ergonomics owns provider/model value conversion after the provider-key cache design has room for it.
 - Phase 16 dependency-tracked result and module caching remains deferred until cache invalidation, freshness vocabulary, joins, projection semantics, and the DataLinq.Store module contract are stronger.
-- Phase 17 query plan and Remotion isolation is deferred to the back of the roadmap. It owns the DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
+- Phase 17 query plan and Remotion isolation has been pulled forward as the 0.8 query-parser theme. It owns the DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
 - Completed phase records and superseded implementation plans have moved under `archive/`; active docs should describe future work or current strategy.
 
-The next broad runtime work should be Phase 13 explicit multi-join composition, followed by relation-aware joins. The Remotion/parser rewrite should stay out of the immediate queue unless constrained-platform query support becomes the concrete blocker.
+The next broad runtime work is now Phase 17 query plan and Remotion isolation. Phase 13 explicit multi-join composition and Phase 14 relation-aware joins should follow once the source-slot-aware query plan exists.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.
