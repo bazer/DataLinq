@@ -50,7 +50,9 @@ Current state:
 - supported nullable `.HasValue`/`.Value` and `string.Length` projection members are interpreted explicitly
 - supported string projection methods are interpreted explicitly
 - unsupported projection methods now fail without invoking user code
-- projection evaluation still uses `ConstructorInfo.Invoke(...)`, plus `FieldInfo.GetValue(...)` and `PropertyInfo.GetValue(...)` for non-model compatibility member reads
+- projection evaluation now carries `ProjectionEvaluationOptions`, including an `AotStrict` mode that rejects compatibility object construction and compatibility member reflection
+- anonymous/new-object projection still uses `ConstructorInfo.Invoke(...)` in the default compatibility mode
+- projection evaluation still uses `FieldInfo.GetValue(...)` and `PropertyInfo.GetValue(...)` for non-model compatibility member reads in the default compatibility mode
 - this is the main remaining Phase 5 implementation target
 
 Required action:
@@ -58,7 +60,7 @@ Required action:
 - define the supported row-local projection interpreter boundary
 - keep relation projection and nested database projection rejected
 - route supported projection execution away from constructor invocation and broad non-model member reflection where practical
-- isolate any compatibility fallback so constrained-platform verification can assert it was not used
+- wire constrained-platform verification through `ProjectionEvaluationOptions.AotStrict` or an equivalent runtime path so fallback usage becomes a testable failure
 
 ## Legacy Remotion-Backed Local Evaluation State
 

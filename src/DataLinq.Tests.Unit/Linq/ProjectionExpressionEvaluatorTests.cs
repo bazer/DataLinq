@@ -4,6 +4,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using DataLinq.Core.Factories;
+using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Linq;
 using DataLinq.Metadata;
@@ -32,10 +33,70 @@ public class ProjectionExpressionEvaluatorTests
         await Assert.That(employee.PropertyGetterInvocationCount).IsEqualTo(0);
     }
 
+    [Test]
+    public async Task AotStrictProjectionEvaluation_AllowsSupportedScalarMemberProjection()
+    {
+        var table = GetTable<Employee>();
+        var firstName = table.GetColumnByPropertyName(nameof(Employee.first_name));
+        var rowData = new StubRowData(table, new Dictionary<ColumnDefinition, object?>
+        {
+            [firstName] = "Ada"
+        });
+        var employee = new ThrowingEmployee(rowData);
+        Expression<Func<Employee, string>> expression = x => x.first_name.Trim().ToUpper();
+
+        var actual = ProjectionExpressionEvaluator.Evaluate(
+            expression.Body,
+            expression.Parameters[0],
+            employee,
+            ProjectionEvaluationOptions.AotStrict);
+
+        await Assert.That(actual).IsEqualTo("ADA");
+        await Assert.That(employee.PropertyGetterInvocationCount).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task AotStrictProjectionEvaluation_RejectsCompatibilityObjectConstruction()
+    {
+        var table = GetTable<Employee>();
+        var firstName = table.GetColumnByPropertyName(nameof(Employee.first_name));
+        var rowData = new StubRowData(table, new Dictionary<ColumnDefinition, object?>
+        {
+            [firstName] = "Ada"
+        });
+        var employee = new ThrowingEmployee(rowData);
+        Expression<Func<Employee, object>> expression = x => new { x.first_name };
+
+        var exception = Capture<QueryTranslationException>(() =>
+            ProjectionExpressionEvaluator.Evaluate(
+                expression.Body,
+                expression.Parameters[0],
+                employee,
+                ProjectionEvaluationOptions.AotStrict));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("requires compatibility constructor invocation");
+        await Assert.That(employee.PropertyGetterInvocationCount).IsEqualTo(0);
+    }
+
     private static TableDefinition GetTable<TModel>()
     {
         var metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
         return metadata.TableModels.Single(x => x.Model.CsType.Type == typeof(TModel)).Table;
+    }
+
+    private static TException? Capture<TException>(Action action)
+        where TException : Exception
+    {
+        try
+        {
+            action();
+            return null;
+        }
+        catch (TException exception)
+        {
+            return exception;
+        }
     }
 
     private sealed class StubRowData(
