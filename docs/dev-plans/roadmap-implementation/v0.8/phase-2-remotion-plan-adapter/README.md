@@ -2,7 +2,11 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 2: Remotion Plan Adapter
 
-**Status:** Planned after Phase 1.
+**Status:** Next.
+
+## Execution Plan
+
+- [Implementation Plan](Implementation%20Plan.md)
 
 ## Purpose
 
