@@ -221,6 +221,7 @@ internal sealed class RemotionQueryPlanAdapter
     private QueryPlanProjection CreateProjection(Expression selector, Type resultType)
     {
         selector = UnwrapConvert(selector);
+        ValidateProjectionSupported(selector);
 
         if (selector is QuerySourceReferenceExpression querySource)
             return new QueryPlanProjection.Entity(GetSource(querySource.ReferencedQuerySource));
@@ -242,6 +243,12 @@ internal sealed class RemotionQueryPlanAdapter
                 [new QueryPlanProjectionMember("value", new QueryPlanFunctionValue(QueryPlanFunctionKind.ClientExpression, [], resultType))],
                 referencedSources)
             : new QueryPlanProjection.ComputedRowLocal(resultType, GetExpressionShape(selector), referencedSources);
+    }
+
+    private void ValidateProjectionSupported(Expression selector)
+    {
+        var visitor = new ProjectionUnsupportedShapeVisitor(this, selector);
+        visitor.Visit(selector);
     }
 
     private bool TryCreateProjectionMembers(NewExpression newExpression, out IReadOnlyList<QueryPlanProjectionMember> members)
@@ -325,9 +332,7 @@ internal sealed class RemotionQueryPlanAdapter
         var left = ConvertValue(binary.Left);
         var right = ConvertValue(binary.Right);
         var comparisonOperator = GetComparisonOperator(binary.NodeType);
-        var nullSemantics = comparisonOperator == QueryPlanComparisonOperator.NotEqual && IsNullableColumnComparedWithNonNull(left, right)
-            ? QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull
-            : QueryPlanNullSemantics.Default;
+        var nullSemantics = GetComparisonNullSemantics(comparisonOperator, left, right, bindings.Bindings);
 
         return new QueryPlanPredicate.Compare(left, comparisonOperator, right, nullSemantics);
     }
@@ -1384,13 +1389,84 @@ internal sealed class RemotionQueryPlanAdapter
         throw new QueryTranslationException($"Constant value '{left}' does not support comparison in query plan predicate translation.");
     }
 
-    private static bool IsNullableColumnComparedWithNonNull(QueryPlanValue left, QueryPlanValue right)
-        => IsNullableColumnAndNonNullValue(left, right) || IsNullableColumnAndNonNullValue(right, left);
+    internal static QueryPlanNullSemantics GetComparisonNullSemantics(
+        QueryPlanComparisonOperator comparisonOperator,
+        QueryPlanValue left,
+        QueryPlanValue right,
+        IReadOnlyList<QueryPlanBinding> bindings)
+    {
+        ArgumentNullException.ThrowIfNull(left);
+        ArgumentNullException.ThrowIfNull(right);
+        ArgumentNullException.ThrowIfNull(bindings);
 
-    private static bool IsNullableColumnAndNonNullValue(QueryPlanValue columnCandidate, QueryPlanValue valueCandidate)
+        return comparisonOperator == QueryPlanComparisonOperator.NotEqual && IsNullableColumnComparedWithNonNull(left, right, bindings)
+            ? QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull
+            : QueryPlanNullSemantics.Default;
+    }
+
+    private static bool IsNullableColumnComparedWithNonNull(QueryPlanValue left, QueryPlanValue right, IReadOnlyList<QueryPlanBinding> bindings)
+        => IsNullableColumnAndNonNullValue(left, right, bindings) || IsNullableColumnAndNonNullValue(right, left, bindings);
+
+    private static bool IsNullableColumnAndNonNullValue(QueryPlanValue columnCandidate, QueryPlanValue valueCandidate, IReadOnlyList<QueryPlanBinding> bindings)
         => columnCandidate is QueryPlanColumnValue column &&
            column.Column.ValueProperty.CsNullable &&
-           valueCandidate is not QueryPlanConstantValue { Value: null };
+           !IsNullValue(valueCandidate, bindings);
+
+    private static bool IsNullValue(QueryPlanValue value, IReadOnlyList<QueryPlanBinding> bindings)
+        => value is QueryPlanConstantValue { Value: null } ||
+           value is QueryPlanCapturedValue captured &&
+           bindings.SingleOrDefault(binding => binding.Id == captured.BindingId) is { Kind: QueryPlanBindingKind.Scalar, Value: null };
+
+    private bool TryGetRelationProjectionProperty(MemberExpression memberExpression, out RelationProperty relationProperty)
+    {
+        if (TryGetProjectionSourceType(memberExpression.Expression, out var sourceType) &&
+            metadata.TryGetTableModel(sourceType, out var tableModel) &&
+            tableModel.Model.RelationProperties.TryGetValue(memberExpression.Member.Name, out relationProperty!))
+        {
+            return true;
+        }
+
+        relationProperty = null!;
+        return false;
+    }
+
+    private bool TryGetProjectionSourceType(Expression? expression, out Type sourceType)
+    {
+        expression = UnwrapConvert(expression);
+
+        switch (expression)
+        {
+            case QuerySourceReferenceExpression querySourceReference:
+                sourceType = sourceSlots.TryGetValue(querySourceReference.ReferencedQuerySource, out var querySource)
+                    ? querySource.ElementType
+                    : querySourceReference.Type;
+                return true;
+
+            case ParameterExpression parameterExpression:
+                sourceType = parameterSourceSlots.TryGetValue(parameterExpression, out var parameterSource)
+                    ? parameterSource.ElementType
+                    : parameterExpression.Type;
+                return true;
+
+            case MemberExpression nestedMember:
+                return TryGetProjectionSourceType(nestedMember.Expression, out sourceType);
+
+            case MethodCallExpression methodCall:
+                if (TryGetProjectionSourceType(methodCall.Object, out sourceType))
+                    return true;
+
+                foreach (var argument in methodCall.Arguments)
+                {
+                    if (TryGetProjectionSourceType(argument, out sourceType))
+                        return true;
+                }
+
+                break;
+        }
+
+        sourceType = null!;
+        return false;
+    }
 
     private static Type GetNonNullableType(Type type) => Nullable.GetUnderlyingType(type) ?? type;
 
@@ -1427,6 +1503,37 @@ internal sealed class RemotionQueryPlanAdapter
             }
 
             return node.CanReduce ? Visit(node.Reduce()) : node;
+        }
+    }
+
+    private sealed class ProjectionUnsupportedShapeVisitor(
+        RemotionQueryPlanAdapter adapter,
+        Expression selector) : ExpressionVisitor
+    {
+        protected override Expression VisitExtension(Expression node)
+        {
+            if (node is SubQueryExpression)
+            {
+                throw new QueryTranslationException(
+                    "Nested database query projection is not supported in LINQ Select projection. " +
+                    "Projection expressions are evaluated after materializing the selected rows; load nested query results explicitly after ToList(). " +
+                    $"Expression: {selector}");
+            }
+
+            return node.CanReduce ? Visit(node.Reduce()) : node;
+        }
+
+        protected override Expression VisitMember(MemberExpression node)
+        {
+            if (adapter.TryGetRelationProjectionProperty(node, out var relationProperty))
+            {
+                throw new QueryTranslationException(
+                    $"Relation property '{relationProperty.PropertyName}' is not supported in LINQ Select projection. " +
+                    "Projection expressions are evaluated after materializing the selected rows; load relation data explicitly after ToList(). " +
+                    $"Expression: {selector}");
+            }
+
+            return base.VisitMember(node);
         }
     }
 

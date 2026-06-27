@@ -81,6 +81,71 @@ public class QueryPlanAdapterUnsupportedShapeTests
         await Assert.That(exception.Message).Contains("Filtering");
     }
 
+    [Test]
+    public async Task AdapterRejectsRelationPropertyProjection()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(AdapterRejectsRelationPropertyProjection),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().Departments
+            .Select(department => department.Managers);
+
+        var exception = Capture<QueryTranslationException>(() =>
+            RemotionQueryPlanAdapter.Convert(databaseScope.Database, query));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("Relation property 'Managers'");
+        await Assert.That(exception.Message).Contains("LINQ Select projection");
+    }
+
+    [Test]
+    public async Task AdapterRejectsNestedDatabaseSubqueryProjection()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(AdapterRejectsNestedDatabaseSubqueryProjection),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().Departments
+            .Select(department => databaseScope.Database.Query().Managers.Count(manager => manager.dept_fk == department.DeptNo));
+
+        var exception = Capture<QueryTranslationException>(() =>
+            RemotionQueryPlanAdapter.Convert(databaseScope.Database, query));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("Nested database query projection");
+        await Assert.That(exception.Message).Contains("LINQ Select projection");
+    }
+
+    [Test]
+    public async Task AdapterRejectsRelationPropertyProjectionInsideExplicitJoinSelector()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(AdapterRejectsRelationPropertyProjectionInsideExplicitJoinSelector),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().DepartmentEmployees
+            .Join(
+                databaseScope.Database.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    ManagerCount = department.Managers.Count
+                });
+
+        var exception = Capture<QueryTranslationException>(() =>
+            RemotionQueryPlanAdapter.Convert(databaseScope.Database, query));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("Relation property 'Managers'");
+        await Assert.That(exception.Message).Contains("LINQ Select projection");
+    }
+
     private static TException? Capture<TException>(Action action)
         where TException : Exception
     {

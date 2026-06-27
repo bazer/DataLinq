@@ -89,6 +89,20 @@ public class QueryPlanNodeTests
     }
 
     [Test]
+    public async Task NullableInequalitySnapshot_DistinguishesCapturedNullSemantics()
+    {
+        var capturedNullSnapshot = NullableInequalitySnapshot(null);
+        var capturedNonNullSnapshot = NullableInequalitySnapshot(new TimeOnly(9, 15, 0));
+
+        await Assert.That(capturedNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != captured(p0:TimeOnly?))");
+        await Assert.That(capturedNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-not-equal-includes-null");
+        await Assert.That(capturedNullSnapshot).Contains("p0 scalar type=TimeOnly?");
+        await Assert.That(capturedNonNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != captured(p0:TimeOnly?) nulls=c-sharp-nullable-not-equal-includes-null)");
+        await Assert.That(capturedNonNullSnapshot).Contains("p0 scalar type=TimeOnly?");
+        await Assert.That(capturedNonNullSnapshot).DoesNotContain("09:15");
+    }
+
+    [Test]
     public async Task PlanningNodes_DoNotExposeRemotionTypes()
     {
         var planningTypes = typeof(DataLinqQueryPlan).Assembly
@@ -132,6 +146,35 @@ public class QueryPlanNodeTests
             QueryPlanSourceKind.RootTable,
             QueryPlanSourceCardinality.Many,
             IsNullable: false);
+
+    private static string NullableInequalitySnapshot(TimeOnly? value)
+    {
+        var table = GetTable<Employee>();
+        var source = Source("s0", table);
+        var frame = new QueryPlanBindingFrame();
+        var column = new QueryPlanColumnValue(source, table.GetColumnByPropertyName(nameof(Employee.last_login)));
+        var captured = frame.CaptureScalar(value, typeof(TimeOnly?));
+        var nullSemantics = RemotionQueryPlanAdapter.GetComparisonNullSemantics(
+            QueryPlanComparisonOperator.NotEqual,
+            column,
+            captured,
+            frame.Bindings);
+
+        var plan = new DataLinqQueryPlan(
+            [source],
+            [
+                new QueryPlanOperation.Where(new QueryPlanPredicate.Compare(
+                    column,
+                    QueryPlanComparisonOperator.NotEqual,
+                    captured,
+                    nullSemantics))
+            ],
+            new QueryPlanProjection.Entity(source),
+            QueryPlanResult.Sequence(typeof(Employee)),
+            frame);
+
+        return QueryPlanDebugWriter.Write(plan);
+    }
 
     private static TException? Capture<TException>(Action action)
         where TException : Exception
