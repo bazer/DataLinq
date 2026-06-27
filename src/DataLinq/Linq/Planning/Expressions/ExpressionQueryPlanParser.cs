@@ -117,6 +117,7 @@ internal sealed class ExpressionQueryPlanParser
     {
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
+        RejectPostJoinOperator(methodCall.Method.Name);
         RejectPostPagingOperator(methodCall.Method.Name);
 
         var predicate = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
@@ -133,6 +134,7 @@ internal sealed class ExpressionQueryPlanParser
     {
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
+        RejectPostJoinOperator(methodCall.Method.Name);
         RejectPostPagingOperator(methodCall.Method.Name);
 
         var keySelector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
@@ -159,6 +161,7 @@ internal sealed class ExpressionQueryPlanParser
     {
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
+        RejectPostJoinOperator(methodCall.Method.Name);
 
         var count = ConvertValue(methodCall.Arguments[1]);
         operations.Add(isSkip
@@ -172,6 +175,7 @@ internal sealed class ExpressionQueryPlanParser
     {
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
+        RejectPostJoinOperator(methodCall.Method.Name);
         var selector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
         if (selector.Parameters.Count != 1)
             throw new QueryTranslationException($"Select selector '{selector}' is not supported.");
@@ -224,6 +228,7 @@ internal sealed class ExpressionQueryPlanParser
     private ParsedQuery ParseScalar(MethodCallExpression methodCall, QueryPlanResultKind resultKind, Type resultType)
     {
         var parsed = ParseSequence(methodCall.Arguments[0]);
+        RejectPostJoinTerminalOperator(methodCall.Method.Name);
         if (methodCall.Arguments.Count == 2)
         {
             var predicate = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
@@ -244,6 +249,7 @@ internal sealed class ExpressionQueryPlanParser
     private ParsedQuery ParseSingle(MethodCallExpression methodCall, QueryPlanResultKind resultKind, Type resultType)
     {
         var parsed = ParseSequence(methodCall.Arguments[0]);
+        RejectPostJoinTerminalOperator(methodCall.Method.Name);
         if (methodCall.Arguments.Count == 2)
         {
             var predicate = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
@@ -264,6 +270,7 @@ internal sealed class ExpressionQueryPlanParser
     private ParsedQuery ParseAggregate(MethodCallExpression methodCall, QueryPlanResultKind resultKind, Type resultType)
     {
         var parsed = ParseSequence(methodCall.Arguments[0]);
+        RejectPostJoinTerminalOperator(methodCall.Method.Name);
         if (methodCall.Arguments.Count != 2)
             throw new QueryTranslationException($"Aggregate operator '{methodCall.Method.Name}' requires a supported selector. Expression: {methodCall}");
 
@@ -1211,6 +1218,23 @@ internal sealed class ExpressionQueryPlanParser
         }
     }
 
+    private void RejectPostJoinOperator(string operatorName)
+    {
+        if (operations.Any(static operation => operation is QueryPlanOperation.Join))
+        {
+            throw new QueryTranslationException(
+                "Join queries currently support only the Join body clause. " +
+                "Filtering, ordering, and additional from clauses over joins are not supported yet. " +
+                $"Operator: {operatorName}");
+        }
+    }
+
+    private void RejectPostJoinTerminalOperator(string operatorName)
+    {
+        if (operations.Any(static operation => operation is QueryPlanOperation.Join))
+            throw new QueryTranslationException($"Terminal operators over explicit Join queries are not supported yet. Operator: {operatorName}");
+    }
+
     private void WithSource(ParameterExpression parameter, QueryPlanSourceSlot source, Action action)
     {
         parameterSourceSlots[parameter] = source;
@@ -1600,6 +1624,19 @@ internal sealed class ExpressionQueryPlanParser
             }
 
             return base.VisitMember(node);
+        }
+
+        protected override Expression VisitMethodCall(MethodCallExpression node)
+        {
+            if (node.Method.DeclaringType == typeof(Queryable))
+            {
+                throw new QueryTranslationException(
+                    "Nested database query projection is not supported in LINQ Select projection. " +
+                    "Projection expressions are evaluated after materializing the selected rows; load nested query results explicitly after ToList(). " +
+                    $"Expression: {selector}");
+            }
+
+            return base.VisitMethodCall(node);
         }
     }
 

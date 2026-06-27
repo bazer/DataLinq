@@ -276,6 +276,61 @@ public class ExpressionQueryPlanParserTests
         await Assert.That(exception.Message).Contains("subquery pushdown");
     }
 
+    [Test]
+    public async Task ExpressionParser_UnsupportedShapesKeepFocusedDiagnostics()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_UnsupportedShapesKeepFocusedDiagnostics),
+            EmployeesSeedMode.Bogus);
+
+        await AssertParserFailure(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees.GroupBy(x => x.gender),
+            "GroupBy",
+            "not supported");
+
+        await AssertParserFailure(
+            databaseScope.Database,
+            databaseScope.Database.Query().Departments.GroupJoin(
+                databaseScope.Database.Query().Managers,
+                department => department.DeptNo,
+                manager => manager.dept_fk,
+                (department, managers) => new { department.DeptNo, ManagerCount = managers.Count() }),
+            "GroupJoin",
+            "not supported");
+
+        await AssertParserFailure(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees
+                .Join(
+                    databaseScope.Database.Query().Departments,
+                    departmentEmployee => departmentEmployee.dept_no,
+                    department => department.DeptNo,
+                    (departmentEmployee, department) => new
+                    {
+                        departmentEmployee.emp_no,
+                        departmentEmployee.dept_no,
+                        DepartmentName = department.Name
+                    })
+                .Where(row => row.dept_no == "d001"),
+            "Join queries currently support only the Join body clause",
+            "Filtering");
+
+        await AssertParserFailure(
+            databaseScope.Database,
+            databaseScope.Database.Query().Departments.Select(department => department.Managers),
+            "Relation property 'Managers'",
+            "LINQ Select projection");
+
+        await AssertParserFailure(
+            databaseScope.Database,
+            databaseScope.Database.Query().Departments.Select(department =>
+                databaseScope.Database.Query().Managers.Count(manager => manager.dept_fk == department.DeptNo)),
+            "Nested database query projection",
+            "LINQ Select projection");
+    }
+
     private static async Task AssertParserMatchesRemotion<T>(Database<EmployeesDb> database, IQueryable<T> query)
     {
         var remotionSnapshot = QueryPlanDebugWriter.Write(RemotionQueryPlanAdapter.Convert(database, query));
@@ -319,6 +374,16 @@ public class ExpressionQueryPlanParserTests
     {
         foreach (var term in BannedRemotionTerms)
             await Assert.That(snapshot).DoesNotContain(term);
+    }
+
+    private static async Task AssertParserFailure<T>(Database<EmployeesDb> database, IQueryable<T> query, params string[] expectedMessageFragments)
+    {
+        var exception = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(database, query));
+
+        await Assert.That(exception).IsNotNull();
+        foreach (var fragment in expectedMessageFragments)
+            await Assert.That(exception!.Message).Contains(fragment);
     }
 
     private static TException? Capture<TException>(Action action)
