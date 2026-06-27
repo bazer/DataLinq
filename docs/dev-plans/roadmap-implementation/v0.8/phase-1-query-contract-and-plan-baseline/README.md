@@ -4,6 +4,10 @@
 
 **Status:** Next.
 
+## Execution Plan
+
+- [Implementation Plan](Implementation%20Plan.md)
+
 ## Purpose
 
 Phase 1 locks down the behavior that the parser migration must preserve. The worst possible start is changing the parser boundary before the support matrix is executable enough to catch subtle regressions.
