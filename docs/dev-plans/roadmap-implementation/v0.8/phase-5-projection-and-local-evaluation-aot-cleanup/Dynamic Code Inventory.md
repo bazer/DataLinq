@@ -54,6 +54,7 @@ Current state:
 - supported string projection methods are interpreted explicitly
 - unsupported projection methods now fail without invoking user code
 - projection evaluation now carries `ProjectionEvaluationOptions`, including an `AotStrict` mode that rejects compatibility object construction and compatibility member reflection
+- `PlatformSmokeRunner` now includes a strict parser/projection stage that parses a generated-model query with `ExpressionQueryPlanParserOptions.AotStrict`, renders SQL through `QueryPlanSqlBuilder`, and evaluates a supported scalar row projection with `ProjectionEvaluationOptions.AotStrict`
 - anonymous/new-object projection still uses `ConstructorInfo.Invoke(...)` in the default compatibility mode
 - projection evaluation still uses `FieldInfo.GetValue(...)` and `PropertyInfo.GetValue(...)` for non-model compatibility member reads in the default compatibility mode
 - this is the main remaining Phase 5 implementation target
@@ -63,7 +64,7 @@ Required action:
 - define the supported row-local projection interpreter boundary
 - keep relation projection and nested database projection rejected
 - route supported projection execution away from constructor invocation and broad non-model member reflection where practical
-- wire constrained-platform verification through `ProjectionEvaluationOptions.AotStrict` or an equivalent runtime path so fallback usage becomes a testable failure
+- expand constrained-platform verification beyond the current strict scalar projection smoke once generated-projector support exists for constructed result types
 
 ## Legacy Remotion-Backed Local Evaluation State
 

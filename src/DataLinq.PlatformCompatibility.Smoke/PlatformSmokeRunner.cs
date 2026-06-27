@@ -1,6 +1,10 @@
 using System.Diagnostics;
+using System.Linq.Expressions;
 using System.Threading;
 using DataLinq.Core.Factories;
+using DataLinq.Linq;
+using DataLinq.Linq.Planning.Expressions;
+using DataLinq.Linq.Planning.Sql;
 using DataLinq.Metadata;
 using DataLinq.SQLite;
 
@@ -15,6 +19,7 @@ public sealed record PlatformSmokeResult(
     string FirstTaskTitle,
     string RelatedOwnerName,
     PlatformSmokeProjection[] Projections,
+    string StrictParserProjectionTitle,
     TimeSpan SchemaDuration,
     TimeSpan SeedDuration,
     TimeSpan FirstQueryDuration,
@@ -28,7 +33,8 @@ public sealed record PlatformSmokeResult(
         RelatedOwnerName == "Ada" &&
         Projections.Length == 3 &&
         Projections[0].NormalizedTitle == "COMPILE GENERATED HOOKS" &&
-        Projections[0].PriorityScore == 3;
+        Projections[0].PriorityScore == 3 &&
+        StrictParserProjectionTitle == "COMPILE GENERATED HOOKS";
 
     public string ToDisplayString()
     {
@@ -38,6 +44,7 @@ public sealed record PlatformSmokeResult(
             $"owners={OwnerCount}, tasks={TaskCount}, open={OpenTaskCount}",
             $"first-task=\"{FirstTaskTitle}\", related-owner=\"{RelatedOwnerName}\"",
             $"projection=\"{Projections[0].NormalizedTitle}\"/{Projections[0].PriorityScore}",
+            $"strict-parser-projection=\"{StrictParserProjectionTitle}\"",
             $"schema-ms={SchemaDuration.TotalMilliseconds:0.###}",
             $"seed-ms={SeedDuration.TotalMilliseconds:0.###}",
             $"first-query-ms={FirstQueryDuration.TotalMilliseconds:0.###}",
@@ -174,6 +181,9 @@ public static class PlatformSmokeRunner
             .ToArray();
         repeatedQueryWatch.Stop();
 
+        await ReportStage(reportStage, "verifying-strict-parser-projection");
+        var strictParserProjectionTitle = VerifyStrictParserProjection(database, firstTask);
+
         return new PlatformSmokeResult(
             ownerCount,
             taskCount,
@@ -181,10 +191,40 @@ public static class PlatformSmokeRunner
             firstTask.Title,
             relatedOwnerName,
             projections,
+            strictParserProjectionTitle,
             schemaWatch.Elapsed,
             seedWatch.Elapsed,
             firstQueryWatch.Elapsed,
             repeatedQueryWatch.Elapsed);
+    }
+
+    private static string VerifyStrictParserProjection(SQLiteDatabase<PlatformSmokeDb> database, PlatformSmokeTask row)
+    {
+        var query = database.Query().Tasks
+            .Where(x => x.Priority >= 2)
+            .OrderBy(x => x.Id)
+            .Take(2)
+            .Select(x => x.Title.Trim().ToUpper());
+
+        var plan = ExpressionQueryPlanParser.Convert(
+            database.Provider.Metadata,
+            query.Expression,
+            typeof(string),
+            ExpressionQueryPlanParserOptions.AotStrict);
+
+        var select = new QueryPlanSqlBuilder(plan, database.Provider.ReadOnlyAccess)
+            .BuildSelect<PlatformSmokeTask>();
+        var sql = select.ToSql();
+        if (string.IsNullOrWhiteSpace(sql.Text))
+            throw new InvalidOperationException("Strict parser smoke did not render SQL.");
+
+        Expression<Func<PlatformSmokeTask, string>> projection = x => x.Title.Trim().ToUpper();
+        return (string?)ProjectionExpressionEvaluator.Evaluate(
+            projection.Body,
+            projection.Parameters[0],
+            row,
+            ProjectionEvaluationOptions.AotStrict)
+            ?? throw new InvalidOperationException("Strict parser smoke projection returned null.");
     }
 
     private static ValueTask ReportStage(Func<string, ValueTask>? reportStage, string stage)
