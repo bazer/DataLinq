@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Config;
@@ -9,7 +8,6 @@ using DataLinq.Interfaces;
 using DataLinq.Mutation;
 using DataLinq.Query;
 using DataLinq.Testing;
-using Remotion.Linq.Parsing.Structure;
 
 namespace DataLinq.Tests.Compliance;
 
@@ -68,7 +66,7 @@ public class CharPredicateTranslationTests
             .SelectQuery();
 
         var linqQuery = databaseScope.Database.Query().Rows.Where(x => x.Status == 'N');
-        var linqSelect = BuildLinqSelect(databaseScope.Database, linqQuery);
+        var linqSelect = CurrentQueryTranslationInspection.BuildSelect(databaseScope.Database, linqQuery);
 
         var directSql = directSelect.ToSql();
         var linqSql = linqSelect.ToSql();
@@ -80,26 +78,6 @@ public class CharPredicateTranslationTests
         await Assert.That(linqSql.Parameters.Single().Value?.GetType()).IsEqualTo(directSql.Parameters.Single().Value?.GetType());
     }
 
-    private static Select<CharPredicateRow> BuildLinqSelect(Database<CharPredicateDb> database, IQueryable<CharPredicateRow> query)
-    {
-        var queryParser = QueryParser.CreateDefault();
-        var queryModel = queryParser.GetParsedQuery(query.Expression);
-        var table = database.Provider.Metadata.TableModels
-            .Single(x => x.Model.CsType.Type == typeof(CharPredicateRow))
-            .Table;
-        var queryExecutorType = typeof(Database<CharPredicateDb>).Assembly.GetType("DataLinq.Linq.QueryExecutor", throwOnError: true)!;
-        var executor = Activator.CreateInstance(
-            queryExecutorType,
-            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public,
-            binder: null,
-            args: [database.Provider.ReadOnlyAccess, table],
-            culture: null)!;
-        var parseMethod = queryExecutorType
-            .GetMethod("ParseQueryModel", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .MakeGenericMethod(typeof(CharPredicateRow));
-
-        return (Select<CharPredicateRow>)parseMethod.Invoke(executor, [queryModel])!;
-    }
 }
 
 [Database("charpredicate")]

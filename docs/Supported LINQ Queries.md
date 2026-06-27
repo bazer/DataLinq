@@ -275,6 +275,8 @@ var page = db.Query().Employees
     .ToList();
 ```
 
+Filtering and ordering must happen before paging in provider-backed queries. Shapes such as `Take(...).OrderBy(...)`, `Skip(...).OrderBy(...)`, or `OrderBy(...).Take(...).Where(...)` require SQL subquery pushdown and are not supported today; DataLinq rejects them instead of flattening the operators into wrong SQL. Materialize first if you intentionally want LINQ-to-objects behavior after paging.
+
 ## Direct Primary-Key Lookup
 
 There is also tested support for direct lookup without a LINQ predicate:

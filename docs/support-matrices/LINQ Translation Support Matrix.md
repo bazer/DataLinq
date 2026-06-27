@@ -9,6 +9,12 @@ This matrix records what the active compliance tests prove today, where the publ
 
 The evidence column intentionally points at test files instead of implementation files. If a shape is not represented in active tests, treat it as unsupported or at least undocumented until a focused regression test proves otherwise.
 
+## 0.8 Phase 1 Audit
+
+The 0.8 parser migration baseline is tracked in the source-only audit file at `docs/dev-plans/roadmap-implementation/v0.8/phase-1-query-contract-and-plan-baseline/Query Contract Audit.md`.
+
+The audit does not expand the public contract. It records which current Remotion-backed behaviors must be preserved, which unsupported shapes fail deliberately, and which migration-only Remotion dependencies Phase 7 must delete.
+
 ## Predicate Translation
 
 | Area | Currently tested support | Evidence | Audit notes |
@@ -90,7 +96,7 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | Area | Currently tested support | Evidence | Audit notes |
 | --- | --- | --- | --- |
 | Ordering | `OrderBy`, `OrderByDescending`, `ThenBy`, `ThenByDescending`, mixed ascending/descending ordering | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
-| Paging | `Skip`, `Take`, `Skip(...).Take(...)` with ordered queries and composed chained predicates | `EmployeesQueryBehaviorTests.cs` | Chained-filter paging has focused regression coverage. |
+| Paging | `Skip`, `Take`, `Skip(...).Take(...)` with ordered queries and composed chained predicates | `EmployeesQueryBehaviorTests.cs` | Chained-filter paging has focused regression coverage. Filters and ordering are supported before paging; post-paging filters/orderings require subquery pushdown and are explicitly rejected. |
 | Ordering plus filtering | `Where(...).OrderBy(...)`, `OrderBy(...).Where(...)`, and `Where(...).OrderBy(...).Where(...)` | `EmployeesQueryBehaviorTests.cs` | Focused regression coverage proves the outer predicate is preserved after an inner ordering clause. |
 | Full-model projection | selecting the model entity | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
 | Scalar projection | `Select(x => x.Property)` | `EmployeesQueryBehaviorTests.cs`, translation tests | Public docs match this. |
@@ -113,6 +119,7 @@ These shapes are intentionally not part of the documented support boundary today
 - `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, and additional filtering/ordering/paging over explicit joined results
 - relation-property query expansion beyond the documented one-to-many `Any(...)` and existence-equivalent `Count()` predicates
 - aggregate result operators over computed selectors, grouped aggregates, or relation properties
+- filters, orderings, or additional body clauses applied after `Skip(...)` or `Take(...)`
 - arbitrary local `Enumerable` method chains inside predicates
 - arbitrary client methods inside SQL predicates
 - nested database subqueries
@@ -130,4 +137,4 @@ The regression suite includes tests that make dropped predicates hard to miss:
 3. `Where(a).Where(b).Count()`, `.Any()`, `.First()`, and `.SingleOrDefault()` to prove result operators apply after both predicates.
 4. `Where(a).Where(b).Skip(...).Take(...)` over a deterministic ordering to prove paging is applied after the composed filter.
 
-The highest-value remaining test aid is generated-SQL inspection for these composition cases. Row assertions are mandatory, but SQL shape assertions would expose a dropped outer predicate immediately instead of relying on seed-data luck.
+The central `CurrentQueryTranslationInspection` helper is the migration-only SQL inspection surface for these cases. It is deliberately Remotion-backed scaffolding and must be removed or replaced before Phase 7 closes.

@@ -100,6 +100,16 @@ internal class QueryExecutor : IQueryExecutor
     {
         // Extract the subquery model from the main clause if necessary
         var subQueryModel = ExtractQueryModel(queryModel.MainFromClause.FromExpression);
+        if (subQueryModel != null &&
+            HasPagingResultOperator(subQueryModel) &&
+            (queryModel.BodyClauses.Count > 0 || HasPagingResultOperator(queryModel)))
+        {
+            throw new QueryTranslationException(
+                "LINQ operators after Skip(...) or Take(...) require subquery pushdown and are not supported yet. " +
+                "Apply filtering and ordering before paging, or materialize before applying post-paging operators. " +
+                $"Query model: {queryModel}");
+        }
+
         var query = subQueryModel != null
             ? BuildSqlQuery<T>(subQueryModel)
             : new SqlQuery<T>(Table, Transaction);
@@ -141,6 +151,9 @@ internal class QueryExecutor : IQueryExecutor
 
         return query;
     }
+
+    private static bool HasPagingResultOperator(QueryModel queryModel)
+        => queryModel.ResultOperators.Any(static op => op is TakeResultOperator or SkipResultOperator);
 
     private static Func<object?, T?> GetSelectFunc<T>(SelectClause selectClause, TableDefinition table)
     {
@@ -294,9 +307,22 @@ internal class QueryExecutor : IQueryExecutor
         if (queryModel.BodyClauses.Any(static body => body is JoinClause or GroupJoinClause))
             return ExecuteJoinedCollection<T>(queryModel);
 
+        ValidateCollectionResultOperators(queryModel);
+
         return ParseQueryModel<T>(queryModel)
             .Execute()
             .Select(GetSelectFunc<T>(queryModel.SelectClause, Table));
+    }
+
+    private static void ValidateCollectionResultOperators(QueryModel queryModel)
+    {
+        foreach (var resultOperator in queryModel.ResultOperators)
+        {
+            if (resultOperator is TakeResultOperator or SkipResultOperator)
+                continue;
+
+            throw new QueryTranslationException($"Collection result operator '{GetResultOperatorDisplayName(resultOperator)}' is not supported. Query model: {queryModel}");
+        }
     }
 
     private IEnumerable<T?> ExecuteJoinedCollection<T>(QueryModel queryModel)
@@ -495,7 +521,7 @@ internal class QueryExecutor : IQueryExecutor
                 SingleResultOperator => returnDefaultWhenEmpty ? sequence.SingleOrDefault() : sequence.Single(),
                 FirstResultOperator => returnDefaultWhenEmpty ? sequence.FirstOrDefault() : sequence.First(),
                 LastResultOperator => returnDefaultWhenEmpty ? sequence.LastOrDefault() : sequence.Last(),
-                var op => throw new QueryTranslationException($"Single-result operator '{op.GetType().Name}' is not supported. Query model: {queryModel}")
+                var op => throw new QueryTranslationException($"Single-result operator '{GetResultOperatorDisplayName(op)}' is not supported. Query model: {queryModel}")
             };
         }
 
@@ -528,7 +554,7 @@ internal class QueryExecutor : IQueryExecutor
             }
             else
             {
-                throw new QueryTranslationException($"Scalar result operator '{op.GetType().Name}' is not supported. Query model: {queryModel}");
+                throw new QueryTranslationException($"Scalar result operator '{GetResultOperatorDisplayName(op)}' is not supported. Query model: {queryModel}");
             }
 
             var result = select.ExecuteScalar();
@@ -551,7 +577,7 @@ internal class QueryExecutor : IQueryExecutor
             if (op is SumResultOperator || Nullable.GetUnderlyingType(typeof(T)) is not null)
                 return default!;
 
-            throw new InvalidOperationException($"Scalar result operator '{op.GetType().Name}' returned no value. Query model: {queryModel}");
+            throw new InvalidOperationException($"Scalar result operator '{GetResultOperatorDisplayName(op)}' returned no value. Query model: {queryModel}");
         }
 
         var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
@@ -572,28 +598,40 @@ internal class QueryExecutor : IQueryExecutor
             MinResultOperator => $"MIN({columnExpression})",
             MaxResultOperator => $"MAX({columnExpression})",
             AverageResultOperator => $"AVG({columnExpression})",
-            _ => throw new QueryTranslationException($"Scalar result operator '{op.GetType().Name}' is not supported. Query model selector: {selectClause.Selector}")
+            _ => throw new QueryTranslationException($"Scalar result operator '{GetResultOperatorDisplayName(op)}' is not supported. Query model selector: {selectClause.Selector}")
         };
     }
 
     private static string GetAggregateColumnExpression<T>(SqlQuery<T> query, Expression selector, ResultOperatorBase op)
     {
         if (selector is not MemberExpression memberExpression)
-            throw new QueryTranslationException($"Aggregate selector '{selector}' is not supported for '{op.GetType().Name}'. Only direct numeric members and nullable Value members are supported.");
+            throw new QueryTranslationException($"Aggregate selector '{selector}' is not supported for '{GetResultOperatorDisplayName(op)}'. Only direct numeric members and nullable Value members are supported.");
 
         memberExpression = UnwrapNullableValueMember(memberExpression);
 
         if (memberExpression.Expression is not QuerySourceReferenceExpression)
-            throw new QueryTranslationException($"Aggregate selector '{selector}' is not supported for '{op.GetType().Name}'. Only direct numeric members and nullable Value members are supported.");
+            throw new QueryTranslationException($"Aggregate selector '{selector}' is not supported for '{GetResultOperatorDisplayName(op)}'. Only direct numeric members and nullable Value members are supported.");
 
         if (!IsNumericType(selector.Type))
-            throw new QueryTranslationException($"Aggregate selector '{selector}' for '{op.GetType().Name}' must be numeric. Selector type: {selector.Type}");
+            throw new QueryTranslationException($"Aggregate selector '{selector}' for '{GetResultOperatorDisplayName(op)}' must be numeric. Selector type: {selector.Type}");
 
         var column = query.Table.TryGetColumnByPropertyName(memberExpression.Member.Name, out var aggregateColumn)
             ? aggregateColumn
             : throw new QueryTranslationException($"Aggregate selector member '{memberExpression.Member.Name}' was not found on table '{query.Table.DbName}'. Selector: {selector}");
 
         return $"{query.EscapeCharacter}{column.DbName}{query.EscapeCharacter}";
+    }
+
+    private static string GetResultOperatorDisplayName(ResultOperatorBase op)
+    {
+        var name = op.GetType().Name;
+        if (string.Equals(name, "GroupResultOperator", StringComparison.Ordinal))
+            return "GroupBy";
+
+        const string suffix = "ResultOperator";
+        return name.EndsWith(suffix, StringComparison.Ordinal)
+            ? name[..^suffix.Length]
+            : name;
     }
 
     private static MemberExpression UnwrapNullableValueMember(MemberExpression memberExpression)

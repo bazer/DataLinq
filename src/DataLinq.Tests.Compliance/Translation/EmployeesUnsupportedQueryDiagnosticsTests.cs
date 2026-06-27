@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Exceptions;
+using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
 
 namespace DataLinq.Tests.Compliance;
@@ -74,7 +75,61 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
             () => databaseScope.Database.Query().Employees
                 .Sum(x => x.emp_no!.Value + 1),
             "Aggregate selector",
-            "SumResultOperator");
+            "Sum");
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task UnsupportedGroupByThrowsQueryTranslationException(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(UnsupportedGroupByThrowsQueryTranslationException),
+            EmployeesSeedMode.Bogus);
+
+        await AssertTranslationFailure(
+            () => databaseScope.Database.Query().Employees
+                .GroupBy(x => x.gender)
+                .ToList(),
+            "GroupBy",
+            "not supported");
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task PostPagingOrderByThrowsQueryTranslationException(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(PostPagingOrderByThrowsQueryTranslationException),
+            EmployeesSeedMode.Bogus);
+
+        await AssertTranslationFailure(
+            () => databaseScope.Database.Query().Employees
+                .Take(5)
+                .OrderBy(x => x.emp_no)
+                .ToList(),
+            "after Skip(...) or Take(...)",
+            "subquery pushdown");
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task PostPagingWhereThrowsQueryTranslationException(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(PostPagingWhereThrowsQueryTranslationException),
+            EmployeesSeedMode.Bogus);
+
+        await AssertTranslationFailure(
+            () => databaseScope.Database.Query().Employees
+                .OrderBy(x => x.emp_no)
+                .Take(5)
+                .Where(x => x.gender == Employee.Employeegender.M)
+                .ToList(),
+            "after Skip(...) or Take(...)",
+            "subquery pushdown");
     }
 
     private static bool HasKnownPrefix(string value)

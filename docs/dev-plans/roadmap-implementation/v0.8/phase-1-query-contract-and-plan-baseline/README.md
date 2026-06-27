@@ -2,17 +2,40 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 1: Query Contract and Plan Baseline
 
-**Status:** Next.
+**Status:** Complete.
 
 ## Execution Plan
 
 - [Implementation Plan](Implementation%20Plan.md)
+- [Query Contract Audit](Query%20Contract%20Audit.md)
 
 ## Purpose
 
 Phase 1 locks down the behavior that the parser migration must preserve. The worst possible start is changing the parser boundary before the support matrix is executable enough to catch subtle regressions.
 
 The existing Remotion-backed translator is the baseline. That does not mean Remotion defines the future semantics. It means current tested DataLinq behavior is the migration contract until we deliberately change it.
+
+## Closeout
+
+Phase 1 closed on 2026-06-27.
+
+Delivered:
+
+- added the [Query Contract Audit](Query%20Contract%20Audit.md) with the support inventory, Remotion dependency inventory, diagnostics inventory, and Phase 2 handoff
+- centralized Remotion-backed SQL inspection in `CurrentQueryTranslationInspection`
+- refactored the duplicated compliance-test `QueryParser`/`ParseQueryModel` reflection into that helper
+- added SQL-shape coverage for empty fixed conditions, local equality-membership `Any(predicate)`, and relation `EXISTS`/`NOT EXISTS`
+- added explicit unsupported coverage for `GroupBy(...)`
+- changed post-paging filters/orderings from silent wrong-SQL risk to explicit `QueryTranslationException`
+- updated the public LINQ docs and support matrix to describe the current paging boundary honestly
+
+Verification:
+
+- `DataLinq.Tests.Compliance.csproj` build passed
+- focused compliance filters passed for `EmployeesContainsTranslationTests`, `EmployeesLocalAnyPredicateTests`, `EmployeesRelationPredicateTranslationTests`, `EmployeesUnsupportedQueryDiagnosticsTests`, `EmployeesQueryBehaviorTests`, and `CharPredicateTranslationTests` across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`
+- compliance quick passed: 466/466 on `sqlite-file` and `sqlite-memory`
+- MySQL lane passed: 152/152 on `mysql-8.4` and `mariadb-11.8`
+- `docfx docfx.json` passed with only the pre-existing duplicate analyzer release-note warnings
 
 ## Scope
 
@@ -52,7 +75,7 @@ The ordering/paging cases are especially important because SQL clause order is n
 
 ## Exit Criteria
 
-- support-matrix gaps relevant to the parser migration are documented
-- missing high-risk regression tests are added
-- unsupported or intentionally deferred shapes are named
-- the current Remotion path has enough executable evidence to compare against a DataLinq-owned plan
+- [x] support-matrix gaps relevant to the parser migration are documented
+- [x] missing high-risk regression tests are added
+- [x] unsupported or intentionally deferred shapes are named
+- [x] the current Remotion path has enough executable evidence to compare against a DataLinq-owned plan

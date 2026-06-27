@@ -1,13 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using DataLinq.Instances;
-using DataLinq.Query;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
-using Remotion.Linq.Parsing.Structure;
 
 namespace DataLinq.Tests.Compliance;
 
@@ -174,7 +171,7 @@ public class EmployeesQueryBehaviorTests
         var query = databaseScope.Database.Query().Departments
             .Where(x => x.DeptNo.StartsWith("d00"))
             .Where(x => x.DeptNo.EndsWith("2"));
-        var sql = BuildLinqSelect(databaseScope.Database, query).ToSql();
+        var sql = CurrentQueryTranslationInspection.BuildSql(databaseScope.Database, query);
         var parameterValues = sql.Parameters.Select(x => x.Value).ToArray();
 
         await Assert.That(sql.Text.Contains("WHERE", StringComparison.Ordinal)).IsTrue();
@@ -709,24 +706,4 @@ public class EmployeesQueryBehaviorTests
         await Assert.That(threw).IsTrue();
     }
 
-    private static Select<TModel> BuildLinqSelect<TModel>(Database<EmployeesDb> database, IQueryable<TModel> query)
-    {
-        var queryParser = QueryParser.CreateDefault();
-        var queryModel = queryParser.GetParsedQuery(query.Expression);
-        var table = database.Provider.Metadata.TableModels
-            .Single(x => x.Model.CsType.Type == typeof(TModel))
-            .Table;
-        var queryExecutorType = typeof(Database<EmployeesDb>).Assembly.GetType("DataLinq.Linq.QueryExecutor", throwOnError: true)!;
-        var executor = Activator.CreateInstance(
-            queryExecutorType,
-            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public,
-            binder: null,
-            args: [database.Provider.ReadOnlyAccess, table],
-            culture: null)!;
-        var parseMethod = queryExecutorType
-            .GetMethod("ParseQueryModel", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .MakeGenericMethod(typeof(TModel));
-
-        return (Select<TModel>)parseMethod.Invoke(executor, [queryModel])!;
-    }
 }

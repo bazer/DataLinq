@@ -2,9 +2,11 @@
 > This document is roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 1 Implementation Plan: Query Contract and Plan Baseline
 
-**Status:** Next.
+**Status:** Complete.
 
 **Created:** 2026-06-27.
+
+**Closed:** 2026-06-27.
 
 ## Purpose
 
@@ -21,6 +23,12 @@ The output of this phase should be boring but powerful:
 - migration-only Remotion test helpers are centralized and marked for removal
 
 No parser replacement should start before this baseline is good enough to catch regressions.
+
+## Closeout Summary
+
+Phase 1 closed with a source-only query contract audit, centralized Remotion-backed SQL inspection, focused SQL-shape coverage for the highest-risk parser migration areas, explicit `GroupBy(...)` rejection, and explicit rejection of filters/orderings after `Skip(...)` or `Take(...)` until subquery pushdown exists.
+
+The detailed support inventory, Remotion dependency inventory, diagnostics inventory, and Phase 2 handoff live in [Query Contract Audit](Query%20Contract%20Audit.md).
 
 ## Current Baseline
 

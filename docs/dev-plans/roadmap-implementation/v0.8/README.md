@@ -22,8 +22,8 @@ The wording matters. "Isolate Remotion" was a useful earlier fallback while the 
 
 | 0.8 phase | Status | Directory | Release role |
 | --- | --- | --- | --- |
-| Phase 1: Query Contract and Plan Baseline | Next | `phase-1-query-contract-and-plan-baseline/` | Lock down parity before changing internals. |
-| Phase 2: Remotion Plan Adapter | Planned | `phase-2-remotion-plan-adapter/` | Make Remotion one producer of DataLinq plan nodes. |
+| Phase 1: Query Contract and Plan Baseline | Complete | `phase-1-query-contract-and-plan-baseline/` | Lock down parity before changing internals. |
+| Phase 2: Remotion Plan Adapter | Next | `phase-2-remotion-plan-adapter/` | Make Remotion one producer of DataLinq plan nodes. |
 | Phase 3: SQL Generation on Query Plan | Planned | `phase-3-sql-generation-on-query-plan/` | Move SQL generation and diagnostics off Remotion clauses. |
 | Phase 4: Supported-Subset Expression Parser | Planned | `phase-4-supported-subset-expression-parser/` | Build the DataLinq parser over expression trees. |
 | Phase 5: Projection and Local Evaluation AOT Cleanup | Planned | `phase-5-projection-and-local-evaluation-aot-cleanup/` | Keep supported generated/AOT projection paths honest. |
