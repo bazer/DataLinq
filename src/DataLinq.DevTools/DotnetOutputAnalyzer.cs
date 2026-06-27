@@ -137,6 +137,14 @@ public static partial class DotnetOutputAnalyzer
             return DotnetFailureCategory.TestFailures;
         }
 
+        if (errors.Any(static x => string.Equals(x.Code, "NETSDK1144", StringComparison.OrdinalIgnoreCase) ||
+                                   x.Code?.StartsWith("IL", StringComparison.OrdinalIgnoreCase) == true) ||
+            combined.Contains("Optimizing assemblies for size failed", StringComparison.OrdinalIgnoreCase) ||
+            combined.Contains("produced trim warnings", StringComparison.OrdinalIgnoreCase))
+        {
+            return DotnetFailureCategory.TrimAnalysis;
+        }
+
         if (errors.Any(static x => x.Code?.StartsWith("CS", StringComparison.OrdinalIgnoreCase) == true))
             return DotnetFailureCategory.Compiler;
 
@@ -152,6 +160,7 @@ public static partial class DotnetOutputAnalyzer
             DotnetFailureCategory.NugetSourceAccess => "Package source access failed, usually because the network is blocked or the source is unavailable.",
             DotnetFailureCategory.MissingPackages => "The required packages are not available in the selected cache/source set.",
             DotnetFailureCategory.Compiler => "Compilation failed with source diagnostics.",
+            DotnetFailureCategory.TrimAnalysis => "The linker/trimmer failed while optimizing the published output.",
             DotnetFailureCategory.TestPlatformConfiguration => ".NET test runner configuration is incompatible with Microsoft.Testing.Platform.",
             DotnetFailureCategory.TestPlatformIpc => "Microsoft.Testing.Platform IPC failed, likely because local named-pipe access is blocked in this environment.",
             DotnetFailureCategory.TestFailures => "The test run completed but one or more tests failed.",

@@ -116,6 +116,9 @@ public static class CompatibilityWarningClassifier
             "MarshalingPInvokeScanner",
             "Microsoft.NET.Sdk.WebAssembly",
             "workload is not installed",
+            "Platform linker not found",
+            "nativeaot-prerequisites",
+            "Desktop Development for C++",
             "RunAOTCompilation"))
         {
             return CompatibilityFailureClassification.SdkOrWebAssemblyToolchain;
@@ -124,8 +127,15 @@ public static class CompatibilityWarningClassifier
         if (target.Kind == CompatibilityTargetKind.Wasm)
             return CompatibilityFailureClassification.UnsupportedNoAot;
 
+        if (result.Analysis.FailureCategory == DotnetFailureCategory.TrimAnalysis &&
+            ContainsAny(combined, "Remotion.Linq", @"remotion.linq\"))
+        {
+            return CompatibilityFailureClassification.RemotionDependency;
+        }
+
         if (result.Analysis.FailureCategory is
             DotnetFailureCategory.Compiler or
+            DotnetFailureCategory.TrimAnalysis or
             DotnetFailureCategory.MissingPackages or
             DotnetFailureCategory.NugetSourceAccess or
             DotnetFailureCategory.NugetConfigAccess or

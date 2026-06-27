@@ -98,6 +98,59 @@ public class CompatibilitySizeReportTests
     }
 
     [Test]
+    public async Task FailureClassifier_ReportsRemotionTrimAnalysisFailures()
+    {
+        var trimmedTarget = CompatibilityTargetCatalog
+            .GetTargets("phase8c", [CompatibilityTargetKind.Trimmed])[0];
+        var processResult = new ExternalCommandResult(
+            1,
+            """
+            Optimizing assemblies for size. This process might take a while.
+            D:\git\DataLinq\.dotnet\.nuget\packages\remotion.linq\2.2.0\lib\netstandard1.0\Remotion.Linq.dll : error IL2104: Assembly 'Remotion.Linq' produced trim warnings. For more information see https://aka.ms/il2104 [D:\git\DataLinq\src\DataLinq.TrimSmoke\DataLinq.TrimSmoke.csproj::TargetFramework=net10.0]
+            D:\git\DataLinq\.dotnet\.nuget\packages\microsoft.net.illink.tasks\10.0.9\build\Microsoft.NET.ILLink.targets(103,5): error NETSDK1144: Optimizing assemblies for size failed. [D:\git\DataLinq\src\DataLinq.TrimSmoke\DataLinq.TrimSmoke.csproj::TargetFramework=net10.0]
+            """,
+            "");
+        var analysis = DotnetOutputAnalyzer.Analyze(DotnetCommandType.Publish, processResult);
+        var commandResult = new DotnetCommandResult(
+            DotnetCommandType.Publish,
+            trimmedTarget.Name,
+            [],
+            processResult,
+            "publish.log",
+            BinaryLogPath: null,
+            analysis);
+
+        await Assert.That(analysis.FailureCategory).IsEqualTo(DotnetFailureCategory.TrimAnalysis);
+        await Assert.That(CompatibilityWarningClassifier.ClassifyFailure(trimmedTarget, commandResult))
+            .IsEqualTo(CompatibilityFailureClassification.RemotionDependency);
+    }
+
+    [Test]
+    public async Task FailureClassifier_ReportsNativeAotToolchainFailures()
+    {
+        var nativeAotTarget = CompatibilityTargetCatalog
+            .GetTargets("phase8c", [CompatibilityTargetKind.NativeAot])[0];
+        var processResult = new ExternalCommandResult(
+            1,
+            """
+            D:\git\DataLinq\.dotnet\.nuget\packages\microsoft.dotnet.ilcompiler\10.0.9\build\Microsoft.NETCore.Native.Windows.targets(142,5): error : Platform linker not found. Ensure you have all the required prerequisites documented at https://aka.ms/nativeaot-prerequisites, in particular the Desktop Development for C++ workload in Visual Studio. For ARM64 development also install C++ ARM64 build tools. [D:\git\DataLinq\src\DataLinq.AotSmoke\DataLinq.AotSmoke.csproj::TargetFramework=net10.0]
+            """,
+            "");
+        var analysis = DotnetOutputAnalyzer.Analyze(DotnetCommandType.Publish, processResult);
+        var commandResult = new DotnetCommandResult(
+            DotnetCommandType.Publish,
+            nativeAotTarget.Name,
+            [],
+            processResult,
+            "publish.log",
+            BinaryLogPath: null,
+            analysis);
+
+        await Assert.That(CompatibilityWarningClassifier.ClassifyFailure(nativeAotTarget, commandResult))
+            .IsEqualTo(CompatibilityFailureClassification.SdkOrWebAssemblyToolchain);
+    }
+
+    [Test]
     public async Task PackageInspector_CleanRuntimePackageKeepsAnalyzerAssetsOutOfLib()
     {
         var root = Path.Combine(

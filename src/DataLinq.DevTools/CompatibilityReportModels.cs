@@ -24,6 +24,7 @@ public enum CompatibilityFailureClassification
     None,
     UnsupportedNoAot,
     SdkOrWebAssemblyToolchain,
+    RemotionDependency,
     Dotnet,
     Unknown
 }
