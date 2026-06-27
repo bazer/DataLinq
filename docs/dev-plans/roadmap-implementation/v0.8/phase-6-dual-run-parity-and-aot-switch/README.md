@@ -14,7 +14,7 @@ Phase 6 proves that the DataLinq parser is ready to own the supported path. This
 
 ## Current Progress
 
-- `QueryPlanSqlParityTests` now compares SQL and entity/scalar results from expression-parser-produced plans against the Remotion adapter path across the active provider matrix.
+- `QueryPlanSqlParityTests` now compares SQL and entity/scalar results from expression-parser-produced plans against the Remotion adapter path across the active provider matrix, including terminal scalar aggregates and the current explicit join SQL baseline.
 - `ExpressionQueryPlanProvider.ForExecution(...)` provides an internal executable route that enumerates entity queries and scalar terminal results through `ExpressionQueryPlanParser` and `QueryPlanSqlBuilder`.
 - `PlatformSmokeRunner` executes a generated-model query through the expression parser route and still keeps the strict scalar projection stage from Phase 5.
 - constrained smoke projects no longer explicitly root `DataLinq` or `Remotion.Linq`; trimmed publish still fails while the main `DataLinq` project references `Remotion.Linq`, which leaves the final dependency-removal work in Phase 7.

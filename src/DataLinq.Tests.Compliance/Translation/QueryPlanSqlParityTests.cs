@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Tests.Models.Employees;
@@ -79,6 +80,10 @@ public class QueryPlanSqlParityTests
             .IsEqualTo(databaseScope.Database.Query().Managers.Where(x => x.dept_fk.StartsWith("d00")).Min(x => x.emp_no));
         await Assert.That(managers.Where(x => x.dept_fk.StartsWith("d00")).Max(x => x.emp_no))
             .IsEqualTo(databaseScope.Database.Query().Managers.Where(x => x.dept_fk.StartsWith("d00")).Max(x => x.emp_no));
+
+        await Assert.That(NearlyEqual(
+            managers.Where(x => x.dept_fk.StartsWith("d00")).Average(x => x.emp_no),
+            databaseScope.Database.Query().Managers.Where(x => x.dept_fk.StartsWith("d00")).Average(x => x.emp_no))).IsTrue();
     }
 
     [Test]
@@ -116,6 +121,46 @@ public class QueryPlanSqlParityTests
             databaseScope.Database.Query().Departments
                 .Where(department => department.Managers.Any(manager => manager.emp_no == managerNumber))
                 .OrderBy(department => department.DeptNo));
+
+        await AssertExpressionSqlMatchesRemotionPlan(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees
+                .Join(
+                    databaseScope.Database.Query().Departments,
+                    departmentEmployee => departmentEmployee.dept_no,
+                    department => department.DeptNo,
+                    (departmentEmployee, department) => new
+                    {
+                        departmentEmployee.emp_no,
+                        departmentEmployee.dept_no,
+                        DepartmentName = department.Name
+                    }));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExpressionPlanSql_RendersSameSqlAsRemotionPlanForScalarResultShapes(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExpressionPlanSql_RendersSameSqlAsRemotionPlanForScalarResultShapes),
+            EmployeesSeedMode.Bogus);
+
+        await AssertExpressionSqlMatchesRemotionPlan(
+            databaseScope.Database,
+            () => databaseScope.Database.Query().Employees.Count(x => x.emp_no > 10005));
+
+        await AssertExpressionSqlMatchesRemotionPlan(
+            databaseScope.Database,
+            () => databaseScope.Database.Query().Employees.Any(x => x.first_name.StartsWith("A")));
+
+        await AssertExpressionSqlMatchesRemotionPlan(
+            databaseScope.Database,
+            () => databaseScope.Database.Query().Managers.Where(x => x.dept_fk.StartsWith("d00")).Sum(x => x.emp_no));
+
+        await AssertExpressionSqlMatchesRemotionPlan(
+            databaseScope.Database,
+            () => databaseScope.Database.Query().Managers.Where(x => x.dept_fk.StartsWith("d00")).Average(x => x.emp_no));
     }
 
     [Test]
@@ -344,4 +389,20 @@ public class QueryPlanSqlParityTests
         await Assert.That(expressionPlanSql.Parameters.Select(x => x.Value).ToArray())
             .IsEquivalentTo(remotionPlanSql.Parameters.Select(x => x.Value).ToArray());
     }
+
+    private static async Task AssertExpressionSqlMatchesRemotionPlan<TResult>(
+        Database<EmployeesDb> database,
+        Expression<Func<TResult>> query)
+    {
+        var remotionPlanSql = CurrentQueryTranslationInspection.BuildPlanSql(database, query);
+        var expressionPlanSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(database, query);
+
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(expressionPlanSql.Text))
+            .IsEqualTo(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(remotionPlanSql.Text));
+        await Assert.That(expressionPlanSql.Parameters.Select(x => x.Value).ToArray())
+            .IsEquivalentTo(remotionPlanSql.Parameters.Select(x => x.Value).ToArray());
+    }
+
+    private static bool NearlyEqual(double actual, double expected)
+        => Math.Abs(actual - expected) < 0.0001;
 }

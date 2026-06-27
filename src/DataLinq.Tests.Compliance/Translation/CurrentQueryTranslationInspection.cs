@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using DataLinq.Interfaces;
 using DataLinq.Linq.Planning;
@@ -83,6 +84,19 @@ internal static class CurrentQueryTranslationInspection
         return BuildPlanSelect(database, query).ToSql();
     }
 
+    public static Select<TResult> BuildPlanSelect<TDatabase, TResult>(Database<TDatabase> database, Expression<Func<TResult>> query)
+        where TDatabase : class, IDatabaseModel<TDatabase>
+    {
+        var plan = RemotionQueryPlanAdapter.Convert(database, query);
+        return new QueryPlanSqlBuilder(plan, database.Provider.ReadOnlyAccess).BuildSelect<TResult>();
+    }
+
+    public static Sql BuildPlanSql<TDatabase, TResult>(Database<TDatabase> database, Expression<Func<TResult>> query)
+        where TDatabase : class, IDatabaseModel<TDatabase>
+    {
+        return BuildPlanSelect(database, query).ToSql();
+    }
+
     public static Select<TModel> BuildExpressionPlanSelect<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
         where TDatabase : class, IDatabaseModel<TDatabase>
     {
@@ -91,6 +105,19 @@ internal static class CurrentQueryTranslationInspection
     }
 
     public static Sql BuildExpressionPlanSql<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
+        where TDatabase : class, IDatabaseModel<TDatabase>
+    {
+        return BuildExpressionPlanSelect(database, query).ToSql();
+    }
+
+    public static Select<TResult> BuildExpressionPlanSelect<TDatabase, TResult>(Database<TDatabase> database, Expression<Func<TResult>> query)
+        where TDatabase : class, IDatabaseModel<TDatabase>
+    {
+        var plan = ExpressionQueryPlanParser.Convert(database.Provider.Metadata, query.Body, typeof(TResult));
+        return new QueryPlanSqlBuilder(plan, database.Provider.ReadOnlyAccess).BuildSelect<TResult>();
+    }
+
+    public static Sql BuildExpressionPlanSql<TDatabase, TResult>(Database<TDatabase> database, Expression<Func<TResult>> query)
         where TDatabase : class, IDatabaseModel<TDatabase>
     {
         return BuildExpressionPlanSelect(database, query).ToSql();
