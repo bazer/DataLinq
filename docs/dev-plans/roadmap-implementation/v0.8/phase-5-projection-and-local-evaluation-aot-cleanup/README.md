@@ -7,6 +7,7 @@
 ## Execution Plan
 
 - [Implementation Plan](Implementation%20Plan.md)
+- [Dynamic Code Inventory](Dynamic%20Code%20Inventory.md)
 
 ## Purpose
 

@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
 using DataLinq.Exceptions;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -598,7 +597,7 @@ internal sealed class ExpressionQueryPlanParser
         try
         {
             values = sourceValues
-                .Select(value => EvaluateLocalExpression(selector, parameter, value))
+                .Select(value => ExpressionLocalValueEvaluator.Evaluate(selector, parameter, value))
                 .ToArray();
             return true;
         }
@@ -865,7 +864,7 @@ internal sealed class ExpressionQueryPlanParser
         if (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary &&
             !ContainsQueryReference(unary.Operand))
         {
-            var scalar = EvaluateLocalExpression(unary.Operand);
+            var scalar = ExpressionLocalValueEvaluator.Evaluate(unary.Operand);
             value = scalar is null
                 ? new QueryPlanConstantValue(null, expression.Type)
                 : bindings.CaptureScalar(scalar, expression.Type);
@@ -1093,14 +1092,12 @@ internal sealed class ExpressionQueryPlanParser
             return true;
         }
 
-        if (IsQueryableSequence(expression.Type) && !ContainsParameter(expression))
+        if (!ContainsParameter(expression) &&
+            TryGetQueryableElementType(expression.Type, out var elementType) &&
+            metadata.TryGetTableModel(elementType, out _))
         {
-            var value = EvaluateLocalExpression(expression);
-            if (value is IQueryable evaluatedQueryable)
-            {
-                source = RegisterSource(evaluatedQueryable.ElementType, kind);
-                return true;
-            }
+            source = RegisterSource(elementType, kind);
+            return true;
         }
 
         source = null!;
@@ -1266,7 +1263,7 @@ internal sealed class ExpressionQueryPlanParser
         if (ContainsQueryReference(expression))
             throw new QueryTranslationException($"Expression '{expression}' contains a query source and cannot be evaluated as a local scalar.");
 
-        return EvaluateLocalExpression(expression);
+        return ExpressionLocalValueEvaluator.Evaluate(expression);
     }
 
     private object?[] EvaluateLocalSequence(Expression expression)
@@ -1297,67 +1294,24 @@ internal sealed class ExpressionQueryPlanParser
                 return false;
 
             values = sourceValues
-                .Select(value => EvaluateLocalExpression(selector.Body, selector.Parameters[0], value))
+                .Select(value => ExpressionLocalValueEvaluator.Evaluate(selector.Body, selector.Parameters[0], value))
                 .ToArray();
             return true;
         }
 
         try
         {
-            var value = EvaluateLocalExpression(expression);
+            var value = ExpressionLocalValueEvaluator.Evaluate(expression);
             return TryConvertToArray(value, out values);
+        }
+        catch (QueryTranslationException)
+        {
+            throw;
         }
         catch
         {
             values = [];
             return false;
-        }
-    }
-
-    private static object? EvaluateLocalExpression(Expression expression, ParameterExpression? parameter = null, object? parameterValue = null)
-    {
-        expression = UnwrapConvert(expression);
-        switch (expression)
-        {
-            case ConstantExpression constant:
-                return constant.Value;
-
-            case ParameterExpression current when parameter is not null && current == parameter:
-                return parameterValue;
-
-            case UnaryExpression unary when unary.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked:
-                return System.Convert.ChangeType(
-                    EvaluateLocalExpression(unary.Operand, parameter, parameterValue),
-                    GetNonNullableType(unary.Type),
-                    System.Globalization.CultureInfo.InvariantCulture);
-
-            case MemberExpression member:
-                var instance = member.Expression is null
-                    ? null
-                    : EvaluateLocalExpression(member.Expression, parameter, parameterValue);
-                return member.Member switch
-                {
-                    FieldInfo field => field.GetValue(instance),
-                    PropertyInfo property => property.GetValue(instance),
-                    _ => throw new QueryTranslationException($"Local member '{member.Member.Name}' is not supported in DataLinq expression parsing.")
-                };
-
-            case NewArrayExpression newArray:
-                return newArray.Expressions
-                    .Select(item => EvaluateLocalExpression(item, parameter, parameterValue))
-                    .ToArray();
-
-            case MethodCallExpression methodCall:
-                var target = methodCall.Object is null
-                    ? null
-                    : EvaluateLocalExpression(methodCall.Object, parameter, parameterValue);
-                var arguments = methodCall.Arguments
-                    .Select(argument => EvaluateLocalExpression(argument, parameter, parameterValue))
-                    .ToArray();
-                return methodCall.Method.Invoke(target, arguments);
-
-            default:
-                throw new QueryTranslationException($"Local expression '{expression}' is not supported in DataLinq expression parsing.");
         }
     }
 
@@ -1451,6 +1405,26 @@ internal sealed class ExpressionQueryPlanParser
     private static bool IsQueryableSequence(Type type)
         => typeof(IQueryable).IsAssignableFrom(type);
 
+    private static bool TryGetQueryableElementType(Type type, out Type elementType)
+    {
+        var current = type;
+        while (current is not null)
+        {
+            if (current.IsGenericType &&
+                current.GetGenericArguments().Length == 1 &&
+                typeof(IQueryable).IsAssignableFrom(current))
+            {
+                elementType = current.GetGenericArguments()[0];
+                return true;
+            }
+
+            current = current.BaseType;
+        }
+
+        elementType = null!;
+        return false;
+    }
+
     private static bool TryGetConstantInt(Expression expression, out int value)
     {
         expression = UnwrapConvert(expression);
@@ -1462,7 +1436,7 @@ internal sealed class ExpressionQueryPlanParser
 
         if (!ContainsParameter(expression))
         {
-            value = System.Convert.ToInt32(EvaluateLocalExpression(expression), System.Globalization.CultureInfo.InvariantCulture);
+            value = System.Convert.ToInt32(ExpressionLocalValueEvaluator.Evaluate(expression), System.Globalization.CultureInfo.InvariantCulture);
             return true;
         }
 

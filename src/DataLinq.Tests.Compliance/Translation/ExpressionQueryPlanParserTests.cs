@@ -331,6 +331,37 @@ public class ExpressionQueryPlanParserTests
             "LINQ Select projection");
     }
 
+    [Test]
+    public async Task ExpressionParser_LocalMethodEvaluationFailsWithoutInvokingMethod()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_LocalMethodEvaluationFailsWithoutInvokingMethod),
+            EmployeesSeedMode.Bogus);
+
+        var probe = new LocalMethodProbe();
+
+        var scalarQuery = databaseScope.Database.Query().Employees
+            .Where(x => x.emp_no == probe.GetEmployeeNumber());
+
+        var scalarException = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(databaseScope.Database, scalarQuery));
+
+        await Assert.That(scalarException).IsNotNull();
+        await Assert.That(scalarException!.Message).Contains("Local method call 'GetEmployeeNumber'");
+        await Assert.That(probe.EmployeeNumberInvocationCount).IsEqualTo(0);
+
+        var sequenceQuery = databaseScope.Database.Query().Employees
+            .Where(x => probe.GetEmployeeNumbers().Contains(x.emp_no!.Value));
+
+        var sequenceException = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(databaseScope.Database, sequenceQuery));
+
+        await Assert.That(sequenceException).IsNotNull();
+        await Assert.That(sequenceException!.Message).Contains("Local method call 'GetEmployeeNumbers'");
+        await Assert.That(probe.EmployeeNumbersInvocationCount).IsEqualTo(0);
+    }
+
     private static async Task AssertParserMatchesRemotion<T>(Database<EmployeesDb> database, IQueryable<T> query)
     {
         var remotionSnapshot = QueryPlanDebugWriter.Write(RemotionQueryPlanAdapter.Convert(database, query));
@@ -401,4 +432,23 @@ public class ExpressionQueryPlanParserTests
     }
 
     private sealed record LocalEmployeeId(int Value);
+
+    private sealed class LocalMethodProbe
+    {
+        public int EmployeeNumberInvocationCount { get; private set; }
+
+        public int EmployeeNumbersInvocationCount { get; private set; }
+
+        public int GetEmployeeNumber()
+        {
+            EmployeeNumberInvocationCount++;
+            return 10001;
+        }
+
+        public int[] GetEmployeeNumbers()
+        {
+            EmployeeNumbersInvocationCount++;
+            return [10001, 10002];
+        }
+    }
 }
