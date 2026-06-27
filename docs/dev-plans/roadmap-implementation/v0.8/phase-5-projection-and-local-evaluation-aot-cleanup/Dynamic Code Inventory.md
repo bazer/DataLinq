@@ -46,16 +46,18 @@ Current state:
 
 - production row-local projection still calls `ProjectionExpressionEvaluator.Evaluate(...)` from `QueryExecutor`
 - projection evaluation no longer uses an arbitrary `MethodInfo.Invoke(...)` fallback
+- mapped DataLinq model value-property projection reads now use `IModelInstance.GetRowData()` and metadata columns instead of invoking generated property getters through reflection
+- supported nullable `.HasValue`/`.Value` and `string.Length` projection members are interpreted explicitly
 - supported string projection methods are interpreted explicitly
 - unsupported projection methods now fail without invoking user code
-- projection evaluation still uses `ConstructorInfo.Invoke(...)`, `FieldInfo.GetValue(...)`, and `PropertyInfo.GetValue(...)`
+- projection evaluation still uses `ConstructorInfo.Invoke(...)`, plus `FieldInfo.GetValue(...)` and `PropertyInfo.GetValue(...)` for non-model compatibility member reads
 - this is the main remaining Phase 5 implementation target
 
 Required action:
 
 - define the supported row-local projection interpreter boundary
 - keep relation projection and nested database projection rejected
-- route supported projection execution away from constructor invocation and broad member reflection where practical
+- route supported projection execution away from constructor invocation and broad non-model member reflection where practical
 - isolate any compatibility fallback so constrained-platform verification can assert it was not used
 
 ## Legacy Remotion-Backed Local Evaluation State

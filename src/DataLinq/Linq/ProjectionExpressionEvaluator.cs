@@ -5,6 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using DataLinq.Exceptions;
+using DataLinq.Instances;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
 
@@ -174,12 +175,51 @@ internal static class ProjectionExpressionEvaluator
             ? null
             : EvaluateCore(member.Expression, querySourceValues, parameterValues);
 
+        if (TryEvaluateSupportedMember(member, instance, out var supportedValue))
+            return supportedValue;
+
         return member.Member switch
         {
             FieldInfo field => field.GetValue(instance),
             PropertyInfo property => property.GetValue(instance),
             _ => throw Unsupported(member)
         };
+    }
+
+    private static bool TryEvaluateSupportedMember(MemberExpression member, object? instance, out object? value)
+    {
+        if (member.Expression is not null &&
+            Nullable.GetUnderlyingType(member.Expression.Type) is not null)
+        {
+            if (member.Member.Name == nameof(Nullable<int>.HasValue))
+            {
+                value = instance is not null;
+                return true;
+            }
+
+            if (member.Member.Name == nameof(Nullable<int>.Value))
+            {
+                value = instance ?? throw new InvalidOperationException("Nullable object must have a value.");
+                return true;
+            }
+        }
+
+        if (instance is string text &&
+            member.Member.Name == nameof(string.Length))
+        {
+            value = text.Length;
+            return true;
+        }
+
+        if (instance is IModelInstance model &&
+            model.Metadata().ValueProperties.TryGetValue(member.Member.Name, out var valueProperty))
+        {
+            value = model.GetRowData().GetValue(valueProperty.Column);
+            return true;
+        }
+
+        value = null;
+        return false;
     }
 
     private static object? EvaluateMethodCall(
