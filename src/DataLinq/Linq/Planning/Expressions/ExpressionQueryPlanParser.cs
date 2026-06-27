@@ -9,18 +9,30 @@ using DataLinq.Metadata;
 
 namespace DataLinq.Linq.Planning.Expressions;
 
+internal readonly record struct ExpressionQueryPlanParserOptions(
+    ExpressionLocalValueEvaluationOptions LocalValueEvaluation)
+{
+    public static ExpressionQueryPlanParserOptions Default { get; } = new(
+        ExpressionLocalValueEvaluationOptions.Default);
+
+    public static ExpressionQueryPlanParserOptions AotStrict { get; } = new(
+        ExpressionLocalValueEvaluationOptions.AotStrict);
+}
+
 internal sealed class ExpressionQueryPlanParser
 {
     private readonly DatabaseDefinition metadata;
+    private readonly ExpressionQueryPlanParserOptions options;
     private readonly QueryPlanBindingFrame bindings = new();
     private readonly List<QueryPlanSourceSlot> sources = [];
     private readonly List<QueryPlanOperation> operations = [];
     private readonly Dictionary<ParameterExpression, QueryPlanSourceSlot> parameterSourceSlots = [];
     private int relationSubqueryCounter;
 
-    private ExpressionQueryPlanParser(DatabaseDefinition metadata)
+    private ExpressionQueryPlanParser(DatabaseDefinition metadata, ExpressionQueryPlanParserOptions options)
     {
         this.metadata = metadata;
+        this.options = options;
     }
 
     public static DataLinqQueryPlan Convert<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
@@ -47,7 +59,21 @@ internal sealed class ExpressionQueryPlanParser
         ArgumentNullException.ThrowIfNull(expression);
         ArgumentNullException.ThrowIfNull(resultType);
 
-        var parser = new ExpressionQueryPlanParser(metadata);
+        var parser = new ExpressionQueryPlanParser(metadata, ExpressionQueryPlanParserOptions.Default);
+        return parser.Parse(expression, resultType);
+    }
+
+    internal static DataLinqQueryPlan Convert(
+        DatabaseDefinition metadata,
+        Expression expression,
+        Type resultType,
+        ExpressionQueryPlanParserOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(expression);
+        ArgumentNullException.ThrowIfNull(resultType);
+
+        var parser = new ExpressionQueryPlanParser(metadata, options);
         return parser.Parse(expression, resultType);
     }
 
@@ -580,7 +606,7 @@ internal sealed class ExpressionQueryPlanParser
         return true;
     }
 
-    private static bool TryProjectLocalValues(ParameterExpression parameter, Expression selector, object?[] sourceValues, out object?[] values)
+    private bool TryProjectLocalValues(ParameterExpression parameter, Expression selector, object?[] sourceValues, out object?[] values)
     {
         values = [];
         selector = UnwrapQueryColumnAccess(selector);
@@ -597,7 +623,7 @@ internal sealed class ExpressionQueryPlanParser
         try
         {
             values = sourceValues
-                .Select(value => ExpressionLocalValueEvaluator.Evaluate(selector, parameter, value))
+                .Select(value => ExpressionLocalValueEvaluator.Evaluate(selector, parameter, value, options.LocalValueEvaluation))
                 .ToArray();
             return true;
         }
@@ -864,7 +890,7 @@ internal sealed class ExpressionQueryPlanParser
         if (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary &&
             !ContainsQueryReference(unary.Operand))
         {
-            var scalar = ExpressionLocalValueEvaluator.Evaluate(unary.Operand);
+            var scalar = ExpressionLocalValueEvaluator.Evaluate(unary.Operand, null, null, options.LocalValueEvaluation);
             value = scalar is null
                 ? new QueryPlanConstantValue(null, expression.Type)
                 : bindings.CaptureScalar(scalar, expression.Type);
@@ -1263,7 +1289,7 @@ internal sealed class ExpressionQueryPlanParser
         if (ContainsQueryReference(expression))
             throw new QueryTranslationException($"Expression '{expression}' contains a query source and cannot be evaluated as a local scalar.");
 
-        return ExpressionLocalValueEvaluator.Evaluate(expression);
+        return ExpressionLocalValueEvaluator.Evaluate(expression, null, null, options.LocalValueEvaluation);
     }
 
     private object?[] EvaluateLocalSequence(Expression expression)
@@ -1294,14 +1320,14 @@ internal sealed class ExpressionQueryPlanParser
                 return false;
 
             values = sourceValues
-                .Select(value => ExpressionLocalValueEvaluator.Evaluate(selector.Body, selector.Parameters[0], value))
+                .Select(value => ExpressionLocalValueEvaluator.Evaluate(selector.Body, selector.Parameters[0], value, options.LocalValueEvaluation))
                 .ToArray();
             return true;
         }
 
         try
         {
-            var value = ExpressionLocalValueEvaluator.Evaluate(expression);
+            var value = ExpressionLocalValueEvaluator.Evaluate(expression, null, null, options.LocalValueEvaluation);
             return TryConvertToArray(value, out values);
         }
         catch (QueryTranslationException)
@@ -1425,7 +1451,7 @@ internal sealed class ExpressionQueryPlanParser
         return false;
     }
 
-    private static bool TryGetConstantInt(Expression expression, out int value)
+    private bool TryGetConstantInt(Expression expression, out int value)
     {
         expression = UnwrapConvert(expression);
         if (expression is ConstantExpression constantExpression)
@@ -1436,7 +1462,9 @@ internal sealed class ExpressionQueryPlanParser
 
         if (!ContainsParameter(expression))
         {
-            value = System.Convert.ToInt32(ExpressionLocalValueEvaluator.Evaluate(expression), System.Globalization.CultureInfo.InvariantCulture);
+            value = System.Convert.ToInt32(
+                ExpressionLocalValueEvaluator.Evaluate(expression, null, null, options.LocalValueEvaluation),
+                System.Globalization.CultureInfo.InvariantCulture);
             return true;
         }
 

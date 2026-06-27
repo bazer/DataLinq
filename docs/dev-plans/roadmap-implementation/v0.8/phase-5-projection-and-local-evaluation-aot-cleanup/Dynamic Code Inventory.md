@@ -2,7 +2,7 @@
 > This document is roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 5 Dynamic Code Inventory
 
-**Status:** Initial inventory after the first Phase 5 local-evaluation cleanup slice.
+**Status:** Live inventory after parser-local and projection fallback isolation slices.
 
 ## Purpose
 
@@ -24,15 +24,17 @@ Current state:
 - local constants, closure fields/properties, captured queryable roots, new arrays, `Array.Empty<T>()`, `Enumerable.Empty<T>()`, and local `Enumerable.Select(...)` membership projection remain supported
 - arbitrary local method calls now fail during parsing instead of being invoked
 - the parser-owned root query source path derives mapped `IQueryable<T>` roots from expression type metadata instead of invoking `Database.Query()`
+- parser conversion now carries `ExpressionQueryPlanParserOptions`, including an `AotStrict` mode that rejects compatibility member reflection during local value evaluation
 
 Remaining parser-local reflection:
 
-- `ExpressionLocalValueEvaluator` still uses `FieldInfo.GetValue(...)` and `PropertyInfo.GetValue(...)` for captured closure/member reads
-- this is narrower than arbitrary method invocation, but it is still reflection invocation and remains Phase 5 debt until generated/accessor-backed capture is designed or the constrained-platform boundary explicitly allows it
+- `ExpressionLocalValueEvaluator` still uses `FieldInfo.GetValue(...)` and `PropertyInfo.GetValue(...)` for captured closure/member reads in the default compatibility mode
+- strict parser verification can now reject that fallback; generated/accessor-backed capture is still required before captured closure values can be claimed AOT-clean
 
 Verification:
 
 - `ExpressionQueryPlanParserTests.ExpressionParser_LocalMethodEvaluationFailsWithoutInvokingMethod` asserts unsupported local scalar and sequence method calls are rejected and not invoked
+- `ExpressionQueryPlanParserTests.ExpressionParser_AotStrictLocalEvaluationRejectsCapturedMemberReflection` asserts strict parser local evaluation rejects captured-member reflection
 - focused parser parity still passes across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`
 
 ## Projection Execution State

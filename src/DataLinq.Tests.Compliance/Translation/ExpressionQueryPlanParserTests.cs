@@ -362,6 +362,29 @@ public class ExpressionQueryPlanParserTests
         await Assert.That(probe.EmployeeNumbersInvocationCount).IsEqualTo(0);
     }
 
+    [Test]
+    public async Task ExpressionParser_AotStrictLocalEvaluationRejectsCapturedMemberReflection()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_AotStrictLocalEvaluationRejectsCapturedMemberReflection),
+            EmployeesSeedMode.Bogus);
+
+        var threshold = 10010;
+        var query = databaseScope.Database.Query().Employees
+            .Where(x => x.emp_no == threshold);
+
+        var exception = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(
+                databaseScope.Database.Provider.Metadata,
+                query.Expression,
+                typeof(Employee),
+                ExpressionQueryPlanParserOptions.AotStrict));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("requires compatibility member reflection");
+    }
+
     private static async Task AssertParserMatchesRemotion<T>(Database<EmployeesDb> database, IQueryable<T> query)
     {
         var remotionSnapshot = QueryPlanDebugWriter.Write(RemotionQueryPlanAdapter.Convert(database, query));
