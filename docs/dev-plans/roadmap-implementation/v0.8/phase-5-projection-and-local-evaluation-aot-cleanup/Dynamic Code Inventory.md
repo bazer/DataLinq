@@ -2,7 +2,7 @@
 > This document is roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 5 Dynamic Code Inventory
 
-**Status:** Live inventory after parser-local and projection fallback isolation slices.
+**Status:** Closed Phase 5 inventory after parser-local cleanup, projection fallback isolation, and strict platform smoke gating.
 
 ## Purpose
 
