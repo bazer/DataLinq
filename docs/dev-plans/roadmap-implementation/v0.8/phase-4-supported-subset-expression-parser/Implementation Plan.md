@@ -2,6 +2,10 @@
 > This document is roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 4 Implementation Plan: Supported-Subset Expression Parser
 
+**Status:** Complete.
+
+**Completed:** 2026-06-27.
+
 ## Purpose
 
 Phase 4 introduces a DataLinq-owned parser over `System.Linq.Expressions`.
@@ -159,3 +163,11 @@ The handoff should list:
 - any parser-supported shapes that still rely on temporary local/projection reflection helpers
 - remaining Remotion-only active test scaffolding
 - any deliberate unsupported-shape contractions requiring release notes before Phase 7
+
+Current handoff:
+
+- `ExpressionQueryPlanParserTests` cover representative supported parser shapes against the Remotion adapter oracle.
+- `ExpressionPlanQueryable<T>` provides a parser-owned queryable construction path but deliberately does not execute queries yet.
+- relation-property projection, nested database projection, `GroupBy(...)`, `GroupJoin(...)`, and post-join/post-paging unsupported shapes remain rejected with DataLinq diagnostics.
+- parser-local captured value evaluation and row-local projection compatibility are the concrete Phase 5 cleanup targets.
+- no deliberate supported-shape contraction has been recorded for Phase 4.
