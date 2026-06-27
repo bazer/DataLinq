@@ -12,6 +12,12 @@
 
 Phase 6 proves that the DataLinq parser is ready to own the supported path. This is where confidence is earned: normalize plans, compare SQL templates where useful, compare results, then switch generated/AOT smoke paths away from Remotion.
 
+## Current Progress
+
+- `QueryPlanSqlParityTests` now compares SQL and entity/scalar results from expression-parser-produced plans against the Remotion adapter path across the active provider matrix.
+- `ExpressionQueryPlanProvider.ForExecution(...)` provides an internal executable route that enumerates entity queries and scalar terminal results through `ExpressionQueryPlanParser` and `QueryPlanSqlBuilder`.
+- `PlatformSmokeRunner` executes a generated-model query through the expression parser route and still keeps the strict scalar projection stage from Phase 5.
+
 ## Scope
 
 In scope:

@@ -12,6 +12,8 @@ namespace DataLinq.PlatformCompatibility.Smoke;
 
 public sealed record PlatformSmokeProjection(string NormalizedTitle, int PriorityScore);
 
+public sealed record PlatformSmokeExpressionRoute(int OpenTaskCount, string FirstTaskTitle);
+
 public sealed record PlatformSmokeResult(
     int OwnerCount,
     int TaskCount,
@@ -19,6 +21,7 @@ public sealed record PlatformSmokeResult(
     string FirstTaskTitle,
     string RelatedOwnerName,
     PlatformSmokeProjection[] Projections,
+    PlatformSmokeExpressionRoute ExpressionRoute,
     string StrictParserProjectionTitle,
     TimeSpan SchemaDuration,
     TimeSpan SeedDuration,
@@ -34,6 +37,8 @@ public sealed record PlatformSmokeResult(
         Projections.Length == 3 &&
         Projections[0].NormalizedTitle == "COMPILE GENERATED HOOKS" &&
         Projections[0].PriorityScore == 3 &&
+        ExpressionRoute.OpenTaskCount == 2 &&
+        ExpressionRoute.FirstTaskTitle == "Compile generated hooks" &&
         StrictParserProjectionTitle == "COMPILE GENERATED HOOKS";
 
     public string ToDisplayString()
@@ -44,6 +49,7 @@ public sealed record PlatformSmokeResult(
             $"owners={OwnerCount}, tasks={TaskCount}, open={OpenTaskCount}",
             $"first-task=\"{FirstTaskTitle}\", related-owner=\"{RelatedOwnerName}\"",
             $"projection=\"{Projections[0].NormalizedTitle}\"/{Projections[0].PriorityScore}",
+            $"expression-route=\"{ExpressionRoute.FirstTaskTitle}\"/open={ExpressionRoute.OpenTaskCount}",
             $"strict-parser-projection=\"{StrictParserProjectionTitle}\"",
             $"schema-ms={SchemaDuration.TotalMilliseconds:0.###}",
             $"seed-ms={SeedDuration.TotalMilliseconds:0.###}",
@@ -181,6 +187,9 @@ public static class PlatformSmokeRunner
             .ToArray();
         repeatedQueryWatch.Stop();
 
+        await ReportStage(reportStage, "querying-expression-parser-route");
+        var expressionRoute = VerifyExpressionParserRoute(database);
+
         await ReportStage(reportStage, "verifying-strict-parser-projection");
         var strictParserProjectionTitle = VerifyStrictParserProjection(database, firstTask);
 
@@ -191,11 +200,27 @@ public static class PlatformSmokeRunner
             firstTask.Title,
             relatedOwnerName,
             projections,
+            expressionRoute,
             strictParserProjectionTitle,
             schemaWatch.Elapsed,
             seedWatch.Elapsed,
             firstQueryWatch.Elapsed,
             repeatedQueryWatch.Elapsed);
+    }
+
+    private static PlatformSmokeExpressionRoute VerifyExpressionParserRoute(SQLiteDatabase<PlatformSmokeDb> database)
+    {
+        var provider = ExpressionQueryPlanProvider.ForExecution(database.Provider.ReadOnlyAccess);
+        var tasks = provider.CreateRoot<PlatformSmokeTask>();
+
+        var openTaskCount = tasks.Count(x => x.Priority >= 2);
+        var firstTaskTitle = tasks
+            .Where(x => x.Priority >= 2)
+            .OrderBy(x => x.Id)
+            .First()
+            .Title;
+
+        return new PlatformSmokeExpressionRoute(openTaskCount, firstTaskTitle);
     }
 
     private static string VerifyStrictParserProjection(SQLiteDatabase<PlatformSmokeDb> database, PlatformSmokeTask row)

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
 
@@ -8,6 +9,78 @@ namespace DataLinq.Tests.Compliance;
 
 public class QueryPlanSqlParityTests
 {
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExpressionExecutionProvider_ExecutesEntityQueriesWithoutRemotionQueryParser(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExpressionExecutionProvider_ExecutesEntityQueriesWithoutRemotionQueryParser),
+            EmployeesSeedMode.Bogus);
+
+        var expressionProvider = ExpressionQueryPlanProvider.ForExecution(databaseScope.Database.Provider.ReadOnlyAccess);
+        var employees = expressionProvider.CreateRoot<Employee>();
+        var departments = expressionProvider.CreateRoot<Department>();
+        var managerNumber = databaseScope.Database.Query().Managers
+            .OrderBy(x => x.emp_no)
+            .First()
+            .emp_no;
+
+        var expectedEmployees = databaseScope.Database.Query().Employees
+            .Where(x => x.emp_no > 10005 && x.last_login.HasValue)
+            .OrderBy(x => x.emp_no)
+            .Take(5)
+            .Select(x => x.emp_no!.Value)
+            .ToArray();
+        var actualEmployees = employees
+            .Where(x => x.emp_no > 10005 && x.last_login.HasValue)
+            .OrderBy(x => x.emp_no)
+            .Take(5)
+            .ToArray()
+            .Select(x => x.emp_no!.Value)
+            .ToArray();
+
+        var expectedDepartments = databaseScope.Database.Query().Departments
+            .Where(department => department.Managers.Any(manager => manager.emp_no == managerNumber))
+            .Select(department => department.DeptNo)
+            .OrderBy(departmentNumber => departmentNumber)
+            .ToArray();
+        var actualDepartments = departments
+            .Where(department => department.Managers.Any(manager => manager.emp_no == managerNumber))
+            .OrderBy(department => department.DeptNo)
+            .ToArray()
+            .Select(department => department.DeptNo)
+            .ToArray();
+
+        await Assert.That(actualEmployees).IsEquivalentTo(expectedEmployees);
+        await Assert.That(actualDepartments).IsEquivalentTo(expectedDepartments);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExpressionExecutionProvider_ExecutesScalarResultsWithoutRemotionQueryParser(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExpressionExecutionProvider_ExecutesScalarResultsWithoutRemotionQueryParser),
+            EmployeesSeedMode.Bogus);
+
+        var expressionProvider = ExpressionQueryPlanProvider.ForExecution(databaseScope.Database.Provider.ReadOnlyAccess);
+        var employees = expressionProvider.CreateRoot<Employee>();
+        var managers = expressionProvider.CreateRoot<Manager>();
+
+        await Assert.That(employees.Count(x => x.emp_no > 10005))
+            .IsEqualTo(databaseScope.Database.Query().Employees.Count(x => x.emp_no > 10005));
+        await Assert.That(employees.Any(x => x.first_name.StartsWith("A")))
+            .IsEqualTo(databaseScope.Database.Query().Employees.Any(x => x.first_name.StartsWith("A")));
+        await Assert.That(managers.Where(x => x.dept_fk.StartsWith("d00")).Sum(x => x.emp_no))
+            .IsEqualTo(databaseScope.Database.Query().Managers.Where(x => x.dept_fk.StartsWith("d00")).Sum(x => x.emp_no));
+        await Assert.That(managers.Where(x => x.dept_fk.StartsWith("d00")).Min(x => x.emp_no))
+            .IsEqualTo(databaseScope.Database.Query().Managers.Where(x => x.dept_fk.StartsWith("d00")).Min(x => x.emp_no));
+        await Assert.That(managers.Where(x => x.dept_fk.StartsWith("d00")).Max(x => x.emp_no))
+            .IsEqualTo(databaseScope.Database.Query().Managers.Where(x => x.dept_fk.StartsWith("d00")).Max(x => x.emp_no));
+    }
+
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionPlanSql_RendersSameSqlAsRemotionPlanForSupportedSequenceShapes(TestProviderDescriptor provider)
