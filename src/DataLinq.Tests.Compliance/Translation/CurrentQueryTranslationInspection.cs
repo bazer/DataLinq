@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using DataLinq.Interfaces;
 using DataLinq.Linq.Planning;
+using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Linq.Planning.Sql;
 using DataLinq.Query;
 using Remotion.Linq.Parsing.Structure;
@@ -80,6 +81,19 @@ internal static class CurrentQueryTranslationInspection
         where TDatabase : class, IDatabaseModel<TDatabase>
     {
         return BuildPlanSelect(database, query).ToSql();
+    }
+
+    public static Select<TModel> BuildExpressionPlanSelect<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
+        where TDatabase : class, IDatabaseModel<TDatabase>
+    {
+        var plan = ExpressionQueryPlanParser.Convert(database.Provider.Metadata, query.Expression, typeof(TModel));
+        return new QueryPlanSqlBuilder(plan, database.Provider.ReadOnlyAccess).BuildSelect<TModel>();
+    }
+
+    public static Sql BuildExpressionPlanSql<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
+        where TDatabase : class, IDatabaseModel<TDatabase>
+    {
+        return BuildExpressionPlanSelect(database, query).ToSql();
     }
 
     public static string NormalizeSqlWhitespace(string sql)

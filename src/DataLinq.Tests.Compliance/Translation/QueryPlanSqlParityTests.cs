@@ -9,6 +9,43 @@ namespace DataLinq.Tests.Compliance;
 public class QueryPlanSqlParityTests
 {
     [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExpressionPlanSql_RendersSameSqlAsRemotionPlanForSupportedSequenceShapes(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExpressionPlanSql_RendersSameSqlAsRemotionPlanForSupportedSequenceShapes),
+            EmployeesSeedMode.Bogus);
+
+        var threshold = 10010;
+        var ids = new[] { 10001, 10002, 10003 };
+        var managerNumber = databaseScope.Database.Query().Managers
+            .OrderBy(x => x.emp_no)
+            .First()
+            .emp_no;
+
+        await AssertExpressionSqlMatchesRemotionPlan(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees
+                .Where(x => x.emp_no != threshold && x.last_login.HasValue)
+                .OrderBy(x => x.last_name)
+                .ThenByDescending(x => x.emp_no)
+                .Skip(1)
+                .Take(3));
+
+        await AssertExpressionSqlMatchesRemotionPlan(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees
+                .Where(x => ids.Contains(x.emp_no!.Value)));
+
+        await AssertExpressionSqlMatchesRemotionPlan(
+            databaseScope.Database,
+            databaseScope.Database.Query().Departments
+                .Where(department => department.Managers.Any(manager => manager.emp_no == managerNumber))
+                .OrderBy(department => department.DeptNo));
+    }
+
+    [Test]
     public async Task PlanSql_RendersParameterizedPredicatesOrderingAndPaging()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -107,6 +144,64 @@ public class QueryPlanSqlParityTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExpressionPlanSql_EntityExecutionMatchesProductionForSingleSourceQuery(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExpressionPlanSql_EntityExecutionMatchesProductionForSingleSourceQuery),
+            EmployeesSeedMode.Bogus);
+
+        var expected = databaseScope.Database.Query().Employees
+            .Where(x => x.emp_no > 10005 && x.last_login.HasValue)
+            .OrderBy(x => x.emp_no)
+            .Take(5)
+            .Select(x => x.emp_no!.Value)
+            .ToArray();
+
+        var expressionPlanQuery = databaseScope.Database.Query().Employees
+            .Where(x => x.emp_no > 10005 && x.last_login.HasValue)
+            .OrderBy(x => x.emp_no)
+            .Take(5);
+        var actual = CurrentQueryTranslationInspection.BuildExpressionPlanSelect(databaseScope.Database, expressionPlanQuery)
+            .ExecuteAs<Employee>()
+            .Select(x => x.emp_no!.Value)
+            .ToArray();
+
+        await Assert.That(actual).IsEquivalentTo(expected);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExpressionPlanSql_RelationExistsExecutionMatchesProduction(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExpressionPlanSql_RelationExistsExecutionMatchesProduction),
+            EmployeesSeedMode.Bogus);
+
+        var managerNumber = databaseScope.Database.Query().Managers
+            .OrderBy(x => x.emp_no)
+            .First()
+            .emp_no;
+        var expected = databaseScope.Database.Query().Departments
+            .Where(department => department.Managers.Any(manager => manager.emp_no == managerNumber))
+            .Select(department => department.DeptNo)
+            .OrderBy(departmentNumber => departmentNumber)
+            .ToArray();
+
+        var expressionPlanQuery = databaseScope.Database.Query().Departments
+            .Where(department => department.Managers.Any(manager => manager.emp_no == managerNumber))
+            .OrderBy(department => department.DeptNo);
+        var actual = CurrentQueryTranslationInspection.BuildExpressionPlanSelect(databaseScope.Database, expressionPlanQuery)
+            .ExecuteAs<Department>()
+            .Select(department => department.DeptNo)
+            .ToArray();
+
+        await Assert.That(actual).IsEquivalentTo(expected);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PlanSql_EntityExecutionMatchesProductionForSingleSourceQuery(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -161,5 +256,19 @@ public class QueryPlanSqlParityTests
             .ToArray();
 
         await Assert.That(actual).IsEquivalentTo(expected);
+    }
+
+    private static async Task AssertExpressionSqlMatchesRemotionPlan<TModel>(
+        Database<EmployeesDb> database,
+        IQueryable<TModel> query)
+        where TModel : class
+    {
+        var remotionPlanSql = CurrentQueryTranslationInspection.BuildPlanSql(database, query);
+        var expressionPlanSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(database, query);
+
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(expressionPlanSql.Text))
+            .IsEqualTo(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(remotionPlanSql.Text));
+        await Assert.That(expressionPlanSql.Parameters.Select(x => x.Value).ToArray())
+            .IsEquivalentTo(remotionPlanSql.Parameters.Select(x => x.Value).ToArray());
     }
 }
