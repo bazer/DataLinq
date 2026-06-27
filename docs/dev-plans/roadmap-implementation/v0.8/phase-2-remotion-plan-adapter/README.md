@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 2: Remotion Plan Adapter
 
-**Status:** Next.
+**Status:** Complete.
 
 ## Execution Plan
 
@@ -47,3 +47,14 @@ The plan must be backend-neutral enough that SQL is one consumer, not the design
 - snapshot tests make plan shape reviewable
 - captured values are not baked into reusable query shape
 - the old execution path can still run while the plan model is proven
+
+## Completion Notes
+
+Implemented in the internal `DataLinq.Linq.Planning` namespace:
+
+- immutable query plan source, operation, predicate, value, projection, result, binding, and debug writer types
+- `RemotionQueryPlanAdapter` as the temporary Remotion-to-DataLinq plan producer
+- normalized snapshots that redact captured scalar and local-sequence values
+- focused unsupported-shape tests for post-paging filters, `GroupJoin`, and post-join filters
+
+The production SQL execution path is intentionally unchanged. Phase 3 is the handoff point for moving SQL generation and diagnostics onto `DataLinqQueryPlan`.

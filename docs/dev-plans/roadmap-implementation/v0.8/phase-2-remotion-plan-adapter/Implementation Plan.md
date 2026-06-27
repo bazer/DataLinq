@@ -2,9 +2,11 @@
 > This document is roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 2 Implementation Plan: Remotion Plan Adapter
 
-**Status:** Next.
+**Status:** Complete.
 
 **Created:** 2026-06-27.
+
+**Completed:** 2026-06-27.
 
 ## Purpose
 

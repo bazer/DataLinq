@@ -94,7 +94,9 @@ public class QueryPlanNodeTests
         var planningTypes = typeof(DataLinqQueryPlan).Assembly
             .GetTypes()
             .Where(type => type.Namespace == "DataLinq.Linq.Planning")
-            .Where(type => type.Name != "RemotionQueryPlanAdapter")
+            .Where(type => type != typeof(RemotionQueryPlanAdapter))
+            .Where(type => type.DeclaringType != typeof(RemotionQueryPlanAdapter))
+            .Where(type => type.FullName?.Contains("RemotionQueryPlanAdapter", StringComparison.Ordinal) != true)
             .ToArray();
 
         foreach (var type in planningTypes)

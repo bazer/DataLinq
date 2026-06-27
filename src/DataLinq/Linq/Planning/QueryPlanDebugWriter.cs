@@ -20,7 +20,7 @@ internal static class QueryPlanDebugWriter
         WriteProjection(builder, plan.Projection);
         WriteResult(builder, plan.Result);
         WriteBindings(builder, plan.Bindings);
-        return builder.ToString().TrimEnd();
+        return builder.ToString().Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();
     }
 
     private static void WriteSources(StringBuilder builder, DataLinqQueryPlan plan)

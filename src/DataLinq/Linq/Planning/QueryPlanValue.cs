@@ -83,6 +83,7 @@ internal enum QueryPlanValueKind
 
 internal enum QueryPlanFunctionKind
 {
+    ClientExpression,
     StringStartsWith,
     StringEndsWith,
     StringContains,
