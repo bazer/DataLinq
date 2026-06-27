@@ -118,9 +118,6 @@ internal static class ProjectionExpressionEvaluator
         var left = EvaluateCore(binary.Left, querySourceValues, parameterValues);
         var right = EvaluateCore(binary.Right, querySourceValues, parameterValues);
 
-        if (binary.Method is not null)
-            return binary.Method.Invoke(null, [left, right]);
-
         return binary.NodeType switch
         {
             ExpressionType.Add => Add(left, right),
@@ -206,11 +203,11 @@ internal static class ProjectionExpressionEvaluator
                 nameof(string.ToLower) when arguments.Length == 0 => text.ToLower(CultureInfo.CurrentCulture),
                 nameof(string.Substring) when arguments.Length == 1 => text.Substring((int)arguments[0]!),
                 nameof(string.Substring) when arguments.Length == 2 => text.Substring((int)arguments[0]!, (int)arguments[1]!),
-                _ => methodCall.Method.Invoke(instance, arguments)
+                _ => throw UnsupportedMethod(methodCall)
             };
         }
 
-        return methodCall.Method.Invoke(instance, arguments);
+        throw UnsupportedMethod(methodCall);
     }
 
     private static object? EvaluateNew(
@@ -351,4 +348,7 @@ internal static class ProjectionExpressionEvaluator
 
     private static QueryTranslationException Unsupported(Expression expression) =>
         new($"Projection expression '{expression}' is not supported without runtime expression compilation.");
+
+    private static QueryTranslationException UnsupportedMethod(MethodCallExpression methodCall) =>
+        new($"Projection method '{methodCall.Method.Name}' is not supported without runtime method invocation. Expression: {methodCall}");
 }

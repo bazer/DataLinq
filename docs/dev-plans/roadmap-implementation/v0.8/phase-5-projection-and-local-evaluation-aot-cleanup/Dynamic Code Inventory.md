@@ -45,14 +45,17 @@ Owned files:
 Current state:
 
 - production row-local projection still calls `ProjectionExpressionEvaluator.Evaluate(...)` from `QueryExecutor`
-- projection evaluation still uses `MethodInfo.Invoke(...)`, `ConstructorInfo.Invoke(...)`, `FieldInfo.GetValue(...)`, and `PropertyInfo.GetValue(...)`
+- projection evaluation no longer uses an arbitrary `MethodInfo.Invoke(...)` fallback
+- supported string projection methods are interpreted explicitly
+- unsupported projection methods now fail without invoking user code
+- projection evaluation still uses `ConstructorInfo.Invoke(...)`, `FieldInfo.GetValue(...)`, and `PropertyInfo.GetValue(...)`
 - this is the main remaining Phase 5 implementation target
 
 Required action:
 
 - define the supported row-local projection interpreter boundary
 - keep relation projection and nested database projection rejected
-- route supported projection execution away from arbitrary method/constructor invocation
+- route supported projection execution away from constructor invocation and broad member reflection where practical
 - isolate any compatibility fallback so constrained-platform verification can assert it was not used
 
 ## Legacy Remotion-Backed Local Evaluation State

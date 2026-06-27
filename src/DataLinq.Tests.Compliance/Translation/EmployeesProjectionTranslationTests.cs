@@ -114,4 +114,45 @@ public class EmployeesProjectionTranslationTests
         await Assert.That(exception!.Message).Contains("Relation property 'Managers'");
         await Assert.That(exception.Message).Contains("LINQ Select projection");
     }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task UnsupportedProjectionMethod_ThrowsWithoutInvokingMethod(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(UnsupportedProjectionMethod_ThrowsWithoutInvokingMethod),
+            EmployeesSeedMode.Bogus);
+
+        var probe = new ProjectionMethodProbe();
+        QueryTranslationException? exception = null;
+
+        try
+        {
+            _ = databaseScope.Database.Query().Employees
+                .OrderBy(x => x.emp_no)
+                .Take(1)
+                .Select(x => probe.FormatName(x.first_name))
+                .ToList();
+        }
+        catch (QueryTranslationException caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("Projection method 'FormatName'");
+        await Assert.That(probe.InvocationCount).IsEqualTo(0);
+    }
+
+    private sealed class ProjectionMethodProbe
+    {
+        public int InvocationCount { get; private set; }
+
+        public string FormatName(string value)
+        {
+            InvocationCount++;
+            return value.Trim().ToUpperInvariant();
+        }
+    }
 }
