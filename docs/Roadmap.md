@@ -36,11 +36,11 @@ The 0.8 branch pulls the query-parser boundary forward as the next major theme:
 - move SQL generation and query diagnostics behind that plan
 - build a supported-subset expression parser over `System.Linq.Expressions`
 - dual-run parser parity against the documented LINQ support matrix
-- remove or isolate `Remotion.Linq` from the practical AOT support boundary
+- remove `Remotion.Linq` from the main product dependency graph
 
 This should not become a general LINQ-provider rewrite. The parser should target the documented supported subset first, preserve current tested behavior where practical, and reject unsupported shapes with specific diagnostics.
 
-The internal execution plan starts over at 0.8 Phase 1 instead of continuing the old global roadmap numbering. That keeps the release work sequential: baseline the query contract, add the plan and Remotion adapter, move SQL generation, add the new parser, prove parity, then remove or isolate Remotion.
+The internal execution plan starts over at 0.8 Phase 1 instead of continuing the old global roadmap numbering. That keeps the release work sequential: baseline the query contract, add the plan and Remotion adapter, move SQL generation, add the new parser, prove parity, then remove Remotion as a dependency.
 
 ### Explicit Multi-Join Composition
 

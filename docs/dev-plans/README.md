@@ -73,7 +73,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/v0.8/phase-4-supported-subset-expression-parser/README.md`
 - `roadmap-implementation/v0.8/phase-5-projection-and-local-evaluation-aot-cleanup/README.md`
 - `roadmap-implementation/v0.8/phase-6-dual-run-parity-and-aot-switch/README.md`
-- `roadmap-implementation/v0.8/phase-7-remotion-removal-or-compatibility-isolation/README.md`
+- `roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md`
 - `roadmap-implementation/v0.8/phase-8-source-slot-join-follow-up/README.md`
 - `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
 - `roadmap-implementation/phase-14-relation-aware-joins-and-left-joins/README.md`

@@ -50,7 +50,7 @@ The Phase 7 plan completed scalar aggregates, projection expansion, nullable pre
 
 The Phase 8 plan closed with executable generated SQLite smoke coverage for Native AOT, trimmed publish, and Blazor WebAssembly AOT. Phase 8B closed the generated-contract and immutable metadata foundation. Phase 8C then completed the bounded package/generated-runtime cleanup: repeatable size reports, Roslyn removal from runtime dependency groups, complete generated metadata startup, runtime reflection metadata-discovery removal, generated indexed access, and package/public wording.
 
-The query-plan, Remotion isolation, and supported-subset parser work are now the 0.8 focus. The active sequence is [DataLinq 0.8 Roadmap](v0.8/README.md): query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset parser, projection/AOT cleanup, dual-run parity, and Remotion removal or compatibility isolation.
+The query-plan, Remotion isolation, and supported-subset parser work are now the 0.8 focus. The active sequence is [DataLinq 0.8 Roadmap](v0.8/README.md): query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset parser, projection/AOT cleanup, dual-run parity, and Remotion dependency removal.
 
 Phase 9A is complete for warning cleanup, benchmark-history and website trends, allocation reduction, and conservative cache invalidation hardening. Its benchmark closeout supports allocation and invalidation claims, not latency claims.
 

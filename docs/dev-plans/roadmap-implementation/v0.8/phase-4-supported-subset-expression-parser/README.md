@@ -27,13 +27,8 @@ In scope for the first parser slice:
 - documented scalar aggregates
 - documented predicate comparisons, boolean grouping, string members, date/time members, and nullable shapes
 - documented local collection membership and empty fixed-condition behavior
-
-Conditional in scope:
-
 - one-to-many relation `Any(...)` and existence-equivalent `Count()` predicates
 - current narrow explicit `Join(...)` baseline
-
-Those conditional items should be included if practical. If not, they must remain explicit compatibility-only shapes until a follow-up parser slice.
 
 Out of scope:
 
@@ -52,6 +47,6 @@ Unsupported shapes should fail with `QueryTranslationException` or an equivalent
 ## Exit Criteria
 
 - DataLinq-owned `IQueryable<T>` and `IQueryProvider` can parse representative queries into `DataLinqQueryPlan`
-- documented single-source support passes on the new parser
+- documented support passes on the new parser, including current relation-existence predicates and the narrow explicit join baseline
 - unsupported shapes have focused diagnostics
-- relation and join parity are either implemented or explicitly marked compatibility-only
+- any deliberate contraction of documented support is recorded as a breaking release decision before Phase 7 removes Remotion

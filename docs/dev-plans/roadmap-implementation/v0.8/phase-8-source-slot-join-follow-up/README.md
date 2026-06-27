@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8 follow-up work. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 8: Source-Slot Join Follow-Up
 
-**Status:** Stretch / 0.8.x follow-up after Remotion removal or isolation.
+**Status:** Stretch / 0.8.x follow-up after Remotion dependency removal.
 
 ## Purpose
 

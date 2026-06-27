@@ -616,7 +616,7 @@ Goals:
 - introduce a DataLinq-owned query plan behind the current Remotion parser
 - move SQL generation and supported query diagnostics behind that plan
 - build a supported-subset expression parser that can serve the generated/AOT path
-- remove or isolate `Remotion.Linq` from the practical AOT support boundary
+- remove `Remotion.Linq` from the main product dependency graph
 - investigate SQLitePCLRaw WebAssembly warnings with exact call-path evidence
 - keep no-AOT browser WebAssembly unsupported unless it actually runs
 
@@ -669,7 +669,7 @@ Phase 10 is now complete: metadata collection and lookup cleanup, generated prov
 
 Phase 11 is now complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is now complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led rejection of production interning.
 
-After the 0.7.1 release, the `v0.8` branch deliberately resets roadmap execution to a version-scoped sequence. The next priority is [0.8 Phase 1: Query Contract and Plan Baseline](roadmap-implementation/v0.8/phase-1-query-contract-and-plan-baseline/README.md), followed by the Remotion plan adapter, SQL generation on the plan, the supported-subset expression parser, dual-run parity, and Remotion removal or compatibility isolation.
+After the 0.7.1 release, the `v0.8` branch deliberately resets roadmap execution to a version-scoped sequence. The next priority is [0.8 Phase 1: Query Contract and Plan Baseline](roadmap-implementation/v0.8/phase-1-query-contract-and-plan-baseline/README.md), followed by the Remotion plan adapter, SQL generation on the plan, the supported-subset expression parser, dual-run parity, and Remotion dependency removal.
 
 Phase 13 explicit multi-join composition and Phase 14 relation-aware joins should remain planned follow-up work, but they should be rebased on the source-slot-aware query plan instead of broadening the old Remotion boundary first.
 

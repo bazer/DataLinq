@@ -12,9 +12,11 @@
 
 The major 0.8 theme is:
 
-> Replace or isolate the `Remotion.Linq` dependency by moving query execution behind a DataLinq-owned query plan and a supported-subset expression parser.
+> Replace the `Remotion.Linq` parser with a DataLinq-owned query parser and remove `Remotion.Linq` as a dependency of the main DataLinq product.
 
 This is not a general LINQ provider rewrite. It is a controlled migration of the supported DataLinq query surface.
+
+The wording matters. "Isolate Remotion" was a useful earlier fallback while the migration shape was unclear. It is not the 0.8 goal. A separate compatibility experiment can exist later if a real user need appears, but 0.8 should not ship with the main runtime package, constrained-platform smoke paths, or active test baseline depending on `Remotion.Linq`.
 
 ## Release Shape
 
@@ -26,7 +28,7 @@ This is not a general LINQ provider rewrite. It is a controlled migration of the
 | Phase 4: Supported-Subset Expression Parser | Planned | `phase-4-supported-subset-expression-parser/` | Build the DataLinq parser over expression trees. |
 | Phase 5: Projection and Local Evaluation AOT Cleanup | Planned | `phase-5-projection-and-local-evaluation-aot-cleanup/` | Keep supported generated/AOT projection paths honest. |
 | Phase 6: Dual-Run Parity and AOT Switch | Planned | `phase-6-dual-run-parity-and-aot-switch/` | Prove the new parser before routing constrained-platform paths through it. |
-| Phase 7: Remotion Removal or Compatibility Isolation | Planned | `phase-7-remotion-removal-or-compatibility-isolation/` | Remove Remotion from the main runtime path, or isolate it explicitly. |
+| Phase 7: Remotion Dependency Removal | Planned | `phase-7-remotion-dependency-removal/` | Remove Remotion package references, roots, tests, and documentation assumptions from the main product path. |
 | Phase 8: Source-Slot Join Follow-Up | Stretch / 0.8.x | `phase-8-source-slot-join-follow-up/` | Resume join expansion after the query plan exists. |
 
 Phases 1 through 7 are the coherent 0.8 parser-removal track. Phase 8 is deliberately listed after that track because broad join expansion should not be implemented on the old Remotion-shaped boundary first.
@@ -39,7 +41,7 @@ Each phase should leave the repo in a defensible state:
 2. Remotion becomes an adapter before it becomes optional.
 3. SQL generation consumes DataLinq plan nodes before the new parser becomes default.
 4. The new parser proves parity before generated/AOT paths switch over.
-5. Remotion leaves the main runtime package only after the replacement path has evidence.
+5. Remotion leaves the main product dependency graph only after the replacement path has evidence.
 
 Skipping ahead is how parser rewrites turn into archaeology projects with passing demos and broken edge cases.
 
@@ -52,8 +54,24 @@ Skipping ahead is how parser rewrites turn into archaeology projects with passin
 - plan snapshot tests cover representative supported shapes
 - dual-run parity is green for shapes supported by both parsers
 - generated SQLite Native AOT and trim smoke paths no longer root `Remotion.Linq`
-- package inspection confirms the main runtime dependency story
+- `src/DataLinq/DataLinq.csproj` no longer references `Remotion.Linq`
+- `src/Directory.Packages.props` no longer carries a `Remotion.Linq` version for the main product
+- package inspection confirms `Remotion.Linq` is absent from DataLinq runtime dependency groups
+- source and test cleanup removes Remotion-specific parser dependencies from the active baseline
 - public docs describe only the behavior that actually shipped
+
+## Cross-Cutting Requirements
+
+Some release work does not belong cleanly to one phase, but it is still required for a credible 0.8:
+
+- **Dependency gates:** add or update package/size/dependency checks so `Remotion.Linq` cannot quietly re-enter the main runtime package or constrained publish outputs.
+- **Test ownership cleanup:** rewrite active tests that instantiate Remotion's `QueryParser` or reflect into Remotion-shaped `ParseQueryModel` paths. Dual-run tests are temporary migration scaffolding, not a permanent dependency.
+- **Documented support parity:** preserve the current public LINQ support surface on the DataLinq parser unless the release deliberately documents a breaking contraction. Relation `Any(...)`, existence-equivalent relation `Count()`, scalar aggregates, row-local projections, local collection membership, nullable predicates, and the current narrow explicit `Join(...)` baseline are not optional just because they are inconvenient.
+- **Diagnostics parity:** ensure unsupported query diagnostics use DataLinq concepts and do not leak Remotion type names such as result-operator or clause class names.
+- **Provider matrix:** run SQLite plus available MySQL/MariaDB verification whenever SQL generation semantics move. SQLite-only green tests are not enough for a query translator change.
+- **Performance baseline:** capture at least focused allocation/translation measurements before and after the parser switch. The new parser does not need to be magically faster on day one, but it should not accidentally make the hot path absurd.
+- **Public docs and release notes:** update `Supported LINQ Queries`, the LINQ support matrix, query internals docs, platform compatibility docs, and changelog/release notes after behavior ships.
+- **Upgrade notes:** call out any intentional query-shape difference, unsupported-shape diagnostic change, or removed compatibility behavior.
 
 ## Source Plans
 
@@ -79,6 +97,7 @@ The 0.8 roadmap consolidates these older plans rather than discarding them:
 - non-SQL backend execution as a 0.8 release requirement
 - no-AOT browser WebAssembly support
 - warning suppression as the final answer for Remotion
+- shipping a Remotion-backed compatibility fallback inside the main DataLinq package
 
 ## After 0.8
 
