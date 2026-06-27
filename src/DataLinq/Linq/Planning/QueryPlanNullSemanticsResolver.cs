@@ -30,7 +30,22 @@ internal static class QueryPlanNullSemanticsResolver
            !IsNullValue(valueCandidate, bindings);
 
     private static bool IsNullValue(QueryPlanValue value, IReadOnlyList<QueryPlanBinding> bindings)
-        => value is QueryPlanConstantValue { Value: null } ||
-           value is QueryPlanCapturedValue captured &&
-           bindings.SingleOrDefault(binding => binding.Id == captured.BindingId) is { Kind: QueryPlanBindingKind.Scalar, Value: null };
+    {
+        if (value is QueryPlanConstantValue { Value: null })
+            return true;
+
+        if (value is not QueryPlanCapturedValue captured)
+            return false;
+
+        var binding = bindings.SingleOrDefault(binding => binding.Id == captured.BindingId);
+        if (binding is null)
+            throw new InvalidOperationException(
+                $"Captured query plan value '{captured.BindingId}' is missing from the binding frame.");
+
+        if (binding.Kind != QueryPlanBindingKind.Scalar)
+            throw new InvalidOperationException(
+                $"Captured query plan value '{captured.BindingId}' references a non-scalar binding.");
+
+        return binding.Value is null;
+    }
 }

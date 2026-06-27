@@ -276,11 +276,11 @@ bindings:
     }
 
     [Test]
-    public async Task NullableInequalitySnapshots_RecordLiteralNullAndCapturedNonNullSemantics()
+    public async Task NullableInequalitySnapshots_RecordLiteralNullLocalNullAndCapturedNonNullSemantics()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(NullableInequalitySnapshots_RecordLiteralNullAndCapturedNonNullSemantics),
+            nameof(NullableInequalitySnapshots_RecordLiteralNullLocalNullAndCapturedNonNullSemantics),
             EmployeesSeedMode.Bogus);
 
         TimeOnly? login = new TimeOnly(9, 15, 0);
@@ -288,15 +288,21 @@ bindings:
         var literalNullSnapshot = Snapshot(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x => x.last_login != null));
+        var localNullSnapshot = Snapshot(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees.Where(x => x.last_login != LocalNullLogin()));
         var capturedNonNullSnapshot = Snapshot(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x => x.last_login != login));
 
         await Assert.That(literalNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != constant(null:TimeOnly?))");
         await Assert.That(literalNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-not-equal-includes-null");
+        await Assert.That(localNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) !=");
+        await Assert.That(localNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-not-equal-includes-null");
         await Assert.That(capturedNonNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != captured(p0:TimeOnly?) nulls=c-sharp-nullable-not-equal-includes-null)");
         await Assert.That(capturedNonNullSnapshot).DoesNotContain("09:15");
         await AssertNoRemotionTerms(literalNullSnapshot);
+        await AssertNoRemotionTerms(localNullSnapshot);
         await AssertNoRemotionTerms(capturedNonNullSnapshot);
     }
 
@@ -305,6 +311,8 @@ bindings:
 
     private static string Snapshot<TResult>(Database<EmployeesDb> database, Expression<Func<TResult>> query)
         => QueryPlanDebugWriter.Write(RemotionQueryPlanAdapter.Convert(database, query));
+
+    private static TimeOnly? LocalNullLogin() => null;
 
     private static async Task AssertSnapshot(string actual, string expected)
     {

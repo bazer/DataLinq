@@ -103,6 +103,25 @@ public class QueryPlanNodeTests
     }
 
     [Test]
+    public async Task NullSemanticsResolver_RejectsCapturedValueMissingFromBindingFrame()
+    {
+        var table = GetTable<Employee>();
+        var source = Source("s0", table);
+        var column = new QueryPlanColumnValue(source, table.GetColumnByPropertyName(nameof(Employee.last_login)));
+        var captured = new QueryPlanCapturedValue("p0", typeof(TimeOnly?));
+
+        var exception = Capture<InvalidOperationException>(() =>
+            QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(
+                QueryPlanComparisonOperator.NotEqual,
+                column,
+                captured,
+                []));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("missing from the binding frame");
+    }
+
+    [Test]
     public async Task PlanningNodes_DoNotExposeRemotionTypes()
     {
         var planningTypes = typeof(DataLinqQueryPlan).Assembly
