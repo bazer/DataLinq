@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Reflection;
 using DataLinq.Interfaces;
+using DataLinq.Linq.Planning;
+using DataLinq.Linq.Planning.Sql;
 using DataLinq.Query;
 using Remotion.Linq.Parsing.Structure;
 
@@ -37,6 +39,19 @@ internal static class CurrentQueryTranslationInspection
         where TDatabase : class, IDatabaseModel<TDatabase>
     {
         return BuildSelect(database, query).ToSql();
+    }
+
+    public static Select<TModel> BuildPlanSelect<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
+        where TDatabase : class, IDatabaseModel<TDatabase>
+    {
+        var plan = RemotionQueryPlanAdapter.Convert(database, query);
+        return new QueryPlanSqlBuilder(plan, database.Provider.ReadOnlyAccess).BuildSelect<TModel>();
+    }
+
+    public static Sql BuildPlanSql<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
+        where TDatabase : class, IDatabaseModel<TDatabase>
+    {
+        return BuildPlanSelect(database, query).ToSql();
     }
 
     public static string NormalizeSqlWhitespace(string sql)
