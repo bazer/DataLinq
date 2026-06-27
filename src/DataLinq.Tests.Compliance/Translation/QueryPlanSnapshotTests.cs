@@ -147,6 +147,22 @@ bindings:
     }
 
     [Test]
+    public async Task NegatedFunctionPredicateSnapshot_RecordsNotNode()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(NegatedFunctionPredicateSnapshot_RecordsNotNode),
+            EmployeesSeedMode.Bogus);
+
+        var snapshot = Snapshot(
+            databaseScope.Database,
+            databaseScope.Database.Query().Departments.Where(x => !x.DeptNo.StartsWith("d00")));
+
+        await Assert.That(snapshot).Contains("where not(compare(function(string-starts-with:Boolean column(s0.dept_no:String), captured(p0:String)) == constant(Boolean)))");
+        await AssertNoRemotionTerms(snapshot);
+    }
+
+    [Test]
     public async Task ExplicitJoinSnapshot_RecordsBothSourcesAndJoinKeys()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -228,14 +244,19 @@ bindings:
         var relationCountSnapshot = Snapshot(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x => x.dept_manager.Count() == 0));
+        var negatedRelationCountSnapshot = Snapshot(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees.Where(x => !(x.dept_manager.Count() == 0)));
 
         await Assert.That(localAnySnapshot).Contains("where in(column(s0.emp_no:Int32), local-sequence(p0:Int32 count=2))");
         await Assert.That(localAnySnapshot).DoesNotContain("10001");
         await Assert.That(localAnySnapshot).DoesNotContain("10002");
         await Assert.That(relationCountSnapshot).Contains("where not-exists(relation=dept_manager parent=s0 child=s1)");
+        await Assert.That(negatedRelationCountSnapshot).Contains("where exists(relation=dept_manager parent=s0 child=s1)");
 
         await AssertNoRemotionTerms(localAnySnapshot);
         await AssertNoRemotionTerms(relationCountSnapshot);
+        await AssertNoRemotionTerms(negatedRelationCountSnapshot);
     }
 
     [Test]

@@ -6,6 +6,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
+using DataLinq.Linq.Planning;
+using DataLinq.Linq.Planning.Sql;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
@@ -93,10 +95,24 @@ internal class QueryExecutor : IQueryExecutor
     /// </remarks>
     private Select<T> ParseQueryModel<T>(QueryModel queryModel)
     {
-        return BuildSqlQuery<T>(queryModel).SelectQuery();
+        var plan = CreateQueryPlan<T>(queryModel);
+        return BuildSelect<T>(plan);
     }
 
-    private SqlQuery<T> BuildSqlQuery<T>(QueryModel queryModel)
+    private DataLinqQueryPlan CreateQueryPlan<T>(QueryModel queryModel)
+        => RemotionQueryPlanAdapter.Convert(Transaction.Provider.Metadata, queryModel, typeof(T));
+
+    private Select<T> BuildSelect<T>(DataLinqQueryPlan plan)
+        => new QueryPlanSqlBuilder(plan, Transaction).BuildSelect<T>();
+
+    // 0.8 migration scaffold: retained as a temporary oracle for SQL parity tests.
+    // Production query execution should use ParseQueryModel/BuildSelect over DataLinqQueryPlan.
+    private Select<T> ParseLegacyQueryModel<T>(QueryModel queryModel)
+    {
+        return BuildLegacySqlQuery<T>(queryModel).SelectQuery();
+    }
+
+    private SqlQuery<T> BuildLegacySqlQuery<T>(QueryModel queryModel)
     {
         // Extract the subquery model from the main clause if necessary
         var subQueryModel = ExtractQueryModel(queryModel.MainFromClause.FromExpression);
@@ -111,7 +127,7 @@ internal class QueryExecutor : IQueryExecutor
         }
 
         var query = subQueryModel != null
-            ? BuildSqlQuery<T>(subQueryModel)
+            ? BuildLegacySqlQuery<T>(subQueryModel)
             : new SqlQuery<T>(Table, Transaction);
 
         foreach (var body in queryModel.BodyClauses)
@@ -345,17 +361,10 @@ internal class QueryExecutor : IQueryExecutor
         var innerSource = new JoinQuerySource(joinClause, GetTableForModelType(joinClause.ItemType), "t1");
         var sources = new[] { rootSource, innerSource };
 
-        ValidateJoinInnerSequence(joinClause);
-
-        var outerColumn = GetJoinKeyColumn(rootSource, joinClause.OuterKeySelector, "outer");
-        var innerColumn = GetJoinKeyColumn(innerSource, joinClause.InnerKeySelector, "inner");
-
-        var query = new SqlQuery<T>(Table, Transaction, rootSource.Alias);
-        query.Join(innerSource.Table.DbName, innerSource.Alias)
-            .On(on => on.Where(outerColumn.DbName, rootSource.Alias).EqualToColumn(innerColumn.DbName, innerSource.Alias));
-
-        var select = query.SelectQuery();
-        select.What(GetJoinedPrimaryKeySelectors(query, sources).ToArray());
+        var plan = CreateQueryPlan<T>(queryModel);
+        var planSqlBuilder = new QueryPlanSqlBuilder(plan, Transaction);
+        var select = planSqlBuilder.BuildSelect<T>();
+        select.What(planSqlBuilder.GetJoinedPrimaryKeySelectors().ToArray());
 
         var projector = GetJoinedSelectFunc<T>(queryModel.SelectClause, sources);
         int[][]? primaryKeyOrdinalsBySource = null;
@@ -379,46 +388,6 @@ internal class QueryExecutor : IQueryExecutor
         return Transaction.Provider.Metadata.TryGetTableModel(modelType, out var tableModel)
             ? tableModel.Table
             : throw new QueryTranslationException($"Join inner sequence type '{modelType}' is not a mapped DataLinq table model.");
-    }
-
-    private static void ValidateJoinInnerSequence(JoinClause joinClause)
-    {
-        if (joinClause.InnerSequence is not ConstantExpression { Value: IQueryable })
-            throw new QueryTranslationException($"Join inner sequence '{joinClause.InnerSequence}' is not supported. Only direct DataLinq query sources are supported.");
-    }
-
-    private static ColumnDefinition GetJoinKeyColumn(JoinQuerySource source, Expression keySelector, string side)
-    {
-        var selector = UnwrapConvert(keySelector);
-        if (selector is MemberExpression { Member.Name: "Value", Expression: MemberExpression nullableMember } &&
-            Nullable.GetUnderlyingType(nullableMember.Type) is not null)
-        {
-            selector = nullableMember;
-        }
-
-        if (selector is not MemberExpression memberExpression ||
-            memberExpression.Expression is not QuerySourceReferenceExpression querySource ||
-            !ReferenceEquals(querySource.ReferencedQuerySource, source.QuerySource))
-        {
-            throw new QueryTranslationException($"The {side} Join key selector '{keySelector}' is not supported. Only direct member keys and nullable Value member keys are supported.");
-        }
-
-        return source.Table.TryGetColumnByPropertyName(memberExpression.Member.Name, out var column)
-            ? column
-            : throw new QueryTranslationException($"The {side} Join key member '{memberExpression.Member.Name}' is not mapped on table '{source.Table.DbName}'.");
-    }
-
-    private static IEnumerable<string> GetJoinedPrimaryKeySelectors<T>(SqlQuery<T> query, IReadOnlyList<JoinQuerySource> sources)
-    {
-        for (var sourceIndex = 0; sourceIndex < sources.Count; sourceIndex++)
-        {
-            var source = sources[sourceIndex];
-            for (var columnIndex = 0; columnIndex < source.Table.PrimaryKeyColumns.Length; columnIndex++)
-            {
-                var column = source.Table.PrimaryKeyColumns[columnIndex];
-                yield return $"{source.Alias}.{query.EscapeCharacter}{column.DbName}{query.EscapeCharacter} AS {query.EscapeCharacter}{GetJoinedPrimaryKeyAlias(sourceIndex, columnIndex)}{query.EscapeCharacter}";
-            }
-        }
     }
 
     private static int[][] GetJoinedPrimaryKeyOrdinals(IDataLinqDataReader reader, IReadOnlyList<JoinQuerySource> sources)
@@ -507,25 +476,29 @@ internal class QueryExecutor : IQueryExecutor
     /// </remarks>
     public T? ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
     {
-        if (queryModel.ResultOperators.FirstOrDefault() is SumResultOperator or MinResultOperator or MaxResultOperator or AverageResultOperator)
+        var plan = CreateQueryPlan<T>(queryModel);
+        if (IsAggregateResult(plan.Result.Kind))
             return ExecuteScalar<T>(queryModel);
 
-        var sequence = ParseQueryModel<T>(queryModel)
+        var sequence = BuildSelect<T>(plan)
             .Execute()
             .Select(GetSelectFunc<T>(queryModel.SelectClause, Table));
 
-        if (queryModel.ResultOperators.Any())
+        if (plan.Result.Kind != QueryPlanResultKind.Sequence)
         {
-            return queryModel.ResultOperators[0] switch
+            return plan.Result.Kind switch
             {
-                SingleResultOperator => returnDefaultWhenEmpty ? sequence.SingleOrDefault() : sequence.Single(),
-                FirstResultOperator => returnDefaultWhenEmpty ? sequence.FirstOrDefault() : sequence.First(),
-                LastResultOperator => returnDefaultWhenEmpty ? sequence.LastOrDefault() : sequence.Last(),
-                var op => throw new QueryTranslationException($"Single-result operator '{GetResultOperatorDisplayName(op)}' is not supported. Query model: {queryModel}")
+                QueryPlanResultKind.Single => sequence.Single(),
+                QueryPlanResultKind.SingleOrDefault => sequence.SingleOrDefault(),
+                QueryPlanResultKind.First => sequence.First(),
+                QueryPlanResultKind.FirstOrDefault => sequence.FirstOrDefault(),
+                QueryPlanResultKind.Last => sequence.Last(),
+                QueryPlanResultKind.LastOrDefault => sequence.LastOrDefault(),
+                var kind => throw new QueryTranslationException($"Single-result query plan result '{kind}' is not supported.")
             };
         }
 
-        throw new QueryTranslationException($"Single-result execution requires a result operator. Query model: {queryModel}");
+        return returnDefaultWhenEmpty ? sequence.SingleOrDefault() : sequence.Single();
     }
 
     /// <summary>
@@ -539,45 +512,45 @@ internal class QueryExecutor : IQueryExecutor
     /// </remarks>
     public T ExecuteScalar<T>(QueryModel queryModel)
     {
-        if (queryModel.ResultOperators.Any())
+        var plan = CreateQueryPlan<T>(queryModel);
+        if (IsScalarResult(plan.Result.Kind))
         {
-            var select = ParseQueryModel<T>(queryModel);
-            var op = queryModel.ResultOperators[0];
-
-            if (op is CountResultOperator || op is AnyResultOperator)
-            {
-                select.What("COUNT(*)");
-            }
-            else if (op is SumResultOperator || op is MinResultOperator || op is MaxResultOperator || op is AverageResultOperator)
-            {
-                select.What(GetAggregateSelectorSql(select.Query, queryModel.SelectClause, op));
-            }
-            else
-            {
-                throw new QueryTranslationException($"Scalar result operator '{GetResultOperatorDisplayName(op)}' is not supported. Query model: {queryModel}");
-            }
-
+            var select = BuildSelect<T>(plan);
             var result = select.ExecuteScalar();
-            return ConvertScalarResult<T>(result, op, queryModel);
+            return ConvertScalarResult<T>(result, plan.Result);
         }
 
         throw new QueryTranslationException($"Scalar execution requires a result operator. Query model: {queryModel}");
     }
 
-    private static T ConvertScalarResult<T>(object? result, ResultOperatorBase op, QueryModel queryModel)
+    private static bool IsScalarResult(QueryPlanResultKind kind)
+        => kind is QueryPlanResultKind.Count or
+            QueryPlanResultKind.Any or
+            QueryPlanResultKind.Sum or
+            QueryPlanResultKind.Min or
+            QueryPlanResultKind.Max or
+            QueryPlanResultKind.Average;
+
+    private static bool IsAggregateResult(QueryPlanResultKind kind)
+        => kind is QueryPlanResultKind.Sum or
+            QueryPlanResultKind.Min or
+            QueryPlanResultKind.Max or
+            QueryPlanResultKind.Average;
+
+    private static T ConvertScalarResult<T>(object? result, QueryPlanResult planResult)
     {
         if (result is DBNull)
             result = null;
 
-        if (op is AnyResultOperator)
+        if (planResult.Kind == QueryPlanResultKind.Any)
             return (T)(object)(Convert.ToInt64(result ?? 0, CultureInfo.InvariantCulture) > 0);
 
         if (result is null)
         {
-            if (op is SumResultOperator || Nullable.GetUnderlyingType(typeof(T)) is not null)
+            if (planResult.Kind == QueryPlanResultKind.Sum || Nullable.GetUnderlyingType(typeof(T)) is not null)
                 return default!;
 
-            throw new InvalidOperationException($"Scalar result operator '{GetResultOperatorDisplayName(op)}' returned no value. Query model: {queryModel}");
+            throw new InvalidOperationException($"Scalar query plan result '{planResult.Kind}' returned no value.");
         }
 
         var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
@@ -585,41 +558,6 @@ internal class QueryExecutor : IQueryExecutor
             return (T)result;
 
         return (T)Convert.ChangeType(result, targetType, CultureInfo.InvariantCulture);
-    }
-
-    private static string GetAggregateSelectorSql<T>(SqlQuery<T> query, SelectClause selectClause, ResultOperatorBase op)
-    {
-        var selector = UnwrapConvert(selectClause.Selector);
-        var columnExpression = GetAggregateColumnExpression(query, selector, op);
-
-        return op switch
-        {
-            SumResultOperator => $"COALESCE(SUM({columnExpression}), 0)",
-            MinResultOperator => $"MIN({columnExpression})",
-            MaxResultOperator => $"MAX({columnExpression})",
-            AverageResultOperator => $"AVG({columnExpression})",
-            _ => throw new QueryTranslationException($"Scalar result operator '{GetResultOperatorDisplayName(op)}' is not supported. Query model selector: {selectClause.Selector}")
-        };
-    }
-
-    private static string GetAggregateColumnExpression<T>(SqlQuery<T> query, Expression selector, ResultOperatorBase op)
-    {
-        if (selector is not MemberExpression memberExpression)
-            throw new QueryTranslationException($"Aggregate selector '{selector}' is not supported for '{GetResultOperatorDisplayName(op)}'. Only direct numeric members and nullable Value members are supported.");
-
-        memberExpression = UnwrapNullableValueMember(memberExpression);
-
-        if (memberExpression.Expression is not QuerySourceReferenceExpression)
-            throw new QueryTranslationException($"Aggregate selector '{selector}' is not supported for '{GetResultOperatorDisplayName(op)}'. Only direct numeric members and nullable Value members are supported.");
-
-        if (!IsNumericType(selector.Type))
-            throw new QueryTranslationException($"Aggregate selector '{selector}' for '{GetResultOperatorDisplayName(op)}' must be numeric. Selector type: {selector.Type}");
-
-        var column = query.Table.TryGetColumnByPropertyName(memberExpression.Member.Name, out var aggregateColumn)
-            ? aggregateColumn
-            : throw new QueryTranslationException($"Aggregate selector member '{memberExpression.Member.Name}' was not found on table '{query.Table.DbName}'. Selector: {selector}");
-
-        return $"{query.EscapeCharacter}{column.DbName}{query.EscapeCharacter}";
     }
 
     private static string GetResultOperatorDisplayName(ResultOperatorBase op)
@@ -634,18 +572,6 @@ internal class QueryExecutor : IQueryExecutor
             : name;
     }
 
-    private static MemberExpression UnwrapNullableValueMember(MemberExpression memberExpression)
-    {
-        if (memberExpression.Member.Name == nameof(Nullable<int>.Value) &&
-            memberExpression.Expression is MemberExpression innerMember &&
-            Nullable.GetUnderlyingType(innerMember.Type) is not null)
-        {
-            return innerMember;
-        }
-
-        return memberExpression;
-    }
-
     private static Expression UnwrapConvert(Expression expression)
     {
         while (expression is UnaryExpression unary &&
@@ -655,29 +581,5 @@ internal class QueryExecutor : IQueryExecutor
         }
 
         return expression;
-    }
-
-    private static bool IsNumericType(Type type)
-    {
-        type = Nullable.GetUnderlyingType(type) ?? type;
-
-        if (type.IsEnum)
-            return false;
-
-        return Type.GetTypeCode(type) switch
-        {
-            TypeCode.Byte or
-            TypeCode.SByte or
-            TypeCode.Int16 or
-            TypeCode.UInt16 or
-            TypeCode.Int32 or
-            TypeCode.UInt32 or
-            TypeCode.Int64 or
-            TypeCode.UInt64 or
-            TypeCode.Single or
-            TypeCode.Double or
-            TypeCode.Decimal => true,
-            _ => false
-        };
     }
 }

@@ -46,13 +46,22 @@ internal sealed class RemotionQueryPlanAdapter
         return ConvertExpression(database, query.Body, typeof(TResult));
     }
 
+    internal static DataLinqQueryPlan Convert(DatabaseDefinition metadata, QueryModel queryModel, Type resultType)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(queryModel);
+        ArgumentNullException.ThrowIfNull(resultType);
+
+        var adapter = new RemotionQueryPlanAdapter(metadata);
+        return adapter.ConvertQueryModel(queryModel, resultType);
+    }
+
     private static DataLinqQueryPlan ConvertExpression<TDatabase>(Database<TDatabase> database, Expression expression, Type resultType)
         where TDatabase : class, IDatabaseModel<TDatabase>
     {
         var queryParser = QueryParser.CreateDefault();
         var queryModel = queryParser.GetParsedQuery(expression);
-        var adapter = new RemotionQueryPlanAdapter(database.Provider.Metadata);
-        return adapter.ConvertQueryModel(queryModel, resultType);
+        return Convert(database.Provider.Metadata, queryModel, resultType);
     }
 
     private DataLinqQueryPlan ConvertQueryModel(QueryModel queryModel, Type resultType)
@@ -193,10 +202,10 @@ internal sealed class RemotionQueryPlanAdapter
                     resultType),
                 CountResultOperator => new QueryPlanResult(QueryPlanResultKind.Count, resultType),
                 AnyResultOperator => new QueryPlanResult(QueryPlanResultKind.Any, resultType),
-                SumResultOperator => new QueryPlanResult(QueryPlanResultKind.Sum, resultType, GetAggregateSelector(queryModel)),
-                MinResultOperator => new QueryPlanResult(QueryPlanResultKind.Min, resultType, GetAggregateSelector(queryModel)),
-                MaxResultOperator => new QueryPlanResult(QueryPlanResultKind.Max, resultType, GetAggregateSelector(queryModel)),
-                AverageResultOperator => new QueryPlanResult(QueryPlanResultKind.Average, resultType, GetAggregateSelector(queryModel)),
+                SumResultOperator => new QueryPlanResult(QueryPlanResultKind.Sum, resultType, GetAggregateSelector(queryModel, resultOperator)),
+                MinResultOperator => new QueryPlanResult(QueryPlanResultKind.Min, resultType, GetAggregateSelector(queryModel, resultOperator)),
+                MaxResultOperator => new QueryPlanResult(QueryPlanResultKind.Max, resultType, GetAggregateSelector(queryModel, resultOperator)),
+                AverageResultOperator => new QueryPlanResult(QueryPlanResultKind.Average, resultType, GetAggregateSelector(queryModel, resultOperator)),
                 _ => throw new QueryTranslationException($"Result operator '{GetResultOperatorDisplayName(resultOperator)}' is not supported by the query plan adapter. Query model: {queryModel}")
             };
         }
@@ -204,7 +213,7 @@ internal sealed class RemotionQueryPlanAdapter
         return result;
     }
 
-    private QueryPlanValue GetAggregateSelector(QueryModel queryModel)
+    private QueryPlanValue GetAggregateSelector(QueryModel queryModel, ResultOperatorBase resultOperator)
     {
         var selector = UnwrapConvert(queryModel.SelectClause.Selector);
         if (selector is MemberExpression memberExpression &&
@@ -215,7 +224,12 @@ internal sealed class RemotionQueryPlanAdapter
             selector = memberExpression.Expression;
         }
 
-        return ConvertValue(selector);
+        if (TryConvertValue(selector, out var value))
+            return value;
+
+        throw new QueryTranslationException(
+            $"Aggregate selector '{selector}' is not supported for '{GetResultOperatorDisplayName(resultOperator)}' by the query plan adapter. " +
+            "Only direct numeric members, nullable Value members, and supported scalar functions are supported.");
     }
 
     private QueryPlanProjection CreateProjection(Expression selector, Type resultType)
@@ -305,14 +319,15 @@ internal sealed class RemotionQueryPlanAdapter
                 QueryPlanComparisonOperator.Equal,
                 new QueryPlanConstantValue(true, typeof(bool))),
             MethodCallExpression methodCall when TryConvertMethodPredicate(methodCall, isNegated, out var methodPredicate) => methodPredicate,
+            MethodCallExpression methodCall => throw new QueryTranslationException($"Method '{methodCall.Method.Name}' is not supported in query plan predicate translation. Expression: {methodCall}"),
             SubQueryExpression subQuery when TryConvertSubQueryPredicate(subQuery, isNegated, out var subQueryPredicate) => subQueryPredicate,
             _ when !ContainsQueryReference(expression) => new QueryPlanPredicate.Fixed(System.Convert.ToBoolean(EvaluateScalar(expression), System.Globalization.CultureInfo.InvariantCulture) ^ isNegated),
             _ => throw new QueryTranslationException($"Predicate expression '{expression}' is not supported by the query plan adapter.")
         };
 
         if (isNegated &&
-            predicate is not QueryPlanPredicate.In { IsNegated: true } &&
-            predicate is not QueryPlanPredicate.Exists { IsNegated: true } &&
+            predicate is not QueryPlanPredicate.In &&
+            predicate is not QueryPlanPredicate.Exists &&
             predicate is not QueryPlanPredicate.Fixed)
         {
             predicate = new QueryPlanPredicate.Not(predicate);
@@ -354,9 +369,6 @@ internal sealed class RemotionQueryPlanAdapter
                 function,
                 QueryPlanComparisonOperator.Equal,
                 new QueryPlanConstantValue(true, typeof(bool)));
-
-            if (isNegated)
-                predicate = new QueryPlanPredicate.Not(predicate);
 
             return true;
         }

@@ -41,6 +41,34 @@ internal static class CurrentQueryTranslationInspection
         return BuildSelect(database, query).ToSql();
     }
 
+    public static Select<TModel> BuildLegacySelect<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
+        where TDatabase : class, IDatabaseModel<TDatabase>
+    {
+        var queryParser = QueryParser.CreateDefault();
+        var queryModel = queryParser.GetParsedQuery(query.Expression);
+        var table = database.Provider.Metadata.TableModels
+            .Single(x => x.Model.CsType.Type == typeof(TModel))
+            .Table;
+        var queryExecutorType = typeof(Database<TDatabase>).Assembly.GetType("DataLinq.Linq.QueryExecutor", throwOnError: true)!;
+        var executor = Activator.CreateInstance(
+            queryExecutorType,
+            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public,
+            binder: null,
+            args: [database.Provider.ReadOnlyAccess, table],
+            culture: null)!;
+        var parseMethod = queryExecutorType
+            .GetMethod("ParseLegacyQueryModel", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .MakeGenericMethod(typeof(TModel));
+
+        return (Select<TModel>)parseMethod.Invoke(executor, [queryModel])!;
+    }
+
+    public static Sql BuildLegacySql<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
+        where TDatabase : class, IDatabaseModel<TDatabase>
+    {
+        return BuildLegacySelect(database, query).ToSql();
+    }
+
     public static Select<TModel> BuildPlanSelect<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
         where TDatabase : class, IDatabaseModel<TDatabase>
     {

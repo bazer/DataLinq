@@ -60,8 +60,8 @@ public class CharPredicateTranslationTests
             TestProviderMatrix.SQLiteInMemory,
             nameof(CharPredicate_LinqTranslationMatchesDirectSqlInSQLiteInMemory));
 
-        var directSelect = new SqlQuery<CharPredicateRow>(databaseScope.Database.Provider.ReadOnlyAccess)
-            .Where("status")
+        var directSelect = new SqlQuery<CharPredicateRow>(databaseScope.Database.Provider.ReadOnlyAccess, "t0")
+            .Where("status", "t0")
             .EqualTo('N')
             .SelectQuery();
 

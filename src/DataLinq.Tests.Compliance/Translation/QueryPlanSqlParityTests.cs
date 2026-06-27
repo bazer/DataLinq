@@ -27,7 +27,7 @@ public class QueryPlanSqlParityTests
             .Skip(skip)
             .Take(take);
 
-        var currentSql = CurrentQueryTranslationInspection.BuildSql(databaseScope.Database, query);
+        var currentSql = CurrentQueryTranslationInspection.BuildLegacySql(databaseScope.Database, query);
         var planSql = CurrentQueryTranslationInspection.BuildPlanSql(databaseScope.Database, query);
         var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(planSql.Text);
 

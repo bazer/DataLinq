@@ -195,6 +195,11 @@ public class Select<T> : IQuery
         return definitions;
     }
 
+    private List<OrderBy> GetCacheOrderings()
+        => query.OrderByList
+            .Select(static ordering => new OrderBy(ordering.Column, alias: null, ordering.Ascending))
+            .ToList();
+
     public IEnumerable<DataLinqKey> ReadKeys()
     {
         return KeyFactory.GetKeys(this, query.Table.PrimaryKeyColumns);
@@ -284,7 +289,7 @@ public class Select<T> : IQuery
                     if (row is not null)
                         yield return row;
                 }
-                else if (tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, query.OrderByList, out var providerKeyRows))
+                else if (tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, GetCacheOrderings(), out var providerKeyRows))
                 {
                     foreach (var row in providerKeyRows)
                         yield return row;
@@ -294,7 +299,7 @@ public class Select<T> : IQuery
                     this.What(query.Table.PrimaryKeyColumns);
                     var keys = this.ReadKeys().ToArray();
 
-                    foreach (var row in tableCache.GetRows(keys, query.DataSource, orderings: query.OrderByList))
+                    foreach (var row in tableCache.GetRows(keys, query.DataSource, orderings: GetCacheOrderings()))
                         yield return row;
                 }
             }
