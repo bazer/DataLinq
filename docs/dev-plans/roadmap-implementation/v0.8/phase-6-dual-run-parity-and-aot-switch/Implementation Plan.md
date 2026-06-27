@@ -2,9 +2,11 @@
 > This document is roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 6 Implementation Plan: Dual-Run Parity and AOT Switch
 
-**Status:** In progress.
+**Status:** Complete.
 
 **Created:** 2026-06-27.
+
+**Completed:** 2026-06-27.
 
 ## Purpose
 
@@ -178,3 +180,18 @@ Phase 7 should receive:
 - constrained smoke projects routed through the DataLinq parser path
 - Remotion roots removed from constrained smoke projects
 - a short list of remaining Remotion references that are dependency-removal work, not parser parity work
+
+## Closeout Result
+
+Phase 6 closed with the expression parser route executable for entity queries and scalar terminal results, and with the constrained smoke runner using that route for generated-model query execution.
+
+Verification evidence:
+
+- `QueryPlanSqlParityTests`: 20/20 passed per batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
+- `ExpressionQueryPlanParserTests`: 12/12 passed per batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
+- unit quick: 733/733 passed.
+- compliance quick: 516/516 passed for the configured quick batch.
+- trimmed size report: classified as `RemotionDependency` because `src/DataLinq/DataLinq.csproj` still references `Remotion.Linq`.
+- native AOT size report: classified as `SdkOrWebAssemblyToolchain` because the local machine lacks the platform linker / Visual Studio C++ workload.
+
+The remaining Remotion work is Phase 7 dependency removal, not Phase 6 parser parity. The constrained smoke projects root only `DataLinq.SQLite`; the Remotion trim failure now comes from the main product dependency graph.
