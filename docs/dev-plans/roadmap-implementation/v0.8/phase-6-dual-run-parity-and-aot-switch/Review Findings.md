@@ -6,9 +6,13 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-## Findings
+**Current status:** Resolved in the Phase 7 production-provider switch follow-up. No open Phase 6 review findings remain from this pass.
+
+## Resolved Findings
 
 ### P1: The executable expression-parser route can drop bare paging operators
+
+**Status:** Resolved in the Phase 7 production-provider switch follow-up.
 
 Phase 6 adds `ExpressionQueryPlanProvider.ForExecution(...)`, and `ExpressionPlanQueryable<T>.GetEnumerator()` now executes parsed plans through `QueryPlanSqlBuilder`. That makes the phase 5 root-source bug an execution-route correctness bug.
 
@@ -38,6 +42,13 @@ Evidence:
 
 Expected fix: make root-source recognition structural instead of type-only. Accept actual root constants / known expression-plan root constants, and let `Queryable` method-call expressions flow to their operator parser even when they contain no lambda parameter. Add executable-route parity tests for `root.Take(n)`, `root.Skip(n)`, `root.Take(n).Count()`, and `root.Skip(n).Any()` before treating the phase 6 switch as green.
 
+Resolution review:
+
+- `TryParseRootSource(...)` no longer accepts arbitrary parameter-free `IQueryable<T>` expressions based only on element type.
+- Root recognition is structural: actual query root constants, captured query values that are still root queryables, and generated `Database.Query().DbRead<T>` table properties are accepted.
+- Captured or nested `IQueryable` values are rejected before local sequence extraction can enumerate them.
+- Executable-route coverage now includes bare `Take(...)`, bare `Skip(...)`, `Take(...).Count()`, and `Skip(...).Any()`.
+
 ## Review Notes
 
 - The expression execution provider is deliberately narrow: entity sequences and scalar terminal results only. That matches the phase 6 README and I did not treat unsupported constructed projections as a finding.
@@ -55,10 +66,22 @@ Focused verification run in the current worktree:
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CompatibilitySizeReportTests/*|/*/*/QueryPlanNodeTests/*" --output failures --build
 ```
 
-Result:
+Original review result:
 
 - `QueryPlanSqlParityTests`: 20/20 passed per active provider batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
 - `ExpressionQueryPlanParserTests`: 12/12 passed per active provider batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
 - `CompatibilitySizeReportTests` / `QueryPlanNodeTests` focused unit filter: 7/7 passed.
 
 The passing suites do not currently cover the bare paging execution-route cases listed in the finding.
+
+Focused checks run during the resolution:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/ExpressionQueryPlanParserTests/*" --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSqlParityTests/*" --output failures --build
+```
+
+Resolution result:
+
+- `ExpressionQueryPlanParserTests`: 13/13 passed per active provider batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
+- `QueryPlanSqlParityTests`: 22/22 passed per active provider batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.

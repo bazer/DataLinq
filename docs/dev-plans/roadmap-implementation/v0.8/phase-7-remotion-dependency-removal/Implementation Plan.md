@@ -36,6 +36,18 @@ Documentation:
 
 - public and internal docs still describe Remotion as current runtime behavior.
 
+## Progress
+
+Workstream A is implemented in the production-provider switch follow-up:
+
+- `Queryable<T>` is now a DataLinq-owned `IOrderedQueryable<T>` root instead of a Remotion `QueryableBase<T>` subclass.
+- production `Database.Query()` roots now use `ExpressionQueryPlanProvider.ForExecution(...)`.
+- the expression execution route now covers entity sequences, scalar terminal results, first/single/last terminal results, scalar and row-local projections, explicit join projections, and projected-scalar ordering.
+- the Phase 6 bare-paging review finding is resolved by structural root recognition plus executable-route coverage for bare `Take(...)`, bare `Skip(...)`, `Take(...).Count()`, and `Skip(...).Any()`.
+- unsupported tail/while query operators now fail through DataLinq-owned `QueryTranslationException` diagnostics on the production route.
+
+Remaining Phase 7 work is still Workstreams B through E: delete the Remotion runtime scaffolding, rewrite Remotion-oracle tests, remove package references, rerun package/compatibility gates, and clean up public documentation.
+
 ## Workstream A: Production Query Provider Switch
 
 Goal: make `Database.Query()` execute through the DataLinq expression parser without Remotion.

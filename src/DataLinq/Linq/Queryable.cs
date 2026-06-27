@@ -1,18 +1,47 @@
-﻿using System.Linq;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
-using DataLinq.Linq;
+using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
-using Remotion.Linq;
-using Remotion.Linq.Parsing.Structure;
 
 namespace DataLinq;
 
-public class Queryable<T> : QueryableBase<T>
+public class Queryable<T> : IOrderedQueryable<T>
 {
-    protected static readonly IQueryParser queryParser = QueryParser.CreateDefault();
+    private readonly IQueryProvider provider;
 
-    public Queryable(IQueryProvider provider, Expression expression) : base(provider, expression) { }
+    public Queryable(IQueryProvider provider, Expression expression)
+    {
+        this.provider = provider;
+        Expression = expression;
+    }
 
-    public Queryable(DataSourceAccess dataSource, TableDefinition table) : base(queryParser, new QueryExecutor(dataSource, table)) { }
+    public Queryable(DataSourceAccess dataSource, TableDefinition table)
+    {
+        ArgumentNullException.ThrowIfNull(dataSource);
+        ArgumentNullException.ThrowIfNull(table);
+
+        provider = ExpressionQueryPlanProvider.ForExecution(dataSource);
+        Expression = Expression.Constant(this);
+    }
+
+    public Type ElementType => typeof(T);
+
+    public Expression Expression { get; }
+
+    public IQueryProvider Provider => provider;
+
+    public IEnumerator<T> GetEnumerator()
+    {
+        if (provider is ExpressionQueryPlanProvider expressionProvider)
+            return expressionProvider.ExecuteEnumerable<T>(Expression).GetEnumerator();
+
+        return provider.Execute<IEnumerable<T>>(Expression).GetEnumerator();
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+        => GetEnumerator();
 }

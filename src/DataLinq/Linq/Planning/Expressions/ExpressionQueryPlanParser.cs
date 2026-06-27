@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using DataLinq.Exceptions;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -166,9 +167,7 @@ internal sealed class ExpressionQueryPlanParser
         if (keySelector.Parameters.Count != 1)
             throw new QueryTranslationException($"Ordering key selector '{keySelector}' is not supported.");
 
-        QueryPlanOrdering ordering = null!;
-        WithSource(keySelector.Parameters[0], parsed.RootSource, () =>
-            ordering = new QueryPlanOrdering(ConvertValue(keySelector.Body), direction));
+        var ordering = CreateOrdering(parsed, keySelector, direction);
 
         if (operations.LastOrDefault() is QueryPlanOperation.OrderBy lastOrderBy)
         {
@@ -180,6 +179,38 @@ internal sealed class ExpressionQueryPlanParser
         }
 
         return parsed;
+    }
+
+    private QueryPlanOrdering CreateOrdering(
+        ParsedQuery parsed,
+        LambdaExpression keySelector,
+        QueryPlanOrderingDirection direction)
+    {
+        if (TryCreateProjectedOrdering(parsed.Projection, keySelector, direction, out var ordering))
+            return ordering;
+
+        return WithSource(keySelector.Parameters[0], parsed.RootSource, () =>
+            new QueryPlanOrdering(ConvertValue(keySelector.Body), direction));
+    }
+
+    private static bool TryCreateProjectedOrdering(
+        QueryPlanProjection? projection,
+        LambdaExpression keySelector,
+        QueryPlanOrderingDirection direction,
+        out QueryPlanOrdering ordering)
+    {
+        if (projection is QueryPlanProjection.ScalarMember scalarProjection &&
+            keySelector.Parameters.Count == 1 &&
+            UnwrapConvert(keySelector.Body) == keySelector.Parameters[0])
+        {
+            ordering = new QueryPlanOrdering(
+                new QueryPlanColumnValue(scalarProjection.Source, scalarProjection.Column, scalarProjection.ResultType),
+                direction);
+            return true;
+        }
+
+        ordering = null!;
+        return false;
     }
 
     private ParsedQuery ParsePaging(MethodCallExpression methodCall, bool isSkip)
@@ -1112,17 +1143,52 @@ internal sealed class ExpressionQueryPlanParser
     private bool TryParseRootSource(Expression expression, QueryPlanSourceKind kind, out QueryPlanSourceSlot source)
     {
         expression = UnwrapConvert(expression);
-        if (expression is ConstantExpression { Value: IQueryable queryable })
+        if (TryGetRootQueryable(expression, out var queryable))
         {
             source = RegisterSource(queryable.ElementType, kind);
             return true;
         }
 
-        if (!ContainsParameter(expression) &&
-            TryGetQueryableElementType(expression.Type, out var elementType) &&
-            metadata.TryGetTableModel(elementType, out _))
+        if (TryParseDatabaseQueryPropertyRoot(expression, kind, out source))
+            return true;
+
+        source = null!;
+        return false;
+    }
+
+    private bool TryGetRootQueryable(Expression expression, out IQueryable queryable)
+    {
+        if (expression is ConstantExpression { Value: IQueryable constantQueryable } &&
+            IsRootQueryable(constantQueryable))
         {
-            source = RegisterSource(elementType, kind);
+            queryable = constantQueryable;
+            return true;
+        }
+
+        if (TryEvaluateCapturedValue(expression, out var capturedValue) &&
+            capturedValue is IQueryable capturedQueryable &&
+            IsRootQueryable(capturedQueryable))
+        {
+            queryable = capturedQueryable;
+            return true;
+        }
+
+        queryable = null!;
+        return false;
+    }
+
+    private bool TryParseDatabaseQueryPropertyRoot(
+        Expression expression,
+        QueryPlanSourceKind kind,
+        out QueryPlanSourceSlot source)
+    {
+        if (expression is MemberExpression memberExpression &&
+            TryGetDbReadElementType(memberExpression.Type, out var elementType) &&
+            metadata.TryGetTableModel(elementType, out var tableModel) &&
+            string.Equals(tableModel.CsPropertyName, memberExpression.Member.Name, StringComparison.Ordinal) &&
+            IsDatabaseQueryCall(memberExpression.Expression))
+        {
+            source = RegisterSource(elementType, kind, table: tableModel.Table);
             return true;
         }
 
@@ -1308,6 +1374,11 @@ internal sealed class ExpressionQueryPlanParser
         if (ContainsQueryReference(expression))
             return false;
 
+        if (IsQueryableSequence(expression.Type))
+            throw new QueryTranslationException(
+                $"IQueryable expression '{expression}' cannot be evaluated as a local sequence by the DataLinq expression parser. " +
+                "Nested database queries are not supported in local Contains(...) or Any(...) predicates.");
+
         if (expression is MethodCallExpression methodCall &&
             IsEnumerableMethod(methodCall, nameof(Enumerable.Select)) &&
             methodCall.Arguments.Count == 2)
@@ -1328,6 +1399,13 @@ internal sealed class ExpressionQueryPlanParser
         try
         {
             var value = ExpressionLocalValueEvaluator.Evaluate(expression, null, null, options.LocalValueEvaluation);
+            if (value is IQueryable)
+            {
+                throw new QueryTranslationException(
+                    $"IQueryable expression '{expression}' cannot be evaluated as a local sequence by the DataLinq expression parser. " +
+                    "Nested database queries are not supported in local Contains(...) or Any(...) predicates.");
+            }
+
             return TryConvertToArray(value, out values);
         }
         catch (QueryTranslationException)
@@ -1431,14 +1509,29 @@ internal sealed class ExpressionQueryPlanParser
     private static bool IsQueryableSequence(Type type)
         => typeof(IQueryable).IsAssignableFrom(type);
 
-    private static bool TryGetQueryableElementType(Type type, out Type elementType)
+    private static bool IsRootQueryable(IQueryable queryable)
+    {
+        var expression = UnwrapConvert(queryable.Expression);
+        return expression is ConstantExpression constantExpression &&
+               ReferenceEquals(constantExpression.Value, queryable);
+    }
+
+    private bool IsDatabaseQueryCall(Expression? expression)
+    {
+        expression = UnwrapConvert(expression);
+        return expression is MethodCallExpression { Arguments.Count: 0 } methodCall &&
+               methodCall.Method.Name == "Query" &&
+               metadata.CsType.Type is { } databaseType &&
+               databaseType.IsAssignableFrom(methodCall.Type);
+    }
+
+    private static bool TryGetDbReadElementType(Type type, out Type elementType)
     {
         var current = type;
         while (current is not null)
         {
             if (current.IsGenericType &&
-                current.GetGenericArguments().Length == 1 &&
-                typeof(IQueryable).IsAssignableFrom(current))
+                current.GetGenericTypeDefinition() == typeof(DbRead<>))
             {
                 elementType = current.GetGenericArguments()[0];
                 return true;
@@ -1449,6 +1542,26 @@ internal sealed class ExpressionQueryPlanParser
 
         elementType = null!;
         return false;
+    }
+
+    private static bool TryEvaluateCapturedValue(Expression? expression, out object? value)
+    {
+        expression = UnwrapConvert(expression);
+        switch (expression)
+        {
+            case ConstantExpression constantExpression:
+                value = constantExpression.Value;
+                return true;
+
+            case MemberExpression { Member: FieldInfo field } memberExpression
+                when TryEvaluateCapturedValue(memberExpression.Expression, out var instance):
+                value = field.GetValue(instance);
+                return true;
+
+            default:
+                value = null;
+                return false;
+        }
     }
 
     private bool TryGetConstantInt(Expression expression, out int value)

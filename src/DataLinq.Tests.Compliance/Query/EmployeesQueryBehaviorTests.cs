@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
@@ -638,19 +639,19 @@ public class EmployeesQueryBehaviorTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task Query_UnsupportedTailAndWhileOperators_ThrowNotSupportedException(TestProviderDescriptor provider)
+    public async Task Query_UnsupportedTailAndWhileOperators_ThrowQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(Query_UnsupportedTailAndWhileOperators_ThrowNotSupportedException),
+            nameof(Query_UnsupportedTailAndWhileOperators_ThrowQueryTranslationException),
             EmployeesSeedMode.Bogus);
 
         var employeesDatabase = databaseScope.Database;
 
-        await AssertThrows<NotSupportedException>(() => employeesDatabase.Query().Employees.TakeLast(5).ToList());
-        await AssertThrows<NotSupportedException>(() => employeesDatabase.Query().Employees.SkipLast(5).ToList());
-        await AssertThrows<NotSupportedException>(() => employeesDatabase.Query().Employees.TakeWhile(e => e.first_name.StartsWith("A")).ToList());
-        await AssertThrows<NotSupportedException>(() => employeesDatabase.Query().Employees.SkipWhile(e => e.first_name.StartsWith("A")).ToList());
+        await AssertThrows<QueryTranslationException>(() => employeesDatabase.Query().Employees.TakeLast(5).ToList());
+        await AssertThrows<QueryTranslationException>(() => employeesDatabase.Query().Employees.SkipLast(5).ToList());
+        await AssertThrows<QueryTranslationException>(() => employeesDatabase.Query().Employees.TakeWhile(e => e.first_name.StartsWith("A")).ToList());
+        await AssertThrows<QueryTranslationException>(() => employeesDatabase.Query().Employees.SkipWhile(e => e.first_name.StartsWith("A")).ToList());
     }
 
     private static async Task AssertEmployeeSequenceEqual(IReadOnlyList<Employee> expected, IReadOnlyList<Employee> actual)

@@ -88,6 +88,25 @@ public class QueryPlanSqlParityTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExpressionExecutionProvider_ExecutesBarePagingWithoutDroppingOperators(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExpressionExecutionProvider_ExecutesBarePagingWithoutDroppingOperators),
+            EmployeesSeedMode.Bogus);
+
+        var expressionProvider = ExpressionQueryPlanProvider.ForExecution(databaseScope.Database.Provider.ReadOnlyAccess);
+        var employees = expressionProvider.CreateRoot<Employee>();
+        var totalEmployees = databaseScope.Database.Query().Employees.Count();
+
+        await Assert.That(employees.Take(5).ToArray().Length).IsEqualTo(5);
+        await Assert.That(employees.Skip(totalEmployees).ToArray()).IsEmpty();
+        await Assert.That(employees.Take(5).Count()).IsEqualTo(5);
+        await Assert.That(employees.Skip(totalEmployees).Any()).IsFalse();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionPlanSql_RendersSameSqlAsRemotionPlanForSupportedSequenceShapes(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

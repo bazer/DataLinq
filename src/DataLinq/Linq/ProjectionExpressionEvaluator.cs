@@ -66,6 +66,13 @@ internal static class ProjectionExpressionEvaluator
 
     public static object? Evaluate(
         Expression expression,
+        IReadOnlyDictionary<ParameterExpression, object?> parameterValues)
+    {
+        return Evaluate(expression, EmptyQuerySources, parameterValues);
+    }
+
+    public static object? Evaluate(
+        Expression expression,
         ParameterExpression parameter,
         object? value,
         ProjectionEvaluationOptions options)

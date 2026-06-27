@@ -153,6 +153,31 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
+    public async Task ExpressionParser_BarePagingShapesMatchRemotionPlan()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_BarePagingShapesMatchRemotionPlan),
+            EmployeesSeedMode.Bogus);
+
+        await AssertParserMatchesRemotion(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees.Take(5));
+
+        await AssertParserMatchesRemotion(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees.Skip(10));
+
+        await AssertParserMatchesRemotion(
+            databaseScope.Database,
+            () => databaseScope.Database.Query().Employees.Take(5).Count());
+
+        await AssertParserMatchesRemotion(
+            databaseScope.Database,
+            () => databaseScope.Database.Query().Employees.Skip(10).Any());
+    }
+
+    [Test]
     public async Task ExpressionParser_ExplicitJoinShapeMatchesRemotionPlan()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -329,6 +354,33 @@ public class ExpressionQueryPlanParserTests
                 databaseScope.Database.Query().Managers.Count(manager => manager.dept_fk == department.DeptNo)),
             "Nested database query projection",
             "LINQ Select projection");
+
+        var filteredDepartments = databaseScope.Database.Query().Departments
+            .Where(department => department.Name == "Sales");
+        await AssertParserFailure(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees
+                .Join(
+                    filteredDepartments,
+                    departmentEmployee => departmentEmployee.dept_no,
+                    department => department.DeptNo,
+                    (departmentEmployee, department) => new
+                    {
+                        departmentEmployee.emp_no,
+                        departmentEmployee.dept_no,
+                        DepartmentName = department.Name
+                    }),
+            "Join inner sequence",
+            "Only direct DataLinq query sources");
+
+        var employeeNumbers = databaseScope.Database.Query().Employees
+            .Select(employee => employee.emp_no!.Value);
+        await AssertParserFailure(
+            databaseScope.Database,
+            databaseScope.Database.Query().Managers
+                .Where(manager => employeeNumbers.Contains(manager.emp_no)),
+            "IQueryable expression",
+            "local sequence");
     }
 
     [Test]
