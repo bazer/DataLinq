@@ -40,6 +40,8 @@ The 0.8 branch pulls the query-parser boundary forward as the next major theme:
 
 This should not become a general LINQ-provider rewrite. The parser should target the documented supported subset first, preserve current tested behavior where practical, and reject unsupported shapes with specific diagnostics.
 
+The internal execution plan starts over at 0.8 Phase 1 instead of continuing the old global roadmap numbering. That keeps the release work sequential: baseline the query contract, add the plan and Remotion adapter, move SQL generation, add the new parser, prove parity, then remove or isolate Remotion.
+
 ### Explicit Multi-Join Composition
 
 After the query plan exists, the next broad query priority is standard explicit inner-join composition:

@@ -35,10 +35,10 @@ Out of scope:
 
 ## Source Plans
 
-- [Validation Diagnostics and Partial Generation](../../metadata-and-generation/Validation%20Diagnostics%20and%20Partial%20Generation.md)
-- [Source Location Diagnostic Fidelity](../../metadata-and-generation/Source%20Location%20Diagnostic%20Fidelity.md)
-- [Generated File Headers and Stamping](../../metadata-and-generation/Generated%20File%20Headers%20and%20Stamping.md)
-- [Nullable Reference Type Generation Defaults](../../metadata-and-generation/Nullable%20Reference%20Type%20Generation%20Defaults.md)
+- [Validation Diagnostics and Partial Generation](../../../metadata-and-generation/Validation%20Diagnostics%20and%20Partial%20Generation.md)
+- [Source Location Diagnostic Fidelity](../../../metadata-and-generation/Source%20Location%20Diagnostic%20Fidelity.md)
+- [Generated File Headers and Stamping](../../../metadata-and-generation/Generated%20File%20Headers%20and%20Stamping.md)
+- [Nullable Reference Type Generation Defaults](../../../metadata-and-generation/Nullable%20Reference%20Type%20Generation%20Defaults.md)
 
 ## Recommended Order
 

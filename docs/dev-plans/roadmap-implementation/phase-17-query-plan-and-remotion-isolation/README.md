@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 17: Query Plan and Remotion Isolation
 
-**Status:** Pulled forward for 0.8 planning after the 0.7.1 release. Earlier roadmap text treated this as deferred behind join, converter, and result-set caching work; the `v0.8` branch deliberately makes the query parser boundary the major theme.
+**Status:** Source plan superseded by the version-scoped [DataLinq 0.8 Roadmap](../v0.8/README.md). Earlier roadmap text treated this as deferred behind join, converter, and result-set caching work; the `v0.8` branch deliberately makes the query parser boundary the major theme.
 
 ## Purpose
 
@@ -25,6 +25,7 @@ For 0.8, the product priority has changed: removing or isolating the Remotion de
 
 ## Source Plans
 
+- [DataLinq 0.8 Roadmap](../v0.8/README.md)
 - [0.8 Query Parser Overview](0.8%20Query%20Parser%20Overview.md)
 - [Implementation Plan](Implementation%20Plan.md)
 - [Remotion.Linq Replacement Plan](../../query-and-runtime/Remotion.Linq%20Replacement%20Plan.md)

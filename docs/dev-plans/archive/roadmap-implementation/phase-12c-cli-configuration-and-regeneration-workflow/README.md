@@ -41,14 +41,14 @@ Out of scope:
 
 ## Source Plans
 
-- [CLI Command Surface Redesign](../../tooling/CLI%20Command%20Surface%20Redesign.md)
-- [CLI Diagnostics Output Style](../../tooling/CLI%20Diagnostics%20Output%20Style.md)
-- [Model Directory Regeneration Workflow](../../metadata-and-generation/Model%20Directory%20Regeneration%20Workflow.md)
-- [Create Models Layout Configuration](../../metadata-and-generation/Create%20Models%20Layout%20Configuration.md)
-- [CLI Batch and Recursive Targets](../../tooling/CLI%20Batch%20and%20Recursive%20Targets.md)
-- [CLI Init Wizard](../../tooling/CLI%20Init%20Wizard.md)
-- [CLI Secret References](../../tooling/CLI%20Secret%20References.md)
-- [Config JSON Schema and Autocomplete](../../tooling/Config%20JSON%20Schema%20and%20Autocomplete.md)
+- [CLI Command Surface Redesign](../../../tooling/CLI%20Command%20Surface%20Redesign.md)
+- [CLI Diagnostics Output Style](../../../tooling/CLI%20Diagnostics%20Output%20Style.md)
+- [Model Directory Regeneration Workflow](../../../metadata-and-generation/Model%20Directory%20Regeneration%20Workflow.md)
+- [Create Models Layout Configuration](../../../metadata-and-generation/Create%20Models%20Layout%20Configuration.md)
+- [CLI Batch and Recursive Targets](../../../tooling/CLI%20Batch%20and%20Recursive%20Targets.md)
+- [CLI Init Wizard](../../../tooling/CLI%20Init%20Wizard.md)
+- [CLI Secret References](../../../tooling/CLI%20Secret%20References.md)
+- [Config JSON Schema and Autocomplete](../../../tooling/Config%20JSON%20Schema%20and%20Autocomplete.md)
 
 ## Recommended Order
 

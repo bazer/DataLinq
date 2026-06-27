@@ -5,7 +5,7 @@
 **Status:** Draft
 **Goal:** Decouple the LINQ expression translation from SQL string generation. This allows DataLinq to support non-SQL backends (In-Memory, JSON, NoSQL) by treating the query logic as an abstract syntax tree (AST) that can be visited by different executors.
 
-**Update:** The newer [Remotion.Linq Replacement Plan](Remotion.Linq%20Replacement%20Plan.md) refines this idea after Phase 8. Roadmap execution is Phase 17. It recommends a DataLinq-owned query plan with a temporary Remotion adapter, then a supported-subset expression parser that removes or isolates Remotion from the practical AOT support boundary.
+**Update:** The newer [Remotion.Linq Replacement Plan](Remotion.Linq%20Replacement%20Plan.md) refines this idea after Phase 8. Roadmap execution is now the version-scoped [DataLinq 0.8 Roadmap](../roadmap-implementation/v0.8/README.md). It recommends a DataLinq-owned query plan with a temporary Remotion adapter, then a supported-subset expression parser that removes or isolates Remotion from the practical AOT support boundary.
 
 ---
 

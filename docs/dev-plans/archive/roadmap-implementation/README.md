@@ -34,6 +34,10 @@ This folder contains historical roadmap implementation checkpoints that are no l
   Implemented explicit database/table/provider-key invalidation APIs, relation/index invalidation, invalidation envelopes, freshness vocabulary, and cache telemetry.
 - `phase-12-memory-pressure-cleanup-and-measured-deduplication/`
   Implemented estimated cache memory accounting, estimated-footprint byte limits, memory-pressure-aware cleanup, cleanup telemetry, and benchmark-led rejection of production value/key deduplication.
+- `phase-12b-generation-trust-and-diagnostics-hardening/`
+  Implemented aggregate validation diagnostics, source-location fidelity, safe CLI generation, partial source-generator output, generated-file preambles, optional stamping, and nullable-reference-generation defaults.
+- `phase-12c-cli-configuration-and-regeneration-workflow/`
+  Implemented the nested CLI command surface, config init/schema/validate workflow, batch generation and validation, diagnostics output, local secrets, and config schema publication.
 - `Phase 4 and 5 Status Review.md`
   Historical closeout review from 2026-05-02. It explains the provider-fidelity and product-trust boundary that later phases consumed, but its "start Phase 6 next" recommendation is no longer current.
 

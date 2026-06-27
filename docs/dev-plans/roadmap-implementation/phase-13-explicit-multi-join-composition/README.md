@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 13: Explicit Multi-Join Composition
 
-**Status:** Planned follow-up. This was the next implementation priority after completed Phase 12C, but the 0.8 branch now pulls Phase 17 query-plan and Remotion-isolation work forward.
+**Status:** Planned follow-up. This was previously queued immediately after completed Phase 12C, but the 0.8 branch now puts query-plan and Remotion-isolation work first.
 
 ## Purpose
 

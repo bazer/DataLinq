@@ -459,8 +459,8 @@ Closeout result:
 
 Key related plans:
 
-- `roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/README.md`
-- `roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/README.md`
+- `archive/roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/Implementation Plan.md`
 - `metadata-and-generation/Validation Diagnostics and Partial Generation.md`
 - `metadata-and-generation/Source Location Diagnostic Fidelity.md`
 - `metadata-and-generation/Generated File Headers and Stamping.md`
@@ -491,8 +491,8 @@ Why before Phase 13:
 
 Key related plans:
 
-- `roadmap-implementation/phase-12c-cli-configuration-and-regeneration-workflow/README.md`
-- `roadmap-implementation/phase-12c-cli-configuration-and-regeneration-workflow/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-12c-cli-configuration-and-regeneration-workflow/README.md`
+- `archive/roadmap-implementation/phase-12c-cli-configuration-and-regeneration-workflow/Implementation Plan.md`
 - `tooling/CLI Command Surface Redesign.md`
 - `tooling/CLI Diagnostics Output Style.md`
 - `metadata-and-generation/Model Directory Regeneration Workflow.md`
@@ -512,7 +512,7 @@ Closeout result:
 
 ### Phase 13: Explicit Multi-Join Composition
 
-Status: planned follow-up. This was the next implementation priority after Phase 12C, but the 0.8 branch now pulls Phase 17 forward so broad join expansion can be built on a DataLinq-owned query plan instead of the old Remotion-shaped boundary.
+Status: planned follow-up. This was previously queued immediately after Phase 12C, but the 0.8 branch now puts the query-plan work first so broad join expansion can be built on a DataLinq-owned plan instead of the old Remotion-shaped boundary.
 
 Goals:
 
@@ -609,7 +609,7 @@ Key related plans:
 
 ### Phase 17: Query Plan and Remotion Isolation
 
-Status: pulled forward as the 0.8 query-parser theme after the 0.7.1 release.
+Status: superseded by the version-scoped [DataLinq 0.8 Roadmap](roadmap-implementation/v0.8/README.md). This remains the detailed source plan for the 0.8 query-parser work.
 
 Goals:
 
@@ -635,6 +635,7 @@ Why 0.8 pulls it forward:
 
 Key related plans:
 
+- `roadmap-implementation/v0.8/README.md`
 - `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/0.8 Query Parser Overview.md`
 - `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/README.md`
 - `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation Plan.md`
@@ -668,7 +669,7 @@ Phase 10 is now complete: metadata collection and lookup cleanup, generated prov
 
 Phase 11 is now complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is now complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led rejection of production interning.
 
-After the 0.7.1 release, the `v0.8` branch deliberately pulls Phase 17 forward. The next priority is now the query-plan and Remotion-isolation work: introduce a DataLinq-owned plan behind Remotion, move SQL generation behind that plan, build the supported-subset expression parser, and remove or isolate Remotion from the practical AOT support boundary.
+After the 0.7.1 release, the `v0.8` branch deliberately resets roadmap execution to a version-scoped sequence. The next priority is [0.8 Phase 1: Query Contract and Plan Baseline](roadmap-implementation/v0.8/phase-1-query-contract-and-plan-baseline/README.md), followed by the Remotion plan adapter, SQL generation on the plan, the supported-subset expression parser, dual-run parity, and Remotion removal or compatibility isolation.
 
 Phase 13 explicit multi-join composition and Phase 14 relation-aware joins should remain planned follow-up work, but they should be rebased on the source-slot-aware query plan instead of broadening the old Remotion boundary first.
 

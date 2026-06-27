@@ -66,8 +66,15 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Roadmap implementation
 
 - `roadmap-implementation/README.md`
-- `roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/README.md`
-- `roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/Implementation Plan.md`
+- `roadmap-implementation/v0.8/README.md`
+- `roadmap-implementation/v0.8/phase-1-query-contract-and-plan-baseline/README.md`
+- `roadmap-implementation/v0.8/phase-2-remotion-plan-adapter/README.md`
+- `roadmap-implementation/v0.8/phase-3-sql-generation-on-query-plan/README.md`
+- `roadmap-implementation/v0.8/phase-4-supported-subset-expression-parser/README.md`
+- `roadmap-implementation/v0.8/phase-5-projection-and-local-evaluation-aot-cleanup/README.md`
+- `roadmap-implementation/v0.8/phase-6-dual-run-parity-and-aot-switch/README.md`
+- `roadmap-implementation/v0.8/phase-7-remotion-removal-or-compatibility-isolation/README.md`
+- `roadmap-implementation/v0.8/phase-8-source-slot-join-follow-up/README.md`
 - `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
 - `roadmap-implementation/phase-14-relation-aware-joins-and-left-joins/README.md`
 - `roadmap-implementation/phase-15-scalar-converters-and-typed-key-ergonomics/README.md`
@@ -123,11 +130,11 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - Testing dev-plan material is currently historical. Current workflow documentation lives under `../contributing/`, while completed design records live under `archive/testing/`.
 - Completed or superseded documentation and roadmap checkpoints now live under `archive/` so active planning pages do not point readers at old "next step" guidance.
 - Some documents in this folder describe ideas that are still valid but not implemented. That is fine. The real mistake is presenting those ideas as current product behavior.
-- The `roadmap-implementation/` folder contains only active or deferred execution plans. Completed phase execution records belong under `archive/roadmap-implementation/`.
+- The active release roadmap is `roadmap-implementation/v0.8/`. Completed phase execution records belong under `archive/roadmap-implementation/`.
 
 ## Current Stage Audit
 
-As of the Phase 12 closeout on 2026-05-13:
+As of 0.8 planning after the 0.7.1 release:
 
 - Phase 1 benchmarking and observability is substantially implemented; benchmark-history evidence still matters for noisy scenarios.
 - Phase 2 metadata/generator/diagnostics hardening is implemented as a narrow foundation, not as a full immutable metadata rewrite.
@@ -150,9 +157,9 @@ As of the Phase 12 closeout on 2026-05-13:
 - Phase 14 relation-aware joins and left joins owns `JoinBy(...)`, `JoinMany(...)`, join-local `on:` predicates, and left-join nullability semantics.
 - Phase 15 scalar converters and typed-key ergonomics owns provider/model value conversion after the provider-key cache design has room for it.
 - Phase 16 dependency-tracked result and module caching remains deferred until cache invalidation, freshness vocabulary, joins, projection semantics, and the DataLinq.Store module contract are stronger.
-- Phase 17 query plan and Remotion isolation has been pulled forward as the 0.8 query-parser theme. It owns the DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
+- Phase 17 query plan and Remotion isolation has been superseded by the version-scoped 0.8 roadmap. It remains the detailed source plan for DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
 - Completed phase records and superseded implementation plans have moved under `archive/`; active docs should describe future work or current strategy.
 
-The next broad runtime work is now Phase 17 query plan and Remotion isolation. Phase 13 explicit multi-join composition and Phase 14 relation-aware joins should follow once the source-slot-aware query plan exists.
+The next broad runtime work is now 0.8 Phase 1: query contract and plan baseline. Phase 13 explicit multi-join composition and Phase 14 relation-aware joins should follow once the source-slot-aware query plan exists.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.
