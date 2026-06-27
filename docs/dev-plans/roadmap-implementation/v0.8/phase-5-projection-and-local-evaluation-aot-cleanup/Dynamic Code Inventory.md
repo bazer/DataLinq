@@ -35,6 +35,7 @@ Verification:
 
 - `ExpressionQueryPlanParserTests.ExpressionParser_LocalMethodEvaluationFailsWithoutInvokingMethod` asserts unsupported local scalar and sequence method calls are rejected and not invoked
 - `ExpressionQueryPlanParserTests.ExpressionParser_AotStrictLocalEvaluationRejectsCapturedMemberReflection` asserts strict parser local evaluation rejects captured-member reflection
+- `ProjectionExpressionEvaluatorTests.CleanedParserAndProjectionSources_DoNotHideDynamicInvocationFallbacks` guards the cleaned parser/projection files against hidden method invocation, expression compilation, dynamic invocation, runtime array activation, and delegate creation
 - focused parser parity still passes across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`
 
 ## Projection Execution State

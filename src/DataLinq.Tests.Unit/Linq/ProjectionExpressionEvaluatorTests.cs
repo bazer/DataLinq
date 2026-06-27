@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
@@ -79,10 +80,58 @@ public class ProjectionExpressionEvaluatorTests
         await Assert.That(employee.PropertyGetterInvocationCount).IsEqualTo(0);
     }
 
+    [Test]
+    public async Task CleanedParserAndProjectionSources_DoNotHideDynamicInvocationFallbacks()
+    {
+        var root = FindRepositoryRoot();
+        var sourceFiles = new[]
+        {
+            Path.Combine(root, "src", "DataLinq", "Linq", "ProjectionExpressionEvaluator.cs"),
+            Path.Combine(root, "src", "DataLinq", "Linq", "Planning", "Expressions", "ExpressionQueryPlanParser.cs"),
+            Path.Combine(root, "src", "DataLinq", "Linq", "Planning", "Expressions", "ExpressionLocalValueEvaluator.cs")
+        };
+        var bannedPatterns = new[]
+        {
+            "Expression.Compile",
+            "DynamicInvoke",
+            "Method.Invoke",
+            ".Method.Invoke",
+            "Array.CreateInstance",
+            "Delegate.CreateDelegate",
+            ".CreateDelegate("
+        };
+
+        foreach (var sourceFile in sourceFiles)
+        {
+            var contents = File.ReadAllText(sourceFile);
+            foreach (var bannedPattern in bannedPatterns)
+            {
+                if (contents.Contains(bannedPattern, StringComparison.Ordinal))
+                    throw new InvalidOperationException($"Source file '{sourceFile}' contains banned dynamic invocation pattern '{bannedPattern}'.");
+            }
+        }
+
+        await Assert.That(sourceFiles.Length).IsEqualTo(3);
+    }
+
     private static TableDefinition GetTable<TModel>()
     {
         var metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
         return metadata.TableModels.Single(x => x.Model.CsType.Type == typeof(TModel)).Table;
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "src", "DataLinq", "DataLinq.csproj")))
+                return directory.FullName;
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not find the DataLinq repository root from the test output directory.");
     }
 
     private static TException? Capture<TException>(Action action)
