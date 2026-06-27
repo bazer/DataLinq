@@ -15,9 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <TrimmerRootAssembly Include="DataLinq" />
     <TrimmerRootAssembly Include="DataLinq.SQLite" />
-    <TrimmerRootAssembly Include="Remotion.Linq" />
   </ItemGroup>
 
 </Project>

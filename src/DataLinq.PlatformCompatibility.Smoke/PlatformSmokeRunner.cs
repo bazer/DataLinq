@@ -164,9 +164,13 @@ public static class PlatformSmokeRunner
         });
         seedWatch.Stop();
 
+        var expressionProvider = ExpressionQueryPlanProvider.ForExecution(database.Provider.ReadOnlyAccess);
+        var owners = expressionProvider.CreateRoot<PlatformSmokeOwner>();
+        var tasks = expressionProvider.CreateRoot<PlatformSmokeTask>();
+
         await ReportStage(reportStage, "querying-generated-relation");
         var firstQueryWatch = Stopwatch.StartNew();
-        var firstTask = database.Query().Tasks
+        var firstTask = tasks
             .Where(x => x.Id == 10)
             .ToArray()
             .Single();
@@ -175,23 +179,21 @@ public static class PlatformSmokeRunner
 
         await ReportStage(reportStage, "querying-generated-projection");
         var repeatedQueryWatch = Stopwatch.StartNew();
-        var ownerCount = database.Query().Owners.ToArray().Length;
-        var taskCount = database.Query().Tasks.ToArray().Length;
-        var openTaskCount = database.Query().Tasks
-            .Where(x => x.Priority >= 2)
-            .ToArray()
-            .Length;
-        var projections = database.Query().Tasks
+        var ownerCount = owners.Count();
+        var taskCount = tasks.Count();
+        var openTaskCount = tasks.Count(x => x.Priority >= 2);
+        var projections = tasks
             .OrderBy(x => x.Id)
+            .ToArray()
             .Select(x => new PlatformSmokeProjection(x.Title.Trim().ToUpper(), x.Priority + 1))
             .ToArray();
         repeatedQueryWatch.Stop();
 
         await ReportStage(reportStage, "querying-expression-parser-route");
-        var expressionRoute = VerifyExpressionParserRoute(database);
+        var expressionRoute = VerifyExpressionParserRoute(tasks);
 
         await ReportStage(reportStage, "verifying-strict-parser-projection");
-        var strictParserProjectionTitle = VerifyStrictParserProjection(database, firstTask);
+        var strictParserProjectionTitle = VerifyStrictParserProjection(database, tasks, firstTask);
 
         return new PlatformSmokeResult(
             ownerCount,
@@ -208,11 +210,8 @@ public static class PlatformSmokeRunner
             repeatedQueryWatch.Elapsed);
     }
 
-    private static PlatformSmokeExpressionRoute VerifyExpressionParserRoute(SQLiteDatabase<PlatformSmokeDb> database)
+    private static PlatformSmokeExpressionRoute VerifyExpressionParserRoute(IQueryable<PlatformSmokeTask> tasks)
     {
-        var provider = ExpressionQueryPlanProvider.ForExecution(database.Provider.ReadOnlyAccess);
-        var tasks = provider.CreateRoot<PlatformSmokeTask>();
-
         var openTaskCount = tasks.Count(x => x.Priority >= 2);
         var firstTaskTitle = tasks
             .Where(x => x.Priority >= 2)
@@ -223,9 +222,12 @@ public static class PlatformSmokeRunner
         return new PlatformSmokeExpressionRoute(openTaskCount, firstTaskTitle);
     }
 
-    private static string VerifyStrictParserProjection(SQLiteDatabase<PlatformSmokeDb> database, PlatformSmokeTask row)
+    private static string VerifyStrictParserProjection(
+        SQLiteDatabase<PlatformSmokeDb> database,
+        IQueryable<PlatformSmokeTask> tasks,
+        PlatformSmokeTask row)
     {
-        var query = database.Query().Tasks
+        var query = tasks
             .Where(x => x.Priority >= 2)
             .OrderBy(x => x.Id)
             .Take(2)
