@@ -167,6 +167,42 @@ public class QueryPlanNodeTests
         }
     }
 
+    [Test]
+    public async Task ExpressionParserTypes_DoNotExposeRemotionTypes()
+    {
+        var parserTypes = typeof(DataLinqQueryPlan).Assembly
+            .GetTypes()
+            .Where(type => type.Namespace?.StartsWith("DataLinq.Linq.Planning.Expressions", StringComparison.Ordinal) == true)
+            .ToArray();
+
+        await Assert.That(parserTypes).IsNotEmpty();
+
+        foreach (var type in parserTypes)
+        {
+            await Assert.That(IsRemotionType(type.BaseType)).IsFalse();
+
+            foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+                await Assert.That(IsRemotionType(property.PropertyType)).IsFalse();
+
+            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+                await Assert.That(IsRemotionType(field.FieldType)).IsFalse();
+
+            foreach (var constructor in type.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                foreach (var parameter in constructor.GetParameters())
+                    await Assert.That(IsRemotionType(parameter.ParameterType)).IsFalse();
+            }
+
+            foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                await Assert.That(IsRemotionType(method.ReturnType)).IsFalse();
+
+                foreach (var parameter in method.GetParameters())
+                    await Assert.That(IsRemotionType(parameter.ParameterType)).IsFalse();
+            }
+        }
+    }
+
     private static TableDefinition GetTable<TModel>()
     {
         var metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
@@ -190,7 +226,7 @@ public class QueryPlanNodeTests
         var frame = new QueryPlanBindingFrame();
         var column = new QueryPlanColumnValue(source, table.GetColumnByPropertyName(nameof(Employee.last_login)));
         var captured = frame.CaptureScalar(value, typeof(TimeOnly?));
-        var nullSemantics = RemotionQueryPlanAdapter.GetComparisonNullSemantics(
+        var nullSemantics = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(
             QueryPlanComparisonOperator.NotEqual,
             column,
             captured,

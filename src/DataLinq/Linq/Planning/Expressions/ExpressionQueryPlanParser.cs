@@ -1,29 +1,25 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using DataLinq.Exceptions;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
-using Remotion.Linq;
-using Remotion.Linq.Clauses;
-using Remotion.Linq.Clauses.Expressions;
-using Remotion.Linq.Clauses.ResultOperators;
-using Remotion.Linq.Parsing.Structure;
 
-namespace DataLinq.Linq.Planning;
+namespace DataLinq.Linq.Planning.Expressions;
 
-internal sealed class RemotionQueryPlanAdapter
+internal sealed class ExpressionQueryPlanParser
 {
     private readonly DatabaseDefinition metadata;
     private readonly QueryPlanBindingFrame bindings = new();
     private readonly List<QueryPlanSourceSlot> sources = [];
     private readonly List<QueryPlanOperation> operations = [];
-    private readonly Dictionary<IQuerySource, QueryPlanSourceSlot> sourceSlots = [];
     private readonly Dictionary<ParameterExpression, QueryPlanSourceSlot> parameterSourceSlots = [];
     private int relationSubqueryCounter;
 
-    private RemotionQueryPlanAdapter(DatabaseDefinition metadata)
+    private ExpressionQueryPlanParser(DatabaseDefinition metadata)
     {
         this.metadata = metadata;
     }
@@ -34,7 +30,7 @@ internal sealed class RemotionQueryPlanAdapter
         ArgumentNullException.ThrowIfNull(database);
         ArgumentNullException.ThrowIfNull(query);
 
-        return ConvertExpression(database, query.Expression, typeof(TModel));
+        return Convert(database.Provider.Metadata, query.Expression, typeof(TModel));
     }
 
     public static DataLinqQueryPlan Convert<TDatabase, TResult>(Database<TDatabase> database, Expression<Func<TResult>> query)
@@ -43,193 +39,252 @@ internal sealed class RemotionQueryPlanAdapter
         ArgumentNullException.ThrowIfNull(database);
         ArgumentNullException.ThrowIfNull(query);
 
-        return ConvertExpression(database, query.Body, typeof(TResult));
+        return Convert(database.Provider.Metadata, query.Body, typeof(TResult));
     }
 
-    internal static DataLinqQueryPlan Convert(DatabaseDefinition metadata, QueryModel queryModel, Type resultType)
+    internal static DataLinqQueryPlan Convert(DatabaseDefinition metadata, Expression expression, Type resultType)
     {
         ArgumentNullException.ThrowIfNull(metadata);
-        ArgumentNullException.ThrowIfNull(queryModel);
+        ArgumentNullException.ThrowIfNull(expression);
         ArgumentNullException.ThrowIfNull(resultType);
 
-        var adapter = new RemotionQueryPlanAdapter(metadata);
-        return adapter.ConvertQueryModel(queryModel, resultType);
+        var parser = new ExpressionQueryPlanParser(metadata);
+        return parser.Parse(expression, resultType);
     }
 
-    private static DataLinqQueryPlan ConvertExpression<TDatabase>(Database<TDatabase> database, Expression expression, Type resultType)
-        where TDatabase : class, IDatabaseModel<TDatabase>
+    private DataLinqQueryPlan Parse(Expression expression, Type resultType)
     {
-        var queryParser = QueryParser.CreateDefault();
-        var queryModel = queryParser.GetParsedQuery(expression);
-        return Convert(database.Provider.Metadata, queryModel, resultType);
-    }
+        var parsed = IsQueryableSequence(expression.Type)
+            ? ParseSequence(expression)
+            : ParseTerminal(expression, resultType);
 
-    private DataLinqQueryPlan ConvertQueryModel(QueryModel queryModel, Type resultType)
-    {
-        var rootSource = ConvertQueryBody(queryModel);
-        var projection = CreateProjection(queryModel.SelectClause.Selector, resultType);
-        var result = CreateResult(queryModel, projection, resultType);
+        var projection = parsed.Projection ?? new QueryPlanProjection.Entity(parsed.RootSource);
+        var result = parsed.Result ?? QueryPlanResult.Sequence(projection.ResultType);
 
         return new DataLinqQueryPlan(sources, operations, projection, result, bindings);
     }
 
-    private QueryPlanSourceSlot ConvertQueryBody(QueryModel queryModel)
+    private ParsedQuery ParseSequence(Expression expression)
     {
-        var subQueryModel = ExtractQueryModel(queryModel.MainFromClause.FromExpression);
-        QueryPlanSourceSlot rootSource;
-        if (subQueryModel is not null)
+        expression = UnwrapConvert(expression);
+
+        if (TryParseRootSource(expression, QueryPlanSourceKind.RootTable, out var rootSource))
+            return new ParsedQuery(rootSource, rootSource.ElementType);
+
+        if (expression is not MethodCallExpression methodCall || !IsQueryableMethod(methodCall))
+            throw new QueryTranslationException($"LINQ expression '{expression}' is not supported by the DataLinq expression parser.");
+
+        return methodCall.Method.Name switch
         {
-            if (HasPagingResultOperator(subQueryModel) &&
-                (queryModel.BodyClauses.Count > 0 || HasPagingResultOperator(queryModel)))
-            {
-                throw new QueryTranslationException(
-                    "LINQ operators after Skip(...) or Take(...) require subquery pushdown and are not supported yet. " +
-                    "Apply filtering and ordering before paging, or materialize before applying post-paging operators. " +
-                    $"Query model: {queryModel}");
-            }
+            nameof(Queryable.Where) => ParseWhere(methodCall),
+            nameof(Queryable.OrderBy) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Ascending),
+            nameof(Queryable.OrderByDescending) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Descending),
+            nameof(Queryable.ThenBy) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Ascending),
+            nameof(Queryable.ThenByDescending) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Descending),
+            nameof(Queryable.Skip) => ParsePaging(methodCall, isSkip: true),
+            nameof(Queryable.Take) => ParsePaging(methodCall, isSkip: false),
+            nameof(Queryable.Select) => ParseSelect(methodCall),
+            nameof(Queryable.Join) => ParseJoin(methodCall),
+            _ => throw new QueryTranslationException($"LINQ operator '{methodCall.Method.Name}' is not supported by the DataLinq expression parser. Expression: {methodCall}")
+        };
+    }
 
-            if (HasJoinBodyClause(subQueryModel) &&
-                (queryModel.BodyClauses.Count > 0 || queryModel.ResultOperators.Any()))
-            {
-                throw new QueryTranslationException($"Join queries currently support only the Join body clause. Filtering, ordering, and additional from clauses over joins are not supported yet. Query model: {queryModel}");
-            }
+    private ParsedQuery ParseTerminal(Expression expression, Type resultType)
+    {
+        expression = UnwrapConvert(expression);
+        if (expression is not MethodCallExpression methodCall || !IsQueryableMethod(methodCall))
+            throw new QueryTranslationException($"LINQ result expression '{expression}' is not supported by the DataLinq expression parser.");
 
-            rootSource = ConvertQueryBody(subQueryModel);
-            sourceSlots[queryModel.MainFromClause] = rootSource;
+        return methodCall.Method.Name switch
+        {
+            nameof(Queryable.Count) => ParseScalar(methodCall, QueryPlanResultKind.Count, resultType),
+            nameof(Queryable.Any) => ParseScalar(methodCall, QueryPlanResultKind.Any, resultType),
+            nameof(Queryable.Single) => ParseSingle(methodCall, QueryPlanResultKind.Single, resultType),
+            nameof(Queryable.SingleOrDefault) => ParseSingle(methodCall, QueryPlanResultKind.SingleOrDefault, resultType),
+            nameof(Queryable.First) => ParseSingle(methodCall, QueryPlanResultKind.First, resultType),
+            nameof(Queryable.FirstOrDefault) => ParseSingle(methodCall, QueryPlanResultKind.FirstOrDefault, resultType),
+            nameof(Queryable.Last) => ParseSingle(methodCall, QueryPlanResultKind.Last, resultType),
+            nameof(Queryable.LastOrDefault) => ParseSingle(methodCall, QueryPlanResultKind.LastOrDefault, resultType),
+            nameof(Queryable.Sum) => ParseAggregate(methodCall, QueryPlanResultKind.Sum, resultType),
+            nameof(Queryable.Min) => ParseAggregate(methodCall, QueryPlanResultKind.Min, resultType),
+            nameof(Queryable.Max) => ParseAggregate(methodCall, QueryPlanResultKind.Max, resultType),
+            nameof(Queryable.Average) => ParseAggregate(methodCall, QueryPlanResultKind.Average, resultType),
+            _ => throw new QueryTranslationException($"LINQ result operator '{methodCall.Method.Name}' is not supported by the DataLinq expression parser. Expression: {methodCall}")
+        };
+    }
+
+    private ParsedQuery ParseWhere(MethodCallExpression methodCall)
+    {
+        EnsureArgumentCount(methodCall, 2);
+        var parsed = ParseSequence(methodCall.Arguments[0]);
+        RejectPostPagingOperator(methodCall.Method.Name);
+
+        var predicate = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
+        if (predicate.Parameters.Count != 1)
+            throw new QueryTranslationException($"Where predicate '{predicate}' is not supported.");
+
+        WithSource(predicate.Parameters[0], parsed.RootSource, () =>
+            operations.Add(new QueryPlanOperation.Where(ConvertPredicate(predicate.Body))));
+
+        return parsed;
+    }
+
+    private ParsedQuery ParseOrderBy(MethodCallExpression methodCall, QueryPlanOrderingDirection direction)
+    {
+        EnsureArgumentCount(methodCall, 2);
+        var parsed = ParseSequence(methodCall.Arguments[0]);
+        RejectPostPagingOperator(methodCall.Method.Name);
+
+        var keySelector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
+        if (keySelector.Parameters.Count != 1)
+            throw new QueryTranslationException($"Ordering key selector '{keySelector}' is not supported.");
+
+        QueryPlanOrdering ordering = null!;
+        WithSource(keySelector.Parameters[0], parsed.RootSource, () =>
+            ordering = new QueryPlanOrdering(ConvertValue(keySelector.Body), direction));
+
+        if (operations.LastOrDefault() is QueryPlanOperation.OrderBy lastOrderBy)
+        {
+            operations[^1] = new QueryPlanOperation.OrderBy(lastOrderBy.Orderings.Concat([ordering]));
         }
         else
         {
-            rootSource = RegisterSource(queryModel.MainFromClause, queryModel.MainFromClause.ItemType, QueryPlanSourceKind.RootTable);
+            operations.Add(new QueryPlanOperation.OrderBy([ordering]));
         }
 
-        ValidateJoinShape(queryModel);
-
-        foreach (var bodyClause in queryModel.BodyClauses)
-        {
-            switch (bodyClause)
-            {
-                case WhereClause whereClause:
-                    operations.Add(new QueryPlanOperation.Where(ConvertPredicate(whereClause.Predicate)));
-                    break;
-
-                case OrderByClause orderByClause:
-                    operations.Add(new QueryPlanOperation.OrderBy(orderByClause.Orderings.Select(ordering =>
-                        new QueryPlanOrdering(
-                            ConvertValue(ordering.Expression),
-                            ordering.OrderingDirection == OrderingDirection.Asc
-                                ? QueryPlanOrderingDirection.Ascending
-                                : QueryPlanOrderingDirection.Descending))));
-                    break;
-
-                case JoinClause joinClause:
-                    operations.Add(new QueryPlanOperation.Join(ConvertJoin(queryModel.MainFromClause, joinClause)));
-                    break;
-
-                case GroupJoinClause:
-                    throw new QueryTranslationException($"GroupJoin is not supported. Use a simple inner Join with direct member keys. Query model: {queryModel}");
-
-                default:
-                    throw new QueryTranslationException($"Query body clause '{bodyClause.GetType().Name}' is not supported by the query plan adapter. Query model: {queryModel}");
-            }
-        }
-
-        foreach (var resultOperator in queryModel.ResultOperators)
-        {
-            switch (resultOperator)
-            {
-                case SkipResultOperator skip:
-                    operations.Add(new QueryPlanOperation.Skip(ConvertValue(skip.Count)));
-                    break;
-
-                case TakeResultOperator take:
-                    operations.Add(new QueryPlanOperation.Take(ConvertValue(take.Count)));
-                    break;
-            }
-        }
-
-        return rootSource;
+        return parsed;
     }
 
-    private static void ValidateJoinShape(QueryModel queryModel)
+    private ParsedQuery ParsePaging(MethodCallExpression methodCall, bool isSkip)
     {
-        if (queryModel.BodyClauses.Any(static body => body is GroupJoinClause))
-            throw new QueryTranslationException($"GroupJoin is not supported. Use a simple inner Join with direct member keys. Query model: {queryModel}");
+        EnsureArgumentCount(methodCall, 2);
+        var parsed = ParseSequence(methodCall.Arguments[0]);
 
-        var joinClauses = queryModel.BodyClauses.OfType<JoinClause>().ToArray();
-        if (joinClauses.Length == 0)
-            return;
+        var count = ConvertValue(methodCall.Arguments[1]);
+        operations.Add(isSkip
+            ? new QueryPlanOperation.Skip(count)
+            : new QueryPlanOperation.Take(count));
 
-        if (joinClauses.Length != 1)
-            throw new QueryTranslationException($"Only a single explicit inner Join is supported. Query model: {queryModel}");
-
-        if (queryModel.BodyClauses.Any(static body => body is not JoinClause))
-            throw new QueryTranslationException($"Join queries currently support only the Join body clause. Filtering, ordering, and additional from clauses over joins are not supported yet. Query model: {queryModel}");
-
-        if (queryModel.ResultOperators.Any())
-            throw new QueryTranslationException($"Result operators over explicit Join queries are not supported yet. Query model: {queryModel}");
+        return parsed;
     }
 
-    private QueryPlanJoin ConvertJoin(MainFromClause rootFromClause, JoinClause joinClause)
+    private ParsedQuery ParseSelect(MethodCallExpression methodCall)
     {
-        if (joinClause.InnerSequence is not ConstantExpression { Value: IQueryable })
-            throw new QueryTranslationException($"Join inner sequence '{joinClause.InnerSequence}' is not supported. Only direct DataLinq query sources are supported.");
+        EnsureArgumentCount(methodCall, 2);
+        var parsed = ParseSequence(methodCall.Arguments[0]);
+        var selector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
+        if (selector.Parameters.Count != 1)
+            throw new QueryTranslationException($"Select selector '{selector}' is not supported.");
 
-        var rootSource = GetSource(rootFromClause);
-        var innerSource = RegisterSource(joinClause, joinClause.ItemType, QueryPlanSourceKind.ExplicitJoin);
-        var leftColumn = GetJoinKeyColumn(rootSource, joinClause.OuterKeySelector, "outer");
-        var rightColumn = GetJoinKeyColumn(innerSource, joinClause.InnerKeySelector, "inner");
+        QueryPlanProjection projection = null!;
+        WithSource(selector.Parameters[0], parsed.RootSource, () =>
+            projection = CreateProjection(selector.Body, selector.ReturnType));
 
-        return new QueryPlanJoin(QueryPlanJoinKind.Inner, rootSource, leftColumn, innerSource, rightColumn);
+        return parsed with { ElementType = selector.ReturnType, Projection = projection };
     }
 
-    private QueryPlanResult CreateResult(QueryModel queryModel, QueryPlanProjection projection, Type resultType)
+    private ParsedQuery ParseJoin(MethodCallExpression methodCall)
     {
-        QueryPlanResult result = QueryPlanResult.Sequence(resultType);
-
-        foreach (var resultOperator in queryModel.ResultOperators)
+        EnsureArgumentCount(methodCall, 5);
+        var parsedOuter = ParseSequence(methodCall.Arguments[0]);
+        if (operations.Count != 0)
         {
-            result = resultOperator switch
-            {
-                SkipResultOperator or TakeResultOperator => result,
-                SingleResultOperator single => new QueryPlanResult(
-                    single.ReturnDefaultWhenEmpty ? QueryPlanResultKind.SingleOrDefault : QueryPlanResultKind.Single,
-                    resultType),
-                FirstResultOperator first => new QueryPlanResult(
-                    first.ReturnDefaultWhenEmpty ? QueryPlanResultKind.FirstOrDefault : QueryPlanResultKind.First,
-                    resultType),
-                LastResultOperator last => new QueryPlanResult(
-                    last.ReturnDefaultWhenEmpty ? QueryPlanResultKind.LastOrDefault : QueryPlanResultKind.Last,
-                    resultType),
-                CountResultOperator => new QueryPlanResult(QueryPlanResultKind.Count, resultType),
-                AnyResultOperator => new QueryPlanResult(QueryPlanResultKind.Any, resultType),
-                SumResultOperator => new QueryPlanResult(QueryPlanResultKind.Sum, resultType, GetAggregateSelector(queryModel, resultOperator)),
-                MinResultOperator => new QueryPlanResult(QueryPlanResultKind.Min, resultType, GetAggregateSelector(queryModel, resultOperator)),
-                MaxResultOperator => new QueryPlanResult(QueryPlanResultKind.Max, resultType, GetAggregateSelector(queryModel, resultOperator)),
-                AverageResultOperator => new QueryPlanResult(QueryPlanResultKind.Average, resultType, GetAggregateSelector(queryModel, resultOperator)),
-                _ => throw new QueryTranslationException($"Result operator '{GetResultOperatorDisplayName(resultOperator)}' is not supported by the query plan adapter. Query model: {queryModel}")
-            };
+            throw new QueryTranslationException(
+                $"Join queries currently support only direct source Join calls. Filtering, ordering, and additional operators over joins are not supported yet. Expression: {methodCall}");
         }
 
-        return result;
+        if (!TryParseRootSource(methodCall.Arguments[1], QueryPlanSourceKind.ExplicitJoin, out var innerSource))
+            throw new QueryTranslationException($"Join inner sequence '{methodCall.Arguments[1]}' is not supported. Only direct DataLinq query sources are supported.");
+
+        var outerKeySelector = UnwrapLambda(methodCall.Arguments[2], methodCall.ToString());
+        var innerKeySelector = UnwrapLambda(methodCall.Arguments[3], methodCall.ToString());
+        var resultSelector = UnwrapLambda(methodCall.Arguments[4], methodCall.ToString());
+        if (outerKeySelector.Parameters.Count != 1 || innerKeySelector.Parameters.Count != 1 || resultSelector.Parameters.Count != 2)
+            throw new QueryTranslationException($"Join expression '{methodCall}' is not supported. Only direct member keys and a two-parameter result selector are supported.");
+
+        QueryPlanJoin join = null!;
+        WithSource(outerKeySelector.Parameters[0], parsedOuter.RootSource, () =>
+        WithSource(innerKeySelector.Parameters[0], innerSource, () =>
+        {
+            var leftColumn = GetJoinKeyColumn(parsedOuter.RootSource, outerKeySelector.Body, "outer");
+            var rightColumn = GetJoinKeyColumn(innerSource, innerKeySelector.Body, "inner");
+            join = new QueryPlanJoin(QueryPlanJoinKind.Inner, parsedOuter.RootSource, leftColumn, innerSource, rightColumn);
+        }));
+
+        operations.Add(new QueryPlanOperation.Join(join));
+
+        QueryPlanProjection projection = null!;
+        WithSource(resultSelector.Parameters[0], parsedOuter.RootSource, () =>
+        WithSource(resultSelector.Parameters[1], innerSource, () =>
+            projection = CreateProjection(resultSelector.Body, resultSelector.ReturnType)));
+
+        return parsedOuter with { ElementType = resultSelector.ReturnType, Projection = projection };
     }
 
-    private QueryPlanValue GetAggregateSelector(QueryModel queryModel, ResultOperatorBase resultOperator)
+    private ParsedQuery ParseScalar(MethodCallExpression methodCall, QueryPlanResultKind resultKind, Type resultType)
     {
-        var selector = UnwrapConvert(queryModel.SelectClause.Selector);
-        if (selector is MemberExpression memberExpression &&
-            memberExpression.Member.Name == "Value" &&
-            memberExpression.Expression is not null &&
-            Nullable.GetUnderlyingType(memberExpression.Expression.Type) is not null)
+        var parsed = ParseSequence(methodCall.Arguments[0]);
+        if (methodCall.Arguments.Count == 2)
         {
-            selector = memberExpression.Expression;
+            var predicate = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
+            if (predicate.Parameters.Count != 1)
+                throw new QueryTranslationException($"{methodCall.Method.Name} predicate '{predicate}' is not supported.");
+
+            WithSource(predicate.Parameters[0], parsed.RootSource, () =>
+                operations.Add(new QueryPlanOperation.Where(ConvertPredicate(predicate.Body))));
+        }
+        else
+        {
+            EnsureArgumentCount(methodCall, 1);
         }
 
-        if (TryConvertValue(selector, out var value))
-            return value;
+        return parsed with { Result = new QueryPlanResult(resultKind, resultType) };
+    }
 
-        throw new QueryTranslationException(
-            $"Aggregate selector '{selector}' is not supported for '{GetResultOperatorDisplayName(resultOperator)}' by the query plan adapter. " +
-            "Only direct numeric members, nullable Value members, and supported scalar functions are supported.");
+    private ParsedQuery ParseSingle(MethodCallExpression methodCall, QueryPlanResultKind resultKind, Type resultType)
+    {
+        var parsed = ParseSequence(methodCall.Arguments[0]);
+        if (methodCall.Arguments.Count == 2)
+        {
+            var predicate = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
+            if (predicate.Parameters.Count != 1)
+                throw new QueryTranslationException($"{methodCall.Method.Name} predicate '{predicate}' is not supported.");
+
+            WithSource(predicate.Parameters[0], parsed.RootSource, () =>
+                operations.Add(new QueryPlanOperation.Where(ConvertPredicate(predicate.Body))));
+        }
+        else
+        {
+            EnsureArgumentCount(methodCall, 1);
+        }
+
+        return parsed with { Result = new QueryPlanResult(resultKind, resultType) };
+    }
+
+    private ParsedQuery ParseAggregate(MethodCallExpression methodCall, QueryPlanResultKind resultKind, Type resultType)
+    {
+        var parsed = ParseSequence(methodCall.Arguments[0]);
+        if (methodCall.Arguments.Count != 2)
+            throw new QueryTranslationException($"Aggregate operator '{methodCall.Method.Name}' requires a supported selector. Expression: {methodCall}");
+
+        var selector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
+        if (selector.Parameters.Count != 1)
+            throw new QueryTranslationException($"Aggregate selector '{selector}' is not supported.");
+
+        QueryPlanProjection projection = null!;
+        QueryPlanValue aggregateSelector = null!;
+        WithSource(selector.Parameters[0], parsed.RootSource, () =>
+        {
+            projection = CreateProjection(selector.Body, selector.ReturnType);
+            aggregateSelector = GetAggregateSelector(selector.Body, methodCall.Method.Name);
+        });
+
+        return parsed with
+        {
+            ElementType = selector.ReturnType,
+            Projection = projection,
+            Result = new QueryPlanResult(resultKind, resultType, aggregateSelector)
+        };
     }
 
     private QueryPlanProjection CreateProjection(Expression selector, Type resultType)
@@ -237,8 +292,8 @@ internal sealed class RemotionQueryPlanAdapter
         selector = UnwrapConvert(selector);
         ValidateProjectionSupported(selector);
 
-        if (selector is QuerySourceReferenceExpression querySource)
-            return new QueryPlanProjection.Entity(GetSource(querySource.ReferencedQuerySource));
+        if (TryGetSource(selector, out var source))
+            return new QueryPlanProjection.Entity(source);
 
         if (TryGetColumnValue(selector, out var scalarColumn))
             return new QueryPlanProjection.ScalarMember(scalarColumn.Source, scalarColumn.Column, resultType);
@@ -259,12 +314,6 @@ internal sealed class RemotionQueryPlanAdapter
             : new QueryPlanProjection.ComputedRowLocal(resultType, GetExpressionShape(selector), referencedSources);
     }
 
-    private void ValidateProjectionSupported(Expression selector)
-    {
-        var visitor = new ProjectionUnsupportedShapeVisitor(this, selector);
-        visitor.Visit(selector);
-    }
-
     private bool TryCreateProjectionMembers(NewExpression newExpression, out IReadOnlyList<QueryPlanProjectionMember> members)
     {
         var names = newExpression.Members?.Select(static member => member.Name).ToArray();
@@ -277,8 +326,7 @@ internal sealed class RemotionQueryPlanAdapter
         var projectionMembers = new List<QueryPlanProjectionMember>(newExpression.Arguments.Count);
         for (var index = 0; index < newExpression.Arguments.Count; index++)
         {
-            var argument = newExpression.Arguments[index];
-            if (!TryConvertValue(argument, out var value))
+            if (!TryConvertValue(newExpression.Arguments[index], out var value))
             {
                 members = [];
                 return false;
@@ -319,10 +367,9 @@ internal sealed class RemotionQueryPlanAdapter
                 QueryPlanComparisonOperator.Equal,
                 new QueryPlanConstantValue(true, typeof(bool))),
             MethodCallExpression methodCall when TryConvertMethodPredicate(methodCall, isNegated, out var methodPredicate) => methodPredicate,
-            MethodCallExpression methodCall => throw new QueryTranslationException($"Method '{methodCall.Method.Name}' is not supported in query plan predicate translation. Expression: {methodCall}"),
-            SubQueryExpression subQuery when TryConvertSubQueryPredicate(subQuery, isNegated, out var subQueryPredicate) => subQueryPredicate,
+            MethodCallExpression methodCall => throw new QueryTranslationException($"Method '{methodCall.Method.Name}' is not supported in DataLinq expression predicate translation. Expression: {methodCall}"),
             _ when !ContainsQueryReference(expression) => new QueryPlanPredicate.Fixed(System.Convert.ToBoolean(EvaluateScalar(expression), System.Globalization.CultureInfo.InvariantCulture) ^ isNegated),
-            _ => throw new QueryTranslationException($"Predicate expression '{expression}' is not supported by the query plan adapter.")
+            _ => throw new QueryTranslationException($"Predicate expression '{expression}' is not supported by the DataLinq expression parser.")
         };
 
         if (isNegated &&
@@ -347,7 +394,7 @@ internal sealed class RemotionQueryPlanAdapter
         var left = ConvertValue(binary.Left);
         var right = ConvertValue(binary.Right);
         var comparisonOperator = GetComparisonOperator(binary.NodeType);
-        var nullSemantics = GetComparisonNullSemantics(comparisonOperator, left, right, bindings.Bindings);
+        var nullSemantics = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(comparisonOperator, left, right, bindings.Bindings);
 
         return new QueryPlanPredicate.Compare(left, comparisonOperator, right, nullSemantics);
     }
@@ -369,26 +416,7 @@ internal sealed class RemotionQueryPlanAdapter
                 function,
                 QueryPlanComparisonOperator.Equal,
                 new QueryPlanConstantValue(true, typeof(bool)));
-
             return true;
-        }
-
-        predicate = null!;
-        return false;
-    }
-
-    private bool TryConvertSubQueryPredicate(SubQueryExpression subQuery, bool isNegated, out QueryPlanPredicate predicate)
-    {
-        if (TryConvertRelationAnySubQuery(subQuery, isNegated, out predicate))
-            return true;
-
-        foreach (var resultOperator in subQuery.QueryModel.ResultOperators)
-        {
-            if (resultOperator is ContainsResultOperator contains)
-                return TryConvertLocalContainsSubQuery(subQuery.QueryModel, contains, isNegated, out predicate);
-
-            if (resultOperator is AnyResultOperator)
-                return TryConvertLocalAnySubQuery(subQuery.QueryModel, isNegated, out predicate);
         }
 
         predicate = null!;
@@ -398,14 +426,14 @@ internal sealed class RemotionQueryPlanAdapter
     private bool TryConvertHasValuePredicate(MemberExpression member, out QueryPlanPredicate predicate)
     {
         if (member.Member.Name == nameof(Nullable<int>.HasValue) &&
-            member.Expression is MemberExpression nullableMember &&
-            Nullable.GetUnderlyingType(nullableMember.Type) is not null &&
-            TryGetColumnValue(nullableMember, out var column))
+            member.Expression is not null &&
+            Nullable.GetUnderlyingType(member.Expression.Type) is not null &&
+            TryGetColumnValue(member.Expression, out var column))
         {
             predicate = new QueryPlanPredicate.Compare(
                 column,
                 QueryPlanComparisonOperator.NotEqual,
-                new QueryPlanConstantValue(null, nullableMember.Type));
+                new QueryPlanConstantValue(null, member.Expression.Type));
             return true;
         }
 
@@ -418,7 +446,7 @@ internal sealed class RemotionQueryPlanAdapter
         predicate = null!;
         if (IsEnumerableMethod(methodCall, nameof(Enumerable.Contains)) && methodCall.Arguments.Count == 2)
         {
-            var values = LocalSequenceExtractor.Evaluate(methodCall.Arguments[0]);
+            var values = EvaluateLocalSequence(methodCall.Arguments[0]);
             return CreateLocalMembershipPredicate(values, methodCall.Arguments[1], isNegated, out predicate);
         }
 
@@ -441,7 +469,7 @@ internal sealed class RemotionQueryPlanAdapter
         if (sequenceExpression is not null &&
             itemExpression is not null &&
             GetNonNullableType(sequenceExpression.Type) != typeof(string) &&
-            LocalSequenceExtractor.TryEvaluate(UnwrapConvert(sequenceExpression), out var instanceValues))
+            TryEvaluateLocalSequence(sequenceExpression, out var instanceValues))
         {
             return CreateLocalMembershipPredicate(instanceValues, itemExpression, isNegated, out predicate);
         }
@@ -449,15 +477,9 @@ internal sealed class RemotionQueryPlanAdapter
         return false;
     }
 
-    private bool TryConvertLocalContainsSubQuery(QueryModel queryModel, ContainsResultOperator contains, bool isNegated, out QueryPlanPredicate predicate)
-    {
-        var values = LocalSequenceExtractor.Evaluate(queryModel);
-        return CreateLocalMembershipPredicate(values, contains.Item, isNegated, out predicate);
-    }
-
     private bool CreateLocalMembershipPredicate(object?[] values, Expression itemExpression, bool isNegated, out QueryPlanPredicate predicate)
     {
-        itemExpression = LocalSequenceExtractor.UnwrapQueryColumnAccess(itemExpression);
+        itemExpression = UnwrapQueryColumnAccess(itemExpression);
 
         if (values.Length == 0)
         {
@@ -480,7 +502,7 @@ internal sealed class RemotionQueryPlanAdapter
             return true;
         }
 
-        throw new QueryTranslationException($"Contains item expression '{itemExpression}' is not supported by the query plan adapter. Expected member access on the query source or a local constant.");
+        throw new QueryTranslationException($"Contains item expression '{itemExpression}' is not supported by the DataLinq expression parser. Expected member access on the query source or a local constant.");
     }
 
     private bool TryConvertLocalAny(MethodCallExpression methodCall, bool isNegated, out QueryPlanPredicate predicate)
@@ -492,7 +514,7 @@ internal sealed class RemotionQueryPlanAdapter
         if (TryGetRelationProperty(methodCall.Arguments[0], out _))
             return false;
 
-        var sourceValues = LocalSequenceExtractor.Evaluate(methodCall.Arguments[0]);
+        var sourceValues = EvaluateLocalSequence(methodCall.Arguments[0]);
         if (methodCall.Arguments.Count == 1)
         {
             predicate = new QueryPlanPredicate.Fixed(isNegated ? sourceValues.Length == 0 : sourceValues.Length > 0);
@@ -516,33 +538,6 @@ internal sealed class RemotionQueryPlanAdapter
         return true;
     }
 
-    private bool TryConvertLocalAnySubQuery(QueryModel queryModel, bool isNegated, out QueryPlanPredicate predicate)
-    {
-        predicate = null!;
-        var sourceValues = LocalSequenceExtractor.Evaluate(queryModel.MainFromClause.FromExpression);
-        if (queryModel.BodyClauses.Count == 0)
-        {
-            predicate = new QueryPlanPredicate.Fixed(isNegated ? sourceValues.Length == 0 : sourceValues.Length > 0);
-            return true;
-        }
-
-        if (sourceValues.Length == 0)
-        {
-            predicate = new QueryPlanPredicate.Fixed(isNegated);
-            return true;
-        }
-
-        if (queryModel.BodyClauses.Count == 1 &&
-            queryModel.BodyClauses[0] is WhereClause whereClause &&
-            whereClause.Predicate is BinaryExpression { NodeType: ExpressionType.Equal } binary &&
-            TryCreateLocalAnyMembership(binary, queryModel.MainFromClause, sourceValues, isNegated, out predicate))
-        {
-            return true;
-        }
-
-        throw new QueryTranslationException($"Any(predicate) over a non-empty local sequence only supports equality membership against a query column. Predicate: {queryModel.BodyClauses.FirstOrDefault()}");
-    }
-
     private bool TryCreateLocalAnyMembership(
         BinaryExpression binary,
         ParameterExpression localParameter,
@@ -554,17 +549,6 @@ internal sealed class RemotionQueryPlanAdapter
                TryCreateLocalAnyMembershipSide(binary.Right, binary.Left, localParameter, sourceValues, isNegated, out predicate);
     }
 
-    private bool TryCreateLocalAnyMembership(
-        BinaryExpression binary,
-        MainFromClause localFromClause,
-        object?[] sourceValues,
-        bool isNegated,
-        out QueryPlanPredicate predicate)
-    {
-        return TryCreateLocalAnyMembershipSide(binary.Left, binary.Right, localFromClause, sourceValues, isNegated, out predicate) ||
-               TryCreateLocalAnyMembershipSide(binary.Right, binary.Left, localFromClause, sourceValues, isNegated, out predicate);
-    }
-
     private bool TryCreateLocalAnyMembershipSide(
         Expression outerCandidate,
         Expression localCandidate,
@@ -574,8 +558,8 @@ internal sealed class RemotionQueryPlanAdapter
         out QueryPlanPredicate predicate)
     {
         predicate = null!;
-        outerCandidate = LocalSequenceExtractor.UnwrapQueryColumnAccess(outerCandidate);
-        localCandidate = LocalSequenceExtractor.UnwrapQueryColumnAccess(localCandidate);
+        outerCandidate = UnwrapQueryColumnAccess(outerCandidate);
+        localCandidate = UnwrapQueryColumnAccess(localCandidate);
 
         if (!TryGetColumnValue(outerCandidate, out var outerColumn) ||
             !TryProjectLocalValues(localParameter, localCandidate, sourceValues, out var values))
@@ -590,35 +574,10 @@ internal sealed class RemotionQueryPlanAdapter
         return true;
     }
 
-    private bool TryCreateLocalAnyMembershipSide(
-        Expression outerCandidate,
-        Expression localCandidate,
-        MainFromClause localFromClause,
-        object?[] sourceValues,
-        bool isNegated,
-        out QueryPlanPredicate predicate)
-    {
-        predicate = null!;
-        outerCandidate = LocalSequenceExtractor.UnwrapQueryColumnAccess(outerCandidate);
-        localCandidate = LocalSequenceExtractor.UnwrapQueryColumnAccess(localCandidate);
-
-        if (!TryGetColumnValue(outerCandidate, out var outerColumn) ||
-            !LocalSequenceExtractor.TryProject(localFromClause, localCandidate, sourceValues, out var values))
-        {
-            return false;
-        }
-
-        predicate = new QueryPlanPredicate.In(
-            outerColumn,
-            bindings.CaptureLocalSequence(values, outerColumn.ClrType),
-            isNegated);
-        return true;
-    }
-
     private static bool TryProjectLocalValues(ParameterExpression parameter, Expression selector, object?[] sourceValues, out object?[] values)
     {
         values = [];
-        selector = LocalSequenceExtractor.UnwrapQueryColumnAccess(selector);
+        selector = UnwrapQueryColumnAccess(selector);
 
         if (selector == parameter)
         {
@@ -632,7 +591,7 @@ internal sealed class RemotionQueryPlanAdapter
         try
         {
             values = sourceValues
-                .Select(value => ProjectionExpressionEvaluator.Evaluate(selector, parameter, value))
+                .Select(value => EvaluateLocalExpression(selector, parameter, value))
                 .ToArray();
             return true;
         }
@@ -645,7 +604,7 @@ internal sealed class RemotionQueryPlanAdapter
 
     private static bool IsLocalParameterExpression(Expression expression, ParameterExpression parameter)
     {
-        expression = LocalSequenceExtractor.UnwrapQueryColumnAccess(expression);
+        expression = UnwrapQueryColumnAccess(expression);
 
         return expression switch
         {
@@ -679,29 +638,6 @@ internal sealed class RemotionQueryPlanAdapter
         return true;
     }
 
-    private bool TryConvertRelationAnySubQuery(SubQueryExpression subQuery, bool isNegated, out QueryPlanPredicate predicate)
-    {
-        predicate = null!;
-        if (!TryGetRelationProperty(subQuery.QueryModel.MainFromClause.FromExpression, out var relationProperty, out var parentSource))
-            return false;
-
-        if (subQuery.QueryModel.ResultOperators.Count != 1 ||
-            subQuery.QueryModel.ResultOperators[0] is not AnyResultOperator)
-        {
-            throw new QueryTranslationException($"Relation subquery '{subQuery.QueryModel}' is not supported. Only relation Any(...) predicates are supported in this context.");
-        }
-
-        var childSource = CreateRelationChildSource(relationProperty, subQuery.QueryModel.MainFromClause);
-        QueryPlanPredicate? childPredicate = null;
-        if (subQuery.QueryModel.BodyClauses.Count == 1 && subQuery.QueryModel.BodyClauses[0] is WhereClause whereClause)
-            childPredicate = ConvertRelationPredicate(relationProperty, childSource, subQuery.QueryModel.MainFromClause, whereClause.Predicate);
-        else if (subQuery.QueryModel.BodyClauses.Count > 1)
-            throw new QueryTranslationException($"Relation predicate '{subQuery.QueryModel}' is not supported. Only a single Where predicate inside Any(...) or Count(...) is supported.");
-
-        predicate = new QueryPlanPredicate.Exists(relationProperty, parentSource, childSource, childPredicate, isNegated);
-        return true;
-    }
-
     private bool TryConvertRelationCountComparison(BinaryExpression binary, bool isNegated, out QueryPlanPredicate predicate)
     {
         if (TryGetRelationCount(binary.Left, out var relationProperty, out var parentSource, out var childPredicateFactory) &&
@@ -717,6 +653,47 @@ internal sealed class RemotionQueryPlanAdapter
         }
 
         predicate = null!;
+        return false;
+    }
+
+    private bool TryGetRelationCount(
+        Expression expression,
+        out RelationProperty relationProperty,
+        out QueryPlanSourceSlot parentSource,
+        out Func<QueryPlanSourceSlot, QueryPlanPredicate?> childPredicateFactory)
+    {
+        expression = UnwrapConvert(expression);
+
+        if (expression is MemberExpression { Member.Name: "Count", Expression: not null } member &&
+            TryGetRelationProperty(member.Expression, out relationProperty, out parentSource))
+        {
+            childPredicateFactory = _ => null;
+            return true;
+        }
+
+        if (expression is MethodCallExpression methodCall &&
+            IsEnumerableMethod(methodCall, nameof(Enumerable.Count)) &&
+            methodCall.Arguments.Count is 1 or 2 &&
+            TryGetRelationProperty(methodCall.Arguments[0], out relationProperty, out parentSource))
+        {
+            var relation = relationProperty;
+            childPredicateFactory = childSource =>
+            {
+                if (methodCall.Arguments.Count == 1)
+                    return null;
+
+                var lambda = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
+                if (lambda.Parameters.Count != 1)
+                    throw new QueryTranslationException($"Relation predicate lambda '{methodCall}' is not supported.");
+
+                return ConvertRelationPredicate(relation, childSource, lambda.Parameters[0], lambda.Body);
+            };
+            return true;
+        }
+
+        relationProperty = null!;
+        parentSource = null!;
+        childPredicateFactory = null!;
         return false;
     }
 
@@ -749,83 +726,9 @@ internal sealed class RemotionQueryPlanAdapter
         return true;
     }
 
-    private bool TryGetRelationCount(
-        Expression expression,
-        out RelationProperty relationProperty,
-        out QueryPlanSourceSlot parentSource,
-        out Func<QueryPlanSourceSlot, QueryPlanPredicate?> childPredicateFactory)
-    {
-        expression = UnwrapConvert(expression);
-
-        if (expression is SubQueryExpression subQuery &&
-            subQuery.QueryModel.ResultOperators.Count == 1 &&
-            subQuery.QueryModel.ResultOperators[0] is CountResultOperator &&
-            TryGetRelationProperty(subQuery.QueryModel.MainFromClause.FromExpression, out relationProperty, out parentSource))
-        {
-            var relation = relationProperty;
-            childPredicateFactory = childSource =>
-            {
-                if (subQuery.QueryModel.BodyClauses.Count == 0)
-                    return null;
-
-                if (subQuery.QueryModel.BodyClauses.Count == 1 && subQuery.QueryModel.BodyClauses[0] is WhereClause whereClause)
-                    return ConvertRelationPredicate(relation, childSource, subQuery.QueryModel.MainFromClause, whereClause.Predicate);
-
-                throw new QueryTranslationException($"Relation predicate '{subQuery.QueryModel}' is not supported. Only a single Where predicate inside Any(...) or Count(...) is supported.");
-            };
-            return true;
-        }
-
-        if (expression is MethodCallExpression methodCall &&
-            IsEnumerableMethod(methodCall, nameof(Enumerable.Count)) &&
-            methodCall.Arguments.Count is 1 or 2 &&
-            TryGetRelationProperty(methodCall.Arguments[0], out relationProperty, out parentSource))
-        {
-            var relation = relationProperty;
-            childPredicateFactory = childSource =>
-            {
-                if (methodCall.Arguments.Count == 1)
-                    return null;
-
-                var lambda = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
-                if (lambda.Parameters.Count != 1)
-                    throw new QueryTranslationException($"Relation predicate lambda '{methodCall}' is not supported.");
-
-                return ConvertRelationPredicate(relation, childSource, lambda.Parameters[0], lambda.Body);
-            };
-            return true;
-        }
-
-        relationProperty = null!;
-        parentSource = null!;
-        childPredicateFactory = null!;
-        return false;
-    }
-
-    private QueryPlanPredicate ConvertRelationPredicate(RelationProperty relationProperty, QueryPlanSourceSlot childSource, MainFromClause childQuerySource, Expression predicate)
-    {
-        sourceSlots[childQuerySource] = childSource;
-        try
-        {
-            return ConvertRelationPredicate(relationProperty, childSource, predicate);
-        }
-        finally
-        {
-            sourceSlots.Remove(childQuerySource);
-        }
-    }
-
     private QueryPlanPredicate ConvertRelationPredicate(RelationProperty relationProperty, QueryPlanSourceSlot childSource, ParameterExpression childParameter, Expression predicate)
     {
-        parameterSourceSlots[childParameter] = childSource;
-        try
-        {
-            return ConvertRelationPredicate(relationProperty, childSource, predicate);
-        }
-        finally
-        {
-            parameterSourceSlots.Remove(childParameter);
-        }
+        return WithSource(childParameter, childSource, () => ConvertRelationPredicate(relationProperty, childSource, predicate));
     }
 
     private QueryPlanPredicate ConvertRelationPredicate(RelationProperty relationProperty, QueryPlanSourceSlot childSource, Expression predicate)
@@ -885,7 +788,7 @@ internal sealed class RemotionQueryPlanAdapter
         return QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull;
     }
 
-    private QueryPlanSourceSlot CreateRelationChildSource(RelationProperty relationProperty, MainFromClause? childQuerySource = null)
+    private QueryPlanSourceSlot CreateRelationChildSource(RelationProperty relationProperty)
     {
         var relationPart = relationProperty.RelationPart;
         if (relationPart.Type != RelationPartType.CandidateKey)
@@ -897,14 +800,11 @@ internal sealed class RemotionQueryPlanAdapter
 
         var childTable = relationPart.GetOtherSide().ColumnIndex.Table;
         var childType = childTable.Model.CsType.Type!;
-        var childSource = RegisterSource(
-            childQuerySource,
+        return RegisterSource(
             childType,
             QueryPlanSourceKind.RelationSubquery,
             alias: $"r{relationSubqueryCounter++}",
             table: childTable);
-
-        return childSource;
     }
 
     private bool TryGetRelationProperty(Expression expression, out RelationProperty relationProperty)
@@ -926,16 +826,45 @@ internal sealed class RemotionQueryPlanAdapter
         return false;
     }
 
+    private QueryPlanValue GetAggregateSelector(Expression selector, string operatorName)
+    {
+        selector = UnwrapConvert(selector);
+        if (selector is MemberExpression memberExpression &&
+            memberExpression.Member.Name == "Value" &&
+            memberExpression.Expression is not null &&
+            Nullable.GetUnderlyingType(memberExpression.Expression.Type) is not null)
+        {
+            selector = memberExpression.Expression;
+        }
+
+        if (TryConvertValue(selector, out var value))
+            return value;
+
+        throw new QueryTranslationException(
+            $"Aggregate selector '{selector}' is not supported for '{operatorName}' by the DataLinq expression parser. " +
+            "Only direct numeric members, nullable Value members, and supported scalar functions are supported.");
+    }
+
     private QueryPlanValue ConvertValue(Expression expression)
     {
         if (TryConvertValue(expression, out var value))
             return value;
 
-        throw new QueryTranslationException($"Value expression '{expression}' is not supported by the query plan adapter.");
+        throw new QueryTranslationException($"Value expression '{expression}' is not supported by the DataLinq expression parser.");
     }
 
     private bool TryConvertValue(Expression expression, out QueryPlanValue value)
     {
+        if (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary &&
+            !ContainsQueryReference(unary.Operand))
+        {
+            var scalar = EvaluateLocalExpression(unary.Operand);
+            value = scalar is null
+                ? new QueryPlanConstantValue(null, expression.Type)
+                : bindings.CaptureScalar(scalar, expression.Type);
+            return true;
+        }
+
         expression = UnwrapConvert(expression);
 
         if (TryGetColumnValue(expression, out var column))
@@ -965,7 +894,7 @@ internal sealed class RemotionQueryPlanAdapter
 
     private bool TryGetColumnValue(Expression expression, out QueryPlanColumnValue value)
     {
-        expression = LocalSequenceExtractor.UnwrapQueryColumnAccess(UnwrapConvert(expression));
+        expression = UnwrapQueryColumnAccess(UnwrapConvert(expression));
 
         if (expression is MemberExpression memberExpression &&
             TryGetSource(memberExpression.Expression, out var source) &&
@@ -1085,49 +1014,80 @@ internal sealed class RemotionQueryPlanAdapter
 
     private static bool TryGetDateTimePart(MemberExpression memberExpression, out QueryPlanFunctionKind functionKind)
     {
-        var sourceType = memberExpression.Expression is null
-            ? null
-            : GetNonNullableType(memberExpression.Expression.Type);
-
-        if (sourceType == typeof(DateOnly) || sourceType == typeof(DateTime))
+        var declaringType = GetNonNullableType(memberExpression.Member.DeclaringType ?? memberExpression.Expression?.Type ?? memberExpression.Type);
+        switch (declaringType)
         {
-            switch (memberExpression.Member.Name)
-            {
-                case nameof(DateTime.Year):
-                    functionKind = QueryPlanFunctionKind.DatePartYear;
-                    return true;
-                case nameof(DateTime.Month):
-                    functionKind = QueryPlanFunctionKind.DatePartMonth;
-                    return true;
-                case nameof(DateTime.Day):
-                    functionKind = QueryPlanFunctionKind.DatePartDay;
-                    return true;
-                case nameof(DateTime.DayOfYear):
-                    functionKind = QueryPlanFunctionKind.DatePartDayOfYear;
-                    return true;
-                case nameof(DateTime.DayOfWeek):
-                    functionKind = QueryPlanFunctionKind.DatePartDayOfWeek;
-                    return true;
-            }
-        }
+            case var type when type == typeof(DateTime) || type == typeof(DateOnly):
+                switch (memberExpression.Member.Name)
+                {
+                    case nameof(DateTime.Year):
+                        functionKind = QueryPlanFunctionKind.DatePartYear;
+                        return true;
+                    case nameof(DateTime.Month):
+                        functionKind = QueryPlanFunctionKind.DatePartMonth;
+                        return true;
+                    case nameof(DateTime.Day):
+                        functionKind = QueryPlanFunctionKind.DatePartDay;
+                        return true;
+                    case nameof(DateTime.DayOfYear):
+                        functionKind = QueryPlanFunctionKind.DatePartDayOfYear;
+                        return true;
+                    case nameof(DateTime.DayOfWeek):
+                        functionKind = QueryPlanFunctionKind.DatePartDayOfWeek;
+                        return true;
+                }
+                break;
 
-        if (sourceType == typeof(TimeOnly) || sourceType == typeof(DateTime))
-        {
-            switch (memberExpression.Member.Name)
-            {
-                case nameof(DateTime.Hour):
-                    functionKind = QueryPlanFunctionKind.TimePartHour;
-                    return true;
-                case nameof(DateTime.Minute):
-                    functionKind = QueryPlanFunctionKind.TimePartMinute;
-                    return true;
-                case nameof(DateTime.Second):
-                    functionKind = QueryPlanFunctionKind.TimePartSecond;
-                    return true;
-                case nameof(DateTime.Millisecond):
-                    functionKind = QueryPlanFunctionKind.TimePartMillisecond;
-                    return true;
-            }
+            case var type when type == typeof(DateTimeOffset):
+                switch (memberExpression.Member.Name)
+                {
+                    case nameof(DateTimeOffset.Year):
+                        functionKind = QueryPlanFunctionKind.DatePartYear;
+                        return true;
+                    case nameof(DateTimeOffset.Month):
+                        functionKind = QueryPlanFunctionKind.DatePartMonth;
+                        return true;
+                    case nameof(DateTimeOffset.Day):
+                        functionKind = QueryPlanFunctionKind.DatePartDay;
+                        return true;
+                    case nameof(DateTimeOffset.DayOfYear):
+                        functionKind = QueryPlanFunctionKind.DatePartDayOfYear;
+                        return true;
+                    case nameof(DateTimeOffset.DayOfWeek):
+                        functionKind = QueryPlanFunctionKind.DatePartDayOfWeek;
+                        return true;
+                    case nameof(DateTimeOffset.Hour):
+                        functionKind = QueryPlanFunctionKind.TimePartHour;
+                        return true;
+                    case nameof(DateTimeOffset.Minute):
+                        functionKind = QueryPlanFunctionKind.TimePartMinute;
+                        return true;
+                    case nameof(DateTimeOffset.Second):
+                        functionKind = QueryPlanFunctionKind.TimePartSecond;
+                        return true;
+                    case nameof(DateTimeOffset.Millisecond):
+                        functionKind = QueryPlanFunctionKind.TimePartMillisecond;
+                        return true;
+                }
+                break;
+
+            case var type when type == typeof(TimeOnly):
+                switch (memberExpression.Member.Name)
+                {
+                    case nameof(TimeOnly.Hour):
+                        functionKind = QueryPlanFunctionKind.TimePartHour;
+                        return true;
+                    case nameof(TimeOnly.Minute):
+                        functionKind = QueryPlanFunctionKind.TimePartMinute;
+                        return true;
+                    case nameof(TimeOnly.Second):
+                        functionKind = QueryPlanFunctionKind.TimePartSecond;
+                        return true;
+                    case nameof(TimeOnly.Millisecond):
+                        functionKind = QueryPlanFunctionKind.TimePartMillisecond;
+                        return true;
+                }
+                break;
         }
 
         functionKind = default;
@@ -1138,38 +1098,45 @@ internal sealed class RemotionQueryPlanAdapter
     {
         expression = UnwrapConvert(expression);
 
-        switch (expression)
+        if (expression is ParameterExpression parameter &&
+            parameterSourceSlots.TryGetValue(parameter, out source!))
         {
-            case QuerySourceReferenceExpression querySourceReference:
-                return sourceSlots.TryGetValue(querySourceReference.ReferencedQuerySource, out source!);
-
-            case ParameterExpression parameter:
-                return parameterSourceSlots.TryGetValue(parameter, out source!);
-
-            default:
-                source = null!;
-                return false;
+            return true;
         }
+
+        source = null!;
+        return false;
     }
 
-    private QueryPlanSourceSlot GetSource(IQuerySource querySource)
+    private bool TryParseRootSource(Expression expression, QueryPlanSourceKind kind, out QueryPlanSourceSlot source)
     {
-        if (sourceSlots.TryGetValue(querySource, out var source))
-            return source;
+        expression = UnwrapConvert(expression);
+        if (expression is ConstantExpression { Value: IQueryable queryable })
+        {
+            source = RegisterSource(queryable.ElementType, kind);
+            return true;
+        }
 
-        throw new QueryTranslationException($"Query source '{querySource}' has not been registered in the query plan adapter.");
+        if (IsQueryableSequence(expression.Type) && !ContainsParameter(expression))
+        {
+            var value = EvaluateLocalExpression(expression);
+            if (value is IQueryable evaluatedQueryable)
+            {
+                source = RegisterSource(evaluatedQueryable.ElementType, kind);
+                return true;
+            }
+        }
+
+        source = null!;
+        return false;
     }
 
     private QueryPlanSourceSlot RegisterSource(
-        IQuerySource? querySource,
         Type itemType,
         QueryPlanSourceKind kind,
         string? alias = null,
         TableDefinition? table = null)
     {
-        if (querySource is not null && sourceSlots.TryGetValue(querySource, out var existing))
-            return existing;
-
         table ??= GetTableForModelType(itemType);
         var source = new QueryPlanSourceSlot(
             $"s{sources.Count}",
@@ -1181,9 +1148,6 @@ internal sealed class RemotionQueryPlanAdapter
             IsNullable: false);
 
         sources.Add(source);
-        if (querySource is not null)
-            sourceSlots[querySource] = source;
-
         return source;
     }
 
@@ -1196,7 +1160,7 @@ internal sealed class RemotionQueryPlanAdapter
 
     private ColumnDefinition GetJoinKeyColumn(QueryPlanSourceSlot source, Expression keySelector, string side)
     {
-        keySelector = LocalSequenceExtractor.UnwrapQueryColumnAccess(UnwrapConvert(keySelector));
+        keySelector = UnwrapQueryColumnAccess(UnwrapConvert(keySelector));
         if (keySelector is not MemberExpression memberExpression ||
             !TryGetSource(memberExpression.Expression, out var memberSource) ||
             memberSource != source)
@@ -1216,37 +1180,228 @@ internal sealed class RemotionQueryPlanAdapter
         return visitor.Sources;
     }
 
-    private static QueryModel? ExtractQueryModel(Expression? expression)
+    private void ValidateProjectionSupported(Expression selector)
     {
-        switch (expression)
-        {
-            case SubQueryExpression subQueryExpression:
-                return subQueryExpression.QueryModel;
-
-            case MemberExpression memberExpression:
-                return ExtractQueryModel(memberExpression.Expression);
-
-            case MethodCallExpression methodCallExpression:
-                foreach (var argument in methodCallExpression.Arguments)
-                {
-                    var subQuery = ExtractQueryModel(argument);
-                    if (subQuery != null)
-                        return subQuery;
-                }
-                break;
-
-            case UnaryExpression unaryExpression:
-                return ExtractQueryModel(unaryExpression.Operand);
-        }
-
-        return null;
+        var visitor = new ProjectionUnsupportedShapeVisitor(this, selector);
+        visitor.Visit(selector);
     }
 
-    private static bool HasPagingResultOperator(QueryModel queryModel)
-        => queryModel.ResultOperators.Any(static op => op is TakeResultOperator or SkipResultOperator);
+    private bool TryGetRelationProjectionProperty(MemberExpression memberExpression, out RelationProperty relationProperty)
+    {
+        if (TryGetProjectionSourceType(memberExpression.Expression, out var sourceType) &&
+            metadata.TryGetTableModel(sourceType, out var tableModel) &&
+            tableModel.Model.RelationProperties.TryGetValue(memberExpression.Member.Name, out relationProperty!))
+        {
+            return true;
+        }
 
-    private static bool HasJoinBodyClause(QueryModel queryModel)
-        => queryModel.BodyClauses.Any(static body => body is JoinClause or GroupJoinClause);
+        relationProperty = null!;
+        return false;
+    }
+
+    private bool TryGetProjectionSourceType(Expression? expression, out Type sourceType)
+    {
+        expression = UnwrapConvert(expression);
+
+        switch (expression)
+        {
+            case ParameterExpression parameterExpression:
+                sourceType = parameterSourceSlots.TryGetValue(parameterExpression, out var parameterSource)
+                    ? parameterSource.ElementType
+                    : parameterExpression.Type;
+                return true;
+
+            case MemberExpression nestedMember:
+                return TryGetProjectionSourceType(nestedMember.Expression, out sourceType);
+
+            case MethodCallExpression methodCall:
+                if (TryGetProjectionSourceType(methodCall.Object, out sourceType))
+                    return true;
+
+                foreach (var argument in methodCall.Arguments)
+                {
+                    if (TryGetProjectionSourceType(argument, out sourceType))
+                        return true;
+                }
+
+                break;
+        }
+
+        sourceType = null!;
+        return false;
+    }
+
+    private void RejectPostPagingOperator(string operatorName)
+    {
+        if (operations.Any(static operation => operation is QueryPlanOperation.Skip or QueryPlanOperation.Take))
+        {
+            throw new QueryTranslationException(
+                "LINQ operators after Skip(...) or Take(...) require subquery pushdown and are not supported yet. " +
+                "Apply filtering and ordering before paging, or materialize before applying post-paging operators. " +
+                $"Operator: {operatorName}");
+        }
+    }
+
+    private void WithSource(ParameterExpression parameter, QueryPlanSourceSlot source, Action action)
+    {
+        parameterSourceSlots[parameter] = source;
+        try
+        {
+            action();
+        }
+        finally
+        {
+            parameterSourceSlots.Remove(parameter);
+        }
+    }
+
+    private TResult WithSource<TResult>(ParameterExpression parameter, QueryPlanSourceSlot source, Func<TResult> action)
+    {
+        parameterSourceSlots[parameter] = source;
+        try
+        {
+            return action();
+        }
+        finally
+        {
+            parameterSourceSlots.Remove(parameter);
+        }
+    }
+
+    private object? EvaluateScalar(Expression expression)
+    {
+        if (ContainsQueryReference(expression))
+            throw new QueryTranslationException($"Expression '{expression}' contains a query source and cannot be evaluated as a local scalar.");
+
+        return EvaluateLocalExpression(expression);
+    }
+
+    private object?[] EvaluateLocalSequence(Expression expression)
+    {
+        if (TryEvaluateLocalSequence(expression, out var values))
+            return values;
+
+        throw new QueryTranslationException($"Expression '{expression}' cannot be evaluated as a local sequence.");
+    }
+
+    private bool TryEvaluateLocalSequence(Expression expression, out object?[] values)
+    {
+        values = [];
+        expression = NormalizeSequenceExpression(UnwrapConvert(expression));
+
+        if (ContainsQueryReference(expression))
+            return false;
+
+        if (expression is MethodCallExpression methodCall &&
+            IsEnumerableMethod(methodCall, nameof(Enumerable.Select)) &&
+            methodCall.Arguments.Count == 2)
+        {
+            if (!TryEvaluateLocalSequence(methodCall.Arguments[0], out var sourceValues))
+                return false;
+
+            var selector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
+            if (selector.Parameters.Count != 1)
+                return false;
+
+            values = sourceValues
+                .Select(value => EvaluateLocalExpression(selector.Body, selector.Parameters[0], value))
+                .ToArray();
+            return true;
+        }
+
+        try
+        {
+            var value = EvaluateLocalExpression(expression);
+            return TryConvertToArray(value, out values);
+        }
+        catch
+        {
+            values = [];
+            return false;
+        }
+    }
+
+    private static object? EvaluateLocalExpression(Expression expression, ParameterExpression? parameter = null, object? parameterValue = null)
+    {
+        expression = UnwrapConvert(expression);
+        switch (expression)
+        {
+            case ConstantExpression constant:
+                return constant.Value;
+
+            case ParameterExpression current when parameter is not null && current == parameter:
+                return parameterValue;
+
+            case UnaryExpression unary when unary.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked:
+                return System.Convert.ChangeType(
+                    EvaluateLocalExpression(unary.Operand, parameter, parameterValue),
+                    GetNonNullableType(unary.Type),
+                    System.Globalization.CultureInfo.InvariantCulture);
+
+            case MemberExpression member:
+                var instance = member.Expression is null
+                    ? null
+                    : EvaluateLocalExpression(member.Expression, parameter, parameterValue);
+                return member.Member switch
+                {
+                    FieldInfo field => field.GetValue(instance),
+                    PropertyInfo property => property.GetValue(instance),
+                    _ => throw new QueryTranslationException($"Local member '{member.Member.Name}' is not supported in DataLinq expression parsing.")
+                };
+
+            case NewArrayExpression newArray:
+                return newArray.Expressions
+                    .Select(item => EvaluateLocalExpression(item, parameter, parameterValue))
+                    .ToArray();
+
+            case MethodCallExpression methodCall:
+                var target = methodCall.Object is null
+                    ? null
+                    : EvaluateLocalExpression(methodCall.Object, parameter, parameterValue);
+                var arguments = methodCall.Arguments
+                    .Select(argument => EvaluateLocalExpression(argument, parameter, parameterValue))
+                    .ToArray();
+                return methodCall.Method.Invoke(target, arguments);
+
+            default:
+                throw new QueryTranslationException($"Local expression '{expression}' is not supported in DataLinq expression parsing.");
+        }
+    }
+
+    private bool ContainsQueryReference(Expression? expression)
+    {
+        if (expression is null)
+            return false;
+
+        var visitor = new QueryReferenceVisitor(this);
+        visitor.Visit(expression);
+        return visitor.ContainsReference;
+    }
+
+    private static Expression NormalizeSequenceExpression(Expression expression)
+    {
+        if (expression.Type.IsByRefLike &&
+            expression is MethodCallExpression { Method.Name: "op_Implicit", Arguments.Count: 1 } implicitCall)
+        {
+            return implicitCall.Arguments[0];
+        }
+
+        return expression;
+    }
+
+    private static bool TryConvertToArray(object? value, out object?[] values)
+    {
+        values = value switch
+        {
+            null => [],
+            object?[] array => array,
+            IEnumerable<object?> enumerable => enumerable.ToArray(),
+            IEnumerable enumerable => enumerable.Cast<object?>().ToArray(),
+            _ => []
+        };
+
+        return value == null || values.Length != 0 || value is IEnumerable;
+    }
 
     private static Expression UnwrapConvert(Expression? expression)
     {
@@ -1254,17 +1409,26 @@ internal sealed class RemotionQueryPlanAdapter
             return null!;
 
         while (expression is UnaryExpression unary &&
-                   (unary.NodeType == ExpressionType.Convert ||
-                    unary.NodeType == ExpressionType.ConvertChecked ||
-                    unary.NodeType == ExpressionType.Quote) ||
-               expression is PartialEvaluationExceptionExpression)
+               (unary.NodeType == ExpressionType.Convert ||
+                unary.NodeType == ExpressionType.ConvertChecked ||
+                unary.NodeType == ExpressionType.Quote))
         {
-            expression = expression is UnaryExpression currentUnary
-                ? currentUnary.Operand
-                : ((PartialEvaluationExceptionExpression)expression).EvaluatedExpression;
+            expression = unary.Operand;
         }
 
         return expression;
+    }
+
+    private static Expression UnwrapQueryColumnAccess(Expression expression)
+    {
+        expression = UnwrapConvert(expression);
+        if (expression is MemberExpression { Member.Name: "Value", Expression: not null } memberExpression &&
+            Nullable.GetUnderlyingType(memberExpression.Expression.Type) != null)
+        {
+            expression = memberExpression.Expression;
+        }
+
+        return UnwrapConvert(expression);
     }
 
     private static LambdaExpression UnwrapLambda(Expression expression, string sourceExpression)
@@ -1276,38 +1440,23 @@ internal sealed class RemotionQueryPlanAdapter
         throw new QueryTranslationException($"Predicate lambda '{sourceExpression}' is not supported.");
     }
 
-    private static object? EvaluateScalar(Expression expression)
+    private static void EnsureArgumentCount(MethodCallExpression methodCall, int count)
     {
-        if (expression is ConstantExpression constantExpression)
-            return constantExpression.Value;
-
-        var evaluatedExpression = Evaluator.PartialEval(
-            expression,
-            candidate => candidate is not QuerySourceReferenceExpression and not SubQueryExpression);
-
-        if (evaluatedExpression is ConstantExpression constantAfterEval)
-            return constantAfterEval.Value;
-
-        return ProjectionExpressionEvaluator.Evaluate(evaluatedExpression!);
+        if (methodCall.Arguments.Count != count)
+            throw new QueryTranslationException($"LINQ operator '{methodCall.Method.Name}' has unsupported argument count {methodCall.Arguments.Count}. Expression: {methodCall}");
     }
 
-    private static bool ContainsQueryReference(Expression? expression)
-    {
-        if (expression is null)
-            return false;
-
-        var visitor = new QueryReferenceVisitor();
-        visitor.Visit(expression);
-        return visitor.ContainsReference;
-    }
+    private static bool IsQueryableMethod(MethodCallExpression methodCall)
+        => methodCall.Method.IsGenericMethod &&
+           methodCall.Method.GetGenericMethodDefinition().DeclaringType == typeof(Queryable);
 
     private static bool IsEnumerableMethod(MethodCallExpression methodCall, string methodName)
-    {
-        if (!methodCall.Method.IsGenericMethod || methodCall.Method.Name != methodName)
-            return false;
+        => methodCall.Method.IsGenericMethod &&
+           methodCall.Method.Name == methodName &&
+           methodCall.Method.GetGenericMethodDefinition().DeclaringType == typeof(Enumerable);
 
-        return methodCall.Method.GetGenericMethodDefinition().DeclaringType == typeof(Enumerable);
-    }
+    private static bool IsQueryableSequence(Type type)
+        => typeof(IQueryable).IsAssignableFrom(type);
 
     private static bool TryGetConstantInt(Expression expression, out int value)
     {
@@ -1318,8 +1467,21 @@ internal sealed class RemotionQueryPlanAdapter
             return true;
         }
 
+        if (!ContainsParameter(expression))
+        {
+            value = System.Convert.ToInt32(EvaluateLocalExpression(expression), System.Globalization.CultureInfo.InvariantCulture);
+            return true;
+        }
+
         value = 0;
         return false;
+    }
+
+    private static bool ContainsParameter(Expression expression)
+    {
+        var visitor = new AnyParameterVisitor();
+        visitor.Visit(expression);
+        return visitor.ContainsParameter;
     }
 
     private static bool TryGetCountExistsSemantics(ExpressionType comparisonType, int constant, out bool shouldExist)
@@ -1401,74 +1563,7 @@ internal sealed class RemotionQueryPlanAdapter
         throw new QueryTranslationException($"Constant value '{left}' does not support comparison in query plan predicate translation.");
     }
 
-    internal static QueryPlanNullSemantics GetComparisonNullSemantics(
-        QueryPlanComparisonOperator comparisonOperator,
-        QueryPlanValue left,
-        QueryPlanValue right,
-        IReadOnlyList<QueryPlanBinding> bindings)
-        => QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(comparisonOperator, left, right, bindings);
-
-    private bool TryGetRelationProjectionProperty(MemberExpression memberExpression, out RelationProperty relationProperty)
-    {
-        if (TryGetProjectionSourceType(memberExpression.Expression, out var sourceType) &&
-            metadata.TryGetTableModel(sourceType, out var tableModel) &&
-            tableModel.Model.RelationProperties.TryGetValue(memberExpression.Member.Name, out relationProperty!))
-        {
-            return true;
-        }
-
-        relationProperty = null!;
-        return false;
-    }
-
-    private bool TryGetProjectionSourceType(Expression? expression, out Type sourceType)
-    {
-        expression = UnwrapConvert(expression);
-
-        switch (expression)
-        {
-            case QuerySourceReferenceExpression querySourceReference:
-                sourceType = sourceSlots.TryGetValue(querySourceReference.ReferencedQuerySource, out var querySource)
-                    ? querySource.ElementType
-                    : querySourceReference.Type;
-                return true;
-
-            case ParameterExpression parameterExpression:
-                sourceType = parameterSourceSlots.TryGetValue(parameterExpression, out var parameterSource)
-                    ? parameterSource.ElementType
-                    : parameterExpression.Type;
-                return true;
-
-            case MemberExpression nestedMember:
-                return TryGetProjectionSourceType(nestedMember.Expression, out sourceType);
-
-            case MethodCallExpression methodCall:
-                if (TryGetProjectionSourceType(methodCall.Object, out sourceType))
-                    return true;
-
-                foreach (var argument in methodCall.Arguments)
-                {
-                    if (TryGetProjectionSourceType(argument, out sourceType))
-                        return true;
-                }
-
-                break;
-        }
-
-        sourceType = null!;
-        return false;
-    }
-
     private static Type GetNonNullableType(Type type) => Nullable.GetUnderlyingType(type) ?? type;
-
-    private static string GetResultOperatorDisplayName(ResultOperatorBase op)
-    {
-        var name = op.GetType().Name;
-        const string suffix = "ResultOperator";
-        return name.EndsWith(suffix, StringComparison.Ordinal)
-            ? name[..^suffix.Length]
-            : name;
-    }
 
     private static string GetExpressionShape(Expression selector)
         => selector switch
@@ -1481,42 +1576,53 @@ internal sealed class RemotionQueryPlanAdapter
             _ => selector.NodeType.ToString()
         };
 
-    private sealed class QueryReferenceVisitor : ExpressionVisitor
+    private sealed record ParsedQuery(
+        QueryPlanSourceSlot RootSource,
+        Type ElementType,
+        QueryPlanProjection? Projection = null,
+        QueryPlanResult? Result = null);
+
+    private sealed class QueryReferenceVisitor(ExpressionQueryPlanParser parser) : ExpressionVisitor
     {
         public bool ContainsReference { get; private set; }
 
-        protected override Expression VisitExtension(Expression node)
+        protected override Expression VisitParameter(ParameterExpression node)
         {
-            if (node is QuerySourceReferenceExpression or SubQueryExpression)
-            {
+            if (parser.parameterSourceSlots.ContainsKey(node))
                 ContainsReference = true;
-                return node;
-            }
 
-            return node.CanReduce ? Visit(node.Reduce()) : node;
+            return node;
+        }
+    }
+
+    private sealed class QuerySourceCollector(ExpressionQueryPlanParser parser) : ExpressionVisitor
+    {
+        private readonly List<QueryPlanSourceSlot> sources = [];
+
+        public IReadOnlyList<QueryPlanSourceSlot> Sources => sources;
+
+        protected override Expression VisitParameter(ParameterExpression node)
+        {
+            if (parser.parameterSourceSlots.TryGetValue(node, out var source))
+                Add(source);
+
+            return node;
+        }
+
+        private void Add(QueryPlanSourceSlot source)
+        {
+            if (!sources.Contains(source))
+                sources.Add(source);
         }
     }
 
     private sealed class ProjectionUnsupportedShapeVisitor(
-        RemotionQueryPlanAdapter adapter,
+        ExpressionQueryPlanParser parser,
         Expression selector) : ExpressionVisitor
     {
-        protected override Expression VisitExtension(Expression node)
-        {
-            if (node is SubQueryExpression)
-            {
-                throw new QueryTranslationException(
-                    "Nested database query projection is not supported in LINQ Select projection. " +
-                    "Projection expressions are evaluated after materializing the selected rows; load nested query results explicitly after ToList(). " +
-                    $"Expression: {selector}");
-            }
-
-            return node.CanReduce ? Visit(node.Reduce()) : node;
-        }
-
         protected override Expression VisitMember(MemberExpression node)
         {
-            if (adapter.TryGetRelationProjectionProperty(node, out var relationProperty))
+            if (parser.TryGetRelationProjectionProperty(node, out var relationProperty))
             {
                 throw new QueryTranslationException(
                     $"Relation property '{relationProperty.PropertyName}' is not supported in LINQ Select projection. " +
@@ -1528,35 +1634,14 @@ internal sealed class RemotionQueryPlanAdapter
         }
     }
 
-    private sealed class QuerySourceCollector(RemotionQueryPlanAdapter adapter) : ExpressionVisitor
+    private sealed class AnyParameterVisitor : ExpressionVisitor
     {
-        private readonly List<QueryPlanSourceSlot> sources = [];
-
-        public IReadOnlyList<QueryPlanSourceSlot> Sources => sources;
-
-        protected override Expression VisitExtension(Expression node)
-        {
-            if (node is QuerySourceReferenceExpression querySourceReference)
-            {
-                Add(adapter.GetSource(querySourceReference.ReferencedQuerySource));
-                return node;
-            }
-
-            return node.CanReduce ? Visit(node.Reduce()) : node;
-        }
+        public bool ContainsParameter { get; private set; }
 
         protected override Expression VisitParameter(ParameterExpression node)
         {
-            if (adapter.parameterSourceSlots.TryGetValue(node, out var source))
-                Add(source);
-
+            ContainsParameter = true;
             return node;
-        }
-
-        private void Add(QueryPlanSourceSlot source)
-        {
-            if (!sources.Contains(source))
-                sources.Add(source);
         }
     }
 }

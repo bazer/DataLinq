@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 3: SQL Generation on Query Plan
 
-**Status:** Next.
+**Status:** Complete.
 
 ## Execution Plan
 
@@ -11,6 +11,18 @@
 ## Purpose
 
 Phase 3 moves SQL generation and query diagnostics off Remotion clause types. After this phase, Remotion may still parse expressions, but it should no longer be the semantic model consumed by the SQL translator.
+
+## Closeout
+
+Phase 3 closed after routing production SQL execution through `DataLinqQueryPlan` and adding the plan SQL renderer foundation.
+
+Closeout evidence:
+
+- production `QueryExecutor` converts the Remotion parser output to `DataLinqQueryPlan` before SQL generation
+- `DataLinq.Linq.Planning.Sql` renders predicates, values, ordering, paging, aggregates, relation `EXISTS`, and narrow explicit join SQL from plan nodes
+- old Remotion visitor SQL generation remains only as migration-test oracle scaffolding
+- plan SQL renderer types are guarded against Remotion type exposure
+- focused unit and compliance verification passed across the active provider matrix before Phase 4 started
 
 ## Scope
 
