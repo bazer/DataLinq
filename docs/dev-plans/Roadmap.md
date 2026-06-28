@@ -569,7 +569,7 @@ Key related plans:
 
 ### Phase 13B: Grouped Aggregate Projection Baseline
 
-Status: in progress.
+Status: implemented for direct-key grouped `Count()` projection.
 
 Goals:
 
@@ -579,6 +579,15 @@ Goals:
 - keep materialized `IGrouping<TKey,TElement>`, grouped element enumeration, composite keys, computed keys, `HAVING`, grouped joins, and post-group composition rejected
 - prove the shipped shape from both `db.Query()` and `transaction.Query()`
 - update public query docs and the support matrix only for tested grouped aggregate behavior
+
+Delivered slice:
+
+- direct mapped member key
+- `group.Key`
+- `group.Count()`
+- explicit SQL `GROUP BY`
+- direct data-reader materialization of aggregate rows
+- active provider coverage for SQLite, MySQL, and MariaDB
 
 Why before joins:
 

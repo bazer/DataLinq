@@ -83,6 +83,18 @@ internal abstract record QueryPlanOperation(QueryPlanOperationKind Kind)
         public IReadOnlyList<QueryPlanOrdering> PreservedOrderings { get; }
     }
 
+    public sealed record GroupBy : QueryPlanOperation
+    {
+        public GroupBy(IEnumerable<QueryPlanValue> keys) : base(QueryPlanOperationKind.GroupBy)
+        {
+            Keys = Freeze(keys, nameof(keys));
+            if (Keys.Count == 0)
+                throw new ArgumentException("GroupBy operations must contain at least one key.", nameof(keys));
+        }
+
+        public IReadOnlyList<QueryPlanValue> Keys { get; }
+    }
+
     private static ReadOnlyCollection<T> Freeze<T>(IEnumerable<T> values, string parameterName)
     {
         ArgumentNullException.ThrowIfNull(values);
@@ -111,7 +123,8 @@ internal enum QueryPlanOperationKind
     Skip,
     Take,
     Join,
-    Pushdown
+    Pushdown,
+    GroupBy
 }
 
 internal enum QueryPlanOrderingDirection

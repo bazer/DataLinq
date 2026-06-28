@@ -284,8 +284,11 @@ The current projection model is intentionally split into plan shape and executio
 | `Anonymous` | Return a structured row-local projection. |
 | `ComputedRowLocalExpression` | Evaluate a supported computed expression after row materialization. |
 | `JoinedRowLocal` | Evaluate a supported projection over joined materialized rows. |
+| `GroupedAggregate` | Return SQL grouped aggregate rows for the narrow direct-key `group.Key` plus `group.Count()` shape. |
 
 This keeps hidden I/O out of projection. Relation-property projection inside provider `Select(...)` is rejected because it would make a provider query look like one SQL operation while hiding relation traversal behind the projection.
+
+Grouped aggregate projection is the exception to the row-local projection rule because aggregate rows are not entity rows. The parser records a `GroupBy` operation, a group-key value, and grouped aggregate projection members; SQL renders `GROUP BY`, and execution reads the aggregate row aliases directly from `IDataLinqDataReader`.
 
 ## AOT And Dynamic-Code Boundary
 
@@ -318,6 +321,7 @@ Supported parser areas include:
 - single-source filters, ordering, paging, and row-local projections
 - single-source post-paging filters/orderings through explicit query-plan pushdown
 - scalar result operators and direct numeric aggregates
+- single-source grouped aggregate projection for a direct mapped key plus `group.Key` and `group.Count()`
 - local collection membership for documented shapes
 - nullable predicate semantics covered by tests
 - string and date/time member/function translations documented in the support matrix
@@ -327,7 +331,7 @@ Supported parser areas include:
 Still deliberately outside the current support boundary:
 
 - arbitrary LINQ
-- `GroupBy(...)`
+- broad `GroupBy(...)` beyond the documented grouped `Count()` projection
 - `GroupJoin(...)`
 - outer joins
 - multiple explicit joins

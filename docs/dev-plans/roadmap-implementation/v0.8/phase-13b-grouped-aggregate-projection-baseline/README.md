@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 13B: Grouped Aggregate Projection Baseline
 
-**Status:** In progress.
+**Status:** Implemented for the direct mapped key plus `group.Key`/`group.Count()` slice.
 
 ## Purpose
 
@@ -13,12 +13,12 @@ The important word is "honest". LINQ `GroupBy(...).ToList()` produces `IGrouping
 This phase should support grouped aggregate projection only:
 
 ```csharp
-var counts = db.Query().Employees
-    .Where(employee => employee.gender == Employee.Employeegender.M)
-    .GroupBy(employee => employee.gender)
+var counts = db.Query().DepartmentEmployees
+    .Where(row => row.dept_no.StartsWith("d00"))
+    .GroupBy(row => row.dept_no)
     .Select(group => new
     {
-        Gender = group.Key,
+        DeptNo = group.Key,
         Count = group.Count()
     })
     .ToList();
@@ -41,7 +41,7 @@ In scope:
 - direct mapped member group keys
 - `g.Key` projection
 - `g.Count()` projection
-- direct numeric grouped `Sum`, `Min`, `Max`, and `Average` if the `Count()` baseline is stable enough to extend without broadening semantics
+- direct numeric grouped `Sum`, `Min`, `Max`, and `Average` only in a later deliberately tested slice
 - SQLite, MySQL, and MariaDB behavior coverage for every supported aggregate shape
 - DataLinq-owned diagnostics for unsupported grouped shapes
 

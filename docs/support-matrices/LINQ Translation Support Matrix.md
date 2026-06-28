@@ -89,7 +89,7 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | Single-row operators | `Single(predicate)`, `SingleOrDefault(predicate)`, `First(predicate)`, `FirstOrDefault(predicate)` | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesStringMemberTests.cs` | Public docs match this. |
 | Last-row operators | `Last()`, `LastOrDefault(predicate)` in ordered scenarios | `EmployeesQueryBehaviorTests.cs` | Public docs match this but should keep the existing advice to order explicitly. |
 | Unsupported tail/while operators | `TakeLast`, `SkipLast`, `TakeWhile`, `SkipWhile` throw `NotSupportedException` | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
-| Scalar aggregates | `Sum`, `Min`, `Max`, `Average` over direct numeric members, nullable numeric members, nullable `.Value`, and filtered sequences | `Translation/EmployeesAggregateTranslationTests.cs` | The boundary is narrow: no computed selector aggregates, grouped aggregates, or relation-property aggregates. |
+| Scalar aggregates | `Sum`, `Min`, `Max`, `Average` over direct numeric members, nullable numeric members, nullable `.Value`, and filtered sequences | `Translation/EmployeesAggregateTranslationTests.cs` | The boundary is narrow: no computed selector aggregates or relation-property aggregates. Grouped aggregate projection is tracked separately below. |
 
 ## Ordering, Paging, and Projection
 
@@ -102,6 +102,7 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | Scalar projection | `Select(x => x.Property)` | `EmployeesQueryBehaviorTests.cs`, translation tests | Public docs match this. |
 | Anonymous projection | `Select(x => new { ... })` for simple property members and row-local computed expressions | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesProjectionTranslationTests.cs` | These are post-materialization projections, not SQL-backed `SELECT`-list expressions. Relation-property projections remain rejected to avoid hidden N+1 behavior. |
 | Computed scalar projection | row-local string concatenation and materialized member chains after SQL filtering, ordering, and paging | `Translation/EmployeesProjectionTranslationTests.cs` | Client projection is deliberate here. Do not generalize this to SQL predicate method translation. |
+| Grouped aggregate projection | single-source `Where(...).GroupBy(directMember).Select(g => new { Key = g.Key, Count = g.Count() })`, including `db.Query()` and `transaction.Query()` roots across active providers | `Translation/EmployeesGroupedAggregateTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs`, `Translation/ExpressionQueryPlanParserTests.cs` | This is SQL-backed grouped aggregate row materialization, not materialized `IGrouping<TKey,TElement>` support. Computed keys, composite keys, grouped element enumeration, grouped numeric aggregates, grouped joins, and post-group composition remain rejected. |
 | Views and primary-key lookup | querying generated views and direct `Get<T>(key)` lookup | `SeededEmployeesQueryTests.cs`, `EmployeesQueryBehaviorTests.cs` | Direct lookup is not a LINQ predicate but belongs in the surrounding query support docs. |
 
 ## Explicit Joins
@@ -115,10 +116,10 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 
 These shapes are intentionally not part of the documented support boundary today:
 
-- `GroupBy(...)`
+- broad `GroupBy(...)` beyond the direct mapped key plus `group.Key`/`group.Count()` projection documented above
 - `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, and additional filtering/ordering/paging over explicit joined results
 - relation-property query expansion beyond the documented one-to-many `Any(...)` and existence-equivalent `Count()` predicates
-- aggregate result operators over computed selectors, grouped aggregates, or relation properties
+- aggregate result operators over computed selectors, grouped aggregate operators beyond the documented grouped `Count()`, or relation properties
 - additional body clauses over pushed-down projections, joins, or grouped sources
 - arbitrary local `Enumerable` method chains inside predicates
 - arbitrary client methods inside SQL predicates
@@ -145,3 +146,11 @@ Phase 13 adds pushdown-specific regression coverage:
 2. SQL-shape tests prove that post-paging composition renders `FROM (SELECT ...)` and keeps inner and outer parameters separate.
 3. Provider behavior tests compare post-paging filter/order results with in-memory LINQ composition across SQLite, MySQL, and MariaDB.
 4. Transaction-root tests prove the same pushed-down shape executes from `transaction.Query()`.
+
+Phase 13B adds grouped aggregate regression coverage:
+
+1. Plan snapshots record `group-by`, `group-key`, and `grouped-aggregate(count)` nodes.
+2. SQL-shape tests prove the renderer emits explicit `GROUP BY` plus `COUNT(*)`.
+3. Provider behavior tests compare grouped count rows with in-memory LINQ across SQLite, MySQL, and MariaDB.
+4. Transaction-root tests prove grouped aggregate projection executes from `transaction.Query()`.
+5. Unsupported-shape tests keep bare `GroupBy`, computed keys, composite keys, grouped element enumeration, and unsupported grouped aggregates outside the documented boundary.

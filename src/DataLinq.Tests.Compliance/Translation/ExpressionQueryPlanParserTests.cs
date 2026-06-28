@@ -60,6 +60,26 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
+    public async Task ExpressionParser_GroupedAggregateProjectionParsesToDataLinqPlan()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_GroupedAggregateProjectionParsesToDataLinqPlan),
+            EmployeesSeedMode.Bogus);
+
+        await AssertParserProducesDataLinqPlan(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees
+                .Where(x => x.dept_no.StartsWith("d00"))
+                .GroupBy(x => x.dept_no)
+                .Select(group => new
+                {
+                    DeptNo = group.Key,
+                    Count = group.Count()
+                }));
+    }
+
+    [Test]
     public async Task ExpressionParser_RelationAndLocalMembershipShapesParseToDataLinqPlan()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

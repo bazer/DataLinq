@@ -55,6 +55,10 @@ internal sealed class QueryPlanSqlBuilder
                     ApplyOrderBy(query, orderBy);
                     break;
 
+                case QueryPlanOperation.GroupBy groupBy:
+                    ApplyGroupBy(query, groupBy);
+                    break;
+
                 case QueryPlanOperation.Skip skip:
                     query.Offset(GetPagingCount(skip.Count, QueryPlanOperationKind.Skip));
                     break;
@@ -99,6 +103,12 @@ internal sealed class QueryPlanSqlBuilder
     {
         var query = BuildSqlQuery<T>();
         var select = query.SelectQuery();
+
+        if (plan.Projection is QueryPlanProjection.GroupedAggregate groupedAggregate)
+        {
+            select.What(GetGroupedAggregateSelectors(groupedAggregate).ToArray());
+            return select;
+        }
 
         switch (plan.Result.Kind)
         {
@@ -183,6 +193,12 @@ internal sealed class QueryPlanSqlBuilder
         }
     }
 
+    private void ApplyGroupBy<T>(SqlQuery<T> query, QueryPlanOperation.GroupBy groupBy)
+    {
+        foreach (var key in groupBy.Keys)
+            query.GroupByRaw(valueRenderer.RenderSqlExpression(key));
+    }
+
     private int GetPagingCount(QueryPlanValue count, QueryPlanOperationKind operationKind)
     {
         var value = valueRenderer.GetScalarValue(count);
@@ -227,6 +243,29 @@ internal sealed class QueryPlanSqlBuilder
             QueryPlanResultKind.Average => $"AVG({selectorSql})",
             _ => throw new QueryTranslationException($"Query plan result '{plan.Result.Kind}' is not an aggregate result.")
         };
+    }
+
+    private IReadOnlyList<string> GetGroupedAggregateSelectors(QueryPlanProjection.GroupedAggregate projection)
+    {
+        var selectors = new List<string>(projection.Members.Count);
+        var escape = dataSource.Provider.Constants.EscapeCharacter;
+
+        foreach (var member in projection.Members)
+        {
+            var expression = member.Value switch
+            {
+                QueryPlanGroupKeyValue groupKey => valueRenderer.RenderSqlExpression(groupKey.Key),
+                QueryPlanGroupedAggregateValue { Aggregate: QueryPlanGroupedAggregateKind.Count } => "COUNT(*)",
+                QueryPlanGroupedAggregateValue aggregate => throw new QueryTranslationException(
+                    $"Grouped aggregate '{aggregate.Aggregate}' is not supported by SQL rendering."),
+                _ => throw new QueryTranslationException(
+                    $"Grouped aggregate projection value '{member.Value.Kind}' is not supported by SQL rendering.")
+            };
+
+            selectors.Add($"{expression} AS {escape}{member.Name}{escape}");
+        }
+
+        return selectors;
     }
 
     private string GetAggregateColumnExpression(QueryPlanValue selector)

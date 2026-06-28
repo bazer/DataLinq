@@ -83,6 +83,12 @@ internal static class QueryPlanDebugWriter
                     builder.Append("join ").AppendLine(FormatJoin(join.JoinShape));
                     break;
 
+                case QueryPlanOperation.GroupBy groupBy:
+                    builder
+                        .Append("group-by ")
+                        .AppendLine(string.Join(", ", groupBy.Keys.Select(FormatValue)));
+                    break;
+
                 case QueryPlanOperation.Pushdown pushdown:
                     builder.AppendLine("pushdown");
                     foreach (var innerOperation in pushdown.Operations)
@@ -116,6 +122,7 @@ internal static class QueryPlanDebugWriter
             QueryPlanOperation.Skip skip => $"skip {FormatValue(skip.Count)}",
             QueryPlanOperation.Take take => $"take {FormatValue(take.Count)}",
             QueryPlanOperation.Join join => $"join {FormatJoin(join.JoinShape)}",
+            QueryPlanOperation.GroupBy groupBy => $"group-by {string.Join(", ", groupBy.Keys.Select(FormatValue))}",
             QueryPlanOperation.Pushdown => "pushdown",
             _ => throw new InvalidOperationException($"Unknown query plan operation '{operation.GetType().Name}'.")
         };
@@ -171,6 +178,16 @@ internal static class QueryPlanDebugWriter
                     .Append(string.Join(",", joined.Sources.Select(static source => source.Id)))
                     .Append(" members=")
                     .AppendLine(FormatMembers(joined.Members));
+                break;
+
+            case QueryPlanProjection.GroupedAggregate grouped:
+                builder
+                    .Append("grouped-aggregate type=")
+                    .Append(TypeName(grouped.ResultType))
+                    .Append(" source=")
+                    .Append(grouped.Source.Id)
+                    .Append(" members=")
+                    .AppendLine(FormatMembers(grouped.Members));
                 break;
 
             default:
@@ -281,6 +298,8 @@ internal static class QueryPlanDebugWriter
             QueryPlanLocalSequenceValue sequence => $"local-sequence({sequence.BindingId}:{TypeName(sequence.ElementType)} count={sequence.Count.ToString(CultureInfo.InvariantCulture)})",
             QueryPlanFunctionValue function => $"function({ToToken(function.Function)}:{TypeName(function.ClrType)} {string.Join(", ", function.Arguments.Select(FormatValue))})",
             QueryPlanConvertedValue converted => $"convert({FormatValue(converted.Value)} -> {TypeName(converted.TargetType)})",
+            QueryPlanGroupKeyValue groupKey => $"group-key({FormatValue(groupKey.Key)}:{TypeName(groupKey.ClrType)})",
+            QueryPlanGroupedAggregateValue groupedAggregate => $"grouped-aggregate({ToToken(groupedAggregate.Aggregate)}:{TypeName(groupedAggregate.ClrType)})",
             _ => throw new InvalidOperationException($"Unknown query plan value '{value.GetType().Name}'.")
         };
     }

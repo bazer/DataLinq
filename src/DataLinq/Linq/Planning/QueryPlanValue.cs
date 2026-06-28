@@ -71,6 +71,14 @@ internal sealed record QueryPlanConvertedValue(QueryPlanValue Value, Type Target
     : QueryPlanValue(QueryPlanValueKind.Converted, TargetType)
 ;
 
+internal sealed record QueryPlanGroupKeyValue(QueryPlanValue Key, Type ClrType)
+    : QueryPlanValue(QueryPlanValueKind.GroupKey, ClrType)
+;
+
+internal sealed record QueryPlanGroupedAggregateValue(QueryPlanGroupedAggregateKind Aggregate, Type ClrType)
+    : QueryPlanValue(QueryPlanValueKind.GroupedAggregate, ClrType)
+;
+
 internal enum QueryPlanValueKind
 {
     Column,
@@ -78,7 +86,14 @@ internal enum QueryPlanValueKind
     CapturedValue,
     LocalSequence,
     Function,
-    Converted
+    Converted,
+    GroupKey,
+    GroupedAggregate
+}
+
+internal enum QueryPlanGroupedAggregateKind
+{
+    Count
 }
 
 internal enum QueryPlanFunctionKind

@@ -41,7 +41,7 @@ That means browser AOT is release work, not a stretch note. Query-composition ha
 | Phase 11: Browser Payload and Deploy-Size Hardening | Implemented in compatibility reporting | `phase-11-browser-payload-and-deploy-size-hardening/` | Turn current good payload numbers into reproducible release thresholds and deployment guidance. |
 | Phase 12: AOT Release Gates and Support Contract | Release gate wiring implemented; current evidence blocks the browser AOT support claim | `phase-12-aot-release-gates-and-support-contract/` | Promote only the narrow support statement backed by current evidence. |
 | Phase 13: Query Composition and Subquery Pushdown | Implemented for the single-source Phase 13 slice | `phase-13-query-composition-and-subquery-pushdown/` | Preserve LINQ operator order for filtering, ordering, paging, and scalar result operators, using SQL subquery boundaries where needed. |
-| Phase 13B: Grouped Aggregate Projection Baseline | In progress | `phase-13b-grouped-aggregate-projection-baseline/` | Add the first honest `GroupBy(...)` support slice: single-source grouped aggregate projection, not materialized `IGrouping` support. |
+| Phase 13B: Grouped Aggregate Projection Baseline | Implemented for direct-key grouped `Count()` projection | `phase-13b-grouped-aggregate-projection-baseline/` | Adds the first honest `GroupBy(...)` support slice: single-source grouped aggregate projection, not materialized `IGrouping` support. |
 | Phase 14: Source-Slot Join Composition | Planned 0.8 finish-line work after Phase 13 and the single-source Phase 13B grouping slice | `phase-14-source-slot-join-composition/` | Make explicit multi-source joins useful on the DataLinq source-slot plan. |
 | Phase 15: Relation-Aware and Implicit Joins | Planned 0.8 finish-line work after Phase 14 | `phase-15-relation-aware-and-implicit-joins/` | Add `JoinBy(...)`, `JoinMany(...)`, implicit singular relation joins, join-local predicates, and left-join behavior. |
 
@@ -124,6 +124,8 @@ Current 2026-06-28 evidence does not satisfy this gate. The browser automation i
 - direct numeric `Sum`, `Min`, `Max`, and `Average` over grouped rows are either implemented with tests or remain explicitly rejected with focused diagnostics
 - bare `GroupBy(...).ToList()`, grouped element enumeration, `HAVING`, composite keys, computed keys, grouped joins, and post-group query composition remain rejected until deliberately designed
 - public docs and the support matrix describe only the tested grouped aggregate shapes
+
+The current Phase 13B implementation satisfies this gate for the direct mapped key plus `group.Key`/`group.Count()` shape. Grouped numeric aggregates, materialized `IGrouping<TKey,TElement>`, grouped joins, computed/composite keys, `HAVING`, and post-group composition remain outside the support boundary.
 
 0.8 should not claim expanded join support until:
 

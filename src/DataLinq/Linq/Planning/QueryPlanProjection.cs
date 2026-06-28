@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reflection;
 using DataLinq.Metadata;
 
 namespace DataLinq.Linq.Planning;
@@ -59,6 +60,24 @@ internal abstract record QueryPlanProjection
         }
     }
 
+    public sealed record GroupedAggregate(
+        Type AggregateRowType,
+        IReadOnlyList<QueryPlanProjectionMember> Members,
+        QueryPlanSourceSlot Source,
+        ConstructorInfo Constructor)
+        : QueryPlanProjection(QueryPlanProjectionKind.GroupedAggregate, AggregateRowType)
+    {
+        public GroupedAggregate(
+            Type aggregateRowType,
+            IEnumerable<QueryPlanProjectionMember> members,
+            QueryPlanSourceSlot source,
+            ConstructorInfo constructor)
+            : this(aggregateRowType, Freeze(members, nameof(members)), source, constructor)
+        {
+            ArgumentNullException.ThrowIfNull(constructor);
+        }
+    }
+
     private static ReadOnlyCollection<T> Freeze<T>(IEnumerable<T> values, string parameterName)
     {
         ArgumentNullException.ThrowIfNull(values);
@@ -93,5 +112,6 @@ internal enum QueryPlanProjectionKind
     ScalarMember,
     Anonymous,
     ComputedRowLocalExpression,
-    JoinedRowLocal
+    JoinedRowLocal,
+    GroupedAggregate
 }

@@ -35,6 +35,7 @@ public class SqlQuery<T>
     internal Dictionary<string, object?> SetList = new Dictionary<string, object?>();
     protected List<Join<T>> JoinList = new List<Join<T>>();
     internal List<OrderBy> OrderByList = new List<OrderBy>();
+    internal List<string> GroupByList = new List<string>();
     internal List<string>? WhatList;
     internal Sql? DerivedSourceSql { get; private set; }
     protected int? limit;
@@ -301,6 +302,33 @@ public class SqlQuery<T>
         return sql;
     }
 
+    internal Sql GetGroupBy(Sql sql)
+    {
+        int length = GroupByList.Count;
+        if (length == 0)
+            return sql;
+
+        sql.AddText("\nGROUP BY ");
+        for (var i = 0; i < length; i++)
+        {
+            if (i > 0)
+                sql.AddText(", ");
+
+            sql.AddText(GroupByList[i]);
+        }
+
+        return sql;
+    }
+
+    public SqlQuery<T> GroupByRaw(string expression)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+            throw new ArgumentException("Group-by expressions cannot be empty.", nameof(expression));
+
+        GroupByList.Add(expression);
+        return this;
+    }
+
     public SqlQuery<T> OrderBy(string columnName, string? alias = null, bool ascending = true)
     {
         if (alias == null)
@@ -461,6 +489,7 @@ public class SqlQuery<T>
 
         if (JoinList.Count != 0 ||
             HasDerivedSource ||
+            GroupByList.Count != 0 ||
             WhereGroup == null ||
             !WhereGroup.TryGetTemplatePredicates(out var predicates, out values) ||
             WhatList?.Count > 1 ||

@@ -97,6 +97,57 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task UnsupportedGroupedProjectionShapesThrowQueryTranslationException(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(UnsupportedGroupedProjectionShapesThrowQueryTranslationException),
+            EmployeesSeedMode.Bogus);
+
+        await AssertTranslationFailure(
+            () => databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => x.dept_no.Substring(0, 1))
+                .Select(group => new { DeptNo = group.Key, Count = group.Count() })
+                .ToList(),
+            "GroupBy key selector",
+            "direct mapped member");
+
+        await AssertTranslationFailure(
+            () => databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => new { x.dept_no, x.emp_no })
+                .Select(group => new { group.Key, Count = group.Count() })
+                .ToList(),
+            "GroupBy key selector",
+            "direct mapped member");
+
+        await AssertTranslationFailure(
+            () => databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => x.dept_no)
+                .Select(group => new { group.Key, Rows = group.ToList() })
+                .ToList(),
+            "Grouped aggregate projection member",
+            "group.Key and group.Count()");
+
+        await AssertTranslationFailure(
+            () => databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => x.dept_no)
+                .Select(group => new { group.Key, Sum = group.Sum(row => row.emp_no) })
+                .ToList(),
+            "Grouped aggregate projection member",
+            "group.Key and group.Count()");
+
+        await AssertTranslationFailure(
+            () => databaseScope.Database.Query().DepartmentEmployees
+                .OrderBy(x => x.emp_no)
+                .GroupBy(x => x.dept_no)
+                .Select(group => new { group.Key, Count = group.Count() })
+                .ToList(),
+            "GroupBy is only supported after direct source queries or Where predicates",
+            "OrderBy");
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PostPagingOrderByUsesSubqueryPushdown(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Metadata;
@@ -110,6 +111,9 @@ internal static class ExpressionQueryPlanExecutor
                 .Execute()
                 .Cast<TElement>();
         }
+
+        if (plan.Projection is QueryPlanProjection.GroupedAggregate groupedAggregate)
+            return ExecuteGroupedAggregateProjection<TElement>(dataSource, plan, groupedAggregate);
 
         return ExecuteProjectedSequence<TElement>(dataSource, plan, expression);
     }
@@ -248,6 +252,44 @@ internal static class ExpressionQueryPlanExecutor
         }
     }
 
+    private static IEnumerable<TElement> ExecuteGroupedAggregateProjection<TElement>(
+        DataSourceAccess dataSource,
+        DataLinqQueryPlan plan,
+        QueryPlanProjection.GroupedAggregate projection)
+    {
+        var select = new QueryPlanSqlBuilder(plan, dataSource).BuildSelect<TElement>();
+
+        foreach (var reader in select.ReadReader())
+        {
+            var values = new object?[projection.Members.Count];
+            for (var index = 0; index < projection.Members.Count; index++)
+            {
+                var member = projection.Members[index];
+                var ordinal = reader.GetOrdinal(member.Name);
+                var rawValue = reader.IsDbNull(ordinal) ? null : reader.GetValue(ordinal);
+                values[index] = ConvertReaderValue(rawValue, member.Value.ClrType);
+            }
+
+            yield return CreateProjectionRow<TElement>(projection.Constructor, values);
+        }
+    }
+
+    private static TElement CreateProjectionRow<TElement>(ConstructorInfo constructor, IReadOnlyList<object?> values)
+    {
+        var parameters = constructor.GetParameters();
+        if (parameters.Length != values.Count)
+        {
+            throw new QueryTranslationException(
+                $"Grouped aggregate projection constructor expects {parameters.Length} values, but the query plan supplied {values.Count}.");
+        }
+
+        var arguments = new object?[values.Count];
+        for (var index = 0; index < values.Count; index++)
+            arguments[index] = ConvertReaderValue(values[index], parameters[index].ParameterType);
+
+        return ConvertProjectionResult<TElement>(constructor.Invoke(arguments));
+    }
+
     private static int[][] GetJoinedPrimaryKeyOrdinals(IDataLinqDataReader reader, IReadOnlyList<QueryPlanSourceSlot> sources)
     {
         var ordinals = new int[sources.Count][];
@@ -368,6 +410,28 @@ internal static class ExpressionQueryPlanExecutor
 
         var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
         return (T)Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);
+    }
+
+    private static object? ConvertReaderValue(object? value, Type targetType)
+    {
+        if (value is DBNull)
+            value = null;
+
+        if (value is null)
+            return null;
+
+        var nonNullableTarget = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        if (nonNullableTarget.IsInstanceOfType(value))
+            return value;
+
+        if (nonNullableTarget.IsEnum)
+        {
+            return value is string stringValue
+                ? Enum.Parse(nonNullableTarget, stringValue, ignoreCase: false)
+                : Enum.ToObject(nonNullableTarget, value);
+        }
+
+        return Convert.ChangeType(value, nonNullableTarget, CultureInfo.InvariantCulture);
     }
 
     private static TResult ConvertScalarResult<TResult>(object? result, QueryPlanResult planResult)

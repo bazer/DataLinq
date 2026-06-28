@@ -3,7 +3,7 @@
 
 # 0.8 Phase 13B Implementation Plan: Grouped Aggregate Projection Baseline
 
-**Status:** In progress.
+**Status:** Implemented for the direct mapped key plus `group.Key`/`group.Count()` slice.
 
 ## Goal
 
@@ -12,12 +12,12 @@ Add the first SQL-shaped `GroupBy(...)` support slice without pretending DataLin
 The supported shape is deliberately narrow:
 
 ```csharp
-db.Query().Employees
-    .Where(employee => employee.gender == Employee.Employeegender.M)
-    .GroupBy(employee => employee.gender)
+db.Query().DepartmentEmployees
+    .Where(row => row.dept_no.StartsWith("d00"))
+    .GroupBy(row => row.dept_no)
     .Select(group => new
     {
-        Gender = group.Key,
+        DeptNo = group.Key,
         Count = group.Count()
     })
     .ToList();
@@ -79,11 +79,27 @@ Focused checks:
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
 ```
 
+Completed focused check:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesGroupedAggregateTranslationTests/*|/*/*/QueryPlanSnapshotTests/GroupedAggregateSnapshot_RecordsGroupKeyAndAggregateMembers|/*/*/ExpressionQueryPlanParserTests/ExpressionParser_GroupedAggregateProjectionParsesToDataLinqPlan|/*/*/EmployeesUnsupportedQueryDiagnosticsTests/UnsupportedGroupedProjectionShapesThrowQueryTranslationException|/*/*/EmployeesUnsupportedQueryDiagnosticsTests/UnsupportedGroupByThrowsQueryTranslationException" --output failures --build
+```
+
+Result: passed `6/6` tests in both active provider batches: `sqlite-file, sqlite-memory` and `mysql-8.4, mariadb-11.8`.
+
+## Closeout Notes
+
+- Added first-class plan nodes for `GroupBy`, group-key projection values, and grouped aggregate projection values.
+- SQL rendering now emits explicit `GROUP BY` and grouped aggregate select aliases for this shape.
+- Execution reads grouped aggregate rows directly from `IDataLinqDataReader` and invokes the parsed projection constructor.
+- Unsupported grouped shapes remain rejected with `QueryTranslationException`: bare `GroupBy`, computed keys, composite keys, grouped element enumeration, unsupported grouped aggregates, grouped joins, and post-group composition.
+- Public docs and the support matrix now describe only the tested direct-key grouped `Count()` slice.
+
 ## Exit Criteria
 
-- `GroupBy(key).Select(g => new { g.Key, Count = g.Count() })` works from `db.Query()` and `transaction.Query()`.
-- The supported grouped aggregate shape passes across SQLite, MySQL, and MariaDB.
-- Generated SQL contains explicit `GROUP BY`.
-- Plan snapshots show group keys and aggregate members as DataLinq plan nodes.
-- Bare `GroupBy(...)`, materialized `IGrouping`, grouped element enumeration, composite keys, computed keys, grouped joins, and post-group composition remain rejected.
-- Public docs and the support matrix describe grouped aggregate projection as a narrow supported slice, not general `GroupBy`.
+- [x] `GroupBy(key).Select(g => new { g.Key, Count = g.Count() })` works from `db.Query()` and `transaction.Query()`.
+- [x] The supported grouped aggregate shape passes across SQLite, MySQL, and MariaDB.
+- [x] Generated SQL contains explicit `GROUP BY`.
+- [x] Plan snapshots show group keys and aggregate members as DataLinq plan nodes.
+- [x] Bare `GroupBy(...)`, materialized `IGrouping`, grouped element enumeration, composite keys, computed keys, grouped joins, and post-group composition remain rejected.
+- [x] Public docs and the support matrix describe grouped aggregate projection as a narrow supported slice, not general `GroupBy`.

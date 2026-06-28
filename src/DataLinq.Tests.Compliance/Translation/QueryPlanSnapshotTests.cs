@@ -148,6 +148,43 @@ bindings:
     }
 
     [Test]
+    public async Task GroupedAggregateSnapshot_RecordsGroupKeyAndAggregateMembers()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(GroupedAggregateSnapshot_RecordsGroupKeyAndAggregateMembers),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().DepartmentEmployees
+            .Where(x => x.dept_no.StartsWith("d00"))
+            .GroupBy(x => x.dept_no)
+            .Select(group => new
+            {
+                DeptNo = group.Key,
+                Count = group.Count()
+            });
+
+        var snapshot = Snapshot(databaseScope.Database, query);
+
+        await AssertSnapshot(snapshot, """
+query-plan v0
+sources:
+  s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
+operations:
+  where compare(function(string-starts-with:Boolean column(s0.dept_no:String), captured(p0:String)) == constant(Boolean))
+  group-by column(s0.dept_no:String)
+projection:
+  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32)]
+result:
+  sequence type=anonymous
+bindings:
+  p0 scalar type=String
+""");
+        await Assert.That(snapshot).DoesNotContain("d00");
+        await AssertNoLegacyParserTerms(snapshot);
+    }
+
+    [Test]
     public async Task NegatedFunctionPredicateSnapshot_RecordsNotNode()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

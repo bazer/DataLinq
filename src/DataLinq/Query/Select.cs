@@ -50,6 +50,7 @@ public class Select<T> : IQuery
         AddSource(sql);
         query.GetJoins(sql, paramPrefix);
         query.GetWhere(sql, paramPrefix);
+        query.GetGroupBy(sql);
         query.GetOrderBy(sql);
         query.GetLimit(sql);
 

@@ -42,7 +42,21 @@ The aggregate boundary is deliberately narrow:
 - nullable `.Value` member selectors
 - filtered sequences
 
-Computed aggregate selectors, grouped aggregates, and relation-property aggregates are not part of the supported surface.
+Computed aggregate selectors and relation-property aggregates are not part of the supported surface. Grouped aggregate projection has a separate narrow path for direct mapped keys plus `group.Key` and `group.Count()`.
+
+### Grouped Aggregate Projection
+
+The current grouped-query support is deliberately narrow:
+
+- single-source query roots
+- optional `Where(...)` before `GroupBy(...)`
+- one direct mapped member key
+- immediate `Select(...)`
+- projection members limited to `group.Key` and `group.Count()`
+
+The parser records grouping as first-class plan state: a `GroupBy` operation, `GroupKey` projection values, and grouped aggregate values. `QueryPlanSqlBuilder` renders explicit `GROUP BY` and aggregate select-list aliases. `ExpressionQueryPlanExecutor` reads those aliases directly from `IDataLinqDataReader` and invokes the projection constructor; it does not route grouped rows through `RowData` or table caches.
+
+Materialized `IGrouping<TKey,TElement>` sequences, grouped element enumeration, computed/composite keys, grouped numeric aggregates, grouped joins, `HAVING`, and post-group composition remain outside the supported surface.
 
 ### Explicit Joins
 
@@ -89,7 +103,7 @@ Unsupported predicate methods and unsupported expression shapes should throw `Qu
 
 Projection is intentionally split:
 
-- SQL is used for filtering, ordering, paging, scalar result operators, and join key selection.
+- SQL is used for filtering, ordering, paging, scalar result operators, grouped aggregate projection, and join key selection.
 - Row-local projection can run after materialization for supported scalar, anonymous, and computed shapes.
 
 Relation-property projection is rejected. That prevents hidden N+1 behavior from being smuggled into what looks like a single provider query.
@@ -106,10 +120,10 @@ Relation-property projection is rejected. That prevents hidden N+1 behavior from
 : Evaluates supported local values such as captured constants, simple member reads, empty collection factories, array/list indexes, and deterministic string operations without compiling or invoking arbitrary user methods.
 
 `QueryPlanSqlBuilder`
-: Renders plan operations to SQL, including local collection membership, relation-backed `EXISTS` predicates, ordering, paging, single-source subquery pushdown, scalar aggregates, and the narrow explicit join baseline.
+: Renders plan operations to SQL, including local collection membership, relation-backed `EXISTS` predicates, ordering, paging, single-source subquery pushdown, scalar aggregates, grouped aggregate projection, and the narrow explicit join baseline.
 
 `ExpressionQueryPlanExecutor`
-: Executes sequence, scalar, single-row, projection, and explicit-join result paths from a parsed plan.
+: Executes sequence, scalar, single-row, projection, grouped aggregate, and explicit-join result paths from a parsed plan.
 
 `ProjectionExpressionEvaluator`
 : Evaluates supported row-local projections over materialized rows using parameter bindings, without Remotion query-source identities.
@@ -118,7 +132,7 @@ Relation-property projection is rejected. That prevents hidden N+1 behavior from
 : Represent SQL predicates and grouped boolean logic.
 
 `SqlQuery`, `Select`, and `Sql`
-: Build SQL text, parameters, selected columns, ordering, paging, joins, and scalar command execution.
+: Build SQL text, parameters, selected columns, grouping, ordering, paging, joins, and scalar command execution.
 
 ## Maintenance Rule
 

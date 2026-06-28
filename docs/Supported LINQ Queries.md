@@ -27,6 +27,7 @@ The following operations are covered by tests:
 - `Max(...)`
 - `Average(...)`
 - `Join(...)`
+- `GroupBy(...).Select(...)` for the narrow grouped aggregate projection shape documented below
 - `Single(...)`
 - `SingleOrDefault(...)`
 - `First(...)`
@@ -256,7 +257,44 @@ var min = db.Query().Employees.Min(x => x.emp_no);
 var sum = db.Query().Employees.Sum(x => x.emp_no!.Value);
 ```
 
-`Sum(...)` returns zero for an empty filtered sequence. Nullable `Min(...)`, `Max(...)`, and `Average(...)` return `null` for an empty filtered sequence. Aggregates over computed selectors, grouped aggregates, and relation-property aggregates are not supported yet.
+`Sum(...)` returns zero for an empty filtered sequence. Nullable `Min(...)`, `Max(...)`, and `Average(...)` return `null` for an empty filtered sequence. Aggregates over computed selectors and relation-property aggregates are not supported yet. Grouped aggregate projection has a separate, narrower contract below.
+
+## Supported Grouped Aggregate Projection
+
+The test suite covers one SQL-shaped `GroupBy(...)` slice:
+
+- a single DataLinq query source
+- optional `Where(...)` before `GroupBy(...)`
+- one direct mapped member key
+- immediate `Select(...)`
+- projection members limited to `group.Key` and `group.Count()`
+
+Example:
+
+```csharp
+var countsByDepartment = db.Query().DepartmentEmployees
+    .Where(row => row.dept_no.StartsWith("d00"))
+    .GroupBy(row => row.dept_no)
+    .Select(group => new
+    {
+        DeptNo = group.Key,
+        Count = group.Count()
+    })
+    .ToList();
+```
+
+DataLinq renders this as a SQL grouped aggregate query and materializes the aggregate rows directly from the data reader. These rows are not entity rows and do not go through table-cache materialization.
+
+This is not general LINQ `GroupBy(...)` support. These grouped shapes remain unsupported:
+
+- bare `GroupBy(...).ToList()`
+- materialized `IGrouping<TKey,TElement>` sequences
+- enumerating grouped elements inside the projection
+- computed or composite group keys
+- grouped `Sum`, `Min`, `Max`, or `Average`
+- `HAVING`
+- grouping over joined row shapes
+- filtering, ordering, paging, or terminal operators after the grouped projection
 
 ## Supported Ordering and Paging
 
@@ -299,7 +337,7 @@ var topMalesByNewestHireDate = db.Query().Employees
     .ToList();
 ```
 
-The subquery boundary is deliberately narrow. It is for single-source query composition over mapped rows. It is not a promise of arbitrary nested database subqueries in projections, broad SQL-backed projection lists, joined-row pushdown, or `GroupBy(...)`.
+The subquery boundary is deliberately narrow. It is for single-source query composition over mapped rows. It is not a promise of arbitrary nested database subqueries in projections, broad SQL-backed projection lists, joined-row pushdown, or grouped-query pushdown.
 
 ## Direct Primary-Key Lookup
 
@@ -333,9 +371,9 @@ The test suite explicitly expects `NotSupportedException` for:
 
 The current docs do not claim support for these because this pass has not verified them rigorously enough:
 
-- `GroupBy(...)`
+- broad `GroupBy(...)` beyond the direct-key `group.Key` plus `group.Count()` projection documented above
 - `GroupJoin(...)`, outer joins, composite-key joins, and additional filtering/ordering/paging over joined results
-- aggregate operators over computed selectors, grouped aggregates, or relation properties
+- aggregate operators over computed selectors, grouped aggregates other than the documented grouped `Count()`, or relation properties
 - relation-property projections inside provider `Select(...)` and relation traversal inside relation predicates
 - broader client-side method translation inside SQL predicates beyond the string members listed above
 
