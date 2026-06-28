@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 19: SQL-Backed Projection Rows and Implicit Relation Projection
 
-**Status:** Planned after the Phase 16-18 SQL-style GroupBy completion track.
+**Status:** In progress after the Phase 16-18 SQL-style GroupBy completion track.
 
 ## Purpose
 
