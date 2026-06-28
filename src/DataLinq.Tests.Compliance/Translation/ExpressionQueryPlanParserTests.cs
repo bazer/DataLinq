@@ -358,9 +358,11 @@ public class ExpressionQueryPlanParserTests
                         departmentEmployee.dept_no,
                         DepartmentName = department.Name
                     })
+                .OrderBy(row => row.emp_no)
+                .Take(10)
                 .Where(row => row.dept_no == "d001"),
-            "Join queries currently support only the Join body clause",
-            "Filtering");
+            "after Skip(...) or Take(...) over a joined query",
+            "not supported");
 
         await AssertParserFailure(
             databaseScope.Database,

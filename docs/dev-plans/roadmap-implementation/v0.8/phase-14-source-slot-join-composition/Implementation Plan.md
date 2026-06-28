@@ -3,7 +3,7 @@
 
 # 0.8 Phase 14 Implementation Plan: Source-Slot Join Composition
 
-**Status:** In progress.
+**Status:** Implemented for the explicit two-source join composition slice.
 
 ## Goal
 
@@ -91,11 +91,28 @@ Focused checks:
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
 ```
 
+Completed focused checks:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesJoinTranslationTests/*|/*/*/QueryPlanSnapshotTests/*ExplicitJoin*|/*/*/QueryPlanUnsupportedShapeTests/*" --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesJoinTranslationTests/*|/*/*/QueryPlanSnapshotTests/*|/*/*/QueryPlanSqlParityTests/*|/*/*/QueryPlanUnsupportedShapeTests/*" --output failures --build
+```
+
+Result: both focused runs passed across the active provider batches: `sqlite-file, sqlite-memory` and `mysql-8.4, mariadb-11.8`.
+
+## Closeout Notes
+
+- Added projection-parameter binding for joined result rows so predicates and orderings can resolve projected members back to source-slot values.
+- Allowed flat `Where`, ordering, paging, `Any`, and `Count` over explicit two-source joined projections.
+- Kept post-paging joined composition rejected until joined derived-source pushdown has a deliberate design.
+- Buffered joined primary-key values before table-cache hydration so transaction-rooted joined projections do not issue nested reads while the joined key reader is open.
+- Updated public docs and the support matrix for the tested joined composition slice only.
+
 ## Exit Criteria
 
-- [ ] Explicit join result predicates bind to source-slot values.
-- [ ] Explicit join result ordering and paging execute correctly.
-- [ ] `Any()` and `Count()` over explicit join results execute correctly.
-- [ ] Supported composed explicit joins work from both `db.Query()` and `transaction.Query()`.
-- [ ] Unsupported joined composition shapes keep focused diagnostics.
-- [ ] Public docs and the support matrix describe only the shipped join behavior.
+- [x] Explicit join result predicates bind to source-slot values.
+- [x] Explicit join result ordering and paging execute correctly.
+- [x] `Any()` and `Count()` over explicit join results execute correctly.
+- [x] Supported composed explicit joins work from both `db.Query()` and `transaction.Query()`.
+- [x] Unsupported joined composition shapes keep focused diagnostics.
+- [x] Public docs and the support matrix describe only the shipped join behavior.

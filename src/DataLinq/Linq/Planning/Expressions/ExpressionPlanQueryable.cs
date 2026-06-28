@@ -235,21 +235,57 @@ internal static class ExpressionQueryPlanExecutor
         select.What(planSqlBuilder.GetJoinedPrimaryKeySelectors().ToArray());
 
         int[][]? primaryKeyOrdinalsBySource = null;
+        var joinedPrimaryKeyRows = new List<object[]>();
         foreach (var reader in select.ReadReader())
         {
             primaryKeyOrdinalsBySource ??= GetJoinedPrimaryKeyOrdinals(reader, joinedSources);
+            var primaryKeysBySource = new object[joinedSources.Length];
+            for (var sourceIndex = 0; sourceIndex < joinedSources.Length; sourceIndex++)
+                primaryKeysBySource[sourceIndex] = ReadPrimaryKey(reader, joinedSources[sourceIndex], primaryKeyOrdinalsBySource[sourceIndex]);
+
+            joinedPrimaryKeyRows.Add(primaryKeysBySource);
+        }
+
+        foreach (var primaryKeysBySource in joinedPrimaryKeyRows)
+        {
             var parameterValues = new Dictionary<ParameterExpression, object?>(selector.Parameters.Count);
             for (var sourceIndex = 0; sourceIndex < joinedSources.Length; sourceIndex++)
             {
                 var source = joinedSources[sourceIndex];
-                parameterValues[selector.Parameters[sourceIndex]] = dataSource.Provider.GetTableCache(source.Table)
-                    .GetRow(reader, primaryKeyOrdinalsBySource[sourceIndex], dataSource)
+                parameterValues[selector.Parameters[sourceIndex]] = GetJoinedRow(dataSource, source, primaryKeysBySource[sourceIndex])
                     ?? throw new InvalidOperationException($"Joined row for table '{source.Table.DbName}' could not be materialized from its provider primary key.");
             }
 
             yield return ConvertProjectionResult<TElement>(
                 ProjectionExpressionEvaluator.Evaluate(selector.Body, parameterValues));
         }
+    }
+
+    private static IImmutableInstance? GetJoinedRow(
+        DataSourceAccess dataSource,
+        QueryPlanSourceSlot source,
+        object primaryKey)
+    {
+        var tableCache = dataSource.Provider.GetTableCache(source.Table);
+        if (tableCache.TryGetRowFromProviderKeyValue(primaryKey, dataSource, out var row))
+            return row;
+
+        return primaryKey is DataLinqKey dataLinqKey
+            ? tableCache.GetRow(dataLinqKey, dataSource)
+            : null;
+    }
+
+    private static object ReadPrimaryKey(IDataLinqDataReader reader, QueryPlanSourceSlot source, IReadOnlyList<int> primaryKeyOrdinals)
+    {
+        var primaryKeyColumns = source.Table.PrimaryKeyColumns;
+        if (primaryKeyColumns.Count == 1)
+            return reader.GetValue<object>(primaryKeyColumns[0], primaryKeyOrdinals[0])!;
+
+        var values = new object?[primaryKeyColumns.Count];
+        for (var index = 0; index < values.Length; index++)
+            values[index] = reader.GetValue<object>(primaryKeyColumns[index], primaryKeyOrdinals[index]);
+
+        return DataLinqKey.FromValues(values);
     }
 
     private static IEnumerable<TElement> ExecuteGroupedAggregateProjection<TElement>(
@@ -369,7 +405,8 @@ internal static class ExpressionQueryPlanExecutor
             nameof(Queryable.LastOrDefault);
 
     private static bool IsProjectionPassthroughOperator(string methodName)
-        => methodName is nameof(Queryable.OrderBy) or
+        => methodName is nameof(Queryable.Where) or
+            nameof(Queryable.OrderBy) or
             nameof(Queryable.OrderByDescending) or
             nameof(Queryable.ThenBy) or
             nameof(Queryable.ThenByDescending) or

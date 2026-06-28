@@ -603,7 +603,7 @@ Key related plans:
 
 ### Phase 14: Explicit Multi-Join Composition
 
-Status: in progress for the explicit two-source join composition slice after Phase 13 and the single-source Phase 13B grouping slice. This was previously queued immediately after the parser-removal track, but the 0.8 branch now puts browser AOT proof, deploy-size hardening, operator-order correctness, and the narrow grouped aggregate baseline first so the release support claim is real before broad query expansion resumes.
+Status: implemented for the explicit two-source join composition slice after Phase 13 and the single-source Phase 13B grouping slice. This was previously queued immediately after the parser-removal track, but the 0.8 branch now puts browser AOT proof, deploy-size hardening, operator-order correctness, and the narrow grouped aggregate baseline first so the release support claim is real before broad query expansion resumes.
 
 Goals:
 

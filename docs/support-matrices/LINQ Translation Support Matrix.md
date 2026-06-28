@@ -109,15 +109,15 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 
 | Area | Currently tested support | Evidence | Audit notes |
 | --- | --- | --- | --- |
-| Inner `Join(...)` | one explicit inner join between two direct DataLinq query sources, direct member equality keys, nullable `.Value` key normalization, and row-local result projection from both sides | `Translation/EmployeesJoinTranslationTests.cs` | This is deliberately narrow. SQL selects primary keys from both sides, then DataLinq materializes rows and applies the result selector client-side. |
-| Unsupported join shapes | composite anonymous-object keys, `GroupJoin(...)`, filtering over the joined result, and relation-property result projection fail with `QueryTranslationException` | `Translation/EmployeesJoinTranslationTests.cs` | Outer joins, additional ordering/paging/result operators over joined results, relation-property joins, and multi-join pipelines are outside the documented boundary. |
+| Inner `Join(...)` | one explicit inner join between two direct DataLinq query sources, direct member equality keys, nullable `.Value` key normalization, row-local result projection from both sides, and composed `Where`, ordering, paging, `Any`, and `Count` over projected members that bind back to source-slot values | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | SQL selects primary keys from both sides, then DataLinq materializes rows and applies the result selector client-side. Joined predicates/orderings are SQL-backed only for projection members that map to source-slot values. |
+| Unsupported join shapes | composite anonymous-object keys, `GroupJoin(...)`, post-paging joined composition, relation-property result projection, and non-bindable joined projection composition fail with `QueryTranslationException` | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | Outer joins, query-syntax transparent identifiers, relation-property joins, scalar aggregates beyond joined `Any`/`Count`, and multi-join pipelines are outside the documented boundary. |
 
 ## Unsupported or Not Yet Proven
 
 These shapes are intentionally not part of the documented support boundary today:
 
 - broad `GroupBy(...)` beyond the direct mapped key plus `group.Key`/`group.Count()` projection documented above
-- `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, and additional filtering/ordering/paging over explicit joined results
+- `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, query-syntax transparent identifiers, and post-paging composition over explicit joined results
 - relation-property query expansion beyond the documented one-to-many `Any(...)` and existence-equivalent `Count()` predicates
 - aggregate result operators over computed selectors, grouped aggregate operators beyond the documented grouped `Count()`, or relation properties
 - additional body clauses over pushed-down projections, joins, or grouped sources
@@ -154,3 +154,11 @@ Phase 13B adds grouped aggregate regression coverage:
 3. Provider behavior tests compare grouped count rows with in-memory LINQ across SQLite, MySQL, and MariaDB.
 4. Transaction-root tests prove grouped aggregate projection executes from `transaction.Query()`.
 5. Unsupported-shape tests keep bare `GroupBy`, computed keys, composite keys, grouped element enumeration, and unsupported grouped aggregates outside the documented boundary.
+
+Phase 14 adds explicit-join composition coverage:
+
+1. Joined result predicates and orderings bind projected members back to source-slot columns.
+2. SQL-shape coverage proves composed joined queries render `JOIN`, `WHERE`, and joined source aliases.
+3. Provider behavior tests compare joined `Where`, ordering, paging, `Any`, and `Count` with in-memory LINQ across SQLite, MySQL, and MariaDB.
+4. Transaction-root tests prove composed joined projections hydrate after buffering joined primary keys, avoiding nested reader use on transaction connections.
+5. Unsupported-shape tests keep post-paging joined composition outside the documented boundary until joined pushdown has a deliberate derived-source design.

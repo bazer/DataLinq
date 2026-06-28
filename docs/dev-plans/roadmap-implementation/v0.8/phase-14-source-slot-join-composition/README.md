@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 14: Source-Slot Join Composition
 
-**Status:** In progress for the explicit two-source join composition slice.
+**Status:** Implemented for the explicit two-source join composition slice.
 
 ## Purpose
 

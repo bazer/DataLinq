@@ -142,11 +142,174 @@ public class EmployeesJoinTranslationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task ExplicitInnerJoin_FilterOverJoinedResultThrowsQueryTranslationException(TestProviderDescriptor provider)
+    public async Task ExplicitInnerJoin_ComposedWhereOrderingAndPaging_MatchesInMemory(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(ExplicitInnerJoin_FilterOverJoinedResultThrowsQueryTranslationException),
+            nameof(ExplicitInnerJoin_ComposedWhereOrderingAndPaging_MatchesInMemory),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().DepartmentEmployees
+            .ToList()
+            .Join(
+                employeesDatabase.Query().Departments.ToList(),
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                })
+            .Where(row => row.DepartmentName.Contains("e"))
+            .OrderBy(row => row.DepartmentName, StringComparer.Ordinal)
+            .ThenByDescending(row => row.emp_no)
+            .Skip(1)
+            .Take(20)
+            .ToArray();
+
+        var query = employeesDatabase.Query().DepartmentEmployees
+            .Join(
+                employeesDatabase.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                })
+            .Where(row => row.DepartmentName.Contains("e"))
+            .OrderBy(row => row.DepartmentName)
+            .ThenByDescending(row => row.emp_no)
+            .Skip(1)
+            .Take(20);
+
+        var actual = query.ToList().ToArray();
+        var sql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(employeesDatabase, query);
+        var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text);
+
+        await Assert.That(normalized).Contains("JOIN");
+        await Assert.That(normalized).Contains("WHERE");
+        await Assert.That(normalized).Contains("ORDER BY");
+        await Assert.That(normalized).Contains("t0.");
+        await Assert.That(normalized).Contains("t1.");
+        await Assert.That(actual.Length).IsEqualTo(expected.Length);
+
+        for (var index = 0; index < expected.Length; index++)
+        {
+            await Assert.That(actual[index].emp_no).IsEqualTo(expected[index].emp_no);
+            await Assert.That(actual[index].dept_no).IsEqualTo(expected[index].dept_no);
+            await Assert.That(actual[index].DepartmentName).IsEqualTo(expected[index].DepartmentName);
+        }
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExplicitInnerJoin_CountAndAnyOverJoinedProjection_MatchInMemory(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExplicitInnerJoin_CountAndAnyOverJoinedProjection_MatchInMemory),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expectedRows = employeesDatabase.Query().DepartmentEmployees
+            .ToList()
+            .Join(
+                employeesDatabase.Query().Departments.ToList(),
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                });
+
+        var joinedRows = employeesDatabase.Query().DepartmentEmployees
+            .Join(
+                employeesDatabase.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                });
+
+        await Assert.That(joinedRows.Count(row => row.DepartmentName.StartsWith("S")))
+            .IsEqualTo(expectedRows.Count(row => row.DepartmentName.StartsWith("S", StringComparison.Ordinal)));
+        await Assert.That(joinedRows.Any(row => row.DepartmentName.StartsWith("S")))
+            .IsEqualTo(expectedRows.Any(row => row.DepartmentName.StartsWith("S", StringComparison.Ordinal)));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExplicitInnerJoin_ComposedJoinedProjectionWorksFromTransactionRoot(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExplicitInnerJoin_ComposedJoinedProjectionWorksFromTransactionRoot),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        using var transaction = employeesDatabase.Transaction();
+
+        var readOnlyRows = employeesDatabase.Query().DepartmentEmployees
+            .Join(
+                employeesDatabase.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                })
+            .Where(row => row.DepartmentName.Contains("e"))
+            .OrderBy(row => row.dept_no)
+            .ThenBy(row => row.emp_no)
+            .Take(15)
+            .ToList()
+            .ToArray();
+
+        var transactionRows = transaction.Query().DepartmentEmployees
+            .Join(
+                transaction.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                })
+            .Where(row => row.DepartmentName.Contains("e"))
+            .OrderBy(row => row.dept_no)
+            .ThenBy(row => row.emp_no)
+            .Take(15)
+            .ToList()
+            .ToArray();
+
+        await Assert.That(transactionRows.Length).IsEqualTo(readOnlyRows.Length);
+        for (var index = 0; index < readOnlyRows.Length; index++)
+        {
+            await Assert.That(transactionRows[index].emp_no).IsEqualTo(readOnlyRows[index].emp_no);
+            await Assert.That(transactionRows[index].dept_no).IsEqualTo(readOnlyRows[index].dept_no);
+            await Assert.That(transactionRows[index].DepartmentName).IsEqualTo(readOnlyRows[index].DepartmentName);
+        }
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExplicitInnerJoin_PostPagingCompositionThrowsQueryTranslationException(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExplicitInnerJoin_PostPagingCompositionThrowsQueryTranslationException),
             EmployeesSeedMode.Bogus);
 
         await AssertTranslationFailure(
@@ -161,10 +324,12 @@ public class EmployeesJoinTranslationTests
                         departmentEmployee.dept_no,
                         DepartmentName = department.Name
                     })
+                .OrderBy(row => row.emp_no)
+                .Take(10)
                 .Where(row => row.dept_no == "d001")
                 .ToList(),
-            "Join queries currently support only the Join body clause",
-            "Filtering");
+            "after Skip(...) or Take(...) over a joined query",
+            "not supported");
     }
 
     [Test]

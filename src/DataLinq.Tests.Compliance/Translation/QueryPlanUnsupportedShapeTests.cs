@@ -53,11 +53,11 @@ public class QueryPlanUnsupportedShapeTests
     }
 
     [Test]
-    public async Task ParserRejectsFilterOverExplicitJoin()
+    public async Task ParserRejectsPostPagingFilterOverExplicitJoin()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ParserRejectsFilterOverExplicitJoin),
+            nameof(ParserRejectsPostPagingFilterOverExplicitJoin),
             EmployeesSeedMode.Bogus);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
@@ -66,19 +66,21 @@ public class QueryPlanUnsupportedShapeTests
                 departmentEmployee => departmentEmployee.dept_no,
                 department => department.DeptNo,
                 (departmentEmployee, department) => new
-                {
-                    departmentEmployee.emp_no,
-                    departmentEmployee.dept_no,
-                    DepartmentName = department.Name
-                })
+                    {
+                        departmentEmployee.emp_no,
+                        departmentEmployee.dept_no,
+                        DepartmentName = department.Name
+                    })
+            .OrderBy(row => row.emp_no)
+            .Take(10)
             .Where(row => row.dept_no == "d001");
 
         var exception = Capture<QueryTranslationException>(() =>
             ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
 
         await Assert.That(exception).IsNotNull();
-        await Assert.That(exception!.Message).Contains("Join queries currently support only the Join body clause");
-        await Assert.That(exception.Message).Contains("Filtering");
+        await Assert.That(exception!.Message).Contains("after Skip(...) or Take(...) over a joined query");
+        await Assert.That(exception.Message).Contains("not supported");
     }
 
     [Test]

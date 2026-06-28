@@ -69,6 +69,7 @@ Supported:
 - direct member equality keys
 - nullable `.Value` key normalization
 - row-local projection from the joined rows
+- `Where`, ordering, paging, `Any`, and `Count` over projected joined members that bind back to source-slot values
 
 Not supported yet:
 
@@ -76,10 +77,12 @@ Not supported yet:
 - `GroupJoin(...)`
 - outer joins
 - composite anonymous-object keys
-- filtering, ordering, paging, or result operators over joined row shapes
+- query-syntax transparent identifiers that project whole source entities
+- post-paging joined composition such as `Join(...).Take(...).Where(...)`
+- scalar aggregates over joined rows other than `Any` and `Count`
 - relation-property projection inside the joined selector
 
-Joined execution selects primary keys for each joined source, materializes rows through the relevant table caches, and evaluates the result selector client-side over those materialized rows.
+Joined execution selects primary keys for each joined source, buffers those keys, materializes rows through the relevant table caches, and evaluates the result selector client-side over those materialized rows. The key buffering is deliberate: transaction connections cannot safely execute cache-hydration queries while the joined key reader is still open.
 
 ## Predicate Translation
 

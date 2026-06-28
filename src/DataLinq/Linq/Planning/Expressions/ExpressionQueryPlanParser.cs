@@ -28,6 +28,7 @@ internal sealed class ExpressionQueryPlanParser
     private readonly List<QueryPlanSourceSlot> sources = [];
     private readonly List<QueryPlanOperation> operations = [];
     private readonly Dictionary<ParameterExpression, QueryPlanSourceSlot> parameterSourceSlots = [];
+    private readonly Dictionary<ParameterExpression, QueryPlanProjection> parameterProjections = [];
     private int relationSubqueryCounter;
 
     private ExpressionQueryPlanParser(DatabaseDefinition metadata, ExpressionQueryPlanParserOptions options)
@@ -151,13 +152,20 @@ internal sealed class ExpressionQueryPlanParser
     {
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
-        RejectPostJoinOperator(methodCall.Method.Name);
         RejectGroupedOperator(parsed, methodCall.Method.Name);
+        RejectUnsupportedPostJoinComposition(parsed, methodCall.Method.Name);
         PushDownPostPagingOperations(methodCall.Method.Name);
 
         var predicate = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
         if (predicate.Parameters.Count != 1)
             throw new QueryTranslationException($"Where predicate '{predicate}' is not supported.");
+
+        if (CanBindProjectionParameter(parsed))
+        {
+            WithProjection(predicate.Parameters[0], parsed.Projection!, () =>
+                operations.Add(new QueryPlanOperation.Where(ConvertPredicate(predicate.Body))));
+            return parsed;
+        }
 
         RejectProjectedOperator(parsed, methodCall.Method.Name);
 
@@ -171,8 +179,8 @@ internal sealed class ExpressionQueryPlanParser
     {
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
-        RejectPostJoinOperator(methodCall.Method.Name);
         RejectGroupedOperator(parsed, methodCall.Method.Name);
+        RejectUnsupportedPostJoinComposition(parsed, methodCall.Method.Name);
         PushDownPostPagingOperations(methodCall.Method.Name);
 
         var keySelector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
@@ -200,6 +208,12 @@ internal sealed class ExpressionQueryPlanParser
     {
         if (TryCreateProjectedOrdering(parsed.Projection, keySelector, direction, out var ordering))
             return ordering;
+
+        if (CanBindProjectionParameter(parsed))
+        {
+            return WithProjection(keySelector.Parameters[0], parsed.Projection!, () =>
+                new QueryPlanOrdering(ConvertValue(keySelector.Body), direction));
+        }
 
         return WithSource(keySelector.Parameters[0], parsed.RootSource, () =>
             new QueryPlanOrdering(ConvertValue(keySelector.Body), direction));
@@ -229,7 +243,7 @@ internal sealed class ExpressionQueryPlanParser
     {
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
-        RejectPostJoinOperator(methodCall.Method.Name);
+        RejectUnsupportedPostJoinComposition(parsed, methodCall.Method.Name, allowAfterPaging: true);
         RejectGroupedOperator(parsed, methodCall.Method.Name);
 
         var count = ConvertValue(methodCall.Arguments[1]);
@@ -349,18 +363,40 @@ internal sealed class ExpressionQueryPlanParser
     private ParsedQuery ParseScalar(MethodCallExpression methodCall, QueryPlanResultKind resultKind, Type resultType)
     {
         var parsed = ParseSequence(methodCall.Arguments[0]);
-        RejectPostJoinTerminalOperator(methodCall.Method.Name);
         RejectGroupedOperator(parsed, methodCall.Method.Name);
         RejectGroupedProjectionTerminal(parsed, methodCall.Method.Name);
-        PushDownPostPagingOperations(methodCall.Method.Name);
+        var isJoinedProjection = CanBindProjectionParameter(parsed);
+        if (isJoinedProjection)
+        {
+            if (operations.Any(static operation => operation is QueryPlanOperation.Skip or QueryPlanOperation.Take))
+            {
+                throw new QueryTranslationException(
+                    $"Terminal operator '{methodCall.Method.Name}' after joined query paging is not supported yet. " +
+                    "Materialize before counting or checking existence over paged joined rows.");
+            }
+        }
+        else
+        {
+            RejectPostJoinTerminalOperator(methodCall.Method.Name);
+            PushDownPostPagingOperations(methodCall.Method.Name);
+        }
+
         if (methodCall.Arguments.Count == 2)
         {
             var predicate = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
             if (predicate.Parameters.Count != 1)
                 throw new QueryTranslationException($"{methodCall.Method.Name} predicate '{predicate}' is not supported.");
 
-            WithSource(predicate.Parameters[0], parsed.RootSource, () =>
-                operations.Add(new QueryPlanOperation.Where(ConvertPredicate(predicate.Body))));
+            if (isJoinedProjection)
+            {
+                WithProjection(predicate.Parameters[0], parsed.Projection!, () =>
+                    operations.Add(new QueryPlanOperation.Where(ConvertPredicate(predicate.Body))));
+            }
+            else
+            {
+                WithSource(predicate.Parameters[0], parsed.RootSource, () =>
+                    operations.Add(new QueryPlanOperation.Where(ConvertPredicate(predicate.Body))));
+            }
         }
         else
         {
@@ -1072,6 +1108,12 @@ internal sealed class ExpressionQueryPlanParser
             return true;
         }
 
+        if (TryGetProjectedValue(expression, out var projectedValue))
+        {
+            value = projectedValue;
+            return true;
+        }
+
         if (!ContainsQueryReference(expression))
         {
             if (expression is ConstantExpression { Value: null })
@@ -1101,6 +1143,38 @@ internal sealed class ExpressionQueryPlanParser
         {
             value = new QueryPlanColumnValue(source, column);
             return true;
+        }
+
+        value = null!;
+        return false;
+    }
+
+    private bool TryGetProjectedValue(Expression expression, out QueryPlanValue value)
+    {
+        expression = UnwrapQueryColumnAccess(UnwrapConvert(expression));
+
+        if (expression is MemberExpression { Expression: ParameterExpression parameter } memberExpression &&
+            parameterProjections.TryGetValue(parameter, out var projection) &&
+            TryGetProjectionMembers(projection, out var members))
+        {
+            var matches = members
+                .Where(member => member.Name == memberExpression.Member.Name)
+                .Take(2)
+                .ToArray();
+
+            if (matches.Length == 1)
+            {
+                var projectedValue = matches[0].Value;
+                if (projectedValue is QueryPlanFunctionValue { Function: QueryPlanFunctionKind.ClientExpression })
+                {
+                    throw new QueryTranslationException(
+                        $"Joined projection member '{memberExpression.Member.Name}' is row-local and cannot be translated to SQL. " +
+                        "Materialize before filtering or ordering over this member.");
+                }
+
+                value = projectedValue;
+                return true;
+            }
         }
 
         value = null!;
@@ -1478,6 +1552,52 @@ internal sealed class ExpressionQueryPlanParser
             "Materialize the grouped aggregate projection before applying terminal operators.");
     }
 
+    private bool CanBindProjectionParameter(ParsedQuery parsed)
+        => operations.Any(static operation => operation is QueryPlanOperation.Join) &&
+           parsed.Projection is QueryPlanProjection.JoinedRowLocal;
+
+    private void RejectUnsupportedPostJoinComposition(
+        ParsedQuery parsed,
+        string operatorName,
+        bool allowAfterPaging = false)
+    {
+        if (!operations.Any(static operation => operation is QueryPlanOperation.Join))
+            return;
+
+        if (!CanBindProjectionParameter(parsed))
+        {
+            throw new QueryTranslationException(
+                "Join queries can compose only over joined row projections whose members map to source-slot values. " +
+                $"Operator: {operatorName}");
+        }
+
+        if (!allowAfterPaging &&
+            operations.Any(static operation => operation is QueryPlanOperation.Skip or QueryPlanOperation.Take))
+        {
+            throw new QueryTranslationException(
+                $"LINQ operator '{operatorName}' after Skip(...) or Take(...) over a joined query is not supported yet. " +
+                "Materialize before composing further over paged joined rows.");
+        }
+    }
+
+    private static bool TryGetProjectionMembers(
+        QueryPlanProjection projection,
+        out IReadOnlyList<QueryPlanProjectionMember> members)
+    {
+        switch (projection)
+        {
+            case QueryPlanProjection.Anonymous anonymous:
+                members = anonymous.Members;
+                return true;
+            case QueryPlanProjection.JoinedRowLocal joined:
+                members = joined.Members;
+                return true;
+            default:
+                members = [];
+                return false;
+        }
+    }
+
     private void RejectPostJoinOperator(string operatorName)
     {
         if (operations.Any(static operation => operation is QueryPlanOperation.Join))
@@ -1518,6 +1638,32 @@ internal sealed class ExpressionQueryPlanParser
         finally
         {
             parameterSourceSlots.Remove(parameter);
+        }
+    }
+
+    private void WithProjection(ParameterExpression parameter, QueryPlanProjection projection, Action action)
+    {
+        parameterProjections[parameter] = projection;
+        try
+        {
+            action();
+        }
+        finally
+        {
+            parameterProjections.Remove(parameter);
+        }
+    }
+
+    private TResult WithProjection<TResult>(ParameterExpression parameter, QueryPlanProjection projection, Func<TResult> action)
+    {
+        parameterProjections[parameter] = projection;
+        try
+        {
+            return action();
+        }
+        finally
+        {
+            parameterProjections.Remove(parameter);
         }
     }
 
@@ -1878,8 +2024,11 @@ internal sealed class ExpressionQueryPlanParser
 
         protected override Expression VisitParameter(ParameterExpression node)
         {
-            if (parser.parameterSourceSlots.ContainsKey(node))
+            if (parser.parameterSourceSlots.ContainsKey(node) ||
+                parser.parameterProjections.ContainsKey(node))
+            {
                 ContainsReference = true;
+            }
 
             return node;
         }
@@ -1896,7 +2045,31 @@ internal sealed class ExpressionQueryPlanParser
             if (parser.parameterSourceSlots.TryGetValue(node, out var source))
                 Add(source);
 
+            if (parser.parameterProjections.TryGetValue(node, out var projection) &&
+                TryGetProjectionMembers(projection, out var members))
+            {
+                foreach (var member in members)
+                    AddSources(member.Value);
+            }
+
             return node;
+        }
+
+        private void AddSources(QueryPlanValue value)
+        {
+            switch (value)
+            {
+                case QueryPlanColumnValue column:
+                    Add(column.Source);
+                    break;
+                case QueryPlanConvertedValue converted:
+                    AddSources(converted.Value);
+                    break;
+                case QueryPlanFunctionValue function:
+                    foreach (var argument in function.Arguments)
+                        AddSources(argument);
+                    break;
+            }
         }
 
         private void Add(QueryPlanSourceSlot source)

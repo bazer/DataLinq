@@ -339,7 +339,7 @@ public class SqlQuery<T>
 
     public SqlQuery<T> OrderBy(ColumnDefinition column, string? alias = null, bool ascending = true)
     {
-        if (!this.Table.Columns.Contains(column))
+        if (string.IsNullOrEmpty(alias) && !this.Table.Columns.Contains(column))
             throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");
 
         this.OrderByList.Add(new OrderBy(column, alias, ascending));
@@ -357,7 +357,7 @@ public class SqlQuery<T>
 
     public SqlQuery<T> OrderByDesc(ColumnDefinition column, string? alias = null)
     {
-        if (!this.Table.Columns.Contains(column))
+        if (string.IsNullOrEmpty(alias) && !this.Table.Columns.Contains(column))
             throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");
 
         this.OrderByList.Add(new OrderBy(column, alias, false));

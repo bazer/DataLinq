@@ -269,7 +269,7 @@ Entity queries usually flow through cache-aware table access. Projection queries
 - DataLinq materializes rows through table caches.
 - Supported projection expressions run over materialized rows.
 
-For explicit joins, SQL selects primary keys for both joined sources. DataLinq then materializes each row through the relevant table cache and evaluates the result selector over the row objects.
+For explicit joins, SQL selects primary keys for both joined sources. DataLinq then buffers the joined primary-key values, materializes each row through the relevant table cache, and evaluates the result selector over the row objects. Buffering the keys before row hydration avoids nested reader use on transaction connections.
 
 That is less ambitious than a full SQL `SELECT` projection engine. It is also much easier to keep correct with the existing cache and generated-instance model.
 
@@ -322,6 +322,7 @@ Supported parser areas include:
 - single-source post-paging filters/orderings through explicit query-plan pushdown
 - scalar result operators and direct numeric aggregates
 - single-source grouped aggregate projection for a direct mapped key plus `group.Key` and `group.Count()`
+- explicit two-source inner join composition for predicates, ordering, paging, `Any`, and `Count` over projected source-slot members
 - local collection membership for documented shapes
 - nullable predicate semantics covered by tests
 - string and date/time member/function translations documented in the support matrix
@@ -336,7 +337,8 @@ Still deliberately outside the current support boundary:
 - outer joins
 - multiple explicit joins
 - composite anonymous-object join keys
-- filtering, ordering, paging, or terminal operators over joined row shapes
+- post-paging composition over joined row shapes
+- multi-join and query-syntax transparent-identifier joins
 - arbitrary nested database subqueries beyond the supported single-source pushdown boundary
 - SQL-backed projection lists as a broad feature
 - relation-property projections inside provider `Select(...)`

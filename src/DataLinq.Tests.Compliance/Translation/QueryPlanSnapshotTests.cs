@@ -240,6 +240,50 @@ bindings:
     }
 
     [Test]
+    public async Task ComposedExplicitJoinSnapshot_RecordsProjectedPredicateAndOrdering()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ComposedExplicitJoinSnapshot_RecordsProjectedPredicateAndOrdering),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().DepartmentEmployees
+            .Join(
+                databaseScope.Database.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                })
+            .Where(row => row.DepartmentName.StartsWith("S"))
+            .OrderBy(row => row.dept_no);
+
+        var snapshot = Snapshot(databaseScope.Database, query);
+
+        await AssertSnapshot(snapshot, """
+query-plan v0
+sources:
+  s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
+  s1 explicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
+operations:
+  join inner column(s0.dept_no:String) = column(s1.dept_no:String)
+  where compare(function(string-starts-with:Boolean column(s1.dept_name:String), captured(p0:String)) == constant(Boolean))
+  order-by column(s0.dept_no:String) ascending
+projection:
+  joined-row-local type=anonymous sources=s0,s1 members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)]
+result:
+  sequence type=anonymous
+bindings:
+  p0 scalar type=String
+""");
+        await Assert.That(snapshot).DoesNotContain("Sales");
+        await AssertNoLegacyParserTerms(snapshot);
+    }
+
+    [Test]
     public async Task PostPagingCompositionSnapshot_RecordsPushdownBoundary()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

@@ -206,6 +206,7 @@ The test suite covers one narrow explicit inner `Join(...)` shape:
 - direct member equality keys such as `outer.DepartmentId` and `inner.Id`
 - nullable `.Value` key selectors such as `employee.emp_no.Value`
 - a result selector that projects row-local values from both materialized rows
+- composed `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, `Take(...)`, `Any()`, and `Count()` over projected joined members that map back to source columns
 
 Example:
 
@@ -220,17 +221,26 @@ var rows = db.Query().DepartmentEmployees
             departmentEmployee.emp_no,
             department.Name
         })
+    .Where(row => row.Name.StartsWith("S"))
+    .OrderBy(row => row.dept_no)
+    .ThenBy(row => row.emp_no)
+    .Take(20)
     .ToList();
 ```
 
 The implementation uses a SQL inner join to select primary keys from both sides, then materializes both rows through DataLinq caches and applies the result selector as normal .NET code. That keeps projection semantics consistent with regular `Select(...)`, but it is not yet a general SQL projection engine.
+
+Composed predicates and orderings over joined rows are SQL-backed only when the joined projection member is a direct source-slot value, such as `row.dept_no` or `row.Name` in the example above. If a joined projection member is computed row-local code, materialize first and filter/order in memory.
 
 These join shapes are not supported yet:
 
 - `GroupJoin(...)`
 - left/outer join patterns such as `DefaultIfEmpty()`
 - composite anonymous-object join keys
-- additional `Where(...)`, `OrderBy(...)`, paging, or result operators over the joined result
+- multiple chained joins
+- query-syntax transparent identifiers that project whole source entities
+- post-paging joined composition, such as `Join(...).Take(...).Where(...)`
+- scalar aggregates over joined rows other than `Any()` and `Count()`
 - relation-property joins or relation-property projections inside the result selector
 
 ## Supported Scalar Aggregates
