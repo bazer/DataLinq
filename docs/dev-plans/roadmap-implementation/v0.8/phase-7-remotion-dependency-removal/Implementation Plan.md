@@ -12,7 +12,7 @@ Phase 7 removes `Remotion.Linq` from the main DataLinq product. Phase 6 proved t
 
 The required outcome is not "hide the warning." The main runtime package must stop depending on Remotion, constrained compatibility reports must stop seeing Remotion, and active tests must stop relying on Remotion parser APIs as their oracle.
 
-## Current Inventory
+## Starting Inventory
 
 Main product dependency graph:
 
@@ -38,7 +38,7 @@ Documentation:
 
 ## Progress
 
-Workstream A is implemented in the production-provider switch follow-up:
+Workstream A was implemented in the production-provider switch follow-up:
 
 - `Queryable<T>` is now a DataLinq-owned `IOrderedQueryable<T>` root instead of a Remotion `QueryableBase<T>` subclass.
 - production `Database.Query()` roots now use `ExpressionQueryPlanProvider.ForExecution(...)`.
@@ -46,7 +46,25 @@ Workstream A is implemented in the production-provider switch follow-up:
 - the Phase 6 bare-paging review finding is resolved by structural root recognition plus executable-route coverage for bare `Take(...)`, bare `Skip(...)`, `Take(...).Count()`, and `Skip(...).Any()`.
 - unsupported tail/while query operators now fail through DataLinq-owned `QueryTranslationException` diagnostics on the production route.
 
-Remaining Phase 7 work is still Workstreams B through E: delete the Remotion runtime scaffolding, rewrite Remotion-oracle tests, remove package references, rerun package/compatibility gates, and clean up public documentation.
+The dependency-removal cleanup slice implemented the main Workstream B and C code/test changes:
+
+- removed the `Remotion.Linq` package reference and central package version from the main runtime package graph
+- deleted the Remotion-backed `QueryExecutor`, plan adapter, clause visitors, local sequence extractor, evaluator, query builder, and Remotion-clause SQL overloads
+- removed Remotion query-source handling from `ProjectionExpressionEvaluator`
+- reduced translation inspection helpers to the DataLinq expression parser and query-plan SQL builder
+- rewrote snapshot, unsupported-shape, parser, and SQL parity tests so they assert DataLinq-owned parser behavior directly instead of using Remotion as an oracle
+- preserved quick-suite compatibility for local constant folding by allowing deterministic array/list indexing and string local-value evaluation while keeping arbitrary local method calls rejected
+
+Initial Workstream D evidence is also green:
+
+- `rg "Remotion" src/DataLinq src/Directory.Packages.props` has no main-runtime dependency hits
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.sln -v:minimal` succeeds with only the known SQLitePCLRaw WASM varargs warnings
+- focused unit, focused translation compliance, unit quick, and compliance quick gates pass
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- size-report --targets trim --format summary` reports publish ok, smoke ok, zero banned payloads, and zero warnings for the trimmed target
+- `.\publish-nuget.ps1 -PackOnly -PackageOutputPath artifacts\nuget-release\phase7-remotion-removal` produces fresh public packages, and `package-report` passes against that directory
+- direct nuspec inspection of `DataLinq`, `DataLinq.SQLite`, and `DataLinq.MySql` shows no `Remotion.Linq` dependency entries
+
+Remaining Phase 7 work is now primarily Workstream E documentation/release-note cleanup plus any final native AOT evidence that the local toolchain can support.
 
 ## Workstream A: Production Query Provider Switch
 

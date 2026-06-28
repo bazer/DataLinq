@@ -2,20 +2,20 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Exceptions;
-using DataLinq.Linq.Planning;
+using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
 
 namespace DataLinq.Tests.Compliance;
 
-public class QueryPlanAdapterUnsupportedShapeTests
+public class QueryPlanUnsupportedShapeTests
 {
     [Test]
-    public async Task AdapterRejectsPostPagingFilter()
+    public async Task ParserRejectsPostPagingFilter()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(AdapterRejectsPostPagingFilter),
+            nameof(ParserRejectsPostPagingFilter),
             EmployeesSeedMode.Bogus);
 
         var query = databaseScope.Database.Query().Employees
@@ -23,18 +23,18 @@ public class QueryPlanAdapterUnsupportedShapeTests
             .Where(x => x.emp_no > 0);
 
         var exception = Capture<QueryTranslationException>(() =>
-            RemotionQueryPlanAdapter.Convert(databaseScope.Database, query));
+            ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
 
         await Assert.That(exception).IsNotNull();
         await Assert.That(exception!.Message).Contains("LINQ operators after Skip(...) or Take(...)");
     }
 
     [Test]
-    public async Task AdapterRejectsGroupJoin()
+    public async Task ParserRejectsGroupJoin()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(AdapterRejectsGroupJoin),
+            nameof(ParserRejectsGroupJoin),
             EmployeesSeedMode.Bogus);
 
         var query = databaseScope.Database.Query().Departments
@@ -45,7 +45,7 @@ public class QueryPlanAdapterUnsupportedShapeTests
                 (department, managers) => new { department.DeptNo, ManagerCount = managers.Count() });
 
         var exception = Capture<QueryTranslationException>(() =>
-            RemotionQueryPlanAdapter.Convert(databaseScope.Database, query));
+            ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
 
         await Assert.That(exception).IsNotNull();
         await Assert.That(exception!.Message).Contains("GroupJoin");
@@ -53,11 +53,11 @@ public class QueryPlanAdapterUnsupportedShapeTests
     }
 
     [Test]
-    public async Task AdapterRejectsFilterOverExplicitJoin()
+    public async Task ParserRejectsFilterOverExplicitJoin()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(AdapterRejectsFilterOverExplicitJoin),
+            nameof(ParserRejectsFilterOverExplicitJoin),
             EmployeesSeedMode.Bogus);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
@@ -74,7 +74,7 @@ public class QueryPlanAdapterUnsupportedShapeTests
             .Where(row => row.dept_no == "d001");
 
         var exception = Capture<QueryTranslationException>(() =>
-            RemotionQueryPlanAdapter.Convert(databaseScope.Database, query));
+            ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
 
         await Assert.That(exception).IsNotNull();
         await Assert.That(exception!.Message).Contains("Join queries currently support only the Join body clause");
@@ -82,18 +82,18 @@ public class QueryPlanAdapterUnsupportedShapeTests
     }
 
     [Test]
-    public async Task AdapterRejectsRelationPropertyProjection()
+    public async Task ParserRejectsRelationPropertyProjection()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(AdapterRejectsRelationPropertyProjection),
+            nameof(ParserRejectsRelationPropertyProjection),
             EmployeesSeedMode.Bogus);
 
         var query = databaseScope.Database.Query().Departments
             .Select(department => department.Managers);
 
         var exception = Capture<QueryTranslationException>(() =>
-            RemotionQueryPlanAdapter.Convert(databaseScope.Database, query));
+            ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
 
         await Assert.That(exception).IsNotNull();
         await Assert.That(exception!.Message).Contains("Relation property 'Managers'");
@@ -101,18 +101,18 @@ public class QueryPlanAdapterUnsupportedShapeTests
     }
 
     [Test]
-    public async Task AdapterRejectsNestedDatabaseSubqueryProjection()
+    public async Task ParserRejectsNestedDatabaseSubqueryProjection()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(AdapterRejectsNestedDatabaseSubqueryProjection),
+            nameof(ParserRejectsNestedDatabaseSubqueryProjection),
             EmployeesSeedMode.Bogus);
 
         var query = databaseScope.Database.Query().Departments
             .Select(department => databaseScope.Database.Query().Managers.Count(manager => manager.dept_fk == department.DeptNo));
 
         var exception = Capture<QueryTranslationException>(() =>
-            RemotionQueryPlanAdapter.Convert(databaseScope.Database, query));
+            ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
 
         await Assert.That(exception).IsNotNull();
         await Assert.That(exception!.Message).Contains("Nested database query projection");
@@ -120,11 +120,11 @@ public class QueryPlanAdapterUnsupportedShapeTests
     }
 
     [Test]
-    public async Task AdapterRejectsRelationPropertyProjectionInsideExplicitJoinSelector()
+    public async Task ParserRejectsRelationPropertyProjectionInsideExplicitJoinSelector()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(AdapterRejectsRelationPropertyProjectionInsideExplicitJoinSelector),
+            nameof(ParserRejectsRelationPropertyProjectionInsideExplicitJoinSelector),
             EmployeesSeedMode.Bogus);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
@@ -139,7 +139,7 @@ public class QueryPlanAdapterUnsupportedShapeTests
                 });
 
         var exception = Capture<QueryTranslationException>(() =>
-            RemotionQueryPlanAdapter.Convert(databaseScope.Database, query));
+            ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
 
         await Assert.That(exception).IsNotNull();
         await Assert.That(exception!.Message).Contains("Relation property 'Managers'");

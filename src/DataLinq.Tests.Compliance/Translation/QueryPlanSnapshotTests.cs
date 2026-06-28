@@ -3,6 +3,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using DataLinq.Linq.Planning;
+using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
 
@@ -10,7 +11,7 @@ namespace DataLinq.Tests.Compliance;
 
 public class QueryPlanSnapshotTests
 {
-    private static readonly string[] BannedRemotionTerms =
+    private static readonly string[] BannedLegacyParserTerms =
     [
         "QueryModel",
         "WhereClause",
@@ -57,7 +58,7 @@ bindings:
   p2 scalar type=Int32
 """);
         await Assert.That(snapshot).DoesNotContain(threshold.ToString());
-        await AssertNoRemotionTerms(snapshot);
+        await AssertNoLegacyParserTerms(snapshot);
     }
 
     [Test]
@@ -81,7 +82,7 @@ bindings:
         await Assert.That(firstSnapshot).IsEqualTo(secondSnapshot);
         await Assert.That(firstSnapshot).Contains("local-sequence(p0:Int32 count=3)");
         await Assert.That(firstSnapshot).DoesNotContain("101");
-        await AssertNoRemotionTerms(firstSnapshot);
+        await AssertNoLegacyParserTerms(firstSnapshot);
     }
 
     [Test]
@@ -114,7 +115,7 @@ bindings:
   p0 scalar type=Int32
 """);
         await Assert.That(snapshot).DoesNotContain(managerNumber.ToString());
-        await AssertNoRemotionTerms(snapshot);
+        await AssertNoLegacyParserTerms(snapshot);
     }
 
     [Test]
@@ -143,7 +144,7 @@ bindings:
   p0 scalar type=String
 """);
         await Assert.That(snapshot).DoesNotContain("d00");
-        await AssertNoRemotionTerms(snapshot);
+        await AssertNoLegacyParserTerms(snapshot);
     }
 
     [Test]
@@ -159,7 +160,7 @@ bindings:
             databaseScope.Database.Query().Departments.Where(x => !x.DeptNo.StartsWith("d00")));
 
         await Assert.That(snapshot).Contains("where not(compare(function(string-starts-with:Boolean column(s0.dept_no:String), captured(p0:String)) == constant(Boolean)))");
-        await AssertNoRemotionTerms(snapshot);
+        await AssertNoLegacyParserTerms(snapshot);
     }
 
     [Test]
@@ -198,15 +199,15 @@ result:
 bindings:
   none
 """);
-        await AssertNoRemotionTerms(snapshot);
+        await AssertNoLegacyParserTerms(snapshot);
     }
 
     [Test]
-    public async Task ResultOperatorSnapshots_RecordScalarAndSingleResultShapes()
+    public async Task ResultShapeSnapshots_RecordScalarAndSingleResultShapes()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ResultOperatorSnapshots_RecordScalarAndSingleResultShapes),
+            nameof(ResultShapeSnapshots_RecordScalarAndSingleResultShapes),
             EmployeesSeedMode.Bogus);
 
         var countSnapshot = Snapshot(databaseScope.Database, () => databaseScope.Database.Query().Employees.Count());
@@ -222,11 +223,11 @@ bindings:
         await Assert.That(singleSnapshot).Contains("result:\n  single-or-default type=Employee");
         await Assert.That(singleSnapshot).Contains("where compare(column(s0.emp_no:Int32) == captured(p0:Int32?))");
 
-        await AssertNoRemotionTerms(countSnapshot);
-        await AssertNoRemotionTerms(anySnapshot);
-        await AssertNoRemotionTerms(firstSnapshot);
-        await AssertNoRemotionTerms(lastSnapshot);
-        await AssertNoRemotionTerms(singleSnapshot);
+        await AssertNoLegacyParserTerms(countSnapshot);
+        await AssertNoLegacyParserTerms(anySnapshot);
+        await AssertNoLegacyParserTerms(firstSnapshot);
+        await AssertNoLegacyParserTerms(lastSnapshot);
+        await AssertNoLegacyParserTerms(singleSnapshot);
     }
 
     [Test]
@@ -254,9 +255,9 @@ bindings:
         await Assert.That(relationCountSnapshot).Contains("where not-exists(relation=dept_manager parent=s0 child=s1)");
         await Assert.That(negatedRelationCountSnapshot).Contains("where exists(relation=dept_manager parent=s0 child=s1)");
 
-        await AssertNoRemotionTerms(localAnySnapshot);
-        await AssertNoRemotionTerms(relationCountSnapshot);
-        await AssertNoRemotionTerms(negatedRelationCountSnapshot);
+        await AssertNoLegacyParserTerms(localAnySnapshot);
+        await AssertNoLegacyParserTerms(relationCountSnapshot);
+        await AssertNoLegacyParserTerms(negatedRelationCountSnapshot);
     }
 
     [Test]
@@ -272,47 +273,46 @@ bindings:
             databaseScope.Database.Query().Employees.Select(x => x.first_name + ":" + x.emp_no!.Value));
 
         await Assert.That(snapshot).Contains("projection:\n  computed-row-local type=String shape=Add sources=s0");
-        await AssertNoRemotionTerms(snapshot);
+        await AssertNoLegacyParserTerms(snapshot);
     }
 
     [Test]
-    public async Task NullableInequalitySnapshots_RecordLiteralNullLocalNullAndCapturedNonNullSemantics()
+    public async Task NullableInequalitySnapshots_RecordLiteralNullCapturedNullAndCapturedNonNullSemantics()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(NullableInequalitySnapshots_RecordLiteralNullLocalNullAndCapturedNonNullSemantics),
+            nameof(NullableInequalitySnapshots_RecordLiteralNullCapturedNullAndCapturedNonNullSemantics),
             EmployeesSeedMode.Bogus);
 
+        TimeOnly? nullLogin = null;
         TimeOnly? login = new TimeOnly(9, 15, 0);
 
         var literalNullSnapshot = Snapshot(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x => x.last_login != null));
-        var localNullSnapshot = Snapshot(
+        var capturedNullSnapshot = Snapshot(
             databaseScope.Database,
-            databaseScope.Database.Query().Employees.Where(x => x.last_login != LocalNullLogin()));
+            databaseScope.Database.Query().Employees.Where(x => x.last_login != nullLogin));
         var capturedNonNullSnapshot = Snapshot(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x => x.last_login != login));
 
         await Assert.That(literalNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != constant(null:TimeOnly?))");
         await Assert.That(literalNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-not-equal-includes-null");
-        await Assert.That(localNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) !=");
-        await Assert.That(localNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-not-equal-includes-null");
+        await Assert.That(capturedNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != captured(p0:TimeOnly?))");
+        await Assert.That(capturedNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-not-equal-includes-null");
         await Assert.That(capturedNonNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != captured(p0:TimeOnly?) nulls=c-sharp-nullable-not-equal-includes-null)");
         await Assert.That(capturedNonNullSnapshot).DoesNotContain("09:15");
-        await AssertNoRemotionTerms(literalNullSnapshot);
-        await AssertNoRemotionTerms(localNullSnapshot);
-        await AssertNoRemotionTerms(capturedNonNullSnapshot);
+        await AssertNoLegacyParserTerms(literalNullSnapshot);
+        await AssertNoLegacyParserTerms(capturedNullSnapshot);
+        await AssertNoLegacyParserTerms(capturedNonNullSnapshot);
     }
 
     private static string Snapshot<T>(Database<EmployeesDb> database, IQueryable<T> query)
-        => QueryPlanDebugWriter.Write(RemotionQueryPlanAdapter.Convert(database, query));
+        => QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database, query));
 
     private static string Snapshot<TResult>(Database<EmployeesDb> database, Expression<Func<TResult>> query)
-        => QueryPlanDebugWriter.Write(RemotionQueryPlanAdapter.Convert(database, query));
-
-    private static TimeOnly? LocalNullLogin() => null;
+        => QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database, query));
 
     private static async Task AssertSnapshot(string actual, string expected)
     {
@@ -337,9 +337,9 @@ bindings:
         return length;
     }
 
-    private static async Task AssertNoRemotionTerms(string snapshot)
+    private static async Task AssertNoLegacyParserTerms(string snapshot)
     {
-        foreach (var term in BannedRemotionTerms)
+        foreach (var term in BannedLegacyParserTerms)
             await Assert.That(snapshot).DoesNotContain(term);
     }
 

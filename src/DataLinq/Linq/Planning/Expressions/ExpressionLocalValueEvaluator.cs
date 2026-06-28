@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -67,7 +68,13 @@ internal static class ExpressionLocalValueEvaluator
                     .Select(item => Evaluate(item, parameter, parameterValue, options))
                     .ToArray();
 
-            case MethodCallExpression methodCall when TryEvaluateSupportedMethod(methodCall, out var value):
+            case BinaryExpression binary when binary.NodeType == ExpressionType.ArrayIndex:
+                return EvaluateIndex(binary, binary.Left, [binary.Right], parameter, parameterValue, options);
+
+            case IndexExpression index:
+                return EvaluateIndex(index, index.Object, index.Arguments, parameter, parameterValue, options);
+
+            case MethodCallExpression methodCall when TryEvaluateSupportedMethod(methodCall, parameter, parameterValue, options, out var value):
                 return value;
 
             case MethodCallExpression methodCall:
@@ -109,7 +116,41 @@ internal static class ExpressionLocalValueEvaluator
         return false;
     }
 
-    private static bool TryEvaluateSupportedMethod(MethodCallExpression methodCall, out object? value)
+    private static object? EvaluateIndex(
+        Expression expression,
+        Expression? instanceExpression,
+        IReadOnlyList<Expression> indexExpressions,
+        ParameterExpression? parameter,
+        object? parameterValue,
+        ExpressionLocalValueEvaluationOptions options)
+    {
+        var instance = instanceExpression is null
+            ? null
+            : Evaluate(instanceExpression, parameter, parameterValue, options);
+        var indexes = indexExpressions
+            .Select(index => Evaluate(index, parameter, parameterValue, options))
+            .ToArray();
+
+        if (indexes is [{ } indexValue] &&
+            Convert.ToInt32(indexValue, CultureInfo.InvariantCulture) is var index)
+        {
+            return instance switch
+            {
+                Array array => array.GetValue(index),
+                IList list => list[index],
+                _ => throw new QueryTranslationException($"Local index expression '{expression}' is not supported in DataLinq expression parsing.")
+            };
+        }
+
+        throw new QueryTranslationException($"Local index expression '{expression}' is not supported in DataLinq expression parsing.");
+    }
+
+    private static bool TryEvaluateSupportedMethod(
+        MethodCallExpression methodCall,
+        ParameterExpression? parameter,
+        object? parameterValue,
+        ExpressionLocalValueEvaluationOptions options,
+        out object? value)
     {
         if (methodCall.Arguments.Count == 0 &&
             methodCall.Method.IsGenericMethod &&
@@ -125,6 +166,28 @@ internal static class ExpressionLocalValueEvaluator
         {
             value = Array.Empty<object?>();
             return true;
+        }
+
+        if (methodCall.Object is not null &&
+            Evaluate(methodCall.Object, parameter, parameterValue, options) is string text)
+        {
+            var arguments = methodCall.Arguments
+                .Select(argument => Evaluate(argument, parameter, parameterValue, options))
+                .ToArray();
+
+            value = methodCall.Method.Name switch
+            {
+                nameof(string.Trim) when arguments.Length == 0 => text.Trim(),
+                nameof(string.ToUpper) when arguments.Length == 0 => text.ToUpper(CultureInfo.CurrentCulture),
+                nameof(string.ToLower) when arguments.Length == 0 => text.ToLower(CultureInfo.CurrentCulture),
+                nameof(string.Substring) when arguments.Length == 1 => text.Substring(Convert.ToInt32(arguments[0], CultureInfo.InvariantCulture)),
+                nameof(string.Substring) when arguments.Length == 2 => text.Substring(
+                    Convert.ToInt32(arguments[0], CultureInfo.InvariantCulture),
+                    Convert.ToInt32(arguments[1], CultureInfo.InvariantCulture)),
+                _ => null
+            };
+
+            return value is not null;
         }
 
         value = null;

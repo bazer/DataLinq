@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Threading.Tasks;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Tests.Models.Employees;
@@ -12,11 +11,11 @@ public class QueryPlanSqlParityTests
 {
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task ExpressionExecutionProvider_ExecutesEntityQueriesWithoutRemotionQueryParser(TestProviderDescriptor provider)
+    public async Task ExpressionExecutionProvider_ExecutesEntityQueries(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(ExpressionExecutionProvider_ExecutesEntityQueriesWithoutRemotionQueryParser),
+            nameof(ExpressionExecutionProvider_ExecutesEntityQueries),
             EmployeesSeedMode.Bogus);
 
         var expressionProvider = ExpressionQueryPlanProvider.ForExecution(databaseScope.Database.Provider.ReadOnlyAccess);
@@ -59,11 +58,11 @@ public class QueryPlanSqlParityTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task ExpressionExecutionProvider_ExecutesScalarResultsWithoutRemotionQueryParser(TestProviderDescriptor provider)
+    public async Task ExpressionExecutionProvider_ExecutesScalarResults(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(ExpressionExecutionProvider_ExecutesScalarResultsWithoutRemotionQueryParser),
+            nameof(ExpressionExecutionProvider_ExecutesScalarResults),
             EmployeesSeedMode.Bogus);
 
         var expressionProvider = ExpressionQueryPlanProvider.ForExecution(databaseScope.Database.Provider.ReadOnlyAccess);
@@ -107,11 +106,11 @@ public class QueryPlanSqlParityTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task ExpressionPlanSql_RendersSameSqlAsRemotionPlanForSupportedSequenceShapes(TestProviderDescriptor provider)
+    public async Task ExpressionPlanSql_RendersSupportedSequenceShapes(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(ExpressionPlanSql_RendersSameSqlAsRemotionPlanForSupportedSequenceShapes),
+            nameof(ExpressionPlanSql_RendersSupportedSequenceShapes),
             EmployeesSeedMode.Bogus);
 
         var threshold = 10010;
@@ -121,7 +120,7 @@ public class QueryPlanSqlParityTests
             .First()
             .emp_no;
 
-        await AssertExpressionSqlMatchesRemotionPlan(
+        var filteredSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
             databaseScope.Database,
             databaseScope.Database.Query().Employees
                 .Where(x => x.emp_no != threshold && x.last_login.HasValue)
@@ -129,19 +128,30 @@ public class QueryPlanSqlParityTests
                 .ThenByDescending(x => x.emp_no)
                 .Skip(1)
                 .Take(3));
+        var filteredNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(filteredSql.Text);
+        await Assert.That(filteredNormalized).Contains("WHERE");
+        await Assert.That(filteredNormalized).Contains("ORDER BY t0.");
+        await Assert.That(filteredNormalized).Contains("LIMIT");
+        await Assert.That(filteredSql.Parameters.Select(x => x.Value).ToArray()).Contains(threshold);
 
-        await AssertExpressionSqlMatchesRemotionPlan(
+        var containsSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
             databaseScope.Database,
             databaseScope.Database.Query().Employees
                 .Where(x => ids.Contains(x.emp_no!.Value)));
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(containsSql.Text)).Contains(" IN ");
+        await Assert.That(containsSql.Parameters.Select(x => x.Value!).ToArray()).IsEquivalentTo(ids.Cast<object>().ToArray());
 
-        await AssertExpressionSqlMatchesRemotionPlan(
+        var relationSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
             databaseScope.Database,
             databaseScope.Database.Query().Departments
                 .Where(department => department.Managers.Any(manager => manager.emp_no == managerNumber))
                 .OrderBy(department => department.DeptNo));
+        var relationNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(relationSql.Text);
+        await Assert.That(relationNormalized).Contains("EXISTS (SELECT 1 FROM");
+        await Assert.That(relationNormalized).Contains("ORDER BY t0.");
+        await Assert.That(relationSql.Parameters.Select(x => x.Value).ToArray()).Contains(managerNumber);
 
-        await AssertExpressionSqlMatchesRemotionPlan(
+        var joinSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
             databaseScope.Database,
             databaseScope.Database.Query().DepartmentEmployees
                 .Join(
@@ -154,32 +164,41 @@ public class QueryPlanSqlParityTests
                         departmentEmployee.dept_no,
                         DepartmentName = department.Name
                     }));
+        var joinNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(joinSql.Text);
+        await Assert.That(joinNormalized).Contains("JOIN");
+        await Assert.That(joinNormalized).Contains("t0.");
+        await Assert.That(joinNormalized).Contains("t1.");
     }
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task ExpressionPlanSql_RendersSameSqlAsRemotionPlanForScalarResultShapes(TestProviderDescriptor provider)
+    public async Task ExpressionPlanSql_RendersScalarResultShapes(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(ExpressionPlanSql_RendersSameSqlAsRemotionPlanForScalarResultShapes),
+            nameof(ExpressionPlanSql_RendersScalarResultShapes),
             EmployeesSeedMode.Bogus);
 
-        await AssertExpressionSqlMatchesRemotionPlan(
+        var countSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
             databaseScope.Database,
             () => databaseScope.Database.Query().Employees.Count(x => x.emp_no > 10005));
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(countSql.Text)).Contains("COUNT(*)");
 
-        await AssertExpressionSqlMatchesRemotionPlan(
+        var anySql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
             databaseScope.Database,
             () => databaseScope.Database.Query().Employees.Any(x => x.first_name.StartsWith("A")));
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(anySql.Text)).Contains("COUNT(*)");
+        await Assert.That(anySql.Parameters.Select(x => x.Value).ToArray()).Contains("A%");
 
-        await AssertExpressionSqlMatchesRemotionPlan(
+        var sumSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
             databaseScope.Database,
             () => databaseScope.Database.Query().Managers.Where(x => x.dept_fk.StartsWith("d00")).Sum(x => x.emp_no));
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sumSql.Text)).Contains("SUM(");
 
-        await AssertExpressionSqlMatchesRemotionPlan(
+        var averageSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
             databaseScope.Database,
             () => databaseScope.Database.Query().Managers.Where(x => x.dept_fk.StartsWith("d00")).Average(x => x.emp_no));
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(averageSql.Text)).Contains("AVG(");
     }
 
     [Test]
@@ -201,14 +220,14 @@ public class QueryPlanSqlParityTests
             .Skip(skip)
             .Take(take);
 
-        var currentSql = CurrentQueryTranslationInspection.BuildLegacySql(databaseScope.Database, query);
         var planSql = CurrentQueryTranslationInspection.BuildPlanSql(databaseScope.Database, query);
         var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(planSql.Text);
 
         await Assert.That(normalized).Contains("WHERE");
         await Assert.That(normalized).Contains("ORDER BY t0.");
         await Assert.That(normalized).Contains("LIMIT");
-        await Assert.That(planSql.Parameters.Select(x => x.Value!).ToArray()).IsEquivalentTo(currentSql.Parameters.Select(x => x.Value!).ToArray());
+        await Assert.That(planSql.Parameters.Select(x => x.Value!).ToArray()).Contains(threshold);
+        await Assert.That(planSql.Parameters.Select(x => x.Value!).ToArray()).Contains(excludedName);
         await Assert.That(planSql.Text).DoesNotContain(threshold.ToString());
         await Assert.That(planSql.Text).DoesNotContain(excludedName);
     }
@@ -393,33 +412,6 @@ public class QueryPlanSqlParityTests
             .ToArray();
 
         await Assert.That(actual).IsEquivalentTo(expected);
-    }
-
-    private static async Task AssertExpressionSqlMatchesRemotionPlan<TModel>(
-        Database<EmployeesDb> database,
-        IQueryable<TModel> query)
-        where TModel : class
-    {
-        var remotionPlanSql = CurrentQueryTranslationInspection.BuildPlanSql(database, query);
-        var expressionPlanSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(database, query);
-
-        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(expressionPlanSql.Text))
-            .IsEqualTo(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(remotionPlanSql.Text));
-        await Assert.That(expressionPlanSql.Parameters.Select(x => x.Value).ToArray())
-            .IsEquivalentTo(remotionPlanSql.Parameters.Select(x => x.Value).ToArray());
-    }
-
-    private static async Task AssertExpressionSqlMatchesRemotionPlan<TResult>(
-        Database<EmployeesDb> database,
-        Expression<Func<TResult>> query)
-    {
-        var remotionPlanSql = CurrentQueryTranslationInspection.BuildPlanSql(database, query);
-        var expressionPlanSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(database, query);
-
-        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(expressionPlanSql.Text))
-            .IsEqualTo(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(remotionPlanSql.Text));
-        await Assert.That(expressionPlanSql.Parameters.Select(x => x.Value).ToArray())
-            .IsEquivalentTo(remotionPlanSql.Parameters.Select(x => x.Value).ToArray());
     }
 
     private static bool NearlyEqual(double actual, double expected)

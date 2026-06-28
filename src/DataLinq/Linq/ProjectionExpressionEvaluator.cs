@@ -6,8 +6,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
-using Remotion.Linq.Clauses;
-using Remotion.Linq.Clauses.Expressions;
 
 namespace DataLinq.Linq;
 
@@ -28,32 +26,14 @@ internal static class ProjectionExpressionEvaluator
 {
     public static object? Evaluate(
         Expression expression,
-        IReadOnlyDictionary<IQuerySource, object?> querySourceValues,
-        IReadOnlyDictionary<ParameterExpression, object?>? parameterValues = null)
+        IReadOnlyDictionary<ParameterExpression, object?> parameterValues)
     {
-        return Evaluate(expression, querySourceValues, parameterValues, ProjectionEvaluationOptions.Default);
-    }
-
-    public static object? Evaluate(
-        Expression expression,
-        IReadOnlyDictionary<IQuerySource, object?> querySourceValues,
-        IReadOnlyDictionary<ParameterExpression, object?>? parameterValues,
-        ProjectionEvaluationOptions options)
-    {
-        return EvaluateCore(expression, querySourceValues, parameterValues ?? EmptyParameters, options);
+        return EvaluateCore(expression, parameterValues, ProjectionEvaluationOptions.Default);
     }
 
     public static object? Evaluate(Expression expression)
     {
-        return Evaluate(expression, EmptyQuerySources, EmptyParameters);
-    }
-
-    public static object? Evaluate(
-        Expression expression,
-        IQuerySource querySource,
-        object? value)
-    {
-        return Evaluate(expression, new Dictionary<IQuerySource, object?> { [querySource] = value });
+        return Evaluate(expression, EmptyParameters);
     }
 
     public static object? Evaluate(
@@ -61,14 +41,7 @@ internal static class ProjectionExpressionEvaluator
         ParameterExpression parameter,
         object? value)
     {
-        return Evaluate(expression, EmptyQuerySources, new Dictionary<ParameterExpression, object?> { [parameter] = value });
-    }
-
-    public static object? Evaluate(
-        Expression expression,
-        IReadOnlyDictionary<ParameterExpression, object?> parameterValues)
-    {
-        return Evaluate(expression, EmptyQuerySources, parameterValues);
+        return Evaluate(expression, new Dictionary<ParameterExpression, object?> { [parameter] = value });
     }
 
     public static object? Evaluate(
@@ -77,15 +50,13 @@ internal static class ProjectionExpressionEvaluator
         object? value,
         ProjectionEvaluationOptions options)
     {
-        return Evaluate(expression, EmptyQuerySources, new Dictionary<ParameterExpression, object?> { [parameter] = value }, options);
+        return EvaluateCore(expression, new Dictionary<ParameterExpression, object?> { [parameter] = value }, options);
     }
 
-    private static readonly IReadOnlyDictionary<IQuerySource, object?> EmptyQuerySources = new Dictionary<IQuerySource, object?>();
     private static readonly IReadOnlyDictionary<ParameterExpression, object?> EmptyParameters = new Dictionary<ParameterExpression, object?>();
 
     private static object? EvaluateCore(
         Expression expression,
-        IReadOnlyDictionary<IQuerySource, object?> querySourceValues,
         IReadOnlyDictionary<ParameterExpression, object?> parameterValues,
         ProjectionEvaluationOptions options)
     {
@@ -94,15 +65,14 @@ internal static class ProjectionExpressionEvaluator
         return expression switch
         {
             ConstantExpression constant => constant.Value,
-            QuerySourceReferenceExpression querySource => GetQuerySourceValue(querySource, querySourceValues),
             ParameterExpression parameter => GetParameterValue(parameter, parameterValues),
-            UnaryExpression unary => EvaluateUnary(unary, querySourceValues, parameterValues, options),
-            BinaryExpression binary => EvaluateBinary(binary, querySourceValues, parameterValues, options),
-            MemberExpression member => EvaluateMember(member, querySourceValues, parameterValues, options),
-            MethodCallExpression methodCall => EvaluateMethodCall(methodCall, querySourceValues, parameterValues, options),
-            NewExpression newExpression => EvaluateNew(newExpression, querySourceValues, parameterValues, options),
-            NewArrayExpression newArray => EvaluateNewArray(newArray, querySourceValues, parameterValues, options),
-            ConditionalExpression conditional => EvaluateConditional(conditional, querySourceValues, parameterValues, options),
+            UnaryExpression unary => EvaluateUnary(unary, parameterValues, options),
+            BinaryExpression binary => EvaluateBinary(binary, parameterValues, options),
+            MemberExpression member => EvaluateMember(member, parameterValues, options),
+            MethodCallExpression methodCall => EvaluateMethodCall(methodCall, parameterValues, options),
+            NewExpression newExpression => EvaluateNew(newExpression, parameterValues, options),
+            NewArrayExpression newArray => EvaluateNewArray(newArray, parameterValues, options),
+            ConditionalExpression conditional => EvaluateConditional(conditional, parameterValues, options),
             _ => throw Unsupported(expression)
         };
     }
@@ -113,16 +83,6 @@ internal static class ProjectionExpressionEvaluator
             expression = quote.Operand;
 
         return expression;
-    }
-
-    private static object? GetQuerySourceValue(
-        QuerySourceReferenceExpression querySource,
-        IReadOnlyDictionary<IQuerySource, object?> querySourceValues)
-    {
-        if (querySourceValues.TryGetValue(querySource.ReferencedQuerySource, out var value))
-            return value;
-
-        throw new QueryTranslationException($"Projection references unsupported query source '{querySource.ReferencedQuerySource.ItemName}'.");
     }
 
     private static object? GetParameterValue(
@@ -137,11 +97,10 @@ internal static class ProjectionExpressionEvaluator
 
     private static object? EvaluateUnary(
         UnaryExpression unary,
-        IReadOnlyDictionary<IQuerySource, object?> querySourceValues,
         IReadOnlyDictionary<ParameterExpression, object?> parameterValues,
         ProjectionEvaluationOptions options)
     {
-        var value = EvaluateCore(unary.Operand, querySourceValues, parameterValues, options);
+        var value = EvaluateCore(unary.Operand, parameterValues, options);
 
         return unary.NodeType switch
         {
@@ -153,12 +112,11 @@ internal static class ProjectionExpressionEvaluator
 
     private static object? EvaluateBinary(
         BinaryExpression binary,
-        IReadOnlyDictionary<IQuerySource, object?> querySourceValues,
         IReadOnlyDictionary<ParameterExpression, object?> parameterValues,
         ProjectionEvaluationOptions options)
     {
-        var left = EvaluateCore(binary.Left, querySourceValues, parameterValues, options);
-        var right = EvaluateCore(binary.Right, querySourceValues, parameterValues, options);
+        var left = EvaluateCore(binary.Left, parameterValues, options);
+        var right = EvaluateCore(binary.Right, parameterValues, options);
 
         return binary.NodeType switch
         {
@@ -209,13 +167,12 @@ internal static class ProjectionExpressionEvaluator
 
     private static object? EvaluateMember(
         MemberExpression member,
-        IReadOnlyDictionary<IQuerySource, object?> querySourceValues,
         IReadOnlyDictionary<ParameterExpression, object?> parameterValues,
         ProjectionEvaluationOptions options)
     {
         var instance = member.Expression is null
             ? null
-            : EvaluateCore(member.Expression, querySourceValues, parameterValues, options);
+            : EvaluateCore(member.Expression, parameterValues, options);
 
         if (TryEvaluateSupportedMember(member, instance, out var supportedValue))
             return supportedValue;
@@ -270,15 +227,14 @@ internal static class ProjectionExpressionEvaluator
 
     private static object? EvaluateMethodCall(
         MethodCallExpression methodCall,
-        IReadOnlyDictionary<IQuerySource, object?> querySourceValues,
         IReadOnlyDictionary<ParameterExpression, object?> parameterValues,
         ProjectionEvaluationOptions options)
     {
         var instance = methodCall.Object is null
             ? null
-            : EvaluateCore(methodCall.Object, querySourceValues, parameterValues, options);
+            : EvaluateCore(methodCall.Object, parameterValues, options);
         var arguments = methodCall.Arguments
-            .Select(argument => EvaluateCore(argument, querySourceValues, parameterValues, options))
+            .Select(argument => EvaluateCore(argument, parameterValues, options))
             .ToArray();
 
         if (instance is string text)
@@ -299,7 +255,6 @@ internal static class ProjectionExpressionEvaluator
 
     private static object? EvaluateNew(
         NewExpression newExpression,
-        IReadOnlyDictionary<IQuerySource, object?> querySourceValues,
         IReadOnlyDictionary<ParameterExpression, object?> parameterValues,
         ProjectionEvaluationOptions options)
     {
@@ -307,7 +262,7 @@ internal static class ProjectionExpressionEvaluator
             throw Unsupported(newExpression);
 
         var arguments = newExpression.Arguments
-            .Select(argument => EvaluateCore(argument, querySourceValues, parameterValues, options))
+            .Select(argument => EvaluateCore(argument, parameterValues, options))
             .ToArray();
 
         if (!options.AllowCompatibilityObjectConstruction)
@@ -319,14 +274,13 @@ internal static class ProjectionExpressionEvaluator
 
     private static object? EvaluateNewArray(
         NewArrayExpression newArray,
-        IReadOnlyDictionary<IQuerySource, object?> querySourceValues,
         IReadOnlyDictionary<ParameterExpression, object?> parameterValues,
         ProjectionEvaluationOptions options)
     {
         var elementType = newArray.Type.GetElementType()
             ?? throw Unsupported(newArray);
         var values = newArray.Expressions
-            .Select(expression => EvaluateCore(expression, querySourceValues, parameterValues, options))
+            .Select(expression => EvaluateCore(expression, parameterValues, options))
             .ToArray();
         if (elementType == typeof(string))
             return values.Select(value => (string?)ConvertValue(value, elementType)).ToArray();
@@ -366,14 +320,13 @@ internal static class ProjectionExpressionEvaluator
 
     private static object? EvaluateConditional(
         ConditionalExpression conditional,
-        IReadOnlyDictionary<IQuerySource, object?> querySourceValues,
         IReadOnlyDictionary<ParameterExpression, object?> parameterValues,
         ProjectionEvaluationOptions options)
     {
-        var test = EvaluateCore(conditional.Test, querySourceValues, parameterValues, options);
+        var test = EvaluateCore(conditional.Test, parameterValues, options);
         return Convert.ToBoolean(test, CultureInfo.InvariantCulture)
-            ? EvaluateCore(conditional.IfTrue, querySourceValues, parameterValues, options)
-            : EvaluateCore(conditional.IfFalse, querySourceValues, parameterValues, options);
+            ? EvaluateCore(conditional.IfTrue, parameterValues, options)
+            : EvaluateCore(conditional.IfFalse, parameterValues, options);
     }
 
     private static object? ConvertValue(object? value, Type targetType)

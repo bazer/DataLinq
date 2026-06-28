@@ -18,7 +18,6 @@
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.300" />
     <PackageVersion Include="MinVer" Version="7.0.0" />
     <PackageVersion Include="MySqlConnector" Version="2.6.1" />
-    <PackageVersion Include="Remotion.Linq" Version="2.2.0" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="Spectre.Console" Version="0.57.1" />

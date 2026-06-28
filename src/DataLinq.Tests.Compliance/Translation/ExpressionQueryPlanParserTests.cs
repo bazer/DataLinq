@@ -12,7 +12,7 @@ namespace DataLinq.Tests.Compliance;
 
 public class ExpressionQueryPlanParserTests
 {
-    private static readonly string[] BannedRemotionTerms =
+    private static readonly string[] BannedLegacyParserTerms =
     [
         "QueryModel",
         "WhereClause",
@@ -22,11 +22,11 @@ public class ExpressionQueryPlanParserTests
     ];
 
     [Test]
-    public async Task ExpressionParser_BasicQueryShapeMatchesRemotionPlan()
+    public async Task ExpressionParser_BasicQueryShapeParsesToDataLinqPlan()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ExpressionParser_BasicQueryShapeMatchesRemotionPlan),
+            nameof(ExpressionParser_BasicQueryShapeParsesToDataLinqPlan),
             EmployeesSeedMode.Bogus);
 
         var threshold = 10010;
@@ -38,90 +38,90 @@ public class ExpressionQueryPlanParserTests
             .Take(3)
             .Select(x => new { x.emp_no, x.first_name });
 
-        await AssertParserMatchesRemotion(databaseScope.Database, query);
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, query);
     }
 
     [Test]
-    public async Task ExpressionParser_ResultAndAggregateShapesMatchRemotionPlan()
+    public async Task ExpressionParser_ResultAndAggregateShapesParseToDataLinqPlan()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ExpressionParser_ResultAndAggregateShapesMatchRemotionPlan),
+            nameof(ExpressionParser_ResultAndAggregateShapesParseToDataLinqPlan),
             EmployeesSeedMode.Bogus);
 
-        await AssertParserMatchesRemotion(databaseScope.Database, () => databaseScope.Database.Query().Employees.Count());
-        await AssertParserMatchesRemotion(databaseScope.Database, () => databaseScope.Database.Query().Employees.Any());
-        await AssertParserMatchesRemotion(databaseScope.Database, () => databaseScope.Database.Query().Employees.FirstOrDefault());
-        await AssertParserMatchesRemotion(databaseScope.Database, () => databaseScope.Database.Query().Employees.Last());
-        await AssertParserMatchesRemotion(databaseScope.Database, () => databaseScope.Database.Query().Employees.SingleOrDefault(x => x.emp_no == 12345));
-        await AssertParserMatchesRemotion(databaseScope.Database, () => databaseScope.Database.Query().Managers
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, () => databaseScope.Database.Query().Employees.Count());
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, () => databaseScope.Database.Query().Employees.Any());
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, () => databaseScope.Database.Query().Employees.FirstOrDefault());
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, () => databaseScope.Database.Query().Employees.Last());
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, () => databaseScope.Database.Query().Employees.SingleOrDefault(x => x.emp_no == 12345));
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, () => databaseScope.Database.Query().Managers
             .Where(x => x.dept_fk.StartsWith("d00"))
             .Sum(x => x.emp_no));
     }
 
     [Test]
-    public async Task ExpressionParser_RelationAndLocalMembershipShapesMatchRemotionPlan()
+    public async Task ExpressionParser_RelationAndLocalMembershipShapesParseToDataLinqPlan()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ExpressionParser_RelationAndLocalMembershipShapesMatchRemotionPlan),
+            nameof(ExpressionParser_RelationAndLocalMembershipShapesParseToDataLinqPlan),
             EmployeesSeedMode.Bogus);
 
         var managerNumber = 110022;
         var localIds = new[] { new LocalEmployeeId(10001), new LocalEmployeeId(10002) };
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             databaseScope.Database.Query().Departments
                 .Where(department => department.Managers.Any(manager => manager.emp_no == managerNumber))
                 .Select(department => department.DeptNo));
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x => localIds.Any(id => id.Value == x.emp_no!.Value)));
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x => x.dept_manager.Count() == 0));
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x => !(x.dept_manager.Count() == 0)));
     }
 
     [Test]
-    public async Task ExpressionParser_StringDateNullableAndBooleanShapesMatchRemotionPlan()
+    public async Task ExpressionParser_StringDateNullableAndBooleanShapesParseToDataLinqPlan()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ExpressionParser_StringDateNullableAndBooleanShapesMatchRemotionPlan),
+            nameof(ExpressionParser_StringDateNullableAndBooleanShapesParseToDataLinqPlan),
             EmployeesSeedMode.Bogus);
 
         var login = new TimeOnly(9, 15, 0);
         var testDate = new DateOnly(2021, 7, 3);
         var testDateTime = new DateTime(2021, 7, 3, 11, 23, 42, 123);
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             databaseScope.Database.Query().Departments.Where(x =>
                 !x.DeptNo.StartsWith("d00") ||
                 x.Name.Contains("Sales") ||
                 string.IsNullOrWhiteSpace(x.Name)));
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             databaseScope.Database.Query().DepartmentEmployees.Where(x =>
                 x.from_date.Year == testDate.Year &&
                 x.from_date.DayOfWeek == testDate.DayOfWeek));
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x =>
                 x.last_login != null &&
                 x.last_login != login &&
                 x.created_at!.Value.Minute == testDateTime.Minute));
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x =>
                 x.emp_no.HasValue &&
@@ -129,60 +129,60 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
-    public async Task ExpressionParser_LocalSequenceAndAggregateVariantsMatchRemotionPlan()
+    public async Task ExpressionParser_LocalSequenceAndAggregateVariantsParseToDataLinqPlan()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ExpressionParser_LocalSequenceAndAggregateVariantsMatchRemotionPlan),
+            nameof(ExpressionParser_LocalSequenceAndAggregateVariantsParseToDataLinqPlan),
             EmployeesSeedMode.Bogus);
 
         var employeeNumbers = new[] { 10001, 10002, 10003 };
         var departmentNumbers = new[] { "d001", "d002" };
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x => employeeNumbers.Contains(x.emp_no!.Value)));
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             databaseScope.Database.Query().Departments.Where(x => !departmentNumbers.Contains(x.DeptNo)));
 
-        await AssertParserMatchesRemotion(databaseScope.Database, () => databaseScope.Database.Query().Managers.Min(x => x.emp_no));
-        await AssertParserMatchesRemotion(databaseScope.Database, () => databaseScope.Database.Query().Managers.Max(x => x.emp_no));
-        await AssertParserMatchesRemotion(databaseScope.Database, () => databaseScope.Database.Query().Managers.Average(x => x.emp_no));
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, () => databaseScope.Database.Query().Managers.Min(x => x.emp_no));
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, () => databaseScope.Database.Query().Managers.Max(x => x.emp_no));
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, () => databaseScope.Database.Query().Managers.Average(x => x.emp_no));
     }
 
     [Test]
-    public async Task ExpressionParser_BarePagingShapesMatchRemotionPlan()
+    public async Task ExpressionParser_BarePagingShapesParseToDataLinqPlan()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ExpressionParser_BarePagingShapesMatchRemotionPlan),
+            nameof(ExpressionParser_BarePagingShapesParseToDataLinqPlan),
             EmployeesSeedMode.Bogus);
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Take(5));
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Skip(10));
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             () => databaseScope.Database.Query().Employees.Take(5).Count());
 
-        await AssertParserMatchesRemotion(
+        await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             () => databaseScope.Database.Query().Employees.Skip(10).Any());
     }
 
     [Test]
-    public async Task ExpressionParser_ExplicitJoinShapeMatchesRemotionPlan()
+    public async Task ExpressionParser_ExplicitJoinShapeParsesToDataLinqPlan()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ExpressionParser_ExplicitJoinShapeMatchesRemotionPlan),
+            nameof(ExpressionParser_ExplicitJoinShapeParsesToDataLinqPlan),
             EmployeesSeedMode.Bogus);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
@@ -197,7 +197,7 @@ public class ExpressionQueryPlanParserTests
                     DepartmentName = department.Name
                 });
 
-        await AssertParserMatchesRemotion(databaseScope.Database, query);
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, query);
     }
 
     [Test]
@@ -220,13 +220,13 @@ public class ExpressionQueryPlanParserTests
             .Take(5)
             .Select(x => new { x.emp_no, x.first_name });
 
-        var remotionQuery = databaseScope.Database.Query().Employees
+        var productionQuery = databaseScope.Database.Query().Employees
             .Where(x => x.emp_no != threshold && x.first_name.StartsWith("A"))
             .OrderBy(x => x.last_name)
             .Take(5)
             .Select(x => new { x.emp_no, x.first_name });
 
-        await AssertParserMatchesRemotion(databaseScope.Database, remotionQuery, expressionQuery);
+        await AssertParserMatchesProductionRoot(databaseScope.Database, productionQuery, expressionQuery);
 
         var expressionJoin = departmentEmployees.Join(
             departments,
@@ -239,7 +239,7 @@ public class ExpressionQueryPlanParserTests
                 DepartmentName = department.Name
             });
 
-        var remotionJoin = databaseScope.Database.Query().DepartmentEmployees.Join(
+        var productionJoin = databaseScope.Database.Query().DepartmentEmployees.Join(
             databaseScope.Database.Query().Departments,
             departmentEmployee => departmentEmployee.dept_no,
             department => department.DeptNo,
@@ -250,7 +250,7 @@ public class ExpressionQueryPlanParserTests
                 DepartmentName = department.Name
             });
 
-        await AssertParserMatchesRemotion(databaseScope.Database, remotionJoin, expressionJoin);
+        await AssertParserMatchesProductionRoot(databaseScope.Database, productionJoin, expressionJoin);
     }
 
     [Test]
@@ -265,12 +265,12 @@ public class ExpressionQueryPlanParserTests
         var employees = provider.CreateRoot<Employee>();
         var managers = provider.CreateRoot<Manager>();
 
-        await AssertParserMatchesRemotion(
+        await AssertParserMatchesProductionRoot(
             databaseScope.Database,
             () => databaseScope.Database.Query().Employees.Count(x => x.emp_no > 10010),
             () => employees.Count(x => x.emp_no > 10010));
 
-        await AssertParserMatchesRemotion(
+        await AssertParserMatchesProductionRoot(
             databaseScope.Database,
             () => databaseScope.Database.Query().Managers
                 .Where(x => x.dept_fk.StartsWith("d00"))
@@ -437,48 +437,44 @@ public class ExpressionQueryPlanParserTests
         await Assert.That(exception!.Message).Contains("requires compatibility member reflection");
     }
 
-    private static async Task AssertParserMatchesRemotion<T>(Database<EmployeesDb> database, IQueryable<T> query)
+    private static async Task AssertParserProducesDataLinqPlan<T>(Database<EmployeesDb> database, IQueryable<T> query)
     {
-        var remotionSnapshot = QueryPlanDebugWriter.Write(RemotionQueryPlanAdapter.Convert(database, query));
         var expressionSnapshot = QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database, query));
 
-        await Assert.That(expressionSnapshot).IsEqualTo(remotionSnapshot);
-        await AssertNoRemotionTerms(expressionSnapshot);
+        await AssertNoLegacyParserTerms(expressionSnapshot);
     }
 
-    private static async Task AssertParserMatchesRemotion<T>(Database<EmployeesDb> database, IQueryable<T> remotionQuery, IQueryable<T> expressionQuery)
+    private static async Task AssertParserMatchesProductionRoot<T>(Database<EmployeesDb> database, IQueryable<T> productionQuery, IQueryable<T> expressionQuery)
     {
-        var remotionSnapshot = QueryPlanDebugWriter.Write(RemotionQueryPlanAdapter.Convert(database, remotionQuery));
+        var productionSnapshot = QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database, productionQuery));
         var expressionSnapshot = QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database.Provider.Metadata, expressionQuery.Expression, typeof(T)));
 
-        await Assert.That(expressionSnapshot).IsEqualTo(remotionSnapshot);
-        await AssertNoRemotionTerms(expressionSnapshot);
+        await Assert.That(expressionSnapshot).IsEqualTo(productionSnapshot);
+        await AssertNoLegacyParserTerms(expressionSnapshot);
     }
 
-    private static async Task AssertParserMatchesRemotion<TResult>(Database<EmployeesDb> database, Expression<Func<TResult>> query)
+    private static async Task AssertParserProducesDataLinqPlan<TResult>(Database<EmployeesDb> database, Expression<Func<TResult>> query)
     {
-        var remotionSnapshot = QueryPlanDebugWriter.Write(RemotionQueryPlanAdapter.Convert(database, query));
         var expressionSnapshot = QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database, query));
 
-        await Assert.That(expressionSnapshot).IsEqualTo(remotionSnapshot);
-        await AssertNoRemotionTerms(expressionSnapshot);
+        await AssertNoLegacyParserTerms(expressionSnapshot);
     }
 
-    private static async Task AssertParserMatchesRemotion<TResult>(
+    private static async Task AssertParserMatchesProductionRoot<TResult>(
         Database<EmployeesDb> database,
-        Expression<Func<TResult>> remotionQuery,
+        Expression<Func<TResult>> productionQuery,
         Expression<Func<TResult>> expressionQuery)
     {
-        var remotionSnapshot = QueryPlanDebugWriter.Write(RemotionQueryPlanAdapter.Convert(database, remotionQuery));
+        var productionSnapshot = QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database, productionQuery));
         var expressionSnapshot = QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database.Provider.Metadata, expressionQuery.Body, typeof(TResult)));
 
-        await Assert.That(expressionSnapshot).IsEqualTo(remotionSnapshot);
-        await AssertNoRemotionTerms(expressionSnapshot);
+        await Assert.That(expressionSnapshot).IsEqualTo(productionSnapshot);
+        await AssertNoLegacyParserTerms(expressionSnapshot);
     }
 
-    private static async Task AssertNoRemotionTerms(string snapshot)
+    private static async Task AssertNoLegacyParserTerms(string snapshot)
     {
-        foreach (var term in BannedRemotionTerms)
+        foreach (var term in BannedLegacyParserTerms)
             await Assert.That(snapshot).DoesNotContain(term);
     }
 

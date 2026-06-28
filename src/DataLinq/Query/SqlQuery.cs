@@ -3,12 +3,9 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using DataLinq.Interfaces;
-using DataLinq.Linq;
-using DataLinq.Linq.Visitors;
 using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
-using Remotion.Linq.Clauses;
 
 namespace DataLinq.Query;
 
@@ -210,24 +207,6 @@ public class SqlQuery<T>
         WhereGroup ??= new WhereGroup<T>(this, type);
 
         return WhereGroup;
-    }
-
-    public SqlQuery<T> Where(WhereClause where)
-    {
-        new WhereVisitor<T>(new QueryBuilder<T>(this)).Parse(where);
-
-        return this;
-    }
-
-    public SqlQuery<T> OrderBy(OrderByClause orderBy)
-    {
-        var builder = new QueryBuilder<T>(this);
-        foreach (var ordering in orderBy.Orderings)
-        {
-            new OrderByVisitor<T>(builder).Parse(ordering);
-        }
-
-        return this;
     }
 
     internal Sql GetWhere(Sql sql, string? paramPrefix)
