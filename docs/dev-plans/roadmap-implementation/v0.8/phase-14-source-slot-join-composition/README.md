@@ -2,11 +2,11 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 14: Source-Slot Join Composition
 
-**Status:** Planned 0.8 finish-line work after Phase 13 query composition and subquery pushdown.
+**Status:** Planned 0.8 finish-line work after Phase 13 query composition/subquery pushdown and the single-source Phase 13B grouped aggregate projection baseline.
 
 ## Purpose
 
-Phase 14 resumes join work after the query plan exists, the 0.8 AOT/browser release gates are satisfied, and Phase 13 has made single-source operator ordering composable. This is where the old Phase 13 explicit-join plan becomes useful again, but rebased on DataLinq source slots instead of Remotion query-source identities.
+Phase 14 resumes join work after the query plan exists, the 0.8 AOT/browser release gates are satisfied, Phase 13 has made single-source operator ordering composable, and Phase 13B has added the first single-source grouped aggregate result shape if that slice remains in 0.8. This is where the old Phase 13 explicit-join plan becomes useful again, but rebased on DataLinq source slots instead of Remotion query-source identities.
 
 This phase used to be the 0.8 Phase 8 follow-up. It moved behind the AOT/browser evidence work because 0.8 should first make browser AOT actually run, report, and deploy at sensible sizes. It should still remain in the 0.8 line: joins are the next query feature users will hit after the parser boundary is owned by DataLinq.
 
