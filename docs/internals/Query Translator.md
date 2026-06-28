@@ -50,15 +50,17 @@ The current grouped-query support is deliberately narrow:
 
 - single-source query roots
 - optional `Where(...)` before `GroupBy(...)`
-- one direct mapped member key
+- direct, composite, and SQL-renderable computed key members
+- grouping over supported explicit joined projections and implicit singular relation traversal
 - immediate `Select(...)`
-- projection members limited to `group.Key`, `group.Count()`, and direct numeric grouped `Sum`, `Min`, `Max`, and `Average` selectors
+- projection members limited to `group.Key` for scalar keys, `group.Key.Member` for composite keys, `group.Count()`, and direct numeric grouped `Sum`, `Min`, `Max`, and `Average` selectors
 - grouped `Where(...)` predicates that compare `group.Key` or supported grouped aggregates and render as `HAVING`
 - post-projection grouped-row filtering, ordering, paging, `Count()`, and `Any()` when later operators bind to projected key or aggregate members
+- constructor-backed grouped projection rows when member or constructor parameter names are stable
 
-The parser records grouping as first-class plan state: a `GroupBy` operation, `Having` operations, `GroupKey` projection values, and grouped aggregate values. `QueryPlanSqlBuilder` renders explicit `GROUP BY`, `HAVING`, aggregate select-list aliases, raw grouped ordering expressions, and derived grouped scalar reductions for grouped-row `Count()` and `Any()`. `ExpressionQueryPlanExecutor` reads grouped projection aliases directly from `IDataLinqDataReader` and invokes the projection constructor; it does not route grouped rows through `RowData` or table caches.
+The parser records grouping as first-class plan state: a `GroupBy` operation, named grouped key members, an element binding context, `Having` operations, `GroupKey` projection values, and grouped aggregate values. The element binding context is either a root source slot or a joined projection whose members map back to source-slot values. `QueryPlanSqlBuilder` renders explicit `GROUP BY`, `HAVING`, aggregate select-list aliases, raw grouped ordering expressions, and derived grouped scalar reductions for grouped-row `Count()` and `Any()`. `ExpressionQueryPlanExecutor` reads grouped projection aliases directly from `IDataLinqDataReader` and invokes the projection constructor; it does not route grouped rows through `RowData` or table caches.
 
-Materialized `IGrouping<TKey,TElement>` sequences, grouped element enumeration, computed/composite keys, computed aggregate selectors, grouped joins, non-bindable grouped-row composition, and terminal operators other than grouped-row `Count()`/`Any()` remain outside the supported surface.
+Materialized `IGrouping<TKey,TElement>` sequences, grouped element enumeration, whole composite `group.Key` object projection, client-computed keys, computed aggregate selectors, collection relation grouping, non-bindable grouped-row composition, and terminal operators other than grouped-row `Count()`/`Any()` remain outside the supported surface.
 
 ### Explicit Joins
 

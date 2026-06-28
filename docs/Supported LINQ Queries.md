@@ -297,13 +297,18 @@ The test suite covers SQL-shaped `GroupBy(...)` aggregate projection:
 
 - a single DataLinq query source
 - optional `Where(...)` before `GroupBy(...)`
-- one direct mapped member key
+- direct mapped member keys
+- composite anonymous-object keys whose members are SQL-renderable
+- SQL-renderable computed key members such as supported date parts and string functions
+- grouping over supported explicit joined row projections
+- grouping over SQL-backed implicit singular relation traversal
 - immediate `Select(...)`
-- projection members limited to `group.Key`, `group.Count()`, and direct numeric grouped `Sum(...)`, `Min(...)`, `Max(...)`, and `Average(...)` selectors
+- projection members limited to `group.Key` for scalar keys, `group.Key.Member` for composite keys, `group.Count()`, and direct numeric grouped `Sum(...)`, `Min(...)`, `Max(...)`, and `Average(...)` selectors
 - nullable numeric selectors for the tested nullable numeric column shape
 - narrow `Where(group => ...)` predicates after `GroupBy(...)` when they compare `group.Key` or supported grouped aggregates
 - `Where(row => ...)`, ordering, `Skip(...)`, and `Take(...)` after grouped aggregate projection when later operators bind to projected key or aggregate members
 - `Count()` and `Any()` over grouped aggregate projection rows
+- constructor-backed DTO/record grouped projections when constructor parameter names are stable
 
 Example:
 
@@ -318,6 +323,24 @@ var countsByDepartment = db.Query().DepartmentEmployees
         MinEmployeeNumber = group.Min(row => row.emp_no),
         MaxEmployeeNumber = group.Max(row => row.emp_no),
         AverageEmployeeNumber = group.Average(row => row.emp_no)
+    })
+    .ToList();
+```
+
+Composite and computed keys project named key members:
+
+```csharp
+var hiringByDepartmentYear = db.Query().DepartmentEmployees
+    .GroupBy(row => new
+    {
+        row.dept_no,
+        FromYear = row.from_date.Year
+    })
+    .Select(group => new
+    {
+        DeptNo = group.Key.dept_no,
+        group.Key.FromYear,
+        Count = group.Count()
     })
     .ToList();
 ```
@@ -361,9 +384,11 @@ This is not general LINQ `GroupBy(...)` support. These grouped shapes remain uns
 - bare `GroupBy(...).ToList()`
 - materialized `IGrouping<TKey,TElement>` sequences
 - enumerating grouped elements inside the projection
-- computed or composite group keys
+- whole composite `group.Key` object projection; project `group.Key.Member` values instead
+- client-computed group keys that cannot render as SQL
 - computed grouped aggregate selectors such as `group.Sum(row => row.Value + 1)`
-- grouping over joined row shapes
+- grouping over row-local computed joined projection members
+- collection relation grouping
 - filters/orderings that require computed grouped-row members, grouped element enumeration, or client fallback
 - further `Where(...)` or ordering after `Skip(...)`/`Take(...)` over grouped projection rows
 
@@ -442,7 +467,7 @@ The test suite explicitly expects `NotSupportedException` for:
 
 The current docs do not claim support for these because this pass has not verified them rigorously enough:
 
-- broad `GroupBy(...)` beyond the direct-key grouped aggregate row shapes documented above
+- broad `GroupBy(...)` beyond the SQL-backed grouped aggregate row shapes documented above
 - `GroupJoin(...)`, outer joins, composite-key joins, and additional filtering/ordering/paging over joined results
 - aggregate operators over computed selectors or relation properties
 - relation-property projections inside provider `Select(...)` and relation traversal inside relation predicates

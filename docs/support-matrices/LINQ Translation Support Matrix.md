@@ -103,7 +103,7 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | Scalar projection | `Select(x => x.Property)` | `EmployeesQueryBehaviorTests.cs`, translation tests | Public docs match this. |
 | Anonymous projection | `Select(x => new { ... })` for simple property members and row-local computed expressions | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesProjectionTranslationTests.cs` | These are post-materialization projections, not SQL-backed `SELECT`-list expressions. Relation-property projections remain rejected to avoid hidden N+1 behavior. |
 | Computed scalar projection | row-local string concatenation and materialized member chains after SQL filtering, ordering, and paging | `Translation/EmployeesProjectionTranslationTests.cs` | Client projection is deliberate here. Do not generalize this to SQL predicate method translation. |
-| Grouped aggregate projection and composition | single-source `Where(...).GroupBy(directMember).Select(g => new { Key = g.Key, Count = g.Count(), Sum = g.Sum(row => row.Number), Min = g.Min(...), Max = g.Max(...), Average = g.Average(...) })`, narrow grouped `HAVING`, ordering/paging/filtering over projected grouped key or aggregate members, and grouped-row `Any()`/`Count()`, including `db.Query()` and `transaction.Query()` roots across active providers | `Translation/EmployeesGroupedAggregateTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs`, `Translation/ExpressionQueryPlanParserTests.cs` | This is SQL-backed grouped aggregate row materialization and composition, not materialized `IGrouping<TKey,TElement>` support. Computed keys, composite keys, computed aggregate selectors, grouped joins, grouped element enumeration, and non-bindable grouped-row composition remain rejected. |
+| Grouped aggregate projection and composition | SQL-backed grouped aggregate rows with direct, composite, and SQL-renderable computed keys; `group.Key` for scalar keys; `group.Key.Member` for composite keys; narrow grouped `HAVING`; ordering/paging/filtering over projected grouped key or aggregate members; grouped-row `Any()`/`Count()`; supported explicit joined projections and implicit singular relation traversal as grouping inputs; constructor-backed DTO/record projections; `db.Query()` and `transaction.Query()` roots across active providers | `Translation/EmployeesGroupedAggregateTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs`, `Translation/ExpressionQueryPlanParserTests.cs` | This is SQL-backed grouped aggregate row materialization and composition, not materialized `IGrouping<TKey,TElement>` support. Whole composite `group.Key` projection, client-computed keys, computed aggregate selectors, collection relation grouping, grouped element enumeration, and non-bindable grouped-row composition remain rejected. |
 | Views and primary-key lookup | querying generated views and direct `Get<T>(key)` lookup | `SeededEmployeesQueryTests.cs`, `EmployeesQueryBehaviorTests.cs` | Direct lookup is not a LINQ predicate but belongs in the surrounding query support docs. |
 
 ## Explicit Joins
@@ -117,7 +117,7 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 
 These shapes are intentionally not part of the documented support boundary today:
 
-- broad `GroupBy(...)` beyond the direct mapped key plus supported grouped aggregate row shapes documented above
+- broad `GroupBy(...)` beyond the SQL-backed grouped aggregate row shapes documented above
 - `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, query-syntax transparent identifiers, and post-paging composition over explicit joined results
 - relation-property query expansion beyond documented one-to-many existence predicates and the documented singular implicit predicate/ordering traversal
 - aggregate result operators over computed selectors, relation properties, or grouped aggregate shapes outside the documented direct numeric selector boundary
@@ -188,3 +188,13 @@ Phase 17 adds grouped row composition and `HAVING` coverage:
 4. Provider behavior tests compare grouped filtering, ordering, paging, `Any()`, and `Count()` with in-memory LINQ across SQLite, MySQL, and MariaDB.
 5. Transaction-root tests prove supported grouped composition executes from `transaction.Query()`.
 6. Unsupported-shape tests keep grouped element enumeration, unsupported grouped predicates, and terminal operators other than grouped-row `Any()`/`Count()` outside the documented boundary.
+
+Phase 18 adds advanced grouped key and joined grouping coverage:
+
+1. Composite anonymous-object keys record named key members and bind `group.Key.Member` explicitly.
+2. SQL-renderable computed keys reuse existing function plan values, with provider SQL-shape coverage proving each key appears in `GROUP BY`.
+3. Enum, nullable numeric, and string-function keys have provider behavior tests.
+4. Explicit joined projections can be grouped when key members and aggregate selectors map back to source-slot values.
+5. Implicit singular relation traversal can be used as a grouped key through the existing SQL-backed inner-join path.
+6. Constructor-backed grouped projections are covered through a record projection test.
+7. Unsupported diagnostics keep whole composite `group.Key` projection, client-computed keys, grouped element enumeration, and post-paging grouped composition outside the documented boundary.

@@ -427,6 +427,243 @@ public class EmployeesGroupedAggregateTranslationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task GroupedCompositeAndComputedKeys_MatchInMemoryResults(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(GroupedCompositeAndComputedKeys_MatchInMemoryResults),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().DepartmentEmployees
+            .ToList()
+            .GroupBy(row => new
+            {
+                row.dept_no,
+                FromYear = row.from_date.Year
+            })
+            .Select(group => new
+            {
+                DeptNo = group.Key.dept_no,
+                group.Key.FromYear,
+                Count = group.Count(),
+                SumEmployeeNumbers = group.Sum(row => row.emp_no)
+            })
+            .OrderBy(row => row.DeptNo, StringComparer.Ordinal)
+            .ThenBy(row => row.FromYear)
+            .ToArray();
+
+        var actual = employeesDatabase.Query().DepartmentEmployees
+            .GroupBy(row => new
+            {
+                row.dept_no,
+                FromYear = row.from_date.Year
+            })
+            .Select(group => new
+            {
+                DeptNo = group.Key.dept_no,
+                group.Key.FromYear,
+                Count = group.Count(),
+                SumEmployeeNumbers = group.Sum(row => row.emp_no)
+            })
+            .ToList()
+            .OrderBy(row => row.DeptNo, StringComparer.Ordinal)
+            .ThenBy(row => row.FromYear)
+            .ToArray();
+
+        await Assert.That(FormatCompositeGroups(actual)).IsEqualTo(FormatCompositeGroups(expected));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task GroupedEnumNullableAndStringFunctionKeys_MatchInMemoryResults(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(GroupedEnumNullableAndStringFunctionKeys_MatchInMemoryResults),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().Employees
+            .ToList()
+            .GroupBy(row => new
+            {
+                row.gender,
+                row.emp_no,
+                FirstNameLength = row.first_name.Length
+            })
+            .Select(group => new
+            {
+                Gender = group.Key.gender,
+                EmployeeNumber = group.Key.emp_no,
+                group.Key.FirstNameLength,
+                Count = group.Count()
+            })
+            .OrderBy(row => row.Gender)
+            .ThenBy(row => row.EmployeeNumber)
+            .ThenBy(row => row.FirstNameLength)
+            .ToArray();
+
+        var actual = employeesDatabase.Query().Employees
+            .GroupBy(row => new
+            {
+                row.gender,
+                row.emp_no,
+                FirstNameLength = row.first_name.Length
+            })
+            .Select(group => new
+            {
+                Gender = group.Key.gender,
+                EmployeeNumber = group.Key.emp_no,
+                group.Key.FirstNameLength,
+                Count = group.Count()
+            })
+            .ToList()
+            .OrderBy(row => row.Gender)
+            .ThenBy(row => row.EmployeeNumber)
+            .ThenBy(row => row.FirstNameLength)
+            .ToArray();
+
+        await Assert.That(FormatMixedKeyGroups(actual)).IsEqualTo(FormatMixedKeyGroups(expected));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task GroupedConstructorProjection_OverCompositeKey_MatchesInMemoryResults(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(GroupedConstructorProjection_OverCompositeKey_MatchesInMemoryResults),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().DepartmentEmployees
+            .ToList()
+            .GroupBy(row => new
+            {
+                row.dept_no,
+                FromYear = row.from_date.Year
+            })
+            .Select(group => new DepartmentYearGroup(
+                group.Key.dept_no,
+                group.Key.FromYear,
+                group.Count()))
+            .OrderBy(row => row.DeptNo, StringComparer.Ordinal)
+            .ThenBy(row => row.FromYear)
+            .ToArray();
+
+        var actual = employeesDatabase.Query().DepartmentEmployees
+            .GroupBy(row => new
+            {
+                row.dept_no,
+                FromYear = row.from_date.Year
+            })
+            .Select(group => new DepartmentYearGroup(
+                group.Key.dept_no,
+                group.Key.FromYear,
+                group.Count()))
+            .ToList()
+            .OrderBy(row => row.DeptNo, StringComparer.Ordinal)
+            .ThenBy(row => row.FromYear)
+            .ToArray();
+
+        await Assert.That(string.Join("|", actual)).IsEqualTo(string.Join("|", expected));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task GroupedExplicitJoinKeys_MatchInMemoryResults(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(GroupedExplicitJoinKeys_MatchInMemoryResults),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().DepartmentEmployees
+            .ToList()
+            .Join(
+                employeesDatabase.Query().Departments.ToList(),
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    DepartmentName = department.Name
+                })
+            .GroupBy(row => row.DepartmentName)
+            .Select(group => new
+            {
+                DepartmentName = group.Key,
+                Count = group.Count(),
+                SumEmployeeNumbers = group.Sum(row => row.emp_no)
+            })
+            .OrderBy(row => row.DepartmentName, StringComparer.Ordinal)
+            .ToArray();
+
+        var actual = employeesDatabase.Query().DepartmentEmployees
+            .Join(
+                employeesDatabase.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    DepartmentName = department.Name
+                })
+            .GroupBy(row => row.DepartmentName)
+            .Select(group => new
+            {
+                DepartmentName = group.Key,
+                Count = group.Count(),
+                SumEmployeeNumbers = group.Sum(row => row.emp_no)
+            })
+            .ToList()
+            .OrderBy(row => row.DepartmentName, StringComparer.Ordinal)
+            .ToArray();
+
+        await Assert.That(FormatDepartmentNameGroups(actual)).IsEqualTo(FormatDepartmentNameGroups(expected));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task GroupedImplicitRelationKey_WorksFromTransactionRoot(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(GroupedImplicitRelationKey_WorksFromTransactionRoot),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        using var transaction = employeesDatabase.Transaction();
+
+        var readOnly = employeesDatabase.Query().DepartmentEmployees
+            .GroupBy(row => row.departments.Name)
+            .Select(group => new
+            {
+                DepartmentName = group.Key,
+                Count = group.Count()
+            })
+            .ToList()
+            .OrderBy(row => row.DepartmentName, StringComparer.Ordinal)
+            .ToArray();
+
+        var transactionRows = transaction.Query().DepartmentEmployees
+            .GroupBy(row => row.departments.Name)
+            .Select(group => new
+            {
+                DepartmentName = group.Key,
+                Count = group.Count()
+            })
+            .ToList()
+            .OrderBy(row => row.DepartmentName, StringComparer.Ordinal)
+            .ToArray();
+
+        await Assert.That(FormatDepartmentNameGroups(transactionRows)).IsEqualTo(FormatDepartmentNameGroups(readOnly));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedCountProjection_RendersGroupBySql(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -535,6 +772,60 @@ public class EmployeesGroupedAggregateTranslationTests
         await Assert.That(countNormalized).Contains("HAVING");
     }
 
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task GroupedAdvancedKeys_RenderSqlShape(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(GroupedAdvancedKeys_RenderSqlShape),
+            EmployeesSeedMode.Bogus);
+
+        var compositeQuery = databaseScope.Database.Query().DepartmentEmployees
+            .GroupBy(row => new
+            {
+                row.dept_no,
+                FromYear = row.from_date.Year
+            })
+            .Select(group => new
+            {
+                DeptNo = group.Key.dept_no,
+                group.Key.FromYear,
+                Count = group.Count()
+            });
+
+        var compositeSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(databaseScope.Database, compositeQuery);
+        var compositeNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(compositeSql.Text);
+
+        await Assert.That(compositeNormalized).Contains("GROUP BY");
+        await Assert.That(compositeNormalized).Contains("dept_no");
+        await Assert.That(compositeNormalized).Contains("from_date");
+
+        var joinedQuery = databaseScope.Database.Query().DepartmentEmployees
+            .Join(
+                databaseScope.Database.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    DepartmentName = department.Name
+                })
+            .GroupBy(row => row.DepartmentName)
+            .Select(group => new
+            {
+                DepartmentName = group.Key,
+                Count = group.Count()
+            });
+
+        var joinedSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(databaseScope.Database, joinedQuery);
+        var joinedNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(joinedSql.Text);
+
+        await Assert.That(joinedNormalized).Contains("JOIN");
+        await Assert.That(joinedNormalized).Contains("GROUP BY");
+        await Assert.That(joinedNormalized).Contains("dept_name");
+    }
+
     private static string FormatGroups<T>(T[] groups)
     {
         return string.Join(
@@ -562,6 +853,54 @@ public class EmployeesGroupedAggregateTranslationTests
             }));
     }
 
+    private static string FormatCompositeGroups<T>(T[] groups)
+    {
+        return string.Join(
+            "|",
+            groups.Select(group =>
+            {
+                var type = group!.GetType();
+                var deptNo = type.GetProperty("DeptNo")!.GetValue(group);
+                var fromYear = type.GetProperty("FromYear")!.GetValue(group);
+                var count = type.GetProperty("Count")!.GetValue(group);
+                var sumEmployeeNumbers = type.GetProperty("SumEmployeeNumbers")!.GetValue(group);
+                return $"{deptNo}:{fromYear}:{count}:{sumEmployeeNumbers}";
+            }));
+    }
+
+    private static string FormatMixedKeyGroups<T>(T[] groups)
+    {
+        return string.Join(
+            "|",
+            groups.Select(group =>
+            {
+                var type = group!.GetType();
+                var gender = type.GetProperty("Gender")!.GetValue(group);
+                var employeeNumber = type.GetProperty("EmployeeNumber")!.GetValue(group);
+                var firstNameLength = type.GetProperty("FirstNameLength")!.GetValue(group);
+                var count = type.GetProperty("Count")!.GetValue(group);
+                return $"{gender}:{employeeNumber}:{firstNameLength}:{count}";
+            }));
+    }
+
+    private static string FormatDepartmentNameGroups<T>(T[] groups)
+    {
+        return string.Join(
+            "|",
+            groups.Select(group =>
+            {
+                var type = group!.GetType();
+                var departmentName = type.GetProperty("DepartmentName")!.GetValue(group);
+                var count = type.GetProperty("Count")!.GetValue(group);
+                var sumEmployeeNumbers = type.GetProperty("SumEmployeeNumbers")?.GetValue(group);
+                return sumEmployeeNumbers is null
+                    ? $"{departmentName}:{count}"
+                    : $"{departmentName}:{count}:{sumEmployeeNumbers}";
+            }));
+    }
+
     private static bool NearlyEqual(double actual, double expected)
         => Math.Abs(actual - expected) < 0.0001;
+
+    private sealed record DepartmentYearGroup(string DeptNo, int FromYear, int Count);
 }

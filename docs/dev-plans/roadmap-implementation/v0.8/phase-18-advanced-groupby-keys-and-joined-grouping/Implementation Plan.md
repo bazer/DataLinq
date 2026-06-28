@@ -3,7 +3,7 @@
 
 # Phase 18 Implementation Plan
 
-**Status:** In progress.
+**Status:** Complete.
 
 ## Objective
 
@@ -24,15 +24,15 @@ Phase 18 needs a grouping binding model, not more ad hoc expression checks:
 
 ## Work Items
 
-- [ ] Extend the grouping plan model with named key members and an element-binding context.
-- [ ] Parse direct, composite anonymous-object, and SQL-renderable computed group keys.
-- [ ] Bind `group.Key.Member` in grouped projections, grouped predicates, and grouped ordering.
-- [ ] Support grouped aggregate selectors over joined projection members when they map to source-slot numeric values.
-- [ ] Allow grouping after supported explicit joined-row projections and SQL-backed implicit singular relation traversal.
-- [ ] Keep whole composite `group.Key` projection, grouped element enumeration, client-computed keys, collection relation grouping, and non-bindable joined projection members rejected.
-- [ ] Add provider behavior tests for composite keys, computed keys, enum/nullable/string keys, explicit joined grouping, and implicit relation grouping.
-- [ ] Add plan snapshot and SQL-shape tests proving named key members and joined source-slot grouping.
-- [ ] Update the phase README, roadmap pages, public LINQ docs, support matrix, and internals docs for the exact supported boundary.
+- [x] Extend the grouping plan model with named key members and an element-binding context.
+- [x] Parse direct, composite anonymous-object, and SQL-renderable computed group keys.
+- [x] Bind `group.Key.Member` in grouped projections, grouped predicates, and grouped ordering.
+- [x] Support grouped aggregate selectors over joined projection members when they map to source-slot numeric values.
+- [x] Allow grouping after supported explicit joined-row projections and SQL-backed implicit singular relation traversal.
+- [x] Keep whole composite `group.Key` projection, grouped element enumeration, client-computed keys, collection relation grouping, and non-bindable joined projection members rejected.
+- [x] Add provider behavior tests for composite keys, computed keys, enum/nullable/string keys, explicit joined grouping, and implicit relation grouping.
+- [x] Add plan snapshot and SQL-shape tests proving named key members and joined source-slot grouping.
+- [x] Update the phase README, roadmap pages, public LINQ docs, support matrix, and internals docs for the exact supported boundary.
 
 ## Guardrails
 
@@ -45,8 +45,10 @@ Phase 18 needs a grouping binding model, not more ad hoc expression checks:
 
 ## Verification Plan
 
-- Build `src\DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj`.
-- Run the grouped aggregate compliance filter across active providers.
-- Run parser and snapshot compliance filters.
-- Run unsupported diagnostics focused on GroupBy and grouped projection shapes.
-- Run explicit/implicit join filters if joined grouping touches shared join binding behavior.
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj -v:minimal`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesGroupedAggregateTranslationTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSnapshotTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/ExpressionQueryPlanParserTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesUnsupportedQueryDiagnosticsTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesJoinTranslationTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesImplicitRelationJoinTests/*" --output failures --build`

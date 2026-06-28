@@ -309,6 +309,91 @@ bindings:
     }
 
     [Test]
+    public async Task GroupedCompositeAndComputedKeySnapshot_RecordsNamedKeyMembers()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(GroupedCompositeAndComputedKeySnapshot_RecordsNamedKeyMembers),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().DepartmentEmployees
+            .GroupBy(row => new
+            {
+                row.dept_no,
+                FromYear = row.from_date.Year
+            })
+            .Select(group => new
+            {
+                DeptNo = group.Key.dept_no,
+                group.Key.FromYear,
+                Count = group.Count()
+            });
+
+        var snapshot = Snapshot(databaseScope.Database, query);
+
+        await AssertSnapshot(snapshot, """
+query-plan v0
+sources:
+  s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
+operations:
+  group-by column(s0.dept_no:String), function(date-part-year:Int32 column(s0.from_date:DateOnly))
+projection:
+  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), FromYear=group-key(function(date-part-year:Int32 column(s0.from_date:DateOnly)):Int32), Count=grouped-aggregate(count:Int32)]
+result:
+  sequence type=anonymous
+bindings:
+  none
+""");
+        await AssertNoLegacyParserTerms(snapshot);
+    }
+
+    [Test]
+    public async Task GroupedJoinedKeySnapshot_RecordsJoinedSourceSlotKey()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(GroupedJoinedKeySnapshot_RecordsJoinedSourceSlotKey),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().DepartmentEmployees
+            .Join(
+                databaseScope.Database.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    DepartmentName = department.Name
+                })
+            .GroupBy(row => row.DepartmentName)
+            .Select(group => new
+            {
+                DepartmentName = group.Key,
+                Count = group.Count(),
+                SumEmployeeNumbers = group.Sum(row => row.emp_no)
+            });
+
+        var snapshot = Snapshot(databaseScope.Database, query);
+
+        await AssertSnapshot(snapshot, """
+query-plan v0
+sources:
+  s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
+  s1 explicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
+operations:
+  join inner column(s0.dept_no:String) = column(s1.dept_no:String)
+  group-by column(s1.dept_name:String)
+projection:
+  grouped-aggregate type=anonymous source=s0 members=[DepartmentName=group-key(column(s1.dept_name:String):String), Count=grouped-aggregate(count:Int32), SumEmployeeNumbers=grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32))]
+result:
+  sequence type=anonymous
+bindings:
+  none
+""");
+        await AssertNoLegacyParserTerms(snapshot);
+    }
+
+    [Test]
     public async Task NegatedFunctionPredicateSnapshot_RecordsNotNode()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

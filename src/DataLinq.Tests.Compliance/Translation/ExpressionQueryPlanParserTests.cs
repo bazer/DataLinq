@@ -129,6 +129,41 @@ public class ExpressionQueryPlanParserTests
                 })
                 .Where(row => row.Count > 0)
                 .Count());
+
+        await AssertParserProducesDataLinqPlan(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(row => new
+                {
+                    row.dept_no,
+                    FromYear = row.from_date.Year
+                })
+                .Select(group => new
+                {
+                    DeptNo = group.Key.dept_no,
+                    group.Key.FromYear,
+                    Count = group.Count()
+                }));
+
+        await AssertParserProducesDataLinqPlan(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees
+                .Join(
+                    databaseScope.Database.Query().Departments,
+                    departmentEmployee => departmentEmployee.dept_no,
+                    department => department.DeptNo,
+                    (departmentEmployee, department) => new
+                    {
+                        departmentEmployee.emp_no,
+                        DepartmentName = department.Name
+                    })
+                .GroupBy(row => row.DepartmentName)
+                .Select(group => new
+                {
+                    DepartmentName = group.Key,
+                    Count = group.Count(),
+                    SumEmployeeNumbers = group.Sum(row => row.emp_no)
+                }));
     }
 
     [Test]
@@ -395,6 +430,14 @@ public class ExpressionQueryPlanParserTests
                 .Select(group => new { group.Key, Count = group.Count() }),
             "Grouped predicate expression",
             "Only comparisons over group.Key");
+
+        await AssertParserFailure(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => new { x.dept_no, x.emp_no })
+                .Select(group => new { group.Key, Count = group.Count() }),
+            "Whole composite group.Key projection",
+            "group.Key.Member");
 
         await AssertParserFailure(
             databaseScope.Database,

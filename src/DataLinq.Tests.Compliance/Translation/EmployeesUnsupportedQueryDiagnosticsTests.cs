@@ -106,19 +106,19 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().DepartmentEmployees
-                .GroupBy(x => x.dept_no.Substring(0, 1))
-                .Select(group => new { DeptNo = group.Key, Count = group.Count() })
+                .GroupBy(x => FormatDepartment(x.dept_no))
+                .Select(group => new { Prefix = group.Key, Count = group.Count() })
                 .ToList(),
-            "GroupBy key selector",
-            "direct mapped member");
+            "GroupBy key member",
+            "supported SQL-renderable functions");
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().DepartmentEmployees
                 .GroupBy(x => new { x.dept_no, x.emp_no })
                 .Select(group => new { group.Key, Count = group.Count() })
                 .ToList(),
-            "GroupBy key selector",
-            "direct mapped member");
+            "Whole composite group.Key projection",
+            "group.Key.Member");
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().DepartmentEmployees
@@ -169,7 +169,7 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
                 .GroupBy(x => x.dept_no)
                 .Select(group => new { group.Key, Count = group.Count() })
                 .ToList(),
-            "GroupBy is only supported after direct source queries or Where predicates",
+            "GroupBy is only supported after direct source queries, supported joined row projections, and Where predicates",
             "OrderBy");
     }
 
@@ -256,6 +256,9 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
 
     private static bool HasKnownPrefix(string value)
         => value.StartsWith("A", StringComparison.Ordinal);
+
+    private static string FormatDepartment(string departmentNumber)
+        => departmentNumber.Substring(0, 1);
 
     private static async Task AssertTranslationFailure(Action action, params string[] expectedMessageFragments)
     {

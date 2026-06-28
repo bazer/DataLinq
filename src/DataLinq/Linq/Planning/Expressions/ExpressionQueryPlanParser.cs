@@ -280,7 +280,6 @@ internal sealed class ExpressionQueryPlanParser
     {
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
-        RejectPostJoinOperator(methodCall.Method.Name);
         var selector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
         if (selector.Parameters.Count != 1)
             throw new QueryTranslationException($"Select selector '{selector}' is not supported.");
@@ -296,6 +295,8 @@ internal sealed class ExpressionQueryPlanParser
             };
         }
 
+        RejectPostJoinOperator(methodCall.Method.Name);
+
         QueryPlanProjection projection = null!;
         WithSource(selector.Parameters[0], parsed.RootSource, () =>
             projection = CreateProjection(selector.Body, selector.ReturnType));
@@ -307,41 +308,166 @@ internal sealed class ExpressionQueryPlanParser
     {
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
-        RejectPostJoinOperator(methodCall.Method.Name);
-        RejectProjectedOperator(parsed, methodCall.Method.Name);
         RejectGroupedOperator(parsed, methodCall.Method.Name);
-
-        if (operations.Any(static operation => operation is not QueryPlanOperation.Where))
-        {
-            throw new QueryTranslationException(
-                "GroupBy is only supported after direct source queries or Where predicates by the DataLinq expression parser. " +
-                $"Expression: {methodCall}");
-        }
 
         var keySelector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
         if (keySelector.Parameters.Count != 1)
             throw new QueryTranslationException($"GroupBy key selector '{keySelector}' is not supported.");
 
-        QueryPlanValue key = null!;
-        WithSource(keySelector.Parameters[0], parsed.RootSource, () =>
-        {
-            var keyBody = UnwrapConvert(keySelector.Body);
-            if (!TryGetColumnValue(keyBody, out var column))
-            {
-                throw new QueryTranslationException(
-                    $"GroupBy key selector '{keySelector}' is not supported by the DataLinq expression parser. " +
-                    "Only direct mapped member keys are supported.");
-            }
+        var keyMembers = CreateGroupKeyMembers(parsed, keySelector);
+        RejectUnsupportedGroupByOperations(methodCall);
 
-            key = column;
-        });
-
-        operations.Add(new QueryPlanOperation.GroupBy([key]));
+        operations.Add(new QueryPlanOperation.GroupBy(keyMembers.Select(static key => key.Value)));
         return parsed with
         {
             ElementType = GetQueryableElementType(methodCall.Type),
-            Grouping = new QueryPlanGrouping(parsed.RootSource, key)
+            Grouping = new QueryPlanGrouping(parsed.RootSource, keyMembers, parsed.Projection)
         };
+    }
+
+    private IReadOnlyList<QueryPlanGroupKeyMember> CreateGroupKeyMembers(
+        ParsedQuery parsed,
+        LambdaExpression keySelector)
+    {
+        return WithGroupingInput(keySelector.Parameters[0], parsed, () =>
+            CreateGroupKeyMembers(UnwrapConvert(keySelector.Body), keySelector));
+    }
+
+    private IReadOnlyList<QueryPlanGroupKeyMember> CreateGroupKeyMembers(
+        Expression keyBody,
+        LambdaExpression keySelector)
+    {
+        if (keyBody is NewExpression newExpression)
+        {
+            var names = GetStableNewExpressionNames(newExpression);
+            if (names is null || names.Length != newExpression.Arguments.Count)
+            {
+                throw new QueryTranslationException(
+                    $"GroupBy key selector '{keySelector}' is not supported by the DataLinq expression parser. " +
+                    "Composite group keys must use named anonymous-object or constructor parameters.");
+            }
+
+            var members = new List<QueryPlanGroupKeyMember>(newExpression.Arguments.Count);
+            for (var index = 0; index < newExpression.Arguments.Count; index++)
+            {
+                members.Add(CreateGroupKeyMember(
+                    names[index],
+                    UnwrapConvert(newExpression.Arguments[index]),
+                    keySelector));
+            }
+
+            return members;
+        }
+
+        return [CreateGroupKeyMember("Key", keyBody, keySelector)];
+    }
+
+    private QueryPlanGroupKeyMember CreateGroupKeyMember(
+        string name,
+        Expression expression,
+        LambdaExpression keySelector)
+    {
+        if (!ContainsQueryReference(expression))
+        {
+            throw new QueryTranslationException(
+                $"GroupBy key selector '{keySelector}' is not supported by the DataLinq expression parser. " +
+                "Group key members must reference the query source.");
+        }
+
+        QueryPlanValue value;
+        try
+        {
+            value = ConvertValue(expression);
+        }
+        catch (QueryTranslationException exception)
+        {
+            throw new QueryTranslationException(
+                $"GroupBy key member '{name}' with value '{expression}' is not supported by the DataLinq expression parser. " +
+                "Only direct source-slot values and supported SQL-renderable functions are supported.",
+                exception);
+        }
+
+        if (!IsSqlRenderableGroupKeyValue(value))
+        {
+            throw new QueryTranslationException(
+                $"GroupBy key member '{name}' with value '{expression}' is not supported by the DataLinq expression parser. " +
+                "Only direct source-slot values and supported SQL-renderable functions are supported.");
+        }
+
+        return new QueryPlanGroupKeyMember(name, value, expression.Type);
+    }
+
+    private TResult WithGroupingInput<TResult>(
+        ParameterExpression parameter,
+        ParsedQuery parsed,
+        Func<TResult> action)
+    {
+        if (CanBindProjectionParameter(parsed))
+            return WithProjection(parameter, parsed.Projection!, action);
+
+        if (parsed.Projection is not null and not QueryPlanProjection.Entity)
+        {
+            throw new QueryTranslationException(
+                $"GroupBy after projection '{parsed.Projection.Kind}' is not supported by the DataLinq expression parser. " +
+                "Only direct sources and supported joined row projections can be grouped.");
+        }
+
+        return WithSource(parameter, parsed.RootSource, action);
+    }
+
+    private void RejectUnsupportedGroupByOperations(MethodCallExpression methodCall)
+    {
+        if (operations.Any(static operation =>
+                operation is QueryPlanOperation.OrderBy or
+                    QueryPlanOperation.Skip or
+                    QueryPlanOperation.Take or
+                    QueryPlanOperation.Pushdown or
+                    QueryPlanOperation.GroupBy or
+                    QueryPlanOperation.Having))
+        {
+            throw new QueryTranslationException(
+                "GroupBy is only supported after direct source queries, supported joined row projections, and Where predicates by the DataLinq expression parser. " +
+                $"Expression: {methodCall}");
+        }
+    }
+
+    private static bool IsSqlRenderableGroupKeyValue(QueryPlanValue value)
+    {
+        value = UnwrapConvertedValue(value);
+
+        return value switch
+        {
+            QueryPlanColumnValue => true,
+            QueryPlanFunctionValue function => IsSqlRenderableGroupKeyFunction(function),
+            _ => false
+        };
+    }
+
+    private static bool IsSqlRenderableGroupKeyFunction(QueryPlanFunctionValue function)
+    {
+        return function.Function is
+            QueryPlanFunctionKind.StringLength or
+            QueryPlanFunctionKind.StringTrim or
+            QueryPlanFunctionKind.StringToUpper or
+            QueryPlanFunctionKind.StringToLower or
+            QueryPlanFunctionKind.StringSubstring or
+            QueryPlanFunctionKind.DatePartYear or
+            QueryPlanFunctionKind.DatePartMonth or
+            QueryPlanFunctionKind.DatePartDay or
+            QueryPlanFunctionKind.DatePartDayOfYear or
+            QueryPlanFunctionKind.DatePartDayOfWeek or
+            QueryPlanFunctionKind.TimePartHour or
+            QueryPlanFunctionKind.TimePartMinute or
+            QueryPlanFunctionKind.TimePartSecond or
+            QueryPlanFunctionKind.TimePartMillisecond;
+    }
+
+    private static QueryPlanValue UnwrapConvertedValue(QueryPlanValue value)
+    {
+        while (value is QueryPlanConvertedValue converted)
+            value = converted.Value;
+
+        return value;
     }
 
     private ParsedQuery ParseJoin(MethodCallExpression methodCall)
@@ -533,12 +659,12 @@ internal sealed class ExpressionQueryPlanParser
                 "The projection must use a constructor-backed new-object expression.");
         }
 
-        var names = newExpression.Members?.Select(static member => member.Name).ToArray();
+        var names = GetStableNewExpressionNames(newExpression);
         if (names is null || names.Length != newExpression.Arguments.Count)
         {
             throw new QueryTranslationException(
                 $"Grouped aggregate Select projection '{selector}' is not supported by the DataLinq expression parser. " +
-                "Projection members must have stable names.");
+                "Projection members must have stable member or constructor parameter names.");
         }
 
         var members = new List<QueryPlanProjectionMember>(newExpression.Arguments.Count);
@@ -559,10 +685,18 @@ internal sealed class ExpressionQueryPlanParser
         ParameterExpression groupParameter,
         QueryPlanGrouping grouping)
     {
+        if (TryGetGroupedKeyMemberValue(expression, groupParameter, grouping, out var keyMemberValue))
+            return keyMemberValue;
+
         if (expression is MemberExpression { Member.Name: "Key" } memberExpression &&
             UnwrapConvert(memberExpression.Expression!) == groupParameter)
         {
-            return new QueryPlanGroupKeyValue(grouping.Key, memberExpression.Type);
+            if (grouping.Keys.Count == 1)
+                return new QueryPlanGroupKeyValue(grouping.Keys[0].Value, memberExpression.Type);
+
+            throw new QueryTranslationException(
+                "Whole composite group.Key projection is not supported by the DataLinq expression parser. " +
+                "Project named members such as group.Key.Member instead.");
         }
 
         if (expression is MethodCallExpression methodCall &&
@@ -583,7 +717,7 @@ internal sealed class ExpressionQueryPlanParser
             if (selector.Parameters.Count != 1)
                 throw new QueryTranslationException($"Grouped aggregate selector '{selector}' is not supported.");
 
-            var aggregateSelector = WithSource(selector.Parameters[0], grouping.Source, () =>
+            var aggregateSelector = WithGroupedElement(selector.Parameters[0], grouping, () =>
                 GetDirectAggregateSelector(selector.Body, aggregateCall.Method.Name));
 
             return new QueryPlanGroupedAggregateValue(aggregateKind, aggregateCall.Type, aggregateSelector);
@@ -592,6 +726,48 @@ internal sealed class ExpressionQueryPlanParser
         throw new QueryTranslationException(
             $"Grouped aggregate projection member '{expression}' is not supported by the DataLinq expression parser. " +
             "Only group.Key, group.Count(), and direct numeric grouped aggregate selectors are supported.");
+    }
+
+    private bool TryGetGroupedKeyMemberValue(
+        Expression expression,
+        ParameterExpression groupParameter,
+        QueryPlanGrouping grouping,
+        out QueryPlanValue value)
+    {
+        expression = UnwrapConvert(expression);
+        if (expression is MemberExpression keyMember &&
+            keyMember.Expression is MemberExpression { Member.Name: "Key" } keyAccess &&
+            UnwrapConvert(keyAccess.Expression!) == groupParameter)
+        {
+            var matches = grouping.Keys
+                .Where(member => member.Name == keyMember.Member.Name)
+                .Take(2)
+                .ToArray();
+
+            value = matches.Length switch
+            {
+                1 => new QueryPlanGroupKeyValue(matches[0].Value, keyMember.Type),
+                0 => throw new QueryTranslationException(
+                    $"Grouped key member '{keyMember.Member.Name}' is not available in this GroupBy key."),
+                _ => throw new QueryTranslationException(
+                    $"Grouped key member '{keyMember.Member.Name}' is ambiguous in this GroupBy key.")
+            };
+            return true;
+        }
+
+        value = null!;
+        return false;
+    }
+
+    private TResult WithGroupedElement<TResult>(
+        ParameterExpression parameter,
+        QueryPlanGrouping grouping,
+        Func<TResult> action)
+    {
+        if (grouping.ElementProjection is not null)
+            return WithProjection(parameter, grouping.ElementProjection, action);
+
+        return WithSource(parameter, grouping.Source, action);
     }
 
     private static bool TryGetGroupedAggregateKind(string methodName, out QueryPlanGroupedAggregateKind aggregateKind)
@@ -691,8 +867,11 @@ internal sealed class ExpressionQueryPlanParser
             selector = memberExpression.Expression;
         }
 
-        if (TryGetColumnValue(selector, out var value))
+        if (TryConvertValue(selector, out var value) &&
+            UnwrapConvertedValue(value) is QueryPlanColumnValue)
+        {
             return value;
+        }
 
         throw new QueryTranslationException(
             $"Aggregate selector '{selector}' is not supported for '{operatorName}' by the DataLinq expression parser. " +
@@ -701,7 +880,7 @@ internal sealed class ExpressionQueryPlanParser
 
     private bool TryCreateProjectionMembers(NewExpression newExpression, out IReadOnlyList<QueryPlanProjectionMember> members)
     {
-        var names = newExpression.Members?.Select(static member => member.Name).ToArray();
+        var names = GetStableNewExpressionNames(newExpression);
         if (names is null || names.Length != newExpression.Arguments.Count)
         {
             members = [];
@@ -722,6 +901,22 @@ internal sealed class ExpressionQueryPlanParser
 
         members = projectionMembers;
         return true;
+    }
+
+    private static string[]? GetStableNewExpressionNames(NewExpression newExpression)
+    {
+        if (newExpression.Members is { Count: > 0 } members)
+            return members.Select(static member => member.Name).ToArray();
+
+        var parameters = newExpression.Constructor?.GetParameters();
+        if (parameters is null || parameters.Length == 0)
+            return null;
+
+        var names = parameters.Select(static parameter => parameter.Name).ToArray();
+        if (names.Any(static name => string.IsNullOrWhiteSpace(name)))
+            return null;
+
+        return names.Select(static name => name!).ToArray();
     }
 
     private QueryPlanPredicate ConvertPredicate(Expression expression, bool isNegated = false)
@@ -2283,7 +2478,12 @@ internal sealed class ExpressionQueryPlanParser
         QueryPlanResult? Result = null,
         QueryPlanGrouping? Grouping = null);
 
-    private sealed record QueryPlanGrouping(QueryPlanSourceSlot Source, QueryPlanValue Key);
+    private sealed record QueryPlanGrouping(
+        QueryPlanSourceSlot Source,
+        IReadOnlyList<QueryPlanGroupKeyMember> Keys,
+        QueryPlanProjection? ElementProjection);
+
+    private sealed record QueryPlanGroupKeyMember(string Name, QueryPlanValue Value, Type ClrType);
 
     private readonly record struct ImplicitRelationJoinKey(string ParentSourceId, string RelationPropertyName);
 

@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 18: Advanced GroupBy Keys and Joined Grouping
 
-**Status:** Planned after grouped-row composition and HAVING.
+**Status:** Implemented for named SQL-renderable keys and supported joined grouping.
 
 ## Purpose
 
@@ -28,6 +28,8 @@ var departmentHiring = db.Query().DepartmentEmployees
 
 It also covers grouping over joined row shapes after Phase 14 and Phase 15 have made joined source-slot binding stable.
 
+Implemented joined grouping is still narrow: explicit joined projections and implicit singular relation traversal must bind to source-slot values. Row-local joined projection members and collection relations stay rejected.
+
 ## Scope
 
 In scope:
@@ -37,9 +39,8 @@ In scope:
 - grouping over explicit joined row shapes
 - grouping over supported implicit singular relation joins when the relation path is already SQL-backed
 - projection binding for `group.Key.Member`
-- enum, nullable, and string key behavior with provider-matrix tests
-- provider-semantics tests for null grouping and collation-sensitive string grouping
-- DTO and record-style grouped projections where constructor binding is explicit and AOT-safe
+- enum, nullable numeric, and string-function key behavior with provider-matrix tests
+- DTO and record-style grouped projections where constructor binding is explicit
 
 Out of scope:
 
@@ -50,6 +51,7 @@ Out of scope:
 - broad nested database subqueries inside group keys
 - non-SQL backend grouping semantics
 - implicit client fallback when a key cannot be rendered to SQL
+- whole composite `group.Key` object projection; project `group.Key.Member` values instead
 
 ## Design Requirements
 
@@ -69,15 +71,25 @@ Joined grouping needs source-slot discipline:
 
 ## Verification
 
-Required tests:
+Implemented tests:
 
 - plan snapshots for composite keys, computed keys, and joined grouping
 - SQL-shape tests proving every grouped key expression appears in `GROUP BY`
 - behavior tests across SQLite, MySQL, and MariaDB
-- null, enum, and string key grouping tests
+- enum, nullable numeric, and string-function key grouping tests
 - joined grouping tests from both `db.Query()` and `transaction.Query()`
-- AOT/trimming-sensitive projection tests for supported DTO or record projections
+- constructor-backed DTO or record projection tests
 - unsupported diagnostics for non-renderable computed keys, client methods, collection relation grouping, and grouped element enumeration
+
+Focused verification passed:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj -v:minimal`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesGroupedAggregateTranslationTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSnapshotTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/ExpressionQueryPlanParserTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesUnsupportedQueryDiagnosticsTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesJoinTranslationTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesImplicitRelationJoinTests/*" --output failures --build`
 
 ## Exit Criteria
 
@@ -86,6 +98,6 @@ Phase 18 is done when:
 - composite and computed SQL-renderable keys work in grouped aggregate projections
 - `group.Key.Member` projection is explicit and tested
 - grouping over supported joined row shapes works without client fallback
-- provider-specific null/string/enum grouping behavior is documented by tests
+- provider-specific enum, nullable numeric, and string-function grouping behavior is documented by tests
 - unsupported advanced grouped shapes fail with DataLinq diagnostics
 - public docs and the support matrix describe advanced grouped aggregate support without claiming provider-side `IGrouping` materialization
