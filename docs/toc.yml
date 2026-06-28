@@ -75,6 +75,8 @@
       href: internals/Source Generator.md
     - name: Query Translator
       href: internals/Query Translator.md
+    - name: LINQ Parser Architecture
+      href: internals/LINQ Parser Architecture.md
 - name: Contributing
   expanded: true
   items:

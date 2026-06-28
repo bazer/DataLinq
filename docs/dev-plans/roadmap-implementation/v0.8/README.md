@@ -46,6 +46,8 @@ Phase 7 closed the parser-removal track. The current branch has:
 
 That closes the 0.8 parser-removal goal. It does not make arbitrary LINQ supported, and it does not resolve the separate SQLitePCLRaw WebAssembly warning story.
 
+The current public architecture description is [LINQ Parser Architecture](../../../internals/LINQ%20Parser%20Architecture.md). Treat that page, [Supported LINQ Queries](../../../Supported%20LINQ%20Queries.md), and the [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md) as the current-state handoff from this execution plan. The files in this folder explain how the parser got here; the public docs explain what the parser is now.
+
 ## Sequential Rule
 
 Each phase should leave the repo in a defensible state:
@@ -97,6 +99,7 @@ The 0.8 roadmap consolidates these older plans rather than discarding them:
 - [Practical AOT and Size Plan](../../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md)
 - [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md)
 - [Supported LINQ Queries](../../../Supported%20LINQ%20Queries.md)
+- [LINQ Parser Architecture](../../../internals/LINQ%20Parser%20Architecture.md)
 - [Query Translator internals](../../../internals/Query%20Translator.md)
 
 ## Explicit Non-Goals

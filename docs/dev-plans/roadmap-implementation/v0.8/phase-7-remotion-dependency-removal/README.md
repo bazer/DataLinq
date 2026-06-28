@@ -42,6 +42,8 @@ Keeping Remotion as an invisible fallback would be the worst of both worlds: the
 
 Phase 7 closed after the production query provider switch, runtime scaffold deletion, test ownership cleanup, package verification, constrained trim report, native AOT classification, and documentation cleanup.
 
+The current public architecture handoff is [LINQ Parser Architecture](../../../../internals/LINQ%20Parser%20Architecture.md). It describes the parser, plan model, SQL rendering boundary, execution paths, current support state, and tradeoffs after this phase closed.
+
 Key evidence:
 
 - `src/DataLinq/DataLinq.csproj` and `src/Directory.Packages.props` no longer reference `Remotion.Linq`

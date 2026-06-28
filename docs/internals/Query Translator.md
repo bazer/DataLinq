@@ -4,7 +4,7 @@ DataLinq's LINQ translator supports a useful, test-backed subset of LINQ. It is 
 
 The lower-level SQL builder also has classes such as `Join`, `Insert`, `Update`, and `Delete`. Those are not automatic proof that equivalent high-level LINQ operators are supported. Public LINQ support is defined by the translator and the compliance tests.
 
-For the user-facing contract, start with [Supported LINQ Queries](../Supported%20LINQ%20Queries.md). This page explains the internal shape.
+For the user-facing contract, start with [Supported LINQ Queries](../Supported%20LINQ%20Queries.md). This page explains the internal shape. For the detailed parser design, see [LINQ Parser Architecture](LINQ%20Parser%20Architecture.md).
 
 ## Parser Boundary
 

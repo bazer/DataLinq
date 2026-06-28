@@ -12,6 +12,8 @@
 
 **Update 2026-06-28:** The 0.8 parser-removal track closed through Phase 7. Production queries now use DataLinq's expression parser and `DataLinqQueryPlan` SQL renderer, active tests no longer use Remotion parser APIs as the oracle, and `Remotion.Linq` is no longer a main product runtime dependency.
 
+**Current architecture reference:** [LINQ Parser Architecture](../../internals/LINQ%20Parser%20Architecture.md) is the public current-state description. This document remains the migration rationale and historical design record.
+
 ## Purpose
 
 Phase 8 proved that generated SQLite models can run under Native AOT, trimmed publish, and Blazor WebAssembly AOT. It also made the remaining query-pipeline problem impossible to politely ignore: at the time this plan was written, `Remotion.Linq` still sat in the runtime package and still emitted Native AOT and trimming warnings.

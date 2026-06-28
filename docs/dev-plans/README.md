@@ -163,4 +163,6 @@ As of the current 0.8 branch after the parser-removal closeout:
 
 The next broad query-runtime work is now source-slot join expansion: Phase 13 explicit multi-join composition, then Phase 14 relation-aware joins and left joins. The source-slot-aware query plan exists; the work is to build useful join composition on top of it without expanding the documented support matrix by wishful thinking.
 
+For the current public parser architecture, use [LINQ Parser Architecture](../internals/LINQ%20Parser%20Architecture.md). The 0.8 dev-plan records explain migration sequence and evidence; the public architecture page explains the design that exists now: DataLinq-owned expression parsing, `DataLinqQueryPlan`, source slots, bindings, SQL rendering, cache-aware execution, row-local projection, and the explicit unsupported boundary.
+
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.

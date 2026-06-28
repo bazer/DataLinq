@@ -8,6 +8,8 @@
 
 Phase 8 resumes join work after the query plan exists. This is where the old Phase 13 and Phase 14 plans become useful again, but rebased on DataLinq source slots instead of Remotion query-source identities.
 
+Start from the current [LINQ Parser Architecture](../../../../internals/LINQ%20Parser%20Architecture.md), not from the older Remotion-shaped join notes. The existing source slots, `JoinedRowLocal` projection path, primary-key based joined materialization, and current join exclusions are the baseline to extend.
+
 ## Scope
 
 In scope:
