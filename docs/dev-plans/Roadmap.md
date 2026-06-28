@@ -23,7 +23,7 @@ Several important things are already true:
 - The runtime metadata graph now has a Phase 8B factory/freeze boundary for ordinary construction. A complete generated metadata switch should target that builder-built snapshot path rather than reviving reflection-heavy startup.
 - Provider metadata roundtrip fidelity now has an explicit support boundary for SQLite, MySQL, and MariaDB, including tested coverage for the ordinary table/column/index/relation subset and documented unsupported provider details.
 - Schema validation and conservative diff-script tooling now exist for that supported subset; full versioned migration execution remains intentionally deferred.
-- Phase 8 proved generated SQLite models under Native AOT, trimming, and Blazor WebAssembly AOT. Phase 8C then removed Roslyn/compiler payloads from the runtime package graph and constrained publish outputs. The remaining practical compatibility debt is narrower but real: `Remotion.Linq` still produces AOT/trimming warnings, SQLitePCLRaw still emits WebAssembly native varargs warnings, and no-AOT browser WebAssembly is not supportable for the SQLite/DataLinq path yet.
+- Phase 8 proved generated SQLite models under Native AOT, trimming, and Blazor WebAssembly AOT. Phase 8C removed Roslyn/compiler payloads from the runtime package graph and constrained publish outputs. The 0.8 parser-removal track then moved production queries onto DataLinq's expression parser and removed `Remotion.Linq` from the main runtime package graph. The remaining practical compatibility debt is narrower but real: Native AOT still needs local toolchain proof, SQLitePCLRaw still emits WebAssembly native varargs warnings, and no-AOT browser WebAssembly is not supportable for the SQLite/DataLinq path yet.
 
 That last point matters. A fast ORM that is hard to validate or debug is still a risky tool.
 
@@ -298,7 +298,7 @@ Closeout result:
 - Roslyn/compiler dependencies are split out of the runtime package graph
 - generated startup uses complete generated metadata through the factory path instead of rediscovering ordinary model metadata through reflection
 - generated immutable, mutable, and relation access paths use generated indices or handles where that removes avoidable runtime lookup
-- public compatibility wording is narrow and leaves the Remotion/query-parser and SQLitePCLRaw warning work to Phase 17
+- public compatibility wording is narrow and left the Remotion/query-parser and SQLitePCLRaw warning work to the later query-boundary phase
 
 Key related plans:
 
@@ -512,7 +512,7 @@ Closeout result:
 
 ### Phase 13: Explicit Multi-Join Composition
 
-Status: planned follow-up. This was previously queued immediately after Phase 12C, but the 0.8 branch now puts the query-plan work first so broad join expansion can be built on a DataLinq-owned plan instead of the old Remotion-shaped boundary.
+Status: planned follow-up after the 0.8 parser-removal track. This was previously queued immediately after Phase 12C, but the 0.8 branch put the query-plan work first so broad join expansion can be built on a DataLinq-owned plan instead of the old Remotion-shaped boundary.
 
 Goals:
 
@@ -609,14 +609,15 @@ Key related plans:
 
 ### Phase 17: Query Plan and Remotion Isolation
 
-Status: superseded by the version-scoped [DataLinq 0.8 Roadmap](roadmap-implementation/v0.8/README.md). This remains the detailed source plan for the 0.8 query-parser work.
+Status: superseded and implemented by the version-scoped [DataLinq 0.8 Roadmap](roadmap-implementation/v0.8/README.md). This remains the detailed source plan and historical design record for the 0.8 query-parser work.
 
-Goals:
+Implemented outcome:
 
-- introduce a DataLinq-owned query plan behind the current Remotion parser
-- move SQL generation and supported query diagnostics behind that plan
-- build a supported-subset expression parser that can serve the generated/AOT path
-- remove `Remotion.Linq` from the main product dependency graph
+- introduced a DataLinq-owned query plan
+- moved SQL generation and supported query diagnostics behind that plan
+- built a supported-subset expression parser over `System.Linq.Expressions`
+- made the DataLinq expression parser the production query provider for the documented subset
+- removed `Remotion.Linq` from the main product dependency graph
 - investigate SQLitePCLRaw WebAssembly warnings with exact call-path evidence
 - keep no-AOT browser WebAssembly unsupported unless it actually runs
 
@@ -627,10 +628,10 @@ Why this was originally last:
 - key/cache and join work were considered more important when this was parked
 - Phase 8C cleaned the package/generated-runtime surface without forcing a parser rewrite
 
-Why 0.8 pulls it forward:
+Why 0.8 pulled it forward:
 
-- the remaining Remotion dependency is now the obvious practical AOT/query-boundary debt
-- expanding joins on the old parser first would increase the surface area that must immediately be migrated
+- the remaining Remotion dependency was the obvious practical AOT/query-boundary debt
+- expanding joins on the old parser first would have increased the surface area that immediately needed migration
 - the source-slot-aware query plan needed for Remotion replacement is also the foundation later join work wants
 
 Key related plans:
@@ -661,7 +662,7 @@ Phase 7 LINQ feature expansion is implemented for its planned support boundary: 
 
 Phase 8 Native AOT and WebAssembly readiness is implemented for its planned generated SQLite boundary: Native AOT publish/run, trimmed publish/run, Blazor WebAssembly AOT publish/browser smoke, generated metadata/factory enforcement, hot-path projection compilation removal, and browser cache-worker avoidance.
 
-Phase 8B is the completed generated-contract and immutable metadata foundation. Phase 8C is also complete for the bounded package/generated-runtime cleanup: Roslyn is out of runtime dependency groups, complete generated metadata startup is the normal generated path, and generated indexed/handle access landed. The remaining caveats are real and should not be hand-waved: no-AOT browser WebAssembly fails in the Mono interpreter, `Remotion.Linq` still produces AOT/trimming warnings, and SQLitePCLRaw emits WebAssembly native varargs warnings.
+Phase 8B is the completed generated-contract and immutable metadata foundation. Phase 8C is also complete for the bounded package/generated-runtime cleanup: Roslyn is out of runtime dependency groups, complete generated metadata startup is the normal generated path, and generated indexed/handle access landed. The 0.8 parser-removal track is complete through Phase 7: the production query path uses the DataLinq expression parser and `Remotion.Linq` is out of the main runtime dependency graph. The remaining caveats are real and should not be hand-waved: no-AOT browser WebAssembly fails in the Mono interpreter, Native AOT proof can still be blocked by local toolchain prerequisites, and SQLitePCLRaw emits WebAssembly native varargs warnings.
 
 Phase 9A is now complete: warning cleanup, benchmark/history improvements, allocation reduction, conservative cache invalidation hardening, and benchmark closeout evidence have landed. The important caveat is performance wording: the closeout supports allocation and invalidation claims, not latency claims.
 
@@ -669,9 +670,9 @@ Phase 10 is now complete: metadata collection and lookup cleanup, generated prov
 
 Phase 11 is now complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is now complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led rejection of production interning.
 
-After the 0.7.1 release, the `v0.8` branch deliberately resets roadmap execution to a version-scoped sequence. The next priority is [0.8 Phase 1: Query Contract and Plan Baseline](roadmap-implementation/v0.8/phase-1-query-contract-and-plan-baseline/README.md), followed by the Remotion plan adapter, SQL generation on the plan, the supported-subset expression parser, dual-run parity, and Remotion dependency removal.
+After the 0.7.1 release, the `v0.8` branch deliberately reset roadmap execution to a version-scoped sequence. That parser-removal sequence is now closed through [0.8 Phase 7: Remotion Dependency Removal](roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md): query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset expression parser, projection/local-evaluation cleanup, dual-run parity, production provider switch, and dependency removal.
 
-Phase 13 explicit multi-join composition and Phase 14 relation-aware joins should remain planned follow-up work, but they should be rebased on the source-slot-aware query plan instead of broadening the old Remotion boundary first.
+Phase 13 explicit multi-join composition and Phase 14 relation-aware joins should remain planned follow-up work, now built on the source-slot-aware query plan instead of broadening the old Remotion boundary first.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 
@@ -685,7 +686,7 @@ These may still be good ideas, but they should not lead the queue:
 - large documentation rewrites unrelated to immediate product clarity
 - query abstraction for hypothetical future backends before the current SQL path is fully measured
 - committing to a magical lazy-loading async API before sync/async boundaries are tested and defended
-- broad join API expansion before the source-slot-aware query plan exists
+- broad join API expansion that ignores the source-slot-aware query plan
 
 ## Review Trigger
 

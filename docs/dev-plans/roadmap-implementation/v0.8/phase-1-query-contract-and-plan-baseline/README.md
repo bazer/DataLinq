@@ -78,4 +78,4 @@ The ordering/paging cases are especially important because SQL clause order is n
 - [x] support-matrix gaps relevant to the parser migration are documented
 - [x] missing high-risk regression tests are added
 - [x] unsupported or intentionally deferred shapes are named
-- [x] the current Remotion path has enough executable evidence to compare against a DataLinq-owned plan
+- [x] the phase-start Remotion path has enough executable evidence to compare against a DataLinq-owned plan

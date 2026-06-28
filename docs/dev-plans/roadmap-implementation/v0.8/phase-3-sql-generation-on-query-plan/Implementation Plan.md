@@ -473,7 +473,7 @@ Goal: prove the new renderer is equivalent before and after routing production.
 Tasks:
 
 1. Add a test helper that can build SQL through:
-   - the current Remotion/visitor path before routing
+   - the phase-start Remotion/visitor path before routing
    - the new plan renderer
 2. Normalize SQL enough to compare meaningfully without hiding provider differences.
 3. Compare SQL text and parameter counts for representative SQLite shapes where stable.

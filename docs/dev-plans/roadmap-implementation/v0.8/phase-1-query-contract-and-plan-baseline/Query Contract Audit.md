@@ -8,7 +8,7 @@
 
 ## Purpose
 
-This audit records the current Remotion-backed query behavior that the 0.8 parser migration must preserve, reject explicitly, or replace deliberately.
+This audit records the phase-start Remotion-backed query behavior that the 0.8 parser migration had to preserve, reject explicitly, or replace deliberately.
 
 The useful rule is simple: if a query shape is public documentation, support-matrix evidence, or active compliance coverage, Phase 2 and later must treat it as migration contract unless a breaking contraction is recorded intentionally.
 
@@ -68,7 +68,7 @@ Remaining Remotion-shaped diagnostics to fix before the new parser becomes defau
 
 - several unsupported paths still include `Query model:` or Remotion-shaped subquery text for maintainer context
 - relation-subquery and predicate-subquery failures can still include Remotion clause/rendering details
-- join diagnostics still mention the current Remotion query-model shape where that is the only available context
+- join diagnostics still mention the phase-start Remotion query-model shape where that is the only available context
 
 ## Phase 2 Handoff
 

@@ -18,9 +18,9 @@ What are we actually going to do, in what order, and how will we know it worked?
 
 | Release | Status | Directory |
 | --- | --- | --- |
-| 0.8 | Active query-parser roadmap | `v0.8/` |
+| 0.8 | Parser-removal track complete through Phase 7; Phase 8 is stretch / 0.8.x follow-up | `v0.8/` |
 
-The active 0.8 sequence starts over at [0.8 Phase 1](v0.8/phase-1-query-contract-and-plan-baseline/README.md) instead of continuing the old global phase numbering. That is intentional. Version-scoped phases are easier to execute, easier to close, and less confusing than saying the next release starts at "Phase 17".
+The 0.8 sequence started over at [0.8 Phase 1](v0.8/phase-1-query-contract-and-plan-baseline/README.md) instead of continuing the old global phase numbering. That was intentional. Version-scoped phases are easier to execute, easier to close, and less confusing than saying the next release starts at "Phase 17". The parser-removal track is now closed through [0.8 Phase 7](v0.8/phase-7-remotion-dependency-removal/README.md).
 
 ## Source Plans
 
@@ -50,13 +50,13 @@ The Phase 7 plan completed scalar aggregates, projection expansion, nullable pre
 
 The Phase 8 plan closed with executable generated SQLite smoke coverage for Native AOT, trimmed publish, and Blazor WebAssembly AOT. Phase 8B closed the generated-contract and immutable metadata foundation. Phase 8C then completed the bounded package/generated-runtime cleanup: repeatable size reports, Roslyn removal from runtime dependency groups, complete generated metadata startup, runtime reflection metadata-discovery removal, generated indexed access, and package/public wording.
 
-The query-plan, Remotion isolation, and supported-subset parser work are now the 0.8 focus. The active sequence is [DataLinq 0.8 Roadmap](v0.8/README.md): query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset parser, projection/AOT cleanup, dual-run parity, and Remotion dependency removal.
+The query-plan, Remotion isolation, and supported-subset parser work became the 0.8 focus and is now closed through [DataLinq 0.8 Roadmap](v0.8/README.md) Phase 7: query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset parser, projection/AOT cleanup, dual-run parity, production provider switch, and Remotion dependency removal.
 
 Phase 9A is complete for warning cleanup, benchmark-history and website trends, allocation reduction, and conservative cache invalidation hardening. Its benchmark closeout supports allocation and invalidation claims, not latency claims.
 
 Phase 10 is complete for the key/allocation foundation: metadata collection and lookup cleanup, provider-key row stores, generated relation access, query/materialization provider-key reads, scalar-converter seams, and Phase 11 handoff artifacts. Phase 11 is complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led deduplication rejection.
 
-Phase 12B completed generation trust before the runtime/query roadmap resumes: aggregate validation diagnostics, source-location fidelity, safe CLI generation, partial source-generator output, generated-file banners, optional header stamping, and nullable-reference-generation defaults. Phase 12C completed the pre-1.0 CLI cleanup and configuration workflow. The roadmap now continues with the version-scoped 0.8 query-parser phases before resuming broad join expansion, scalar converters, and result/module caching.
+Phase 12B completed generation trust before the runtime/query roadmap resumed: aggregate validation diagnostics, source-location fidelity, safe CLI generation, partial source-generator output, generated-file banners, optional header stamping, and nullable-reference-generation defaults. Phase 12C completed the pre-1.0 CLI cleanup and configuration workflow. The version-scoped 0.8 query-parser phases have now removed the Remotion dependency from the main runtime path. The roadmap can resume broad join expansion, scalar converters, and result/module caching on top of the DataLinq-owned query plan.
 
 For the older Phase 4/5 checkpoint, see the archived [Phase 4 and 5 Status Review](../archive/roadmap-implementation/Phase%204%20and%205%20Status%20Review.md).
 

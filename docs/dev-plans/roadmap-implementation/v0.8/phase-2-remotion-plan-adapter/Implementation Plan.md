@@ -71,7 +71,7 @@ src/DataLinq/Linq/Planning/
 Rationale:
 
 - `DataLinq.Query` already means SQL query building today.
-- `DataLinq.Linq` is where the current Remotion parser boundary lives.
+- `DataLinq.Linq` is where the phase-start Remotion parser boundary lived.
 - Keeping the first plan internal avoids accidentally freezing public APIs before Phase 3 proves the model.
 
 The plan node files must not reference Remotion namespaces. Only `RemotionQueryPlanAdapter` and clearly marked migration helpers may import Remotion.

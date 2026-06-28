@@ -9,11 +9,11 @@ This matrix records what the active compliance tests prove today, where the publ
 
 The evidence column intentionally points at test files instead of implementation files. If a shape is not represented in active tests, treat it as unsupported or at least undocumented until a focused regression test proves otherwise.
 
-## 0.8 Phase 1 Audit
+## 0.8 Parser Migration Status
 
-The 0.8 parser migration baseline is tracked in the source-only audit file at `docs/dev-plans/roadmap-implementation/v0.8/phase-1-query-contract-and-plan-baseline/Query Contract Audit.md`.
+The current 0.8 branch routes production queries through DataLinq's expression parser and query-plan SQL renderer. The historical parser migration baseline is tracked in the source-only audit file at `docs/dev-plans/roadmap-implementation/v0.8/phase-1-query-contract-and-plan-baseline/Query Contract Audit.md`.
 
-The audit does not expand the public contract. It records the historical Remotion-backed behavior that the DataLinq expression parser had to preserve or reject deliberately. Phase 7 removed the migration-only Remotion parser dependencies from the active runtime/test baseline.
+The audit does not expand the public contract. It records the historical Remotion-backed behavior that the DataLinq expression parser had to preserve or reject deliberately. Phase 7 removed the migration-only Remotion parser dependencies from the active runtime and test baseline. Remaining support claims should be backed by active DataLinq parser tests, not by historical Remotion parity notes.
 
 ## Predicate Translation
 

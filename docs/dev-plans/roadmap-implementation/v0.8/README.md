@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for the 0.8 development line. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # DataLinq 0.8 Roadmap
 
-**Status:** Active 0.8 execution roadmap.
+**Status:** Parser-removal track complete through Phase 7; Phase 8 is stretch / 0.8.x follow-up.
 
 **Created:** 2026-06-27.
 
@@ -32,6 +32,19 @@ The wording matters. "Isolate Remotion" was a useful earlier fallback while the 
 | Phase 8: Source-Slot Join Follow-Up | Stretch / 0.8.x | `phase-8-source-slot-join-follow-up/` | Resume join expansion after the query plan exists. |
 
 Phases 1 through 7 are the coherent 0.8 parser-removal track. Phase 8 is deliberately listed after that track because broad join expansion should not be implemented on the old Remotion-shaped boundary first.
+
+## Current Implementation State
+
+Phase 7 closed the parser-removal track. The current branch has:
+
+- production `Database.Query()` roots executing through DataLinq's `ExpressionQueryPlanProvider`
+- supported expression trees parsed by `ExpressionQueryPlanParser` into `DataLinqQueryPlan`
+- SQL generation and query diagnostics routed through `QueryPlanSqlBuilder` and DataLinq plan concepts
+- active parser, SQL parity, unsupported-shape, and architecture tests no longer relying on Remotion parser APIs
+- `Remotion.Linq` removed from `src/DataLinq/DataLinq.csproj`, `src/Directory.Packages.props`, constrained smoke roots, and public runtime package dependency groups
+- trimmed constrained compatibility reporting no longer blocked by a Remotion dependency
+
+That closes the 0.8 parser-removal goal. It does not make arbitrary LINQ supported, and it does not resolve the separate SQLitePCLRaw WebAssembly warning story.
 
 ## Sequential Rule
 

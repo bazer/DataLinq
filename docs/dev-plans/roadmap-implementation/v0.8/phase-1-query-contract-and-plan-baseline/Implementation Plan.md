@@ -10,7 +10,7 @@
 
 ## Purpose
 
-Phase 1 turns the current Remotion-backed query behavior into an executable migration contract.
+Phase 1 turned the phase-start Remotion-backed query behavior into an executable migration contract.
 
 The blunt goal is not to make Remotion look good. The goal is to make it impossible for the DataLinq parser replacement to accidentally drop predicates, change null semantics, flatten operator order, weaken diagnostics, or lose documented query shapes while still passing happy-path tests.
 
@@ -94,7 +94,7 @@ Current duplicated helpers:
 Tasks:
 
 1. Add one internal compliance-test helper for translation inspection, probably under `src/DataLinq.Tests.Compliance/Translation/`.
-2. Move the current Remotion-backed `QueryParser` plus `QueryExecutor.ParseQueryModel` reflection into that helper.
+2. Move the phase-start Remotion-backed `QueryParser` plus `QueryExecutor.ParseQueryModel` reflection into that helper.
 3. Name the helper so its temporary nature is obvious, for example `RemotionTranslationInspection` or `CurrentQueryTranslationInspection`.
 4. Add comments stating:
    - this helper is baseline scaffolding for 0.8 Phase 1

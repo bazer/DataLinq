@@ -304,20 +304,20 @@ Open questions:
 
 - Whether `JoinBy(...)` should accept nullable and non-nullable singular relation delegates through one overload or separate overloads.
 - Whether `LeftJoinMany(...)` should emit one null child row for no match, or use a grouped result shape in a later API. The null-child row is closer to SQL left join behavior.
-- Whether `on:` should permit only simple comparisons at first, matching current predicate support, or reuse the broader `WhereVisitor` predicate translator immediately.
+- Whether `on:` should permit only simple comparisons at first, matching current predicate support, or reuse the broader DataLinq predicate-plan translator immediately.
 - Whether composite relation metadata should be supported in the first implementation. It should be technically easier than explicit anonymous-object key joins, but it still needs careful materialization and null-key handling.
 
 ## Query Engine Requirements
 
-The proposed API is not just extension-method sugar. Custom query methods are not automatically understood by the current Remotion LINQ parser and executor path. DataLinq needs a real joined-query plan.
+The proposed API is not just extension-method sugar. Custom query methods are not automatically understood by the current DataLinq expression parser unless the parser and plan model explicitly support them. DataLinq needs a real joined-query plan.
 
 ### 1. Parser Integration
 
 DataLinq needs one of these integration strategies:
 
-1. Teach the query parser about DataLinq-specific join methods.
-2. Rewrite `JoinBy(...)` and `JoinMany(...)` expression trees into ordinary `Queryable.Join(...)` forms before Remotion parses them.
-3. Move joined-query parsing into a DataLinq-owned expression processing layer before or around Remotion.
+1. Teach `ExpressionQueryPlanParser` about DataLinq-specific join methods.
+2. Rewrite `JoinBy(...)` and `JoinMany(...)` expression trees into ordinary `Queryable.Join(...)` forms before plan parsing.
+3. Extend the DataLinq query plan with relation-aware join nodes instead of pretending relation joins are only ordinary LINQ joins.
 
 The least invasive first attempt is probably a rewrite to ordinary join semantics for inner joins. The catch is that relation metadata lookup needs access to the provider metadata and the related table source. That may be awkward for already-composed query shapes.
 

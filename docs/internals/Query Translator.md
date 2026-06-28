@@ -12,6 +12,8 @@ DataLinq now owns the production parser boundary for the documented LINQ subset.
 
 The plan model is the semantic boundary. It records source slots, ordered operations, predicates, projection shape, result kind, and captured-value bindings. SQL generation and execution consume that DataLinq-owned plan instead of parser-specific clause or query-model types.
 
+`Remotion.Linq` is historical migration context for the 0.8 parser replacement. It is not part of the active production query provider or public runtime package dependency graph.
+
 The translator should stay conservative: translate known shapes, reject unknown shapes clearly, and keep the support matrix honest. Unsupported shapes should fail with DataLinq terms such as operator, selector, relation predicate, join source, or projection shape.
 
 ## Main Execution Paths

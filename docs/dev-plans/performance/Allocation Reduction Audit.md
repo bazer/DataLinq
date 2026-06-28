@@ -277,7 +277,7 @@ Recommended direction:
 - use metadata lookup maps instead of repeated `Single` over columns
 - extend SQL template caching only after metadata/key fixes have landed and new numbers show query construction remains a dominant allocation source
 
-Expected impact: medium. The query layer likely still has Remotion/LINQ expression costs outside DataLinq's direct control.
+Expected impact: medium. The query layer now has DataLinq-owned expression parsing, plan building, SQL rendering, and projection evaluation costs that should be measured directly before making fresh allocation claims.
 
 ### 7. SQL Text Is Not Zero-Allocation, and That Is Fine
 
@@ -581,7 +581,7 @@ The warm fetch target should be treated carefully. Some allocation comes from LI
 - Public metadata array properties should be replaced with stable read-only collection APIs. Do not keep array snapshots for backward compatibility.
 - Provider startup should be optimized as an extremely lean path. Cache lifetime may still help repeated construction, but provider construction should not eagerly do cache work that can be lazy.
 - Telemetry/history should be lazy unless a concrete public behavior requires an initial cache snapshot at provider construction.
-- The current benchmark lane does not split warm query allocation between DataLinq and Remotion/LINQ infrastructure. Current `sqlite-memory` totals are 15.75 KB for warm primary-key fetch, 33.3 KB for repeated non-PK equality, 25.73 KB for repeated scalar `Any`, and 47.91 KB for repeated `IN` predicate fetch. A separate allocation attribution pass is needed before claiming which part belongs to Remotion.
+- The current benchmark lane does not split warm query allocation between parser/planning, SQL rendering, materialization, and cache access. Current `sqlite-memory` totals are 15.75 KB for warm primary-key fetch, 33.3 KB for repeated non-PK equality, 25.73 KB for repeated scalar `Any`, and 47.91 KB for repeated `IN` predicate fetch. A fresh allocation attribution pass is needed before claiming which part belongs to the 0.8 parser and plan renderer.
 - Composite keys should store raw values directly if that keeps the code clean. If direct raw storage makes the implementation ugly, keep child `IKey` values but expose composite values without nested array allocation.
 
 ## Reference Files

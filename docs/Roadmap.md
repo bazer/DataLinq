@@ -2,9 +2,11 @@
 
 This page is the public roadmap snapshot. It describes direction, not shipped behavior. For current product behavior, use the usage docs, support matrices, and changelog.
 
-## Current 0.7.1 Baseline
+## Current 0.8 Development Baseline
 
-DataLinq is currently a source-generated, immutable-first ORM for MySQL, MariaDB, and SQLite. The stable public shape is:
+This page tracks the current repo documentation branch. If you are comparing against an already-published NuGet version, check the [changelog](../CHANGELOG.md) for the exact release boundary.
+
+DataLinq is currently a source-generated, immutable-first ORM for MySQL, MariaDB, and SQLite. The current public shape is:
 
 - generated immutable and mutable model classes
 - cache-aware reads and relation traversal
@@ -12,9 +14,11 @@ DataLinq is currently a source-generated, immutable-first ORM for MySQL, MariaDB
 - schema validation through `datalinq validate`
 - conservative schema diff scripts through `datalinq diff`
 - a documented LINQ subset with tests behind the support matrix
+- a DataLinq-owned LINQ parser and query plan for the documented subset
 - explicit cache clearing and external invalidation APIs
 - estimated cache-memory accounting and memory-pressure cleanup on supported runtimes
 - a narrow generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary
+- runtime package dependency groups without Roslyn/compiler assemblies or `Remotion.Linq`
 
 The important non-claims are just as important:
 
@@ -30,22 +34,21 @@ For release-level detail, see the [changelog](../CHANGELOG.md).
 
 ### Query Plan and Remotion Removal
 
-The 0.8 branch pulls the query-parser boundary forward as the next major theme. The implementation path is:
+The 0.8 parser-removal track is implemented in the current branch. The production query boundary is now DataLinq-owned:
 
-- introduce a DataLinq-owned query plan
-- move SQL generation and query diagnostics behind that plan
-- build a supported-subset expression parser over `System.Linq.Expressions`
-- prove parser parity against the documented LINQ support matrix
-- route production queries through the DataLinq parser
-- remove `Remotion.Linq` from the main product dependency graph
+- `Queryable<T>` roots use `ExpressionQueryPlanProvider`
+- `ExpressionQueryPlanParser` parses supported `System.Linq.Expressions` trees into `DataLinqQueryPlan`
+- `QueryPlanSqlBuilder` renders accepted predicates, ordering, paging, scalar result shapes, relation-existence predicates, and the narrow explicit join baseline from that plan
+- row-local projections execute after materialization through DataLinq projection binding
+- `Remotion.Linq` is no longer a main product runtime dependency
 
-This should not become a general LINQ-provider rewrite. The parser should target the documented supported subset first, preserve current tested behavior where practical, and reject unsupported shapes with specific diagnostics.
+That is not the same thing as a general LINQ-provider rewrite. The support boundary is still the documented tested subset, and unsupported shapes should fail with specific `QueryTranslationException` diagnostics instead of falling back to silent client-side filtering.
 
-The internal execution plan starts over at 0.8 Phase 1 instead of continuing the old global roadmap numbering. That keeps the release work sequential: baseline the query contract, add the plan and temporary Remotion adapter, move SQL generation, add the new parser, prove parity, then remove Remotion as a dependency.
+The internal 0.8 execution record started over at Phase 1 instead of continuing the old global roadmap numbering. That sequence is now closed through Phase 7: query contract baseline, temporary Remotion adapter, SQL generation on `DataLinqQueryPlan`, supported-subset expression parser, projection/local-evaluation cleanup, parity and constrained-platform switch, and Remotion dependency removal.
 
 ### Explicit Multi-Join Composition
 
-After the query plan exists, the next broad query priority is standard explicit inner-join composition:
+Now that the query plan exists, the next broad query priority is standard explicit inner-join composition:
 
 - C# query-syntax joins as a documented path
 - multiple explicit inner joins

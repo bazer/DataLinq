@@ -19,7 +19,7 @@ Phase 4 consumes:
 - the Phase 1 query support contract
 - the Phase 2 `DataLinqQueryPlan` node model
 - the Phase 3 plan SQL renderer and parity tests
-- the current Remotion adapter as a temporary oracle, not as parser infrastructure
+- the then-current Remotion adapter as a temporary oracle, not as parser infrastructure
 
 The DataLinq parser must not call Remotion's `QueryParser`, consume `QueryModel`, or import Remotion clause/result-operator types.
 
