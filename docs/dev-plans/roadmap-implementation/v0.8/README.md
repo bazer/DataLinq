@@ -28,7 +28,7 @@ The wording matters. "Isolate Remotion" was a useful earlier fallback while the 
 | Phase 4: Supported-Subset Expression Parser | Complete | `phase-4-supported-subset-expression-parser/` | Build the DataLinq parser over expression trees. |
 | Phase 5: Projection and Local Evaluation AOT Cleanup | Complete | `phase-5-projection-and-local-evaluation-aot-cleanup/` | Keep supported generated/AOT projection paths honest. |
 | Phase 6: Dual-Run Parity and AOT Switch | Complete | `phase-6-dual-run-parity-and-aot-switch/` | Prove the new parser before routing constrained-platform paths through it. |
-| Phase 7: Remotion Dependency Removal | In progress | `phase-7-remotion-dependency-removal/` | Remove Remotion package references, roots, tests, and documentation assumptions from the main product path. |
+| Phase 7: Remotion Dependency Removal | Complete | `phase-7-remotion-dependency-removal/` | Remove Remotion package references, roots, tests, and documentation assumptions from the main product path. |
 | Phase 8: Source-Slot Join Follow-Up | Stretch / 0.8.x | `phase-8-source-slot-join-follow-up/` | Resume join expansion after the query plan exists. |
 
 Phases 1 through 7 are the coherent 0.8 parser-removal track. Phase 8 is deliberately listed after that track because broad join expansion should not be implemented on the old Remotion-shaped boundary first.

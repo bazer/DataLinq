@@ -8,9 +8,11 @@ For the user-facing contract, start with [Supported LINQ Queries](../Supported%2
 
 ## Parser Boundary
 
-DataLinq currently uses `Remotion.Linq` to parse LINQ expression trees into query models. That dependency is still part of the reason the broad AOT/trimming claim remains narrow.
+DataLinq now owns the production parser boundary for the documented LINQ subset. `Queryable<T>` uses `ExpressionQueryPlanProvider`, which parses supported `System.Linq.Expressions` trees with `ExpressionQueryPlanParser` and produces a `DataLinqQueryPlan`.
 
-The long-term direction is to isolate or replace that parser behind a DataLinq-owned query plan, but that is future work. The current translator should therefore stay conservative: translate known shapes, reject unknown shapes clearly, and keep the support matrix honest.
+The plan model is the semantic boundary. It records source slots, ordered operations, predicates, projection shape, result kind, and captured-value bindings. SQL generation and execution consume that DataLinq-owned plan instead of parser-specific clause or query-model types.
+
+The translator should stay conservative: translate known shapes, reject unknown shapes clearly, and keep the support matrix honest. Unsupported shapes should fail with DataLinq terms such as operator, selector, relation predicate, join source, or projection shape.
 
 ## Main Execution Paths
 
@@ -19,12 +21,11 @@ The long-term direction is to isolate or replace that parser behind a DataLinq-o
 The ordinary collection path:
 
 1. partially evaluates local, query-independent expression subtrees
-2. parses the expression through `Remotion.Linq`
-3. composes accepted `Where` and `OrderBy` clauses
-4. applies supported result operators such as paging and single-row limits
-5. executes SQL
-6. materializes rows through cache-aware table access
-7. applies supported scalar, anonymous, or computed row-local projections after materialization
+2. parses the expression into `DataLinqQueryPlan`
+3. renders accepted predicates, ordering, joins, paging, and scalar result shapes through `QueryPlanSqlBuilder`
+4. executes SQL through the provider
+5. materializes rows through cache-aware table access
+6. applies supported scalar, anonymous, or computed row-local projections after materialization
 
 Entity reads remain cache-aware. DataLinq usually selects primary keys first, checks row cache state, and fetches missing rows rather than blindly rebuilding every row instance.
 
@@ -93,14 +94,23 @@ Relation-property projection is rejected. That prevents hidden N+1 behavior from
 
 ## Important Internals
 
-`Evaluator`
-: Partially evaluates local subtrees that do not depend on query parameters.
+`Queryable<T>` and `ExpressionQueryPlanProvider`
+: Own the production `IQueryable<T>` boundary and route expression-tree parsing/execution through DataLinq code.
 
-`QueryExecutor`
-: Owns query-model execution, result operators, explicit join handling, scalar result execution, and projection evaluation.
+`ExpressionQueryPlanParser`
+: Converts supported expression trees into `DataLinqQueryPlan` nodes, source slots, bindings, predicates, projections, and result kinds.
 
-`QueryBuilder`
-: Builds translated predicate SQL, including local collection membership and relation-backed `EXISTS` predicates.
+`ExpressionLocalValueEvaluator`
+: Evaluates supported local values such as captured constants, simple member reads, empty collection factories, array/list indexes, and deterministic string operations without compiling or invoking arbitrary user methods.
+
+`QueryPlanSqlBuilder`
+: Renders plan operations to SQL, including local collection membership, relation-backed `EXISTS` predicates, ordering, paging, scalar aggregates, and the narrow explicit join baseline.
+
+`ExpressionQueryPlanExecutor`
+: Executes sequence, scalar, single-row, projection, and explicit-join result paths from a parsed plan.
+
+`ProjectionExpressionEvaluator`
+: Evaluates supported row-local projections over materialized rows using parameter bindings, without Remotion query-source identities.
 
 `Where` and `WhereGroup`
 : Represent SQL predicates and grouped boolean logic.

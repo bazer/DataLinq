@@ -13,7 +13,7 @@ The evidence column intentionally points at test files instead of implementation
 
 The 0.8 parser migration baseline is tracked in the source-only audit file at `docs/dev-plans/roadmap-implementation/v0.8/phase-1-query-contract-and-plan-baseline/Query Contract Audit.md`.
 
-The audit does not expand the public contract. It records which current Remotion-backed behaviors must be preserved, which unsupported shapes fail deliberately, and which migration-only Remotion dependencies Phase 7 must delete.
+The audit does not expand the public contract. It records the historical Remotion-backed behavior that the DataLinq expression parser had to preserve or reject deliberately. Phase 7 removed the migration-only Remotion parser dependencies from the active runtime/test baseline.
 
 ## Predicate Translation
 
@@ -133,8 +133,8 @@ Unsupported predicate methods, non-empty compound local `Any(predicate)` shapes,
 The regression suite includes tests that make dropped predicates hard to miss:
 
 1. `Where(a).Where(b)` where each predicate excludes different seeded rows and the combined result is strictly smaller than either single predicate.
-2. `Where(a).OrderBy(...).Where(b)` if Remotion emits a nested query shape the current parser accepts.
+2. `Where(a).OrderBy(...).Where(b)` to prove ordering does not hide or drop later predicates.
 3. `Where(a).Where(b).Count()`, `.Any()`, `.First()`, and `.SingleOrDefault()` to prove result operators apply after both predicates.
 4. `Where(a).Where(b).Skip(...).Take(...)` over a deterministic ordering to prove paging is applied after the composed filter.
 
-The central `CurrentQueryTranslationInspection` helper is the migration-only SQL inspection surface for these cases. It is deliberately Remotion-backed scaffolding and must be removed or replaced before Phase 7 closes.
+The central `CurrentQueryTranslationInspection` helper is now a DataLinq-only SQL inspection surface for these cases. It builds plans through `ExpressionQueryPlanParser` and renders SQL through `QueryPlanSqlBuilder`.

@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 7: Remotion Dependency Removal
 
-**Status:** In progress.
+**Status:** Complete.
 
 ## Execution Plan
 
@@ -37,3 +37,18 @@ Keeping Remotion as an invisible fallback would be the worst of both worlds: the
 - constrained-platform smokes publish without Remotion roots or warnings
 - public docs and release notes describe the exact parser support boundary
 - old Remotion-specific tests are removed or rewritten against DataLinq plan/parser concepts
+
+## Closeout Evidence
+
+Phase 7 closed after the production query provider switch, runtime scaffold deletion, test ownership cleanup, package verification, constrained trim report, native AOT classification, and documentation cleanup.
+
+Key evidence:
+
+- `src/DataLinq/DataLinq.csproj` and `src/Directory.Packages.props` no longer reference `Remotion.Linq`
+- `rg "Remotion" src/DataLinq src/Directory.Packages.props` has no main-runtime dependency hits
+- unit quick and compliance quick test suites pass on the DataLinq expression parser route
+- fresh pack-only output plus `package-report` confirms public package hygiene
+- direct nuspec inspection confirms `DataLinq`, `DataLinq.SQLite`, and `DataLinq.MySql` have no `Remotion.Linq` dependency entries
+- trimmed compatibility size report publishes and smokes successfully with zero banned payloads and zero warnings
+- native AOT currently fails under `SdkOrWebAssemblyToolchain`, not because of Remotion or trim warnings
+- public and internal docs now describe the active parser as DataLinq-owned

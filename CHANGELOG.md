@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## Unreleased
+
+### 0.8 Roadmap Progress
+
+* Replaced the production LINQ parser boundary with DataLinq's expression parser and removed `Remotion.Linq` from the main runtime package graph.
+* Deleted the temporary Remotion query executor, adapter, visitors, and test oracle scaffolding after moving supported SQL generation to DataLinq query-plan nodes.
+* Updated query translator, platform compatibility, source-generator, support-matrix, and roadmap docs so Remotion is historical migration context rather than current runtime behavior.
+* Verified fresh package output and constrained trimmed publish reports without `Remotion.Linq` runtime dependency entries or trim warnings; Native AOT is currently classified as a local toolchain prerequisite failure rather than a query dependency warning.
+
+---
+
 ## [DataLinq v0.7.1 - SQLite Metadata Fixes, CLI Polish, and Dependency Maintenance](https://github.com/bazer/DataLinq/releases/tag/0.7.1)
 
 **Released on:** 2026-06-25
@@ -910,5 +921,3 @@ First release with basic functionality.
 * Support for lazy loading of model properties
 
 ---
-
-

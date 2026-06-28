@@ -15,9 +15,9 @@ Current package and repo builds target .NET 8, .NET 9, and .NET 10. Provider beh
 
 ## Native AOT And Trimming
 
-DataLinq has a proven generated SQLite smoke path for Native AOT and trimmed publish.
+DataLinq has constrained-platform smoke projects for generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT. The strongest repeatable local proof in the current repo is the trimmed publish smoke path; Native AOT still depends on the local platform toolchain being installed.
 
-The runtime package graph has also been cleaned up for the public runtime packages: Roslyn/compiler assemblies are not runtime dependencies of `DataLinq`, `DataLinq.SQLite`, or `DataLinq.MySql`. The source generator is packaged under `DataLinq` analyzer assets, which is the right place for build-time code generation and the wrong place for runtime payload.
+The runtime package graph has also been cleaned up for the public runtime packages: Roslyn/compiler assemblies and `Remotion.Linq` are not runtime dependencies of `DataLinq`, `DataLinq.SQLite`, or `DataLinq.MySql`. The source generator is packaged under `DataLinq` analyzer assets, which is the right place for build-time code generation and the wrong place for runtime payload.
 
 That means the tested and packaged boundary is:
 
@@ -28,16 +28,17 @@ That means the tested and packaged boundary is:
 - ordinary SQLite insert/query/relation/projection smoke behavior
 - the documented LINQ subset used by the smoke path
 - runtime package dependency groups without `Microsoft.CodeAnalysis.*`
+- runtime package dependency groups without `Remotion.Linq`
 - generator assets under `analyzers/dotnet/cs`
 
-That does not mean every DataLinq scenario is AOT-compatible. Reflection-discovered model metadata, arbitrary client projection expressions, and broad provider coverage are not public support claims.
+That does not mean every DataLinq scenario is AOT-compatible. Reflection-discovered model metadata, arbitrary client projection expressions, broad provider coverage, and every possible LINQ expression shape are not public support claims.
 
 The current blockers to a stronger claim are still concrete:
 
-- the query pipeline still uses `Remotion.Linq` outside a dedicated generated/AOT query boundary
-- `Remotion.Linq` still emits Native AOT and trimming warnings
-- SQLitePCLRaw WebAssembly AOT warning cleanup is deferred
+- Native AOT verification requires the local Native AOT platform toolchain; without it, the repo reports an `SdkOrWebAssemblyToolchain` publish classification instead of product query warnings
+- SQLitePCLRaw WebAssembly AOT varargs warning cleanup is deferred
 - generated SQLite smoke coverage is not broad provider coverage
+- the LINQ translator is intentionally limited to the documented subset
 
 ## Blazor WebAssembly
 
@@ -63,12 +64,12 @@ Payload numbers should be read from the compatibility size report with symbol fi
 
 Accurate:
 
-> DataLinq has a proven generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary, with Roslyn kept out of the runtime package dependency groups.
+> DataLinq has a proven generated SQLite trimmed publish and Blazor WebAssembly AOT smoke boundary, keeps Roslyn and Remotion out of the runtime package dependency groups, and keeps Native AOT smoke verification separate from local toolchain prerequisite failures.
 
 Not accurate yet:
 
 > DataLinq is broadly AOT-compatible.
 
-The second statement has to wait until the query dependency boundary and remaining third-party warning work are cleaned up.
+The second statement has to wait until Native AOT toolchain proof, broader provider/query coverage, and remaining third-party WebAssembly warning work are cleaned up.
 
 The detailed engineering notes live in the repo's internal `docs/dev-plans` tree. The public verification hooks are the repo-local `DataLinq.Dev.CLI` `size-report` and `package-report` commands plus the constrained-platform smoke projects that back this narrow claim.

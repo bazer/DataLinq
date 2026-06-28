@@ -2,9 +2,11 @@
 > This document is roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 7 Implementation Plan: Remotion Dependency Removal
 
-**Status:** In progress.
+**Status:** Complete.
 
 **Created:** 2026-06-27.
+
+**Completed:** 2026-06-28.
 
 ## Purpose
 
@@ -16,8 +18,8 @@ The required outcome is not "hide the warning." The main runtime package must st
 
 Main product dependency graph:
 
-- `src/DataLinq/DataLinq.csproj` still has `<PackageReference Include="Remotion.Linq" />`.
-- `src/Directory.Packages.props` still carries `<PackageVersion Include="Remotion.Linq" Version="2.2.0" />`.
+- at phase start, `src/DataLinq/DataLinq.csproj` had `<PackageReference Include="Remotion.Linq" />`.
+- at phase start, `src/Directory.Packages.props` carried `<PackageVersion Include="Remotion.Linq" Version="2.2.0" />`.
 
 Runtime source:
 
@@ -34,7 +36,7 @@ Active tests and scaffolding:
 
 Documentation:
 
-- public and internal docs still describe Remotion as current runtime behavior.
+- at phase start, public and internal docs described Remotion as current runtime behavior.
 
 ## Progress
 
@@ -55,7 +57,7 @@ The dependency-removal cleanup slice implemented the main Workstream B and C cod
 - rewrote snapshot, unsupported-shape, parser, and SQL parity tests so they assert DataLinq-owned parser behavior directly instead of using Remotion as an oracle
 - preserved quick-suite compatibility for local constant folding by allowing deterministic array/list indexing and string local-value evaluation while keeping arbitrary local method calls rejected
 
-Initial Workstream D evidence is also green:
+Workstream D evidence is also green:
 
 - `rg "Remotion" src/DataLinq src/Directory.Packages.props` has no main-runtime dependency hits
 - `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.sln -v:minimal` succeeds with only the known SQLitePCLRaw WASM varargs warnings
@@ -63,8 +65,14 @@ Initial Workstream D evidence is also green:
 - `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- size-report --targets trim --format summary` reports publish ok, smoke ok, zero banned payloads, and zero warnings for the trimmed target
 - `.\publish-nuget.ps1 -PackOnly -PackageOutputPath artifacts\nuget-release\phase7-remotion-removal` produces fresh public packages, and `package-report` passes against that directory
 - direct nuspec inspection of `DataLinq`, `DataLinq.SQLite`, and `DataLinq.MySql` shows no `Remotion.Linq` dependency entries
+- native AOT report now fails only under `SdkOrWebAssemblyToolchain` on this machine, with no Remotion or trim-warning findings
 
-Remaining Phase 7 work is now primarily Workstream E documentation/release-note cleanup plus any final native AOT evidence that the local toolchain can support.
+Workstream E documentation cleanup is complete:
+
+- `docs/Platform Compatibility.md` no longer lists Remotion as an AOT/trimming blocker and now separates Native AOT toolchain prerequisites from product dependency warnings
+- `docs/internals/Query Translator.md`, `docs/internals/Data Flow.md`, and `docs/internals/Source Generator.md` describe the DataLinq expression parser and query-plan boundary as the active runtime path
+- the LINQ support matrix identifies the historical Remotion baseline as migration context and the current SQL inspection helper as DataLinq-only
+- public roadmap and changelog notes now describe the Remotion removal as the shipped 0.8 parser-boundary direction
 
 ## Workstream A: Production Query Provider Switch
 
