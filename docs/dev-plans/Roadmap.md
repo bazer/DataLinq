@@ -669,13 +669,13 @@ Key related plans:
 
 ### 0.8 Phase 16: Grouped Numeric Aggregates
 
-Status: planned after the Phase 13B grouped `Count()` baseline.
+Status: implemented for direct numeric grouped aggregate selectors.
 
 Goals:
 
-- add grouped `Sum(...)`, `Min(...)`, `Max(...)`, and `Average(...)`
+- added grouped `Sum(...)`, `Min(...)`, `Max(...)`, and `Average(...)`
 - allow multiple grouped aggregate members in one projection
-- support direct numeric and deliberately tested nullable numeric selectors
+- support direct numeric selectors plus the tested nullable numeric selector shape
 - keep computed selectors, relation selectors, `HAVING`, composite keys, joined grouping, and materialized `IGrouping<TKey,TElement>` out of this slice
 - prove behavior across SQLite, MySQL, and MariaDB
 
@@ -931,7 +931,7 @@ Phase 11 is now complete for explicit cache clearing, external invalidation, rel
 
 After the 0.7.1 release, the `v0.8` branch deliberately reset roadmap execution to a version-scoped sequence. That parser-removal sequence is now closed through [0.8 Phase 7: Remotion Dependency Removal](roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md): query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset expression parser, projection/local-evaluation cleanup, dual-run parity, production provider switch, and dependency removal.
 
-The version-scoped 0.8 sequence now has final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md), then implemented query-runtime slices for Phase 13 query composition/subquery pushdown, Phase 13B grouped count projection, Phase 14 explicit two-source join composition, and Phase 15 implicit singular relation predicates/orderings. The remaining version-scoped query work is split into planned Phase 16 grouped numeric aggregates, Phase 17 grouped row composition/HAVING, Phase 18 advanced GroupBy keys and joined grouping, Phase 19 SQL-backed projection rows, Phase 20 query-syntax joins, and Phase 21 joined post-paging pushdown. Broad fluent join APIs, left-join nullability work, and the browser AOT support claim still need separate evidence instead of broadening the old Remotion boundary by assertion.
+The version-scoped 0.8 sequence now has final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md), then implemented query-runtime slices for Phase 13 query composition/subquery pushdown, Phase 13B grouped count projection, Phase 14 explicit two-source join composition, Phase 15 implicit singular relation predicates/orderings, and Phase 16 grouped numeric aggregates. The remaining version-scoped query work is split into planned Phase 17 grouped row composition/HAVING, Phase 18 advanced GroupBy keys and joined grouping, Phase 19 SQL-backed projection rows, Phase 20 query-syntax joins, and Phase 21 joined post-paging pushdown. Broad fluent join APIs, left-join nullability work, and the browser AOT support claim still need separate evidence instead of broadening the old Remotion boundary by assertion.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

@@ -3,7 +3,7 @@
 
 # Phase 16 Implementation Plan
 
-**Status:** In progress.
+**Status:** Complete.
 
 ## Objective
 
@@ -11,13 +11,13 @@ Extend the existing SQL-backed grouped aggregate projection from direct-key `gro
 
 ## Work Items
 
-- Extend `QueryPlanGroupedAggregateValue` so grouped aggregate members carry both aggregate kind and selector value when the aggregate reads an element column.
-- Parse `group.Sum(row => row.Column)`, `group.Min(...)`, `group.Max(...)`, and `group.Average(...)` in grouped aggregate projections.
-- Keep `group.Count()` selectorless and preserve the existing grouped count plan/debug shape.
-- Render grouped numeric aggregate SQL from plan values with stable projection aliases.
-- Reuse the existing grouped aggregate data-reader projection path, with tests documenting result CLR conversion.
-- Add behavior, SQL-shape, snapshot, parser, transaction-root, and unsupported-shape coverage.
-- Update the public LINQ docs, the support matrix, and the 0.8 roadmap phase status after the behavior is verified.
+- [x] Extend `QueryPlanGroupedAggregateValue` so grouped aggregate members carry both aggregate kind and selector value when the aggregate reads an element column.
+- [x] Parse `group.Sum(row => row.Column)`, `group.Min(...)`, `group.Max(...)`, and `group.Average(...)` in grouped aggregate projections.
+- [x] Keep `group.Count()` selectorless and preserve the existing grouped count plan/debug shape.
+- [x] Render grouped numeric aggregate SQL from plan values with stable projection aliases.
+- [x] Reuse the existing grouped aggregate data-reader projection path, with tests documenting result CLR conversion.
+- [x] Add behavior, SQL-shape, snapshot, parser, transaction-root, and unsupported-shape coverage.
+- [x] Update the public LINQ docs, the support matrix, and the 0.8 roadmap phase status after the behavior is verified.
 
 ## Guardrails
 
@@ -30,8 +30,8 @@ Extend the existing SQL-backed grouped aggregate projection from direct-key `gro
 
 ## Verification Plan
 
-- Focused compliance tests for grouped numeric aggregate behavior across active providers.
-- SQL-shape assertions for `SUM`, `MIN`, `MAX`, `AVG`, `COUNT`, and `GROUP BY`.
-- Query plan snapshot coverage for multiple grouped aggregate members.
-- Unsupported-shape tests for computed grouped aggregate selectors.
-- Focused TUnit run for grouped aggregate, parser, snapshot, and SQL parity tests.
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj -v:minimal`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesGroupedAggregateTranslationTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSnapshotTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/ExpressionQueryPlanParserTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesUnsupportedQueryDiagnosticsTests/*" --output failures --build`

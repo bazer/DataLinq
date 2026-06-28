@@ -126,15 +126,15 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
                 .Select(group => new { group.Key, Rows = group.ToList() })
                 .ToList(),
             "Grouped aggregate projection member",
-            "group.Key and group.Count()");
+            "direct numeric grouped aggregate selectors");
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().DepartmentEmployees
                 .GroupBy(x => x.dept_no)
-                .Select(group => new { group.Key, Sum = group.Sum(row => row.emp_no) })
+                .Select(group => new { group.Key, Sum = group.Sum(row => row.emp_no + 1) })
                 .ToList(),
-            "Grouped aggregate projection member",
-            "group.Key and group.Count()");
+            "Aggregate selector",
+            "Sum");
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().DepartmentEmployees

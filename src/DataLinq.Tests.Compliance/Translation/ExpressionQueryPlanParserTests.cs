@@ -77,6 +77,19 @@ public class ExpressionQueryPlanParserTests
                     DeptNo = group.Key,
                     Count = group.Count()
                 }));
+
+        await AssertParserProducesDataLinqPlan(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => x.dept_no)
+                .Select(group => new
+                {
+                    DeptNo = group.Key,
+                    SumEmployeeNumbers = group.Sum(row => row.emp_no),
+                    MinEmployeeNumber = group.Min(row => row.emp_no),
+                    MaxEmployeeNumber = group.Max(row => row.emp_no),
+                    AverageEmployeeNumber = group.Average(row => row.emp_no)
+                }));
     }
 
     [Test]

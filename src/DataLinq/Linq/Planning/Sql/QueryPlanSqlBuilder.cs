@@ -256,8 +256,7 @@ internal sealed class QueryPlanSqlBuilder
             {
                 QueryPlanGroupKeyValue groupKey => valueRenderer.RenderSqlExpression(groupKey.Key),
                 QueryPlanGroupedAggregateValue { Aggregate: QueryPlanGroupedAggregateKind.Count } => "COUNT(*)",
-                QueryPlanGroupedAggregateValue aggregate => throw new QueryTranslationException(
-                    $"Grouped aggregate '{aggregate.Aggregate}' is not supported by SQL rendering."),
+                QueryPlanGroupedAggregateValue aggregate => GetGroupedAggregateSelectorSql(aggregate),
                 _ => throw new QueryTranslationException(
                     $"Grouped aggregate projection value '{member.Value.Kind}' is not supported by SQL rendering.")
             };
@@ -266,6 +265,22 @@ internal sealed class QueryPlanSqlBuilder
         }
 
         return selectors;
+    }
+
+    private string GetGroupedAggregateSelectorSql(QueryPlanGroupedAggregateValue aggregate)
+    {
+        var selector = aggregate.Selector
+            ?? throw new QueryTranslationException($"Grouped aggregate '{aggregate.Aggregate}' requires a selector.");
+        var selectorSql = GetAggregateColumnExpression(selector);
+
+        return aggregate.Aggregate switch
+        {
+            QueryPlanGroupedAggregateKind.Sum => $"COALESCE(SUM({selectorSql}), 0)",
+            QueryPlanGroupedAggregateKind.Min => $"MIN({selectorSql})",
+            QueryPlanGroupedAggregateKind.Max => $"MAX({selectorSql})",
+            QueryPlanGroupedAggregateKind.Average => $"AVG({selectorSql})",
+            _ => throw new QueryTranslationException($"Grouped aggregate '{aggregate.Aggregate}' is not supported by SQL rendering.")
+        };
     }
 
     private string GetAggregateColumnExpression(QueryPlanValue selector)

@@ -2,22 +2,24 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 16: Grouped Numeric Aggregates
 
-**Status:** Planned after the Phase 13B grouped `Count()` baseline.
+**Status:** Implemented for direct numeric grouped aggregate selectors.
 
 ## Purpose
 
 Phase 16 extends the existing direct-key grouped aggregate projection from `Count()` to the numeric aggregate operators users actually need in reports:
 
 ```csharp
-var salaryStats = db.Query().Salaries
-    .GroupBy(row => row.emp_no)
+var departmentStats = db.Query().DepartmentEmployees
+    .Where(row => row.dept_no.StartsWith("d00"))
+    .GroupBy(row => row.dept_no)
     .Select(group => new
     {
-        EmployeeNumber = group.Key,
+        DeptNo = group.Key,
         Count = group.Count(),
-        MinSalary = group.Min(row => row.salary),
-        MaxSalary = group.Max(row => row.salary),
-        AverageSalary = group.Average(row => row.salary)
+        SumEmployeeNumbers = group.Sum(row => row.emp_no),
+        MinEmployeeNumber = group.Min(row => row.emp_no),
+        MaxEmployeeNumber = group.Max(row => row.emp_no),
+        AverageEmployeeNumber = group.Average(row => row.emp_no)
     })
     .ToList();
 ```
@@ -29,10 +31,10 @@ The target is still SQL-shaped grouped aggregate rows. It is not materialized `I
 In scope:
 
 - grouped `Sum(...)`, `Min(...)`, `Max(...)`, and `Average(...)`
-- `LongCount()` if the result-type and provider conversion story is clean
+- `Count()` alongside numeric aggregate members
 - multiple aggregate members in one grouped projection
 - direct numeric member selectors
-- nullable numeric member selectors and nullable `.Value` member selectors where semantics are explicitly tested
+- nullable numeric member selectors and nullable `.Value` member selectors for the tested nullable numeric column shape
 - optional `Where(...)` before `GroupBy(...)`, preserving Phase 13B behavior
 - active-provider coverage for SQLite, MySQL, and MariaDB
 - focused diagnostics for unsupported grouped aggregate selectors
@@ -69,7 +71,7 @@ Required tests:
 - plan snapshots for grouped numeric aggregate members
 - SQL-shape tests proving explicit `GROUP BY` and aggregate select-list expressions
 - behavior tests against SQLite, MySQL, and MariaDB
-- nullable aggregate tests that document exact empty/all-null semantics
+- nullable aggregate tests over the nullable numeric `employees.emp_no` selector shape
 - unsupported selector diagnostics for computed selectors, relation selectors, and unsupported methods
 - transaction-root parity for grouped numeric aggregates
 

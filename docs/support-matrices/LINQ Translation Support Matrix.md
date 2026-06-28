@@ -103,7 +103,7 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | Scalar projection | `Select(x => x.Property)` | `EmployeesQueryBehaviorTests.cs`, translation tests | Public docs match this. |
 | Anonymous projection | `Select(x => new { ... })` for simple property members and row-local computed expressions | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesProjectionTranslationTests.cs` | These are post-materialization projections, not SQL-backed `SELECT`-list expressions. Relation-property projections remain rejected to avoid hidden N+1 behavior. |
 | Computed scalar projection | row-local string concatenation and materialized member chains after SQL filtering, ordering, and paging | `Translation/EmployeesProjectionTranslationTests.cs` | Client projection is deliberate here. Do not generalize this to SQL predicate method translation. |
-| Grouped aggregate projection | single-source `Where(...).GroupBy(directMember).Select(g => new { Key = g.Key, Count = g.Count() })`, including `db.Query()` and `transaction.Query()` roots across active providers | `Translation/EmployeesGroupedAggregateTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs`, `Translation/ExpressionQueryPlanParserTests.cs` | This is SQL-backed grouped aggregate row materialization, not materialized `IGrouping<TKey,TElement>` support. Computed keys, composite keys, grouped element enumeration, grouped numeric aggregates, grouped joins, and post-group composition remain rejected. |
+| Grouped aggregate projection | single-source `Where(...).GroupBy(directMember).Select(g => new { Key = g.Key, Count = g.Count(), Sum = g.Sum(row => row.Number), Min = g.Min(...), Max = g.Max(...), Average = g.Average(...) })`, including `db.Query()` and `transaction.Query()` roots across active providers | `Translation/EmployeesGroupedAggregateTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs`, `Translation/ExpressionQueryPlanParserTests.cs` | This is SQL-backed grouped aggregate row materialization, not materialized `IGrouping<TKey,TElement>` support. Computed keys, composite keys, computed aggregate selectors, grouped joins, `HAVING`, and post-group composition remain rejected. |
 | Views and primary-key lookup | querying generated views and direct `Get<T>(key)` lookup | `SeededEmployeesQueryTests.cs`, `EmployeesQueryBehaviorTests.cs` | Direct lookup is not a LINQ predicate but belongs in the surrounding query support docs. |
 
 ## Explicit Joins
@@ -171,3 +171,11 @@ Phase 15 adds implicit singular relation join coverage:
 3. Provider behavior tests compare implicit relation filtering/ordering with in-memory relation traversal across SQLite, MySQL, and MariaDB.
 4. Transaction-root tests prove the same implicit relation traversal executes from `transaction.Query()`.
 5. Unsupported projection tests keep relation traversal out of provider `Select(...)` until a projection design exists.
+
+Phase 16 adds grouped numeric aggregate coverage:
+
+1. Grouped aggregate plan values record selector-bearing `sum`, `min`, `max`, and `average` members while keeping `count` selectorless.
+2. SQL-shape tests prove grouped projections emit explicit `GROUP BY`, `COUNT(*)`, `SUM`, `MIN`, `MAX`, and `AVG`.
+3. Provider behavior tests compare direct numeric and nullable numeric grouped aggregate rows with in-memory LINQ across SQLite, MySQL, and MariaDB.
+4. Transaction-root tests prove grouped numeric aggregate projection executes from `transaction.Query()`.
+5. Unsupported-shape tests keep computed grouped aggregate selectors outside the documented boundary.

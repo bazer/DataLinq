@@ -293,13 +293,14 @@ var sum = db.Query().Employees.Sum(x => x.emp_no!.Value);
 
 ## Supported Grouped Aggregate Projection
 
-The test suite covers one SQL-shaped `GroupBy(...)` slice:
+The test suite covers SQL-shaped `GroupBy(...)` aggregate projection:
 
 - a single DataLinq query source
 - optional `Where(...)` before `GroupBy(...)`
 - one direct mapped member key
 - immediate `Select(...)`
-- projection members limited to `group.Key` and `group.Count()`
+- projection members limited to `group.Key`, `group.Count()`, and direct numeric grouped `Sum(...)`, `Min(...)`, `Max(...)`, and `Average(...)` selectors
+- nullable numeric selectors for the tested nullable numeric column shape
 
 Example:
 
@@ -310,7 +311,10 @@ var countsByDepartment = db.Query().DepartmentEmployees
     .Select(group => new
     {
         DeptNo = group.Key,
-        Count = group.Count()
+        Count = group.Count(),
+        MinEmployeeNumber = group.Min(row => row.emp_no),
+        MaxEmployeeNumber = group.Max(row => row.emp_no),
+        AverageEmployeeNumber = group.Average(row => row.emp_no)
     })
     .ToList();
 ```
@@ -323,7 +327,7 @@ This is not general LINQ `GroupBy(...)` support. These grouped shapes remain uns
 - materialized `IGrouping<TKey,TElement>` sequences
 - enumerating grouped elements inside the projection
 - computed or composite group keys
-- grouped `Sum`, `Min`, `Max`, or `Average`
+- computed grouped aggregate selectors such as `group.Sum(row => row.Value + 1)`
 - `HAVING`
 - grouping over joined row shapes
 - filtering, ordering, paging, or terminal operators after the grouped projection

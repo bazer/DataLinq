@@ -75,7 +75,10 @@ internal sealed record QueryPlanGroupKeyValue(QueryPlanValue Key, Type ClrType)
     : QueryPlanValue(QueryPlanValueKind.GroupKey, ClrType)
 ;
 
-internal sealed record QueryPlanGroupedAggregateValue(QueryPlanGroupedAggregateKind Aggregate, Type ClrType)
+internal sealed record QueryPlanGroupedAggregateValue(
+    QueryPlanGroupedAggregateKind Aggregate,
+    Type ClrType,
+    QueryPlanValue? Selector = null)
     : QueryPlanValue(QueryPlanValueKind.GroupedAggregate, ClrType)
 ;
 
@@ -93,7 +96,11 @@ internal enum QueryPlanValueKind
 
 internal enum QueryPlanGroupedAggregateKind
 {
-    Count
+    Count,
+    Sum,
+    Min,
+    Max,
+    Average
 }
 
 internal enum QueryPlanFunctionKind

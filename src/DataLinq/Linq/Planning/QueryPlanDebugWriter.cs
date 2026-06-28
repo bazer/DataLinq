@@ -299,7 +299,9 @@ internal static class QueryPlanDebugWriter
             QueryPlanFunctionValue function => $"function({ToToken(function.Function)}:{TypeName(function.ClrType)} {string.Join(", ", function.Arguments.Select(FormatValue))})",
             QueryPlanConvertedValue converted => $"convert({FormatValue(converted.Value)} -> {TypeName(converted.TargetType)})",
             QueryPlanGroupKeyValue groupKey => $"group-key({FormatValue(groupKey.Key)}:{TypeName(groupKey.ClrType)})",
-            QueryPlanGroupedAggregateValue groupedAggregate => $"grouped-aggregate({ToToken(groupedAggregate.Aggregate)}:{TypeName(groupedAggregate.ClrType)})",
+            QueryPlanGroupedAggregateValue groupedAggregate => groupedAggregate.Selector is null
+                ? $"grouped-aggregate({ToToken(groupedAggregate.Aggregate)}:{TypeName(groupedAggregate.ClrType)})"
+                : $"grouped-aggregate({ToToken(groupedAggregate.Aggregate)}:{TypeName(groupedAggregate.ClrType)} selector={FormatValue(groupedAggregate.Selector)})",
             _ => throw new InvalidOperationException($"Unknown query plan value '{value.GetType().Name}'.")
         };
     }

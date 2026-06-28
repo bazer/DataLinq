@@ -185,6 +185,44 @@ bindings:
     }
 
     [Test]
+    public async Task GroupedNumericAggregateSnapshot_RecordsSelectorMembers()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(GroupedNumericAggregateSnapshot_RecordsSelectorMembers),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().DepartmentEmployees
+            .GroupBy(x => x.dept_no)
+            .Select(group => new
+            {
+                DeptNo = group.Key,
+                Count = group.Count(),
+                SumEmployeeNumbers = group.Sum(row => row.emp_no),
+                MinEmployeeNumber = group.Min(row => row.emp_no),
+                MaxEmployeeNumber = group.Max(row => row.emp_no),
+                AverageEmployeeNumber = group.Average(row => row.emp_no)
+            });
+
+        var snapshot = Snapshot(databaseScope.Database, query);
+
+        await AssertSnapshot(snapshot, """
+query-plan v0
+sources:
+  s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
+operations:
+  group-by column(s0.dept_no:String)
+projection:
+  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32), SumEmployeeNumbers=grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32)), MinEmployeeNumber=grouped-aggregate(min:Int32 selector=column(s0.emp_no:Int32)), MaxEmployeeNumber=grouped-aggregate(max:Int32 selector=column(s0.emp_no:Int32)), AverageEmployeeNumber=grouped-aggregate(average:Double selector=column(s0.emp_no:Int32))]
+result:
+  sequence type=anonymous
+bindings:
+  none
+""");
+        await AssertNoLegacyParserTerms(snapshot);
+    }
+
+    [Test]
     public async Task NegatedFunctionPredicateSnapshot_RecordsNotNode()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

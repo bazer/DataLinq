@@ -545,9 +545,61 @@ internal sealed class ExpressionQueryPlanParser
             return new QueryPlanGroupedAggregateValue(QueryPlanGroupedAggregateKind.Count, methodCall.Type);
         }
 
+        if (expression is MethodCallExpression aggregateCall &&
+            IsEnumerableMethod(aggregateCall, aggregateCall.Method.Name) &&
+            TryGetGroupedAggregateKind(aggregateCall.Method.Name, out var aggregateKind) &&
+            aggregateCall.Arguments.Count == 2 &&
+            UnwrapConvert(aggregateCall.Arguments[0]) == groupParameter)
+        {
+            var selector = UnwrapLambda(aggregateCall.Arguments[1], aggregateCall.ToString());
+            if (selector.Parameters.Count != 1)
+                throw new QueryTranslationException($"Grouped aggregate selector '{selector}' is not supported.");
+
+            var aggregateSelector = WithSource(selector.Parameters[0], grouping.Source, () =>
+                GetDirectAggregateSelector(selector.Body, aggregateCall.Method.Name));
+
+            return new QueryPlanGroupedAggregateValue(aggregateKind, aggregateCall.Type, aggregateSelector);
+        }
+
         throw new QueryTranslationException(
             $"Grouped aggregate projection member '{expression}' is not supported by the DataLinq expression parser. " +
-            "Only group.Key and group.Count() are supported.");
+            "Only group.Key, group.Count(), and direct numeric grouped aggregate selectors are supported.");
+    }
+
+    private static bool TryGetGroupedAggregateKind(string methodName, out QueryPlanGroupedAggregateKind aggregateKind)
+    {
+        aggregateKind = methodName switch
+        {
+            nameof(Enumerable.Sum) => QueryPlanGroupedAggregateKind.Sum,
+            nameof(Enumerable.Min) => QueryPlanGroupedAggregateKind.Min,
+            nameof(Enumerable.Max) => QueryPlanGroupedAggregateKind.Max,
+            nameof(Enumerable.Average) => QueryPlanGroupedAggregateKind.Average,
+            _ => default
+        };
+
+        return methodName is nameof(Enumerable.Sum) or
+            nameof(Enumerable.Min) or
+            nameof(Enumerable.Max) or
+            nameof(Enumerable.Average);
+    }
+
+    private QueryPlanValue GetDirectAggregateSelector(Expression selector, string operatorName)
+    {
+        selector = UnwrapConvert(selector);
+        if (selector is MemberExpression memberExpression &&
+            memberExpression.Member.Name == "Value" &&
+            memberExpression.Expression is not null &&
+            Nullable.GetUnderlyingType(memberExpression.Expression.Type) is not null)
+        {
+            selector = memberExpression.Expression;
+        }
+
+        if (TryGetColumnValue(selector, out var value))
+            return value;
+
+        throw new QueryTranslationException(
+            $"Aggregate selector '{selector}' is not supported for '{operatorName}' by the DataLinq expression parser. " +
+            "Only direct numeric members and nullable Value members are supported.");
     }
 
     private bool TryCreateProjectionMembers(NewExpression newExpression, out IReadOnlyList<QueryPlanProjectionMember> members)

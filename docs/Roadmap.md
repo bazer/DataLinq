@@ -69,7 +69,7 @@ Now that the query plan exists, the next broad query feature priority after the 
 - correct LINQ operator-order semantics for `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, `Take(...)`, and supported scalar result operators
 - SQL subquery pushdown when later filters/orderings must apply over an already-limited or offset source
 - first-step `GroupBy(...)` support for single-source grouped aggregate projection, starting with `g.Key` and `g.Count()`, without claiming materialized `IGrouping<TKey,TElement>` support
-- grouped numeric aggregates, grouped-row composition/`HAVING`, advanced keys, and grouping over supported joined row shapes
+- grouped numeric aggregates for direct selectors, followed by grouped-row composition/`HAVING`, advanced keys, and grouping over supported joined row shapes
 - SQL-backed projection rows for direct source-slot values
 - implicit singular relation projection that binds to SQL aliases instead of lazy-loading relations inside `Select(...)`
 - C# query-syntax joins as a documented path

@@ -42,7 +42,7 @@ The aggregate boundary is deliberately narrow:
 - nullable `.Value` member selectors
 - filtered sequences
 
-Computed aggregate selectors and relation-property aggregates are not part of the supported surface. Grouped aggregate projection has a separate narrow path for direct mapped keys plus `group.Key` and `group.Count()`.
+Computed aggregate selectors and relation-property aggregates are not part of the supported surface. Grouped aggregate projection has a separate narrow path for direct mapped keys plus `group.Key`, `group.Count()`, and direct numeric grouped aggregate selectors.
 
 ### Grouped Aggregate Projection
 
@@ -52,11 +52,11 @@ The current grouped-query support is deliberately narrow:
 - optional `Where(...)` before `GroupBy(...)`
 - one direct mapped member key
 - immediate `Select(...)`
-- projection members limited to `group.Key` and `group.Count()`
+- projection members limited to `group.Key`, `group.Count()`, and direct numeric grouped `Sum`, `Min`, `Max`, and `Average` selectors
 
 The parser records grouping as first-class plan state: a `GroupBy` operation, `GroupKey` projection values, and grouped aggregate values. `QueryPlanSqlBuilder` renders explicit `GROUP BY` and aggregate select-list aliases. `ExpressionQueryPlanExecutor` reads those aliases directly from `IDataLinqDataReader` and invokes the projection constructor; it does not route grouped rows through `RowData` or table caches.
 
-Materialized `IGrouping<TKey,TElement>` sequences, grouped element enumeration, computed/composite keys, grouped numeric aggregates, grouped joins, `HAVING`, and post-group composition remain outside the supported surface.
+Materialized `IGrouping<TKey,TElement>` sequences, grouped element enumeration, computed/composite keys, computed aggregate selectors, grouped joins, `HAVING`, and post-group composition remain outside the supported surface.
 
 ### Explicit Joins
 
