@@ -6,15 +6,9 @@
 
 ## Purpose
 
-Phase 15 turns the stronger source-slot join engine into the model-aware query surface users actually want:
+Phase 15 turned the stronger source-slot join engine into the first model-aware query slice users actually feel: SQL-backed implicit singular relation traversal in predicates and ordering.
 
-- `JoinBy(...)` and `JoinMany(...)` for explicit relation-aware joins
-- narrow implicit singular relation joins for predicates, ordering, and simple projections
-- join-local `on:` predicates
-- `LeftJoinBy(...)` and `LeftJoinMany(...)`
-- standard `Queryable.LeftJoin(...)` coverage on `net10.0` where the BCL API is available
-
-This belongs in 0.8 if Phase 14 lands in 0.8. Leaving relation-aware and implicit joins for later would ship the new parser with a technically cleaner engine but the same clunky user-facing join story.
+The original target also included `JoinBy(...)`, `JoinMany(...)`, join-local `on:` predicates, left joins, and simple implicit relation projection. The shipped Phase 15 slice did not include that broad surface. That is intentional. Those APIs need real projection, cardinality, and nullability design; shipping them as incidental member-access translation would make the support matrix lie.
 
 The public API should remain rooted in `IQueryable<T>` extension methods so the same code works from either query root:
 
@@ -26,22 +20,23 @@ var readOnlyRows = q.Orders.JoinBy(order => order.Customer, (order, customer) =>
 var transactionRows = tq.Orders.JoinBy(order => order.Customer, (order, customer) => new { order, customer });
 ```
 
-## Execution Boundary
+## Implemented Boundary
 
-In scope:
+In scope for the shipped Phase 15 slice:
 
 - relation-expression resolver for generated singular and collection relations
-- `JoinBy(...)` and `JoinMany(...)` inner joins
-- singular implicit relation traversal in `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, and simple `Select(...)`
-- relation access through already-joined anonymous row shapes
-- read-only and transaction-local query-root parity for every supported relation-aware join shape
-- join-local `on:` predicates rendered into SQL `ON` groups
-- `LeftJoinBy(...)` and `LeftJoinMany(...)` with nullable joined values
-- `net10.0` tests for standard explicit `Queryable.LeftJoin(...)` when available
+- singular implicit relation traversal in `Where(...)`, `OrderBy(...)`, and `ThenBy(...)`
+- repeated traversal of the same relation reusing one implicit join source slot
+- read-only and transaction-local query-root parity for the supported implicit relation shapes
 - diagnostics for unsupported relation expressions, implicit traversal, and predicates
 
 Out of scope:
 
+- implicit singular relation projection; Phase 19 owns that follow-up
+- `JoinBy(...)` and `JoinMany(...)` inner joins
+- join-local `on:` predicates rendered into SQL `ON` groups
+- `LeftJoinBy(...)` and `LeftJoinMany(...)` with nullable joined values
+- `net10.0` tests for standard explicit `Queryable.LeftJoin(...)` when available
 - eager loading disguised as joins
 - direct `db.Table` shortcuts that bypass the generated `db.Query()` surface
 - collection relation projection through implicit traversal
@@ -52,7 +47,7 @@ Out of scope:
 
 ## Related Work That Should Land Together
 
-These items are tightly coupled enough that splitting them too far apart would create churn:
+These items are tightly coupled enough that later slices should keep using the same source-slot model:
 
 1. **Shared relation resolver.** `JoinBy(...)`, `JoinMany(...)`, implicit singular joins, and left joins should all use one resolver for generated relation properties.
 2. **Source-slot reuse.** Repeated references such as `order.Customer.Name` and `order.Customer.IsActive` should reuse one joined source slot.
@@ -69,35 +64,30 @@ Work that should not be pulled into this phase:
 
 ## Recommended Order
 
-1. Add the shared relation-expression resolver and rejection diagnostics.
-2. Implement `JoinBy(...)` and `JoinMany(...)` for inner joins.
-3. Support relation access through already-joined anonymous row shapes.
-4. Add implicit singular relation joins for predicates and ordering.
-5. Add implicit singular relation joins for simple projections.
-6. Add join-local `on:` predicates.
-7. Add `LeftJoinBy(...)` and `LeftJoinMany(...)`.
-8. Add `net10.0` standard `Queryable.LeftJoin(...)` tests and support if the expression parser needs special handling.
-9. Update user docs and the support matrix only for shipped behavior.
+1. Keep the shipped shared relation-expression resolver and rejection diagnostics.
+2. Add implicit singular relation joins for simple projections in Phase 19.
+3. Add relation access through supported joined/query-syntax row shapes only after projection binding is SQL-backed.
+4. Implement `JoinBy(...)` and `JoinMany(...)` for inner joins after the explicit/query-syntax join engine is strong enough.
+5. Add join-local `on:` predicates.
+6. Add `LeftJoinBy(...)` and `LeftJoinMany(...)`.
+7. Add `net10.0` standard `Queryable.LeftJoin(...)` tests and support if the expression parser needs special handling.
+8. Update user docs and the support matrix only for shipped behavior.
 
 ## Source Plans
 
 - [Relation-Aware Join API](../../../query-and-runtime/Relation-Aware%20Join%20API.md)
 - [0.8 Phase 14 Source-Slot Join Composition](../phase-14-source-slot-join-composition/README.md)
+- [0.8 Phase 19 SQL-Backed Projection Rows and Implicit Relation Projection](../phase-19-sql-backed-projection-rows-and-implicit-relation-projection/README.md)
 - [Old Phase 14 Relation-Aware Joins and Left Joins](../../phase-14-relation-aware-joins-and-left-joins/README.md)
 - [LINQ Translation Support Matrix](../../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md)
 - [Implementation Plan](Implementation%20Plan.md)
 
 ## Exit Criteria
 
-Phase 15 is done when:
+The shipped Phase 15 slice is done when:
 
-- singular and collection relation metadata can drive fluent inner joins
-- relation-aware joins compose after earlier joins
-- implicit singular relation traversal is SQL-backed for supported predicates, ordering, and projections
-- supported relation-aware and implicit join shapes work from both `db.Query()` and `transaction.Query()`
+- implicit singular relation traversal is SQL-backed for supported predicates and ordering
+- supported implicit relation shapes work from both `db.Query()` and `transaction.Query()`
 - implicit collection traversal remains rejected except for documented `Any(...)` and existence-equivalent `Count(...)` patterns
-- `on:` predicates render as join-local SQL conditions
-- left joins preserve unmatched source rows and expose nullable joined values
-- standard explicit `Queryable.LeftJoin(...)` has a documented `net10.0` support decision
 - unsupported shapes throw focused `QueryTranslationException` diagnostics
 - docs and support matrix describe only actually shipped join behavior

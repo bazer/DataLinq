@@ -6,7 +6,7 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-**Current status:** One roadmap-doc scope finding. No runtime implicit-relation finding was identified in this pass.
+**Current status:** Resolved after the Phase 19-21 roadmap split clarified the deferred projection/query-syntax/joined-pushdown work. No runtime implicit-relation finding was identified in this pass.
 
 ## Findings
 
@@ -24,6 +24,8 @@ Public docs also correctly list fluent relation-aware joins and standard `Querya
 This matters because the README reads like a completed broad relation-aware/left-join phase unless the reader cross-checks the implementation plan. That is dangerous follow-up fuel.
 
 Expected fix: rewrite the Phase 15 README purpose, scope, recommended order, and exit criteria around the shipped implicit singular predicate/ordering slice. Keep the broader relation-aware API list as deferred follow-up, not as completed Phase 15 scope.
+
+Resolution note: the Phase 15 README now describes the shipped implicit singular predicate/ordering slice and routes implicit relation projection to Phase 19 while keeping fluent relation-aware APIs and left joins deferred.
 
 ## Review Notes
 

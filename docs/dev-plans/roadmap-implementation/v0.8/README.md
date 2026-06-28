@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for the 0.8 development line. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # DataLinq 0.8 Roadmap
 
-**Status:** Parser-removal track complete through Phase 7; AOT/browser release gate tooling implemented through Phase 12; current browser AOT evidence fails at generated SQLite startup; query-composition hardening, the direct-key grouped `Count()` baseline, explicit two-source join composition, and implicit singular relation predicates/orderings have landed as later query-runtime slices. The remaining 0.8 roadmap now includes grouped numeric aggregates, grouped-row composition/HAVING, and advanced grouping keys plus joined grouping before the next post-0.8 feature wave.
+**Status:** Parser-removal track complete through Phase 7; AOT/browser release gate tooling implemented through Phase 12; current browser AOT evidence fails at generated SQLite startup; query-composition hardening, the direct-key grouped `Count()` baseline, explicit two-source join composition, and implicit singular relation predicates/orderings have landed as later query-runtime slices. The remaining 0.8 roadmap now includes SQL-style GroupBy completion, SQL-backed projection rows, query-syntax joins, and joined post-paging pushdown before the next post-0.8 feature wave.
 
 **Created:** 2026-06-27.
 
@@ -22,7 +22,7 @@ That parser-removal track is now complete. The release goal for the rest of 0.8 
 
 > Make generated SQLite Native AOT, trimming, and Blazor WebAssembly AOT actually run with current automation, documented query coverage, and sensible deploy sizes.
 
-That means browser AOT is release work, not a stretch note. Query-composition hardening, the first narrow `GroupBy(...)` aggregate slice, and source-slot join expansion moved behind the AOT release gates, and the implemented slices should stay documented as 0.8 work. The next GroupBy phases continue that same rule: they can broaden SQL-shaped grouped aggregate support, but they must not imply materialized `IGrouping<TKey,TElement>` support.
+That means browser AOT is release work, not a stretch note. Query-composition hardening, the first narrow `GroupBy(...)` aggregate slice, and source-slot join expansion moved behind the AOT release gates, and the implemented slices should stay documented as 0.8 work. The next GroupBy phases continue that same rule: they can broaden SQL-shaped grouped aggregate support, but they must not imply materialized `IGrouping<TKey,TElement>` support. The following projection and join phases should likewise broaden only the SQL-backed shapes they can prove, not paper over gaps with lazy relation loading or client-side fallback.
 
 ## Release Shape
 
@@ -47,8 +47,11 @@ That means browser AOT is release work, not a stretch note. Query-composition ha
 | Phase 16: Grouped Numeric Aggregates | Planned after the Phase 13B grouped `Count()` baseline | `phase-16-grouped-numeric-aggregates/` | Adds grouped `Sum`, `Min`, `Max`, `Average`, and multiple aggregate members for direct numeric selectors. |
 | Phase 17: Grouped Row Composition and HAVING | Planned after grouped numeric aggregates | `phase-17-grouped-row-composition-and-having/` | Makes grouped aggregate rows orderable, pageable, filterable, and able to express narrow SQL `HAVING` predicates. |
 | Phase 18: Advanced GroupBy Keys and Joined Grouping | Planned after grouped-row composition and HAVING | `phase-18-advanced-groupby-keys-and-joined-grouping/` | Adds composite/computed SQL-renderable group keys and grouping over supported joined source-slot shapes. |
+| Phase 19: SQL-Backed Projection Rows and Implicit Relation Projection | Planned after the SQL-style GroupBy completion track | `phase-19-sql-backed-projection-rows-and-implicit-relation-projection/` | Adds direct SQL-backed projection row materialization and singular relation member projection without hidden lazy relation loading. |
+| Phase 20: Query-Syntax Join Support | Planned after SQL-backed projection rows | `phase-20-query-syntax-join-support/` | Makes C# query-syntax inner joins a documented and tested path over source-slot joins and transparent identifiers. |
+| Phase 21: Joined Post-Paging Pushdown | Planned after query-syntax join support | `phase-21-joined-post-paging-pushdown/` | Extends Phase 13 operator-order pushdown to supported joined row shapes after `Skip(...)` or `Take(...)`. |
 
-Phases 1 through 7 are the coherent 0.8 parser-removal track. Phases 8 through 12 are the 0.8 AOT/browser release track. The release-track tooling is implemented, and the first fresh browser evidence found a real blocker: `wasm-aot` publishes on the host, then fails in Edge at `opening-generated-database` with `MONO_WASM: function signature mismatch`. Phase 13, Phase 13B, and Phases 14 through 15 are implemented query-runtime slices that followed that release-gate work. Phases 16 through 18 are the next GroupBy completion slices, scoped to SQL-style grouped aggregate support rather than broad LINQ grouping semantics.
+Phases 1 through 7 are the coherent 0.8 parser-removal track. Phases 8 through 12 are the 0.8 AOT/browser release track. The release-track tooling is implemented, and the first fresh browser evidence found a real blocker: `wasm-aot` publishes on the host, then fails in Edge at `opening-generated-database` with `MONO_WASM: function signature mismatch`. Phase 13, Phase 13B, and Phases 14 through 15 are implemented query-runtime slices that followed that release-gate work. Phases 16 through 18 are the next GroupBy completion slices, scoped to SQL-style grouped aggregate support rather than broad LINQ grouping semantics. Phases 19 through 21 then return to projection and join completion: SQL-backed projection rows, query-syntax joins, and joined post-paging pushdown.
 
 ## Current Implementation State
 
@@ -146,6 +149,8 @@ The current Phase 13B implementation satisfies this gate for the direct mapped k
 
 - standard C# query syntax supports practical multi-table inner joins
 - explicit joined row shapes preserve Phase 13 filtering, ordering, paging, `Any`, and `Count` semantics
+- direct projection rows materialize from SQL result aliases when the projection is made of bindable source-slot values
+- singular generated relation projection is SQL-backed and does not lazy-load relations inside provider `Select(...)`
 - relation metadata can drive `JoinBy(...)` and `JoinMany(...)` without duplicated key selectors
 - singular generated relation traversal is SQL-backed for supported predicates, ordering, and simple projections
 - collection relation traversal remains explicit except for documented `Any(...)` and existence-equivalent `Count(...)` patterns
@@ -183,6 +188,9 @@ The 0.8 roadmap consolidates these older plans rather than discarding them:
 - [0.8 Phase 16 Grouped Numeric Aggregates](phase-16-grouped-numeric-aggregates/README.md)
 - [0.8 Phase 17 Grouped Row Composition and HAVING](phase-17-grouped-row-composition-and-having/README.md)
 - [0.8 Phase 18 Advanced GroupBy Keys and Joined Grouping](phase-18-advanced-groupby-keys-and-joined-grouping/README.md)
+- [0.8 Phase 19 SQL-Backed Projection Rows and Implicit Relation Projection](phase-19-sql-backed-projection-rows-and-implicit-relation-projection/README.md)
+- [0.8 Phase 20 Query-Syntax Join Support](phase-20-query-syntax-join-support/README.md)
+- [0.8 Phase 21 Joined Post-Paging Pushdown](phase-21-joined-post-paging-pushdown/README.md)
 - [Old Phase 13 Explicit Multi-Join Composition](../phase-13-explicit-multi-join-composition/README.md)
 - [Old Phase 14 Relation-Aware Joins and Left Joins](../phase-14-relation-aware-joins-and-left-joins/README.md)
 - [Practical AOT and Size Plan](../../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md)
@@ -197,7 +205,7 @@ The 0.8 roadmap consolidates these older plans rather than discarding them:
 - broad arbitrary database subqueries beyond the pushdown needed to preserve documented operator order
 - silent client-side predicate fallback
 - full `GroupBy(...)` materialization as `IGrouping<TKey,TElement>` sequences, grouped element enumeration, and client-side fallback for unsupported grouped SQL shapes
-- broad join expansion before AOT/browser release evidence is captured
+- broad join expansion without source-slot, projection-row, and derived-source evidence
 - implicit collection projection or hidden row multiplication
 - DataLinq.Store query/module execution
 - non-SQL backend execution as a 0.8 release requirement
@@ -208,7 +216,7 @@ The 0.8 roadmap consolidates these older plans rather than discarding them:
 
 ## After 0.8
 
-Once the parser boundary, AOT/browser release gates, join completion work, and SQL-style GroupBy completion phases are green, the next roadmap can resume feature work in a cleaner order:
+Once the parser boundary, AOT/browser release gates, SQL-style GroupBy completion phases, and the planned projection/join completion phases are green, the next roadmap can resume feature work in a cleaner order:
 
 1. scalar converters and typed keys
 2. dependency-tracked result/module caching

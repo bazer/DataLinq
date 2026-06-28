@@ -59,19 +59,23 @@ The 0.8 parser-removal track is implemented in the current branch. The productio
 
 That is not the same thing as a general LINQ-provider rewrite. The support boundary is still the documented tested subset, and unsupported shapes should fail with specific `QueryTranslationException` diagnostics instead of falling back to silent client-side filtering.
 
-The internal 0.8 execution record started over at Phase 1 instead of continuing the old global roadmap numbering. That sequence is now closed through Phase 7: query contract baseline, temporary Remotion adapter, SQL generation on `DataLinqQueryPlan`, supported-subset expression parser, projection/local-evaluation cleanup, parity and constrained-platform switch, and Remotion dependency removal. Phases 8 through 12 now own the AOT/browser release gates, while Phase 13, Phase 13B, and Phases 14 through 15 cover query-composition hardening, the first narrow grouped aggregate projection slice, and join completion.
+The internal 0.8 execution record started over at Phase 1 instead of continuing the old global roadmap numbering. That sequence is now closed through Phase 7: query contract baseline, temporary Remotion adapter, SQL generation on `DataLinqQueryPlan`, supported-subset expression parser, projection/local-evaluation cleanup, parity and constrained-platform switch, and Remotion dependency removal. Phases 8 through 12 now own the AOT/browser release gates, Phase 13 through Phase 15 cover implemented query-composition/grouped-count/join slices, and Phases 16 through 21 hold the planned SQL-style GroupBy and projection/join completion work.
 
 ### 0.8 Query Composition, Grouped Aggregates, and Join Completion
 
-Now that the query plan exists, the next broad query feature priority after the AOT/browser release gates is query-composition hardening, a narrow SQL-shaped `GroupBy(...)` aggregate baseline, and then join completion for 0.8:
+Now that the query plan exists, the next broad query feature priority after the AOT/browser release gates is query-composition hardening, SQL-shaped `GroupBy(...)` expansion, and then projection/join completion for 0.8:
 
 - query-root parity for supported commands from both `db.Query()` and `transaction.Query()`
 - correct LINQ operator-order semantics for `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, `Take(...)`, and supported scalar result operators
 - SQL subquery pushdown when later filters/orderings must apply over an already-limited or offset source
 - first-step `GroupBy(...)` support for single-source grouped aggregate projection, starting with `g.Key` and `g.Count()`, without claiming materialized `IGrouping<TKey,TElement>` support
+- grouped numeric aggregates, grouped-row composition/`HAVING`, advanced keys, and grouping over supported joined row shapes
+- SQL-backed projection rows for direct source-slot values
+- implicit singular relation projection that binds to SQL aliases instead of lazy-loading relations inside `Select(...)`
 - C# query-syntax joins as a documented path
 - multiple explicit inner joins
 - filtering, ordering, paging, and result operators over joined row shapes
+- joined post-paging pushdown that preserves C# operator order after `Skip(...)` or `Take(...)`
 - joined materialization that keeps using provider-key components
 - `JoinBy(...)` and `JoinMany(...)`
 - narrow implicit singular relation joins for predicates, ordering, and simple projections
@@ -79,7 +83,7 @@ Now that the query plan exists, the next broad query feature priority after the 
 - left joins with honest nullability behavior
 - clear documentation for `ON` versus `WHERE` semantics
 
-The first shipped join support is intentionally narrow. The next step is to preserve single-source LINQ composition correctly, add grouped aggregate rows as an explicit SQL result shape, make explicit joins useful on that same machinery, then layer relation-aware and implicit singular relation syntax on the source-slot engine. Collection relation expansion should stay explicit through `JoinMany(...)` or query syntax; hidden row multiplication would be a bad trade even if it looks elegant in a demo.
+The first shipped join support is intentionally narrow. The next step is to preserve single-source LINQ composition correctly, finish the planned SQL-style grouped aggregate work, add SQL-backed projection rows, make query-syntax joins a first-class tested path, and only then extend Phase 13-style pushdown over joined row shapes. Collection relation expansion should stay explicit through `JoinMany(...)` or query syntax; hidden row multiplication would be a bad trade even if it looks elegant in a demo.
 
 ### Scalar Converters and Typed Keys
 

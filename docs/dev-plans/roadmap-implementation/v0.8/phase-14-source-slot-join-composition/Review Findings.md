@@ -6,7 +6,7 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-**Current status:** One roadmap-doc scope finding. No runtime join-composition finding was identified in this pass.
+**Current status:** Resolved after the Phase 19-21 roadmap split clarified the deferred projection/query-syntax/joined-pushdown work. No runtime join-composition finding was identified in this pass.
 
 ## Findings
 
@@ -19,6 +19,8 @@ That overstates the shipped slice. The implementation plan is more accurate: pos
 The actual implemented Phase 14 slice is useful and coherent: flat `Where`, ordering, paging, `Any`, and `Count` over explicit two-source joined projections whose projected members bind back to source-slot values. It does not include derived-source pushdown over joined rows after paging.
 
 Expected fix: update the Phase 14 README scope and exit criteria to match the implementation plan and tests. Say flat filtering/ordering/paging and `Any`/`Count` over joined projections are supported, while post-paging joined pushdown remains deferred.
+
+Resolution note: the Phase 14 README now describes the shipped explicit two-source join composition slice and routes query-syntax joins plus joined post-paging pushdown to later 0.8 phases.
 
 ## Review Notes
 
