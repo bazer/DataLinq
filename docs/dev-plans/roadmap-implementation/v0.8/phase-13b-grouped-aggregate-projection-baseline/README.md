@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 13B: Grouped Aggregate Projection Baseline
 
-**Status:** Planned 0.8 finish-line work after Phase 13 query composition and subquery pushdown, before broad join expansion if this slice remains single-source.
+**Status:** In progress.
 
 ## Purpose
 
@@ -86,6 +86,8 @@ Grouped aggregate execution should read result rows directly through `IDataLinqD
 6. Run provider-matrix compliance coverage for SQLite, MySQL, and MariaDB.
 7. Update `Supported LINQ Queries`, the LINQ support matrix, and internals docs only for the shapes proven by tests.
 
+The live implementation checklist is tracked in [Implementation Plan](Implementation%20Plan.md).
+
 ## Exit Criteria
 
 Phase 13B is done when:
@@ -97,4 +99,3 @@ Phase 13B is done when:
 - query-plan snapshots show grouping semantics without SQL text leakage
 - generated SQL contains explicit `GROUP BY`
 - public docs and the support matrix describe grouped aggregate projection as a narrow supported slice, not general `GroupBy`
-

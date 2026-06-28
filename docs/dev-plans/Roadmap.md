@@ -567,9 +567,34 @@ Key related plans:
 - `query-and-runtime/Relation-Aware Join API.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
 
+### Phase 13B: Grouped Aggregate Projection Baseline
+
+Status: in progress.
+
+Goals:
+
+- support the first honest SQL-shaped `GroupBy(...)` slice
+- restrict support to single-source grouped aggregate projection
+- start with direct mapped-member keys, `g.Key`, and `g.Count()`
+- keep materialized `IGrouping<TKey,TElement>`, grouped element enumeration, composite keys, computed keys, `HAVING`, grouped joins, and post-group composition rejected
+- prove the shipped shape from both `db.Query()` and `transaction.Query()`
+- update public query docs and the support matrix only for tested grouped aggregate behavior
+
+Why before joins:
+
+- grouping needs the Phase 13 source/alias/pushdown discipline but does not need joined row composition for the first slice
+- implementing grouped aggregate rows before joins keeps the result-shape boundary honest
+- broad joins should not become the place where grouped projection semantics are invented by accident
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/phase-13b-grouped-aggregate-projection-baseline/README.md`
+- `roadmap-implementation/v0.8/phase-13b-grouped-aggregate-projection-baseline/Implementation Plan.md`
+- `../support-matrices/LINQ Translation Support Matrix.md`
+
 ### Phase 14: Explicit Multi-Join Composition
 
-Status: planned 0.8 finish-line work after Phase 13. This was previously queued immediately after the parser-removal track, but the 0.8 branch now puts browser AOT proof, deploy-size hardening, and operator-order correctness first so the release support claim is real before broad query expansion resumes.
+Status: planned 0.8 finish-line work after Phase 13 and the single-source Phase 13B grouping slice. This was previously queued immediately after the parser-removal track, but the 0.8 branch now puts browser AOT proof, deploy-size hardening, operator-order correctness, and the narrow grouped aggregate baseline first so the release support claim is real before broad query expansion resumes.
 
 Goals:
 
