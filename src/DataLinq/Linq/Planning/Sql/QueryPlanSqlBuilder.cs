@@ -51,6 +51,10 @@ internal sealed class QueryPlanSqlBuilder
                     predicateBuilder.Apply(where.Predicate);
                     break;
 
+                case QueryPlanOperation.Having having:
+                    predicateBuilder.ApplyHaving(having.Predicate);
+                    break;
+
                 case QueryPlanOperation.OrderBy orderBy:
                     ApplyOrderBy(query, orderBy);
                     break;
@@ -101,6 +105,12 @@ internal sealed class QueryPlanSqlBuilder
 
     public Select<T> BuildSelect<T>()
     {
+        if (plan.Projection is QueryPlanProjection.GroupedAggregate &&
+            plan.Result.Kind is QueryPlanResultKind.Count or QueryPlanResultKind.Any)
+        {
+            return BuildGroupedAggregateScalarSelect<T>();
+        }
+
         var query = BuildSqlQuery<T>();
         var select = query.SelectQuery();
 
@@ -181,15 +191,24 @@ internal sealed class QueryPlanSqlBuilder
     {
         foreach (var ordering in orderBy.Orderings)
         {
-            if (ordering.Value is not QueryPlanColumnValue column)
+            if (ordering.Value is QueryPlanColumnValue column)
             {
-                throw new QueryTranslationException(
-                    $"Query plan order-by value '{ordering.Value.Kind}' is not supported by SQL rendering. " +
-                    "Only direct source-slot columns are supported for ordering.");
+                var source = sourceMap.Get(column.Source);
+                query.OrderBy(column.Column, source.Alias, ordering.Direction == QueryPlanOrderingDirection.Ascending);
+                continue;
             }
 
-            var source = sourceMap.Get(column.Source);
-            query.OrderBy(column.Column, source.Alias, ordering.Direction == QueryPlanOrderingDirection.Ascending);
+            if (ordering.Value is QueryPlanGroupKeyValue or QueryPlanGroupedAggregateValue)
+            {
+                query.OrderByRaw(
+                    valueRenderer.RenderSqlExpression(ordering.Value),
+                    ordering.Direction == QueryPlanOrderingDirection.Ascending);
+                continue;
+            }
+
+            throw new QueryTranslationException(
+                $"Query plan order-by value '{ordering.Value.Kind}' is not supported by SQL rendering. " +
+                "Only direct source-slot columns and grouped aggregate row members are supported for ordering.");
         }
     }
 
@@ -255,8 +274,7 @@ internal sealed class QueryPlanSqlBuilder
             var expression = member.Value switch
             {
                 QueryPlanGroupKeyValue groupKey => valueRenderer.RenderSqlExpression(groupKey.Key),
-                QueryPlanGroupedAggregateValue { Aggregate: QueryPlanGroupedAggregateKind.Count } => "COUNT(*)",
-                QueryPlanGroupedAggregateValue aggregate => GetGroupedAggregateSelectorSql(aggregate),
+                QueryPlanGroupedAggregateValue aggregate => valueRenderer.RenderGroupedAggregateSql(aggregate),
                 _ => throw new QueryTranslationException(
                     $"Grouped aggregate projection value '{member.Value.Kind}' is not supported by SQL rendering.")
             };
@@ -267,20 +285,23 @@ internal sealed class QueryPlanSqlBuilder
         return selectors;
     }
 
-    private string GetGroupedAggregateSelectorSql(QueryPlanGroupedAggregateValue aggregate)
+    private Select<T> BuildGroupedAggregateScalarSelect<T>()
     {
-        var selector = aggregate.Selector
-            ?? throw new QueryTranslationException($"Grouped aggregate '{aggregate.Aggregate}' requires a selector.");
-        var selectorSql = GetAggregateColumnExpression(selector);
+        var root = sourceMap.RootSource;
+        var innerPlan = new DataLinqQueryPlan(
+            plan.Sources,
+            plan.Operations,
+            plan.Projection,
+            QueryPlanResult.Sequence(plan.Projection.ResultType),
+            plan.Bindings);
+        var innerSql = new QueryPlanSqlBuilder(innerPlan, dataSource)
+            .BuildSelect<object>()
+            .ToSql("dlg0_");
 
-        return aggregate.Aggregate switch
-        {
-            QueryPlanGroupedAggregateKind.Sum => $"COALESCE(SUM({selectorSql}), 0)",
-            QueryPlanGroupedAggregateKind.Min => $"MIN({selectorSql})",
-            QueryPlanGroupedAggregateKind.Max => $"MAX({selectorSql})",
-            QueryPlanGroupedAggregateKind.Average => $"AVG({selectorSql})",
-            _ => throw new QueryTranslationException($"Grouped aggregate '{aggregate.Aggregate}' is not supported by SQL rendering.")
-        };
+        return new SqlQuery<T>(root.Table, dataSource, root.Alias)
+            .UseDerivedSource(innerSql)
+            .SelectQuery()
+            .What("COUNT(*)");
     }
 
     private string GetAggregateColumnExpression(QueryPlanValue selector)

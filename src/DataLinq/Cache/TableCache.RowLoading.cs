@@ -135,7 +135,8 @@ public partial class TableCache
 
         foreach (var ordering in orderings)
         {
-            Func<IImmutableInstance, IComparable?> keySelector = x => (IComparable?)x.GetValues([ordering.Column]).First().Value;
+            var column = ordering.Column ?? throw new InvalidOperationException("Cached row ordering requires a column-backed ordering.");
+            Func<IImmutableInstance, IComparable?> keySelector = x => (IComparable?)x.GetValues([column]).First().Value;
 
             if (orderedRows == null)
             {

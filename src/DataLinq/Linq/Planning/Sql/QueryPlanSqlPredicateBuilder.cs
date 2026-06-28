@@ -17,6 +17,13 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
         Apply(predicate, query.GetBaseWhereGroup(), BooleanType.And);
     }
 
+    public void ApplyHaving(QueryPlanPredicate predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+
+        Apply(predicate, query.GetBaseHavingGroup(), BooleanType.And);
+    }
+
     private void Apply(QueryPlanPredicate predicate, WhereGroup<T> group, BooleanType connectionType)
     {
         switch (predicate)

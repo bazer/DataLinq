@@ -19,6 +19,17 @@ internal abstract record QueryPlanOperation(QueryPlanOperationKind Kind)
         public QueryPlanPredicate Predicate { get; }
     }
 
+    public sealed record Having : QueryPlanOperation
+    {
+        public Having(QueryPlanPredicate Predicate) : base(QueryPlanOperationKind.Having)
+        {
+            ArgumentNullException.ThrowIfNull(Predicate);
+            this.Predicate = Predicate;
+        }
+
+        public QueryPlanPredicate Predicate { get; }
+    }
+
     public sealed record OrderBy : QueryPlanOperation
     {
         public OrderBy(IEnumerable<QueryPlanOrdering> orderings) : base(QueryPlanOperationKind.OrderBy)
@@ -119,6 +130,7 @@ internal sealed record QueryPlanJoin(
 internal enum QueryPlanOperationKind
 {
     Where,
+    Having,
     OrderBy,
     Skip,
     Take,

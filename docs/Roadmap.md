@@ -59,7 +59,7 @@ The 0.8 parser-removal track is implemented in the current branch. The productio
 
 That is not the same thing as a general LINQ-provider rewrite. The support boundary is still the documented tested subset, and unsupported shapes should fail with specific `QueryTranslationException` diagnostics instead of falling back to silent client-side filtering.
 
-The internal 0.8 execution record started over at Phase 1 instead of continuing the old global roadmap numbering. That sequence is now closed through Phase 7: query contract baseline, temporary Remotion adapter, SQL generation on `DataLinqQueryPlan`, supported-subset expression parser, projection/local-evaluation cleanup, parity and constrained-platform switch, and Remotion dependency removal. Phases 8 through 12 now own the AOT/browser release gates, Phase 13 through Phase 15 cover implemented query-composition/grouped-count/join slices, and Phases 16 through 21 hold the planned SQL-style GroupBy and projection/join completion work.
+The internal 0.8 execution record started over at Phase 1 instead of continuing the old global roadmap numbering. That sequence is now closed through Phase 7: query contract baseline, temporary Remotion adapter, SQL generation on `DataLinqQueryPlan`, supported-subset expression parser, projection/local-evaluation cleanup, parity and constrained-platform switch, and Remotion dependency removal. Phases 8 through 12 now own the AOT/browser release gates, Phase 13 through Phase 17 cover implemented query-composition, grouped aggregate, join, and grouped-row composition slices, and Phases 18 through 21 hold the remaining planned SQL-style GroupBy and projection/join completion work.
 
 ### 0.8 Query Composition, Grouped Aggregates, and Join Completion
 
@@ -68,8 +68,8 @@ Now that the query plan exists, the next broad query feature priority after the 
 - query-root parity for supported commands from both `db.Query()` and `transaction.Query()`
 - correct LINQ operator-order semantics for `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, `Take(...)`, and supported scalar result operators
 - SQL subquery pushdown when later filters/orderings must apply over an already-limited or offset source
-- first-step `GroupBy(...)` support for single-source grouped aggregate projection, starting with `g.Key` and `g.Count()`, without claiming materialized `IGrouping<TKey,TElement>` support
-- grouped numeric aggregates for direct selectors, followed by grouped-row composition/`HAVING`, advanced keys, and grouping over supported joined row shapes
+- SQL-backed `GroupBy(...)` support for single-source grouped aggregate projection, direct numeric grouped aggregate selectors, grouped-row composition, and narrow `HAVING`, without claiming materialized `IGrouping<TKey,TElement>` support
+- advanced grouped keys and grouping over supported joined row shapes
 - SQL-backed projection rows for direct source-slot values
 - implicit singular relation projection that binds to SQL aliases instead of lazy-loading relations inside `Select(...)`
 - C# query-syntax joins as a documented path

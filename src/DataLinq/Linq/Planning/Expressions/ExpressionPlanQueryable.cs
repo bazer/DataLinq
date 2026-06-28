@@ -172,7 +172,8 @@ internal static class ExpressionQueryPlanExecutor
     }
 
     private static bool RequiresPagedSequenceReduction(DataLinqQueryPlan plan)
-        => plan.Result.Kind is QueryPlanResultKind.Count or QueryPlanResultKind.Any &&
+        => plan.Projection is not QueryPlanProjection.GroupedAggregate &&
+           plan.Result.Kind is QueryPlanResultKind.Count or QueryPlanResultKind.Any &&
            plan.Operations.Any(static operation => operation is QueryPlanOperation.Skip or QueryPlanOperation.Take);
 
     private static object ExecutePagedSequenceReduction(DataSourceAccess dataSource, DataLinqQueryPlan plan)

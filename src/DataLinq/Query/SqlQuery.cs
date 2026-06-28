@@ -32,6 +32,7 @@ public class SqlQuery : SqlQuery<object>
 public class SqlQuery<T>
 {
     protected WhereGroup<T>? WhereGroup;
+    protected WhereGroup<T>? HavingGroup;
     internal Dictionary<string, object?> SetList = new Dictionary<string, object?>();
     protected List<Join<T>> JoinList = new List<Join<T>>();
     internal List<OrderBy> OrderByList = new List<OrderBy>();
@@ -237,6 +238,17 @@ public class SqlQuery<T>
         return sql;
     }
 
+    internal Sql GetHaving(Sql sql, string? paramPrefix)
+    {
+        if (HavingGroup == null || HavingGroup.Length == 0)
+            return sql;
+
+        sql.AddText("\nHAVING\n");
+        HavingGroup.AddCommandString(sql, paramPrefix, true, false);
+
+        return sql;
+    }
+
     internal Sql AddTableName(Sql sql, string tableName, string? alias)
     {
         DataSource.Provider.GetTableName(sql, tableName, alias);
@@ -330,6 +342,13 @@ public class SqlQuery<T>
         return this;
     }
 
+    public WhereGroup<T> GetBaseHavingGroup(BooleanType type = BooleanType.And)
+    {
+        HavingGroup ??= new WhereGroup<T>(this, type);
+
+        return HavingGroup;
+    }
+
     public SqlQuery<T> OrderBy(string columnName, string? alias = null, bool ascending = true)
     {
         if (alias == null)
@@ -344,6 +363,13 @@ public class SqlQuery<T>
             throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");
 
         this.OrderByList.Add(new OrderBy(column, alias, ascending));
+
+        return this;
+    }
+
+    public SqlQuery<T> OrderByRaw(string expression, bool ascending = true)
+    {
+        this.OrderByList.Add(new OrderBy(expression, ascending));
 
         return this;
     }
@@ -491,10 +517,12 @@ public class SqlQuery<T>
         if (JoinList.Count != 0 ||
             HasDerivedSource ||
             GroupByList.Count != 0 ||
+            HavingGroup is not null ||
             WhereGroup == null ||
             !WhereGroup.TryGetTemplatePredicates(out var predicates, out values) ||
             WhatList?.Count > 1 ||
-            OrderByList.Count > 1)
+            OrderByList.Count > 1 ||
+            OrderByList.Any(static orderBy => orderBy.Column is null))
         {
             return false;
         }
@@ -526,7 +554,7 @@ public class SqlQuery<T>
             GetPredicateAlias(predicates, 3),
             GetPredicateOperator(predicates, 3),
             GetPredicateValueCount(predicates, 3),
-            orderBy?.Column.DbName,
+            orderBy?.Column?.DbName,
             orderBy?.Alias,
             orderBy?.Ascending ?? true,
             limit,

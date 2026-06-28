@@ -51,6 +51,7 @@ public class Select<T> : IQuery
         query.GetJoins(sql, paramPrefix);
         query.GetWhere(sql, paramPrefix);
         query.GetGroupBy(sql);
+        query.GetHaving(sql, paramPrefix);
         query.GetOrderBy(sql);
         query.GetLimit(sql);
 
@@ -213,7 +214,8 @@ public class Select<T> : IQuery
 
     private List<OrderBy> GetCacheOrderings()
         => query.OrderByList
-            .Select(static ordering => new OrderBy(ordering.Column, alias: null, ordering.Ascending))
+            .Where(static ordering => ordering.Column is not null)
+            .Select(static ordering => new OrderBy(ordering.Column!, alias: null, ordering.Ascending))
             .ToList();
 
     public IEnumerable<DataLinqKey> ReadKeys()

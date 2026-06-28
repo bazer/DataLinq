@@ -53,10 +53,12 @@ The current grouped-query support is deliberately narrow:
 - one direct mapped member key
 - immediate `Select(...)`
 - projection members limited to `group.Key`, `group.Count()`, and direct numeric grouped `Sum`, `Min`, `Max`, and `Average` selectors
+- grouped `Where(...)` predicates that compare `group.Key` or supported grouped aggregates and render as `HAVING`
+- post-projection grouped-row filtering, ordering, paging, `Count()`, and `Any()` when later operators bind to projected key or aggregate members
 
-The parser records grouping as first-class plan state: a `GroupBy` operation, `GroupKey` projection values, and grouped aggregate values. `QueryPlanSqlBuilder` renders explicit `GROUP BY` and aggregate select-list aliases. `ExpressionQueryPlanExecutor` reads those aliases directly from `IDataLinqDataReader` and invokes the projection constructor; it does not route grouped rows through `RowData` or table caches.
+The parser records grouping as first-class plan state: a `GroupBy` operation, `Having` operations, `GroupKey` projection values, and grouped aggregate values. `QueryPlanSqlBuilder` renders explicit `GROUP BY`, `HAVING`, aggregate select-list aliases, raw grouped ordering expressions, and derived grouped scalar reductions for grouped-row `Count()` and `Any()`. `ExpressionQueryPlanExecutor` reads grouped projection aliases directly from `IDataLinqDataReader` and invokes the projection constructor; it does not route grouped rows through `RowData` or table caches.
 
-Materialized `IGrouping<TKey,TElement>` sequences, grouped element enumeration, computed/composite keys, computed aggregate selectors, grouped joins, `HAVING`, and post-group composition remain outside the supported surface.
+Materialized `IGrouping<TKey,TElement>` sequences, grouped element enumeration, computed/composite keys, computed aggregate selectors, grouped joins, non-bindable grouped-row composition, and terminal operators other than grouped-row `Count()`/`Any()` remain outside the supported surface.
 
 ### Explicit Joins
 
@@ -129,7 +131,7 @@ The parser resolves `root.Relation.Member` through relation metadata, registers 
 
 Projection is intentionally split:
 
-- SQL is used for filtering, ordering, paging, scalar result operators, grouped aggregate projection, and join key selection.
+- SQL is used for filtering, ordering, paging, scalar result operators, grouped aggregate projection/composition, and join key selection.
 - Row-local projection can run after materialization for supported scalar, anonymous, and computed shapes.
 
 Relation-property projection is rejected. That prevents hidden N+1 behavior from being smuggled into what looks like a single provider query.

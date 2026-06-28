@@ -223,6 +223,92 @@ bindings:
     }
 
     [Test]
+    public async Task GroupedHavingSnapshot_RecordsAggregatePredicates()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(GroupedHavingSnapshot_RecordsAggregatePredicates),
+            EmployeesSeedMode.Bogus);
+
+        var minimumCount = 0;
+        var minimumSum = 0;
+        var query = databaseScope.Database.Query().DepartmentEmployees
+            .GroupBy(x => x.dept_no)
+            .Where(group => group.Count() > minimumCount && group.Sum(row => row.emp_no) > minimumSum)
+            .Select(group => new
+            {
+                DeptNo = group.Key,
+                Count = group.Count(),
+                SumEmployeeNumbers = group.Sum(row => row.emp_no)
+            });
+
+        var snapshot = Snapshot(databaseScope.Database, query);
+
+        await AssertSnapshot(snapshot, """
+query-plan v0
+sources:
+  s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
+operations:
+  group-by column(s0.dept_no:String)
+  having and(compare(grouped-aggregate(count:Int32) > captured(p0:Int32)), compare(grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32)) > captured(p1:Int32)))
+projection:
+  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32), SumEmployeeNumbers=grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32))]
+result:
+  sequence type=anonymous
+bindings:
+  p0 scalar type=Int32
+  p1 scalar type=Int32
+""");
+        await AssertNoLegacyParserTerms(snapshot);
+    }
+
+    [Test]
+    public async Task GroupedProjectionCompositionSnapshot_RecordsHavingOrderingAndPaging()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(GroupedProjectionCompositionSnapshot_RecordsHavingOrderingAndPaging),
+            EmployeesSeedMode.Bogus);
+
+        var minimumCount = 0;
+        var query = databaseScope.Database.Query().DepartmentEmployees
+            .GroupBy(x => x.dept_no)
+            .Select(group => new
+            {
+                DeptNo = group.Key,
+                Count = group.Count()
+            })
+            .Where(row => row.Count > minimumCount)
+            .OrderByDescending(row => row.Count)
+            .ThenBy(row => row.DeptNo)
+            .Skip(1)
+            .Take(2);
+
+        var snapshot = Snapshot(databaseScope.Database, query);
+
+        await AssertSnapshot(snapshot, """
+query-plan v0
+sources:
+  s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
+operations:
+  group-by column(s0.dept_no:String)
+  having compare(grouped-aggregate(count:Int32) > captured(p0:Int32))
+  order-by grouped-aggregate(count:Int32) descending, group-key(column(s0.dept_no:String):String) ascending
+  skip captured(p1:Int32)
+  take captured(p2:Int32)
+projection:
+  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32)]
+result:
+  sequence type=anonymous
+bindings:
+  p0 scalar type=Int32
+  p1 scalar type=Int32
+  p2 scalar type=Int32
+""");
+        await AssertNoLegacyParserTerms(snapshot);
+    }
+
+    [Test]
     public async Task NegatedFunctionPredicateSnapshot_RecordsNotNode()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

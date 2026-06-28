@@ -138,6 +138,33 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => x.dept_no)
+                .Where(group => group.Any(row => row.emp_no > 10000))
+                .Select(group => new { group.Key, Count = group.Count() })
+                .ToList(),
+            "Grouped predicate expression",
+            "Only comparisons over group.Key");
+
+        await AssertTranslationFailure(
+            () => databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => x.dept_no)
+                .Select(group => new { group.Key, Count = group.Count() })
+                .FirstOrDefault(),
+            "Terminal operator 'FirstOrDefault'",
+            "grouped aggregate projections");
+
+        await AssertTranslationFailure(
+            () => databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => x.dept_no)
+                .Select(group => new { group.Key, Count = group.Count() })
+                .Take(1)
+                .Where(row => row.Count > 0)
+                .ToList(),
+            "after Skip(...) or Take(...) over grouped aggregate projection rows",
+            "not supported yet");
+
+        await AssertTranslationFailure(
+            () => databaseScope.Database.Query().DepartmentEmployees
                 .OrderBy(x => x.emp_no)
                 .GroupBy(x => x.dept_no)
                 .Select(group => new { group.Key, Count = group.Count() })

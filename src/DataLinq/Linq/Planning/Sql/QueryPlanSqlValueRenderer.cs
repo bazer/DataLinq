@@ -25,6 +25,8 @@ internal sealed class QueryPlanSqlValueRenderer(
             QueryPlanCapturedValue captured => Operand.Value(GetScalarBinding(captured).Value),
             QueryPlanFunctionValue function => Operand.RawSql(RenderFunctionSql(function)),
             QueryPlanConvertedValue converted => RenderOperand(converted.Value),
+            QueryPlanGroupKeyValue groupKey => Operand.RawSql(RenderSqlExpression(groupKey.Key)),
+            QueryPlanGroupedAggregateValue groupedAggregate => Operand.RawSql(RenderGroupedAggregateSql(groupedAggregate)),
             QueryPlanLocalSequenceValue => throw new QueryTranslationException("Local sequence query plan values can only be rendered in IN predicates."),
             _ => throw new QueryTranslationException($"Query plan value '{value.Kind}' is not supported by SQL rendering.")
         };
@@ -47,7 +49,28 @@ internal sealed class QueryPlanSqlValueRenderer(
             QueryPlanColumnValue column => RenderColumnSql(column),
             QueryPlanFunctionValue function => RenderFunctionSql(function),
             QueryPlanConvertedValue converted => RenderSqlExpression(converted.Value),
+            QueryPlanGroupKeyValue groupKey => RenderSqlExpression(groupKey.Key),
+            QueryPlanGroupedAggregateValue groupedAggregate => RenderGroupedAggregateSql(groupedAggregate),
             _ => throw new QueryTranslationException($"Query plan value '{value.Kind}' cannot be rendered as a SQL expression.")
+        };
+    }
+
+    public string RenderGroupedAggregateSql(QueryPlanGroupedAggregateValue aggregate)
+    {
+        if (aggregate.Aggregate == QueryPlanGroupedAggregateKind.Count)
+            return "COUNT(*)";
+
+        var selector = aggregate.Selector
+            ?? throw new QueryTranslationException($"Grouped aggregate '{aggregate.Aggregate}' requires a selector.");
+        var selectorSql = GetAggregateColumnExpression(selector);
+
+        return aggregate.Aggregate switch
+        {
+            QueryPlanGroupedAggregateKind.Sum => $"COALESCE(SUM({selectorSql}), 0)",
+            QueryPlanGroupedAggregateKind.Min => $"MIN({selectorSql})",
+            QueryPlanGroupedAggregateKind.Max => $"MAX({selectorSql})",
+            QueryPlanGroupedAggregateKind.Average => $"AVG({selectorSql})",
+            _ => throw new QueryTranslationException($"Grouped aggregate '{aggregate.Aggregate}' is not supported by SQL rendering.")
         };
     }
 
@@ -200,6 +223,53 @@ internal sealed class QueryPlanSqlValueRenderer(
         string stringValue when stringValue.Length == 1 => stringValue[0],
         _ => value
     };
+
+    private string GetAggregateColumnExpression(QueryPlanValue selector)
+    {
+        var unwrapped = selector is QueryPlanConvertedValue converted
+            ? converted.Value
+            : selector;
+
+        if (unwrapped is not QueryPlanColumnValue column)
+        {
+            throw new QueryTranslationException(
+                $"Query plan aggregate selector '{unwrapped.Kind}' is not supported. " +
+                "Only direct numeric source-slot columns are supported.");
+        }
+
+        if (!IsNumericType(unwrapped.ClrType))
+        {
+            throw new QueryTranslationException(
+                $"Query plan aggregate selector column '{column.Column.DbName}' must be numeric. " +
+                $"Selector type: {unwrapped.ClrType}");
+        }
+
+        return RenderColumnSql(column);
+    }
+
+    private static bool IsNumericType(Type type)
+    {
+        type = Nullable.GetUnderlyingType(type) ?? type;
+
+        if (type.IsEnum)
+            return false;
+
+        return Type.GetTypeCode(type) switch
+        {
+            TypeCode.Byte or
+            TypeCode.SByte or
+            TypeCode.Int16 or
+            TypeCode.UInt16 or
+            TypeCode.Int32 or
+            TypeCode.UInt32 or
+            TypeCode.Int64 or
+            TypeCode.UInt64 or
+            TypeCode.Single or
+            TypeCode.Double or
+            TypeCode.Decimal => true,
+            _ => false
+        };
+    }
 
     private static object? ConvertScalarValue(object? value, Type targetType)
     {

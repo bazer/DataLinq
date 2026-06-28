@@ -301,6 +301,9 @@ The test suite covers SQL-shaped `GroupBy(...)` aggregate projection:
 - immediate `Select(...)`
 - projection members limited to `group.Key`, `group.Count()`, and direct numeric grouped `Sum(...)`, `Min(...)`, `Max(...)`, and `Average(...)` selectors
 - nullable numeric selectors for the tested nullable numeric column shape
+- narrow `Where(group => ...)` predicates after `GroupBy(...)` when they compare `group.Key` or supported grouped aggregates
+- `Where(row => ...)`, ordering, `Skip(...)`, and `Take(...)` after grouped aggregate projection when later operators bind to projected key or aggregate members
+- `Count()` and `Any()` over grouped aggregate projection rows
 
 Example:
 
@@ -319,6 +322,38 @@ var countsByDepartment = db.Query().DepartmentEmployees
     .ToList();
 ```
 
+Grouped predicates render as SQL `HAVING`, not row-level `WHERE`:
+
+```csharp
+var busyDepartments = db.Query().DepartmentEmployees
+    .GroupBy(row => row.dept_no)
+    .Where(group => group.Count() > 5)
+    .Select(group => new
+    {
+        DeptNo = group.Key,
+        Count = group.Count()
+    })
+    .ToList();
+```
+
+Grouped projection rows can also be filtered, ordered, and paged when the later operators bind to key or aggregate members:
+
+```csharp
+var topDepartments = db.Query().DepartmentEmployees
+    .GroupBy(row => row.dept_no)
+    .Select(group => new
+    {
+        DeptNo = group.Key,
+        Count = group.Count(),
+        SumEmployeeNumbers = group.Sum(row => row.emp_no)
+    })
+    .Where(row => row.Count > 5 && row.SumEmployeeNumbers > 0)
+    .OrderByDescending(row => row.Count)
+    .ThenBy(row => row.DeptNo)
+    .Take(10)
+    .ToList();
+```
+
 DataLinq renders this as a SQL grouped aggregate query and materializes the aggregate rows directly from the data reader. These rows are not entity rows and do not go through table-cache materialization.
 
 This is not general LINQ `GroupBy(...)` support. These grouped shapes remain unsupported:
@@ -328,9 +363,9 @@ This is not general LINQ `GroupBy(...)` support. These grouped shapes remain uns
 - enumerating grouped elements inside the projection
 - computed or composite group keys
 - computed grouped aggregate selectors such as `group.Sum(row => row.Value + 1)`
-- `HAVING`
 - grouping over joined row shapes
-- filtering, ordering, paging, or terminal operators after the grouped projection
+- filters/orderings that require computed grouped-row members, grouped element enumeration, or client fallback
+- further `Where(...)` or ordering after `Skip(...)`/`Take(...)` over grouped projection rows
 
 ## Supported Ordering and Paging
 
@@ -407,9 +442,9 @@ The test suite explicitly expects `NotSupportedException` for:
 
 The current docs do not claim support for these because this pass has not verified them rigorously enough:
 
-- broad `GroupBy(...)` beyond the direct-key `group.Key` plus `group.Count()` projection documented above
+- broad `GroupBy(...)` beyond the direct-key grouped aggregate row shapes documented above
 - `GroupJoin(...)`, outer joins, composite-key joins, and additional filtering/ordering/paging over joined results
-- aggregate operators over computed selectors, grouped aggregates other than the documented grouped `Count()`, or relation properties
+- aggregate operators over computed selectors or relation properties
 - relation-property projections inside provider `Select(...)` and relation traversal inside relation predicates
 - broader client-side method translation inside SQL predicates beyond the string members listed above
 

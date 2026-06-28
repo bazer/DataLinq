@@ -693,21 +693,21 @@ Key related plans:
 
 ### 0.8 Phase 17: Grouped Row Composition and HAVING
 
-Status: planned after grouped numeric aggregates.
+Status: implemented for bindable grouped aggregate row composition.
 
 Goals:
 
 - make grouped aggregate projection rows orderable and pageable without client fallback
 - support narrow grouped filters that render as SQL `HAVING`
-- support derived grouped-row filtering when predicates bind to projection aliases after `Select(...)`
-- support `Any()` and `Count()` over grouped result rows where SQL shape is explicit
+- support post-projection grouped-row filtering when predicates bind to key or aggregate members after `Select(...)`
+- support `Any()` and `Count()` over grouped result rows through explicit derived grouped SQL
 - keep grouped element enumeration and materialized `IGrouping<TKey,TElement>` unsupported
 
 Why after grouped numeric aggregates:
 
 - grouped-row composition needs stable aggregate aliases and result CLR types
 - `HAVING` must be represented deliberately; rendering grouped predicates as ordinary `WHERE` would be wrong
-- post-projection grouped-row filters may need derived table boundaries similar to Phase 13 pushdown
+- grouped scalar reductions need a derived grouped subquery instead of entity materialization fallback
 
 Key related plans:
 
@@ -931,7 +931,7 @@ Phase 11 is now complete for explicit cache clearing, external invalidation, rel
 
 After the 0.7.1 release, the `v0.8` branch deliberately reset roadmap execution to a version-scoped sequence. That parser-removal sequence is now closed through [0.8 Phase 7: Remotion Dependency Removal](roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md): query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset expression parser, projection/local-evaluation cleanup, dual-run parity, production provider switch, and dependency removal.
 
-The version-scoped 0.8 sequence now has final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md), then implemented query-runtime slices for Phase 13 query composition/subquery pushdown, Phase 13B grouped count projection, Phase 14 explicit two-source join composition, Phase 15 implicit singular relation predicates/orderings, and Phase 16 grouped numeric aggregates. The remaining version-scoped query work is split into planned Phase 17 grouped row composition/HAVING, Phase 18 advanced GroupBy keys and joined grouping, Phase 19 SQL-backed projection rows, Phase 20 query-syntax joins, and Phase 21 joined post-paging pushdown. Broad fluent join APIs, left-join nullability work, and the browser AOT support claim still need separate evidence instead of broadening the old Remotion boundary by assertion.
+The version-scoped 0.8 sequence now has final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md), then implemented query-runtime slices for Phase 13 query composition/subquery pushdown, Phase 13B grouped count projection, Phase 14 explicit two-source join composition, Phase 15 implicit singular relation predicates/orderings, Phase 16 grouped numeric aggregates, and Phase 17 grouped row composition/HAVING. The remaining version-scoped query work is split into planned Phase 18 advanced GroupBy keys and joined grouping, Phase 19 SQL-backed projection rows, Phase 20 query-syntax joins, and Phase 21 joined post-paging pushdown. Broad fluent join APIs, left-join nullability work, and the browser AOT support claim still need separate evidence instead of broadening the old Remotion boundary by assertion.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

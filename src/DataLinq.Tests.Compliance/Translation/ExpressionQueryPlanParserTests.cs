@@ -90,6 +90,45 @@ public class ExpressionQueryPlanParserTests
                     MaxEmployeeNumber = group.Max(row => row.emp_no),
                     AverageEmployeeNumber = group.Average(row => row.emp_no)
                 }));
+
+        await AssertParserProducesDataLinqPlan(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => x.dept_no)
+                .Where(group => group.Count() > 0 && group.Sum(row => row.emp_no) > 0)
+                .Select(group => new
+                {
+                    DeptNo = group.Key,
+                    Count = group.Count(),
+                    SumEmployeeNumbers = group.Sum(row => row.emp_no)
+                }));
+
+        await AssertParserProducesDataLinqPlan(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => x.dept_no)
+                .Select(group => new
+                {
+                    DeptNo = group.Key,
+                    Count = group.Count()
+                })
+                .Where(row => row.Count > 0)
+                .OrderByDescending(row => row.Count)
+                .ThenBy(row => row.DeptNo)
+                .Skip(1)
+                .Take(2));
+
+        await AssertParserProducesDataLinqPlan(
+            databaseScope.Database,
+            () => databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => x.dept_no)
+                .Select(group => new
+                {
+                    DeptNo = group.Key,
+                    Count = group.Count()
+                })
+                .Where(row => row.Count > 0)
+                .Count());
     }
 
     [Test]
@@ -350,6 +389,34 @@ public class ExpressionQueryPlanParserTests
 
         await AssertParserFailure(
             databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => x.dept_no)
+                .Where(group => group.Any(row => row.emp_no > 10000))
+                .Select(group => new { group.Key, Count = group.Count() }),
+            "Grouped predicate expression",
+            "Only comparisons over group.Key");
+
+        await AssertParserFailure(
+            databaseScope.Database,
+            () => databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => x.dept_no)
+                .Select(group => new { group.Key, Count = group.Count() })
+                .FirstOrDefault(),
+            "Terminal operator 'FirstOrDefault'",
+            "grouped aggregate projections");
+
+        await AssertParserFailure(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees
+                .GroupBy(x => x.dept_no)
+                .Select(group => new { group.Key, Count = group.Count() })
+                .Take(1)
+                .Where(row => row.Count > 0),
+            "after Skip(...) or Take(...) over grouped aggregate projection rows",
+            "not supported yet");
+
+        await AssertParserFailure(
+            databaseScope.Database,
             databaseScope.Database.Query().Departments.GroupJoin(
                 databaseScope.Database.Query().Managers,
                 department => department.DeptNo,
@@ -514,6 +581,16 @@ public class ExpressionQueryPlanParserTests
     }
 
     private static async Task AssertParserFailure<T>(Database<EmployeesDb> database, IQueryable<T> query, params string[] expectedMessageFragments)
+    {
+        var exception = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(database, query));
+
+        await Assert.That(exception).IsNotNull();
+        foreach (var fragment in expectedMessageFragments)
+            await Assert.That(exception!.Message).Contains(fragment);
+    }
+
+    private static async Task AssertParserFailure<TResult>(Database<EmployeesDb> database, Expression<Func<TResult>> query, params string[] expectedMessageFragments)
     {
         var exception = Capture<QueryTranslationException>(() =>
             ExpressionQueryPlanParser.Convert(database, query));

@@ -153,18 +153,32 @@ internal sealed class ExpressionQueryPlanParser
     {
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
-        RejectGroupedOperator(parsed, methodCall.Method.Name);
-        RejectUnsupportedPostJoinComposition(parsed, methodCall.Method.Name);
-        PushDownPostPagingOperations(methodCall.Method.Name);
-
         var predicate = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
         if (predicate.Parameters.Count != 1)
             throw new QueryTranslationException($"Where predicate '{predicate}' is not supported.");
+
+        if (parsed.Grouping is { } grouping)
+        {
+            operations.Add(new QueryPlanOperation.Having(ConvertGroupedPredicate(predicate.Body, predicate.Parameters[0], grouping)));
+            return parsed;
+        }
+
+        RejectGroupedOperator(parsed, methodCall.Method.Name);
+        RejectUnsupportedPostJoinComposition(parsed, methodCall.Method.Name);
+        RejectUnsupportedPostGroupedPagingComposition(parsed, methodCall.Method.Name);
+        PushDownPostPagingOperations(methodCall.Method.Name);
 
         if (CanBindProjectionParameter(parsed))
         {
             WithProjection(predicate.Parameters[0], parsed.Projection!, () =>
                 operations.Add(new QueryPlanOperation.Where(ConvertPredicate(predicate.Body))));
+            return parsed;
+        }
+
+        if (CanBindGroupedProjectionParameter(parsed))
+        {
+            WithProjection(predicate.Parameters[0], parsed.Projection!, () =>
+                operations.Add(new QueryPlanOperation.Having(ConvertPredicate(predicate.Body))));
             return parsed;
         }
 
@@ -182,6 +196,7 @@ internal sealed class ExpressionQueryPlanParser
         var parsed = ParseSequence(methodCall.Arguments[0]);
         RejectGroupedOperator(parsed, methodCall.Method.Name);
         RejectUnsupportedPostJoinComposition(parsed, methodCall.Method.Name);
+        RejectUnsupportedPostGroupedPagingComposition(parsed, methodCall.Method.Name);
         PushDownPostPagingOperations(methodCall.Method.Name);
 
         var keySelector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
@@ -211,6 +226,12 @@ internal sealed class ExpressionQueryPlanParser
             return ordering;
 
         if (CanBindProjectionParameter(parsed))
+        {
+            return WithProjection(keySelector.Parameters[0], parsed.Projection!, () =>
+                new QueryPlanOrdering(ConvertValue(keySelector.Body), direction));
+        }
+
+        if (CanBindGroupedProjectionParameter(parsed))
         {
             return WithProjection(keySelector.Parameters[0], parsed.Projection!, () =>
                 new QueryPlanOrdering(ConvertValue(keySelector.Body), direction));
@@ -365,8 +386,9 @@ internal sealed class ExpressionQueryPlanParser
     {
         var parsed = ParseSequence(methodCall.Arguments[0]);
         RejectGroupedOperator(parsed, methodCall.Method.Name);
-        RejectGroupedProjectionTerminal(parsed, methodCall.Method.Name);
+        RejectGroupedProjectionTerminal(parsed, methodCall.Method.Name, allowCountOrAny: true);
         var isJoinedProjection = CanBindProjectionParameter(parsed);
+        var isGroupedProjection = CanBindGroupedProjectionParameter(parsed);
         if (isJoinedProjection)
         {
             if (operations.Any(static operation => operation is QueryPlanOperation.Skip or QueryPlanOperation.Take))
@@ -379,7 +401,8 @@ internal sealed class ExpressionQueryPlanParser
         else
         {
             RejectPostJoinTerminalOperator(methodCall.Method.Name);
-            PushDownPostPagingOperations(methodCall.Method.Name);
+            if (!isGroupedProjection)
+                PushDownPostPagingOperations(methodCall.Method.Name);
         }
 
         if (methodCall.Arguments.Count == 2)
@@ -392,6 +415,11 @@ internal sealed class ExpressionQueryPlanParser
             {
                 WithProjection(predicate.Parameters[0], parsed.Projection!, () =>
                     operations.Add(new QueryPlanOperation.Where(ConvertPredicate(predicate.Body))));
+            }
+            else if (isGroupedProjection)
+            {
+                WithProjection(predicate.Parameters[0], parsed.Projection!, () =>
+                    operations.Add(new QueryPlanOperation.Having(ConvertPredicate(predicate.Body))));
             }
             else
             {
@@ -581,6 +609,75 @@ internal sealed class ExpressionQueryPlanParser
             nameof(Enumerable.Min) or
             nameof(Enumerable.Max) or
             nameof(Enumerable.Average);
+    }
+
+    private QueryPlanPredicate ConvertGroupedPredicate(
+        Expression expression,
+        ParameterExpression groupParameter,
+        QueryPlanGrouping grouping,
+        bool isNegated = false)
+    {
+        expression = UnwrapConvert(expression);
+
+        if (expression is UnaryExpression { NodeType: ExpressionType.Not } not)
+            return ConvertGroupedPredicate(not.Operand, groupParameter, grouping, !isNegated);
+
+        if (expression is ConstantExpression { Type: { } type, Value: bool value } && type == typeof(bool))
+            return new QueryPlanPredicate.Fixed(isNegated ? !value : value);
+
+        QueryPlanPredicate predicate = expression switch
+        {
+            BinaryExpression { NodeType: ExpressionType.AndAlso } binary => new QueryPlanPredicate.And([
+                ConvertGroupedPredicate(binary.Left, groupParameter, grouping),
+                ConvertGroupedPredicate(binary.Right, groupParameter, grouping)
+            ]),
+            BinaryExpression { NodeType: ExpressionType.OrElse } binary => new QueryPlanPredicate.Or([
+                ConvertGroupedPredicate(binary.Left, groupParameter, grouping),
+                ConvertGroupedPredicate(binary.Right, groupParameter, grouping)
+            ]),
+            BinaryExpression binary when IsComparison(binary.NodeType) => ConvertGroupedComparison(binary, groupParameter, grouping),
+            _ when !ContainsParameterReference(expression, groupParameter) => new QueryPlanPredicate.Fixed(System.Convert.ToBoolean(EvaluateScalar(expression), System.Globalization.CultureInfo.InvariantCulture) ^ isNegated),
+            _ => throw new QueryTranslationException(
+                $"Grouped predicate expression '{expression}' is not supported by the DataLinq expression parser. " +
+                "Only comparisons over group.Key and supported grouped aggregates are supported.")
+        };
+
+        if (isNegated && predicate is not QueryPlanPredicate.Fixed)
+            predicate = new QueryPlanPredicate.Not(predicate);
+
+        return predicate;
+    }
+
+    private QueryPlanPredicate ConvertGroupedComparison(
+        BinaryExpression binary,
+        ParameterExpression groupParameter,
+        QueryPlanGrouping grouping)
+    {
+        if (!ContainsParameterReference(binary.Left, groupParameter) &&
+            !ContainsParameterReference(binary.Right, groupParameter))
+        {
+            var result = EvaluateConstantBinary(binary.NodeType, EvaluateScalar(binary.Left), EvaluateScalar(binary.Right));
+            return new QueryPlanPredicate.Fixed(result);
+        }
+
+        var left = ConvertGroupedValue(binary.Left, groupParameter, grouping);
+        var right = ConvertGroupedValue(binary.Right, groupParameter, grouping);
+        var comparisonOperator = GetComparisonOperator(binary.NodeType);
+        var nullSemantics = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(comparisonOperator, left, right, bindings.Bindings);
+
+        return new QueryPlanPredicate.Compare(left, comparisonOperator, right, nullSemantics);
+    }
+
+    private QueryPlanValue ConvertGroupedValue(
+        Expression expression,
+        ParameterExpression groupParameter,
+        QueryPlanGrouping grouping)
+    {
+        expression = UnwrapConvert(expression);
+        if (!ContainsParameterReference(expression, groupParameter))
+            return ConvertValue(expression);
+
+        return ConvertGroupedProjectionValue(expression, groupParameter, grouping);
     }
 
     private QueryPlanValue GetDirectAggregateSelector(Expression selector, string operatorName)
@@ -1669,10 +1766,19 @@ internal sealed class ExpressionQueryPlanParser
             "Only an immediate grouped aggregate Select projection is supported.");
     }
 
-    private static void RejectGroupedProjectionTerminal(ParsedQuery parsed, string operatorName)
+    private static void RejectGroupedProjectionTerminal(
+        ParsedQuery parsed,
+        string operatorName,
+        bool allowCountOrAny = false)
     {
         if (parsed.Projection is not QueryPlanProjection.GroupedAggregate)
             return;
+
+        if (allowCountOrAny &&
+            operatorName is nameof(Queryable.Count) or nameof(Queryable.Any))
+        {
+            return;
+        }
 
         throw new QueryTranslationException(
             $"Terminal operator '{operatorName}' over grouped aggregate projections is not supported by the DataLinq expression parser. " +
@@ -1682,6 +1788,9 @@ internal sealed class ExpressionQueryPlanParser
     private bool CanBindProjectionParameter(ParsedQuery parsed)
         => HasExplicitJoinOperation() &&
            parsed.Projection is QueryPlanProjection.JoinedRowLocal;
+
+    private static bool CanBindGroupedProjectionParameter(ParsedQuery parsed)
+        => parsed.Projection is QueryPlanProjection.GroupedAggregate;
 
     private void RejectUnsupportedPostJoinComposition(
         ParsedQuery parsed,
@@ -1707,6 +1816,19 @@ internal sealed class ExpressionQueryPlanParser
         }
     }
 
+    private void RejectUnsupportedPostGroupedPagingComposition(ParsedQuery parsed, string operatorName)
+    {
+        if (!CanBindGroupedProjectionParameter(parsed) ||
+            !operations.Any(static operation => operation is QueryPlanOperation.Skip or QueryPlanOperation.Take))
+        {
+            return;
+        }
+
+        throw new QueryTranslationException(
+            $"LINQ operator '{operatorName}' after Skip(...) or Take(...) over grouped aggregate projection rows is not supported yet. " +
+            "Apply grouped filters and orderings before paging, or materialize before further composition.");
+    }
+
     private static bool TryGetProjectionMembers(
         QueryPlanProjection projection,
         out IReadOnlyList<QueryPlanProjectionMember> members)
@@ -1718,6 +1840,9 @@ internal sealed class ExpressionQueryPlanParser
                 return true;
             case QueryPlanProjection.JoinedRowLocal joined:
                 members = joined.Members;
+                return true;
+            case QueryPlanProjection.GroupedAggregate grouped:
+                members = grouped.Members;
                 return true;
             default:
                 members = [];
@@ -1874,6 +1999,16 @@ internal sealed class ExpressionQueryPlanParser
             return false;
 
         var visitor = new QueryReferenceVisitor(this);
+        visitor.Visit(expression);
+        return visitor.ContainsReference;
+    }
+
+    private static bool ContainsParameterReference(Expression? expression, ParameterExpression parameter)
+    {
+        if (expression is null)
+            return false;
+
+        var visitor = new ParameterReferenceVisitor(parameter);
         visitor.Visit(expression);
         return visitor.ContainsReference;
     }
@@ -2163,6 +2298,19 @@ internal sealed class ExpressionQueryPlanParser
             {
                 ContainsReference = true;
             }
+
+            return node;
+        }
+    }
+
+    private sealed class ParameterReferenceVisitor(ParameterExpression parameter) : ExpressionVisitor
+    {
+        public bool ContainsReference { get; private set; }
+
+        protected override Expression VisitParameter(ParameterExpression node)
+        {
+            if (node == parameter)
+                ContainsReference = true;
 
             return node;
         }

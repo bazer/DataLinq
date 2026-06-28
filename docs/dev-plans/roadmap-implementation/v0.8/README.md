@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for the 0.8 development line. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # DataLinq 0.8 Roadmap
 
-**Status:** Parser-removal track complete through Phase 7; AOT/browser release gate tooling implemented through Phase 12; current browser AOT evidence fails at generated SQLite startup; query-composition hardening, grouped `Count()` and numeric aggregate projection, explicit two-source join composition, and implicit singular relation predicates/orderings have landed as later query-runtime slices. The remaining 0.8 roadmap now includes grouped-row composition, advanced GroupBy keys, SQL-backed projection rows, query-syntax joins, and joined post-paging pushdown before the next post-0.8 feature wave.
+**Status:** Parser-removal track complete through Phase 7; AOT/browser release gate tooling implemented through Phase 12; current browser AOT evidence fails at generated SQLite startup; query-composition hardening, grouped `Count()`, grouped numeric aggregate projection, grouped-row composition/HAVING, explicit two-source join composition, and implicit singular relation predicates/orderings have landed as later query-runtime slices. The remaining 0.8 roadmap now includes advanced GroupBy keys, SQL-backed projection rows, query-syntax joins, and joined post-paging pushdown before the next post-0.8 feature wave.
 
 **Created:** 2026-06-27.
 
@@ -45,13 +45,13 @@ That means browser AOT is release work, not a stretch note. Query-composition ha
 | Phase 14: Source-Slot Join Composition | Implemented for explicit two-source join composition | `phase-14-source-slot-join-composition/` | Makes explicit joins useful on the DataLinq source-slot plan. |
 | Phase 15: Relation-Aware and Implicit Joins | Implemented for implicit singular relation predicates/orderings | `phase-15-relation-aware-and-implicit-joins/` | Adds the first SQL-backed implicit singular relation traversal slice and documents the deferred fluent/left-join APIs. |
 | Phase 16: Grouped Numeric Aggregates | Implemented for direct numeric grouped aggregate selectors | `phase-16-grouped-numeric-aggregates/` | Adds grouped `Sum`, `Min`, `Max`, `Average`, and multiple aggregate members for direct numeric selectors. |
-| Phase 17: Grouped Row Composition and HAVING | Planned after grouped numeric aggregates | `phase-17-grouped-row-composition-and-having/` | Makes grouped aggregate rows orderable, pageable, filterable, and able to express narrow SQL `HAVING` predicates. |
+| Phase 17: Grouped Row Composition and HAVING | Implemented for bindable grouped aggregate row composition | `phase-17-grouped-row-composition-and-having/` | Makes grouped aggregate rows orderable, pageable, filterable, and able to express narrow SQL `HAVING` predicates. |
 | Phase 18: Advanced GroupBy Keys and Joined Grouping | Planned after grouped-row composition and HAVING | `phase-18-advanced-groupby-keys-and-joined-grouping/` | Adds composite/computed SQL-renderable group keys and grouping over supported joined source-slot shapes. |
 | Phase 19: SQL-Backed Projection Rows and Implicit Relation Projection | Planned after the SQL-style GroupBy completion track | `phase-19-sql-backed-projection-rows-and-implicit-relation-projection/` | Adds direct SQL-backed projection row materialization and singular relation member projection without hidden lazy relation loading. |
 | Phase 20: Query-Syntax Join Support | Planned after SQL-backed projection rows | `phase-20-query-syntax-join-support/` | Makes C# query-syntax inner joins a documented and tested path over source-slot joins and transparent identifiers. |
 | Phase 21: Joined Post-Paging Pushdown | Planned after query-syntax join support | `phase-21-joined-post-paging-pushdown/` | Extends Phase 13 operator-order pushdown to supported joined row shapes after `Skip(...)` or `Take(...)`. |
 
-Phases 1 through 7 are the coherent 0.8 parser-removal track. Phases 8 through 12 are the 0.8 AOT/browser release track. The release-track tooling is implemented, and the first fresh browser evidence found a real blocker: `wasm-aot` publishes on the host, then fails in Edge at `opening-generated-database` with `MONO_WASM: function signature mismatch`. Phase 13, Phase 13B, Phase 16, and Phases 14 through 15 are implemented query-runtime slices that followed that release-gate work. Phases 17 through 18 are the remaining GroupBy completion slices, scoped to SQL-style grouped aggregate support rather than broad LINQ grouping semantics. Phases 19 through 21 then return to projection and join completion: SQL-backed projection rows, query-syntax joins, and joined post-paging pushdown.
+Phases 1 through 7 are the coherent 0.8 parser-removal track. Phases 8 through 12 are the 0.8 AOT/browser release track. The release-track tooling is implemented, and the first fresh browser evidence found a real blocker: `wasm-aot` publishes on the host, then fails in Edge at `opening-generated-database` with `MONO_WASM: function signature mismatch`. Phase 13, Phase 13B, Phases 16 through 17, and Phases 14 through 15 are implemented query-runtime slices that followed that release-gate work. Phase 18 is the remaining GroupBy completion slice, scoped to SQL-style grouped aggregate support rather than broad LINQ grouping semantics. Phases 19 through 21 then return to projection and join completion: SQL-backed projection rows, query-syntax joins, and joined post-paging pushdown.
 
 ## Current Implementation State
 
@@ -128,10 +128,10 @@ Current 2026-06-28 evidence does not satisfy this gate. The browser automation i
 - execution reads grouped result rows directly and does not pretend aggregate rows are cache-backed entity rows
 - at least `g.Key` plus `g.Count()` has provider-matrix behavior tests against SQLite, MySQL, and MariaDB
 - direct numeric `Sum`, `Min`, `Max`, and `Average` over grouped rows are either implemented with tests or remain explicitly rejected with focused diagnostics
-- bare `GroupBy(...).ToList()`, grouped element enumeration, `HAVING`, composite keys, computed keys, grouped joins, and post-group query composition remain rejected until deliberately designed
+- bare `GroupBy(...).ToList()`, grouped element enumeration, composite keys, computed keys, and grouped joins remain rejected until deliberately designed
 - public docs and the support matrix describe only the tested grouped aggregate shapes
 
-The current Phase 13B and Phase 16 implementations satisfy this gate for the direct mapped key plus `group.Key`, `group.Count()`, and direct numeric grouped `Sum`/`Min`/`Max`/`Average` projection shape. Materialized `IGrouping<TKey,TElement>`, grouped joins, computed/composite keys, `HAVING`, and post-group composition remain outside the support boundary.
+The current Phase 13B, Phase 16, and Phase 17 implementations satisfy this gate for the direct mapped key plus `group.Key`, `group.Count()`, direct numeric grouped `Sum`/`Min`/`Max`/`Average` projection, narrow grouped `HAVING`, grouped ordering/paging/filtering, and `Count()`/`Any()` over grouped projection rows. Materialized `IGrouping<TKey,TElement>`, grouped joins, computed/composite keys, and grouped element enumeration remain outside the support boundary.
 
 0.8 should not claim reasonably full SQL-style `GroupBy(...)` support until:
 
@@ -139,7 +139,7 @@ The current Phase 13B and Phase 16 implementations satisfy this gate for the dir
 - multiple aggregate members can be projected from one grouped query
 - nullable grouped aggregate semantics are documented by tests instead of inferred from scalar aggregate behavior
 - grouped aggregate rows can be ordered, paged, filtered, and counted without client fallback
-- SQL `HAVING` and derived grouped-row filtering are represented deliberately and tested by SQL shape
+- SQL `HAVING` and derived grouped scalar reductions are represented deliberately and tested by SQL shape
 - composite keys and SQL-renderable computed keys bind through first-class key members
 - grouping over supported joined source-slot shapes works without relation loading or anonymous projection reflection
 - null, enum, string, and collation-sensitive key grouping behavior is covered across active providers

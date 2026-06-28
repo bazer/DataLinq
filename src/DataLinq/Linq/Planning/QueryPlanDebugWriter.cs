@@ -65,6 +65,10 @@ internal static class QueryPlanDebugWriter
                     builder.Append("where ").AppendLine(FormatPredicate(where.Predicate));
                     break;
 
+                case QueryPlanOperation.Having having:
+                    builder.Append("having ").AppendLine(FormatPredicate(having.Predicate));
+                    break;
+
                 case QueryPlanOperation.OrderBy orderBy:
                     builder
                         .Append("order-by ")
@@ -118,6 +122,7 @@ internal static class QueryPlanDebugWriter
         return operation switch
         {
             QueryPlanOperation.Where where => $"where {FormatPredicate(where.Predicate)}",
+            QueryPlanOperation.Having having => $"having {FormatPredicate(having.Predicate)}",
             QueryPlanOperation.OrderBy orderBy => $"order-by {string.Join(", ", orderBy.Orderings.Select(FormatOrdering))}",
             QueryPlanOperation.Skip skip => $"skip {FormatValue(skip.Count)}",
             QueryPlanOperation.Take take => $"take {FormatValue(take.Count)}",
