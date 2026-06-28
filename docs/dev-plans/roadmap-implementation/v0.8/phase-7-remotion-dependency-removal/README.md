@@ -52,5 +52,5 @@ Key evidence:
 - fresh pack-only output plus `package-report` confirms public package hygiene
 - direct nuspec inspection confirms `DataLinq`, `DataLinq.SQLite`, and `DataLinq.MySql` have no `Remotion.Linq` dependency entries
 - trimmed compatibility size report publishes and smokes successfully with zero banned payloads and zero warnings
-- native AOT currently fails under `SdkOrWebAssemblyToolchain`, not because of Remotion or trim warnings
+- native AOT initially failed under `SdkOrWebAssemblyToolchain`, not because of Remotion or trim warnings; after installing the Visual Studio C++ toolchain, the 2026-06-28 `phase8c` report publishes and smokes Native AOT successfully with zero warnings
 - public and internal docs now describe the active parser as DataLinq-owned

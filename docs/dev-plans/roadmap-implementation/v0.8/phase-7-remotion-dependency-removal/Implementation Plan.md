@@ -65,7 +65,7 @@ Workstream D evidence is also green:
 - `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- size-report --targets trim --format summary` reports publish ok, smoke ok, zero banned payloads, and zero warnings for the trimmed target
 - `.\publish-nuget.ps1 -PackOnly -PackageOutputPath artifacts\nuget-release\phase7-remotion-removal` produces fresh public packages, and `package-report` passes against that directory
 - direct nuspec inspection of `DataLinq`, `DataLinq.SQLite`, and `DataLinq.MySql` shows no `Remotion.Linq` dependency entries
-- native AOT report now fails only under `SdkOrWebAssemblyToolchain` on this machine, with no Remotion or trim-warning findings
+- native AOT initially failed only under `SdkOrWebAssemblyToolchain` on this machine, with no Remotion or trim-warning findings; after the Visual Studio C++ toolchain was installed, the 2026-06-28 `phase8c` compatibility report publishes and smokes Native AOT successfully with zero warnings
 
 Workstream E documentation cleanup is complete:
 
@@ -202,5 +202,5 @@ Package verification should use the repo's NuGet pack/report workflow before fin
 | Projection execution regresses while SQL parity stays green | High | Add direct result tests for scalar, anonymous, computed, and join projections before deleting Remotion. |
 | Query support silently contracts | High | Run existing supported-surface compliance tests before deleting the oracle. |
 | Tests keep Remotion alive as an active dependency | High | Rewrite tests to assert DataLinq parser behavior directly before removing package references. |
-| Native AOT remains red for local toolchain reasons | Medium | Keep `SdkOrWebAssemblyToolchain` classification separate from `RemotionDependency`. |
+| Native AOT turns red for local toolchain reasons | Medium | Keep `SdkOrWebAssemblyToolchain` classification separate from `RemotionDependency`. |
 | Documentation overclaims AOT/browser support | Medium | Keep WebAssembly and no-AOT caveats separate from Remotion removal. |

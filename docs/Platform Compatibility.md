@@ -15,7 +15,7 @@ Current package and repo builds target .NET 8, .NET 9, and .NET 10. Provider beh
 
 ## Native AOT And Trimming
 
-DataLinq has constrained-platform smoke projects for generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT. The strongest repeatable local proof in the current repo is the trimmed publish smoke path; Native AOT still depends on the local platform toolchain being installed.
+DataLinq has constrained-platform smoke projects for generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT. Current local compatibility reporting proves the generated SQLite Native AOT and trimmed publish paths on Windows when the .NET WebAssembly workload and Visual Studio C++ linker toolchain are installed.
 
 The runtime package graph has also been cleaned up for the public runtime packages: Roslyn/compiler assemblies and `Remotion.Linq` are not runtime dependencies of `DataLinq`, `DataLinq.SQLite`, or `DataLinq.MySql`. The source generator is packaged under `DataLinq` analyzer assets, which is the right place for build-time code generation and the wrong place for runtime payload.
 
@@ -37,14 +37,15 @@ That does not mean every DataLinq scenario is AOT-compatible. Reflection-discove
 
 The current blockers to a stronger claim are still concrete:
 
-- Native AOT verification requires the local Native AOT platform toolchain; without it, the repo reports an `SdkOrWebAssemblyToolchain` publish classification instead of product query warnings
-- SQLitePCLRaw WebAssembly AOT varargs warning cleanup is deferred
+- Native AOT verification requires the local Native AOT platform toolchain; missing MSVC linker prerequisites are environment failures, not query-pipeline evidence
+- browser runtime verification is not automated by `size-report`; WebAssembly publish success is not the same thing as a browser smoke run
+- SQLitePCLRaw WebAssembly AOT varargs warning disposition still needs a clean call-graph answer when fresh publishes emit `WASM0001`
 - generated SQLite smoke coverage is not broad provider coverage
 - the LINQ translator is intentionally limited to the documented subset
 
 ## Blazor WebAssembly
 
-The generated SQLite smoke path publishes and runs under Blazor WebAssembly AOT.
+The generated SQLite smoke path has published and run under Blazor WebAssembly AOT in the Phase 8 browser proof. Current `size-report` output refreshes the publish and payload evidence, but reports browser smoke as not automated.
 
 The no-AOT browser WebAssembly path is not supported for SQLite/DataLinq right now. The build can publish, but the Mono interpreter fails on the actual DataLinq/SQLite path. Treat that as unsupported until the runtime path is proven, not as a configuration issue.
 
@@ -66,7 +67,7 @@ Payload numbers should be read from the compatibility size report with symbol fi
 
 Accurate:
 
-> DataLinq has a proven generated SQLite trimmed publish and Blazor WebAssembly AOT smoke boundary, keeps Roslyn and Remotion out of the runtime package dependency groups, and keeps Native AOT smoke verification separate from local toolchain prerequisite failures.
+> DataLinq has a proven generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary for the documented query subset, keeps Roslyn and Remotion out of runtime package dependency groups, and treats browser/no-AOT/provider expansion as separate compatibility work.
 
 Not accurate yet:
 
