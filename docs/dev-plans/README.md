@@ -79,8 +79,9 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/v0.8/phase-10-aot-query-coverage-and-fallback-fencing/README.md`
 - `roadmap-implementation/v0.8/phase-11-browser-payload-and-deploy-size-hardening/README.md`
 - `roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md`
-- `roadmap-implementation/v0.8/phase-13-source-slot-join-follow-up/README.md`
-- `roadmap-implementation/v0.8/phase-14-relation-aware-and-implicit-joins/README.md`
+- `roadmap-implementation/v0.8/phase-13-query-composition-and-subquery-pushdown/README.md`
+- `roadmap-implementation/v0.8/phase-14-source-slot-join-composition/README.md`
+- `roadmap-implementation/v0.8/phase-15-relation-aware-and-implicit-joins/README.md`
 - `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
 - `roadmap-implementation/phase-14-relation-aware-joins-and-left-joins/README.md`
 - `roadmap-implementation/phase-15-scalar-converters-and-typed-key-ergonomics/README.md`
@@ -136,7 +137,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - Testing dev-plan material is currently historical. Current workflow documentation lives under `../contributing/`, while completed design records live under `archive/testing/`.
 - Completed or superseded documentation and roadmap checkpoints now live under `archive/` so active planning pages do not point readers at old "next step" guidance.
 - Some documents in this folder describe ideas that are still valid but not implemented. That is fine. The real mistake is presenting those ideas as current product behavior.
-- The active release roadmap is `roadmap-implementation/v0.8/`. The 0.8 parser-removal track is complete through Phase 7; Phases 8 through 12 now own browser AOT runtime proof, WebAssembly warning/no-AOT disposition, query coverage, deploy-size hardening, and final release gates. Phases 13 and 14 now keep source-slot, relation-aware, and implicit join completion inside the 0.8 line after those AOT gates. Completed global phase execution records belong under `archive/roadmap-implementation/`.
+- The active release roadmap is `roadmap-implementation/v0.8/`. The 0.8 parser-removal track is complete through Phase 7; Phases 8 through 12 now own browser AOT runtime proof, WebAssembly warning/no-AOT disposition, query coverage, deploy-size hardening, and final release gates. Phases 13 through 15 now keep query-composition/subquery-pushdown hardening, source-slot joins, relation-aware joins, and implicit join completion inside the 0.8 line after those AOT gates. Completed global phase execution records belong under `archive/roadmap-implementation/`.
 
 ## Current Stage Audit
 
@@ -161,14 +162,15 @@ As of the current 0.8 branch after the parser-removal closeout:
 - Phase 12C CLI configuration and regeneration workflow is complete: nested CLI commands, config init/schema/validate, batch generation and validation, diagnostics output, and secret references have landed.
 - The 0.8 parser-removal track is complete through Phase 7: query contract baseline, Remotion plan adapter, SQL generation on `DataLinqQueryPlan`, supported-subset expression parser, projection/local-evaluation cleanup, dual-run parity, production provider switch, and removal of `Remotion.Linq` from the main runtime package graph.
 - The 0.8 AOT/browser release track is implemented through Phases 8 through 12 for tooling: browser AOT runtime proof, SQLitePCLRaw/no-AOT evidence capture, constrained query coverage, deploy-size thresholds, and support-contract gates. Current browser evidence blocks the WebAssembly AOT support claim until the SQLite/WebAssembly runtime failure is fixed or explicitly excluded.
-- Phase 13 source-slot join composition is planned 0.8 finish-line work after the AOT/browser release gates: standard query-syntax joins, multiple explicit joins, and filtering/ordering/paging/counting over joined rows should build on the source-slot-aware plan instead of broadening the old Remotion boundary first.
-- Phase 14 relation-aware and implicit joins is planned 0.8 finish-line work after Phase 13: `JoinBy(...)`, `JoinMany(...)`, implicit singular relation traversal, join-local `on:` predicates, left-join nullability semantics, and a `net10.0` `Queryable.LeftJoin(...)` support decision.
-- Phase 15 scalar converters and typed-key ergonomics owns provider/model value conversion after the provider-key cache design has room for it.
+- Phase 13 query composition and subquery pushdown is planned 0.8 finish-line work after the AOT/browser release gates: `Where(...)`, `OrderBy(...)`, `Skip(...)`, `Take(...)`, and supported scalar result operators should preserve C# operator order, using SQL subquery boundaries where flat SQL would be wrong.
+- Phase 14 source-slot join composition is planned 0.8 finish-line work after Phase 13: standard query-syntax joins, multiple explicit joins, and filtering/ordering/paging/counting over joined rows should build on the source-slot-aware plan instead of broadening the old Remotion boundary first.
+- Phase 15 relation-aware and implicit joins is planned 0.8 finish-line work after Phase 14: `JoinBy(...)`, `JoinMany(...)`, implicit singular relation traversal, join-local `on:` predicates, left-join nullability semantics, and a `net10.0` `Queryable.LeftJoin(...)` support decision.
+- The old global scalar-converter and typed-key ergonomics source plan owns provider/model value conversion after the provider-key cache design has room for it.
 - Phase 16 dependency-tracked result and module caching remains deferred until cache invalidation, freshness vocabulary, joins, projection semantics, and the DataLinq.Store module contract are stronger.
 - Phase 17 query plan and Remotion isolation has been superseded and implemented by the version-scoped 0.8 roadmap. It remains the detailed source plan and design record for DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
 - Completed phase records and superseded implementation plans have moved under `archive/`; active docs should describe future work or current strategy.
 
-The next broad query-runtime feature work after the 0.8 AOT release gates is source-slot join expansion: Phase 13 source-slot join composition, then Phase 14 relation-aware and implicit joins. The source-slot-aware query plan exists; the work is to build useful join composition on top of it without expanding the documented support matrix by wishful thinking.
+The next broad query-runtime feature work after the 0.8 AOT release gates is query-composition hardening, then source-slot join expansion: Phase 13 query composition and subquery pushdown, Phase 14 source-slot join composition, then Phase 15 relation-aware and implicit joins. The source-slot-aware query plan exists; the work is to preserve LINQ operator order and then build useful join composition on top of it without expanding the documented support matrix by wishful thinking.
 
 For the current public parser architecture, use [LINQ Parser Architecture](../internals/LINQ%20Parser%20Architecture.md). The 0.8 dev-plan records explain migration sequence and evidence; the public architecture page explains the design that exists now: DataLinq-owned expression parsing, `DataLinqQueryPlan`, source slots, bindings, SQL rendering, cache-aware execution, row-local projection, and the explicit unsupported boundary.
 

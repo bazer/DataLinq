@@ -3,7 +3,7 @@
 
 # Specification: Scalar Converter Support
 
-**Status:** Draft. Roadmap execution is Phase 15 scalar converters and typed-key ergonomics.
+**Status:** Draft. This is the old global scalar-converter source plan; active 0.8 work should preserve provider-value normalization seams but not pull full scalar converter ergonomics into the join phases.
 **Goal:** Add a first-class scalar conversion layer so a model property can use a domain CLR type while DataLinq stores, queries, caches, validates, and mutates the underlying provider CLR value consistently.
 
 The core idea is simple:

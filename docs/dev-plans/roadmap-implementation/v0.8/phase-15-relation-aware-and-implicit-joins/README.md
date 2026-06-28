@@ -1,12 +1,12 @@
 > [!WARNING]
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
-# 0.8 Phase 14: Relation-Aware and Implicit Joins
+# 0.8 Phase 15: Relation-Aware and Implicit Joins
 
-**Status:** Planned 0.8 finish-line work after Phase 13 source-slot join composition.
+**Status:** Planned 0.8 finish-line work after Phase 14 source-slot join composition.
 
 ## Purpose
 
-Phase 14 turns the stronger source-slot join engine into the model-aware query surface users actually want:
+Phase 15 turns the stronger source-slot join engine into the model-aware query surface users actually want:
 
 - `JoinBy(...)` and `JoinMany(...)` for explicit relation-aware joins
 - narrow implicit singular relation joins for predicates, ordering, and simple projections
@@ -14,7 +14,17 @@ Phase 14 turns the stronger source-slot join engine into the model-aware query s
 - `LeftJoinBy(...)` and `LeftJoinMany(...)`
 - standard `Queryable.LeftJoin(...)` coverage on `net10.0` where the BCL API is available
 
-This belongs in 0.8 if Phase 13 lands in 0.8. Leaving relation-aware and implicit joins for later would ship the new parser with a technically cleaner engine but the same clunky user-facing join story.
+This belongs in 0.8 if Phase 14 lands in 0.8. Leaving relation-aware and implicit joins for later would ship the new parser with a technically cleaner engine but the same clunky user-facing join story.
+
+The public API should remain rooted in `IQueryable<T>` extension methods so the same code works from either query root:
+
+```csharp
+var q = db.Query();
+var tq = transaction.Query();
+
+var readOnlyRows = q.Orders.JoinBy(order => order.Customer, (order, customer) => new { order, customer });
+var transactionRows = tq.Orders.JoinBy(order => order.Customer, (order, customer) => new { order, customer });
+```
 
 ## Execution Boundary
 
@@ -24,6 +34,7 @@ In scope:
 - `JoinBy(...)` and `JoinMany(...)` inner joins
 - singular implicit relation traversal in `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, and simple `Select(...)`
 - relation access through already-joined anonymous row shapes
+- read-only and transaction-local query-root parity for every supported relation-aware join shape
 - join-local `on:` predicates rendered into SQL `ON` groups
 - `LeftJoinBy(...)` and `LeftJoinMany(...)` with nullable joined values
 - `net10.0` tests for standard explicit `Queryable.LeftJoin(...)` when available
@@ -71,17 +82,18 @@ Work that should not be pulled into this phase:
 ## Source Plans
 
 - [Relation-Aware Join API](../../../query-and-runtime/Relation-Aware%20Join%20API.md)
-- [0.8 Phase 13 Source-Slot Join Composition](../phase-13-source-slot-join-follow-up/README.md)
+- [0.8 Phase 14 Source-Slot Join Composition](../phase-14-source-slot-join-composition/README.md)
 - [Old Phase 14 Relation-Aware Joins and Left Joins](../../phase-14-relation-aware-joins-and-left-joins/README.md)
 - [LINQ Translation Support Matrix](../../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md)
 
 ## Exit Criteria
 
-Phase 14 is done when:
+Phase 15 is done when:
 
 - singular and collection relation metadata can drive fluent inner joins
 - relation-aware joins compose after earlier joins
 - implicit singular relation traversal is SQL-backed for supported predicates, ordering, and projections
+- supported relation-aware and implicit join shapes work from both `db.Query()` and `transaction.Query()`
 - implicit collection traversal remains rejected except for documented `Any(...)` and existence-equivalent `Count(...)` patterns
 - `on:` predicates render as join-local SQL conditions
 - left joins preserve unmatched source rows and expose nullable joined values

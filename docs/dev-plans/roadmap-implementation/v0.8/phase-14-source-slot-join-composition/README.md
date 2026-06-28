@@ -1,16 +1,25 @@
 > [!WARNING]
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
-# 0.8 Phase 13: Source-Slot Join Composition
+# 0.8 Phase 14: Source-Slot Join Composition
 
-**Status:** Planned 0.8 finish-line work after AOT/browser release evidence.
+**Status:** Planned 0.8 finish-line work after Phase 13 query composition and subquery pushdown.
 
 ## Purpose
 
-Phase 13 resumes join work after the query plan exists and after the 0.8 AOT/browser release gates are satisfied. This is where the old Phase 13 explicit-join plan becomes useful again, but rebased on DataLinq source slots instead of Remotion query-source identities.
+Phase 14 resumes join work after the query plan exists, the 0.8 AOT/browser release gates are satisfied, and Phase 13 has made single-source operator ordering composable. This is where the old Phase 13 explicit-join plan becomes useful again, but rebased on DataLinq source slots instead of Remotion query-source identities.
 
 This phase used to be the 0.8 Phase 8 follow-up. It moved behind the AOT/browser evidence work because 0.8 should first make browser AOT actually run, report, and deploy at sensible sizes. It should still remain in the 0.8 line: joins are the next query feature users will hit after the parser boundary is owned by DataLinq.
 
 Start from the current [LINQ Parser Architecture](../../../../internals/LINQ%20Parser%20Architecture.md), not from the older Remotion-shaped join notes. The existing source slots, `JoinedRowLocal` projection path, primary-key based joined materialization, and current join exclusions are the baseline to extend.
+
+Every supported join shape must work from both read-only and transaction-local query roots:
+
+```csharp
+var q = db.Query();
+var tq = transaction.Query();
+```
+
+That should be a natural consequence of implementing joins as query-provider behavior over `IQueryable<T>` sources, not as methods tied to `Database<T>`.
 
 ## Scope
 
@@ -19,6 +28,7 @@ In scope:
 - preserve and strengthen the current narrow explicit `Join(...)` baseline
 - add multi-source plan tests
 - support filtering, ordering, paging, `Any`, and `Count` over joined row shapes
+- preserve Phase 13 operator-order semantics when filtering, ordering, paging, or result operators are applied over joined row shapes
 - keep joined materialization on provider-key components
 - prepare relation-aware and implicit relation joins on top of the same source-slot model
 
@@ -32,12 +42,15 @@ Out of scope for the first follow-up slice:
 
 - [Old Phase 13 Explicit Multi-Join Composition](../../phase-13-explicit-multi-join-composition/README.md)
 - [Old Phase 14 Relation-Aware Joins and Left Joins](../../phase-14-relation-aware-joins-and-left-joins/README.md)
-- [0.8 Phase 14 Relation-Aware and Implicit Joins](../phase-14-relation-aware-and-implicit-joins/README.md)
+- [0.8 Phase 13 Query Composition and Subquery Pushdown](../phase-13-query-composition-and-subquery-pushdown/README.md)
+- [0.8 Phase 15 Relation-Aware and Implicit Joins](../phase-15-relation-aware-and-implicit-joins/README.md)
 - [Relation-Aware Join API](../../../query-and-runtime/Relation-Aware%20Join%20API.md)
 
 ## Exit Criteria
 
 - explicit joins compose through source-slot-aware plan nodes
+- joined queries preserve Phase 13 ordering/paging semantics, including subquery pushdown when needed
+- supported joined queries work from both `db.Query()` and `transaction.Query()`
 - query-root alias examples use `var q = db.Query();` instead of repeated `db.Query().Table`
 - relation-aware and implicit join work has a stable source-slot foundation to build on
 - unsupported join shapes fail with focused diagnostics

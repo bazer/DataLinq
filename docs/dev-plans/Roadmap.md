@@ -540,34 +540,61 @@ Key related plans:
 - `roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md`
 - `platform-compatibility/Practical AOT and Size Plan.md`
 
-### Phase 13: Explicit Multi-Join Composition
+### Phase 13: Query Composition and Subquery Pushdown
 
-Status: planned 0.8 finish-line work after the AOT/browser release gates. This was previously queued immediately after the parser-removal track, but the 0.8 branch now puts browser AOT proof and deploy-size hardening first so the release support claim is real before broad query expansion resumes.
+Status: planned 0.8 finish-line work after the AOT/browser release gates and before join expansion. This pulls forward the old Phase 17 operator-order work that was intentionally deferred while the parser replacement was being proven.
+
+Goals:
+
+- preserve LINQ operator order for `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, `Take(...)`, and supported scalar result operators
+- add SQL subquery pushdown when a later operation must apply over an already-limited, offset, filtered, or ordered source
+- support shapes such as `Take(...).OrderBy(...)`, `Skip(...).OrderBy(...)`, `OrderBy(...).Take(...).OrderBy(...)`, and post-paging `Where(...)`
+- prove every supported query command from both `db.Query()` and `transaction.Query()`
+- keep parameter binding, aliases, projection binding, and diagnostics stable across nested source boundaries
+- update public query docs and the support matrix only for shipped query-composition shapes
+
+Why before joins:
+
+- flattening operator-order-sensitive LINQ into final SQL clause order is simply wrong
+- joined row shapes need the same subquery-boundary machinery once filtering, ordering, and paging compose over joins
+- transaction-root behavior should be fixed once at the query-provider boundary, not re-discovered for each join API
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/phase-13-query-composition-and-subquery-pushdown/README.md`
+- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation Plan.md`
+- `query-and-runtime/Relation-Aware Join API.md`
+- `../support-matrices/LINQ Translation Support Matrix.md`
+
+### Phase 14: Explicit Multi-Join Composition
+
+Status: planned 0.8 finish-line work after Phase 13. This was previously queued immediately after the parser-removal track, but the 0.8 branch now puts browser AOT proof, deploy-size hardening, and operator-order correctness first so the release support claim is real before broad query expansion resumes.
 
 Goals:
 
 - make standard C# query-syntax joins a documented, tested path
 - support multiple explicit inner joins instead of the current narrow single-join boundary
-- support filtering, ordering, paging, and result operators over joined row shapes
+- support filtering, ordering, paging, and result operators over joined row shapes while preserving Phase 13 semantics
 - keep joined materialization on provider-key components where Phase 10 made that possible
+- prove supported join shapes from both `db.Query()` and `transaction.Query()`
 - update public query docs and the support matrix only for shipped join shapes
 
 Why before relation-aware joins:
 
 - `JoinBy(...)` should not be prettier syntax over a weak explicit-join engine
 - query syntax remains the clearest shape for joins that are not backed by relation metadata
-- explicit joins expose materialization and aliasing problems before the API surface widens
+- explicit joins expose materialization, aliasing, transaction-root, and pushed-down source problems before the API surface widens
 
 Key related plans:
 
-- `roadmap-implementation/v0.8/phase-13-source-slot-join-follow-up/README.md`
+- `roadmap-implementation/v0.8/phase-14-source-slot-join-composition/README.md`
 - `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
 - `query-and-runtime/Relation-Aware Join API.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
 
-### Phase 14: Relation-Aware, Implicit, and Left Joins
+### Phase 15: Relation-Aware, Implicit, and Left Joins
 
-Status: planned 0.8 finish-line work after Phase 13.
+Status: planned 0.8 finish-line work after Phase 14.
 
 Goals:
 
@@ -577,6 +604,7 @@ Goals:
 - add join-local `on:` predicates
 - add `LeftJoinBy(...)` and `LeftJoinMany(...)` with honest nullable joined values
 - make a `net10.0` support decision for standard `Queryable.LeftJoin(...)`
+- prove relation-aware and implicit join shapes from both `db.Query()` and `transaction.Query()`
 - document `ON` versus `WHERE` behavior for left joins
 
 Why after explicit joins:
@@ -587,14 +615,14 @@ Why after explicit joins:
 
 Key related plans:
 
-- `roadmap-implementation/v0.8/phase-14-relation-aware-and-implicit-joins/README.md`
+- `roadmap-implementation/v0.8/phase-15-relation-aware-and-implicit-joins/README.md`
 - `roadmap-implementation/phase-14-relation-aware-joins-and-left-joins/README.md`
 - `query-and-runtime/Relation-Aware Join API.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
 
-### Phase 15: Scalar Converters and Typed-Key Ergonomics
+### Old Phase 15 Source Plan: Scalar Converters and Typed-Key Ergonomics
 
-Status: planned after Phase 14 unless typed-key demand pulls it forward.
+Status: deferred until after the 0.8 query-composition and join work unless typed-key demand pulls it forward.
 
 Goals:
 
@@ -604,11 +632,12 @@ Goals:
 - update schema validation so provider storage type, not model CLR type, drives database comparison
 - add typed-key generation only after manual converter behavior is stable
 
-Why here:
+Why not in the 0.8 join slice:
 
 - Phase 10 should make room for provider-key storage, but full typed-key ergonomics are broader than cache internals
 - joins should work for ordinary provider values before typed-ID joins become a product promise
 - scalar converters unlock more than keys: JSON-as-value, legacy string parsing, and domain value objects all depend on the same layer
+- the 0.8 join work should preserve provider-value normalization seams, not turn scalar conversion into a hidden prerequisite
 
 Key related plans:
 
@@ -707,7 +736,7 @@ Phase 11 is now complete for explicit cache clearing, external invalidation, rel
 
 After the 0.7.1 release, the `v0.8` branch deliberately reset roadmap execution to a version-scoped sequence. That parser-removal sequence is now closed through [0.8 Phase 7: Remotion Dependency Removal](roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md): query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset expression parser, projection/local-evaluation cleanup, dual-run parity, production provider switch, and dependency removal.
 
-The version-scoped 0.8 sequence now continues with final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md). Phase 13 explicit multi-join composition and Phase 14 relation-aware/implicit joins are now planned 0.8 finish-line work, built on the source-slot-aware query plan after the AOT/browser release gates instead of broadening the old Remotion boundary first.
+The version-scoped 0.8 sequence now continues with final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md). Phase 13 query composition/subquery pushdown, Phase 14 explicit multi-join composition, and Phase 15 relation-aware/implicit joins are now planned 0.8 finish-line work, built on the source-slot-aware query plan after the AOT/browser release gates instead of broadening the old Remotion boundary first.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 14: Relation-Aware Joins, Implicit Joins, and Left Joins
 
-**Status:** Planned after Phase 13. The version-scoped 0.8 execution path is [0.8 Phase 14: Relation-Aware and Implicit Joins](../v0.8/phase-14-relation-aware-and-implicit-joins/README.md).
+**Status:** Planned after explicit join composition. The version-scoped 0.8 execution path is [0.8 Phase 15: Relation-Aware and Implicit Joins](../v0.8/phase-15-relation-aware-and-implicit-joins/README.md).
 
 ## Purpose
 
@@ -20,13 +20,14 @@ In scope:
 - join-local `on:` predicates rendered into SQL `ON` groups
 - `LeftJoinBy(...)` and `LeftJoinMany(...)`
 - standard `Queryable.LeftJoin(...)` support checks on `net10.0`
+- parity between `db.Query()` and `transaction.Query()` roots for supported relation-aware join shapes
 - nullable joined-slot materialization and documentation
 - diagnostics for unsupported relation expressions and predicates
 
 Out of scope:
 
 - eager loading disguised as joins
-- direct `db.Table` shortcuts that bypass `db.Query()`
+- direct `db.Table` shortcuts that bypass generated query roots
 - implicit collection projection or hidden row multiplication
 - multi-hop relation traversal in the first relation-aware API
 - client-side fallback for unsupported predicates

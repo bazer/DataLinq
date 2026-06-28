@@ -76,4 +76,4 @@ Do not link only to archived Phase 8 results. They are useful history, but the r
 - Current compatibility report is green for the claimed support boundary; if browser AOT remains red, the claim must exclude browser AOT.
 - Package report proves Roslyn and Remotion stay out of runtime package dependency groups.
 - Public docs and changelog describe the exact support boundary.
-- Phase 13 source-slot join follow-up remains behind the AOT/browser gates.
+- Phase 13 query-composition hardening and the Phase 14/15 join follow-ups remain behind the AOT/browser gates.

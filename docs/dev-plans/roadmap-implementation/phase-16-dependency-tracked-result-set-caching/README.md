@@ -18,7 +18,7 @@ In scope:
 - row dependency fingerprints collected during reads
 - validation of module snapshots and stamped application results against current dependency state
 - module snapshot cache metadata for DataLinq.Store sync
-- integration with Phase 11 invalidation envelopes and Phase 13/14 projection/join semantics
+- integration with Phase 11 invalidation envelopes and the 0.8 Phase 13-15 query-composition, projection, and join semantics
 - documentation that keeps result-set caching separate from row-cache behavior
 
 Out of scope:
@@ -37,6 +37,7 @@ Out of scope:
 - [DataLinq.Store State Modules and Graph Cache](../../DataLinq.Store/State%20Modules%20and%20Graph%20Cache.md)
 - [Projections and Views](../../query-and-runtime/Projections%20and%20Views.md)
 - [Phase 11 Cache Clearing and External Invalidation](../../archive/roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/README.md)
+- [0.8 Phase 13 Query Composition and Subquery Pushdown](../v0.8/phase-13-query-composition-and-subquery-pushdown/README.md)
 - [Phase 13 Explicit Multi-Join Composition](../phase-13-explicit-multi-join-composition/README.md)
 - [Phase 14 Relation-Aware, Implicit, and Left Joins](../phase-14-relation-aware-joins-and-left-joins/README.md)
 

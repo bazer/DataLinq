@@ -3,7 +3,7 @@
 
 # Relation-Aware Join API
 
-**Status:** Draft design. Roadmap execution is split across 0.8 Phase 13 source-slot join composition and 0.8 Phase 14 relation-aware and implicit joins.
+**Status:** Draft design. Roadmap execution depends on 0.8 Phase 13 query composition and subquery pushdown, then continues through 0.8 Phase 14 source-slot join composition and 0.8 Phase 15 relation-aware and implicit joins.
 
 ## Purpose
 
@@ -56,6 +56,15 @@ var q = db.Query();
 
 `db.Query()` exposes the generated query surface. Aliasing it is clearer than repeating `db.Query().TableName` in every join source, and it keeps query execution visible. Do not add direct `db.Orders`-style table properties just to save keystrokes; that would blur the boundary between the `Database<T>` object, transaction-local query roots, and generated model surfaces.
 
+The same convention applies inside transactions:
+
+```csharp
+using var transaction = db.Transaction();
+var q = transaction.Query();
+```
+
+All join APIs should be `IQueryable<T>`-rooted so the same query shape works from `db.Query()` and from `transaction.Query()`. The expression parser can treat both roots the same structurally, but execution must preserve the source data context: transaction-rooted queries must execute, materialize rows, and resolve joined relation data through the transaction.
+
 Good:
 
 ```csharp
@@ -75,7 +84,9 @@ The query engine should stay honest:
 - relation metadata supplies key equality
 - `on:` adds extra join predicates
 - `.Where(...)` filters the joined row shape
+- `Skip(...)`, `Take(...)`, and later `Where(...)`/`OrderBy(...)` preserve C# operator order through subquery pushdown when necessary
 - implicit relation joins are allowed only when they are SQL-backed and do not hide row multiplication
+- read-only and transaction-local query roots have the same supported query surface
 - left joins preserve unmatched left rows
 - unsupported shapes fail with `QueryTranslationException`
 - no silent client-side predicate fallback
@@ -417,7 +428,24 @@ Open questions:
 
 The proposed API is not just extension-method sugar. Custom query methods are not automatically understood by the current DataLinq expression parser unless the parser and plan model explicitly support them. DataLinq needs a real joined-query plan.
 
-### 1. Parser Integration
+### 1. Root and Transaction Neutrality
+
+The query parser should accept generated roots from both `db.Query()` and `transaction.Query()`:
+
+```csharp
+var q = db.Query();
+var tq = transaction.Query();
+```
+
+Implementation requirements:
+
+- public join APIs are extension methods over `IQueryable<T>` rather than methods on `Database<T>`
+- root-source detection recognizes both read-only and transaction-local generated `DbRead<T>` properties
+- parsed plans keep enough execution context to use the originating `DataSourceAccess`
+- joined materialization, relation lookup, and cache interaction use the originating data source
+- tests cover representative explicit joins, `JoinBy(...)`, `JoinMany(...)`, implicit singular relation traversal, and left joins from both root types
+
+### 2. Parser Integration
 
 DataLinq needs one of these integration strategies:
 
@@ -429,14 +457,14 @@ The least invasive first attempt is probably a rewrite to ordinary join semantic
 
 For left joins, join-local `on:`, and implicit relation traversal, a custom joined-query plan is likely cleaner than pretending everything is standard LINQ.
 
-### 2. Joined Query Plan
+### 3. Joined Query Plan
 
 The current executor has a special `ExecuteJoinedCollection<T>` path for one `JoinClause`. That needs to become a reusable plan with:
 
 - source slots for every table participating in the query
 - stable SQL aliases for each source slot
 - join edges with join type, target table, key column pairs, and optional `on:` predicate
-- mapping from Remotion query sources or DataLinq custom relation sources to source slots
+- mapping from DataLinq query roots, joined row shapes, and relation-derived sources to source slots
 - a final projection expression compiled against materialized source slots
 
 Conceptually:
@@ -455,7 +483,7 @@ JoinedQueryPlan
     rows => new { order = rows[0], customer = rows[1], item = rows[2], product = rows[3] }
 ```
 
-### 3. Multiple Standard Joins
+### 4. Multiple Standard Joins
 
 Standard query syntax and chained `Join(...)` should support more than one join:
 
@@ -479,7 +507,7 @@ Implementation work:
 
 The current joined projection visitor maps query sources to an object array. That model can scale, but it needs to handle the transparent identifiers that C# query syntax may introduce for multi-join query expressions.
 
-### 4. Filtering, Ordering, and Paging Over Joined Results
+### 5. Filtering, Ordering, and Paging Over Joined Results
 
 The current implementation rejects `Where(...)`, `OrderBy(...)`, `Skip(...)`, `Take(...)`, and result operators over joined results. Complex joins are not useful without those.
 
@@ -490,10 +518,11 @@ Required work:
 - apply `Skip(...)` and `Take(...)` to the joined SQL result
 - support scalar result operators such as `Any()` and `Count()` over joined queries
 - keep `Single(...)` and `First(...)` semantics aligned with existing result-operator behavior
+- preserve Phase 13 operator-order semantics over joined row shapes, including subquery pushdown when a later filter or ordering applies after paging
 
 This probably requires generalizing `WhereVisitor` and `OrderByVisitor` so they can resolve column access against a source-slot map instead of assuming one root table.
 
-### 5. Relation Metadata Resolution
+### 6. Relation Metadata Resolution
 
 For `JoinBy(...)` and `JoinMany(...)`, the relation expression must resolve to exactly one generated relation property.
 
@@ -529,7 +558,7 @@ For singular FK relation properties, `JoinBy(...)` joins from the owner's FK col
 
 For collection relation properties, `JoinMany(...)` joins from the owner's candidate key columns to the child table's FK columns.
 
-### 6. Implicit Relation Join Translation
+### 7. Implicit Relation Join Translation
 
 Implicit relation joins should reuse the relation metadata resolver and source-slot machinery from `JoinBy(...)`.
 
@@ -563,7 +592,7 @@ Implementation requirements:
 
 Nullable singular relations should be conservative in the first slice. A non-nullable singular relation can translate as an inner join. A nullable singular relation should require `LeftJoinBy(...)` for result shaping until null-propagating semantics are explicitly designed and tested.
 
-### 7. Join-Local Predicate Translation
+### 8. Join-Local Predicate Translation
 
 `on:` predicates need a two-source predicate translator. It must resolve:
 
@@ -589,14 +618,14 @@ Unsupported first shapes:
 
 For left joins, `on:` must render into the SQL `ON` group, not into the global `WHERE` group.
 
-### 8. Projection and Materialization
+### 9. Projection and Materialization
 
 The existing joined implementation selects primary keys from both sides, materializes each row through DataLinq caches, then applies the projection in .NET. That is consistent with current post-materialization projection semantics.
 
 The same model can work for multi-join:
 
 - SQL selects primary keys for every joined source slot
-- DataLinq materializes each non-null slot through the table cache
+- DataLinq materializes each non-null slot through the table cache for the originating read-only or transaction data source
 - the projection delegate receives an object array of materialized rows
 - inner joins require every slot to materialize
 - left joins allow null right-side slots
@@ -609,7 +638,7 @@ Composite primary keys need similar care:
 - some null components probably indicate invalid data or an unsupported join shape
 - provider null semantics need regression coverage
 
-### 9. SQL Builder Support
+### 10. SQL Builder Support
 
 The lower-level SQL builder already supports inner, left, and right joins. The LINQ layer needs to use that more generally.
 
@@ -620,12 +649,13 @@ Required SQL support:
 - additional `ON` predicates
 - global `WHERE` predicates over joined aliases
 - ordering over joined aliases
+- subquery pushdown for joined row shapes when Phase 13 operator-order rules require it
 - provider-specific identifier escaping remains centralized
 - predictable generated aliases for diagnostics and tests
 
 Right joins should not be part of the initial relation-aware API. Left joins are enough for common ORM usage, and right joins add mental overhead without much practical value.
 
-### 10. Diagnostics
+### 11. Diagnostics
 
 Unsupported joins should fail loudly and specifically.
 
@@ -753,13 +783,14 @@ Tasks:
 
 ## Recommended Execution Order
 
-1. Standard C# query syntax and multi-join composition.
-2. Relation metadata resolver.
-3. `JoinBy(...)` and `JoinMany(...)` inner joins.
-4. Implicit singular relation joins for predicates, ordering, and simple projections.
-5. Join-local `on:` predicates.
-6. `LeftJoinBy(...)` and `LeftJoinMany(...)`, plus standard `Queryable.LeftJoin(...)` on `net10.0` where available.
-7. Documentation and support matrix updates after each shipped slice.
+1. Query composition and subquery pushdown for operator-order-sensitive `Where(...)`, `OrderBy(...)`, `Skip(...)`, and `Take(...)`.
+2. Standard C# query syntax and multi-join composition.
+3. Relation metadata resolver.
+4. `JoinBy(...)` and `JoinMany(...)` inner joins.
+5. Implicit singular relation joins for predicates, ordering, and simple projections.
+6. Join-local `on:` predicates.
+7. `LeftJoinBy(...)` and `LeftJoinMany(...)`, plus standard `Queryable.LeftJoin(...)` on `net10.0` where available.
+8. Documentation and support matrix updates after each shipped slice.
 
 This order keeps the foundation honest. If DataLinq cannot compose ordinary explicit joins with filtering and ordering, relation-aware joins will just be prettier syntax over a weak engine.
 
@@ -769,9 +800,11 @@ This feature area is complete when:
 
 - query syntax supports practical multi-table inner joins
 - explicit and relation-aware joins can be filtered, ordered, paged, and counted
+- ordering, filtering, and paging over joined rows preserve LINQ operator order rather than flattening to final SQL clause order
 - `JoinBy(...)` resolves singular generated relation properties without explicit key selectors
 - `JoinMany(...)` resolves generated collection relation properties without explicit key selectors
 - implicit singular relation traversal is SQL-backed for supported predicates, ordering, and projections
+- supported query and join shapes work from both `db.Query()` and `transaction.Query()`
 - `on:` predicates render into SQL `ON` clauses
 - left joins preserve unmatched source rows and expose nullable joined values
 - unsupported join shapes throw focused `QueryTranslationException` diagnostics
