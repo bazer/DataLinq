@@ -34,14 +34,14 @@ For release-level detail, see the [changelog](../CHANGELOG.md).
 
 ### 0.8 AOT Browser Release Hardening
 
-The parser-removal track is implemented. The remaining 0.8 release priority is making the constrained-platform story real enough to ship:
+The parser-removal track is implemented, and the AOT/browser release tooling now has browser smoke automation, broader constrained query coverage, and target-specific payload thresholds. The remaining 0.8 release priority is collecting fresh release evidence and narrowing the support claim to what that evidence proves:
 
-- automate Blazor WebAssembly AOT browser smoke evidence instead of relying only on publish output
-- resolve SQLitePCLRaw WebAssembly varargs warning disposition with exact call-path evidence
+- run the fresh Blazor WebAssembly AOT browser smoke evidence instead of relying only on publish output
+- resolve SQLitePCLRaw WebAssembly varargs warning disposition with exact call-path evidence from a clean publish
 - re-test no-AOT browser behavior and either support it narrowly or keep it explicitly unsupported
-- expand constrained-platform query coverage across the documented subset selected for 0.8
+- keep constrained-platform query coverage green for the documented subset selected for 0.8
 - keep AOT routes fenced away from reflection-heavy compatibility fallback
-- keep Native AOT, trimmed, WASM, and WASM AOT payload reports green with sensible deploy-size thresholds
+- keep Native AOT, trimmed, WASM, and WASM AOT payload reports green under the 0.8 release thresholds
 
 The target release claim should stay narrow: generated SQLite models, the documented query subset, Native AOT, trimmed publish, and Blazor WebAssembly AOT. Broad provider coverage, arbitrary LINQ, OPFS storage, and no-AOT browser support are separate claims unless they get their own evidence.
 
@@ -59,27 +59,21 @@ That is not the same thing as a general LINQ-provider rewrite. The support bound
 
 The internal 0.8 execution record started over at Phase 1 instead of continuing the old global roadmap numbering. That sequence is now closed through Phase 7: query contract baseline, temporary Remotion adapter, SQL generation on `DataLinqQueryPlan`, supported-subset expression parser, projection/local-evaluation cleanup, parity and constrained-platform switch, and Remotion dependency removal. Phases 8 through 12 now own the AOT/browser release gates.
 
-### Post-AOT Join Composition
+### 0.8 Join Completion
 
-Now that the query plan exists, the next broad query feature priority after the AOT/browser release gates is standard explicit inner-join composition:
+Now that the query plan exists, the next broad query feature priority after the AOT/browser release gates is join completion for 0.8:
 
 - C# query-syntax joins as a documented path
 - multiple explicit inner joins
 - filtering, ordering, paging, and result operators over joined row shapes
 - joined materialization that keeps using provider-key components
-
-The first shipped join support is intentionally narrow. The next step is to make explicit joins useful without hiding complexity behind relation-aware syntax too early, but not before the 0.8 browser AOT story is release-grade.
-
-### Relation-Aware Joins and Left Joins
-
-After explicit joins are stronger, relation metadata can become a safer query-building input:
-
 - `JoinBy(...)` and `JoinMany(...)`
-- join-local predicates
+- narrow implicit singular relation joins for predicates, ordering, and simple projections
+- join-local `on:` predicates
 - left joins with honest nullability behavior
 - clear documentation for `ON` versus `WHERE` semantics
 
-This should build on the explicit join engine, not replace it with a magical relation API.
+The first shipped join support is intentionally narrow. The next step is to make explicit joins useful, then layer relation-aware and implicit singular relation syntax on the same source-slot engine. Collection relation expansion should stay explicit through `JoinMany(...)` or query syntax; hidden row multiplication would be a bad trade even if it looks elegant in a demo.
 
 ### Scalar Converters and Typed Keys
 

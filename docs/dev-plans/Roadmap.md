@@ -23,7 +23,7 @@ Several important things are already true:
 - The runtime metadata graph now has a Phase 8B factory/freeze boundary for ordinary construction. A complete generated metadata switch should target that builder-built snapshot path rather than reviving reflection-heavy startup.
 - Provider metadata roundtrip fidelity now has an explicit support boundary for SQLite, MySQL, and MariaDB, including tested coverage for the ordinary table/column/index/relation subset and documented unsupported provider details.
 - Schema validation and conservative diff-script tooling now exist for that supported subset; full versioned migration execution remains intentionally deferred.
-- Phase 8 proved generated SQLite models under Native AOT, trimming, and Blazor WebAssembly AOT. Phase 8C removed Roslyn/compiler payloads from the runtime package graph and constrained publish outputs. The 0.8 parser-removal track then moved production queries onto DataLinq's expression parser and removed `Remotion.Linq` from the main runtime package graph. The 2026-06-28 compatibility refresh proves Native AOT and trimmed publishes locally once the platform toolchain is installed. The remaining practical compatibility debt is narrower but real: browser runtime smoke is not automated by the size report, no-AOT browser WebAssembly is not supportable for the SQLite/DataLinq path until re-proven, and SQLitePCLRaw WebAssembly varargs warnings still need exact call-path disposition.
+- Phase 8 proved generated SQLite models under Native AOT, trimming, and Blazor WebAssembly AOT. Phase 8C removed Roslyn/compiler payloads from the runtime package graph and constrained publish outputs. The 0.8 parser-removal track then moved production queries onto DataLinq's expression parser and removed `Remotion.Linq` from the main runtime package graph. The 2026-06-28 compatibility refresh proves Native AOT and trimmed publishes locally once the platform toolchain is installed, and `size-report` now has Playwright-backed browser smoke automation for WebAssembly targets. The remaining practical compatibility debt is narrower but real: the browser lanes need fresh release evidence on a compatible host, no-AOT browser WebAssembly is not supportable for the SQLite/DataLinq path until re-proven, and SQLitePCLRaw WebAssembly varargs warnings still need exact call-path disposition.
 
 That last point matters. A fast ORM that is hard to validate or debug is still a risky tool.
 
@@ -512,22 +512,22 @@ Closeout result:
 
 ### Version-Scoped 0.8 AOT Browser Release Track
 
-Status: planned release work after the 0.8 parser-removal closeout.
+Status: release gate wiring implemented; final closeout requires fresh compatibility and package evidence from the release machine.
 
 Goals:
 
-- automate browser runtime smoke for WebAssembly AOT publish outputs
-- resolve SQLitePCLRaw WebAssembly warning disposition with exact call-path evidence
+- run browser runtime smoke for WebAssembly AOT publish outputs through the compatibility report
+- resolve SQLitePCLRaw WebAssembly warning disposition with exact call-path evidence from a clean publish
 - re-test no-AOT browser behavior and document support or non-support from current runtime evidence
-- expand constrained-platform query coverage across the documented subset selected for 0.8
+- keep constrained-platform query coverage green across the documented subset selected for 0.8
 - fence constrained AOT paths away from reflection-heavy compatibility fallback
-- harden browser and Native AOT deploy-size thresholds
+- enforce browser and Native AOT deploy-size thresholds
 - publish a narrow support contract backed by current release evidence
 
-Why before Phase 13:
+Why before join completion:
 
 - a release that claims browser AOT must prove browser execution, not only publish output
-- source-slot join expansion is valuable, but it is less important than making the existing generated SQLite AOT path shippable
+- source-slot join expansion is valuable, but it is less important than making the existing generated SQLite AOT path shippable first
 - broadening query features before the constrained-platform support boundary is fenced increases the chance of accidental fallback and vague support claims
 
 Key related plans:
@@ -542,7 +542,7 @@ Key related plans:
 
 ### Phase 13: Explicit Multi-Join Composition
 
-Status: planned follow-up after the 0.8 AOT browser release gates. This was previously queued immediately after the parser-removal track, but the 0.8 branch now puts browser AOT proof and deploy-size hardening first so the release support claim is real before broad query expansion resumes.
+Status: planned 0.8 finish-line work after the AOT/browser release gates. This was previously queued immediately after the parser-removal track, but the 0.8 branch now puts browser AOT proof and deploy-size hardening first so the release support claim is real before broad query expansion resumes.
 
 Goals:
 
@@ -560,29 +560,34 @@ Why before relation-aware joins:
 
 Key related plans:
 
+- `roadmap-implementation/v0.8/phase-13-source-slot-join-follow-up/README.md`
 - `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
 - `query-and-runtime/Relation-Aware Join API.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
 
-### Phase 14: Relation-Aware Joins and Left Joins
+### Phase 14: Relation-Aware, Implicit, and Left Joins
 
-Status: planned after Phase 13.
+Status: planned 0.8 finish-line work after Phase 13.
 
 Goals:
 
 - add relation-expression resolution for generated singular and collection relations
 - implement `JoinBy(...)` and `JoinMany(...)`
+- support narrow implicit singular relation traversal in predicates, ordering, and simple projections
 - add join-local `on:` predicates
 - add `LeftJoinBy(...)` and `LeftJoinMany(...)` with honest nullable joined values
+- make a `net10.0` support decision for standard `Queryable.LeftJoin(...)`
 - document `ON` versus `WHERE` behavior for left joins
 
 Why after explicit joins:
 
 - relation metadata should supply key equality, not hide an immature join engine
+- implicit joins are acceptable only when source-slot binding prevents hidden lazy loading or row multiplication
 - left joins add nullability and cardinality complexity that should land after inner join composition is stable
 
 Key related plans:
 
+- `roadmap-implementation/v0.8/phase-14-relation-aware-and-implicit-joins/README.md`
 - `roadmap-implementation/phase-14-relation-aware-joins-and-left-joins/README.md`
 - `query-and-runtime/Relation-Aware Join API.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
@@ -692,7 +697,7 @@ Phase 7 LINQ feature expansion is implemented for its planned support boundary: 
 
 Phase 8 Native AOT and WebAssembly readiness is implemented for its planned generated SQLite boundary: Native AOT publish/run, trimmed publish/run, Blazor WebAssembly AOT publish/browser smoke, generated metadata/factory enforcement, hot-path projection compilation removal, and browser cache-worker avoidance.
 
-Phase 8B is the completed generated-contract and immutable metadata foundation. Phase 8C is also complete for the bounded package/generated-runtime cleanup: Roslyn is out of runtime dependency groups, complete generated metadata startup is the normal generated path, and generated indexed/handle access landed. The 0.8 parser-removal track is complete through Phase 7: the production query path uses the DataLinq expression parser and `Remotion.Linq` is out of the main runtime dependency graph. The remaining caveats are real and should not be hand-waved: no-AOT browser WebAssembly failed historically in the Mono interpreter and needs a current rerun before support, WebAssembly browser runtime smoke is not automated by the size report, SQLitePCLRaw varargs warning disposition is unresolved, and Native AOT proof still depends on installed platform toolchain prerequisites.
+Phase 8B is the completed generated-contract and immutable metadata foundation. Phase 8C is also complete for the bounded package/generated-runtime cleanup: Roslyn is out of runtime dependency groups, complete generated metadata startup is the normal generated path, and generated indexed/handle access landed. The 0.8 parser-removal track is complete through Phase 7: the production query path uses the DataLinq expression parser and `Remotion.Linq` is out of the main runtime dependency graph. The 0.8 AOT/browser release gate tooling is now implemented for browser smoke, selected constrained query coverage, clean WebAssembly warning capture, and target-specific payload thresholds. The remaining caveats are real and should not be hand-waved: no-AOT browser WebAssembly failed historically and needs a current rerun before support, SQLitePCLRaw varargs warning disposition still needs a clean report, final WebAssembly AOT browser evidence must be generated on a compatible host, and Native AOT proof still depends on installed platform toolchain prerequisites.
 
 Phase 9A is now complete: warning cleanup, benchmark/history improvements, allocation reduction, conservative cache invalidation hardening, and benchmark closeout evidence have landed. The important caveat is performance wording: the closeout supports allocation and invalidation claims, not latency claims.
 
@@ -702,7 +707,7 @@ Phase 11 is now complete for explicit cache clearing, external invalidation, rel
 
 After the 0.7.1 release, the `v0.8` branch deliberately reset roadmap execution to a version-scoped sequence. That parser-removal sequence is now closed through [0.8 Phase 7: Remotion Dependency Removal](roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md): query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset expression parser, projection/local-evaluation cleanup, dual-run parity, production provider switch, and dependency removal.
 
-The version-scoped 0.8 sequence now continues with AOT/browser release work in [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md). Phase 13 explicit multi-join composition and Phase 14 relation-aware joins should remain planned follow-up work, now built on the source-slot-aware query plan after the AOT/browser release gates instead of broadening the old Remotion boundary first.
+The version-scoped 0.8 sequence now continues with final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md). Phase 13 explicit multi-join composition and Phase 14 relation-aware/implicit joins are now planned 0.8 finish-line work, built on the source-slot-aware query plan after the AOT/browser release gates instead of broadening the old Remotion boundary first.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 13: Explicit Multi-Join Composition
 
-**Status:** Planned follow-up. This was previously queued immediately after completed Phase 12C, but the 0.8 branch now puts query-plan and Remotion-isolation work first.
+**Status:** Planned follow-up. The version-scoped 0.8 execution path is [0.8 Phase 13: Source-Slot Join Composition](../v0.8/phase-13-source-slot-join-follow-up/README.md).
 
 ## Purpose
 
@@ -10,7 +10,7 @@ Phase 13 makes ordinary explicit joins genuinely useful before DataLinq adds pre
 
 The rule is simple: if DataLinq cannot compose standard C# query-syntax joins with filtering, ordering, paging, and result operators, then `JoinBy(...)` would just be attractive syntax over a weak engine.
 
-For 0.8, broad join expansion should wait until the source-slot-aware DataLinq query plan exists. Extending the old Remotion-shaped boundary first would increase the migration surface for the parser replacement.
+For 0.8, broad join expansion should build on the source-slot-aware DataLinq query plan and follow the AOT/browser release evidence work. Extending the old Remotion-shaped boundary first would have increased the migration surface for the parser replacement.
 
 ## Execution Boundary
 
@@ -33,6 +33,7 @@ Out of scope:
 ## Source Plans
 
 - [Relation-Aware Join API](../../query-and-runtime/Relation-Aware%20Join%20API.md)
+- [0.8 Phase 13 Source-Slot Join Composition](../v0.8/phase-13-source-slot-join-follow-up/README.md)
 - [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md)
 - [Phase 10 Key and Allocation Foundation](../../archive/roadmap-implementation/phase-10-key-and-allocation-foundation/README.md)
 
