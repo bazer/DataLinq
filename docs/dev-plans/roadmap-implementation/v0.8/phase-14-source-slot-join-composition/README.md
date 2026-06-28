@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 14: Source-Slot Join Composition
 
-**Status:** Planned 0.8 finish-line work after Phase 13 query composition/subquery pushdown and the single-source Phase 13B grouped aggregate projection baseline.
+**Status:** In progress for the explicit two-source join composition slice.
 
 ## Purpose
 
@@ -45,6 +45,7 @@ Out of scope for the first follow-up slice:
 - [0.8 Phase 13 Query Composition and Subquery Pushdown](../phase-13-query-composition-and-subquery-pushdown/README.md)
 - [0.8 Phase 15 Relation-Aware and Implicit Joins](../phase-15-relation-aware-and-implicit-joins/README.md)
 - [Relation-Aware Join API](../../../query-and-runtime/Relation-Aware%20Join%20API.md)
+- [Implementation Plan](Implementation%20Plan.md)
 
 ## Exit Criteria
 
