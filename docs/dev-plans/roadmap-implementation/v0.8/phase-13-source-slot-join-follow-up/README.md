@@ -1,12 +1,14 @@
 > [!WARNING]
 > This folder contains roadmap execution material for DataLinq 0.8 follow-up work. It is not normative product documentation, and it should not be treated as a shipped support claim.
-# 0.8 Phase 8: Source-Slot Join Follow-Up
+# 0.8 Phase 13: Source-Slot Join Follow-Up
 
-**Status:** Stretch / 0.8.x follow-up after Remotion dependency removal.
+**Status:** Backlog / 0.8.x follow-up after AOT release gates.
 
 ## Purpose
 
-Phase 8 resumes join work after the query plan exists. This is where the old Phase 13 and Phase 14 plans become useful again, but rebased on DataLinq source slots instead of Remotion query-source identities.
+Phase 13 resumes join work after the query plan exists and after the 0.8 AOT/browser release gates are satisfied. This is where the old Phase 13 and Phase 14 plans become useful again, but rebased on DataLinq source slots instead of Remotion query-source identities.
+
+This phase used to be the 0.8 Phase 8 follow-up. It moved to the back of the queue because 0.8 should prioritize making browser AOT actually run, report, and deploy at sensible sizes before broadening join composition.
 
 Start from the current [LINQ Parser Architecture](../../../../internals/LINQ%20Parser%20Architecture.md), not from the older Remotion-shaped join notes. The existing source slots, `JoinedRowLocal` projection path, primary-key based joined materialization, and current join exclusions are the baseline to extend.
 

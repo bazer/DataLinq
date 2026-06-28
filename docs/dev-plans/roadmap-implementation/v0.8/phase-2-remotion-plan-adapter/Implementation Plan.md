@@ -113,7 +113,7 @@ Minimum source kinds:
 - explicit join source
 - relation subquery source
 
-The first implementation can keep `Cardinality` and `IsNullable` simple, but they should exist because Phase 8 join follow-up and future left joins will need them.
+The first implementation can keep `Cardinality` and `IsNullable` simple, but they should exist because the later source-slot join follow-up and future left joins will need them.
 
 ### Operations
 

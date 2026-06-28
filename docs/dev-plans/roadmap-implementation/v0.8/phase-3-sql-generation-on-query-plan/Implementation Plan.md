@@ -384,7 +384,7 @@ Design stance:
 
 - Join SQL generation should be plan-owned in Phase 3.
 - Join projection evaluation can still use transitional Remotion-derived projection binding if the plan projection is not yet rich enough to execute anonymous projections directly.
-- Do not expand join support while moving the boundary. Phase 8 owns broader join work.
+- Do not expand join support while moving the boundary. The later source-slot join follow-up owns broader join work.
 
 Exit criteria:
 
@@ -633,7 +633,7 @@ docfx docfx.json
 | Captured values leak into SQL text or diagnostics | Medium | Bind through `QueryPlanBindingFrame`; assert SQL parameterization and redacted snapshots. |
 | Nullable inequality loses C# lifted semantics | High | Keep explicit `CSharpNullableNotEqualIncludesNull` rendering and tests. |
 | Projection migration scope creeps into Phase 3 | Medium | Keep projection execution isolated and defer AOT-clean interpreter work to Phase 5. |
-| Join migration expands support accidentally | Medium | Render only the Phase 1/2 narrow join baseline; leave broader joins to Phase 8. |
+| Join migration expands support accidentally | Medium | Render only the Phase 1/2 narrow join baseline; leave broader joins to the later source-slot join follow-up. |
 | Old visitor code remains and confuses future work | Medium | Stop production callers now; delete or clearly mark cleanup targets for Phase 7. |
 
 ## Exit Criteria

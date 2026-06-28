@@ -104,7 +104,7 @@ Tasks:
 1. Preserve entity, scalar member, anonymous, computed row-local, and joined row-local projection shapes.
 2. Reject relation projection and nested database projection shapes with focused DataLinq diagnostics.
 3. Preserve the one direct inner `Join(...)` baseline.
-4. Reject join expansion scenarios owned by Phase 8.
+4. Reject join expansion scenarios owned by the later source-slot join follow-up.
 
 ### E. Parity Evidence
 

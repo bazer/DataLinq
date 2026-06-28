@@ -510,9 +510,39 @@ Closeout result:
 - `generate models --all/--recursive`, `validate --all/--recursive`, and `config list --recursive` support solution/subfolder workflows with aggregate failure behavior.
 - `config init`, `config schema`, schema publication, secret references, local secret commands, and user-facing docs are implemented for the shipped behavior.
 
+### Version-Scoped 0.8 AOT Browser Release Track
+
+Status: planned release work after the 0.8 parser-removal closeout.
+
+Goals:
+
+- automate browser runtime smoke for WebAssembly AOT publish outputs
+- resolve SQLitePCLRaw WebAssembly warning disposition with exact call-path evidence
+- re-test no-AOT browser behavior and document support or non-support from current runtime evidence
+- expand constrained-platform query coverage across the documented subset selected for 0.8
+- fence constrained AOT paths away from reflection-heavy compatibility fallback
+- harden browser and Native AOT deploy-size thresholds
+- publish a narrow support contract backed by current release evidence
+
+Why before Phase 13:
+
+- a release that claims browser AOT must prove browser execution, not only publish output
+- source-slot join expansion is valuable, but it is less important than making the existing generated SQLite AOT path shippable
+- broadening query features before the constrained-platform support boundary is fenced increases the chance of accidental fallback and vague support claims
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/README.md`
+- `roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md`
+- `roadmap-implementation/v0.8/phase-9-webassembly-warning-and-no-aot-disposition/README.md`
+- `roadmap-implementation/v0.8/phase-10-aot-query-coverage-and-fallback-fencing/README.md`
+- `roadmap-implementation/v0.8/phase-11-browser-payload-and-deploy-size-hardening/README.md`
+- `roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md`
+- `platform-compatibility/Practical AOT and Size Plan.md`
+
 ### Phase 13: Explicit Multi-Join Composition
 
-Status: planned follow-up after the 0.8 parser-removal track. This was previously queued immediately after Phase 12C, but the 0.8 branch put the query-plan work first so broad join expansion can be built on a DataLinq-owned plan instead of the old Remotion-shaped boundary.
+Status: planned follow-up after the 0.8 AOT browser release gates. This was previously queued immediately after the parser-removal track, but the 0.8 branch now puts browser AOT proof and deploy-size hardening first so the release support claim is real before broad query expansion resumes.
 
 Goals:
 
@@ -672,7 +702,7 @@ Phase 11 is now complete for explicit cache clearing, external invalidation, rel
 
 After the 0.7.1 release, the `v0.8` branch deliberately reset roadmap execution to a version-scoped sequence. That parser-removal sequence is now closed through [0.8 Phase 7: Remotion Dependency Removal](roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md): query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset expression parser, projection/local-evaluation cleanup, dual-run parity, production provider switch, and dependency removal.
 
-Phase 13 explicit multi-join composition and Phase 14 relation-aware joins should remain planned follow-up work, now built on the source-slot-aware query plan instead of broadening the old Remotion boundary first.
+The version-scoped 0.8 sequence now continues with AOT/browser release work in [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md). Phase 13 explicit multi-join composition and Phase 14 relation-aware joins should remain planned follow-up work, now built on the source-slot-aware query plan after the AOT/browser release gates instead of broadening the old Remotion boundary first.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

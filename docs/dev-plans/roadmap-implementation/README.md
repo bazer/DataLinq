@@ -18,9 +18,9 @@ What are we actually going to do, in what order, and how will we know it worked?
 
 | Release | Status | Directory |
 | --- | --- | --- |
-| 0.8 | Parser-removal track complete through Phase 7; Phase 8 is stretch / 0.8.x follow-up | `v0.8/` |
+| 0.8 | Parser-removal track complete through Phase 7; Phases 8-12 now own AOT/browser release gates; source-slot join follow-up moved to Phase 13 | `v0.8/` |
 
-The 0.8 sequence started over at [0.8 Phase 1](v0.8/phase-1-query-contract-and-plan-baseline/README.md) instead of continuing the old global phase numbering. That was intentional. Version-scoped phases are easier to execute, easier to close, and less confusing than saying the next release starts at "Phase 17". The parser-removal track is now closed through [0.8 Phase 7](v0.8/phase-7-remotion-dependency-removal/README.md).
+The 0.8 sequence started over at [0.8 Phase 1](v0.8/phase-1-query-contract-and-plan-baseline/README.md) instead of continuing the old global phase numbering. That was intentional. Version-scoped phases are easier to execute, easier to close, and less confusing than saying the next release starts at "Phase 17". The parser-removal track is now closed through [0.8 Phase 7](v0.8/phase-7-remotion-dependency-removal/README.md). The release-critical AOT/browser work now runs from [0.8 Phase 8](v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](v0.8/phase-12-aot-release-gates-and-support-contract/README.md), with source-slot join expansion moved to [0.8 Phase 13](v0.8/phase-13-source-slot-join-follow-up/README.md).
 
 ## Source Plans
 
@@ -50,13 +50,13 @@ The Phase 7 plan completed scalar aggregates, projection expansion, nullable pre
 
 The Phase 8 plan closed with executable generated SQLite smoke coverage for Native AOT, trimmed publish, and Blazor WebAssembly AOT. Phase 8B closed the generated-contract and immutable metadata foundation. Phase 8C then completed the bounded package/generated-runtime cleanup: repeatable size reports, Roslyn removal from runtime dependency groups, complete generated metadata startup, runtime reflection metadata-discovery removal, generated indexed access, and package/public wording.
 
-The query-plan, Remotion isolation, and supported-subset parser work became the 0.8 focus and is now closed through [DataLinq 0.8 Roadmap](v0.8/README.md) Phase 7: query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset parser, projection/AOT cleanup, dual-run parity, production provider switch, and Remotion dependency removal.
+The query-plan, Remotion isolation, and supported-subset parser work became the 0.8 focus and is now closed through [DataLinq 0.8 Roadmap](v0.8/README.md) Phase 7: query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset parser, projection/AOT cleanup, dual-run parity, production provider switch, and Remotion dependency removal. The remainder of 0.8 is now focused on making generated SQLite browser AOT support actually run, report, and deploy at sensible sizes before broad query feature expansion resumes.
 
 Phase 9A is complete for warning cleanup, benchmark-history and website trends, allocation reduction, and conservative cache invalidation hardening. Its benchmark closeout supports allocation and invalidation claims, not latency claims.
 
 Phase 10 is complete for the key/allocation foundation: metadata collection and lookup cleanup, provider-key row stores, generated relation access, query/materialization provider-key reads, scalar-converter seams, and Phase 11 handoff artifacts. Phase 11 is complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led deduplication rejection.
 
-Phase 12B completed generation trust before the runtime/query roadmap resumed: aggregate validation diagnostics, source-location fidelity, safe CLI generation, partial source-generator output, generated-file banners, optional header stamping, and nullable-reference-generation defaults. Phase 12C completed the pre-1.0 CLI cleanup and configuration workflow. The version-scoped 0.8 query-parser phases have now removed the Remotion dependency from the main runtime path. The roadmap can resume broad join expansion, scalar converters, and result/module caching on top of the DataLinq-owned query plan.
+Phase 12B completed generation trust before the runtime/query roadmap resumed: aggregate validation diagnostics, source-location fidelity, safe CLI generation, partial source-generator output, generated-file banners, optional header stamping, and nullable-reference-generation defaults. Phase 12C completed the pre-1.0 CLI cleanup and configuration workflow. The version-scoped 0.8 query-parser phases have now removed the Remotion dependency from the main runtime path. The roadmap should finish the 0.8 AOT/browser release gates before resuming broad join expansion, scalar converters, and result/module caching on top of the DataLinq-owned query plan.
 
 For the older Phase 4/5 checkpoint, see the archived [Phase 4 and 5 Status Review](../archive/roadmap-implementation/Phase%204%20and%205%20Status%20Review.md).
 
