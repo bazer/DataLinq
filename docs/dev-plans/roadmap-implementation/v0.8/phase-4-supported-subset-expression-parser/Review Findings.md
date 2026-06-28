@@ -6,9 +6,17 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-## Findings
+**Follow-up review date:** 2026-06-28.
+
+**Follow-up reviewed scope:** current phase 7 state through `b35328c7`.
+
+**Current status:** Resolved. No open Phase 4 review findings remain from this pass.
+
+## Resolved Findings
 
 ### P2: Filtered join inner sources are accepted as plain table sources
+
+**Status:** Resolved in the Phase 7 production-provider switch follow-up.
 
 `ParseJoin(...)` sends the inner sequence to `TryParseRootSource(...)`, but `TryParseRootSource(...)` currently accepts any parameter-free `IQueryable<T>` expression whose element type maps to a table. That means a shape such as:
 
@@ -29,7 +37,15 @@ Evidence:
 
 Expected fix: only accept true root query constants or `ExpressionPlanQueryable<T>` roots as root sources. Queryable method calls and captured/query-shaped `IQueryable<T>` sources should be rejected unless the parser explicitly parses their operations.
 
+Resolution review:
+
+- `TryParseRootSource(...)` now recognizes root sources structurally instead of accepting any parameter-free `IQueryable<T>` by mapped element type.
+- Filtered join inner sources now fail with the focused `Join inner sequence` diagnostic instead of being flattened into a plain table source.
+- `ExpressionParser_UnsupportedQueryableShapesFailWithoutEnumeration` covers the filtered inner join shape.
+
 ### P2: Captured `IQueryable` values can be enumerated as local sequences during parsing
+
+**Status:** Resolved in the Phase 7 production-provider switch follow-up.
 
 `TryEvaluateLocalSequence(...)` evaluates parameter-free local sequence expressions, then `TryConvertToArray(...)` treats any `IEnumerable` as a local value list. Since `IQueryable<T>` is also `IEnumerable<T>`, a captured database query can be enumerated while merely constructing a plan:
 
@@ -48,6 +64,12 @@ Evidence:
 
 Expected fix: reject `IQueryable` values before local-sequence enumeration, or make local-sequence extraction require known in-memory collection shapes rather than any `IEnumerable`.
 
+Resolution review:
+
+- `TryEvaluateLocalSequence(...)` rejects query-shaped expressions before local sequence conversion.
+- Evaluated local values that are `IQueryable` now throw a focused `IQueryable expression` / `local sequence` diagnostic instead of flowing into `TryConvertToArray(...)`.
+- `ExpressionParser_UnsupportedQueryableShapesFailWithoutEnumeration` covers captured query values used in local `Contains(...)`.
+
 ## Resolved Follow-Up Observed
 
 The phase 4 snapshot included a broad local `MethodInfo.Invoke(...)` fallback for local expression evaluation. Current phase 5 work has already replaced that path with `ExpressionLocalValueEvaluator`, and `ExpressionParser_LocalMethodEvaluationFailsWithoutInvokingMethod` covers the no-invocation behavior. I did not list that as an open finding.
@@ -65,3 +87,11 @@ Focused verification run in the current worktree:
 ```
 
 Result: all listed suites passed across their configured targets after rerunning the compliance builds sequentially. Parallel compliance builds initially hit a transient `VBCSCompiler` file lock on `DataLinq.Generators.dll`; reruns passed.
+
+Focused checks run during the follow-up review:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/ExpressionQueryPlanParserTests/*" --output failures --build
+```
+
+Result: `ExpressionQueryPlanParserTests` passed 13/13 per active provider batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.

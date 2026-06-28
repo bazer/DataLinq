@@ -6,9 +6,17 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-## Findings
+**Follow-up review date:** 2026-06-28.
+
+**Follow-up reviewed scope:** current phase 7 state through `b35328c7`.
+
+**Current status:** Resolved. No open Phase 5 review findings remain from this pass.
+
+## Resolved Findings
 
 ### P1: Parameter-free paging expressions can be accepted as plain table roots
+
+**Status:** Resolved in the Phase 7 production-provider switch follow-up.
 
 `ParseSequence(...)` tries `TryParseRootSource(...)` before it dispatches to the `Queryable.Skip(...)` / `Queryable.Take(...)` parser. Phase 5 changed the root-source fallback so it derives mapped query roots from the expression type instead of invoking the local queryable expression, but it still accepts any parameter-free `IQueryable<T>` expression whose element type maps to a table.
 
@@ -31,6 +39,12 @@ Evidence:
 - `src/DataLinq/Linq/Planning/Expressions/ExpressionQueryPlanParser.cs:1645`
 
 Expected fix: make root-source recognition structural, not type-only. Accept actual root query constants / known expression-plan root constants, and let `Queryable` method-call expressions flow to their operator parsers. Parameter-free query operators such as `Skip(...)`, `Take(...)`, and any future no-lambda sequence operator must not be classified as table roots.
+
+Resolution review:
+
+- `TryParseRootSource(...)` now accepts structural roots and lets `Queryable.Skip(...)` / `Queryable.Take(...)` method calls reach `ParsePaging(...)`.
+- Parser coverage now includes bare `Take(...)`, bare `Skip(...)`, `Take(...).Count()`, and `Skip(...).Any()` shapes.
+- Execution-route parity coverage now proves bare paging is not dropped for `ToArray()`, `Count()`, or `Any()`.
 
 ## Review Notes
 
@@ -56,4 +70,14 @@ Result:
 - `ExpressionQueryPlanParserTests`: 12/12 passed per active provider batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
 - `EmployeesProjectionTranslationTests`: 8/8 passed per active provider batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
 
-The passing parser suite does not currently cover bare `Skip(...)` / `Take(...)` sequence queries, which is why the finding above survives the focused verification.
+Focused checks run during the follow-up review:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/ExpressionQueryPlanParserTests/*" --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSqlParityTests/*" --output failures --build
+```
+
+Follow-up result:
+
+- `ExpressionQueryPlanParserTests`: 13/13 passed per active provider batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
+- `QueryPlanSqlParityTests`: 22/22 passed per active provider batch across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
