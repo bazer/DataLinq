@@ -16,7 +16,8 @@ public enum CompatibilityCommandStatus
     Succeeded,
     Failed,
     Skipped,
-    NotApplicable
+    NotApplicable,
+    Unsupported
 }
 
 public enum CompatibilityFailureClassification
@@ -64,7 +65,9 @@ public sealed record CompatibilityReportOptions(
     int? FileCountWarning,
     bool FailOnBannedPayload,
     bool FailOnThresholdWarnings,
-    bool ContinueOnPublishFailure);
+    bool ContinueOnPublishFailure,
+    bool CleanIntermediateOutputs,
+    bool UseReleaseThresholds);
 
 public sealed record CompatibilitySizeReport(
     string SchemaVersion,

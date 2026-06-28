@@ -2,13 +2,15 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 12: AOT Release Gates and Support Contract
 
-**Status:** Planned 0.8 release work.
+**Status:** Release gate wiring implemented; current compatibility evidence blocks the browser AOT support claim.
+
+Execution record: [Implementation Plan](Implementation%20Plan.md).
 
 ## Purpose
 
 Phase 12 is the release gate phase. It promotes the narrow AOT/browser support statement only if the evidence is boring.
 
-The release claim should be specific: generated SQLite models, documented query subset, Native AOT, trimmed publish, and Blazor WebAssembly AOT. Anything outside that boundary is either unsupported, experimental, or future work.
+The release claim should be specific: generated SQLite models, documented query subset, Native AOT, trimmed publish, and Blazor WebAssembly AOT only when current evidence passes. Current browser evidence fails while opening generated SQLite, so the release must either fix that path or narrow the claim. Anything outside the proven boundary is unsupported, experimental, or future work.
 
 ## Scope
 
@@ -36,4 +38,3 @@ Out of scope:
 - no release claim depends on an archived historical proof when current automation exists
 - AOT/browser gates are green or the release explicitly narrows the claim
 - source-slot join follow-up remains queued after the AOT release work
-

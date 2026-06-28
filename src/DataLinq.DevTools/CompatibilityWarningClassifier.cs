@@ -114,6 +114,8 @@ public static class CompatibilityWarningClassifier
             "wasm-tools",
             "WebAssembly workload",
             "MarshalingPInvokeScanner",
+            "ResolveWasmOutputs",
+            "Microsoft.NET.Sdk.BlazorWebAssembly",
             "Microsoft.NET.Sdk.WebAssembly",
             "workload is not installed",
             "Platform linker not found",

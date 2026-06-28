@@ -54,6 +54,11 @@ public abstract partial class PlatformSmokeTask(IRowData rowData, IDataSourceAcc
     [Column("priority")]
     public abstract int Priority { get; }
 
+    [Nullable]
+    [Type(DatabaseType.SQLite, "INTEGER")]
+    [Column("estimate_hours")]
+    public abstract int? EstimateHours { get; }
+
     [Type(DatabaseType.SQLite, "INTEGER")]
     [Column("completed")]
     public abstract bool Completed { get; }

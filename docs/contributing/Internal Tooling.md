@@ -73,6 +73,8 @@ When that happens, do not burn time hunting phantom compiler errors. Verify the 
 
 The `WASM0001` warnings emitted by the successful outside-sandbox build are different. They are real SDK warnings about `SQLitePCLRaw.provider.e_sqlite3` exposing varargs native SQLite functions that WebAssembly cannot call safely. Treat those as product/runtime compatibility work, not as sandbox noise.
 
+`DataLinq.Dev.CLI size-report` runs WebAssembly browser smoke through Playwright when a publish succeeds. It uses a locally installed Chromium-compatible browser, not a checked-in browser binary. Set `DATALINQ_BROWSER_PATH` if Edge, Chrome, or Chromium is installed in a non-standard location.
+
 ## Canonical Tool Pages
 
 - [DataLinq.Dev.CLI](DataLinq.Dev.CLI.md)

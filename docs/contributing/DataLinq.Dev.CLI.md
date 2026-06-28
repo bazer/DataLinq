@@ -96,6 +96,7 @@ Publishes the Phase 8C constrained-platform smoke targets and writes a repeatabl
 dotnet run --project DataLinq.Dev.CLI -- size-report --target phase8c
 dotnet run --project DataLinq.Dev.CLI -- size-report --targets aot,trim --no-restore
 dotnet run --project DataLinq.Dev.CLI -- size-report --targets wasm,wasm-aot --format markdown
+dotnet run --project DataLinq.Dev.CLI -- size-report --targets wasm-aot --clean-output --release-thresholds
 ```
 
 The default `phase8c` target set includes:
@@ -109,7 +110,9 @@ The default `phase8c` target set includes:
 - `wasm-aot`
   Blazor WebAssembly AOT publish of `src/DataLinq.BlazorWasm`.
 
-Each report includes total payload size, symbol-excluded size, file count, `.br` and `.gz` asset totals, largest files, publish warnings grouped by owner, smoke status, and banned Roslyn payload findings.
+Each report includes total payload size, symbol-excluded size, file count, `.br` and `.gz` asset totals, largest files, publish warnings grouped by owner, warning diagnostics, smoke status, and banned Roslyn payload findings.
+
+Native executable targets run their published executable as the smoke. WebAssembly targets are served over local HTTP and opened in a headless Chromium-compatible browser through Playwright. Set `DATALINQ_BROWSER_PATH` when Edge, Chrome, or Chromium is not discoverable from the standard install paths or `PATH`.
 
 Useful options:
 
@@ -126,11 +129,15 @@ Useful options:
 - `--fail-on-banned-payload`
   Makes banned Roslyn payload findings fail the command. Use this for the Phase 8C runtime payload gate after the package graph has been refreshed.
 - `--skip-smoke`
-  Skips executable smoke runs after publish. Browser WebAssembly smoke is reported as not automated by this command.
+  Skips executable and browser smoke runs after publish.
+- `--clean-output`
+  Deletes `bin` and `obj` for the selected target projects before publishing. Use this for fresh WebAssembly warning evidence because incremental publishes can hide `WASM0001`.
+- `--release-thresholds`
+  Applies the 0.8 target-specific payload thresholds: Native AOT executable, Native AOT symbol-excluded folder, trimmed symbol-excluded folder, no-AOT Brotli assets, and WASM AOT Brotli assets.
 - `--format summary|markdown|json`
   Controls console output. The JSON and Markdown artifacts are always written.
 
-Reports are written under `artifacts/dev/compat-size-report/<timestamp>/` as `report.json` and `report.md`. Raw publish and smoke logs are also written under `artifacts/dev/`.
+Reports are written under `artifacts/dev/compat-size-report/<timestamp>/` as `report.json` and `report.md`. Raw publish logs are written under `artifacts/dev/`; target-specific browser smoke logs are written under the target folder inside the report directory.
 
 ### `package-report`
 

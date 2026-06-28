@@ -2,7 +2,9 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 11: Browser Payload and Deploy-Size Hardening
 
-**Status:** Planned 0.8 release work.
+**Status:** Implemented in compatibility reporting; final numbers come from the release report artifact.
+
+Execution record: [Implementation Plan](Implementation%20Plan.md).
 
 ## Purpose
 
@@ -32,4 +34,3 @@ Out of scope:
 - Native AOT release-size wording uses symbol-excluded numbers
 - browser AOT payload is within the release target or has a documented exception
 - public docs explain AOT payload tradeoffs without marketing varnish
-

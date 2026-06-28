@@ -131,6 +131,19 @@ public sealed class CompatibilitySizeReporter
                 }
             }
 
+            if (target.WarningSummary.Diagnostics.Count > 0)
+            {
+                builder.AppendLine();
+                builder.AppendLine("### Warning Diagnostics");
+                builder.AppendLine();
+                foreach (var diagnostic in target.WarningSummary.Diagnostics)
+                {
+                    var code = string.IsNullOrWhiteSpace(diagnostic.Code) ? "no-code" : diagnostic.Code;
+                    builder.AppendLine(
+                        $"- `{diagnostic.Owner}` `{code}` x{diagnostic.Count}: {diagnostic.Message}");
+                }
+            }
+
             if (target.LargestFiles.Count > 0)
             {
                 builder.AppendLine();
@@ -158,6 +171,9 @@ public sealed class CompatibilitySizeReporter
         Directory.CreateDirectory(publishDirectory);
 
         var projectPath = ResolveRepositoryPath(target.ProjectRelativePath);
+        if (options.CleanIntermediateOutputs)
+            ResetProjectOutputDirectories(projectPath);
+
         var publishResult = runner.Execute(
             DotnetCommandType.Publish,
             CreatePublishArguments(target, projectPath, publishDirectory),
@@ -173,13 +189,22 @@ public sealed class CompatibilitySizeReporter
             CompatibilityWarningClassifier.ClassifyFailure(target, publishResult),
             publishResult.Analysis.FailureSummary);
 
-        var smokeReport = CreateSmokeReport(target, publishDirectory, publishReport.Status);
+        var smokeReport = CreateSmokeReport(target, publishDirectory, publishReport.Status, targetRoot);
         var inspection = CompatibilityPayloadInspector.Inspect(
             publishDirectory,
             options.LargestFileCount,
             options.TotalSizeWarningBytes,
             options.SymbolExcludedSizeWarningBytes,
             options.FileCountWarning);
+        var thresholdWarnings = options.UseReleaseThresholds
+            ? inspection.ThresholdWarnings
+                .Concat(CompatibilityReleaseThresholds.FindWarnings(
+                    target,
+                    publishDirectory,
+                    inspection.Payload,
+                    inspection.BrotliAssets))
+                .ToArray()
+            : inspection.ThresholdWarnings;
         var warningSummary = CompatibilityWarningClassifier.Summarize(target, publishResult.Analysis.Warnings);
 
         return new CompatibilityTargetReport(
@@ -192,7 +217,7 @@ public sealed class CompatibilitySizeReporter
             smokeReport,
             inspection.Payload,
             inspection.BannedPayloads,
-            inspection.ThresholdWarnings,
+            thresholdWarnings,
             warningSummary,
             inspection.LargestFiles,
             inspection.BrotliAssets,
@@ -237,7 +262,8 @@ public sealed class CompatibilitySizeReporter
     private CompatibilityCommandReport CreateSmokeReport(
         CompatibilityTargetDefinition target,
         string publishDirectory,
-        CompatibilityCommandStatus publishStatus)
+        CompatibilityCommandStatus publishStatus,
+        string targetRoot)
     {
         if (publishStatus != CompatibilityCommandStatus.Succeeded)
         {
@@ -262,15 +288,7 @@ public sealed class CompatibilitySizeReporter
         }
 
         if (target.IsWebAssembly)
-        {
-            return new CompatibilityCommandReport(
-                CompatibilityCommandStatus.NotApplicable,
-                null,
-                null,
-                null,
-                CompatibilityFailureClassification.None,
-                "Browser WebAssembly smoke is not automated by this local size report.");
-        }
+            return BrowserSmokeRunner.Run(target, publishDirectory, targetRoot, paths);
 
         var executablePath = ResolvePublishedExecutable(target, publishDirectory);
         if (executablePath is null)
@@ -414,7 +432,7 @@ public sealed class CompatibilitySizeReporter
         var fullTarget = Path.GetFullPath(targetDirectory);
         var fullRoot = Path.GetFullPath(allowedRoot);
 
-        if (!fullTarget.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
+        if (!IsPathInsideOrEqual(fullRoot, fullTarget))
             throw new InvalidOperationException($"Refusing to clean '{fullTarget}' outside report root '{fullRoot}'.");
 
         if (Directory.Exists(fullTarget))
@@ -423,10 +441,43 @@ public sealed class CompatibilitySizeReporter
         Directory.CreateDirectory(fullTarget);
     }
 
+    private void ResetProjectOutputDirectories(string projectPath)
+    {
+        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(projectPath))
+            ?? throw new InvalidOperationException($"Could not resolve project directory for '{projectPath}'.");
+        var repositoryRoot = Path.GetFullPath(paths.RepositoryRoot);
+
+        if (!IsPathInsideOrEqual(repositoryRoot, projectDirectory))
+            throw new InvalidOperationException($"Refusing to clean project outputs outside repository root: '{projectDirectory}'.");
+
+        foreach (var outputDirectory in new[]
+        {
+            Path.Combine(projectDirectory, "bin"),
+            Path.Combine(projectDirectory, "obj")
+        })
+        {
+            var fullOutputDirectory = Path.GetFullPath(outputDirectory);
+            if (!IsPathInsideOrEqual(repositoryRoot, fullOutputDirectory))
+                throw new InvalidOperationException($"Refusing to clean output directory outside repository root: '{fullOutputDirectory}'.");
+
+            if (Directory.Exists(fullOutputDirectory))
+                Directory.Delete(fullOutputDirectory, recursive: true);
+        }
+    }
+
     private static string EnsureTrailingDirectorySeparator(string path) =>
         path.EndsWith(Path.DirectorySeparatorChar)
             ? path
             : path + Path.DirectorySeparatorChar;
+
+    private static bool IsPathInsideOrEqual(string root, string path)
+    {
+        var relativePath = Path.GetRelativePath(root, path);
+        return relativePath == "." ||
+               (!relativePath.Equals("..", StringComparison.Ordinal) &&
+                !relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) &&
+                !Path.IsPathRooted(relativePath));
+    }
 
     private static string CreateSmokeSummary(ExternalCommandResult result)
     {
@@ -444,6 +495,7 @@ public sealed class CompatibilitySizeReporter
             CompatibilityCommandStatus.Failed => $"failed ({command.FailureClassification})",
             CompatibilityCommandStatus.Skipped => "skipped",
             CompatibilityCommandStatus.NotApplicable => "n/a",
+            CompatibilityCommandStatus.Unsupported => $"unsupported ({command.FailureClassification})",
             _ => command.Status.ToString()
         };
 

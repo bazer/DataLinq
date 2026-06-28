@@ -38,18 +38,20 @@ That does not mean every DataLinq scenario is AOT-compatible. Reflection-discove
 The current blockers to a stronger claim are still concrete:
 
 - Native AOT verification requires the local Native AOT platform toolchain; missing MSVC linker prerequisites are environment failures, not query-pipeline evidence
-- browser runtime verification is not automated by `size-report`; WebAssembly publish success is not the same thing as a browser smoke run
+- browser runtime verification now runs through `size-report` for WebAssembly targets, and the latest host-side WebAssembly AOT browser report fails while opening the generated SQLite database with `MONO_WASM: function signature mismatch`
 - SQLitePCLRaw WebAssembly AOT varargs warning disposition still needs a clean call-graph answer when fresh publishes emit `WASM0001`
 - generated SQLite smoke coverage is not broad provider coverage
 - the LINQ translator is intentionally limited to the documented subset
 
 ## Blazor WebAssembly
 
-The generated SQLite smoke path has published and run under Blazor WebAssembly AOT in the Phase 8 browser proof. Current `size-report` output refreshes the publish and payload evidence, but reports browser smoke as not automated.
+The generated SQLite smoke path published and ran under Blazor WebAssembly AOT in the historical Phase 8 browser proof. Current `size-report` tooling can publish WebAssembly targets, serve the published output over HTTP, and run the smoke page in a headless Chromium-compatible browser through Playwright.
 
-The no-AOT browser WebAssembly path is not supported for SQLite/DataLinq right now. The build can publish, but the Mono interpreter fails on the actual DataLinq/SQLite path. Treat that as unsupported until the runtime path is proven, not as a configuration issue.
+The current evidence is negative. A host-side `wasm-aot` report at `artifacts/dev/compat-size-report/20260628-163740998/` publishes successfully, then the browser smoke fails at `opening-generated-database` with `MONO_WASM: function signature mismatch`. Treat browser AOT support as blocked until that runtime path has a fresh passing browser report. Publish success alone is still not browser proof.
 
-The browser proof is also intentionally narrow:
+The no-AOT browser WebAssembly path is not supported for SQLite/DataLinq right now. The build can publish, but historical browser proof failed on the actual DataLinq/SQLite path. Current `size-report` records the no-AOT browser smoke as `unsupported` when that runtime path fails. Treat no-AOT as unsupported until a fresh browser run passes, not as a configuration issue.
+
+The intended browser proof is also intentionally narrow when it passes:
 
 - SQLite only
 - generated models only
@@ -67,12 +69,12 @@ Payload numbers should be read from the compatibility size report with symbol fi
 
 Accurate:
 
-> DataLinq has a proven generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary for the documented query subset, keeps Roslyn and Remotion out of runtime package dependency groups, and treats browser/no-AOT/provider expansion as separate compatibility work.
+> DataLinq has a proven generated SQLite Native AOT and trimmed publish smoke boundary for the documented query subset, keeps Roslyn and Remotion out of runtime package dependency groups, and has browser WebAssembly AOT release-gate automation that currently exposes a SQLite/WebAssembly runtime blocker.
 
 Not accurate yet:
 
 > DataLinq is broadly AOT-compatible.
 
-The second statement has to wait until Native AOT toolchain proof, broader provider/query coverage, and remaining third-party WebAssembly warning work are cleaned up.
+The second statement has to wait until Native AOT toolchain proof, broader provider/query coverage, and the remaining third-party WebAssembly runtime/warning work are cleaned up. A browser AOT support claim also has to wait for a fresh passing Playwright smoke report.
 
 The detailed engineering notes live in the repo's internal `docs/dev-plans` tree. The public verification hooks are the repo-local `DataLinq.Dev.CLI` `size-report` and `package-report` commands plus the constrained-platform smoke projects that back this narrow claim.

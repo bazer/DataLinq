@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Threading;
 using DataLinq.Core.Factories;
+using DataLinq.Exceptions;
 using DataLinq.Linq;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Linq.Planning.Sql;
@@ -14,6 +15,19 @@ public sealed record PlatformSmokeProjection(string NormalizedTitle, int Priorit
 
 public sealed record PlatformSmokeExpressionRoute(int OpenTaskCount, string FirstTaskTitle);
 
+public sealed record PlatformSmokeQueryCoverage(
+    int PrioritySum,
+    int PriorityMin,
+    int PriorityMax,
+    double PriorityAverage,
+    bool HasOpenTasks,
+    string PagedTaskTitle,
+    int OwnersWithOpenTasks,
+    string FirstJoinedTaskOwner,
+    int LocalMembershipCount,
+    int NullableEstimateCount,
+    string UnsupportedDiagnostic);
+
 public sealed record PlatformSmokeResult(
     int OwnerCount,
     int TaskCount,
@@ -22,6 +36,7 @@ public sealed record PlatformSmokeResult(
     string RelatedOwnerName,
     PlatformSmokeProjection[] Projections,
     PlatformSmokeExpressionRoute ExpressionRoute,
+    PlatformSmokeQueryCoverage QueryCoverage,
     string StrictParserProjectionTitle,
     TimeSpan SchemaDuration,
     TimeSpan SeedDuration,
@@ -39,6 +54,17 @@ public sealed record PlatformSmokeResult(
         Projections[0].PriorityScore == 3 &&
         ExpressionRoute.OpenTaskCount == 2 &&
         ExpressionRoute.FirstTaskTitle == "Compile generated hooks" &&
+        QueryCoverage.PrioritySum == 6 &&
+        QueryCoverage.PriorityMin == 1 &&
+        QueryCoverage.PriorityMax == 3 &&
+        Math.Abs(QueryCoverage.PriorityAverage - 2d) < 0.001d &&
+        QueryCoverage.HasOpenTasks &&
+        QueryCoverage.PagedTaskTitle == "Publish AOT smoke" &&
+        QueryCoverage.OwnersWithOpenTasks == 1 &&
+        QueryCoverage.FirstJoinedTaskOwner == "Ada:Compile generated hooks" &&
+        QueryCoverage.LocalMembershipCount == 2 &&
+        QueryCoverage.NullableEstimateCount == 1 &&
+        QueryCoverage.UnsupportedDiagnostic.Contains("Method 'IsKnownTaskTitle'", StringComparison.Ordinal) &&
         StrictParserProjectionTitle == "COMPILE GENERATED HOOKS";
 
     public string ToDisplayString()
@@ -50,6 +76,8 @@ public sealed record PlatformSmokeResult(
             $"first-task=\"{FirstTaskTitle}\", related-owner=\"{RelatedOwnerName}\"",
             $"projection=\"{Projections[0].NormalizedTitle}\"/{Projections[0].PriorityScore}",
             $"expression-route=\"{ExpressionRoute.FirstTaskTitle}\"/open={ExpressionRoute.OpenTaskCount}",
+            $"coverage=sum:{QueryCoverage.PrioritySum}, avg:{QueryCoverage.PriorityAverage:0.###}, page:\"{QueryCoverage.PagedTaskTitle}\", relation-owners:{QueryCoverage.OwnersWithOpenTasks}, join:\"{QueryCoverage.FirstJoinedTaskOwner}\", local:{QueryCoverage.LocalMembershipCount}, nullable:{QueryCoverage.NullableEstimateCount}",
+            $"unsupported-diagnostic=\"{QueryCoverage.UnsupportedDiagnostic}\"",
             $"strict-parser-projection=\"{StrictParserProjectionTitle}\"",
             $"schema-ms={SchemaDuration.TotalMilliseconds:0.###}",
             $"seed-ms={SeedDuration.TotalMilliseconds:0.###}",
@@ -144,6 +172,7 @@ public static class PlatformSmokeRunner
             OwnerId = 1,
             Title = "Compile generated hooks",
             Priority = 2,
+            EstimateHours = null,
             Completed = false
         });
         database.Insert(new MutablePlatformSmokeTask
@@ -152,6 +181,7 @@ public static class PlatformSmokeRunner
             OwnerId = 1,
             Title = "Publish AOT smoke",
             Priority = 3,
+            EstimateHours = 4,
             Completed = false
         });
         database.Insert(new MutablePlatformSmokeTask
@@ -160,6 +190,7 @@ public static class PlatformSmokeRunner
             OwnerId = 2,
             Title = "Document WASM proof",
             Priority = 1,
+            EstimateHours = 1,
             Completed = true
         });
         seedWatch.Stop();
@@ -192,6 +223,9 @@ public static class PlatformSmokeRunner
         await ReportStage(reportStage, "querying-expression-parser-route");
         var expressionRoute = VerifyExpressionParserRoute(tasks);
 
+        await ReportStage(reportStage, "querying-documented-subset-coverage");
+        var queryCoverage = VerifyDocumentedSubsetCoverage(owners, tasks);
+
         await ReportStage(reportStage, "verifying-strict-parser-projection");
         var strictParserProjectionTitle = VerifyStrictParserProjection(database, tasks, firstTask);
 
@@ -203,6 +237,7 @@ public static class PlatformSmokeRunner
             relatedOwnerName,
             projections,
             expressionRoute,
+            queryCoverage,
             strictParserProjectionTitle,
             schemaWatch.Elapsed,
             seedWatch.Elapsed,
@@ -221,6 +256,77 @@ public static class PlatformSmokeRunner
 
         return new PlatformSmokeExpressionRoute(openTaskCount, firstTaskTitle);
     }
+
+    private static PlatformSmokeQueryCoverage VerifyDocumentedSubsetCoverage(
+        IQueryable<PlatformSmokeOwner> owners,
+        IQueryable<PlatformSmokeTask> tasks)
+    {
+        var prioritySum = tasks.Sum(x => x.Priority);
+        var priorityMin = tasks.Min(x => x.Priority);
+        var priorityMax = tasks.Max(x => x.Priority);
+        var priorityAverage = tasks.Average(x => x.Priority);
+        var hasOpenTasks = tasks.Any(x => !x.Completed);
+        var pagedTasks = tasks
+            .OrderBy(x => x.Id)
+            .Skip(1)
+            .Take(1)
+            .ToArray();
+        var pagedTaskTitle = pagedTasks.Single().Title;
+        var ownersWithOpenTasks = owners.Count(owner => owner.Tasks.Any(task => task.Completed == false));
+        var firstJoinedTaskOwner = tasks
+            .Join(
+                owners,
+                task => task.OwnerId,
+                owner => owner.Id,
+                (task, owner) => new
+                {
+                    task.Id,
+                    task.Title,
+                    OwnerName = owner.Name
+                })
+            .ToList()
+            .OrderBy(static row => row.Id)
+            .Select(static row => $"{row.OwnerName}:{row.Title}")
+            .First();
+        var selectedTaskIds = new[] { 10, 12, 99 };
+        var localMembershipCount = tasks.Count(task => selectedTaskIds.Contains(task.Id));
+        var nullableEstimateCount = tasks.Count(task =>
+            task.EstimateHours != null &&
+            task.EstimateHours.Value >= 4);
+        var unsupportedDiagnostic = CaptureUnsupportedDiagnostic(tasks);
+
+        return new PlatformSmokeQueryCoverage(
+            prioritySum,
+            priorityMin,
+            priorityMax,
+            priorityAverage,
+            hasOpenTasks,
+            pagedTaskTitle,
+            ownersWithOpenTasks,
+            firstJoinedTaskOwner,
+            localMembershipCount,
+            nullableEstimateCount,
+            unsupportedDiagnostic);
+    }
+
+    private static string CaptureUnsupportedDiagnostic(IQueryable<PlatformSmokeTask> tasks)
+    {
+        try
+        {
+            _ = tasks
+                .Where(task => IsKnownTaskTitle(task.Title))
+                .ToList();
+        }
+        catch (QueryTranslationException exception)
+        {
+            return exception.Message;
+        }
+
+        throw new InvalidOperationException("Unsupported query diagnostic smoke unexpectedly succeeded.");
+    }
+
+    private static bool IsKnownTaskTitle(string value) =>
+        value.StartsWith("Compile", StringComparison.Ordinal);
 
     private static string VerifyStrictParserProjection(
         SQLiteDatabase<PlatformSmokeDb> database,
