@@ -2,7 +2,7 @@
 
 **Review date:** 2026-06-28.
 
-**Reviewed scope:** constrained platform smoke runner, generated smoke model, AOT executable smoke, phase 10 docs, and compatibility report wiring in the `v0.8` branch through `57da59e2`.
+**Reviewed scope:** constrained platform smoke runner, generated smoke model, AOT executable smoke, phase 10 docs, and compatibility report wiring in the `v0.8` branch through `a978d85a`.
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 

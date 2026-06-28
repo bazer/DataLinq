@@ -2,7 +2,7 @@
 
 **Review date:** 2026-06-28.
 
-**Reviewed scope:** Phase 14 docs, explicit join parser binding, joined SQL rendering, joined projection execution, support docs, and focused join compliance tests in the `v0.8` branch through `57da59e2`.
+**Reviewed scope:** Phase 14 docs, explicit join parser binding, joined SQL rendering, joined projection execution, support docs, and focused join compliance tests in the `v0.8` branch through `a978d85a`.
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 

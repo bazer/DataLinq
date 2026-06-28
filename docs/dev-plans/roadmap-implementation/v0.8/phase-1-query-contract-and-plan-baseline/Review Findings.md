@@ -2,7 +2,7 @@
 
 **Review date:** 2026-06-28.
 
-**Reviewed scope:** phase 1 closeout docs and current query-contract consumers in the `v0.8` branch through `57da59e2`. Later phase implementation was reviewed only where it affects whether Phase 1 baseline wording is still accurate.
+**Reviewed scope:** phase 1 closeout docs and current query-contract consumers in the `v0.8` branch through `a978d85a`. Later phase implementation was reviewed only where it affects whether Phase 1 baseline wording is still accurate.
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 

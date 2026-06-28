@@ -2,7 +2,7 @@
 
 **Review date:** 2026-06-28.
 
-**Reviewed scope:** package-report enforcement, size-report hard-failure behavior, public compatibility wording, and phase 12 docs in the `v0.8` branch through `57da59e2`.
+**Reviewed scope:** package-report enforcement, size-report hard-failure behavior, public compatibility wording, and phase 12 docs in the `v0.8` branch through `a978d85a`.
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 

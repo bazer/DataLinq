@@ -2,7 +2,7 @@
 
 **Review date:** 2026-06-28.
 
-**Reviewed scope:** release-threshold code, payload inspector, size-report CLI docs, compatibility reporting docs, and phase 11 docs in the `v0.8` branch through `57da59e2`.
+**Reviewed scope:** release-threshold code, payload inspector, size-report CLI docs, compatibility reporting docs, and phase 11 docs in the `v0.8` branch through `a978d85a`.
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 

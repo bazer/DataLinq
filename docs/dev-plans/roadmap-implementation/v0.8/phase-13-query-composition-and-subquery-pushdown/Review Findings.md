@@ -2,13 +2,23 @@
 
 **Review date:** 2026-06-28.
 
-**Reviewed scope:** Phase 13 docs, parser pushdown logic, SQL rendering, projection execution, support docs, and focused query translation tests in the `v0.8` branch through `57da59e2`.
+**Reviewed scope:** Phase 13 docs, parser pushdown logic, SQL rendering, projection execution, support docs, and focused query translation tests in the `v0.8` branch through `a978d85a`.
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-**Current status:** No blocking runtime findings. One documentation/evidence finding remains open.
+**Current status:** One runtime/evidence finding and one documentation/evidence finding remain open.
 
 ## Findings
+
+### P2: `Count()` and `Any()` over paged sources still reduce client-side entity rows
+
+The Phase 13 implementation plan says `Count()` and `Any()` should work over pushed-down paged sources without client-side row counting (`Implementation Plan.md:69`, `Implementation Plan.md:103`). That is the right contract: `Where(...).Skip(...).Take(...).Count()` should be represented as SQL scalar work over the planned page, not as a hidden materialize-and-count fallback.
+
+The current execution path still materializes entity rows. `ExpressionPlanQueryable.cs:174` detects paged `Count`/`Any`, `ExpressionPlanQueryable.cs:178` enters `ExecutePagedSequenceReduction(...)`, and `ExpressionPlanQueryable.cs:189` reduces the materialized rows with `rows.Any()` or `rows.Count()`.
+
+That preserves small-page result correctness, but it violates the phase's own no-client-reduction exit criterion and can become expensive for large `Take(...)` windows. The existing `ExpressionExecutionProvider_PagedAggregateUsesPushedDownSource` coverage is not enough evidence for the claim because it exercises paged `Sum(...)`, while the special client-reduction path is specifically for paged `Count` and `Any`.
+
+Expected fix: render paged `Count()` and `Any()` as SQL scalar results over the pushed-down source, or narrow the phase closeout wording if the team deliberately accepts entity-row reduction for now. Add focused SQL-shape tests for paged `Count()` and paged `Any()` so this does not regress silently.
 
 ### P3: Phase 13 README still describes the old post-paging rejection boundary
 
@@ -30,6 +40,12 @@ Expected fix: update the README to say Phase 13 implemented the supported single
 - Unsupported composition over projections, joins, grouped sources, and nested database projection remains rejected.
 
 ## Verification
+
+Focused source inspection:
+
+```powershell
+rg -n "client-side row counting|RequiresPagedSequenceReduction|ExecutePagedSequenceReduction|ExpressionExecutionProvider_PagedAggregateUsesPushedDownSource|Count\(\)|Any\(\)" docs\dev-plans\roadmap-implementation\v0.8\phase-13-query-composition-and-subquery-pushdown src\DataLinq src\DataLinq.Tests.Compliance
+```
 
 Focused delegated verification passed across active provider batches (`sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mariadb-11.8`):
 

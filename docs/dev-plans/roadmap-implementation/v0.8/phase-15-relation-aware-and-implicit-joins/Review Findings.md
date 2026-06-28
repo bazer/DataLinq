@@ -2,7 +2,7 @@
 
 **Review date:** 2026-06-28.
 
-**Reviewed scope:** Phase 15 docs, implicit singular relation parser and SQL rendering, support docs, and focused implicit relation join tests in the `v0.8` branch through `57da59e2`.
+**Reviewed scope:** Phase 15 docs, implicit singular relation parser and SQL rendering, support docs, and focused implicit relation join tests in the `v0.8` branch through `a978d85a`.
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 

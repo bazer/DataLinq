@@ -2,7 +2,7 @@
 
 **Review date:** 2026-06-28.
 
-**Reviewed scope:** Phase 13B docs, grouped parser and SQL-rendering paths, grouped aggregate projection execution, support docs, and focused grouped aggregate tests in the `v0.8` branch through `57da59e2`.
+**Reviewed scope:** Phase 13B docs, grouped parser and SQL-rendering paths, grouped aggregate projection execution, support docs, and focused grouped aggregate tests in the `v0.8` branch through `a978d85a`.
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
