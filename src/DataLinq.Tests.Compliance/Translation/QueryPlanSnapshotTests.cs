@@ -284,6 +284,41 @@ bindings:
     }
 
     [Test]
+    public async Task ImplicitRelationJoinSnapshot_RecordsImplicitJoinAndReusesSource()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ImplicitRelationJoinSnapshot_RecordsImplicitJoinAndReusesSource),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().DepartmentEmployees
+            .Where(row => row.departments.Name.StartsWith("S") && row.departments.DeptNo == "d007")
+            .OrderBy(row => row.departments.Name);
+
+        var snapshot = Snapshot(databaseScope.Database, query);
+
+        await AssertSnapshot(snapshot, """
+query-plan v0
+sources:
+  s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
+  s1 implicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
+operations:
+  join inner column(s0.dept_no:String) = column(s1.dept_no:String)
+  where and(compare(function(string-starts-with:Boolean column(s1.dept_name:String), captured(p0:String)) == constant(Boolean)), compare(column(s1.dept_no:String) == captured(p1:String)))
+  order-by column(s1.dept_name:String) ascending
+projection:
+  entity source=s0 type=Dept_emp
+result:
+  sequence type=Dept_emp
+bindings:
+  p0 scalar type=String
+  p1 scalar type=String
+""");
+        await Assert.That(snapshot).DoesNotContain("d007");
+        await AssertNoLegacyParserTerms(snapshot);
+    }
+
+    [Test]
     public async Task PostPagingCompositionSnapshot_RecordsPushdownBoundary()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

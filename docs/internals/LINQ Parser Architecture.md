@@ -328,6 +328,7 @@ Supported parser areas include:
 - string and date/time member/function translations documented in the support matrix
 - one-to-many relation `Any(...)` and existence-equivalent `Count()` predicates
 - one narrow explicit inner `Join(...)` shape
+- singular implicit relation predicates/orderings rendered as inner joins
 
 Still deliberately outside the current support boundary:
 
@@ -339,6 +340,8 @@ Still deliberately outside the current support boundary:
 - composite anonymous-object join keys
 - post-paging composition over joined row shapes
 - multi-join and query-syntax transparent-identifier joins
+- fluent `JoinBy(...)`, `JoinMany(...)`, and left-join APIs
+- implicit relation projection and left-join null-preserving relation traversal
 - arbitrary nested database subqueries beyond the supported single-source pushdown boundary
 - SQL-backed projection lists as a broad feature
 - relation-property projections inside provider `Select(...)`

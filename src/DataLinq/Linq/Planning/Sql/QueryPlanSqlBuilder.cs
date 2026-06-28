@@ -168,8 +168,8 @@ internal sealed class QueryPlanSqlBuilder
 
         var leftSource = sourceMap.Get(join.LeftSource);
         var rightSource = sourceMap.Get(join.RightSource);
-        if (rightSource.Kind != QueryPlanSourceKind.ExplicitJoin)
-            throw new QueryTranslationException($"Query plan join source slot '{rightSource.Id}' is not an explicit join source.");
+        if (rightSource.Kind is not QueryPlanSourceKind.ExplicitJoin and not QueryPlanSourceKind.ImplicitJoin)
+            throw new QueryTranslationException($"Query plan join source slot '{rightSource.Id}' is not a join source.");
 
         query.Join(rightSource.Table.DbName, rightSource.Alias)
             .On(on => on

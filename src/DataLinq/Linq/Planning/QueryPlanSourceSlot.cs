@@ -16,6 +16,7 @@ internal enum QueryPlanSourceKind
 {
     RootTable,
     ExplicitJoin,
+    ImplicitJoin,
     RelationSubquery
 }
 

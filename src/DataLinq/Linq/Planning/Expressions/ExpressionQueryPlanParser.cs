@@ -29,6 +29,7 @@ internal sealed class ExpressionQueryPlanParser
     private readonly List<QueryPlanOperation> operations = [];
     private readonly Dictionary<ParameterExpression, QueryPlanSourceSlot> parameterSourceSlots = [];
     private readonly Dictionary<ParameterExpression, QueryPlanProjection> parameterProjections = [];
+    private readonly Dictionary<ImplicitRelationJoinKey, QueryPlanSourceSlot> implicitRelationSources = [];
     private int relationSubqueryCounter;
 
     private ExpressionQueryPlanParser(DatabaseDefinition metadata, ExpressionQueryPlanParserOptions options)
@@ -1108,6 +1109,12 @@ internal sealed class ExpressionQueryPlanParser
             return true;
         }
 
+        if (TryGetImplicitRelationColumnValue(expression, out var implicitRelationColumn))
+        {
+            value = implicitRelationColumn;
+            return true;
+        }
+
         if (TryGetProjectedValue(expression, out var projectedValue))
         {
             value = projectedValue;
@@ -1179,6 +1186,74 @@ internal sealed class ExpressionQueryPlanParser
 
         value = null!;
         return false;
+    }
+
+    private bool TryGetImplicitRelationColumnValue(Expression expression, out QueryPlanColumnValue value)
+    {
+        expression = UnwrapQueryColumnAccess(UnwrapConvert(expression));
+
+        if (expression is MemberExpression { Expression: not null } memberExpression &&
+            TryGetRelationProperty(memberExpression.Expression, out var relationProperty, out var parentSource))
+        {
+            var joinedSource = GetOrCreateImplicitRelationSource(parentSource, relationProperty);
+            if (!joinedSource.Table.TryGetColumnByPropertyName(memberExpression.Member.Name, out var column))
+            {
+                throw new QueryTranslationException(
+                    $"Implicit relation member '{memberExpression.Member.Name}' is not mapped on related table '{joinedSource.Table.DbName}'. " +
+                    $"Expression: {expression}");
+            }
+
+            value = new QueryPlanColumnValue(joinedSource, column);
+            return true;
+        }
+
+        value = null!;
+        return false;
+    }
+
+    private QueryPlanSourceSlot GetOrCreateImplicitRelationSource(QueryPlanSourceSlot parentSource, RelationProperty relationProperty)
+    {
+        var relationPart = relationProperty.RelationPart;
+        if (relationPart.Type != RelationPartType.ForeignKey)
+        {
+            throw new QueryTranslationException(
+                $"Implicit relation traversal for collection relation '{relationProperty.PropertyName}' is not supported. " +
+                "Use the documented relation Any(...) or Count() existence predicates instead.");
+        }
+
+        var otherSide = relationPart.GetOtherSide();
+        if (relationPart.ColumnIndex.Columns.Count != otherSide.ColumnIndex.Columns.Count)
+        {
+            throw new QueryTranslationException($"Implicit relation '{relationProperty.PropertyName}' has mismatched relation column counts.");
+        }
+
+        if (relationPart.ColumnIndex.Columns.Count != 1)
+        {
+            throw new QueryTranslationException(
+                $"Implicit relation traversal for relation '{relationProperty.PropertyName}' is not supported because it uses a composite key.");
+        }
+
+        var key = new ImplicitRelationJoinKey(parentSource.Id, relationProperty.PropertyName);
+        if (implicitRelationSources.TryGetValue(key, out var existingSource))
+            return existingSource;
+
+        var relatedTable = otherSide.ColumnIndex.Table;
+        var relatedType = relatedTable.Model.CsType.Type
+            ?? throw new QueryTranslationException($"Implicit relation '{relationProperty.PropertyName}' has no related CLR model type.");
+        var joinedSource = RegisterSource(
+            relatedType,
+            QueryPlanSourceKind.ImplicitJoin,
+            table: relatedTable);
+
+        operations.Add(new QueryPlanOperation.Join(new QueryPlanJoin(
+            QueryPlanJoinKind.Inner,
+            parentSource,
+            relationPart.ColumnIndex.Columns[0],
+            joinedSource,
+            otherSide.ColumnIndex.Columns[0])));
+
+        implicitRelationSources.Add(key, joinedSource);
+        return joinedSource;
     }
 
     private bool TryConvertFunctionValue(Expression expression, out QueryPlanValue value)
@@ -1553,7 +1628,7 @@ internal sealed class ExpressionQueryPlanParser
     }
 
     private bool CanBindProjectionParameter(ParsedQuery parsed)
-        => operations.Any(static operation => operation is QueryPlanOperation.Join) &&
+        => HasExplicitJoinOperation() &&
            parsed.Projection is QueryPlanProjection.JoinedRowLocal;
 
     private void RejectUnsupportedPostJoinComposition(
@@ -1561,7 +1636,7 @@ internal sealed class ExpressionQueryPlanParser
         string operatorName,
         bool allowAfterPaging = false)
     {
-        if (!operations.Any(static operation => operation is QueryPlanOperation.Join))
+        if (!HasExplicitJoinOperation())
             return;
 
         if (!CanBindProjectionParameter(parsed))
@@ -1600,7 +1675,7 @@ internal sealed class ExpressionQueryPlanParser
 
     private void RejectPostJoinOperator(string operatorName)
     {
-        if (operations.Any(static operation => operation is QueryPlanOperation.Join))
+        if (HasExplicitJoinOperation())
         {
             throw new QueryTranslationException(
                 "Join queries currently support only the Join body clause. " +
@@ -1611,9 +1686,14 @@ internal sealed class ExpressionQueryPlanParser
 
     private void RejectPostJoinTerminalOperator(string operatorName)
     {
-        if (operations.Any(static operation => operation is QueryPlanOperation.Join))
+        if (HasExplicitJoinOperation())
             throw new QueryTranslationException($"Terminal operators over explicit Join queries are not supported yet. Operator: {operatorName}");
     }
+
+    private bool HasExplicitJoinOperation()
+        => operations
+            .OfType<QueryPlanOperation.Join>()
+            .Any(static operation => operation.JoinShape.RightSource.Kind == QueryPlanSourceKind.ExplicitJoin);
 
     private void WithSource(ParameterExpression parameter, QueryPlanSourceSlot source, Action action)
     {
@@ -2017,6 +2097,8 @@ internal sealed class ExpressionQueryPlanParser
         QueryPlanGrouping? Grouping = null);
 
     private sealed record QueryPlanGrouping(QueryPlanSourceSlot Source, QueryPlanValue Key);
+
+    private readonly record struct ImplicitRelationJoinKey(string ParentSourceId, string RelationPropertyName);
 
     private sealed class QueryReferenceVisitor(ExpressionQueryPlanParser parser) : ExpressionVisitor
     {

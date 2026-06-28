@@ -99,8 +99,31 @@ The predicate translator handles the common shapes that are covered by tests:
 - equality-shaped local `Any(predicate)` membership
 - fixed true/false conditions for empty local collections
 - one-to-many relation `Any(...)` and existence-equivalent `Count()` predicates translated as correlated `EXISTS`
+- singular relation member traversal in root predicates and ordering translated as implicit inner joins
 
 Unsupported predicate methods and unsupported expression shapes should throw `QueryTranslationException`. Silent client-side predicate fallback would be a correctness bug.
+
+## Implicit Singular Relation Joins
+
+The current implicit relation support is intentionally narrower than the Phase 15 roadmap target.
+
+Supported:
+
+- generated singular relation traversal from a root row
+- related member access in `Where`, `OrderBy`, and `ThenBy`
+- inner-join semantics
+- source-slot reuse when the same relation appears more than once in a query
+
+Not supported yet:
+
+- relation traversal in provider `Select(...)`
+- collection traversal beyond documented `Any` and existence-equivalent `Count` predicates
+- multi-hop implicit traversal
+- nullable/left-join semantics
+- fluent relation-aware join APIs such as `JoinBy`, `JoinMany`, `LeftJoinBy`, and `LeftJoinMany`
+- standard `Queryable.LeftJoin`
+
+The parser resolves `root.Relation.Member` through relation metadata, registers an `ImplicitJoin` source slot, adds an inner `Join` operation, and binds the related member to that source slot's column. SQL rendering treats implicit join slots like explicit inner join slots; entity execution returns root rows.
 
 ## Projection Model
 
@@ -123,7 +146,7 @@ Relation-property projection is rejected. That prevents hidden N+1 behavior from
 : Evaluates supported local values such as captured constants, simple member reads, empty collection factories, array/list indexes, and deterministic string operations without compiling or invoking arbitrary user methods.
 
 `QueryPlanSqlBuilder`
-: Renders plan operations to SQL, including local collection membership, relation-backed `EXISTS` predicates, ordering, paging, single-source subquery pushdown, scalar aggregates, grouped aggregate projection, and the narrow explicit join baseline.
+: Renders plan operations to SQL, including local collection membership, relation-backed `EXISTS` predicates, implicit singular relation joins, ordering, paging, single-source subquery pushdown, scalar aggregates, grouped aggregate projection, and the narrow explicit join baseline.
 
 `ExpressionQueryPlanExecutor`
 : Executes sequence, scalar, single-row, projection, grouped aggregate, and explicit-join result paths from a parsed plan.

@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 15: Relation-Aware and Implicit Joins
 
-**Status:** In progress for the implicit singular relation predicate/ordering slice after Phase 14 source-slot join composition.
+**Status:** Implemented for the implicit singular relation predicate/ordering slice after Phase 14 source-slot join composition.
 
 ## Purpose
 

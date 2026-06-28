@@ -168,7 +168,27 @@ This first slice is intentionally not a relation traversal engine. These shapes 
 - relation aggregates other than the documented existence-equivalent `Count()` comparisons
 - thresholds such as `Children.Count() > 1`
 - predicates that traverse another relation from the related row, such as `child.Parent.Name == value`
-- many-to-one relation property predicates outside the one-to-many `Any(...)`/existence pattern
+- collection relation traversal outside the documented one-to-many `Any(...)`/existence pattern
+
+Generated singular relation properties have a separate SQL-backed implicit inner-join slice. The test suite covers singular relation traversal in root-row predicates and ordering:
+
+- `row.SingularRelation.Member` inside `Where(...)`
+- `row.SingularRelation.Member` inside `OrderBy(...)` and `ThenBy(...)`
+- repeated access to the same relation in one query reuses one implicit join source
+
+Example:
+
+```csharp
+var rows = db.Query().DepartmentEmployees
+    .Where(row => row.departments.Name.StartsWith("S"))
+    .OrderBy(row => row.departments.Name)
+    .ThenBy(row => row.emp_no)
+    .ToList();
+```
+
+This is an inner join. Rows whose singular relation does not resolve are not preserved. Left-join/null-preserving traversal is not supported yet.
+
+Implicit relation traversal is not supported in provider `Select(...)` projections. Materialize first if you want to project through a relation property.
 
 ## Supported Projection Shapes
 
@@ -242,6 +262,8 @@ These join shapes are not supported yet:
 - post-paging joined composition, such as `Join(...).Take(...).Where(...)`
 - scalar aggregates over joined rows other than `Any()` and `Count()`
 - relation-property joins or relation-property projections inside the result selector
+- fluent relation-aware join APIs such as `JoinBy(...)`, `JoinMany(...)`, `LeftJoinBy(...)`, and `LeftJoinMany(...)`
+- standard `Queryable.LeftJoin(...)`
 
 ## Supported Scalar Aggregates
 

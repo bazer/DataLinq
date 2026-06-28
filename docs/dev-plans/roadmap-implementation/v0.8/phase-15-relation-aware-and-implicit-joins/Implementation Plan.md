@@ -3,7 +3,7 @@
 
 # 0.8 Phase 15 Implementation Plan: Implicit Singular Relation Joins
 
-**Status:** In progress.
+**Status:** Implemented for the implicit singular relation predicate/ordering slice.
 
 ## Goal
 
@@ -84,11 +84,28 @@ Focused checks:
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
 ```
 
+Completed focused checks:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesImplicitRelationJoinTests/*|/*/*/QueryPlanSnapshotTests/ImplicitRelationJoinSnapshot_RecordsImplicitJoinAndReusesSource|/*/*/QueryPlanUnsupportedShapeTests/*" --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesImplicitRelationJoinTests/*|/*/*/EmployeesRelationPredicateTranslationTests/*|/*/*/QueryPlanSnapshotTests/*|/*/*/QueryPlanSqlParityTests/*|/*/*/QueryPlanUnsupportedShapeTests/*" --output failures --build
+```
+
+Result: both focused runs passed across the active provider batches: `sqlite-file, sqlite-memory` and `mysql-8.4, mariadb-11.8`.
+
+## Closeout Notes
+
+- Added an `ImplicitJoin` source kind and relation resolver for `root.SingularRelation.Member` value translation.
+- Reused implicit relation source slots when the same relation appears multiple times in one query.
+- Rendered implicit relation traversal as SQL inner joins while preserving root-row entity materialization.
+- Kept relation traversal in provider `Select(...)`, `JoinBy(...)`, `JoinMany(...)`, left joins, and standard `Queryable.LeftJoin(...)` outside the shipped support boundary.
+- Updated public docs and the support matrix for implicit singular relation predicates/orderings only.
+
 ## Exit Criteria
 
-- [ ] Singular relation predicates are SQL-backed through implicit joins.
-- [ ] Singular relation ordering is SQL-backed through implicit joins.
-- [ ] Repeated access to the same relation reuses one implicit join source.
-- [ ] Supported implicit relation traversal works from both `db.Query()` and `transaction.Query()`.
-- [ ] Unsupported implicit projection and collection traversal fail with focused diagnostics.
-- [ ] Docs and support matrix describe only the shipped implicit singular relation slice.
+- [x] Singular relation predicates are SQL-backed through implicit joins.
+- [x] Singular relation ordering is SQL-backed through implicit joins.
+- [x] Repeated access to the same relation reuses one implicit join source.
+- [x] Supported implicit relation traversal works from both `db.Query()` and `transaction.Query()`.
+- [x] Unsupported implicit projection and collection traversal fail with focused diagnostics.
+- [x] Docs and support matrix describe only the shipped implicit singular relation slice.

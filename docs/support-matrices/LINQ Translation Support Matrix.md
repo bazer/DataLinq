@@ -34,7 +34,8 @@ The audit does not expand the public contract. It records the historical Remotio
 | --- | --- | --- | --- |
 | One-to-many relation existence | generated collection relation `Any()`, `Any(predicate)`, negated `Any(predicate)`, and existence-equivalent `Count()` comparisons | `Translation/EmployeesRelationPredicateTranslationTests.cs` | These translate to correlated `EXISTS` subqueries. `Count()` support is deliberately limited to forms reducible to existence or non-existence. |
 | Related-row predicate body | direct related-row member comparisons against local values, plus simple `&&` and `||` groups | `Translation/EmployeesRelationPredicateTranslationTests.cs` | This is not arbitrary predicate translation for a second query source. Relation traversal from the related row remains rejected. |
-| Unsupported relation predicate shapes | relation traversal inside the related-row predicate and unsupported `Count()` thresholds fail with `QueryTranslationException` | `Translation/EmployeesRelationPredicateTranslationTests.cs` | Many-to-one relation predicates, relation projections, and relation aggregates beyond existence-equivalent `Count()` forms remain outside the documented boundary. |
+| Singular implicit relation traversal | root-row singular relation member access in `Where`, `OrderBy`, and `ThenBy`, rendered as an implicit inner join and reused for repeated relation references | `Translation/EmployeesImplicitRelationJoinTests.cs`, `Translation/QueryPlanSnapshotTests.cs` | This is SQL-backed predicate/ordering traversal only. Relation projection, multi-hop traversal, left-join null semantics, and fluent relation-aware join APIs remain outside the shipped boundary. |
+| Unsupported relation predicate shapes | relation traversal inside the related-row predicate and unsupported `Count()` thresholds fail with `QueryTranslationException` | `Translation/EmployeesRelationPredicateTranslationTests.cs` | Relation projections, collection traversal beyond the documented existence patterns, and relation aggregates beyond existence-equivalent `Count()` forms remain outside the documented boundary. |
 
 ## Local Collections and Fixed Conditions
 
@@ -118,7 +119,7 @@ These shapes are intentionally not part of the documented support boundary today
 
 - broad `GroupBy(...)` beyond the direct mapped key plus `group.Key`/`group.Count()` projection documented above
 - `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, query-syntax transparent identifiers, and post-paging composition over explicit joined results
-- relation-property query expansion beyond the documented one-to-many `Any(...)` and existence-equivalent `Count()` predicates
+- relation-property query expansion beyond documented one-to-many existence predicates and the documented singular implicit predicate/ordering traversal
 - aggregate result operators over computed selectors, grouped aggregate operators beyond the documented grouped `Count()`, or relation properties
 - additional body clauses over pushed-down projections, joins, or grouped sources
 - arbitrary local `Enumerable` method chains inside predicates
@@ -162,3 +163,11 @@ Phase 14 adds explicit-join composition coverage:
 3. Provider behavior tests compare joined `Where`, ordering, paging, `Any`, and `Count` with in-memory LINQ across SQLite, MySQL, and MariaDB.
 4. Transaction-root tests prove composed joined projections hydrate after buffering joined primary keys, avoiding nested reader use on transaction connections.
 5. Unsupported-shape tests keep post-paging joined composition outside the documented boundary until joined pushdown has a deliberate derived-source design.
+
+Phase 15 adds implicit singular relation join coverage:
+
+1. Relation member predicates and orderings bind to a generated implicit inner join.
+2. Plan snapshots record an `implicit-join` source and prove repeated relation access reuses that source.
+3. Provider behavior tests compare implicit relation filtering/ordering with in-memory relation traversal across SQLite, MySQL, and MariaDB.
+4. Transaction-root tests prove the same implicit relation traversal executes from `transaction.Query()`.
+5. Unsupported projection tests keep relation traversal out of provider `Select(...)` until a projection design exists.

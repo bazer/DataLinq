@@ -46,6 +46,7 @@ public class SqlQuery<T>
     public TableDefinition Table { get; }
     public string? Alias { get; }
     internal bool HasDerivedSource => DerivedSourceSql is not null;
+    internal bool HasJoins => JoinList.Count != 0;
 
     internal string EscapeCharacter => DataSource.Provider.Constants.EscapeCharacter;
 

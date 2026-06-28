@@ -629,7 +629,7 @@ Key related plans:
 
 ### Phase 15: Relation-Aware, Implicit, and Left Joins
 
-Status: in progress for the implicit singular relation predicate/ordering slice after Phase 14.
+Status: implemented for the implicit singular relation predicate/ordering slice after Phase 14.
 
 Goals:
 

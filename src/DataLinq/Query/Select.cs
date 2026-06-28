@@ -305,7 +305,9 @@ public class Select<T> : IQuery
                     if (row is not null)
                         yield return row;
                 }
-                else if (!query.HasDerivedSource && tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, GetCacheOrderings(), out var providerKeyRows))
+                else if (!query.HasDerivedSource &&
+                    !query.HasJoins &&
+                    tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, GetCacheOrderings(), out var providerKeyRows))
                 {
                     foreach (var row in providerKeyRows)
                         yield return row;
@@ -314,8 +316,9 @@ public class Select<T> : IQuery
                 {
                     this.What(query.Table.PrimaryKeyColumns);
                     var keys = this.ReadKeys().ToArray();
+                    var orderings = query.HasJoins ? null : GetCacheOrderings();
 
-                    foreach (var row in tableCache.GetRows(keys, query.DataSource, orderings: GetCacheOrderings()))
+                    foreach (var row in tableCache.GetRows(keys, query.DataSource, orderings: orderings))
                         yield return row;
                 }
             }
