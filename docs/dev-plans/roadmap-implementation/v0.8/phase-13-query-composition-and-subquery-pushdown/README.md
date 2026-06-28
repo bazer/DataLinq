@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 13: Query Composition and Subquery Pushdown
 
-**Status:** Planned 0.8 finish-line work after AOT/browser release evidence and before join expansion.
+**Status:** In progress.
 
 ## Purpose
 
@@ -74,6 +74,8 @@ This phase also completes the known Phase 1 query-contract gap around post-pagin
 5. Preserve parameter binding and projection binding across nested source scopes.
 6. Add scalar result operator coverage over pushed-down sources.
 7. Update user docs and the support matrix only for shipped shapes.
+
+The live implementation checklist is tracked in [Implementation Plan](Implementation%20Plan.md).
 
 ## Source Plans
 

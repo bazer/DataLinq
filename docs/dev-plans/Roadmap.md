@@ -542,7 +542,7 @@ Key related plans:
 
 ### Phase 13: Query Composition and Subquery Pushdown
 
-Status: planned 0.8 finish-line work after the AOT/browser release gates and before join expansion. This pulls forward the old Phase 17 operator-order work that was intentionally deferred while the parser replacement was being proven.
+Status: in progress. This pulls forward the old Phase 17 operator-order work that was intentionally deferred while the parser replacement was being proven.
 
 Goals:
 
@@ -562,6 +562,7 @@ Why before joins:
 Key related plans:
 
 - `roadmap-implementation/v0.8/phase-13-query-composition-and-subquery-pushdown/README.md`
+- `roadmap-implementation/v0.8/phase-13-query-composition-and-subquery-pushdown/Implementation Plan.md`
 - `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation Plan.md`
 - `query-and-runtime/Relation-Aware Join API.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
