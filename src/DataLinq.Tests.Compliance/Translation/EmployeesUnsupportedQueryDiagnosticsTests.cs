@@ -97,39 +97,83 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task PostPagingOrderByThrowsQueryTranslationException(TestProviderDescriptor provider)
+    public async Task PostPagingOrderByUsesSubqueryPushdown(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(PostPagingOrderByThrowsQueryTranslationException),
+            nameof(PostPagingOrderByUsesSubqueryPushdown),
             EmployeesSeedMode.Bogus);
 
-        await AssertTranslationFailure(
-            () => databaseScope.Database.Query().Employees
-                .Take(5)
-                .OrderBy(x => x.emp_no)
-                .ToList(),
-            "after Skip(...) or Take(...)",
-            "subquery pushdown");
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().Employees
+            .ToList()
+            .OrderBy(x => x.birth_date)
+            .ThenBy(x => x.emp_no)
+            .Take(5)
+            .OrderByDescending(x => x.hire_date)
+            .ThenBy(x => x.emp_no)
+            .Select(x => x.emp_no)
+            .ToArray();
+
+        var actual = employeesDatabase.Query().Employees
+            .OrderBy(x => x.birth_date)
+            .ThenBy(x => x.emp_no)
+            .Take(5)
+            .OrderByDescending(x => x.hire_date)
+            .ThenBy(x => x.emp_no)
+            .Select(x => x.emp_no)
+            .ToArray();
+
+        await Assert.That(string.Join(",", actual)).IsEqualTo(string.Join(",", expected));
     }
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task PostPagingWhereThrowsQueryTranslationException(TestProviderDescriptor provider)
+    public async Task PostPagingWhereUsesSubqueryPushdown(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(PostPagingWhereThrowsQueryTranslationException),
+            nameof(PostPagingWhereUsesSubqueryPushdown),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().Employees
+            .ToList()
+            .OrderBy(x => x.emp_no)
+            .Take(20)
+            .Where(x => x.gender == Employee.Employeegender.M)
+            .OrderByDescending(x => x.emp_no)
+            .Select(x => x.emp_no)
+            .ToArray();
+
+        var actual = employeesDatabase.Query().Employees
+            .OrderBy(x => x.emp_no)
+            .Take(20)
+            .Where(x => x.gender == Employee.Employeegender.M)
+            .OrderByDescending(x => x.emp_no)
+            .Select(x => x.emp_no)
+            .ToArray();
+
+        await Assert.That(string.Join(",", actual)).IsEqualTo(string.Join(",", expected));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task PostPagingProjectionFilterThrowsQueryTranslationException(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(PostPagingProjectionFilterThrowsQueryTranslationException),
             EmployeesSeedMode.Bogus);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().Employees
-                .OrderBy(x => x.emp_no)
                 .Take(5)
-                .Where(x => x.gender == Employee.Employeegender.M)
+                .Select(x => new { x.emp_no })
+                .Where(x => x.emp_no > 10000)
                 .ToList(),
-            "after Skip(...) or Take(...)",
-            "subquery pushdown");
+            "after Select",
+            "not supported");
     }
 
     private static bool HasKnownPrefix(string value)

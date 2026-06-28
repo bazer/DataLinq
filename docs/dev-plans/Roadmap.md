@@ -542,7 +542,7 @@ Key related plans:
 
 ### Phase 13: Query Composition and Subquery Pushdown
 
-Status: in progress. This pulls forward the old Phase 17 operator-order work that was intentionally deferred while the parser replacement was being proven.
+Status: implemented for the single-source Phase 13 slice. This pulls forward the old Phase 17 operator-order work that was intentionally deferred while the parser replacement was being proven.
 
 Goals:
 

@@ -36,6 +36,7 @@ public class SqlQuery<T>
     protected List<Join<T>> JoinList = new List<Join<T>>();
     internal List<OrderBy> OrderByList = new List<OrderBy>();
     internal List<string>? WhatList;
+    internal Sql? DerivedSourceSql { get; private set; }
     protected int? limit;
     protected int? offset;
     public bool LastIdQuery { get; protected set; }
@@ -43,6 +44,7 @@ public class SqlQuery<T>
 
     public TableDefinition Table { get; }
     public string? Alias { get; }
+    internal bool HasDerivedSource => DerivedSourceSql is not null;
 
     internal string EscapeCharacter => DataSource.Provider.Constants.EscapeCharacter;
 
@@ -102,6 +104,15 @@ public class SqlQuery<T>
     public virtual Select<T> SelectQuery()
     {
         return new Select<T>(this);
+    }
+
+    internal SqlQuery<T> UseDerivedSource(Sql sourceSql)
+    {
+        if (string.IsNullOrWhiteSpace(Alias))
+            throw new InvalidOperationException("A derived query source requires an explicit alias.");
+
+        DerivedSourceSql = sourceSql ?? throw new ArgumentNullException(nameof(sourceSql));
+        return this;
     }
 
     public Delete<T> DeleteQuery()
@@ -449,6 +460,7 @@ public class SqlQuery<T>
         values = [];
 
         if (JoinList.Count != 0 ||
+            HasDerivedSource ||
             WhereGroup == null ||
             !WhereGroup.TryGetTemplatePredicates(out var predicates, out values) ||
             WhatList?.Count > 1 ||
@@ -511,6 +523,9 @@ public class SqlQuery<T>
     /// </summary>
     public DataLinqKey? TryGetSimplePrimaryKey()
     {
+        if (HasDerivedSource)
+            return null;
+
         // We can only optimization if:
         // 1. We have a Where clause.
         // 2. The query is not negated (NOT WHERE ...).
@@ -528,6 +543,9 @@ public class SqlQuery<T>
     internal bool TryGetSimpleScalarPrimaryKey(out object? primaryKey)
     {
         primaryKey = null;
+
+        if (HasDerivedSource)
+            return false;
 
         if (WhereGroup == null || WhereGroup.IsNegated)
             return false;

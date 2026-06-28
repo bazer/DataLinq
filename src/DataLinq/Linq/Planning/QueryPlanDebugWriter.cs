@@ -83,10 +83,42 @@ internal static class QueryPlanDebugWriter
                     builder.Append("join ").AppendLine(FormatJoin(join.JoinShape));
                     break;
 
+                case QueryPlanOperation.Pushdown pushdown:
+                    builder.AppendLine("pushdown");
+                    foreach (var innerOperation in pushdown.Operations)
+                    {
+                        builder
+                            .Append("    ")
+                            .AppendLine(FormatOperation(innerOperation));
+                    }
+
+                    if (pushdown.PreservedOrderings.Count != 0)
+                    {
+                        builder
+                            .Append("    preserves-order ")
+                            .AppendLine(string.Join(", ", pushdown.PreservedOrderings.Select(FormatOrdering)));
+                    }
+
+                    break;
+
                 default:
                     throw new InvalidOperationException($"Unknown query plan operation '{operation.GetType().Name}'.");
             }
         }
+    }
+
+    private static string FormatOperation(QueryPlanOperation operation)
+    {
+        return operation switch
+        {
+            QueryPlanOperation.Where where => $"where {FormatPredicate(where.Predicate)}",
+            QueryPlanOperation.OrderBy orderBy => $"order-by {string.Join(", ", orderBy.Orderings.Select(FormatOrdering))}",
+            QueryPlanOperation.Skip skip => $"skip {FormatValue(skip.Count)}",
+            QueryPlanOperation.Take take => $"take {FormatValue(take.Count)}",
+            QueryPlanOperation.Join join => $"join {FormatJoin(join.JoinShape)}",
+            QueryPlanOperation.Pushdown => "pushdown",
+            _ => throw new InvalidOperationException($"Unknown query plan operation '{operation.GetType().Name}'.")
+        };
     }
 
     private static void WriteProjection(StringBuilder builder, QueryPlanProjection projection)

@@ -268,6 +268,9 @@ The test suite covers:
 - `Skip(...)`
 - `Take(...)`
 - `Skip(...).Take(...)`
+- post-paging `Where(...)`
+- post-paging `OrderBy(...)` and `OrderByDescending(...)`
+- `Count()` and `Any()` over paged sources
 
 Example:
 
@@ -281,7 +284,22 @@ var page = db.Query().Employees
     .ToList();
 ```
 
-Filtering and ordering must happen before paging in provider-backed queries. Shapes such as `Take(...).OrderBy(...)`, `Skip(...).OrderBy(...)`, or `OrderBy(...).Take(...).Where(...)` require SQL subquery pushdown and are not supported today; DataLinq rejects them instead of flattening the operators into wrong SQL. Materialize first if you intentionally want LINQ-to-objects behavior after paging.
+When an operator after `Skip(...)` or `Take(...)` must apply to the already-paged source, DataLinq renders a SQL subquery boundary instead of flattening the chain into the wrong clause order.
+
+Supported examples include:
+
+```csharp
+var topMalesByNewestHireDate = db.Query().Employees
+    .Where(x => x.emp_no < 990000)
+    .OrderBy(x => x.birth_date)
+    .Take(20)
+    .Where(x => x.gender == Employee.Employeegender.M)
+    .OrderByDescending(x => x.emp_no)
+    .Take(5)
+    .ToList();
+```
+
+The subquery boundary is deliberately narrow. It is for single-source query composition over mapped rows. It is not a promise of arbitrary nested database subqueries in projections, broad SQL-backed projection lists, joined-row pushdown, or `GroupBy(...)`.
 
 ## Direct Primary-Key Lookup
 

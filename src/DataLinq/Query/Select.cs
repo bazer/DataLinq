@@ -47,13 +47,28 @@ public class Select<T> : IQuery
         var sql = new Sql().AddText("SELECT ");
         AddSelectedColumns(sql);
         sql.AddText(" FROM ");
-        query.AddTableName(sql, query.Table.DbName, query.Alias);
+        AddSource(sql);
         query.GetJoins(sql, paramPrefix);
         query.GetWhere(sql, paramPrefix);
         query.GetOrderBy(sql);
         query.GetLimit(sql);
 
         return sql;
+    }
+
+    private void AddSource(Sql sql)
+    {
+        if (query.DerivedSourceSql is not { } derivedSourceSql)
+        {
+            query.AddTableName(sql, query.Table.DbName, query.Alias);
+            return;
+        }
+
+        sql.AddText("(");
+        sql.AddText(derivedSourceSql.Text);
+        sql.AddText(") ");
+        sql.AddText(query.Alias ?? throw new InvalidOperationException("A derived query source requires an alias."));
+        sql.Parameters.AddRange(derivedSourceSql.Parameters);
     }
 
     private void AddSelectedColumns(Sql sql)
@@ -289,7 +304,7 @@ public class Select<T> : IQuery
                     if (row is not null)
                         yield return row;
                 }
-                else if (tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, GetCacheOrderings(), out var providerKeyRows))
+                else if (!query.HasDerivedSource && tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, GetCacheOrderings(), out var providerKeyRows))
                 {
                     foreach (var row in providerKeyRows)
                         yield return row;

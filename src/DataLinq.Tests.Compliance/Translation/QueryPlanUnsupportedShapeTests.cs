@@ -11,22 +11,22 @@ namespace DataLinq.Tests.Compliance;
 public class QueryPlanUnsupportedShapeTests
 {
     [Test]
-    public async Task ParserRejectsPostPagingFilter()
+    public async Task ParserRejectsFilterAfterProjection()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ParserRejectsPostPagingFilter),
+            nameof(ParserRejectsFilterAfterProjection),
             EmployeesSeedMode.Bogus);
 
         var query = databaseScope.Database.Query().Employees
-            .Skip(1)
+            .Select(x => new { x.emp_no })
             .Where(x => x.emp_no > 0);
 
         var exception = Capture<QueryTranslationException>(() =>
             ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
 
         await Assert.That(exception).IsNotNull();
-        await Assert.That(exception!.Message).Contains("LINQ operators after Skip(...) or Take(...)");
+        await Assert.That(exception!.Message).Contains("after Select");
     }
 
     [Test]

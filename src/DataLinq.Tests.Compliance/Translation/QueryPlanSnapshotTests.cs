@@ -203,6 +203,47 @@ bindings:
     }
 
     [Test]
+    public async Task PostPagingCompositionSnapshot_RecordsPushdownBoundary()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(PostPagingCompositionSnapshot_RecordsPushdownBoundary),
+            EmployeesSeedMode.Bogus);
+
+        var take = 10;
+        var prefix = "A";
+        var query = databaseScope.Database.Query().Employees
+            .OrderBy(x => x.emp_no)
+            .Take(take)
+            .Where(x => x.first_name.StartsWith(prefix))
+            .OrderByDescending(x => x.hire_date);
+
+        var snapshot = Snapshot(databaseScope.Database, query);
+
+        await AssertSnapshot(snapshot, """
+query-plan v0
+sources:
+  s0 root-table alias=t0 table=employees element=Employee cardinality=many nullable=false
+operations:
+  pushdown
+    order-by column(s0.emp_no:Int32) ascending
+    take captured(p0:Int32)
+    preserves-order column(s0.emp_no:Int32) ascending
+  where compare(function(string-starts-with:Boolean column(s0.first_name:String), captured(p1:String)) == constant(Boolean))
+  order-by column(s0.hire_date:DateOnly) descending
+projection:
+  entity source=s0 type=Employee
+result:
+  sequence type=Employee
+bindings:
+  p0 scalar type=Int32
+  p1 scalar type=String
+""");
+        await Assert.That(snapshot).DoesNotContain(prefix);
+        await AssertNoLegacyParserTerms(snapshot);
+    }
+
+    [Test]
     public async Task ResultShapeSnapshots_RecordScalarAndSingleResultShapes()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

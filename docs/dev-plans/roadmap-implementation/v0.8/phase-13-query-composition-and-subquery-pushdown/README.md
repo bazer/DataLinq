@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 13: Query Composition and Subquery Pushdown
 
-**Status:** In progress.
+**Status:** Implemented for the single-source Phase 13 slice.
 
 ## Purpose
 
@@ -88,7 +88,7 @@ The live implementation checklist is tracked in [Implementation Plan](Implementa
 
 Phase 13 is done when:
 
-- post-paging filters and orderings either translate with correct subquery pushdown or remain explicitly rejected with focused diagnostics
+- post-paging filters and orderings translate with single-source subquery pushdown for mapped-row queries
 - supported operator-order-sensitive shapes preserve the C# sequence semantics in SQL and row results
 - SQL-shape tests prove where subquery pushdown is required
 - supported commands execute equivalently from `db.Query()` and `transaction.Query()`, while transaction-rooted queries use the transaction data source

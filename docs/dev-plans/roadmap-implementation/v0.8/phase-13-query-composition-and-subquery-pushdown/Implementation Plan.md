@@ -3,7 +3,7 @@
 
 # 0.8 Phase 13 Implementation Plan: Query Composition and Subquery Pushdown
 
-**Status:** In progress.
+**Status:** Implemented for the single-source Phase 13 slice.
 
 ## Goal
 
@@ -98,9 +98,27 @@ Remove-Item Env:DATALINQ_TEST_DB_HOST
 
 ## Exit Criteria
 
-- Post-paging filters and orderings translate only when SQL subquery pushdown preserves the C# operator sequence.
-- SQL-shape tests distinguish flat and pushed-down forms.
-- Supported scalar result operators work over pushed-down sources.
-- Newly supported shapes work from both `db.Query()` and `transaction.Query()`.
-- Unsupported composition still fails with focused `QueryTranslationException` diagnostics.
-- Public docs and the support matrix describe only the tested shipped shapes.
+- [x] Post-paging filters and orderings translate through SQL subquery pushdown for single-source mapped-row queries.
+- [x] SQL-shape tests distinguish flat and pushed-down forms.
+- [x] `Count()` and `Any()` work over pushed-down paged sources without client-side row counting.
+- [x] Newly supported shapes work from both `db.Query()` and `transaction.Query()`.
+- [x] Unsupported composition over projections, joins, grouped sources, and nested database projection remains rejected.
+- [x] Public docs and the support matrix describe only the tested shipped shapes.
+
+## Implementation Notes
+
+- `QueryPlanOperation.Pushdown` records the inner operations and keeps preserved ordering visible in plan debug output.
+- `QueryPlanSqlBuilder` renders pushed-down single-source plans as derived table sources.
+- `Select<T>` can render a derived `FROM (SELECT ...) alias` source and disables primary-key/cache shortcuts that would bypass the pushed-down SQL boundary.
+- The parser inserts pushdown before post-paging `Where(...)`, `OrderBy(...)`, terminal operators, and scalar aggregates when top-level paging exists.
+
+## Completed Verification
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSnapshotTests/*|/*/*/QueryPlanSqlParityTests/*|/*/*/QueryPlanUnsupportedShapeTests/*" --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesQueryBehaviorTests/*|/*/*/EmployeesAggregateTranslationTests/*|/*/*/EmployeesProjectionTranslationTests/*|/*/*/EmployeesUnsupportedQueryDiagnosticsTests/*" --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSqlParityTests/ExpressionExecutionProvider_PostPaging*" --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSqlParityTests/ExpressionExecutionProvider_PagedAggregateUsesPushedDownSource" --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesUnsupportedQueryDiagnosticsTests/PostPaging*|/*/*/ExpressionQueryPlanParserTests/ExpressionParser_PostPagingFilterRecordsPushdown" --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
+```

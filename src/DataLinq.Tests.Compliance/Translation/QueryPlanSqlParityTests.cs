@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Linq.Planning.Expressions;
@@ -199,6 +200,37 @@ public class QueryPlanSqlParityTests
             databaseScope.Database,
             () => databaseScope.Database.Query().Managers.Where(x => x.dept_fk.StartsWith("d00")).Average(x => x.emp_no));
         await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(averageSql.Text)).Contains("AVG(");
+    }
+
+    [Test]
+    public async Task ExpressionPlanSql_RendersPostPagingPushdownWithSeparateParameters()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionPlanSql_RendersPostPagingPushdownWithSeparateParameters),
+            EmployeesSeedMode.Bogus);
+
+        var threshold = 10005;
+        var excludedName = "Alice";
+        var query = databaseScope.Database.Query().Employees
+            .Where(x => x.emp_no > threshold)
+            .OrderBy(x => x.emp_no)
+            .Take(10)
+            .Where(x => x.first_name != excludedName)
+            .OrderByDescending(x => x.hire_date);
+
+        var sql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(databaseScope.Database, query);
+        var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text);
+        var parameterValues = sql.Parameters.Select(x => x.Value).ToArray();
+
+        await Assert.That(normalized).Contains("FROM (SELECT");
+        await Assert.That(normalized).Contains("LIMIT 10");
+        await Assert.That(normalized).Contains(") t0 WHERE");
+        await Assert.That(normalized).Contains("ORDER BY t0.");
+        await Assert.That(parameterValues).Contains(threshold);
+        await Assert.That(parameterValues).Contains(excludedName);
+        await Assert.That(sql.Text).DoesNotContain(threshold.ToString());
+        await Assert.That(sql.Text).DoesNotContain(excludedName);
     }
 
     [Test]
@@ -414,6 +446,107 @@ public class QueryPlanSqlParityTests
         await Assert.That(actual).IsEquivalentTo(expected);
     }
 
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExpressionExecutionProvider_PostPagingFilterAndOrderingMatchInMemory(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExpressionExecutionProvider_PostPagingFilterAndOrderingMatchInMemory),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().Employees
+            .ToList()
+            .Where(x => x.emp_no < 990000)
+            .OrderBy(x => x.birth_date)
+            .Take(20)
+            .Where(x => x.gender == Employee.Employeegender.M)
+            .OrderByDescending(x => x.emp_no)
+            .Take(5)
+            .ToList();
+
+        var actual = employeesDatabase.Query().Employees
+            .Where(x => x.emp_no < 990000)
+            .OrderBy(x => x.birth_date)
+            .Take(20)
+            .Where(x => x.gender == Employee.Employeegender.M)
+            .OrderByDescending(x => x.emp_no)
+            .Take(5)
+            .ToList();
+
+        await AssertEmployeeSequenceEqual(expected, actual);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExpressionExecutionProvider_PostPagingCompositionWorksFromTransactionRoot(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExpressionExecutionProvider_PostPagingCompositionWorksFromTransactionRoot),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        using var transaction = employeesDatabase.Transaction();
+
+        var readOnly = employeesDatabase.Query().Employees
+            .Where(x => x.emp_no < 990000)
+            .OrderBy(x => x.birth_date)
+            .Take(20)
+            .Where(x => x.gender == Employee.Employeegender.M)
+            .OrderByDescending(x => x.emp_no)
+            .Take(5)
+            .ToList();
+
+        var transactionRows = transaction.Query().Employees
+            .Where(x => x.emp_no < 990000)
+            .OrderBy(x => x.birth_date)
+            .Take(20)
+            .Where(x => x.gender == Employee.Employeegender.M)
+            .OrderByDescending(x => x.emp_no)
+            .Take(5)
+            .ToList();
+
+        await AssertEmployeeSequenceEqual(readOnly, transactionRows);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExpressionExecutionProvider_PagedAggregateUsesPushedDownSource(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExpressionExecutionProvider_PagedAggregateUsesPushedDownSource),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().Managers
+            .ToList()
+            .OrderBy(x => x.emp_no)
+            .Take(5)
+            .Sum(x => x.emp_no);
+
+        var actual = employeesDatabase.Query().Managers
+            .OrderBy(x => x.emp_no)
+            .Take(5)
+            .Sum(x => x.emp_no);
+
+        await Assert.That(actual).IsEqualTo(expected);
+    }
+
     private static bool NearlyEqual(double actual, double expected)
         => Math.Abs(actual - expected) < 0.0001;
+
+    private static async Task AssertEmployeeSequenceEqual(IReadOnlyList<Employee> expected, IReadOnlyList<Employee> actual)
+    {
+        await Assert.That(actual.Count).IsEqualTo(expected.Count);
+
+        for (var index = 0; index < expected.Count; index++)
+        {
+            await Assert.That(actual[index].emp_no).IsEqualTo(expected[index].emp_no);
+            await Assert.That(actual[index].first_name).IsEqualTo(expected[index].first_name);
+            await Assert.That(actual[index].last_name).IsEqualTo(expected[index].last_name);
+        }
+    }
 }

@@ -64,6 +64,25 @@ internal abstract record QueryPlanOperation(QueryPlanOperationKind Kind)
         public QueryPlanJoin JoinShape { get; }
     }
 
+    public sealed record Pushdown : QueryPlanOperation
+    {
+        public Pushdown(
+            IEnumerable<QueryPlanOperation> operations,
+            IEnumerable<QueryPlanOrdering> preservedOrderings)
+            : base(QueryPlanOperationKind.Pushdown)
+        {
+            Operations = Freeze(operations, nameof(operations));
+            PreservedOrderings = Freeze(preservedOrderings, nameof(preservedOrderings));
+
+            if (Operations.Count == 0)
+                throw new ArgumentException("Pushdown operations must contain at least one inner operation.", nameof(operations));
+        }
+
+        public IReadOnlyList<QueryPlanOperation> Operations { get; }
+
+        public IReadOnlyList<QueryPlanOrdering> PreservedOrderings { get; }
+    }
+
     private static ReadOnlyCollection<T> Freeze<T>(IEnumerable<T> values, string parameterName)
     {
         ArgumentNullException.ThrowIfNull(values);
@@ -91,7 +110,8 @@ internal enum QueryPlanOperationKind
     OrderBy,
     Skip,
     Take,
-    Join
+    Join,
+    Pushdown
 }
 
 internal enum QueryPlanOrderingDirection

@@ -144,11 +144,13 @@ internal sealed class ExpressionQueryPlanParser
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
         RejectPostJoinOperator(methodCall.Method.Name);
-        RejectPostPagingOperator(methodCall.Method.Name);
+        PushDownPostPagingOperations(methodCall.Method.Name);
 
         var predicate = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
         if (predicate.Parameters.Count != 1)
             throw new QueryTranslationException($"Where predicate '{predicate}' is not supported.");
+
+        RejectProjectedOperator(parsed, methodCall.Method.Name);
 
         WithSource(predicate.Parameters[0], parsed.RootSource, () =>
             operations.Add(new QueryPlanOperation.Where(ConvertPredicate(predicate.Body))));
@@ -161,7 +163,7 @@ internal sealed class ExpressionQueryPlanParser
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
         RejectPostJoinOperator(methodCall.Method.Name);
-        RejectPostPagingOperator(methodCall.Method.Name);
+        PushDownPostPagingOperations(methodCall.Method.Name);
 
         var keySelector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
         if (keySelector.Parameters.Count != 1)
@@ -285,6 +287,7 @@ internal sealed class ExpressionQueryPlanParser
     {
         var parsed = ParseSequence(methodCall.Arguments[0]);
         RejectPostJoinTerminalOperator(methodCall.Method.Name);
+        PushDownPostPagingOperations(methodCall.Method.Name);
         if (methodCall.Arguments.Count == 2)
         {
             var predicate = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
@@ -306,6 +309,7 @@ internal sealed class ExpressionQueryPlanParser
     {
         var parsed = ParseSequence(methodCall.Arguments[0]);
         RejectPostJoinTerminalOperator(methodCall.Method.Name);
+        PushDownPostPagingOperations(methodCall.Method.Name);
         if (methodCall.Arguments.Count == 2)
         {
             var predicate = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
@@ -327,6 +331,7 @@ internal sealed class ExpressionQueryPlanParser
     {
         var parsed = ParseSequence(methodCall.Arguments[0]);
         RejectPostJoinTerminalOperator(methodCall.Method.Name);
+        PushDownPostPagingOperations(methodCall.Method.Name);
         if (methodCall.Arguments.Count != 2)
             throw new QueryTranslationException($"Aggregate operator '{methodCall.Method.Name}' requires a supported selector. Expression: {methodCall}");
 
@@ -1296,15 +1301,30 @@ internal sealed class ExpressionQueryPlanParser
         return false;
     }
 
-    private void RejectPostPagingOperator(string operatorName)
+    private void PushDownPostPagingOperations(string operatorName)
     {
-        if (operations.Any(static operation => operation is QueryPlanOperation.Skip or QueryPlanOperation.Take))
-        {
-            throw new QueryTranslationException(
-                "LINQ operators after Skip(...) or Take(...) require subquery pushdown and are not supported yet. " +
-                "Apply filtering and ordering before paging, or materialize before applying post-paging operators. " +
-                $"Operator: {operatorName}");
-        }
+        if (!operations.Any(static operation => operation is QueryPlanOperation.Skip or QueryPlanOperation.Take))
+            return;
+
+        var innerOperations = operations.ToArray();
+        var preservedOrderings = innerOperations
+            .OfType<QueryPlanOperation.OrderBy>()
+            .LastOrDefault()
+            ?.Orderings
+            .ToArray() ?? [];
+
+        operations.Clear();
+        operations.Add(new QueryPlanOperation.Pushdown(innerOperations, preservedOrderings));
+    }
+
+    private static void RejectProjectedOperator(ParsedQuery parsed, string operatorName)
+    {
+        if (parsed.Projection is null or QueryPlanProjection.Entity)
+            return;
+
+        throw new QueryTranslationException(
+            $"LINQ operator '{operatorName}' after Select(...) is not supported by the DataLinq expression parser. " +
+            "Materialize before applying provider-side operators over projected values.");
     }
 
     private void RejectPostJoinOperator(string operatorName)

@@ -96,7 +96,7 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | Area | Currently tested support | Evidence | Audit notes |
 | --- | --- | --- | --- |
 | Ordering | `OrderBy`, `OrderByDescending`, `ThenBy`, `ThenByDescending`, mixed ascending/descending ordering | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
-| Paging | `Skip`, `Take`, `Skip(...).Take(...)` with ordered queries and composed chained predicates | `EmployeesQueryBehaviorTests.cs` | Chained-filter paging has focused regression coverage. Filters and ordering are supported before paging; post-paging filters/orderings require subquery pushdown and are explicitly rejected. |
+| Paging | `Skip`, `Take`, `Skip(...).Take(...)` with ordered queries, composed chained predicates, post-paging filters/orderings, and `Count()`/`Any()` over paged sources | `EmployeesQueryBehaviorTests.cs`, `Translation/QueryPlanSqlParityTests.cs`, `Translation/QueryPlanSnapshotTests.cs` | Chained-filter paging has focused regression coverage. Phase 13 adds single-source subquery pushdown when later filters, orderings, or scalar reductions must apply over an already-paged source. |
 | Ordering plus filtering | `Where(...).OrderBy(...)`, `OrderBy(...).Where(...)`, and `Where(...).OrderBy(...).Where(...)` | `EmployeesQueryBehaviorTests.cs` | Focused regression coverage proves the outer predicate is preserved after an inner ordering clause. |
 | Full-model projection | selecting the model entity | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
 | Scalar projection | `Select(x => x.Property)` | `EmployeesQueryBehaviorTests.cs`, translation tests | Public docs match this. |
@@ -119,7 +119,7 @@ These shapes are intentionally not part of the documented support boundary today
 - `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, and additional filtering/ordering/paging over explicit joined results
 - relation-property query expansion beyond the documented one-to-many `Any(...)` and existence-equivalent `Count()` predicates
 - aggregate result operators over computed selectors, grouped aggregates, or relation properties
-- filters, orderings, or additional body clauses applied after `Skip(...)` or `Take(...)`
+- additional body clauses over pushed-down projections, joins, or grouped sources
 - arbitrary local `Enumerable` method chains inside predicates
 - arbitrary client methods inside SQL predicates
 - nested database subqueries
@@ -138,3 +138,10 @@ The regression suite includes tests that make dropped predicates hard to miss:
 4. `Where(a).Where(b).Skip(...).Take(...)` over a deterministic ordering to prove paging is applied after the composed filter.
 
 The central `CurrentQueryTranslationInspection` helper is now a DataLinq-only SQL inspection surface for these cases. It builds plans through `ExpressionQueryPlanParser` and renders SQL through `QueryPlanSqlBuilder`.
+
+Phase 13 adds pushdown-specific regression coverage:
+
+1. Plan snapshots record an explicit `pushdown` operation instead of hiding the nested boundary in SQL text.
+2. SQL-shape tests prove that post-paging composition renders `FROM (SELECT ...)` and keeps inner and outer parameters separate.
+3. Provider behavior tests compare post-paging filter/order results with in-memory LINQ composition across SQLite, MySQL, and MariaDB.
+4. Transaction-root tests prove the same pushed-down shape executes from `transaction.Query()`.

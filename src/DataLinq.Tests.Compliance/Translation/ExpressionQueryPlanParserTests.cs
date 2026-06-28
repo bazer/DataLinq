@@ -281,11 +281,11 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
-    public async Task ExpressionParser_PostPagingFilterKeepsFocusedDiagnostic()
+    public async Task ExpressionParser_PostPagingFilterRecordsPushdown()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ExpressionParser_PostPagingFilterKeepsFocusedDiagnostic),
+            nameof(ExpressionParser_PostPagingFilterRecordsPushdown),
             EmployeesSeedMode.Bogus);
 
         var query = databaseScope.Database.Query().Employees
@@ -293,12 +293,12 @@ public class ExpressionQueryPlanParserTests
             .Skip(1)
             .Where(x => x.gender == Employee.Employeegender.M);
 
-        var exception = Capture<QueryTranslationException>(() =>
-            ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
+        var plan = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+        var snapshot = QueryPlanDebugWriter.Write(plan);
 
-        await Assert.That(exception).IsNotNull();
-        await Assert.That(exception!.Message).Contains("after Skip(...) or Take(...)");
-        await Assert.That(exception.Message).Contains("subquery pushdown");
+        await Assert.That(snapshot).Contains("pushdown");
+        await Assert.That(snapshot).Contains("skip");
+        await Assert.That(snapshot).Contains("where compare(column(s0.gender:Employeegender)");
     }
 
     [Test]

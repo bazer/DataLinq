@@ -45,7 +45,7 @@ The key boundary is `DataLinqQueryPlan`. The parser emits it. SQL rendering cons
 ```mermaid
 flowchart LR
     P["DataLinqQueryPlan"] --> S["Sources<br/>QueryPlanSourceSlot"]
-    P --> O["Operations<br/>Where, OrderBy, Skip, Take, Join"]
+    P --> O["Operations<br/>Where, OrderBy, Skip, Take, Pushdown, Join"]
     P --> R["Result<br/>Sequence, Count, Any, First, Single, Last, aggregates"]
     P --> X["Projection<br/>Entity, ScalarMember, Anonymous, ComputedRowLocal, JoinedRowLocal"]
     P --> B["Bindings<br/>captured scalar values and local sequences"]
@@ -132,7 +132,7 @@ Take(captured p1)
 
 The parser intentionally rejects several shapes even when they are legal LINQ-to-objects:
 
-- filters or orderings after paging, because correct SQL requires subquery pushdown that is not implemented yet
+- unsupported nested-source shapes where the current single-source pushdown boundary is not enough
 - filtering, ordering, paging, or terminal operators over explicit joined rows
 - non-direct join sources
 - composite anonymous-object join keys
@@ -237,6 +237,7 @@ The renderer currently handles:
 - relation-backed `EXISTS`
 - ordering
 - paging
+- single-source subquery pushdown for post-paging filters, orderings, and scalar reductions
 - scalar result shapes such as `Count` and `Any`
 - direct numeric aggregates
 - the narrow explicit inner join baseline
@@ -315,6 +316,7 @@ Implemented in the current 0.8 branch:
 Supported parser areas include:
 
 - single-source filters, ordering, paging, and row-local projections
+- single-source post-paging filters/orderings through explicit query-plan pushdown
 - scalar result operators and direct numeric aggregates
 - local collection membership for documented shapes
 - nullable predicate semantics covered by tests
@@ -331,6 +333,7 @@ Still deliberately outside the current support boundary:
 - multiple explicit joins
 - composite anonymous-object join keys
 - filtering, ordering, paging, or terminal operators over joined row shapes
+- arbitrary nested database subqueries beyond the supported single-source pushdown boundary
 - SQL-backed projection lists as a broad feature
 - relation-property projections inside provider `Select(...)`
 - arbitrary local method calls inside provider predicates

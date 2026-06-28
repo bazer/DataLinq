@@ -32,11 +32,17 @@ internal sealed class QueryPlanSqlBuilder
         var root = sourceMap.RootSource;
         var query = new SqlQuery<T>(root.Table, dataSource, root.Alias);
         var predicateBuilder = new QueryPlanSqlPredicateBuilder<T>(query, sourceMap, valueRenderer);
+        var pushdownIndex = 0;
 
         foreach (var operation in plan.Operations)
         {
             switch (operation)
             {
+                case QueryPlanOperation.Pushdown pushdown:
+                    query = PushDown(query, pushdown, pushdownIndex++);
+                    predicateBuilder = new QueryPlanSqlPredicateBuilder<T>(query, sourceMap, valueRenderer);
+                    break;
+
                 case QueryPlanOperation.Join join:
                     ApplyJoin(query, join.JoinShape);
                     break;
@@ -64,6 +70,29 @@ internal sealed class QueryPlanSqlBuilder
 
         ApplyResultLimit(query);
         return query;
+    }
+
+    private SqlQuery<T> PushDown<T>(SqlQuery<T> currentQuery, QueryPlanOperation.Pushdown pushdown, int pushdownIndex)
+    {
+        if (currentQuery.HasDerivedSource)
+            throw new QueryTranslationException("Nested query pushdown is not supported after a derived source has already been applied.");
+
+        if (pushdown.Operations.Any(static operation => operation is QueryPlanOperation.Join))
+            throw new QueryTranslationException("Query pushdown over joins is not supported until joined source-slot composition is implemented.");
+
+        var root = sourceMap.RootSource;
+        var innerPlan = new DataLinqQueryPlan(
+            plan.Sources,
+            pushdown.Operations,
+            new QueryPlanProjection.Entity(root),
+            QueryPlanResult.Sequence(root.ElementType),
+            plan.Bindings);
+        var innerSql = new QueryPlanSqlBuilder(innerPlan, dataSource)
+            .BuildSelect<object>()
+            .ToSql($"dlp{pushdownIndex}_");
+
+        return new SqlQuery<T>(root.Table, dataSource, root.Alias)
+            .UseDerivedSource(innerSql);
     }
 
     public Select<T> BuildSelect<T>()

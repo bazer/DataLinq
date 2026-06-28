@@ -24,7 +24,7 @@ The ordinary collection path:
 
 1. partially evaluates local, query-independent expression subtrees
 2. parses the expression into `DataLinqQueryPlan`
-3. renders accepted predicates, ordering, joins, paging, and scalar result shapes through `QueryPlanSqlBuilder`
+3. renders accepted predicates, ordering, joins, paging, single-source pushdown, and scalar result shapes through `QueryPlanSqlBuilder`
 4. executes SQL through the provider
 5. materializes rows through cache-aware table access
 6. applies supported scalar, anonymous, or computed row-local projections after materialization
@@ -106,7 +106,7 @@ Relation-property projection is rejected. That prevents hidden N+1 behavior from
 : Evaluates supported local values such as captured constants, simple member reads, empty collection factories, array/list indexes, and deterministic string operations without compiling or invoking arbitrary user methods.
 
 `QueryPlanSqlBuilder`
-: Renders plan operations to SQL, including local collection membership, relation-backed `EXISTS` predicates, ordering, paging, scalar aggregates, and the narrow explicit join baseline.
+: Renders plan operations to SQL, including local collection membership, relation-backed `EXISTS` predicates, ordering, paging, single-source subquery pushdown, scalar aggregates, and the narrow explicit join baseline.
 
 `ExpressionQueryPlanExecutor`
 : Executes sequence, scalar, single-row, projection, and explicit-join result paths from a parsed plan.
