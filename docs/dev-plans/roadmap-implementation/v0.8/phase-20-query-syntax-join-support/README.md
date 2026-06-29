@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 20: Query-Syntax Join Support
 
-**Status:** Planned after SQL-backed projection rows.
+**Status:** In progress after SQL-backed projection rows.
 
 ## Purpose
 
