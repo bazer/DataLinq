@@ -6,7 +6,7 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-**Current status:** One open SQL-rendering finding.
+**Current status:** Resolved in the review-follow-up pass.
 
 ## Findings
 
@@ -21,6 +21,15 @@ That is acceptable for single-table computed keys such as `row.from_date.Year`. 
 The existing Phase 18 tests cover single-source computed keys and direct joined grouping keys, but not a SQL function over a joined source-slot column. That is exactly the missing coverage.
 
 Expected fix: render provider function arguments through `RenderColumnSql(...)` for `QueryPlanColumnValue` so source aliases are preserved in joined and implicit-join queries, then add provider-matrix SQL-shape and behavior coverage for computed joined group keys over a column name that exists on both joined tables.
+
+## Resolution Notes
+
+Resolved in the review-follow-up pass:
+
+- `QueryPlanSqlValueRenderer.RenderProviderFunctionArgument(...)` now renders `QueryPlanColumnValue` through `RenderColumnSql(...)`, preserving source aliases inside provider function calls.
+- `EmployeesGroupedAggregateTranslationTests.GroupedComputedKeyOverExplicitJoinQualifiesAmbiguousColumn` covers behavior and SQL shape for a computed joined group key over `dept_no`, which exists on both joined tables.
+
+Focused verification: `EmployeesGroupedAggregateTranslationTests` passed 76/76 across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
 
 ## Review Notes
 

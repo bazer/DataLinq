@@ -6,7 +6,7 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-**Current status:** Open release-gate findings. Current browser AOT evidence remains red, so no browser support claim should be promoted.
+**Current status:** Resolved release-gate findings in the review-follow-up pass. Current browser AOT evidence remains red, so no browser support claim should be promoted.
 
 ## Findings
 
@@ -37,6 +37,17 @@ For exploratory runs, advisory thresholds are fine. For Phase 12 release gates, 
 
 Expected fix: update the Phase 12 gate command to include `--fail-on-threshold`, and consider documenting a separate advisory command for investigation.
 
+## Resolution Notes
+
+Resolved in the review-follow-up pass:
+
+- `PackageInspector` now flags `RuntimeRemotionDependency` and `RuntimeRemotionAsset` findings for runtime packages, and treats them as hard failures by default.
+- `package-report` now exposes `--allow-runtime-remotion` as the explicit escape hatch, parallel to `--allow-runtime-roslyn`.
+- `CompatibilitySizeReportTests.PackageInspector_FlagsRuntimeRemotionLeaks` proves a runtime Remotion dependency and asset fail package inspection.
+- The Phase 12 gate command now includes `--fail-on-threshold`.
+
+Focused verification included `DataLinq.Dev.CLI` build and `CompatibilitySizeReportTests` passing 9/9.
+
 ## Review Notes
 
 - Publish and smoke failures are already hard failures. The gap is threshold enforcement and Remotion package enforcement.
@@ -61,6 +72,6 @@ Delegated verification:
 Result:
 
 - `DataLinq.AotSmoke` passed.
-- `CompatibilitySizeReportTests`: 7/7 passed in the delegated Phase 10-12 review pass.
+- `CompatibilitySizeReportTests`: 7/7 passed in the delegated Phase 10-12 review pass; the review-follow-up pass added Remotion package-report coverage and passed 9/9.
 
-The passing unit tests do not cover the Remotion package-report gap or the missing `--fail-on-threshold` gate command.
+The missing `--fail-on-threshold` gate command was fixed in the Phase 12 implementation plan.

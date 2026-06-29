@@ -6,7 +6,7 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-**Current status:** One open payload-gate finding.
+**Current status:** Resolved in the review-follow-up pass.
 
 ## Findings
 
@@ -19,6 +19,15 @@ If the publish output contains no `.br` assets because compression is disabled, 
 That undermines the Phase 11 goal. A browser payload gate should fail or warn when the compressed artifact it measures does not exist.
 
 Expected fix: for WebAssembly targets, add a threshold finding when `BrotliAssets.FileCount == 0` or when the expected framework/app assets have no Brotli counterparts. Treat that finding as a threshold warning so `--fail-on-threshold` can make it a hard release gate.
+
+## Resolution Notes
+
+Resolved in the review-follow-up pass:
+
+- `CompatibilityReleaseThresholds` now emits WebAssembly threshold warnings when Brotli asset count is zero, so `--fail-on-threshold` can hard-fail missing compressed deploy evidence.
+- `CompatibilitySizeReportTests.ReleaseThresholds_FlagMissingWebAssemblyBrotliAssets` covers the missing-Brotli gate.
+
+Focused verification: `CompatibilitySizeReportTests` passed 9/9.
 
 ## Review Notes
 
@@ -40,4 +49,4 @@ Related delegated verification:
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CompatibilitySizeReportTests/*" --output failures --build
 ```
 
-Result: compatibility unit slice passed 7/7 in the delegated Phase 10-12 review pass.
+Result: compatibility unit slice passed 7/7 in the delegated Phase 10-12 review pass and 9/9 after the review-follow-up coverage was added.

@@ -215,7 +215,7 @@ internal sealed class QueryPlanSqlValueRenderer(
         {
             QueryPlanColumnValue column when derivedColumns is not null &&
                 derivedColumns.TryGetAlias(column, out _) => RenderColumnSql(column),
-            QueryPlanColumnValue column => column.Column.DbName,
+            QueryPlanColumnValue column => RenderColumnSql(column),
             QueryPlanFunctionValue function => RenderFunctionSql(function),
             QueryPlanConvertedValue converted => RenderProviderFunctionArgument(converted.Value),
             _ => throw new QueryTranslationException($"Query plan value '{value.Kind}' cannot be used as a SQL function source.")

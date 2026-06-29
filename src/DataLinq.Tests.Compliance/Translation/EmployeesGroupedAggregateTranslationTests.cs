@@ -627,6 +627,70 @@ public class EmployeesGroupedAggregateTranslationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task GroupedComputedKeyOverExplicitJoinQualifiesAmbiguousColumn(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(GroupedComputedKeyOverExplicitJoinQualifiesAmbiguousColumn),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().DepartmentEmployees
+            .ToList()
+            .Join(
+                employeesDatabase.Query().Departments.ToList(),
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no
+                })
+            .GroupBy(row => row.dept_no.ToUpperInvariant())
+            .Select(group => new
+            {
+                DeptNo = group.Key,
+                Count = group.Count(),
+                SumEmployeeNumbers = group.Sum(row => row.emp_no)
+            })
+            .OrderBy(row => row.DeptNo, StringComparer.Ordinal)
+            .ToArray();
+
+        var query = employeesDatabase.Query().DepartmentEmployees
+            .Join(
+                employeesDatabase.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no
+                })
+            .GroupBy(row => row.dept_no.ToUpper())
+            .Select(group => new
+            {
+                DeptNo = group.Key,
+                Count = group.Count(),
+                SumEmployeeNumbers = group.Sum(row => row.emp_no)
+            });
+
+        var actual = query
+            .ToList()
+            .OrderBy(row => row.DeptNo, StringComparer.Ordinal)
+            .ToArray();
+        var sql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(employeesDatabase, query);
+        var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text);
+
+        await Assert.That(FormatComposedGroups(actual)).IsEqualTo(FormatComposedGroups(expected));
+        await Assert.That(normalized).Contains("JOIN");
+        await Assert.That(normalized).Contains("GROUP BY");
+        await Assert.That(normalized).Contains("UPPER(t0.");
+        await Assert.That(normalized).DoesNotContain("UPPER(\"dept_no\")");
+        await Assert.That(normalized).DoesNotContain("UPPER(`dept_no`)");
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedImplicitRelationKey_WorksFromTransactionRoot(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

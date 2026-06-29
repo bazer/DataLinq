@@ -85,11 +85,13 @@ Plan snapshots should start with these shapes:
 - the current narrow explicit inner join with direct member keys
 - explicit rejection of post-paging filters/orderings until subquery pushdown exists
 
-Known current behavior decisions:
+Known behavior decisions at Phase 1 closeout:
 
 - operators after `Skip(...)` or `Take(...)` are not part of the support contract and now fail explicitly
-- `TakeLast`, `SkipLast`, `TakeWhile`, and `SkipWhile` still fail through legacy `NotSupportedException`
+- `TakeLast`, `SkipLast`, `TakeWhile`, and `SkipWhile` fail with `QueryTranslationException`
 - relation/property projections, nested database subqueries, `GroupBy`, `GroupJoin`, composite joins, and computed aggregate selectors remain unsupported
+
+Later 0.8 phases supersede two of those entries: Phase 13 implements supported single-source post-paging pushdown, and Phase 13B begins the narrow SQL-backed grouped aggregate projection slice. Treat this section as Phase 1 historical baseline, not the current support matrix.
 
 ## Focused Verification
 

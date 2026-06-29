@@ -89,7 +89,7 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | Existence | `Any()`, `Any(predicate)`, and `Where(...).Any()` | `EmployeesQueryBehaviorTests.cs` | Public docs list `Any()` but should distinguish predicate coverage from local `Enumerable.Any(predicate)` translation. |
 | Single-row operators | `Single(predicate)`, `SingleOrDefault(predicate)`, `First(predicate)`, `FirstOrDefault(predicate)` | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesStringMemberTests.cs` | Public docs match this. |
 | Last-row operators | `Last()`, `LastOrDefault(predicate)` in ordered scenarios | `EmployeesQueryBehaviorTests.cs` | Public docs match this but should keep the existing advice to order explicitly. |
-| Unsupported tail/while operators | `TakeLast`, `SkipLast`, `TakeWhile`, `SkipWhile` throw `NotSupportedException` | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
+| Unsupported tail/while operators | `TakeLast`, `SkipLast`, `TakeWhile`, `SkipWhile` throw `QueryTranslationException` | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
 | Scalar aggregates | `Sum`, `Min`, `Max`, `Average` over direct numeric members, nullable numeric members, nullable `.Value`, and filtered sequences | `Translation/EmployeesAggregateTranslationTests.cs` | The boundary is narrow: no computed selector aggregates or relation-property aggregates. Grouped aggregate projection is tracked separately below. |
 
 ## Ordering, Paging, and Projection

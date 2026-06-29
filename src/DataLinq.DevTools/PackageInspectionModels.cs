@@ -11,6 +11,8 @@ public enum PackageInspectionFindingKind
     MissingSymbolPackage,
     RuntimeRoslynDependency,
     RuntimeRoslynAsset,
+    RuntimeRemotionDependency,
+    RuntimeRemotionAsset,
     AnalyzerAssetLeak,
     MissingAnalyzerAsset
 }
@@ -23,6 +25,7 @@ public sealed record PackageInspectionOptions(
     bool FailOnUnexpectedPackage,
     bool FailOnMissingSymbolPackage,
     bool FailOnRuntimeRoslyn,
+    bool FailOnRuntimeRemotion,
     bool FailOnAnalyzerAssetLeak);
 
 public sealed record PackageInspectionReport(

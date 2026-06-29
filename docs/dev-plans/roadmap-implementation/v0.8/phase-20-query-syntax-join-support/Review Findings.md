@@ -6,7 +6,7 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-**Current status:** One open unsupported-shape diagnostics finding.
+**Current status:** Resolved in the review-follow-up pass.
 
 ## Findings
 
@@ -32,6 +32,15 @@ That is not the focused parser diagnostic promised by the phase, and it leaves a
 
 Expected fix: when a projection is being built from a transparent identifier, accept only `SqlRow` projections whose members bind to source-slot values. Reject `JoinedRowLocal`/client-expression projections at parse time with a query-syntax-specific `QueryTranslationException`, and add unsupported-shape coverage for computed query-syntax join projections.
 
+## Resolution Notes
+
+Resolved in the review-follow-up pass:
+
+- `ExpressionQueryPlanParser.ParseSelect(...)` now rejects row-local computed projections built from transparent identifiers with a query-syntax-specific `QueryTranslationException`.
+- `QueryPlanUnsupportedShapeTests.ParserRejectsComputedQuerySyntaxJoinProjection` covers the compiler-lowered transparent-identifier shape by including a `where` clause before the computed projection.
+
+Focused verification: `QueryPlanUnsupportedShapeTests` passed 8/8 on the quick SQLite provider batch, and `EmployeesJoinTranslationTests` passed 64/64 across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
+
 ## Review Notes
 
 - Supported query-syntax inner joins lower cleanly to the existing source-slot join model.
@@ -52,4 +61,4 @@ Focused verification passed for the existing asserted coverage:
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSqlParityTests/*" --output failures --build
 ```
 
-The join suite passed 64/64 across active provider batches (`sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mariadb-11.8`). The unsupported-shape suite passed 14/14, but it does not currently include this computed query-syntax projection case.
+The join suite passed 64/64 across active provider batches (`sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mariadb-11.8`). The unsupported-shape suite passed 14/14 in the original review; the review-follow-up pass added the computed transparent-identifier projection case and passed the quick SQLite unsupported-shape slice 8/8.

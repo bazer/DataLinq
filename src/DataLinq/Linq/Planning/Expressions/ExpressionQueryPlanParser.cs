@@ -308,6 +308,16 @@ internal sealed class ExpressionQueryPlanParser
                     "Query-syntax join projections that return whole source entities are not supported by the DataLinq expression parser. " +
                     "Project scalar source members from the joined rows instead.");
             }
+
+            if (parsed.Projection is QueryPlanProjection.TransparentIdentifier &&
+                projection is QueryPlanProjection.JoinedRowLocal or
+                    QueryPlanProjection.Anonymous or
+                    QueryPlanProjection.ComputedRowLocal)
+            {
+                throw new QueryTranslationException(
+                    "Query-syntax join projections over transparent identifiers support only SQL-backed projection rows. " +
+                    "Project mapped source members directly, or materialize before applying computed row-local projection expressions.");
+            }
         }
         else
         {

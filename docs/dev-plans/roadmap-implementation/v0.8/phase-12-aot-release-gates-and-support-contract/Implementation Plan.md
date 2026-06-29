@@ -22,7 +22,7 @@ Current host-side browser evidence at `artifacts/dev/compat-size-report/20260628
 Compatibility runtime and payload evidence:
 
 ```powershell
-.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- size-report --targets phase8c --clean-output --release-thresholds --fail-on-banned-payload --format markdown
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- size-report --targets phase8c --clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload --format markdown
 ```
 
 Package evidence after packing release packages:

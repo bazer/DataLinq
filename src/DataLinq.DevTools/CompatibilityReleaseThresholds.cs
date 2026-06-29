@@ -39,6 +39,12 @@ public static class CompatibilityReleaseThresholds
                 break;
 
             case CompatibilityTargetKind.Wasm:
+                AddMissingBrotliWarning(
+                    warnings,
+                    target,
+                    brotliAssets,
+                    "release-wasm-no-aot-brotli-assets",
+                    "Blazor WebAssembly no-AOT Brotli assets");
                 AddSizeWarning(
                     warnings,
                     "release-wasm-no-aot-brotli-size",
@@ -48,6 +54,12 @@ public static class CompatibilityReleaseThresholds
                 break;
 
             case CompatibilityTargetKind.WasmAot:
+                AddMissingBrotliWarning(
+                    warnings,
+                    target,
+                    brotliAssets,
+                    "release-wasm-aot-brotli-assets",
+                    "Blazor WebAssembly AOT Brotli assets");
                 AddSizeWarning(
                     warnings,
                     "release-wasm-aot-brotli-size",
@@ -89,6 +101,24 @@ public static class CompatibilityReleaseThresholds
         };
 
         return candidates.FirstOrDefault(File.Exists);
+    }
+
+    private static void AddMissingBrotliWarning(
+        List<CompatibilityThresholdFinding> warnings,
+        CompatibilityTargetDefinition target,
+        CompatibilityCompressedAssetSummary brotliAssets,
+        string metric,
+        string label)
+    {
+        if (brotliAssets.FileCount > 0)
+            return;
+
+        warnings.Add(new CompatibilityThresholdFinding(
+            metric,
+            0,
+            1,
+            "warning",
+            $"{label} are missing for target '{target.Name}', so the browser payload gate has no compressed deploy evidence."));
     }
 
     private static void AddSizeWarning(

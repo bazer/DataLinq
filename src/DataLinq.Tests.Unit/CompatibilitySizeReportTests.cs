@@ -95,6 +95,10 @@ public class CompatibilitySizeReportTests
             .IsEqualTo(CompatibilityWarningOwner.ThirdPartyDependency);
         await Assert.That(CompatibilityWarningClassifier.Classify(wasmTarget, wasmWarning))
             .IsEqualTo(CompatibilityWarningOwner.SdkOrWebAssembly);
+        await Assert.That(CompatibilityWarningClassifier.Classify(wasmTarget, datalinqWarning))
+            .IsEqualTo(CompatibilityWarningOwner.DataLinqOwned);
+        await Assert.That(CompatibilityWarningClassifier.Classify(wasmTarget, thirdPartyWarning))
+            .IsEqualTo(CompatibilityWarningOwner.ThirdPartyDependency);
     }
 
     [Test]
@@ -148,6 +152,22 @@ public class CompatibilitySizeReportTests
 
         await Assert.That(CompatibilityWarningClassifier.ClassifyFailure(nativeAotTarget, commandResult))
             .IsEqualTo(CompatibilityFailureClassification.SdkOrWebAssemblyToolchain);
+    }
+
+    [Test]
+    public async Task ReleaseThresholds_FlagMissingWebAssemblyBrotliAssets()
+    {
+        var wasmTarget = CompatibilityTargetCatalog
+            .GetTargets("phase8c", [CompatibilityTargetKind.WasmAot])[0];
+
+        var warnings = CompatibilityReleaseThresholds.FindWarnings(
+            wasmTarget,
+            publishDirectory: AppContext.BaseDirectory,
+            new CompatibilityPayloadSizeSummary(0, 0, 0),
+            new CompatibilityCompressedAssetSummary(".br", 0, 0));
+
+        await Assert.That(warnings.Select(static warning => warning.Metric))
+            .Contains("release-wasm-aot-brotli-assets");
     }
 
     [Test]
@@ -251,6 +271,55 @@ public class CompatibilitySizeReportTests
         }
     }
 
+    [Test]
+    public async Task PackageInspector_FlagsRuntimeRemotionLeaks()
+    {
+        var root = Path.Combine(
+            AppContext.BaseDirectory,
+            "PackageInspectorTests",
+            Guid.NewGuid().ToString("N"));
+        var packageDirectory = Path.Combine(root, "packages");
+
+        try
+        {
+            Directory.CreateDirectory(packageDirectory);
+            WritePackage(
+                Path.Combine(packageDirectory, "DataLinq.1.0.0.nupkg"),
+                "DataLinq",
+                "1.0.0",
+                """
+                <dependencies>
+                  <group targetFramework="net10.0">
+                    <dependency id="Remotion.Linq" version="2.2.0" />
+                  </group>
+                </dependencies>
+                """,
+                [
+                    "lib/net10.0/DataLinq.dll",
+                    "lib/net10.0/Remotion.Linq.dll",
+                    "analyzers/dotnet/cs/DataLinq.Generators.dll"
+                ]);
+            WritePackage(
+                Path.Combine(packageDirectory, "DataLinq.1.0.0.snupkg"),
+                "DataLinq",
+                "1.0.0",
+                "",
+                ["lib/net10.0/DataLinq.pdb"]);
+
+            var report = CreatePackageReport(root, packageDirectory, PackageSet("DataLinq"), PackageSet("DataLinq"));
+            var findingKinds = report.Findings.Select(static finding => finding.Kind).ToArray();
+
+            await Assert.That(report.Summary.HasHardFailures).IsTrue();
+            await Assert.That(findingKinds).Contains(PackageInspectionFindingKind.RuntimeRemotionDependency);
+            await Assert.That(findingKinds).Contains(PackageInspectionFindingKind.RuntimeRemotionAsset);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static void WriteFile(string path, int byteCount)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -272,6 +341,7 @@ public class CompatibilitySizeReportTests
             FailOnUnexpectedPackage: true,
             FailOnMissingSymbolPackage: true,
             FailOnRuntimeRoslyn: true,
+            FailOnRuntimeRemotion: true,
             FailOnAnalyzerAssetLeak: true);
 
         return new PackageInspector(paths, options).CreateReport();

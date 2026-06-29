@@ -6,7 +6,7 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-**Current status:** Open documentation findings. No runtime query-regression finding was identified in this pass.
+**Current status:** Resolved in the review-follow-up pass. No runtime query-regression finding was identified in this pass.
 
 ## Findings
 
@@ -32,6 +32,13 @@ That was true at Phase 1 closeout. It is not true for the current branch:
 The audit is roadmap execution history, so this is not a product-doc bug. But the wording now reads as current state unless the reader already knows the later phases. That is exactly the kind of historical-plan ambiguity that causes bad follow-up work.
 
 Expected fix: reword that section to "Known behavior decisions at Phase 1 closeout" and add a short note that Phase 13 and Phase 13B supersede the post-paging and narrow grouped aggregate entries.
+
+## Resolution Notes
+
+Resolved in the review-follow-up pass:
+
+- `docs/Supported LINQ Queries.md` and `docs/support-matrices/LINQ Translation Support Matrix.md` now document `QueryTranslationException` for `TakeLast(...)`, `SkipLast(...)`, `TakeWhile(...)`, and `SkipWhile(...)`.
+- `Query Contract Audit.md` now labels the stale behavior list as Phase 1 closeout history and explicitly notes that Phase 13 and Phase 13B supersede the post-paging and narrow grouped aggregate entries.
 
 ## Review Notes
 

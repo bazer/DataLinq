@@ -64,8 +64,8 @@
     private string? error;
     private string stage = "starting";
 
-    private string StatusText => error is not null ? "failed" : result?.Passed == true ? "passed" : "running";
-    private string StatusClass => error is not null ? "failed" : result?.Passed == true ? "passed" : "running";
+    private string StatusText => error is not null ? "failed" : result is null ? "running" : result.Passed ? "passed" : "failed";
+    private string StatusClass => StatusText;
 
     protected override async Task OnInitializedAsync()
     {

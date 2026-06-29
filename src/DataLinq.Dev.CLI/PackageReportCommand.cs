@@ -56,6 +56,10 @@ internal static class PackageReportCommand
         {
             Description = "Do not fail when runtime packages reference or contain Microsoft.CodeAnalysis payloads."
         };
+        var allowRuntimeRemotionOption = new Option<bool>("--allow-runtime-remotion")
+        {
+            Description = "Do not fail when runtime packages reference or contain Remotion payloads."
+        };
         var allowAnalyzerLeaksOption = new Option<bool>("--allow-analyzer-leaks")
         {
             Description = "Do not fail when analyzer payloads are missing or outside analyzer assets."
@@ -73,6 +77,7 @@ internal static class PackageReportCommand
         command.Options.Add(allowUnexpectedPackagesOption);
         command.Options.Add(allowMissingSymbolsOption);
         command.Options.Add(allowRuntimeRoslynOption);
+        command.Options.Add(allowRuntimeRemotionOption);
         command.Options.Add(allowAnalyzerLeaksOption);
         command.Options.Add(formatOption);
 
@@ -89,6 +94,7 @@ internal static class PackageReportCommand
                 !parseResult.GetValue(allowUnexpectedPackagesOption),
                 !parseResult.GetValue(allowMissingSymbolsOption),
                 !parseResult.GetValue(allowRuntimeRoslynOption),
+                !parseResult.GetValue(allowRuntimeRemotionOption),
                 !parseResult.GetValue(allowAnalyzerLeaksOption));
 
             var inspector = new PackageInspector(settings.Paths, options);

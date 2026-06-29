@@ -6,7 +6,7 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-**Current status:** Open findings in the browser proof tooling. The docs correctly avoid claiming browser AOT support while current evidence is red.
+**Current status:** Resolved in the review-follow-up pass. The docs correctly avoid claiming browser AOT support while current evidence is red.
 
 ## Findings
 
@@ -30,6 +30,16 @@ Most modern browser runs prefer Brotli, so this can stay hidden. It still makes 
 
 Expected fix: return both the content-encoding header value and the file extension from content negotiation, or map `"gzip"` to `".gz"` when choosing the on-disk file.
 
+## Resolution Notes
+
+Resolved in the review-follow-up pass:
+
+- `BrowserSmokeRunner` now fails promptly when Playwright page errors or captured runtime console errors appear, while still including snapshots, console output, page errors, and DOM/smoke-result text in the log.
+- `DataLinq.BlazorWasm/Pages/Home.razor` now reports `result.Passed == false` as `failed` instead of leaving the browser poller in `running`.
+- The static smoke server now keeps the HTTP `Content-Encoding: gzip` header separate from the on-disk `.gz` extension.
+
+Focused verification included `DataLinq.Dev.CLI` build, `DataLinq.BlazorWasm` build, and the compatibility unit slice.
+
 ## Review Notes
 
 - The major Phase 8 direction is correct: browser runtime support must be proven through an HTTP-served browser run, not inferred from `dotnet publish`.
@@ -46,8 +56,10 @@ rg -n "StatusText|Passed|timed out|pageErrors|SelectContentEncoding|\\.gz|gzip" 
 Get-Content artifacts\dev\compat-size-report\20260628-163740998\wasm-aot\browser-smoke.log
 ```
 
-The build passed in delegated review. A delegated unit-suite rerun was blocked by a locked `src\DataLinq.CLI\obj\Debug\net10.0\DataLinq.CLI.dll`; rerun the unit filter after closing the locking `dotnet.exe`:
+The build passed in delegated review. The review-follow-up pass also reran the compatibility unit slice successfully:
 
 ```powershell
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CompatibilitySizeReportTests/*" --output failures --build
 ```
+
+Result: passed 9/9.

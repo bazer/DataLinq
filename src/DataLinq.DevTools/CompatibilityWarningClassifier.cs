@@ -54,19 +54,6 @@ public static class CompatibilityWarningClassifier
             return CompatibilityWarningOwner.UnsupportedNoAot;
         }
 
-        if (target.IsWebAssembly ||
-            warning.Code?.StartsWith("WASM", StringComparison.OrdinalIgnoreCase) == true ||
-            ContainsAny(
-                combined,
-                "WebAssembly",
-                "wasm",
-                "MarshalingPInvokeScanner",
-                "Emscripten",
-                "Microsoft.NET.Sdk.WebAssembly"))
-        {
-            return CompatibilityWarningOwner.SdkOrWebAssembly;
-        }
-
         if (ContainsAny(
             combined,
             ".nuget",
@@ -86,12 +73,27 @@ public static class CompatibilityWarningClassifier
             return CompatibilityWarningOwner.DataLinqOwned;
         }
 
+        if (warning.Code?.StartsWith("WASM", StringComparison.OrdinalIgnoreCase) == true ||
+            ContainsAny(
+                combined,
+                "WebAssembly",
+                "wasm",
+                "MarshalingPInvokeScanner",
+                "Emscripten",
+                "Microsoft.NET.Sdk.WebAssembly"))
+        {
+            return CompatibilityWarningOwner.SdkOrWebAssembly;
+        }
+
         if (warning.Code?.StartsWith("NETSDK", StringComparison.OrdinalIgnoreCase) == true ||
             warning.Code?.StartsWith("IL", StringComparison.OrdinalIgnoreCase) == true ||
             ContainsAny(combined, "Microsoft.NET.Sdk", "ILLink"))
         {
             return CompatibilityWarningOwner.SdkOrWebAssembly;
         }
+
+        if (target.IsWebAssembly)
+            return CompatibilityWarningOwner.SdkOrWebAssembly;
 
         return CompatibilityWarningOwner.Other;
     }

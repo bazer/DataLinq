@@ -6,7 +6,7 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-**Current status:** One open diagnostics-test finding.
+**Current status:** Resolved in the review-follow-up pass.
 
 ## Findings
 
@@ -23,6 +23,14 @@ Collection relation property 'Managers' is not supported as a row-local LINQ Sel
 That actual diagnostic is better than the old one; the problem is the stale exact-case assertion. Because this is an active compliance test class, a focused diagnostics run now fails on all active provider targets even though the product behavior is still a clean `QueryTranslationException`.
 
 Expected fix: update the unsupported-diagnostics assertion to accept the current relation-object projection wording, preferably by checking `"Collection relation property 'Managers'"` and `"LINQ Select projection"` rather than the older generic `"Relation property 'Managers'"` fragment.
+
+## Resolution Notes
+
+Resolved in the review-follow-up pass:
+
+- `EmployeesUnsupportedQueryDiagnosticsTests.UnsupportedRelationSelectorThrowsQueryTranslationException` now asserts `"Collection relation property 'Managers'"` and `"LINQ Select projection"`, matching the current more precise diagnostic.
+
+Focused verification: `EmployeesUnsupportedQueryDiagnosticsTests` passed 36/36 across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
 
 ## Review Notes
 

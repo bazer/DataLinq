@@ -58,7 +58,7 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
             () => databaseScope.Database.Query().Departments
                 .Select(x => x.Managers)
                 .ToList(),
-            "Relation property 'Managers'",
+            "Collection relation property 'Managers'",
             "LINQ Select projection");
     }
 

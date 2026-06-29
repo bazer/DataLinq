@@ -223,6 +223,15 @@ public sealed class PackageInspector
                         group.TargetFramework,
                         $"Runtime dependency group references Roslyn package '{dependency.Id}'."));
                 }
+
+                foreach (var dependency in group.Dependencies.Where(static dependency => IsRemotionPackageId(dependency.Id)))
+                {
+                    findings.Add(new PackageInspectionFinding(
+                        PackageInspectionFindingKind.RuntimeRemotionDependency,
+                        package.Id,
+                        group.TargetFramework,
+                        $"Runtime dependency group references Remotion package '{dependency.Id}'."));
+                }
             }
 
             foreach (var asset in package.Assets.LibFiles.Concat(package.Assets.RuntimeFiles)
@@ -233,6 +242,16 @@ public sealed class PackageInspector
                     package.Id,
                     null,
                     $"Runtime package contains Roslyn payload asset '{asset}'."));
+            }
+
+            foreach (var asset in package.Assets.LibFiles.Concat(package.Assets.RuntimeFiles)
+                         .Where(static asset => Path.GetFileName(asset).StartsWith("Remotion.", StringComparison.OrdinalIgnoreCase)))
+            {
+                findings.Add(new PackageInspectionFinding(
+                    PackageInspectionFindingKind.RuntimeRemotionAsset,
+                    package.Id,
+                    null,
+                    $"Runtime package contains Remotion payload asset '{asset}'."));
             }
 
             foreach (var asset in package.Assets.LibFiles.Concat(package.Assets.RuntimeFiles)
@@ -272,6 +291,8 @@ public sealed class PackageInspector
             PackageInspectionFindingKind.MissingSymbolPackage => options.FailOnMissingSymbolPackage,
             PackageInspectionFindingKind.RuntimeRoslynDependency or
                 PackageInspectionFindingKind.RuntimeRoslynAsset => options.FailOnRuntimeRoslyn,
+            PackageInspectionFindingKind.RuntimeRemotionDependency or
+                PackageInspectionFindingKind.RuntimeRemotionAsset => options.FailOnRuntimeRemotion,
             PackageInspectionFindingKind.AnalyzerAssetLeak or
                 PackageInspectionFindingKind.MissingAnalyzerAsset => options.FailOnAnalyzerAssetLeak,
             _ => false
@@ -420,6 +441,10 @@ public sealed class PackageInspector
 
     private static bool IsRoslynPackageId(string packageId) =>
         packageId.StartsWith("Microsoft.CodeAnalysis", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRemotionPackageId(string packageId) =>
+        packageId.Equals("Remotion.Linq", StringComparison.OrdinalIgnoreCase) ||
+        packageId.StartsWith("Remotion.", StringComparison.OrdinalIgnoreCase);
 
     private static string CreateReportDirectory(string artifactRoot)
     {

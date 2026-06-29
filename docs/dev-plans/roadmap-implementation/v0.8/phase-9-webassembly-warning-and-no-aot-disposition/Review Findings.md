@@ -6,7 +6,7 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-**Current status:** One open warning-diagnostics finding. No stale public browser support claim was found.
+**Current status:** Resolved in the review-follow-up pass. No stale public browser support claim was found.
 
 ## Findings
 
@@ -21,6 +21,15 @@ The current unit coverage only proves that a `WASM0001` warning on a WASM target
 This is not a release blocker by itself because the current docs still require manual symbol/call-path disposition for `SQLitePCLRaw`. But the report's owner summary is less useful than Phase 9 says it is.
 
 Expected fix: classify by warning content and project/package ownership before falling back to target-level WebAssembly ownership. Add tests for DataLinq-owned, third-party, and `WASM0001` diagnostics on WebAssembly targets.
+
+## Resolution Notes
+
+Resolved in the review-follow-up pass:
+
+- `CompatibilityWarningClassifier` now classifies explicit third-party and DataLinq-owned diagnostics before falling back to target-level WebAssembly ownership.
+- `CompatibilitySizeReportTests.WarningClassifier_SplitsDataLinqThirdPartyAndWasmWarnings` now covers DataLinq-owned, third-party, and `WASM0001` diagnostics on WebAssembly targets.
+
+Focused verification: `CompatibilitySizeReportTests` passed 9/9.
 
 ## Review Notes
 

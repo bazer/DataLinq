@@ -172,38 +172,11 @@ internal static class ExpressionQueryPlanExecutor
 
     private static TResult ExecuteScalar<TResult>(DataSourceAccess dataSource, DataLinqQueryPlan plan)
     {
-        if (RequiresPagedSequenceReduction(plan))
-        {
-            var pagedResult = ExecutePagedSequenceReduction(dataSource, plan);
-            return ConvertScalarResult<TResult>(pagedResult, plan.Result);
-        }
-
         var select = new QueryPlanSqlBuilder(plan, dataSource)
             .BuildSelect<TResult>();
         var result = select.ExecuteScalar();
 
         return ConvertScalarResult<TResult>(result, plan.Result);
-    }
-
-    private static bool RequiresPagedSequenceReduction(DataLinqQueryPlan plan)
-        => plan.Projection is not QueryPlanProjection.GroupedAggregate &&
-           plan.Result.Kind is QueryPlanResultKind.Count or QueryPlanResultKind.Any &&
-           plan.Operations.Any(static operation => operation is QueryPlanOperation.Skip or QueryPlanOperation.Take);
-
-    private static object ExecutePagedSequenceReduction(DataSourceAccess dataSource, DataLinqQueryPlan plan)
-    {
-        var rootSource = plan.Sources.First(static source => source.Kind == QueryPlanSourceKind.RootTable);
-        var sequencePlan = new DataLinqQueryPlan(
-            plan.Sources,
-            plan.Operations,
-            new QueryPlanProjection.Entity(rootSource),
-            QueryPlanResult.Sequence(rootSource.ElementType),
-            plan.Bindings);
-        var rows = ExecuteEntityRows(dataSource, sequencePlan);
-
-        return plan.Result.Kind == QueryPlanResultKind.Any
-            ? rows.Any() ? 1 : 0
-            : rows.Count();
     }
 
     private static IEnumerable<TElement> ExecuteProjectedSequence<TElement>(

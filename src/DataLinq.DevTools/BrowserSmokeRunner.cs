@@ -154,6 +154,23 @@ public static class BrowserSmokeRunner
                         pageErrors));
             }
 
+            if (HasBrowserRuntimeFailure(consoleMessages, pageErrors))
+            {
+                var classification = ClassifyBrowserFailure(consoleMessages, pageErrors, lastSnapshot);
+                return BrowserSmokeRunResult.Failed(
+                    classification,
+                    $"Browser smoke failed at '{lastSnapshot.Stage}' after browser runtime errors.",
+                    BuildLog(
+                        target,
+                        publishDirectory,
+                        server.BaseUrl,
+                        browserPath,
+                        stopwatch.Elapsed,
+                        snapshots,
+                        consoleMessages,
+                        pageErrors));
+            }
+
             await Task.Delay(TimeSpan.FromMilliseconds(250));
         }
 
@@ -207,6 +224,8 @@ public static class BrowserSmokeRunner
                 const smoke = document.querySelector("[data-datalinq-smoke-status]");
                 const smokeStatus = smoke && smoke.getAttribute("data-datalinq-smoke-status");
                 const bootStatus = boot && boot.dataset && boot.dataset.status;
+                const smokeResult = document.getElementById("datalinq-smoke-result");
+                const smokeResultText = smokeResult && smokeResult.textContent;
                 const status = bootStatus === "failed"
                     ? "failed"
                     : smokeStatus ||
@@ -225,7 +244,9 @@ public static class BrowserSmokeRunner
                 return JSON.stringify({
                     status,
                     stage,
-                    text: document.body ? document.body.innerText : "",
+                    text: [document.body ? document.body.innerText : "", smokeResultText || ""]
+                        .filter(Boolean)
+                        .join("\n"),
                     logs
                 });
             }
@@ -278,6 +299,25 @@ public static class BrowserSmokeRunner
 
     private static bool ContainsAny(string value, params string[] needles) =>
         needles.Any(needle => value.Contains(needle, StringComparison.OrdinalIgnoreCase));
+
+    private static bool HasBrowserRuntimeFailure(
+        IReadOnlyCollection<string> consoleMessages,
+        IReadOnlyCollection<string> pageErrors)
+    {
+        if (pageErrors.Count > 0)
+            return true;
+
+        return consoleMessages.Any(static message =>
+            message.StartsWith("error:", StringComparison.OrdinalIgnoreCase) &&
+            ContainsAny(
+                message,
+                "RuntimeError",
+                "MONO_WASM",
+                "function signature mismatch",
+                "SQLitePCLRaw",
+                "WebAssembly",
+                "wasm"));
+    }
 
     private static string BuildLog(
         CompatibilityTargetDefinition target,
@@ -456,7 +496,7 @@ public static class BrowserSmokeRunner
                 var contentEncoding = SelectContentEncoding(context.Request, filePath);
 
                 if (contentEncoding is not null)
-                    filePath += $".{contentEncoding}";
+                    filePath += contentEncoding.FileExtension;
 
                 if (!File.Exists(filePath))
                 {
@@ -472,7 +512,7 @@ public static class BrowserSmokeRunner
                 context.Response.Headers["Cache-Control"] = "no-store";
 
                 if (contentEncoding is not null)
-                    context.Response.Headers["Content-Encoding"] = contentEncoding;
+                    context.Response.Headers["Content-Encoding"] = contentEncoding.HeaderValue;
 
                 await context.Response.OutputStream.WriteAsync(bytes, cancellationToken);
             }
@@ -518,19 +558,19 @@ public static class BrowserSmokeRunner
                     !Path.IsPathRooted(relativePath));
         }
 
-        private static string? SelectContentEncoding(HttpListenerRequest request, string filePath)
+        private static ContentEncodingSelection? SelectContentEncoding(HttpListenerRequest request, string filePath)
         {
             var acceptEncoding = request.Headers["Accept-Encoding"] ?? string.Empty;
             if (acceptEncoding.Contains("br", StringComparison.OrdinalIgnoreCase) &&
                 File.Exists(filePath + ".br"))
             {
-                return "br";
+                return new ContentEncodingSelection("br", ".br");
             }
 
             if (acceptEncoding.Contains("gzip", StringComparison.OrdinalIgnoreCase) &&
                 File.Exists(filePath + ".gz"))
             {
-                return "gzip";
+                return new ContentEncodingSelection("gzip", ".gz");
             }
 
             return null;
@@ -563,6 +603,8 @@ public static class BrowserSmokeRunner
             listener.Start();
             return ((IPEndPoint)listener.LocalEndpoint).Port;
         }
+
+        private sealed record ContentEncodingSelection(string HeaderValue, string FileExtension);
     }
 
     private static class BrowserLocator

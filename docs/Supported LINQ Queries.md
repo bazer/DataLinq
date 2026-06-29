@@ -483,7 +483,7 @@ That is useful when you already know the key and do not need a query pipeline.
 
 ## Known Unsupported Operators
 
-The test suite explicitly expects `NotSupportedException` for:
+The test suite explicitly expects `QueryTranslationException` for:
 
 - `TakeLast(...)`
 - `SkipLast(...)`

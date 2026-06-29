@@ -112,6 +112,32 @@ public class QueryPlanUnsupportedShapeTests
     }
 
     [Test]
+    public async Task ParserRejectsComputedQuerySyntaxJoinProjection()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ParserRejectsComputedQuerySyntaxJoinProjection),
+            EmployeesSeedMode.Bogus);
+
+        var query =
+            from departmentEmployee in databaseScope.Database.Query().DepartmentEmployees
+            join department in databaseScope.Database.Query().Departments
+                on departmentEmployee.dept_no equals department.DeptNo
+            where department.Name.Contains("e")
+            select new
+            {
+                Label = departmentEmployee.dept_no + ":" + department.Name
+            };
+
+        var exception = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("transparent identifiers");
+        await Assert.That(exception.Message).Contains("SQL-backed projection rows");
+    }
+
+    [Test]
     public async Task ParserRejectsRelationPropertyProjection()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

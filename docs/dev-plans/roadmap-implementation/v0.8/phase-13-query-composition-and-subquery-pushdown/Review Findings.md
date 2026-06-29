@@ -6,7 +6,7 @@
 
 **Implementation plan:** [Implementation Plan.md](./Implementation%20Plan.md).
 
-**Current status:** One runtime/evidence finding and one documentation/evidence finding remain open.
+**Current status:** Resolved in the review-follow-up pass.
 
 ## Findings
 
@@ -31,6 +31,16 @@ There is also a small evidence gap against the plan checklist. `Implementation P
 The parser likely handles those shapes through the same generic `PushDownPostPagingOperations(...)` path. This is not a runtime finding from this pass. It is a README wording issue plus a test-evidence gap against the phase's own checklist.
 
 Expected fix: update the README to say Phase 13 implemented the supported single-source post-paging pushdown boundary, and add direct tests for `Take(...).OrderBy(...)` and `Skip(...).OrderBy(...)` or explicitly remove them from the completed checklist.
+
+## Resolution Notes
+
+Resolved in the review-follow-up pass:
+
+- `ExpressionQueryPlanExecutor` no longer contains the materialize-and-count fallback for paged `Count()`/`Any()`.
+- `QueryPlanSqlParityTests` now covers paged `Count()` and `Any()` SQL scalar pushdown, plus direct `Take(...).OrderBy(...)` and `Skip(...).OrderBy(...)` SQL-shape evidence.
+- The Phase 13 README now states that the implemented boundary supports single-source post-paging pushdown instead of describing the old rejection boundary as current.
+
+Focused verification: `QueryPlanSqlParityTests` passed 32/32 on the quick SQLite provider batch, then passed 64/64 across `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
 
 ## Review Notes
 

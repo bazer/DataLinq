@@ -234,6 +234,69 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    public async Task ExpressionPlanSql_RendersPagedCountAndAnyAsSqlScalarPushdown()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionPlanSql_RendersPagedCountAndAnyAsSqlScalarPushdown),
+            EmployeesSeedMode.Bogus);
+
+        var countSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
+            databaseScope.Database,
+            () => databaseScope.Database.Query().Employees
+                .OrderBy(x => x.emp_no)
+                .Take(5)
+                .Count());
+        var anySql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
+            databaseScope.Database,
+            () => databaseScope.Database.Query().Employees
+                .OrderBy(x => x.emp_no)
+                .Skip(5)
+                .Take(5)
+                .Any());
+
+        var countNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(countSql.Text);
+        var anyNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(anySql.Text);
+
+        await Assert.That(countNormalized).Contains("SELECT COUNT(*)");
+        await Assert.That(countNormalized).Contains("FROM (SELECT");
+        await Assert.That(countNormalized).Contains("LIMIT 5");
+        await Assert.That(anyNormalized).Contains("SELECT COUNT(*)");
+        await Assert.That(anyNormalized).Contains("FROM (SELECT");
+        await Assert.That(anyNormalized).Contains("LIMIT 5");
+    }
+
+    [Test]
+    public async Task ExpressionPlanSql_RendersDirectPostPagingOrderByPushdown()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionPlanSql_RendersDirectPostPagingOrderByPushdown),
+            EmployeesSeedMode.Bogus);
+
+        var takeOrderSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees
+                .Take(5)
+                .OrderBy(x => x.emp_no));
+        var skipOrderSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees
+                .Skip(5)
+                .OrderBy(x => x.emp_no));
+
+        var takeOrderNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(takeOrderSql.Text);
+        var skipOrderNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(skipOrderSql.Text);
+
+        await Assert.That(takeOrderNormalized).Contains("FROM (SELECT");
+        await Assert.That(takeOrderNormalized).Contains("LIMIT 5");
+        await Assert.That(takeOrderNormalized).Contains("ORDER BY t0.");
+        await Assert.That(skipOrderNormalized).Contains("FROM (SELECT");
+        await Assert.That(skipOrderNormalized).Contains("OFFSET 5");
+        await Assert.That(skipOrderNormalized).Contains("ORDER BY t0.");
+    }
+
+    [Test]
     public async Task ExpressionPlanSql_RendersJoinedPostPagingPushdownWithDerivedAliases()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

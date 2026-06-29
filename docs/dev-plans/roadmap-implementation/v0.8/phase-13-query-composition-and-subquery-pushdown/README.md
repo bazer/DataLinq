@@ -8,7 +8,7 @@
 
 Phase 13 makes DataLinq preserve LINQ operator order for ordering, filtering, paging, and scalar result operators before joins widen the same machinery.
 
-The current documented boundary deliberately rejects post-paging filters and orderings because flattening the final SQL clause order would be wrong. For example:
+The implemented Phase 13 boundary supports single-source post-paging filters, orderings, and scalar reductions by inserting a derived-source boundary when flattening final SQL clause order would be wrong. For example:
 
 ```csharp
 var q = db.Query();
@@ -20,7 +20,7 @@ var rows = q.Employees
     .ToList();
 ```
 
-The last `OrderBy(...)` is not the same as replacing the first `ORDER BY`. It orders the already-limited ten-row source. SQL needs a subquery boundary to preserve the C# meaning.
+The last `OrderBy(...)` is not the same as replacing the first `ORDER BY`. It orders the already-limited ten-row source. DataLinq renders that shape with a subquery boundary to preserve the C# meaning.
 
 This phase should also make query-root ownership explicit. Every supported query command must work from the generated read-only query root and from a transaction-local query root:
 
