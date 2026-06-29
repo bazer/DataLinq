@@ -59,7 +59,7 @@ The 0.8 parser-removal track is implemented in the current branch. The productio
 
 That is not the same thing as a general LINQ-provider rewrite. The support boundary is still the documented tested subset, and unsupported shapes should fail with specific `QueryTranslationException` diagnostics instead of falling back to silent client-side filtering.
 
-The internal 0.8 execution record started over at Phase 1 instead of continuing the old global roadmap numbering. That sequence is now closed through Phase 7: query contract baseline, temporary Remotion adapter, SQL generation on `DataLinqQueryPlan`, supported-subset expression parser, projection/local-evaluation cleanup, parity and constrained-platform switch, and Remotion dependency removal. Phases 8 through 12 now own the AOT/browser release gates, Phase 13 through Phase 19 cover implemented query-composition, grouped aggregate, join, grouped-row composition, advanced grouped-key/joined-grouping, and SQL-backed projection-row slices, and Phases 20 through 21 hold the remaining planned join completion work.
+The internal 0.8 execution record started over at Phase 1 instead of continuing the old global roadmap numbering. That sequence is now closed through Phase 7: query contract baseline, temporary Remotion adapter, SQL generation on `DataLinqQueryPlan`, supported-subset expression parser, projection/local-evaluation cleanup, parity and constrained-platform switch, and Remotion dependency removal. Phases 8 through 12 now own the AOT/browser release gates, Phase 13 through Phase 20 cover implemented query-composition, grouped aggregate, join, grouped-row composition, advanced grouped-key/joined-grouping, SQL-backed projection-row, and single query-syntax inner-join slices, and Phase 21 holds the remaining planned joined post-paging pushdown work.
 
 ### 0.8 Query Composition, Grouped Aggregates, and Join Completion
 
@@ -71,7 +71,6 @@ Now that the query plan exists, the next broad query feature priority after the 
 - SQL-backed `GroupBy(...)` support for single-source grouped aggregate projection, direct numeric grouped aggregate selectors, grouped-row composition, narrow `HAVING`, advanced grouped keys, and grouping over supported joined row shapes, without claiming materialized `IGrouping<TKey,TElement>` support
 - SQL-backed projection rows for direct source-slot values
 - implicit singular relation projection that binds to SQL aliases instead of lazy-loading relations inside `Select(...)`
-- C# query-syntax joins as a documented path
 - multiple explicit inner joins
 - filtering, ordering, paging, and result operators over joined row shapes
 - joined post-paging pushdown that preserves C# operator order after `Skip(...)` or `Take(...)`
@@ -82,7 +81,7 @@ Now that the query plan exists, the next broad query feature priority after the 
 - left joins with honest nullability behavior
 - clear documentation for `ON` versus `WHERE` semantics
 
-The first shipped join support is intentionally narrow. The next step is to make query-syntax joins a first-class tested path, and only then extend Phase 13-style pushdown over joined row shapes. Collection relation expansion should stay explicit through `JoinMany(...)` or query syntax; hidden row multiplication would be a bad trade even if it looks elegant in a demo.
+The first shipped join support is intentionally narrow, and single query-syntax inner joins are now a first-class tested path. The next step is to extend Phase 13-style pushdown over joined row shapes after `Skip(...)` or `Take(...)`. Collection relation expansion should stay explicit through `JoinMany(...)` or query syntax; hidden row multiplication would be a bad trade even if it looks elegant in a demo.
 
 ### Scalar Converters and Typed Keys
 

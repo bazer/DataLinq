@@ -110,15 +110,15 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 
 | Area | Currently tested support | Evidence | Audit notes |
 | --- | --- | --- | --- |
-| Inner `Join(...)` | one explicit inner join between two direct DataLinq query sources, direct member equality keys, nullable `.Value` key normalization, SQL-backed direct source-slot result projection from both sides, and composed `Where`, ordering, paging, `Any`, and `Count` over projected members that bind back to source-slot values | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | SQL-backed joined projection rows read aliases directly when every result member maps to a source-slot value. Joined predicates/orderings are SQL-backed only for projection members that map to source-slot values. |
-| Unsupported join shapes | composite anonymous-object keys, `GroupJoin(...)`, post-paging joined composition, relation-property joins, relation object/collection relation result projection, and non-bindable joined projection composition fail with `QueryTranslationException` | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | Outer joins, query-syntax transparent identifiers, scalar aggregates beyond joined `Any`/`Count`, and multi-join pipelines are outside the documented boundary. |
+| Inner `Join(...)` and single query-syntax inner join | one explicit inner join between two direct DataLinq query sources, direct member equality keys, nullable `.Value` key normalization, SQL-backed direct source-slot result projection from both sides, single query-syntax transparent-identifier binding, and composed `Where`, ordering, paging, `Any`, and `Count` over projected members that bind back to source-slot values | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | SQL-backed joined projection rows read aliases directly when every result member maps to a source-slot value. Joined predicates/orderings are SQL-backed only for projection members that map to source-slot values. |
+| Unsupported join shapes | composite anonymous-object keys, `GroupJoin(...)`, post-paging joined composition, relation-property joins, relation object/collection relation result projection, opaque transparent identifiers, and non-bindable joined projection composition fail with `QueryTranslationException` | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | Outer joins, multi-join pipelines, scalar aggregates beyond joined `Any`/`Count`, and query syntax that projects whole source entities are outside the documented boundary. |
 
 ## Unsupported or Not Yet Proven
 
 These shapes are intentionally not part of the documented support boundary today:
 
 - broad `GroupBy(...)` beyond the SQL-backed grouped aggregate row shapes documented above
-- `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, query-syntax transparent identifiers, and post-paging composition over explicit joined results
+- `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, opaque query-syntax transparent identifiers, and post-paging composition over explicit joined results
 - relation-property query expansion beyond documented one-to-many existence predicates and the documented singular implicit predicate/ordering/projection traversal
 - aggregate result operators over computed selectors, relation properties, or grouped aggregate shapes outside the documented direct numeric selector boundary
 - additional body clauses over pushed-down projections, joins, or grouped sources
@@ -207,3 +207,12 @@ Phase 19 adds SQL-backed projection row coverage:
 4. Transaction-root tests prove SQL-backed projection rows work from `transaction.Query()`.
 5. Snapshot tests record `sql-row` projection shape and implicit relation join sources.
 6. Unsupported diagnostics keep relation object projection, collection relation projection, nested provider queries, multi-hop traversal, and client methods outside the documented boundary.
+
+Phase 20 adds single query-syntax inner join coverage:
+
+1. Compiler-generated transparent identifiers bind back to DataLinq source slots for one inner join.
+2. Query-syntax `where`, `orderby`, paging, `Any()`, and `Count()` over joined rows reuse the explicit join composition model.
+3. Query-syntax `select new { ... }` rows materialize through SQL-backed projection aliases when every member maps to a source-slot value.
+4. Provider behavior tests compare query-syntax joins with in-memory LINQ across SQLite, MySQL, and MariaDB.
+5. Transaction-root tests prove supported query-syntax joins execute from `transaction.Query()`.
+6. Snapshot tests record query-syntax joins as ordinary source-slot joins with SQL-row projection.

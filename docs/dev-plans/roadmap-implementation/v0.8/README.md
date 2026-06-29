@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for the 0.8 development line. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # DataLinq 0.8 Roadmap
 
-**Status:** Parser-removal track complete through Phase 7; AOT/browser release gate tooling implemented through Phase 12; current browser AOT evidence fails at generated SQLite startup; query-composition hardening, grouped `Count()`, grouped numeric aggregate projection, grouped-row composition/HAVING, advanced grouped keys/joined grouping, SQL-backed projection rows, explicit two-source join composition, and implicit singular relation predicates/orderings/projections have landed as later query-runtime slices. The remaining 0.8 roadmap now includes query-syntax joins and joined post-paging pushdown before the next post-0.8 feature wave.
+**Status:** Parser-removal track complete through Phase 7; AOT/browser release gate tooling implemented through Phase 12; current browser AOT evidence fails at generated SQLite startup; query-composition hardening, grouped `Count()`, grouped numeric aggregate projection, grouped-row composition/HAVING, advanced grouped keys/joined grouping, SQL-backed projection rows, explicit two-source join composition, C# query-syntax inner joins, and implicit singular relation predicates/orderings/projections have landed as later query-runtime slices. The remaining 0.8 roadmap now includes joined post-paging pushdown before the next post-0.8 feature wave.
 
 **Created:** 2026-06-27.
 
@@ -48,10 +48,10 @@ That means browser AOT is release work, not a stretch note. Query-composition ha
 | Phase 17: Grouped Row Composition and HAVING | Implemented for bindable grouped aggregate row composition | `phase-17-grouped-row-composition-and-having/` | Makes grouped aggregate rows orderable, pageable, filterable, and able to express narrow SQL `HAVING` predicates. |
 | Phase 18: Advanced GroupBy Keys and Joined Grouping | Implemented for named SQL-renderable keys and supported joined grouping | `phase-18-advanced-groupby-keys-and-joined-grouping/` | Adds composite/computed SQL-renderable group keys and grouping over supported joined source-slot shapes. |
 | Phase 19: SQL-Backed Projection Rows and Implicit Relation Projection | Implemented for direct source-slot projection rows and supported implicit singular relation member projection | `phase-19-sql-backed-projection-rows-and-implicit-relation-projection/` | Adds direct SQL-backed projection row materialization and singular relation member projection without hidden lazy relation loading. |
-| Phase 20: Query-Syntax Join Support | Planned after SQL-backed projection rows | `phase-20-query-syntax-join-support/` | Makes C# query-syntax inner joins a documented and tested path over source-slot joins and transparent identifiers. |
+| Phase 20: Query-Syntax Join Support | Implemented for single C# query-syntax inner joins | `phase-20-query-syntax-join-support/` | Makes C# query-syntax inner joins a documented and tested path over source-slot joins and transparent identifiers. |
 | Phase 21: Joined Post-Paging Pushdown | Planned after query-syntax join support | `phase-21-joined-post-paging-pushdown/` | Extends Phase 13 operator-order pushdown to supported joined row shapes after `Skip(...)` or `Take(...)`. |
 
-Phases 1 through 7 are the coherent 0.8 parser-removal track. Phases 8 through 12 are the 0.8 AOT/browser release track. The release-track tooling is implemented, and the first fresh browser evidence found a real blocker: `wasm-aot` publishes on the host, then fails in Edge at `opening-generated-database` with `MONO_WASM: function signature mismatch`. Phase 13, Phase 13B, Phases 16 through 19, and Phases 14 through 15 are implemented query-runtime slices that followed that release-gate work. Phases 20 through 21 then return to query-syntax joins and joined post-paging pushdown.
+Phases 1 through 7 are the coherent 0.8 parser-removal track. Phases 8 through 12 are the 0.8 AOT/browser release track. The release-track tooling is implemented, and the first fresh browser evidence found a real blocker: `wasm-aot` publishes on the host, then fails in Edge at `opening-generated-database` with `MONO_WASM: function signature mismatch`. Phase 13, Phase 13B, and Phases 14 through 20 are implemented query-runtime slices that followed that release-gate work. Phase 21 then covers joined post-paging pushdown.
 
 ## Current Implementation State
 
@@ -159,7 +159,7 @@ The current Phase 13B and Phases 16 through 18 implementations satisfy this gate
 - supported explicit, relation-aware, and implicit join shapes work from both `db.Query()` and `transaction.Query()`
 - public docs and the support matrix describe only the tested join shapes
 
-The current Phase 14, Phase 15, and Phase 19 implementations satisfy this gate for explicit two-source inner joins over direct key selectors; composed filtering, ordering, paging, `Any`, and `Count` before joined paging; direct SQL-backed projection rows; and supported implicit singular relation predicate/ordering/projection traversal. Query-syntax joins, joined post-paging pushdown, relation metadata-driven join APIs, left joins, collection relation expansion, and multi-join pipelines remain outside the support boundary.
+The current Phase 14, Phase 15, Phase 19, and Phase 20 implementations satisfy this gate for explicit two-source inner joins over direct key selectors; single C# query-syntax inner joins over direct source roots; composed filtering, ordering, paging, `Any`, and `Count` before joined paging; direct SQL-backed projection rows; and supported implicit singular relation predicate/ordering/projection traversal. Joined post-paging pushdown, relation metadata-driven join APIs, left joins, collection relation expansion, and multi-join pipelines remain outside the support boundary.
 
 ## Cross-Cutting Requirements
 

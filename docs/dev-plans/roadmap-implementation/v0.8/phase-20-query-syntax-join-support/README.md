@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 20: Query-Syntax Join Support
 
-**Status:** In progress after SQL-backed projection rows.
+**Status:** Implemented for single C# query-syntax inner joins over direct source roots.
 
 ## Purpose
 
@@ -35,7 +35,6 @@ In scope:
 - transparent-identifier binding for joined source-slot members
 - `where`, `orderby`, `thenby`, paging, `Any()`, and `Count()` over supported query-syntax joined row shapes
 - SQL-backed `select new { ... }` projections made of bindable joined source-slot values
-- practical multi-inner-join query-syntax shapes if transparent-identifier binding remains clear
 - read-only and transaction-root parity
 - focused diagnostics for unsupported query-syntax join shapes
 
@@ -47,6 +46,7 @@ Out of scope:
 - non-direct or computed join keys
 - relation-aware fluent APIs such as `JoinBy(...)` and `JoinMany(...)`
 - join-local `on:` predicate APIs
+- multi-inner-join query-syntax chains
 - nullable left-join materialization
 - client-side fallback for unsupported transparent-identifier shapes
 
@@ -61,11 +61,11 @@ The parser should treat query syntax as compiler-lowered LINQ:
 - build on Phase 19 SQL-backed projection rows for provider-side `select new { ... }`
 - reject any transparent-identifier shape that cannot be traced to supported source-slot values
 
-The safest first implementation may start by proving single query-syntax joins and then extend to multi-join chains. Do not claim multi-join support until tests cover the compiler-lowered shape.
+This implementation proves single query-syntax inner joins. Multi-join chains remain deliberately unclaimed until tests cover the compiler-lowered shape.
 
 ## Verification
 
-Required tests:
+Implemented tests:
 
 - expression parser tests for single query-syntax joins
 - plan snapshots showing query-syntax joins as ordinary source-slot joins
@@ -74,6 +74,15 @@ Required tests:
 - transaction-root parity for supported query-syntax joins
 - unsupported diagnostics for `group join`, left-join patterns, composite keys, computed keys, and opaque transparent identifiers
 - docs/support-matrix updates only for the tested query-syntax join shapes
+
+Focused verification passed:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj -v:minimal`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesJoinTranslationTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSnapshotTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/ExpressionQueryPlanParserTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanUnsupportedShapeTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSqlParityTests/*" --output failures --build`
 
 ## Exit Criteria
 

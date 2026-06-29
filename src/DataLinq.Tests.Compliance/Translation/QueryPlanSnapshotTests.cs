@@ -493,6 +493,48 @@ bindings:
     }
 
     [Test]
+    public async Task QuerySyntaxJoinSnapshot_RecordsSourceSlotJoinAndSqlRowProjection()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(QuerySyntaxJoinSnapshot_RecordsSourceSlotJoinAndSqlRowProjection),
+            EmployeesSeedMode.Bogus);
+
+        var query =
+            from departmentEmployee in databaseScope.Database.Query().DepartmentEmployees
+            join department in databaseScope.Database.Query().Departments
+                on departmentEmployee.dept_no equals department.DeptNo
+            where department.Name.StartsWith("S")
+            orderby department.Name, departmentEmployee.emp_no
+            select new
+            {
+                departmentEmployee.emp_no,
+                DepartmentName = department.Name
+            };
+
+        var snapshot = Snapshot(databaseScope.Database, query);
+
+        await AssertSnapshot(snapshot, """
+query-plan v0
+sources:
+  s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
+  s1 explicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
+operations:
+  join inner column(s0.dept_no:String) = column(s1.dept_no:String)
+  where compare(function(string-starts-with:Boolean column(s1.dept_name:String), captured(p0:String)) == constant(Boolean))
+  order-by column(s1.dept_name:String) ascending, column(s0.emp_no:Int32) ascending
+projection:
+  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), DepartmentName=column(s1.dept_name:String)]
+result:
+  sequence type=anonymous
+bindings:
+  p0 scalar type=String
+""");
+        await Assert.That(snapshot).DoesNotContain("Sales");
+        await AssertNoLegacyParserTerms(snapshot);
+    }
+
+    [Test]
     public async Task ImplicitRelationJoinSnapshot_RecordsImplicitJoinAndReusesSource()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

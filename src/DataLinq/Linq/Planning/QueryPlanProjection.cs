@@ -73,6 +73,17 @@ internal abstract record QueryPlanProjection
         }
     }
 
+    public sealed record TransparentIdentifier(
+        Type TransparentType,
+        IReadOnlyDictionary<string, QueryPlanSourceSlot> SourcesByMember)
+        : QueryPlanProjection(QueryPlanProjectionKind.TransparentIdentifier, TransparentType)
+    {
+        public TransparentIdentifier(Type transparentType, IEnumerable<KeyValuePair<string, QueryPlanSourceSlot>> sourcesByMember)
+            : this(transparentType, FreezeDictionary(sourcesByMember, nameof(sourcesByMember)))
+        {
+        }
+    }
+
     public sealed record GroupedAggregate(
         Type AggregateRowType,
         IReadOnlyList<QueryPlanProjectionMember> Members,
@@ -101,6 +112,26 @@ internal abstract record QueryPlanProjection
         return Array.AsReadOnly(array);
     }
 
+    private static ReadOnlyDictionary<string, QueryPlanSourceSlot> FreezeDictionary(
+        IEnumerable<KeyValuePair<string, QueryPlanSourceSlot>> values,
+        string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        var dictionary = new Dictionary<string, QueryPlanSourceSlot>(StringComparer.Ordinal);
+        foreach (var pair in values)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(pair.Key, parameterName);
+            ArgumentNullException.ThrowIfNull(pair.Value);
+            if (!dictionary.TryAdd(pair.Key, pair.Value))
+                throw new ArgumentException($"Projection source member '{pair.Key}' is duplicated.", parameterName);
+        }
+
+        if (dictionary.Count == 0)
+            throw new ArgumentException("Transparent identifier projections must contain at least one source member.", parameterName);
+
+        return new ReadOnlyDictionary<string, QueryPlanSourceSlot>(dictionary);
+    }
+
     private static void ValidateMembers(IReadOnlyList<QueryPlanProjectionMember> members)
     {
         ArgumentNullException.ThrowIfNull(members);
@@ -127,5 +158,6 @@ internal enum QueryPlanProjectionKind
     ComputedRowLocalExpression,
     JoinedRowLocal,
     SqlRow,
+    TransparentIdentifier,
     GroupedAggregate
 }

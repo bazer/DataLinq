@@ -3,7 +3,7 @@
 
 # Phase 20 Implementation Plan
 
-**Status:** In progress.
+**Status:** Complete.
 
 ## Objective
 
@@ -21,13 +21,13 @@ Phase 20 should reuse the explicit join model:
 
 ## Work Items
 
-- [ ] Inspect the compiler-lowered expression shape for single query-syntax inner joins.
-- [ ] Extend projection/member binding so transparent identifiers map back to existing source slots.
-- [ ] Parse query-syntax `where`, `orderby`, paging, `Any()`, and `Count()` over supported joined rows.
-- [ ] Parse query-syntax `select new { ... }` as SQL-backed projection rows when every member binds to a source-slot value.
-- [ ] Keep `group join`, left-join patterns, composite keys, computed keys, and unsupported transparent identifiers rejected.
-- [ ] Add provider behavior, SQL-shape, snapshot, transaction-root, parser, and unsupported-diagnostics tests.
-- [ ] Update the phase README, roadmap pages, public LINQ docs, support matrix, and internals docs for the tested boundary.
+- [x] Inspect the compiler-lowered expression shape for single query-syntax inner joins.
+- [x] Extend projection/member binding so transparent identifiers map back to existing source slots.
+- [x] Parse query-syntax `where`, `orderby`, paging, `Any()`, and `Count()` over supported joined rows.
+- [x] Parse query-syntax `select new { ... }` as SQL-backed projection rows when every member binds to a source-slot value.
+- [x] Keep `group join`, left-join patterns, composite keys, computed keys, and unsupported transparent identifiers rejected.
+- [x] Add provider behavior, SQL-shape, snapshot, transaction-root, parser, and unsupported-diagnostics tests.
+- [x] Update the phase README, roadmap pages, public LINQ docs, support matrix, and internals docs for the tested boundary.
 
 ## Guardrails
 

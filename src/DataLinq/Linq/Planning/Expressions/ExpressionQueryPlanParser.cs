@@ -29,6 +29,7 @@ internal sealed class ExpressionQueryPlanParser
     private readonly List<QueryPlanOperation> operations = [];
     private readonly Dictionary<ParameterExpression, QueryPlanSourceSlot> parameterSourceSlots = [];
     private readonly Dictionary<ParameterExpression, QueryPlanProjection> parameterProjections = [];
+    private readonly Dictionary<ParameterExpression, IReadOnlyDictionary<string, QueryPlanSourceSlot>> parameterTransparentSources = [];
     private readonly Dictionary<ImplicitRelationJoinKey, QueryPlanSourceSlot> implicitRelationSources = [];
     private int relationSubqueryCounter;
 
@@ -295,11 +296,25 @@ internal sealed class ExpressionQueryPlanParser
             };
         }
 
-        RejectPostJoinOperator(methodCall.Method.Name);
-
         QueryPlanProjection projection = null!;
-        WithSource(selector.Parameters[0], parsed.RootSource, () =>
-            projection = CreateProjection(selector.Body, selector.ReturnType));
+        if (CanBindProjectionParameter(parsed))
+        {
+            WithProjection(selector.Parameters[0], parsed.Projection!, () =>
+                projection = CreateProjection(selector.Body, selector.ReturnType));
+
+            if (projection is QueryPlanProjection.TransparentIdentifier)
+            {
+                throw new QueryTranslationException(
+                    "Query-syntax join projections that return whole source entities are not supported by the DataLinq expression parser. " +
+                    "Project scalar source members from the joined rows instead.");
+            }
+        }
+        else
+        {
+            RejectPostJoinOperator(methodCall.Method.Name);
+            WithSource(selector.Parameters[0], parsed.RootSource, () =>
+                projection = CreateProjection(selector.Body, selector.ReturnType));
+        }
 
         return parsed with { ElementType = selector.ReturnType, Projection = projection };
     }
@@ -623,6 +638,9 @@ internal sealed class ExpressionQueryPlanParser
         if (TryGetSource(selector, out var source))
             return new QueryPlanProjection.Entity(source);
 
+        if (TryCreateTransparentIdentifierProjection(selector, resultType, out var transparentProjection))
+            return transparentProjection;
+
         if (TryCreateScalarMemberProjection(selector, resultType, out var scalarProjection))
             return scalarProjection;
 
@@ -662,6 +680,40 @@ internal sealed class ExpressionQueryPlanParser
 
         projection = null!;
         return false;
+    }
+
+    private bool TryCreateTransparentIdentifierProjection(
+        Expression selector,
+        Type resultType,
+        out QueryPlanProjection.TransparentIdentifier projection)
+    {
+        if (selector is not NewExpression newExpression)
+        {
+            projection = null!;
+            return false;
+        }
+
+        var names = GetStableNewExpressionNames(newExpression);
+        if (names is null || names.Length != newExpression.Arguments.Count)
+        {
+            projection = null!;
+            return false;
+        }
+
+        var sourcesByMember = new List<KeyValuePair<string, QueryPlanSourceSlot>>(newExpression.Arguments.Count);
+        for (var index = 0; index < newExpression.Arguments.Count; index++)
+        {
+            if (!TryGetSource(newExpression.Arguments[index], out var source))
+            {
+                projection = null!;
+                return false;
+            }
+
+            sourcesByMember.Add(new KeyValuePair<string, QueryPlanSourceSlot>(names[index], source));
+        }
+
+        projection = new QueryPlanProjection.TransparentIdentifier(resultType, sourcesByMember);
+        return true;
     }
 
     private static bool CanMaterializeSqlProjection(IReadOnlyList<QueryPlanProjectionMember> members)
@@ -1824,6 +1876,13 @@ internal sealed class ExpressionQueryPlanParser
             return true;
         }
 
+        if (expression is MemberExpression { Expression: ParameterExpression transparentParameter } memberExpression &&
+            parameterTransparentSources.TryGetValue(transparentParameter, out var transparentSources) &&
+            transparentSources.TryGetValue(memberExpression.Member.Name, out source!))
+        {
+            return true;
+        }
+
         source = null!;
         return false;
     }
@@ -2047,7 +2106,9 @@ internal sealed class ExpressionQueryPlanParser
 
     private bool CanBindProjectionParameter(ParsedQuery parsed)
         => HasExplicitJoinOperation() &&
-           parsed.Projection is QueryPlanProjection.JoinedRowLocal or QueryPlanProjection.SqlRow;
+           parsed.Projection is QueryPlanProjection.JoinedRowLocal or
+               QueryPlanProjection.SqlRow or
+               QueryPlanProjection.TransparentIdentifier;
 
     private static bool CanBindGroupedProjectionParameter(ParsedQuery parsed)
         => parsed.Projection is QueryPlanProjection.GroupedAggregate;
@@ -2164,6 +2225,9 @@ internal sealed class ExpressionQueryPlanParser
     private void WithProjection(ParameterExpression parameter, QueryPlanProjection projection, Action action)
     {
         parameterProjections[parameter] = projection;
+        if (projection is QueryPlanProjection.TransparentIdentifier transparent)
+            parameterTransparentSources[parameter] = transparent.SourcesByMember;
+
         try
         {
             action();
@@ -2171,12 +2235,16 @@ internal sealed class ExpressionQueryPlanParser
         finally
         {
             parameterProjections.Remove(parameter);
+            parameterTransparentSources.Remove(parameter);
         }
     }
 
     private TResult WithProjection<TResult>(ParameterExpression parameter, QueryPlanProjection projection, Func<TResult> action)
     {
         parameterProjections[parameter] = projection;
+        if (projection is QueryPlanProjection.TransparentIdentifier transparent)
+            parameterTransparentSources[parameter] = transparent.SourcesByMember;
+
         try
         {
             return action();
@@ -2184,6 +2252,7 @@ internal sealed class ExpressionQueryPlanParser
         finally
         {
             parameterProjections.Remove(parameter);
+            parameterTransparentSources.Remove(parameter);
         }
     }
 
@@ -2600,6 +2669,12 @@ internal sealed class ExpressionQueryPlanParser
             {
                 foreach (var member in members)
                     AddSources(member.Value);
+            }
+
+            if (parser.parameterTransparentSources.TryGetValue(node, out var transparentSources))
+            {
+                foreach (var transparentSource in transparentSources.Values)
+                    Add(transparentSource);
             }
 
             return node;

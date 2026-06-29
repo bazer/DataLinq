@@ -39,6 +39,20 @@ public class ExpressionQueryPlanParserTests
             .Select(x => new { x.emp_no, x.first_name });
 
         await AssertParserProducesDataLinqPlan(databaseScope.Database, query);
+
+        var querySyntax =
+            from departmentEmployee in databaseScope.Database.Query().DepartmentEmployees
+            join department in databaseScope.Database.Query().Departments
+                on departmentEmployee.dept_no equals department.DeptNo
+            where department.Name.StartsWith("S")
+            orderby department.Name, departmentEmployee.emp_no
+            select new
+            {
+                departmentEmployee.emp_no,
+                DepartmentName = department.Name
+            };
+
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, querySyntax);
     }
 
     [Test]

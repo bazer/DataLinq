@@ -84,6 +84,33 @@ public class QueryPlanUnsupportedShapeTests
     }
 
     [Test]
+    public async Task ParserRejectsQuerySyntaxJoinProjectionOfWholeSourceEntities()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ParserRejectsQuerySyntaxJoinProjectionOfWholeSourceEntities),
+            EmployeesSeedMode.Bogus);
+
+        var query =
+            from departmentEmployee in databaseScope.Database.Query().DepartmentEmployees
+            join department in databaseScope.Database.Query().Departments
+                on departmentEmployee.dept_no equals department.DeptNo
+            where department.Name.Contains("e")
+            select new
+            {
+                departmentEmployee,
+                department
+            };
+
+        var exception = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("whole source entities");
+        await Assert.That(exception.Message).Contains("not supported");
+    }
+
+    [Test]
     public async Task ParserRejectsRelationPropertyProjection()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

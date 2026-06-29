@@ -193,6 +193,14 @@ internal static class QueryPlanDebugWriter
                     .AppendLine(FormatMembers(sqlRow.Members));
                 break;
 
+            case QueryPlanProjection.TransparentIdentifier transparent:
+                builder
+                    .Append("transparent-identifier type=")
+                    .Append(TypeName(transparent.ResultType))
+                    .Append(" sources=")
+                    .AppendLine(string.Join(", ", transparent.SourcesByMember.Select(source => $"{source.Key}={source.Value.Id}")));
+                break;
+
             case QueryPlanProjection.GroupedAggregate grouped:
                 builder
                     .Append("grouped-aggregate type=")

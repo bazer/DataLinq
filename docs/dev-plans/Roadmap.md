@@ -766,14 +766,14 @@ Key related plans:
 
 ### 0.8 Phase 20: Query-Syntax Join Support
 
-Status: planned after SQL-backed projection rows.
+Status: implemented for single C# query-syntax inner joins after SQL-backed projection rows.
 
 Goals:
 
 - make standard C# query-syntax inner joins a documented, tested path
 - bind compiler-generated transparent identifiers back to DataLinq source slots
 - support predicates, ordering, paging, `Any()`, `Count()`, and SQL-backed projection rows over supported query-syntax joins
-- add practical multi-inner-join coverage only when the lowered expression-tree shape is explicit and tested
+- keep practical multi-inner-join coverage deferred until the lowered expression-tree shape is explicit and tested
 - keep `group join`, `DefaultIfEmpty()` outer joins, composite keys, and relation-aware fluent APIs out of this slice
 
 Why before joined post-paging pushdown:
@@ -791,7 +791,7 @@ Key related plans:
 
 ### 0.8 Phase 21: Joined Post-Paging Pushdown
 
-Status: planned after query-syntax join support.
+Status: planned after the implemented single query-syntax join slice.
 
 Goals:
 
@@ -931,7 +931,7 @@ Phase 11 is now complete for explicit cache clearing, external invalidation, rel
 
 After the 0.7.1 release, the `v0.8` branch deliberately reset roadmap execution to a version-scoped sequence. That parser-removal sequence is now closed through [0.8 Phase 7: Remotion Dependency Removal](roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md): query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset expression parser, projection/local-evaluation cleanup, dual-run parity, production provider switch, and dependency removal.
 
-The version-scoped 0.8 sequence now has final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md), then implemented query-runtime slices for Phase 13 query composition/subquery pushdown, Phase 13B grouped count projection, Phase 14 explicit two-source join composition, Phase 15 implicit singular relation predicates/orderings, Phase 16 grouped numeric aggregates, Phase 17 grouped row composition/HAVING, Phase 18 advanced GroupBy keys/joined grouping, and Phase 19 SQL-backed projection rows/implicit relation projection. The remaining version-scoped query work is split into planned Phase 20 query-syntax joins and Phase 21 joined post-paging pushdown. Broad fluent join APIs, left-join nullability work, and the browser AOT support claim still need separate evidence instead of broadening the old Remotion boundary by assertion.
+The version-scoped 0.8 sequence now has final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md), then implemented query-runtime slices for Phase 13 query composition/subquery pushdown, Phase 13B grouped count projection, Phase 14 explicit two-source join composition, Phase 15 implicit singular relation predicates/orderings, Phase 16 grouped numeric aggregates, Phase 17 grouped row composition/HAVING, Phase 18 advanced GroupBy keys/joined grouping, Phase 19 SQL-backed projection rows/implicit relation projection, and Phase 20 single query-syntax inner joins. The remaining version-scoped query work is Phase 21 joined post-paging pushdown. Broad fluent join APIs, left-join nullability work, and the browser AOT support claim still need separate evidence instead of broadening the old Remotion boundary by assertion.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

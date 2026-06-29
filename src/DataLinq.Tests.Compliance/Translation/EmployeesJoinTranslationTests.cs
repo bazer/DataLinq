@@ -10,6 +10,132 @@ public class EmployeesJoinTranslationTests
 {
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task QuerySyntaxInnerJoin_ComposesAndProjectsSqlRows(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(QuerySyntaxInnerJoin_ComposesAndProjectsSqlRows),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = (from departmentEmployee in employeesDatabase.Query().DepartmentEmployees.ToList()
+                        join department in employeesDatabase.Query().Departments.ToList()
+                            on departmentEmployee.dept_no equals department.DeptNo
+                        where department.Name.Contains("e")
+                        orderby department.Name, departmentEmployee.emp_no
+                        select new
+                        {
+                            departmentEmployee.emp_no,
+                            departmentEmployee.dept_no,
+                            DepartmentName = department.Name
+                        })
+            .Take(20)
+            .ToArray();
+
+        var query =
+            from departmentEmployee in employeesDatabase.Query().DepartmentEmployees
+            join department in employeesDatabase.Query().Departments
+                on departmentEmployee.dept_no equals department.DeptNo
+            where department.Name.Contains("e")
+            orderby department.Name, departmentEmployee.emp_no
+            select new
+            {
+                departmentEmployee.emp_no,
+                departmentEmployee.dept_no,
+                DepartmentName = department.Name
+            };
+
+        var actual = query.Take(20).ToArray();
+        var sql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(employeesDatabase, query.Take(20));
+        var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text);
+
+        await Assert.That(normalized).Contains("JOIN");
+        await Assert.That(normalized).Contains("dept_name");
+        await Assert.That(normalized).Contains("DepartmentName");
+        await Assert.That(FormatDepartmentRows(actual)).IsEqualTo(FormatDepartmentRows(expected));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task QuerySyntaxInnerJoin_WorksFromTransactionRoot(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(QuerySyntaxInnerJoin_WorksFromTransactionRoot),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        using var transaction = employeesDatabase.Transaction();
+
+        var readOnlyRows = (from departmentEmployee in employeesDatabase.Query().DepartmentEmployees
+                            join department in employeesDatabase.Query().Departments
+                                on departmentEmployee.dept_no equals department.DeptNo
+                            where department.Name.Contains("e")
+                            orderby department.Name, departmentEmployee.emp_no
+                            select new
+                            {
+                                departmentEmployee.emp_no,
+                                departmentEmployee.dept_no,
+                                DepartmentName = department.Name
+                            })
+            .Take(20)
+            .ToArray();
+
+        var transactionRows = (from departmentEmployee in transaction.Query().DepartmentEmployees
+                               join department in transaction.Query().Departments
+                                   on departmentEmployee.dept_no equals department.DeptNo
+                               where department.Name.Contains("e")
+                               orderby department.Name, departmentEmployee.emp_no
+                               select new
+                               {
+                                   departmentEmployee.emp_no,
+                                   departmentEmployee.dept_no,
+                                   DepartmentName = department.Name
+                               })
+            .Take(20)
+            .ToArray();
+
+        await Assert.That(FormatDepartmentRows(transactionRows)).IsEqualTo(FormatDepartmentRows(readOnlyRows));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task QuerySyntaxInnerJoin_CountAndAnyMatchInMemory(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(QuerySyntaxInnerJoin_CountAndAnyMatchInMemory),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expectedCount = (from departmentEmployee in employeesDatabase.Query().DepartmentEmployees.ToList()
+                             join department in employeesDatabase.Query().Departments.ToList()
+                                 on departmentEmployee.dept_no equals department.DeptNo
+                             where department.Name.Contains("e")
+                             select departmentEmployee).Count();
+        var expectedAny = (from departmentEmployee in employeesDatabase.Query().DepartmentEmployees.ToList()
+                           join department in employeesDatabase.Query().Departments.ToList()
+                               on departmentEmployee.dept_no equals department.DeptNo
+                           where department.Name.Contains("e")
+                           select departmentEmployee).Any();
+
+        var actualCount = (from departmentEmployee in employeesDatabase.Query().DepartmentEmployees
+                           join department in employeesDatabase.Query().Departments
+                               on departmentEmployee.dept_no equals department.DeptNo
+                           where department.Name.Contains("e")
+                           select new { departmentEmployee.emp_no }).Count();
+        var actualAny = (from departmentEmployee in employeesDatabase.Query().DepartmentEmployees
+                         join department in employeesDatabase.Query().Departments
+                             on departmentEmployee.dept_no equals department.DeptNo
+                         where department.Name.Contains("e")
+                         select new { departmentEmployee.emp_no }).Any();
+
+        await Assert.That(actualCount).IsEqualTo(expectedCount);
+        await Assert.That(actualAny).IsEqualTo(expectedAny);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_DirectMemberKeysProjectsBothSides_MatchesInMemory(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -376,6 +502,20 @@ public class EmployeesJoinTranslationTests
                 .ToList(),
             "GroupJoin",
             "not supported");
+    }
+
+    private static string FormatDepartmentRows<T>(T[] rows)
+    {
+        return string.Join(
+            "|",
+            rows.Select(row =>
+            {
+                var type = row!.GetType();
+                var employeeNumber = type.GetProperty("emp_no")!.GetValue(row);
+                var departmentNumber = type.GetProperty("dept_no")!.GetValue(row);
+                var departmentName = type.GetProperty("DepartmentName")!.GetValue(row);
+                return $"{employeeNumber}:{departmentNumber}:{departmentName}";
+            }));
     }
 
     private static async Task AssertTranslationFailure(Action action, params string[] expectedFragments)
