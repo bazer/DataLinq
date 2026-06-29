@@ -95,6 +95,7 @@ If you already know what you need, jump directly to the major sections:
 - [Data Flow](internals/Data%20Flow.md)
 - [Source Generator](internals/Source%20Generator.md)
 - [Query Translator](internals/Query%20Translator.md)
+- [LINQ Parser Architecture](internals/LINQ%20Parser%20Architecture.md)
 
 ### Release and Roadmap
 

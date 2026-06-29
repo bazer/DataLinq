@@ -44,6 +44,14 @@ internal static class SizeReportCommand
         {
             Description = "Skips executable smoke runs after publish."
         };
+        var cleanOutputOption = new Option<bool>("--clean-output")
+        {
+            Description = "Deletes the selected projects' bin/obj output before publishing. Use this for fresh WebAssembly warning evidence."
+        };
+        var releaseThresholdsOption = new Option<bool>("--release-thresholds")
+        {
+            Description = "Applies the 0.8 release payload thresholds for each compatibility target."
+        };
         var maxTotalSizeOption = new Option<double?>("--max-total-size-mb")
         {
             Description = "Advisory total payload size warning threshold in MiB."
@@ -83,6 +91,8 @@ internal static class SizeReportCommand
         command.Options.Add(topOption);
         command.Options.Add(noRestoreOption);
         command.Options.Add(skipSmokeOption);
+        command.Options.Add(cleanOutputOption);
+        command.Options.Add(releaseThresholdsOption);
         command.Options.Add(maxTotalSizeOption);
         command.Options.Add(maxSymbolExcludedSizeOption);
         command.Options.Add(maxFileCountOption);
@@ -117,7 +127,9 @@ internal static class SizeReportCommand
                 parseResult.GetValue(maxFileCountOption),
                 parseResult.GetValue(failOnBannedPayloadOption),
                 parseResult.GetValue(failOnThresholdsOption),
-                !parseResult.GetValue(stopOnPublishFailureOption));
+                !parseResult.GetValue(stopOnPublishFailureOption),
+                parseResult.GetValue(cleanOutputOption),
+                parseResult.GetValue(releaseThresholdsOption));
 
             var reporter = new CompatibilitySizeReporter(settings.Paths, options);
             var report = reporter.CreateReport();
@@ -207,6 +219,7 @@ internal static class SizeReportCommand
             CompatibilityCommandStatus.Failed => $"[red]failed[/] ({Markup.Escape(command.FailureClassification.ToString())})",
             CompatibilityCommandStatus.Skipped => "[yellow]skipped[/]",
             CompatibilityCommandStatus.NotApplicable => "[grey]n/a[/]",
+            CompatibilityCommandStatus.Unsupported => $"[yellow]unsupported[/] ({Markup.Escape(command.FailureClassification.ToString())})",
             _ => Markup.Escape(command.Status.ToString())
         };
 

@@ -54,7 +54,7 @@ public class WhereGroup<T> : IWhere<T>
             // This helps avoid syntax errors if a group is empty due to logic.
             // However, a truly empty WHERE clause part should ideally not be generated.
             // Let's render 1=1 if not negated and empty, and 1=0 if negated and empty.
-            // This behavior might need refinement based on how QueryExecutor handles empty WhereGroup.
+            // This behavior might need refinement based on how SQL generation handles empty WhereGroup.
             sql.AddText(IsNegated ? "1=0" : "1=1"); // An empty group is TRUE, negated empty group is FALSE
 
             return;

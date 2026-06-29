@@ -95,6 +95,79 @@ public class CompatibilitySizeReportTests
             .IsEqualTo(CompatibilityWarningOwner.ThirdPartyDependency);
         await Assert.That(CompatibilityWarningClassifier.Classify(wasmTarget, wasmWarning))
             .IsEqualTo(CompatibilityWarningOwner.SdkOrWebAssembly);
+        await Assert.That(CompatibilityWarningClassifier.Classify(wasmTarget, datalinqWarning))
+            .IsEqualTo(CompatibilityWarningOwner.DataLinqOwned);
+        await Assert.That(CompatibilityWarningClassifier.Classify(wasmTarget, thirdPartyWarning))
+            .IsEqualTo(CompatibilityWarningOwner.ThirdPartyDependency);
+    }
+
+    [Test]
+    public async Task FailureClassifier_ReportsRemotionTrimAnalysisFailures()
+    {
+        var trimmedTarget = CompatibilityTargetCatalog
+            .GetTargets("phase8c", [CompatibilityTargetKind.Trimmed])[0];
+        var processResult = new ExternalCommandResult(
+            1,
+            """
+            Optimizing assemblies for size. This process might take a while.
+            D:\git\DataLinq\.dotnet\.nuget\packages\remotion.linq\2.2.0\lib\netstandard1.0\Remotion.Linq.dll : error IL2104: Assembly 'Remotion.Linq' produced trim warnings. For more information see https://aka.ms/il2104 [D:\git\DataLinq\src\DataLinq.TrimSmoke\DataLinq.TrimSmoke.csproj::TargetFramework=net10.0]
+            D:\git\DataLinq\.dotnet\.nuget\packages\microsoft.net.illink.tasks\10.0.9\build\Microsoft.NET.ILLink.targets(103,5): error NETSDK1144: Optimizing assemblies for size failed. [D:\git\DataLinq\src\DataLinq.TrimSmoke\DataLinq.TrimSmoke.csproj::TargetFramework=net10.0]
+            """,
+            "");
+        var analysis = DotnetOutputAnalyzer.Analyze(DotnetCommandType.Publish, processResult);
+        var commandResult = new DotnetCommandResult(
+            DotnetCommandType.Publish,
+            trimmedTarget.Name,
+            [],
+            processResult,
+            "publish.log",
+            BinaryLogPath: null,
+            analysis);
+
+        await Assert.That(analysis.FailureCategory).IsEqualTo(DotnetFailureCategory.TrimAnalysis);
+        await Assert.That(CompatibilityWarningClassifier.ClassifyFailure(trimmedTarget, commandResult))
+            .IsEqualTo(CompatibilityFailureClassification.RemotionDependency);
+    }
+
+    [Test]
+    public async Task FailureClassifier_ReportsNativeAotToolchainFailures()
+    {
+        var nativeAotTarget = CompatibilityTargetCatalog
+            .GetTargets("phase8c", [CompatibilityTargetKind.NativeAot])[0];
+        var processResult = new ExternalCommandResult(
+            1,
+            """
+            D:\git\DataLinq\.dotnet\.nuget\packages\microsoft.dotnet.ilcompiler\10.0.9\build\Microsoft.NETCore.Native.Windows.targets(142,5): error : Platform linker not found. Ensure you have all the required prerequisites documented at https://aka.ms/nativeaot-prerequisites, in particular the Desktop Development for C++ workload in Visual Studio. For ARM64 development also install C++ ARM64 build tools. [D:\git\DataLinq\src\DataLinq.AotSmoke\DataLinq.AotSmoke.csproj::TargetFramework=net10.0]
+            """,
+            "");
+        var analysis = DotnetOutputAnalyzer.Analyze(DotnetCommandType.Publish, processResult);
+        var commandResult = new DotnetCommandResult(
+            DotnetCommandType.Publish,
+            nativeAotTarget.Name,
+            [],
+            processResult,
+            "publish.log",
+            BinaryLogPath: null,
+            analysis);
+
+        await Assert.That(CompatibilityWarningClassifier.ClassifyFailure(nativeAotTarget, commandResult))
+            .IsEqualTo(CompatibilityFailureClassification.SdkOrWebAssemblyToolchain);
+    }
+
+    [Test]
+    public async Task ReleaseThresholds_FlagMissingWebAssemblyBrotliAssets()
+    {
+        var wasmTarget = CompatibilityTargetCatalog
+            .GetTargets("phase8c", [CompatibilityTargetKind.WasmAot])[0];
+
+        var warnings = CompatibilityReleaseThresholds.FindWarnings(
+            wasmTarget,
+            publishDirectory: AppContext.BaseDirectory,
+            new CompatibilityPayloadSizeSummary(0, 0, 0),
+            new CompatibilityCompressedAssetSummary(".br", 0, 0));
+
+        await Assert.That(warnings.Select(static warning => warning.Metric))
+            .Contains("release-wasm-aot-brotli-assets");
     }
 
     [Test]
@@ -198,6 +271,55 @@ public class CompatibilitySizeReportTests
         }
     }
 
+    [Test]
+    public async Task PackageInspector_FlagsRuntimeRemotionLeaks()
+    {
+        var root = Path.Combine(
+            AppContext.BaseDirectory,
+            "PackageInspectorTests",
+            Guid.NewGuid().ToString("N"));
+        var packageDirectory = Path.Combine(root, "packages");
+
+        try
+        {
+            Directory.CreateDirectory(packageDirectory);
+            WritePackage(
+                Path.Combine(packageDirectory, "DataLinq.1.0.0.nupkg"),
+                "DataLinq",
+                "1.0.0",
+                """
+                <dependencies>
+                  <group targetFramework="net10.0">
+                    <dependency id="Remotion.Linq" version="2.2.0" />
+                  </group>
+                </dependencies>
+                """,
+                [
+                    "lib/net10.0/DataLinq.dll",
+                    "lib/net10.0/Remotion.Linq.dll",
+                    "analyzers/dotnet/cs/DataLinq.Generators.dll"
+                ]);
+            WritePackage(
+                Path.Combine(packageDirectory, "DataLinq.1.0.0.snupkg"),
+                "DataLinq",
+                "1.0.0",
+                "",
+                ["lib/net10.0/DataLinq.pdb"]);
+
+            var report = CreatePackageReport(root, packageDirectory, PackageSet("DataLinq"), PackageSet("DataLinq"));
+            var findingKinds = report.Findings.Select(static finding => finding.Kind).ToArray();
+
+            await Assert.That(report.Summary.HasHardFailures).IsTrue();
+            await Assert.That(findingKinds).Contains(PackageInspectionFindingKind.RuntimeRemotionDependency);
+            await Assert.That(findingKinds).Contains(PackageInspectionFindingKind.RuntimeRemotionAsset);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static void WriteFile(string path, int byteCount)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -219,6 +341,7 @@ public class CompatibilitySizeReportTests
             FailOnUnexpectedPackage: true,
             FailOnMissingSymbolPackage: true,
             FailOnRuntimeRoslyn: true,
+            FailOnRuntimeRemotion: true,
             FailOnAnalyzerAssetLeak: true);
 
         return new PackageInspector(paths, options).CreateReport();

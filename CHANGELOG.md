@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## Unreleased
+
+### 0.8 Roadmap Progress
+
+* Replaced the production LINQ parser boundary with DataLinq's expression parser and removed `Remotion.Linq` from the main runtime package graph.
+* Deleted the temporary Remotion query executor, adapter, visitors, and test oracle scaffolding after moving supported SQL generation to DataLinq query-plan nodes.
+* Updated query translator, platform compatibility, source-generator, support-matrix, and roadmap docs so Remotion is historical migration context rather than current runtime behavior.
+* Verified fresh package output and constrained trimmed publish reports without `Remotion.Linq` runtime dependency entries or trim warnings; Native AOT is currently classified as a local toolchain prerequisite failure rather than a query dependency warning.
+* Added browser smoke automation to `DataLinq.Dev.CLI size-report` for WebAssembly targets using Playwright, local HTTP serving, DOM smoke status polling, console/page-error capture, and per-target `browser-smoke.log` evidence.
+* Expanded the shared generated SQLite constrained-platform smoke to cover selected documented LINQ shapes, including aggregates, paging, relation predicates, explicit joins, local membership, nullable predicates, unsupported diagnostics, and AOT-strict parser/projection checks.
+* Added `size-report --clean-output` for fresh WebAssembly warning evidence and `--release-thresholds` for 0.8 target-specific payload gates.
+* Recorded fresh WebAssembly AOT browser evidence: the current smoke publishes but fails while opening generated SQLite with `MONO_WASM: function signature mismatch`, so browser AOT remains blocked rather than promoted as supported.
+
+---
+
 ## [DataLinq v0.7.1 - SQLite Metadata Fixes, CLI Polish, and Dependency Maintenance](https://github.com/bazer/DataLinq/releases/tag/0.7.1)
 
 **Released on:** 2026-06-25
@@ -910,5 +925,3 @@ First release with basic functionality.
 * Support for lazy loading of model properties
 
 ---
-
-

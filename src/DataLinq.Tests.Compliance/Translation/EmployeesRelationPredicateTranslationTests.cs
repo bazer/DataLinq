@@ -41,6 +41,49 @@ public class EmployeesRelationPredicateTranslationTests
     }
 
     [Test]
+    public async Task RelationAnyPredicateRendersCorrelatedExistsSql()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(RelationAnyPredicateRendersCorrelatedExistsSql),
+            EmployeesSeedMode.Bogus);
+
+        var managerNumber = databaseScope.Database.Query().Managers
+            .OrderBy(x => x.emp_no)
+            .First()
+            .emp_no;
+        var query = databaseScope.Database.Query().Departments
+            .Where(department => department.Managers.Any(manager => manager.emp_no == managerNumber));
+        var sql = CurrentQueryTranslationInspection.BuildSql(databaseScope.Database, query);
+        var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text);
+
+        await Assert.That(normalized).Contains("EXISTS (SELECT 1 FROM");
+        await Assert.That(normalized).Contains("WHERE");
+        await Assert.That(sql.Parameters.Select(x => x.Value).ToArray()).Contains(managerNumber);
+    }
+
+    [Test]
+    public async Task NegatedRelationAnyPredicateRendersCorrelatedNotExistsSql()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(NegatedRelationAnyPredicateRendersCorrelatedNotExistsSql),
+            EmployeesSeedMode.Bogus);
+
+        var managerNumber = databaseScope.Database.Query().Managers
+            .OrderBy(x => x.emp_no)
+            .First()
+            .emp_no;
+        var query = databaseScope.Database.Query().Departments
+            .Where(department => !department.Managers.Any(manager => manager.emp_no == managerNumber));
+        var sql = CurrentQueryTranslationInspection.BuildSql(databaseScope.Database, query);
+        var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text);
+
+        await Assert.That(normalized).Contains("NOT EXISTS (SELECT 1 FROM");
+        await Assert.That(sql.Parameters.Select(x => x.Value).ToArray()).Contains(managerNumber);
+    }
+
+    [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NegatedRelationAnyPredicate_TranslatesToNotExistsAndMatchesInMemory(TestProviderDescriptor provider)
     {

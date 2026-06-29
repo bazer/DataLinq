@@ -26,6 +26,40 @@ public class EmployeesContainsTranslationTests
     }
 
     [Test]
+    public async Task Contains_EmptyArrayRendersFalsePredicateInSql()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(Contains_EmptyArrayRendersFalsePredicateInSql),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().Employees
+            .Where(x => Array.Empty<int>().Contains(x.emp_no!.Value));
+        var sql = CurrentQueryTranslationInspection.BuildSql(databaseScope.Database, query);
+        var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text);
+
+        await Assert.That(normalized).Contains("WHERE 1=0");
+        await Assert.That(sql.Parameters).IsEmpty();
+    }
+
+    [Test]
+    public async Task Contains_NegatedEmptyArrayRendersTruePredicateInSql()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(Contains_NegatedEmptyArrayRendersTruePredicateInSql),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().Employees
+            .Where(x => !Array.Empty<int>().Contains(x.emp_no!.Value));
+        var sql = CurrentQueryTranslationInspection.BuildSql(databaseScope.Database, query);
+        var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text);
+
+        await Assert.That(normalized).Contains("WHERE 1=1");
+        await Assert.That(sql.Parameters).IsEmpty();
+    }
+
+    [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_NegatedContainsFiltersRows(TestProviderDescriptor provider)
     {

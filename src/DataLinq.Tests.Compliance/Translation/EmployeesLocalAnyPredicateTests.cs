@@ -32,6 +32,28 @@ public class EmployeesLocalAnyPredicateTests
     }
 
     [Test]
+    public async Task LocalScalarAnyPredicateRendersMembershipSql()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(LocalScalarAnyPredicateRendersMembershipSql),
+            EmployeesSeedMode.Bogus);
+
+        var selectedIds = databaseScope.Database.Query().Employees
+            .OrderBy(x => x.emp_no)
+            .Take(2)
+            .Select(x => x.emp_no!.Value)
+            .ToArray();
+        var query = databaseScope.Database.Query().Employees
+            .Where(x => selectedIds.Any(id => id == x.emp_no!.Value));
+        var sql = CurrentQueryTranslationInspection.BuildSql(databaseScope.Database, query);
+
+        await Assert.That(sql.Text).Contains(" IN ");
+        await Assert.That(sql.Parameters.Count).IsEqualTo(2);
+        await Assert.That(sql.Parameters.Select(x => x.Value).ToArray()).IsEquivalentTo(selectedIds);
+    }
+
+    [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task LocalObjectMemberAnyPredicateTranslatesToMembership(TestProviderDescriptor provider)
     {

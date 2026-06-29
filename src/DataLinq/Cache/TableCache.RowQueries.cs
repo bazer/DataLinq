@@ -52,7 +52,10 @@ public partial class TableCache
         if (orderings != null)
         {
             foreach (var order in orderings)
-                q.OrderBy(order.Column, order.Alias, order.Ascending);
+            {
+                var column = order.Column ?? throw new InvalidOperationException("Cached row loading requires column-backed orderings.");
+                q.OrderBy(column, order.Alias, order.Ascending);
+            }
         }
 
         return q

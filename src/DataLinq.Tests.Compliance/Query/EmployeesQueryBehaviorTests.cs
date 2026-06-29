@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
+using DataLinq.Exceptions;
 using DataLinq.Instances;
-using DataLinq.Query;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
-using Remotion.Linq.Parsing.Structure;
 
 namespace DataLinq.Tests.Compliance;
 
@@ -174,7 +172,7 @@ public class EmployeesQueryBehaviorTests
         var query = databaseScope.Database.Query().Departments
             .Where(x => x.DeptNo.StartsWith("d00"))
             .Where(x => x.DeptNo.EndsWith("2"));
-        var sql = BuildLinqSelect(databaseScope.Database, query).ToSql();
+        var sql = CurrentQueryTranslationInspection.BuildSql(databaseScope.Database, query);
         var parameterValues = sql.Parameters.Select(x => x.Value).ToArray();
 
         await Assert.That(sql.Text.Contains("WHERE", StringComparison.Ordinal)).IsTrue();
@@ -641,19 +639,19 @@ public class EmployeesQueryBehaviorTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task Query_UnsupportedTailAndWhileOperators_ThrowNotSupportedException(TestProviderDescriptor provider)
+    public async Task Query_UnsupportedTailAndWhileOperators_ThrowQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(Query_UnsupportedTailAndWhileOperators_ThrowNotSupportedException),
+            nameof(Query_UnsupportedTailAndWhileOperators_ThrowQueryTranslationException),
             EmployeesSeedMode.Bogus);
 
         var employeesDatabase = databaseScope.Database;
 
-        await AssertThrows<NotSupportedException>(() => employeesDatabase.Query().Employees.TakeLast(5).ToList());
-        await AssertThrows<NotSupportedException>(() => employeesDatabase.Query().Employees.SkipLast(5).ToList());
-        await AssertThrows<NotSupportedException>(() => employeesDatabase.Query().Employees.TakeWhile(e => e.first_name.StartsWith("A")).ToList());
-        await AssertThrows<NotSupportedException>(() => employeesDatabase.Query().Employees.SkipWhile(e => e.first_name.StartsWith("A")).ToList());
+        await AssertThrows<QueryTranslationException>(() => employeesDatabase.Query().Employees.TakeLast(5).ToList());
+        await AssertThrows<QueryTranslationException>(() => employeesDatabase.Query().Employees.SkipLast(5).ToList());
+        await AssertThrows<QueryTranslationException>(() => employeesDatabase.Query().Employees.TakeWhile(e => e.first_name.StartsWith("A")).ToList());
+        await AssertThrows<QueryTranslationException>(() => employeesDatabase.Query().Employees.SkipWhile(e => e.first_name.StartsWith("A")).ToList());
     }
 
     private static async Task AssertEmployeeSequenceEqual(IReadOnlyList<Employee> expected, IReadOnlyList<Employee> actual)
@@ -709,24 +707,4 @@ public class EmployeesQueryBehaviorTests
         await Assert.That(threw).IsTrue();
     }
 
-    private static Select<TModel> BuildLinqSelect<TModel>(Database<EmployeesDb> database, IQueryable<TModel> query)
-    {
-        var queryParser = QueryParser.CreateDefault();
-        var queryModel = queryParser.GetParsedQuery(query.Expression);
-        var table = database.Provider.Metadata.TableModels
-            .Single(x => x.Model.CsType.Type == typeof(TModel))
-            .Table;
-        var queryExecutorType = typeof(Database<EmployeesDb>).Assembly.GetType("DataLinq.Linq.QueryExecutor", throwOnError: true)!;
-        var executor = Activator.CreateInstance(
-            queryExecutorType,
-            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public,
-            binder: null,
-            args: [database.Provider.ReadOnlyAccess, table],
-            culture: null)!;
-        var parseMethod = queryExecutorType
-            .GetMethod("ParseQueryModel", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .MakeGenericMethod(typeof(TModel));
-
-        return (Select<TModel>)parseMethod.Invoke(executor, [queryModel])!;
-    }
 }

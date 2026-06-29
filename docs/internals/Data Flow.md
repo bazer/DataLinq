@@ -85,9 +85,9 @@ If the generated metadata hook is missing or invalid, startup should fail loudly
 
 ```mermaid
 flowchart TD
-    A["db.Query().Employees<br/>.Where(...).OrderBy(...)"] --> B["Remotion parses expression tree"]
-    B --> C["DataLinq validates supported shape"]
-    C --> D["Build SQL for supported predicates, ordering, paging, scalar operators"]
+    A["db.Query().Employees<br/>.Where(...).OrderBy(...)"] --> B["ExpressionQueryPlanParser parses expression tree"]
+    B --> C["DataLinqQueryPlan records source slots, operations, projection, result, bindings"]
+    C --> D["Build SQL for supported predicates, joins, ordering, paging, scalar operators"]
     D --> E["Execute key/select SQL through provider"]
     E --> F{"Rows in cache?"}
     F -- "hit" --> G["Reuse immutable instance"]

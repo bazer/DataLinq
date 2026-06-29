@@ -2,39 +2,79 @@
 > This document is roadmap and engineering planning material. It is not normative product documentation and should not be treated as a support claim.
 # Practical AOT and Size Plan
 
-**Status:** Split historical plan. Phase 8C completed the package graph, size reporting, generated startup, and packaging work; Phase 17 still owns Remotion/query-parser and SQLitePCLRaw warning-disposition work.
+**Status:** Active compatibility follow-up. Phase 8C completed the package graph, size reporting, generated startup, and packaging work. The 0.8 roadmap then completed the Remotion/query-parser work through Phase 7. The generated SQLite Native AOT and trimmed reports are green as of the 2026-06-28 refresh. Playwright-backed browser automation, broader constrained query coverage, clean-output publishing, and release-threshold warnings are implemented in the local tooling. Current WebAssembly AOT browser evidence is negative: the host-side `wasm-aot` report publishes and then fails while opening generated SQLite with `MONO_WASM: function signature mismatch`. Browser support, no-AOT browser disposition, provider breadth, and SQLitePCLRaw warning disposition remain release-evidence work.
 
 **Created:** 2026-05-05.
 
-**Update 2026-05-11:** The package graph, size reporting, generated startup, and packaging work landed in archived [Phase 8C](../archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md). The Remotion/query-parser and SQLitePCLRaw warning-disposition work remains in [Phase 17](../roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation%20Plan.md).
+**Update 2026-05-11:** The package graph, size reporting, generated startup, and packaging work landed in archived [Phase 8C](../archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md). The Remotion/query-parser and SQLitePCLRaw warning-disposition work moved to [Phase 17](../roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation%20Plan.md).
+
+**Update 2026-06-27:** The Remotion/query-parser work is now sequenced under the version-scoped [DataLinq 0.8 Roadmap](../roadmap-implementation/v0.8/README.md).
+
+**Update 2026-06-28:** The 0.8 parser-removal track closed through [Phase 7](../roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md). Production queries use DataLinq's expression parser, `Remotion.Linq` is gone from the main runtime package graph, and trimmed compatibility reporting no longer classifies the publish as a Remotion dependency failure.
+
+**Update 2026-06-28 refresh:** After installing the Visual Studio C++ toolchain and refreshing workloads, `DataLinq.Dev.CLI size-report --targets phase8c` publishes all four constrained targets successfully. Native AOT and trimmed executable smokes pass with zero warnings and zero banned payloads. WebAssembly publish targets complete with zero banned payloads; browser smoke automation was then added to `size-report` through Playwright.
+
+**Update 2026-06-28 browser evidence:** A host-side `wasm-aot` report at `artifacts/dev/compat-size-report/20260628-163740998/` publishes successfully, serves the app, opens Edge through Playwright, and fails at `opening-generated-database` with `MONO_WASM: function signature mismatch`. A clean-output host report at `artifacts/dev/compat-size-report/20260628-164853329/` fails earlier in publish with `MSB4057` for missing `ResolveWasmOutputs`, which is classified as WebAssembly SDK/toolchain evidence rather than a DataLinq query regression.
 
 ## Purpose
 
 Phase 8 proved something real: generated SQLite models can run under Native AOT, trimmed publish, and Blazor WebAssembly AOT. That is a serious milestone.
 
-It did not prove that DataLinq is broadly AOT-compatible. Phase 8C fixed the first ugly fact from this original plan, but two remain:
+It did not prove that DataLinq is broadly AOT-compatible. Phase 8C fixed the Roslyn/compiler payload problem, and the 0.8 parser-removal track fixed the Remotion runtime dependency problem. Three caveats still matter:
 
-1. The query pipeline still depends on `Remotion.Linq`, which emits Native AOT and trim warnings.
-2. The browser SQLite path works under WASM AOT, but the published payload is large and SQLitePCLRaw emits WebAssembly native varargs warnings.
+1. Native AOT verification depends on the local platform toolchain being installed; missing linker/workload prerequisites should be reported as environment failures, not query-pipeline regressions.
+2. WebAssembly publish success is not browser runtime proof. Current tooling automates browser execution for WebAssembly targets, so release evidence should come from a fresh browser smoke report rather than publish output alone.
+3. The browser SQLite path has worked under WASM AOT, but SQLitePCLRaw native varargs warning disposition still needs a clean call-graph answer when fresh publishes emit `WASM0001`.
 
 This plan describes what must happen before DataLinq can have a practical AOT story: one that works, publishes cleanly, and has file sizes a normal user would not immediately hate.
 
 ## Current Evidence
 
-The source of truth for the Phase 8 proof is [Compatibility Results](../archive/roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md).
+The historical source of truth for the original Phase 8 proof is [Compatibility Results](../archive/roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md). The current repeatable report is:
 
-Current measured output:
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- size-report --targets phase8c --format summary
+```
 
-| Target | Result | Current size | Main problem |
+2026-06-28 report: `artifacts/dev/compat-size-report/20260628-143703618/report.md`.
+
+| Target | Result | Current size | Current problem |
 | --- | --- | ---: | --- |
-| Native AOT SQLite smoke | passes | 18.61 MiB executable, 76.76 MiB folder including PDBs | symbols dominate folder size; `Remotion.Linq` warnings remain |
-| Trimmed SQLite smoke | passes | 32.10 MiB folder | historical pre-Phase 8C number; `Remotion.Linq` remains the query-boundary warning problem |
-| Blazor WASM no-AOT publish | publishes, runtime unsupported | 7.91 MiB Brotli assets | Mono interpreter fails on the SQLite/DataLinq path |
-| Blazor WASM AOT | publishes and browser smoke passes | 18.80 MiB Brotli assets | historical pre-Phase 8C number; AOT runtime size plus SQLitePCLRaw warnings remain |
+| Native AOT SQLite smoke | publish ok, smoke ok, 0 warnings, 0 banned payloads | 6.98 MB executable; 8.8 MB symbol-excluded folder; 65.32 MB folder with PDBs | toolchain prerequisite must be documented; PDBs dominate raw folder size |
+| Trimmed SQLite smoke | publish ok, smoke ok, 0 warnings, 0 banned payloads | 22.68 MB symbol-excluded folder; 22.93 MB total | slightly above the old 20 MB target; runtime payload is now honest but still worth watching |
+| Blazor WASM no-AOT publish | publish ok historically; browser smoke now runs and reports `unsupported` if the SQLite/DataLinq runtime path fails | 3.28 MB Brotli assets; 21.17 MB total | publish success does not overturn the historical Mono interpreter runtime failure |
+| Blazor WASM AOT publish | publish ok, browser smoke automated by report, 0 banned payloads | 7.01 MB Brotli assets; 49.75 MB total | current browser smoke fails while opening generated SQLite with `MONO_WASM: function signature mismatch` |
 
-The good news: the generated SQLite path is viable.
+The good news: the generated SQLite path is no longer blocked by Roslyn, Remotion, or local Native AOT toolchain setup on this machine.
 
-The old bad news was that the package graph was amateur-hour for constrained deployment. Phase 8C fixed the Roslyn/compiler payload part. The remaining bad news is the query dependency and SQLitePCLRaw warning boundary.
+The remaining bad news is narrower and more honest: browser runtime proof is automated and currently failing on the SQLite/WebAssembly runtime path, no-AOT browser execution is still unsupported until re-proven, and the SQLitePCLRaw varargs warning boundary needs a real disposition instead of silence-by-incremental-publish.
+
+## 2026-06-28 Benchmark Refresh
+
+Benchmarks were run on `sqlite-memory` through `DataLinq.Benchmark.CLI`. These are local evidence points, not release gates.
+
+| Lane | Command shape | Result | Interpretation |
+| --- | --- | --- | --- |
+| Phase 3 query hot path, heavy profile | `run --phase3-query-hotpath --profile heavy` | `RepeatedScalarAny` 122.8 us/op, 14.25 KB/op; `RepeatedInPredicateFetch` 153.3 us/op, 24.52 KB/op; `RepeatedNonPrimaryKeyEqualityFetch` 157.3 us/op, 19.19 KB/op | Best current parser/query-hot-path evidence. `IN` row is stable enough to read; scalar/non-PK rows still show 11-19% noise and need history before trend claims. |
+| Phase 3 query hot path, default profile | `run --phase3-query-hotpath --profile default` | scalar Any 121.9 us/op; non-PK equality 229.6 us/op; `IN` predicate 315.2 us/op | Harness passed, but non-PK and `IN` rows had 66-158% noise. Do not use this run as a regression verdict. |
+| Phase 2 watchpoints, default profile | `run --phase2-watch --profile default` | warm PK 36.24 us/op; startup PK 689.05 us/op; provider init 1188.73 us/op | Telemetry shape is useful, but timing noise was 188-447%. Use heavy profile or repeated history before interpreting startup/provider changes. |
+| Stable plus macro lane, smoke profile | `run --profile smoke -- --anyCategories stable macro-readwrite macro-bulk` | harness passed; CRUD small/batch telemetry showed expected query, transaction, mutation, row-cache, materialization, and relation activity | Smoke profile proves wiring and telemetry shape only. It is intentionally not trustworthy performance evidence. |
+
+The blunt read: the parser-removal work did not leave an obvious benchmark crater in the heavy query-hot-path lane, but the default local runs are too noisy for fine-grained claims. Performance work should use heavy-profile history or comparison artifacts before calling a change faster or slower.
+
+## Outstanding AOT Blocker Catalogue
+
+| Area | Current status | Why it matters | Recommended action |
+| --- | --- | --- | --- |
+| Browser runtime automation | Implemented in `size-report` through Playwright, local HTTP serving, DOM status polling, console/page-error capture, and target-local `browser-smoke.log` artifacts. Current `wasm-aot` evidence fails at `opening-generated-database` with `MONO_WASM: function signature mismatch`. | A publishable WebAssembly app can still fail when loaded in a real browser. We have now proven that again with current tooling. | Keep browser smoke in the release gate and do not claim browser AOT support until the fresh report passes. |
+| no-AOT browser runtime | Publish is green, but the historical browser proof failed in the Mono interpreter on the SQLite/DataLinq path. | The small no-AOT payload is tempting, but supporting it without runtime proof would be dishonest. | Re-run a current browser smoke after the package/parser cleanup. If it still fails, keep no-AOT explicitly unsupported and capture the exact failing runtime method. |
+| SQLitePCLRaw WebAssembly varargs | A fresh standalone WASM AOT publish emitted `WASM0001` for `sqlite3_config` and `sqlite3_db_config`; the later incremental full report emitted no warnings. | Incremental silence is not proof. If supported code can call those imports, runtime failure is possible. | Force a clean WASM AOT publish in the report path, map every managed import to call sites, and either prove they are unreachable for the supported path, change provider/configuration, or add a narrow smoke-project suppression with the proof next to it. |
+| Provider breadth | AOT/trim/browser proof is generated SQLite only. | MySQL/MariaDB may pull different dependencies and cannot be assumed compatible from SQLite smoke evidence. | Add separate Native AOT/trim smoke projects or report targets for server providers where practical. Keep browser support SQLite-only unless a real browser provider story exists. |
+| Query breadth | The constrained smoke path exercises only a representative documented subset. | A broad "AOT-compatible" claim would imply more LINQ shapes than the parser supports. | Expand constrained smoke coverage from the LINQ support matrix: aggregates, explicit joins, relation predicates, projection shapes, paging/result operators, and unsupported diagnostics. |
+| Reflection compatibility fallbacks | Supported generated paths are strict, but compatibility paths still exist for non-generated or broader projection/member shapes. | Hidden fallback is how AOT support rots: it can work in JIT mode and fail or bloat in Native AOT/WASM. | Keep `AotStrict` style options as guardrails, add analyzer/runtime diagnostics for AOT-intended projects without generated hooks, and do not route constrained smokes through compatibility fallback. |
+| Payload and symbols | Native AOT executable is small, but the raw folder is mostly PDB. Trimmed output is slightly above the old 20 MB target. WASM AOT Brotli is now under the old target. | Size claims are easy to make badly. Counting symbols as deployed runtime size is misleading, but ignoring symbols is also release sloppiness. | Package Native AOT symbols separately, keep symbol-excluded sizes in reports, and add threshold warnings only after stable baseline numbers settle. |
+| Benchmark signal | Heavy query-hot-path evidence is usable; default local startup/query runs are noisy. | Noisy benchmarks create false confidence and false regressions. | Prefer heavy-profile history for parser/runtime claims. Keep smoke runs for harness validation only. |
+| Toolchain prerequisites | Native AOT passes once Visual Studio C++ tooling is installed, even if the normal shell does not resolve `cl.exe`. | Contributors will otherwise misclassify environment setup as product failure. | Document the required workloads and keep `SdkOrWebAssemblyToolchain` classification. Consider a doctor check that distinguishes MSVC linker discovery from PATH resolution. |
 
 ## Practical Support Definition
 
@@ -44,7 +84,7 @@ DataLinq should not claim practical AOT support until all of this is true:
 - generated model paths publish and run under trimming with no DataLinq-owned trim warnings
 - `DataLinq.dll` has no runtime dependency on `Microsoft.CodeAnalysis.*`
 - browser publish output does not contain Roslyn assemblies or Roslyn `.wasm` assets
-- `Remotion.Linq` is removed, isolated from the AOT support boundary, or warning-clean under the SDK analyzers
+- `Remotion.Linq` is absent from the main runtime package dependency graph
 - SQLitePCLRaw WASM warnings are either removed or documented with a verified "not called by this path" proof
 - size reports are generated automatically for Native AOT, trimmed, and WASM publishes
 - a CI or local release gate rejects accidental payload regressions
@@ -61,13 +101,13 @@ These are engineering targets, not promises. They exist to stop us from declarin
 
 | Target | Current | Practical target | Notes |
 | --- | ---: | ---: | --- |
-| Native AOT executable, SQLite smoke | 18.61 MiB | <= 20 MiB | Already acceptable for a self-contained SQLite CLI. Publish symbols separately. |
-| Native AOT publish folder without PDBs | about 20 MiB inferred | <= 25 MiB | The current 76.76 MiB folder is mostly PDBs. That is packaging discipline, not runtime bloat. |
-| Trimmed self-contained publish folder | 32.10 MiB | <= 20 MiB | Removing Roslyn should be the first big win. |
-| WASM no-AOT Brotli assets | 7.91 MiB | <= 6 MiB if it ever runs | Not worth prioritizing until the interpreter failures are gone. |
-| WASM AOT Brotli assets | 18.80 MiB | 12-16 MiB | Sub-10 MiB with SQLite plus AOT is probably unrealistic on current .NET without more radical choices. |
+| Native AOT executable, SQLite smoke | 6.98 MB | <= 20 MB | Good. Do not confuse executable size with symbol-inclusive folder size. |
+| Native AOT publish folder without PDBs | 8.8 MB | <= 25 MB | Good. The 65.32 MB total folder is mostly the 56.2 MB native PDB. |
+| Trimmed self-contained publish folder | 22.68 MB symbol-excluded | <= 20 MB | Close but still above target. Roslyn/Remotion are gone; future wins are ordinary runtime payload discipline. |
+| WASM no-AOT Brotli assets | 3.28 MB | <= 6 MB if it ever runs | Size is fine; runtime support is not proven and remains the real blocker. |
+| WASM AOT Brotli assets | 6.99 MB | 12-16 MB | Better than the old target. The next question is browser runtime proof and startup/runtime behavior, not raw Brotli size. |
 
-The WASM AOT target is deliberately not fantasy. `dotnet.native.wasm` is already a large fixed cost. The practical goal is "respectable for an offline-capable browser database app", not "tiny marketing demo".
+The WASM AOT size result is now good enough that size is not the first blocker for the smoke app. Browser runtime proof, no-AOT behavior, SQLitePCLRaw warning disposition, and broader query/provider coverage matter more.
 
 ## Workstream 1: Split Runtime From Roslyn
 
@@ -75,7 +115,7 @@ Status: implemented in [Phase 8C](../archive/roadmap-implementation/phase-8c-pra
 
 This was the highest-return work and it is now done.
 
-Current problem:
+Historical problem:
 
 - `src/DataLinq/DataLinq.csproj` references `Microsoft.CodeAnalysis.CSharp`.
 - `src/DataLinq/DataLinq.csproj` compiles all of `src/DataLinq.SharedCore/**/*.cs`.
@@ -120,9 +160,9 @@ Expected impact:
 
 ## Workstream 2: Replace or Isolate Remotion.Linq
 
-This is the hardest work, but it is probably necessary.
+Status: implemented by the 0.8 parser-removal track through [Phase 7](../roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md).
 
-Current problem:
+Historical problem:
 
 - `src/DataLinq/DataLinq.csproj` references `Remotion.Linq`.
 - Query code imports Remotion clauses and result operators across:
@@ -134,7 +174,9 @@ Current problem:
   - `src/DataLinq/Query/SqlQuery.cs`
 - Native AOT and trim publishes pass but emit warnings from `Remotion.Linq`.
 
-Do not start by suppressing this. Suppression can be a temporary measuring tool, but it is not a product solution unless the dependency is audited and the exact warning paths are proven unreachable.
+The 0.8 implementation did not suppress this. It moved production query execution to DataLinq's expression parser, deleted the Remotion runtime scaffolding, removed the package reference and central package version, rewrote active tests away from Remotion parser APIs, and verified packages/trimmed smoke output without Remotion dependency entries.
+
+The design options below remain useful historical rationale for why the implementation chose the plan-adapter path before deleting Remotion.
 
 Practical options:
 
@@ -234,10 +276,11 @@ Exit criteria:
 Current problem:
 
 - WASM AOT publish passes.
-- Browser smoke passes.
-- Publish emits `WASM0001` warnings for SQLitePCLRaw native varargs exports:
+- Historical browser smoke passes for the generated SQLite AOT path.
+- Fresh standalone publishes can emit `WASM0001` warnings for SQLitePCLRaw native varargs exports:
   - `sqlite3_config`
   - `sqlite3_db_config`
+- The full 2026-06-28 incremental compatibility report did not emit the warnings, which is not the same thing as proving the imports are harmless.
 
 The warning says calls to those functions would fail at runtime. Our smoke path does not appear to call them, but "appears" is not good enough for a clean support claim.
 
@@ -264,7 +307,7 @@ Exit criteria:
 
 ## Workstream 5: Browser Storage and no-AOT Reality
 
-The no-AOT browser story is currently not supportable.
+The no-AOT browser story is currently not supportable as a runtime claim.
 
 Observed failures:
 
@@ -274,8 +317,8 @@ Observed failures:
 Practical stance:
 
 - keep WASM AOT as the supported browser path
-- do not spend serious time on no-AOT until runtime/package size work is done
-- treat no-AOT as an opportunistic future win, not a blocker for a practical AOT story
+- re-test no-AOT after the Roslyn and Remotion cleanup because the publish payload is now small enough to be interesting
+- treat no-AOT as unsupported unless the actual browser smoke runs, not merely publishes
 
 Storage work should be staged:
 
@@ -293,6 +336,8 @@ Exit criteria:
 ## Workstream 6: Size Reporting and Gates
 
 Manual size notes are useful once. After that they rot.
+
+Status: implemented for the current `phase8c` target set. The report publishes Native AOT, trimmed, WASM no-AOT, and WASM AOT outputs, captures payload sizes, groups warnings, checks banned Roslyn payload, applies optional 0.8 release thresholds, and runs browser smoke for WebAssembly targets through Playwright.
 
 Add a repeatable size report command that publishes the constrained targets and emits:
 
@@ -335,6 +380,8 @@ Exit criteria:
 
 Native AOT folder size is currently inflated by symbols. That is normal during development and bad as a shipping default.
 
+Status: still relevant. The current Native AOT folder is 65.32 MB total but only 8.8 MB excluding symbols; `DataLinq.AotSmoke.pdb` is 56.2 MB. Any release artifact that reports the raw folder as runtime size is misleading.
+
 Required packaging rules:
 
 - publish PDBs separately for Native AOT release artifacts
@@ -350,18 +397,15 @@ Exit criteria:
 
 ## Recommended Order
 
-1. Add automated size reports and banned-file checks.
-2. Split runtime-safe metadata from Roslyn/generator code.
-3. Remove Roslyn from the runtime package and verify publish-size improvement.
-4. Introduce a DataLinq-owned query plan behind the current Remotion parser.
-5. Build a supported-subset expression parser that emits the same query plan.
-6. Move generated/AOT mode to the new parser.
-7. Remove or isolate Remotion from the practical AOT support boundary.
-8. Investigate SQLitePCLRaw WASM warnings and document or eliminate them.
-9. Add OPFS/file-backed browser storage as a separate proof.
-10. Promote the narrow support claim into product docs only after the gates are boring.
+1. Automate browser runtime smoke for WebAssembly publish outputs.
+2. Re-run no-AOT browser smoke against the current Roslyn/Remotion-free payload and record the exact result.
+3. Force clean WASM AOT publish warning capture and document or eliminate the SQLitePCLRaw varargs warnings.
+4. Expand constrained smoke coverage across the documented query matrix instead of relying on one representative query path.
+5. Add provider-specific Native AOT/trim smoke targets where the dependency graph makes sense.
+6. Keep size reports and banned-file checks as release evidence, with symbol-excluded sizes treated as the runtime payload number.
+7. Promote the narrow support claim into product docs only after the browser/runtime gates are boring.
 
-This order matters. Replacing the query parser before removing Roslyn is backwards: Roslyn is the obvious payload problem, and it is easier to verify.
+This order matters. The dependency graph and parser blockers are already fixed. The next honest risk is runtime proof, not more publish-only evidence.
 
 ## Definition of Done
 
@@ -370,17 +414,17 @@ Practical AOT support is ready to document publicly when:
 - `DataLinq.TrimSmoke` publishes and runs without Roslyn output
 - `DataLinq.AotSmoke` publishes and runs without DataLinq-owned AOT warnings
 - `DataLinq.BlazorWasm` publishes and browser-runs under AOT with no Roslyn output
-- `Remotion.Linq` no longer produces AOT/trim warnings in the supported path
+- `Remotion.Linq` is absent from the supported path and main runtime package dependency graph
 - WASM warning disposition is documented and tested
 - size reports are generated by tooling
 - the support boundary says exactly what works and exactly what does not
 
 Until then, the correct wording is:
 
-> DataLinq has a proven generated SQLite AOT/WASM AOT smoke path.
+> DataLinq has a proven generated SQLite Native AOT and trimmed publish smoke boundary for the documented query subset, keeps Roslyn and Remotion out of runtime package dependency groups, and has browser WebAssembly AOT release-gate automation that currently exposes a SQLite/WebAssembly runtime blocker.
 
 Not:
 
 > DataLinq is AOT-compatible.
 
-The second sentence is the one we earn after the package graph and query parser stop embarrassing us.
+The second sentence is the one we earn after the current browser runtime failure, no-AOT disposition, SQLitePCLRaw warning disposition, and broader provider/query coverage stop being open questions.

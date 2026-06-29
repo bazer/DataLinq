@@ -6,6 +6,31 @@
 
 **Recorded:** 2026-05-04.
 
+## 2026-06-28 Refresh
+
+The original Phase 8 evidence below is historical. The package graph, generated runtime contract, and query parser boundary have changed since then: Roslyn no longer belongs to the runtime dependency groups, production queries use DataLinq's expression parser, and `Remotion.Linq` is gone from the main runtime package graph.
+
+Current compatibility report:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- size-report --targets phase8c --format summary
+```
+
+Report artifact: `artifacts/dev/compat-size-report/20260628-143703618/report.md`.
+
+| Target | Current result | Current size | Notes |
+| --- | --- | ---: | --- |
+| Native AOT SQLite smoke | publish ok, smoke ok, 0 warnings, 0 banned payloads | 6.98 MB executable; 8.8 MB symbol-excluded folder | Requires installed Native AOT platform toolchain. The raw 65.32 MB folder is mostly the 56.2 MB native PDB. |
+| Trimmed SQLite smoke | publish ok, smoke ok, 0 warnings, 0 banned payloads | 22.68 MB symbol-excluded folder | No Roslyn or Remotion payload blocker in the current report. |
+| Blazor WASM no-AOT publish | publish ok, browser smoke not automated | 3.28 MB Brotli assets | Historical browser runtime failure still keeps no-AOT unsupported until re-tested. |
+| Blazor WASM AOT publish | publish ok, browser smoke not automated, 0 banned payloads | 6.99 MB Brotli assets | Browser runtime automation and SQLitePCLRaw varargs warning disposition remain follow-up work. |
+
+Current benchmark refresh:
+
+- `phase3-query-hotpath` heavy profile on `sqlite-memory`: 122.8 us/op for scalar `Any`, 153.3 us/op for repeated `IN` predicate fetch, and 157.3 us/op for repeated non-PK equality fetch.
+- Default-profile Phase 2 and Phase 3 runs passed but were noisy enough that they should not be used as regression verdicts.
+- Stable plus macro smoke passed and produced expected telemetry shape for CRUD and warm/cold read rows, but smoke-profile timings are harness evidence only.
+
 ## Proven Boundary
 
 The Phase 8 proof uses generated SQLite models in `src/DataLinq.PlatformCompatibility.Smoke` and exercises:
@@ -196,11 +221,13 @@ Remaining reflection-sensitive runtime sites are classified as generated-metadat
 
 ## Follow-Up Work
 
-These are not optional if DataLinq wants a strong public AOT/WASM claim later:
+Original Phase 8 follow-up disposition as of the 2026-06-28 refresh:
 
-1. Split Roslyn dependencies out of the runtime package so browser and trimmed apps do not carry compiler assemblies.
-2. Replace, isolate, or deeply audit the Remotion.Linq dependency so Native AOT and trim publishes stop producing third-party warnings.
-3. Investigate SQLitePCLRaw `WASM0001` varargs warnings and either avoid the affected exports or document why the linked symbols are unreachable for DataLinq's path.
-4. Add an automated WASM AOT browser smoke job if CI has the WebAssembly workload and browser runtime available.
-5. Keep no-AOT WebAssembly unsupported for the SQLite/DataLinq path until the Mono interpreter failures are gone.
-6. Decide whether generated metadata should become mandatory for all public runtime entry points in a future breaking release.
+| Item | Current disposition |
+| --- | --- |
+| Split Roslyn dependencies out of the runtime package | Done in Phase 8C; current constrained reports have zero banned Roslyn payloads. |
+| Replace or isolate `Remotion.Linq` | Done in the 0.8 parser-removal track through Phase 7; current Native AOT and trimmed reports have zero Remotion warnings. |
+| Investigate SQLitePCLRaw `WASM0001` varargs warnings | Still open. Fresh standalone WASM AOT publishes can emit warnings for `sqlite3_config` and `sqlite3_db_config`; incremental reports may not re-emit them. |
+| Add automated WASM AOT browser smoke | Still open. `size-report` publishes WebAssembly outputs but reports browser smoke as not automated. |
+| Keep no-AOT WebAssembly unsupported until it runs | Still open. The no-AOT publish is now small, but the historical browser runtime failure remains the support boundary until re-tested. |
+| Make generated metadata mandatory for public runtime entry points | Partly done for the generated/AOT support boundary; broader public API policy remains future compatibility work. |

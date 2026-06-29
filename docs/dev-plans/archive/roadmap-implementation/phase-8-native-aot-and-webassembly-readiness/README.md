@@ -22,7 +22,9 @@ The phase now has executable proof for a deliberately narrow but useful boundary
 
 The important product stance is blunt: generated hooks are the AOT path. Missing generated database hooks now fail instead of silently drifting into reflection or expression-compiled fallbacks. That is the right tradeoff for this phase because hidden fallback is exactly how a library lies to itself about AOT readiness.
 
-The proof does not justify a broad "DataLinq supports all AOT/WASM scenarios" claim. No-AOT browser WebAssembly still fails in the Mono interpreter for the SQLite/DataLinq path, `Remotion.Linq` still emits Native AOT/trimming warnings, SQLitePCLRaw emits WebAssembly native varargs warnings, and the runtime package still drags Roslyn into constrained publishes.
+The proof does not justify a broad "DataLinq supports all AOT/WASM scenarios" claim. This was especially true at original Phase 8 closeout, when no-AOT browser WebAssembly failed in the Mono interpreter, `Remotion.Linq` still emitted Native AOT/trimming warnings, SQLitePCLRaw emitted WebAssembly native varargs warnings, and the runtime package still dragged Roslyn into constrained publishes.
+
+Later work retired the Roslyn and Remotion blockers. The 2026-06-28 compatibility refresh has green Native AOT, trimmed, WASM publish, and WASM AOT publish reports for the generated SQLite boundary. The remaining caveats are browser runtime automation, no-AOT browser re-test, SQLitePCLRaw warning disposition, and broader provider/query coverage.
 
 ## Implemented Surface
 

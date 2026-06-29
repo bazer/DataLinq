@@ -101,7 +101,7 @@ DataLinq translates a useful subset of LINQ. It does not try to translate every 
 
 Unsupported shapes should fail with `QueryTranslationException` or a clear unsupported-operation path. Silent client-side fallback inside provider predicates would be a correctness bug.
 
-See [Query Translator](Query%20Translator.md).
+See [Query Translator](Query%20Translator.md) and [LINQ Parser Architecture](LINQ%20Parser%20Architecture.md).
 
 ### Provider Differences Are Explicit
 
@@ -157,6 +157,7 @@ Use this order if you are trying to understand the system rather than chase a si
 2. [Metadata Structure](Metadata%20Structure.md)
 3. [Source Generator](Source%20Generator.md)
 4. [Query Translator](Query%20Translator.md)
-5. [Provider-Key Row Cache Architecture](Provider-Key%20Row%20Cache%20Architecture.md)
+5. [LINQ Parser Architecture](LINQ%20Parser%20Architecture.md)
+6. [Provider-Key Row Cache Architecture](Provider-Key%20Row%20Cache%20Architecture.md)
 
 For the public support boundary, pair these pages with [Supported LINQ Queries](../Supported%20LINQ%20Queries.md), [Provider Metadata Support Matrix](../support-matrices/Provider%20Metadata%20Support%20Matrix.md), and [Platform Compatibility](../Platform%20Compatibility.md).

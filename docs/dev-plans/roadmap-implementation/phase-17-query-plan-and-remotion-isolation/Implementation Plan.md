@@ -2,17 +2,17 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 17 Implementation Plan: Query Plan and Remotion Isolation
 
-**Status:** Deferred to the back of the roadmap.
+**Status:** Source plan superseded and implemented by the version-scoped [DataLinq 0.8 Roadmap](../v0.8/README.md). See [0.8 Query Parser Overview](0.8%20Query%20Parser%20Overview.md) for the consolidation that fed the 0.8 sequence, and [0.8 Phase 7](../v0.8/phase-7-remotion-dependency-removal/README.md) for the Remotion-removal closeout.
 
 ## Purpose
 
 This phase owns the query-boundary work that used to live inside the oversized Phase 8B plan. The work is important, but it is not a small AOT cleanup. It is a query pipeline migration with AOT consequences.
 
-The goal is to make DataLinq's supported query surface depend on DataLinq-owned plan nodes and diagnostics rather than on Remotion's `QueryModel` shape, then route generated/AOT execution through a supported-subset expression parser.
+The goal was to make DataLinq's supported query surface depend on DataLinq-owned plan nodes and diagnostics rather than on Remotion's `QueryModel` shape, then route generated/AOT execution through a supported-subset expression parser. The current 0.8 branch has implemented that Remotion-replacement path for the documented support boundary.
 
-## Phase-Start Baseline
+## Historical Phase-Start Baseline
 
-The current query path still depends on `Remotion.Linq`:
+At phase start, the query path still depended on `Remotion.Linq`:
 
 - `src/DataLinq.AotSmoke` and `src/DataLinq.TrimSmoke` root `Remotion.Linq` because the runtime query path depends on it
 - Native AOT and trimmed publishes pass but still emit Remotion warnings

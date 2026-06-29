@@ -23,7 +23,7 @@ Several important things are already true:
 - The runtime metadata graph now has a Phase 8B factory/freeze boundary for ordinary construction. A complete generated metadata switch should target that builder-built snapshot path rather than reviving reflection-heavy startup.
 - Provider metadata roundtrip fidelity now has an explicit support boundary for SQLite, MySQL, and MariaDB, including tested coverage for the ordinary table/column/index/relation subset and documented unsupported provider details.
 - Schema validation and conservative diff-script tooling now exist for that supported subset; full versioned migration execution remains intentionally deferred.
-- Phase 8 proved generated SQLite models under Native AOT, trimming, and Blazor WebAssembly AOT. Phase 8C then removed Roslyn/compiler payloads from the runtime package graph and constrained publish outputs. The remaining practical compatibility debt is narrower but real: `Remotion.Linq` still produces AOT/trimming warnings, SQLitePCLRaw still emits WebAssembly native varargs warnings, and no-AOT browser WebAssembly is not supportable for the SQLite/DataLinq path yet.
+- Phase 8 proved generated SQLite models under Native AOT, trimming, and historical Blazor WebAssembly AOT. Phase 8C removed Roslyn/compiler payloads from the runtime package graph and constrained publish outputs. The 0.8 parser-removal track then moved production queries onto DataLinq's expression parser and removed `Remotion.Linq` from the main runtime package graph. The 2026-06-28 compatibility refresh proves Native AOT and trimmed publishes locally once the platform toolchain is installed, and `size-report` now has Playwright-backed browser smoke automation for WebAssembly targets. The first fresh host-side `wasm-aot` browser report is negative: publish succeeds, then Edge fails at `opening-generated-database` with `MONO_WASM: function signature mismatch`. The remaining practical compatibility debt is narrower but real: browser AOT support is blocked until that path is fixed or excluded, no-AOT browser WebAssembly is not supportable for the SQLite/DataLinq path until re-proven, and SQLitePCLRaw WebAssembly varargs warnings still need exact call-path disposition.
 
 That last point matters. A fast ORM that is hard to validate or debug is still a risky tool.
 
@@ -298,7 +298,7 @@ Closeout result:
 - Roslyn/compiler dependencies are split out of the runtime package graph
 - generated startup uses complete generated metadata through the factory path instead of rediscovering ordinary model metadata through reflection
 - generated immutable, mutable, and relation access paths use generated indices or handles where that removes avoidable runtime lookup
-- public compatibility wording is narrow and leaves the Remotion/query-parser and SQLitePCLRaw warning work to Phase 17
+- public compatibility wording is narrow and left the Remotion/query-parser and SQLitePCLRaw warning work to the later query-boundary phase
 
 Key related plans:
 
@@ -459,8 +459,8 @@ Closeout result:
 
 Key related plans:
 
-- `roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/README.md`
-- `roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/README.md`
+- `archive/roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/Implementation Plan.md`
 - `metadata-and-generation/Validation Diagnostics and Partial Generation.md`
 - `metadata-and-generation/Source Location Diagnostic Fidelity.md`
 - `metadata-and-generation/Generated File Headers and Stamping.md`
@@ -491,8 +491,8 @@ Why before Phase 13:
 
 Key related plans:
 
-- `roadmap-implementation/phase-12c-cli-configuration-and-regeneration-workflow/README.md`
-- `roadmap-implementation/phase-12c-cli-configuration-and-regeneration-workflow/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-12c-cli-configuration-and-regeneration-workflow/README.md`
+- `archive/roadmap-implementation/phase-12c-cli-configuration-and-regeneration-workflow/Implementation Plan.md`
 - `tooling/CLI Command Surface Redesign.md`
 - `tooling/CLI Diagnostics Output Style.md`
 - `metadata-and-generation/Model Directory Regeneration Workflow.md`
@@ -510,56 +510,314 @@ Closeout result:
 - `generate models --all/--recursive`, `validate --all/--recursive`, and `config list --recursive` support solution/subfolder workflows with aggregate failure behavior.
 - `config init`, `config schema`, schema publication, secret references, local secret commands, and user-facing docs are implemented for the shipped behavior.
 
-### Phase 13: Explicit Multi-Join Composition
+### Version-Scoped 0.8 AOT Browser Release Track
 
-Status: next implementation priority after completed Phase 12C.
+Status: release gate wiring implemented; final closeout requires fresh compatibility and package evidence from the release machine.
 
 Goals:
 
-- make standard C# query-syntax joins a documented, tested path
-- support multiple explicit inner joins instead of the current narrow single-join boundary
-- support filtering, ordering, paging, and result operators over joined row shapes
-- keep joined materialization on provider-key components where Phase 10 made that possible
-- update public query docs and the support matrix only for shipped join shapes
+- run browser runtime smoke for WebAssembly AOT publish outputs through the compatibility report
+- resolve SQLitePCLRaw WebAssembly warning disposition with exact call-path evidence from a clean publish
+- re-test no-AOT browser behavior and document support or non-support from current runtime evidence
+- keep constrained-platform query coverage green across the documented subset selected for 0.8
+- fence constrained AOT paths away from reflection-heavy compatibility fallback
+- enforce browser and Native AOT deploy-size thresholds
+- publish a narrow support contract backed by current release evidence
+
+Why before join completion:
+
+- a release that claims browser AOT must prove browser execution, not only publish output
+- source-slot join expansion is valuable, but it is less important than making the existing generated SQLite AOT path shippable first
+- broadening query features before the constrained-platform support boundary is fenced increases the chance of accidental fallback and vague support claims
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/README.md`
+- `roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md`
+- `roadmap-implementation/v0.8/phase-9-webassembly-warning-and-no-aot-disposition/README.md`
+- `roadmap-implementation/v0.8/phase-10-aot-query-coverage-and-fallback-fencing/README.md`
+- `roadmap-implementation/v0.8/phase-11-browser-payload-and-deploy-size-hardening/README.md`
+- `roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md`
+- `platform-compatibility/Practical AOT and Size Plan.md`
+
+### Phase 13: Query Composition and Subquery Pushdown
+
+Status: implemented for the single-source Phase 13 slice. This pulls forward the old Phase 17 operator-order work that was intentionally deferred while the parser replacement was being proven.
+
+Goals:
+
+- preserve LINQ operator order for `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, `Take(...)`, and supported scalar result operators
+- add SQL subquery pushdown when a later operation must apply over an already-limited, offset, filtered, or ordered source
+- support shapes such as `Take(...).OrderBy(...)`, `Skip(...).OrderBy(...)`, `OrderBy(...).Take(...).OrderBy(...)`, and post-paging `Where(...)`
+- prove every supported query command from both `db.Query()` and `transaction.Query()`
+- keep parameter binding, aliases, projection binding, and diagnostics stable across nested source boundaries
+- update public query docs and the support matrix only for shipped query-composition shapes
+
+Why before joins:
+
+- flattening operator-order-sensitive LINQ into final SQL clause order is simply wrong
+- joined row shapes need the same subquery-boundary machinery once filtering, ordering, and paging compose over joins
+- transaction-root behavior should be fixed once at the query-provider boundary, not re-discovered for each join API
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/phase-13-query-composition-and-subquery-pushdown/README.md`
+- `roadmap-implementation/v0.8/phase-13-query-composition-and-subquery-pushdown/Implementation Plan.md`
+- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation Plan.md`
+- `query-and-runtime/Relation-Aware Join API.md`
+- `../support-matrices/LINQ Translation Support Matrix.md`
+
+### Phase 13B: Grouped Aggregate Projection Baseline
+
+Status: implemented for direct-key grouped `Count()` projection.
+
+Goals:
+
+- support the first honest SQL-shaped `GroupBy(...)` slice
+- restrict support to single-source grouped aggregate projection
+- start with direct mapped-member keys, `g.Key`, and `g.Count()`
+- keep materialized `IGrouping<TKey,TElement>`, grouped element enumeration, composite keys, computed keys, `HAVING`, grouped joins, and post-group composition rejected
+- prove the shipped shape from both `db.Query()` and `transaction.Query()`
+- update public query docs and the support matrix only for tested grouped aggregate behavior
+
+Delivered slice:
+
+- direct mapped member key
+- `group.Key`
+- `group.Count()`
+- explicit SQL `GROUP BY`
+- direct data-reader materialization of aggregate rows
+- active provider coverage for SQLite, MySQL, and MariaDB
+
+Why before joins:
+
+- grouping needs the Phase 13 source/alias/pushdown discipline but does not need joined row composition for the first slice
+- implementing grouped aggregate rows before joins keeps the result-shape boundary honest
+- broad joins should not become the place where grouped projection semantics are invented by accident
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/phase-13b-grouped-aggregate-projection-baseline/README.md`
+- `roadmap-implementation/v0.8/phase-13b-grouped-aggregate-projection-baseline/Implementation Plan.md`
+- `../support-matrices/LINQ Translation Support Matrix.md`
+
+### Phase 14: Explicit Multi-Join Composition
+
+Status: implemented for the explicit two-source join composition slice after Phase 13 and the single-source Phase 13B grouping slice. This was previously queued immediately after the parser-removal track, but the 0.8 branch now puts browser AOT proof, deploy-size hardening, operator-order correctness, and the narrow grouped aggregate baseline first so the release support claim is real before broad query expansion resumes.
+
+Delivered slice:
+
+- explicit two-source inner `Join(...)` composition
+- filtering, ordering, paging, `Any()`, and `Count()` over joined projection members that bind back to source slots
+- joined materialization through provider-key components
+- read-only and transaction-root parity for the shipped joined projection shapes
+- public query docs and support-matrix updates only for the tested joined behavior
+
+Deferred follow-up now lives in later 0.8 phases:
+
+- SQL-backed projection rows and implicit relation projection: Phase 19
+- C# query-syntax joins and transparent-identifier binding: Phase 20
+- post-paging joined pushdown that preserves Phase 13 semantics after `Skip(...)` or `Take(...)`: Phase 21
+- fluent relation-aware APIs and left joins remain outside the shipped Phase 14 slice
 
 Why before relation-aware joins:
 
 - `JoinBy(...)` should not be prettier syntax over a weak explicit-join engine
 - query syntax remains the clearest shape for joins that are not backed by relation metadata
-- explicit joins expose materialization and aliasing problems before the API surface widens
+- explicit joins expose materialization, aliasing, transaction-root, and pushed-down source problems before the API surface widens
 
 Key related plans:
 
+- `roadmap-implementation/v0.8/phase-14-source-slot-join-composition/README.md`
 - `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
 - `query-and-runtime/Relation-Aware Join API.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
 
-### Phase 14: Relation-Aware Joins and Left Joins
+### Phase 15: Relation-Aware, Implicit, and Left Joins
 
-Status: planned after Phase 13.
+Status: implemented for the implicit singular relation predicate/ordering slice after Phase 14.
 
-Goals:
+Delivered slice:
 
-- add relation-expression resolution for generated singular and collection relations
-- implement `JoinBy(...)` and `JoinMany(...)`
-- add join-local `on:` predicates
-- add `LeftJoinBy(...)` and `LeftJoinMany(...)` with honest nullable joined values
-- document `ON` versus `WHERE` behavior for left joins
+- generated singular relation member traversal in root-row predicates
+- generated singular relation member traversal in ordering and `ThenBy(...)`
+- implicit inner join source-slot reuse for repeated singular relation access
+- read-only and transaction-root parity for the shipped implicit traversal shapes
+- focused diagnostics for unsupported implicit projection and collection traversal
+
+Deferred follow-up:
+
+- SQL-backed implicit singular relation projection: Phase 19
+- `JoinBy(...)` and `JoinMany(...)` fluent relation-aware APIs
+- join-local `on:` predicates
+- `LeftJoinBy(...)` and `LeftJoinMany(...)` with honest nullable joined values
+- standard `Queryable.LeftJoin(...)` support decision on `net10.0`
+- `ON` versus `WHERE` behavior documentation for left joins
 
 Why after explicit joins:
 
 - relation metadata should supply key equality, not hide an immature join engine
+- implicit joins are acceptable only when source-slot binding prevents hidden lazy loading or row multiplication
 - left joins add nullability and cardinality complexity that should land after inner join composition is stable
 
 Key related plans:
 
+- `roadmap-implementation/v0.8/phase-15-relation-aware-and-implicit-joins/README.md`
 - `roadmap-implementation/phase-14-relation-aware-joins-and-left-joins/README.md`
 - `query-and-runtime/Relation-Aware Join API.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
 
-### Phase 15: Scalar Converters and Typed-Key Ergonomics
+### 0.8 Phase 16: Grouped Numeric Aggregates
 
-Status: planned after Phase 14 unless typed-key demand pulls it forward.
+Status: implemented for direct numeric grouped aggregate selectors.
+
+Goals:
+
+- added grouped `Sum(...)`, `Min(...)`, `Max(...)`, and `Average(...)`
+- allow multiple grouped aggregate members in one projection
+- support direct numeric selectors plus the tested nullable numeric selector shape
+- keep computed selectors, relation selectors, `HAVING`, composite keys, joined grouping, and materialized `IGrouping<TKey,TElement>` out of this slice
+- prove behavior across SQLite, MySQL, and MariaDB
+
+Why before broader grouped composition:
+
+- grouped `Count()` already created the aggregate-row result boundary
+- numeric aggregate selector typing and provider conversion should be boring before grouped rows become composable
+- post-group filters and ordering need stable aggregate aliases from this phase
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/phase-16-grouped-numeric-aggregates/README.md`
+- `roadmap-implementation/v0.8/phase-13b-grouped-aggregate-projection-baseline/README.md`
+- `../support-matrices/LINQ Translation Support Matrix.md`
+
+### 0.8 Phase 17: Grouped Row Composition and HAVING
+
+Status: implemented for bindable grouped aggregate row composition.
+
+Goals:
+
+- make grouped aggregate projection rows orderable and pageable without client fallback
+- support narrow grouped filters that render as SQL `HAVING`
+- support post-projection grouped-row filtering when predicates bind to key or aggregate members after `Select(...)`
+- support `Any()` and `Count()` over grouped result rows through explicit derived grouped SQL
+- keep grouped element enumeration and materialized `IGrouping<TKey,TElement>` unsupported
+
+Why after grouped numeric aggregates:
+
+- grouped-row composition needs stable aggregate aliases and result CLR types
+- `HAVING` must be represented deliberately; rendering grouped predicates as ordinary `WHERE` would be wrong
+- grouped scalar reductions need a derived grouped subquery instead of entity materialization fallback
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/phase-17-grouped-row-composition-and-having/README.md`
+- `roadmap-implementation/v0.8/phase-16-grouped-numeric-aggregates/README.md`
+- `../support-matrices/LINQ Translation Support Matrix.md`
+
+### 0.8 Phase 18: Advanced GroupBy Keys and Joined Grouping
+
+Status: implemented for named SQL-renderable keys and supported joined grouping.
+
+Goals:
+
+- support composite anonymous-object group keys
+- support SQL-renderable computed keys using already-supported function values
+- bind `group.Key.Member` through first-class key members
+- support grouping over explicit joined row shapes and supported implicit singular relation joins
+- keep arbitrary client-computed keys, collection relation grouping, and broad nested database subqueries unsupported
+
+Why after grouped-row composition:
+
+- composite/computed keys need the aggregate-row binding model to be stable first
+- grouping over joins should reuse the source-slot join model instead of inventing projection reflection tricks
+- provider-specific enum, nullable numeric, and SQL-renderable string-function grouping behavior needs focused tests once the basic grouped row pipeline is boring
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/phase-18-advanced-groupby-keys-and-joined-grouping/README.md`
+- `roadmap-implementation/v0.8/phase-17-grouped-row-composition-and-having/README.md`
+- `roadmap-implementation/v0.8/phase-14-source-slot-join-composition/README.md`
+
+### 0.8 Phase 19: SQL-Backed Projection Rows and Implicit Relation Projection
+
+Status: implemented for direct source-slot projection rows and supported implicit singular relation member projection.
+
+Goals:
+
+- materialize direct projection rows from SQL result aliases instead of materialized entity rows when every member binds to a source-slot value
+- support scalar and anonymous projections over direct root source-slot values
+- support implicit singular relation member projection through SQL joins, not lazy relation loading
+- preserve row-local computed projections as explicitly post-materialization behavior
+- reject relation objects, collection relations, nested database projections, and unsupported client expressions with focused diagnostics
+
+Why before query-syntax joins:
+
+- query-syntax joins naturally end in `select new { ... }`
+- transparent-identifier binding is easier to defend when projected result rows already have a SQL-backed materialization path
+- accepting relation projection through the old row-local evaluator would create a very polished N+1 trap
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/phase-19-sql-backed-projection-rows-and-implicit-relation-projection/README.md`
+- `roadmap-implementation/v0.8/phase-15-relation-aware-and-implicit-joins/README.md`
+- `query-and-runtime/Relation-Aware Join API.md`
+- `../support-matrices/LINQ Translation Support Matrix.md`
+
+### 0.8 Phase 20: Query-Syntax Join Support
+
+Status: implemented for single C# query-syntax inner joins after SQL-backed projection rows.
+
+Goals:
+
+- make standard C# query-syntax inner joins a documented, tested path
+- bind compiler-generated transparent identifiers back to DataLinq source slots
+- support predicates, ordering, paging, `Any()`, `Count()`, and SQL-backed projection rows over supported query-syntax joins
+- keep practical multi-inner-join coverage deferred until the lowered expression-tree shape is explicit and tested
+- keep `group join`, `DefaultIfEmpty()` outer joins, composite keys, and relation-aware fluent APIs out of this slice
+
+Why before joined post-paging pushdown:
+
+- query syntax is the clearest user shape for explicit joins not backed by relation metadata
+- transparent-identifier binding should be solved before the derived-source pushdown model has to preserve joined projection aliases
+- tests here define which joined row shapes Phase 21 should preserve through pushdown
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/phase-20-query-syntax-join-support/README.md`
+- `roadmap-implementation/v0.8/phase-19-sql-backed-projection-rows-and-implicit-relation-projection/README.md`
+- `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
+- `../support-matrices/LINQ Translation Support Matrix.md`
+
+### 0.8 Phase 21: Joined Post-Paging Pushdown
+
+Status: implemented for SQL-backed joined projection rows after the single query-syntax join slice.
+
+Goals:
+
+- preserve C# operator order for post-paging predicates and ordering over supported joined rows
+- render derived joined sources that keep required joined primary keys and projection aliases available
+- support `Any()` and `Count()` over paged joined sources where the SQL shape is explicit and tested
+- keep row-local computed joined members, relation projection inside explicit join selectors, left joins, grouped joins, and unsupported nested pushdown rejected
+- prove read-only and transaction-root parity across active providers
+
+Why after query-syntax joins:
+
+- joined pushdown needs a stable definition of supported joined projection rows
+- derived joined sources must preserve the same aliases that predicates, orderings, and projection rows bind to
+- flattening these shapes would be semantically wrong, while client fallback would be a support-matrix lie
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/phase-21-joined-post-paging-pushdown/README.md`
+- `roadmap-implementation/v0.8/phase-20-query-syntax-join-support/README.md`
+- `roadmap-implementation/v0.8/phase-13-query-composition-and-subquery-pushdown/README.md`
+- `roadmap-implementation/v0.8/phase-14-source-slot-join-composition/README.md`
+- `../support-matrices/LINQ Translation Support Matrix.md`
+
+### Old Phase 15 Source Plan: Scalar Converters and Typed-Key Ergonomics
+
+Status: deferred until after the 0.8 query-composition, grouped-query, projection, and join work unless typed-key demand pulls it forward.
 
 Goals:
 
@@ -569,11 +827,12 @@ Goals:
 - update schema validation so provider storage type, not model CLR type, drives database comparison
 - add typed-key generation only after manual converter behavior is stable
 
-Why here:
+Why not in the 0.8 join slice:
 
 - Phase 10 should make room for provider-key storage, but full typed-key ergonomics are broader than cache internals
 - joins should work for ordinary provider values before typed-ID joins become a product promise
 - scalar converters unlock more than keys: JSON-as-value, legacy string parsing, and domain value objects all depend on the same layer
+- the 0.8 join work should preserve provider-value normalization seams, not turn scalar conversion into a hidden prerequisite
 
 Key related plans:
 
@@ -581,7 +840,7 @@ Key related plans:
 - `metadata-and-generation/Scalar Converter Support.md`
 - `../Provider-Key Row Cache Architecture.md`
 
-### Phase 16: Dependency-Tracked Result And Module Caching
+### Old Phase 16 Source Plan: Dependency-Tracked Result And Module Caching
 
 Status: deferred until cache invalidation, freshness vocabulary, joins, projection semantics, and the DataLinq.Store module contract are stronger.
 
@@ -607,28 +866,37 @@ Key related plans:
 - `DataLinq.Store/State Modules and Graph Cache.md`
 - `query-and-runtime/Projections and Views.md`
 
-### Phase 17: Query Plan and Remotion Isolation
+### Old Phase 17 Source Plan: Query Plan and Remotion Isolation
 
-Status: deferred to the back of the roadmap.
+Status: superseded and implemented by the version-scoped [DataLinq 0.8 Roadmap](roadmap-implementation/v0.8/README.md). This remains the detailed source plan and historical design record for the 0.8 query-parser work.
 
-Goals:
+Implemented outcome:
 
-- introduce a DataLinq-owned query plan behind the current Remotion parser
-- move SQL generation and supported query diagnostics behind that plan
-- build a supported-subset expression parser that can serve the generated/AOT path
-- remove or isolate `Remotion.Linq` from the practical AOT support boundary
+- introduced a DataLinq-owned query plan
+- moved SQL generation and supported query diagnostics behind that plan
+- built a supported-subset expression parser over `System.Linq.Expressions`
+- made the DataLinq expression parser the production query provider for the documented subset
+- removed `Remotion.Linq` from the main product dependency graph
 - investigate SQLitePCLRaw WebAssembly warnings with exact call-path evidence
 - keep no-AOT browser WebAssembly unsupported unless it actually runs
 
-Why last:
+Why this was originally last:
 
 - this is a query-pipeline migration, not a cleanup task
 - it has high regression risk across the LINQ support matrix
-- key/cache and join work are more important right now
+- key/cache and join work were considered more important when this was parked
 - Phase 8C cleaned the package/generated-runtime surface without forcing a parser rewrite
+
+Why 0.8 pulled it forward:
+
+- the remaining Remotion dependency was the obvious practical AOT/query-boundary debt
+- expanding joins on the old parser first would have increased the surface area that immediately needed migration
+- the source-slot-aware query plan needed for Remotion replacement is also the foundation later join work wants
 
 Key related plans:
 
+- `roadmap-implementation/v0.8/README.md`
+- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/0.8 Query Parser Overview.md`
 - `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/README.md`
 - `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation Plan.md`
 - `query-and-runtime/Remotion.Linq Replacement Plan.md`
@@ -653,7 +921,7 @@ Phase 7 LINQ feature expansion is implemented for its planned support boundary: 
 
 Phase 8 Native AOT and WebAssembly readiness is implemented for its planned generated SQLite boundary: Native AOT publish/run, trimmed publish/run, Blazor WebAssembly AOT publish/browser smoke, generated metadata/factory enforcement, hot-path projection compilation removal, and browser cache-worker avoidance.
 
-Phase 8B is the completed generated-contract and immutable metadata foundation. Phase 8C is also complete for the bounded package/generated-runtime cleanup: Roslyn is out of runtime dependency groups, complete generated metadata startup is the normal generated path, and generated indexed/handle access landed. The remaining caveats are real and should not be hand-waved: no-AOT browser WebAssembly fails in the Mono interpreter, `Remotion.Linq` still produces AOT/trimming warnings, and SQLitePCLRaw emits WebAssembly native varargs warnings.
+Phase 8B is the completed generated-contract and immutable metadata foundation. Phase 8C is also complete for the bounded package/generated-runtime cleanup: Roslyn is out of runtime dependency groups, complete generated metadata startup is the normal generated path, and generated indexed/handle access landed. The 0.8 parser-removal track is complete through Phase 7: the production query path uses the DataLinq expression parser and `Remotion.Linq` is out of the main runtime dependency graph. The 0.8 AOT/browser release gate tooling is now implemented for browser smoke, selected constrained query coverage, clean WebAssembly warning capture, and target-specific payload thresholds. The remaining caveats are real and should not be hand-waved: current WebAssembly AOT browser evidence fails while opening generated SQLite, no-AOT browser WebAssembly failed historically and needs a current rerun before support, SQLitePCLRaw varargs warning disposition still needs a clean report that gets past the Blazor SDK clean-publish target issue, and Native AOT proof still depends on installed platform toolchain prerequisites.
 
 Phase 9A is now complete: warning cleanup, benchmark/history improvements, allocation reduction, conservative cache invalidation hardening, and benchmark closeout evidence have landed. The important caveat is performance wording: the closeout supports allocation and invalidation claims, not latency claims.
 
@@ -661,7 +929,9 @@ Phase 10 is now complete: metadata collection and lookup cleanup, generated prov
 
 Phase 11 is now complete for explicit cache clearing, external invalidation, relation/index invalidation, freshness vocabulary, and invalidation telemetry. Phase 12 is now complete for estimated cache memory accounting, estimated-footprint byte limits, bounded memory-pressure cleanup, cleanup telemetry, and benchmark-led rejection of production interning.
 
-The next priority should be Phase 13 explicit multi-join composition, followed by the relation-aware join work in Phase 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
+After the 0.7.1 release, the `v0.8` branch deliberately reset roadmap execution to a version-scoped sequence. That parser-removal sequence is now closed through [0.8 Phase 7: Remotion Dependency Removal](roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md): query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset expression parser, projection/local-evaluation cleanup, dual-run parity, production provider switch, and dependency removal.
+
+The version-scoped 0.8 sequence now has final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md), then implemented query-runtime slices for Phase 13 query composition/subquery pushdown, Phase 13B grouped count projection, Phase 14 explicit two-source join composition, Phase 15 implicit singular relation predicates/orderings, Phase 16 grouped numeric aggregates, Phase 17 grouped row composition/HAVING, Phase 18 advanced GroupBy keys/joined grouping, Phase 19 SQL-backed projection rows/implicit relation projection, Phase 20 single query-syntax inner joins, and Phase 21 joined post-paging pushdown. Broad fluent join APIs, left-join nullability work, and the browser AOT support claim still need separate evidence instead of broadening the old Remotion boundary by assertion.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 
@@ -675,7 +945,7 @@ These may still be good ideas, but they should not lead the queue:
 - large documentation rewrites unrelated to immediate product clarity
 - query abstraction for hypothetical future backends before the current SQL path is fully measured
 - committing to a magical lazy-loading async API before sync/async boundaries are tested and defended
-- Remotion replacement before the nearer key/cache and join phases force a real parser-boundary decision
+- broad join API expansion that ignores the source-slot-aware query plan
 
 ## Review Trigger
 

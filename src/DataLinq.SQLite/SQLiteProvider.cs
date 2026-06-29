@@ -180,7 +180,9 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
             throw new ArgumentException("StringSubstring requires two arguments: start index and length.");
 
         // Avoid quoting nested function expressions
-        var quotedColumnName = columnName.Contains('(')
+        var quotedColumnName = columnName.Contains('(') ||
+            columnName.Contains('.') ||
+            columnName.Contains(Constants.EscapeCharacter)
             ? columnName
             : $"{Constants.EscapeCharacter}{columnName}{Constants.EscapeCharacter}";
 

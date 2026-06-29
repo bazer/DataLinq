@@ -2,9 +2,11 @@
 
 This page is the public roadmap snapshot. It describes direction, not shipped behavior. For current product behavior, use the usage docs, support matrices, and changelog.
 
-## Current 0.7.0 Baseline
+## Current 0.8 Development Baseline
 
-DataLinq is currently a source-generated, immutable-first ORM for MySQL, MariaDB, and SQLite. The stable public shape is:
+This page tracks the current repo documentation branch. If you are comparing against an already-published NuGet version, check the [changelog](../CHANGELOG.md) for the exact release boundary.
+
+DataLinq is currently a source-generated, immutable-first ORM for MySQL, MariaDB, and SQLite. The current public shape is:
 
 - generated immutable and mutable model classes
 - cache-aware reads and relation traversal
@@ -12,9 +14,11 @@ DataLinq is currently a source-generated, immutable-first ORM for MySQL, MariaDB
 - schema validation through `datalinq validate`
 - conservative schema diff scripts through `datalinq diff`
 - a documented LINQ subset with tests behind the support matrix
+- a DataLinq-owned LINQ parser and query plan for the documented subset
 - explicit cache clearing and external invalidation APIs
 - estimated cache-memory accounting and memory-pressure cleanup on supported runtimes
-- a narrow generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary
+- a narrow generated SQLite Native AOT and trimmed publish smoke boundary, plus browser WebAssembly AOT gate automation that currently exposes a runtime blocker
+- runtime package dependency groups without Roslyn/compiler assemblies or `Remotion.Linq`
 
 The important non-claims are just as important:
 
@@ -28,27 +32,55 @@ For release-level detail, see the [changelog](../CHANGELOG.md).
 
 ## Near-Term Direction
 
-### Explicit Multi-Join Composition
+### 0.8 AOT Browser Release Hardening
 
-The next broad query priority is standard explicit inner-join composition:
+The parser-removal track is implemented, and the AOT/browser release tooling now has browser smoke automation, broader constrained query coverage, and target-specific payload thresholds. Fresh browser evidence now exists, and it is not green: the 2026-06-28 host-side `wasm-aot` browser report publishes successfully, then fails at `opening-generated-database` with `MONO_WASM: function signature mismatch`.
 
-- C# query-syntax joins as a documented path
+The remaining 0.8 release priority is narrowing the support claim to what the evidence proves:
+
+- fix or avoid the SQLite/WebAssembly runtime signature-mismatch path before claiming browser AOT support
+- resolve SQLitePCLRaw WebAssembly varargs warning disposition with exact call-path evidence from a clean publish
+- re-test no-AOT browser behavior and either support it narrowly or keep it explicitly unsupported
+- keep constrained-platform query coverage green for the documented subset selected for 0.8
+- keep AOT routes fenced away from reflection-heavy compatibility fallback
+- keep Native AOT, trimmed, WASM, and WASM AOT payload reports green under the 0.8 release thresholds
+
+The intended target release claim remains narrow: generated SQLite models, the documented query subset, Native AOT, trimmed publish, and Blazor WebAssembly AOT. The current evidence does not permit the browser AOT part yet. Broad provider coverage, arbitrary LINQ, OPFS storage, and no-AOT browser support are separate claims unless they get their own evidence.
+
+### Query Plan and Remotion Removal
+
+The 0.8 parser-removal track is implemented in the current branch. The production query boundary is now DataLinq-owned:
+
+- `Queryable<T>` roots use `ExpressionQueryPlanProvider`
+- `ExpressionQueryPlanParser` parses supported `System.Linq.Expressions` trees into `DataLinqQueryPlan`
+- `QueryPlanSqlBuilder` renders accepted predicates, ordering, paging, scalar result shapes, relation-existence predicates, and the narrow explicit join baseline from that plan
+- direct source-slot projections can execute as SQL-backed projection rows, while computed projections execute after materialization through DataLinq projection binding
+- `Remotion.Linq` is no longer a main product runtime dependency
+
+That is not the same thing as a general LINQ-provider rewrite. The support boundary is still the documented tested subset, and unsupported shapes should fail with specific `QueryTranslationException` diagnostics instead of falling back to silent client-side filtering.
+
+The internal 0.8 execution record started over at Phase 1 instead of continuing the old global roadmap numbering. That sequence is now closed through Phase 7: query contract baseline, temporary Remotion adapter, SQL generation on `DataLinqQueryPlan`, supported-subset expression parser, projection/local-evaluation cleanup, parity and constrained-platform switch, and Remotion dependency removal. Phases 8 through 12 now own the AOT/browser release gates, and Phase 13 through Phase 21 cover implemented query-composition, grouped aggregate, join, grouped-row composition, advanced grouped-key/joined-grouping, SQL-backed projection-row, single query-syntax inner-join, and joined post-paging pushdown slices.
+
+### 0.8 Query Composition, Grouped Aggregates, and Join Completion
+
+Now that the query plan exists, the next broad query feature priority after the AOT/browser release gates is query-composition hardening, SQL-shaped `GroupBy(...)` expansion, and then projection/join completion for 0.8:
+
+- query-root parity for supported commands from both `db.Query()` and `transaction.Query()`
+- correct LINQ operator-order semantics for `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, `Take(...)`, and supported scalar result operators
+- SQL subquery pushdown when later filters/orderings must apply over an already-limited or offset source
+- SQL-backed `GroupBy(...)` support for single-source grouped aggregate projection, direct numeric grouped aggregate selectors, grouped-row composition, narrow `HAVING`, advanced grouped keys, and grouping over supported joined row shapes, without claiming materialized `IGrouping<TKey,TElement>` support
+- SQL-backed projection rows for direct source-slot values
+- implicit singular relation projection that binds to SQL aliases instead of lazy-loading relations inside `Select(...)`
 - multiple explicit inner joins
 - filtering, ordering, paging, and result operators over joined row shapes
 - joined materialization that keeps using provider-key components
-
-The first shipped join support is intentionally narrow. The next step is to make explicit joins useful without hiding complexity behind relation-aware syntax too early.
-
-### Relation-Aware Joins and Left Joins
-
-After explicit joins are stronger, relation metadata can become a safer query-building input:
-
 - `JoinBy(...)` and `JoinMany(...)`
-- join-local predicates
+- narrow implicit singular relation joins for predicates, ordering, and simple projections
+- join-local `on:` predicates
 - left joins with honest nullability behavior
 - clear documentation for `ON` versus `WHERE` semantics
 
-This should build on the explicit join engine, not replace it with a magical relation API.
+The first shipped join support is intentionally narrow, but single query-syntax inner joins and SQL-backed joined post-paging pushdown are now first-class tested paths. The next honest join work is multiple explicit inner joins, relation-metadata-driven join APIs, and left joins with real nullability semantics. Collection relation expansion should stay explicit through `JoinMany(...)` or query syntax; hidden row multiplication would be a bad trade even if it looks elegant in a demo.
 
 ### Scalar Converters and Typed Keys
 
@@ -62,7 +94,5 @@ The cache and metadata layers now distinguish provider-key identity from model-f
 ## Later Work
 
 Dependency-tracked result-set caching remains deferred until joins, projection semantics, invalidation, and freshness vocabulary are stronger. A cached result-set feature without a boring correctness story would be clever in the worst way.
-
-The query-plan and Remotion isolation work is also later. It matters for a stronger AOT/trimming story, but it is a high-regression-risk query-pipeline migration. It should follow the nearer join and key/converter work unless constrained-platform query support becomes the immediate blocker.
 
 Full migration execution also remains future work. `validate` and `diff` are real product features today; `add-migration`, `update-database`, migration history tracking, and runtime migration APIs are not.

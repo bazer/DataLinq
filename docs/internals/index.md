@@ -12,7 +12,8 @@ flowchart LR
     B --> C["Metadata Structure"]
     C --> D["Source Generator"]
     B --> E["Query Translator"]
-    B --> F["Provider-Key Row Cache"]
+    E --> F["LINQ Parser Architecture"]
+    B --> G["Provider-Key Row Cache"]
 ```
 
 Read these in order:
@@ -22,7 +23,8 @@ Read these in order:
 3. [Metadata Structure](Metadata%20Structure.md)
 4. [Source Generator](Source%20Generator.md)
 5. [Query Translator](Query%20Translator.md)
-6. [Provider-Key Row Cache Architecture](Provider-Key%20Row%20Cache%20Architecture.md)
+6. [LINQ Parser Architecture](LINQ%20Parser%20Architecture.md)
+7. [Provider-Key Row Cache Architecture](Provider-Key%20Row%20Cache%20Architecture.md)
 
 ## The Short Version
 
@@ -34,6 +36,7 @@ DataLinq is organized around a few hard boundaries:
 - writes go through mutable wrappers and transactions
 - row-cache identity is provider-key identity
 - LINQ support is a documented subset, backed by tests
+- the LINQ parser owns the current query-plan boundary
 - provider metadata support is explicit and intentionally scoped
 
 The pay-off is a runtime that can be faster and easier to reason about than a more permissive ORM. The cost is that unsupported shapes should fail clearly instead of being guessed.

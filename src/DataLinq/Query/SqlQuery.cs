@@ -3,12 +3,9 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using DataLinq.Interfaces;
-using DataLinq.Linq;
-using DataLinq.Linq.Visitors;
 using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
-using Remotion.Linq.Clauses;
 
 namespace DataLinq.Query;
 
@@ -35,10 +32,13 @@ public class SqlQuery : SqlQuery<object>
 public class SqlQuery<T>
 {
     protected WhereGroup<T>? WhereGroup;
+    protected WhereGroup<T>? HavingGroup;
     internal Dictionary<string, object?> SetList = new Dictionary<string, object?>();
     protected List<Join<T>> JoinList = new List<Join<T>>();
     internal List<OrderBy> OrderByList = new List<OrderBy>();
+    internal List<string> GroupByList = new List<string>();
     internal List<string>? WhatList;
+    internal Sql? DerivedSourceSql { get; private set; }
     protected int? limit;
     protected int? offset;
     public bool LastIdQuery { get; protected set; }
@@ -46,6 +46,8 @@ public class SqlQuery<T>
 
     public TableDefinition Table { get; }
     public string? Alias { get; }
+    internal bool HasDerivedSource => DerivedSourceSql is not null;
+    internal bool HasJoins => JoinList.Count != 0;
 
     internal string EscapeCharacter => DataSource.Provider.Constants.EscapeCharacter;
 
@@ -105,6 +107,15 @@ public class SqlQuery<T>
     public virtual Select<T> SelectQuery()
     {
         return new Select<T>(this);
+    }
+
+    internal SqlQuery<T> UseDerivedSource(Sql sourceSql)
+    {
+        if (string.IsNullOrWhiteSpace(Alias))
+            throw new InvalidOperationException("A derived query source requires an explicit alias.");
+
+        DerivedSourceSql = sourceSql ?? throw new ArgumentNullException(nameof(sourceSql));
+        return this;
     }
 
     public Delete<T> DeleteQuery()
@@ -212,24 +223,6 @@ public class SqlQuery<T>
         return WhereGroup;
     }
 
-    public SqlQuery<T> Where(WhereClause where)
-    {
-        new WhereVisitor<T>(new QueryBuilder<T>(this)).Parse(where);
-
-        return this;
-    }
-
-    public SqlQuery<T> OrderBy(OrderByClause orderBy)
-    {
-        var builder = new QueryBuilder<T>(this);
-        foreach (var ordering in orderBy.Orderings)
-        {
-            new OrderByVisitor<T>(builder).Parse(ordering);
-        }
-
-        return this;
-    }
-
     internal Sql GetWhere(Sql sql, string? paramPrefix)
     {
         // Ensure WhereGroup is initialized (should be by constructor)
@@ -241,6 +234,17 @@ public class SqlQuery<T>
         // or if it internally has only one child that is a group needing parens.
         // AddCommandString now handles its own parentheses better.
         this.WhereGroup.AddCommandString(sql, paramPrefix, true, false);
+
+        return sql;
+    }
+
+    internal Sql GetHaving(Sql sql, string? paramPrefix)
+    {
+        if (HavingGroup == null || HavingGroup.Length == 0)
+            return sql;
+
+        sql.AddText("\nHAVING\n");
+        HavingGroup.AddCommandString(sql, paramPrefix, true, false);
 
         return sql;
     }
@@ -311,6 +315,40 @@ public class SqlQuery<T>
         return sql;
     }
 
+    internal Sql GetGroupBy(Sql sql)
+    {
+        int length = GroupByList.Count;
+        if (length == 0)
+            return sql;
+
+        sql.AddText("\nGROUP BY ");
+        for (var i = 0; i < length; i++)
+        {
+            if (i > 0)
+                sql.AddText(", ");
+
+            sql.AddText(GroupByList[i]);
+        }
+
+        return sql;
+    }
+
+    public SqlQuery<T> GroupByRaw(string expression)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+            throw new ArgumentException("Group-by expressions cannot be empty.", nameof(expression));
+
+        GroupByList.Add(expression);
+        return this;
+    }
+
+    public WhereGroup<T> GetBaseHavingGroup(BooleanType type = BooleanType.And)
+    {
+        HavingGroup ??= new WhereGroup<T>(this, type);
+
+        return HavingGroup;
+    }
+
     public SqlQuery<T> OrderBy(string columnName, string? alias = null, bool ascending = true)
     {
         if (alias == null)
@@ -321,10 +359,17 @@ public class SqlQuery<T>
 
     public SqlQuery<T> OrderBy(ColumnDefinition column, string? alias = null, bool ascending = true)
     {
-        if (!this.Table.Columns.Contains(column))
+        if (string.IsNullOrEmpty(alias) && !this.Table.Columns.Contains(column))
             throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");
 
         this.OrderByList.Add(new OrderBy(column, alias, ascending));
+
+        return this;
+    }
+
+    public SqlQuery<T> OrderByRaw(string expression, bool ascending = true)
+    {
+        this.OrderByList.Add(new OrderBy(expression, ascending));
 
         return this;
     }
@@ -339,7 +384,7 @@ public class SqlQuery<T>
 
     public SqlQuery<T> OrderByDesc(ColumnDefinition column, string? alias = null)
     {
-        if (!this.Table.Columns.Contains(column))
+        if (string.IsNullOrEmpty(alias) && !this.Table.Columns.Contains(column))
             throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");
 
         this.OrderByList.Add(new OrderBy(column, alias, false));
@@ -470,10 +515,14 @@ public class SqlQuery<T>
         values = [];
 
         if (JoinList.Count != 0 ||
+            HasDerivedSource ||
+            GroupByList.Count != 0 ||
+            HavingGroup is not null ||
             WhereGroup == null ||
             !WhereGroup.TryGetTemplatePredicates(out var predicates, out values) ||
             WhatList?.Count > 1 ||
-            OrderByList.Count > 1)
+            OrderByList.Count > 1 ||
+            OrderByList.Any(static orderBy => orderBy.Column is null))
         {
             return false;
         }
@@ -505,7 +554,7 @@ public class SqlQuery<T>
             GetPredicateAlias(predicates, 3),
             GetPredicateOperator(predicates, 3),
             GetPredicateValueCount(predicates, 3),
-            orderBy?.Column.DbName,
+            orderBy?.Column?.DbName,
             orderBy?.Alias,
             orderBy?.Ascending ?? true,
             limit,
@@ -532,6 +581,9 @@ public class SqlQuery<T>
     /// </summary>
     public DataLinqKey? TryGetSimplePrimaryKey()
     {
+        if (HasDerivedSource)
+            return null;
+
         // We can only optimization if:
         // 1. We have a Where clause.
         // 2. The query is not negated (NOT WHERE ...).
@@ -549,6 +601,9 @@ public class SqlQuery<T>
     internal bool TryGetSimpleScalarPrimaryKey(out object? primaryKey)
     {
         primaryKey = null;
+
+        if (HasDerivedSource)
+            return false;
 
         if (WhereGroup == null || WhereGroup.IsNegated)
             return false;

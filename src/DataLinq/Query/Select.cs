@@ -47,13 +47,30 @@ public class Select<T> : IQuery
         var sql = new Sql().AddText("SELECT ");
         AddSelectedColumns(sql);
         sql.AddText(" FROM ");
-        query.AddTableName(sql, query.Table.DbName, query.Alias);
+        AddSource(sql);
         query.GetJoins(sql, paramPrefix);
         query.GetWhere(sql, paramPrefix);
+        query.GetGroupBy(sql);
+        query.GetHaving(sql, paramPrefix);
         query.GetOrderBy(sql);
         query.GetLimit(sql);
 
         return sql;
+    }
+
+    private void AddSource(Sql sql)
+    {
+        if (query.DerivedSourceSql is not { } derivedSourceSql)
+        {
+            query.AddTableName(sql, query.Table.DbName, query.Alias);
+            return;
+        }
+
+        sql.AddText("(");
+        sql.AddText(derivedSourceSql.Text);
+        sql.AddText(") ");
+        sql.AddText(query.Alias ?? throw new InvalidOperationException("A derived query source requires an alias."));
+        sql.Parameters.AddRange(derivedSourceSql.Parameters);
     }
 
     private void AddSelectedColumns(Sql sql)
@@ -195,6 +212,12 @@ public class Select<T> : IQuery
         return definitions;
     }
 
+    private List<OrderBy> GetCacheOrderings()
+        => query.OrderByList
+            .Where(static ordering => ordering.Column is not null)
+            .Select(static ordering => new OrderBy(ordering.Column!, alias: null, ordering.Ascending))
+            .ToList();
+
     public IEnumerable<DataLinqKey> ReadKeys()
     {
         return KeyFactory.GetKeys(this, query.Table.PrimaryKeyColumns);
@@ -284,7 +307,9 @@ public class Select<T> : IQuery
                     if (row is not null)
                         yield return row;
                 }
-                else if (tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, query.OrderByList, out var providerKeyRows))
+                else if (!query.HasDerivedSource &&
+                    !query.HasJoins &&
+                    tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, GetCacheOrderings(), out var providerKeyRows))
                 {
                     foreach (var row in providerKeyRows)
                         yield return row;
@@ -293,8 +318,9 @@ public class Select<T> : IQuery
                 {
                     this.What(query.Table.PrimaryKeyColumns);
                     var keys = this.ReadKeys().ToArray();
+                    var orderings = query.HasJoins ? null : GetCacheOrderings();
 
-                    foreach (var row in tableCache.GetRows(keys, query.DataSource, orderings: query.OrderByList))
+                    foreach (var row in tableCache.GetRows(keys, query.DataSource, orderings: orderings))
                         yield return row;
                 }
             }

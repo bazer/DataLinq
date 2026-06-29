@@ -66,8 +66,29 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Roadmap implementation
 
 - `roadmap-implementation/README.md`
-- `roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/README.md`
-- `roadmap-implementation/phase-12b-generation-trust-and-diagnostics-hardening/Implementation Plan.md`
+- `roadmap-implementation/v0.8/README.md`
+- `roadmap-implementation/v0.8/phase-1-query-contract-and-plan-baseline/README.md`
+- `roadmap-implementation/v0.8/phase-2-remotion-plan-adapter/README.md`
+- `roadmap-implementation/v0.8/phase-3-sql-generation-on-query-plan/README.md`
+- `roadmap-implementation/v0.8/phase-4-supported-subset-expression-parser/README.md`
+- `roadmap-implementation/v0.8/phase-5-projection-and-local-evaluation-aot-cleanup/README.md`
+- `roadmap-implementation/v0.8/phase-6-dual-run-parity-and-aot-switch/README.md`
+- `roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md`
+- `roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md`
+- `roadmap-implementation/v0.8/phase-9-webassembly-warning-and-no-aot-disposition/README.md`
+- `roadmap-implementation/v0.8/phase-10-aot-query-coverage-and-fallback-fencing/README.md`
+- `roadmap-implementation/v0.8/phase-11-browser-payload-and-deploy-size-hardening/README.md`
+- `roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md`
+- `roadmap-implementation/v0.8/phase-13-query-composition-and-subquery-pushdown/README.md`
+- `roadmap-implementation/v0.8/phase-13b-grouped-aggregate-projection-baseline/README.md`
+- `roadmap-implementation/v0.8/phase-14-source-slot-join-composition/README.md`
+- `roadmap-implementation/v0.8/phase-15-relation-aware-and-implicit-joins/README.md`
+- `roadmap-implementation/v0.8/phase-16-grouped-numeric-aggregates/README.md`
+- `roadmap-implementation/v0.8/phase-17-grouped-row-composition-and-having/README.md`
+- `roadmap-implementation/v0.8/phase-18-advanced-groupby-keys-and-joined-grouping/README.md`
+- `roadmap-implementation/v0.8/phase-19-sql-backed-projection-rows-and-implicit-relation-projection/README.md`
+- `roadmap-implementation/v0.8/phase-20-query-syntax-join-support/README.md`
+- `roadmap-implementation/v0.8/phase-21-joined-post-paging-pushdown/README.md`
 - `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
 - `roadmap-implementation/phase-14-relation-aware-joins-and-left-joins/README.md`
 - `roadmap-implementation/phase-15-scalar-converters-and-typed-key-ergonomics/README.md`
@@ -123,11 +144,11 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - Testing dev-plan material is currently historical. Current workflow documentation lives under `../contributing/`, while completed design records live under `archive/testing/`.
 - Completed or superseded documentation and roadmap checkpoints now live under `archive/` so active planning pages do not point readers at old "next step" guidance.
 - Some documents in this folder describe ideas that are still valid but not implemented. That is fine. The real mistake is presenting those ideas as current product behavior.
-- The `roadmap-implementation/` folder contains only active or deferred execution plans. Completed phase execution records belong under `archive/roadmap-implementation/`.
+- The active release roadmap is `roadmap-implementation/v0.8/`. The 0.8 parser-removal track is complete through Phase 7; Phases 8 through 12 now own browser AOT runtime proof, WebAssembly warning/no-AOT disposition, query coverage, deploy-size hardening, and final release gates. Phase 13, Phase 13B, and Phases 14 through 21 cover implemented query-composition, grouped count and numeric aggregate projection, source-slot joins, implicit singular relation slices, grouped row composition/HAVING, advanced grouped keys/joined grouping, SQL-backed projection rows, single C# query-syntax inner joins, and joined post-paging pushdown. Completed global phase execution records belong under `archive/roadmap-implementation/`.
 
 ## Current Stage Audit
 
-As of the Phase 12 closeout on 2026-05-13:
+As of the current 0.8 branch after the parser-removal closeout:
 
 - Phase 1 benchmarking and observability is substantially implemented; benchmark-history evidence still matters for noisy scenarios.
 - Phase 2 metadata/generator/diagnostics hardening is implemented as a narrow foundation, not as a full immutable metadata rewrite.
@@ -137,7 +158,7 @@ As of the Phase 12 closeout on 2026-05-13:
 - Phase 5 product-trust work is implemented for the intended validation/diff/snapshot scope: schema validation, CLI validation output, conservative diff scripts, and the versioned snapshot DTO/design are in place.
 - Phase 6 LINQ translation coverage and query composition is implemented: the support audit, chained `Where(...)` fix, projected local `Contains(...)`, equality-based local object-list `Any(predicate)` expansion, fixed-condition invariants, and unsupported-query diagnostics have landed.
 - Phase 7 LINQ feature expansion is implemented: scalar aggregates, computed projections, nullable predicate polish, explicit joins, and relation-aware predicate translation have landed within their documented support boundaries.
-- Phase 8 Native AOT and WebAssembly readiness is implemented for the generated SQLite Native AOT, trimmed runtime, and Blazor WebAssembly AOT smoke boundary.
+- Phase 8 Native AOT and WebAssembly readiness is implemented historically for the generated SQLite Native AOT, trimmed runtime, and Blazor WebAssembly AOT smoke boundary. The 2026-06-28 compatibility refresh has green Native AOT and trimmed evidence, and the 0.8 release gate tooling now automates browser WebAssembly smoke. Current `wasm-aot` browser evidence is red at generated SQLite startup with `MONO_WASM: function signature mismatch`, so browser AOT support remains blocked.
 - Phase 8B generated contract and immutable metadata foundation is complete for its foundation scope: stale generated hooks fail early, malformed generated declarations fail during initialization, and runtime metadata snapshots are factory-built and frozen against ordinary mutation.
 - Phase 8C practical AOT package graph and generated runtime hardening is complete: size reports, Roslyn/runtime package split, complete generated metadata startup, runtime reflection metadata-discovery removal, generated indexed access, and packaging/public wording have landed.
 - Phase 9A release hardening, benchmarks, allocation, and cache invalidation is complete: warning cleanup, benchmark-history and website trends, allocation reduction, conservative cache invalidation hardening, and benchmark closeout evidence have landed. The honest performance claim is allocation evidence, not latency improvement.
@@ -146,13 +167,25 @@ As of the Phase 12 closeout on 2026-05-13:
 - Phase 12 memory-pressure cleanup and measured deduplication is complete: estimated cache memory accounting, estimated-footprint byte limits, memory-pressure-aware cleanup, coordinated cleanup scheduling, cleanup telemetry, and benchmark-led rejection of production value/key deduplication have landed.
 - Phase 12B generation trust and diagnostics hardening is complete: aggregate validation diagnostics, source-location fidelity, safe CLI generation, partial source-generator output, generated-file preambles, and nullable-reference-generation defaults.
 - Phase 12C CLI configuration and regeneration workflow is complete: nested CLI commands, config init/schema/validate, batch generation and validation, diagnostics output, and secret references have landed.
-- Phase 13 explicit multi-join composition is the next implementation priority before relation-aware join syntax: standard query-syntax joins, multiple explicit joins, and filtering/ordering/paging/counting over joined rows.
-- Phase 14 relation-aware joins and left joins owns `JoinBy(...)`, `JoinMany(...)`, join-local `on:` predicates, and left-join nullability semantics.
-- Phase 15 scalar converters and typed-key ergonomics owns provider/model value conversion after the provider-key cache design has room for it.
-- Phase 16 dependency-tracked result and module caching remains deferred until cache invalidation, freshness vocabulary, joins, projection semantics, and the DataLinq.Store module contract are stronger.
-- Phase 17 query plan and Remotion isolation is deferred to the back of the roadmap. It owns the DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
+- The 0.8 parser-removal track is complete through Phase 7: query contract baseline, Remotion plan adapter, SQL generation on `DataLinqQueryPlan`, supported-subset expression parser, projection/local-evaluation cleanup, dual-run parity, production provider switch, and removal of `Remotion.Linq` from the main runtime package graph.
+- The 0.8 AOT/browser release track is implemented through Phases 8 through 12 for tooling: browser AOT runtime proof, SQLitePCLRaw/no-AOT evidence capture, constrained query coverage, deploy-size thresholds, and support-contract gates. Current browser evidence blocks the WebAssembly AOT support claim until the SQLite/WebAssembly runtime failure is fixed or explicitly excluded.
+- Phase 13 query composition and subquery pushdown is implemented for the single-source mapped-row slice: `Where(...)`, `OrderBy(...)`, `Skip(...)`, `Take(...)`, and supported scalar result operators preserve C# operator order with SQL subquery boundaries where flat SQL would be wrong.
+- Phase 13B grouped aggregate projection baseline is implemented after Phase 13 and before broad join expansion: the first honest `GroupBy(...)` slice supports `GroupBy(key).Select(g => new { g.Key, Count = g.Count() })`, not materialized `IGrouping<TKey,TElement>` support.
+- Phase 14 source-slot join composition is implemented after Phase 13 and the single-source Phase 13B grouping slice: the first slice composes filtering/ordering/paging/counting over explicit two-source joined rows that can bind projected members back to source slots.
+- Phase 15 relation-aware and implicit joins is implemented after Phase 14 for the first slice: SQL-backed implicit singular relation traversal in predicates and ordering. `JoinBy(...)`, `JoinMany(...)`, join-local `on:` predicates, left-join nullability semantics, and a `net10.0` `Queryable.LeftJoin(...)` support decision remain deferred until their API/nullability design is real.
+- Phase 16 grouped numeric aggregates is implemented after the Phase 13B count baseline: grouped `Sum`, `Min`, `Max`, `Average`, and multiple aggregate members extend the existing SQL-shaped grouped projection without materialized `IGrouping<TKey,TElement>` support.
+- Phase 17 grouped row composition and HAVING is implemented after grouped numeric aggregates: grouped aggregate rows are orderable, pageable, filterable, and able to express narrow SQL `HAVING` predicates without client fallback.
+- Phase 18 advanced GroupBy keys and joined grouping is implemented after grouped-row composition: composite keys, SQL-renderable computed keys, and grouping over supported joined source-slot shapes now bind through explicit key/member structure.
+- Phase 19 SQL-backed projection rows and implicit relation projection is implemented after the SQL-style GroupBy completion track: direct projection rows materialize from SQL aliases, and singular relation member projection binds to SQL instead of lazy relation loading inside provider `Select(...)`.
+- Phase 20 query-syntax join support is implemented after SQL-backed projection rows: single C# query-syntax inner joins bind compiler-generated transparent identifiers back to source slots instead of treating anonymous carrier objects as opaque runtime values.
+- Phase 21 joined post-paging pushdown is implemented after query-syntax join support: SQL-backed joined row shapes get Phase 13 operator-order preservation through derived joined sources that preserve required key and projection aliases.
+- The old global scalar-converter and typed-key ergonomics source plan owns provider/model value conversion after the provider-key cache design has room for it.
+- The old global Phase 16 dependency-tracked result and module caching plan remains deferred until cache invalidation, freshness vocabulary, joins, projection semantics, and the DataLinq.Store module contract are stronger.
+- The old global Phase 17 query plan and Remotion isolation plan has been superseded and implemented by the version-scoped 0.8 roadmap. It remains the detailed source plan and design record for DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
 - Completed phase records and superseded implementation plans have moved under `archive/`; active docs should describe future work or current strategy.
 
-The next broad runtime work should be Phase 13 explicit multi-join composition, followed by relation-aware joins. The Remotion/parser rewrite should stay out of the immediate queue unless constrained-platform query support becomes the concrete blocker.
+The next broad query-runtime feature work after the 0.8 AOT release gates moved through query-composition hardening and the narrow grouped aggregate projection baseline, then into source-slot join expansion, SQL-shaped GroupBy completion, SQL-backed projection rows, query-syntax joins, and joined post-paging pushdown: Phase 13 query composition and subquery pushdown, Phase 13B grouped aggregate projection, Phase 14 source-slot join composition, Phase 15 relation-aware and implicit joins, Phase 16 grouped numeric aggregates, Phase 17 grouped-row composition/HAVING, Phase 18 advanced keys plus joined grouping, Phase 19 SQL-backed projection rows, Phase 20 single query-syntax inner joins, and Phase 21 joined post-paging pushdown, without expanding the documented support matrix by wishful thinking.
+
+For the current public parser architecture, use [LINQ Parser Architecture](../internals/LINQ%20Parser%20Architecture.md). The 0.8 dev-plan records explain migration sequence and evidence; the public architecture page explains the design that exists now: DataLinq-owned expression parsing, `DataLinqQueryPlan`, source slots, bindings, SQL rendering, cache-aware execution, SQL-backed projection rows, row-local computed projection, and the explicit unsupported boundary.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.

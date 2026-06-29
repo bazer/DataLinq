@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 13: Explicit Multi-Join Composition
 
-**Status:** Next implementation priority after completed Phase 12C CLI configuration and regeneration workflow.
+**Status:** Planned follow-up source plan. The version-scoped 0.8 execution path is [0.8 Phase 14: Source-Slot Join Composition](../v0.8/phase-14-source-slot-join-composition/README.md), after [0.8 Phase 13: Query Composition and Subquery Pushdown](../v0.8/phase-13-query-composition-and-subquery-pushdown/README.md).
 
 ## Purpose
 
@@ -10,13 +10,16 @@ Phase 13 makes ordinary explicit joins genuinely useful before DataLinq adds pre
 
 The rule is simple: if DataLinq cannot compose standard C# query-syntax joins with filtering, ordering, paging, and result operators, then `JoinBy(...)` would just be attractive syntax over a weak engine.
 
+For 0.8, broad join expansion should build on the source-slot-aware DataLinq query plan and follow the AOT/browser release evidence work plus the operator-order/subquery-pushdown work. Extending the old Remotion-shaped boundary first would have increased the migration surface for the parser replacement.
+
 ## Execution Boundary
 
 In scope:
 
 - standard C# query-syntax joins over multiple tables
 - chained explicit `Join(...)` support beyond the current single-join boundary
-- `Where`, `OrderBy`, `ThenBy`, `Skip`, `Take`, `Any`, and `Count` over joined results
+- `Where`, `OrderBy`, `ThenBy`, `Skip`, `Take`, `Any`, and `Count` over joined results while preserving LINQ operator order
+- parity between `db.Query()` and `transaction.Query()` roots for supported join shapes
 - joined materialization through provider-key components rather than legacy key wrappers
 - diagnostics for unsupported join shapes
 
@@ -31,6 +34,8 @@ Out of scope:
 ## Source Plans
 
 - [Relation-Aware Join API](../../query-and-runtime/Relation-Aware%20Join%20API.md)
+- [0.8 Phase 13 Query Composition and Subquery Pushdown](../v0.8/phase-13-query-composition-and-subquery-pushdown/README.md)
+- [0.8 Phase 14 Source-Slot Join Composition](../v0.8/phase-14-source-slot-join-composition/README.md)
 - [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md)
 - [Phase 10 Key and Allocation Foundation](../../archive/roadmap-implementation/phase-10-key-and-allocation-foundation/README.md)
 
@@ -49,6 +54,7 @@ Phase 13 is done when:
 
 - practical multi-table inner joins work through standard query syntax
 - joined results can be filtered, ordered, paged, and counted
+- supported joined queries work from both read-only and transaction-local query roots
 - joined materialization does not reintroduce avoidable `IKey` allocation on generated provider-key paths
 - unsupported join shapes fail with focused diagnostics
 - documentation describes the exact shipped support boundary

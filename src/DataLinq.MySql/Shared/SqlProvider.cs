@@ -121,7 +121,9 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
             throw new ArgumentException("StringSubstring requires two arguments: start index and length.");
 
         // If columnName already looks like an expression (contains '(' ) then don't quote it again.
-        var quotedColumnName = columnName.Contains('(')
+        var quotedColumnName = columnName.Contains('(') ||
+            columnName.Contains('.') ||
+            columnName.Contains(Constants.EscapeCharacter)
             ? columnName
             : $"{Constants.EscapeCharacter}{columnName}{Constants.EscapeCharacter}";
 
