@@ -26,8 +26,8 @@ The ordinary collection path:
 2. parses the expression into `DataLinqQueryPlan`
 3. renders accepted predicates, ordering, joins, paging, single-source pushdown, and scalar result shapes through `QueryPlanSqlBuilder`
 4. executes SQL through the provider
-5. materializes rows through cache-aware table access
-6. applies supported scalar, anonymous, or computed row-local projections after materialization
+5. materializes entity rows through cache-aware table access, or reads SQL-backed projection aliases directly when the projection is a source-slot row
+6. applies supported computed row-local projections after materialization
 
 Entity reads remain cache-aware. DataLinq usually selects primary keys first, checks row cache state, and fetches missing rows rather than blindly rebuilding every row instance.
 
@@ -72,7 +72,7 @@ Supported:
 - two direct DataLinq query sources
 - direct member equality keys
 - nullable `.Value` key normalization
-- row-local projection from the joined rows
+- SQL-backed direct source-slot projection rows from the joined rows
 - `Where`, ordering, paging, `Any`, and `Count` over projected joined members that bind back to source-slot values
 
 Not supported yet:
@@ -84,9 +84,9 @@ Not supported yet:
 - query-syntax transparent identifiers that project whole source entities
 - post-paging joined composition such as `Join(...).Take(...).Where(...)`
 - scalar aggregates over joined rows other than `Any` and `Count`
-- relation-property projection inside the joined selector
+- relation object or collection relation projection inside the joined selector
 
-Joined execution selects primary keys for each joined source, buffers those keys, materializes rows through the relevant table caches, and evaluates the result selector client-side over those materialized rows. The key buffering is deliberate: transaction connections cannot safely execute cache-hydration queries while the joined key reader is still open.
+Joined execution reads SQL projection aliases directly when every result-selector member binds to a source-slot value. Row-local computed joined projections remain a fallback for materialized execution, and cannot be used for provider-side composition. The old key-buffered joined materialization path remains relevant only for row-local joined projections that cannot become SQL rows.
 
 ## Predicate Translation
 
@@ -103,7 +103,7 @@ The predicate translator handles the common shapes that are covered by tests:
 - equality-shaped local `Any(predicate)` membership
 - fixed true/false conditions for empty local collections
 - one-to-many relation `Any(...)` and existence-equivalent `Count()` predicates translated as correlated `EXISTS`
-- singular relation member traversal in root predicates and ordering translated as implicit inner joins
+- singular relation member traversal in root predicates, ordering, and direct projection translated as implicit inner joins
 
 Unsupported predicate methods and unsupported expression shapes should throw `QueryTranslationException`. Silent client-side predicate fallback would be a correctness bug.
 
@@ -114,29 +114,31 @@ The current implicit relation support is intentionally narrower than the Phase 1
 Supported:
 
 - generated singular relation traversal from a root row
-- related member access in `Where`, `OrderBy`, and `ThenBy`
+- related member access in `Where`, `OrderBy`, `ThenBy`, and direct `Select(...)` projection
 - inner-join semantics
 - source-slot reuse when the same relation appears more than once in a query
 
 Not supported yet:
 
-- relation traversal in provider `Select(...)`
+- relation object projection or collection relation projection in provider `Select(...)`
 - collection traversal beyond documented `Any` and existence-equivalent `Count` predicates
 - multi-hop implicit traversal
 - nullable/left-join semantics
 - fluent relation-aware join APIs such as `JoinBy`, `JoinMany`, `LeftJoinBy`, and `LeftJoinMany`
 - standard `Queryable.LeftJoin`
 
-The parser resolves `root.Relation.Member` through relation metadata, registers an `ImplicitJoin` source slot, adds an inner `Join` operation, and binds the related member to that source slot's column. SQL rendering treats implicit join slots like explicit inner join slots; entity execution returns root rows.
+The parser resolves `root.Relation.Member` through relation metadata, registers an `ImplicitJoin` source slot, adds an inner `Join` operation, and binds the related member to that source slot's column. SQL rendering treats implicit join slots like explicit inner join slots. Entity execution returns root rows; SQL-backed projection execution reads the related column alias from the result row.
 
 ## Projection Model
 
 Projection is intentionally split:
 
 - SQL is used for filtering, ordering, paging, scalar result operators, grouped aggregate projection/composition, and join key selection.
-- Row-local projection can run after materialization for supported scalar, anonymous, and computed shapes.
+- `QueryPlanProjection.ScalarMember` and `QueryPlanProjection.SqlRow` read aliased SQL values directly from `IDataLinqDataReader`.
+- `QueryPlanProjection.SqlRow` stores named projection members as `QueryPlanValue` bindings and is used only when every member binds to a source-slot value.
+- Row-local projection remains for supported computed .NET expressions after materialization.
 
-Relation-property projection is rejected. That prevents hidden N+1 behavior from being smuggled into what looks like a single provider query.
+Supported singular relation member projection uses the same implicit join source-slot machinery as predicates and ordering. Relation object projection, collection relation projection, nested provider queries, multi-hop relation traversal, and client fallback remain rejected so hidden N+1 behavior cannot be smuggled into what looks like a single provider query.
 
 ## Important Internals
 
@@ -150,10 +152,10 @@ Relation-property projection is rejected. That prevents hidden N+1 behavior from
 : Evaluates supported local values such as captured constants, simple member reads, empty collection factories, array/list indexes, and deterministic string operations without compiling or invoking arbitrary user methods.
 
 `QueryPlanSqlBuilder`
-: Renders plan operations to SQL, including local collection membership, relation-backed `EXISTS` predicates, implicit singular relation joins, ordering, paging, single-source subquery pushdown, scalar aggregates, grouped aggregate projection, and the narrow explicit join baseline.
+: Renders plan operations to SQL, including local collection membership, relation-backed `EXISTS` predicates, implicit singular relation joins, ordering, paging, single-source subquery pushdown, scalar aggregates, SQL-backed projection rows, grouped aggregate projection, and the narrow explicit join baseline.
 
 `ExpressionQueryPlanExecutor`
-: Executes sequence, scalar, single-row, projection, grouped aggregate, and explicit-join result paths from a parsed plan.
+: Executes sequence, scalar, single-row, SQL-backed projection, row-local projection, grouped aggregate, and explicit-join result paths from a parsed plan.
 
 `ProjectionExpressionEvaluator`
 : Evaluates supported row-local projections over materialized rows using parameter bindings, without Remotion query-source identities.

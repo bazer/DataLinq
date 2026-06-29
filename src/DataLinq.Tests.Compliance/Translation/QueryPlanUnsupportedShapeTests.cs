@@ -98,8 +98,8 @@ public class QueryPlanUnsupportedShapeTests
             ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
 
         await Assert.That(exception).IsNotNull();
-        await Assert.That(exception!.Message).Contains("Relation property 'Managers'");
-        await Assert.That(exception.Message).Contains("LINQ Select projection");
+        await Assert.That(exception!.Message).Contains("Collection relation property 'Managers'");
+        await Assert.That(exception.Message).Contains("row-local LINQ Select projection");
     }
 
     [Test]
@@ -144,8 +144,8 @@ public class QueryPlanUnsupportedShapeTests
             ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
 
         await Assert.That(exception).IsNotNull();
-        await Assert.That(exception!.Message).Contains("Relation property 'Managers'");
-        await Assert.That(exception.Message).Contains("LINQ Select projection");
+        await Assert.That(exception!.Message).Contains("collection relation 'Managers'");
+        await Assert.That(exception.Message).Contains("not supported");
     }
 
     private static TException? Capture<TException>(Action action)

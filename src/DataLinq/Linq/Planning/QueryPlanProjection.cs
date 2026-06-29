@@ -60,6 +60,19 @@ internal abstract record QueryPlanProjection
         }
     }
 
+    public sealed record SqlRow(
+        Type RowType,
+        IReadOnlyList<QueryPlanProjectionMember> Members,
+        ConstructorInfo Constructor)
+        : QueryPlanProjection(QueryPlanProjectionKind.SqlRow, RowType)
+    {
+        public SqlRow(Type rowType, IEnumerable<QueryPlanProjectionMember> members, ConstructorInfo constructor)
+            : this(rowType, Freeze(members, nameof(members)), constructor)
+        {
+            ArgumentNullException.ThrowIfNull(constructor);
+        }
+    }
+
     public sealed record GroupedAggregate(
         Type AggregateRowType,
         IReadOnlyList<QueryPlanProjectionMember> Members,
@@ -113,5 +126,6 @@ internal enum QueryPlanProjectionKind
     Anonymous,
     ComputedRowLocalExpression,
     JoinedRowLocal,
+    SqlRow,
     GroupedAggregate
 }

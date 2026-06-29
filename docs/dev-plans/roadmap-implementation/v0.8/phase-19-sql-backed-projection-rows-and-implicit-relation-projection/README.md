@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 19: SQL-Backed Projection Rows and Implicit Relation Projection
 
-**Status:** In progress after the Phase 16-18 SQL-style GroupBy completion track.
+**Status:** Implemented for direct source-slot projection rows and supported implicit singular relation member projection.
 
 ## Purpose
 
@@ -61,7 +61,7 @@ The parser should be conservative. If a projection member would require relation
 
 ## Verification
 
-Required tests:
+Implemented tests:
 
 - plan snapshots for SQL-backed scalar and anonymous projection rows
 - plan snapshots proving singular relation projection records an implicit join source
@@ -70,6 +70,17 @@ Required tests:
 - transaction-root parity for SQL-backed projection rows
 - unsupported diagnostics for relation object projection, collection projection, nested database projection, and row-local client expressions
 - docs/support-matrix updates only for the tested direct projection shapes
+
+Focused verification passed:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj -v:minimal`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesProjectionTranslationTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesImplicitRelationJoinTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesJoinTranslationTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSnapshotTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/ExpressionQueryPlanParserTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanUnsupportedShapeTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSqlParityTests/*" --output failures --build`
 
 ## Exit Criteria
 

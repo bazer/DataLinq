@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using DataLinq.Exceptions;
 using DataLinq.Testing;
 
 namespace DataLinq.Tests.Compliance;
@@ -82,37 +81,34 @@ public class EmployeesImplicitRelationJoinTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task UnsupportedImplicitRelationProjectionThrowsQueryTranslationException(TestProviderDescriptor provider)
+    public async Task ImplicitSingularRelationScalarProjection_MatchesInMemory(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(UnsupportedImplicitRelationProjectionThrowsQueryTranslationException),
+            nameof(ImplicitSingularRelationScalarProjection_MatchesInMemory),
             EmployeesSeedMode.Bogus);
 
-        await AssertTranslationFailure(
-            () => databaseScope.Database.Query().DepartmentEmployees
-                .Select(row => row.departments.Name)
-                .ToList(),
-            "Relation property 'departments'",
-            "LINQ Select projection");
-    }
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().DepartmentEmployees
+            .ToList()
+            .Where(row => row.emp_no < 990000)
+            .OrderBy(row => row.emp_no)
+            .Take(10)
+            .Select(row => row.departments.Name)
+            .ToArray();
 
-    private static async Task AssertTranslationFailure(Action action, params string[] expectedFragments)
-    {
-        QueryTranslationException? exception = null;
+        var query = employeesDatabase.Query().DepartmentEmployees
+            .Where(row => row.emp_no < 990000)
+            .OrderBy(row => row.emp_no)
+            .Take(10)
+            .Select(row => row.departments.Name);
 
-        try
-        {
-            action();
-        }
-        catch (QueryTranslationException caught)
-        {
-            exception = caught;
-        }
+        var actual = query.ToArray();
+        var sql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(employeesDatabase, query);
+        var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text);
 
-        await Assert.That(exception).IsNotNull();
-
-        foreach (var fragment in expectedFragments)
-            await Assert.That(exception!.Message).Contains(fragment);
+        await Assert.That(normalized).Contains("JOIN");
+        await Assert.That(normalized).Contains("dept_name");
+        await Assert.That(actual).IsEquivalentTo(expected);
     }
 }

@@ -194,6 +194,19 @@ public class ExpressionQueryPlanParserTests
         await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x => !(x.dept_manager.Count() == 0)));
+
+        await AssertParserProducesDataLinqPlan(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees
+                .Select(row => new
+                {
+                    row.emp_no,
+                    DepartmentName = row.departments.Name
+                }));
+
+        await AssertParserProducesDataLinqPlan(
+            databaseScope.Database,
+            databaseScope.Database.Query().DepartmentEmployees.Select(row => row.departments.Name));
     }
 
     [Test]
@@ -490,8 +503,8 @@ public class ExpressionQueryPlanParserTests
         await AssertParserFailure(
             databaseScope.Database,
             databaseScope.Database.Query().Departments.Select(department => department.Managers),
-            "Relation property 'Managers'",
-            "LINQ Select projection");
+            "Collection relation property 'Managers'",
+            "row-local LINQ Select projection");
 
         await AssertParserFailure(
             databaseScope.Database,

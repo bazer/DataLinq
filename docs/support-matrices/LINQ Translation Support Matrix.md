@@ -34,8 +34,8 @@ The audit does not expand the public contract. It records the historical Remotio
 | --- | --- | --- | --- |
 | One-to-many relation existence | generated collection relation `Any()`, `Any(predicate)`, negated `Any(predicate)`, and existence-equivalent `Count()` comparisons | `Translation/EmployeesRelationPredicateTranslationTests.cs` | These translate to correlated `EXISTS` subqueries. `Count()` support is deliberately limited to forms reducible to existence or non-existence. |
 | Related-row predicate body | direct related-row member comparisons against local values, plus simple `&&` and `||` groups | `Translation/EmployeesRelationPredicateTranslationTests.cs` | This is not arbitrary predicate translation for a second query source. Relation traversal from the related row remains rejected. |
-| Singular implicit relation traversal | root-row singular relation member access in `Where`, `OrderBy`, and `ThenBy`, rendered as an implicit inner join and reused for repeated relation references | `Translation/EmployeesImplicitRelationJoinTests.cs`, `Translation/QueryPlanSnapshotTests.cs` | This is SQL-backed predicate/ordering traversal only. Relation projection, multi-hop traversal, left-join null semantics, and fluent relation-aware join APIs remain outside the shipped boundary. |
-| Unsupported relation predicate shapes | relation traversal inside the related-row predicate and unsupported `Count()` thresholds fail with `QueryTranslationException` | `Translation/EmployeesRelationPredicateTranslationTests.cs` | Relation projections, collection traversal beyond the documented existence patterns, and relation aggregates beyond existence-equivalent `Count()` forms remain outside the documented boundary. |
+| Singular implicit relation traversal | root-row singular relation member access in `Where`, `OrderBy`, `ThenBy`, and direct `Select(...)` projection, rendered as an implicit inner join and reused for repeated relation references | `Translation/EmployeesImplicitRelationJoinTests.cs`, `Translation/EmployeesProjectionTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs` | This is SQL-backed inner-join traversal. Relation object projection, collection relation projection, multi-hop traversal, left-join null semantics, and fluent relation-aware join APIs remain outside the shipped boundary. |
+| Unsupported relation predicate/projection shapes | relation traversal inside the related-row predicate, unsupported `Count()` thresholds, relation object projection, and collection relation projection fail with `QueryTranslationException` | `Translation/EmployeesRelationPredicateTranslationTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | Collection traversal beyond the documented existence patterns and relation aggregates beyond existence-equivalent `Count()` forms remain outside the documented boundary. |
 
 ## Local Collections and Fixed Conditions
 
@@ -100,8 +100,8 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | Paging | `Skip`, `Take`, `Skip(...).Take(...)` with ordered queries, composed chained predicates, post-paging filters/orderings, and `Count()`/`Any()` over paged sources | `EmployeesQueryBehaviorTests.cs`, `Translation/QueryPlanSqlParityTests.cs`, `Translation/QueryPlanSnapshotTests.cs` | Chained-filter paging has focused regression coverage. Phase 13 adds single-source subquery pushdown when later filters, orderings, or scalar reductions must apply over an already-paged source. |
 | Ordering plus filtering | `Where(...).OrderBy(...)`, `OrderBy(...).Where(...)`, and `Where(...).OrderBy(...).Where(...)` | `EmployeesQueryBehaviorTests.cs` | Focused regression coverage proves the outer predicate is preserved after an inner ordering clause. |
 | Full-model projection | selecting the model entity | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
-| Scalar projection | `Select(x => x.Property)` | `EmployeesQueryBehaviorTests.cs`, translation tests | Public docs match this. |
-| Anonymous projection | `Select(x => new { ... })` for simple property members and row-local computed expressions | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesProjectionTranslationTests.cs` | These are post-materialization projections, not SQL-backed `SELECT`-list expressions. Relation-property projections remain rejected to avoid hidden N+1 behavior. |
+| Scalar projection | `Select(x => x.Property)` and supported singular relation member scalar projection | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesProjectionTranslationTests.cs`, `Translation/EmployeesImplicitRelationJoinTests.cs` | Direct source-slot scalar projections are SQL-backed and read from aliased result values. |
+| Anonymous projection | `Select(x => new { ... })` for direct source-slot members, supported singular relation members, and row-local computed expressions | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesProjectionTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs` | Direct source-slot projection rows are SQL-backed. Computed anonymous projections remain row-local after materialization. Relation object and collection relation projections remain rejected to avoid hidden N+1 behavior. |
 | Computed scalar projection | row-local string concatenation and materialized member chains after SQL filtering, ordering, and paging | `Translation/EmployeesProjectionTranslationTests.cs` | Client projection is deliberate here. Do not generalize this to SQL predicate method translation. |
 | Grouped aggregate projection and composition | SQL-backed grouped aggregate rows with direct, composite, and SQL-renderable computed keys; `group.Key` for scalar keys; `group.Key.Member` for composite keys; narrow grouped `HAVING`; ordering/paging/filtering over projected grouped key or aggregate members; grouped-row `Any()`/`Count()`; supported explicit joined projections and implicit singular relation traversal as grouping inputs; constructor-backed DTO/record projections; `db.Query()` and `transaction.Query()` roots across active providers | `Translation/EmployeesGroupedAggregateTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs`, `Translation/ExpressionQueryPlanParserTests.cs` | This is SQL-backed grouped aggregate row materialization and composition, not materialized `IGrouping<TKey,TElement>` support. Whole composite `group.Key` projection, client-computed keys, computed aggregate selectors, collection relation grouping, grouped element enumeration, and non-bindable grouped-row composition remain rejected. |
 | Views and primary-key lookup | querying generated views and direct `Get<T>(key)` lookup | `SeededEmployeesQueryTests.cs`, `EmployeesQueryBehaviorTests.cs` | Direct lookup is not a LINQ predicate but belongs in the surrounding query support docs. |
@@ -110,8 +110,8 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 
 | Area | Currently tested support | Evidence | Audit notes |
 | --- | --- | --- | --- |
-| Inner `Join(...)` | one explicit inner join between two direct DataLinq query sources, direct member equality keys, nullable `.Value` key normalization, row-local result projection from both sides, and composed `Where`, ordering, paging, `Any`, and `Count` over projected members that bind back to source-slot values | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | SQL selects primary keys from both sides, then DataLinq materializes rows and applies the result selector client-side. Joined predicates/orderings are SQL-backed only for projection members that map to source-slot values. |
-| Unsupported join shapes | composite anonymous-object keys, `GroupJoin(...)`, post-paging joined composition, relation-property result projection, and non-bindable joined projection composition fail with `QueryTranslationException` | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | Outer joins, query-syntax transparent identifiers, relation-property joins, scalar aggregates beyond joined `Any`/`Count`, and multi-join pipelines are outside the documented boundary. |
+| Inner `Join(...)` | one explicit inner join between two direct DataLinq query sources, direct member equality keys, nullable `.Value` key normalization, SQL-backed direct source-slot result projection from both sides, and composed `Where`, ordering, paging, `Any`, and `Count` over projected members that bind back to source-slot values | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | SQL-backed joined projection rows read aliases directly when every result member maps to a source-slot value. Joined predicates/orderings are SQL-backed only for projection members that map to source-slot values. |
+| Unsupported join shapes | composite anonymous-object keys, `GroupJoin(...)`, post-paging joined composition, relation-property joins, relation object/collection relation result projection, and non-bindable joined projection composition fail with `QueryTranslationException` | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | Outer joins, query-syntax transparent identifiers, scalar aggregates beyond joined `Any`/`Count`, and multi-join pipelines are outside the documented boundary. |
 
 ## Unsupported or Not Yet Proven
 
@@ -119,13 +119,13 @@ These shapes are intentionally not part of the documented support boundary today
 
 - broad `GroupBy(...)` beyond the SQL-backed grouped aggregate row shapes documented above
 - `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, query-syntax transparent identifiers, and post-paging composition over explicit joined results
-- relation-property query expansion beyond documented one-to-many existence predicates and the documented singular implicit predicate/ordering traversal
+- relation-property query expansion beyond documented one-to-many existence predicates and the documented singular implicit predicate/ordering/projection traversal
 - aggregate result operators over computed selectors, relation properties, or grouped aggregate shapes outside the documented direct numeric selector boundary
 - additional body clauses over pushed-down projections, joins, or grouped sources
 - arbitrary local `Enumerable` method chains inside predicates
 - arbitrary client methods inside SQL predicates
 - nested database subqueries
-- relation-property projections inside provider `Select(...)`
+- relation object or collection relation projections inside provider `Select(...)`
 - nested database subqueries inside provider `Select(...)`
 
 Unsupported predicate methods, non-empty compound local `Any(predicate)` shapes, unsupported selectors, and unsupported scalar result operators now have focused `QueryTranslationException` coverage in `Translation/EmployeesUnsupportedQueryDiagnosticsTests.cs`.
@@ -198,3 +198,12 @@ Phase 18 adds advanced grouped key and joined grouping coverage:
 5. Implicit singular relation traversal can be used as a grouped key through the existing SQL-backed inner-join path.
 6. Constructor-backed grouped projections are covered through a record projection test.
 7. Unsupported diagnostics keep whole composite `group.Key` projection, client-computed keys, grouped element enumeration, and post-paging grouped composition outside the documented boundary.
+
+Phase 19 adds SQL-backed projection row coverage:
+
+1. Direct scalar and anonymous source-slot projections read aliased SQL values from the data reader.
+2. Supported singular relation member projection reuses the implicit inner-join source-slot path and does not lazy-load relation properties.
+3. Explicit joined direct projection rows are SQL-backed when every projected member maps to a source-slot value.
+4. Transaction-root tests prove SQL-backed projection rows work from `transaction.Query()`.
+5. Snapshot tests record `sql-row` projection shape and implicit relation join sources.
+6. Unsupported diagnostics keep relation object projection, collection relation projection, nested provider queries, multi-hop traversal, and client methods outside the documented boundary.

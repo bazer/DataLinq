@@ -11,6 +11,8 @@ namespace DataLinq.Linq.Planning.Sql;
 
 internal sealed class QueryPlanSqlBuilder
 {
+    public const string ScalarProjectionAlias = "value";
+
     private readonly DataLinqQueryPlan plan;
     private readonly DataSourceAccess dataSource;
     private readonly QueryPlanSqlSourceMap sourceMap;
@@ -118,6 +120,20 @@ internal sealed class QueryPlanSqlBuilder
         {
             select.What(GetGroupedAggregateSelectors(groupedAggregate).ToArray());
             return select;
+        }
+
+        if (IsProjectionRowResult(plan.Result.Kind))
+        {
+            switch (plan.Projection)
+            {
+                case QueryPlanProjection.ScalarMember scalar:
+                    select.What(GetScalarProjectionSelector(scalar));
+                    return select;
+
+                case QueryPlanProjection.SqlRow sqlRow:
+                    select.What(GetProjectionRowSelectors(sqlRow.Members).ToArray());
+                    return select;
+            }
         }
 
         switch (plan.Result.Kind)
@@ -284,6 +300,33 @@ internal sealed class QueryPlanSqlBuilder
 
         return selectors;
     }
+
+    private string GetScalarProjectionSelector(QueryPlanProjection.ScalarMember projection)
+    {
+        var value = new QueryPlanColumnValue(projection.Source, projection.Column, projection.ResultType);
+        var escape = dataSource.Provider.Constants.EscapeCharacter;
+        return $"{valueRenderer.RenderSqlExpression(value)} AS {escape}{ScalarProjectionAlias}{escape}";
+    }
+
+    private IReadOnlyList<string> GetProjectionRowSelectors(IReadOnlyList<QueryPlanProjectionMember> members)
+    {
+        var selectors = new List<string>(members.Count);
+        var escape = dataSource.Provider.Constants.EscapeCharacter;
+
+        foreach (var member in members)
+            selectors.Add($"{valueRenderer.RenderSqlExpression(member.Value)} AS {escape}{member.Name}{escape}");
+
+        return selectors;
+    }
+
+    private static bool IsProjectionRowResult(QueryPlanResultKind kind)
+        => kind is QueryPlanResultKind.Sequence or
+            QueryPlanResultKind.First or
+            QueryPlanResultKind.FirstOrDefault or
+            QueryPlanResultKind.Single or
+            QueryPlanResultKind.SingleOrDefault or
+            QueryPlanResultKind.Last or
+            QueryPlanResultKind.LastOrDefault;
 
     private Select<T> BuildGroupedAggregateScalarSelect<T>()
     {

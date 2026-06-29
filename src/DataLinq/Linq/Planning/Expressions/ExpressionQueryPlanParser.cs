@@ -623,17 +623,23 @@ internal sealed class ExpressionQueryPlanParser
         if (TryGetSource(selector, out var source))
             return new QueryPlanProjection.Entity(source);
 
-        if (TryGetColumnValue(selector, out var scalarColumn))
-            return new QueryPlanProjection.ScalarMember(scalarColumn.Source, scalarColumn.Column, resultType);
+        if (TryCreateScalarMemberProjection(selector, resultType, out var scalarProjection))
+            return scalarProjection;
 
-        var referencedSources = GetReferencedSources(selector);
         if (selector is NewExpression newExpression && TryCreateProjectionMembers(newExpression, out var members))
         {
-            return referencedSources.Count > 1
-                ? new QueryPlanProjection.JoinedRowLocal(resultType, members, referencedSources)
-                : new QueryPlanProjection.Anonymous(resultType, members, referencedSources);
+            var memberSources = GetReferencedSources(members);
+            if (CanMaterializeSqlProjection(members))
+                return new QueryPlanProjection.SqlRow(resultType, members, newExpression.Constructor!);
+
+            return memberSources.Count > 1
+                ? new QueryPlanProjection.JoinedRowLocal(resultType, members, memberSources)
+                : new QueryPlanProjection.Anonymous(resultType, members, memberSources);
         }
 
+        RejectRelationProjectionFallback(selector);
+
+        var referencedSources = GetReferencedSources(selector);
         return referencedSources.Count > 1
             ? new QueryPlanProjection.JoinedRowLocal(
                 resultType,
@@ -641,6 +647,26 @@ internal sealed class ExpressionQueryPlanParser
                 referencedSources)
             : new QueryPlanProjection.ComputedRowLocal(resultType, GetExpressionShape(selector), referencedSources);
     }
+
+    private bool TryCreateScalarMemberProjection(
+        Expression selector,
+        Type resultType,
+        out QueryPlanProjection.ScalarMember projection)
+    {
+        if (TryConvertValue(selector, out var value) &&
+            UnwrapConvertedValue(value) is QueryPlanColumnValue column)
+        {
+            projection = new QueryPlanProjection.ScalarMember(column.Source, column.Column, resultType);
+            return true;
+        }
+
+        projection = null!;
+        return false;
+    }
+
+    private static bool CanMaterializeSqlProjection(IReadOnlyList<QueryPlanProjectionMember> members)
+        => members.Count != 0 && members.All(static member =>
+            UnwrapConvertedValue(member.Value) is QueryPlanColumnValue);
 
     private QueryPlanProjection CreateGroupedAggregateProjection(LambdaExpression selector, QueryPlanGrouping grouping)
     {
@@ -917,6 +943,39 @@ internal sealed class ExpressionQueryPlanParser
             return null;
 
         return names.Select(static name => name!).ToArray();
+    }
+
+    private static IReadOnlyList<QueryPlanSourceSlot> GetReferencedSources(
+        IReadOnlyList<QueryPlanProjectionMember> members)
+    {
+        var sources = new List<QueryPlanSourceSlot>();
+        foreach (var member in members)
+            AddSources(member.Value, sources);
+
+        return sources;
+    }
+
+    private static void AddSources(QueryPlanValue value, List<QueryPlanSourceSlot> sources)
+    {
+        switch (value)
+        {
+            case QueryPlanColumnValue column:
+                AddSource(column.Source, sources);
+                break;
+            case QueryPlanConvertedValue converted:
+                AddSources(converted.Value, sources);
+                break;
+            case QueryPlanFunctionValue function:
+                foreach (var argument in function.Arguments)
+                    AddSources(argument, sources);
+                break;
+        }
+    }
+
+    private static void AddSource(QueryPlanSourceSlot source, List<QueryPlanSourceSlot> sources)
+    {
+        if (!sources.Contains(source))
+            sources.Add(source);
     }
 
     private QueryPlanPredicate ConvertPredicate(Expression expression, bool isNegated = false)
@@ -1876,7 +1935,13 @@ internal sealed class ExpressionQueryPlanParser
 
     private void ValidateProjectionSupported(Expression selector)
     {
-        var visitor = new ProjectionUnsupportedShapeVisitor(this, selector);
+        var visitor = new ProjectionUnsupportedShapeVisitor(selector);
+        visitor.Visit(selector);
+    }
+
+    private void RejectRelationProjectionFallback(Expression selector)
+    {
+        var visitor = new ProjectionRelationFallbackVisitor(this, selector);
         visitor.Visit(selector);
     }
 
@@ -1982,7 +2047,7 @@ internal sealed class ExpressionQueryPlanParser
 
     private bool CanBindProjectionParameter(ParsedQuery parsed)
         => HasExplicitJoinOperation() &&
-           parsed.Projection is QueryPlanProjection.JoinedRowLocal;
+           parsed.Projection is QueryPlanProjection.JoinedRowLocal or QueryPlanProjection.SqlRow;
 
     private static bool CanBindGroupedProjectionParameter(ParsedQuery parsed)
         => parsed.Projection is QueryPlanProjection.GroupedAggregate;
@@ -2035,6 +2100,9 @@ internal sealed class ExpressionQueryPlanParser
                 return true;
             case QueryPlanProjection.JoinedRowLocal joined:
                 members = joined.Members;
+                return true;
+            case QueryPlanProjection.SqlRow sqlRow:
+                members = sqlRow.Members;
                 return true;
             case QueryPlanProjection.GroupedAggregate grouped:
                 members = grouped.Members;
@@ -2561,23 +2629,8 @@ internal sealed class ExpressionQueryPlanParser
         }
     }
 
-    private sealed class ProjectionUnsupportedShapeVisitor(
-        ExpressionQueryPlanParser parser,
-        Expression selector) : ExpressionVisitor
+    private sealed class ProjectionUnsupportedShapeVisitor(Expression selector) : ExpressionVisitor
     {
-        protected override Expression VisitMember(MemberExpression node)
-        {
-            if (parser.TryGetRelationProjectionProperty(node, out var relationProperty))
-            {
-                throw new QueryTranslationException(
-                    $"Relation property '{relationProperty.PropertyName}' is not supported in LINQ Select projection. " +
-                    "Projection expressions are evaluated after materializing the selected rows; load relation data explicitly after ToList(). " +
-                    $"Expression: {selector}");
-            }
-
-            return base.VisitMember(node);
-        }
-
         protected override Expression VisitMethodCall(MethodCallExpression node)
         {
             if (node.Method.DeclaringType == typeof(Queryable))
@@ -2589,6 +2642,28 @@ internal sealed class ExpressionQueryPlanParser
             }
 
             return base.VisitMethodCall(node);
+        }
+    }
+
+    private sealed class ProjectionRelationFallbackVisitor(
+        ExpressionQueryPlanParser parser,
+        Expression selector) : ExpressionVisitor
+    {
+        protected override Expression VisitMember(MemberExpression node)
+        {
+            if (parser.TryGetRelationProjectionProperty(node, out var relationProperty))
+            {
+                var relationKind = relationProperty.RelationPart.Type == RelationPartType.ForeignKey
+                    ? "Singular"
+                    : "Collection";
+
+                throw new QueryTranslationException(
+                    $"{relationKind} relation property '{relationProperty.PropertyName}' is not supported as a row-local LINQ Select projection. " +
+                    "Project a mapped relation member directly so it can bind to SQL, or materialize before loading relation data. " +
+                    $"Expression: {selector}");
+            }
+
+            return base.VisitMember(node);
         }
     }
 

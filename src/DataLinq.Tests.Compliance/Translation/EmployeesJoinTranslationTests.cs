@@ -353,8 +353,8 @@ public class EmployeesJoinTranslationTests
                         ManagerCount = department.Managers.Count
                     })
                 .ToList(),
-            "Relation property 'Managers'",
-            "LINQ Select projection");
+            "collection relation 'Managers'",
+            "not supported");
     }
 
     [Test]

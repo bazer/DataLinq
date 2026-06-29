@@ -185,6 +185,14 @@ internal static class QueryPlanDebugWriter
                     .AppendLine(FormatMembers(joined.Members));
                 break;
 
+            case QueryPlanProjection.SqlRow sqlRow:
+                builder
+                    .Append("sql-row type=")
+                    .Append(TypeName(sqlRow.ResultType))
+                    .Append(" members=")
+                    .AppendLine(FormatMembers(sqlRow.Members));
+                break;
+
             case QueryPlanProjection.GroupedAggregate grouped:
                 builder
                     .Append("grouped-aggregate type=")

@@ -162,18 +162,20 @@ var departments = db.Query().Departments
     .ToList();
 ```
 
-This first slice is intentionally not a relation traversal engine. These shapes are not supported yet:
+This first slice is intentionally not a collection relation traversal engine. These shapes are not supported yet:
 
-- relation projections inside provider `Select(...)`
+- collection relation projections inside provider `Select(...)`
 - relation aggregates other than the documented existence-equivalent `Count()` comparisons
 - thresholds such as `Children.Count() > 1`
 - predicates that traverse another relation from the related row, such as `child.Parent.Name == value`
 - collection relation traversal outside the documented one-to-many `Any(...)`/existence pattern
 
-Generated singular relation properties have a separate SQL-backed implicit inner-join slice. The test suite covers singular relation traversal in root-row predicates and ordering:
+Generated singular relation properties have a separate SQL-backed implicit inner-join slice. The test suite covers singular relation traversal in root-row predicates, ordering, and direct projection:
 
 - `row.SingularRelation.Member` inside `Where(...)`
 - `row.SingularRelation.Member` inside `OrderBy(...)` and `ThenBy(...)`
+- `Select(row => row.SingularRelation.Member)`
+- `Select(row => new { row.Id, RelatedName = row.SingularRelation.Name })` when every projected member binds to a source-slot column
 - repeated access to the same relation in one query reuses one implicit join source
 
 Example:
@@ -183,22 +185,36 @@ var rows = db.Query().DepartmentEmployees
     .Where(row => row.departments.Name.StartsWith("S"))
     .OrderBy(row => row.departments.Name)
     .ThenBy(row => row.emp_no)
+    .Select(row => new
+    {
+        row.emp_no,
+        DepartmentName = row.departments.Name
+    })
     .ToList();
 ```
 
 This is an inner join. Rows whose singular relation does not resolve are not preserved. Left-join/null-preserving traversal is not supported yet.
 
-Implicit relation traversal is not supported in provider `Select(...)` projections. Materialize first if you want to project through a relation property.
+Multi-hop relation traversal, relation object projection, and collection relation projection are not supported in provider `Select(...)`.
 
 ## Supported Projection Shapes
 
-`Select(...)` projections are evaluated after DataLinq has translated SQL filtering, ordering, and paging and materialized the selected rows. They are not SQL `SELECT`-list expressions today. That is less efficient for wide rows than SQL-backed projection, but it keeps projection semantics honest: projection code runs as normal .NET code over the materialized model instance.
+`Select(...)` has two deliberately separate paths:
 
-The test suite covers row-local projections such as:
+- SQL-backed projection rows for direct source-slot values.
+- Row-local projection after materialization for computed .NET expressions.
+
+The SQL-backed path reads projected aliases directly from `IDataLinqDataReader`. The test suite covers:
 
 - selecting the full model
 - selecting a scalar property such as `Select(x => x.DeptNo)`
 - selecting an anonymous type such as `Select(x => new { no = x.DeptNo, name = x.Name })`
+- selecting direct members from supported explicit joins
+- selecting supported singular relation members such as `Select(x => x.SingularRelation.Name)`
+- selecting anonymous rows that combine root columns and supported singular relation columns
+
+Computed projections remain row-local after SQL filtering, ordering, paging, and materialization. The test suite covers:
+
 - computed scalar projections such as `Select(x => x.first_name + ":" + x.emp_no.Value)`
 - computed anonymous projections using materialized member chains such as `Trim()`, `ToUpper()`, and `Length`
 
@@ -215,7 +231,7 @@ var departments = db.Query().Departments
     .ToList();
 ```
 
-Relation-property projections are not supported in provider `Select(...)` yet. Load rows first with `ToList()` and then traverse relation properties explicitly so the extra relation queries are visible in your code.
+The supported SQL-backed projection path is not a broad SQL expression translator. Client methods, arbitrary computed SQL expressions, relation objects, collection relations, nested database subqueries, multi-hop relation traversal, and nullable left-join relation projection remain rejected. If projection code needs ordinary .NET computation, materialize rows first or use the documented row-local computed projection shapes.
 
 ## Supported Explicit Joins
 
@@ -225,7 +241,7 @@ The test suite covers one narrow explicit inner `Join(...)` shape:
 - one inner DataLinq query source
 - direct member equality keys such as `outer.DepartmentId` and `inner.Id`
 - nullable `.Value` key selectors such as `employee.emp_no.Value`
-- a result selector that projects row-local values from both materialized rows
+- a result selector that projects direct source-slot values from both sides
 - composed `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, `Take(...)`, `Any()`, and `Count()` over projected joined members that map back to source columns
 
 Example:
@@ -248,7 +264,7 @@ var rows = db.Query().DepartmentEmployees
     .ToList();
 ```
 
-The implementation uses a SQL inner join to select primary keys from both sides, then materializes both rows through DataLinq caches and applies the result selector as normal .NET code. That keeps projection semantics consistent with regular `Select(...)`, but it is not yet a general SQL projection engine.
+When the result selector contains only direct source-slot values, the implementation reads SQL projection aliases directly from the joined result row. Row-local computed joined projections remain a separate fallback and cannot be used for provider-side composition.
 
 Composed predicates and orderings over joined rows are SQL-backed only when the joined projection member is a direct source-slot value, such as `row.dept_no` or `row.Name` in the example above. If a joined projection member is computed row-local code, materialize first and filter/order in memory.
 
@@ -261,7 +277,7 @@ These join shapes are not supported yet:
 - query-syntax transparent identifiers that project whole source entities
 - post-paging joined composition, such as `Join(...).Take(...).Where(...)`
 - scalar aggregates over joined rows other than `Any()` and `Count()`
-- relation-property joins or relation-property projections inside the result selector
+- relation-property joins, relation object projection, or collection relation projection inside the result selector
 - fluent relation-aware join APIs such as `JoinBy(...)`, `JoinMany(...)`, `LeftJoinBy(...)`, and `LeftJoinMany(...)`
 - standard `Queryable.LeftJoin(...)`
 
@@ -433,7 +449,7 @@ var topMalesByNewestHireDate = db.Query().Employees
     .ToList();
 ```
 
-The subquery boundary is deliberately narrow. It is for single-source query composition over mapped rows. It is not a promise of arbitrary nested database subqueries in projections, broad SQL-backed projection lists, joined-row pushdown, or grouped-query pushdown.
+The subquery boundary is deliberately narrow. It is for single-source query composition over mapped rows. It is not a promise of arbitrary nested database subqueries in projections, broad SQL expression projection lists, joined-row pushdown, or grouped-query pushdown.
 
 ## Direct Primary-Key Lookup
 
@@ -470,7 +486,7 @@ The current docs do not claim support for these because this pass has not verifi
 - broad `GroupBy(...)` beyond the SQL-backed grouped aggregate row shapes documented above
 - `GroupJoin(...)`, outer joins, composite-key joins, and additional filtering/ordering/paging over joined results
 - aggregate operators over computed selectors or relation properties
-- relation-property projections inside provider `Select(...)` and relation traversal inside relation predicates
+- relation object or collection relation projections inside provider `Select(...)`, and unsupported relation traversal inside relation predicates
 - broader client-side method translation inside SQL predicates beyond the string members listed above
 
 That does not automatically mean they are impossible. It means the docs should not lie about them.

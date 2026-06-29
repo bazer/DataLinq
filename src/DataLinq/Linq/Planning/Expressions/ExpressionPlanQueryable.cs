@@ -115,6 +115,12 @@ internal static class ExpressionQueryPlanExecutor
         if (plan.Projection is QueryPlanProjection.GroupedAggregate groupedAggregate)
             return ExecuteGroupedAggregateProjection<TElement>(dataSource, plan, groupedAggregate);
 
+        if (plan.Projection is QueryPlanProjection.ScalarMember scalarMember)
+            return ExecuteScalarProjection<TElement>(dataSource, plan, scalarMember);
+
+        if (plan.Projection is QueryPlanProjection.SqlRow sqlRow)
+            return ExecuteSqlRowProjection<TElement>(dataSource, plan, sqlRow);
+
         return ExecuteProjectedSequence<TElement>(dataSource, plan, expression);
     }
 
@@ -148,7 +154,15 @@ internal static class ExpressionQueryPlanExecutor
         Func<IEnumerable<TResult>, TResult?> selector)
     {
         if (plan.Projection is not QueryPlanProjection.Entity)
+        {
+            if (plan.Projection is QueryPlanProjection.ScalarMember scalarMember)
+                return selector(ExecuteScalarProjection<TResult>(dataSource, plan, scalarMember))!;
+
+            if (plan.Projection is QueryPlanProjection.SqlRow sqlRow)
+                return selector(ExecuteSqlRowProjection<TResult>(dataSource, plan, sqlRow))!;
+
             return selector(ExecuteProjectedSequence<TResult>(dataSource, plan, expression))!;
+        }
 
         var sequence = new QueryPlanSqlBuilder(plan, dataSource)
             .BuildSelect<TResult>()
@@ -311,13 +325,50 @@ internal static class ExpressionQueryPlanExecutor
         }
     }
 
+    private static IEnumerable<TElement> ExecuteScalarProjection<TElement>(
+        DataSourceAccess dataSource,
+        DataLinqQueryPlan plan,
+        QueryPlanProjection.ScalarMember projection)
+    {
+        var select = new QueryPlanSqlBuilder(plan, dataSource).BuildSelect<TElement>();
+
+        foreach (var reader in select.ReadReader())
+        {
+            var ordinal = reader.GetOrdinal(QueryPlanSqlBuilder.ScalarProjectionAlias);
+            var rawValue = reader.IsDbNull(ordinal) ? null : reader.GetValue(ordinal);
+            yield return ConvertProjectionResult<TElement>(ConvertReaderValue(rawValue, projection.ResultType));
+        }
+    }
+
+    private static IEnumerable<TElement> ExecuteSqlRowProjection<TElement>(
+        DataSourceAccess dataSource,
+        DataLinqQueryPlan plan,
+        QueryPlanProjection.SqlRow projection)
+    {
+        var select = new QueryPlanSqlBuilder(plan, dataSource).BuildSelect<TElement>();
+
+        foreach (var reader in select.ReadReader())
+        {
+            var values = new object?[projection.Members.Count];
+            for (var index = 0; index < projection.Members.Count; index++)
+            {
+                var member = projection.Members[index];
+                var ordinal = reader.GetOrdinal(member.Name);
+                var rawValue = reader.IsDbNull(ordinal) ? null : reader.GetValue(ordinal);
+                values[index] = ConvertReaderValue(rawValue, member.Value.ClrType);
+            }
+
+            yield return CreateProjectionRow<TElement>(projection.Constructor, values);
+        }
+    }
+
     private static TElement CreateProjectionRow<TElement>(ConstructorInfo constructor, IReadOnlyList<object?> values)
     {
         var parameters = constructor.GetParameters();
         if (parameters.Length != values.Count)
         {
             throw new QueryTranslationException(
-                $"Grouped aggregate projection constructor expects {parameters.Length} values, but the query plan supplied {values.Count}.");
+                $"Projection constructor expects {parameters.Length} values, but the query plan supplied {values.Count}.");
         }
 
         var arguments = new object?[values.Count];

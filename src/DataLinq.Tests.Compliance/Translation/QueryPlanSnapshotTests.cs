@@ -49,7 +49,7 @@ operations:
   skip captured(p1:Int32)
   take captured(p2:Int32)
 projection:
-  anonymous type=anonymous sources=s0 members=[emp_no=column(s0.emp_no:Int32), first_name=column(s0.first_name:String)]
+  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), first_name=column(s0.first_name:String)]
 result:
   sequence type=anonymous
 bindings:
@@ -439,7 +439,7 @@ sources:
 operations:
   join inner column(s0.dept_no:String) = column(s1.dept_no:String)
 projection:
-  joined-row-local type=anonymous sources=s0,s1 members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)]
+  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)]
 result:
   sequence type=anonymous
 bindings:
@@ -482,7 +482,7 @@ operations:
   where compare(function(string-starts-with:Boolean column(s1.dept_name:String), captured(p0:String)) == constant(Boolean))
   order-by column(s0.dept_no:String) ascending
 projection:
-  joined-row-local type=anonymous sources=s0,s1 members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)]
+  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)]
 result:
   sequence type=anonymous
 bindings:
@@ -639,6 +639,40 @@ bindings:
             databaseScope.Database.Query().Employees.Select(x => x.first_name + ":" + x.emp_no!.Value));
 
         await Assert.That(snapshot).Contains("projection:\n  computed-row-local type=String shape=Add sources=s0");
+        await AssertNoLegacyParserTerms(snapshot);
+    }
+
+    [Test]
+    public async Task ImplicitRelationProjectionSnapshot_RecordsSqlRowAndJoinSource()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ImplicitRelationProjectionSnapshot_RecordsSqlRowAndJoinSource),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().DepartmentEmployees
+            .Select(row => new
+            {
+                row.emp_no,
+                DepartmentName = row.departments.Name
+            });
+
+        var snapshot = Snapshot(databaseScope.Database, query);
+
+        await AssertSnapshot(snapshot, """
+query-plan v0
+sources:
+  s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
+  s1 implicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
+operations:
+  join inner column(s0.dept_no:String) = column(s1.dept_no:String)
+projection:
+  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), DepartmentName=column(s1.dept_name:String)]
+result:
+  sequence type=anonymous
+bindings:
+  none
+""");
         await AssertNoLegacyParserTerms(snapshot);
     }
 
