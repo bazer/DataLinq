@@ -1,10 +1,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using DataLinq.Diagnostics;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Metadata;
@@ -49,6 +51,16 @@ internal sealed class ExpressionQueryPlanProvider : IQueryProvider
 
     public TResult Execute<TResult>(Expression expression)
     {
+        if (dataSource is not null &&
+            ExpressionQueryPlanExecutor.TryExecuteTerminalPrimaryKeyExpression(
+                dataSource,
+                metadata,
+                expression,
+                out TResult primaryKeyResult))
+        {
+            return primaryKeyResult;
+        }
+
         var plan = Parse(expression, typeof(TResult));
         return ExpressionQueryPlanExecutor.Execute<TResult>(GetDataSource(), plan, expression);
     }
@@ -96,6 +108,28 @@ internal sealed class ExpressionPlanQueryable<T> : IOrderedQueryable<T>
 
 internal static class ExpressionQueryPlanExecutor
 {
+    internal static bool TryExecuteTerminalPrimaryKeyExpression<TResult>(
+        DataSourceAccess dataSource,
+        DatabaseDefinition metadata,
+        Expression expression,
+        out TResult result)
+    {
+        result = default!;
+
+        if (!TryGetTerminalScalarPrimaryKeyExpression(
+                metadata,
+                expression,
+                out var table,
+                out var primaryKey,
+                out var resultKind))
+        {
+            return false;
+        }
+
+        result = ExecuteTerminalPrimaryKeyLookup<TResult>(dataSource, table, primaryKey, resultKind);
+        return true;
+    }
+
     public static IEnumerable<TElement> ExecuteEnumerable<TElement>(
         DataSourceAccess dataSource,
         DataLinqQueryPlan plan,
@@ -145,6 +179,292 @@ internal static class ExpressionQueryPlanExecutor
             QueryPlanResultKind.LastOrDefault => ExecuteSingle<TResult>(dataSource, plan, expression, static sequence => sequence.LastOrDefault()),
             var kind => throw new QueryTranslationException($"Expression parser route cannot execute query plan result '{kind}'.")
         };
+    }
+
+    private static TResult ExecuteTerminalPrimaryKeyLookup<TResult>(
+        DataSourceAccess dataSource,
+        TableDefinition table,
+        object? primaryKey,
+        QueryPlanResultKind resultKind)
+    {
+        var telemetryContext = DataLinqTelemetryContext.FromProvider(dataSource.Provider);
+        var activity = DataLinqTelemetry.StartQueryActivity(
+            telemetryContext,
+            table.DbName,
+            "entity",
+            dataSource is Transaction);
+        var startedAt = Stopwatch.GetTimestamp();
+        var succeeded = false;
+
+        DataLinqMetrics.RecordEntityQueryExecution(dataSource.Provider);
+
+        try
+        {
+            var row = primaryKey is null
+                ? null
+                : GetRowByScalarPrimaryKey(dataSource, table, primaryKey);
+
+            var result = ConvertPrimaryKeyLookupResult<TResult>(row, resultKind);
+            succeeded = true;
+            return result;
+        }
+        catch (Exception exception)
+        {
+            DataLinqTelemetry.RecordException(activity, exception);
+            throw;
+        }
+        finally
+        {
+            var duration = Stopwatch.GetElapsedTime(startedAt);
+            DataLinqTelemetry.RecordQueryExecution(
+                telemetryContext,
+                table.DbName,
+                "entity",
+                dataSource is Transaction,
+                succeeded,
+                duration);
+
+            if (activity is not null)
+            {
+                if (!succeeded)
+                    activity.SetStatus(ActivityStatusCode.Error);
+
+                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
+                activity.Dispose();
+            }
+        }
+    }
+
+    private static IImmutableInstance? GetRowByScalarPrimaryKey(
+        DataSourceAccess dataSource,
+        TableDefinition table,
+        object primaryKey)
+    {
+        var tableCache = dataSource.Provider.GetTableCache(table);
+        if (tableCache.TryGetRowFromProviderKeyValue(primaryKey, dataSource, out var row))
+            return row;
+
+        return tableCache.GetRow(DataLinqKey.FromValue(primaryKey), dataSource);
+    }
+
+    private static TResult ConvertPrimaryKeyLookupResult<TResult>(
+        IImmutableInstance? row,
+        QueryPlanResultKind resultKind)
+    {
+        if (row is not null)
+            return (TResult)(object)row;
+
+        return resultKind switch
+        {
+            QueryPlanResultKind.SingleOrDefault or QueryPlanResultKind.FirstOrDefault => default!,
+            _ => throw new InvalidOperationException("Sequence contains no elements")
+        };
+    }
+
+    private static bool TryGetTerminalScalarPrimaryKeyExpression(
+        DatabaseDefinition metadata,
+        Expression expression,
+        out TableDefinition table,
+        out object? primaryKey,
+        out QueryPlanResultKind resultKind)
+    {
+        table = null!;
+        primaryKey = null;
+        resultKind = default;
+
+        expression = UnwrapConvert(expression);
+        if (expression is not MethodCallExpression methodCall ||
+            !IsQueryableMethod(methodCall) ||
+            methodCall.Arguments.Count != 2 ||
+            !TryGetTerminalResultKind(methodCall.Method.Name, out resultKind))
+        {
+            return false;
+        }
+
+        if (!TryGetRootTable(metadata, methodCall.Arguments[0], out table) ||
+            !table.PrimaryKeyShape.SupportsScalarProviderKeyStore)
+        {
+            return false;
+        }
+
+        if (!TryUnwrapLambda(methodCall.Arguments[1], out var predicate) ||
+            predicate.Parameters.Count != 1)
+        {
+            return false;
+        }
+
+        var primaryKeyColumn = table.PrimaryKeyColumns[0];
+        return TryGetScalarPrimaryKeyExpressionValue(
+            predicate.Body,
+            predicate.Parameters[0],
+            table,
+            primaryKeyColumn,
+            out primaryKey);
+    }
+
+    private static bool TryGetTerminalResultKind(string methodName, out QueryPlanResultKind resultKind)
+    {
+        resultKind = methodName switch
+        {
+            nameof(Queryable.Single) => QueryPlanResultKind.Single,
+            nameof(Queryable.SingleOrDefault) => QueryPlanResultKind.SingleOrDefault,
+            nameof(Queryable.First) => QueryPlanResultKind.First,
+            nameof(Queryable.FirstOrDefault) => QueryPlanResultKind.FirstOrDefault,
+            _ => default
+        };
+
+        return resultKind != default;
+    }
+
+    private static bool TryGetRootTable(
+        DatabaseDefinition metadata,
+        Expression expression,
+        out TableDefinition table)
+    {
+        table = null!;
+        expression = UnwrapConvert(expression);
+
+        if (expression is not ConstantExpression { Value: IQueryable queryable })
+            return false;
+
+        if (!metadata.TryGetTableModel(queryable.ElementType, out var model))
+            return false;
+
+        table = model.Table;
+        return true;
+    }
+
+    private static bool TryGetScalarPrimaryKeyExpressionValue(
+        Expression expression,
+        ParameterExpression parameter,
+        TableDefinition table,
+        ColumnDefinition primaryKeyColumn,
+        out object? primaryKey)
+    {
+        primaryKey = null;
+
+        expression = UnwrapConvert(expression);
+        if (expression is not BinaryExpression { NodeType: ExpressionType.Equal } binary)
+            return false;
+
+        if (IsPrimaryKeyColumnExpression(binary.Left, parameter, table, primaryKeyColumn) &&
+            TryEvaluateLocalScalar(binary.Right, parameter, out primaryKey))
+        {
+            return true;
+        }
+
+        if (IsPrimaryKeyColumnExpression(binary.Right, parameter, table, primaryKeyColumn) &&
+            TryEvaluateLocalScalar(binary.Left, parameter, out primaryKey))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsPrimaryKeyColumnExpression(
+        Expression expression,
+        ParameterExpression parameter,
+        TableDefinition table,
+        ColumnDefinition primaryKeyColumn)
+    {
+        expression = UnwrapQueryColumnAccess(expression);
+        return expression is MemberExpression memberExpression &&
+            ReferenceEquals(memberExpression.Expression, parameter) &&
+            table.TryGetColumnByPropertyName(memberExpression.Member.Name, out var column) &&
+            ReferenceEquals(column, primaryKeyColumn);
+    }
+
+    private static bool TryEvaluateLocalScalar(
+        Expression expression,
+        ParameterExpression parameter,
+        out object? value)
+    {
+        expression = UnwrapConvert(expression);
+
+        switch (expression)
+        {
+            case ConstantExpression constant:
+                value = constant.Value;
+                return true;
+
+            case MemberExpression memberExpression
+                when TryEvaluateMemberInstance(memberExpression.Expression, parameter, out var instance):
+                return TryGetMemberValue(memberExpression.Member, instance, out value);
+
+            default:
+                value = null;
+                return false;
+        }
+    }
+
+    private static bool TryEvaluateMemberInstance(
+        Expression? expression,
+        ParameterExpression parameter,
+        out object? instance)
+    {
+        if (expression is null)
+        {
+            instance = null;
+            return true;
+        }
+
+        if (ReferenceEquals(expression, parameter))
+        {
+            instance = null;
+            return false;
+        }
+
+        return TryEvaluateLocalScalar(expression, parameter, out instance);
+    }
+
+    private static bool TryGetMemberValue(MemberInfo member, object? instance, out object? value)
+    {
+        switch (member)
+        {
+            case FieldInfo field:
+                value = field.GetValue(instance);
+                return true;
+
+            case PropertyInfo property:
+                value = property.GetValue(instance);
+                return true;
+
+            default:
+                value = null;
+                return false;
+        }
+    }
+
+    private static bool TryUnwrapLambda(Expression expression, out LambdaExpression lambda)
+    {
+        expression = UnwrapConvert(expression);
+        if (expression is LambdaExpression directLambda)
+        {
+            lambda = directLambda;
+            return true;
+        }
+
+        if (expression is UnaryExpression { NodeType: ExpressionType.Quote, Operand: LambdaExpression quotedLambda })
+        {
+            lambda = quotedLambda;
+            return true;
+        }
+
+        lambda = null!;
+        return false;
+    }
+
+    private static Expression UnwrapQueryColumnAccess(Expression expression)
+    {
+        expression = UnwrapConvert(expression);
+        if (expression is MemberExpression { Member.Name: "Value", Expression: not null } memberExpression &&
+            Nullable.GetUnderlyingType(memberExpression.Expression.Type) != null)
+        {
+            expression = memberExpression.Expression;
+        }
+
+        return UnwrapConvert(expression);
     }
 
     private static TResult ExecuteSingle<TResult>(
