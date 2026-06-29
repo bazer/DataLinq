@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 21: Joined Post-Paging Pushdown
 
-**Status:** Planned after query-syntax join support.
+**Status:** In progress after query-syntax join support.
 
 ## Purpose
 
