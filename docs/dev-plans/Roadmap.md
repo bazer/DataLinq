@@ -815,6 +815,83 @@ Key related plans:
 - `roadmap-implementation/v0.8/phase-14-source-slot-join-composition/README.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
 
+### 0.8 Phase 22: LINQ Parser Plan Cleanup
+
+Status: planned as the final parser implementation cleanup before release evidence.
+
+Goals:
+
+- freeze query-plan bindings into an immutable plan-owned snapshot
+- replace allocation-heavy render-time binding lookup with O(1) lookup
+- avoid repeated read-only binding wrapper allocation
+- reduce local-sequence binding copies where the legacy SQL operand APIs allow it
+- prove the cleanup does not change supported query behavior or undo recent allocation wins
+
+Why after joined post-paging pushdown:
+
+- Phase 21 completes the planned 0.8 query-runtime feature expansion
+- the parser architecture review identified binding immutability and lookup allocation as the best small release-hardening slice
+- this prepares future query-shape caching without trying to implement caching during the release closeout
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/phase-22-linq-parser-plan-cleanup/README.md`
+- `query-and-runtime/LINQ Parser Architecture Review.md`
+- `query-and-runtime/Sql Generation Optimization.md`
+- `performance/Allocation Reduction Audit.md`
+
+### 0.8 Phase 23: Browser AOT Debugging
+
+Status: planned as the browser AOT blocker investigation and support-decision phase.
+
+Goals:
+
+- reproduce the current generated SQLite WebAssembly AOT browser failure with fresh artifacts
+- separate SDK clean-output publish failures from browser runtime failures
+- identify the failing boundary behind `MONO_WASM: function signature mismatch`
+- document SQLitePCLRaw `WASM0001` warning disposition with exact symbols and call-path reasoning where possible
+- rerun no-AOT browser smoke and keep it unsupported unless it actually runs
+- fix browser AOT or explicitly exclude it from the 0.8 support claim
+
+Why after parser cleanup:
+
+- the release should not keep adding query features while browser evidence is red
+- current tooling already catches the failure; now the question is whether the runtime path can be made supportable
+- support wording should be based on fresh browser execution, not historical manual proof or publish success
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/phase-23-browser-aot-debugging/README.md`
+- `roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md`
+- `roadmap-implementation/v0.8/phase-9-webassembly-warning-and-no-aot-disposition/README.md`
+- `platform-compatibility/Practical AOT and Size Plan.md`
+
+### 0.8 Phase 24: Release Evidence, Benchmarks, and Docs
+
+Status: planned as the final 0.8 release-readiness pass.
+
+Goals:
+
+- run final compatibility size report with release thresholds and banned-payload gates
+- pack release packages locally and run package-report without publishing
+- refresh focused heavy-profile benchmark evidence
+- run focused AOT smoke and release test gates
+- update public docs, support matrices, internals docs, and release wording to match final evidence
+- record final artifact paths in the 0.8 closeout docs
+
+Why last:
+
+- release docs should describe the implementation after parser cleanup and the support boundary after browser AOT debugging
+- benchmark and package evidence rot quickly, so they belong at the end
+- this phase should make the release boring: exact support boundary, exact artifacts, no optimistic wording
+
+Key related plans:
+
+- `roadmap-implementation/v0.8/phase-24-release-evidence-benchmarks-docs/README.md`
+- `roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md`
+- `performance/Representative Benchmark Suite and Website Trends.md`
+- `platform-compatibility/Practical AOT and Size Plan.md`
+
 ### Old Phase 15 Source Plan: Scalar Converters and Typed-Key Ergonomics
 
 Status: deferred until after the 0.8 query-composition, grouped-query, projection, and join work unless typed-key demand pulls it forward.
@@ -931,7 +1008,7 @@ Phase 11 is now complete for explicit cache clearing, external invalidation, rel
 
 After the 0.7.1 release, the `v0.8` branch deliberately reset roadmap execution to a version-scoped sequence. That parser-removal sequence is now closed through [0.8 Phase 7: Remotion Dependency Removal](roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md): query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset expression parser, projection/local-evaluation cleanup, dual-run parity, production provider switch, and dependency removal.
 
-The version-scoped 0.8 sequence now has final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md), then implemented query-runtime slices for Phase 13 query composition/subquery pushdown, Phase 13B grouped count projection, Phase 14 explicit two-source join composition, Phase 15 implicit singular relation predicates/orderings, Phase 16 grouped numeric aggregates, Phase 17 grouped row composition/HAVING, Phase 18 advanced GroupBy keys/joined grouping, Phase 19 SQL-backed projection rows/implicit relation projection, Phase 20 single query-syntax inner joins, and Phase 21 joined post-paging pushdown. Broad fluent join APIs, left-join nullability work, and the browser AOT support claim still need separate evidence instead of broadening the old Remotion boundary by assertion.
+The version-scoped 0.8 sequence now has final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md), then implemented query-runtime slices for Phase 13 query composition/subquery pushdown, Phase 13B grouped count projection, Phase 14 explicit two-source join composition, Phase 15 implicit singular relation predicates/orderings, Phase 16 grouped numeric aggregates, Phase 17 grouped row composition/HAVING, Phase 18 advanced GroupBy keys/joined grouping, Phase 19 SQL-backed projection rows/implicit relation projection, Phase 20 single query-syntax inner joins, and Phase 21 joined post-paging pushdown. The remaining 0.8 work should be Phase 22 parser plan cleanup, Phase 23 browser AOT debugging, and Phase 24 release evidence/benchmark/docs closeout. Broad fluent join APIs, left-join nullability work, scalar converters, and result caching should wait until after this release-hardening pass.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 
