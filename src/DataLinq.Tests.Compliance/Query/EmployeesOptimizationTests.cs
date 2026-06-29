@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
@@ -159,5 +160,38 @@ public class EmployeesOptimizationTests
         await Assert.That(key).IsNotNull();
         await Assert.That(key!.Value.ValueCount).IsEqualTo(1);
         await Assert.That(key.Value.GetValue(0)).IsEqualTo(employeeId);
+    }
+
+    [Test]
+    [NotInParallel]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Query_PrimaryKeySingle_WarmCacheHit_PreservesQueryTelemetryWithoutCommand(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Query_PrimaryKeySingle_WarmCacheHit_PreservesQueryTelemetryWithoutCommand),
+            EmployeesSeedMode.Bogus);
+
+        var database = databaseScope.Database;
+        var employeeNumber = database.Query().Employees
+            .OrderBy(x => x.emp_no)
+            .Select(x => x.emp_no!.Value)
+            .First();
+
+        database.Provider.State.ClearCache();
+
+        var coldEmployee = database.Query().Employees.Single(x => x.emp_no == employeeNumber);
+
+        DataLinqMetrics.Reset();
+        var warmEmployee = database.Query().Employees.Single(x => x.emp_no == employeeNumber);
+        var snapshot = DataLinqMetrics.Snapshot();
+
+        await Assert.That(ReferenceEquals(coldEmployee, warmEmployee)).IsTrue();
+        await Assert.That(snapshot.Queries.EntityExecutions).IsEqualTo(1);
+        await Assert.That(snapshot.Commands.ReaderExecutions).IsEqualTo(0);
+        await Assert.That(snapshot.RowCache.Hits).IsEqualTo(1);
+        await Assert.That(snapshot.RowCache.Misses).IsEqualTo(0);
+        await Assert.That(snapshot.RowCache.Stores).IsEqualTo(0);
+        await Assert.That(snapshot.RowCache.DatabaseRowsLoaded).IsEqualTo(0);
     }
 }
