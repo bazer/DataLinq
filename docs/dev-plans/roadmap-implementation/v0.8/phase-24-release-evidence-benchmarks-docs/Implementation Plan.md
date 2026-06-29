@@ -12,7 +12,7 @@ Close 0.8 with evidence instead of vibes.
 Phase 24 is the final pass after:
 
 1. Phase 22 cleans up the LINQ parser plan binding seam.
-2. Phase 23 fixes or classifies the browser AOT blocker.
+2. Phase 23 fixes the generated SQLite browser AOT runtime blocker and records the remaining clean-output WebAssembly SDK plus SQLitePCLRaw warning caveats.
 
 This phase records final compatibility, package, benchmark, and documentation evidence. It should not add new behavior.
 
@@ -40,7 +40,7 @@ This phase records final compatibility, package, benchmark, and documentation ev
   - At minimum, focused unit/compliance slices touched by Phases 22 and 23.
   - Prefer full Testing CLI `--alias all` if local services and time allow.
 - [ ] Update public docs.
-  - Platform compatibility wording must match Phase 23.
+  - Platform compatibility wording must match Phase 23: generated SQLite browser AOT passes, no-AOT passes the same narrow smoke, clean-output WebAssembly publish remains a separate SDK/toolchain caveat, and `WASM0001` remains visible.
   - LINQ support wording must match the implemented query subset.
   - Internals docs should describe the final parser/binding shape.
   - Benchmark wording should distinguish allocation evidence from latency claims.
@@ -60,7 +60,7 @@ Use narrow wording:
 
 - "generated SQLite Native AOT" only if final AOT report passes
 - "trimmed publish" only if final trimmed report passes
-- "Blazor WebAssembly AOT" only if final browser smoke passes
+- "Blazor WebAssembly AOT" only inside the generated SQLite smoke boundary unless final browser smoke proves a broader path
 - "documented query subset" instead of "LINQ support"
 - "allocation reduction evidence" instead of "faster" unless benchmark history justifies latency wording
 
@@ -77,6 +77,7 @@ Avoid broad wording:
 - Do not publish NuGet packages.
 - Do not broaden support docs beyond final artifact evidence.
 - Do not hide red browser AOT evidence behind a green publish.
+- Do not hide clean-output SDK failures behind a green non-clean browser smoke.
 - Do not add new benchmark scenarios during the release pass unless they are clearly marked experimental and kept out of support claims.
 - Do not treat noisy benchmark means as proof of latency improvement.
 - Do not rewrite large docs unrelated to the 0.8 release boundary.
@@ -127,7 +128,7 @@ If any command cannot run locally because of toolchain, sandbox, service, or tim
 
 - Final reports and benchmark artifact paths are recorded in the phase docs or release notes.
 - Public docs describe the exact final support boundary.
-- Browser AOT is either proven by Phase 23/24 artifacts or explicitly excluded.
+- Browser AOT is proven by Phase 23/24 artifacts for the generated SQLite smoke boundary or explicitly narrowed if final evidence regresses.
 - Package report confirms release package dependency hygiene.
 - Docs build is green or the blocker is documented.
 - No NuGet publishing is performed by automation.

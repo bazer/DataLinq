@@ -17,7 +17,7 @@ DataLinq is currently a source-generated, immutable-first ORM for MySQL, MariaDB
 - a DataLinq-owned LINQ parser and query plan for the documented subset
 - explicit cache clearing and external invalidation APIs
 - estimated cache-memory accounting and memory-pressure cleanup on supported runtimes
-- a narrow generated SQLite Native AOT and trimmed publish smoke boundary, plus browser WebAssembly AOT gate automation that currently exposes a runtime blocker
+- a narrow generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary, plus browser WebAssembly gate automation that keeps SDK/warning caveats visible
 - runtime package dependency groups without Roslyn/compiler assemblies or `Remotion.Linq`
 
 The important non-claims are just as important:
@@ -34,18 +34,19 @@ For release-level detail, see the [changelog](../CHANGELOG.md).
 
 ### 0.8 AOT Browser Release Hardening
 
-The parser-removal track is implemented, and the AOT/browser release tooling now has browser smoke automation, broader constrained query coverage, and target-specific payload thresholds. Fresh browser evidence now exists, and it is not green: the 2026-06-28 host-side `wasm-aot` browser report publishes successfully, then fails at `opening-generated-database` with `MONO_WASM: function signature mismatch`.
+The parser-removal track is implemented, and the AOT/browser release tooling now has browser smoke automation, broader constrained query coverage, and target-specific payload thresholds. Phase 23 fixed the fresh browser runtime blocker: the `wasm-aot` smoke now publishes in the non-clean report path and passes the generated SQLite browser smoke at `verifying-strict-parser-projection`.
 
 The remaining 0.8 release priority is narrowing the support claim to what the evidence proves:
 
-- fix or avoid the SQLite/WebAssembly runtime signature-mismatch path before claiming browser AOT support
+- keep the fixed SQLite/WebAssembly browser runtime path green in final release evidence
+- fix or explicitly classify the clean-output WebAssembly SDK `ResolveWasmOutputs` failure before treating clean publish as a release gate
 - resolve SQLitePCLRaw WebAssembly varargs warning disposition with exact call-path evidence from a clean publish
-- re-test no-AOT browser behavior and either support it narrowly or keep it explicitly unsupported
+- keep no-AOT browser behavior scoped to the current generated SQLite smoke proof unless more evidence is added
 - keep constrained-platform query coverage green for the documented subset selected for 0.8
 - keep AOT routes fenced away from reflection-heavy compatibility fallback
 - keep Native AOT, trimmed, WASM, and WASM AOT payload reports green under the 0.8 release thresholds
 
-The intended target release claim remains narrow: generated SQLite models, the documented query subset, Native AOT, trimmed publish, and Blazor WebAssembly AOT. The current evidence does not permit the browser AOT part yet. Broad provider coverage, arbitrary LINQ, OPFS storage, and no-AOT browser support are separate claims unless they get their own evidence.
+The intended target release claim remains narrow: generated SQLite models, the documented query subset, Native AOT, trimmed publish, and Blazor WebAssembly AOT. Current evidence permits the browser AOT part for that narrow smoke boundary. Broad provider coverage, arbitrary LINQ, OPFS storage, and no-AOT browser support beyond the current generated SQLite smoke are separate claims unless they get their own evidence.
 
 ### Query Plan and Remotion Removal
 

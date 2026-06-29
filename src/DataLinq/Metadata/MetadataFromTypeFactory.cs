@@ -15,11 +15,22 @@ public static class MetadataFromTypeFactory
     private const string GeneratedMetadataBindingMethodName = "SetDataLinqGeneratedMetadata";
 
     public static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromDatabaseModel<TDatabase>()
-        where TDatabase : class, IDatabaseModel<TDatabase> =>
-        BuildGeneratedMetadata(
-            typeof(TDatabase),
-            () => TDatabase.GetDataLinqGeneratedMetadata(),
-            TDatabase.SetDataLinqGeneratedMetadata);
+        where TDatabase : class, IDatabaseModel<TDatabase>
+    {
+        var databaseType = typeof(TDatabase);
+
+        MetadataDatabaseDraft draft;
+        try
+        {
+            draft = TDatabase.GetDataLinqGeneratedMetadata();
+        }
+        catch (Exception exception)
+        {
+            return CreateUnreadableGeneratedMetadataFailure(databaseType, exception);
+        }
+
+        return BuildGeneratedMetadataDraft<TDatabase>(draft);
+    }
 
     [RequiresUnreferencedCode("Non-generic generated metadata loading reflects over the generated hook. Provider startup uses the static generic hook and does not require this path.")]
     public static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromDatabaseModel(Type type)
@@ -34,38 +45,52 @@ public static class MetadataFromTypeFactory
         return BuildGeneratedMetadataDraft(type, draft, static _ => null);
     }
 
-    private static Option<DatabaseDefinition, IDLOptionFailure> BuildGeneratedMetadata(
-        Type databaseType,
-        Func<MetadataDatabaseDraft> getMetadataDraft,
-        Action<DatabaseDefinition> bindMetadata)
-    {
-        if (databaseType is null)
-            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Database type cannot be null.");
-
-        MetadataDatabaseDraft draft;
-        try
-        {
-            draft = getMetadataDraft();
-        }
-        catch (Exception exception)
-        {
-            return CreateUnreadableGeneratedMetadataFailure(databaseType, exception);
-        }
-
-        return BuildGeneratedMetadataDraft(
-            databaseType,
-            draft,
-            metadata =>
-            {
-                bindMetadata(metadata);
-                return null;
-            });
-    }
-
     private static Option<DatabaseDefinition, IDLOptionFailure> BuildGeneratedMetadataDraft(
         Type databaseType,
         MetadataDatabaseDraft draft,
         Func<DatabaseDefinition, IDLOptionFailure?> bindMetadata)
+    {
+        var metadataResult = BuildMetadataDefinition(databaseType, draft);
+        if (!metadataResult.TryUnwrap(out var metadata, out var failure))
+            return failure;
+
+        try
+        {
+            var bindingFailure = bindMetadata(metadata);
+            if (bindingFailure is not null)
+                return bindingFailure;
+        }
+        catch (Exception exception)
+        {
+            return CreateUnreadableGeneratedMetadataBindingFailure(databaseType, exception);
+        }
+
+        return metadata;
+    }
+
+    private static Option<DatabaseDefinition, IDLOptionFailure> BuildGeneratedMetadataDraft<TDatabase>(
+        MetadataDatabaseDraft draft)
+        where TDatabase : class, IDatabaseModel<TDatabase>
+    {
+        var databaseType = typeof(TDatabase);
+        var metadataResult = BuildMetadataDefinition(databaseType, draft);
+        if (!metadataResult.TryUnwrap(out var metadata, out var failure))
+            return failure;
+
+        try
+        {
+            TDatabase.SetDataLinqGeneratedMetadata(metadata);
+            return metadata;
+        }
+        catch (Exception exception)
+        {
+            return CreateUnreadableGeneratedMetadataBindingFailure(databaseType, exception);
+        }
+    }
+
+    private static Option<DatabaseDefinition, IDLOptionFailure> BuildMetadataDefinition(
+        Type databaseType,
+        MetadataDatabaseDraft draft)
     {
         var hookName = GetHookName(databaseType);
         if (draft is null)
@@ -78,17 +103,6 @@ public static class MetadataFromTypeFactory
                 DLFailureType.InvalidModel,
                 $"Generated DataLinq metadata hook '{hookName}' returned invalid metadata for database '{GetDatabaseTypeName(databaseType)}'. Regenerate the DataLinq model sources with the current generator package.",
                 [failure]);
-        }
-
-        try
-        {
-            var bindingFailure = bindMetadata(metadata);
-            if (bindingFailure is not null)
-                return bindingFailure;
-        }
-        catch (Exception exception)
-        {
-            return CreateUnreadableGeneratedMetadataBindingFailure(databaseType, exception);
         }
 
         return metadata;

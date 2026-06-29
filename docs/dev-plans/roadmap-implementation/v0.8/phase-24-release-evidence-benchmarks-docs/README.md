@@ -11,7 +11,7 @@ Execution plan: [Implementation Plan](Implementation%20Plan.md).
 
 Phase 24 is the final 0.8 release-readiness pass.
 
-By this point the parser cleanup should be complete and the browser AOT question should be either fixed or explicitly excluded. Phase 24 does not add product behavior. It collects final evidence, refreshes benchmark baselines, verifies package hygiene, and makes the public docs match what the artifacts prove.
+By this point the parser cleanup should be complete and the browser AOT question has current Phase 23 evidence: the generated SQLite browser AOT runtime blocker is fixed, no-AOT passes the same narrow smoke boundary, clean-output WebAssembly publish still fails before browser execution with the SDK `ResolveWasmOutputs` issue, and `WASM0001` warnings remain visible. Phase 24 does not add product behavior. It collects final evidence, refreshes benchmark baselines, verifies package hygiene, and makes the public docs match what the artifacts prove.
 
 ## Scope
 
@@ -79,8 +79,9 @@ At minimum, review and update:
 The docs should be boringly precise:
 
 - generated SQLite Native AOT and trimmed support only if the final reports pass
-- browser AOT support only if Phase 23 produces passing browser evidence
-- no-AOT browser support only if fresh browser smoke passes
+- browser AOT support only inside the generated SQLite smoke boundary unless Phase 24 produces broader passing browser evidence
+- no-AOT browser support only inside the generated SQLite smoke boundary unless Phase 24 produces broader passing browser evidence
+- clean-output WebAssembly publish either fixed or explicitly classified as SDK/toolchain evidence
 - documented LINQ subset only
 - no arbitrary LINQ, no materialized `IGrouping`, no left joins, no non-SQL backends
 

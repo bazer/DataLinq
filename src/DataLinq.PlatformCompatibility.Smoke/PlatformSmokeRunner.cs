@@ -8,6 +8,7 @@ using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Linq.Planning.Sql;
 using DataLinq.Metadata;
 using DataLinq.SQLite;
+using Microsoft.Data.Sqlite;
 
 namespace DataLinq.PlatformCompatibility.Smoke;
 
@@ -135,7 +136,11 @@ public static class PlatformSmokeRunner
         await ReportStage(reportStage, "registering-sqlite-provider");
         SQLiteProvider.RegisterProvider();
 
-        await ReportStage(reportStage, "opening-generated-database");
+        await VerifyGeneratedMetadata(reportStage);
+        await VerifyRawSqliteConnection(connectionString, reportStage);
+        await VerifyRawSqliteKeepAlivePattern(connectionString, reportStage);
+
+        await ReportStage(reportStage, "constructing-generated-database");
         using var database = new SQLiteDatabase<PlatformSmokeDb>(connectionString, databaseName);
 
         await ReportStage(reportStage, "creating-schema-from-generated-metadata");
@@ -243,6 +248,78 @@ public static class PlatformSmokeRunner
             seedWatch.Elapsed,
             firstQueryWatch.Elapsed,
             repeatedQueryWatch.Elapsed);
+    }
+
+    private static async ValueTask VerifyGeneratedMetadata(Func<string, ValueTask>? reportStage)
+    {
+        await ReportStage(reportStage, "building-generated-metadata-draft");
+        var draft = PlatformSmokeDb.GetDataLinqGeneratedMetadata();
+        if (draft is null)
+            throw new InvalidOperationException("Generated metadata draft probe returned null.");
+
+        await ReportStage(reportStage, "building-generated-metadata-definition");
+        var metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<PlatformSmokeDb>();
+        if (metadata.HasFailed)
+            throw new InvalidOperationException(metadata.Failure.ToString());
+    }
+
+    private static async ValueTask VerifyRawSqliteConnection(
+        string connectionString,
+        Func<string, ValueTask>? reportStage)
+    {
+        await ReportStage(reportStage, "opening-raw-sqlite-connection");
+        using var connection = new SqliteConnection(connectionString);
+        connection.Open();
+
+        await ReportStage(reportStage, "querying-raw-sqlite-version");
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT sqlite_version();";
+            var version = command.ExecuteScalar() as string;
+            if (string.IsNullOrWhiteSpace(version))
+                throw new InvalidOperationException("Raw SQLite version probe returned no version text.");
+        }
+
+        await ReportStage(reportStage, "executing-raw-read-uncommitted-pragma");
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "PRAGMA read_uncommitted = true;";
+            command.ExecuteNonQuery();
+        }
+
+        await ReportStage(reportStage, "executing-raw-journal-mode-pragma");
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "PRAGMA journal_mode = WAL;";
+            command.ExecuteNonQuery();
+        }
+    }
+
+    private static async ValueTask VerifyRawSqliteKeepAlivePattern(
+        string connectionString,
+        Func<string, ValueTask>? reportStage)
+    {
+        await ReportStage(reportStage, "opening-raw-keepalive-sqlite-connection");
+        using var keepAliveConnection = new SqliteConnection(connectionString);
+        keepAliveConnection.Open();
+
+        await ReportStage(reportStage, "opening-second-raw-sqlite-connection");
+        using var secondConnection = new SqliteConnection(connectionString);
+        secondConnection.Open();
+
+        await ReportStage(reportStage, "executing-second-raw-read-uncommitted-pragma");
+        using (var command = secondConnection.CreateCommand())
+        {
+            command.CommandText = "PRAGMA read_uncommitted = true;";
+            command.ExecuteNonQuery();
+        }
+
+        await ReportStage(reportStage, "executing-second-raw-journal-mode-pragma");
+        using (var command = secondConnection.CreateCommand())
+        {
+            command.CommandText = "PRAGMA journal_mode = WAL;";
+            command.ExecuteNonQuery();
+        }
     }
 
     private static PlatformSmokeExpressionRoute VerifyExpressionParserRoute(IQueryable<PlatformSmokeTask> tasks)

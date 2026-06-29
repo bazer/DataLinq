@@ -3,7 +3,7 @@
 
 # 0.8 Phase 8 Implementation Plan: Browser AOT Runtime Proof
 
-**Status:** Implemented in tooling; current host-side WebAssembly AOT browser evidence fails at generated SQLite startup.
+**Status:** Implemented in tooling; Phase 23 current host-side WebAssembly AOT browser evidence passes after generated metadata startup fix.
 
 ## Goal
 
@@ -68,14 +68,14 @@ Release evidence command:
 
 On native Windows, WebAssembly publish can fail inside the Codex sandbox with the known `MarshalingPInvokeScanner` task-host issue. If that happens, rerun the same command outside the sandbox before classifying it as a product regression.
 
-Current evidence:
+Historical Phase 8 evidence:
 
 - `artifacts/dev/compat-size-report/20260628-163740998/` publishes `wasm-aot`, serves the published app, opens Edge through Playwright, and captures the browser smoke failure.
 - The smoke reaches `opening-generated-database`.
 - Edge reports `MONO_WASM: function signature mismatch`.
 - The browser smoke log records the DOM text, window console log, Playwright console events, page error, URL, browser path, and publish directory.
 
-This satisfies the automation goal but not the browser AOT support goal. The next release-support decision must either fix/avoid the SQLite/WebAssembly runtime path or exclude browser AOT from the claim.
+This satisfied the automation goal but not the browser AOT support goal at the time. Phase 23 then fixed the generated metadata startup failure. Current evidence at `artifacts/dev/compat-size-report/20260629-210510424/` publishes `wasm-aot` and passes browser smoke at `verifying-strict-parser-projection`.
 
 ## Exit Criteria
 

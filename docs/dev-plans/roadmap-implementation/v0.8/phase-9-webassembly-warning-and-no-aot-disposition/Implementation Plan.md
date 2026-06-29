@@ -3,7 +3,7 @@
 
 # 0.8 Phase 9 Implementation Plan: WebAssembly Warning and no-AOT Disposition
 
-**Status:** Tooling implemented; current evidence keeps browser WebAssembly support blocked.
+**Status:** Tooling implemented; Phase 23 current evidence proves the generated SQLite browser smoke, with clean-output and warning caveats still visible.
 
 ## Goal
 
@@ -12,7 +12,7 @@ Stop treating WebAssembly warning silence and no-AOT publish success as support 
 Phase 9 has two separate jobs:
 
 1. Force fresh WebAssembly publishes when investigating `WASM0001`.
-2. Record current no-AOT browser behavior as either supported or explicitly unsupported from a real browser run.
+2. Record current no-AOT browser behavior from a real browser run.
 
 ## Implementation
 
@@ -76,16 +76,18 @@ The generated SQLite smoke path does not intentionally call SQLite global config
 
 ## Current Evidence
 
-- `artifacts/dev/compat-size-report/20260628-164853329/` is the host-side clean-output `wasm-aot` run. It fails during publish with `MSB4057` because the Blazor SDK target graph references `ResolveWasmOutputs`.
-- `artifacts/dev/compat-size-report/20260628-163740998/` is the host-side non-clean `wasm-aot` run. It publishes successfully and then fails in the browser at `opening-generated-database` with `MONO_WASM: function signature mismatch`.
-- Earlier non-clean publish output emitted the expected `WASM0001` diagnostics for `sqlite3_config` and `sqlite3_db_config`, which are listed above.
+- `artifacts/dev/compat-size-report/20260629-210510424/` is the current host-side non-clean `wasm-aot` run. It publishes successfully and passes browser smoke at `verifying-strict-parser-projection`.
+- `artifacts/dev/compat-size-report/20260629-205114951/` is the current host-side non-clean `wasm` run. It publishes successfully and passes the same browser smoke boundary.
+- `artifacts/dev/compat-size-report/20260629-205036682/` is the current host-side clean-output `wasm-aot` run. It fails during publish with `MSB4057` because the Blazor SDK target graph references `ResolveWasmOutputs`.
+- `artifacts/dev/compat-size-report/20260629-205211590/` is the current host-side clean-output `wasm` run. It fails the same SDK target path before browser execution.
+- Fresh WebAssembly publish output emits the expected `WASM0001` diagnostics for `sqlite3_config` and `sqlite3_db_config`, which are listed above.
 
-The honest interpretation is that the warning is not harmless enough to suppress from the library packages. It lines up with a current browser runtime failure on the SQLite open path. The next fix should either change the browser SQLite provider/configuration path or produce a passing browser report with a very narrow suppression and proof.
+The honest interpretation is that the warning is not harmless enough to suppress from the library packages. It no longer lines up with a runtime failure in the generated SQLite smoke path, but it still names imports that would fail if called. Broader browser storage or provider configuration work needs separate call-path proof before any suppression.
 
 ## Exit Criteria
 
 - Clean WebAssembly publish mode exists.
 - Warning diagnostics are visible in Markdown and JSON report artifacts.
 - no-AOT browser runtime is tested and classified from the browser smoke result.
-- Public docs keep no-AOT unsupported unless a fresh browser report says it passes.
+- Public docs keep no-AOT scoped to the current generated SQLite smoke unless a broader fresh browser report says more passes.
 - No global `WASM0001` suppression is added to DataLinq library packages.

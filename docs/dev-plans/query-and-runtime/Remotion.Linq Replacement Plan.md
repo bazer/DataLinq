@@ -685,11 +685,12 @@ The Remotion replacement portion of this definition is complete in the current 0
 The remaining constrained-platform caveats are separate from Remotion:
 
 - Native AOT verification can still be blocked by local platform toolchain prerequisites
-- Blazor WebAssembly AOT has historical generated SQLite smoke evidence, but the current Playwright browser gate fails while opening generated SQLite and cannot be claimed as supported yet
-- SQLitePCLRaw WebAssembly native varargs warnings still need call-path proof, provider/bundle changes, or explicit support caveats
+- Blazor WebAssembly AOT now has current Playwright browser evidence for the generated SQLite smoke boundary after Phase 23 fixed generated metadata startup
+- clean-output WebAssembly publish still fails before browser execution with the Blazor SDK `ResolveWasmOutputs` target issue
+- SQLitePCLRaw WebAssembly native varargs warnings still need call-path proof beyond the current smoke boundary, provider/bundle changes, or explicit support caveats
 
 The accurate public statement is still narrow:
 
-> DataLinq has a proven generated SQLite trimmed publish boundary, keeps Roslyn and Remotion out of the runtime package dependency groups, keeps Native AOT smoke verification separate from local toolchain prerequisite failures, and now has browser AOT gate automation that exposes the current SQLite/WebAssembly blocker.
+> DataLinq has a proven generated SQLite trimmed publish and Blazor WebAssembly AOT smoke boundary, keeps Roslyn and Remotion out of the runtime package dependency groups, keeps Native AOT smoke verification separate from local toolchain prerequisite failures, and keeps clean-output WebAssembly SDK failures plus SQLitePCLRaw warnings visible as caveats.
 
 That is less sexy than "AOT-ready ORM." It is also true.

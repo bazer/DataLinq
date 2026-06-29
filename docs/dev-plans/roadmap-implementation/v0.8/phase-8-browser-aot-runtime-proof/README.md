@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 8: Browser AOT Runtime Proof
 
-**Status:** Implemented in tooling; current host-side WebAssembly AOT browser evidence fails at generated SQLite startup.
+**Status:** Implemented in tooling; Phase 23 current host-side WebAssembly AOT browser evidence passes after generated metadata startup fix.
 
 Execution record: [Implementation Plan](Implementation%20Plan.md).
 
@@ -14,9 +14,11 @@ The goal is a repeatable local command that publishes the Blazor WebAssembly AOT
 
 ## Current Evidence
 
-`artifacts/dev/compat-size-report/20260628-163740998/` proves the tooling path: the `wasm-aot` publish succeeds, the app is served over HTTP, Edge opens through Playwright, and `browser-smoke.log` records DOM text, console output, page errors, and stage markers.
+`artifacts/dev/compat-size-report/20260628-163740998/` proved the tooling path: the `wasm-aot` publish succeeded, the app was served over HTTP, Edge opened through Playwright, and `browser-smoke.log` recorded DOM text, console output, page errors, and stage markers.
 
-That evidence is negative for support. The smoke reaches `opening-generated-database`, then fails with `MONO_WASM: function signature mismatch`. Do not use the historical Phase 8 manual browser proof as a release support claim until the current Playwright report passes.
+That evidence was negative for support. The smoke reached `opening-generated-database`, then failed with `MONO_WASM: function signature mismatch`.
+
+Phase 23 supersedes it with `artifacts/dev/compat-size-report/20260629-210510424/`: `wasm-aot` publishes, runs through Playwright, and reaches `passed` at `verifying-strict-parser-projection`. Do not use historical manual Phase 8 browser proof as release support evidence; use the current Playwright report.
 
 ## Scope
 
@@ -40,6 +42,6 @@ Out of scope:
 
 - one command refreshes WASM AOT publish plus browser smoke evidence
 - browser smoke fails with actionable stage diagnostics
-- generated SQLite schema creation, insert, query, relation, projection, and documented parser route execute in browser; current evidence does not satisfy this because it fails while opening SQLite
+- generated SQLite schema creation, insert, query, relation, projection, and documented parser route execute in browser; Phase 23 current evidence satisfies this for the generated SQLite smoke boundary
 - the report can be cited from `docs/Platform Compatibility.md`
 - no browser support claim depends only on publish success

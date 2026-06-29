@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for the 0.8 development line. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # DataLinq 0.8 Roadmap
 
-**Status:** Parser-removal track complete through Phase 7; AOT/browser release gate tooling implemented through Phase 12; current browser AOT evidence fails at generated SQLite startup; query-composition hardening, grouped `Count()`, grouped numeric aggregate projection, grouped-row composition/HAVING, advanced grouped keys/joined grouping, SQL-backed projection rows, explicit two-source join composition, C# query-syntax inner joins, joined post-paging pushdown, and implicit singular relation predicates/orderings/projections have landed as later query-runtime slices. The version-scoped query-runtime roadmap through Phase 21 is implemented. Phases 22 through 24 are planned as final 0.8 hardening: LINQ parser plan cleanup, browser AOT debugging, and release evidence/benchmark/docs closeout. The browser AOT support claim remains blocked by runtime evidence until Phase 23 proves otherwise.
+**Status:** Parser-removal track complete through Phase 7; AOT/browser release gate tooling implemented through Phase 12; Phase 23 fixed the current generated SQLite browser AOT runtime blocker; query-composition hardening, grouped `Count()`, grouped numeric aggregate projection, grouped-row composition/HAVING, advanced grouped keys/joined grouping, SQL-backed projection rows, explicit two-source join composition, C# query-syntax inner joins, joined post-paging pushdown, and implicit singular relation predicates/orderings/projections have landed as later query-runtime slices. The version-scoped query-runtime roadmap through Phase 21 is implemented. Phase 22 remains planned as parser-plan cleanup, Phase 23 is implemented for browser AOT debugging, and Phase 24 remains the final release evidence/benchmark/docs closeout. The narrow browser AOT support claim now has fresh runtime evidence, while clean-output WebAssembly publish and SQLitePCLRaw warning disposition remain Phase 24 release-evidence caveats.
 
 **Created:** 2026-06-27.
 
@@ -27,7 +27,7 @@ That means browser AOT is release work, not a stretch note. Query-composition ha
 After Phase 21, 0.8 should stop adding query surface area and switch to release hardening:
 
 1. clean up the parser plan binding seam that the architecture review identified
-2. debug or explicitly exclude the browser AOT SQLite failure
+2. keep the fixed browser AOT SQLite path honest in release evidence
 3. collect final compatibility, package, benchmark, and documentation evidence
 
 ## Release Shape
@@ -41,11 +41,11 @@ After Phase 21, 0.8 should stop adding query surface area and switch to release 
 | Phase 5: Projection and Local Evaluation AOT Cleanup | Complete | `phase-5-projection-and-local-evaluation-aot-cleanup/` | Keep supported generated/AOT projection paths honest. |
 | Phase 6: Dual-Run Parity and AOT Switch | Complete | `phase-6-dual-run-parity-and-aot-switch/` | Prove the new parser before routing constrained-platform paths through it. |
 | Phase 7: Remotion Dependency Removal | Complete | `phase-7-remotion-dependency-removal/` | Remove Remotion package references, roots, tests, and documentation assumptions from the main product path. |
-| Phase 8: Browser AOT Runtime Proof | Implemented in tooling; current `wasm-aot` browser evidence fails at generated SQLite startup | `phase-8-browser-aot-runtime-proof/` | Automate browser execution evidence for the WebAssembly AOT smoke app. |
-| Phase 9: WebAssembly Warning and no-AOT Disposition | Tooling implemented; current evidence keeps browser support blocked | `phase-9-webassembly-warning-and-no-aot-disposition/` | Resolve SQLitePCLRaw warning disposition and prove or reject no-AOT browser runtime support. |
+| Phase 8: Browser AOT Runtime Proof | Implemented in tooling; Phase 23 current `wasm-aot` browser evidence now passes after generated metadata startup fix | `phase-8-browser-aot-runtime-proof/` | Automate browser execution evidence for the WebAssembly AOT smoke app. |
+| Phase 9: WebAssembly Warning and no-AOT Disposition | Tooling implemented; Phase 23 current no-AOT smoke now passes, with `WASM0001` warnings still visible | `phase-9-webassembly-warning-and-no-aot-disposition/` | Resolve SQLitePCLRaw warning disposition and prove or reject no-AOT browser runtime support. |
 | Phase 10: AOT Query Coverage and Fallback Fencing | Implemented for selected 0.8 constrained smoke subset | `phase-10-aot-query-coverage-and-fallback-fencing/` | Expand constrained-platform query coverage and keep AOT routes out of compatibility fallback. |
 | Phase 11: Browser Payload and Deploy-Size Hardening | Implemented in compatibility reporting | `phase-11-browser-payload-and-deploy-size-hardening/` | Turn current good payload numbers into reproducible release thresholds and deployment guidance. |
-| Phase 12: AOT Release Gates and Support Contract | Release gate wiring implemented; current evidence blocks the browser AOT support claim | `phase-12-aot-release-gates-and-support-contract/` | Promote only the narrow support statement backed by current evidence. |
+| Phase 12: AOT Release Gates and Support Contract | Release gate wiring implemented; Phase 23 current evidence unblocks the narrow browser AOT runtime claim, with clean-output and warning caveats | `phase-12-aot-release-gates-and-support-contract/` | Promote only the narrow support statement backed by current evidence. |
 | Phase 13: Query Composition and Subquery Pushdown | Implemented for the single-source Phase 13 slice | `phase-13-query-composition-and-subquery-pushdown/` | Preserve LINQ operator order for filtering, ordering, paging, and scalar result operators, using SQL subquery boundaries where needed. |
 | Phase 13B: Grouped Aggregate Projection Baseline | Implemented for direct-key grouped `Count()` projection | `phase-13b-grouped-aggregate-projection-baseline/` | Adds the first honest `GroupBy(...)` support slice: single-source grouped aggregate projection, not materialized `IGrouping` support. |
 | Phase 14: Source-Slot Join Composition | Implemented for explicit two-source join composition | `phase-14-source-slot-join-composition/` | Makes explicit joins useful on the DataLinq source-slot plan. |
@@ -57,10 +57,10 @@ After Phase 21, 0.8 should stop adding query surface area and switch to release 
 | Phase 20: Query-Syntax Join Support | Implemented for single C# query-syntax inner joins | `phase-20-query-syntax-join-support/` | Makes C# query-syntax inner joins a documented and tested path over source-slot joins and transparent identifiers. |
 | Phase 21: Joined Post-Paging Pushdown | Implemented for SQL-backed joined projection rows | `phase-21-joined-post-paging-pushdown/` | Extends Phase 13 operator-order pushdown to supported joined row shapes after `Skip(...)` or `Take(...)`. |
 | Phase 22: LINQ Parser Plan Cleanup | Planned | `phase-22-linq-parser-plan-cleanup/` | Freezes plan bindings and removes allocation-heavy render-time binding lookup without expanding query support. |
-| Phase 23: Browser AOT Debugging | Planned | `phase-23-browser-aot-debugging/` | Fixes or classifies the current generated SQLite WebAssembly AOT browser failure and records no-AOT/SQLitePCLRaw disposition. |
+| Phase 23: Browser AOT Debugging | Implemented for the generated SQLite browser runtime blocker | `phase-23-browser-aot-debugging/` | Fixed the current generated metadata WebAssembly AOT browser failure and recorded no-AOT/SQLitePCLRaw disposition. |
 | Phase 24: Release Evidence, Benchmarks, and Docs | Planned | `phase-24-release-evidence-benchmarks-docs/` | Captures final compatibility, package, benchmark, and documentation evidence before 0.8 release. |
 
-Phases 1 through 7 are the coherent 0.8 parser-removal track. Phases 8 through 12 are the 0.8 AOT/browser release-tooling track. The release-track tooling is implemented, and the first fresh browser evidence found a real blocker: `wasm-aot` publishes on the host, then fails in Edge at `opening-generated-database` with `MONO_WASM: function signature mismatch`. Phase 13, Phase 13B, and Phases 14 through 21 are implemented query-runtime slices that followed that release-gate work. Phases 22 through 24 should now finish the release without adding more user-facing query surface.
+Phases 1 through 7 are the coherent 0.8 parser-removal track. Phases 8 through 12 are the 0.8 AOT/browser release-tooling track. The release-track tooling is implemented, and the first fresh browser evidence found a real blocker: `wasm-aot` published on the host, then failed in Edge at `opening-generated-database` with `MONO_WASM: function signature mismatch`. Phase 23 narrowed that to generated metadata startup and fixed it by removing delegate wrappers around generic static abstract generated hooks. Phase 13, Phase 13B, and Phases 14 through 21 are implemented query-runtime slices that followed the release-gate work. Phase 22 and Phase 24 should now finish the release without adding more user-facing query surface.
 
 ## Current Implementation State
 
@@ -73,12 +73,12 @@ Phase 7 closed the parser-removal track. The current branch has:
 - `Remotion.Linq` removed from `src/DataLinq/DataLinq.csproj`, `src/Directory.Packages.props`, constrained smoke roots, and public runtime package dependency groups
 - trimmed constrained compatibility reporting no longer blocked by a Remotion dependency
 
-That closes the 0.8 parser-removal goal. It does not make arbitrary LINQ supported, it does not make browser runtime support pass, and it does not resolve the separate SQLitePCLRaw WebAssembly warning story.
+That closes the 0.8 parser-removal goal. It does not make arbitrary LINQ supported, it did not by itself make browser runtime support pass, and it does not resolve the separate SQLitePCLRaw WebAssembly warning story.
 
-The planned final pass is:
+The remaining final pass is:
 
 - Phase 22: make the parser plan binding seam immutable and cheaper.
-- Phase 23: fix or classify the browser AOT SQLite failure.
+- Phase 23: fixed the browser AOT generated metadata startup failure and recorded current no-AOT/WASM warning evidence.
 - Phase 24: run final release evidence, benchmark, package, and docs gates.
 
 The current public architecture description is [LINQ Parser Architecture](../../../internals/LINQ%20Parser%20Architecture.md). Treat that page, [Supported LINQ Queries](../../../Supported%20LINQ%20Queries.md), and the [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md) as the current-state handoff from this execution plan. The files in this folder explain how the parser got here; the public docs explain what the parser is now.
@@ -124,7 +124,7 @@ Skipping ahead is how parser rewrites turn into archaeology projects with passin
 - deploy-size thresholds are documented and met, or the release notes explain a deliberate exception
 - public docs state the exact support boundary: generated SQLite models, documented query subset, Native AOT, trimmed publish, and Blazor WebAssembly AOT
 
-Current 2026-06-28 evidence does not satisfy this gate. The browser automation is in place, but `artifacts/dev/compat-size-report/20260628-163740998/` fails before schema creation while opening SQLite in WebAssembly AOT.
+Current Phase 23 evidence satisfies the browser runtime part of this gate for the narrow generated SQLite smoke boundary. `artifacts/dev/compat-size-report/20260629-210510424/` publishes `wasm-aot`, runs the Playwright browser smoke, and reaches `passed` at `verifying-strict-parser-projection`. `artifacts/dev/compat-size-report/20260629-205114951/` shows the same browser smoke passing for no-AOT WebAssembly. The remaining caveats are not cosmetic: clean-output `wasm-aot` and `wasm` publishes still fail before browser execution with the Blazor SDK `ResolveWasmOutputs` target issue, and fresh WebAssembly publishes still emit visible `WASM0001` diagnostics for SQLitePCLRaw varargs exports.
 
 0.8 should not claim expanded query-composition support until:
 
@@ -179,7 +179,7 @@ The current Phase 14, Phase 15, Phase 19, Phase 20, and Phase 21 implementations
 0.8 should not close the final release-hardening pass until:
 
 - Phase 22 proves binding cleanup did not change supported query behavior
-- Phase 23 either fixes browser AOT or explicitly records browser AOT as excluded from the 0.8 support claim
+- Phase 23 fixed browser AOT for the generated SQLite smoke boundary and explicitly recorded the clean-output SDK and SQLitePCLRaw warning caveats
 - Phase 24 records final compatibility, package, benchmark, and documentation evidence
 - release notes and public docs match the exact evidence boundary
 
@@ -238,7 +238,7 @@ The 0.8 roadmap consolidates these older plans rather than discarding them:
 - implicit collection projection or hidden row multiplication
 - DataLinq.Store query/module execution
 - non-SQL backend execution as a 0.8 release requirement
-- no-AOT browser WebAssembly support unless the current browser smoke proves it
+- broad no-AOT browser WebAssembly support beyond the current generated SQLite smoke proof
 - additional query feature expansion during the Phase 22-24 release-hardening pass
 - warning suppression as the final answer for Remotion
 - shipping a Remotion-backed compatibility fallback inside the main DataLinq package

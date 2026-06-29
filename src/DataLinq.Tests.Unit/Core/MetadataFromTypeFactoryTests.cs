@@ -137,6 +137,17 @@ public class MetadataFromTypeFactoryTests
     }
 
     [Test]
+    public async Task ParseDatabase_GenericGeneratedMetadataHook_BuildsExpectedDatabaseMetadata()
+    {
+        var first = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<EmployeesDb>().ValueOrException();
+        var second = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<EmployeesDb>().ValueOrException();
+
+        await Assert.That(first.CsType.Type).IsEqualTo(typeof(EmployeesDb));
+        await Assert.That(first.GetTableModel(typeof(Employee)).Table.DbName).IsEqualTo("employees");
+        await Assert.That(second.GetTableModel("departments").Model.CsType.Type).IsEqualTo(typeof(Department));
+    }
+
+    [Test]
     public async Task ParseDatabase_GeneratedMetadataHook_ReplacesRuntimeMetadataReflection()
     {
         var databaseDefinition = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(BootstrapHookDb)).ValueOrException();
