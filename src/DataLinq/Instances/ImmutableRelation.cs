@@ -270,7 +270,7 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
         foreach (var row in rows)
             builder.Add((T)row);
 
-        return builder.MoveToImmutable();
+        return builder.ToImmutable();
     }
 
     private static DataLinqKey[] GetPrimaryKeys(ImmutableArray<T> values)
