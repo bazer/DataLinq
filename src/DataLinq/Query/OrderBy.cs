@@ -49,4 +49,9 @@ public class OrderBy
         RawExpression = rawExpression;
         Ascending = ascending;
     }
+
+    internal OrderBy ReverseDirection()
+        => Column is not null
+            ? new OrderBy(Column, Alias, !Ascending)
+            : new OrderBy(RawExpression!, !Ascending);
 }

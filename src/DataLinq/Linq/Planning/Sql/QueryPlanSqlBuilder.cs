@@ -80,7 +80,7 @@ internal sealed class QueryPlanSqlBuilder
             }
         }
 
-        ApplyResultLimit(query);
+        ApplyResultShape(query);
         return query;
     }
 
@@ -300,7 +300,7 @@ internal sealed class QueryPlanSqlBuilder
         return result;
     }
 
-    private void ApplyResultLimit<T>(SqlQuery<T> query)
+    private void ApplyResultShape<T>(SqlQuery<T> query)
     {
         switch (plan.Result.Kind)
         {
@@ -313,6 +313,18 @@ internal sealed class QueryPlanSqlBuilder
             case QueryPlanResultKind.FirstOrDefault:
             case QueryPlanResultKind.Any:
                 query.Limit(1);
+                break;
+
+            case QueryPlanResultKind.Last:
+            case QueryPlanResultKind.LastOrDefault:
+                if (query.OrderByList.Count != 0)
+                {
+                    query.OrderByList = query.OrderByList
+                        .Select(static orderBy => orderBy.ReverseDirection())
+                        .ToList();
+                    query.Limit(1);
+                }
+
                 break;
         }
     }

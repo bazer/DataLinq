@@ -19,10 +19,12 @@ public partial class TableCache
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
 
         var keysToLoad = new List<TKey>(primaryKeys.Count);
+        var rowsByPrimaryKey = new Dictionary<DataLinqKey, IImmutableInstance>();
         foreach (var key in primaryKeys)
         {
-            if (GetRowFromCache(key, dataSource, out var row))
-                yield return row!;
+            var normalizedKey = ProviderKeyComponents.ToDataLinqKey(key);
+            if (GetRowFromCache(normalizedKey, dataSource, out var row))
+                rowsByPrimaryKey.TryAdd(normalizedKey, row!);
             else
                 keysToLoad.Add(key);
         }
@@ -39,11 +41,19 @@ public partial class TableCache
                 foreach (var rowData in GetRowDataFromPrimaryKeyValues(split, dataSource))
                 {
                     MetricsHandle.RecordDatabaseRowsLoaded(1);
-                    yield return AddRow(rowData, dataSource);
+                    var row = AddRow(rowData, dataSource);
+                    rowsByPrimaryKey.TryAdd(CreatePrimaryKey(rowData), row);
                 }
             }
 
             Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, keysToLoad.Count);
+        }
+
+        foreach (var key in primaryKeys)
+        {
+            var normalizedKey = ProviderKeyComponents.ToDataLinqKey(key);
+            if (rowsByPrimaryKey.TryGetValue(normalizedKey, out var row))
+                yield return row;
         }
     }
 
@@ -153,5 +163,16 @@ public partial class TableCache
         }
 
         return orderedRows ?? rows;
+    }
+
+    private DataLinqKey CreatePrimaryKey(RowData rowData)
+    {
+        if (Table.Model.ProviderKeyRowStoreAccessor is IProviderKeyRowStoreAccessor providerKeyAccessor &&
+            providerKeyAccessor.TryCreateKey(rowData, out var primaryKey))
+        {
+            return primaryKey;
+        }
+
+        return KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
     }
 }
