@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading;
 using DataLinq.Attributes;
@@ -115,8 +116,8 @@ public partial class TableCache
     private RowData? GetRowDataFromPrimaryKeyValue<TKey>(TKey key, IDataSourceAccess dataSource)
         where TKey : notnull
     {
-        if (TryConvertScalarProviderPrimaryKey(key, dataSource, out var scalarKey))
-            return new ScalarPrimaryKeyRowQuery(Table, dataSource, Table.PrimaryKeyColumns[0], scalarKey)
+        if (TryConvertScalarProviderColumnValue(key, Table.PrimaryKeyColumns, dataSource, out var primaryKeyColumn, out var scalarKey))
+            return new ScalarColumnRowsQuery(Table, dataSource, primaryKeyColumn, scalarKey)
                 .ReadFirstRow();
 
         return new SqlQuery(Table, dataSource)
@@ -125,62 +126,81 @@ public partial class TableCache
             .ReadFirstRow();
     }
 
-    private bool TryConvertScalarProviderPrimaryKey<TKey>(
+    private static bool TryConvertScalarProviderColumnValue<TKey>(
         TKey key,
+        IReadOnlyList<ColumnDefinition> columns,
         IDataSourceAccess dataSource,
+        out ColumnDefinition column,
         out object? value)
         where TKey : notnull
     {
+        column = null!;
         value = null;
-        if (!Table.PrimaryKeyShape.SupportsScalarProviderKeyStore ||
-            primaryKeyColumnsCount != 1 ||
-            key is IProviderKey)
+        if (columns.Count != 1)
             return false;
 
-        var primaryKeyColumn = Table.PrimaryKeyColumns[0];
-        object? rawValue = Table.PrimaryKeyShape[0].ProviderStoreKind switch
-        {
-            TableKeyComponentStoreKind.Int32 when key is int intKey => intKey,
-            TableKeyComponentStoreKind.Int64 when key is long longKey => longKey,
-            TableKeyComponentStoreKind.Guid when key is Guid guidKey => guidKey,
-            TableKeyComponentStoreKind.String when key is string stringKey => stringKey,
-            _ => null
-        };
-
-        if (rawValue is null)
+        column = columns[0];
+        if (!TryGetRawScalarProviderColumnValue(key, TableKeyShape.GetProviderStoreKind(column), out var rawValue))
             return false;
 
-        value = dataSource.Provider.GetWriter().ConvertColumnValue(primaryKeyColumn, rawValue);
+        value = dataSource.Provider.GetWriter().ConvertColumnValue(column, rawValue);
         return true;
     }
 
-    private sealed class ScalarPrimaryKeyRowQuery(
+    private static bool TryGetRawScalarProviderColumnValue<TKey>(
+        TKey key,
+        TableKeyComponentStoreKind storeKind,
+        out object? value)
+        where TKey : notnull
+    {
+        value = key;
+        if (key is IProviderKey providerKey)
+        {
+            if (providerKey.ValueCount != 1)
+                return false;
+
+            value = providerKey.GetValue(0);
+        }
+
+        value = storeKind switch
+        {
+            TableKeyComponentStoreKind.Int32 when value is int intValue => intValue,
+            TableKeyComponentStoreKind.Int64 when value is long longValue => longValue,
+            TableKeyComponentStoreKind.Guid when value is Guid guidValue => guidValue,
+            TableKeyComponentStoreKind.String when value is string stringValue => stringValue,
+            _ => null
+        };
+
+        return value is not null;
+    }
+
+    private sealed class ScalarColumnRowsQuery(
         TableDefinition table,
         IDataSourceAccess dataSource,
-        ColumnDefinition primaryKeyColumn,
-        object? primaryKeyValue) : IQuery
+        ColumnDefinition predicateColumn,
+        object? predicateValue) : IQuery
     {
         private const int MaxCachedSqlTexts = 128;
-        private static readonly ConcurrentDictionary<ScalarPrimaryKeyRowQueryTemplateKey, string> SqlTextCache = new();
+        private static readonly ConcurrentDictionary<ScalarColumnRowsQueryTemplateKey, string> SqlTextCache = new();
         private static int sqlTextCacheEntryCount;
 
         public Sql ToSql(string? paramPrefix = null)
         {
             var parameterName = (paramPrefix ?? string.Empty) + "w0";
             var sql = new Sql(GetSqlText(parameterName));
-            dataSource.Provider.GetParameter(sql, parameterName, primaryKeyValue);
+            dataSource.Provider.GetParameter(sql, parameterName, predicateValue);
 
             return sql;
         }
 
         private string GetSqlText(string parameterName)
         {
-            var key = new ScalarPrimaryKeyRowQueryTemplateKey(
+            var key = new ScalarColumnRowsQueryTemplateKey(
                 dataSource.Provider.GetType(),
                 dataSource.Provider.DatabaseType,
                 dataSource.Provider.DatabaseName,
                 table,
-                primaryKeyColumn,
+                predicateColumn,
                 dataSource.Provider.Constants.EscapeCharacter,
                 parameterName);
 
@@ -205,7 +225,7 @@ public partial class TableCache
             sql.AddText(" FROM ");
             dataSource.Provider.GetTableName(sql, table.DbName);
             sql.AddText("\nWHERE\n");
-            AddColumn(sql, primaryKeyColumn);
+            AddColumn(sql, predicateColumn);
             sql.AddText(" ");
             sql.AddText(dataSource.Provider.GetOperatorSql(Operator.Equal));
             sql.AddText(" ");
@@ -216,13 +236,15 @@ public partial class TableCache
 
         public RowData? ReadFirstRow()
         {
-            using var command = dataSource.Provider.ToDbCommand(this);
+            using var command = ToDbCommand();
             using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
 
             return reader.ReadNextRow()
                 ? new RowData(reader, table, table.Columns, true)
                 : null;
         }
+
+        public IDbCommand ToDbCommand() => dataSource.Provider.ToDbCommand(this);
 
         private void AddSelectedColumns(Sql sql)
         {
@@ -243,12 +265,12 @@ public partial class TableCache
             sql.AddText(escapeCharacter);
         }
 
-        private readonly record struct ScalarPrimaryKeyRowQueryTemplateKey(
+        private readonly record struct ScalarColumnRowsQueryTemplateKey(
             Type ProviderType,
             DatabaseType DatabaseType,
             string DatabaseName,
             TableDefinition Table,
-            ColumnDefinition PrimaryKeyColumn,
+            ColumnDefinition PredicateColumn,
             string EscapeCharacter,
             string ParameterName);
     }

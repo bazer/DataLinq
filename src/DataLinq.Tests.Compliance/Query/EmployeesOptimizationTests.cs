@@ -165,6 +165,45 @@ public class EmployeesOptimizationTests
     [Test]
     [NotInParallel]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Query_RelationTraversal_ColdCacheMiss_LoadsAndStoresRows(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Query_RelationTraversal_ColdCacheMiss_LoadsAndStoresRows),
+            EmployeesSeedMode.Bogus);
+
+        var database = databaseScope.Database;
+        var employeeNumber = database.Query().DepartmentEmployees
+            .OrderBy(x => x.emp_no)
+            .Select(x => x.emp_no)
+            .First();
+
+        database.Provider.State.ClearCache();
+
+        DataLinqMetrics.Reset();
+        var departmentName = database.Query().Employees
+            .Single(x => x.emp_no == employeeNumber)
+            .dept_emp
+            .First()
+            .departments
+            .Name;
+        var snapshot = DataLinqMetrics.Snapshot();
+
+        await Assert.That(departmentName).IsNotNull();
+        await Assert.That(snapshot.Queries.EntityExecutions).IsEqualTo(1);
+        await Assert.That(snapshot.Commands.ReaderExecutions).IsEqualTo(3);
+        await Assert.That(snapshot.RowCache.Hits).IsEqualTo(0);
+        await Assert.That(snapshot.RowCache.Misses).IsEqualTo(3);
+        await Assert.That(snapshot.RowCache.Stores).IsEqualTo(3);
+        await Assert.That(snapshot.RowCache.DatabaseRowsLoaded).IsEqualTo(3);
+        await Assert.That(snapshot.RowCache.Materializations).IsEqualTo(3);
+        await Assert.That(snapshot.Relations.CollectionLoads).IsEqualTo(1);
+        await Assert.That(snapshot.Relations.ReferenceLoads).IsEqualTo(1);
+    }
+
+    [Test]
+    [NotInParallel]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_PrimaryKeySingle_ColdCacheMiss_LoadsAndStoresRow(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

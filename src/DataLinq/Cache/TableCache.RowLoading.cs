@@ -60,30 +60,36 @@ public partial class TableCache
     private IImmutableInstance[] LoadRowsFromForeignKeyAndCache<TKey>(TKey foreignKey, ColumnIndex index, IDataSourceAccess dataSource)
         where TKey : notnull
     {
-        var q = new SqlQuery(Table, dataSource)
-            .Where(index.Columns, foreignKey)
-            .SelectQuery();
-
-        var rows = new List<IImmutableInstance>();
-        var primaryKeys = indexCachePolicy.type == IndexCacheType.None ? null : new List<DataLinqKey>();
+        var rowCount = 0;
+        IImmutableInstance? singleRow = null;
+        List<IImmutableInstance>? rows = null;
+        var cachePrimaryKeys = indexCachePolicy.type != IndexCacheType.None;
+        var primaryKeyCount = 0;
+        var singlePrimaryKey = default(DataLinqKey);
+        List<DataLinqKey>? primaryKeys = null;
         var rowCacheHits = 0;
         var rowCacheMisses = 0;
 
-        foreach (var rowData in q.ReadRows())
+        if (TryConvertScalarProviderColumnValue(foreignKey, index.Columns, dataSource, out var predicateColumn, out var predicateValue))
         {
-            var primaryKey = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
-            primaryKeys?.Add(primaryKey);
+            var scalarQuery = new ScalarColumnRowsQuery(Table, dataSource, predicateColumn, predicateValue);
+            using var command = scalarQuery.ToDbCommand();
+            using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
 
-            if (GetRowFromCache(primaryKey, dataSource, out var cachedRow))
+            while (reader.ReadNextRow())
             {
-                rowCacheHits++;
-                rows.Add(cachedRow!);
-                continue;
+                var rowData = new RowData(reader, Table, Table.Columns, true);
+                AddRowData(rowData);
             }
+        }
+        else
+        {
+            var q = new SqlQuery(Table, dataSource)
+                .Where(index.Columns, foreignKey)
+                .SelectQuery();
 
-            rowCacheMisses++;
-            MetricsHandle.RecordDatabaseRowsLoaded(1);
-            rows.Add(AddRow(rowData, dataSource));
+            foreach (var rowData in q.ReadRows())
+                AddRowData(rowData);
         }
 
         MetricsHandle.RecordRowCacheHits(rowCacheHits);
@@ -91,12 +97,82 @@ public partial class TableCache
         Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, rowCacheHits);
         Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, rowCacheMisses);
 
-        if (primaryKeys is not null)
-            GetIndexCache(index).TryAdd(foreignKey, primaryKeys.ToArray());
+        if (cachePrimaryKeys)
+            GetIndexCache(index).TryAdd(foreignKey, GetPrimaryKeyArray());
 
         RefreshOccupancyMetrics();
 
-        return rows.ToArray();
+        return GetRowArray();
+
+        void AddRowData(RowData rowData)
+        {
+            var primaryKey = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
+            AddPrimaryKey(primaryKey);
+
+            if (GetRowFromCache(primaryKey, dataSource, out var cachedRow))
+            {
+                rowCacheHits++;
+                AddLoadedRow(cachedRow!);
+                return;
+            }
+
+            rowCacheMisses++;
+            MetricsHandle.RecordDatabaseRowsLoaded(1);
+            AddLoadedRow(AddRow(rowData, dataSource));
+        }
+
+        void AddLoadedRow(IImmutableInstance row)
+        {
+            if (rowCount == 0)
+            {
+                singleRow = row;
+            }
+            else
+            {
+                rows ??= new List<IImmutableInstance> { singleRow! };
+                rows.Add(row);
+            }
+
+            rowCount++;
+        }
+
+        void AddPrimaryKey(DataLinqKey primaryKey)
+        {
+            if (!cachePrimaryKeys)
+                return;
+
+            if (primaryKeyCount == 0)
+            {
+                singlePrimaryKey = primaryKey;
+            }
+            else
+            {
+                primaryKeys ??= new List<DataLinqKey> { singlePrimaryKey };
+                primaryKeys.Add(primaryKey);
+            }
+
+            primaryKeyCount++;
+        }
+
+        IImmutableInstance[] GetRowArray()
+        {
+            return rowCount switch
+            {
+                0 => [],
+                1 => [singleRow!],
+                _ => rows!.ToArray()
+            };
+        }
+
+        DataLinqKey[] GetPrimaryKeyArray()
+        {
+            return primaryKeyCount switch
+            {
+                0 => [],
+                1 => [singlePrimaryKey],
+                _ => primaryKeys!.ToArray()
+            };
+        }
     }
 
     private IEnumerable<IImmutableInstance> LoadOrderedRowsFromDatabaseAndCache<TKey>(IReadOnlyList<TKey> primaryKeys, IDataSourceAccess dataSource, List<OrderBy> orderings)

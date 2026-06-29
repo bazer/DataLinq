@@ -236,10 +236,7 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
         var source = GetDataSource();
         var tableCache = GetTableCache(source);
 
-        relationValues = tableCache
-            .GetRows(foreignKey, property, source)
-            .Select(x => (T)x)
-            .ToImmutableArray();
+        relationValues = ToImmutableRelationValues(tableCache.GetRows(foreignKey, property, source));
 
         relationValuesLoaded = true;
         tableCache.MetricsHandle.RecordRelationCollectionLoad();
@@ -247,9 +244,45 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
             this,
             source as Transaction,
             GetRelationCacheKey(),
-            relationValues.Select(x => x.PrimaryKeys()).ToArray());
+            GetPrimaryKeys(relationValues));
 
         return relationValues;
+    }
+
+    private static ImmutableArray<T> ToImmutableRelationValues(IEnumerable<IImmutableInstance> rows)
+    {
+        if (rows is IImmutableInstance[] rowArray)
+        {
+            if (rowArray.Length == 0)
+                return ImmutableArray<T>.Empty;
+
+            if (rowArray.Length == 1)
+                return ImmutableArray.Create((T)rowArray[0]);
+
+            var arrayBuilder = ImmutableArray.CreateBuilder<T>(rowArray.Length);
+            for (var i = 0; i < rowArray.Length; i++)
+                arrayBuilder.Add((T)rowArray[i]);
+
+            return arrayBuilder.MoveToImmutable();
+        }
+
+        var builder = ImmutableArray.CreateBuilder<T>();
+        foreach (var row in rows)
+            builder.Add((T)row);
+
+        return builder.MoveToImmutable();
+    }
+
+    private static DataLinqKey[] GetPrimaryKeys(ImmutableArray<T> values)
+    {
+        if (values.IsDefaultOrEmpty)
+            return [];
+
+        var primaryKeys = new DataLinqKey[values.Length];
+        for (var i = 0; i < values.Length; i++)
+            primaryKeys[i] = values[i].PrimaryKeys();
+
+        return primaryKeys;
     }
 
     private RelationCacheKey? GetRelationCacheKey()
