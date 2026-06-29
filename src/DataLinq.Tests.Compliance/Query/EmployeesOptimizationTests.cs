@@ -165,6 +165,38 @@ public class EmployeesOptimizationTests
     [Test]
     [NotInParallel]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Query_PrimaryKeySingle_ColdCacheMiss_LoadsAndStoresRow(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Query_PrimaryKeySingle_ColdCacheMiss_LoadsAndStoresRow),
+            EmployeesSeedMode.Bogus);
+
+        var database = databaseScope.Database;
+        var employeeNumber = database.Query().Employees
+            .OrderBy(x => x.emp_no)
+            .Select(x => x.emp_no!.Value)
+            .First();
+
+        database.Provider.State.ClearCache();
+
+        DataLinqMetrics.Reset();
+        var employee = database.Query().Employees.Single(x => x.emp_no == employeeNumber);
+        var snapshot = DataLinqMetrics.Snapshot();
+
+        await Assert.That(employee.emp_no).IsEqualTo(employeeNumber);
+        await Assert.That(snapshot.Queries.EntityExecutions).IsEqualTo(1);
+        await Assert.That(snapshot.Commands.ReaderExecutions).IsEqualTo(1);
+        await Assert.That(snapshot.RowCache.Hits).IsEqualTo(0);
+        await Assert.That(snapshot.RowCache.Misses).IsEqualTo(1);
+        await Assert.That(snapshot.RowCache.Stores).IsEqualTo(1);
+        await Assert.That(snapshot.RowCache.DatabaseRowsLoaded).IsEqualTo(1);
+        await Assert.That(snapshot.RowCache.Materializations).IsEqualTo(1);
+    }
+
+    [Test]
+    [NotInParallel]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_PrimaryKeySingle_WarmCacheHit_PreservesQueryTelemetryWithoutCommand(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

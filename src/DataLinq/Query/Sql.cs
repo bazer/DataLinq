@@ -8,10 +8,11 @@ namespace DataLinq.Query;
 
 public class Sql
 {
-    private readonly StringBuilder builder = new StringBuilder();
+    private StringBuilder? builder;
+    private string? text;
     public List<SqlParameterBinding> Parameters = new List<SqlParameterBinding>();
     public int Index { get; protected set; } = 0;
-    public string Text { get { return builder.ToString(); } }
+    public string Text => text ?? builder?.ToString() ?? string.Empty;
     //public bool HasCreateDatabase { get; set; }
 
     public Sql()
@@ -25,7 +26,7 @@ public class Sql
 
     public Sql(string text, params IDataParameter[] parameters)
     {
-        AddText(text);
+        this.text = text;
         AddParameters(parameters);
     }
 
@@ -45,21 +46,21 @@ public class Sql
 
     public Sql AddText(string text)
     {
-        builder.Append(text);
+        Builder.Append(text);
 
         return this;
     }
 
     public Sql AddLineBreak()
     {
-        builder.Append('\n');
+        Builder.Append('\n');
 
         return this;
     }
 
     public Sql AddFormat(string format, params string[] values)
     {
-        builder.AppendFormat(format, values);
+        Builder.AppendFormat(format, values);
 
         return this;
     }
@@ -70,10 +71,10 @@ public class Sql
 
         for (int i = 0; i < length; i++)
         {
-            builder.Append(values[i]);
+            Builder.Append(values[i]);
 
             if (i + 1 < length)
-                builder.Append(separator);
+                Builder.Append(separator);
         }
 
         return this;
@@ -81,9 +82,24 @@ public class Sql
 
     public Sql AddWhereText(string format, params string[] values)
     {
-        builder.AppendFormat(format, values);
+        Builder.AppendFormat(format, values);
 
         return this;
+    }
+
+    private StringBuilder Builder
+    {
+        get
+        {
+            if (builder is not null)
+                return builder;
+
+            builder = text is null
+                ? new StringBuilder()
+                : new StringBuilder(text);
+            text = null;
+            return builder;
+        }
     }
 
     public override string ToString()
