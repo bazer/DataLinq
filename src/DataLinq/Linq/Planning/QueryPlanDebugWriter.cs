@@ -235,17 +235,18 @@ internal static class QueryPlanDebugWriter
         builder.AppendLine();
     }
 
-    private static void WriteBindings(StringBuilder builder, QueryPlanBindingFrame frame)
+    private static void WriteBindings(StringBuilder builder, QueryPlanBindings bindings)
     {
         builder.AppendLine("bindings:");
-        if (frame.Bindings.Count == 0)
+        if (bindings.Count == 0)
         {
             builder.AppendLine("  none");
             return;
         }
 
-        foreach (var binding in frame.Bindings)
+        for (var index = 0; index < bindings.Count; index++)
         {
+            var binding = bindings[index];
             builder
                 .Append("  ")
                 .Append(binding.Id)

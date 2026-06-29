@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace DataLinq.Linq.Planning;
 
@@ -10,7 +8,7 @@ internal static class QueryPlanNullSemanticsResolver
         QueryPlanComparisonOperator comparisonOperator,
         QueryPlanValue left,
         QueryPlanValue right,
-        IReadOnlyList<QueryPlanBinding> bindings)
+        IQueryPlanBindingLookup bindings)
     {
         ArgumentNullException.ThrowIfNull(left);
         ArgumentNullException.ThrowIfNull(right);
@@ -21,15 +19,15 @@ internal static class QueryPlanNullSemanticsResolver
             : QueryPlanNullSemantics.Default;
     }
 
-    private static bool IsNullableColumnComparedWithNonNull(QueryPlanValue left, QueryPlanValue right, IReadOnlyList<QueryPlanBinding> bindings)
+    private static bool IsNullableColumnComparedWithNonNull(QueryPlanValue left, QueryPlanValue right, IQueryPlanBindingLookup bindings)
         => IsNullableColumnAndNonNullValue(left, right, bindings) || IsNullableColumnAndNonNullValue(right, left, bindings);
 
-    private static bool IsNullableColumnAndNonNullValue(QueryPlanValue columnCandidate, QueryPlanValue valueCandidate, IReadOnlyList<QueryPlanBinding> bindings)
+    private static bool IsNullableColumnAndNonNullValue(QueryPlanValue columnCandidate, QueryPlanValue valueCandidate, IQueryPlanBindingLookup bindings)
         => columnCandidate is QueryPlanColumnValue column &&
            column.Column.ValueProperty.CsNullable &&
            !IsNullValue(valueCandidate, bindings);
 
-    private static bool IsNullValue(QueryPlanValue value, IReadOnlyList<QueryPlanBinding> bindings)
+    private static bool IsNullValue(QueryPlanValue value, IQueryPlanBindingLookup bindings)
     {
         if (value is QueryPlanConstantValue { Value: null })
             return true;
@@ -37,8 +35,7 @@ internal static class QueryPlanNullSemanticsResolver
         if (value is not QueryPlanCapturedValue captured)
             return false;
 
-        var binding = bindings.SingleOrDefault(binding => binding.Id == captured.BindingId);
-        if (binding is null)
+        if (!bindings.TryGet(captured.BindingId, out var binding))
             throw new InvalidOperationException(
                 $"Captured query plan value '{captured.BindingId}' is missing from the binding frame.");
 

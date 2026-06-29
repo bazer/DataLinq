@@ -48,6 +48,81 @@ public class QueryPlanNodeTests
     }
 
     [Test]
+    public async Task BindingFrame_ReturnsStableBindingsView()
+    {
+        var frame = new QueryPlanBindingFrame();
+
+        var first = frame.Bindings;
+        frame.CaptureScalar(42, typeof(int));
+        var second = frame.Bindings;
+
+        await Assert.That(ReferenceEquals(first, second)).IsTrue();
+        await Assert.That(second.Count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task QueryPlan_FreezesBindingFrameAtPlanBoundary()
+    {
+        var table = GetTable<Employee>();
+        var source = Source("s0", table);
+        var frame = new QueryPlanBindingFrame();
+        var captured = frame.CaptureScalar(42, typeof(int));
+
+        var plan = new DataLinqQueryPlan(
+            [source],
+            [
+                new QueryPlanOperation.Skip(captured)
+            ],
+            new QueryPlanProjection.Entity(source),
+            QueryPlanResult.Sequence(typeof(Employee)),
+            frame);
+
+        frame.CaptureScalar(43, typeof(int));
+
+        await Assert.That(plan.Bindings.Count).IsEqualTo(1);
+        await Assert.That(plan.Bindings.TryGet(captured.BindingId, out _)).IsTrue();
+        await Assert.That(plan.Bindings.TryGet("p1", out _)).IsFalse();
+    }
+
+    [Test]
+    public async Task QueryPlan_FreezesLocalSequenceBindingValues()
+    {
+        var table = GetTable<Employee>();
+        var source = Source("s0", table);
+        var frame = new QueryPlanBindingFrame();
+        object?[] values = [10, 20, 30];
+        var sequence = frame.CaptureLocalSequence(values, typeof(int));
+
+        values[0] = 999;
+        var plan = new DataLinqQueryPlan(
+            [source],
+            [],
+            new QueryPlanProjection.Entity(source),
+            QueryPlanResult.Sequence(typeof(Employee)),
+            frame);
+
+        var frameValues = (object?[])frame.Bindings[0].Values!;
+        frameValues[1] = 888;
+
+        await Assert.That(plan.Bindings.TryGet(sequence.BindingId, out var binding)).IsTrue();
+        await Assert.That(binding.Values![0]).IsEqualTo(10);
+        await Assert.That(binding.Values![1]).IsEqualTo(20);
+        await Assert.That(binding.Values![2]).IsEqualTo(30);
+    }
+
+    [Test]
+    public async Task QueryPlanBindings_RejectsDuplicateBindingIds()
+    {
+        var exception = Capture<ArgumentException>(() => QueryPlanBindings.From([
+            new QueryPlanBinding("p0", QueryPlanBindingKind.Scalar, typeof(int), 1, Values: null, Count: null),
+            new QueryPlanBinding("p0", QueryPlanBindingKind.Scalar, typeof(int), 2, Values: null, Count: null)
+        ]));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("duplicated");
+    }
+
+    [Test]
     public async Task DebugWriter_RedactsCapturedValuesAndPreservesShape()
     {
         var table = GetTable<Employee>();
@@ -115,7 +190,7 @@ public class QueryPlanNodeTests
                 QueryPlanComparisonOperator.NotEqual,
                 column,
                 captured,
-                []));
+                QueryPlanBindings.Empty));
 
         await Assert.That(exception).IsNotNull();
         await Assert.That(exception!.Message).Contains("missing from the binding frame");
@@ -246,7 +321,7 @@ public class QueryPlanNodeTests
             QueryPlanComparisonOperator.NotEqual,
             column,
             captured,
-            frame.Bindings);
+            frame);
 
         var plan = new DataLinqQueryPlan(
             [source],

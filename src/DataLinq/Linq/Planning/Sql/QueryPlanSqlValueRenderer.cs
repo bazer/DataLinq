@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using DataLinq.Exceptions;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -12,7 +11,7 @@ namespace DataLinq.Linq.Planning.Sql;
 internal sealed class QueryPlanSqlValueRenderer(
     IDataSourceAccess dataSource,
     QueryPlanSqlSourceMap sourceMap,
-    QueryPlanBindingFrame bindings,
+    QueryPlanBindings bindings,
     QueryPlanDerivedColumnMap? derivedColumns = null)
 {
     public Operand RenderOperand(QueryPlanValue value)
@@ -110,7 +109,7 @@ internal sealed class QueryPlanSqlValueRenderer(
         };
     }
 
-    public object?[] GetLocalSequenceValues(QueryPlanLocalSequenceValue sequence)
+    public IReadOnlyList<object?> GetLocalSequenceValues(QueryPlanLocalSequenceValue sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
 
@@ -118,7 +117,7 @@ internal sealed class QueryPlanSqlValueRenderer(
         if (binding.Kind != QueryPlanBindingKind.LocalSequence)
             throw new QueryTranslationException($"Query plan binding '{sequence.BindingId}' is not a local sequence binding.");
 
-        return binding.Values?.ToArray()
+        return binding.Values
             ?? throw new QueryTranslationException($"Query plan local sequence binding '{sequence.BindingId}' has no values.");
     }
 
@@ -152,13 +151,10 @@ internal sealed class QueryPlanSqlValueRenderer(
 
     private QueryPlanBinding GetBinding(string bindingId)
     {
-        var matching = bindings.Bindings.Where(binding => binding.Id == bindingId).Take(2).ToArray();
-        return matching.Length switch
-        {
-            1 => matching[0],
-            0 => throw new QueryTranslationException($"Query plan binding '{bindingId}' is not available to SQL rendering."),
-            _ => throw new QueryTranslationException($"Query plan binding '{bindingId}' is duplicated.")
-        };
+        if (bindings.TryGet(bindingId, out var binding))
+            return binding;
+
+        throw new QueryTranslationException($"Query plan binding '{bindingId}' is not available to SQL rendering.");
     }
 
     private string RenderFunctionSql(QueryPlanFunctionValue function)
@@ -223,7 +219,14 @@ internal sealed class QueryPlanSqlValueRenderer(
     }
 
     private static ValueOperand NormalizeValueOperandForColumnType(ColumnDefinition column, ValueOperand valueOperand)
-        => Operand.Value(valueOperand.Values.Select(value => NormalizeValueForColumnType(column, value)).ToArray());
+    {
+        var sourceValues = valueOperand.Values;
+        var values = new object?[sourceValues.Length];
+        for (var index = 0; index < sourceValues.Length; index++)
+            values[index] = NormalizeValueForColumnType(column, sourceValues[index]);
+
+        return Operand.Value(values);
+    }
 
     private static Type GetNonNullableColumnType(ColumnDefinition column)
     {

@@ -932,7 +932,7 @@ internal sealed class ExpressionQueryPlanParser
         var left = ConvertGroupedValue(binary.Left, groupParameter, grouping);
         var right = ConvertGroupedValue(binary.Right, groupParameter, grouping);
         var comparisonOperator = GetComparisonOperator(binary.NodeType);
-        var nullSemantics = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(comparisonOperator, left, right, bindings.Bindings);
+        var nullSemantics = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(comparisonOperator, left, right, bindings);
 
         return new QueryPlanPredicate.Compare(left, comparisonOperator, right, nullSemantics);
     }
@@ -1100,7 +1100,7 @@ internal sealed class ExpressionQueryPlanParser
         var left = ConvertValue(binary.Left);
         var right = ConvertValue(binary.Right);
         var comparisonOperator = GetComparisonOperator(binary.NodeType);
-        var nullSemantics = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(comparisonOperator, left, right, bindings.Bindings);
+        var nullSemantics = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(comparisonOperator, left, right, bindings);
 
         return new QueryPlanPredicate.Compare(left, comparisonOperator, right, nullSemantics);
     }

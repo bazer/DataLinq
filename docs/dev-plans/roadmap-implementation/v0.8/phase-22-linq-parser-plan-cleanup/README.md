@@ -3,7 +3,7 @@
 
 # 0.8 Phase 22: LINQ Parser Plan Cleanup
 
-**Status:** Planned.
+**Status:** Implemented.
 
 Execution plan: [Implementation Plan](Implementation%20Plan.md).
 
@@ -64,6 +64,19 @@ plan-time:
 
 This is not a feature phase. A user should see the same supported query behavior before and after this work.
 
+## Implementation Notes
+
+Implemented in this phase:
+
+- `QueryPlanBindingFrame` is now parser-time builder state with a stable read-only binding view and a `Freeze()` method.
+- `DataLinqQueryPlan` now owns `QueryPlanBindings`, an immutable snapshot with copied binding storage and O(1) lookup by id.
+- SQL rendering now resolves captured values through the immutable binding snapshot instead of LINQ enumeration plus `Take(...).ToArray()`.
+- `QueryPlanNullSemanticsResolver` now uses a lookup contract, so parser-time null semantics no longer needs to allocate a fresh binding view.
+- Debug output iterates the frozen plan bindings directly and still redacts captured scalar and local sequence values.
+- Focused unit tests now cover stable binding views, plan-boundary freezing, local-sequence snapshot protection, and duplicate binding rejection.
+
+One allocation remains deliberately: local sequence SQL rendering must still allocate an `object?[]` before creating `ValueOperand`, because `ValueOperand` is currently array-backed and exposes that mutable array. Removing that copy would require a query-layer operand contract change, not just a parser binding cleanup.
+
 ## Verification
 
 Required verification:
@@ -81,6 +94,25 @@ Recommended commands:
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSnapshotTests/*|/*/*/QueryPlanSqlParityTests/*|/*/*/EmployeesContainsTranslationTests/*" --output failures --build
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase2-watch --profile heavy --history-json artifacts\benchmarks\history\v0.8-phase22-phase2-watch.json
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase3-query-hotpath --profile heavy --history-json artifacts\benchmarks\history\v0.8-phase22-query-hotpath.json
+```
+
+Executed verification:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/QueryPlanNodeTests/*" --output failures --build
+# OK suite unit (12/12 passed)
+
+$env:DATALINQ_TEST_DB_HOST='127.0.0.1'; .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSnapshotTests/*|/*/*/QueryPlanSqlParityTests/*|/*/*/EmployeesContainsTranslationTests/*|/*/*/ExpressionQueryPlanParserTests/*" --output failures --build
+# OK suite compliance batch 1 [sqlite-file, sqlite-memory] (22/22 passed)
+# OK suite compliance batch 2 [mysql-8.4, mariadb-11.8] (22/22 passed)
+
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase2-watch --profile heavy --history-json artifacts\benchmarks\history\v0.8-phase22-phase2-watch.json
+# History JSON: artifacts\benchmarks\history\v0.8-phase22-phase2-watch.json
+# Summary JSON: artifacts\benchmarks\results\20260629-192820482-965fb7565d6c40e09529d605584934a1-summary.json
+
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase3-query-hotpath --profile heavy --history-json artifacts\benchmarks\history\v0.8-phase22-query-hotpath.json
+# History JSON: artifacts\benchmarks\history\v0.8-phase22-query-hotpath.json
+# Summary JSON: artifacts\benchmarks\results\20260629-193213368-01a4b8948f5749929fc866a0bc1c1f0d-summary.json
 ```
 
 ## Exit Criteria

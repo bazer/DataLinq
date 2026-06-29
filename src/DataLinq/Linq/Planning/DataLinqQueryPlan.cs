@@ -13,6 +13,16 @@ internal sealed class DataLinqQueryPlan
         QueryPlanProjection projection,
         QueryPlanResult result,
         QueryPlanBindingFrame bindings)
+        : this(sources, operations, projection, result, FreezeBindings(bindings))
+    {
+    }
+
+    public DataLinqQueryPlan(
+        IEnumerable<QueryPlanSourceSlot> sources,
+        IEnumerable<QueryPlanOperation> operations,
+        QueryPlanProjection projection,
+        QueryPlanResult result,
+        QueryPlanBindings bindings)
     {
         ArgumentNullException.ThrowIfNull(sources);
         ArgumentNullException.ThrowIfNull(operations);
@@ -37,7 +47,7 @@ internal sealed class DataLinqQueryPlan
 
     public QueryPlanResult Result { get; }
 
-    public QueryPlanBindingFrame Bindings { get; }
+    public QueryPlanBindings Bindings { get; }
 
     public QueryPlanSourceSlot GetSource(string id)
     {
@@ -54,6 +64,12 @@ internal sealed class DataLinqQueryPlan
             throw new ArgumentException("Query plan collections cannot contain null entries.", parameterName);
 
         return Array.AsReadOnly(array);
+    }
+
+    private static QueryPlanBindings FreezeBindings(QueryPlanBindingFrame bindings)
+    {
+        ArgumentNullException.ThrowIfNull(bindings);
+        return bindings.Freeze();
     }
 
     private static void ValidateSourceIds(IReadOnlyList<QueryPlanSourceSlot> sources)

@@ -110,11 +110,17 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
             throw new QueryTranslationException("Query plan IN predicates require a local sequence binding.");
 
         var item = valueRenderer.RenderOperand(inPredicate.Item);
-        var values = valueRenderer.GetLocalSequenceValues(sequence);
+        var sourceValues = valueRenderer.GetLocalSequenceValues(sequence);
+        var values = new object?[sourceValues.Count];
         if (item is ColumnOperandWithDefinition column)
         {
-            for (var index = 0; index < values.Length; index++)
-                values[index] = QueryPlanSqlValueRenderer.NormalizeValueForColumnType(column.ColumnDefinition, values[index]);
+            for (var index = 0; index < sourceValues.Count; index++)
+                values[index] = QueryPlanSqlValueRenderer.NormalizeValueForColumnType(column.ColumnDefinition, sourceValues[index]);
+        }
+        else
+        {
+            for (var index = 0; index < sourceValues.Count; index++)
+                values[index] = sourceValues[index];
         }
 
         group.AddWhere(
