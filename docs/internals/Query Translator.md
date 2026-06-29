@@ -74,6 +74,7 @@ Supported:
 - nullable `.Value` key normalization
 - SQL-backed direct source-slot projection rows from the joined rows
 - `Where`, ordering, paging, `Any`, and `Count` over projected joined members that bind back to source-slot values
+- post-paging `Where`, ordering, `Any`, and `Count` over SQL-backed joined projection rows through a derived-source boundary
 - transparent identifier binding for single query-syntax inner joins
 
 Not supported yet:
@@ -83,11 +84,10 @@ Not supported yet:
 - outer joins
 - composite anonymous-object keys
 - query-syntax transparent identifiers that project whole source entities or cannot bind back to source slots
-- post-paging joined composition such as `Join(...).Take(...).Where(...)`
 - scalar aggregates over joined rows other than `Any` and `Count`
 - relation object or collection relation projection inside the joined selector
 
-The parser represents compiler-generated transparent identifiers as temporary source-member bindings, so later query-syntax `where`, `orderby`, and `select` clauses bind back to the same source slots as fluent joins. Joined execution reads SQL projection aliases directly when every result-selector member binds to a source-slot value. Row-local computed joined projections remain a fallback for materialized execution, and cannot be used for provider-side composition. The old key-buffered joined materialization path remains relevant only for row-local joined projections that cannot become SQL rows.
+The parser represents compiler-generated transparent identifiers as temporary source-member bindings, so later query-syntax `where`, `orderby`, and `select` clauses bind back to the same source slots as fluent joins. Joined execution reads SQL projection aliases directly when every result-selector member binds to a source-slot value. Post-paging joined composition wraps the paged join in a derived source, preserves projection aliases and joined primary-key aliases, and binds later predicates/orderings to the derived aliases. Row-local computed joined projections remain a fallback for materialized execution, and cannot be used for provider-side composition after paging. The old key-buffered joined materialization path remains relevant only for row-local joined projections that cannot become SQL rows.
 
 ## Predicate Translation
 

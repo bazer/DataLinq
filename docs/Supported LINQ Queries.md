@@ -243,6 +243,7 @@ The test suite covers one narrow explicit inner join shape, both as fluent `Join
 - nullable `.Value` key selectors such as `employee.emp_no.Value`
 - a result selector that projects direct source-slot values from both sides
 - composed `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, `Take(...)`, `Any()`, and `Count()` over projected joined members that map back to source columns
+- post-paging `Where(...)`, ordering, `Any()`, and `Count()` over SQL-backed joined projection rows, rendered through a derived-source boundary so C# operator order is preserved
 - query-syntax transparent identifiers for a single inner join, when every referenced member can bind back to a source slot
 
 Fluent example:
@@ -284,9 +285,9 @@ var rows =
     .ToList();
 ```
 
-When the result selector contains only direct source-slot values, the implementation reads SQL projection aliases directly from the joined result row. Row-local computed joined projections remain a separate fallback and cannot be used for provider-side composition.
+When the result selector contains only direct source-slot values, the implementation reads SQL projection aliases directly from the joined result row. Row-local computed joined projections remain a separate fallback and cannot be used for provider-side composition after paging.
 
-Composed predicates and orderings over joined rows are SQL-backed only when the joined projection member is a direct source-slot value, such as `row.dept_no` or `row.Name` in the example above. If a joined projection member is computed row-local code, materialize first and filter/order in memory.
+Composed predicates and orderings over joined rows are SQL-backed only when the joined projection member is a direct source-slot value, such as `row.dept_no` or `row.Name` in the example above. If a joined projection member is computed row-local code, materialize first and filter/order in memory. When a supported joined query applies `Where(...)`, ordering, `Any()`, or `Count()` after `Skip(...)` or `Take(...)`, DataLinq renders the paged join as a derived source and binds the later operators to the derived projection aliases.
 
 These join shapes are not supported yet:
 
@@ -295,7 +296,6 @@ These join shapes are not supported yet:
 - composite anonymous-object join keys
 - multiple chained joins
 - query-syntax transparent identifiers that project whole source entities or cannot bind back to source-slot values
-- post-paging joined composition, such as `Join(...).Take(...).Where(...)`
 - scalar aggregates over joined rows other than `Any()` and `Count()`
 - relation-property joins, relation object projection, or collection relation projection inside the result selector
 - fluent relation-aware join APIs such as `JoinBy(...)`, `JoinMany(...)`, `LeftJoinBy(...)`, and `LeftJoinMany(...)`
@@ -504,7 +504,7 @@ The test suite explicitly expects `NotSupportedException` for:
 The current docs do not claim support for these because this pass has not verified them rigorously enough:
 
 - broad `GroupBy(...)` beyond the SQL-backed grouped aggregate row shapes documented above
-- `GroupJoin(...)`, outer joins, composite-key joins, multi-join query syntax, and post-paging composition over joined results
+- `GroupJoin(...)`, outer joins, composite-key joins, and multi-join query syntax
 - aggregate operators over computed selectors or relation properties
 - relation object or collection relation projections inside provider `Select(...)`, and unsupported relation traversal inside relation predicates
 - broader client-side method translation inside SQL predicates beyond the string members listed above

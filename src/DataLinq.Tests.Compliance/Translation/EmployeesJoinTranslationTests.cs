@@ -136,6 +136,53 @@ public class EmployeesJoinTranslationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task QuerySyntaxInnerJoin_PostPagingWhereMatchesInMemory(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(QuerySyntaxInnerJoin_PostPagingWhereMatchesInMemory),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = (from departmentEmployee in employeesDatabase.Query().DepartmentEmployees.ToList()
+                        join department in employeesDatabase.Query().Departments.ToList()
+                            on departmentEmployee.dept_no equals department.DeptNo
+                        orderby departmentEmployee.emp_no
+                        select new
+                        {
+                            departmentEmployee.emp_no,
+                            departmentEmployee.dept_no,
+                            DepartmentName = department.Name
+                        })
+            .Take(30)
+            .Where(row => row.DepartmentName.Contains("e", StringComparison.Ordinal))
+            .OrderBy(row => row.dept_no)
+            .ThenBy(row => row.emp_no)
+            .Take(10)
+            .ToArray();
+
+        var actual = (from departmentEmployee in employeesDatabase.Query().DepartmentEmployees
+                      join department in employeesDatabase.Query().Departments
+                          on departmentEmployee.dept_no equals department.DeptNo
+                      orderby departmentEmployee.emp_no
+                      select new
+                      {
+                          departmentEmployee.emp_no,
+                          departmentEmployee.dept_no,
+                          DepartmentName = department.Name
+                      })
+            .Take(30)
+            .Where(row => row.DepartmentName.Contains("e"))
+            .OrderBy(row => row.dept_no)
+            .ThenBy(row => row.emp_no)
+            .Take(10)
+            .ToArray();
+
+        await Assert.That(FormatDepartmentRows(actual)).IsEqualTo(FormatDepartmentRows(expected));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_DirectMemberKeysProjectsBothSides_MatchesInMemory(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -431,11 +478,160 @@ public class EmployeesJoinTranslationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task ExplicitInnerJoin_PostPagingCompositionThrowsQueryTranslationException(TestProviderDescriptor provider)
+    public async Task ExplicitInnerJoin_PostPagingWhereAndOrderingMatchInMemory(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(ExplicitInnerJoin_PostPagingCompositionThrowsQueryTranslationException),
+            nameof(ExplicitInnerJoin_PostPagingWhereAndOrderingMatchInMemory),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().DepartmentEmployees.ToList()
+            .Join(
+                employeesDatabase.Query().Departments.ToList(),
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                })
+            .OrderBy(row => row.emp_no)
+            .Take(30)
+            .Where(row => row.DepartmentName.Contains("e", StringComparison.Ordinal))
+            .OrderByDescending(row => row.DepartmentName)
+            .ThenBy(row => row.emp_no)
+            .Take(10)
+            .ToArray();
+
+        var actual = employeesDatabase.Query().DepartmentEmployees
+            .Join(
+                employeesDatabase.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                })
+            .OrderBy(row => row.emp_no)
+            .Take(30)
+            .Where(row => row.DepartmentName.Contains("e"))
+            .OrderByDescending(row => row.DepartmentName)
+            .ThenBy(row => row.emp_no)
+            .Take(10)
+            .ToArray();
+
+        await Assert.That(FormatDepartmentRows(actual)).IsEqualTo(FormatDepartmentRows(expected));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExplicitInnerJoin_PostPagingCountAndAnyMatchInMemory(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExplicitInnerJoin_PostPagingCountAndAnyMatchInMemory),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expectedRows = employeesDatabase.Query().DepartmentEmployees.ToList()
+            .Join(
+                employeesDatabase.Query().Departments.ToList(),
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                })
+            .OrderBy(row => row.emp_no)
+            .Take(30)
+            .Where(row => row.DepartmentName.Contains("e", StringComparison.Ordinal))
+            .ToArray();
+
+        var pagedRows = employeesDatabase.Query().DepartmentEmployees
+            .Join(
+                employeesDatabase.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                })
+            .OrderBy(row => row.emp_no)
+            .Take(30)
+            .Where(row => row.DepartmentName.Contains("e"));
+
+        await Assert.That(pagedRows.Count()).IsEqualTo(expectedRows.Length);
+        await Assert.That(pagedRows.Any()).IsEqualTo(expectedRows.Any());
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExplicitInnerJoin_PostPagingWorksFromTransactionRoot(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExplicitInnerJoin_PostPagingWorksFromTransactionRoot),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        using var transaction = employeesDatabase.Transaction();
+
+        var readOnlyRows = employeesDatabase.Query().DepartmentEmployees
+            .Join(
+                employeesDatabase.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                })
+            .OrderBy(row => row.emp_no)
+            .Take(30)
+            .Where(row => row.DepartmentName.Contains("e"))
+            .OrderBy(row => row.dept_no)
+            .ThenBy(row => row.emp_no)
+            .Take(10)
+            .ToArray();
+
+        var transactionRows = transaction.Query().DepartmentEmployees
+            .Join(
+                transaction.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                })
+            .OrderBy(row => row.emp_no)
+            .Take(30)
+            .Where(row => row.DepartmentName.Contains("e"))
+            .OrderBy(row => row.dept_no)
+            .ThenBy(row => row.emp_no)
+            .Take(10)
+            .ToArray();
+
+        await Assert.That(FormatDepartmentRows(transactionRows)).IsEqualTo(FormatDepartmentRows(readOnlyRows));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExplicitInnerJoin_PostPagingRowLocalProjectionThrowsQueryTranslationException(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExplicitInnerJoin_PostPagingRowLocalProjectionThrowsQueryTranslationException),
             EmployeesSeedMode.Bogus);
 
         await AssertTranslationFailure(
@@ -448,14 +644,15 @@ public class EmployeesJoinTranslationTests
                     {
                         departmentEmployee.emp_no,
                         departmentEmployee.dept_no,
-                        DepartmentName = department.Name
+                        DepartmentName = department.Name,
+                        Label = department.Name.ToUpper()
                     })
                 .OrderBy(row => row.emp_no)
                 .Take(10)
                 .Where(row => row.dept_no == "d001")
                 .ToList(),
-            "after Skip(...) or Take(...) over a joined query",
-            "not supported");
+            "SQL-backed joined projection rows",
+            "row-local joined projections");
     }
 
     [Test]

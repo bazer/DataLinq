@@ -506,13 +506,14 @@ public class ExpressionQueryPlanParserTests
                     {
                         departmentEmployee.emp_no,
                         departmentEmployee.dept_no,
-                        DepartmentName = department.Name
+                        DepartmentName = department.Name,
+                        Label = department.Name.ToUpper()
                     })
                 .OrderBy(row => row.emp_no)
                 .Take(10)
                 .Where(row => row.dept_no == "d001"),
-            "after Skip(...) or Take(...) over a joined query",
-            "not supported");
+            "SQL-backed joined projection rows",
+            "row-local joined projections");
 
         await AssertParserFailure(
             databaseScope.Database,

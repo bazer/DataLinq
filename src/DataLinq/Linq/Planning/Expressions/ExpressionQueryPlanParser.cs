@@ -534,9 +534,14 @@ internal sealed class ExpressionQueryPlanParser
         {
             if (operations.Any(static operation => operation is QueryPlanOperation.Skip or QueryPlanOperation.Take))
             {
-                throw new QueryTranslationException(
-                    $"Terminal operator '{methodCall.Method.Name}' after joined query paging is not supported yet. " +
-                    "Materialize before counting or checking existence over paged joined rows.");
+                if (parsed.Projection is not QueryPlanProjection.SqlRow)
+                {
+                    throw new QueryTranslationException(
+                        $"Terminal operator '{methodCall.Method.Name}' after joined query paging is supported only for SQL-backed joined projection rows. " +
+                        "Materialize before counting or checking existence over row-local joined projections.");
+                }
+
+                PushDownPostPagingOperations(methodCall.Method.Name);
             }
         }
         else
@@ -2131,9 +2136,12 @@ internal sealed class ExpressionQueryPlanParser
         if (!allowAfterPaging &&
             operations.Any(static operation => operation is QueryPlanOperation.Skip or QueryPlanOperation.Take))
         {
+            if (parsed.Projection is QueryPlanProjection.SqlRow)
+                return;
+
             throw new QueryTranslationException(
-                $"LINQ operator '{operatorName}' after Skip(...) or Take(...) over a joined query is not supported yet. " +
-                "Materialize before composing further over paged joined rows.");
+                $"LINQ operator '{operatorName}' after Skip(...) or Take(...) over a joined query is supported only for SQL-backed joined projection rows. " +
+                "Materialize before composing further over row-local joined projections.");
         }
     }
 
@@ -2193,8 +2201,15 @@ internal sealed class ExpressionQueryPlanParser
 
     private bool HasExplicitJoinOperation()
         => operations
-            .OfType<QueryPlanOperation.Join>()
-            .Any(static operation => operation.JoinShape.RightSource.Kind == QueryPlanSourceKind.ExplicitJoin);
+            .Any(static operation => ContainsExplicitJoinOperation(operation));
+
+    private static bool ContainsExplicitJoinOperation(QueryPlanOperation operation)
+        => operation switch
+        {
+            QueryPlanOperation.Join join => join.JoinShape.RightSource.Kind == QueryPlanSourceKind.ExplicitJoin,
+            QueryPlanOperation.Pushdown pushdown => pushdown.Operations.Any(static inner => ContainsExplicitJoinOperation(inner)),
+            _ => false
+        };
 
     private void WithSource(ParameterExpression parameter, QueryPlanSourceSlot source, Action action)
     {

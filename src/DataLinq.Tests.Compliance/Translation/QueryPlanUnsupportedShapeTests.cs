@@ -53,11 +53,11 @@ public class QueryPlanUnsupportedShapeTests
     }
 
     [Test]
-    public async Task ParserRejectsPostPagingFilterOverExplicitJoin()
+    public async Task ParserRejectsPostPagingFilterOverRowLocalExplicitJoin()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ParserRejectsPostPagingFilterOverExplicitJoin),
+            nameof(ParserRejectsPostPagingFilterOverRowLocalExplicitJoin),
             EmployeesSeedMode.Bogus);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
@@ -69,7 +69,8 @@ public class QueryPlanUnsupportedShapeTests
                     {
                         departmentEmployee.emp_no,
                         departmentEmployee.dept_no,
-                        DepartmentName = department.Name
+                        DepartmentName = department.Name,
+                        Label = department.Name.ToUpper()
                     })
             .OrderBy(row => row.emp_no)
             .Take(10)
@@ -79,8 +80,8 @@ public class QueryPlanUnsupportedShapeTests
             ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
 
         await Assert.That(exception).IsNotNull();
-        await Assert.That(exception!.Message).Contains("after Skip(...) or Take(...) over a joined query");
-        await Assert.That(exception.Message).Contains("not supported");
+        await Assert.That(exception!.Message).Contains("SQL-backed joined projection rows");
+        await Assert.That(exception.Message).Contains("row-local joined projections");
     }
 
     [Test]

@@ -3,7 +3,7 @@
 
 # Phase 21 Implementation Plan
 
-**Status:** In progress.
+**Status:** Complete.
 
 ## Objective
 
@@ -18,15 +18,15 @@ The narrow shipped behavior should be:
 
 ## Work Items
 
-- [ ] Inspect the current single-source `QueryPlanOperation.Pushdown` parser and SQL renderer.
-- [ ] Decide whether the existing pushdown node can safely model joined pushdown or whether a joined-specific path is required.
-- [ ] Preserve direct joined projection aliases through the inner derived source.
-- [ ] Preserve joined source primary-key aliases for row-local joined materialization.
-- [ ] Bind post-paging `Where(...)` and ordering to derived aliases instead of original table aliases.
-- [ ] Support `Any()` and `Count()` over paged joined SQL-backed projection rows.
-- [ ] Keep row-local computed joined projections, relation projection, grouped joins, and nested pushdown rejected.
-- [ ] Add provider behavior, SQL-shape, snapshot, transaction-root, parser, and unsupported-diagnostics tests.
-- [ ] Update the phase README, roadmap pages, public LINQ docs, support matrix, and internals docs for the tested boundary.
+- [x] Inspect the current single-source `QueryPlanOperation.Pushdown` parser and SQL renderer.
+- [x] Decide whether the existing pushdown node can safely model joined pushdown or whether a joined-specific path is required.
+- [x] Preserve direct joined projection aliases through the inner derived source.
+- [x] Preserve joined source primary-key aliases for row-local joined materialization.
+- [x] Bind post-paging `Where(...)` and ordering to derived aliases instead of original table aliases.
+- [x] Support `Any()` and `Count()` over paged joined SQL-backed projection rows.
+- [x] Keep row-local computed joined projections, relation projection, grouped joins, and nested pushdown rejected.
+- [x] Add provider behavior, SQL-shape, snapshot, transaction-root, parser, and unsupported-diagnostics tests.
+- [x] Update the phase README, roadmap pages, public LINQ docs, support matrix, and internals docs for the tested boundary.
 
 ## Guardrails
 
@@ -44,3 +44,12 @@ The narrow shipped behavior should be:
 - Run unsupported-shape tests for rejected joined pushdown cases.
 - Run SQL parity tests for derived-source SQL rendering.
 - Run `git diff --check`.
+
+Focused verification passed:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj -v:minimal`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesJoinTranslationTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSnapshotTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/ExpressionQueryPlanParserTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanUnsupportedShapeTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSqlParityTests/*" --output failures --build`

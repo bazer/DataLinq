@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 21: Joined Post-Paging Pushdown
 
-**Status:** In progress after query-syntax join support.
+**Status:** Implemented for SQL-backed joined projection rows.
 
 ## Purpose
 
@@ -68,7 +68,7 @@ Flattening this shape would be wrong. Client-side filtering would also be wrong 
 
 ## Verification
 
-Required tests:
+Implemented tests:
 
 - plan snapshots for joined post-paging pushdown
 - SQL-shape tests proving `FROM (SELECT ...)` or equivalent derived-source SQL preserves joined keys and projection aliases
@@ -77,6 +77,15 @@ Required tests:
 - transaction-root parity for joined pushdown
 - unsupported diagnostics for computed joined projection members, relation projection, grouped joins, and unsupported nested pushdown
 - docs/support-matrix updates only for the tested joined pushdown shapes
+
+Focused verification passed:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj -v:minimal`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/EmployeesJoinTranslationTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSnapshotTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/ExpressionQueryPlanParserTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanUnsupportedShapeTests/*" --output failures --build`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --filter "/*/*/QueryPlanSqlParityTests/*" --output failures --build`
 
 ## Exit Criteria
 

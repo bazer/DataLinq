@@ -234,6 +234,46 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    public async Task ExpressionPlanSql_RendersJoinedPostPagingPushdownWithDerivedAliases()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionPlanSql_RendersJoinedPostPagingPushdownWithDerivedAliases),
+            EmployeesSeedMode.Bogus);
+
+        var prefix = "S";
+        var query = databaseScope.Database.Query().DepartmentEmployees
+            .Join(
+                databaseScope.Database.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    departmentEmployee.dept_no,
+                    DepartmentName = department.Name
+                })
+            .OrderBy(row => row.emp_no)
+            .Take(30)
+            .Where(row => row.DepartmentName.StartsWith(prefix))
+            .OrderByDescending(row => row.dept_no);
+
+        var sql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(databaseScope.Database, query);
+        var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text);
+
+        await Assert.That(normalized).Contains("FROM (SELECT");
+        await Assert.That(normalized).Contains("JOIN");
+        await Assert.That(normalized).Contains("LIMIT 30");
+        await Assert.That(normalized).Contains(") t0 WHERE");
+        await Assert.That(normalized).Contains("t0.\"DepartmentName\"");
+        await Assert.That(normalized).Contains("ORDER BY t0.\"dept_no\" DESC");
+        await Assert.That(normalized).Contains("dl_0_pk_0");
+        await Assert.That(normalized).Contains("dl_1_pk_0");
+        await Assert.That(sql.Parameters.Select(x => x.Value).ToArray()).Contains("S%");
+        await Assert.That(sql.Text).DoesNotContain("S%");
+    }
+
+    [Test]
     public async Task PlanSql_RendersParameterizedPredicatesOrderingAndPaging()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

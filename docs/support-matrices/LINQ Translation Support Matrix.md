@@ -110,15 +110,15 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 
 | Area | Currently tested support | Evidence | Audit notes |
 | --- | --- | --- | --- |
-| Inner `Join(...)` and single query-syntax inner join | one explicit inner join between two direct DataLinq query sources, direct member equality keys, nullable `.Value` key normalization, SQL-backed direct source-slot result projection from both sides, single query-syntax transparent-identifier binding, and composed `Where`, ordering, paging, `Any`, and `Count` over projected members that bind back to source-slot values | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | SQL-backed joined projection rows read aliases directly when every result member maps to a source-slot value. Joined predicates/orderings are SQL-backed only for projection members that map to source-slot values. |
-| Unsupported join shapes | composite anonymous-object keys, `GroupJoin(...)`, post-paging joined composition, relation-property joins, relation object/collection relation result projection, opaque transparent identifiers, and non-bindable joined projection composition fail with `QueryTranslationException` | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | Outer joins, multi-join pipelines, scalar aggregates beyond joined `Any`/`Count`, and query syntax that projects whole source entities are outside the documented boundary. |
+| Inner `Join(...)` and single query-syntax inner join | one explicit inner join between two direct DataLinq query sources, direct member equality keys, nullable `.Value` key normalization, SQL-backed direct source-slot result projection from both sides, single query-syntax transparent-identifier binding, composed `Where`, ordering, paging, `Any`, and `Count` over projected members, and post-paging `Where`/ordering/`Any`/`Count` over SQL-backed joined projection rows | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanSnapshotTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs`, `Translation/QueryPlanSqlParityTests.cs` | SQL-backed joined projection rows read aliases directly when every result member maps to a source-slot value. Joined pushdown uses a derived-source boundary so later predicates/orderings bind to derived projection aliases instead of flattening past paging. |
+| Unsupported join shapes | composite anonymous-object keys, `GroupJoin(...)`, relation-property joins, relation object/collection relation result projection, opaque transparent identifiers, row-local joined post-paging composition, and non-bindable joined projection composition fail with `QueryTranslationException` | `Translation/EmployeesJoinTranslationTests.cs`, `Translation/QueryPlanUnsupportedShapeTests.cs` | Outer joins, multi-join pipelines, scalar aggregates beyond joined `Any`/`Count`, and query syntax that projects whole source entities are outside the documented boundary. |
 
 ## Unsupported or Not Yet Proven
 
 These shapes are intentionally not part of the documented support boundary today:
 
 - broad `GroupBy(...)` beyond the SQL-backed grouped aggregate row shapes documented above
-- `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, opaque query-syntax transparent identifiers, and post-paging composition over explicit joined results
+- `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, opaque query-syntax transparent identifiers, and row-local post-paging composition over explicit joined results
 - relation-property query expansion beyond documented one-to-many existence predicates and the documented singular implicit predicate/ordering/projection traversal
 - aggregate result operators over computed selectors, relation properties, or grouped aggregate shapes outside the documented direct numeric selector boundary
 - additional body clauses over pushed-down projections, joins, or grouped sources
@@ -162,7 +162,7 @@ Phase 14 adds explicit-join composition coverage:
 2. SQL-shape coverage proves composed joined queries render `JOIN`, `WHERE`, and joined source aliases.
 3. Provider behavior tests compare joined `Where`, ordering, paging, `Any`, and `Count` with in-memory LINQ across SQLite, MySQL, and MariaDB.
 4. Transaction-root tests prove composed joined projections hydrate after buffering joined primary keys, avoiding nested reader use on transaction connections.
-5. Unsupported-shape tests keep post-paging joined composition outside the documented boundary until joined pushdown has a deliberate derived-source design.
+5. Unsupported-shape tests kept post-paging joined composition outside the documented boundary until Phase 21 added the deliberate derived-source design for SQL-backed joined rows.
 
 Phase 15 adds implicit singular relation join coverage:
 
@@ -216,3 +216,12 @@ Phase 20 adds single query-syntax inner join coverage:
 4. Provider behavior tests compare query-syntax joins with in-memory LINQ across SQLite, MySQL, and MariaDB.
 5. Transaction-root tests prove supported query-syntax joins execute from `transaction.Query()`.
 6. Snapshot tests record query-syntax joins as ordinary source-slot joins with SQL-row projection.
+
+Phase 21 adds joined post-paging pushdown coverage:
+
+1. SQL-backed joined projection rows preserve C# operator order for `Where(...)` and ordering after `Skip(...)` or `Take(...)`.
+2. Derived-source SQL selects joined projection aliases plus joined primary-key aliases, then binds later predicates/orderings to the derived aliases.
+3. Provider behavior tests compare fluent and query-syntax joined post-paging rows with in-memory LINQ across SQLite, MySQL, and MariaDB.
+4. `Any()` and `Count()` over paged joined rows reduce over the derived joined source instead of flattening past paging.
+5. Transaction-root tests prove joined pushdown executes from `transaction.Query()`.
+6. Unsupported diagnostics keep row-local computed joined projections, relation projection, grouped joins, and opaque transparent identifiers outside the supported pushdown boundary.

@@ -16,7 +16,8 @@ internal sealed class QueryPlanSqlBuilder
     private readonly DataLinqQueryPlan plan;
     private readonly DataSourceAccess dataSource;
     private readonly QueryPlanSqlSourceMap sourceMap;
-    private readonly QueryPlanSqlValueRenderer valueRenderer;
+    private QueryPlanSqlValueRenderer valueRenderer;
+    private QueryPlanDerivedColumnMap? derivedColumns;
 
     public QueryPlanSqlBuilder(DataLinqQueryPlan plan, DataSourceAccess dataSource)
     {
@@ -41,7 +42,8 @@ internal sealed class QueryPlanSqlBuilder
             switch (operation)
             {
                 case QueryPlanOperation.Pushdown pushdown:
-                    query = PushDown(query, pushdown, pushdownIndex++);
+                    query = PushDown(query, pushdown, pushdownIndex++, out derivedColumns);
+                    valueRenderer = new QueryPlanSqlValueRenderer(dataSource, sourceMap, plan.Bindings, derivedColumns);
                     predicateBuilder = new QueryPlanSqlPredicateBuilder<T>(query, sourceMap, valueRenderer);
                     break;
 
@@ -82,13 +84,19 @@ internal sealed class QueryPlanSqlBuilder
         return query;
     }
 
-    private SqlQuery<T> PushDown<T>(SqlQuery<T> currentQuery, QueryPlanOperation.Pushdown pushdown, int pushdownIndex)
+    private SqlQuery<T> PushDown<T>(
+        SqlQuery<T> currentQuery,
+        QueryPlanOperation.Pushdown pushdown,
+        int pushdownIndex,
+        out QueryPlanDerivedColumnMap? pushedDownColumns)
     {
+        pushedDownColumns = null;
+
         if (currentQuery.HasDerivedSource)
             throw new QueryTranslationException("Nested query pushdown is not supported after a derived source has already been applied.");
 
         if (pushdown.Operations.Any(static operation => operation is QueryPlanOperation.Join))
-            throw new QueryTranslationException("Query pushdown over joins is not supported until joined source-slot composition is implemented.");
+            return PushDownJoined<T>(pushdown, pushdownIndex, out pushedDownColumns);
 
         var root = sourceMap.RootSource;
         var innerPlan = new DataLinqQueryPlan(
@@ -100,6 +108,38 @@ internal sealed class QueryPlanSqlBuilder
         var innerSql = new QueryPlanSqlBuilder(innerPlan, dataSource)
             .BuildSelect<object>()
             .ToSql($"dlp{pushdownIndex}_");
+
+        return new SqlQuery<T>(root.Table, dataSource, root.Alias)
+            .UseDerivedSource(innerSql);
+    }
+
+    private SqlQuery<T> PushDownJoined<T>(
+        QueryPlanOperation.Pushdown pushdown,
+        int pushdownIndex,
+        out QueryPlanDerivedColumnMap pushedDownColumns)
+    {
+        if (plan.Projection is not QueryPlanProjection.SqlRow sqlRow)
+        {
+            throw new QueryTranslationException(
+                "Joined pushdown is supported only for SQL-backed joined projection rows. " +
+                "Materialize before composing further over row-local joined projections.");
+        }
+
+        var root = sourceMap.RootSource;
+        var innerPlan = new DataLinqQueryPlan(
+            plan.Sources,
+            pushdown.Operations,
+            sqlRow,
+            QueryPlanResult.Sequence(sqlRow.ResultType),
+            plan.Bindings);
+        var innerBuilder = new QueryPlanSqlBuilder(innerPlan, dataSource);
+        var innerSelect = innerBuilder.BuildSqlQuery<object>().SelectQuery();
+        innerSelect.What(GetProjectionRowSelectors(sqlRow.Members)
+            .Concat(GetJoinedPrimaryKeySelectors())
+            .ToArray());
+
+        var innerSql = innerSelect.ToSql($"dlp{pushdownIndex}_");
+        pushedDownColumns = QueryPlanDerivedColumnMap.FromSqlRowProjection(root.Alias, sqlRow);
 
         return new SqlQuery<T>(root.Table, dataSource, root.Alias)
             .UseDerivedSource(innerSql);
@@ -166,7 +206,11 @@ internal sealed class QueryPlanSqlBuilder
             for (var columnIndex = 0; columnIndex < source.Table.PrimaryKeyColumns.Length; columnIndex++)
             {
                 var column = source.Table.PrimaryKeyColumns[columnIndex];
-                selectors.Add($"{source.Alias}.{escape}{column.DbName}{escape} AS {escape}{GetJoinedPrimaryKeyAlias(sourceIndex, columnIndex)}{escape}");
+                var alias = GetJoinedPrimaryKeyAlias(sourceIndex, columnIndex);
+                var sourceSql = derivedColumns is null
+                    ? $"{source.Alias}.{escape}{column.DbName}{escape}"
+                    : $"{derivedColumns.SourceAlias}.{escape}{alias}{escape}";
+                selectors.Add($"{sourceSql} AS {escape}{alias}{escape}");
             }
         }
 
@@ -175,7 +219,7 @@ internal sealed class QueryPlanSqlBuilder
 
     public IReadOnlyList<QueryPlanSourceSlot> GetJoinedSources()
     {
-        if (!plan.Operations.Any(static operation => operation is QueryPlanOperation.Join))
+        if (!plan.Operations.Any(static operation => ContainsJoinOperation(operation)))
             return [sourceMap.RootSource];
 
         return plan.Sources
@@ -183,6 +227,14 @@ internal sealed class QueryPlanSqlBuilder
             .OrderBy(static source => source.Id, StringComparer.Ordinal)
             .ToArray();
     }
+
+    private static bool ContainsJoinOperation(QueryPlanOperation operation)
+        => operation switch
+        {
+            QueryPlanOperation.Join => true,
+            QueryPlanOperation.Pushdown pushdown => pushdown.Operations.Any(static inner => ContainsJoinOperation(inner)),
+            _ => false
+        };
 
     public static string GetJoinedPrimaryKeyAlias(int sourceIndex, int columnIndex)
         => $"dl_{sourceIndex}_pk_{columnIndex}";
@@ -209,8 +261,9 @@ internal sealed class QueryPlanSqlBuilder
         {
             if (ordering.Value is QueryPlanColumnValue column)
             {
-                var source = sourceMap.Get(column.Source);
-                query.OrderBy(column.Column, source.Alias, ordering.Direction == QueryPlanOrderingDirection.Ascending);
+                query.OrderByRaw(
+                    valueRenderer.RenderColumnSql(column),
+                    ordering.Direction == QueryPlanOrderingDirection.Ascending);
                 continue;
             }
 

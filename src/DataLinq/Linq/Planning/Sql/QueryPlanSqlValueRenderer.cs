@@ -12,7 +12,8 @@ namespace DataLinq.Linq.Planning.Sql;
 internal sealed class QueryPlanSqlValueRenderer(
     IDataSourceAccess dataSource,
     QueryPlanSqlSourceMap sourceMap,
-    QueryPlanBindingFrame bindings)
+    QueryPlanBindingFrame bindings,
+    QueryPlanDerivedColumnMap? derivedColumns = null)
 {
     public Operand RenderOperand(QueryPlanValue value)
     {
@@ -35,6 +36,12 @@ internal sealed class QueryPlanSqlValueRenderer(
     public ColumnOperandWithDefinition RenderColumnOperand(QueryPlanColumnValue column)
     {
         ArgumentNullException.ThrowIfNull(column);
+
+        if (derivedColumns is not null &&
+            derivedColumns.TryGetAlias(column, out var derivedAlias))
+        {
+            return new ColumnOperandWithDefinition(column.Column, derivedAlias, derivedColumns.SourceAlias);
+        }
 
         var source = sourceMap.Get(column.Source);
         return Operand.Column(column.Column, source.Alias);
@@ -77,6 +84,13 @@ internal sealed class QueryPlanSqlValueRenderer(
     public string RenderColumnSql(QueryPlanColumnValue column)
     {
         ArgumentNullException.ThrowIfNull(column);
+
+        if (derivedColumns is not null &&
+            derivedColumns.TryGetAlias(column, out var derivedAlias))
+        {
+            var derivedEscape = dataSource.Provider.Constants.EscapeCharacter;
+            return $"{derivedColumns.SourceAlias}.{derivedEscape}{derivedAlias}{derivedEscape}";
+        }
 
         var source = sourceMap.Get(column.Source);
         var escape = dataSource.Provider.Constants.EscapeCharacter;
@@ -199,6 +213,8 @@ internal sealed class QueryPlanSqlValueRenderer(
     {
         return value switch
         {
+            QueryPlanColumnValue column when derivedColumns is not null &&
+                derivedColumns.TryGetAlias(column, out _) => RenderColumnSql(column),
             QueryPlanColumnValue column => column.Column.DbName,
             QueryPlanFunctionValue function => RenderFunctionSql(function),
             QueryPlanConvertedValue converted => RenderProviderFunctionArgument(converted.Value),

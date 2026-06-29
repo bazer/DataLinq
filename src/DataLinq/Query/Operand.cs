@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Extensions.Helpers;
@@ -65,6 +65,12 @@ public class ColumnOperandWithDefinition : ColumnOperand
     public ColumnDefinition ColumnDefinition { get; }
     internal ColumnOperandWithDefinition(ColumnDefinition column, string? alias = null)
         : base(column.DbName, alias)
+    {
+        ColumnDefinition = column;
+    }
+
+    internal ColumnOperandWithDefinition(ColumnDefinition column, string name, string? alias)
+        : base(name, alias)
     {
         ColumnDefinition = column;
     }
