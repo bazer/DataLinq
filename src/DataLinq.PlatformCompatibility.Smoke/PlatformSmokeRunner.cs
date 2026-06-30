@@ -16,6 +16,8 @@ public sealed record PlatformSmokeProjection(string NormalizedTitle, int Priorit
 
 public sealed record PlatformSmokeExpressionRoute(int OpenTaskCount, string FirstTaskTitle);
 
+public sealed record PlatformSmokeJoinedTaskOwner(int Id, string Title, string OwnerName);
+
 public sealed record PlatformSmokeQueryCoverage(
     int PrioritySum,
     int PriorityMin,
@@ -355,12 +357,7 @@ public static class PlatformSmokeRunner
                 owners,
                 task => task.OwnerId,
                 owner => owner.Id,
-                (task, owner) => new
-                {
-                    task.Id,
-                    task.Title,
-                    OwnerName = owner.Name
-                })
+                (task, owner) => new PlatformSmokeJoinedTaskOwner(task.Id, task.Title, owner.Name))
             .ToList()
             .OrderBy(static row => row.Id)
             .Select(static row => $"{row.OwnerName}:{row.Title}")

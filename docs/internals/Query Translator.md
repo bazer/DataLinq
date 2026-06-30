@@ -10,7 +10,7 @@ For the user-facing contract, start with [Supported LINQ Queries](../Supported%2
 
 DataLinq now owns the production parser boundary for the documented LINQ subset. `Queryable<T>` uses `ExpressionQueryPlanProvider`, which parses supported `System.Linq.Expressions` trees with `ExpressionQueryPlanParser` and produces a `DataLinqQueryPlan`.
 
-The plan model is the semantic boundary. It records source slots, ordered operations, predicates, projection shape, result kind, and captured-value bindings. SQL generation and execution consume that DataLinq-owned plan instead of parser-specific clause or query-model types.
+The plan model is the semantic boundary. It records source slots, ordered operations, predicates, projection shape, result kind, and captured-value bindings. Parser-time binding capture uses a mutable `QueryPlanBindingFrame`, but `DataLinqQueryPlan` owns an immutable `QueryPlanBindings` snapshot so SQL rendering can resolve captured values without mutable plan state or render-time binding scans. SQL generation and execution consume that DataLinq-owned plan instead of parser-specific clause or query-model types.
 
 `Remotion.Linq` is historical migration context for the 0.8 parser replacement. It is not part of the active production query provider or public runtime package dependency graph.
 

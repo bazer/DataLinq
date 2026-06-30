@@ -3,7 +3,7 @@
 
 # 0.8 Phase 12 Implementation Plan: AOT Release Gates and Support Contract
 
-**Status:** Release gate wiring implemented; Phase 23 current compatibility evidence unblocks the narrow generated SQLite browser AOT runtime claim, with clean-output and warning caveats.
+**Status:** Release gate wiring implemented; Phase 24 current compatibility evidence unblocks the narrow generated SQLite constrained-platform claim, with SQLitePCLRaw warning caveats.
 
 ## Goal
 
@@ -15,7 +15,7 @@ The intended 0.8 claim is narrow:
 
 That does not include arbitrary LINQ, reflection-discovered models, MySQL/MariaDB browser support, OPFS/file-backed browser storage, or no-AOT browser WebAssembly beyond the current generated SQLite smoke boundary.
 
-Historical host-side browser evidence at `artifacts/dev/compat-size-report/20260628-163740998/` failed while opening generated SQLite in WebAssembly AOT with `MONO_WASM: function signature mismatch`. Phase 23 supersedes that with `artifacts/dev/compat-size-report/20260629-210510424/`, which publishes `wasm-aot` and passes browser smoke at `verifying-strict-parser-projection`. Clean-output WebAssembly publish still fails before browser execution with the Blazor SDK `ResolveWasmOutputs` target issue, so final release wording must keep that caveat separate from runtime support.
+Historical host-side browser evidence at `artifacts/dev/compat-size-report/20260628-163740998/` failed while opening generated SQLite in WebAssembly AOT with `MONO_WASM: function signature mismatch`. Phase 23 superseded that with `artifacts/dev/compat-size-report/20260629-210510424/`, which publishes `wasm-aot` and passes browser smoke at `verifying-strict-parser-projection`. Phase 24 supersedes the clean-output SDK caveat with `artifacts/dev/compat-size-report/20260630-131026977/report.md`, which passes Native AOT, trimmed, `wasm`, and `wasm-aot` from clean output with release thresholds and banned-payload failure enabled.
 
 ## Gate Commands
 
@@ -66,6 +66,7 @@ The final closeout should record:
 
 Current evidence to carry forward:
 
+- `artifacts/dev/compat-size-report/20260630-131026977/report.md`: final clean-output `phase8c` report; Native AOT, trimmed, `wasm`, and `wasm-aot` publish and smoke passed.
 - `artifacts/dev/compat-size-report/20260629-210510424/`: `wasm-aot` publish ok, browser smoke passed at `verifying-strict-parser-projection`.
 - `artifacts/dev/compat-size-report/20260629-205114951/`: `wasm` publish ok, browser smoke passed at `verifying-strict-parser-projection`.
 - `artifacts/dev/compat-size-report/20260629-205036682/`: clean-output `wasm-aot` publish failed with `ResolveWasmOutputs`.

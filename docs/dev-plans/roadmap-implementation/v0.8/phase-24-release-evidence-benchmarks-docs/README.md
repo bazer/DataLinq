@@ -3,7 +3,7 @@
 
 # 0.8 Phase 24: Release Evidence, Benchmarks, and Docs
 
-**Status:** Planned.
+**Status:** Implemented.
 
 Execution plan: [Implementation Plan](Implementation%20Plan.md).
 
@@ -11,7 +11,7 @@ Execution plan: [Implementation Plan](Implementation%20Plan.md).
 
 Phase 24 is the final 0.8 release-readiness pass.
 
-By this point the parser cleanup should be complete and the browser AOT question has current Phase 23 evidence: the generated SQLite browser AOT runtime blocker is fixed, no-AOT passes the same narrow smoke boundary, clean-output WebAssembly publish still fails before browser execution with the SDK `ResolveWasmOutputs` issue, and `WASM0001` warnings remain visible. Phase 24 does not add product behavior. It collects final evidence, refreshes benchmark baselines, verifies package hygiene, and makes the public docs match what the artifacts prove.
+By this point the parser cleanup is complete and the browser AOT question has current Phase 23/24 evidence: the generated SQLite browser AOT runtime blocker is fixed, no-AOT passes the same narrow smoke boundary, the final clean-output release report passes, and `WASM0001` warnings remain visible. Phase 24 does not add product behavior. It collects final evidence, refreshes benchmark baselines, verifies package hygiene, and makes the public docs match what the artifacts prove.
 
 ## Scope
 
@@ -84,6 +84,39 @@ The docs should be boringly precise:
 - clean-output WebAssembly publish either fixed or explicitly classified as SDK/toolchain evidence
 - documented LINQ subset only
 - no arbitrary LINQ, no materialized `IGrouping`, no left joins, no non-SQL backends
+
+## Closeout Evidence
+
+Final compatibility report:
+
+- `artifacts/dev/compat-size-report/20260630-131026977/report.md`
+- Native AOT: publish ok, smoke ok, 0 warnings, 0 banned payloads
+- Trimmed: publish ok, smoke ok, 0 warnings, 0 banned payloads
+- WebAssembly no-AOT: publish ok, browser smoke ok, 0 banned payloads, 13 visible `WASM0001` diagnostics
+- WebAssembly AOT: publish ok, browser smoke ok, 0 banned payloads, 13 visible `WASM0001` diagnostics
+
+Package evidence:
+
+- package output: `artifacts/nuget-release/v0.8-final`
+- package report confirmed Roslyn is absent from runtime dependency groups for `DataLinq`, `DataLinq.SQLite`, and `DataLinq.MySql`
+- generator assets remain packaged as analyzers under `DataLinq`
+- `DataLinq.Tools` intentionally carries `Microsoft.CodeAnalysis.CSharp`
+- no NuGet publishing was performed
+
+Smoke and test evidence:
+
+- standalone `DataLinq.AotSmoke`: passed
+- full Testing CLI `--alias all`: 2778/2778 passed
+- docs build: passed
+
+Benchmark evidence:
+
+- query hotpath history: `artifacts/benchmarks/history/v0.8-final-query-hotpath.json`
+- query hotpath summary: `artifacts/benchmarks/results/20260630-131912069-17f558bd98aa4c24bae2537536bff983-summary.json`
+- phase2 watch history: `artifacts/benchmarks/history/v0.8-final-phase2-watch.json`
+- phase2 watch summary: `artifacts/benchmarks/results/20260630-132114783-483249215eea4cb2a5124c13c326718e-summary.json`
+
+One release-harness fix was needed before the final compatibility report could pass. The smoke harness replaced an anonymous join projection with an explicit `PlatformSmokeJoinedTaskOwner` record so the expression tree no longer emits the trimmer-unsafe `Expression.New(ConstructorInfo, IEnumerable<Expression>, MemberInfo[])` overload. That preserves the same documented join coverage without adding product behavior.
 
 ## Exit Criteria
 

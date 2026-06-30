@@ -201,15 +201,18 @@ flowchart LR
     A["Expression tree"] --> B["QueryPlanBindingFrame"]
     B --> C["p0<br/>Scalar value"]
     B --> D["p1<br/>Local sequence values"]
-    C --> E["QueryPlanCapturedValue"]
-    D --> F["QueryPlanLocalSequenceValue"]
-    E --> G["SQL parameter rendering"]
-    F --> G
+    B --> E["QueryPlanBindings<br/>immutable plan snapshot"]
+    C --> F["QueryPlanCapturedValue"]
+    D --> G["QueryPlanLocalSequenceValue"]
+    F --> H["SQL parameter rendering"]
+    G --> H
 ```
 
 A captured scalar becomes a `QueryPlanCapturedValue` such as `p0`. A local `IN (...)` list becomes a `QueryPlanLocalSequenceValue`. Empty local collections are not rendered as invalid `IN ()` SQL; they collapse to fixed true or false predicates.
 
-This is also a useful future seam for plan caching. The structural plan and the captured values are not the same thing.
+The mutable `QueryPlanBindingFrame` is parser-time builder state only. `DataLinqQueryPlan` freezes it into `QueryPlanBindings`, which owns copied binding storage, keeps local sequence values protected from caller mutation, and provides stable O(1) lookup for render-time captured values.
+
+This is also a useful future seam for plan caching. The structural plan and the captured values are not the same thing, and the plan boundary no longer exposes mutable binding-frame state by convention.
 
 ## SQL Rendering
 
@@ -284,7 +287,9 @@ The current projection model is intentionally split into plan shape and executio
 | `Anonymous` | Return a structured row-local projection. |
 | `ComputedRowLocalExpression` | Evaluate a supported computed expression after row materialization. |
 | `JoinedRowLocal` | Evaluate a supported projection over joined materialized rows. |
-| `GroupedAggregate` | Return SQL grouped aggregate rows for the narrow direct-key `group.Key` plus `group.Count()` shape. |
+| `SqlRow` | Read direct source-slot projection members from SQL aliases. |
+| `TransparentIdentifier` | Bind compiler-generated query-syntax carriers back to source slots. |
+| `GroupedAggregate` | Return SQL grouped aggregate rows for supported key and aggregate projection shapes. |
 
 This keeps hidden I/O out of projection. Relation-property projection inside provider `Select(...)` is rejected because it would make a provider query look like one SQL operation while hiding relation traversal behind the projection.
 
@@ -315,36 +320,37 @@ Implemented in the current 0.8 branch:
 - Architecture tests guard plan/parser/SQL renderer types against Remotion type exposure.
 - The support matrix is backed by active compliance tests for the documented query subset.
 - Trimmed compatibility reporting is no longer blocked by a Remotion dependency.
+- Query-plan bindings are frozen into immutable plan-owned snapshots before SQL rendering.
 
 Supported parser areas include:
 
 - single-source filters, ordering, paging, and row-local projections
 - single-source post-paging filters/orderings through explicit query-plan pushdown
 - scalar result operators and direct numeric aggregates
-- single-source grouped aggregate projection for a direct mapped key plus `group.Key` and `group.Count()`
-- explicit two-source inner join composition for predicates, ordering, paging, `Any`, and `Count` over projected source-slot members
+- grouped aggregate projection for direct, composite, and SQL-renderable computed keys; grouped `Count`, direct numeric grouped aggregates, narrow `HAVING`, and grouped-row composition
+- explicit two-source inner join composition for predicates, ordering, paging, `Any`, and `Count` over projected source-slot members, including supported post-paging joined pushdown
+- single C# query-syntax inner joins whose transparent identifiers bind back to source slots
 - local collection membership for documented shapes
 - nullable predicate semantics covered by tests
 - string and date/time member/function translations documented in the support matrix
 - one-to-many relation `Any(...)` and existence-equivalent `Count()` predicates
 - one narrow explicit inner `Join(...)` shape
-- singular implicit relation predicates/orderings rendered as inner joins
+- singular implicit relation predicates, orderings, and direct projection rendered as inner joins
 
 Still deliberately outside the current support boundary:
 
 - arbitrary LINQ
-- broad `GroupBy(...)` beyond the documented grouped `Count()` projection
+- broad `GroupBy(...)` beyond the documented SQL-backed grouped aggregate projection shapes
 - `GroupJoin(...)`
 - outer joins
 - multiple explicit joins
 - composite anonymous-object join keys
-- post-paging composition over joined row shapes
-- multi-join and query-syntax transparent-identifier joins
+- multi-join query syntax and opaque transparent-identifier joins
 - fluent `JoinBy(...)`, `JoinMany(...)`, and left-join APIs
-- implicit relation projection and left-join null-preserving relation traversal
+- left-join null-preserving relation traversal
 - arbitrary nested database subqueries beyond the supported single-source pushdown boundary
-- SQL-backed projection lists as a broad feature
-- relation-property projections inside provider `Select(...)`
+- SQL-backed projection lists as a broad feature beyond direct source-slot rows
+- relation object and collection relation projections inside provider `Select(...)`
 - arbitrary local method calls inside provider predicates
 - nested database subqueries
 - non-SQL query executors

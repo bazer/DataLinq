@@ -11,11 +11,12 @@ All notable changes to this project will be documented in this file.
 * Replaced the production LINQ parser boundary with DataLinq's expression parser and removed `Remotion.Linq` from the main runtime package graph.
 * Deleted the temporary Remotion query executor, adapter, visitors, and test oracle scaffolding after moving supported SQL generation to DataLinq query-plan nodes.
 * Updated query translator, platform compatibility, source-generator, support-matrix, and roadmap docs so Remotion is historical migration context rather than current runtime behavior.
-* Verified fresh package output and constrained trimmed publish reports without `Remotion.Linq` runtime dependency entries or trim warnings; Native AOT is currently classified as a local toolchain prerequisite failure rather than a query dependency warning.
+* Verified fresh package output and constrained Native AOT, trimmed, WebAssembly no-AOT, and WebAssembly AOT reports without `Remotion.Linq` runtime dependency entries, Roslyn runtime payloads, or banned payload findings.
 * Added browser smoke automation to `DataLinq.Dev.CLI size-report` for WebAssembly targets using Playwright, local HTTP serving, DOM smoke status polling, console/page-error capture, and per-target `browser-smoke.log` evidence.
 * Expanded the shared generated SQLite constrained-platform smoke to cover selected documented LINQ shapes, including aggregates, paging, relation predicates, explicit joins, local membership, nullable predicates, unsupported diagnostics, and AOT-strict parser/projection checks.
 * Added `size-report --clean-output` for fresh WebAssembly warning evidence and `--release-thresholds` for 0.8 target-specific payload gates.
-* Recorded fresh WebAssembly AOT browser evidence: the current smoke publishes but fails while opening generated SQLite with `MONO_WASM: function signature mismatch`, so browser AOT remains blocked rather than promoted as supported.
+* Fixed the WebAssembly AOT browser startup failure in generated metadata startup and recorded final clean-output release evidence: generated SQLite Native AOT, trimmed publish, WebAssembly no-AOT, and WebAssembly AOT all publish and smoke successfully under the release thresholds.
+* Kept SQLitePCLRaw `WASM0001` varargs warnings visible as a bounded WebAssembly caveat; the generated SQLite browser smoke proves the documented path does not hit those imports, but broad browser storage/provider configurations are not claimed.
 
 ---
 

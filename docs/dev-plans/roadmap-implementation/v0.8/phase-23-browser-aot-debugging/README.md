@@ -15,7 +15,7 @@ The phase fixed the current browser runtime blocker. The WebAssembly AOT target 
 
 The old failure was not SQLitePCLRaw varargs, provider registration, raw connection open, or the DataLinq database constructor. It was the generic generated metadata startup path wrapping static abstract generated metadata hooks in delegates. Mono WebAssembly AOT failed that delegate/static-interface-member combination with `MONO_WASM: function signature mismatch` before metadata definition construction. The generic path now calls `TDatabase.GetDataLinqGeneratedMetadata()` and `TDatabase.SetDataLinqGeneratedMetadata(...)` directly.
 
-The result is useful, not magic. Clean-output WebAssembly publish still fails before browser execution with the Blazor SDK `ResolveWasmOutputs` target issue, and fresh WebAssembly publishes still emit `WASM0001` diagnostics for SQLitePCLRaw varargs exports. Those warnings are kept visible; no global suppression was added.
+The result is useful, not magic. Phase 23 still left clean-output WebAssembly publish failing before browser execution with the Blazor SDK `ResolveWasmOutputs` target issue, and fresh WebAssembly publishes still emitted `WASM0001` diagnostics for SQLitePCLRaw varargs exports. Phase 24 superseded the clean-output caveat with a passing final clean-output report at `artifacts/dev/compat-size-report/20260630-131026977/report.md`. The `WASM0001` warnings remain visible; no global suppression was added.
 
 ## Scope
 
@@ -83,6 +83,10 @@ Captured evidence:
 - no-AOT runtime pass: `artifacts/dev/compat-size-report/20260629-205114951/report.md`
 - no-AOT browser smoke: `artifacts/dev/compat-size-report/20260629-205114951/wasm/browser-smoke.log`
 - no-AOT clean-output SDK failure: `artifacts/dev/compat-size-report/20260629-205211590/report.md`
+
+Superseding Phase 24 clean-output evidence:
+
+- final clean-output compatibility pass: `artifacts/dev/compat-size-report/20260630-131026977/report.md`
 
 ## Exit Criteria
 

@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material for DataLinq 0.8. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # 0.8 Phase 9: WebAssembly Warning and no-AOT Disposition
 
-**Status:** Tooling implemented; Phase 23 current evidence proves the generated SQLite browser smoke, with clean-output and warning caveats still visible.
+**Status:** Tooling implemented; Phase 24 current evidence proves the generated SQLite browser smoke from clean output, with `WASM0001` warning caveats still visible.
 
 Execution record: [Implementation Plan](Implementation%20Plan.md).
 
@@ -12,7 +12,7 @@ Phase 9 closes the two browser questions that are currently too fuzzy: SQLitePCL
 
 The correct outcome might be "supported", "unsupported", or "suppressed with proof". The unacceptable outcome is warning silence caused by incremental publish artifacts or a no-AOT publish that nobody actually loads in a browser.
 
-Historical Phase 9 evidence was not supportable: the host-side `wasm-aot` browser report failed with `MONO_WASM: function signature mismatch` while opening generated SQLite, and the clean-output publish path exposed a Blazor SDK `ResolveWasmOutputs` target failure before the browser could run. Phase 23 fixes the browser runtime failure for the generated SQLite smoke. The clean-output SDK failure and `WASM0001` warning disposition remain caveats, not warning noise.
+Historical Phase 9 evidence was not supportable: the host-side `wasm-aot` browser report failed with `MONO_WASM: function signature mismatch` while opening generated SQLite, and the clean-output publish path exposed a Blazor SDK `ResolveWasmOutputs` target failure before the browser could run. Phase 23 fixed the browser runtime failure for the generated SQLite smoke. Phase 24 then produced a passing final clean-output report at `artifacts/dev/compat-size-report/20260630-131026977/report.md`. The `WASM0001` warning disposition remains a caveat, not warning noise.
 
 ## Scope
 
