@@ -7,6 +7,8 @@
 
 **Related foundation:** Whole-value JSON serialization/deserialization should build on [Scalar Converter Support](../metadata-and-generation/Scalar%20Converter%20Support.md). This document owns provider-native JSON path querying, JSON indexing semantics, and partial JSON update behavior.
 
+**Boundary note:** This is about JSON values inside SQL provider columns. The JSON store backend is separate and is tracked in [JSON Store Backend Architecture](../backends/json/Store%20Backend%20Architecture.md). The store backend owns a DataLinq-controlled persistence format; it does not map arbitrary existing JSON documents.
+
 ---
 
 ## 1. The Data Model (Storage & Mapping)
@@ -17,8 +19,8 @@ We need to map a Database Column (JSON/TEXT) to a C# Complex Type.
 We introduce an explicit attribute to distinguish standard strings/byte arrays from JSON payloads.
 
 ```csharp
-public class UserConfig 
-{ 
+public class UserConfig
+{
     public string Theme { get; set; }
     public bool NotificationsEnabled { get; set; }
 }
@@ -26,7 +28,7 @@ public class UserConfig
 // In User Model
 [JsonColumn] // Signals DataLinq to handle serialization/querying logic
 [Column("config")]
-public abstract UserConfig Config { get; } 
+public abstract UserConfig Config { get; }
 ```
 
 ### 1.2. Storage Strategy (Lazy Deserialization)
