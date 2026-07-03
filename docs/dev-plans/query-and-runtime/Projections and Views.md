@@ -115,8 +115,8 @@ When a transaction commits changes to `Orders`:
     *   *Lazy:* Recompute next time it is accessed.
     *   *Eager:* Recompute immediately in the background (keeping the old version available for lock-free reads until finished).
 
-### 4.4. Integration with In-Memory DB
-If the **In-Memory Provider** is active:
+### 4.4. Integration with Memory Backend
+If the **memory backend** is active:
 *   The View is literally just another `ImmutableDictionary` in RAM.
 *   Queries against the View (`db.Views.HighValueOrders.Where(...)`) are executed purely in memory, with no SQL generation.
 

@@ -9,7 +9,7 @@
 **Related work:**
 
 - `docs/dev-plans/architecture/Dependency Injection and Hosting Integration.md`
-- `docs/dev-plans/providers-and-features/In-Memory Provider.md`
+- `docs/dev-plans/backends/memory/Architecture.md`
 - `docs/contributing/DataLinq.Testing.CLI.md`
 
 ## Problem Statement
@@ -71,7 +71,7 @@ This split matters. Mocked DataLinq tests should prove application behavior. The
 - No claim that fake query execution proves provider SQL translation.
 - No attempt to make arbitrary mocking frameworks understand all DataLinq internals.
 - No automatic replacement of provider-backed tests.
-- No full ACID in-memory provider in this plan. That belongs to the in-memory provider plan.
+- No full memory backend in this plan. That belongs to the memory backend architecture and implementation plans.
 - No hidden database creation from unit-test helpers.
 - No test helper that silently ignores relation/key mismatches.
 

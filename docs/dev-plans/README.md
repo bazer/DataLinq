@@ -27,6 +27,11 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 - `platform-compatibility/Practical AOT and Size Plan.md`
 
+### Backends
+
+- `backends/memory/README.md`
+- `backends/memory/Architecture.md`
+
 ### Incubating companion projects
 
 - `DataLinq.Store/README.md`
@@ -67,6 +72,8 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 - `roadmap-implementation/README.md`
 - `roadmap-implementation/v0.8/README.md`
+- `roadmap-implementation/v0.9/README.md`
+- `roadmap-implementation/v0.9/In-Memory Database Implementation Plan.md`
 - `roadmap-implementation/v0.8/phase-1-query-contract-and-plan-baseline/README.md`
 - `roadmap-implementation/v0.8/phase-2-remotion-plan-adapter/README.md`
 - `roadmap-implementation/v0.8/phase-3-sql-generation-on-query-plan/README.md`
@@ -101,7 +108,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ### Providers and features
 
-- `providers-and-features/In-Memory Provider.md`
+- `providers-and-features/In-Memory Provider.md` (superseded; redirects to `backends/memory/`)
 - `providers-and-features/Generated Column Support.md`
 - `providers-and-features/JSON Data Type Support.md`
 - `providers-and-features/Check Constraint Metadata Design.md`

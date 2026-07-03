@@ -19,6 +19,8 @@ The proposed 0.9 theme is:
 
 The important word is "prove". The goal is not to announce broad new production backends before the execution model has earned it. The goal is to force the parser, plan model, value conversion, projection, mutation, cache, and diagnostics layers to survive outside the SQL renderer.
 
+The durable in-memory backend design is tracked in [Memory Backend Architecture](../../backends/memory/Architecture.md). The immediate 0.9 execution slice is tracked in [In-Memory Database Implementation Plan](In-Memory%20Database%20Implementation%20Plan.md). AOT and browser/WebAssembly are first-class constraints, not compatibility polish after the provider works on desktop.
+
 ## Opinionated Priority
 
 The strongest 0.9 sequence is:
@@ -106,6 +108,7 @@ Build a real DataLinq in-memory backend, not SQLite in-memory and not a loose fa
 Initial scope should be deliberately narrow:
 
 - generated models only
+- browser/WebAssembly AOT as a baseline runtime
 - metadata-driven tables
 - primary-key indexed row storage
 - immutable row materialization compatible with existing cache expectations
@@ -127,9 +130,10 @@ Decide how far the in-memory backend goes beyond read queries.
 Useful scope:
 
 - insert/update/delete against generated mutable models
-- transaction-like isolation if practical, or explicit documentation that it is not transactional
+- atomic, isolated in-process transactions with no durability claim, or explicit documentation that mutation is not transactional yet
 - relation/index invalidation behavior
 - deterministic test fixtures
+- store snapshots/forks for browser scenarios and test isolation
 - optional testing helpers that are clearly distinct from SQLite in-memory
 
 This phase is where the in-memory backend can become genuinely useful for user tests. It should still be honest about durability and concurrency.
@@ -232,7 +236,8 @@ Claims to avoid unless proven:
 - Existing SQLite, MySQL, and MariaDB behavior must stay green.
 - Backend-neutral work must not weaken the documented LINQ subset.
 - Unsupported backend/query shapes must fail clearly.
-- AOT-sensitive code paths should avoid `Expression.Compile()` and broad reflection fallback.
+- AOT-sensitive code paths should avoid `Expression.Compile()`, runtime code generation, and broad reflection fallback.
+- The in-memory backend should be able to run in browser WebAssembly without native SQLite, OPFS, or browser file APIs.
 - Benchmarks should distinguish allocation evidence from latency claims.
 - Public docs must separate production SQL providers, in-memory testing support, and experimental JSON persistence.
 
