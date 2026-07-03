@@ -81,7 +81,7 @@ public class ProjectionExpressionEvaluatorTests
     }
 
     [Test]
-    public async Task CleanedParserAndProjectionSources_DoNotHideDynamicInvocationFallbacks()
+    public async Task CleanedParserAndProjectionSources_DoNotHideUnfencedDynamicInvocationFallbacks()
     {
         var root = FindRepositoryRoot();
         var sourceFiles = new[]
@@ -94,8 +94,6 @@ public class ProjectionExpressionEvaluatorTests
         {
             "Expression.Compile",
             "DynamicInvoke",
-            "Method.Invoke",
-            ".Method.Invoke",
             "Array.CreateInstance",
             "Delegate.CreateDelegate",
             ".CreateDelegate("
@@ -109,6 +107,25 @@ public class ProjectionExpressionEvaluatorTests
                 if (contents.Contains(bannedPattern, StringComparison.Ordinal))
                     throw new InvalidOperationException($"Source file '{sourceFile}' contains banned dynamic invocation pattern '{bannedPattern}'.");
             }
+        }
+
+        var methodInvokeBannedFiles = sourceFiles.Take(2);
+        foreach (var sourceFile in methodInvokeBannedFiles)
+        {
+            var contents = File.ReadAllText(sourceFile);
+            if (contents.Contains("Method.Invoke", StringComparison.Ordinal) ||
+                contents.Contains(".Method.Invoke", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"Source file '{sourceFile}' contains an unfenced method invocation fallback.");
+            }
+        }
+
+        var localValueEvaluator = File.ReadAllText(sourceFiles[2]);
+        if (!localValueEvaluator.Contains("AllowCompatibilityMethodReflection", StringComparison.Ordinal) ||
+            !localValueEvaluator.Contains("methodCall.Method.Invoke", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "ExpressionLocalValueEvaluator compatibility method invocation must stay explicit and guarded by AllowCompatibilityMethodReflection.");
         }
 
         await Assert.That(sourceFiles.Length).IsEqualTo(3);

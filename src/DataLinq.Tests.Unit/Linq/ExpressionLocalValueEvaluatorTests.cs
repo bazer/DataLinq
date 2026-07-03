@@ -24,17 +24,31 @@ public class ExpressionLocalValueEvaluatorTests
     }
 
     [Test]
-    public async Task LocalValueEvaluation_RejectsUserMethodsWithoutInvokingThem()
+    public async Task LocalValueEvaluation_AllowsParameterIndependentCompatibilityMethods()
     {
         var probe = new LocalMethodProbe();
         Expression<Func<int>> expression = () => probe.GetEmployeeNumber();
 
+        var actual = ExpressionLocalValueEvaluator.Evaluate(expression.Body);
+
+        await Assert.That(actual).IsEqualTo(10001);
+        await Assert.That(probe.InvocationCount).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task AotStrictLocalValueEvaluation_RejectsCompatibilityMethodsWithoutInvokingThem()
+    {
+        Expression<Func<int>> expression = () => ThrowIfInvokedEmployeeNumber();
+
         var exception = Capture<QueryTranslationException>(() =>
-            ExpressionLocalValueEvaluator.Evaluate(expression.Body));
+            ExpressionLocalValueEvaluator.Evaluate(
+                expression.Body,
+                null,
+                null,
+                ExpressionLocalValueEvaluationOptions.AotStrict));
 
         await Assert.That(exception).IsNotNull();
-        await Assert.That(exception!.Message).Contains("Local method call 'GetEmployeeNumber'");
-        await Assert.That(probe.InvocationCount).IsEqualTo(0);
+        await Assert.That(exception!.Message).Contains("Local method call 'ThrowIfInvokedEmployeeNumber' requires compatibility method reflection");
     }
 
     private static TException? Capture<TException>(Action action)
@@ -61,4 +75,7 @@ public class ExpressionLocalValueEvaluatorTests
             return 10001;
         }
     }
+
+    private static int ThrowIfInvokedEmployeeNumber()
+        => throw new InvalidOperationException("AOT-strict local method evaluation should reject before invocation.");
 }

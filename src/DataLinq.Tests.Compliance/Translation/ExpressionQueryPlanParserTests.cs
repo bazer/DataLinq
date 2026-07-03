@@ -557,11 +557,11 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
-    public async Task ExpressionParser_LocalMethodEvaluationFailsWithoutInvokingMethod()
+    public async Task ExpressionParser_LocalMethodEvaluationCapturesParameterIndependentMethods()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ExpressionParser_LocalMethodEvaluationFailsWithoutInvokingMethod),
+            nameof(ExpressionParser_LocalMethodEvaluationCapturesParameterIndependentMethods),
             EmployeesSeedMode.Bogus);
 
         var probe = new LocalMethodProbe();
@@ -569,22 +569,35 @@ public class ExpressionQueryPlanParserTests
         var scalarQuery = databaseScope.Database.Query().Employees
             .Where(x => x.emp_no == probe.GetEmployeeNumber());
 
-        var scalarException = Capture<QueryTranslationException>(() =>
-            ExpressionQueryPlanParser.Convert(databaseScope.Database, scalarQuery));
-
-        await Assert.That(scalarException).IsNotNull();
-        await Assert.That(scalarException!.Message).Contains("Local method call 'GetEmployeeNumber'");
-        await Assert.That(probe.EmployeeNumberInvocationCount).IsEqualTo(0);
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, scalarQuery);
+        await Assert.That(probe.EmployeeNumberInvocationCount).IsEqualTo(1);
 
         var sequenceQuery = databaseScope.Database.Query().Employees
             .Where(x => probe.GetEmployeeNumbers().Contains(x.emp_no!.Value));
 
-        var sequenceException = Capture<QueryTranslationException>(() =>
-            ExpressionQueryPlanParser.Convert(databaseScope.Database, sequenceQuery));
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, sequenceQuery);
+        await Assert.That(probe.EmployeeNumbersInvocationCount).IsEqualTo(1);
+    }
 
-        await Assert.That(sequenceException).IsNotNull();
-        await Assert.That(sequenceException!.Message).Contains("Local method call 'GetEmployeeNumbers'");
-        await Assert.That(probe.EmployeeNumbersInvocationCount).IsEqualTo(0);
+    [Test]
+    public async Task ExpressionParser_LocalMethodEvaluationStillRejectsQueryDependentMethods()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_LocalMethodEvaluationStillRejectsQueryDependentMethods),
+            EmployeesSeedMode.Bogus);
+
+        var probe = new LocalMethodProbe();
+
+        var query = databaseScope.Database.Query().Employees
+            .Where(x => probe.IsEmployeeNumber(x.emp_no!.Value));
+
+        var exception = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("Method 'IsEmployeeNumber' is not supported");
+        await Assert.That(probe.IsEmployeeNumberInvocationCount).IsEqualTo(0);
     }
 
     [Test]
@@ -608,6 +621,28 @@ public class ExpressionQueryPlanParserTests
 
         await Assert.That(exception).IsNotNull();
         await Assert.That(exception!.Message).Contains("requires compatibility member reflection");
+    }
+
+    [Test]
+    public async Task ExpressionParser_AotStrictLocalEvaluationRejectsCompatibilityMethodReflection()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_AotStrictLocalEvaluationRejectsCompatibilityMethodReflection),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().Employees
+            .Where(x => x.emp_no == ThrowIfInvokedEmployeeNumber());
+
+        var exception = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(
+                databaseScope.Database.Provider.Metadata,
+                query.Expression,
+                typeof(Employee),
+                ExpressionQueryPlanParserOptions.AotStrict));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("Local method call 'ThrowIfInvokedEmployeeNumber' requires compatibility method reflection");
     }
 
     private static async Task AssertParserProducesDataLinqPlan<T>(Database<EmployeesDb> database, IQueryable<T> query)
@@ -685,6 +720,9 @@ public class ExpressionQueryPlanParserTests
         }
     }
 
+    private static int ThrowIfInvokedEmployeeNumber()
+        => throw new InvalidOperationException("AOT-strict local method evaluation should reject before invocation.");
+
     private sealed record LocalEmployeeId(int Value);
 
     private sealed class LocalMethodProbe
@@ -692,6 +730,8 @@ public class ExpressionQueryPlanParserTests
         public int EmployeeNumberInvocationCount { get; private set; }
 
         public int EmployeeNumbersInvocationCount { get; private set; }
+
+        public int IsEmployeeNumberInvocationCount { get; private set; }
 
         public int GetEmployeeNumber()
         {
@@ -703,6 +743,12 @@ public class ExpressionQueryPlanParserTests
         {
             EmployeeNumbersInvocationCount++;
             return [10001, 10002];
+        }
+
+        public bool IsEmployeeNumber(int employeeNumber)
+        {
+            IsEmployeeNumberInvocationCount++;
+            return employeeNumber == 10001;
         }
     }
 }

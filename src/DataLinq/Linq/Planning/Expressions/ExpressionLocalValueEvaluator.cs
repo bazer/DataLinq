@@ -9,13 +9,17 @@ using DataLinq.Exceptions;
 
 namespace DataLinq.Linq.Planning.Expressions;
 
-internal readonly record struct ExpressionLocalValueEvaluationOptions(bool AllowCompatibilityMemberReflection)
+internal readonly record struct ExpressionLocalValueEvaluationOptions(
+    bool AllowCompatibilityMemberReflection,
+    bool AllowCompatibilityMethodReflection)
 {
     public static ExpressionLocalValueEvaluationOptions Default { get; } = new(
-        AllowCompatibilityMemberReflection: true);
+        AllowCompatibilityMemberReflection: true,
+        AllowCompatibilityMethodReflection: true);
 
     public static ExpressionLocalValueEvaluationOptions AotStrict { get; } = new(
-        AllowCompatibilityMemberReflection: false);
+        AllowCompatibilityMemberReflection: false,
+        AllowCompatibilityMethodReflection: false);
 }
 
 internal static class ExpressionLocalValueEvaluator
@@ -78,9 +82,7 @@ internal static class ExpressionLocalValueEvaluator
                 return value;
 
             case MethodCallExpression methodCall:
-                throw new QueryTranslationException(
-                    $"Local method call '{methodCall.Method.Name}' is not supported in DataLinq expression parsing. " +
-                    "Capture the value before building the query or use a documented DataLinq query function.");
+                return EvaluateCompatibilityMethod(methodCall, parameter, parameterValue, options);
 
             default:
                 throw new QueryTranslationException($"Local expression '{expression}' is not supported in DataLinq expression parsing.");
@@ -192,6 +194,38 @@ internal static class ExpressionLocalValueEvaluator
 
         value = null;
         return false;
+    }
+
+    private static object? EvaluateCompatibilityMethod(
+        MethodCallExpression methodCall,
+        ParameterExpression? parameter,
+        object? parameterValue,
+        ExpressionLocalValueEvaluationOptions options)
+    {
+        if (!options.AllowCompatibilityMethodReflection)
+        {
+            throw new QueryTranslationException(
+                $"Local method call '{methodCall.Method.Name}' requires compatibility method reflection in DataLinq expression parsing. " +
+                "Capture the value before building the query or use a documented DataLinq query function.");
+        }
+
+        var instance = methodCall.Object is null
+            ? null
+            : Evaluate(methodCall.Object, parameter, parameterValue, options);
+        var arguments = methodCall.Arguments
+            .Select(argument => Evaluate(argument, parameter, parameterValue, options))
+            .ToArray();
+
+        try
+        {
+            return methodCall.Method.Invoke(instance, arguments);
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is not null)
+        {
+            throw new QueryTranslationException(
+                $"Local method call '{methodCall.Method.Name}' threw while DataLinq evaluated it as a local value.",
+                exception.InnerException);
+        }
     }
 
     private static readonly MethodInfo ArrayEmptyMethod = ((Func<int[]>)Array.Empty<int>)
