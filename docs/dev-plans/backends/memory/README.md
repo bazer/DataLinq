@@ -14,6 +14,8 @@ Use this folder for design decisions that should outlive one implementation phas
 - provider architecture
 - AOT and browser/WebAssembly constraints
 - store and transaction semantics
+- persistence store boundaries
+- commit batches and replayability
 - query-plan execution semantics
 - seeding, snapshots, and fixture behavior
 - diagnostics, verification, and public wording
@@ -23,10 +25,13 @@ Use versioned roadmap folders such as `../roadmap-implementation/v0.9/` for phas
 ## Documents
 
 - [Architecture](Architecture.md): the current long-lived design for the in-memory backend.
+- [JSON Memory Persistence](persistence/json/README.md): the current long-lived design notes for JSON snapshots and commit logs over memory stores.
 
 ## Current Position
 
 The memory backend should be a real backend over generated DataLinq metadata, not SQLite in-memory, not a cache promotion, and not a SQL parser wearing a provider costume.
+
+Persistence stores such as JSON should attach to this backend. They should load snapshots, append/replay committed operation batches, and flush memory-store state. They should not become peer query backends.
 
 The central design rule:
 

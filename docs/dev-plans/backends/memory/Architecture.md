@@ -75,7 +75,7 @@ var rows = db.Query().Users
     .ToList();
 ```
 
-No files. No native libraries. No browser storage permission story. Persistence can come later as JSON or another explicit store.
+No files. No native libraries. No browser storage permission story in the baseline. Persistence should be an explicit memory-store option, not a different query backend.
 
 ## Relationship To SQLite In-Memory
 
@@ -128,6 +128,22 @@ var store = MemoryDatabaseStore.Create<AppDb>();
 var fork = store.Fork();
 ```
 
+Persistence should be configured when the memory store is created:
+
+```csharp
+var db = MemoryDatabase.Open<AppDb>(options => options
+    .UseJsonPersistence("appdb.datalinq.json", json => json
+        .SnapshotOnly()
+        .FlushOnCommit()));
+
+var store = MemoryDatabaseStore.Create<AppDb>(options => options
+    .UseJsonPersistence("appdb.datalinq.json", json => json
+        .SnapshotWithCommitLog()
+        .ExplicitFlush()));
+
+var db = new MemoryDatabase<AppDb>(store);
+```
+
 Useful optional builders:
 
 ```csharp
@@ -142,6 +158,8 @@ store.Seed(seed => seed
 ```
 
 Naming should avoid pretending this is a generic fake database. `MemoryDatabase<TDatabase>` and `MemoryDatabaseStore<TDatabase>` are clear. `MockDatabase` is wrong. This should be real enough to run application logic, not a mocking framework.
+
+The persistence package name is still open, but it should read as a companion to memory, for example `DataLinq.Memory.Json` or `DataLinq.Persistence.Json`. A top-level `DataLinq.JsonStore` package is probably the wrong signal because it sounds like a peer query backend or a document database.
 
 ## Store Model
 
@@ -169,6 +187,13 @@ internal sealed class MemoryRowBuffer
     public TableDefinition Table { get; init; }
     public object?[] ProviderValuesByOrdinal { get; init; }
 }
+
+internal sealed class MemoryCommitBatch
+{
+    public long FromVersion { get; init; }
+    public long ToVersion { get; init; }
+    public IReadOnlyList<MemoryCommitOperation> Operations { get; init; }
+}
 ```
 
 The exact data structures can change after benchmarking. The design intent should not:
@@ -179,6 +204,7 @@ The exact data structures can change after benchmarking. The design intent shoul
 - composite keys use generated/comparable key shapes where available
 - secondary indexes are derived from metadata, not manually configured ad hoc
 - table snapshots are replaceable as a unit
+- successful commits can be represented as canonical provider-value operation batches
 
 `System.Collections.Immutable` may be fine for the first implementation, but do not religiously commit to it before measurements. For small and medium browser data sets, allocation behavior may matter more than theoretical persistent-data-structure elegance. A copy-on-write table state with ordinary dictionaries plus versioned root swaps might be simpler and faster enough.
 
@@ -272,7 +298,7 @@ Initial transaction semantics:
 - every transaction starts from a store root version
 - reads inside a transaction see the starting snapshot plus the transaction's staged writes
 - insert/update/delete stage new table states
-- commit validates constraints and swaps the store root atomically
+- commit validates constraints, swaps the store root atomically, and emits a canonical commit batch
 - rollback discards staged changes
 - concurrent conflicting commits fail or retry according to a documented policy
 
@@ -291,6 +317,41 @@ Mutation support should include:
 - relation/index invalidation after commit
 
 The existing synchronous `Insert`, `Update`, and `Save` APIs should remain honest and materializing. Async can be added later only if the runtime/provider boundary has real async work to do. For a memory backend, fake async is worse than no async.
+
+## Commit Batches And Replayability
+
+The mutation layer should treat a successful commit as a durable internal artifact, not just as "the root pointer changed."
+
+A committed mutation should produce a `MemoryCommitBatch` or equivalent value:
+
+- version before commit
+- version after commit
+- database and schema identity
+- ordered insert/update/delete operations
+- table `DbName`
+- primary-key provider values
+- changed provider values by column `DbName` or ordinal
+- optional diagnostic metadata such as transaction label, source, or timestamp when supplied by the caller
+
+The commit batch should record committed provider-value operations after validation, not every attempted object mutation. That distinction matters. Replayability should mean "rebuild the same DataLinq memory store state from a snapshot plus committed operations," not "replay arbitrary user code, failed transactions, relation-cache events, or timing-dependent behavior."
+
+This gives DataLinq three useful persistence/export shapes:
+
+- `SnapshotOnly`: write the canonical final state.
+- `CommitLogOnly`: append committed batches and replay from an empty or seed snapshot.
+- `SnapshotWithCommitLog`: write periodic snapshots plus the committed batches after the snapshot.
+
+`SnapshotOnly` should be the default first implementation because it is easiest to inspect and hardest to corrupt. `SnapshotWithCommitLog` is the serious long-term mode because it gives startup checkpoints plus full committed-state replay. `CommitLogOnly` is useful for tests, debugging, and event-sourced workflows, but it should not be the default browser persistence story until startup cost, compaction, and schema evolution are proven.
+
+Commit log support should be designed with mutation improvements, not bolted on afterward. If the transaction layer cannot naturally describe its commit as an ordered operation batch, persistence and diagnostics will both get weaker.
+
+Open replay rules:
+
+- replay must validate schema identity before applying operations
+- replay must fail on unsupported schema changes unless an explicit migration/import path is provided
+- replay must be deterministic for generated keys, defaults, and clocks
+- replay should be able to stop at a target version for debugging
+- compaction should be snapshot creation plus old-log retention policy, not silent deletion of history
 
 ## Constraints
 
@@ -350,6 +411,8 @@ Useful features:
 - seed tables from mutable instances
 - seed tables from anonymous/table-shaped records only if mapping is explicit
 - import/export a deterministic snapshot object
+- import/export a deterministic committed operation log
+- replay a snapshot plus commit log to a target store version
 - fork a store cheaply for scenario tests
 - reset a store to a named seed snapshot
 - deterministic clock and generated-key services
@@ -371,6 +434,7 @@ The useful distinction:
 
 - `Fork()` is for independent scenario mutation
 - `Snapshot()` is for inspection/export/reuse
+- `CommitLog()` is for replay/debug/audit-like workflows over committed store operations
 - `Reset()` is for test lifecycle convenience
 
 ## Browser Use Cases
@@ -381,7 +445,7 @@ Real uses:
 
 - client-side demo data
 - transient application state with generated model ergonomics
-- offline-first prototypes before persistence is chosen
+- offline-first prototypes before the persistence policy is chosen
 - documentation samples that run without a server
 - local-first workflows where sync/persistence is a later explicit layer
 - replacing the current SQLite browser smoke dependency for query/runtime proof
@@ -395,7 +459,7 @@ The memory provider should be the simplest browser backer:
 - no hidden serialization
 - no browser-specific dependency for core behavior
 
-Persistence should be layered separately. JSON, IndexedDB, OPFS, or DataLinq.Store synchronization are future stores, not part of the baseline memory provider.
+Persistence should be layered through memory-store options. JSON snapshot/log persistence is the likely first persistence implementation. IndexedDB, OPFS, and DataLinq.Store synchronization can come later behind the same memory-store persistence boundary instead of becoming separate query backends.
 
 ## Compliance And Verification
 
@@ -405,6 +469,8 @@ Verification lanes:
 
 - unit tests for row buffers, key normalization, indexes, constraint validation, and snapshots
 - memory-provider tests for seeding, lookup, mutation, rollback, commit, and conflict handling
+- commit-batch tests for deterministic insert/update/delete operation capture
+- replay tests for snapshot-only, commit-log-only, and snapshot-with-commit-log flows when those modes ship
 - compliance tests shared with SQLite for the supported query subset
 - AOT strict smoke for generated models
 - browser WebAssembly smoke with `MemoryDatabase<TDatabase>` as the backing store
@@ -432,7 +498,8 @@ When this ships, public docs should separate:
 - SQL providers: SQLite, MySQL, MariaDB
 - memory provider: in-process generated-model backend
 - SQLite in-memory: SQLite provider mode
-- JSON or persistent local stores: experimental/future unless proven
+- JSON memory persistence: snapshot/log storage for the memory provider
+- other persistent local stores: experimental/future unless proven
 
 Avoid phrases like:
 
@@ -446,6 +513,10 @@ Better wording:
 
 > DataLinq.Memory is an in-process backend for generated DataLinq models. It executes the documented query subset directly from DataLinq query plans and is designed for tests, browser scenarios, examples, and transient application state.
 
+Persistence wording should stay attached to memory:
+
+> DataLinq memory stores can optionally persist snapshots and committed mutation logs through configured persistence stores such as JSON. Query and mutation semantics still belong to `DataLinq.Memory`; JSON is a storage format, not a query backend.
+
 ## Open Questions
 
 - Should `MemoryDatabase<TDatabase>` be constructed directly, or should all instances go through `MemoryDatabaseStore<TDatabase>`?
@@ -453,7 +524,9 @@ Better wording:
 - Should memory query semantics define the provider-neutral truth when SQL providers differ, or should it mimic SQLite for parity convenience?
 - How much of relation traversal should be in the first supported slice?
 - Should `Explain()` be memory-only at first or part of the shared backend diagnostics story?
-- Should browser persistence be JSON first, IndexedDB first, or deliberately out of scope until the memory backend is stable?
+- Should the first persistence package be named `DataLinq.Memory.Json`, `DataLinq.Persistence.Json`, or something else that does not imply a JSON query backend?
+- Should browser persistence start with JSON snapshot-only, JSON snapshot-plus-log, IndexedDB, or deliberately wait until the memory backend is stable?
+- How much commit-log/replay support should land with the first mutation implementation?
 - Which query shapes should be in the first WebAssembly smoke beyond PK lookup and simple filters?
 
 ## Non-Goals
@@ -463,7 +536,8 @@ Better wording:
 - SQL compatibility
 - SQLite compatibility quirks
 - cross-process sharing
-- durable persistence
+- durable persistence in the baseline memory package
+- treating persistence stores as independent query backends
 - distributed cache coordination
 - OPFS or IndexedDB persistence
 - DataLinq.Store integration

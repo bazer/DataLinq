@@ -31,8 +31,8 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 - `backends/memory/README.md`
 - `backends/memory/Architecture.md`
-- `backends/json/README.md`
-- `backends/json/Store Backend Architecture.md`
+- `backends/memory/persistence/json/README.md`
+- `backends/memory/persistence/json/JSON Persistence Store Architecture.md`
 
 ### Incubating companion projects
 
@@ -76,7 +76,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/v0.8/README.md`
 - `roadmap-implementation/v0.9/README.md`
 - `roadmap-implementation/v0.9/In-Memory Database Implementation Plan.md`
-- `roadmap-implementation/v0.9/JSON Store Implementation Plan.md`
+- `roadmap-implementation/v0.9/Memory JSON Persistence Implementation Plan.md`
 - `roadmap-implementation/v0.8/phase-1-query-contract-and-plan-baseline/README.md`
 - `roadmap-implementation/v0.8/phase-2-remotion-plan-adapter/README.md`
 - `roadmap-implementation/v0.8/phase-3-sql-generation-on-query-plan/README.md`

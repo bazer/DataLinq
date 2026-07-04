@@ -15,15 +15,15 @@
 
 The proposed 0.9 theme is:
 
-> Make DataLinq query plans backend-executable, then prove the design with an in-memory backend and an experimental JSON-backed store.
+> Make DataLinq query plans backend-executable, then prove the design with an in-memory backend and experimental JSON persistence for memory stores.
 
 The important word is "prove". The goal is not to announce broad new production backends before the execution model has earned it. The goal is to force the parser, plan model, value conversion, projection, mutation, cache, and diagnostics layers to survive outside the SQL renderer.
 
 The durable in-memory backend design is tracked in [Memory Backend Architecture](../../backends/memory/Architecture.md), and the immediate 0.9 execution slice is tracked in [In-Memory Database Implementation Plan](In-Memory%20Database%20Implementation%20Plan.md).
 
-The durable JSON store backend design is tracked in [JSON Store Backend Architecture](../../backends/json/Store%20Backend%20Architecture.md), and the immediate 0.9 execution slice is tracked in [JSON Store Implementation Plan](JSON%20Store%20Implementation%20Plan.md).
+The durable JSON memory-persistence design is tracked in [JSON Persistence Store Architecture](../../backends/memory/persistence/json/JSON%20Persistence%20Store%20Architecture.md), and the immediate 0.9 execution slice is tracked in [Memory JSON Persistence Implementation Plan](Memory%20JSON%20Persistence%20Implementation%20Plan.md).
 
-AOT and browser/WebAssembly are first-class constraints for these backend designs, not compatibility polish after the providers work on desktop.
+AOT and browser/WebAssembly are first-class constraints for these designs, not compatibility polish after the providers work on desktop.
 
 ## Opinionated Priority
 
@@ -34,11 +34,11 @@ The strongest 0.9 sequence is:
 3. Continue decomposing the LINQ parser where the architecture review found real pressure.
 4. Build an in-memory backend as the semantic oracle.
 5. Add scalar conversion/provider-value infrastructure before JSON gets stringly.
-6. Build a JSON store backend as a persistence proof, not as a pretend document database.
+6. Add JSON persistence as a memory-store option, not as a pretend document database or peer query backend.
 
-In-memory should come before JSON. It has fewer moving parts and will tell us whether the query plan can be executed without SQL. JSON should come after the value-conversion boundary is clearer, because JSON persistence will immediately expose enum, date/time, nullable, typed-id, and provider/model representation problems.
+In-memory should come before JSON. It has fewer moving parts and will tell us whether the query plan can be executed without SQL. JSON should come after the value-conversion boundary is clearer, because JSON persistence will immediately expose enum, date/time, nullable, typed-id, and provider/model representation problems. Commit-log persistence should also wait until memory mutation can emit canonical committed operation batches.
 
-The JSON work in 0.9 means a DataLinq-owned JSON store format. It does not mean arbitrary existing JSON document mapping, JSONPath-backed table mapping, or model generation from JSON samples.
+The JSON work in 0.9 means DataLinq-owned memory snapshot and optional commit-log formats. It does not mean arbitrary existing JSON document mapping, JSONPath-backed table mapping, a standalone JSON query backend, or model generation from JSON samples.
 
 ## Candidate Phases
 
@@ -171,21 +171,22 @@ Exit signal:
 - SQL and in-memory paths keep passing
 - JSON design can use the same conversion boundary
 
-### Phase 7: JSON Store Foundation
+### Phase 7: JSON Memory Persistence Foundation
 
-Add an experimental JSON-backed store using `System.Text.Json`.
+Add experimental JSON persistence for memory stores using `System.Text.Json`.
 
 Start with a boring, inspectable storage contract:
 
-- DataLinq-owned `datalinq-json-store/v1` format
-- single-document store as the preferred V1 baseline
+- DataLinq-owned `datalinq-memory-snapshot/v1` format
+- single-document snapshot as the preferred V1 baseline
 - deterministic formatting for human review
 - generated models only
 - primary-key indexed load path
 - explicit load/save lifecycle
+- persistence configuration on the memory store
 - AOT-aware serialization strategy where practical
 
-Do not call this a document database. JSON is a persistence format. Query and mutation semantics still belong to DataLinq.
+Do not call this a document database or JSON backend. JSON is a persistence format. Query and mutation semantics still belong to `DataLinq.Memory`.
 
 Exit signal:
 
@@ -193,9 +194,9 @@ Exit signal:
 - primary-key lookup works after reload
 - errors for malformed JSON, duplicate keys, missing required values, and unknown schema shape are actionable
 
-### Phase 8: JSON Query and Mutation Proof
+### Phase 8: JSON Persistence Mutation, Log, And Replay Proof
 
-Execute a subset of `DataLinqQueryPlan` against the JSON store.
+Execute the memory-supported query subset against state loaded from JSON persistence and prove mutation durability behavior.
 
 Useful scope:
 
@@ -204,13 +205,17 @@ Useful scope:
 - ordering/paging
 - direct projection rows
 - basic mutation and persistence
+- canonical committed operation batches
+- optional `datalinq-memory-commit-log/v1`
+- snapshot-plus-log replay
 - focused parity tests against in-memory and SQLite
 
 This should remain experimental unless durability, browser storage, schema compatibility, and performance have enough evidence to support stronger wording.
 
 Exit signal:
 
-- JSON backend proves the backend-neutral query path can persist data
+- JSON persistence proves the memory backend can persist and reload data
+- commit-log mode proves replayability if included in the release claim
 - docs label it accurately as experimental or supported according to evidence
 - no SQL support claims are weakened
 
@@ -218,14 +223,15 @@ Exit signal:
 
 The ideal 0.9 release claim would be narrow:
 
-> DataLinq 0.9 introduces a backend-neutral query execution boundary, an in-memory backend for generated models, and an experimental JSON-backed store that prove the DataLinq query plan outside SQL.
+> DataLinq 0.9 introduces a backend-neutral query execution boundary, an in-memory backend for generated models, and experimental JSON persistence for memory stores that proves the DataLinq query plan outside SQL.
 
 That wording can strengthen only if evidence justifies it.
 
 Possible stronger claims, if earned:
 
 - in-memory backend supports common generated-model read and mutation workflows
-- JSON backend supports deterministic local persistence for generated models
+- JSON memory persistence supports deterministic local snapshots for generated models
+- JSON memory persistence supports replayable committed mutation logs
 - repeated query shapes allocate less through plan-template reuse
 
 Claims to avoid unless proven:
@@ -233,6 +239,7 @@ Claims to avoid unless proven:
 - "full backend abstraction"
 - "any backend can run DataLinq queries"
 - "JSON database"
+- "JSON backend"
 - "in-memory database with SQL parity"
 - "arbitrary LINQ over JSON"
 - "production-grade JSON persistence"
@@ -258,6 +265,7 @@ Claims to avoid unless proven:
 - arbitrary existing JSON document mapping
 - model generation from JSON samples or JSON Schema
 - JSONPath-backed table mapping
+- standalone JSON query backend
 - a migration engine for JSON
 - replacing SQLite as the constrained-platform proof path
 
@@ -265,7 +273,8 @@ Claims to avoid unless proven:
 
 - Should in-memory use the same public provider surface as SQL providers, or a separate testing-first factory?
 - How much transaction behavior should in-memory emulate before it becomes misleading?
-- Should JSON use one file per table, one file per database, or a segmented layout?
+- Should JSON snapshots use one file per table, one file per database, or a segmented layout?
+- Should JSON commit logs be JSON arrays, JSON Lines, or segmented log files?
 - How should schema evolution work for JSON rows generated from changing model metadata?
 - Should query-plan templates be public diagnostics, internal cache entries, or both?
 - Where should backend capability validation live so parser logic stays backend-neutral?

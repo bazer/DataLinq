@@ -7,7 +7,7 @@
 
 **Related foundation:** Whole-value JSON serialization/deserialization should build on [Scalar Converter Support](../metadata-and-generation/Scalar%20Converter%20Support.md). This document owns provider-native JSON path querying, JSON indexing semantics, and partial JSON update behavior.
 
-**Boundary note:** This is about JSON values inside SQL provider columns. The JSON store backend is separate and is tracked in [JSON Store Backend Architecture](../backends/json/Store%20Backend%20Architecture.md). The store backend owns a DataLinq-controlled persistence format; it does not map arbitrary existing JSON documents.
+**Boundary note:** This is about JSON values inside SQL provider columns. JSON persistence for memory stores is separate and is tracked in [JSON Persistence Store Architecture](../backends/memory/persistence/json/JSON%20Persistence%20Store%20Architecture.md). That persistence store owns DataLinq-controlled snapshot/log formats; it does not map arbitrary existing JSON documents.
 
 ---
 
