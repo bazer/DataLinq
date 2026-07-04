@@ -6,7 +6,7 @@
 
 **Created:** 2026-05-05.
 
-**Update 2026-05-11:** Treat the audit below as the original planning snapshot. Workstreams 1 and 2 are covered by the completed Phase 8B foundation. Workstreams 3, 4, and 5 are implemented in [Phase 8C](../roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md): generated startup now uses `GetDataLinqGeneratedMetadata()`, no longer rediscovers application model metadata through runtime reflection, and generated value/relation/mutable paths use indexed access and generated handles where useful. Query/projection parser work remains separate in [Phase 17](../../roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation%20Plan.md).
+**Update 2026-05-11:** Treat the audit below as the original planning snapshot. Workstreams 1 and 2 are covered by the completed Phase 8B foundation. Workstreams 3, 4, and 5 are implemented in [Phase 8C](../roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md): generated startup now uses `GetDataLinqGeneratedMetadata()`, no longer rediscovers application model metadata through runtime reflection, and generated value/relation/mutable paths use indexed access and generated handles where useful. Query/projection parser work is covered by the version-scoped [DataLinq 0.8 Roadmap](../../roadmap-implementation/v0.8/README.md).
 
 ## Purpose
 

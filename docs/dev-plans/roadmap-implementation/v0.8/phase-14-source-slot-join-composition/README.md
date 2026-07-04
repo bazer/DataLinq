@@ -42,8 +42,7 @@ Out of scope for the shipped Phase 14 slice:
 
 ## Source Plans
 
-- [Old Phase 13 Explicit Multi-Join Composition](../../phase-13-explicit-multi-join-composition/README.md)
-- [Old Phase 14 Relation-Aware Joins and Left Joins](../../phase-14-relation-aware-joins-and-left-joins/README.md)
+- [0.9 Join and Grouping Continuation Implementation Plan](../../v0.9/Join%20and%20Grouping%20Continuation%20Implementation%20Plan.md)
 - [0.8 Phase 13 Query Composition and Subquery Pushdown](../phase-13-query-composition-and-subquery-pushdown/README.md)
 - [0.8 Phase 15 Relation-Aware and Implicit Joins](../phase-15-relation-aware-and-implicit-joins/README.md)
 - [0.8 Phase 20 Query-Syntax Join Support](../phase-20-query-syntax-join-support/README.md)

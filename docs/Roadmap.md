@@ -2,7 +2,7 @@
 
 This page is the public roadmap snapshot. It describes direction, not shipped behavior. For current product behavior, use the usage docs, support matrices, and changelog.
 
-## Current 0.8 Development Baseline
+## Current Development Baseline
 
 This page tracks the current repo documentation branch. If you are comparing against an already-published NuGet version, check the [changelog](../CHANGELOG.md) for the exact release boundary.
 
@@ -32,21 +32,21 @@ For release-level detail, see the [changelog](../CHANGELOG.md).
 
 ## Near-Term Direction
 
-### 0.8 AOT Browser Release Hardening
+### 0.9 Backend And Provider-Value Roadmap
 
-The parser-removal track is implemented, and the AOT/browser release tooling now has browser smoke automation, broader constrained query coverage, and target-specific payload thresholds. Phase 23 fixed the fresh browser runtime blocker, and the final Phase 24 clean-output report passes Native AOT, trimmed, WebAssembly no-AOT, and WebAssembly AOT generated SQLite smokes at `artifacts/dev/compat-size-report/20260630-131026977/report.md`.
+The next draft roadmap is 0.9. Its theme is to make DataLinq query plans backend-executable, make provider values first-class, and then prove that architecture outside the SQL renderer.
 
-The remaining 0.8 release priority is narrowing the support claim to what the evidence proves:
+The useful 0.9 shape is:
 
-- keep the fixed SQLite/WebAssembly browser runtime path green in final release evidence
-- keep clean-output compatibility reporting green on release machines with the required Native AOT and WebAssembly workloads
-- resolve SQLitePCLRaw WebAssembly varargs warning disposition with exact call-path evidence
-- keep no-AOT browser behavior scoped to the current generated SQLite smoke proof unless more evidence is added
-- keep constrained-platform query coverage green for the documented subset selected for 0.8
-- keep AOT routes fenced away from reflection-heavy compatibility fallback
-- keep Native AOT, trimmed, WASM, and WASM AOT payload reports green under the 0.8 release thresholds
+- backend-neutral query execution and capability diagnostics
+- query-plan template/invocation separation for repeated query shapes
+- scalar converters and typed-ID support through provider-value normalization
+- bounded SQL-backed multi-join and grouped-query continuation
+- a generated-model memory backend that executes `DataLinqQueryPlan` directly
+- memory mutation, deterministic test utility, and provider-value commit batches
+- experimental JSON persistence for memory stores through DataLinq-owned snapshot and optional commit-log formats
 
-The intended target release claim remains narrow: generated SQLite models, the documented query subset, Native AOT, trimmed publish, and Blazor WebAssembly AOT. Current evidence permits that claim for the generated SQLite smoke boundary. Broad provider coverage, arbitrary LINQ, OPFS storage, and no-AOT browser support beyond the current generated SQLite smoke are separate claims unless they get their own evidence.
+The key discipline is not to turn every good idea into a 0.9 claim. JSON persistence is storage for `DataLinq.Memory`, not a JSON query backend. Typed IDs are scalar converters over single provider values, not arbitrary value-object query translation. Multi-join and grouped-query work should extend the source-slot query plan, not imply general LINQ support.
 
 ### Query Plan and Remotion Removal
 
@@ -62,38 +62,33 @@ That is not the same thing as a general LINQ-provider rewrite. The support bound
 
 The internal 0.8 execution record started over at Phase 1 instead of continuing the old global roadmap numbering. That sequence is now closed through Phase 7: query contract baseline, temporary Remotion adapter, SQL generation on `DataLinqQueryPlan`, supported-subset expression parser, projection/local-evaluation cleanup, parity and constrained-platform switch, and Remotion dependency removal. Phases 8 through 12 now own the AOT/browser release gates, and Phase 13 through Phase 21 cover implemented query-composition, grouped aggregate, join, grouped-row composition, advanced grouped-key/joined-grouping, SQL-backed projection-row, single query-syntax inner-join, and joined post-paging pushdown slices.
 
-### 0.8 Query Composition, Grouped Aggregates, and Join Completion
+### Query Composition, Grouped Aggregates, and Join Continuation
 
-Now that the query plan exists, the next broad query feature priority after the AOT/browser release gates is query-composition hardening, SQL-shaped `GroupBy(...)` expansion, and then projection/join completion for 0.8:
+The 0.8 query-runtime slices implemented query composition, SQL-shaped grouped aggregate rows, source-slot joins, implicit singular relation traversal, SQL-backed projection rows, single C# query-syntax inner joins, and joined post-paging pushdown.
 
-- query-root parity for supported commands from both `db.Query()` and `transaction.Query()`
-- correct LINQ operator-order semantics for `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, `Take(...)`, and supported scalar result operators
-- SQL subquery pushdown when later filters/orderings must apply over an already-limited or offset source
-- SQL-backed `GroupBy(...)` support for single-source grouped aggregate projection, direct numeric grouped aggregate selectors, grouped-row composition, narrow `HAVING`, advanced grouped keys, and grouping over supported joined row shapes, without claiming materialized `IGrouping<TKey,TElement>` support
-- SQL-backed projection rows for direct source-slot values
-- implicit singular relation projection that binds to SQL aliases instead of lazy-loading relations inside `Select(...)`
+The next honest query work is narrower than "all joins":
+
 - multiple explicit inner joins
 - filtering, ordering, paging, and result operators over joined row shapes
-- joined materialization that keeps using provider-key components
-- `JoinBy(...)` and `JoinMany(...)`
-- narrow implicit singular relation joins for predicates, ordering, and simple projections
-- join-local `on:` predicates
-- left joins with honest nullability behavior
-- clear documentation for `ON` versus `WHERE` semantics
+- grouping over supported multi-join source-slot projection rows
+- provider-value normalized join keys, including typed IDs where scalar converters are configured
+- relation-aware `JoinBy(...)` and `JoinMany(...)` only after explicit multi-join composition is stable
+- left joins only as a later/stretch claim with real nullability semantics
 
-The first shipped join support is intentionally narrow, but single query-syntax inner joins and SQL-backed joined post-paging pushdown are now first-class tested paths. The next honest join work is multiple explicit inner joins, relation-metadata-driven join APIs, and left joins with real nullability semantics. Collection relation expansion should stay explicit through `JoinMany(...)` or query syntax; hidden row multiplication would be a bad trade even if it looks elegant in a demo.
+Materialized `IGrouping<TKey,TElement>`, `GroupJoin(...)`, opaque transparent identifiers, hidden collection expansion, and broad client fallback should remain unsupported unless specific tests and docs say otherwise.
 
 ### Scalar Converters and Typed Keys
 
-The cache and metadata layers now distinguish provider-key identity from model-facing values. That gives scalar converters a credible place to land later:
+The cache and metadata layers now distinguish provider-key identity from model-facing values. That makes scalar converters a 0.9 foundation, not just a later ergonomic feature:
 
 - explicit converter metadata
-- model-to-provider normalization for reads, writes, query constants, keys, joins, and relations
-- typed-ID equality and membership queries
+- model-to-provider normalization for reads, writes, query constants, local sequences, keys, joins, relations, memory rows, mutation values, and JSON payloads
+- typed-ID equality, local membership, primary-key lookup, relation lookup, and explicit join keys
 - schema validation based on provider storage types, not only model CLR types
+- clear rejection of unsupported value-object member queries
 
 ## Later Work
 
-Dependency-tracked result-set caching remains deferred until joins, projection semantics, invalidation, and freshness vocabulary are stronger. A cached result-set feature without a boring correctness story would be clever in the worst way.
+Dependency-tracked result-set caching remains deferred until provider-value normalization, joins, projection semantics, invalidation, freshness vocabulary, and DataLinq.Store module contracts are stronger. A cached result-set feature without a boring correctness story would be clever in the worst way.
 
-Full migration execution also remains future work. `validate` and `diff` are real product features today; `add-migration`, `update-database`, migration history tracking, and runtime migration APIs are not.
+Full migration execution also remains future work. `validate` and `diff` are real product features today; `add-migration`, `update-database`, migration history tracking, and runtime migration APIs are not. SQL JSON path querying, broad DI/hosting integration, generated typed-key output, and production-grade JSON persistence also need their own evidence before they become public claims.

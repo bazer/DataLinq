@@ -78,7 +78,7 @@ Work that should not be pulled into this phase:
 - [Relation-Aware Join API](../../../query-and-runtime/Relation-Aware%20Join%20API.md)
 - [0.8 Phase 14 Source-Slot Join Composition](../phase-14-source-slot-join-composition/README.md)
 - [0.8 Phase 19 SQL-Backed Projection Rows and Implicit Relation Projection](../phase-19-sql-backed-projection-rows-and-implicit-relation-projection/README.md)
-- [Old Phase 14 Relation-Aware Joins and Left Joins](../../phase-14-relation-aware-joins-and-left-joins/README.md)
+- [0.9 Join and Grouping Continuation Implementation Plan](../../v0.9/Join%20and%20Grouping%20Continuation%20Implementation%20Plan.md)
 - [LINQ Translation Support Matrix](../../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md)
 - [Implementation Plan](Implementation%20Plan.md)
 

@@ -15,9 +15,13 @@
 
 The proposed 0.9 theme is:
 
-> Make DataLinq query plans backend-executable, then prove the design with an in-memory backend and experimental JSON persistence for memory stores.
+> Make DataLinq query plans backend-executable, make provider values first-class, then prove the design with typed IDs, broader source-slot query composition, an in-memory backend, and experimental JSON persistence for memory stores.
 
 The important word is "prove". The goal is not to announce broad new production backends before the execution model has earned it. The goal is to force the parser, plan model, value conversion, projection, mutation, cache, and diagnostics layers to survive outside the SQL renderer.
+
+The durable scalar-conversion design is tracked in [Scalar Converter Support](../../metadata-and-generation/Scalar%20Converter%20Support.md), and the immediate 0.9 execution slice is tracked in [Scalar Converters And Typed IDs Implementation Plan](Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md).
+
+The durable join design is tracked in [Relation-Aware Join API](../../query-and-runtime/Relation-Aware%20Join%20API.md), and the immediate 0.9 query-continuation slice is tracked in [Join And Grouping Continuation Implementation Plan](Join%20and%20Grouping%20Continuation%20Implementation%20Plan.md).
 
 The durable in-memory backend design is tracked in [Memory Backend Architecture](../../backends/memory/Architecture.md), and the immediate 0.9 execution slice is tracked in [In-Memory Database Implementation Plan](In-Memory%20Database%20Implementation%20Plan.md).
 
@@ -31,10 +35,16 @@ The strongest 0.9 sequence is:
 
 1. Introduce a backend-neutral query execution boundary.
 2. Split query-plan structure from runtime invocation values.
-3. Continue decomposing the LINQ parser where the architecture review found real pressure.
-4. Build an in-memory backend as the semantic oracle.
-5. Add scalar conversion/provider-value infrastructure before JSON gets stringly.
-6. Add JSON persistence as a memory-store option, not as a pretend document database or peer query backend.
+3. Add scalar conversion/provider-value infrastructure and typed-ID support before memory and JSON get stringly.
+4. Continue decomposing the LINQ parser where backend validation, provider-value normalization, and query composition create real pressure.
+5. Continue bounded SQL-backed source-slot join and grouping support without claiming general LINQ.
+6. Build an in-memory backend as the semantic oracle.
+7. Add memory mutation, deterministic test utilities, and canonical committed operation batches.
+8. Add JSON persistence as a memory-store option, not as a pretend document database or peer query backend.
+
+Scalar conversion should move into 0.9 rather than remain a later typed-key dream. Memory row buffers, SQL query constants, relation keys, cache keys, JSON snapshots, and JSON commit logs all need the same answer to one question: what provider value represents this model value? Typed IDs are the user-facing proof that the answer is real.
+
+The join/grouping continuation should be bounded. Multi-inner-join pipelines and grouping over joined source-slot shapes rhyme with the 0.8 query-plan work. Materialized `IGrouping`, `GroupJoin`, left joins, and broad relation-aware fluent APIs should not become baseline claims unless specific evidence earns them.
 
 In-memory should come before JSON. It has fewer moving parts and will tell us whether the query plan can be executed without SQL. JSON should come after the value-conversion boundary is clearer, because JSON persistence will immediately expose enum, date/time, nullable, typed-id, and provider/model representation problems. Commit-log persistence should also wait until memory mutation can emit canonical committed operation batches.
 
@@ -84,7 +94,35 @@ Exit signal:
 - runtime captured values remain isolated per execution
 - no supported query behavior changes
 
-### Phase 3: Parser Decomposition and Normalization
+### Phase 3: Scalar Converters, Provider Values, And Typed IDs
+
+Build the conversion boundary memory, JSON, joins, keys, and schema validation all need.
+
+Work should include:
+
+- explicit scalar converter metadata and registration
+- model CLR type vs provider CLR type on column metadata
+- provider-value normalization for reads, writes, query constants, local sequences, joins, keys, relations, mutation values, memory rows, and JSON payloads
+- typed-ID equality and local `Contains(...)` query support
+- typed-ID explicit join key support where both sides normalize to compatible provider values
+- auto-increment/default provider values converted back to model values
+- schema validation based on provider storage types
+- clear diagnostics for unsupported value-object member queries
+
+This is not a general value-object query feature. It is single-column scalar conversion first, with typed IDs as the first serious ergonomic proof.
+
+Exit signal:
+
+- conversion rules are centralized
+- typed-ID primary keys, foreign keys, equality predicates, local membership, and explicit join keys are test-covered
+- SQL and memory paths share provider-value normalization
+- JSON design can use the same conversion boundary
+
+Execution plan:
+
+- [Scalar Converters And Typed IDs Implementation Plan](Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md)
+
+### Phase 4: Parser Decomposition and Normalization
 
 Split the current parser only where it reduces real complexity.
 
@@ -107,7 +145,40 @@ Exit signal:
 - backend-specific restrictions move out of expression parsing where possible
 - snapshots and compliance tests remain stable
 
-### Phase 4: In-Memory Backend Foundation
+### Phase 5: SQL Join And Grouping Continuation
+
+Continue the 0.8 source-slot query work where it naturally stops short.
+
+Useful scope:
+
+- standard C# query syntax with multiple inner joins
+- chained explicit `Join(...)` support beyond the current single-join boundary
+- filtering, ordering, paging, `Any()`, and `Count()` over supported multi-join projection rows
+- SQL-backed direct projection rows over multi-join source slots
+- grouping over supported multi-join projection rows
+- typed-ID/provider-value join key normalization once Phase 3 lands
+- relation-aware `JoinBy(...)` and `JoinMany(...)` as stretch work after explicit multi-join composition is stable
+
+Keep the support boundary honest:
+
+- no materialized `IGrouping<TKey,TElement>` support
+- no `GroupJoin(...)`
+- no left joins as a baseline claim
+- no implicit collection projection or hidden row multiplication
+- no client-side fallback for unsupported provider query shapes
+
+Exit signal:
+
+- practical multi-table inner joins work through documented query syntax
+- supported joined rows compose through SQL-backed projection members
+- grouping over joined rows uses the same grouped aggregate-row model as 0.8
+- unsupported join/grouping shapes fail with focused diagnostics
+
+Execution plan:
+
+- [Join And Grouping Continuation Implementation Plan](Join%20and%20Grouping%20Continuation%20Implementation%20Plan.md)
+
+### Phase 6: In-Memory Backend Foundation
 
 Build a real DataLinq in-memory backend, not SQLite in-memory and not a loose fake.
 
@@ -129,7 +200,7 @@ Exit signal:
 - behavior can be compared against SQLite in compliance-style tests
 - relation traversal and cache interactions have a clear design, even if not complete
 
-### Phase 5: In-Memory Mutation and Test Utility
+### Phase 7: In-Memory Mutation, Test Utility, And Commit Batches
 
 Decide how far the in-memory backend goes beyond read queries.
 
@@ -140,38 +211,18 @@ Useful scope:
 - relation/index invalidation behavior
 - deterministic test fixtures
 - store snapshots/forks for browser scenarios and test isolation
-- optional testing helpers that are clearly distinct from SQLite in-memory
+- seed builders and graph-oriented fixture helpers that do not fall back to fake `IQueryable` semantics
+- canonical committed operation batches in provider-value form
 
-This phase is where the in-memory backend can become genuinely useful for user tests. It should still be honest about durability and concurrency.
+This phase is where the in-memory backend can become genuinely useful for user tests. It should still be honest about durability and concurrency. A fake LINQ-to-Objects read store should not be the main 0.9 testing story once the memory backend can execute DataLinq query plans directly.
 
 Exit signal:
 
 - users can seed an in-memory database and exercise common read/mutation workflows
 - unsupported ACID/durability semantics are documented instead of implied
+- successful commits produce a canonical provider-value operation batch that JSON persistence can serialize later
 
-### Phase 6: Scalar Conversion and Provider Values
-
-Build the conversion boundary JSON will need.
-
-This should cover:
-
-- model value vs provider value representation
-- enum conversion
-- `DateOnly`, `TimeOnly`, `DateTime`, and nullable value shapes
-- typed-id/scalar converter seams
-- query constants and local sequences
-- mutation values
-- cache keys and relation keys
-
-This does not need to ship every typed-id ergonomic dream. It does need to stop backend work from inventing one-off conversion rules.
-
-Exit signal:
-
-- conversion rules are centralized
-- SQL and in-memory paths keep passing
-- JSON design can use the same conversion boundary
-
-### Phase 7: JSON Memory Persistence Foundation
+### Phase 8: JSON Memory Persistence Foundation
 
 Add experimental JSON persistence for memory stores using `System.Text.Json`.
 
@@ -194,7 +245,7 @@ Exit signal:
 - primary-key lookup works after reload
 - errors for malformed JSON, duplicate keys, missing required values, and unknown schema shape are actionable
 
-### Phase 8: JSON Persistence Mutation, Log, And Replay Proof
+### Phase 9: JSON Persistence Mutation, Log, And Replay Proof
 
 Execute the memory-supported query subset against state loaded from JSON persistence and prove mutation durability behavior.
 
@@ -223,7 +274,7 @@ Exit signal:
 
 The ideal 0.9 release claim would be narrow:
 
-> DataLinq 0.9 introduces a backend-neutral query execution boundary, an in-memory backend for generated models, and experimental JSON persistence for memory stores that proves the DataLinq query plan outside SQL.
+> DataLinq 0.9 introduces a backend-neutral query execution boundary, first-class scalar conversion with typed-ID support, bounded SQL join/grouping continuation, an in-memory backend for generated models, and experimental JSON persistence for memory stores that proves the DataLinq query plan outside SQL.
 
 That wording can strengthen only if evidence justifies it.
 
@@ -232,12 +283,19 @@ Possible stronger claims, if earned:
 - in-memory backend supports common generated-model read and mutation workflows
 - JSON memory persistence supports deterministic local snapshots for generated models
 - JSON memory persistence supports replayable committed mutation logs
+- typed IDs work across SQL and memory query/key/relation paths
+- multi-inner-join and grouped aggregate rows compose over documented source-slot shapes
 - repeated query shapes allocate less through plan-template reuse
 
 Claims to avoid unless proven:
 
 - "full backend abstraction"
 - "any backend can run DataLinq queries"
+- "all typed ID libraries work automatically"
+- "general value-object query translation"
+- "full join support"
+- "left join support"
+- "general GroupBy support"
 - "JSON database"
 - "JSON backend"
 - "in-memory database with SQL parity"
@@ -248,6 +306,8 @@ Claims to avoid unless proven:
 
 - Existing SQLite, MySQL, and MariaDB behavior must stay green.
 - Backend-neutral work must not weaken the documented LINQ subset.
+- Provider-value normalization must be shared by SQL, memory, cache, relation, mutation, and JSON paths.
+- Typed-ID support must be backed by explicit scalar converter metadata, not convention magic in hot paths.
 - Unsupported backend/query shapes must fail clearly.
 - AOT-sensitive code paths should avoid `Expression.Compile()`, runtime code generation, and broad reflection fallback.
 - The in-memory backend should be able to run in browser WebAssembly without native SQLite, OPFS, or browser file APIs.
@@ -257,8 +317,11 @@ Claims to avoid unless proven:
 ## Explicit Non-Goals
 
 - broad arbitrary LINQ support
+- broad value-object member translation
+- automatic typed-key generation as the first typed-ID slice
 - materialized `IGrouping<TKey,TElement>` support
-- left joins as part of backend work unless separately planned
+- `GroupJoin(...)`
+- left joins as a baseline 0.9 claim
 - result-set caching as the headline 0.9 feature
 - DataLinq.Store execution
 - distributed cache coordination
@@ -278,13 +341,15 @@ Claims to avoid unless proven:
 - How should schema evolution work for JSON rows generated from changing model metadata?
 - Should query-plan templates be public diagnostics, internal cache entries, or both?
 - Where should backend capability validation live so parser logic stays backend-neutral?
+- Should UUID storage format support be folded into the scalar/provider-value slice or remain a separate provider feature?
+- Should relation-aware `JoinBy(...)`/`JoinMany(...)` ship in 0.9 if explicit multi-join support lands early, or stay as the next query feature?
 
 ## Likely Follow-Up After 0.9
 
 If 0.9 proves the backend boundary, the next good candidates are:
 
 - dependency-tracked result-set caching
-- typed IDs and richer scalar converter ergonomics
-- broader relation-aware join APIs
+- generated typed-key output and optional adapter packages for popular typed-ID libraries
+- broader relation-aware join APIs, especially left joins with honest nullability semantics
 - non-SQL backend experiments beyond JSON
 - production-grade JSON persistence only if the experimental store earns it

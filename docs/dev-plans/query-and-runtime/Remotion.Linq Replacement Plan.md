@@ -6,7 +6,7 @@
 
 **Created:** 2026-05-05.
 
-**Update 2026-05-11:** This is no longer part of Phase 8B or Phase 8C. The executable roadmap slice moved to [Phase 17: Query Plan and Remotion Isolation](../roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation%20Plan.md).
+**Update 2026-05-11:** This is no longer part of Phase 8B or Phase 8C. The executable roadmap slice later moved into the version-scoped [DataLinq 0.8 Roadmap](../roadmap-implementation/v0.8/README.md).
 
 **Update 2026-06-27:** After the 0.7.1 release, the `v0.8` branch made this work the active release theme. The current execution sequence is [DataLinq 0.8 Roadmap](../roadmap-implementation/v0.8/README.md), which starts over at 0.8 Phase 1 instead of continuing the old global phase numbering.
 

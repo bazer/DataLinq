@@ -215,7 +215,7 @@ Moved to [Phase 8C](../phase-8c-practical-aot-package-graph-and-generated-runtim
 - generated indexed access and metadata handles
 - packaging and public compatibility wording
 
-Moved to [Phase 17](../../../roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation%20Plan.md):
+Moved to the version-scoped [DataLinq 0.8 Roadmap](../../../roadmap-implementation/v0.8/README.md):
 
 - DataLinq query plan behind Remotion
 - supported-subset expression parser and AOT boundary switch

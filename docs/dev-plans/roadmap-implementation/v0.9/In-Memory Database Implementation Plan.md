@@ -19,6 +19,7 @@ The 0.9 in-memory work should prove two things:
 
 1. `DataLinqQueryPlan` can be executed by a non-SQL backend.
 2. A generated-model memory backend can run in browser/WebAssembly AOT without native SQLite, OPFS, browser file APIs, `Expression.Compile()`, runtime code generation, or broad reflection fallback.
+3. Provider-value normalization is real enough that memory rows, keys, relations, predicates, mutation values, and JSON persistence do not need separate conversion rules.
 
 The first release claim should stay narrow:
 
@@ -26,7 +27,17 @@ The first release claim should stay narrow:
 
 Strengthen that wording only if evidence earns it.
 
-## Phase 4A: Backend Execution Contract
+## Prerequisites
+
+Memory backend implementation should start after:
+
+- the backend execution contract exists
+- the plan template/invocation split is at least clear enough not to bake invocation values into backend state
+- scalar converter/provider-value metadata is centralized enough for row buffers, keys, relations, and query constants
+
+The memory backend can help prove scalar conversion, but it should not invent the conversion layer. Typed IDs are especially important here: if memory compares boxed typed-ID model values while SQL compares provider values, the architecture has already diverged.
+
+## Phase 6A: Backend Execution Contract
 
 This can be part of v0.9 Phase 1, but it is the hard prerequisite for a non-embarrassing memory backend.
 
@@ -46,7 +57,7 @@ Exit signal:
 - unsupported backend/query combinations fail with clear DataLinq diagnostics
 - public docs still describe only shipped SQL provider behavior
 
-## Phase 4B: Memory Store Foundation
+## Phase 6B: Memory Store Foundation
 
 Work:
 
@@ -54,6 +65,8 @@ Work:
 - create `MemoryDatabase<TDatabase>` and `MemoryDatabaseStore<TDatabase>` or equivalent
 - create store root, table state, row buffer, and primary-key index primitives
 - start the provider from generated metadata
+- store row values in provider-value form by column ordinal
+- normalize typed IDs and scalar-converted values through shared converter metadata
 - support seed loading
 - support primary-key lookup
 - support cache-aware materialization through existing runtime paths
@@ -64,9 +77,10 @@ Exit signal:
 - generated model rows can be seeded and fetched without SQL
 - direct primary-key lookup works under ordinary runtime
 - direct primary-key lookup works under an AOT or strict compatibility smoke
+- typed-ID/provider-value keys match the SQL-backed identity path
 - the provider does not imply SQL compatibility
 
-## Phase 4C: Memory Query Subset
+## Phase 6C: Memory Query Subset
 
 Work:
 
@@ -74,6 +88,7 @@ Work:
 - implement equality/comparison predicates over scalar columns
 - implement boolean predicate composition
 - implement local scalar `Contains(...)` membership
+- implement typed-ID equality and membership through provider values when scalar converters are enabled
 - implement `OrderBy`, `ThenBy`, `Skip`, and `Take`
 - implement `Any`, `Count`, `First`, `Single`, and `...OrDefault`
 - implement direct scalar and anonymous projection from one source
@@ -87,7 +102,7 @@ Exit signal:
 - browser WebAssembly smoke runs the memory provider
 - no unsupported query shape falls back to LINQ-to-Objects by accident
 
-## Phase 5A: Memory Mutation
+## Phase 7A: Memory Mutation
 
 Work:
 
@@ -101,6 +116,7 @@ Work:
 - validate required/null constraints where metadata can prove them
 - validate foreign keys in strict mode where relation metadata is available
 - invalidate cache/index state after commit
+- emit canonical committed operation batches in provider-value form
 
 Exit signal:
 
@@ -108,8 +124,9 @@ Exit signal:
 - transaction behavior is documented honestly
 - browser smoke can prove mutation and read-back if included in the release claim
 - the provider claims atomic and isolated in-process mutation only, not durability
+- successful commits produce ordered insert/update/delete operation batches that JSON persistence can serialize without memory-specific hooks
 
-## Phase 5B: Test And Snapshot Utility
+## Phase 7B: Test And Snapshot Utility
 
 Work:
 
@@ -118,12 +135,14 @@ Work:
 - deterministic clock and generated-key services
 - optional relaxed fixture mode if strict mode blocks useful tests
 - optional failure injection if it stays cleanly testing-scoped
+- relation graph fixture helpers where they can be backed by real memory metadata and indexes
 
 Exit signal:
 
 - users can replace a meaningful subset of database-backed tests with memory-backed tests
 - fixture APIs do not leak into core provider complexity
 - browser/demo scenarios can start from deterministic seed data
+- test helpers do not imply that LINQ-to-Objects fake query execution proves DataLinq provider translation
 
 ## 0.9 Verification Gates
 
@@ -131,6 +150,8 @@ The memory backend should not be called supported until these are green:
 
 - unit tests for row buffers, key normalization, indexes, constraints, and snapshots
 - memory-provider tests for seed, lookup, mutation, rollback, commit, and conflict behavior
+- scalar-converter and typed-ID tests for provider-value row storage, key lookup, relation lookup, and predicates
+- commit-batch tests for deterministic provider-value insert/update/delete operation capture
 - compliance tests shared with SQLite for the supported query slice
 - AOT strict smoke for generated models
 - browser WebAssembly smoke with `MemoryDatabase<TDatabase>` as the backing store
@@ -146,6 +167,7 @@ The browser smoke should prove:
 - ordered/paged query
 - direct projection
 - mutation and read-back if mutation is in the 0.9 claim
+- typed-ID lookup/query if typed IDs are in the release claim
 - unsupported query diagnostic
 
 ## Release Boundary
@@ -155,6 +177,7 @@ The 0.9 release can claim an in-memory backend only when:
 - the provider starts from generated metadata without runtime schema discovery
 - the provider runs under Native AOT or a strict AOT smoke
 - the provider runs in browser WebAssembly smoke
+- row buffers, keys, relations, and predicates use provider-value normalization
 - primary-key lookup and a documented LINQ subset execute without SQL
 - common seed and query workflows are documented
 - unsupported shapes fail with DataLinq-owned diagnostics

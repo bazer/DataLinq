@@ -79,7 +79,7 @@ The live implementation checklist is tracked in [Implementation Plan](Implementa
 
 ## Source Plans
 
-- [Phase 17 Query Plan and Remotion Isolation](../../phase-17-query-plan-and-remotion-isolation/Implementation%20Plan.md)
+- [0.8 Phase 7 Remotion Dependency Removal](../phase-7-remotion-dependency-removal/Implementation%20Plan.md)
 - [0.8 Phase 1 Query Contract and Plan Baseline](../phase-1-query-contract-and-plan-baseline/Implementation%20Plan.md)
 - [Supported LINQ Queries](../../../../Supported%20LINQ%20Queries.md)
 - [LINQ Translation Support Matrix](../../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md)

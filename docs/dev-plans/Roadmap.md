@@ -563,7 +563,7 @@ Key related plans:
 
 - `roadmap-implementation/v0.8/phase-13-query-composition-and-subquery-pushdown/README.md`
 - `roadmap-implementation/v0.8/phase-13-query-composition-and-subquery-pushdown/Implementation Plan.md`
-- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation Plan.md`
+- `roadmap-implementation/v0.8/README.md`
 - `query-and-runtime/Relation-Aware Join API.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
 
@@ -629,7 +629,7 @@ Why before relation-aware joins:
 Key related plans:
 
 - `roadmap-implementation/v0.8/phase-14-source-slot-join-composition/README.md`
-- `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
+- `roadmap-implementation/v0.9/Join and Grouping Continuation Implementation Plan.md`
 - `query-and-runtime/Relation-Aware Join API.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
 
@@ -663,7 +663,7 @@ Why after explicit joins:
 Key related plans:
 
 - `roadmap-implementation/v0.8/phase-15-relation-aware-and-implicit-joins/README.md`
-- `roadmap-implementation/phase-14-relation-aware-joins-and-left-joins/README.md`
+- `roadmap-implementation/v0.9/Join and Grouping Continuation Implementation Plan.md`
 - `query-and-runtime/Relation-Aware Join API.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
 
@@ -786,7 +786,7 @@ Key related plans:
 
 - `roadmap-implementation/v0.8/phase-20-query-syntax-join-support/README.md`
 - `roadmap-implementation/v0.8/phase-19-sql-backed-projection-rows-and-implicit-relation-projection/README.md`
-- `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
+- `roadmap-implementation/v0.9/Join and Grouping Continuation Implementation Plan.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
 
 ### 0.8 Phase 21: Joined Post-Paging Pushdown
@@ -893,34 +893,45 @@ Key related plans:
 - `performance/Representative Benchmark Suite and Website Trends.md`
 - `platform-compatibility/Practical AOT and Size Plan.md`
 
-### Old Phase 15 Source Plan: Scalar Converters and Typed-Key Ergonomics
+### 0.9 Direction: Backend Execution, Typed IDs, Memory, And JSON
 
-Status: deferred until after the 0.8 query-composition, grouped-query, projection, and join work unless typed-key demand pulls it forward.
+Status: draft version-scoped roadmap.
 
 Goals:
 
-- add first-class scalar converter metadata and explicit converter registration
-- normalize model values to provider values for reads, writes, query constants, joins, keys, and relations
-- support typed-ID equality and local membership queries
-- update schema validation so provider storage type, not model CLR type, drives database comparison
-- add typed-key generation only after manual converter behavior is stable
+- introduce a backend-neutral query execution boundary
+- split structural query-plan templates from invocation-time values
+- make scalar converters and provider-value normalization first-class
+- support typed-ID equality, local membership, keys, joins, relations, mutation values, and schema validation through provider values
+- continue bounded SQL-backed source-slot join and grouping support
+- build a generated-model memory backend that executes `DataLinqQueryPlan` directly
+- add memory mutation, deterministic test utility, and canonical provider-value commit batches
+- add experimental JSON persistence for memory stores as snapshots and optional commit logs
 
-Why not in the 0.8 join slice:
+Why now:
 
-- Phase 10 should make room for provider-key storage, but full typed-key ergonomics are broader than cache internals
-- joins should work for ordinary provider values before typed-ID joins become a product promise
-- scalar converters unlock more than keys: JSON-as-value, legacy string parsing, and domain value objects all depend on the same layer
-- the 0.8 join work should preserve provider-value normalization seams, not turn scalar conversion into a hidden prerequisite
+- 0.8 proved the DataLinq-owned query plan and removed `Remotion.Linq` from the runtime path
+- memory and JSON persistence will expose every weak model/provider value assumption immediately
+- typed IDs are the clearest user-facing proof that provider-value normalization is real
+- multi-join and grouped-query continuation naturally follows the 0.8 source-slot and grouped-row work
+- a memory backend is the most useful semantic oracle for non-SQL execution and browser scenarios
 
 Key related plans:
 
-- `roadmap-implementation/phase-15-scalar-converters-and-typed-key-ergonomics/README.md`
+- `roadmap-implementation/v0.9/README.md`
+- `roadmap-implementation/v0.9/Scalar Converters and Typed IDs Implementation Plan.md`
+- `roadmap-implementation/v0.9/Join and Grouping Continuation Implementation Plan.md`
+- `roadmap-implementation/v0.9/In-Memory Database Implementation Plan.md`
+- `roadmap-implementation/v0.9/Memory JSON Persistence Implementation Plan.md`
 - `metadata-and-generation/Scalar Converter Support.md`
-- `../Provider-Key Row Cache Architecture.md`
+- `query-and-runtime/Relation-Aware Join API.md`
+- `query-and-runtime/LINQ Parser Architecture Review.md`
+- `backends/memory/Architecture.md`
+- `backends/memory/persistence/json/JSON Persistence Store Architecture.md`
 
-### Old Phase 16 Source Plan: Dependency-Tracked Result And Module Caching
+### Deferred Result And Module Caching
 
-Status: deferred until cache invalidation, freshness vocabulary, joins, projection semantics, and the DataLinq.Store module contract are stronger.
+Status: deferred until 0.9 has stronger provider-value, join, projection, memory, and commit-batch foundations.
 
 Goals:
 
@@ -928,57 +939,21 @@ Goals:
 - record dependency fingerprints for rows read during a computation
 - validate state module snapshots and stamped application results against current dependency state
 - make state modules the concrete cacheable/syncable graph shape for DataLinq.Store
-- integrate result invalidation with the cache/key/join foundations instead of arbitrary TTLs
+- integrate result invalidation with cache/key/join foundations instead of arbitrary TTLs
 
 Why late:
 
-- this is not SQL-generation optimization; it is a semantic caching feature
-- it depends on invalidation behavior, freshness vocabulary, projection/view semantics, joins, and observability
-- module snapshots need stable field, edge, key, authorization, and serialization contracts before they can be a sync boundary
+- this is a semantic caching feature, not SQL-generation optimization
+- it depends on invalidation behavior, freshness vocabulary, projection semantics, join semantics, and observability
+- module snapshots need stable field, edge, key, authorization, serialization, and provider-value contracts before they can be a sync boundary
 - shipping it too early would create a clever cache whose correctness story is harder to defend than the performance win
 
 Key related plans:
 
-- `roadmap-implementation/phase-16-dependency-tracked-result-set-caching/README.md`
 - `query-and-runtime/Result set caching.md`
 - `DataLinq.Store/State Modules and Graph Cache.md`
 - `query-and-runtime/Projections and Views.md`
-
-### Old Phase 17 Source Plan: Query Plan and Remotion Isolation
-
-Status: superseded and implemented by the version-scoped [DataLinq 0.8 Roadmap](roadmap-implementation/v0.8/README.md). This remains the detailed source plan and historical design record for the 0.8 query-parser work.
-
-Implemented outcome:
-
-- introduced a DataLinq-owned query plan
-- moved SQL generation and supported query diagnostics behind that plan
-- built a supported-subset expression parser over `System.Linq.Expressions`
-- made the DataLinq expression parser the production query provider for the documented subset
-- removed `Remotion.Linq` from the main product dependency graph
-- investigate SQLitePCLRaw WebAssembly warnings with exact call-path evidence
-- keep no-AOT browser WebAssembly scoped to the smoke that actually runs
-
-Why this was originally last:
-
-- this is a query-pipeline migration, not a cleanup task
-- it has high regression risk across the LINQ support matrix
-- key/cache and join work were considered more important when this was parked
-- Phase 8C cleaned the package/generated-runtime surface without forcing a parser rewrite
-
-Why 0.8 pulled it forward:
-
-- the remaining Remotion dependency was the obvious practical AOT/query-boundary debt
-- expanding joins on the old parser first would have increased the surface area that immediately needed migration
-- the source-slot-aware query plan needed for Remotion replacement is also the foundation later join work wants
-
-Key related plans:
-
-- `roadmap-implementation/v0.8/README.md`
-- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/0.8 Query Parser Overview.md`
-- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/README.md`
-- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation Plan.md`
-- `query-and-runtime/Remotion.Linq Replacement Plan.md`
-- `../support-matrices/LINQ Translation Support Matrix.md`
+- `roadmap-implementation/v0.9/Join and Grouping Continuation Implementation Plan.md`
 
 ## What Should Happen Right Now
 
@@ -1009,7 +984,9 @@ Phase 11 is now complete for explicit cache clearing, external invalidation, rel
 
 After the 0.7.1 release, the `v0.8` branch deliberately reset roadmap execution to a version-scoped sequence. That parser-removal sequence is now closed through [0.8 Phase 7: Remotion Dependency Removal](roadmap-implementation/v0.8/phase-7-remotion-dependency-removal/README.md): query contract baseline, Remotion plan adapter, SQL generation on the plan, supported-subset expression parser, projection/local-evaluation cleanup, dual-run parity, production provider switch, and dependency removal.
 
-The version-scoped 0.8 sequence now has final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md), then implemented query-runtime slices for Phase 13 query composition/subquery pushdown, Phase 13B grouped count projection, Phase 14 explicit two-source join composition, Phase 15 implicit singular relation predicates/orderings, Phase 16 grouped numeric aggregates, Phase 17 grouped row composition/HAVING, Phase 18 advanced GroupBy keys/joined grouping, Phase 19 SQL-backed projection rows/implicit relation projection, Phase 20 single query-syntax inner joins, and Phase 21 joined post-paging pushdown. Phases 22 through 24 are implemented for parser plan cleanup, browser AOT debugging, and release evidence/benchmark/docs closeout. Broad fluent join APIs, left-join nullability work, scalar converters, and result caching should wait until after this release-hardening pass.
+The version-scoped 0.8 sequence now has final evidence collection for [0.8 Phase 8](roadmap-implementation/v0.8/phase-8-browser-aot-runtime-proof/README.md) through [0.8 Phase 12](roadmap-implementation/v0.8/phase-12-aot-release-gates-and-support-contract/README.md), then implemented query-runtime slices for Phase 13 query composition/subquery pushdown, Phase 13B grouped count projection, Phase 14 explicit two-source join composition, Phase 15 implicit singular relation predicates/orderings, Phase 16 grouped numeric aggregates, Phase 17 grouped row composition/HAVING, Phase 18 advanced GroupBy keys/joined grouping, Phase 19 SQL-backed projection rows/implicit relation projection, Phase 20 single query-syntax inner joins, and Phase 21 joined post-paging pushdown. Phases 22 through 24 are implemented for parser plan cleanup, browser AOT debugging, and release evidence/benchmark/docs closeout.
+
+The next active draft is [DataLinq 0.9](roadmap-implementation/v0.9/README.md). Its useful scope is backend execution, plan template/invocation split, scalar converters and typed IDs, bounded multi-join/grouping continuation, a generated-model memory backend, memory mutation/test utility with canonical commit batches, and experimental JSON memory persistence. Result/module caching, broad DI/hosting integration, SQL JSON path querying, generated typed-key output, and left joins remain separate future features unless 0.9 evidence earns a narrow stretch claim.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 
@@ -1018,12 +995,12 @@ Full `add-migration` / `update-database` work should remain a dedicated future f
 These may still be good ideas, but they should not lead the queue:
 
 - broad provider expansion
-- in-memory provider as a flagship initiative
 - dependency-tracked result-set caching
 - large documentation rewrites unrelated to immediate product clarity
-- query abstraction for hypothetical future backends before the current SQL path is fully measured
 - committing to a magical lazy-loading async API before sync/async boundaries are tested and defended
 - broad join API expansion that ignores the source-slot-aware query plan
+- broad DI/hosting integration before the provider/runtime shape settles
+- SQL JSON path querying before scalar conversion and memory JSON persistence share provider-value rules
 
 ## Review Trigger
 

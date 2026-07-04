@@ -33,13 +33,13 @@ JSON persistence work should start after:
 
 - the backend execution contract exists
 - the memory backend can execute the first query subset
-- scalar/provider-value conversion is centralized enough to prevent JSON-specific one-off conversion rules
+- scalar/provider-value conversion is centralized enough to prevent JSON-specific one-off conversion rules, including typed-ID provider values
 - memory snapshots have a stable enough internal shape to export/import
 
 Commit-log persistence should start after:
 
 - memory mutation exists
-- successful memory commits produce a canonical committed operation batch
+- successful memory commits produce a canonical committed operation batch in provider-value form
 - replay rules for generated keys, defaults, clocks, and constraints are explicit
 
 Starting before those prerequisites risks building a stringly JSON side path that will not rhyme with DataLinq.

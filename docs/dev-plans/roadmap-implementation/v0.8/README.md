@@ -203,8 +203,8 @@ Some release work does not belong cleanly to one phase, but it is still required
 
 The 0.8 roadmap consolidates these older plans rather than discarding them:
 
-- [0.8 Query Parser Overview](../phase-17-query-plan-and-remotion-isolation/0.8%20Query%20Parser%20Overview.md)
-- [Phase 17 Query Plan and Remotion Isolation](../phase-17-query-plan-and-remotion-isolation/Implementation%20Plan.md)
+- [0.8 Phase 1 Query Contract and Plan Baseline](phase-1-query-contract-and-plan-baseline/README.md)
+- [0.8 Phase 7 Remotion Dependency Removal](phase-7-remotion-dependency-removal/README.md)
 - [Remotion.Linq Replacement Plan](../../query-and-runtime/Remotion.Linq%20Replacement%20Plan.md)
 - [Query Pipeline Abstraction](../../query-and-runtime/Query%20Pipeline%20Abstraction.md)
 - [Relation-Aware Join API](../../query-and-runtime/Relation-Aware%20Join%20API.md)
@@ -220,8 +220,7 @@ The 0.8 roadmap consolidates these older plans rather than discarding them:
 - [0.8 Phase 24 Release Evidence, Benchmarks, and Docs](phase-24-release-evidence-benchmarks-docs/README.md)
 - [LINQ Parser Architecture Review](../../query-and-runtime/LINQ%20Parser%20Architecture%20Review.md)
 - [Representative Benchmark Suite and Website Trends](../../performance/Representative%20Benchmark%20Suite%20and%20Website%20Trends.md)
-- [Old Phase 13 Explicit Multi-Join Composition](../phase-13-explicit-multi-join-composition/README.md)
-- [Old Phase 14 Relation-Aware Joins and Left Joins](../phase-14-relation-aware-joins-and-left-joins/README.md)
+- [0.9 Join and Grouping Continuation Implementation Plan](../v0.9/Join%20and%20Grouping%20Continuation%20Implementation%20Plan.md)
 - [Practical AOT and Size Plan](../../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md)
 - [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md)
 - [Supported LINQ Queries](../../../Supported%20LINQ%20Queries.md)

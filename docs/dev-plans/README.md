@@ -75,6 +75,8 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/README.md`
 - `roadmap-implementation/v0.8/README.md`
 - `roadmap-implementation/v0.9/README.md`
+- `roadmap-implementation/v0.9/Scalar Converters and Typed IDs Implementation Plan.md`
+- `roadmap-implementation/v0.9/Join and Grouping Continuation Implementation Plan.md`
 - `roadmap-implementation/v0.9/In-Memory Database Implementation Plan.md`
 - `roadmap-implementation/v0.9/Memory JSON Persistence Implementation Plan.md`
 - `roadmap-implementation/v0.8/phase-1-query-contract-and-plan-baseline/README.md`
@@ -102,12 +104,6 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/v0.8/phase-22-linq-parser-plan-cleanup/README.md`
 - `roadmap-implementation/v0.8/phase-23-browser-aot-debugging/README.md`
 - `roadmap-implementation/v0.8/phase-24-release-evidence-benchmarks-docs/README.md`
-- `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
-- `roadmap-implementation/phase-14-relation-aware-joins-and-left-joins/README.md`
-- `roadmap-implementation/phase-15-scalar-converters-and-typed-key-ergonomics/README.md`
-- `roadmap-implementation/phase-16-dependency-tracked-result-set-caching/README.md`
-- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/README.md`
-- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation Plan.md`
 
 ### Providers and features
 
@@ -158,7 +154,9 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - Testing dev-plan material is currently historical. Current workflow documentation lives under `../contributing/`, while completed design records live under `archive/testing/`.
 - Completed or superseded documentation and roadmap checkpoints now live under `archive/` so active planning pages do not point readers at old "next step" guidance.
 - Some documents in this folder describe ideas that are still valid but not implemented. That is fine. The real mistake is presenting those ideas as current product behavior.
-- The active release roadmap is `roadmap-implementation/v0.8/`. The 0.8 parser-removal track is complete through Phase 7; Phases 8 through 12 now own browser AOT runtime proof, WebAssembly warning/no-AOT disposition, query coverage, deploy-size hardening, and final release gates. Phase 13, Phase 13B, and Phases 14 through 21 cover implemented query-composition, grouped count and numeric aggregate projection, source-slot joins, implicit singular relation slices, grouped row composition/HAVING, advanced grouped keys/joined grouping, SQL-backed projection rows, single C# query-syntax inner joins, and joined post-paging pushdown. Phase 22 parser-plan cleanup, Phase 23 browser AOT debugging, and Phase 24 release evidence/docs are implemented for the 0.8 closeout. Completed global phase execution records belong under `archive/roadmap-implementation/`.
+- The completed 0.8 release roadmap is `roadmap-implementation/v0.8/`. The 0.8 parser-removal track is complete through Phase 7; Phases 8 through 12 own browser AOT runtime proof, WebAssembly warning/no-AOT disposition, query coverage, deploy-size hardening, and final release gates. Phase 13, Phase 13B, and Phases 14 through 21 cover implemented query-composition, grouped count and numeric aggregate projection, source-slot joins, implicit singular relation slices, grouped row composition/HAVING, advanced grouped keys/joined grouping, SQL-backed projection rows, single C# query-syntax inner joins, and joined post-paging pushdown. Phase 22 parser-plan cleanup, Phase 23 browser AOT debugging, and Phase 24 release evidence/docs are implemented for the 0.8 closeout.
+- The active draft release roadmap is `roadmap-implementation/v0.9/`. It owns backend execution, plan template/invocation split, scalar converters and typed IDs, bounded join/grouping continuation, the memory backend, memory test utility/commit batches, and JSON memory persistence. New execution plans should be version-scoped under `v0.9/` rather than added as root `phase-*` folders.
+- Completed global phase execution records belong under `archive/roadmap-implementation/`.
 
 ## Current Stage Audit
 
@@ -196,10 +194,10 @@ As of the current 0.8 branch after the parser-removal closeout:
 - Phase 22 LINQ parser plan cleanup is implemented: plan bindings are frozen, render-time binding lookup no longer performs LINQ scans, and existing query behavior is preserved.
 - Phase 23 browser AOT debugging is implemented for the `wasm-aot` browser failure at generated SQLite startup. It records passing AOT and no-AOT browser smokes and keeps SQLitePCLRaw warning caveats visible.
 - Phase 24 release evidence, benchmarks, and docs is implemented as the final closeout: compatibility report, package report, focused benchmark refresh, public docs pass, and release wording match the evidence.
-- The old global scalar-converter and typed-key ergonomics source plan owns provider/model value conversion after the provider-key cache design has room for it.
-- The old global Phase 16 dependency-tracked result and module caching plan remains deferred until cache invalidation, freshness vocabulary, joins, projection semantics, and the DataLinq.Store module contract are stronger.
-- The old global Phase 17 query plan and Remotion isolation plan has been superseded and implemented by the version-scoped 0.8 roadmap. It remains the detailed source plan and design record for DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
-- Completed phase records and superseded implementation plans have moved under `archive/`; active docs should describe future work or current strategy.
+- The scalar-converter and typed-key ergonomics work has moved into the version-scoped 0.9 roadmap as a provider-value foundation, not a later afterthought.
+- Dependency-tracked result and module caching remains deferred until invalidation, freshness vocabulary, joins, projection semantics, and the DataLinq.Store module contract are stronger. Its active design notes live under `query-and-runtime/Result set caching.md` and `DataLinq.Store/`.
+- Query plan and Remotion isolation has been superseded and implemented by the version-scoped 0.8 roadmap.
+- Completed phase records and superseded implementation plans have moved under `archive/`; active roadmap execution docs should describe version-scoped future work or current strategy.
 
 The 0.8 finish-line work is now release preparation rather than another broad query feature. The query-runtime feature sequence moved through Phase 13 query composition and subquery pushdown, Phase 13B grouped aggregate projection, Phase 14 source-slot join composition, Phase 15 relation-aware and implicit joins, Phase 16 grouped numeric aggregates, Phase 17 grouped-row composition/HAVING, Phase 18 advanced keys plus joined grouping, Phase 19 SQL-backed projection rows, Phase 20 single query-syntax inner joins, and Phase 21 joined post-paging pushdown without expanding the documented support matrix by wishful thinking. Phases 22 through 24 then closed parser cleanup, browser AOT debugging, and final release evidence/docs.
 

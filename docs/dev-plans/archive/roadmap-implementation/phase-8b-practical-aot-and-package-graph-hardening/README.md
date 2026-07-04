@@ -50,7 +50,7 @@ Out of scope:
 - [Immutable Metadata Definitions and Factory Plan](../../metadata-and-generation/Immutable%20Metadata%20Definitions%20and%20Factory%20Plan.md)
 - [Phase 8 Compatibility Results](../phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md)
 - [Phase 8C Practical AOT Package Graph and Generated Runtime Hardening](../phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/README.md)
-- [Phase 17 Query Plan and Remotion Isolation](../../../roadmap-implementation/phase-17-query-plan-and-remotion-isolation/README.md)
+- [DataLinq 0.8 Roadmap](../../../roadmap-implementation/v0.8/README.md)
 
 ## Exit Criteria
 

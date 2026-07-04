@@ -6,7 +6,7 @@
 
 **Created:** 2026-05-05.
 
-**Update 2026-05-11:** The package graph, size reporting, generated startup, and packaging work landed in archived [Phase 8C](../archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md). The Remotion/query-parser and SQLitePCLRaw warning-disposition work moved to [Phase 17](../roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation%20Plan.md).
+**Update 2026-05-11:** The package graph, size reporting, generated startup, and packaging work landed in archived [Phase 8C](../archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md). The Remotion/query-parser and SQLitePCLRaw warning-disposition work later moved into the version-scoped [DataLinq 0.8 Roadmap](../roadmap-implementation/v0.8/README.md).
 
 **Update 2026-06-27:** The Remotion/query-parser work is now sequenced under the version-scoped [DataLinq 0.8 Roadmap](../roadmap-implementation/v0.8/README.md).
 

@@ -75,7 +75,6 @@ The most relevant existing planning documents are:
 - [Mutation and Invalidation Loop](Mutation%20and%20Invalidation%20Loop.md)
 - [API and Binding Generation](API%20and%20Binding%20Generation.md)
 - [Result set caching](../query-and-runtime/Result%20set%20caching.md)
-- [Phase 16: Dependency-Tracked Result-Set Caching](../roadmap-implementation/phase-16-dependency-tracked-result-set-caching/README.md)
 - [Distributed Cache Coordination and CDC](../architecture/Distributed%20Cache%20Coordination%20and%20CDC.md)
 - [Practical AOT and Size Plan](../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md)
 
