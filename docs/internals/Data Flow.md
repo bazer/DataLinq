@@ -87,19 +87,29 @@ If the generated metadata hook is missing or invalid, startup should fail loudly
 flowchart TD
     A["db.Query().Employees<br/>.Where(...).OrderBy(...)"] --> B["ExpressionQueryPlanParser parses expression tree"]
     B --> C["DataLinqQueryPlan records source slots, operations, projection, result, bindings"]
-    C --> D["Build SQL for supported predicates, joins, ordering, paging, scalar operators"]
-    D --> E["Execute key/select SQL through provider"]
-    E --> F{"Rows in cache?"}
+    C --> D{"Execution path"}
+    D -- "entity sequence or entity terminal" --> E["Build key/entity SQL"]
+    E --> F{"Rows in table cache?"}
     F -- "hit" --> G["Reuse immutable instance"]
     F -- "miss" --> H["Fetch missing row data"]
     H --> I["Materialize immutable instance"]
     I --> J["Store by provider key"]
-    G --> K["Apply supported projection"]
+    G --> K["Return model instance"]
     J --> K
-    K --> L["Return result"]
+    D -- "scalar result" --> L["Build scalar SQL<br/>COUNT, ANY, SUM, MIN, MAX, AVG"]
+    L --> M["Convert scalar result"]
+    D -- "SQL-backed projection/grouped/joined row" --> N["Build SELECT aliases, joins, GROUP BY, or derived-source pushdown"]
+    N --> O["Read aliases from IDataLinqDataReader"]
+    O --> P["Construct projection row"]
+    D -- "row-local projection" --> Q["Materialize source rows through cache"]
+    Q --> R["Evaluate supported selector in .NET"]
+    K --> S["Return result"]
+    M --> S
+    P --> S
+    R --> S
 ```
 
-The query pipeline is intentionally bounded. It supports documented predicates, ordering, paging, projections, scalar aggregates, one explicit inner join shape, and relation-backed existence predicates. Unsupported expression shapes are rejected rather than guessed.
+The query pipeline is intentionally bounded. It supports documented predicates, ordering, paging, projections, scalar aggregates, grouped aggregate rows, a supported explicit inner-join shape, a single query-syntax inner-join shape, singular implicit relation joins for documented member access, and relation-backed existence predicates. Unsupported expression shapes are rejected rather than guessed.
 
 ## Direct Primary-Key Lookup
 

@@ -133,7 +133,8 @@ Take(captured p1)
 The parser intentionally rejects several shapes even when they are legal LINQ-to-objects:
 
 - unsupported nested-source shapes where the current single-source pushdown boundary is not enough
-- filtering, ordering, paging, or terminal operators over explicit joined rows
+- joined-row composition when the projected members cannot bind to source-slot or SQL-row values
+- row-local joined composition after paging
 - non-direct join sources
 - composite anonymous-object join keys
 - unsupported aggregate selectors
@@ -149,7 +150,8 @@ Source slots are the parser's way of naming the rows a query can read from.
 | Source kind | Current role |
 | --- | --- |
 | `RootTable` | The main table source for ordinary queries. |
-| `ExplicitJoin` | The right-side table source for the current explicit inner join baseline. |
+| `ExplicitJoin` | The right-side table source for a supported explicit inner join. |
+| `ImplicitJoin` | A singular relation source rendered as an inner join for supported predicates, ordering, and direct member projection. |
 | `RelationSubquery` | A related table source used inside relation-backed `EXISTS` predicates. |
 
 Every source slot records:
@@ -238,12 +240,16 @@ The renderer currently handles:
 - grouped boolean logic
 - local collection membership
 - relation-backed `EXISTS`
+- singular implicit relation joins for documented member access
 - ordering
 - paging
 - single-source subquery pushdown for post-paging filters, orderings, and scalar reductions
 - scalar result shapes such as `Count` and `Any`
 - direct numeric aggregates
-- the narrow explicit inner join baseline
+- scalar member and direct source-slot SQL-row projection selectors
+- grouped aggregate selectors and `GROUP BY`
+- the supported explicit inner join and single query-syntax inner join shapes
+- joined SQL-row derived-source pushdown after paging
 
 The SQL renderer is intentionally not allowed to depend on parser-specific expression nodes. If rendering needs `Expression`, `QueryModel`, or query-source identities from another parser, the plan boundary has failed.
 
@@ -254,27 +260,31 @@ Execution has a few routes.
 ```mermaid
 flowchart TD
     A["Parsed plan"] --> B{"Result kind"}
-    B -- "Entity sequence" --> C["Build SQL and execute rows"]
+    B -- "Entity sequence or entity terminal" --> C["Build key/entity SQL"]
     C --> D["Table cache materializes immutable instances"]
     B -- "Scalar result" --> E["Build scalar SQL<br/>COUNT, ANY, SUM, MIN, MAX, AVG"]
-    B -- "Single / First / Last" --> F["Build row query<br/>apply result limit where possible"]
-    F --> D
-    B -- "Projection sequence" --> G["Execute entity or joined row query"]
-    G --> H["Evaluate row-local projection"]
-    H --> I["Return projected values"]
-    D --> J["Return model instances"]
-    E --> K["Convert scalar result"]
+    B -- "Scalar member, SQL-row, grouped aggregate" --> F["Build SELECT aliases<br/>and read provider rows directly"]
+    B -- "Row-local projection" --> G["Materialize source rows through cache"]
+    G --> H["Evaluate supported selector"]
+    B -- "Row-local joined projection" --> I["Select joined primary keys"]
+    I --> J["Hydrate joined rows through table caches"]
+    J --> H
+    D --> K["Return model instances"]
+    E --> L["Convert scalar result"]
+    F --> M["Construct projection row/value"]
+    H --> M
 ```
 
-Entity queries usually flow through cache-aware table access. Projection queries deliberately split SQL-backed query work from row-local projection:
+Entity queries usually flow through cache-aware table access. Projection queries deliberately split SQL-backed result work from row-local projection:
 
-- SQL handles filtering, relation-existence predicates, ordering, paging, aggregate selectors, and join key selection.
-- DataLinq materializes rows through table caches.
-- Supported projection expressions run over materialized rows.
+- SQL handles filtering, relation-existence predicates, joins, ordering, paging, aggregate selectors, grouped aggregate rows, and direct source-slot projection aliases.
+- DataLinq materializes rows through table caches when the result is an entity or a row-local projection over entity instances.
+- Direct scalar member, SQL-row, grouped aggregate, and supported joined projection rows read SQL aliases directly.
+- Supported row-local projection expressions run over materialized rows.
 
-For explicit joins, SQL selects primary keys for both joined sources. DataLinq then buffers the joined primary-key values, materializes each row through the relevant table cache, and evaluates the result selector over the row objects. Buffering the keys before row hydration avoids nested reader use on transaction connections.
+For row-local explicit joins, SQL selects primary keys for both joined sources. DataLinq then buffers the joined primary-key values, materializes each row through the relevant table cache, and evaluates the result selector over the row objects. Buffering the keys before row hydration avoids nested reader use on transaction connections.
 
-That is less ambitious than a full SQL `SELECT` projection engine. It is also much easier to keep correct with the existing cache and generated-instance model.
+For SQL-backed explicit joins, direct source-slot result members are selected as aliases and read from `IDataLinqDataReader` without hydrating joined entity rows. Post-paging joined composition stays supported only when the projected row is SQL-backed, because the derived-source boundary needs stable projection aliases.
 
 ## Projection Model
 

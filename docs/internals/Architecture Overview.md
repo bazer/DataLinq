@@ -129,12 +129,12 @@ The useful mental model is:
 
 1. Application code queries through generated table properties.
 2. The query pipeline translates the supported LINQ shape into SQL.
-3. DataLinq usually retrieves primary keys first.
+3. Entity-shaped reads usually retrieve primary keys first.
 4. The table cache reuses existing immutable instances for cache hits.
 5. Missing rows are fetched and materialized.
-6. Results are returned as immutable models or supported projections.
+6. Results are returned as immutable models or supported projection values.
 
-That cache-aware shape is why key identity and generated metadata matter so much.
+That cache-aware shape is why key identity and generated metadata matter so much. It is also not the only read shape: scalar results, SQL-backed projection rows, grouped aggregate rows, and supported joined projection rows can read SQL aliases directly when the query plan proves the values are source-slot or aggregate values rather than generated entities.
 
 ## What Happens During A Normal Write
 

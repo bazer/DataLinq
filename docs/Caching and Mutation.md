@@ -8,9 +8,9 @@ DataLinq is opinionated here:
 
 For explicit transaction APIs and lifecycle rules, see [Transactions](Transactions.md).
 
-## Read Path and Cache Layers
+## Entity Read Path and Cache Layers
 
-The main query path is primary-key-first:
+The entity read path is primary-key-first:
 
 1. translate the supported query shape
 2. fetch matching primary keys
@@ -18,7 +18,9 @@ The main query path is primary-key-first:
 4. bulk-fetch only missing rows
 5. return immutable instances
 
-That matters because it keeps the normal read path cheap while preserving object identity for cached rows.
+That matters because it keeps entity reads cheap while preserving object identity for cached rows.
+
+Do not overgeneralize that diagram. SQL-backed scalar results, scalar member projections, direct source-slot projection rows, grouped aggregate rows, and supported joined projection rows can read aliased SQL values directly. Those results do not become table-cache entries unless the query returns generated entity rows or takes a row-local projection path that materializes entities first.
 
 ```mermaid
 ---
@@ -33,7 +35,7 @@ flowchart TD
     end
 
     subgraph "DataLinq Runtime & Cache"
-        C["2. Translate LINQ to<br/>'SELECT PKs' SQL"] --> D[("3. Execute PK Query<br/>on Database")]:::DatabaseStyle
+        C["2. Translate entity query to<br/>'SELECT PKs' SQL"] --> D[("3. Execute PK Query<br/>on Database")]:::DatabaseStyle
         D -- Returns PKs --> E{"4. Got Primary Keys<br/>(e.g., [101, 102, 103])"}
         E --> F{"5. Check Cache for each PK"}
 

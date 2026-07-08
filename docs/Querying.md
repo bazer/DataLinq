@@ -41,7 +41,50 @@ var department = Department.Get("d005", db);
 
 If you need lower-level SQL-builder access, `Database<T>` also exposes `From(...)` and `From<TModel>()`. That is a different API surface from LINQ and should not be confused with "LINQ join support".
 
-## Query Execution Flow
+## SQL-Backed Result Shapes
+
+The supported LINQ surface is no longer just "filter entities and hydrate them." Direct source-slot projections, scalar results, grouped aggregate rows, and supported join projection rows can be SQL-backed.
+
+```csharp
+var departmentIds = db.Query().Departments
+    .Where(department => department.DeptNo.StartsWith("d00"))
+    .OrderBy(department => department.DeptNo)
+    .Select(department => department.DeptNo)
+    .ToList();
+
+var headcountByDepartment = db.Query().DepartmentEmployees
+    .GroupBy(row => row.dept_no)
+    .Select(group => new
+    {
+        DeptNo = group.Key,
+        Count = group.Count(),
+        MaxEmployeeNumber = group.Max(row => row.emp_no)
+    })
+    .OrderByDescending(row => row.Count)
+    .ToList();
+
+var departmentAssignments = db.Query().DepartmentEmployees
+    .Join(
+        db.Query().Departments,
+        departmentEmployee => departmentEmployee.dept_no,
+        department => department.DeptNo,
+        (departmentEmployee, department) => new
+        {
+            departmentEmployee.emp_no,
+            departmentEmployee.dept_no,
+            DepartmentName = department.Name
+        })
+    .Where(row => row.dept_no == "d005")
+    .OrderBy(row => row.emp_no)
+    .Take(20)
+    .ToList();
+```
+
+Those examples still live inside a deliberately bounded translator. The support boundary is documented, tested, and supposed to throw when you step outside it.
+
+## Entity Query Execution Flow
+
+This flow describes entity-shaped reads: queries that return generated model instances, direct primary-key lookups, and row-local projections that first materialize source rows. It is not the execution path for every successful query.
 
 ```mermaid
 ---
@@ -56,7 +99,7 @@ flowchart TD
     end
 
     subgraph "DataLinq Runtime & Cache"
-        C["Translate LINQ to<br/>'SELECT PKs' SQL"] --> D[("Execute PK Query<br/>on Database")]:::DatabaseStyle
+        C["Translate entity query to<br/>'SELECT PKs' SQL"] --> D[("Execute PK Query<br/>on Database")]:::DatabaseStyle
         D -- Returns PKs --> E{"Got Primary Keys<br/>(e.g., [101, 102, 103])"}
         E --> F{"Check Cache for each PK"}
 
@@ -92,14 +135,23 @@ flowchart TD
 
 ## What the Runtime Actually Does
 
-The important behavior is this:
+The important behavior splits by result shape.
+
+For entity-shaped reads:
 
 1. DataLinq translates the supported LINQ shape into SQL that first identifies primary keys.
 2. It checks the row cache for those keys.
 3. It bulk-fetches only the missing rows.
 4. It materializes immutable instances and reuses cached ones where possible.
 
-That primary-key-first path is why DataLinq can stay fast on repeated reads without pretending every query shape is supported.
+For other supported result shapes:
+
+- scalar results such as `Count`, `Any`, `Sum`, `Min`, `Max`, and `Average` render scalar SQL and convert the result value
+- scalar member projection and SQL-backed anonymous/DTO projection rows read aliased values directly from the provider reader
+- grouped aggregate projections render `GROUP BY` and aggregate selectors, then construct projection rows from SQL aliases
+- row-local projections and row-local joined projections materialize the needed source rows first, then evaluate the supported selector in .NET
+
+That primary-key-first path is still the reason repeated entity reads are cheap. It is just not a universal description of every query result. Cache identity belongs to generated entity rows; SQL result rows are ordinary projection values.
 
 For more on the translation pipeline, see [Query Translator](internals/Query%20Translator.md). For the detailed parser design, see [LINQ Parser Architecture](internals/LINQ%20Parser%20Architecture.md).
 
@@ -174,7 +226,7 @@ flowchart TD
 
 DataLinq also exposes lower-level query construction through `From(...)` and `SqlQuery`.
 
-That API is real and useful, but it is not the same thing as the LINQ translator. The existence of raw SQL builder classes does not mean LINQ `Join`, `GroupBy`, or arbitrary aggregates are supported.
+That API is real and useful, but it is not the same thing as the LINQ translator. The existence of raw SQL builder classes does not mean arbitrary LINQ `Join`, `GroupBy`, or aggregate shapes are supported.
 
 ## Summary
 
