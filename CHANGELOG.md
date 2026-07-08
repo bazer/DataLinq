@@ -4,19 +4,110 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## Unreleased
+## [DataLinq v0.8.0 - Own LINQ Parser, Query Plans, AOT Browser Proofs, and Bounded Joins](https://github.com/bazer/DataLinq/releases/tag/0.8.0)
 
-### 0.8 Roadmap Progress
+**Released on:** 2026-07-04
 
-* Replaced the production LINQ parser boundary with DataLinq's expression parser and removed `Remotion.Linq` from the main runtime package graph.
-* Deleted the temporary Remotion query executor, adapter, visitors, and test oracle scaffolding after moving supported SQL generation to DataLinq query-plan nodes.
-* Updated query translator, platform compatibility, source-generator, support-matrix, and roadmap docs so Remotion is historical migration context rather than current runtime behavior.
-* Verified fresh package output and constrained Native AOT, trimmed, WebAssembly no-AOT, and WebAssembly AOT reports without `Remotion.Linq` runtime dependency entries, Roslyn runtime payloads, or banned payload findings.
-* Added browser smoke automation to `DataLinq.Dev.CLI size-report` for WebAssembly targets using Playwright, local HTTP serving, DOM smoke status polling, console/page-error capture, and per-target `browser-smoke.log` evidence.
-* Expanded the shared generated SQLite constrained-platform smoke to cover selected documented LINQ shapes, including aggregates, paging, relation predicates, explicit joins, local membership, nullable predicates, unsupported diagnostics, and AOT-strict parser/projection checks.
-* Added `size-report --clean-output` for fresh WebAssembly warning evidence and `--release-thresholds` for 0.8 target-specific payload gates.
-* Fixed the WebAssembly AOT browser startup failure in generated metadata startup and recorded final clean-output release evidence: generated SQLite Native AOT, trimmed publish, WebAssembly no-AOT, and WebAssembly AOT all publish and smoke successfully under the release thresholds.
-* Kept SQLitePCLRaw `WASM0001` varargs warnings visible as a bounded WebAssembly caveat; the generated SQLite browser smoke proves the documented path does not hit those imports, but broad browser storage/provider configurations are not claimed.
+This is the release where DataLinq stops renting its query brain.
+
+The main runtime path no longer depends on `Remotion.Linq`. Production queries now go through DataLinq's own expression parser, query-plan model, and SQL renderer. That is a major architectural change, and it matters because it gives DataLinq a query pipeline it can reason about, test, package, and eventually extend without dragging a historical LINQ-provider boundary around forever.
+
+The blunt version: 0.8.0 is a big query-runtime release. It adds a lot of tested LINQ coverage, fixes important ordering/materialization edge cases, trims the runtime package graph, and finally backs the narrow generated SQLite AOT/WebAssembly claim with browser-executed smoke evidence. It is still not "all LINQ", not a broad browser ORM, not a general AOT promise, and not a migration engine. Unsupported query shapes are supposed to fail loudly.
+
+## Highlights
+
+* **Replaced the production LINQ parser boundary.**
+  `Database.Query()` now routes through `ExpressionQueryPlanProvider`, `ExpressionQueryPlanParser`, `DataLinqQueryPlan`, and `QueryPlanSqlBuilder` instead of using the old Remotion-backed runtime path.
+
+* **Removed `Remotion.Linq` from the runtime package graph.**
+  The temporary Remotion query executor, adapter, visitors, and migration oracle scaffolding are gone from the active runtime/test baseline. Public docs now treat Remotion as historical migration context, not as current runtime behavior.
+
+* **Expanded the supported LINQ subset without pretending it is unbounded.**
+  0.8.0 adds SQL-backed query composition, grouped aggregate rows, narrow grouped `HAVING`, explicit inner joins, single query-syntax joins, implicit singular relation traversal, SQL-backed projection rows, and joined post-paging pushdown.
+
+* **Made constrained-platform evidence much more serious.**
+  `DataLinq.Dev.CLI size-report` can now publish WebAssembly targets, serve them locally, drive a browser through Playwright, poll smoke status, capture console/page errors, and write per-target `browser-smoke.log` evidence.
+
+* **Fixed the generated SQLite WebAssembly AOT startup blocker.**
+  Generated metadata startup no longer trips Mono WebAssembly AOT with a function-signature mismatch. The final clean-output report proves generated SQLite Native AOT, trimmed publish, WebAssembly no-AOT, and WebAssembly AOT smokes under the 0.8 release thresholds on the release machine.
+
+## Query Pipeline and Parser
+
+* Added `DataLinqQueryPlan` plus first-class plan nodes for sources, operations, predicates, projections, values, results, binding frames, debug output, and null semantics.
+* Added the DataLinq expression parser and made it the production query path.
+* Moved supported SQL generation to query-plan nodes through `QueryPlanSqlBuilder`, predicate rendering, source mapping, value rendering, and derived-column mapping.
+* Removed the legacy Remotion-based query builder/executor/visitor path from the active runtime.
+* Added DataLinq-only SQL inspection helpers so translation tests inspect the current parser and renderer instead of a historical oracle.
+* Tightened unsupported-shape diagnostics so unsupported methods, selectors, operators, predicate shapes, relation projections, and scalar result operators fail with `QueryTranslationException`.
+* Isolated local value capture from query-source access and restored default-parser support for parameter-independent local helper methods, such as enum-to-database-value helpers, while keeping query-dependent method calls unsupported.
+* Kept AOT-strict parsing fenced away from compatibility method reflection.
+* Froze parser binding frames into plan-owned bindings and replaced render-time binding scans with direct lookup.
+
+## LINQ Translation Coverage
+
+* Preserved and expanded core predicate behavior for chained `Where(...)`, boolean groups, nullable predicates, property-to-property comparisons, local membership, empty local collections, string members, and date/time member access.
+* Added query composition and subquery pushdown so later filters, orderings, `Any()`, and `Count()` can apply over already-paged sources without flattening away C# operator order.
+* Added SQL-backed grouped aggregate projection rows for `Count()`, `Sum(...)`, `Min(...)`, `Max(...)`, and `Average(...)` over the supported numeric selector boundary.
+* Added grouped row composition including `group.Key`, composite key members, supported SQL-renderable computed keys, grouped ordering/paging/filtering, narrow `HAVING`, grouped-row `Any()`, and grouped-row `Count()`.
+* Added grouped aggregate coverage over supported explicit joined projections and implicit singular relation traversal inputs.
+* Added explicit inner join composition for one direct DataLinq source joined to another on direct member equality keys, including nullable `.Value` key selectors.
+* Added single C# query-syntax inner joins when the compiler-generated transparent identifiers can bind back to DataLinq source slots.
+* Added SQL-backed projection rows for direct source-slot values, supported singular relation members, and supported joined projection members.
+* Added implicit singular relation traversal in `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, and direct `Select(...)` projections through SQL-backed inner joins.
+* Added joined post-paging pushdown for SQL-backed joined projection rows, including post-paging `Where(...)`, ordering, `Any()`, and `Count()`.
+* Fixed ordered query materialization through the cache so SQL primary-key result order is preserved when entity rows are hydrated from cached tables.
+* Fixed ordered `Last()` / `LastOrDefault(...)` translation by reversing the ordering and limiting to one row.
+
+This is still deliberately bounded. Materialized `IGrouping<TKey,TElement>`, `GroupJoin(...)`, outer joins, multi-join pipelines, composite anonymous-object join keys, broad relation object projection, collection relation projection, nested provider queries, arbitrary client methods in SQL predicates, and opaque transparent-identifier pipelines remain outside the public support contract.
+
+## AOT, WebAssembly, and Package Evidence
+
+* Removed `Remotion.Linq` from the `DataLinq` runtime package references.
+* Kept Roslyn/compiler assemblies out of the runtime dependency groups for `DataLinq`, `DataLinq.SQLite`, and `DataLinq.MySql`.
+* Added Playwright-backed browser smoke execution for WebAssembly compatibility reports.
+* Added `size-report --clean-output` for fresh publish/warning evidence.
+* Added `size-report --release-thresholds` for 0.8 target-specific payload gates.
+* Added release payload thresholds and banned-payload checks to the compatibility tooling.
+* Added package inspection checks for runtime Remotion payloads, matching the existing runtime Roslyn leak checks.
+* Expanded the shared generated SQLite constrained-platform smoke to cover selected documented LINQ shapes, aggregates, paging, relation predicates, explicit joins, local membership, nullable predicates, unsupported diagnostics, and AOT-strict parser/projection checks.
+* Fixed generated metadata startup for the generic provider path so browser AOT no longer fails before generated SQLite startup.
+* Recorded final 0.8 local evidence at `artifacts/dev/compat-size-report/20260630-131026977/report.md`: generated SQLite Native AOT, trimmed publish, WebAssembly no-AOT, and WebAssembly AOT all publish and smoke successfully under release thresholds on that machine.
+
+The WebAssembly claim is intentionally narrow. The generated SQLite smoke proves the documented path through generated metadata, in-memory SQLite startup, schema creation, inserts, relation/projection queries, and selected query coverage. It does not prove MySQL/MariaDB browser support, OPFS/file-backed browser storage, arbitrary LINQ, arbitrary provider configurations, or a small production payload.
+
+SQLitePCLRaw `WASM0001` varargs warnings remain visible as a bounded caveat. The generated SQLite browser smoke does not hit those imports, but the warning is not hand-waved away as if it were solved for every browser storage path.
+
+## Performance and Runtime Fixes
+
+* Added a pre-parser fast path for root scalar primary-key terminal queries so warm cache hits skip query-plan and SQL scaffolding while preserving query telemetry.
+* Reduced cold scalar primary-key lookup allocations by bypassing the general `SqlQuery`/`Where` object graph for supported typed scalar primary-key cache misses.
+* Cached rendered scalar primary-key lookup SQL by provider and metadata shape while preserving provider value conversion before binding parameters.
+* Reused the scalar column row-query fast path for single-column relation index loads.
+* Reduced cold collection relation traversal allocations by avoiding unnecessary LINQ casts, primary-key projection allocations, and list allocations for common zero/one-row relation loads.
+* Fixed relation materialization for non-array row enumerables by using the correct immutable fallback path when transaction or index-cache relation loading supplies a non-array enumerable.
+* Recorded final heavy-profile benchmark evidence for query hot paths and phase-2 watchpoints. The query-hotpath run remains too noisy for a clean latency-improvement marketing claim; the allocation watchpoint is useful release evidence.
+
+## Documentation and Evidence
+
+* Rewrote the public supported LINQ docs around the current DataLinq parser boundary.
+* Updated the LINQ translation support matrix with active test-backed evidence for parser migration, grouped aggregates, relation traversal, explicit joins, projection rows, and joined pushdown.
+* Added a LINQ parser architecture internals page for the current parser, query plan, renderer, and diagnostics shape.
+* Updated platform compatibility docs so the AOT/WebAssembly support claim matches the final browser-executed generated SQLite evidence.
+* Updated benchmark documentation to separate release evidence from marketing claims.
+
+Roadmap-only and dev-plan-only changes after 0.7.1 are intentionally not listed here as shipped product changes.
+
+## Upgrade Notes
+
+* **Add your own `Remotion.Linq` reference if your app used it accidentally through DataLinq.** It is no longer a DataLinq runtime dependency.
+* **Expect unsupported LINQ shapes to fail as DataLinq query translation errors.** That is intentional. Rewrite the query into the documented subset or materialize before doing client-only work.
+* **Do not generalize the AOT/WebAssembly claim.** The proven path is generated SQLite through the documented smoke boundary. Other providers, storage modes, and query shapes need their own evidence.
+* **Re-check tests that asserted old SQL shapes.** The active renderer is query-plan based, and supported composition may now use derived-source pushdown to preserve LINQ operator order.
+* **If you parse Dev CLI compatibility output, account for the new browser-smoke evidence, release-threshold options, unsupported status, and runtime Remotion package checks.**
+
+## Full Changelog
+
+https://github.com/bazer/DataLinq/compare/0.7.1...0.8.0
 
 ---
 
@@ -926,3 +1017,5 @@ First release with basic functionality.
 * Support for lazy loading of model properties
 
 ---
+
+
