@@ -14,6 +14,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Cross-cutting
 
 - `Roadmap.md`
+- `documentation/Public Documentation Review and Update Plan.md`
 - current support matrices live outside this folder in `../support-matrices/`
 
 ### Architecture
