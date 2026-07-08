@@ -4,7 +4,7 @@ This page is the public roadmap snapshot. It describes direction, not shipped be
 
 ## Current Development Baseline
 
-This page tracks the current repo documentation branch. If you are comparing against an already-published NuGet version, check the [changelog](../CHANGELOG.md) for the exact release boundary.
+This page tracks the current documentation snapshot. If you are comparing against an already-published NuGet version, check the [changelog](../CHANGELOG.md) for the exact release boundary.
 
 DataLinq is currently a source-generated, immutable-first ORM for MySQL, MariaDB, and SQLite. The current public shape is:
 
@@ -54,13 +54,13 @@ The 0.8 parser-removal track is implemented. The production query boundary is no
 
 - `Queryable<T>` roots use `ExpressionQueryPlanProvider`
 - `ExpressionQueryPlanParser` parses supported `System.Linq.Expressions` trees into `DataLinqQueryPlan`
-- `QueryPlanSqlBuilder` renders accepted predicates, ordering, paging, scalar result shapes, relation-existence predicates, and the narrow explicit join baseline from that plan
+- `QueryPlanSqlBuilder` renders accepted predicates, ordering, paging, scalar result shapes, relation-existence predicates, grouped aggregate rows, implicit singular relation joins, and supported explicit/query-syntax join shapes from that plan
 - direct source-slot projections can execute as SQL-backed projection rows, while computed projections execute after materialization through DataLinq projection binding
 - `Remotion.Linq` is no longer a main product runtime dependency
 
 That is not the same thing as a general LINQ-provider rewrite. The support boundary is still the documented tested subset, and unsupported shapes should fail with specific `QueryTranslationException` diagnostics instead of falling back to silent client-side filtering.
 
-The internal 0.8 execution record started over at Phase 1 instead of continuing the old global roadmap numbering. That sequence is now closed through Phase 7: query contract baseline, temporary Remotion adapter, SQL generation on `DataLinqQueryPlan`, supported-subset expression parser, projection/local-evaluation cleanup, parity and constrained-platform switch, and Remotion dependency removal. Phases 8 through 12 now own the AOT/browser release gates, and Phase 13 through Phase 21 cover implemented query-composition, grouped aggregate, join, grouped-row composition, advanced grouped-key/joined-grouping, SQL-backed projection-row, single query-syntax inner-join, and joined post-paging pushdown slices.
+The detailed implementation phase record is intentionally not duplicated here. Use the changelog for release boundaries and `docs/dev-plans` for internal phase history.
 
 ### Query Composition, Grouped Aggregates, and Join Continuation
 
@@ -69,7 +69,7 @@ The 0.8 query-runtime slices implemented query composition, SQL-shaped grouped a
 The next honest query work is narrower than "all joins":
 
 - multiple explicit inner joins
-- filtering, ordering, paging, and result operators over joined row shapes
+- filtering, ordering, paging, and result operators over supported multi-join row shapes
 - grouping over supported multi-join source-slot projection rows
 - provider-value normalized join keys, including typed IDs where scalar converters are configured
 - relation-aware `JoinBy(...)` and `JoinMany(...)` only after explicit multi-join composition is stable

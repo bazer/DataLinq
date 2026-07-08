@@ -45,11 +45,13 @@ Do not compare default numbers directly against heavy numbers. They use differen
 
 <script type="module" src="../public/benchmark-results.js"></script>
 
-## 0.8 Release Evidence
+## Maintainer Evidence
 
-The final 0.8 release pass also refreshed local heavy-profile benchmark histories:
+Exact artifact paths below are repo-local release evidence, not website downloads. They are useful to maintainers reviewing the 0.8 release pass, but they should not be read as public performance claims.
+
+The final 0.8 release pass refreshed local heavy-profile benchmark histories:
 
 - `artifacts/benchmarks/history/v0.8-final-query-hotpath.json`
 - `artifacts/benchmarks/history/v0.8-final-phase2-watch.json`
 
-Those files are release evidence, not marketing copy. The Phase 24 query-hotpath run still had noisy rows, so it should not be used as a latency-improvement claim. The phase2 watchpoint run is useful for allocation baselines; for example, warm primary-key fetch remained at 1.77 KB allocated in both SQLite memory and file modes on that machine.
+Those files are release evidence, not marketing copy. The query-hotpath run still had noisy rows, so it should not be used as a latency-improvement claim. The watchpoint run is useful for allocation baselines; for example, warm primary-key fetch remained at 1.77 KB allocated in both SQLite memory and file modes on that machine.

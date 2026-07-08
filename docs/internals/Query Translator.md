@@ -153,7 +153,7 @@ Supported singular relation member projection uses the same implicit join source
 : Evaluates supported local values such as captured constants, simple member reads, empty collection factories, array/list indexes, and deterministic string operations without compiling or invoking arbitrary user methods.
 
 `QueryPlanSqlBuilder`
-: Renders plan operations to SQL, including local collection membership, relation-backed `EXISTS` predicates, implicit singular relation joins, ordering, paging, single-source subquery pushdown, scalar aggregates, SQL-backed projection rows, grouped aggregate projection, and the narrow explicit join baseline.
+: Renders plan operations to SQL, including local collection membership, relation-backed `EXISTS` predicates, implicit singular relation joins, ordering, paging, single-source subquery pushdown, scalar aggregates, SQL-backed projection rows, grouped aggregate projection, supported explicit/query-syntax joins, and joined SQL-row pushdown.
 
 `ExpressionQueryPlanExecutor`
 : Executes sequence, scalar, single-row, SQL-backed projection, row-local projection, grouped aggregate, and explicit-join result paths from a parsed plan.

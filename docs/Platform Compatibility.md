@@ -2,7 +2,7 @@
 
 DataLinq has a useful constrained-platform proof now, but the honest public claim is still narrow.
 
-## Supported Runtime Baseline
+## Public Support Claim
 
 The ordinary supported runtime path is .NET on server, desktop, or test hosts using generated DataLinq models with the SQLite, MySQL, or MariaDB providers.
 
@@ -13,9 +13,19 @@ Current package and repo builds target .NET 8, .NET 9, and .NET 10. Provider beh
 - [Provider Metadata Support Matrix](support-matrices/Provider%20Metadata%20Support%20Matrix.md)
 - [LINQ Translation Support Matrix](support-matrices/LINQ%20Translation%20Support%20Matrix.md)
 
-## Native AOT And Trimming
+For constrained platforms, the accurate claim is narrower:
 
-DataLinq has constrained-platform smoke projects for generated SQLite Native AOT, trimmed publish, Blazor WebAssembly AOT, and Blazor WebAssembly no-AOT. The final 0.8 local compatibility report at `artifacts/dev/compat-size-report/20260630-131026977/report.md` proves all four generated SQLite smoke targets with clean output, release thresholds, banned-payload checks, and Playwright-backed browser execution for the WebAssembly targets.
+> DataLinq has a proven generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary for the documented query subset, keeps Roslyn and Remotion out of runtime package dependency groups, and records SQLitePCLRaw `WASM0001` warnings as a separate release-evidence caveat.
+
+Not accurate yet:
+
+> DataLinq is broadly AOT-compatible.
+
+The broad claim has to wait until provider coverage, query coverage, browser storage, and remaining third-party WebAssembly warning work are stronger.
+
+## Constrained-Platform Boundary
+
+DataLinq has constrained-platform smoke projects for generated SQLite Native AOT, trimmed publish, Blazor WebAssembly AOT, and Blazor WebAssembly no-AOT.
 
 The runtime package graph has also been cleaned up for the public runtime packages: Roslyn/compiler assemblies and `Remotion.Linq` are not runtime dependencies of `DataLinq`, `DataLinq.SQLite`, or `DataLinq.MySql`. The source generator is packaged under `DataLinq` analyzer assets, which is the right place for build-time code generation and the wrong place for runtime payload.
 
@@ -33,12 +43,22 @@ That means the tested and packaged boundary is:
 - runtime package dependency groups without `Remotion.Linq`
 - generator assets under `analyzers/dotnet/cs`
 
-That does not mean every DataLinq scenario is AOT-compatible. Reflection-discovered model metadata, arbitrary client projection expressions, broad provider coverage, and every possible LINQ expression shape are not public support claims.
+## Non-Claims
+
+The smoke boundary does not mean every DataLinq scenario is AOT-compatible. These are not public support claims:
+
+- reflection-discovered model metadata on constrained platforms
+- arbitrary client projection expressions
+- MySQL or MariaDB browser/WebAssembly support
+- OPFS or file-backed browser storage
+- every possible LINQ expression shape
+- small production browser payload size
+- background memory-pressure cache cleanup in WebAssembly
 
 The current caveats to a stronger claim are still concrete:
 
 - Native AOT verification requires the local Native AOT platform toolchain; missing MSVC linker prerequisites are environment failures, not query-pipeline evidence
-- browser runtime verification now runs through `size-report` for WebAssembly targets, and Phase 23 fixed the generated metadata startup path that previously failed with `MONO_WASM: function signature mismatch`
+- browser runtime verification now runs through `size-report` for WebAssembly targets, and the generated metadata startup path that previously failed with `MONO_WASM: function signature mismatch` is fixed
 - the final clean-output report passes on this machine, but WebAssembly clean-output stability still depends on the installed .NET SDK and workload state
 - SQLitePCLRaw WebAssembly varargs warning disposition still needs a broader call-graph answer when fresh publishes emit `WASM0001`
 - generated SQLite smoke coverage is not broad provider coverage
@@ -48,13 +68,11 @@ The current caveats to a stronger claim are still concrete:
 
 Current `size-report` tooling can publish WebAssembly targets, serve the published output over HTTP, and run the smoke page in a headless Chromium-compatible browser through Playwright.
 
-The current generated SQLite AOT browser evidence is positive for the narrow smoke boundary. The final clean-output `wasm-aot` report at `artifacts/dev/compat-size-report/20260630-131026977/report.md` publishes successfully, serves the app, opens Edge through Playwright, and reaches `passed` at `verifying-strict-parser-projection`. The smoke covers generated metadata draft/definition construction, raw SQLite open/version/PRAGMAs, the keep-alive plus second-connection pattern, generated database construction, schema creation, insert, relation/projection queries, documented subset coverage, unsupported diagnostics, and parser route evidence. Publish success alone is still not browser proof; this claim depends on the browser smoke log.
+The current generated SQLite AOT browser evidence is positive for the narrow smoke boundary. The smoke covers generated metadata draft/definition construction, raw SQLite open/version/PRAGMAs, the keep-alive plus second-connection pattern, generated database construction, schema creation, insert, relation/projection queries, documented subset coverage, unsupported diagnostics, and parser route evidence. Publish success alone is still not browser proof; this claim depends on the browser smoke log.
 
-The current no-AOT browser WebAssembly path also passes the same generated SQLite in-memory smoke boundary. The final clean-output `wasm` report at `artifacts/dev/compat-size-report/20260630-131026977/report.md` publishes successfully and reaches the same `verifying-strict-parser-projection` browser stage. Treat this as a narrow current smoke result, not as a promise that every no-AOT browser configuration, storage mode, or query shape is supported.
+The current no-AOT browser WebAssembly path also passes the same generated SQLite in-memory smoke boundary. Treat this as a narrow smoke result, not as a promise that every no-AOT browser configuration, storage mode, or query shape is supported.
 
-The final 0.8 report used `--clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload` and passed for Native AOT, trimmed, WebAssembly no-AOT, and WebAssembly AOT. That is release evidence for this SDK/workload setup, not a promise that every contributor machine has the required Native AOT and WebAssembly toolchains installed correctly.
-
-The intended browser proof is also intentionally narrow when it passes:
+The intended browser proof is intentionally narrow when it passes:
 
 - SQLite only
 - generated models only
@@ -68,16 +86,20 @@ Memory-pressure cleanup is a server/desktop runtime feature. Browser/WebAssembly
 
 Payload numbers should be read from the compatibility size report with symbol files excluded, and symbol packages should be treated as separate release artifacts. Counting `.pdb` or `.snupkg` payload as deployed constrained-platform runtime size is misleading accounting.
 
-## What To Claim
+## Maintainer Verification Evidence
 
-Accurate:
+Release evidence is repo-local unless it has been copied into release notes or the changelog. The final 0.8 local compatibility report path was:
 
-> DataLinq has a proven generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary for the documented query subset, keeps Roslyn and Remotion out of runtime package dependency groups, and records SQLitePCLRaw `WASM0001` warnings as a separate release-evidence caveat.
+```text
+artifacts/dev/compat-size-report/20260630-131026977/report.md
+```
 
-Not accurate yet:
+That report used:
 
-> DataLinq is broadly AOT-compatible.
+```bash
+--clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload
+```
 
-The second statement has to wait until broader provider/query coverage and the remaining third-party WebAssembly warning work are cleaned up.
+It passed for Native AOT, trimmed publish, WebAssembly no-AOT, and WebAssembly AOT on that SDK/workload setup. It also verified WebAssembly browser execution through the `verifying-strict-parser-projection` smoke stage.
 
 The detailed engineering notes live in the repo's internal `docs/dev-plans` tree. The public verification hooks are the repo-local `DataLinq.Dev.CLI` `size-report` and `package-report` commands plus the constrained-platform smoke projects that back this narrow claim.

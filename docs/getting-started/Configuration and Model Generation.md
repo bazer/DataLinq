@@ -142,21 +142,11 @@ The model declaration files are regenerated files with a supported edit surface.
 
 For the exact rules, see [Model Generation](../model-generation.md).
 
-## Regenerating With Custom Types
+## Regeneration Details
 
-When `generate models` runs against existing files in `ModelDirectory`, DataLinq preserves source-defined C# property types that it cannot safely infer from database metadata. This is especially important for enums shared across several model files.
+When `generate models` updates existing files in `ModelDirectory`, DataLinq preserves supported C# surface edits such as renamed members, shared enum property types, namespaces, and existing `using` directives for files it can match. New files still use the namespace from `datalinq.json`.
 
-For MySQL and MariaDB `ENUM` columns:
-
-- if the enum is not already represented in source, `generate models` generates a C# enum declaration
-- if the enum declaration is in the model file, regeneration keeps that declaration
-- if the property references an enum declared in another source file, regeneration keeps the property type and `[Enum(...)]` metadata but does not emit a duplicate enum declaration into the model file
-
-That lets you centralize shared enum types without fighting regeneration.
-
-### Existing Namespaces and Usings
-
-If `generate models` updates existing model files, it preserves the namespace and existing `using` directives for the database, table, and view files it can match. New files still use the namespace from `datalinq.json`.
+For the full preservation rules, unsupported edits, nullable context behavior, `--fresh`, `--overwrite-types`, and `--stamp-generated-header`, see [Model Generation](../model-generation.md).
 
 ## Optional: Generate SQL From Models
 
