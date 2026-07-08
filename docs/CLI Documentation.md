@@ -65,7 +65,7 @@ datalinq database create -n AppDb -p SQLite
 
 ### `validate`
 
-Compares configured model metadata with live database metadata.
+Compares configured model metadata with live database metadata. For workflow guidance and the exact comparison/safety model, see [Schema Validation and Diff](Schema%20Validation%20and%20Diff.md).
 
 ```bash
 datalinq validate -n AppDb -p SQLite
@@ -85,7 +85,7 @@ Exit codes:
 
 ### `diff`
 
-Runs validation and emits a conservative SQL suggestion script for supported additive drift.
+Runs validation and emits a conservative SQL suggestion script for supported additive drift. For review guidance and the current SQL generation boundary, see [Schema Validation and Diff](Schema%20Validation%20and%20Diff.md).
 
 ```bash
 datalinq diff -n AppDb -p MariaDB -o update_schema.sql

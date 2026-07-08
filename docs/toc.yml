@@ -14,6 +14,8 @@
   items:
     - name: Querying
       href: Querying.md
+    - name: Relations and Joins
+      href: Relations and Joins.md
     - name: Caching and Mutation
       href: Caching and Mutation.md
     - name: Diagnostics and Metrics
@@ -39,6 +41,8 @@
       href: Attributes and Model Definitions.md
     - name: Model Generation
       href: model-generation.md
+    - name: Schema Validation and Diff
+      href: Schema Validation and Diff.md
     - name: CLI Documentation
       href: CLI Documentation.md
     - name: Configuration Files

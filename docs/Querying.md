@@ -80,7 +80,7 @@ var departmentAssignments = db.Query().DepartmentEmployees
     .ToList();
 ```
 
-Those examples still live inside a deliberately bounded translator. The support boundary is documented, tested, and supposed to throw when you step outside it.
+Those examples still live inside a deliberately bounded translator. For relationship-specific query shapes, see [Relations and Joins](Relations%20and%20Joins.md). The support boundary is documented, tested, and supposed to throw when you step outside it.
 
 ## Entity Query Execution Flow
 

@@ -12,6 +12,8 @@ This provider does three distinct jobs:
 
 That matters because MariaDB-specific behavior only appears when the connection type and factory selection are actually MariaDB-aware.
 
+For drift checks and conservative SQL suggestions against MySQL or MariaDB metadata, see [Schema Validation and Diff](../Schema%20Validation%20and%20Diff.md). For the exact provider metadata boundary, see [Provider Metadata Support Matrix](../support-matrices/Provider%20Metadata%20Support%20Matrix.md).
+
 ## Schema Introspection and Type Mapping
 
 `generate models` reads schema metadata from `information_schema` and maps backend types to C# types. The mapping is aware of signedness, length, defaults, foreign keys, indices, and enum definitions.

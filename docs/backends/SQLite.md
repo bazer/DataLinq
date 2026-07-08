@@ -12,6 +12,8 @@ SQLite support is not just runtime connectivity. The provider also includes:
 
 That is important because SQLite is structurally different from the MySQL/MariaDB path. It does not have `information_schema`, and pretending otherwise would be lazy documentation.
 
+For drift checks and conservative SQL suggestions against SQLite metadata, see [Schema Validation and Diff](../Schema%20Validation%20and%20Diff.md). For the exact provider metadata boundary, see [Provider Metadata Support Matrix](../support-matrices/Provider%20Metadata%20Support%20Matrix.md).
+
 ## Type Mapping and Affinities
 
 SQLite uses a flexible affinity system rather than strict static types. DataLinq's `generate models` behavior for SQLite is therefore partly type-based and partly convention-based.

@@ -53,10 +53,12 @@ That sequence gets you from zero to a real generated model surface and a working
 Once the basics are in place, move into the deeper working docs:
 
 - [Querying](Querying.md)
+- [Relations and Joins](Relations%20and%20Joins.md)
 - [Caching and Mutation](Caching%20and%20Mutation.md)
 - [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md)
 - [Transactions](Transactions.md)
 - [Supported LINQ Queries](Supported%20LINQ%20Queries.md)
+- [Schema Validation and Diff](Schema%20Validation%20and%20Diff.md)
 - [Support Matrices](support-matrices/index.md)
 - [Platform Compatibility](Platform%20Compatibility.md)
 - [Roadmap](Roadmap.md)
@@ -74,10 +76,12 @@ If you already know what you need, jump directly to the major sections:
 ### Usage
 
 - [Querying](Querying.md)
+- [Relations and Joins](Relations%20and%20Joins.md)
 - [Caching and Mutation](Caching%20and%20Mutation.md)
 - [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md)
 - [Transactions](Transactions.md)
 - [Supported LINQ Queries](Supported%20LINQ%20Queries.md)
+- [Schema Validation and Diff](Schema%20Validation%20and%20Diff.md)
 - [Support Matrices](support-matrices/index.md)
 - [Platform Compatibility](Platform%20Compatibility.md)
 - [Attributes and Model Definitions](Attributes%20and%20Model%20Definitions.md)

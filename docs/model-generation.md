@@ -29,6 +29,8 @@ Use `--fresh` when you intentionally want to ignore the existing model files and
 
 `--fresh` is destructive to supported C# surface edits because those edits are learned from the existing model files.
 
+After regeneration, use [Schema Validation and Diff](Schema%20Validation%20and%20Diff.md) when you need to prove the generated model still matches the live database or produce a reviewable additive SQL suggestion script.
+
 ## Layout
 
 Generated member order is project configuration, not a local CLI preference. Configure it in each database entry:

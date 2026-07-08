@@ -18,6 +18,8 @@ The shorter public contract pages are still the best starting point for normal u
 
 - [Supported LINQ Queries](../Supported%20LINQ%20Queries.md)
 - [Querying](../Querying.md)
+- [Relations and Joins](../Relations%20and%20Joins.md)
+- [Schema Validation and Diff](../Schema%20Validation%20and%20Diff.md)
 - [MySQL & MariaDB](../backends/MySQL-MariaDB.md)
 - [SQLite](../backends/SQLite.md)
 

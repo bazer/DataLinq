@@ -109,7 +109,7 @@ Validate your configured models against the live database:
 datalinq validate -n AppDb
 ```
 
-`validate` exits with `0` when no drift is found, `1` when schema drift is detected, and `2` for command, configuration, metadata, or validation issues. Use `--output json` when wiring the result into automation; JSON output includes structured validation `issues` as well as drift `differences`.
+`validate` exits with `0` when no drift is found, `1` when schema drift is detected, and `2` for command, configuration, metadata, or validation issues. Use `--format json` when wiring the result into automation; JSON output includes structured validation `issues` as well as drift `differences`.
 
 Generate a conservative SQL suggestion script for supported additive drift:
 
