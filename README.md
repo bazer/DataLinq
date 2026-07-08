@@ -64,10 +64,19 @@ Current package and repo builds target .NET 8, .NET 9, and .NET 10.
 ### Configuration
 The CLI reads `datalinq.json` and, if present next to it, `datalinq.user.json`.
 
+For a new project, start with the config initializer:
+
+```bash
+datalinq config init
+```
+
+That writes shared structure to `datalinq.json` and local connection details to `datalinq.user.json`. You can also write the files by hand.
+
 Minimal example:
 
 ```json
 {
+  "$schema": "https://datalinq.org/schemas/datalinq.schema.json",
   "Databases": [
     {
       "Name": "AppDb",
@@ -89,7 +98,7 @@ Minimal example:
 Generate your data models directly from your database schema:
 
 ```bash
-datalinq create-models -n AppDb
+datalinq generate models -n AppDb
 ```
 
 Generated C# files are marked as DataLinq-generated and declare their nullable context. Nullable reference generation is enabled by default; set `"UseNullableReferenceTypes": false` in the database config to opt out.
@@ -112,7 +121,7 @@ datalinq diff -n AppDb -o update_schema.sql
 If validation issues exist, `diff` reports them and writes no SQL file.
 
 If your config contains more than one database, pass `-n`.
-If the selected database contains more than one connection type, pass `-t`.
+If the selected database contains more than one connection type, pass `-p`.
 
 ---
 

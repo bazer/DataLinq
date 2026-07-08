@@ -50,7 +50,7 @@ The key discipline is not to turn every good idea into a 0.9 claim. JSON persist
 
 ### Query Plan and Remotion Removal
 
-The 0.8 parser-removal track is implemented in the current branch. The production query boundary is now DataLinq-owned:
+The 0.8 parser-removal track is implemented. The production query boundary is now DataLinq-owned:
 
 - `Queryable<T>` roots use `ExpressionQueryPlanProvider`
 - `ExpressionQueryPlanParser` parses supported `System.Linq.Expressions` trees into `DataLinqQueryPlan`

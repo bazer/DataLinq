@@ -6,9 +6,9 @@ It describes query shapes that are clearly exercised by the test suite today. If
 
 For the detailed maintainer evidence behind these claims, see the [LINQ Translation Support Matrix](support-matrices/LINQ%20Translation%20Support%20Matrix.md).
 
-## Current Parser Boundary
+## Parser Boundary
 
-On the current 0.8 branch, `Database.Query()` runs through DataLinq's expression parser and query-plan SQL renderer. The production path is `ExpressionQueryPlanProvider` -> `ExpressionQueryPlanParser` -> `DataLinqQueryPlan` -> `QueryPlanSqlBuilder`.
+In 0.8 and later, `Database.Query()` runs through DataLinq's expression parser and query-plan SQL renderer. The production path is `ExpressionQueryPlanProvider` -> `ExpressionQueryPlanParser` -> `DataLinqQueryPlan` -> `QueryPlanSqlBuilder`.
 
 That implementation detail does not expand the public LINQ contract. The supported surface is still the test-backed subset below. Unsupported provider-query shapes should fail with DataLinq-owned `QueryTranslationException` diagnostics instead of using silent client-side predicate fallback.
 

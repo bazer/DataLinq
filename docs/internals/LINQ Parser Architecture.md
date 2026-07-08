@@ -311,7 +311,7 @@ The practical goal is narrower and more useful:
 
 ## Current Progress
 
-Implemented in the current 0.8 branch:
+Implemented in 0.8 and later:
 
 - `Database.Query()` roots execute through the DataLinq expression parser provider.
 - `Remotion.Linq` is not part of the active production query provider or public runtime package dependency graph.

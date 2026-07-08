@@ -90,7 +90,7 @@ The optional target defaults to `src/DataLinq.sln`.
 
 ### `size-report`
 
-Publishes the Phase 8C constrained-platform smoke targets and writes a repeatable compatibility payload report.
+Publishes the constrained-platform smoke targets and writes a repeatable compatibility payload report. The default target set is still named `phase8c` for compatibility with the original report schema, but the current 0.8 release gate uses that target set for Native AOT, trimmed publish, WebAssembly no-AOT, and WebAssembly AOT evidence.
 
 ```bash
 dotnet run --project DataLinq.Dev.CLI -- size-report --target phase8c
@@ -110,7 +110,7 @@ The default `phase8c` target set includes:
 - `wasm-aot`
   Blazor WebAssembly AOT publish of `src/DataLinq.BlazorWasm`.
 
-Each report includes total payload size, symbol-excluded size, file count, `.br` and `.gz` asset totals, largest files, publish warnings grouped by owner, warning diagnostics, smoke status, and banned Roslyn payload findings.
+Each report includes total payload size, symbol-excluded size, file count, `.br` and `.gz` asset totals, largest files, publish warnings grouped by owner, warning diagnostics, smoke status, and banned runtime payload findings.
 
 Native executable targets run their published executable as the smoke. WebAssembly targets are served over local HTTP and opened in a headless Chromium-compatible browser through Playwright. Set `DATALINQ_BROWSER_PATH` when Edge, Chrome, or Chromium is not discoverable from the standard install paths or `PATH`.
 
@@ -127,7 +127,9 @@ Useful options:
 - `--fail-on-threshold`
   Makes advisory threshold findings fail the command.
 - `--fail-on-banned-payload`
-  Makes banned Roslyn payload findings fail the command. Use this for the Phase 8C runtime payload gate after the package graph has been refreshed.
+  Makes banned runtime payload findings fail the command. Use this for release payload gates after the package graph has been refreshed.
+- `--stop-on-publish-failure`
+  Stops the report after a publish failure instead of continuing to later targets.
 - `--skip-smoke`
   Skips executable and browser smoke runs after publish.
 - `--clean-output`
@@ -170,7 +172,9 @@ The report checks:
 - no unexpected package ids are present
 - every `.nupkg` has a matching `.snupkg`
 - runtime package dependency groups do not reference `Microsoft.CodeAnalysis.*`
+- runtime package dependency groups do not reference `Remotion.Linq`
 - runtime package `lib/` and `runtimes/` assets do not contain Roslyn payloads
+- runtime package `lib/` and `runtimes/` assets do not contain Remotion payloads
 - the `DataLinq` source generator lives under `analyzers/dotnet/cs`
 - analyzer payloads are not placed under runtime assets
 
@@ -186,6 +190,8 @@ Useful options:
   Reports missing `.snupkg` files without failing.
 - `--allow-runtime-roslyn`
   Reports runtime Roslyn package dependencies or payload assets without failing.
+- `--allow-runtime-remotion`
+  Reports runtime Remotion package dependencies or payload assets without failing.
 - `--allow-analyzer-leaks`
   Reports missing or misplaced analyzer assets without failing.
 - `--format summary|markdown|json`
