@@ -156,6 +156,17 @@ internal static class MetadataDefinitionSnapshot
                 valuePropertyMap.TryGetValue(sourceColumn.ValueProperty, out var destinationProperty))
             {
                 destinationColumn.SetValuePropertyCore(destinationProperty);
+
+                if (sourceColumn.HasScalarConverter && sourceColumn.ScalarMapping.ConverterCsType is { } converterCsType)
+                {
+                    destinationColumn.SetScalarMappingCore(ColumnScalarMapping.Converted(
+                        sourceColumn.ScalarMapping.ModelCsType,
+                        sourceColumn.ScalarMapping.ProviderCsType,
+                        converterCsType,
+                        sourceColumn.ScalarMapping.Converter,
+                        sourceColumn.ScalarMapping.Origin,
+                        sourceColumn.ScalarMapping.SourceLocation));
+                }
             }
         }
 

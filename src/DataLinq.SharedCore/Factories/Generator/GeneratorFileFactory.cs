@@ -358,11 +358,13 @@ public class GeneratorFileFactory
             yield return row;
         yield return $"{indent})";
         yield return $"{indent}{{";
-        foreach (var row in AttributeCollection("Attributes", property.Attributes, childIndent))
+        foreach (var row in ValuePropertyAttributeCollection(property, childIndent))
             yield return row;
         yield return $"{childIndent}CsNullable = {FormatBool(property.CsNullable)},";
         yield return $"{childIndent}CsSize = {FormatNullableInt(property.CsSize)},";
         yield return $"{childIndent}EnumProperty = {FormatNullableEnumProperty(property.EnumProperty)},";
+        if (property.Column.HasScalarConverter)
+            yield return $"{childIndent}ScalarConverter = {FormatScalarConverterDraft(property.Column)},";
         yield return $"{indent}}},";
     }
 
@@ -419,6 +421,23 @@ public class GeneratorFileFactory
 
         foreach (var attribute in attributes)
             yield return $"{indent}{tab}{FormatAttribute(attribute)},";
+
+        yield return $"{indent}],";
+    }
+
+    private IEnumerable<string> ValuePropertyAttributeCollection(ValueProperty property, string indent)
+    {
+        yield return $"{indent}Attributes =";
+        yield return $"{indent}[";
+
+        foreach (var attribute in property.Attributes.Where(static attribute => attribute is not ScalarConverterSourceAttribute))
+            yield return $"{indent}{tab}{FormatAttribute(attribute)},";
+
+        if (property.Column.ScalarMapping.Origin == ScalarConverterOrigin.Property &&
+            property.Column.ScalarMapping.ConverterCsType is { } converterCsType)
+        {
+            yield return $"{indent}{tab}new global::DataLinq.Attributes.ScalarConverterAttribute(typeof({GetGlobalTypeName(converterCsType)})),";
+        }
 
         yield return $"{indent}],";
     }
@@ -488,6 +507,22 @@ public class GeneratorFileFactory
 
     private static string FormatRuntimeCsTypeDeclaration(string runtimeTypeName) =>
         $"new global::DataLinq.Metadata.CsTypeDeclaration(typeof({runtimeTypeName}))";
+
+    private static string FormatScalarConverterDraft(ColumnDefinition column)
+    {
+        var mapping = column.ScalarMapping;
+        if (mapping.ConverterCsType is not { } converterCsType)
+            throw new InvalidOperationException($"Column '{column}' is marked as converted but has no converter type metadata.");
+
+        var converterTypeName = GetGlobalTypeName(converterCsType);
+        var sourceLocation = mapping.SourceLocation is { } location
+            ? $", SourceLocation = new global::DataLinq.Metadata.SourceLocation(new global::DataLinq.Metadata.CsFileDeclaration({FormatStringLiteral(location.File.Name)}), new global::DataLinq.Metadata.SourceTextSpan({location.Span?.Start.ToString(CultureInfo.InvariantCulture) ?? "0"}, {location.Span?.Length.ToString(CultureInfo.InvariantCulture) ?? "0"}))"
+            : string.Empty;
+
+        // Preserve a deterministic file-name/span diagnostic anchor without
+        // serializing machine-specific absolute source paths into the assembly.
+        return $"new global::DataLinq.Core.Factories.MetadataScalarConverterDraft({FormatRuntimeCsTypeDeclaration(mapping.ModelCsType)}, {FormatRuntimeCsTypeDeclaration(mapping.ProviderCsType)}, {FormatRuntimeCsTypeDeclaration(converterCsType)}, new global::System.Func<global::DataLinq.IDataLinqScalarConverter>(static () => new {converterTypeName}())) {{ Origin = global::DataLinq.Metadata.ScalarConverterOrigin.{mapping.Origin}{sourceLocation} }}";
+    }
 
     private static string FormatNullableRuntimeCsTypeDeclaration(string? runtimeTypeName) =>
         runtimeTypeName is not null
@@ -563,6 +598,7 @@ public class GeneratorFileFactory
         DefaultAttribute value => value.CodeExpression is null
             ? $"new global::DataLinq.Attributes.DefaultAttribute({FormatValueLiteral(value.Value)})"
             : $"new global::DataLinq.Attributes.DefaultAttribute({FormatValueLiteral(value.Value)}, {FormatStringLiteral(value.CodeExpression)})",
+        ScalarConverterSourceAttribute value => $"new global::DataLinq.Attributes.ScalarConverterAttribute(typeof({value.ConverterTypeSyntax}))",
         _ => throw new NotSupportedException($"Generated metadata does not support attribute type '{attribute.GetType().FullName}'.")
     };
 
@@ -685,7 +721,9 @@ public class GeneratorFileFactory
 
     private static string? GetProviderKeyRowStoreAccessorExpression(ModelDefinition model)
     {
-        if (model.Table.Type != TableType.Table || model.Table.PrimaryKeyColumns.Length == 0)
+        if (model.Table.Type != TableType.Table ||
+            model.Table.PrimaryKeyColumns.Length == 0 ||
+            model.Table.PrimaryKeyShape.HasScalarConverter)
             return null;
 
         return $"new {GetGlobalTypeName(model.CsType)}.DataLinqProviderKeyRowStoreAccessor()";
@@ -823,7 +861,8 @@ public class GeneratorFileFactory
 
         if (model.Table.Type == TableType.Table)
         {
-            if (model.Table.PrimaryKeyColumns.Length > 0)
+            if (model.Table.PrimaryKeyColumns.Length > 0 &&
+                !model.Table.PrimaryKeyShape.HasScalarConverter)
             {
                 var primaryKeys = model.Table.PrimaryKeyColumns
                     .Select(c => c.ValueProperty)

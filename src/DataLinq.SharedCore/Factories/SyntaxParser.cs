@@ -704,6 +704,20 @@ public class SyntaxParser
             return new ColumnAttribute(arguments[0]);
         }
 
+        if (name == "ScalarConverter")
+        {
+            if (arguments.Count != 1 ||
+                attributeSyntax.ArgumentList?.Arguments[0].Expression is not TypeOfExpressionSyntax typeOfExpression)
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidArgument,
+                    "Attribute 'ScalarConverter' requires exactly one typeof(converter) argument.");
+            }
+
+            return new ScalarConverterSourceAttribute(typeOfExpression.Type.ToString());
+        }
+
         if (name == "Comment")
         {
             if (arguments.Count == 1)

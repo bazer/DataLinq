@@ -18,6 +18,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" />
+		<ProjectReference Include="..\DataLinq\DataLinq.csproj" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
 </Project>

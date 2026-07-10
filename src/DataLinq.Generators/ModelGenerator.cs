@@ -11,6 +11,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 [assembly: InternalsVisibleTo("DataLinq.Generators.Tests")]
 
@@ -127,12 +128,22 @@ public sealed class ModelGenerator : IIncrementalGenerator
 
         try
         {
+            var scalarMetadataResult = ScalarConverterMetadataResolver.Resolve(
+                db.Value,
+                compilation,
+                context.CancellationToken);
+            if (!scalarMetadataResult.TryUnwrap(out var database, out var scalarMetadataFailure))
+            {
+                ReportFailureDiagnostics(scalarMetadataFailure, compilation, context);
+                return;
+            }
+
             var validationContext = new GeneratorValidationContext();
             foreach (var validator in validators)
-                validator.Validate(db.Value, compilation, context, validationContext);
+                validator.Validate(database, compilation, context, validationContext);
 
             var runtimeValuePropertyTypeNames = ResolveRuntimeValuePropertyTypeNames(
-                db.Value,
+                database,
                 compilation,
                 context.CancellationToken);
 
@@ -143,9 +154,9 @@ public sealed class ModelGenerator : IIncrementalGenerator
                 SuppressedDefaultValueProperties = validationContext.SuppressedDefaultValueProperties,
             };
 
-            var databaseNullableContext = ResolveDatabaseNullableReferenceTypes(db.Value, compilation, useNullableReferenceTypes);
+            var databaseNullableContext = ResolveDatabaseNullableReferenceTypes(database, compilation, useNullableReferenceTypes);
             var emissionResult = EmitGeneratedSources(
-                db.Value,
+                database,
                 table => CreateOptions(ResolveTableNullableReferenceTypes(table, compilation, databaseNullableContext)),
                 () => CreateOptions(databaseNullableContext));
 
@@ -153,7 +164,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
                 context.AddSource(sourceFile.HintName, sourceFile.Contents);
 
             foreach (var failure in emissionResult.Failures)
-                ReportGenerationFailureDiagnostic(failure.Exception, db.Value, compilation, context);
+                ReportGenerationFailureDiagnostic(failure.Exception, database, compilation, context);
         }
         catch (Exception e)
         {

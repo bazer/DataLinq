@@ -99,6 +99,7 @@ public class DatabaseColumnType(DatabaseType databaseType, string name, ulong? l
 public class ColumnDefinition(string dbName, TableDefinition table) : IDefinition
 {
     private MetadataCollection<DatabaseColumnType> dbTypes = MetadataCollection<DatabaseColumnType>.Empty;
+    private ColumnScalarMapping scalarMapping = null!;
 
     public TableDefinition Table { get; } = table;
     public string DbName { get; private set; } = dbName;
@@ -190,6 +191,13 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
 
     public IEnumerable<ColumnIndex> ColumnIndices => Table.GetColumnIndices(this);
     public ValueProperty ValueProperty { get; private set; } = null!;
+    public ColumnScalarMapping ScalarMapping => scalarMapping;
+    public CsTypeDeclaration ModelCsType => scalarMapping.ModelCsType;
+    public CsTypeDeclaration ProviderCsType => scalarMapping.ProviderCsType;
+    public Type? ModelClrType => scalarMapping.ModelClrType;
+    public Type? ProviderClrType => scalarMapping.ProviderClrType;
+    public IDataLinqScalarConverter? ScalarConverter => scalarMapping.Converter;
+    public bool HasScalarConverter => scalarMapping.HasConverter;
 
     public CsFileDeclaration? CsFile => Table?.Model?.CsFile;
 
@@ -203,7 +211,14 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     {
         ThrowIfFrozen();
         ValueProperty = value;
+        scalarMapping = ColumnScalarMapping.Identity(value.CsType);
         value.SetColumnCore(this);
+    }
+
+    internal void SetScalarMappingCore(ColumnScalarMapping value)
+    {
+        ThrowIfFrozen();
+        scalarMapping = value ?? throw new ArgumentNullException(nameof(value));
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]

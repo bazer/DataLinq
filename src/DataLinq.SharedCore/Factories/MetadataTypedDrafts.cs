@@ -78,6 +78,17 @@ public sealed record MetadataValuePropertyDraft(
     public bool CsNullable { get; init; }
     public int? CsSize { get; init; }
     public EnumProperty? EnumProperty { get; init; }
+    public MetadataScalarConverterDraft? ScalarConverter { get; init; }
+}
+
+public sealed record MetadataScalarConverterDraft(
+    CsTypeDeclaration ModelCsType,
+    CsTypeDeclaration ProviderCsType,
+    CsTypeDeclaration ConverterCsType,
+    Func<IDataLinqScalarConverter>? Factory = null)
+{
+    public ScalarConverterOrigin Origin { get; init; } = ScalarConverterOrigin.Property;
+    public SourceLocation? SourceLocation { get; init; }
 }
 
 public sealed record MetadataRelationPropertyDraft(
@@ -116,6 +127,7 @@ internal static class MetadataTypedDraftConverter
         database.CacheCleanup.AddRangeCore(draft.CacheCleanup ?? []);
         database.IndexCache.AddRangeCore(draft.IndexCache ?? []);
 
+        var scalarConverterInstances = new Dictionary<Type, IDataLinqScalarConverter>();
         var tableModelDrafts = draft.TableModels ?? [];
         var tableModels = new List<TableModel>(tableModelDrafts.Count);
         foreach (var tableModelDraft in tableModelDrafts)
@@ -123,7 +135,7 @@ internal static class MetadataTypedDraftConverter
             if (tableModelDraft is null)
                 return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Typed metadata draft for database '{database.DbName}' contains a null table model.");
 
-            var tableModelResult = CreateTableModel(database, tableModelDraft);
+            var tableModelResult = CreateTableModel(database, tableModelDraft, scalarConverterInstances);
             if (!tableModelResult.TryUnwrap(out var tableModel, out var failure))
                 return failure;
 
@@ -219,7 +231,8 @@ internal static class MetadataTypedDraftConverter
 
     private static Option<TableModel, IDLOptionFailure> CreateTableModel(
         DatabaseDefinition database,
-        MetadataTableModelDraft tableModelDraft)
+        MetadataTableModelDraft tableModelDraft,
+        Dictionary<Type, IDataLinqScalarConverter> scalarConverterInstances)
     {
         if (tableModelDraft.Model is null)
             return DLOptionFailure.Fail(
@@ -243,7 +256,14 @@ internal static class MetadataTypedDraftConverter
             table,
             tableModelDraft.IsStub);
 
-        PopulateModelProperties(model, table, tableModelDraft.Model);
+        var propertiesResult = PopulateModelProperties(
+            model,
+            table,
+            tableModelDraft.Model,
+            scalarConverterInstances);
+        if (!propertiesResult.TryUnwrap(out _, out var propertyFailure))
+            return propertyFailure;
+
         return tableModel;
     }
 
@@ -308,10 +328,11 @@ internal static class MetadataTypedDraftConverter
         return table;
     }
 
-    private static void PopulateModelProperties(
+    private static Option<bool, IDLOptionFailure> PopulateModelProperties(
         ModelDefinition model,
         TableDefinition table,
-        MetadataModelDraft draft)
+        MetadataModelDraft draft,
+        Dictionary<Type, IDataLinqScalarConverter> scalarConverterInstances)
     {
         var valueProperties = draft.ValueProperties ?? [];
         var columns = new List<ColumnDefinition>(valueProperties.Count);
@@ -322,6 +343,18 @@ internal static class MetadataTypedDraftConverter
 
             var column = CreateColumn(table, propertyDraft.Column);
             column.SetValuePropertyCore(property);
+
+            if (propertyDraft.ScalarConverter is not null)
+            {
+                var mappingResult = CreateScalarMapping(
+                    propertyDraft,
+                    scalarConverterInstances);
+                if (!mappingResult.TryUnwrap(out var mapping, out var mappingFailure))
+                    return mappingFailure;
+
+                column.SetScalarMappingCore(mapping);
+            }
+
             ApplyColumnFlags(column, propertyDraft.Column);
             columns.Add(column);
         }
@@ -347,6 +380,118 @@ internal static class MetadataTypedDraftConverter
             ApplyAttributeSourceSpans(propertyDraft.AttributeSourceSpans, property.SetAttributeSourceSpanCore);
             model.AddPropertyCore(property);
         }
+
+        return true;
+    }
+
+    private static Option<ColumnScalarMapping, IDLOptionFailure> CreateScalarMapping(
+        MetadataValuePropertyDraft propertyDraft,
+        Dictionary<Type, IDataLinqScalarConverter> scalarConverterInstances)
+    {
+        var draft = propertyDraft.ScalarConverter!;
+        var displayName = propertyDraft.PropertyName;
+
+        if (draft.Origin == ScalarConverterOrigin.None)
+            return CreateScalarMappingFailure(draft, displayName, "Converted scalar metadata must identify either a property or assembly registration origin.");
+
+        if (string.IsNullOrWhiteSpace(draft.ModelCsType.Name) ||
+            string.IsNullOrWhiteSpace(draft.ProviderCsType.Name) ||
+            string.IsNullOrWhiteSpace(draft.ConverterCsType.Name))
+        {
+            return CreateScalarMappingFailure(
+                draft,
+                displayName,
+                "Converted scalar metadata must identify model, canonical provider, and converter CLR types.");
+        }
+
+        if (propertyDraft.CsType.Type is { } propertyType &&
+            draft.ModelCsType.Type is { } modelType &&
+            (Nullable.GetUnderlyingType(propertyType) ?? propertyType) != (Nullable.GetUnderlyingType(modelType) ?? modelType))
+        {
+            return CreateScalarMappingFailure(
+                draft,
+                displayName,
+                $"Scalar converter model type '{modelType.FullName}' does not match property type '{propertyType.FullName}'.");
+        }
+
+        IDataLinqScalarConverter? converter = null;
+        var converterType = draft.ConverterCsType.Type;
+        if (converterType is not null && scalarConverterInstances.TryGetValue(converterType, out var cachedConverter))
+        {
+            converter = cachedConverter;
+        }
+        else if (draft.Factory is not null)
+        {
+            try
+            {
+                converter = draft.Factory();
+            }
+            catch (Exception exception)
+            {
+                return CreateScalarMappingFailure(
+                    draft,
+                    displayName,
+                    $"Scalar converter factory for '{draft.ConverterCsType.Name}' threw {exception.GetType().Name}: {exception.Message}");
+            }
+
+            if (converter is null)
+                return CreateScalarMappingFailure(draft, displayName, $"Scalar converter factory for '{draft.ConverterCsType.Name}' returned null.");
+
+            if (converterType is not null && converter.GetType() != converterType)
+            {
+                return CreateScalarMappingFailure(
+                    draft,
+                    displayName,
+                    $"Scalar converter factory for '{converterType.FullName}' returned '{converter.GetType().FullName}'.");
+            }
+
+            scalarConverterInstances[converterType ?? converter.GetType()] = converter;
+        }
+        else
+        {
+            return CreateScalarMappingFailure(
+                draft,
+                displayName,
+                $"Runtime scalar converter metadata for '{draft.ConverterCsType.Name}' does not provide a strongly typed factory. Source-only converter identities are resolved directly by the source generator and are not valid typed-draft runtime metadata.");
+        }
+
+        if (converter is not null)
+        {
+            if (draft.ModelCsType.Type is { } expectedModelType && converter.ModelType != expectedModelType)
+            {
+                return CreateScalarMappingFailure(
+                    draft,
+                    displayName,
+                    $"Scalar converter '{converter.GetType().FullName}' reports model type '{converter.ModelType.FullName}', expected '{expectedModelType.FullName}'.");
+            }
+
+            if (draft.ProviderCsType.Type is { } expectedProviderType && converter.ProviderType != expectedProviderType)
+            {
+                return CreateScalarMappingFailure(
+                    draft,
+                    displayName,
+                    $"Scalar converter '{converter.GetType().FullName}' reports canonical provider type '{converter.ProviderType.FullName}', expected '{expectedProviderType.FullName}'.");
+            }
+        }
+
+        return ColumnScalarMapping.Converted(
+            draft.ModelCsType,
+            draft.ProviderCsType,
+            draft.ConverterCsType,
+            converter,
+            draft.Origin,
+            draft.SourceLocation);
+    }
+
+    private static IDLOptionFailure CreateScalarMappingFailure(
+        MetadataScalarConverterDraft draft,
+        string propertyName,
+        string message)
+    {
+        var fullMessage = $"Scalar converter metadata for value property '{propertyName}' is invalid. {message}";
+        return draft.SourceLocation.HasValue
+            ? DLOptionFailure.Fail(DLFailureType.InvalidModel, fullMessage, draft.SourceLocation.Value)
+            : DLOptionFailure.Fail(DLFailureType.InvalidModel, fullMessage);
     }
 
     private static ValueProperty CreateValueProperty(ModelDefinition model, MetadataValuePropertyDraft draft)
