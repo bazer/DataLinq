@@ -3,7 +3,7 @@
 
 # DataLinq 0.9 Implementation Roadmap
 
-**Status:** Implementation in progress. W0-W2 are complete. W4 now has the canonical provider-value row buffer, reader-free model-row construction, shared provider-to-model materializer, and source-independent cache/publication/metrics orchestration. Binding that orchestration to a neutral read source and the generated immutable factory is next. W3 may proceed in parallel.
+**Status:** Implementation in progress. W0-W2 are complete. W4 now has the canonical provider-value row buffer, reader-free model-row construction, shared provider-to-model materializer, source-independent cache/publication/metrics orchestration, and the minimal read-source/factory compatibility contracts. Genuine neutral generated constructors, source-scoped cache services, and row loading are next. W3 may proceed in parallel.
 
 **Target release:** 0.9.
 

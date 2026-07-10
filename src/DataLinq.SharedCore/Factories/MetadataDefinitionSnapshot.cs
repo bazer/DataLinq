@@ -91,6 +91,9 @@ internal static class MetadataDefinitionSnapshot
         if (source.ImmutableFactory is not null)
             model.SetImmutableFactoryCore(source.ImmutableFactory);
 
+        if (source.ReadSourceImmutableFactory is not null)
+            model.SetReadSourceImmutableFactoryCore(source.ReadSourceImmutableFactory);
+
         if (source.ProviderKeyRowStoreAccessor is not null)
             model.SetProviderKeyRowStoreAccessorCore(source.ProviderKeyRowStoreAccessor);
 

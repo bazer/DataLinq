@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
+using DataLinq.Instances;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Testing;
 using ThrowAway;
@@ -36,6 +38,38 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(orderToUser.RelationPart.Type).IsEqualTo(RelationPartType.ForeignKey);
         await Assert.That(userToOrders.RelationPart.Type).IsEqualTo(RelationPartType.CandidateKey);
         await Assert.That(ReferenceEquals(orderToUser.RelationPart.Relation, userToOrders.RelationPart.Relation)).IsTrue();
+    }
+
+    [Test]
+    public async Task Build_TypedDraftAndSnapshot_PreserveParallelImmutableFactories()
+    {
+        var legacyFactory = new Func<IRowData, IDataSourceAccess, IImmutableInstance>((_, _) => null!);
+        var readSourceFactory = new Func<IRowData, IDataLinqReadSource, IImmutableInstance>((_, _) => null!);
+        var draft = CreateSingleTableTypedDraft();
+        var tableModel = draft.TableModels.Single();
+        draft = draft with
+        {
+            TableModels =
+            [
+                tableModel with
+                {
+                    Model = tableModel.Model with
+                    {
+                        ImmutableFactory = legacyFactory,
+                        ReadSourceImmutableFactory = readSourceFactory
+                    }
+                }
+            ]
+        };
+
+        var built = new MetadataDefinitionFactory().Build(draft).ValueOrException();
+        var builtModel = built.TableModels.Single().Model;
+        var copiedModel = MetadataDefinitionSnapshot.Copy(built).TableModels.Single().Model;
+
+        await Assert.That(builtModel.ImmutableFactory).IsSameReferenceAs(legacyFactory);
+        await Assert.That(builtModel.ReadSourceImmutableFactory).IsSameReferenceAs(readSourceFactory);
+        await Assert.That(copiedModel.ImmutableFactory).IsSameReferenceAs(legacyFactory);
+        await Assert.That(copiedModel.ReadSourceImmutableFactory).IsSameReferenceAs(readSourceFactory);
     }
 
     [Test]
@@ -205,6 +239,7 @@ public class MetadataDefinitionFactoryTests
         await AssertFrozenMutation(() => SetModelCsFile(orderModel, changedFile));
         await AssertFrozenMutation(() => SetModelImmutableType(orderModel, changedRecord));
         await AssertFrozenMutation(() => SetModelImmutableFactory(orderModel, new Func<object>(() => new object())));
+        await AssertFrozenMutation(() => SetModelReadSourceImmutableFactoryCore(orderModel, new Func<object>(() => new object())));
         await AssertFrozenMutation(() => SetModelMutableType(orderModel, changedClass));
         await AssertFrozenMutation(() => SetModelInstanceInterface(orderModel, changedInterface));
         await AssertFrozenMutation(() => SetModelInterfaces(orderModel, [changedInterface]));
@@ -4896,6 +4931,9 @@ public class MetadataDefinitionFactoryTests
 
     private static void SetModelImmutableFactory(ModelDefinition model, Delegate immutableFactory) =>
         model.SetImmutableFactory(immutableFactory);
+
+    private static void SetModelReadSourceImmutableFactoryCore(ModelDefinition model, Delegate readSourceImmutableFactory) =>
+        model.SetReadSourceImmutableFactoryCore(readSourceImmutableFactory);
 
     private static void SetModelMutableType(ModelDefinition model, CsTypeDeclaration mutableType) =>
         model.SetMutableType(mutableType);

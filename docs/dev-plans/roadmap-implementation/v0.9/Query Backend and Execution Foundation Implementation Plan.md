@@ -3,7 +3,7 @@
 
 # Query Backend And Execution Foundation Implementation Plan
 
-**Status:** Implementation in progress. F0-F2 are complete. F3 now has canonical provider-value rows, reader-free model-row construction, shared scalar materialization, and source-independent cache/publication/metrics orchestration. The neutral read source and generated immutable-factory adapter are next.
+**Status:** Implementation in progress. F0-F2 are complete. F3 now has canonical provider-value rows, reader-free model-row construction, shared scalar materialization, source-independent cache/publication/metrics orchestration, and the minimal read-source/factory compatibility contracts. Genuine neutral generated constructors, source-scoped cache services, and row loading are next.
 
 **Target release:** 0.9.
 
@@ -40,14 +40,14 @@ The work must start from the current implementation, not the desired class diagr
 | --- | --- |
 | [`QueryPlanTemplate`](../../../../src/DataLinq/Linq/Planning/QueryPlanTemplate.cs) and [`QueryPlanInvocation`](../../../../src/DataLinq/Linq/Planning/QueryPlanInvocation.cs) now separate validated structure, specialization, and frozen values. | F1 is complete. This is a correctness boundary and does not imply a production template cache or cross-specialization reuse. |
 | [`QueryPlanProjectionRecipe`](../../../../src/DataLinq/Linq/Planning/QueryPlanProjectionRecipe.cs) makes retained row-local projections self-contained, and post-parse execution no longer receives the original expression. | F2 is complete. SQL-only recipe dispositions still need explicit backend capability validation in F4. |
-| [`CanonicalProviderValueRow`](../../../../src/DataLinq/Instances/CanonicalProviderValueRow.cs) validates a complete frozen table-ordinal layout of canonical provider CLR values. [`ProviderRowMaterializer`](../../../../src/DataLinq/Instances/ProviderRowMaterializer.cs) applies cached scalar converters exactly once and creates model-valued [`RowData`](../../../../src/DataLinq/Instances/RowData.cs) without a reader. [`ModelMaterializationServices`](../../../../src/DataLinq/Instances/ModelMaterializationServices.cs) snapshots canonical primary-key identity before conversion and owns one-shot cache lookup, publication outcome, and successful materialization/store accounting. | F3 is in progress. A neutral read source and generated immutable-factory/cache runtime still need to implement that orchestration contract; SQL wire decoding also remains outside this boundary. |
+| [`CanonicalProviderValueRow`](../../../../src/DataLinq/Instances/CanonicalProviderValueRow.cs) validates a complete frozen table-ordinal layout of canonical provider CLR values. [`ProviderRowMaterializer`](../../../../src/DataLinq/Instances/ProviderRowMaterializer.cs) applies cached scalar converters exactly once and creates model-valued [`RowData`](../../../../src/DataLinq/Instances/RowData.cs) without a reader. [`ModelMaterializationServices`](../../../../src/DataLinq/Instances/ModelMaterializationServices.cs) snapshots canonical primary-key identity before conversion and owns one-shot cache lookup, publication outcome, and successful materialization/store accounting. | F3 is in progress. Production source-scoped cache services and genuine neutral generated factories still need to implement that orchestration contract; SQL wire decoding also remains outside this boundary. |
 | The executor directly constructs [`QueryPlanSqlBuilder`](../../../../src/DataLinq/Linq/Planning/Sql/QueryPlanSqlBuilder.cs) for entity, scalar, aggregate, and projection paths. | SQL rendering is still hard-wired into execution rather than adapted behind a backend boundary. |
 | [`IDatabaseProvider`](../../../../src/DataLinq/Interfaces/IDatabaseProvider.cs) includes SQL construction, `IDbCommand`, `IDbConnection`, and transaction members. | Implementing it for memory would require meaningless or throwing SQL members. It must not become the neutral backend contract. |
-| [`IDataSourceAccess`](../../../../src/DataLinq/Interfaces/IDataSourceAccess.cs) exposes `IDatabaseProvider` and `IDatabaseAccess`; [`DataSourceAccess`](../../../../src/DataLinq/Mutation/DataSourceAccess.cs) exposes SQL string/command loaders. | Source access below generated models is SQL-shaped and must be split into neutral read services plus optional SQL services. |
+| [`IDataLinqReadSource`](../../../../src/DataLinq/Interfaces/IDataLinqReadSource.cs) now exposes metadata only. Legacy [`IDataSourceAccess`](../../../../src/DataLinq/Interfaces/IDataSourceAccess.cs) inherits it through a default metadata bridge while retaining `IDatabaseProvider` and `IDatabaseAccess`; [`DataSourceAccess`](../../../../src/DataLinq/Mutation/DataSourceAccess.cs) still exposes SQL string/command loaders. | The additive compatibility contract exists, but generated roots, immutable constructors, cache scope, and loaders must still move to it before a neutral-only source can execute reads. |
 | Generated database creation in [`GeneratorFileFactory`](../../../../src/DataLinq.SharedCore/Factories/Generator/GeneratorFileFactory.cs) casts the neutral-looking source interface back to concrete `Mutation.DataSourceAccess`. | A memory source cannot simply implement `IDataSourceAccess`; generated roots would still demand the SQL-era concrete type. |
 | [`TableCache` row loading](../../../../src/DataLinq/Cache/TableCache.RowLoading.cs) builds commands and calls `DatabaseAccess.ExecuteReader(...)`. Relation objects call back into the same provider/cache path. | Query execution alone is insufficient. Primary-key, foreign-key, cache-cold, and relation row loads need a neutral source operation or memory will fork the runtime. |
 | Public [`IRowData` and `RowData`](../../../../src/DataLinq/Instances/RowData.cs) expose the values behind immutable model properties. | Provider/wire values cannot be placed there casually. A separate internal provider-value buffer is required before model materialization. |
-| [`InstanceFactory`](../../../../src/DataLinq/Instances/InstanceFactory.cs) still reaches through the source provider to the table cache and records materialization before invoking the generated factory. The neutral orchestration contract deliberately does neither. | The next F3 slice must bind the existing generated factory to the neutral runtime without double-counting successful materialization or counting failed construction. |
+| The public legacy [`InstanceFactory.NewImmutableRow`](../../../../src/DataLinq/Instances/InstanceFactory.cs) still records through the SQL provider before invoking the legacy generated factory. Its internal read-source path instead invokes an optional exact neutral delegate, or directly invokes the legacy delegate for an actual `IDataSourceAccess`, without provider access or a second metric. | Neutral-only sources now fail with a focused update/regeneration diagnostic when the model lacks a neutral factory. Generated model constructors and metadata emission must be migrated together rather than registering a throwing SQL-shaped bridge as a neutral factory. |
 | The terminal primary-key shortcut can bypass normal plan execution. | Optimizations must not bypass capability validation, conversion, telemetry, or backend selection. |
 
 These are the seams to repair. A tiny executor interface pasted above the existing stack is not enough.
@@ -56,7 +56,7 @@ These are the seams to repair. A tiny executor interface pasted above the existi
 
 ### Keep the new contracts internal first
 
-The first contracts should be internal unless an existing public abstraction must change for generated-code compatibility. Backend execution, capability declarations, provider-value buffers, and materialization are still being proven by only two implementations: the current SQL path and the memory spike.
+The first contracts should be internal unless an existing public abstraction must change for generated-code compatibility. The metadata-only `IDataLinqReadSource` is that narrow public exception because generated consumer assemblies must name it. Backend execution, capability declarations, provider-value buffers, source services, and materialization remain internal while they are being proven by only two implementations: the current SQL path and the memory spike.
 
 Do not publish an extensibility API before these questions have evidence:
 
@@ -162,12 +162,11 @@ This deliberately corrects the tempting but unsafe idea of making public `RowDat
 
 ### Split neutral reads from SQL services
 
-The neutral read source needs only what backend execution and generated immutable models require. Conceptually:
+The public read-source identity exposes metadata only. Backend execution needs a richer internal companion implemented alongside it. Conceptually:
 
 ```csharp
-internal interface IDataLinqReadSource
+internal interface IDataLinqReadServices : IDataLinqReadSource
 {
-    DatabaseDefinition Metadata { get; }
     IQueryPlanBackend QueryBackend { get; }
     ISourceRowLoader RowLoader { get; }
     IModelRowMaterializer Materializer { get; }
@@ -376,7 +375,7 @@ Exit signal:
 
 ### F3: Introduce The Neutral Source, Row, And Materializer
 
-Progress on 2026-07-10: the strict full-entity `CanonicalProviderValueRow`, trusted reader-free model-valued `RowData` factory, column-only `ProviderRowMaterializer`, and source-independent `ModelMaterializationServices` orchestration are implemented. The orchestration snapshots canonical primary keys before model conversion, distinguishes inserted, concurrent-winner, and not-cached publication results, and records only the initial logical cache probe. Scalar conversion is deliberately backend-neutral; physical SQL codecs remain outside it. The neutral source and production cache/generated-factory runtime, generated-root construction, SQL decoding, and row/source-slot envelopes remain open.
+Progress on 2026-07-10: the strict full-entity `CanonicalProviderValueRow`, trusted reader-free model-valued `RowData` factory, column-only `ProviderRowMaterializer`, and source-independent `ModelMaterializationServices` orchestration are implemented. The orchestration snapshots canonical primary keys before model conversion, distinguishes inserted, concurrent-winner, and not-cached publication results, and records only the initial logical cache probe. The public metadata-only `IDataLinqReadSource`, additive legacy-interface/default-instance bridges, optional parallel neutral immutable-factory metadata, and metric-free factory selection path are also implemented. Scalar conversion is deliberately backend-neutral; physical SQL codecs remain outside it. Genuine neutral generated model/root constructors, the production source-scoped cache runtime, row loading, SQL decoding, and row/source-slot envelopes remain open.
 
 Work:
 

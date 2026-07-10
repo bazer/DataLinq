@@ -31,6 +31,7 @@ public interface IImmutableInstance : IModelInstance
 {
     new IRowData GetRowData();
     IDataSourceAccess GetDataSource();
+    IDataLinqReadSource GetReadSource() => GetDataSource();
     //static abstract IImmutableInstance NewInstance(RowData rowData, DataSourceAccess dataSource);
 }
 
@@ -85,6 +86,48 @@ public static class InstanceFactory
     {
         dataSource.Provider.GetTableCache(rowData.Table).MetricsHandle.RecordRowMaterialization();
 
+        return CreateLegacyImmutableRow(rowData, dataSource);
+    }
+
+    /// <summary>
+    /// Creates an immutable row through the backend-neutral generated factory when available. During
+    /// migration, SQL sources may use the exact legacy factory without inheriting its metric side effect.
+    /// </summary>
+    internal static IImmutableInstance NewReadSourceImmutableRow(
+        IRowData rowData,
+        IDataLinqReadSource readSource)
+    {
+        ArgumentNullException.ThrowIfNull(rowData);
+        ArgumentNullException.ThrowIfNull(readSource);
+
+        var model = rowData.Table.Model;
+        if (model.ReadSourceImmutableFactory is
+            Func<IRowData, IDataLinqReadSource, IImmutableInstance> readSourceFactory)
+        {
+            return readSourceFactory(rowData, readSource)
+                ?? throw new InvalidOperationException(
+                    $"Generated read-source immutable factory returned null for '{model.CsType}'.");
+        }
+
+        if (model.ReadSourceImmutableFactory is not null)
+        {
+            throw new InvalidOperationException(
+                $"Generated read-source immutable factory for '{model.CsType}' has an incompatible delegate shape. " +
+                $"Expected '{typeof(Func<IRowData, IDataLinqReadSource, IImmutableInstance>)}'.");
+        }
+
+        if (readSource is IDataSourceAccess legacySource)
+            return CreateLegacyImmutableRow(rowData, legacySource);
+
+        throw new InvalidOperationException(
+            $"Generated read-source immutable factory not defined for '{model.CsType}'. " +
+            "Update or regenerate the model declaration with neutral IDataLinqReadSource construction before using a read source that does not implement IDataSourceAccess.");
+    }
+
+    private static IImmutableInstance CreateLegacyImmutableRow(
+        IRowData rowData,
+        IDataSourceAccess dataSource)
+    {
         if (rowData.Table.Model.ImmutableFactory is not Func<IRowData, IDataSourceAccess, IImmutableInstance> factory)
         {
             throw new Exception(

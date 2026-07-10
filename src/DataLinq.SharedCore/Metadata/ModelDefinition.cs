@@ -78,6 +78,14 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
         ImmutableFactory = immutableFactory;
     }
 
+    internal Delegate? ReadSourceImmutableFactory { get; private set; }
+
+    internal void SetReadSourceImmutableFactoryCore(Delegate readSourceImmutableFactory)
+    {
+        ThrowIfFrozen();
+        ReadSourceImmutableFactory = readSourceImmutableFactory;
+    }
+
     public object? ProviderKeyRowStoreAccessor { get; private set; }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]

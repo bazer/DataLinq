@@ -37,6 +37,7 @@ public sealed record MetadataModelDraft(CsTypeDeclaration CsType)
     public SourceTextSpan? SourceSpan { get; init; }
     public CsTypeDeclaration? ImmutableType { get; init; }
     public Delegate? ImmutableFactory { get; init; }
+    public Delegate? ReadSourceImmutableFactory { get; init; }
     public object? ProviderKeyRowStoreAccessor { get; init; }
     public CsTypeDeclaration? MutableType { get; init; }
     public CsTypeDeclaration? ModelInstanceInterface { get; init; }
@@ -278,6 +279,9 @@ internal static class MetadataTypedDraftConverter
 
         if (draft.ImmutableFactory is not null)
             model.SetImmutableFactoryCore(draft.ImmutableFactory);
+
+        if (draft.ReadSourceImmutableFactory is not null)
+            model.SetReadSourceImmutableFactoryCore(draft.ReadSourceImmutableFactory);
 
         if (draft.ProviderKeyRowStoreAccessor is not null)
             model.SetProviderKeyRowStoreAccessorCore(draft.ProviderKeyRowStoreAccessor);
