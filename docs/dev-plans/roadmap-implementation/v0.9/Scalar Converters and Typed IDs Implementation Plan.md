@@ -145,6 +145,8 @@ Exit signal:
 
 ### SC-3: Dynamic Keys, Relations, And Cache Identity
 
+Progress on 2026-07-10: full-row materialization now snapshots primary-key components from the canonical provider row before scalar conversion, including converted and composite components. This proves the identity boundary for the new materialization seam only. Dynamic lookup input, foreign/index/relation keys, existing SQL cache adapters, and deep immutability of mutable binary `DataLinqKey` components remain open.
+
 Work:
 
 - make the dynamic/fallback key path normalize every key component to its canonical provider value

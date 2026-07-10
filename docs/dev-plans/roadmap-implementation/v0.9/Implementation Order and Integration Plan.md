@@ -608,7 +608,8 @@ W2 is complete. W3 may continue independently, while W4 is now the next query-fo
 - [x] Add the strict full-entity canonical provider-value row buffer with frozen table-ordinal, nullability, exact-type, and ownership validation.
 - [x] Add a trusted reader-free `RowData` construction path that preserves public model values and cache-size accounting without fake readers.
 - [x] Add the shared canonical-provider-to-model scalar materializer with backend-neutral, column-only conversion context.
-- [ ] Add neutral cache/metrics access and immutable-instance construction around the materializer.
+- [x] Add source-independent canonical-key, cache-publication, immutable-construction, and success-metric orchestration around the materializer.
+- [ ] Bind that orchestration to neutral source-scoped cache/metrics services and the generated immutable factory.
 - [ ] Add neutral read-source and row-loader contracts without SQL members.
 - [ ] Remove the generated database-root cast to concrete `DataSourceAccess`.
 - [ ] Route SC-2 runtime read/write/default conversion through the shared boundary.

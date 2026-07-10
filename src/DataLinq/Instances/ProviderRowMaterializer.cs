@@ -21,13 +21,7 @@ internal static class ProviderRowMaterializer
         string sourceName)
     {
         ArgumentNullException.ThrowIfNull(providerRow);
-
-        if (!IsDiagnosticSourceLabel(sourceName))
-        {
-            throw new ArgumentException(
-                "Provider-row materialization requires a short, non-sensitive diagnostic source label containing only letters, digits, '.', '-', '_', or ':'.",
-                nameof(sourceName));
-        }
+        ValidateSourceName(sourceName);
 
         var modelValues = new object?[providerRow.Count];
         for (var ordinal = 0; ordinal < providerRow.Count; ordinal++)
@@ -73,6 +67,16 @@ internal static class ProviderRowMaterializer
         }
 
         return RowData.CreateTrusted(providerRow, modelValues);
+    }
+
+    internal static void ValidateSourceName(string? sourceName)
+    {
+        if (!IsDiagnosticSourceLabel(sourceName))
+        {
+            throw new ArgumentException(
+                "Provider-row materialization requires a short, non-sensitive diagnostic source label containing only letters, digits, '.', '-', '_', or ':'.",
+                nameof(sourceName));
+        }
     }
 
     private static bool IsDiagnosticSourceLabel(string? value)
