@@ -39,6 +39,18 @@ internal sealed record QueryPlanConstantValue(object? Value, Type ClrType) : Que
     }
 }
 
+internal sealed record QueryPlanIntrinsicValue(QueryPlanIntrinsicKind Intrinsic, Type ClrType)
+    : QueryPlanValue(QueryPlanValueKind.Intrinsic, ClrType)
+;
+
+internal sealed record QueryPlanScalarBindingReference(string BindingId, Type ClrType)
+    : QueryPlanValue(QueryPlanValueKind.ScalarBinding, ClrType)
+;
+
+internal sealed record QueryPlanLocalSequenceBindingReference(string BindingId, Type ElementType)
+    : QueryPlanValue(QueryPlanValueKind.LocalSequenceBinding, typeof(QueryPlanLocalSequenceBindingReference))
+;
+
 internal sealed record QueryPlanCapturedValue(string BindingId, Type ClrType) : QueryPlanValue(QueryPlanValueKind.CapturedValue, ClrType)
 ;
 
@@ -86,12 +98,22 @@ internal enum QueryPlanValueKind
 {
     Column,
     Constant,
+    Intrinsic,
+    ScalarBinding,
+    LocalSequenceBinding,
     CapturedValue,
     LocalSequence,
     Function,
     Converted,
     GroupKey,
     GroupedAggregate
+}
+
+internal enum QueryPlanIntrinsicKind
+{
+    Null,
+    BooleanTrue,
+    BooleanFalse
 }
 
 internal enum QueryPlanGroupedAggregateKind
