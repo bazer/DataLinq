@@ -3,7 +3,7 @@
 
 # DataLinq 0.9 Implementation Roadmap
 
-**Status:** Implementation in progress. W0-W2 are complete. W4 has started with the canonical provider-value row buffer and reader-free model-row construction path; the shared materializer and neutral read source are next. W3 may proceed in parallel.
+**Status:** Implementation in progress. W0-W2 are complete. W4 now has the canonical provider-value row buffer, reader-free model-row construction, and shared provider-to-model materializer; neutral cache/metrics access and the read source are next. W3 may proceed in parallel.
 
 **Target release:** 0.9.
 
@@ -44,7 +44,7 @@ That is already a substantial release. Memory mutation, transactional snapshots,
 W2 made the query template and invocation self-contained, but the lower read and execution stack is not yet backend-neutral:
 
 - [`QueryPlanTemplate`](../../../../src/DataLinq/Linq/Planning/QueryPlanTemplate.cs), [`QueryPlanInvocation`](../../../../src/DataLinq/Linq/Planning/QueryPlanInvocation.cs), and self-contained projection recipes now separate structural shape from frozen execution values without retaining the original expression after parsing.
-- [`CanonicalProviderValueRow`](../../../../src/DataLinq/Instances/CanonicalProviderValueRow.cs) and the trusted `RowData` factory now establish separate canonical-provider and public model-value row representations, but scalar materialization and immutable-instance creation are not yet routed through a neutral source.
+- [`CanonicalProviderValueRow`](../../../../src/DataLinq/Instances/CanonicalProviderValueRow.cs), [`ProviderRowMaterializer`](../../../../src/DataLinq/Instances/ProviderRowMaterializer.cs), and the trusted `RowData` factory now establish and convert between separate canonical-provider and public model-value row representations, but immutable-instance creation is not yet routed through a neutral source.
 - The expression executor directly constructs [`QueryPlanSqlBuilder`](../../../../src/DataLinq/Linq/Planning/Sql/QueryPlanSqlBuilder.cs), so SQL rendering remains the implicit execution center.
 - [`IDatabaseProvider`](../../../../src/DataLinq/Interfaces/IDatabaseProvider.cs) exposes `IDbCommand`, `IDbConnection`, SQL rendering helpers, and database transactions. It is not a credible neutral contract for a memory backend.
 - [`IDataSourceAccess`](../../../../src/DataLinq/Interfaces/IDataSourceAccess.cs) exposes SQL-shaped database access, and [`DataSourceAccess`](../../../../src/DataLinq/Mutation/DataSourceAccess.cs) loads from SQL strings and commands.

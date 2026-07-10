@@ -67,7 +67,7 @@ public sealed class ScalarConverterMetadataTests
         var database = BuildDatabase(static () => new ScalarMetadataIdConverter());
         var column = database.TableModels.Single().Table.Columns.Single();
         var converter = (ScalarMetadataIdConverter)column.ScalarConverter!;
-        var context = new ScalarConversionContext(column, DatabaseType.SQLite);
+        var context = new ScalarConversionContext(column);
 
         var nullProvider = converter.ToProviderObject(null, context);
         var nullModel = converter.FromProviderObject(null, context);

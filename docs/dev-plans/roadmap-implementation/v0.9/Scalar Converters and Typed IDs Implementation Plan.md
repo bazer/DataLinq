@@ -125,6 +125,8 @@ Exit signal:
 
 ### SC-2: Runtime Materialization And Mutation
 
+Progress on 2026-07-10: the shared canonical-provider-to-model row materializer is implemented with column-only conversion context, null bypass, output validation, and safe diagnostics. SQL physical-to-canonical reader decoding, model-to-canonical mutation writes, generated/default hydration, and immutable/cache integration remain open; SC-2 is not complete.
+
 Work:
 
 - plug scalar conversion into the shared canonical-provider-value row buffer and materializer owned by foundation workstream `F3`

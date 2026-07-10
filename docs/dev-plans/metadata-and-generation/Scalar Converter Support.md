@@ -84,9 +84,7 @@ The database still stores `orders.customer_id` as an integer. The C# API no long
 The runtime API should be small. The generic base type gives authors a clear implementation target while DataLinq consumes a non-generic interface from metadata.
 
 ```csharp
-public readonly record struct ScalarConversionContext(
-    ColumnDefinition Column,
-    DatabaseType DatabaseType);
+public readonly record struct ScalarConversionContext(ColumnDefinition Column);
 
 public interface IDataLinqScalarConverter
 {
@@ -122,6 +120,8 @@ public abstract class DataLinqScalarConverter<TModel, TProvider> : IDataLinqScal
     }
 }
 ```
+
+The runtime conversion context is intentionally column-only. Active SQL provider identity does not belong in model-to-canonical conversion: SQLite, MySQL, MariaDB, and memory must materialize the same model value from the same canonical CLR value. Provider-aware converter discovery may use separate resolution metadata, while physical/wire codecs own database-specific representation.
 
 Attribute-level configuration:
 

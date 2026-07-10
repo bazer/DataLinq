@@ -3,9 +3,12 @@ using DataLinq.Metadata;
 
 namespace DataLinq;
 
-public readonly record struct ScalarConversionContext(
-    ColumnDefinition Column,
-    DatabaseType DatabaseType);
+/// <summary>
+/// Identifies the logical column being converted between model and canonical provider CLR values.
+/// Database-provider identity is deliberately excluded; physical/wire codecs own provider-specific conversion.
+/// </summary>
+/// <param name="Column">The column whose scalar mapping is being applied.</param>
+public readonly record struct ScalarConversionContext(ColumnDefinition Column);
 
 public interface IDataLinqScalarConverter
 {

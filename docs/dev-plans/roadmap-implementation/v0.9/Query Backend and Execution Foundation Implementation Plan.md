@@ -3,7 +3,7 @@
 
 # Query Backend And Execution Foundation Implementation Plan
 
-**Status:** Implementation in progress. F0-F2 are complete. F3 has started with canonical provider-value rows and reader-free model-row construction; the shared materializer and neutral read source are next.
+**Status:** Implementation in progress. F0-F2 are complete. F3 now has canonical provider-value rows, reader-free model-row construction, and shared scalar materialization; neutral cache/metrics access and the read source are next.
 
 **Target release:** 0.9.
 
@@ -40,14 +40,14 @@ The work must start from the current implementation, not the desired class diagr
 | --- | --- |
 | [`QueryPlanTemplate`](../../../../src/DataLinq/Linq/Planning/QueryPlanTemplate.cs) and [`QueryPlanInvocation`](../../../../src/DataLinq/Linq/Planning/QueryPlanInvocation.cs) now separate validated structure, specialization, and frozen values. | F1 is complete. This is a correctness boundary and does not imply a production template cache or cross-specialization reuse. |
 | [`QueryPlanProjectionRecipe`](../../../../src/DataLinq/Linq/Planning/QueryPlanProjectionRecipe.cs) makes retained row-local projections self-contained, and post-parse execution no longer receives the original expression. | F2 is complete. SQL-only recipe dispositions still need explicit backend capability validation in F4. |
-| [`CanonicalProviderValueRow`](../../../../src/DataLinq/Instances/CanonicalProviderValueRow.cs) now validates a complete frozen table-ordinal layout of canonical provider CLR values, while [`RowData`](../../../../src/DataLinq/Instances/RowData.cs) has a trusted reader-free model-value factory. | F3 is in progress. The shared scalar materializer, neutral source, and immutable-instance/cache integration still need to consume this boundary. |
+| [`CanonicalProviderValueRow`](../../../../src/DataLinq/Instances/CanonicalProviderValueRow.cs) validates a complete frozen table-ordinal layout of canonical provider CLR values. [`ProviderRowMaterializer`](../../../../src/DataLinq/Instances/ProviderRowMaterializer.cs) applies cached scalar converters exactly once and creates model-valued [`RowData`](../../../../src/DataLinq/Instances/RowData.cs) without a reader. | F3 is in progress. Neutral source, immutable-instance/cache integration, and SQL wire decoding still need to consume this boundary. |
 | The executor directly constructs [`QueryPlanSqlBuilder`](../../../../src/DataLinq/Linq/Planning/Sql/QueryPlanSqlBuilder.cs) for entity, scalar, aggregate, and projection paths. | SQL rendering is still hard-wired into execution rather than adapted behind a backend boundary. |
 | [`IDatabaseProvider`](../../../../src/DataLinq/Interfaces/IDatabaseProvider.cs) includes SQL construction, `IDbCommand`, `IDbConnection`, and transaction members. | Implementing it for memory would require meaningless or throwing SQL members. It must not become the neutral backend contract. |
 | [`IDataSourceAccess`](../../../../src/DataLinq/Interfaces/IDataSourceAccess.cs) exposes `IDatabaseProvider` and `IDatabaseAccess`; [`DataSourceAccess`](../../../../src/DataLinq/Mutation/DataSourceAccess.cs) exposes SQL string/command loaders. | Source access below generated models is SQL-shaped and must be split into neutral read services plus optional SQL services. |
 | Generated database creation in [`GeneratorFileFactory`](../../../../src/DataLinq.SharedCore/Factories/Generator/GeneratorFileFactory.cs) casts the neutral-looking source interface back to concrete `Mutation.DataSourceAccess`. | A memory source cannot simply implement `IDataSourceAccess`; generated roots would still demand the SQL-era concrete type. |
 | [`TableCache` row loading](../../../../src/DataLinq/Cache/TableCache.RowLoading.cs) builds commands and calls `DatabaseAccess.ExecuteReader(...)`. Relation objects call back into the same provider/cache path. | Query execution alone is insufficient. Primary-key, foreign-key, cache-cold, and relation row loads need a neutral source operation or memory will fork the runtime. |
 | Public [`IRowData` and `RowData`](../../../../src/DataLinq/Instances/RowData.cs) expose the values behind immutable model properties. | Provider/wire values cannot be placed there casually. A separate internal provider-value buffer is required before model materialization. |
-| [`InstanceFactory`](../../../../src/DataLinq/Instances/InstanceFactory.cs) still reaches through the source provider to the table cache while creating immutable rows. The trusted value-array factory now exists, but no shared scalar materializer or neutral cache/metrics access uses it yet. | The next F3 slice must materialize canonical provider values once and create ordinary immutable models without a fake data reader or SQL provider. |
+| [`InstanceFactory`](../../../../src/DataLinq/Instances/InstanceFactory.cs) still reaches through the source provider to the table cache while creating immutable rows. Shared scalar row materialization now exists, but neutral cache/metrics access does not. | The next F3 slice must create ordinary immutable models from the materialized row without a fake data reader or SQL provider. |
 | The terminal primary-key shortcut can bypass normal plan execution. | Optimizations must not bypass capability validation, conversion, telemetry, or backend selection. |
 
 These are the seams to repair. A tiny executor interface pasted above the existing stack is not enough.
@@ -376,7 +376,7 @@ Exit signal:
 
 ### F3: Introduce The Neutral Source, Row, And Materializer
 
-Progress on 2026-07-10: the strict full-entity `CanonicalProviderValueRow` and trusted reader-free model-valued `RowData` factory are implemented. Sparse projection rows and absent joined sources remain separate concepts. Shared scalar materialization, neutral source/cache access, generated-root construction, and row/source-slot envelopes remain open.
+Progress on 2026-07-10: the strict full-entity `CanonicalProviderValueRow`, trusted reader-free model-valued `RowData` factory, and column-only `ProviderRowMaterializer` are implemented. Scalar conversion is deliberately backend-neutral; physical SQL codecs remain outside it. Sparse projection rows and absent joined sources remain separate concepts. Neutral source/cache access, generated-root construction, SQL decoding, and row/source-slot envelopes remain open.
 
 Work:
 
