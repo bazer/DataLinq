@@ -9,7 +9,7 @@
 
 **Target release:** DataLinq 0.9 for the bounded runtime slice defined below.
 
-**Depends on:** Scalar-converter workstreams `SC-1` through `SC-5` in [Scalar Converters And Typed IDs Implementation Plan](../roadmap-implementation/v0.9/Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md).
+**Depends on:** The scalar value contract starts with `SC-1`; the complete UUID slice consumes `SC-2` through `SC-5` at the per-workstream boundaries defined below. See [Scalar Converters And Typed IDs Implementation Plan](../roadmap-implementation/v0.9/Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md).
 
 **Last reviewed:** 2026-07-10.
 
@@ -17,7 +17,7 @@
 
 ## 0.9 Decision And Ownership
 
-UUID storage correctness belongs in 0.9 immediately after the scalar-converter core. This document owns that work; the scalar plan owns only the general model-to-canonical-provider conversion boundary.
+UUID storage correctness belongs in 0.9. Codec metadata begins after `SC-1`; provider, query/key, and validation slices follow their granular scalar prerequisites. This document owns that work; the scalar plan owns only the general model-to-canonical-provider conversion boundary.
 
 The distinction is deliberate:
 
@@ -26,6 +26,13 @@ typed/model value <-> canonical Guid <-> column-specific physical UUID value
 ```
 
 Scalar converters own the first arrow. The UUID codec in this plan owns the second. The read-only memory backend stores canonical `Guid` values and does not imitate SQL binary/text layouts.
+
+The 0.9 public decisions are frozen for implementation:
+
+- use the CLR-facing names `GuidStorageAttribute` and `GuidStorageFormat`
+- absence of an attribute means “resolve DataLinq's deterministic provider default”
+- do not expose `ProviderDefault` as a public enum value; resolved metadata may record internally whether a default or explicit format produced the result
+- string-only legacy `SqlQuery` predicates cannot infer ambiguous binary UUID layout and are not promised automatic UUID normalization; internal paths must preserve `ColumnDefinition`, while ambiguous public string-only binding fails or requires an explicit column-aware route
 
 The 0.9 slice is bounded to closing the current correctness hole across existing runtime paths:
 
@@ -183,7 +190,6 @@ public sealed class GuidStorageAttribute : Attribute
 
 public enum GuidStorageFormat
 {
-    ProviderDefault,
     NativeUuid,
     Text36,
     Text32,
@@ -240,7 +246,7 @@ public abstract Guid ExternalId { get; }
 - `GuidStorageAttribute` is valid only on `Guid` and `Guid?` properties.
 - Multiple provider-specific attributes are allowed.
 - An exact provider match wins over `DatabaseType.Default`.
-- `ProviderDefault` means "use DataLinq's provider default," not "ask MySqlConnector."
+- no attribute means use DataLinq's deterministic provider default, not MySqlConnector's connection-wide behavior
 - `NativeUuid` requires a provider-native UUID type or a provider-specific mapping that behaves as native UUID.
 - `Text32` and `Text36` should validate against compatible declared database types where possible.
 
@@ -382,7 +388,7 @@ The current plan path represents mapped members as `QueryPlanColumnValue` nodes 
 
 For local `Contains(...)` and supported equality-membership `Any(...)`, the plan must retain the target column for the complete sequence. Each canonical `Guid` value should be encoded with that column's resolved UUID format; no list path may degrade into an untyped raw `Guid` parameter collection.
 
-The legacy public `SqlQuery`/`WhereGroup` surface can remain string-based where callers provide only names, but internal DataLinq paths should use column-aware operands whenever metadata is available. A string-only explicit query cannot safely infer an ambiguous binary UUID layout and should require an explicit typed/column-aware route or fail clearly.
+The legacy public `SqlQuery`/`WhereGroup` surface can remain string-based where callers provide only names, but internal DataLinq paths must use column-aware operands whenever metadata is available. A string-only explicit query cannot safely infer an ambiguous binary UUID layout and must require an explicit typed/column-aware route or fail clearly; it is not part of the automatic UUID-normalization claim.
 
 Provider-level `CreateParameter` should not be the only normalization point because it does not know which column the parameter targets. It can remain a final safety net for provider-wide defaults, but column-aware normalization must happen earlier.
 
@@ -561,6 +567,16 @@ A future major version can revisit the default, but only with a clear migration 
 
 These IDs are local to this plan and deliberately do not reuse roadmap-wide phase numbers.
 
+| UUID workstream | Scalar/foundation prerequisites |
+| --- | --- |
+| `UUID-1` metadata and codecs | `SC-1`; coordinate the generic provider-codec hook with `SC-5` |
+| `UUID-2` provider reads/writes | `UUID-1`, `SC-2` |
+| `UUID-3` queries, keys, relations | `UUID-1`, `UUID-2`, `SC-3`, `SC-4` |
+| `UUID-4` defaults and validation | `UUID-1`, `UUID-2`, `SC-5` |
+| `UUID-5` evidence and docs | `UUID-1` through `UUID-4` |
+
+Known-value byte/string vectors and current-behavior characterization should be recorded during the initial baseline lane, before `UUID-1` changes metadata or defaults.
+
 ### UUID-1: Metadata And Physical Codec Foundation
 
 - add the bounded 0.9 `GuidStorageFormat` values
@@ -681,8 +697,6 @@ Regression tests:
 
 ## Open Questions
 
-- Should the public attribute be named `GuidStorageAttribute`, `UuidStorageAttribute`, or `UuidFormatAttribute`?
-- Should `ProviderDefault` be allowed in model source, or should it be internal-only after resolution?
 - Should DataLinq expose a project-level default UUID storage policy for new models?
 - Should model generation always emit explicit `GuidStorage` attributes, or only for ambiguous/non-default mappings?
 - Should MySQL `BINARY(16)` imported without hints default to compatibility mode or require user confirmation?

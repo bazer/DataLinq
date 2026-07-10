@@ -7,6 +7,7 @@
 **Last reviewed:** 2026-07-10.
 **Target:** 0.9 for existing SQL providers; required before memory mutation or shared committed-change batches.
 **Goal:** Define consistent semantics for reusing the same mutable instance across `Insert`, `Update`, and `Save` calls, especially when explicit transactions, rollback, and cache baselines are involved.
+**0.9 execution plan:** [SQL Transaction and Mutable Lifecycle Implementation Plan](../roadmap-implementation/v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md).
 
 ## 1. Design Position
 
@@ -206,13 +207,16 @@ Mutable lifecycle should treat this exactly like rollback:
 
 If a mutation command throws before DataLinq has a confirmed hydrated row, the mutable baseline must not advance.
 
-The conservative rule is:
+The 0.9 rule is deliberately strict:
 
-- leave the user's tracked changes intact when the write clearly did not apply
-- invalidate transaction-bound baselines when the transaction may be in an uncertain state
-- never silently clear changes after a failed write
+- an explicit write transaction that sees a mutation exception becomes poisoned
+- a poisoned transaction cannot accept more writes or commit; only rollback or disposal is legal
+- a failed `StateChange` must not remain eligible for committed cache publication
+- touched transaction-bound mutables are invalidated when the poisoned transaction rolls back or is disposed
+- an implicit write failure does not advance the mutable baseline or silently clear the user's tracked changes
+- commit failure also leaves the transaction uncommittable and its touched mutable baselines untrusted
 
-Provider-specific transaction failure behavior can vary. DataLinq should choose correctness over convenience here.
+This is stricter than guessing from provider-specific exception types, and that is intentional. Retrying a poisoned unit of work can be designed later if evidence justifies it.
 
 ### 4.11. Delete
 
@@ -282,6 +286,8 @@ On rollback or open-transaction disposal:
 4. remove transaction-local ownership
 
 Do not promote mutable baselines before the commit completes.
+
+For attached external transactions, once DataLinq writes through the wrapper and binds a mutable to it, completion must also be observed through the DataLinq wrapper. If external completion cannot be observed reliably, the touched mutable baselines are invalid rather than guessed committed.
 
 ## 7. API Guard Rules
 

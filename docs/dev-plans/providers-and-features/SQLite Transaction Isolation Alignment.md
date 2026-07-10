@@ -8,6 +8,8 @@
 
 **Target:** 0.9, before any memory mutation or cross-provider transaction-parity claim.
 
+**0.9 execution plan:** [SQL Transaction and Mutable Lifecycle Implementation Plan](../roadmap-implementation/v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md).
+
 ## Purpose
 
 DataLinq currently opens SQLite transactions and non-transactional SQLite commands with `ReadUncommitted`, while MySQL and MariaDB transactions use `ReadCommitted`.
@@ -36,11 +38,15 @@ The relevant implementation points are:
 - `src/DataLinq.MySql/Shared/SqlDatabaseTransaction.cs`
   - opens MySQL/MariaDB transactions with `IsolationLevel.ReadCommitted`
 - `src/DataLinq/Mutation/Transaction.cs`
-  - applies transaction changes to provider state immediately after executing each write
-- `src/DataLinq/Cache/TableCache.cs`
-  - invalidates committed/global row and relation cache state as part of that immediate state application
+  - routes successful statement changes through `State.ApplyChanges(changes, this)` while the transaction is open
+  - commits the provider transaction before applying the accumulated changes globally
+  - removes transaction-local rows on rollback or disposal
+- `src/DataLinq/Cache/TableCache.*`
+  - already has transaction-scoped row storage and transaction-scoped notification paths
+- active compliance tests
+  - already cover transaction-local row visibility, outside relation stability before commit, and rollback preserving committed cache state
 
-That immediate state application is the important DataLinq-specific part. A transaction write executes against the database, then the cache is changed or invalidated before the database transaction commits. Outside relation objects can then refresh while SQLite still has an uncommitted write open. Under `ReadUncommitted`, SQLite can return the pending row to that outside read.
+The earlier version of this plan treated pending-versus-committed cache application as missing. Current code has most of that overlay and publication order already. The first implementation task is therefore characterization and gap analysis, not a second cache-overlay rewrite. The remaining SQLite-specific defect is that ordinary SQLite access and transactions still opt into dirty-read behavior, while several file-backed defaults still opt into shared cache.
 
 ## SQLite Semantics That Matter
 
@@ -101,7 +107,7 @@ For file-backed SQLite:
 - keep WAL enabled
 - stop setting `PRAGMA read_uncommitted = true`
 - open SQLite transactions at the provider-supported committed/serializable level
-- set a deliberate busy timeout or retry policy where lock contention is expected
+- preserve/configure the provider `DefaultTimeout` and add contention diagnostics/tests; 0.9 does not invent a retry policy
 
 For named in-memory SQLite:
 
@@ -112,9 +118,9 @@ For named in-memory SQLite:
 
 ## Transaction-Local Overlay
 
-DataLinq already has transaction-specific row storage through `TableCache.TransactionRows`, but the lifecycle is too eager.
+DataLinq already has transaction-specific row storage, scoped notifications, commit-time global publication, and rollback cleanup. These are the baseline to preserve and harden.
 
-The cache/state model should split into two phases.
+The cache/state model is still described in phases because those phases are the required contract. Implementation should reuse the existing machinery and fix only evidenced gaps.
 
 ### Pending Phase
 
@@ -211,6 +217,7 @@ Recommended contract:
 - `AttachTransaction` supports DataLinq-managed writes with normal overlay semantics after attachment.
 - raw writes performed before attachment are outside DataLinq's cache model
 - docs and tests should distinguish "same attached transaction can read its own raw writes" from "outside DataLinq reads should not see attached raw writes"
+- once DataLinq has touched a mutable through an attached transaction, commit or rollback must be observed through the DataLinq wrapper; unknown external completion invalidates the touched mutable baseline
 
 ## Test Strategy
 
@@ -230,23 +237,25 @@ Do not use shared in-memory SQLite as the final arbiter for concurrent committed
 
 ## Implementation Slices
 
-1. **Document and test current boundaries**
-   - Add explicit failing or skipped tests that capture the desired cross-provider behavior.
-   - Keep existing provider caveat docs honest until implementation lands.
+1. **Rebaseline the existing transaction/cache boundary**
+   - Characterize `State.ApplyChanges(changes, transaction)`, transaction rows/tombstones, scoped relation notifications, provider-first commit, and rollback/disposal cleanup.
+   - Add failures only for behavior that is still wrong; do not replace the working overlay with parallel APIs.
+   - Coordinate mutable provenance, poisoned-transaction behavior, and publication gaps through the 0.9 transaction execution plan.
 
-2. **Split pending and committed cache application**
-   - Introduce pending transaction cache APIs.
-   - Stop global relation notifications during open transactions.
-   - Preserve transaction graph identity through the pending overlay.
-
-3. **Change SQLite default isolation**
+2. **Change SQLite default isolation**
    - Stop setting `PRAGMA read_uncommitted = true`.
    - Begin SQLite transactions with the provider-supported committed/serializable behavior.
    - Preserve same-transaction visibility through the overlay, not dirty reads.
 
-4. **Remove shared cache from file-backed SQLite defaults**
+3. **Remove shared cache from file-backed SQLite defaults**
    - Keep shared cache only for named in-memory databases where multiple connections must share one database.
    - Keep WAL for file-backed SQLite.
+   - Update both Testing environment defaults and CLI configuration/init examples and tests.
+
+4. **Characterize contention without inventing retries**
+   - Preserve/configure `DefaultTimeout` deliberately.
+   - Add temporary file-backed WAL contention tests and actionable lock/busy diagnostics.
+   - Defer automatic retry/backoff policy.
 
 5. **Retune tests**
    - Move SQLite isolation assertions toward provider-independent committed visibility.
@@ -262,7 +271,7 @@ Do not use shared in-memory SQLite as the final arbiter for concurrent committed
 - **Transaction snapshot differences:** SQLite committed/serializable behavior is not MySQL/MariaDB `ReadCommitted`. Some long-lived read transaction scenarios may still differ.
 - **In-memory behavior:** Named in-memory SQLite relies on shared cache. It may need a different test lane or explicit serialization.
 - **External raw writes:** DataLinq cannot model writes that bypass its mutation pipeline unless it reloads or invalidates broadly.
-- **Busy handling:** Removing `ReadUncommitted` may expose lock timeouts that were previously hidden by dirty reads. File-backed WAL plus private cache should reduce this, but writer contention still needs realistic retry/timeout policy.
+- **Busy handling:** Removing `ReadUncommitted` may expose lock timeouts that were previously hidden by dirty reads. File-backed WAL plus private cache and an explicit `DefaultTimeout` are the 0.9 boundary; retry/backoff policy remains later work.
 - **Cache invalidation order:** Publishing global cache changes before database commit is the central bug shape to avoid.
 
 ## Recommendation

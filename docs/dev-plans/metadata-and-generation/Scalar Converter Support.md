@@ -68,6 +68,8 @@ The database still stores `orders.customer_id` as an integer. The C# API no long
 - The provider CLR type, not the model CLR type, decides database type inference unless an explicit `[Type(...)]` attribute overrides it.
 - Conversions must be usable without reflection on hot paths. Reflection is acceptable during metadata construction; runtime should use cached delegates or generated calls.
 - Explicit configuration wins over convention. Plugins may discover converters, but no plugin should silently change a column mapping when an explicit converter is present.
+- The 0.9 converter form is pure and stateless, has a public parameterless constructor, and is resolved once during metadata construction. Service-dependent converter lifetimes are post-0.9 work.
+- An explicit property converter wins over an assembly registration. Duplicate assembly registrations for the same model type are an error rather than an order-dependent choice.
 - Single-column scalar conversion is the first feature. Composite value-object mapping is a separate feature and should not be smuggled into v1.
 
 ## Non-Goals
@@ -503,8 +505,8 @@ Rules:
 2. Add explicit `[ScalarConverter]` and assembly-level converter registration attributes.
 3. Add converter resolution during metadata parsing from runtime types and Roslyn source models.
 4. Update provider readers/writers so values flow through provider CLR values before model conversion.
-5. Update query constant normalization for equality, local `Contains`, local `Any(predicate)`, explicit joins, relation predicates, and direct PK lookup.
-6. Update generated provider-key row-store accessors, relation index caches, `DataLinqKey` fallback creation, and table cache lookups to normalize keys through provider values.
+5. Update query constant normalization for equality, local `Contains`, local `Any(predicate)`, explicit joins, relation predicates, and direct PK lookup. Existing key APIs accept model-valued typed-ID components through normalization; new generated `Find(TId)` overloads are not required for 0.9.
+6. Update relation index caches, `DataLinqKey` fallback creation, and table cache lookups to normalize keys through provider values. Disable existing generated provider-key/relation fast paths for converted components until a genuinely provider-typed generated accessor exists.
 7. Add schema validation and SQL generation tests proving provider type inference is based on provider CLR type.
 8. Add compliance tests for typed IDs across SQLite, MySQL, and MariaDB.
 9. Add docs explaining scalar conversion as a planned feature, then promote to user docs only after the runtime behavior lands.
@@ -531,8 +533,8 @@ The first implementation converts eagerly into model-valued `RowData`. Any later
 
 ## Open Questions
 
-- Should direct PK lookup accept `TModelId`, or should it require `IKey` until a typed overload can be generated?
-- Should converters be allowed to depend on services, or should they stay pure and stateless for predictability?
+- Should a later generated API add ergonomic `Find(TId)` overloads after the normalized fallback is proven?
+- What explicit lifetime model would justify service-dependent converters after 0.9?
 - How much `.Value` unwrapping should query translation support for typed IDs?
 - Should DataLinq ship a small built-in typed ID generator, or only the scalar converter layer plus optional adapter packages?
 - Should converter failures be recoverable diagnostics in validation mode but hard exceptions at runtime?

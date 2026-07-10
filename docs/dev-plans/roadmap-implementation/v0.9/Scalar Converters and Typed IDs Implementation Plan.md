@@ -27,6 +27,16 @@ The first release claim stays deliberately narrow:
 
 Typed IDs are the first proof of the boundary. Full generated typed-key classes, library-specific adapter packages, and structured value-object querying remain later work.
 
+The 0.9 converter contract is deliberately boring:
+
+- converters are pure and stateless
+- converter types have a public parameterless constructor and are instantiated/resolved once during metadata construction, never discovered on a hot path
+- an explicit property converter overrides an assembly registration
+- duplicate assembly registrations for the same model type are rejected deterministically
+- DataLinq owns null handling and does not call ordinary converters for null values
+- service-dependent or scoped converters are deferred until a real lifetime/DI design exists
+- existing key APIs normalize model-valued key components, including typed IDs; 0.9 does not require new generated `Find(TId)`-style overloads
+
 ## Required Three-Layer Value Model
 
 The implementation must distinguish three different representations instead of calling all of them "provider values":
@@ -104,6 +114,7 @@ Work:
 - validate converter direction, nullability, and type compatibility
 - preserve source locations for converter diagnostics
 - define the provider/column-codec handoff without baking physical storage into scalar converters
+- populate the existing provider/model type and converter-handle scaffolding in `TableKeyShape` rather than inventing a parallel key-metadata system
 
 Exit signal:
 
@@ -116,16 +127,17 @@ Exit signal:
 
 Work:
 
-- add the internal canonical-provider-value row buffer
+- plug scalar conversion into the shared canonical-provider-value row buffer and materializer owned by foundation workstream `F3`
 - decode physical reader values to canonical provider values before model conversion
 - convert canonical provider values to model values during materialization
 - convert model values to canonical provider values before mutation writers encode them
 - convert database-generated/default physical values back through both layers after insert or hydration
 - preserve model values in public `RowData`, `GetValues()`, indexers, and model-instance APIs
+- replace `MutableRowData.SetValue` conversion fallbacks with the resolved scalar boundary where converter-backed properties are involved
 
 Exit signal:
 
-- typed `int`, `long`, `Guid`, and `string` IDs round-trip through SQL reads and mutations
+- typed `int`, `long`, `Guid`, and `string` IDs round-trip between model and canonical provider values; SQL physical `Guid` round-trips remain owned by `UUID-2`
 - public row-state behavior remains model-valued
 - conversion failures identify table, column, source representation, and target type
 
@@ -137,6 +149,7 @@ Work:
 - normalize relation and cache-index keys through the same path
 - support converted primary and foreign keys before adding generated fast paths
 - document canonical provider equality and hashing requirements
+- disable generated provider-key and relation fast paths for converted components when they still use the model CLR type; route those cases through the normalized dynamic fallback
 - add generated optimized provider-key accessors only later, after the fallback path is proven correct and profiling shows value
 
 Exit signal:
@@ -185,9 +198,10 @@ Exit signal:
 Work:
 
 - seed memory tables into internal canonical-provider-value buffers
-- make memory predicates, ordering, membership, keys, and relations operate on canonical provider values
+- make memory predicates, ordering, membership, primary keys, and internal lookup identity operate on canonical provider values
 - convert selected values back to model values during materialization
 - keep SQL physical/wire codecs out of the memory executor
+- keep relation traversal and relation-query support outside the 0.9 memory capability set
 
 Exit signal:
 
@@ -197,7 +211,7 @@ Exit signal:
 
 ## UUID Handoff
 
-The bounded 0.9 UUID storage slice begins after `SC-1` through `SC-5` establish the two conversion boundaries. It is owned by [UUID Storage Format Support](../../providers-and-features/UUID%20Storage%20Format%20Support.md), not duplicated here.
+The bounded 0.9 UUID storage slice begins with metadata/codec work after `SC-1` and consumes `SC-2` through `SC-5` at its provider, query/key, and validation boundaries. The granular prerequisites are defined by [UUID Storage Format Support](../../providers-and-features/UUID%20Storage%20Format%20Support.md); UUID work is not duplicated here.
 
 That slice is required because a canonical `Guid` does not say whether a given database column uses native UUID, text, little-endian `BINARY(16)`, or RFC-order `BINARY(16)`. UUID reads, writes, parameters, local membership, keys, relations, defaults, and validation must all use the same column codec.
 
@@ -244,6 +258,7 @@ Claims to avoid unless separately implemented and proven:
 
 ## Links
 
+- [0.9 Implementation Order And Integration Plan](Implementation%20Order%20and%20Integration%20Plan.md)
 - [Scalar Converter Support](../../metadata-and-generation/Scalar%20Converter%20Support.md)
 - [UUID Storage Format Support](../../providers-and-features/UUID%20Storage%20Format%20Support.md)
 - [Memory Backend Architecture](../../backends/memory/Architecture.md)

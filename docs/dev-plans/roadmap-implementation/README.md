@@ -20,12 +20,15 @@ The 0.9 baseline deliberately excludes memory mutation, durable JSON persistence
 
 Required:
 
+- [Implementation Order and Integration](v0.9/Implementation%20Order%20and%20Integration%20Plan.md)
 - [Query Backend and Execution Foundation](v0.9/Query%20Backend%20and%20Execution%20Foundation%20Implementation%20Plan.md)
 - [Scalar Converters and Typed IDs](v0.9/Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md)
 - [Read-Only Memory Backend](v0.9/In-Memory%20Database%20Implementation%20Plan.md)
 - [UUID Storage Format Support](../providers-and-features/UUID%20Storage%20Format%20Support.md)
+- [SQL Transaction and Mutable Lifecycle](v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md)
 - [SQLite Transaction Isolation Alignment](../providers-and-features/SQLite%20Transaction%20Isolation%20Alignment.md)
 - [Mutable Instance Lifecycle](../query-and-runtime/Mutable%20Instance%20Lifecycle.md)
+- [Release Evidence and Closeout](v0.9/Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 
 Optional stretch candidates:
 

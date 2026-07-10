@@ -44,8 +44,10 @@ The 0.9 workstreams use local identifiers (`M0` through `M3`) rather than reusin
 | Backend-neutral execution boundary, capabilities, and self-contained execution request | 0.9 query/runtime foundation | Must exist before `M1`; supported projection data must not depend on the original expression |
 | Model-to-canonical-provider conversion, including typed IDs | Scalar-converter work | Must exist before `M0` is complete |
 | Canonical-provider-to-physical UUID encoding | UUID work | Owned by SQL providers; memory must not copy it into row storage |
-| Provider-value row buffers, indexes, seeding, and memory execution | This plan | Owned here |
-| Model-valued `RowData` materialization | Shared runtime plus this adapter | Must be proven in `M0` |
+| Shared provider-value row-buffer type and materializer contract | 0.9 query/runtime foundation | Memory consumes these contracts; it does not define a second row representation |
+| Memory tables, indexes, seeding, and execution over shared provider-value buffers | This plan | Owned here |
+| Model-to-canonical and canonical-to-model scalar conversion | Scalar-converter work | Memory invokes the shared conversion boundary; it does not own conversion policy |
+| Model-valued `RowData` materialization | 0.9 query/runtime foundation plus scalar conversion | Must be proven through the memory adapter in `M0` |
 | JSON snapshot codec prototype | Optional JSON stretch plan | Starts only after `M3`; never blocks this plan |
 
 The dependency direction is deliberately one way:
@@ -93,9 +95,11 @@ The preview does not include:
 
 Work:
 
-- create the experimental `DataLinq.Memory` package or equivalent assembly boundary
+- continue from the separate, initially non-packable `DataLinq.Memory` project created by the `F7` vertical spike
+- continue using a separate TUnit `DataLinq.Tests.Memory` project and add it as a distinct local Testing CLI suite before the preview gate
+- after the spike passes, promote `DataLinq.Memory` to a preview NuGet package; if the spike fails, stop and re-scope rather than moving the backend into the core package
 - start the store exclusively from generated/frozen DataLinq metadata
-- define a compact row buffer containing canonical provider CLR values by column ordinal
+- store memory rows in the shared compact canonical-provider-value buffer defined by foundation workstream `F3`
 - normalize seed model values through the shared scalar-converter pipeline to canonical provider CLR values
 - build primary-key identities from canonical provider values
 - reject duplicate primary keys and malformed seed values with table, column, and row context
@@ -273,6 +277,8 @@ Those items remain valid design directions. They are not hidden 0.9 stretch goal
 
 ## Links
 
+- [0.9 Implementation Order And Integration Plan](Implementation%20Order%20and%20Integration%20Plan.md)
+- [Release Evidence And Closeout Implementation Plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 - [Memory Backend Design Notes](../../backends/memory/README.md)
 - [Memory Backend Architecture](../../backends/memory/Architecture.md)
 - [0.9 Memory JSON Snapshot Prototype](Memory%20JSON%20Persistence%20Implementation%20Plan.md)

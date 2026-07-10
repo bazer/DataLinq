@@ -61,40 +61,24 @@ The earlier plan combined backend extraction, plan caching, broad SQL query expa
 
 ## 0.9 Dependency Order
 
-The work is a dependency graph, not one global numbered phase list.
+The authoritative start-to-release sequence is [0.9 Implementation Order And Integration Plan](roadmap-implementation/v0.9/Implementation%20Order%20and%20Integration%20Plan.md). It replaces the earlier conflicting linear summaries with explicit waves, safe parallel lanes, merge gates, and one ownership map.
 
-1. **Execution foundation**
-   - self-contained execution request
-   - backend-neutral source and row-materialization seams
-   - structured capability validation
-   - SQL adapter
-   - primitive memory vertical spike
-2. **Canonical provider-value foundation**
-   - scalar converter metadata and statically resolved converter handles
-   - model value to canonical provider CLR value conversion
-   - correct dynamic key fallback before generated fast-path optimization
-3. **Typed IDs and UUID correctness**
-   - typed IDs across SQL reads, writes, query values, keys, relations, and validation
-   - UUID provider codecs across canonical `Guid` values and column-specific physical representations
-4. **Read-only memory preview**
-   - generated startup and deterministic seed loading
-   - primary-key lookup and a small capability-declared query subset
-   - explicit null/string/date/order semantics
-   - provider-value buffers converted into model-facing rows
-   - Native AOT and browser execution evidence
-5. **Correctness lane**
-   - SQLite committed-visibility semantics
-   - trustworthy mutable-instance baselines
-6. **Release evidence**
-   - net8/net9/net10 build coverage
-   - SQLite/MySQL/MariaDB regression suites
-   - memory capability subset
-   - packaging, banned-payload, trim, Native AOT, and browser gates
-   - allocation evidence and public documentation
-7. **Optional stretch selection**
-   - choose one only after steps 1-6 are green
+The condensed order is:
 
-The execution and provider-value foundations can advance in parallel where their contracts do not conflict. Memory reads require both. Memory mutation and durable persistence require later transaction/mutation foundations and are not part of this graph.
+1. record the clean 0.8 behavior, package, compatibility, and performance baseline
+2. characterize query execution, transaction/cache behavior, mutable lifecycle, and scalar/UUID values in parallel
+3. land scalar metadata plus self-contained template/invocation and projection recipes
+4. finish existing SQL transaction/mutable correctness before neutral cache/relation routing moves
+5. land the shared canonical row/source/materializer boundary, scalar runtime conversion, capability validation, and SQL adapter
+6. complete typed-ID query/key/schema behavior; run the granular UUID physical-codec lane and separate-project primitive memory spike where their dependencies allow
+7. promote memory to a read-only preview package only if the spike gate passes, then complete its explicit semantics while UUID remains an independent required release gate
+8. run the provisional baseline evidence gate
+9. choose zero or one stretch
+10. rerun the frozen-candidate release closeout
+
+The detailed release-evidence work is owned by [Release Evidence And Closeout Implementation Plan](roadmap-implementation/v0.9/Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md). The existing SQL correctness lane is owned by [SQL Transaction And Mutable Lifecycle Implementation Plan](roadmap-implementation/v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md).
+
+Memory mutation and durable persistence require later transaction/mutation foundations and are not part of this sequence.
 
 ## Required 0.9 Workstreams
 
@@ -188,6 +172,7 @@ Provider-backed suites remain authoritative for SQL translation and provider beh
 
 Owners:
 
+- [`roadmap-implementation/v0.9/SQL Transaction and Mutable Lifecycle Implementation Plan.md`](roadmap-implementation/v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md)
 - [`providers-and-features/SQLite Transaction Isolation Alignment.md`](providers-and-features/SQLite%20Transaction%20Isolation%20Alignment.md)
 - [`query-and-runtime/Mutable Instance Lifecycle.md`](query-and-runtime/Mutable%20Instance%20Lifecycle.md)
 
@@ -202,6 +187,10 @@ These gates protect the current SQL product. They also prevent a later memory mu
 
 ### Release Evidence
 
+Owner:
+
+- [`roadmap-implementation/v0.9/Release Evidence and Closeout Implementation Plan.md`](roadmap-implementation/v0.9/Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
+
 The 0.9 plan must end with the same kind of evidence discipline used for the 0.8 closeout:
 
 - focused unit and compliance suites
@@ -214,7 +203,7 @@ The 0.9 plan must end with the same kind of evidence discipline used for the 0.8
 
 ## Optional 0.9 Stretch
 
-Exactly one stretch may enter 0.9 after the required workstreams are green.
+At most one stretch may enter 0.9 after the required workstreams are green. Shipping neither is acceptable.
 
 ### Option A: Bounded SQL Join Continuation
 
@@ -227,9 +216,8 @@ Preferred order:
 1. multiple explicit inner joins over direct source-slot projection members
 2. composite direct-member join keys
 3. supported filtering/ordering/paging/results over those rows
-4. narrow .NET 10 `Queryable.LeftJoin(...)` only after nullable joined-slot semantics are proven
 
-Grouped multi-join continuation and relation-aware fluent join sugar remain later work.
+Narrow .NET 10 `Queryable.LeftJoin(...)`, grouped multi-join continuation, and relation-aware fluent join sugar remain later work.
 
 ### Option B: Snapshot-Only JSON Prototype
 

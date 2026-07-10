@@ -13,6 +13,8 @@
 
 **Prerequisites:** DataLinq 0.8's production expression parser, immutable source-slot query-plan model, generated metadata/runtime path, and current SQL provider compliance coverage.
 
+**Start here:** [0.9 Implementation Order And Integration Plan](Implementation%20Order%20and%20Integration%20Plan.md) is the authoritative cross-workstream sequence. This page owns release scope and claims; the order plan owns when overlapping work lands.
+
 ## Release Thesis
 
 0.9 should make DataLinq's query-plan boundary real without trying to finish every feature that the boundary could eventually enable.
@@ -60,46 +62,27 @@ The detailed foundation work is tracked in [Query Backend And Execution Foundati
 
 ## Dependency Graph
 
-The work is organized as dependent workstreams, not a global sequence of reusable phase numbers.
+The exact dependencies, safe parallel lanes, ownership map, merge rules, and first implementation slice live in the [0.9 Implementation Order And Integration Plan](Implementation%20Order%20and%20Integration%20Plan.md). The release-level flow is:
 
 ```mermaid
 flowchart LR
-    F0["Foundation characterization"] --> F1["Self-contained template and invocation"]
-    F1 --> F2["Neutral source, executor, and row seams"]
-    F2 --> F3["Capability validator and SQL adapter"]
-
-    V0["Scalar provider-value contract"] --> V1["Typed-ID runtime coverage"]
-    V0 --> V2["UUID storage codec coverage"]
-
-    F0 --> T0["SQL transaction-state characterization"]
-    T0 --> T1["SQLite committed visibility"]
-    T0 --> T2["Mutable baseline provenance"]
-
-    F2 --> M0["Vertical memory spike"]
-    V0 --> M0
-    F3 --> M0
-    M0 --> M1["Read-only memory preview"]
-    V1 --> M1
-
-    F3 --> E0["SQL regression evidence"]
-    M1 --> E1["Memory, AOT, and browser evidence"]
-    V1 --> E2["Scalar and typed-ID evidence"]
-    V2 --> E2
-    T1 --> E3["SQL transaction correctness evidence"]
-    T2 --> E3
-    E0 --> G["0.9 baseline gate"]
-    E1 --> G
-    E2 --> G
-    E3 --> G
-
-    G --> S{"Select zero or one stretch"}
-    S --> R["Release evidence and documentation"]
+    W0["W0-W1 Baseline and characterization"] --> W2["W2 Query/value contracts"]
+    W0 --> W3["W3 SQL transaction/mutable correctness"]
+    W2 --> W4["W4 Neutral rows, source, materializer"]
+    W4 --> W5["W5-W6 SQL adapter, neutral reads, typed IDs"]
+    W3 --> W5
+    W5 --> W7["W7-W9 UUID and read-only memory preview"]
+    W7 --> W10["W10-W11 Baseline evidence gate"]
+    W10 --> S{"Select zero or one stretch"}
+    S --> W13["W13 Final release closeout"]
 ```
 
-The graph has two important consequences:
+The ordering has four important consequences:
 
-- Scalar normalization must exist before memory storage and UUID query behavior become separate collections of special cases.
-- The stretch decision happens after the baseline evidence gate. The team must not start both stretch candidates and hope one happens to finish.
+- current behavior is characterized before contracts move
+- SQL transaction/mutable semantics stabilize before neutral cache/relation read routing lands
+- scalar normalization exists before typed-ID, UUID query, and memory behavior become separate collections of special cases
+- the stretch decision happens after the baseline evidence gate, and final closeout reruns after the stretch decision
 
 ## Workstream: Query Backend And Execution Foundation
 
@@ -226,6 +209,7 @@ The trimmed memory backend is read-only, but the existing SQL write path still h
 
 The detailed designs own this work:
 
+- [SQL Transaction And Mutable Lifecycle Implementation Plan](SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md)
 - [SQLite Transaction Isolation Alignment](../../providers-and-features/SQLite%20Transaction%20Isolation%20Alignment.md)
 - [Mutable Instance Lifecycle](../../query-and-runtime/Mutable%20Instance%20Lifecycle.md)
 
@@ -341,6 +325,8 @@ If neither candidate meets those conditions, 0.9 ships without a stretch. That i
 
 0.9 is not complete when the APIs compile. It is complete when the following evidence exists.
 
+Execution, commands, artifact ownership, provider targets, package/API checks, blocker policy, and the distinction between early harness work and the final frozen-candidate run are owned by [Release Evidence And Closeout Implementation Plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md).
+
 ### Query and SQL compatibility
 
 - parser/template snapshots prove runtime values are absent from structural templates
@@ -380,7 +366,7 @@ If neither candidate meets those conditions, 0.9 ships without a stretch. That i
 ### Compatibility, packaging, and performance
 
 - core package targets build for the repository's `net8.0`, `net9.0`, and `net10.0` matrix
-- `DataLinq.Memory`, if packaged separately, has deliberate dependencies and no accidental SQLite/native provider payload
+- promoted `DataLinq.Memory` preview packages have deliberate dependencies and no accidental SQLite/native provider payload
 - public API compatibility is reviewed; neutral internal seams do not force needless breaks in SQL provider APIs
 - generated Native AOT and trimmed smokes execute the memory path
 - Blazor WebAssembly no-AOT and AOT browser smokes execute seed, query, direct scalar projection, and unsupported-diagnostic paths without native SQLite
@@ -453,5 +439,5 @@ Only decisions that can still change the baseline belong here:
 - What is the smallest neutral source contract that removes the generated-root cast without forcing a public provider rewrite?
 - Which row-local projection recipes can become self-contained and AOT-safe in 0.9, and which should stay SQL-only or unsupported for memory?
 - Which provider-neutral null and string semantics should memory define, and which provider differences must remain explicit?
-- Should `DataLinq.Memory` ship as a separate preview package immediately, or remain an experimental project until the vertical spike and package evidence are green?
+- Does the separate, initially non-packable `DataLinq.Memory` project pass the promotion gate and earn its preview NuGet package? Failure requires an explicit roadmap re-scope; memory does not move into core as a shortcut.
 - Which, if either, late stretch candidate earns the remaining release budget?

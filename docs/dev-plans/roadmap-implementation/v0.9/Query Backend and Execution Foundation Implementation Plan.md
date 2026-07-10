@@ -287,24 +287,27 @@ The full async design needs separate work because `IDatabaseAccess` currently ex
 
 ```mermaid
 flowchart TD
-    C["Characterize current execution"] --> T["Template and invocation split"]
-    T --> P["Self-contained projections"]
-    T --> S["Neutral source and row seams"]
-    P --> V["Requirements and capability validator"]
-    S --> V
-    V --> Q["SQL adapter migration"]
-    S --> L["Neutral PK/cache/relation loads"]
-    Q --> L
-    Q --> M["Vertical memory spike"]
-    L --> M
-    M --> H["Compatibility and constrained-runtime hardening"]
+    F0["F0 Characterize current execution"] --> F1["F1 Template and invocation split"]
+    F1 --> F2["F2 Self-contained projections"]
+    F1 --> F3["F3 Neutral source, row, and materializer"]
+    SC1["SC-1 Scalar value contract"] --> F3
+    F2 --> F4["F4 Requirements and capability validator"]
+    F3 --> F4
+    F4 --> F5["F5 SQL adapter migration"]
+    F3 --> F6["F6 Neutral PK/cache/relation reads"]
+    F5 --> F6
+    F5 --> F7["F7 Vertical memory spike"]
+    F6 --> F7
+    SC2["SC-2 Runtime scalar conversion"] --> F7
+    SC4["SC-4 Query value normalization"] --> F7
+    F7 --> F8["F8 Compatibility and constrained-runtime hardening"]
 ```
 
 Work may overlap where tests isolate the changes, but dependencies cannot be waved away. In particular, the public memory preview must not be built on a spike that still receives an expression or implements SQL interfaces with `NotSupportedException` stubs.
 
 ## Workstream Details
 
-### Characterize current execution
+### F0: Characterize Current Execution
 
 Add focused characterization before moving contracts:
 
@@ -323,7 +326,7 @@ Exit signal:
 - the team can move execution ownership and detect a supported behavior regression immediately
 - every current route that reparses the expression or bypasses the normal executor is catalogued
 
-### Split template and invocation
+### F1: Split Template And Invocation
 
 Refactor plan construction so binding declaration and binding value creation are separate products of one parse.
 
@@ -354,7 +357,7 @@ Exit signal:
 - invocation debug output can be redacted separately
 - no renderer or executor reads `DataLinqQueryPlan.Bindings` as a structural/value hybrid
 
-### Make projections self-contained
+### F2: Make Projections Self-Contained
 
 Work:
 
@@ -372,7 +375,7 @@ Exit signal:
 - deleting access to the original expression after parsing does not change supported results
 - debug output explains local projection shape beyond a human-only string
 
-### Introduce the neutral source, row, and materializer
+### F3: Introduce The Neutral Source, Row, And Materializer
 
 Work:
 
@@ -402,7 +405,7 @@ Exit signal:
 - generated models do not require a SQL-specific concrete source
 - no public model accessor returns MySQL UUID bytes or another wire representation
 
-### Add requirements and capability validation
+### F4: Add Requirements And Capability Validation
 
 Work:
 
@@ -438,7 +441,7 @@ Exit signal:
 - no backend relies on a late switch default to communicate normal unsupported capability
 - the support matrix can be generated or audited from the same vocabulary
 
-### Adapt SQL execution
+### F5: Adapt SQL Execution
 
 The SQL adapter should reuse proven code aggressively.
 
@@ -466,7 +469,7 @@ Exit signal:
 - SQL provider output and behavior remain stable except for intentional diagnostics
 - no supported expression-query path directly constructs `QueryPlanSqlBuilder` outside the SQL adapter
 
-### Neutralize primary-key, cache, and relation reads
+### F6: Neutralize Primary-Key, Cache, And Relation Reads
 
 Work:
 
@@ -486,9 +489,16 @@ Exit signal:
 - SQL cache miss and relation behavior remains green
 - source-row loaders have no mutation responsibility
 
-### Run the vertical memory spike
+### F7: Run The Vertical Memory Spike
 
 Build the smallest implementation that exercises every new seam.
+
+Project boundary for the spike:
+
+- create a separate `DataLinq.Memory` project rather than placing the executor in the core or SQLite package
+- keep `DataLinq.Memory` non-packable until this spike passes its architecture, dependency, and constrained-runtime gates
+- create a separate TUnit `DataLinq.Tests.Memory` project so memory capability tests never masquerade as SQLite-memory tests or general SQL compliance
+- reuse these project boundaries if the spike is promoted; do not build a disposable second prototype beside them
 
 Fixture:
 
@@ -536,7 +546,7 @@ Exit signal:
 - the spike proves the row and source seams in browser AOT
 - the architecture is ready for the separate read-only memory preview workstream
 
-### Harden compatibility and observability
+### F8: Harden Compatibility And Observability
 
 Work:
 
@@ -685,6 +695,9 @@ At that point, implementation can expand the memory query subset using [Read-Onl
 ## Links
 
 - [DataLinq 0.9 Implementation Roadmap](README.md)
+- [0.9 Implementation Order And Integration Plan](Implementation%20Order%20and%20Integration%20Plan.md)
+- [SQL Transaction And Mutable Lifecycle Implementation Plan](SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md)
+- [Release Evidence And Closeout Implementation Plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 - [Read-Only Memory Backend Implementation Plan](In-Memory%20Database%20Implementation%20Plan.md)
 - [Memory Backend Architecture](../../backends/memory/Architecture.md)
 - [Scalar Converters And Typed IDs Implementation Plan](Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md)

@@ -83,9 +83,8 @@ The next honest query work is narrower than "all joins" and is optional for 0.9:
 - composite anonymous-object join keys over direct provider-normalizable members
 - filtering, ordering, paging, and result operators over supported multi-join row shapes
 - provider-value normalized join keys, including typed IDs where scalar converters are configured
-- narrow `Queryable.LeftJoin(...)` support on .NET 10 only after inner/composite joins and nullable joined-slot materialization are stable
 
-Grouped multi-join continuation, relation-aware `JoinBy(...)`/`JoinMany(...)`, materialized `IGrouping<TKey,TElement>`, `GroupJoin(...)`, opaque transparent identifiers, hidden collection expansion, and broad client fallback remain later work.
+Narrow `Queryable.LeftJoin(...)` support on .NET 10, grouped multi-join continuation, relation-aware `JoinBy(...)`/`JoinMany(...)`, materialized `IGrouping<TKey,TElement>`, `GroupJoin(...)`, opaque transparent identifiers, hidden collection expansion, and broad client fallback remain later work.
 
 ### Scalar Converters and Typed Keys
 
