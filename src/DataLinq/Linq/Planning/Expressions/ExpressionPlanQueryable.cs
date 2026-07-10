@@ -71,7 +71,7 @@ internal sealed class ExpressionQueryPlanProvider : IQueryProvider
         return ExpressionQueryPlanExecutor.ExecuteEnumerable<TElement>(GetDataSource(), plan, expression);
     }
 
-    public DataLinqQueryPlan Parse(Expression expression, Type resultType)
+    public QueryPlanInvocation Parse(Expression expression, Type resultType)
         => ExpressionQueryPlanParser.Convert(metadata, expression, resultType);
 
     private DataSourceAccess GetDataSource()
@@ -132,13 +132,14 @@ internal static class ExpressionQueryPlanExecutor
 
     public static IEnumerable<TElement> ExecuteEnumerable<TElement>(
         DataSourceAccess dataSource,
-        DataLinqQueryPlan plan,
+        QueryPlanInvocation plan,
         Expression expression)
     {
-        if (plan.Result.Kind != QueryPlanResultKind.Sequence)
-            throw new QueryTranslationException($"Expression parser route expected a sequence result, but the plan result is '{plan.Result.Kind}'.");
+        var template = plan.Template;
+        if (template.Result.Kind != QueryPlanResultKind.Sequence)
+            throw new QueryTranslationException($"Expression parser route expected a sequence result, but the plan result is '{template.Result.Kind}'.");
 
-        if (plan.Projection is QueryPlanProjection.Entity)
+        if (template.Projection is QueryPlanProjection.Entity)
         {
             return new QueryPlanSqlBuilder(plan, dataSource)
                 .BuildSelect<object>()
@@ -146,13 +147,13 @@ internal static class ExpressionQueryPlanExecutor
                 .Cast<TElement>();
         }
 
-        if (plan.Projection is QueryPlanProjection.GroupedAggregate groupedAggregate)
+        if (template.Projection is QueryPlanProjection.GroupedAggregate groupedAggregate)
             return ExecuteGroupedAggregateProjection<TElement>(dataSource, plan, groupedAggregate);
 
-        if (plan.Projection is QueryPlanProjection.ScalarMember scalarMember)
+        if (template.Projection is QueryPlanProjection.ScalarMember scalarMember)
             return ExecuteScalarProjection<TElement>(dataSource, plan, scalarMember);
 
-        if (plan.Projection is QueryPlanProjection.SqlRow sqlRow)
+        if (template.Projection is QueryPlanProjection.SqlRow sqlRow)
             return ExecuteSqlRowProjection<TElement>(dataSource, plan, sqlRow);
 
         return ExecuteProjectedSequence<TElement>(dataSource, plan, expression);
@@ -160,10 +161,10 @@ internal static class ExpressionQueryPlanExecutor
 
     public static TResult Execute<TResult>(
         DataSourceAccess dataSource,
-        DataLinqQueryPlan plan,
+        QueryPlanInvocation plan,
         Expression expression)
     {
-        return plan.Result.Kind switch
+        return plan.Template.Result.Kind switch
         {
             QueryPlanResultKind.Count or
             QueryPlanResultKind.Any or
@@ -469,16 +470,16 @@ internal static class ExpressionQueryPlanExecutor
 
     private static TResult ExecuteSingle<TResult>(
         DataSourceAccess dataSource,
-        DataLinqQueryPlan plan,
+        QueryPlanInvocation plan,
         Expression expression,
         Func<IEnumerable<TResult>, TResult?> selector)
     {
-        if (plan.Projection is not QueryPlanProjection.Entity)
+        if (plan.Template.Projection is not QueryPlanProjection.Entity)
         {
-            if (plan.Projection is QueryPlanProjection.ScalarMember scalarMember)
+            if (plan.Template.Projection is QueryPlanProjection.ScalarMember scalarMember)
                 return selector(ExecuteScalarProjection<TResult>(dataSource, plan, scalarMember))!;
 
-            if (plan.Projection is QueryPlanProjection.SqlRow sqlRow)
+            if (plan.Template.Projection is QueryPlanProjection.SqlRow sqlRow)
                 return selector(ExecuteSqlRowProjection<TResult>(dataSource, plan, sqlRow))!;
 
             return selector(ExecuteProjectedSequence<TResult>(dataSource, plan, expression))!;
@@ -490,35 +491,35 @@ internal static class ExpressionQueryPlanExecutor
         return selector(sequence)!;
     }
 
-    private static TResult ExecuteScalar<TResult>(DataSourceAccess dataSource, DataLinqQueryPlan plan)
+    private static TResult ExecuteScalar<TResult>(DataSourceAccess dataSource, QueryPlanInvocation plan)
     {
         var select = new QueryPlanSqlBuilder(plan, dataSource)
             .BuildSelect<TResult>();
         var result = select.ExecuteScalar();
 
-        return ConvertScalarResult<TResult>(result, plan.Result);
+        return ConvertScalarResult<TResult>(result, plan.Template.Result);
     }
 
     private static IEnumerable<TElement> ExecuteProjectedSequence<TElement>(
         DataSourceAccess dataSource,
-        DataLinqQueryPlan plan,
+        QueryPlanInvocation plan,
         Expression expression)
     {
         var selector = GetProjectionLambda(expression);
-        return plan.Operations.Any(static operation => operation is QueryPlanOperation.Join)
+        return plan.Template.Operations.Any(static operation => operation is QueryPlanOperation.Join)
             ? ExecuteJoinedProjection<TElement>(dataSource, plan, selector)
             : ExecuteSingleSourceProjection<TElement>(dataSource, plan, selector);
     }
 
     private static IEnumerable<TElement> ExecuteSingleSourceProjection<TElement>(
         DataSourceAccess dataSource,
-        DataLinqQueryPlan plan,
+        QueryPlanInvocation plan,
         LambdaExpression selector)
     {
         if (selector.Parameters.Count != 1)
             throw new QueryTranslationException($"Projection selector '{selector}' is not supported for a single-source query.");
 
-        var rootSource = plan.Sources.First(static source => source.Kind == QueryPlanSourceKind.RootTable);
+        var rootSource = plan.Template.Sources.First(static source => source.Kind == QueryPlanSourceKind.RootTable);
         var entityPlan = ReprojectAsEntity(plan, rootSource);
         foreach (var row in ExecuteEntityRows(dataSource, entityPlan))
             yield return ConvertProjectionResult<TElement>(
@@ -527,10 +528,10 @@ internal static class ExpressionQueryPlanExecutor
 
     private static IEnumerable<TElement> ExecuteJoinedProjection<TElement>(
         DataSourceAccess dataSource,
-        DataLinqQueryPlan plan,
+        QueryPlanInvocation plan,
         LambdaExpression selector)
     {
-        var joinedSources = plan.Sources
+        var joinedSources = plan.Template.Sources
             .Where(static source => source.Kind is QueryPlanSourceKind.RootTable or QueryPlanSourceKind.ExplicitJoin)
             .OrderBy(static source => source.Id, StringComparer.Ordinal)
             .ToArray();
@@ -598,7 +599,7 @@ internal static class ExpressionQueryPlanExecutor
 
     private static IEnumerable<TElement> ExecuteGroupedAggregateProjection<TElement>(
         DataSourceAccess dataSource,
-        DataLinqQueryPlan plan,
+        QueryPlanInvocation plan,
         QueryPlanProjection.GroupedAggregate projection)
     {
         var select = new QueryPlanSqlBuilder(plan, dataSource).BuildSelect<TElement>();
@@ -620,7 +621,7 @@ internal static class ExpressionQueryPlanExecutor
 
     private static IEnumerable<TElement> ExecuteScalarProjection<TElement>(
         DataSourceAccess dataSource,
-        DataLinqQueryPlan plan,
+        QueryPlanInvocation plan,
         QueryPlanProjection.ScalarMember projection)
     {
         var select = new QueryPlanSqlBuilder(plan, dataSource).BuildSelect<TElement>();
@@ -635,7 +636,7 @@ internal static class ExpressionQueryPlanExecutor
 
     private static IEnumerable<TElement> ExecuteSqlRowProjection<TElement>(
         DataSourceAccess dataSource,
-        DataLinqQueryPlan plan,
+        QueryPlanInvocation plan,
         QueryPlanProjection.SqlRow projection)
     {
         var select = new QueryPlanSqlBuilder(plan, dataSource).BuildSelect<TElement>();
@@ -685,17 +686,23 @@ internal static class ExpressionQueryPlanExecutor
         return ordinals;
     }
 
-    private static DataLinqQueryPlan ReprojectAsEntity(DataLinqQueryPlan plan, QueryPlanSourceSlot source)
-        => new(
-            plan.Sources,
-            plan.Operations,
+    private static QueryPlanInvocation ReprojectAsEntity(QueryPlanInvocation plan, QueryPlanSourceSlot source)
+    {
+        var template = plan.Template;
+        var entityTemplate = new QueryPlanTemplate(
+            template.Sources,
+            template.Operations,
             new QueryPlanProjection.Entity(source),
-            plan.Result,
-            plan.Bindings);
+            template.Result,
+            template.BindingDeclarations,
+            template.Specialization);
+
+        return QueryPlanInvocation.Bind(entityTemplate, plan.Values.Items);
+    }
 
     private static IEnumerable<object?> ExecuteEntityRows(
         DataSourceAccess dataSource,
-        DataLinqQueryPlan plan)
+        QueryPlanInvocation plan)
         => new QueryPlanSqlBuilder(plan, dataSource)
             .BuildSelect<object>()
             .Execute()

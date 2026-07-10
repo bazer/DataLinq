@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using DataLinq.Core.Factories;
 using DataLinq.Linq.Planning;
@@ -49,18 +50,21 @@ public class QueryPlanInvocationTests
     }
 
     [Test]
-    public async Task Template_RejectsLegacyValueBearingNodes()
+    public async Task PlanningAssembly_DoesNotRetainHybridCompatibilitySurfaces()
     {
-        var table = GetTable<Employee>();
-        var source = Source(table);
+        var assembly = typeof(QueryPlanTemplate).Assembly;
+        var bindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-        var exception = Capture<ArgumentException>(() => Template(
-            source,
-            [new QueryPlanOperation.Skip(new QueryPlanConstantValue(4, typeof(int)))])
-        );
-
-        await Assert.That(exception).IsNotNull();
-        await Assert.That(exception!.Message).Contains("cannot be stored in a structural template");
+        await Assert.That(assembly.GetType("DataLinq.Linq.Planning.DataLinqQueryPlan")).IsNull();
+        await Assert.That(assembly.GetType("DataLinq.Linq.Planning.QueryPlanBindingFrame")).IsNull();
+        await Assert.That(assembly.GetType("DataLinq.Linq.Planning.IQueryPlanBindingLookup")).IsNull();
+        await Assert.That(assembly.GetType("DataLinq.Linq.Planning.QueryPlanBindings")).IsNull();
+        await Assert.That(assembly.GetType("DataLinq.Linq.Planning.QueryPlanBinding")).IsNull();
+        await Assert.That(assembly.GetType("DataLinq.Linq.Planning.QueryPlanConstantValue")).IsNull();
+        await Assert.That(assembly.GetType("DataLinq.Linq.Planning.QueryPlanCapturedValue")).IsNull();
+        await Assert.That(assembly.GetType("DataLinq.Linq.Planning.QueryPlanLocalSequenceValue")).IsNull();
+        await Assert.That(typeof(QueryPlanTemplate).GetProperty("Bindings", bindingFlags)).IsNull();
+        await Assert.That(typeof(QueryPlanInvocation).GetProperty("Bindings", bindingFlags)).IsNull();
     }
 
     [Test]
@@ -432,6 +436,29 @@ public class QueryPlanInvocationTests
     }
 
     [Test]
+    public async Task Invocation_CopiesMutableArrayElementsInsideLocalSequences()
+    {
+        var table = GetTable<Employee>();
+        var source = Source(table);
+        var declaration = SequenceDeclaration("p0", typeof(byte[]));
+        var template = Template(
+            source,
+            [],
+            [declaration],
+            [new QueryPlanBindingSpecialization.LocalSequenceCount("p0", 1)]);
+        var bytes = new byte[] { 1, 2 };
+
+        var invocation = QueryPlanInvocation.Bind(template, [
+            new QueryPlanInvocationValue.LocalSequence("p0", [bytes])
+        ]);
+        bytes[0] = 9;
+
+        var frozen = (QueryPlanInvocationValue.LocalSequence)invocation.Values[0];
+        var frozenBytes = (byte[])frozen.Values[0]!;
+        await Assert.That(frozenBytes[0]).IsEqualTo((byte)1);
+    }
+
+    [Test]
     public async Task Invocation_ValidatesAndRetainsTheFrozenSequenceInsteadOfTheMutableSourceView()
     {
         var template = SequenceTemplate(requiredCount: 1);
@@ -461,6 +488,58 @@ public class QueryPlanInvocationTests
         await Assert.That(firstValue.Value).IsEqualTo(10);
         await Assert.That(secondValue.Value).IsEqualTo(20);
         await Assert.That(first.Values).IsNotSameReferenceAs(second.Values);
+    }
+
+    [Test]
+    public async Task ConcurrentInvocations_DoNotObserveOtherInvocationValues()
+    {
+        var table = GetTable<Employee>();
+        var source = Source(table);
+        var template = Template(
+            source,
+            [
+                new QueryPlanOperation.Where(new QueryPlanPredicate.In(
+                    Column(source, nameof(Employee.emp_no)),
+                    new QueryPlanLocalSequenceBindingReference("p1", typeof(int)),
+                    IsNegated: false)),
+                new QueryPlanOperation.Skip(new QueryPlanScalarBindingReference("p0", typeof(int)))
+            ],
+            [
+                ScalarDeclaration("p0", typeof(int)),
+                SequenceDeclaration("p1", typeof(int))
+            ],
+            [
+                new QueryPlanBindingSpecialization.ScalarNullness("p0", QueryPlanBindingNullness.NonNull),
+                new QueryPlanBindingSpecialization.LocalSequenceCount("p1", 2)
+            ]);
+        var start = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var tasks = Enumerable.Range(0, 32)
+            .Select(async index =>
+            {
+                await start.Task;
+                var invocation = QueryPlanInvocation.Bind(template, [
+                    new QueryPlanInvocationValue.Scalar("p0", index),
+                    new QueryPlanInvocationValue.LocalSequence("p1", [index, index + 1000])
+                ]);
+                await Task.Yield();
+
+                var scalar = (QueryPlanInvocationValue.Scalar)invocation.Values[0];
+                var sequence = (QueryPlanInvocationValue.LocalSequence)invocation.Values[1];
+                return (Index: index, Scalar: scalar.Value, Sequence: sequence.Values.ToArray());
+            })
+            .ToArray();
+
+        start.SetResult(true);
+        var results = await Task.WhenAll(tasks);
+
+        foreach (var result in results)
+        {
+            await Assert.That(result.Scalar).IsEqualTo(result.Index);
+            await Assert.That(result.Sequence.Length).IsEqualTo(2);
+            await Assert.That(result.Sequence[0]).IsEqualTo(result.Index);
+            await Assert.That(result.Sequence[1]).IsEqualTo(result.Index + 1000);
+        }
     }
 
     private static QueryPlanTemplate ScalarTemplate(

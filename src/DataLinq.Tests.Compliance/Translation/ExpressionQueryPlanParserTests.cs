@@ -224,6 +224,71 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
+    public async Task ExpressionParser_RejectsCapturedRelationCountThresholdsThatWouldChangeTemplateShape()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_RejectsCapturedRelationCountThresholdsThatWouldChangeTemplateShape),
+            EmployeesSeedMode.Bogus);
+
+        var threshold = 0;
+        var query = databaseScope.Database.Query().Employees
+            .Where(employee => employee.dept_manager.Count() == threshold);
+
+        var exception = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("Captured or computed threshold");
+        await Assert.That(exception.Message).Contains("without an exact scalar-value specialization");
+    }
+
+    [Test]
+    public async Task ExpressionParser_NormalizesLocalBooleanPredicatesIntoInvocationValues()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_NormalizesLocalBooleanPredicatesIntoInvocationValues),
+            EmployeesSeedMode.Bogus);
+
+        var includeRows = true;
+        var query = databaseScope.Database.Query().Employees
+            .Where(_ => includeRows);
+
+        var invocation = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+        var snapshot = QueryPlanDebugWriter.WriteTemplate(invocation.Template);
+        var scalar = invocation.Values.Items.OfType<QueryPlanInvocationValue.Scalar>().Single();
+
+        await Assert.That(snapshot).Contains("compare(scalar-binding(p0:Boolean) == intrinsic(true:Boolean))");
+        await Assert.That(snapshot).DoesNotContain("fixed(true)");
+        await Assert.That((bool)scalar.Value!).IsTrue();
+    }
+
+    [Test]
+    public async Task ExpressionParser_EmptyUnsupportedLocalPredicateRetainsCountSpecialization()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_EmptyUnsupportedLocalPredicateRetainsCountSpecialization),
+            EmployeesSeedMode.Bogus);
+
+        var ids = Array.Empty<int>();
+        var query = databaseScope.Database.Query().Employees
+            .Where(employee => ids.Any(id => id > 1000 && id == employee.emp_no!.Value));
+
+        var invocation = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+        var where = invocation.Template.Operations.OfType<QueryPlanOperation.Where>().Single();
+        var specialization = invocation.Template.Specialization.Items
+            .OfType<QueryPlanBindingSpecialization.LocalSequenceCount>()
+            .Single();
+        var values = invocation.Values.Items.OfType<QueryPlanInvocationValue.LocalSequence>().Single();
+
+        await Assert.That(where.Predicate).IsEqualTo(new QueryPlanPredicate.Fixed(false));
+        await Assert.That(specialization.Count).IsEqualTo(0);
+        await Assert.That(values.Values).IsEmpty();
+    }
+
+    [Test]
     public async Task ExpressionParser_StringDateNullableAndBooleanShapesParseToDataLinqPlan()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -428,7 +493,7 @@ public class ExpressionQueryPlanParserTests
             .Where(x => x.gender == Employee.Employeegender.M);
 
         var plan = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
-        var snapshot = QueryPlanDebugWriter.Write(plan);
+        var snapshot = QueryPlanDebugWriter.WriteTemplate(plan.Template);
 
         await Assert.That(snapshot).Contains("pushdown");
         await Assert.That(snapshot).Contains("skip");
@@ -647,15 +712,15 @@ public class ExpressionQueryPlanParserTests
 
     private static async Task AssertParserProducesDataLinqPlan<T>(Database<EmployeesDb> database, IQueryable<T> query)
     {
-        var expressionSnapshot = QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database, query));
+        var expressionSnapshot = QueryPlanDebugWriter.WriteTemplate(ExpressionQueryPlanParser.Convert(database, query).Template);
 
         await AssertNoLegacyParserTerms(expressionSnapshot);
     }
 
     private static async Task AssertParserMatchesProductionRoot<T>(Database<EmployeesDb> database, IQueryable<T> productionQuery, IQueryable<T> expressionQuery)
     {
-        var productionSnapshot = QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database, productionQuery));
-        var expressionSnapshot = QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database.Provider.Metadata, expressionQuery.Expression, typeof(T)));
+        var productionSnapshot = QueryPlanDebugWriter.WriteTemplate(ExpressionQueryPlanParser.Convert(database, productionQuery).Template);
+        var expressionSnapshot = QueryPlanDebugWriter.WriteTemplate(ExpressionQueryPlanParser.Convert(database.Provider.Metadata, expressionQuery.Expression, typeof(T)).Template);
 
         await Assert.That(expressionSnapshot).IsEqualTo(productionSnapshot);
         await AssertNoLegacyParserTerms(expressionSnapshot);
@@ -663,7 +728,7 @@ public class ExpressionQueryPlanParserTests
 
     private static async Task AssertParserProducesDataLinqPlan<TResult>(Database<EmployeesDb> database, Expression<Func<TResult>> query)
     {
-        var expressionSnapshot = QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database, query));
+        var expressionSnapshot = QueryPlanDebugWriter.WriteTemplate(ExpressionQueryPlanParser.Convert(database, query).Template);
 
         await AssertNoLegacyParserTerms(expressionSnapshot);
     }
@@ -673,8 +738,8 @@ public class ExpressionQueryPlanParserTests
         Expression<Func<TResult>> productionQuery,
         Expression<Func<TResult>> expressionQuery)
     {
-        var productionSnapshot = QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database, productionQuery));
-        var expressionSnapshot = QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database.Provider.Metadata, expressionQuery.Body, typeof(TResult)));
+        var productionSnapshot = QueryPlanDebugWriter.WriteTemplate(ExpressionQueryPlanParser.Convert(database, productionQuery).Template);
+        var expressionSnapshot = QueryPlanDebugWriter.WriteTemplate(ExpressionQueryPlanParser.Convert(database.Provider.Metadata, expressionQuery.Body, typeof(TResult)).Template);
 
         await Assert.That(expressionSnapshot).IsEqualTo(productionSnapshot);
         await AssertNoLegacyParserTerms(expressionSnapshot);

@@ -40,22 +40,28 @@ public class QueryPlanSnapshotTests
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=employees element=Employee cardinality=many nullable=false
 operations:
-  where and(compare(column(s0.emp_no:Int32) != captured(p0:Int32?) nulls=c-sharp-nullable-not-equal-includes-null), fixed(true))
+  where and(compare(column(s0.emp_no:Int32) != convert(scalar-binding(p0:Int32) -> Int32?) nulls=c-sharp-nullable-not-equal-includes-null), not-in(column(s0.emp_no:Int32), local-sequence-binding(p1:Int32)))
   order-by column(s0.last_name:String) ascending, column(s0.emp_no:Int32) descending
-  skip captured(p1:Int32)
-  take captured(p2:Int32)
+  skip scalar-binding(p2:Int32)
+  take scalar-binding(p3:Int32)
 projection:
   sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), first_name=column(s0.first_name:String)]
 result:
   sequence type=anonymous
-bindings:
-  p0 scalar type=Int32?
-  p1 scalar type=Int32
-  p2 scalar type=Int32
+binding-declarations:
+  p0 scalar model=Int32 provider=Int32 allows-null=false
+  p1 local-sequence model=Int32 provider=Int32 allows-null=false
+  p2 scalar model=Int32 provider=Int32 allows-null=false
+  p3 scalar model=Int32 provider=Int32 allows-null=false
+specialization:
+  p0 scalar nullness=non-null
+  p1 local-sequence count=0
+  p2 scalar nullness=non-null
+  p3 scalar nullness=non-null
 """);
         await Assert.That(snapshot).DoesNotContain(threshold.ToString());
         await AssertNoLegacyParserTerms(snapshot);
@@ -80,7 +86,8 @@ bindings:
             databaseScope.Database.Query().Employees.Where(x => secondIds.Contains(x.emp_no!.Value)));
 
         await Assert.That(firstSnapshot).IsEqualTo(secondSnapshot);
-        await Assert.That(firstSnapshot).Contains("local-sequence(p0:Int32 count=3)");
+        await Assert.That(firstSnapshot).Contains("local-sequence-binding(p0:Int32)");
+        await Assert.That(firstSnapshot).Contains("p0 local-sequence count=3");
         await Assert.That(firstSnapshot).DoesNotContain("101");
         await AssertNoLegacyParserTerms(firstSnapshot);
     }
@@ -107,16 +114,16 @@ bindings:
 
         localEmployeeNumbers[1] = 20002;
 
-        var firstScalar = firstPlan.Bindings.Items.Single(binding => binding.Kind == QueryPlanBindingKind.Scalar);
-        var firstSequence = firstPlan.Bindings.Items.Single(binding => binding.Kind == QueryPlanBindingKind.LocalSequence);
-        var secondScalar = secondPlan.Bindings.Items.Single(binding => binding.Kind == QueryPlanBindingKind.Scalar);
-        var secondSequence = secondPlan.Bindings.Items.Single(binding => binding.Kind == QueryPlanBindingKind.LocalSequence);
+        var firstScalar = (QueryPlanInvocationValue.Scalar)firstPlan.Values.Items.Single(binding => binding.Kind == QueryPlanBindingKind.Scalar);
+        var firstSequence = (QueryPlanInvocationValue.LocalSequence)firstPlan.Values.Items.Single(binding => binding.Kind == QueryPlanBindingKind.LocalSequence);
+        var secondScalar = (QueryPlanInvocationValue.Scalar)secondPlan.Values.Items.Single(binding => binding.Kind == QueryPlanBindingKind.Scalar);
+        var secondSequence = (QueryPlanInvocationValue.LocalSequence)secondPlan.Values.Items.Single(binding => binding.Kind == QueryPlanBindingKind.LocalSequence);
 
         await Assert.That(firstScalar.Value).IsEqualTo(10001);
-        await Assert.That(firstSequence.Values![0]).IsEqualTo(10001);
+        await Assert.That(firstSequence.Values[0]).IsEqualTo(10001);
         await Assert.That(firstSequence.Values[1]).IsEqualTo(10002);
         await Assert.That(secondScalar.Value).IsNull();
-        await Assert.That(secondSequence.Values![0]).IsEqualTo(20001);
+        await Assert.That(secondSequence.Values[0]).IsEqualTo(20001);
         await Assert.That(secondSequence.Values[1]).IsEqualTo(10002);
     }
 
@@ -136,18 +143,20 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=departments element=Department cardinality=many nullable=false
   s1 relation-subquery alias=r0 table=dept_manager element=Manager cardinality=many nullable=false
 operations:
-  where exists(relation=Managers parent=s0 child=s1 predicate=compare(column(s1.emp_no:Int32) == captured(p0:Int32)))
+  where exists(relation=Managers parent=s0 child=s1 predicate=compare(column(s1.emp_no:Int32) == scalar-binding(p0:Int32)))
 projection:
   scalar-member column(s0.dept_no:String) type=String
 result:
   sequence type=String
-bindings:
-  p0 scalar type=Int32
+binding-declarations:
+  p0 scalar model=Int32 provider=Int32 allows-null=false
+specialization:
+  p0 scalar nullness=non-null
 """);
         await Assert.That(snapshot).DoesNotContain(managerNumber.ToString());
         await AssertNoLegacyParserTerms(snapshot);
@@ -166,17 +175,19 @@ bindings:
             .Sum(x => x.emp_no));
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept_manager element=Manager cardinality=many nullable=false
 operations:
-  where compare(function(string-starts-with:Boolean column(s0.dept_fk:String), captured(p0:String)) == constant(Boolean))
+  where compare(function(string-starts-with:Boolean column(s0.dept_fk:String), scalar-binding(p0:String)) == intrinsic(true:Boolean))
 projection:
   scalar-member column(s0.emp_no:Int32) type=Int32
 result:
   sum type=Int32 selector=column(s0.emp_no:Int32)
-bindings:
-  p0 scalar type=String
+binding-declarations:
+  p0 scalar model=String provider=String allows-null=true
+specialization:
+  p0 scalar nullness=non-null
 """);
         await Assert.That(snapshot).DoesNotContain("d00");
         await AssertNoLegacyParserTerms(snapshot);
@@ -202,18 +213,20 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
 operations:
-  where compare(function(string-starts-with:Boolean column(s0.dept_no:String), captured(p0:String)) == constant(Boolean))
+  where compare(function(string-starts-with:Boolean column(s0.dept_no:String), scalar-binding(p0:String)) == intrinsic(true:Boolean))
   group-by column(s0.dept_no:String)
 projection:
   grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32)]
 result:
   sequence type=anonymous
-bindings:
-  p0 scalar type=String
+binding-declarations:
+  p0 scalar model=String provider=String allows-null=true
+specialization:
+  p0 scalar nullness=non-null
 """);
         await Assert.That(snapshot).DoesNotContain("d00");
         await AssertNoLegacyParserTerms(snapshot);
@@ -242,7 +255,7 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
 operations:
@@ -251,7 +264,9 @@ projection:
   grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32), SumEmployeeNumbers=grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32)), MinEmployeeNumber=grouped-aggregate(min:Int32 selector=column(s0.emp_no:Int32)), MaxEmployeeNumber=grouped-aggregate(max:Int32 selector=column(s0.emp_no:Int32)), AverageEmployeeNumber=grouped-aggregate(average:Double selector=column(s0.emp_no:Int32))]
 result:
   sequence type=anonymous
-bindings:
+binding-declarations:
+  none
+specialization:
   none
 """);
         await AssertNoLegacyParserTerms(snapshot);
@@ -280,19 +295,22 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
 operations:
   group-by column(s0.dept_no:String)
-  having and(compare(grouped-aggregate(count:Int32) > captured(p0:Int32)), compare(grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32)) > captured(p1:Int32)))
+  having and(compare(grouped-aggregate(count:Int32) > scalar-binding(p0:Int32)), compare(grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32)) > scalar-binding(p1:Int32)))
 projection:
   grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32), SumEmployeeNumbers=grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32))]
 result:
   sequence type=anonymous
-bindings:
-  p0 scalar type=Int32
-  p1 scalar type=Int32
+binding-declarations:
+  p0 scalar model=Int32 provider=Int32 allows-null=false
+  p1 scalar model=Int32 provider=Int32 allows-null=false
+specialization:
+  p0 scalar nullness=non-null
+  p1 scalar nullness=non-null
 """);
         await AssertNoLegacyParserTerms(snapshot);
     }
@@ -322,23 +340,27 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
 operations:
   group-by column(s0.dept_no:String)
-  having compare(grouped-aggregate(count:Int32) > captured(p0:Int32))
+  having compare(grouped-aggregate(count:Int32) > scalar-binding(p0:Int32))
   order-by grouped-aggregate(count:Int32) descending, group-key(column(s0.dept_no:String):String) ascending
-  skip captured(p1:Int32)
-  take captured(p2:Int32)
+  skip scalar-binding(p1:Int32)
+  take scalar-binding(p2:Int32)
 projection:
   grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32)]
 result:
   sequence type=anonymous
-bindings:
-  p0 scalar type=Int32
-  p1 scalar type=Int32
-  p2 scalar type=Int32
+binding-declarations:
+  p0 scalar model=Int32 provider=Int32 allows-null=false
+  p1 scalar model=Int32 provider=Int32 allows-null=false
+  p2 scalar model=Int32 provider=Int32 allows-null=false
+specialization:
+  p0 scalar nullness=non-null
+  p1 scalar nullness=non-null
+  p2 scalar nullness=non-null
 """);
         await AssertNoLegacyParserTerms(snapshot);
     }
@@ -367,7 +389,7 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
 operations:
@@ -376,7 +398,9 @@ projection:
   grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), FromYear=group-key(function(date-part-year:Int32 column(s0.from_date:DateOnly)):Int32), Count=grouped-aggregate(count:Int32)]
 result:
   sequence type=anonymous
-bindings:
+binding-declarations:
+  none
+specialization:
   none
 """);
         await AssertNoLegacyParserTerms(snapshot);
@@ -411,7 +435,7 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
   s1 explicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
@@ -422,7 +446,9 @@ projection:
   grouped-aggregate type=anonymous source=s0 members=[DepartmentName=group-key(column(s1.dept_name:String):String), Count=grouped-aggregate(count:Int32), SumEmployeeNumbers=grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32))]
 result:
   sequence type=anonymous
-bindings:
+binding-declarations:
+  none
+specialization:
   none
 """);
         await AssertNoLegacyParserTerms(snapshot);
@@ -440,7 +466,7 @@ bindings:
             databaseScope.Database,
             databaseScope.Database.Query().Departments.Where(x => !x.DeptNo.StartsWith("d00")));
 
-        await Assert.That(snapshot).Contains("where not(compare(function(string-starts-with:Boolean column(s0.dept_no:String), captured(p0:String)) == constant(Boolean)))");
+        await Assert.That(snapshot).Contains("where not(compare(function(string-starts-with:Boolean column(s0.dept_no:String), scalar-binding(p0:String)) == intrinsic(true:Boolean)))");
         await AssertNoLegacyParserTerms(snapshot);
     }
 
@@ -467,7 +493,7 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
   s1 explicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
@@ -477,7 +503,9 @@ projection:
   sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)]
 result:
   sequence type=anonymous
-bindings:
+binding-declarations:
+  none
+specialization:
   none
 """);
         await AssertNoLegacyParserTerms(snapshot);
@@ -508,20 +536,22 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
   s1 explicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
 operations:
   join inner column(s0.dept_no:String) = column(s1.dept_no:String)
-  where compare(function(string-starts-with:Boolean column(s1.dept_name:String), captured(p0:String)) == constant(Boolean))
+  where compare(function(string-starts-with:Boolean column(s1.dept_name:String), scalar-binding(p0:String)) == intrinsic(true:Boolean))
   order-by column(s0.dept_no:String) ascending
 projection:
   sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)]
 result:
   sequence type=anonymous
-bindings:
-  p0 scalar type=String
+binding-declarations:
+  p0 scalar model=String provider=String allows-null=true
+specialization:
+  p0 scalar nullness=non-null
 """);
         await Assert.That(snapshot).DoesNotContain("Sales");
         await AssertNoLegacyParserTerms(snapshot);
@@ -550,20 +580,22 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
   s1 explicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
 operations:
   join inner column(s0.dept_no:String) = column(s1.dept_no:String)
-  where compare(function(string-starts-with:Boolean column(s1.dept_name:String), captured(p0:String)) == constant(Boolean))
+  where compare(function(string-starts-with:Boolean column(s1.dept_name:String), scalar-binding(p0:String)) == intrinsic(true:Boolean))
   order-by column(s1.dept_name:String) ascending, column(s0.emp_no:Int32) ascending
 projection:
   sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), DepartmentName=column(s1.dept_name:String)]
 result:
   sequence type=anonymous
-bindings:
-  p0 scalar type=String
+binding-declarations:
+  p0 scalar model=String provider=String allows-null=true
+specialization:
+  p0 scalar nullness=non-null
 """);
         await Assert.That(snapshot).DoesNotContain("Sales");
         await AssertNoLegacyParserTerms(snapshot);
@@ -584,21 +616,24 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
   s1 implicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
 operations:
   join inner column(s0.dept_no:String) = column(s1.dept_no:String)
-  where and(compare(function(string-starts-with:Boolean column(s1.dept_name:String), captured(p0:String)) == constant(Boolean)), compare(column(s1.dept_no:String) == captured(p1:String)))
+  where and(compare(function(string-starts-with:Boolean column(s1.dept_name:String), scalar-binding(p0:String)) == intrinsic(true:Boolean)), compare(column(s1.dept_no:String) == scalar-binding(p1:String)))
   order-by column(s1.dept_name:String) ascending
 projection:
   entity source=s0 type=Dept_emp
 result:
   sequence type=Dept_emp
-bindings:
-  p0 scalar type=String
-  p1 scalar type=String
+binding-declarations:
+  p0 scalar model=String provider=String allows-null=true
+  p1 scalar model=String provider=String allows-null=true
+specialization:
+  p0 scalar nullness=non-null
+  p1 scalar nullness=non-null
 """);
         await Assert.That(snapshot).DoesNotContain("d007");
         await AssertNoLegacyParserTerms(snapshot);
@@ -623,23 +658,26 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=employees element=Employee cardinality=many nullable=false
 operations:
   pushdown
     order-by column(s0.emp_no:Int32) ascending
-    take captured(p0:Int32)
+    take scalar-binding(p0:Int32)
     preserves-order column(s0.emp_no:Int32) ascending
-  where compare(function(string-starts-with:Boolean column(s0.first_name:String), captured(p1:String)) == constant(Boolean))
+  where compare(function(string-starts-with:Boolean column(s0.first_name:String), scalar-binding(p1:String)) == intrinsic(true:Boolean))
   order-by column(s0.hire_date:DateOnly) descending
 projection:
   entity source=s0 type=Employee
 result:
   sequence type=Employee
-bindings:
-  p0 scalar type=Int32
-  p1 scalar type=String
+binding-declarations:
+  p0 scalar model=Int32 provider=Int32 allows-null=false
+  p1 scalar model=String provider=String allows-null=true
+specialization:
+  p0 scalar nullness=non-null
+  p1 scalar nullness=non-null
 """);
         await Assert.That(snapshot).DoesNotContain(prefix);
         await AssertNoLegacyParserTerms(snapshot);
@@ -674,7 +712,7 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
   s1 explicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
@@ -682,17 +720,20 @@ operations:
   pushdown
     join inner column(s0.dept_no:String) = column(s1.dept_no:String)
     order-by column(s0.emp_no:Int32) ascending
-    take captured(p0:Int32)
+    take scalar-binding(p0:Int32)
     preserves-order column(s0.emp_no:Int32) ascending
-  where compare(function(string-starts-with:Boolean column(s1.dept_name:String), captured(p1:String)) == constant(Boolean))
+  where compare(function(string-starts-with:Boolean column(s1.dept_name:String), scalar-binding(p1:String)) == intrinsic(true:Boolean))
   order-by column(s0.dept_no:String) descending
 projection:
   sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)]
 result:
   sequence type=anonymous
-bindings:
-  p0 scalar type=Int32
-  p1 scalar type=String
+binding-declarations:
+  p0 scalar model=Int32 provider=Int32 allows-null=false
+  p1 scalar model=String provider=String allows-null=true
+specialization:
+  p0 scalar nullness=non-null
+  p1 scalar nullness=non-null
 """);
         await Assert.That(snapshot).DoesNotContain(prefix);
         await AssertNoLegacyParserTerms(snapshot);
@@ -717,7 +758,7 @@ bindings:
         await Assert.That(firstSnapshot).Contains("result:\n  first-or-default type=Employee");
         await Assert.That(lastSnapshot).Contains("result:\n  last type=Employee");
         await Assert.That(singleSnapshot).Contains("result:\n  single-or-default type=Employee");
-        await Assert.That(singleSnapshot).Contains("where compare(column(s0.emp_no:Int32) == captured(p0:Int32?))");
+        await Assert.That(singleSnapshot).Contains("where compare(column(s0.emp_no:Int32) == convert(scalar-binding(p0:Int32) -> Int32?))");
 
         await AssertNoLegacyParserTerms(countSnapshot);
         await AssertNoLegacyParserTerms(anySnapshot);
@@ -745,7 +786,8 @@ bindings:
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x => !(x.dept_manager.Count() == 0)));
 
-        await Assert.That(localAnySnapshot).Contains("where in(column(s0.emp_no:Int32), local-sequence(p0:Int32 count=2))");
+        await Assert.That(localAnySnapshot).Contains("where in(column(s0.emp_no:Int32), local-sequence-binding(p0:Int32))");
+        await Assert.That(localAnySnapshot).Contains("p0 local-sequence count=2");
         await Assert.That(localAnySnapshot).DoesNotContain("10001");
         await Assert.That(localAnySnapshot).DoesNotContain("10002");
         await Assert.That(relationCountSnapshot).Contains("where not-exists(relation=dept_manager parent=s0 child=s1)");
@@ -789,7 +831,7 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=employees element=Employee cardinality=many nullable=false
 operations:
@@ -798,7 +840,9 @@ projection:
   anonymous type=anonymous sources=s0 members=[emp_no=column(s0.emp_no:Int32), NormalizedName=function(string-trim:String column(s0.first_name:String))]
 result:
   sequence type=anonymous
-bindings:
+binding-declarations:
+  none
+specialization:
   none
 """);
         await AssertNoLegacyParserTerms(snapshot);
@@ -825,7 +869,7 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
   s1 explicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
@@ -835,7 +879,9 @@ projection:
   joined-row-local type=anonymous sources=s0,s1 members=[emp_no=column(s0.emp_no:Int32), NormalizedDepartmentName=function(string-trim:String column(s1.dept_name:String))]
 result:
   sequence type=anonymous
-bindings:
+binding-declarations:
+  none
+specialization:
   none
 """);
         await AssertNoLegacyParserTerms(snapshot);
@@ -859,7 +905,7 @@ bindings:
         var snapshot = Snapshot(databaseScope.Database, query);
 
         await AssertSnapshot(snapshot, """
-query-plan v0
+query-template v0
 sources:
   s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
   s1 implicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
@@ -869,7 +915,9 @@ projection:
   sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), DepartmentName=column(s1.dept_name:String)]
 result:
   sequence type=anonymous
-bindings:
+binding-declarations:
+  none
+specialization:
   none
 """);
         await AssertNoLegacyParserTerms(snapshot);
@@ -896,11 +944,11 @@ bindings:
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Where(x => x.last_login != login));
 
-        await Assert.That(literalNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != constant(null:TimeOnly?))");
+        await Assert.That(literalNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != intrinsic(null:TimeOnly?))");
         await Assert.That(literalNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-not-equal-includes-null");
-        await Assert.That(capturedNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != captured(p0:TimeOnly?))");
+        await Assert.That(capturedNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != scalar-binding(p0:TimeOnly?))");
         await Assert.That(capturedNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-not-equal-includes-null");
-        await Assert.That(capturedNonNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != captured(p0:TimeOnly?) nulls=c-sharp-nullable-not-equal-includes-null)");
+        await Assert.That(capturedNonNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != scalar-binding(p0:TimeOnly?) nulls=c-sharp-nullable-not-equal-includes-null)");
         await Assert.That(capturedNonNullSnapshot).DoesNotContain("09:15");
         await AssertNoLegacyParserTerms(literalNullSnapshot);
         await AssertNoLegacyParserTerms(capturedNullSnapshot);
@@ -908,10 +956,10 @@ bindings:
     }
 
     private static string Snapshot<T>(Database<EmployeesDb> database, IQueryable<T> query)
-        => QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database, query));
+        => QueryPlanDebugWriter.WriteTemplate(ExpressionQueryPlanParser.Convert(database, query).Template);
 
     private static string Snapshot<TResult>(Database<EmployeesDb> database, Expression<Func<TResult>> query)
-        => QueryPlanDebugWriter.Write(ExpressionQueryPlanParser.Convert(database, query));
+        => QueryPlanDebugWriter.WriteTemplate(ExpressionQueryPlanParser.Convert(database, query).Template);
 
     private static async Task AssertSnapshot(string actual, string expected)
     {

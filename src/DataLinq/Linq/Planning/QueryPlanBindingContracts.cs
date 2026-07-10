@@ -5,6 +5,19 @@ using System.Linq;
 
 namespace DataLinq.Linq.Planning;
 
+internal enum QueryPlanBindingKind
+{
+    Scalar,
+    LocalSequence
+}
+
+internal interface IQueryPlanSpecializationLookup
+{
+    bool TryGetSpecialization(
+        string bindingId,
+        out QueryPlanBindingSpecialization specialization);
+}
+
 internal sealed record QueryPlanBindingDeclaration
 {
     public QueryPlanBindingDeclaration(
@@ -186,7 +199,7 @@ internal sealed class QueryPlanBindingValues
                 CopyScalarValue(scalar.Value)),
             QueryPlanInvocationValue.LocalSequence sequence => new QueryPlanInvocationValue.LocalSequence(
                 sequence.Id,
-                Array.AsReadOnly(sequence.Values.ToArray())),
+                Array.AsReadOnly(sequence.Values.Select(CopyScalarValue).ToArray())),
             _ => throw new ArgumentException(
                 $"Unknown query plan invocation value '{value.GetType().Name}'.",
                 nameof(value))
@@ -235,7 +248,7 @@ internal abstract record QueryPlanBindingSpecialization(string BindingId, QueryP
     }
 }
 
-internal sealed class QueryPlanSpecialization
+internal sealed class QueryPlanSpecialization : IQueryPlanSpecializationLookup
 {
     public static QueryPlanSpecialization Empty { get; } = new([], []);
 
@@ -290,4 +303,9 @@ internal sealed class QueryPlanSpecialization
         ArgumentException.ThrowIfNullOrWhiteSpace(bindingId);
         return constraintsByBindingId.TryGetValue(bindingId, out specialization!);
     }
+
+    public bool TryGetSpecialization(
+        string bindingId,
+        out QueryPlanBindingSpecialization specialization)
+        => TryGet(bindingId, out specialization);
 }

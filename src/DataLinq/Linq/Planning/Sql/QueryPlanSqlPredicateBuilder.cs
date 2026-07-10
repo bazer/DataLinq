@@ -81,6 +81,9 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
         if (TryApplyBooleanFunctionComparison(compare, group, connectionType))
             return;
 
+        if (TryApplyIntrinsicNullComparison(compare, group, connectionType))
+            return;
+
         var left = valueRenderer.RenderOperand(compare.Left);
         var right = valueRenderer.RenderOperand(compare.Right);
         (left, right) = QueryPlanSqlValueRenderer.NormalizeValueOperandsForColumnTypes(left, right);
@@ -104,13 +107,54 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
         group.AddWhere(new Comparison(left, sqlOperator, right), connectionType);
     }
 
+    private bool TryApplyIntrinsicNullComparison(
+        QueryPlanPredicate.Compare compare,
+        WhereGroup<T> group,
+        BooleanType connectionType)
+    {
+        var leftIsNull = IsNullIntrinsic(compare.Left);
+        var rightIsNull = IsNullIntrinsic(compare.Right);
+        if (!leftIsNull && !rightIsNull)
+            return false;
+
+        var left = leftIsNull && !rightIsNull
+            ? valueRenderer.RenderOperand(compare.Right)
+            : leftIsNull
+                ? Operand.RawSql("NULL")
+                : valueRenderer.RenderOperand(compare.Left);
+        var sqlOperator = compare.Operator switch
+        {
+            QueryPlanComparisonOperator.Equal => Operator.EqualNull,
+            QueryPlanComparisonOperator.NotEqual => Operator.NotEqualNull,
+            _ => ToSqlOperator(compare.Operator)
+        };
+
+        group.AddWhere(
+            new Comparison(left, sqlOperator, Operand.RawSql("NULL")),
+            connectionType);
+        return true;
+    }
+
+    private static bool IsNullIntrinsic(QueryPlanValue value)
+        => value switch
+        {
+            QueryPlanIntrinsicValue { Intrinsic: QueryPlanIntrinsicKind.Null } => true,
+            QueryPlanConvertedValue converted => IsNullIntrinsic(converted.Value),
+            _ => false
+        };
+
     private void ApplyIn(QueryPlanPredicate.In inPredicate, WhereGroup<T> group, BooleanType connectionType)
     {
-        if (inPredicate.Sequence is not QueryPlanLocalSequenceValue sequence)
-            throw new QueryTranslationException("Query plan IN predicates require a local sequence binding.");
+        var sourceValues = valueRenderer.GetLocalSequenceValues(inPredicate.Sequence);
+        if (sourceValues.Count == 0)
+        {
+            group.AddFixedCondition(
+                inPredicate.IsNegated ? Operator.AlwaysTrue : Operator.AlwaysFalse,
+                connectionType);
+            return;
+        }
 
         var item = valueRenderer.RenderOperand(inPredicate.Item);
-        var sourceValues = valueRenderer.GetLocalSequenceValues(sequence);
         var values = new object?[sourceValues.Count];
         if (item is ColumnOperandWithDefinition column)
         {

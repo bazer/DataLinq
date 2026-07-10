@@ -13,262 +13,185 @@ namespace DataLinq.Tests.Unit.Linq;
 public class QueryPlanNodeTests
 {
     [Test]
-    public async Task QueryPlan_RejectsDuplicateSourceIds()
+    public async Task QueryTemplate_RejectsDuplicateSourceIds()
     {
         var table = GetTable<Employee>();
         var source = Source("s0", table);
         var projection = new QueryPlanProjection.Entity(source);
 
-        var exception = Capture<ArgumentException>(() => new DataLinqQueryPlan(
+        var exception = Capture<ArgumentException>(() => new QueryPlanTemplate(
             [source, source with { Alias = "t1" }],
             [],
             projection,
             QueryPlanResult.Sequence(typeof(Employee)),
-            new QueryPlanBindingFrame()));
+            QueryPlanBindingDeclarations.Empty,
+            QueryPlanSpecialization.Empty));
 
         await Assert.That(exception).IsNotNull();
         await Assert.That(exception!.Message).Contains("duplicated");
     }
 
     [Test]
-    public async Task InPredicate_RejectsEmptyLocalSequence()
+    public async Task EmptyMembership_IsRepresentedByInvocationAndExplicitCountSpecialization()
     {
         var table = GetTable<Employee>();
         var source = Source("s0", table);
-        var frame = new QueryPlanBindingFrame();
-        var emptySequence = frame.CaptureLocalSequence([], typeof(int));
-
-        var exception = Capture<ArgumentException>(() => new QueryPlanPredicate.In(
-            new QueryPlanColumnValue(source, table.GetColumnByPropertyName(nameof(Employee.emp_no))),
-            emptySequence,
-            IsNegated: false));
-
-        await Assert.That(exception).IsNotNull();
-        await Assert.That(exception!.Message).Contains("Empty local sequences");
-    }
-
-    [Test]
-    public async Task BindingFrame_ReturnsStableBindingsView()
-    {
-        var frame = new QueryPlanBindingFrame();
-
-        var first = frame.Bindings;
-        frame.CaptureScalar(42, typeof(int));
-        var second = frame.Bindings;
-
-        await Assert.That(ReferenceEquals(first, second)).IsTrue();
-        await Assert.That(second.Count).IsEqualTo(1);
-    }
-
-    [Test]
-    public async Task QueryPlan_FreezesBindingFrameAtPlanBoundary()
-    {
-        var table = GetTable<Employee>();
-        var source = Source("s0", table);
-        var frame = new QueryPlanBindingFrame();
-        var captured = frame.CaptureScalar(42, typeof(int));
-
-        var plan = new DataLinqQueryPlan(
+        var capture = new QueryPlanBindingCapture();
+        var sequence = capture.CaptureLocalSequence([], typeof(int));
+        var template = new QueryPlanTemplate(
             [source],
-            [
-                new QueryPlanOperation.Skip(captured)
-            ],
+            [new QueryPlanOperation.Where(new QueryPlanPredicate.In(
+                new QueryPlanColumnValue(source, table.GetColumnByPropertyName(nameof(Employee.emp_no))),
+                sequence,
+                IsNegated: false))],
             new QueryPlanProjection.Entity(source),
             QueryPlanResult.Sequence(typeof(Employee)),
-            frame);
+            capture.CreateDeclarations(),
+            capture.CreateSpecialization());
+        var invocation = QueryPlanInvocation.Bind(template, capture.InvocationValues);
 
-        frame.CaptureScalar(43, typeof(int));
-
-        await Assert.That(plan.Bindings.Count).IsEqualTo(1);
-        await Assert.That(plan.Bindings.TryGet(captured.BindingId, out _)).IsTrue();
-        await Assert.That(plan.Bindings.TryGet("p1", out _)).IsFalse();
+        await Assert.That(typeof(QueryPlanLocalSequenceBindingReference).GetProperty("Count")).IsNull();
+        await Assert.That(template.Specialization.TryGet(sequence.BindingId, out var specialization)).IsTrue();
+        await Assert.That(specialization).IsTypeOf<QueryPlanBindingSpecialization.LocalSequenceCount>();
+        await Assert.That(((QueryPlanBindingSpecialization.LocalSequenceCount)specialization).Count).IsEqualTo(0);
+        await Assert.That(((QueryPlanInvocationValue.LocalSequence)invocation.Values[0]).Values).IsEmpty();
     }
 
     [Test]
-    public async Task QueryPlan_FreezesLocalSequenceBindingValues()
+    public async Task BindingCapture_ProducesSeparateStableProducts()
+    {
+        var capture = new QueryPlanBindingCapture();
+        var scalar = capture.CaptureScalar(42, typeof(int));
+        var sequence = capture.CaptureLocalSequence([1, 2], typeof(int));
+
+        var declarations = capture.CreateDeclarations();
+        var specialization = capture.CreateSpecialization();
+
+        await Assert.That(scalar.BindingId).IsEqualTo("p0");
+        await Assert.That(sequence.BindingId).IsEqualTo("p1");
+        await Assert.That(declarations.Count).IsEqualTo(2);
+        await Assert.That(capture.InvocationValues.Count).IsEqualTo(2);
+        await Assert.That(specialization.Count).IsEqualTo(2);
+        await Assert.That(declarations[0].Kind).IsEqualTo(QueryPlanBindingKind.Scalar);
+        await Assert.That(declarations[1].Kind).IsEqualTo(QueryPlanBindingKind.LocalSequence);
+    }
+
+    [Test]
+    public async Task DebugWriters_SeparateStructuralShapeFromRedactedInvocationValues()
     {
         var table = GetTable<Employee>();
         var source = Source("s0", table);
-        var frame = new QueryPlanBindingFrame();
-        object?[] values = [10, 20, 30];
-        var sequence = frame.CaptureLocalSequence(values, typeof(int));
-
-        values[0] = 999;
-        var plan = new DataLinqQueryPlan(
-            [source],
-            [],
-            new QueryPlanProjection.Entity(source),
-            QueryPlanResult.Sequence(typeof(Employee)),
-            frame);
-
-        var frameValues = (object?[])frame.Bindings[0].Values!;
-        frameValues[1] = 888;
-
-        await Assert.That(plan.Bindings.TryGet(sequence.BindingId, out var binding)).IsTrue();
-        await Assert.That(binding.Values![0]).IsEqualTo(10);
-        await Assert.That(binding.Values![1]).IsEqualTo(20);
-        await Assert.That(binding.Values![2]).IsEqualTo(30);
-    }
-
-    [Test]
-    public async Task QueryPlanBindings_RejectsDuplicateBindingIds()
-    {
-        var exception = Capture<ArgumentException>(() => QueryPlanBindings.From([
-            new QueryPlanBinding("p0", QueryPlanBindingKind.Scalar, typeof(int), 1, Values: null, Count: null),
-            new QueryPlanBinding("p0", QueryPlanBindingKind.Scalar, typeof(int), 2, Values: null, Count: null)
-        ]));
-
-        await Assert.That(exception).IsNotNull();
-        await Assert.That(exception!.Message).Contains("duplicated");
-    }
-
-    [Test]
-    public async Task DebugWriter_RedactsCapturedValuesAndPreservesShape()
-    {
-        var table = GetTable<Employee>();
-        var source = Source("s0", table);
-        var frame = new QueryPlanBindingFrame();
-        var captured = frame.CaptureScalar("SensitiveName", typeof(string));
-        var ids = frame.CaptureLocalSequence([10, 20, 30], typeof(int));
+        var capture = new QueryPlanBindingCapture();
+        var captured = capture.CaptureScalar("SensitiveName", typeof(string));
+        var ids = capture.CaptureLocalSequence([10, 20, 30], typeof(int));
         var firstName = table.GetColumnByPropertyName(nameof(Employee.first_name));
         var employeeNumber = table.GetColumnByPropertyName(nameof(Employee.emp_no));
 
-        var plan = new DataLinqQueryPlan(
+        var template = new QueryPlanTemplate(
             [source],
-            [
-                new QueryPlanOperation.Where(new QueryPlanPredicate.And([
-                    new QueryPlanPredicate.Compare(
-                        new QueryPlanColumnValue(source, firstName),
-                        QueryPlanComparisonOperator.Equal,
-                        captured),
-                    new QueryPlanPredicate.In(
-                        new QueryPlanColumnValue(source, employeeNumber),
-                        ids,
-                        IsNegated: false)
-                ]))
-            ],
+            [new QueryPlanOperation.Where(new QueryPlanPredicate.And([
+                new QueryPlanPredicate.Compare(
+                    new QueryPlanColumnValue(source, firstName),
+                    QueryPlanComparisonOperator.Equal,
+                    captured),
+                new QueryPlanPredicate.In(
+                    new QueryPlanColumnValue(source, employeeNumber),
+                    ids,
+                    IsNegated: false)
+            ]))],
             new QueryPlanProjection.Entity(source),
             QueryPlanResult.Sequence(typeof(Employee)),
-            frame);
+            capture.CreateDeclarations(),
+            capture.CreateSpecialization());
+        var invocation = QueryPlanInvocation.Bind(template, capture.InvocationValues);
 
-        var snapshot = QueryPlanDebugWriter.Write(plan);
+        var templateSnapshot = QueryPlanDebugWriter.WriteTemplate(template);
+        var invocationSnapshot = QueryPlanDebugWriter.WriteInvocation(invocation);
 
-        await Assert.That(snapshot).Contains("captured(p0:String)");
-        await Assert.That(snapshot).Contains("local-sequence(p1:Int32 count=3)");
-        await Assert.That(snapshot).Contains("p0 scalar type=String");
-        await Assert.That(snapshot).Contains("p1 local-sequence type=Int32 count=3");
-        await Assert.That(snapshot).DoesNotContain("SensitiveName");
-        await Assert.That(snapshot).DoesNotContain("10");
-        await Assert.That(snapshot).DoesNotContain("20");
-        await Assert.That(snapshot).DoesNotContain("30");
+        await Assert.That(templateSnapshot).Contains("scalar-binding(p0:String)");
+        await Assert.That(templateSnapshot).Contains("local-sequence-binding(p1:Int32)");
+        await Assert.That(templateSnapshot).Contains("binding-declarations:");
+        await Assert.That(templateSnapshot).Contains("p0 scalar model=String provider=String allows-null=true");
+        await Assert.That(templateSnapshot).Contains("p1 local-sequence count=3");
+        await Assert.That(templateSnapshot).DoesNotContain("SensitiveName");
+        await Assert.That(templateSnapshot).DoesNotContain("10");
+        await Assert.That(invocationSnapshot).Contains("p0 scalar value=<redacted>");
+        await Assert.That(invocationSnapshot).Contains("p1 local-sequence count=3 values=<redacted>");
+        await Assert.That(invocationSnapshot).DoesNotContain("SensitiveName");
+        await Assert.That(invocationSnapshot).DoesNotContain("10");
     }
 
     [Test]
-    public async Task NullableInequalitySnapshot_DistinguishesCapturedNullSemantics()
+    public async Task NullableInequalitySnapshot_DistinguishesExplicitNullnessSpecialization()
     {
         var capturedNullSnapshot = NullableInequalitySnapshot(null);
         var capturedNonNullSnapshot = NullableInequalitySnapshot(new TimeOnly(9, 15, 0));
 
-        await Assert.That(capturedNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != captured(p0:TimeOnly?))");
+        await Assert.That(capturedNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != scalar-binding(p0:TimeOnly?))");
         await Assert.That(capturedNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-not-equal-includes-null");
-        await Assert.That(capturedNullSnapshot).Contains("p0 scalar type=TimeOnly?");
-        await Assert.That(capturedNonNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != captured(p0:TimeOnly?) nulls=c-sharp-nullable-not-equal-includes-null)");
-        await Assert.That(capturedNonNullSnapshot).Contains("p0 scalar type=TimeOnly?");
+        await Assert.That(capturedNullSnapshot).Contains("p0 scalar nullness=null");
+        await Assert.That(capturedNonNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != scalar-binding(p0:TimeOnly?) nulls=c-sharp-nullable-not-equal-includes-null)");
+        await Assert.That(capturedNonNullSnapshot).Contains("p0 scalar nullness=non-null");
         await Assert.That(capturedNonNullSnapshot).DoesNotContain("09:15");
     }
 
     [Test]
-    public async Task NullSemanticsResolver_RejectsCapturedValueMissingFromBindingFrame()
+    public async Task NullSemanticsResolver_RejectsBindingWithoutSpecialization()
     {
         var table = GetTable<Employee>();
         var source = Source("s0", table);
         var column = new QueryPlanColumnValue(source, table.GetColumnByPropertyName(nameof(Employee.last_login)));
-        var captured = new QueryPlanCapturedValue("p0", typeof(TimeOnly?));
+        var scalar = new QueryPlanScalarBindingReference("p0", typeof(TimeOnly?));
 
         var exception = Capture<InvalidOperationException>(() =>
             QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(
                 QueryPlanComparisonOperator.NotEqual,
                 column,
-                captured,
-                QueryPlanBindings.Empty));
+                scalar,
+                QueryPlanSpecialization.Empty));
 
         await Assert.That(exception).IsNotNull();
-        await Assert.That(exception!.Message).Contains("missing from the binding frame");
+        await Assert.That(exception!.Message).Contains("no explicit specialization");
     }
 
     [Test]
     public async Task PlanningNodes_DoNotExposeRemotionTypes()
     {
-        var planningTypes = typeof(DataLinqQueryPlan).Assembly
+        var planningTypes = typeof(QueryPlanTemplate).Assembly
             .GetTypes()
             .Where(type => type.Namespace == "DataLinq.Linq.Planning")
             .ToArray();
 
-        foreach (var type in planningTypes)
-        {
-            await Assert.That(IsRemotionType(type.BaseType)).IsFalse();
-
-            foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-                await Assert.That(IsRemotionType(property.PropertyType)).IsFalse();
-
-            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-                await Assert.That(IsRemotionType(field.FieldType)).IsFalse();
-
-            foreach (var constructor in type.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-            {
-                foreach (var parameter in constructor.GetParameters())
-                    await Assert.That(IsRemotionType(parameter.ParameterType)).IsFalse();
-            }
-        }
+        await AssertTypesDoNotExposeRemotion(planningTypes);
     }
 
     [Test]
     public async Task PlanSqlRendererTypes_DoNotExposeRemotionTypes()
     {
-        var sqlRendererTypes = typeof(DataLinqQueryPlan).Assembly
+        var sqlRendererTypes = typeof(QueryPlanTemplate).Assembly
             .GetTypes()
             .Where(type => type.Namespace?.StartsWith("DataLinq.Linq.Planning.Sql", StringComparison.Ordinal) == true)
             .ToArray();
 
         await Assert.That(sqlRendererTypes).IsNotEmpty();
-
-        foreach (var type in sqlRendererTypes)
-        {
-            await Assert.That(IsRemotionType(type.BaseType)).IsFalse();
-
-            foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-                await Assert.That(IsRemotionType(property.PropertyType)).IsFalse();
-
-            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-                await Assert.That(IsRemotionType(field.FieldType)).IsFalse();
-
-            foreach (var constructor in type.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-            {
-                foreach (var parameter in constructor.GetParameters())
-                    await Assert.That(IsRemotionType(parameter.ParameterType)).IsFalse();
-            }
-
-            foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
-            {
-                await Assert.That(IsRemotionType(method.ReturnType)).IsFalse();
-
-                foreach (var parameter in method.GetParameters())
-                    await Assert.That(IsRemotionType(parameter.ParameterType)).IsFalse();
-            }
-        }
+        await AssertTypesDoNotExposeRemotion(sqlRendererTypes);
     }
 
     [Test]
     public async Task ExpressionParserTypes_DoNotExposeRemotionTypes()
     {
-        var parserTypes = typeof(DataLinqQueryPlan).Assembly
+        var parserTypes = typeof(QueryPlanTemplate).Assembly
             .GetTypes()
             .Where(type => type.Namespace?.StartsWith("DataLinq.Linq.Planning.Expressions", StringComparison.Ordinal) == true)
             .ToArray();
 
         await Assert.That(parserTypes).IsNotEmpty();
+        await AssertTypesDoNotExposeRemotion(parserTypes);
+    }
 
-        foreach (var type in parserTypes)
+    private static async Task AssertTypesDoNotExposeRemotion(Type[] types)
+    {
+        foreach (var type in types)
         {
             await Assert.That(IsRemotionType(type.BaseType)).IsFalse();
 
@@ -314,29 +237,28 @@ public class QueryPlanNodeTests
     {
         var table = GetTable<Employee>();
         var source = Source("s0", table);
-        var frame = new QueryPlanBindingFrame();
+        var capture = new QueryPlanBindingCapture();
         var column = new QueryPlanColumnValue(source, table.GetColumnByPropertyName(nameof(Employee.last_login)));
-        var captured = frame.CaptureScalar(value, typeof(TimeOnly?));
+        var scalar = capture.CaptureScalar(value, typeof(TimeOnly?));
         var nullSemantics = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(
             QueryPlanComparisonOperator.NotEqual,
             column,
-            captured,
-            frame);
+            scalar,
+            capture);
 
-        var plan = new DataLinqQueryPlan(
+        var template = new QueryPlanTemplate(
             [source],
-            [
-                new QueryPlanOperation.Where(new QueryPlanPredicate.Compare(
-                    column,
-                    QueryPlanComparisonOperator.NotEqual,
-                    captured,
-                    nullSemantics))
-            ],
+            [new QueryPlanOperation.Where(new QueryPlanPredicate.Compare(
+                column,
+                QueryPlanComparisonOperator.NotEqual,
+                scalar,
+                nullSemantics))],
             new QueryPlanProjection.Entity(source),
             QueryPlanResult.Sequence(typeof(Employee)),
-            frame);
+            capture.CreateDeclarations(),
+            capture.CreateSpecialization());
 
-        return QueryPlanDebugWriter.Write(plan);
+        return QueryPlanDebugWriter.WriteTemplate(template);
     }
 
     private static TException? Capture<TException>(Action action)

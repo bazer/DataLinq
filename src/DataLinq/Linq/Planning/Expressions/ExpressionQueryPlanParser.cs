@@ -24,7 +24,7 @@ internal sealed class ExpressionQueryPlanParser
 {
     private readonly DatabaseDefinition metadata;
     private readonly ExpressionQueryPlanParserOptions options;
-    private readonly QueryPlanBindingFrame bindings = new();
+    private readonly QueryPlanBindingCapture bindings = new();
     private readonly List<QueryPlanSourceSlot> sources = [];
     private readonly List<QueryPlanOperation> operations = [];
     private readonly Dictionary<ParameterExpression, QueryPlanSourceSlot> parameterSourceSlots = [];
@@ -39,7 +39,7 @@ internal sealed class ExpressionQueryPlanParser
         this.options = options;
     }
 
-    public static DataLinqQueryPlan Convert<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
+    public static QueryPlanInvocation Convert<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
         where TDatabase : class, IDatabaseModel<TDatabase>
     {
         ArgumentNullException.ThrowIfNull(database);
@@ -48,7 +48,7 @@ internal sealed class ExpressionQueryPlanParser
         return Convert(database.Provider.Metadata, query.Expression, typeof(TModel));
     }
 
-    public static DataLinqQueryPlan Convert<TDatabase, TResult>(Database<TDatabase> database, Expression<Func<TResult>> query)
+    public static QueryPlanInvocation Convert<TDatabase, TResult>(Database<TDatabase> database, Expression<Func<TResult>> query)
         where TDatabase : class, IDatabaseModel<TDatabase>
     {
         ArgumentNullException.ThrowIfNull(database);
@@ -57,7 +57,7 @@ internal sealed class ExpressionQueryPlanParser
         return Convert(database.Provider.Metadata, query.Body, typeof(TResult));
     }
 
-    internal static DataLinqQueryPlan Convert(DatabaseDefinition metadata, Expression expression, Type resultType)
+    internal static QueryPlanInvocation Convert(DatabaseDefinition metadata, Expression expression, Type resultType)
     {
         ArgumentNullException.ThrowIfNull(metadata);
         ArgumentNullException.ThrowIfNull(expression);
@@ -67,7 +67,7 @@ internal sealed class ExpressionQueryPlanParser
         return parser.Parse(expression, resultType);
     }
 
-    internal static DataLinqQueryPlan Convert(
+    internal static QueryPlanInvocation Convert(
         DatabaseDefinition metadata,
         Expression expression,
         Type resultType,
@@ -81,7 +81,7 @@ internal sealed class ExpressionQueryPlanParser
         return parser.Parse(expression, resultType);
     }
 
-    private DataLinqQueryPlan Parse(Expression expression, Type resultType)
+    private QueryPlanInvocation Parse(Expression expression, Type resultType)
     {
         var parsed = IsQueryableSequence(expression.Type)
             ? ParseSequence(expression)
@@ -97,7 +97,15 @@ internal sealed class ExpressionQueryPlanParser
         var projection = parsed.Projection ?? new QueryPlanProjection.Entity(parsed.RootSource);
         var result = parsed.Result ?? QueryPlanResult.Sequence(projection.ResultType);
 
-        return new DataLinqQueryPlan(sources, operations, projection, result, bindings);
+        var template = new QueryPlanTemplate(
+            sources,
+            operations,
+            projection,
+            result,
+            bindings.CreateDeclarations(),
+            bindings.CreateSpecialization());
+
+        return QueryPlanInvocation.Bind(template, bindings.InvocationValues);
     }
 
     private ParsedQuery ParseSequence(Expression expression)
@@ -905,7 +913,7 @@ internal sealed class ExpressionQueryPlanParser
                 ConvertGroupedPredicate(binary.Right, groupParameter, grouping)
             ]),
             BinaryExpression binary when IsComparison(binary.NodeType) => ConvertGroupedComparison(binary, groupParameter, grouping),
-            _ when !ContainsParameterReference(expression, groupParameter) => new QueryPlanPredicate.Fixed(System.Convert.ToBoolean(EvaluateScalar(expression), System.Globalization.CultureInfo.InvariantCulture) ^ isNegated),
+            _ when !ContainsParameterReference(expression, groupParameter) => CaptureLocalBooleanPredicate(expression),
             _ => throw new QueryTranslationException(
                 $"Grouped predicate expression '{expression}' is not supported by the DataLinq expression parser. " +
                 "Only comparisons over group.Key and supported grouped aggregates are supported.")
@@ -925,8 +933,7 @@ internal sealed class ExpressionQueryPlanParser
         if (!ContainsParameterReference(binary.Left, groupParameter) &&
             !ContainsParameterReference(binary.Right, groupParameter))
         {
-            var result = EvaluateConstantBinary(binary.NodeType, EvaluateScalar(binary.Left), EvaluateScalar(binary.Right));
-            return new QueryPlanPredicate.Fixed(result);
+            return CaptureLocalBooleanPredicate(binary);
         }
 
         var left = ConvertGroupedValue(binary.Left, groupParameter, grouping);
@@ -1071,10 +1078,10 @@ internal sealed class ExpressionQueryPlanParser
             MemberExpression member when TryGetColumnValue(member, out var boolColumn) && GetNonNullableType(member.Type) == typeof(bool) => new QueryPlanPredicate.Compare(
                 boolColumn,
                 QueryPlanComparisonOperator.Equal,
-                new QueryPlanConstantValue(true, typeof(bool))),
+                BooleanIntrinsic(value: true)),
             MethodCallExpression methodCall when TryConvertMethodPredicate(methodCall, isNegated, out var methodPredicate) => methodPredicate,
             MethodCallExpression methodCall => throw new QueryTranslationException($"Method '{methodCall.Method.Name}' is not supported in DataLinq expression predicate translation. Expression: {methodCall}"),
-            _ when !ContainsQueryReference(expression) => new QueryPlanPredicate.Fixed(System.Convert.ToBoolean(EvaluateScalar(expression), System.Globalization.CultureInfo.InvariantCulture) ^ isNegated),
+            _ when !ContainsQueryReference(expression) => CaptureLocalBooleanPredicate(expression),
             _ => throw new QueryTranslationException($"Predicate expression '{expression}' is not supported by the DataLinq expression parser.")
         };
 
@@ -1093,8 +1100,7 @@ internal sealed class ExpressionQueryPlanParser
     {
         if (!ContainsQueryReference(binary.Left) && !ContainsQueryReference(binary.Right))
         {
-            var result = EvaluateConstantBinary(binary.NodeType, EvaluateScalar(binary.Left), EvaluateScalar(binary.Right));
-            return new QueryPlanPredicate.Fixed(result);
+            return CaptureLocalBooleanPredicate(binary);
         }
 
         var left = ConvertValue(binary.Left);
@@ -1121,7 +1127,7 @@ internal sealed class ExpressionQueryPlanParser
             predicate = new QueryPlanPredicate.Compare(
                 function,
                 QueryPlanComparisonOperator.Equal,
-                new QueryPlanConstantValue(true, typeof(bool)));
+                BooleanIntrinsic(value: true));
             return true;
         }
 
@@ -1139,7 +1145,7 @@ internal sealed class ExpressionQueryPlanParser
             predicate = new QueryPlanPredicate.Compare(
                 column,
                 QueryPlanComparisonOperator.NotEqual,
-                new QueryPlanConstantValue(null, member.Expression.Type));
+                NullIntrinsic(member.Expression.Type));
             return true;
         }
 
@@ -1187,12 +1193,6 @@ internal sealed class ExpressionQueryPlanParser
     {
         itemExpression = UnwrapQueryColumnAccess(itemExpression);
 
-        if (values.Length == 0)
-        {
-            predicate = new QueryPlanPredicate.Fixed(isNegated);
-            return true;
-        }
-
         if (TryGetColumnValue(itemExpression, out var item))
         {
             var sequence = bindings.CaptureLocalSequence(values, item.ClrType);
@@ -1200,11 +1200,18 @@ internal sealed class ExpressionQueryPlanParser
             return true;
         }
 
+        if (values.Length == 0)
+        {
+            _ = bindings.CaptureLocalSequence(values, itemExpression.Type);
+            predicate = new QueryPlanPredicate.Fixed(isNegated);
+            return true;
+        }
+
         if (!ContainsQueryReference(itemExpression))
         {
             var itemValue = EvaluateScalar(itemExpression);
             var found = values.Any(value => object.Equals(value, itemValue));
-            predicate = new QueryPlanPredicate.Fixed(isNegated ? !found : found);
+            predicate = CaptureBooleanInvocation(found);
             return true;
         }
 
@@ -1223,25 +1230,31 @@ internal sealed class ExpressionQueryPlanParser
         var sourceValues = EvaluateLocalSequence(methodCall.Arguments[0]);
         if (methodCall.Arguments.Count == 1)
         {
+            _ = bindings.CaptureLocalSequence(
+                sourceValues,
+                methodCall.Method.GetGenericArguments()[0]);
             predicate = new QueryPlanPredicate.Fixed(isNegated ? sourceValues.Length == 0 : sourceValues.Length > 0);
+            return true;
+        }
+
+        var lambda = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
+        if (lambda.Parameters.Count == 1 &&
+            lambda.Body is BinaryExpression { NodeType: ExpressionType.Equal } binary &&
+            TryCreateLocalAnyMembership(binary, lambda.Parameters[0], sourceValues, isNegated, out predicate))
+        {
             return true;
         }
 
         if (sourceValues.Length == 0)
         {
+            _ = bindings.CaptureLocalSequence(
+                sourceValues,
+                methodCall.Method.GetGenericArguments()[0]);
             predicate = new QueryPlanPredicate.Fixed(isNegated);
             return true;
         }
 
-        var lambda = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
-        if (lambda.Parameters.Count != 1 ||
-            lambda.Body is not BinaryExpression { NodeType: ExpressionType.Equal } binary ||
-            !TryCreateLocalAnyMembership(binary, lambda.Parameters[0], sourceValues, isNegated, out predicate))
-        {
-            throw new QueryTranslationException($"Any(predicate) over a non-empty local sequence only supports equality membership against a query column. Predicate: {lambda.Body}");
-        }
-
-        return true;
+        throw new QueryTranslationException($"Any(predicate) over a local sequence only supports equality membership against a query column. Predicate: {lambda.Body}");
     }
 
     private bool TryCreateLocalAnyMembership(
@@ -1346,15 +1359,19 @@ internal sealed class ExpressionQueryPlanParser
 
     private bool TryConvertRelationCountComparison(BinaryExpression binary, bool isNegated, out QueryPlanPredicate predicate)
     {
-        if (TryGetRelationCount(binary.Left, out var relationProperty, out var parentSource, out var childPredicateFactory) &&
-            TryGetConstantInt(binary.Right, out var constant))
+        if (TryGetRelationCount(binary.Left, out var relationProperty, out var parentSource, out var childPredicateFactory))
         {
+            if (!TryGetStructuralIntLiteral(binary.Right, out var constant))
+                throw CapturedRelationCountThreshold(binary.Right);
+
             return CreateRelationCountPredicate(relationProperty, parentSource, childPredicateFactory, binary.NodeType, constant, isNegated, out predicate);
         }
 
-        if (TryGetRelationCount(binary.Right, out relationProperty, out parentSource, out childPredicateFactory) &&
-            TryGetConstantInt(binary.Left, out constant))
+        if (TryGetRelationCount(binary.Right, out relationProperty, out parentSource, out childPredicateFactory))
         {
+            if (!TryGetStructuralIntLiteral(binary.Left, out var constant))
+                throw CapturedRelationCountThreshold(binary.Left);
+
             return CreateRelationCountPredicate(relationProperty, parentSource, childPredicateFactory, ReverseExpressionType(binary.NodeType), constant, isNegated, out predicate);
         }
 
@@ -1461,37 +1478,37 @@ internal sealed class ExpressionQueryPlanParser
 
         if (TryGetColumnValue(comparison.Left, out var leftColumn) && leftColumn.Source == childSource && !ContainsQueryReference(comparison.Right))
         {
+            var right = ConvertValue(comparison.Right);
+            var comparisonOperator = GetComparisonOperator(comparison.NodeType);
             return new QueryPlanPredicate.Compare(
                 leftColumn,
-                GetComparisonOperator(comparison.NodeType),
-                ConvertValue(comparison.Right),
-                GetRelationNullSemantics(leftColumn, comparison.NodeType, comparison.Right));
+                comparisonOperator,
+                right,
+                QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(
+                    comparisonOperator,
+                    leftColumn,
+                    right,
+                    bindings));
         }
 
         if (TryGetColumnValue(comparison.Right, out var rightColumn) && rightColumn.Source == childSource && !ContainsQueryReference(comparison.Left))
         {
+            var left = ConvertValue(comparison.Left);
+            var comparisonOperator = ReverseComparisonOperator(GetComparisonOperator(comparison.NodeType));
             return new QueryPlanPredicate.Compare(
                 rightColumn,
-                ReverseComparisonOperator(GetComparisonOperator(comparison.NodeType)),
-                ConvertValue(comparison.Left),
-                GetRelationNullSemantics(rightColumn, comparison.NodeType, comparison.Left));
+                comparisonOperator,
+                left,
+                QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(
+                    comparisonOperator,
+                    rightColumn,
+                    left,
+                    bindings));
         }
 
         throw new QueryTranslationException(
             $"Relation predicate '{predicate}' is not supported. " +
             "Expected a direct related-row member compared with a local value.");
-    }
-
-    private QueryPlanNullSemantics GetRelationNullSemantics(QueryPlanColumnValue column, ExpressionType expressionType, Expression valueExpression)
-    {
-        if (GetComparisonOperator(expressionType) != QueryPlanComparisonOperator.NotEqual ||
-            !column.Column.ValueProperty.CsNullable ||
-            EvaluateScalar(valueExpression) is null)
-        {
-            return QueryPlanNullSemantics.Default;
-        }
-
-        return QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull;
     }
 
     private QueryPlanSourceSlot CreateRelationChildSource(RelationProperty relationProperty)
@@ -1564,10 +1581,17 @@ internal sealed class ExpressionQueryPlanParser
         if (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary &&
             !ContainsQueryReference(unary.Operand))
         {
+            if (UnwrapConvert(unary.Operand) is ConstantExpression { Value: null })
+            {
+                value = NullIntrinsic(expression.Type);
+                return true;
+            }
+
             var scalar = ExpressionLocalValueEvaluator.Evaluate(unary.Operand, null, null, options.LocalValueEvaluation);
-            value = scalar is null
-                ? new QueryPlanConstantValue(null, expression.Type)
-                : bindings.CaptureScalar(scalar, expression.Type);
+            var captured = bindings.CaptureScalar(scalar, unary.Operand.Type);
+            value = unary.Operand.Type == expression.Type
+                ? captured
+                : new QueryPlanConvertedValue(captured, expression.Type);
             return true;
         }
 
@@ -1595,7 +1619,13 @@ internal sealed class ExpressionQueryPlanParser
         {
             if (expression is ConstantExpression { Value: null })
             {
-                value = new QueryPlanConstantValue(null, expression.Type);
+                value = NullIntrinsic(expression.Type);
+                return true;
+            }
+
+            if (expression is ConstantExpression { Value: bool boolean })
+            {
+                value = BooleanIntrinsic(boolean);
                 return true;
             }
 
@@ -2289,6 +2319,28 @@ internal sealed class ExpressionQueryPlanParser
         return ExpressionLocalValueEvaluator.Evaluate(expression, null, null, options.LocalValueEvaluation);
     }
 
+    private QueryPlanPredicate CaptureLocalBooleanPredicate(Expression expression)
+    {
+        var value = System.Convert.ToBoolean(
+            EvaluateScalar(expression),
+            System.Globalization.CultureInfo.InvariantCulture);
+        return CaptureBooleanInvocation(value);
+    }
+
+    private QueryPlanPredicate CaptureBooleanInvocation(bool value)
+        => new QueryPlanPredicate.Compare(
+            bindings.CaptureScalar(value, typeof(bool)),
+            QueryPlanComparisonOperator.Equal,
+            BooleanIntrinsic(value: true));
+
+    private static QueryPlanIntrinsicValue NullIntrinsic(Type type)
+        => new(QueryPlanIntrinsicKind.Null, type);
+
+    private static QueryPlanIntrinsicValue BooleanIntrinsic(bool value)
+        => new(
+            value ? QueryPlanIntrinsicKind.BooleanTrue : QueryPlanIntrinsicKind.BooleanFalse,
+            typeof(bool));
+
     private object?[] EvaluateLocalSequence(Expression expression)
     {
         if (TryEvaluateLocalSequence(expression, out var values))
@@ -2513,7 +2565,7 @@ internal sealed class ExpressionQueryPlanParser
         }
     }
 
-    private bool TryGetConstantInt(Expression expression, out int value)
+    private static bool TryGetStructuralIntLiteral(Expression expression, out int value)
     {
         expression = UnwrapConvert(expression);
         if (expression is ConstantExpression constantExpression)
@@ -2522,24 +2574,15 @@ internal sealed class ExpressionQueryPlanParser
             return true;
         }
 
-        if (!ContainsParameter(expression))
-        {
-            value = System.Convert.ToInt32(
-                ExpressionLocalValueEvaluator.Evaluate(expression, null, null, options.LocalValueEvaluation),
-                System.Globalization.CultureInfo.InvariantCulture);
-            return true;
-        }
-
         value = 0;
         return false;
     }
 
-    private static bool ContainsParameter(Expression expression)
-    {
-        var visitor = new AnyParameterVisitor();
-        visitor.Visit(expression);
-        return visitor.ContainsParameter;
-    }
+    private static QueryTranslationException CapturedRelationCountThreshold(Expression threshold)
+        => new(
+            $"Relation Count() comparisons require a literal 0 or 1 threshold. " +
+            $"Captured or computed threshold '{threshold}' would change the structural Exists/NotExists template " +
+            "without an exact scalar-value specialization, so this shape is not supported.");
 
     private static bool TryGetCountExistsSemantics(ExpressionType comparisonType, int constant, out bool shouldExist)
     {
@@ -2594,31 +2637,6 @@ internal sealed class ExpressionQueryPlanParser
         ExpressionType.LessThanOrEqual => ExpressionType.GreaterThanOrEqual,
         _ => expressionType
     };
-
-    private static bool EvaluateConstantBinary(ExpressionType nodeType, object? left, object? right)
-    {
-        return nodeType switch
-        {
-            ExpressionType.Equal => Equals(left, right),
-            ExpressionType.NotEqual => !Equals(left, right),
-            ExpressionType.GreaterThan => Compare(left, right) > 0,
-            ExpressionType.GreaterThanOrEqual => Compare(left, right) >= 0,
-            ExpressionType.LessThan => Compare(left, right) < 0,
-            ExpressionType.LessThanOrEqual => Compare(left, right) <= 0,
-            _ => throw new QueryTranslationException($"Constant binary expression '{nodeType}' is not supported in query plan predicate translation.")
-        };
-    }
-
-    private static int Compare(object? left, object? right)
-    {
-        if (left is null || right is null)
-            throw new QueryTranslationException("Null constant values can only be compared with equality in query plan predicate translation.");
-
-        if (left is IComparable comparable)
-            return comparable.CompareTo(right);
-
-        throw new QueryTranslationException($"Constant value '{left}' does not support comparison in query plan predicate translation.");
-    }
 
     private static Type GetNonNullableType(Type type) => Nullable.GetUnderlyingType(type) ?? type;
 
@@ -2767,14 +2785,4 @@ internal sealed class ExpressionQueryPlanParser
         }
     }
 
-    private sealed class AnyParameterVisitor : ExpressionVisitor
-    {
-        public bool ContainsParameter { get; private set; }
-
-        protected override Expression VisitParameter(ParameterExpression node)
-        {
-            ContainsParameter = true;
-            return node;
-        }
-    }
 }

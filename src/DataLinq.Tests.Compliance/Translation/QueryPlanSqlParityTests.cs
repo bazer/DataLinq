@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using DataLinq.Linq.Planning;
 using DataLinq.Linq.Planning.Expressions;
+using DataLinq.Linq.Planning.Sql;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
 
@@ -386,6 +388,129 @@ public class QueryPlanSqlParityTests
         await Assert.That(planSql.Parameters.Select(x => x.Value!).ToArray()).IsEquivalentTo(ids.Cast<object>().ToArray());
         foreach (var id in ids)
             await Assert.That(planSql.Text).DoesNotContain(id.ToString());
+    }
+
+    [Test]
+    public async Task PlanSql_FoldsEmptyLocalSequenceMembershipToFixedConditions()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(PlanSql_FoldsEmptyLocalSequenceMembershipToFixedConditions),
+            EmployeesSeedMode.Bogus);
+
+        var ids = Array.Empty<int>();
+        var containsSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees
+                .Where(employee => ids.Contains(employee.emp_no!.Value)));
+        var excludesSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees
+                .Where(employee => !ids.Contains(employee.emp_no!.Value)));
+        var containsNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(containsSql.Text);
+        var excludesNormalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(excludesSql.Text);
+
+        await Assert.That(containsNormalized).Contains("1=0");
+        await Assert.That(excludesNormalized).Contains("1=1");
+        await Assert.That(containsNormalized).DoesNotContain(" IN ()");
+        await Assert.That(excludesNormalized).DoesNotContain(" IN ()");
+        await Assert.That(containsSql.Parameters).IsEmpty();
+        await Assert.That(excludesSql.Parameters).IsEmpty();
+    }
+
+    [Test]
+    public async Task PlanSql_ResolvesRuntimeValuesOnlyFromValidatedInvocation()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(PlanSql_ResolvesRuntimeValuesOnlyFromValidatedInvocation),
+            EmployeesSeedMode.Bogus);
+
+        var firstThreshold = 10010;
+        var secondThreshold = 10020;
+        var query = databaseScope.Database.Query().Employees
+            .Where(employee => employee.emp_no > firstThreshold);
+        var firstInvocation = ExpressionQueryPlanParser.Convert(
+            databaseScope.Database.Provider.Metadata,
+            query.Expression,
+            typeof(Employee));
+        var scalar = firstInvocation.Values.Items
+            .OfType<QueryPlanInvocationValue.Scalar>()
+            .Single();
+        var secondInvocation = QueryPlanInvocation.Bind(
+            firstInvocation.Template,
+            firstInvocation.Values.Items.Select(value => value == scalar
+                ? new QueryPlanInvocationValue.Scalar(scalar.Id, secondThreshold)
+                : value));
+
+        var firstSql = new QueryPlanSqlBuilder(firstInvocation, databaseScope.Database.Provider.ReadOnlyAccess)
+            .BuildSelect<Employee>()
+            .ToSql();
+        var secondSql = new QueryPlanSqlBuilder(secondInvocation, databaseScope.Database.Provider.ReadOnlyAccess)
+            .BuildSelect<Employee>()
+            .ToSql();
+
+        await Assert.That(ReferenceEquals(secondInvocation.Template, firstInvocation.Template)).IsTrue();
+        await Assert.That(firstSql.Parameters.Select(parameter => parameter.Value).ToArray()).Contains(firstThreshold);
+        await Assert.That(secondSql.Parameters.Select(parameter => parameter.Value).ToArray()).Contains(secondThreshold);
+        await Assert.That(secondSql.Parameters.Any(parameter => Equals(parameter.Value, firstThreshold))).IsFalse();
+    }
+
+    [Test]
+    public async Task PlanSql_ResolvesReboundLocalSequenceOnlyFromValidatedInvocation()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(PlanSql_ResolvesReboundLocalSequenceOnlyFromValidatedInvocation),
+            EmployeesSeedMode.Bogus);
+
+        var firstIds = new[] { 10001, 10002 };
+        var secondIds = new[] { 10003, 10004 };
+        var query = databaseScope.Database.Query().Employees
+            .Where(employee => firstIds.Contains(employee.emp_no!.Value));
+        var firstInvocation = ExpressionQueryPlanParser.Convert(
+            databaseScope.Database.Provider.Metadata,
+            query.Expression,
+            typeof(Employee));
+        var sequence = firstInvocation.Values.Items
+            .OfType<QueryPlanInvocationValue.LocalSequence>()
+            .Single();
+        var secondInvocation = QueryPlanInvocation.Bind(
+            firstInvocation.Template,
+            firstInvocation.Values.Items.Select(value => value == sequence
+                ? new QueryPlanInvocationValue.LocalSequence(sequence.Id, secondIds.Cast<object?>().ToArray())
+                : value));
+
+        var firstSql = new QueryPlanSqlBuilder(firstInvocation, databaseScope.Database.Provider.ReadOnlyAccess)
+            .BuildSelect<Employee>()
+            .ToSql();
+        var secondSql = new QueryPlanSqlBuilder(secondInvocation, databaseScope.Database.Provider.ReadOnlyAccess)
+            .BuildSelect<Employee>()
+            .ToSql();
+        var firstParameterValues = firstSql.Parameters.Select(parameter => parameter.Value!).ToArray();
+        var secondParameterValues = secondSql.Parameters.Select(parameter => parameter.Value!).ToArray();
+
+        await Assert.That(ReferenceEquals(secondInvocation.Template, firstInvocation.Template)).IsTrue();
+        await Assert.That(firstParameterValues).IsEquivalentTo(firstIds.Cast<object>().ToArray());
+        await Assert.That(secondParameterValues).IsEquivalentTo(secondIds.Cast<object>().ToArray());
+        await Assert.That(secondParameterValues.Any(value => firstIds.Cast<object>().Contains(value))).IsFalse();
+    }
+
+    [Test]
+    public async Task PlanSql_RendersNullIntrinsicWithoutInvocationParameter()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(PlanSql_RendersNullIntrinsicWithoutInvocationParameter),
+            EmployeesSeedMode.Bogus);
+
+        var sql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
+            databaseScope.Database,
+            databaseScope.Database.Query().Employees
+                .Where(employee => employee.last_login == null));
+
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text)).Contains(" IS NULL");
+        await Assert.That(sql.Parameters).IsEmpty();
     }
 
     [Test]

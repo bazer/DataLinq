@@ -294,12 +294,6 @@ internal static class QueryPlanTemplateValidator
                 break;
             case QueryPlanGroupedAggregateValue:
                 break;
-            case QueryPlanConstantValue:
-            case QueryPlanCapturedValue:
-            case QueryPlanLocalSequenceValue:
-                throw new ArgumentException(
-                    $"Value-bearing query plan node '{value.GetType().Name}' cannot be stored in a structural template.",
-                    nameof(value));
             default:
                 throw new ArgumentException(
                     $"Unknown query plan value '{value.GetType().Name}'.",
@@ -517,10 +511,6 @@ internal static class QueryPlanTemplateValidator
             case QueryPlanScalarBindingReference:
             case QueryPlanLocalSequenceBindingReference:
             case QueryPlanGroupedAggregateValue:
-                break;
-            case QueryPlanConstantValue:
-            case QueryPlanCapturedValue:
-            case QueryPlanLocalSequenceValue:
                 break;
             default:
                 throw new ArgumentException(

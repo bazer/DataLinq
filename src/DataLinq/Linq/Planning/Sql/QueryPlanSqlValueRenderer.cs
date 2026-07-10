@@ -11,7 +11,7 @@ namespace DataLinq.Linq.Planning.Sql;
 internal sealed class QueryPlanSqlValueRenderer(
     IDataSourceAccess dataSource,
     QueryPlanSqlSourceMap sourceMap,
-    QueryPlanBindings bindings,
+    QueryPlanBindingValues bindingValues,
     QueryPlanDerivedColumnMap? derivedColumns = null)
 {
     public Operand RenderOperand(QueryPlanValue value)
@@ -21,13 +21,13 @@ internal sealed class QueryPlanSqlValueRenderer(
         return value switch
         {
             QueryPlanColumnValue column => RenderColumnOperand(column),
-            QueryPlanConstantValue constant => Operand.Value(constant.Value),
-            QueryPlanCapturedValue captured => Operand.Value(GetScalarBinding(captured).Value),
+            QueryPlanIntrinsicValue intrinsic => Operand.Value(GetIntrinsicValue(intrinsic)),
+            QueryPlanScalarBindingReference scalar => Operand.Value(GetScalarBinding(scalar).Value),
             QueryPlanFunctionValue function => Operand.RawSql(RenderFunctionSql(function)),
             QueryPlanConvertedValue converted => RenderOperand(converted.Value),
             QueryPlanGroupKeyValue groupKey => Operand.RawSql(RenderSqlExpression(groupKey.Key)),
             QueryPlanGroupedAggregateValue groupedAggregate => Operand.RawSql(RenderGroupedAggregateSql(groupedAggregate)),
-            QueryPlanLocalSequenceValue => throw new QueryTranslationException("Local sequence query plan values can only be rendered in IN predicates."),
+            QueryPlanLocalSequenceBindingReference => throw new QueryTranslationException("Local sequence binding references can only be rendered in IN predicates."),
             _ => throw new QueryTranslationException($"Query plan value '{value.Kind}' is not supported by SQL rendering.")
         };
     }
@@ -102,23 +102,22 @@ internal sealed class QueryPlanSqlValueRenderer(
 
         return value switch
         {
-            QueryPlanConstantValue constant => constant.Value,
-            QueryPlanCapturedValue captured => GetScalarBinding(captured).Value,
+            QueryPlanIntrinsicValue intrinsic => GetIntrinsicValue(intrinsic),
+            QueryPlanScalarBindingReference scalar => GetScalarBinding(scalar).Value,
             QueryPlanConvertedValue converted => ConvertScalarValue(GetScalarValue(converted.Value), converted.TargetType),
             _ => throw new QueryTranslationException($"Query plan value '{value.Kind}' cannot be used as a scalar SQL value.")
         };
     }
 
-    public IReadOnlyList<object?> GetLocalSequenceValues(QueryPlanLocalSequenceValue sequence)
+    public IReadOnlyList<object?> GetLocalSequenceValues(QueryPlanLocalSequenceBindingReference sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
 
         var binding = GetBinding(sequence.BindingId);
-        if (binding.Kind != QueryPlanBindingKind.LocalSequence)
+        if (binding is not QueryPlanInvocationValue.LocalSequence localSequence)
             throw new QueryTranslationException($"Query plan binding '{sequence.BindingId}' is not a local sequence binding.");
 
-        return binding.Values
-            ?? throw new QueryTranslationException($"Query plan local sequence binding '{sequence.BindingId}' has no values.");
+        return localSequence.Values;
     }
 
     public static (Operand left, Operand right) NormalizeValueOperandsForColumnTypes(Operand left, Operand right)
@@ -140,22 +139,31 @@ internal sealed class QueryPlanSqlValueRenderer(
             : value;
     }
 
-    private QueryPlanBinding GetScalarBinding(QueryPlanCapturedValue captured)
+    private QueryPlanInvocationValue.Scalar GetScalarBinding(QueryPlanScalarBindingReference scalar)
     {
-        var binding = GetBinding(captured.BindingId);
-        if (binding.Kind != QueryPlanBindingKind.Scalar)
-            throw new QueryTranslationException($"Query plan binding '{captured.BindingId}' is not a scalar binding.");
+        var binding = GetBinding(scalar.BindingId);
+        if (binding is not QueryPlanInvocationValue.Scalar scalarValue)
+            throw new QueryTranslationException($"Query plan binding '{scalar.BindingId}' is not a scalar binding.");
 
-        return binding;
+        return scalarValue;
     }
 
-    private QueryPlanBinding GetBinding(string bindingId)
+    private QueryPlanInvocationValue GetBinding(string bindingId)
     {
-        if (bindings.TryGet(bindingId, out var binding))
+        if (bindingValues.TryGet(bindingId, out var binding))
             return binding;
 
         throw new QueryTranslationException($"Query plan binding '{bindingId}' is not available to SQL rendering.");
     }
+
+    private static object? GetIntrinsicValue(QueryPlanIntrinsicValue intrinsic)
+        => intrinsic.Intrinsic switch
+        {
+            QueryPlanIntrinsicKind.Null => null,
+            QueryPlanIntrinsicKind.BooleanTrue => true,
+            QueryPlanIntrinsicKind.BooleanFalse => false,
+            _ => throw new QueryTranslationException($"Query plan intrinsic '{intrinsic.Intrinsic}' is not supported by SQL rendering.")
+        };
 
     private string RenderFunctionSql(QueryPlanFunctionValue function)
     {

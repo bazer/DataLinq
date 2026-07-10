@@ -9,15 +9,15 @@ internal sealed class QueryPlanSqlSourceMap
 {
     private readonly Dictionary<string, QueryPlanSourceSlot> sourcesById;
 
-    public QueryPlanSqlSourceMap(DataLinqQueryPlan plan)
+    public QueryPlanSqlSourceMap(QueryPlanTemplate template)
     {
-        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(template);
 
-        sourcesById = plan.Sources.ToDictionary(static source => source.Id, StringComparer.Ordinal);
-        RootSource = plan.Sources.SingleOrDefault(static source => source.Kind == QueryPlanSourceKind.RootTable)
+        sourcesById = template.Sources.ToDictionary(static source => source.Id, StringComparer.Ordinal);
+        RootSource = template.Sources.SingleOrDefault(static source => source.Kind == QueryPlanSourceKind.RootTable)
             ?? throw new QueryTranslationException("Query plan SQL rendering requires exactly one root table source slot.");
 
-        if (plan.Sources.Count(static source => source.Kind == QueryPlanSourceKind.RootTable) != 1)
+        if (template.Sources.Count(static source => source.Kind == QueryPlanSourceKind.RootTable) != 1)
             throw new QueryTranslationException("Query plan SQL rendering requires exactly one root table source slot.");
     }
 
