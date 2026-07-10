@@ -26,6 +26,13 @@ public sealed class RowData : IRowData, IEquatable<RowData>
 {
     private readonly object?[] data;
 
+    private RowData(TableDefinition table, object?[] data, int size)
+    {
+        Table = table;
+        this.data = data;
+        Size = size;
+    }
+
     public RowData(IDataLinqDataReader reader, TableDefinition table, IReadOnlyList<ColumnDefinition> columns, bool hasIndexedColumns)
     {
         Table = table;
@@ -37,6 +44,39 @@ public sealed class RowData : IRowData, IEquatable<RowData>
         // Read values based on the *requested* columns (which match the reader's ordinal order)
         // and place them into their correct slots in the dense array.
         Size = hasIndexedColumns ? ReadOrderedIndexReader(reader, columns, data) : ReadUnorderedReader(reader, columns, data);
+    }
+
+    /// <summary>
+    /// Creates public model-valued row state from a complete canonical provider row and already-materialized
+    /// model values. The provider row supplies the validated table layout and a per-column canonical
+    /// payload fallback when a converter-backed model wrapper has no direct cache-size estimate.
+    /// </summary>
+    internal static RowData CreateTrusted(
+        CanonicalProviderValueRow providerRow,
+        ReadOnlySpan<object?> modelValues)
+    {
+        ArgumentNullException.ThrowIfNull(providerRow);
+
+        if (modelValues.Length != providerRow.Count)
+        {
+            throw new ArgumentException(
+                $"Model row for table '{providerRow.Table.DbName}' requires exactly {providerRow.Count} table-ordinal values, but received {modelValues.Length}.",
+                nameof(modelValues));
+        }
+
+        var copiedValues = new object?[modelValues.Length];
+        var size = 0;
+        for (var ordinal = 0; ordinal < modelValues.Length; ordinal++)
+        {
+            var column = providerRow.Table.Columns[ordinal];
+            var value = modelValues[ordinal];
+
+            CanonicalProviderValueRow.ValidateModelValue(column, value, nameof(modelValues));
+            copiedValues[ordinal] = CanonicalProviderValueRow.CopyMutableValue(value);
+            size = checked(size + GetSize(column, value, providerRow.GetEstimatedValueSize(ordinal)));
+        }
+
+        return new RowData(providerRow.Table, copiedValues, size);
     }
 
     //protected Dictionary<ColumnDefinition, object?> Data { get; }
@@ -110,9 +150,7 @@ public sealed class RowData : IRowData, IEquatable<RowData>
         return size;
     }
 
-    
-
-    private static int GetSize(ColumnDefinition column, object? value)
+    private static int GetSize(ColumnDefinition column, object? value, int? canonicalProviderSizeFallback = null)
     {
         if (value == null)
             return 0;
@@ -132,6 +170,12 @@ public sealed class RowData : IRowData, IEquatable<RowData>
 
         if (column.ValueProperty.CsType.Type == typeof(byte[]) && value is byte[] b)
             return b.Length;
+
+        // Trusted materialization always has the canonical provider row available. Its payload is a
+        // stable cache-accounting proxy for model types without a direct estimate, including typed-ID
+        // wrappers and currently unlisted temporal structs, without a second conversion or object walk.
+        if (canonicalProviderSizeFallback.HasValue)
+            return canonicalProviderSizeFallback.Value;
 
         throw new NotImplementedException($"Size for type '{column.ValueProperty.CsType}' not implemented");
     }

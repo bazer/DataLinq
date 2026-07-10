@@ -3,7 +3,7 @@
 
 # Query Backend And Execution Foundation Implementation Plan
 
-**Status:** Implementation in progress. F0-F2 are complete; F3 neutral source, row, and materializer work is next.
+**Status:** Implementation in progress. F0-F2 are complete. F3 has started with canonical provider-value rows and reader-free model-row construction; the shared materializer and neutral read source are next.
 
 **Target release:** 0.9.
 
@@ -38,17 +38,16 @@ The work must start from the current implementation, not the desired class diagr
 
 | Current fact | Consequence |
 | --- | --- |
-| [`DataLinqQueryPlan`](../../../../src/DataLinq/Linq/Planning/DataLinqQueryPlan.cs) stores `Sources`, `Operations`, `Projection`, `Result`, and concrete `QueryPlanBindings`. | Structural shape and per-execution values are still one object. It cannot be treated as a reusable template safely. |
-| [`QueryPlanBindingFrame`](../../../../src/DataLinq/Linq/Planning/QueryPlanBindingFrame.cs) freezes scalar and local-sequence values into those bindings. `QueryPlanLocalSequenceValue` also carries an invocation-specific count. | Binding declarations and values need separate ownership; any cardinality-dependent structural specialization must be explicit rather than hidden inside a value-bearing plan. |
-| [`QueryPlanNullSemanticsResolver`](../../../../src/DataLinq/Linq/Planning/QueryPlanNullSemanticsResolver.cs) inspects captured values while parsing, and empty/local-sequence cardinality can change the generated plan or SQL parameter shape. | A correctness split does not automatically make one template reusable across nullness or sequence cardinalities. 0.9 must record specialization explicitly and defer cross-specialization reuse. |
-| [`ExpressionQueryPlanExecutor`](../../../../src/DataLinq/Linq/Planning/Expressions/ExpressionPlanQueryable.cs) calls `Execute(..., plan, expression)` and re-walks the expression to recover projection lambdas. | The plan is not self-contained for `ComputedRowLocal`, `JoinedRowLocal`, and related fallback projection paths. A backend cannot execute the plan alone. |
+| [`QueryPlanTemplate`](../../../../src/DataLinq/Linq/Planning/QueryPlanTemplate.cs) and [`QueryPlanInvocation`](../../../../src/DataLinq/Linq/Planning/QueryPlanInvocation.cs) now separate validated structure, specialization, and frozen values. | F1 is complete. This is a correctness boundary and does not imply a production template cache or cross-specialization reuse. |
+| [`QueryPlanProjectionRecipe`](../../../../src/DataLinq/Linq/Planning/QueryPlanProjectionRecipe.cs) makes retained row-local projections self-contained, and post-parse execution no longer receives the original expression. | F2 is complete. SQL-only recipe dispositions still need explicit backend capability validation in F4. |
+| [`CanonicalProviderValueRow`](../../../../src/DataLinq/Instances/CanonicalProviderValueRow.cs) now validates a complete frozen table-ordinal layout of canonical provider CLR values, while [`RowData`](../../../../src/DataLinq/Instances/RowData.cs) has a trusted reader-free model-value factory. | F3 is in progress. The shared scalar materializer, neutral source, and immutable-instance/cache integration still need to consume this boundary. |
 | The executor directly constructs [`QueryPlanSqlBuilder`](../../../../src/DataLinq/Linq/Planning/Sql/QueryPlanSqlBuilder.cs) for entity, scalar, aggregate, and projection paths. | SQL rendering is still hard-wired into execution rather than adapted behind a backend boundary. |
 | [`IDatabaseProvider`](../../../../src/DataLinq/Interfaces/IDatabaseProvider.cs) includes SQL construction, `IDbCommand`, `IDbConnection`, and transaction members. | Implementing it for memory would require meaningless or throwing SQL members. It must not become the neutral backend contract. |
 | [`IDataSourceAccess`](../../../../src/DataLinq/Interfaces/IDataSourceAccess.cs) exposes `IDatabaseProvider` and `IDatabaseAccess`; [`DataSourceAccess`](../../../../src/DataLinq/Mutation/DataSourceAccess.cs) exposes SQL string/command loaders. | Source access below generated models is SQL-shaped and must be split into neutral read services plus optional SQL services. |
 | Generated database creation in [`GeneratorFileFactory`](../../../../src/DataLinq.SharedCore/Factories/Generator/GeneratorFileFactory.cs) casts the neutral-looking source interface back to concrete `Mutation.DataSourceAccess`. | A memory source cannot simply implement `IDataSourceAccess`; generated roots would still demand the SQL-era concrete type. |
 | [`TableCache` row loading](../../../../src/DataLinq/Cache/TableCache.RowLoading.cs) builds commands and calls `DatabaseAccess.ExecuteReader(...)`. Relation objects call back into the same provider/cache path. | Query execution alone is insufficient. Primary-key, foreign-key, cache-cold, and relation row loads need a neutral source operation or memory will fork the runtime. |
 | Public [`IRowData` and `RowData`](../../../../src/DataLinq/Instances/RowData.cs) expose the values behind immutable model properties. | Provider/wire values cannot be placed there casually. A separate internal provider-value buffer is required before model materialization. |
-| [`InstanceFactory`](../../../../src/DataLinq/Instances/InstanceFactory.cs) reaches through the source provider to the table cache while creating immutable rows, and `RowData` currently has only reader-based construction. | The neutral materializer needs an internal value-array factory and neutral cache/metrics access rather than a fake data reader or SQL provider. |
+| [`InstanceFactory`](../../../../src/DataLinq/Instances/InstanceFactory.cs) still reaches through the source provider to the table cache while creating immutable rows. The trusted value-array factory now exists, but no shared scalar materializer or neutral cache/metrics access uses it yet. | The next F3 slice must materialize canonical provider values once and create ordinary immutable models without a fake data reader or SQL provider. |
 | The terminal primary-key shortcut can bypass normal plan execution. | Optimizations must not bypass capability validation, conversion, telemetry, or backend selection. |
 
 These are the seams to repair. A tiny executor interface pasted above the existing stack is not enough.
@@ -112,7 +111,7 @@ The split is a correctness requirement, not an announcement of plan caching. 0.9
 
 ### Make supported projections self-contained
 
-Today `ComputedRowLocal` retains an `ExpressionShape` string for diagnostics and the executor recovers the real selector from the original expression. That is two sources of truth.
+Before F2, `ComputedRowLocal` retained an `ExpressionShape` string for diagnostics while the executor recovered the real selector from the original expression. F2 removed that two-source contract in favor of self-contained projection recipes.
 
 For every currently supported SQL shape that remains supported after the refactor, choose one explicit representation:
 
@@ -355,7 +354,7 @@ Exit signal:
 
 - structural debug output is identical for equivalent query shapes with different compatible ordinary values, while specialization differences are visible
 - invocation debug output can be redacted separately
-- no renderer or executor reads `DataLinqQueryPlan.Bindings` as a structural/value hybrid
+- renderers and executors consume the validated `QueryPlanInvocation`; no value-bearing structural-plan hybrid remains
 
 ### F2: Make Projections Self-Contained
 
@@ -376,6 +375,8 @@ Exit signal:
 - debug output explains local projection shape beyond a human-only string
 
 ### F3: Introduce The Neutral Source, Row, And Materializer
+
+Progress on 2026-07-10: the strict full-entity `CanonicalProviderValueRow` and trusted reader-free model-valued `RowData` factory are implemented. Sparse projection rows and absent joined sources remain separate concepts. Shared scalar materialization, neutral source/cache access, generated-root construction, and row/source-slot envelopes remain open.
 
 Work:
 

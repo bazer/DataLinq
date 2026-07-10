@@ -3,7 +3,7 @@
 
 # DataLinq 0.9 Implementation Roadmap
 
-**Status:** Implementation in progress. W0-W2 are complete: characterization, scalar metadata contracts, structural template/invocation separation, and self-contained projection recipes are merged on the 0.9 line. W3 may proceed in parallel; W4 is the next query-foundation wave.
+**Status:** Implementation in progress. W0-W2 are complete. W4 has started with the canonical provider-value row buffer and reader-free model-row construction path; the shared materializer and neutral read source are next. W3 may proceed in parallel.
 
 **Target release:** 0.9.
 
@@ -41,11 +41,11 @@ That is already a substantial release. Memory mutation, transactional snapshots,
 
 ## Why The Foundation Comes First
 
-The current query plan is useful, but it is not yet a complete backend execution unit:
+W2 made the query template and invocation self-contained, but the lower read and execution stack is not yet backend-neutral:
 
-- [`DataLinqQueryPlan`](../../../../src/DataLinq/Linq/Planning/DataLinqQueryPlan.cs) owns both structural nodes and invocation values through `QueryPlanBindings`.
-- [`ExpressionQueryPlanExecutor`](../../../../src/DataLinq/Linq/Planning/Expressions/ExpressionPlanQueryable.cs) receives the original expression alongside the plan and re-extracts projection lambdas for row-local projection execution.
-- The same executor directly constructs [`QueryPlanSqlBuilder`](../../../../src/DataLinq/Linq/Planning/Sql/QueryPlanSqlBuilder.cs), so SQL rendering remains the implicit execution center.
+- [`QueryPlanTemplate`](../../../../src/DataLinq/Linq/Planning/QueryPlanTemplate.cs), [`QueryPlanInvocation`](../../../../src/DataLinq/Linq/Planning/QueryPlanInvocation.cs), and self-contained projection recipes now separate structural shape from frozen execution values without retaining the original expression after parsing.
+- [`CanonicalProviderValueRow`](../../../../src/DataLinq/Instances/CanonicalProviderValueRow.cs) and the trusted `RowData` factory now establish separate canonical-provider and public model-value row representations, but scalar materialization and immutable-instance creation are not yet routed through a neutral source.
+- The expression executor directly constructs [`QueryPlanSqlBuilder`](../../../../src/DataLinq/Linq/Planning/Sql/QueryPlanSqlBuilder.cs), so SQL rendering remains the implicit execution center.
 - [`IDatabaseProvider`](../../../../src/DataLinq/Interfaces/IDatabaseProvider.cs) exposes `IDbCommand`, `IDbConnection`, SQL rendering helpers, and database transactions. It is not a credible neutral contract for a memory backend.
 - [`IDataSourceAccess`](../../../../src/DataLinq/Interfaces/IDataSourceAccess.cs) exposes SQL-shaped database access, and [`DataSourceAccess`](../../../../src/DataLinq/Mutation/DataSourceAccess.cs) loads from SQL strings and commands.
 - Generated database roots currently cast `IDataSourceAccess` back to the concrete SQL-shaped `DataSourceAccess` in [`GeneratorFileFactory`](../../../../src/DataLinq.SharedCore/Factories/Generator/GeneratorFileFactory.cs).
@@ -441,7 +441,6 @@ The related longer-term plans remain useful, but they are not 0.9 promises:
 Only decisions that can still change the baseline belong here:
 
 - What is the smallest neutral source contract that removes the generated-root cast without forcing a public provider rewrite?
-- Which row-local projection recipes can become self-contained and AOT-safe in 0.9, and which should stay SQL-only or unsupported for memory?
 - Which provider-neutral null and string semantics should memory define, and which provider differences must remain explicit?
 - Does the separate, initially non-packable `DataLinq.Memory` project pass the promotion gate and earn its preview NuGet package? Failure requires an explicit roadmap re-scope; memory does not move into core as a shortcut.
 - Which, if either, late stretch candidate earns the remaining release budget?
