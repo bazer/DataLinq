@@ -215,7 +215,7 @@ public class MetadataFromSqlFactoryDefaultParsingTests
 
         var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(column);
 
-        await Assert.That(sqlDefault).IsEqualTo($"'{guid}'");
+        await Assert.That(sqlDefault).IsEqualTo("'00112233-4455-6677-8899-aabbccddeeff'");
     }
 
     [Test]
@@ -230,7 +230,7 @@ public class MetadataFromSqlFactoryDefaultParsingTests
 
         var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MySQL).GetDefaultValue(column);
 
-        await Assert.That(sqlDefault).IsEqualTo($"X'{Convert.ToHexString(guid.ToByteArray())}'");
+        await Assert.That(sqlDefault).IsEqualTo("X'33221100554477668899AABBCCDDEEFF'");
     }
 
     [Test]

@@ -2,6 +2,7 @@ using System;
 using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
+using DataLinq.Cache;
 using DataLinq.Mutation;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
@@ -589,6 +590,112 @@ public class EmployeesTransactionLifecycleTests
         await Assert.That(secondSave.emp_no).IsEqualTo(999796);
         await Assert.That(secondSave.birth_date).IsEqualTo(newBirthDate);
         await Assert.That(secondSave.hire_date).IsEqualTo(newHireDate);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Transaction_ReSavingSameMutableWithinExplicitTransactionAndAfterCommit_PreservesAllValues(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Transaction_ReSavingSameMutableWithinExplicitTransactionAndAfterCommit_PreservesAllValues),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var mutableEmployee = _employees.GetOrCreateEmployee(999795, employeesDatabase).Mutate();
+        var newBirthDate = mutableEmployee.birth_date.AddDays(1);
+        var newHireDate = mutableEmployee.hire_date.AddDays(1);
+
+        using (var transaction = employeesDatabase.Transaction())
+        {
+            var firstSave = transaction.Save(mutableEmployee, x => x.birth_date = newBirthDate);
+
+            await Assert.That(firstSave.birth_date).IsEqualTo(newBirthDate);
+            await Assert.That(mutableEmployee.GetChanges()).IsEmpty();
+
+            var secondSave = transaction.Save(mutableEmployee, x => x.hire_date = newHireDate);
+            var transactionEmployee = transaction.Query().Employees.Single(x => x.emp_no == mutableEmployee.emp_no);
+
+            await Assert.That(secondSave.birth_date).IsEqualTo(newBirthDate);
+            await Assert.That(secondSave.hire_date).IsEqualTo(newHireDate);
+            await Assert.That(ReferenceEquals(secondSave, transactionEmployee)).IsTrue();
+            await Assert.That(mutableEmployee.GetChanges()).IsEmpty();
+
+            transaction.Commit();
+        }
+
+        var committedEmployee = employeesDatabase.Query().Employees.Single(x => x.emp_no == mutableEmployee.emp_no);
+
+        await Assert.That(committedEmployee.birth_date).IsEqualTo(newBirthDate);
+        await Assert.That(committedEmployee.hire_date).IsEqualTo(newHireDate);
+
+        var postCommitSave = mutableEmployee.Save(x => x.first_name = "AfterCommit", employeesDatabase);
+
+        await Assert.That(postCommitSave.birth_date).IsEqualTo(newBirthDate);
+        await Assert.That(postCommitSave.hire_date).IsEqualTo(newHireDate);
+        await Assert.That(postCommitSave.first_name).IsEqualTo("AfterCommit");
+        await Assert.That(mutableEmployee.GetChanges()).IsEmpty();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Transaction_RelationInsertRollback_KeepsViewsScopedAndDoesNotNotifyOutsideSubscriber(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Transaction_RelationInsertRollback_KeepsViewsScopedAndDoesNotNotifyOutsideSubscriber),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var employee = _employees.GetOrCreateEmployee(999794, employeesDatabase);
+
+        foreach (var existingSalary in employee.salaries.ToList())
+            employeesDatabase.Delete(existingSalary);
+
+        var outsideSalaries = employee.salaries;
+        await Assert.That(outsideSalaries).IsEmpty();
+
+        var table = employeesDatabase.Provider.Metadata
+            .TableModels.Single(x => x.Table.DbName == "salaries").Table;
+        var cache = employeesDatabase.Provider.State.Cache.TableCaches[table];
+        var outsideSubscriber = new CountingCacheNotification();
+        cache.SubscribeToChanges(outsideSubscriber);
+
+        using var transaction = employeesDatabase.Transaction();
+        var transactionEmployee = transaction.Query().Employees.Single(x => x.emp_no == employee.emp_no);
+        await Assert.That(transactionEmployee.salaries).IsEmpty();
+
+        var insertedSalary = transaction.Insert(new MutableSalaries
+        {
+            emp_no = transactionEmployee.emp_no!.Value,
+            salary = 50000,
+            FromDate = _employees.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
+            ToDate = _employees.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20))
+        });
+
+        await Assert.That(outsideSalaries).IsEmpty();
+        await Assert.That(transactionEmployee.salaries.Count).IsEqualTo(1);
+        await Assert.That(ReferenceEquals(insertedSalary, transactionEmployee.salaries.Single())).IsTrue();
+        await Assert.That(outsideSubscriber.ClearCount).IsEqualTo(0);
+        await Assert.That(cache.IsTransactionInCache(transaction)).IsTrue();
+
+        transaction.Rollback();
+
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
+        await Assert.That(outsideSalaries).IsEmpty();
+        await Assert.That(outsideSubscriber.ClearCount).IsEqualTo(0);
+        await Assert.That(cache.IsTransactionInCache(transaction)).IsFalse();
+        await Assert.That(cache.GetTransactionRows(transaction)).IsEmpty();
+    }
+
+    private sealed class CountingCacheNotification : ICacheNotification
+    {
+        public int ClearCount { get; private set; }
+
+        public void Clear()
+        {
+            ClearCount++;
+        }
     }
 
     private static async Task AssertThrows<TException>(Action action)

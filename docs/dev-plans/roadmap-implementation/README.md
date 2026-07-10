@@ -12,7 +12,7 @@ The active roadmap answers what should happen next and why. Versioned implementa
 | Release | Status | Scope |
 | --- | --- | --- |
 | [0.8](v0.8/README.md) | Implemented and released | DataLinq-owned parser/query plan, Remotion removal, bounded query composition/joins/grouping, constrained AOT/browser evidence, and release closeout |
-| [0.9](v0.9/README.md) | Accepted planning direction | backend/source execution foundation, scalar converters and typed IDs, UUID storage correctness, read-only memory preview, SQL-provider correctness gates, and exact release evidence |
+| [0.9](v0.9/README.md) | In progress; W0 and first characterization slice complete | backend/source execution foundation, scalar converters and typed IDs, UUID storage correctness, read-only memory preview, SQL-provider correctness gates, and exact release evidence |
 
 The 0.9 baseline deliberately excludes memory mutation, durable JSON persistence, commit logs/replay, production plan caching, and broad join/grouping expansion. One optional stretch may be selected only after the required release work is green.
 
@@ -21,6 +21,7 @@ The 0.9 baseline deliberately excludes memory mutation, durable JSON persistence
 Required:
 
 - [Implementation Order and Integration](v0.9/Implementation%20Order%20and%20Integration%20Plan.md)
+- [Baseline and Release Harness Inventory](v0.9/Baseline%20and%20Release%20Harness%20Inventory.md)
 - [Query Backend and Execution Foundation](v0.9/Query%20Backend%20and%20Execution%20Foundation%20Implementation%20Plan.md)
 - [Scalar Converters and Typed IDs](v0.9/Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md)
 - [Read-Only Memory Backend](v0.9/In-Memory%20Database%20Implementation%20Plan.md)

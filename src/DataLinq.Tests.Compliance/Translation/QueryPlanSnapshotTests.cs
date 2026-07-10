@@ -86,6 +86,41 @@ bindings:
     }
 
     [Test]
+    public async Task CapturedBindings_AreFrozenAndIsolatedAcrossParsedPlans()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(CapturedBindings_AreFrozenAndIsolatedAcrossParsedPlans),
+            EmployeesSeedMode.Bogus);
+
+        int? employeeNumber = 10001;
+        var localEmployeeNumbers = new[] { 10001, 10002 };
+        var query = databaseScope.Database.Query().Employees.Where(employee =>
+            employee.emp_no == employeeNumber &&
+            localEmployeeNumbers.Contains(employee.emp_no!.Value));
+
+        var firstPlan = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+
+        employeeNumber = null;
+        localEmployeeNumbers[0] = 20001;
+        var secondPlan = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+
+        localEmployeeNumbers[1] = 20002;
+
+        var firstScalar = firstPlan.Bindings.Items.Single(binding => binding.Kind == QueryPlanBindingKind.Scalar);
+        var firstSequence = firstPlan.Bindings.Items.Single(binding => binding.Kind == QueryPlanBindingKind.LocalSequence);
+        var secondScalar = secondPlan.Bindings.Items.Single(binding => binding.Kind == QueryPlanBindingKind.Scalar);
+        var secondSequence = secondPlan.Bindings.Items.Single(binding => binding.Kind == QueryPlanBindingKind.LocalSequence);
+
+        await Assert.That(firstScalar.Value).IsEqualTo(10001);
+        await Assert.That(firstSequence.Values![0]).IsEqualTo(10001);
+        await Assert.That(firstSequence.Values[1]).IsEqualTo(10002);
+        await Assert.That(secondScalar.Value).IsNull();
+        await Assert.That(secondSequence.Values![0]).IsEqualTo(20001);
+        await Assert.That(secondSequence.Values[1]).IsEqualTo(10002);
+    }
+
+    [Test]
     public async Task RelationAnySnapshot_RecordsCorrelatedExistenceShape()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -734,6 +769,75 @@ bindings:
             databaseScope.Database.Query().Employees.Select(x => x.first_name + ":" + x.emp_no!.Value));
 
         await Assert.That(snapshot).Contains("projection:\n  computed-row-local type=String shape=Add sources=s0");
+        await AssertNoLegacyParserTerms(snapshot);
+    }
+
+    [Test]
+    public async Task AnonymousProjectionSnapshot_RecordsFunctionsAndReferencedSource()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(AnonymousProjectionSnapshot_RecordsFunctionsAndReferencedSource),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().Employees.Select(employee => new
+        {
+            employee.emp_no,
+            NormalizedName = employee.first_name.Trim()
+        });
+
+        var snapshot = Snapshot(databaseScope.Database, query);
+
+        await AssertSnapshot(snapshot, """
+query-plan v0
+sources:
+  s0 root-table alias=t0 table=employees element=Employee cardinality=many nullable=false
+operations:
+  none
+projection:
+  anonymous type=anonymous sources=s0 members=[emp_no=column(s0.emp_no:Int32), NormalizedName=function(string-trim:String column(s0.first_name:String))]
+result:
+  sequence type=anonymous
+bindings:
+  none
+""");
+        await AssertNoLegacyParserTerms(snapshot);
+    }
+
+    [Test]
+    public async Task JoinedRowLocalProjectionSnapshot_RecordsBothSourcesAndFunctionMembers()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(JoinedRowLocalProjectionSnapshot_RecordsBothSourcesAndFunctionMembers),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().DepartmentEmployees.Join(
+            databaseScope.Database.Query().Departments,
+            departmentEmployee => departmentEmployee.dept_no,
+            department => department.DeptNo,
+            (departmentEmployee, department) => new
+            {
+                departmentEmployee.emp_no,
+                NormalizedDepartmentName = department.Name.Trim()
+            });
+
+        var snapshot = Snapshot(databaseScope.Database, query);
+
+        await AssertSnapshot(snapshot, """
+query-plan v0
+sources:
+  s0 root-table alias=t0 table=dept-emp element=Dept_emp cardinality=many nullable=false
+  s1 explicit-join alias=t1 table=departments element=Department cardinality=many nullable=false
+operations:
+  join inner column(s0.dept_no:String) = column(s1.dept_no:String)
+projection:
+  joined-row-local type=anonymous sources=s0,s1 members=[emp_no=column(s0.emp_no:Int32), NormalizedDepartmentName=function(string-trim:String column(s1.dept_name:String))]
+result:
+  sequence type=anonymous
+bindings:
+  none
+""");
         await AssertNoLegacyParserTerms(snapshot);
     }
 

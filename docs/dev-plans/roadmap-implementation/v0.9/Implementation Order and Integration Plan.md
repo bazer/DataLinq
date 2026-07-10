@@ -542,40 +542,56 @@ Unsafe parallel work includes:
 
 The first coherent slice is characterization only. It should make the foundation safe to change without committing to final internal type names.
 
+**First slice completed:** 2026-07-10. The durable route, decision, harness, artifact, failure, and measurement record is [Baseline And Release Harness Inventory](Baseline%20and%20Release%20Harness%20Inventory.md). W1 remains active for the file-backed SQLite/WAL lane, provider lifecycle fault injection, and the explicitly classified mutation-lifecycle gaps before W2 begins. Uneven command ownership is assigned to W5, and the reproduced WebAssembly harness failure is assigned to release-evidence work; none is disguised as green current behavior.
+
 ### Query route inventory
 
-- [ ] Enumerate every production expression-query entry point.
-- [ ] Enumerate every direct `QueryPlanSqlBuilder` construction site and classify production, test inspection, or nested builder use.
-- [ ] Enumerate the terminal primary-key shortcut and every cache-cold/relation loader that bypasses ordinary plan execution.
-- [ ] Enumerate every executor method that receives or re-reads the original expression.
-- [ ] Create the projection disposition table for every `QueryPlanProjectionKind`.
+- [x] Enumerate every production expression-query entry point.
+- [x] Enumerate every direct `QueryPlanSqlBuilder` construction site and classify production, test inspection, or nested builder use.
+- [x] Enumerate the terminal primary-key shortcut and every cache-cold/relation loader that bypasses ordinary plan execution.
+- [x] Enumerate every executor method that receives or re-reads the original expression.
+- [x] Create the projection disposition table for every `QueryPlanProjectionKind`.
 
 ### Characterization tests
 
-- [ ] Add template/debug snapshots for entity, scalar, aggregate, direct-row, local-row, join, grouping, paging, and supported result shapes.
-- [ ] Add scalar/null/local-sequence freeze and invocation-isolation tests.
-- [ ] Add representative SQL snapshots for SQLite, MySQL, and MariaDB dialect behavior where applicable.
-- [ ] Add terminal primary-key hit/miss and telemetry characterization.
-- [ ] Add cache-cold and relation-load command, identity, notification, and disposal characterization.
-- [ ] Add read-only versus transaction-root parity characterization.
-- [ ] Add transaction tests for pending/outside visibility, rollback/disposal, relation views, repeated mutable reuse, and read-only mutation guards.
+- [x] Add template/debug snapshots for entity, scalar, aggregate, direct-row, local-row, join, grouping, paging, and supported result shapes.
+- [x] Add scalar/null/local-sequence freeze and isolation tests across separately parsed current-format plans; leave template/invocation isolation to W2 where those contracts are introduced.
+- [x] Confirm representative exact provider SQL snapshots and plan-route SQL rendering/parity coverage for SQLite, MySQL, and MariaDB.
+- [x] Add terminal primary-key hit/miss and telemetry characterization.
+- [x] Add cache-cold and relation-load command, identity, notification, and reader-disposal characterization; inventory uneven command ownership as an explicit W5 migration gap.
+- [x] Add read-only versus transaction-root parity characterization.
+- [x] Add transaction tests for pending/outside visibility, rollback/disposal, relation views, and repeated mutable reuse; classify the currently missing read-only mutation guard as an ML-2 desired-behavior case rather than freezing today's unsafe behavior.
+
+### Value and UUID characterization
+
+- [x] Record primitive identity metadata for `int`, `long`, `Guid`, and `string`.
+- [x] Add typed-ID fixture equality and hashing cases without inventing converter behavior.
+- [x] Record canonical provider-key equality, hashing, type boundaries, and separation from physical UUID representations.
+- [x] Approve independent native, text, little-endian binary, and RFC-order UUID vectors before codec implementation.
+- [x] Assign UUID format-aware schema/diff characterization to SC-5/UUID-4 because current metadata cannot express byte layout honestly.
+
+### Remaining W1 work before W2
+
+- [ ] Add the temporary file-backed SQLite/WAL concurrency characterization lane.
+- [ ] Add deterministic provider commit, rollback, and disposal fault-injection characterization.
+- [ ] Finish the explicit expected-failure/owner matrix for cross-transaction reuse, rollback/disposal invalidation, deletion, primary-key mutation, failed writes, and read-only writes.
 
 ### Baseline evidence
 
-- [ ] Run the focused unit and compliance slices added above.
-- [ ] Run the active SQL-provider regression baseline.
-- [ ] Record current size/package/smoke commands and artifact locations.
-- [ ] Record current query/invocation allocation baselines used by D7.
-- [ ] Keep deliberately failing desired behavior focused and explicitly classified; do not leave the main suite broadly red.
+- [x] Run the focused unit and compliance slices added above.
+- [x] Run the active SQL-provider regression baseline.
+- [x] Record current size/package/smoke commands and artifact locations.
+- [x] Record current query-hotpath and provider allocation baselines used by D7; defer isolated template/invocation measurement to W2 and RE-1G.
+- [x] Keep deliberately failing desired behavior focused and explicitly classified; do not leave the main suite broadly red.
 
 ### First-slice exit
 
-- [ ] Every supported route being moved has regression evidence.
-- [ ] Every known bypass has an assigned later wave and semantic owner.
-- [ ] Projection disposition D1 is complete enough to begin template/recipe work.
-- [ ] No production architecture or support claim has changed yet.
+- [x] Every supported route being moved has regression evidence.
+- [x] Every known bypass has an assigned later wave and semantic owner.
+- [x] Projection disposition D1 is complete enough to begin template/recipe work.
+- [x] No production architecture or support claim has changed yet.
 
-After this checklist is green, begin W2. Do not start by creating `IQueryPlanBackend` or `DataLinq.Memory` in isolation; that would put a new name above the existing SQL-shaped runtime without making the boundary real.
+Finish the remaining W1 work above before W2. Do not start W2 by creating `IQueryPlanBackend` or `DataLinq.Memory` in isolation; that would put a new name above the existing SQL-shaped runtime without making the boundary real.
 
 ## Baseline Versus Final Evidence
 

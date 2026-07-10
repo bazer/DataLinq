@@ -529,6 +529,49 @@ public class EmployeesJoinTranslationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExplicitInnerJoin_RowLocalFunctionProjection_MatchesInMemory(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExplicitInnerJoin_RowLocalFunctionProjection_MatchesInMemory),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().DepartmentEmployees
+            .ToList()
+            .Join(
+                employeesDatabase.Query().Departments.ToList(),
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    NormalizedDepartmentName = department.Name.Trim()
+                })
+            .OrderBy(row => row.emp_no)
+            .ThenBy(row => row.NormalizedDepartmentName, StringComparer.Ordinal)
+            .ToArray();
+
+        var actual = employeesDatabase.Query().DepartmentEmployees
+            .Join(
+                employeesDatabase.Query().Departments,
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) => new
+                {
+                    departmentEmployee.emp_no,
+                    NormalizedDepartmentName = department.Name.Trim()
+                })
+            .ToArray()
+            .OrderBy(row => row.emp_no)
+            .ThenBy(row => row.NormalizedDepartmentName, StringComparer.Ordinal)
+            .ToArray();
+
+        await Assert.That(actual).IsEquivalentTo(expected);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_PostPagingCountAndAnyMatchInMemory(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
