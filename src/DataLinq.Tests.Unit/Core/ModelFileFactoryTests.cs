@@ -118,6 +118,25 @@ public class ModelFileFactoryTests
     }
 
     [Test]
+    public async Task CreateModelFiles_ModelUsesNeutralReadSourceWhileDatabaseRootRemainsLegacy()
+    {
+        var database = CreateDatabaseWithDefaultValue(new CsTypeDeclaration(typeof(string)), "generated");
+
+        var generatedFiles = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .ToList();
+
+        var modelFile = generatedFiles.Single(file => file.path == "QuoteModel.cs");
+        await Assert.That(modelFile.contents).Contains(
+            "public abstract partial class QuoteModel(IRowData rowData, IDataLinqReadSource readSource) : Immutable<QuoteModel, QuoteDb>(rowData, readSource), ITableModel<QuoteDb>");
+        await Assert.That(modelFile.contents).DoesNotContain("IDataSourceAccess dataSource");
+
+        var databaseFile = generatedFiles.Single(file => file.path == "QuoteDb.cs");
+        await Assert.That(databaseFile.contents).Contains(
+            "public partial class QuoteDb(DataSourceAccess dataSource) : IDatabaseModel<QuoteDb>");
+    }
+
+    [Test]
     public async Task CreateModelFiles_DefaultCharDoubleQuote_EscapesValue()
     {
         var database = CreateDatabaseWithDefaultValue(new CsTypeDeclaration(typeof(char)), '"');

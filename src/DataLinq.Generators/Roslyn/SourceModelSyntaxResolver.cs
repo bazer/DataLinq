@@ -10,6 +10,9 @@ namespace DataLinq.SourceGenerators;
 
 internal static class SourceModelSyntaxResolver
 {
+    private const string RowDataMetadataName = "DataLinq.Instances.IRowData";
+    private const string ReadSourceMetadataName = "DataLinq.Interfaces.IDataLinqReadSource";
+
     private static readonly SymbolDisplayFormat RuntimeTypeDisplayFormat =
         SymbolDisplayFormat.FullyQualifiedFormat;
 
@@ -69,6 +72,40 @@ internal static class SourceModelSyntaxResolver
         runtimeTypeName = typeSymbol.ToDisplayString(RuntimeTypeDisplayFormat);
         return !string.IsNullOrWhiteSpace(runtimeTypeName);
     }
+
+    public static bool HasAccessibleReadSourceConstructor(
+        ModelDefinition model,
+        Compilation compilation,
+        System.Threading.CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var modelMetadataName = string.IsNullOrWhiteSpace(model.CsType.Namespace)
+            ? model.CsType.Name
+            : $"{model.CsType.Namespace}.{model.CsType.Name}";
+        var modelType = compilation.GetTypeByMetadataName(modelMetadataName);
+        var rowDataType = compilation.GetTypeByMetadataName(RowDataMetadataName);
+        var readSourceType = compilation.GetTypeByMetadataName(ReadSourceMetadataName);
+
+        if (modelType is null || rowDataType is null || readSourceType is null)
+            return false;
+
+        return modelType.InstanceConstructors.Any(constructor =>
+            IsAccessibleFromGeneratedDerivedType(constructor) &&
+            constructor.Parameters.Length == 2 &&
+            constructor.Parameters[0].RefKind == RefKind.None &&
+            constructor.Parameters[1].RefKind == RefKind.None &&
+            SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type, rowDataType) &&
+            SymbolEqualityComparer.Default.Equals(constructor.Parameters[1].Type, readSourceType));
+    }
+
+    private static bool IsAccessibleFromGeneratedDerivedType(IMethodSymbol constructor) =>
+        constructor.DeclaredAccessibility is
+            Accessibility.Public or
+            Accessibility.Internal or
+            Accessibility.Protected or
+            Accessibility.ProtectedOrInternal or
+            Accessibility.ProtectedAndInternal;
 
     private static bool TryGetPropertyTypeSymbol(
         ValueProperty property,

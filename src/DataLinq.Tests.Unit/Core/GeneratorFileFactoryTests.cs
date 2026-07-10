@@ -182,6 +182,61 @@ public class GeneratorFileFactoryTests
     }
 
     [Test]
+    public async Task CreateModelFiles_ReadSourceCapableModel_EmitsParallelTypedFactories()
+    {
+        var database = CreateDatabaseWithDefaultValue(
+            propertyName: "Name",
+            propertyType: new CsTypeDeclaration(typeof(string)),
+            defaultValue: "generated");
+
+        var generatedFiles = new GeneratorFileFactory(new GeneratorFileFactoryOptions
+        {
+            ReadSourceConstructorModelTypeNames = ["TestNamespace.GeneratorModel"]
+        })
+            .CreateModelFiles(database)
+            .ToList();
+        var modelCode = generatedFiles.Single(file => file.path == "GeneratorModel.cs").contents;
+        var metadataCode = generatedFiles.Single(file => file.path == "GeneratorDb.DataLinqMetadata.cs").contents;
+        var allCode = string.Join(Environment.NewLine, generatedFiles.Select(static file => file.contents));
+
+        await Assert.That(modelCode).Contains(
+            "public ImmutableGeneratorModel(IRowData rowData, IDataSourceAccess dataSource)");
+        await Assert.That(modelCode).Contains(
+            "public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new ImmutableGeneratorModel(rowData, dataSource);");
+        await Assert.That(modelCode).Contains(
+            "public ImmutableGeneratorModel(IRowData rowData, IDataLinqReadSource readSource)");
+        await Assert.That(modelCode).Contains(
+            "public static IImmutableInstance NewDataLinqReadImmutableInstance(IRowData rowData, IDataLinqReadSource readSource) => new ImmutableGeneratorModel(rowData, readSource);");
+        await Assert.That(metadataCode).Contains(
+            "ReadSourceImmutableFactory = new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataLinqReadSource, global::DataLinq.Instances.IImmutableInstance>(global::TestNamespace.ImmutableGeneratorModel.NewDataLinqReadImmutableInstance),");
+        await Assert.That(metadataCode).Contains(
+            "new(\"GeneratorModels\", typeof(global::TestNamespace.GeneratorModel), typeof(global::TestNamespace.ImmutableGeneratorModel), typeof(global::TestNamespace.MutableGeneratorModel), new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataSourceAccess, global::DataLinq.Instances.IImmutableInstance>(global::TestNamespace.ImmutableGeneratorModel.NewDataLinqImmutableInstance), global::DataLinq.Metadata.TableType.Table),");
+        await Assert.That(allCode).DoesNotContain("DynamicInvoke");
+        await Assert.That(allCode).DoesNotContain("(IDataSourceAccess)readSource");
+        await Assert.That(allCode).DoesNotContain("(global::DataLinq.Interfaces.IDataSourceAccess)readSource");
+    }
+
+    [Test]
+    public async Task CreateModelFiles_ModelWithoutReadSourceCapability_OmitsNeutralFactoryEmission()
+    {
+        var database = CreateDatabaseWithDefaultValue(
+            propertyName: "Name",
+            propertyType: new CsTypeDeclaration(typeof(string)),
+            defaultValue: "generated");
+
+        var generatedCode = string.Join(
+            Environment.NewLine,
+            new GeneratorFileFactory(new GeneratorFileFactoryOptions())
+                .CreateModelFiles(database)
+                .Select(static file => file.contents));
+
+        await Assert.That(generatedCode).Contains(
+            "public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new ImmutableGeneratorModel(rowData, dataSource);");
+        await Assert.That(generatedCode).DoesNotContain("NewDataLinqReadImmutableInstance");
+        await Assert.That(generatedCode).DoesNotContain("ReadSourceImmutableFactory");
+    }
+
+    [Test]
     public async Task CreateModelFiles_DefaultEnumValue_UsesEnumMember()
     {
         var database = CreateDatabaseWithDefaultValue(

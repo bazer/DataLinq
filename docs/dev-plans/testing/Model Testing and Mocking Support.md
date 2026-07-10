@@ -84,11 +84,11 @@ This split matters. Mocked DataLinq tests should prove application behavior. The
 
 Relevant current shapes:
 
-- `Immutable<T, M>` stores `IRowData` and `IDataSourceAccess`.
+- `Immutable<T, M>` stores `IRowData` and `IDataLinqReadSource`; the exact legacy `IDataSourceAccess` constructor remains as a compatibility path.
 - scalar getters call `GetValue(...)` / `GetNullableValue(...)` against row data.
 - relation getters call generated `GetImmutableRelation...` or `GetImmutableForeignKey...` helpers.
 - relations use `RelationProperty`, provider table cache, primary keys, and relation keys.
-- `InstanceFactory.NewImmutableRow(...)` creates generated immutable instances from row data and source access.
+- `InstanceFactory.NewImmutableRow(...)` preserves legacy SQL construction, while the internal read-source path selects a genuine neutral generated factory when available and otherwise permits only an actual `IDataSourceAccess` fallback.
 - `DbRead<T>` inherits queryable behavior and is backed by DataLinq's query provider.
 
 This is good production architecture, but poor direct mocking surface.

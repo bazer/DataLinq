@@ -3,7 +3,7 @@
 
 # DataLinq 0.9 Implementation Roadmap
 
-**Status:** Implementation in progress. W0-W2 are complete. W4 now has the canonical provider-value row buffer, reader-free model-row construction, shared provider-to-model materializer, source-independent cache/publication/metrics orchestration, and the minimal read-source/factory compatibility contracts. Genuine neutral generated constructors, source-scoped cache services, and row loading are next. W3 may proceed in parallel.
+**Status:** Implementation in progress. W0-W2 are complete. W4 now has the canonical provider-value row buffer, reader-free model-row construction, shared provider-to-model materializer, source-independent cache/publication/metrics orchestration, and genuine neutral generated immutable construction with legacy compatibility. Generated database roots, source-scoped cache services, and row loading are next. W3 may proceed in parallel.
 
 **Target release:** 0.9.
 
@@ -44,10 +44,10 @@ That is already a substantial release. Memory mutation, transactional snapshots,
 W2 made the query template and invocation self-contained, but the lower read and execution stack is not yet backend-neutral:
 
 - [`QueryPlanTemplate`](../../../../src/DataLinq/Linq/Planning/QueryPlanTemplate.cs), [`QueryPlanInvocation`](../../../../src/DataLinq/Linq/Planning/QueryPlanInvocation.cs), and self-contained projection recipes now separate structural shape from frozen execution values without retaining the original expression after parsing.
-- [`CanonicalProviderValueRow`](../../../../src/DataLinq/Instances/CanonicalProviderValueRow.cs), [`ProviderRowMaterializer`](../../../../src/DataLinq/Instances/ProviderRowMaterializer.cs), and the trusted `RowData` factory now establish and convert between separate canonical-provider and public model-value row representations, but immutable-instance creation is not yet routed through a neutral source.
+- [`CanonicalProviderValueRow`](../../../../src/DataLinq/Instances/CanonicalProviderValueRow.cs), [`ProviderRowMaterializer`](../../../../src/DataLinq/Instances/ProviderRowMaterializer.cs), and the trusted `RowData` factory establish and convert between separate canonical-provider and public model-value row representations; neutral-capable generated immutable models now consume that path without a SQL source.
 - The expression executor directly constructs [`QueryPlanSqlBuilder`](../../../../src/DataLinq/Linq/Planning/Sql/QueryPlanSqlBuilder.cs), so SQL rendering remains the implicit execution center.
 - [`IDatabaseProvider`](../../../../src/DataLinq/Interfaces/IDatabaseProvider.cs) exposes `IDbCommand`, `IDbConnection`, SQL rendering helpers, and database transactions. It is not a credible neutral contract for a memory backend.
-- [`IDataSourceAccess`](../../../../src/DataLinq/Interfaces/IDataSourceAccess.cs) exposes SQL-shaped database access, and [`DataSourceAccess`](../../../../src/DataLinq/Mutation/DataSourceAccess.cs) loads from SQL strings and commands.
+- [`IDataLinqReadSource`](../../../../src/DataLinq/Interfaces/IDataLinqReadSource.cs) now supplies the metadata-only model-construction identity, while legacy [`IDataSourceAccess`](../../../../src/DataLinq/Interfaces/IDataSourceAccess.cs) and [`DataSourceAccess`](../../../../src/DataLinq/Mutation/DataSourceAccess.cs) still own SQL-shaped database access and command loading.
 - Generated database roots currently cast `IDataSourceAccess` back to the concrete SQL-shaped `DataSourceAccess` in [`GeneratorFileFactory`](../../../../src/DataLinq.SharedCore/Factories/Generator/GeneratorFileFactory.cs).
 - Cold cache and relation loads still issue provider commands directly through the existing source access path.
 - Public [`IRowData`](../../../../src/DataLinq/Instances/RowData.cs) exposes model instance values. Quietly repurposing it as a provider-value store would leak storage representations through public model APIs.

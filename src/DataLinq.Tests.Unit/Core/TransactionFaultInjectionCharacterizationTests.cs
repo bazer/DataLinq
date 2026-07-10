@@ -4,6 +4,7 @@ using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Cache;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -18,6 +19,33 @@ namespace DataLinq.Tests.Unit.Core;
 /// </summary>
 public class TransactionFaultInjectionCharacterizationTests
 {
+    [Test]
+    public async Task ImmutableReadSource_TerminalTransactionsFallBackToProviderReadOnlyAccess()
+    {
+        using var committedFixture = CreateFixture();
+        var committedRow = new TransactionBoundImmutable(
+            new SourceOnlyRowData(committedFixture.Cache.Table),
+            committedFixture.Transaction);
+
+        await Assert.That(committedRow.GetReadSource()).IsSameReferenceAs(committedFixture.Transaction);
+        await Assert.That(committedRow.GetDataSource()).IsSameReferenceAs(committedFixture.Transaction);
+
+        committedFixture.Transaction.Commit();
+
+        await Assert.That(committedRow.GetReadSource()).IsSameReferenceAs(committedFixture.Transaction.Provider.ReadOnlyAccess);
+        await Assert.That(committedRow.GetDataSource()).IsSameReferenceAs(committedFixture.Transaction.Provider.ReadOnlyAccess);
+
+        using var rolledBackFixture = CreateFixture();
+        var rolledBackRow = new TransactionBoundImmutable(
+            new SourceOnlyRowData(rolledBackFixture.Cache.Table),
+            rolledBackFixture.Transaction);
+
+        rolledBackFixture.Transaction.Rollback();
+
+        await Assert.That(rolledBackRow.GetReadSource()).IsSameReferenceAs(rolledBackFixture.Transaction.Provider.ReadOnlyAccess);
+        await Assert.That(rolledBackRow.GetDataSource()).IsSameReferenceAs(rolledBackFixture.Transaction.Provider.ReadOnlyAccess);
+    }
+
     [Test]
     public async Task Commit_ProviderCompletesBeforeTransactionCacheCleanup()
     {
@@ -205,6 +233,21 @@ public class TransactionFaultInjectionCharacterizationTests
         public FaultScenario Scenario { get; } = scenario;
 
         public void Dispose() => provider.Dispose();
+    }
+
+    private sealed class TransactionBoundImmutable(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<Employee, EmployeesDb>(rowData, dataSource);
+
+    private sealed class SourceOnlyRowData(TableDefinition table) : IRowData
+    {
+        public TableDefinition Table { get; } = table;
+        public object? this[ColumnDefinition column] => throw new NotSupportedException();
+        public object? this[int columnIndex] => throw new NotSupportedException();
+        public object? GetValue(ColumnDefinition column) => throw new NotSupportedException();
+        public object? GetValue(int columnIndex) => throw new NotSupportedException();
+        public IEnumerable<object?> GetValues(IEnumerable<ColumnDefinition> columns) => [];
+        public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues() => [];
+        public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues(IEnumerable<ColumnDefinition> columns) => [];
     }
 
     private sealed class FaultScenario

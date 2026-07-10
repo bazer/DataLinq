@@ -16,8 +16,8 @@ public sealed partial class PlatformSmokeDb(DataSourceAccess dataSource) : IData
 }
 
 [Table("platform_smoke_owners")]
-public abstract partial class PlatformSmokeOwner(IRowData rowData, IDataSourceAccess dataSource)
-    : Immutable<PlatformSmokeOwner, PlatformSmokeDb>(rowData, dataSource), ITableModel<PlatformSmokeDb>
+public abstract partial class PlatformSmokeOwner(IRowData rowData, IDataLinqReadSource readSource)
+    : Immutable<PlatformSmokeOwner, PlatformSmokeDb>(rowData, readSource), ITableModel<PlatformSmokeDb>
 {
     [PrimaryKey]
     [Type(DatabaseType.SQLite, "INTEGER")]
@@ -33,8 +33,8 @@ public abstract partial class PlatformSmokeOwner(IRowData rowData, IDataSourceAc
 }
 
 [Table("platform_smoke_tasks")]
-public abstract partial class PlatformSmokeTask(IRowData rowData, IDataSourceAccess dataSource)
-    : Immutable<PlatformSmokeTask, PlatformSmokeDb>(rowData, dataSource), ITableModel<PlatformSmokeDb>
+public abstract partial class PlatformSmokeTask(IRowData rowData, IDataLinqReadSource readSource)
+    : Immutable<PlatformSmokeTask, PlatformSmokeDb>(rowData, readSource), ITableModel<PlatformSmokeDb>
 {
     [PrimaryKey]
     [Type(DatabaseType.SQLite, "INTEGER")]

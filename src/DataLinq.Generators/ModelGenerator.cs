@@ -146,12 +146,17 @@ public sealed class ModelGenerator : IIncrementalGenerator
                 database,
                 compilation,
                 context.CancellationToken);
+            var readSourceConstructorModelTypeNames = ResolveReadSourceConstructorModelTypeNames(
+                database,
+                compilation,
+                context.CancellationToken);
 
             GeneratorFileFactoryOptions CreateOptions(bool nullableReferenceTypes) => new()
             {
                 UseNullableReferenceTypes = nullableReferenceTypes,
                 RuntimeValuePropertyTypeNames = runtimeValuePropertyTypeNames,
                 SuppressedDefaultValueProperties = validationContext.SuppressedDefaultValueProperties,
+                ReadSourceConstructorModelTypeNames = readSourceConstructorModelTypeNames,
             };
 
             var databaseNullableContext = ResolveDatabaseNullableReferenceTypes(database, compilation, useNullableReferenceTypes);
@@ -197,6 +202,33 @@ public sealed class ModelGenerator : IIncrementalGenerator
         }
 
         return runtimeTypeNames;
+    }
+
+    private static IReadOnlyCollection<string> ResolveReadSourceConstructorModelTypeNames(
+        DatabaseDefinition database,
+        Compilation compilation,
+        System.Threading.CancellationToken cancellationToken)
+    {
+        var modelTypeNames = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var model in database.TableModels
+            .Where(static tableModel => !tableModel.IsStub)
+            .Select(static tableModel => tableModel.Model))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (SourceModelSyntaxResolver.HasAccessibleReadSourceConstructor(
+                model,
+                compilation,
+                cancellationToken))
+            {
+                modelTypeNames.Add(string.IsNullOrWhiteSpace(model.CsType.Namespace)
+                    ? model.CsType.Name
+                    : $"{model.CsType.Namespace}.{model.CsType.Name}");
+            }
+        }
+
+        return modelTypeNames;
     }
 
     internal static GeneratedDatabaseEmissionResult EmitGeneratedSources(

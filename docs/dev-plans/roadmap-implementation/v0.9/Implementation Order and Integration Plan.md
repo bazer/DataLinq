@@ -610,7 +610,7 @@ W2 is complete. W3 may continue independently, while W4 is now the next query-fo
 - [x] Add the shared canonical-provider-to-model scalar materializer with backend-neutral, column-only conversion context.
 - [x] Add source-independent canonical-key, cache-publication, immutable-construction, and success-metric orchestration around the materializer.
 - [x] Add the minimal metadata-only read-source contract, additive legacy bridges, optional parallel immutable-factory metadata, and metric-free factory selection.
-- [ ] Emit genuine neutral generated immutable constructors/factories; do not register a throwing legacy bridge as neutral support.
+- [x] Emit genuine neutral generated immutable constructors/factories only for models with exact accessible read-source construction; preserve the legacy hook and generated-declaration shape.
 - [ ] Bind materialization orchestration to neutral source-scoped cache/metrics services.
 - [ ] Add neutral row-loader contracts without SQL members.
 - [ ] Remove the generated database-root cast to concrete `DataSourceAccess`.

@@ -37,6 +37,8 @@ public class SourceGeneratorTests : GeneratorTestBase
 
         await Assert.That(code.Contains("public partial class ImmutableEmployee", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new ImmutableEmployee(rowData, dataSource);", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("NewDataLinqReadImmutableInstance", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(code.Contains("ReadSourceImmutableFactory", StringComparison.Ordinal)).IsFalse();
         await Assert.That(code.Contains("public partial class EmployeesDb : global::DataLinq.Interfaces.IDatabaseModel<EmployeesDb>", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("public static global::DataLinq.Metadata.GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("public static global::DataLinq.Core.Factories.MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>", StringComparison.Ordinal)).IsTrue();
@@ -153,6 +155,63 @@ public class SourceGeneratorTests : GeneratorTestBase
         await Assert.That(generatorErrors).IsEmpty();
         await Assert.That(code).Contains("new global::DataLinq.Metadata.CsTypeDeclaration(typeof(global::DataLinq.Generators.Tests.ExternalNumericStatus))");
         await Assert.That(code).DoesNotContain("new global::DataLinq.Metadata.CsTypeDeclaration(\"ExternalNumericStatus\"");
+    }
+
+    [Test]
+    public async Task ReadSourceConstructor_EmitsNeutralFactoryAndCompiles()
+    {
+        var source = CSharpSyntaxTree.ParseText(
+            """
+            using DataLinq;
+            using DataLinq.Attributes;
+            using DataLinq.Instances;
+            using DataLinq.Interfaces;
+            using DataLinq.Mutation;
+
+            namespace NeutralReadSourceGeneratorTest;
+
+            [Database("neutral_read_source")]
+            public partial class NeutralReadSourceDb(DataSourceAccess dataSource) : IDatabaseModel<NeutralReadSourceDb>
+            {
+                public DbRead<NeutralReadSourceRow> Rows { get; } = new(dataSource);
+            }
+
+            [Table("neutral_read_source_rows")]
+            public abstract partial class NeutralReadSourceRow(IRowData rowData, IDataLinqReadSource readSource)
+                : Immutable<NeutralReadSourceRow, NeutralReadSourceDb>(rowData, readSource), ITableModel<NeutralReadSourceDb>
+            {
+                [PrimaryKey]
+                [Type(DatabaseType.SQLite, "INTEGER")]
+                [Column("id")]
+                public abstract int Id { get; }
+            }
+            """,
+            path: "NeutralReadSourceGeneratorTest.cs");
+
+        var (outputCompilation, generatorDiagnostics, generatedTrees) = RunGeneratorWithDiagnostics([source]);
+        var code = SyntaxTreesToString(generatedTrees);
+        var generatorErrors = generatorDiagnostics
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        var compilationErrors = outputCompilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ToList();
+
+        await Assert.That(generatorErrors).IsEmpty();
+        await Assert.That(compilationErrors).IsEmpty();
+        await Assert.That(code).Contains(
+            "public ImmutableNeutralReadSourceRow(IRowData rowData, IDataSourceAccess dataSource)");
+        await Assert.That(code).Contains(
+            "public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new ImmutableNeutralReadSourceRow(rowData, dataSource);");
+        await Assert.That(code).Contains(
+            "public ImmutableNeutralReadSourceRow(IRowData rowData, IDataLinqReadSource readSource)");
+        await Assert.That(code).Contains(
+            "public static IImmutableInstance NewDataLinqReadImmutableInstance(IRowData rowData, IDataLinqReadSource readSource) => new ImmutableNeutralReadSourceRow(rowData, readSource);");
+        await Assert.That(code).Contains(
+            "ReadSourceImmutableFactory = new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataLinqReadSource, global::DataLinq.Instances.IImmutableInstance>(global::NeutralReadSourceGeneratorTest.ImmutableNeutralReadSourceRow.NewDataLinqReadImmutableInstance),");
+        await Assert.That(code).DoesNotContain("DynamicInvoke");
+        await Assert.That(code).DoesNotContain("(IDataSourceAccess)readSource");
+        await Assert.That(code).DoesNotContain("(global::DataLinq.Interfaces.IDataSourceAccess)readSource");
     }
 }
 

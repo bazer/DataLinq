@@ -9,11 +9,32 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSource) : IImmutable<T>, IImmutableInstance<M>,
+public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
     IEquatable<Immutable<T, M>>, IEquatable<IMutableInstance>
     where T : IModel
     where M : class, IDatabaseModel
 {
+    private readonly IRowData rowData;
+    private IDataLinqReadSource readSource;
+
+    protected Immutable(IRowData rowData, IDataSourceAccess dataSource)
+    {
+        // Preserve the legacy constructor's historical null behavior. Some row-local projection
+        // tests construct immutable shells without a source because they never perform source-bound
+        // operations; the new neutral constructor below is the strict contract.
+        this.rowData = rowData;
+        readSource = dataSource;
+    }
+
+    protected Immutable(IRowData rowData, IDataLinqReadSource readSource)
+    {
+        ArgumentNullException.ThrowIfNull(rowData);
+        ArgumentNullException.ThrowIfNull(readSource);
+
+        this.rowData = rowData;
+        this.readSource = readSource;
+    }
+
     protected ConcurrentDictionary<RelationProperty, DataLinqKey>? relationKeys;
 
     protected ConcurrentDictionary<string, object?>? lazyValues = null;
@@ -127,10 +148,29 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
 
     public IDataSourceAccess GetDataSource()
     {
-        if (dataSource is Transaction transaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
-            dataSource = dataSource.Provider.ReadOnlyAccess;
+        var source = GetReadSource();
+        if (source is null)
+            return null!;
 
-        return dataSource;
+        if (source is IDataSourceAccess dataSource)
+            return dataSource;
+
+        throw new InvalidOperationException(
+            $"Immutable model '{typeof(T).FullName}' was constructed with a backend-neutral read source " +
+            $"('{source.GetType().FullName}') that does not implement {nameof(IDataSourceAccess)}. " +
+            $"Use {nameof(GetReadSource)}() for backend-neutral access; legacy provider and relation operations require {nameof(IDataSourceAccess)}.");
+    }
+
+    public IDataLinqReadSource GetReadSource()
+    {
+        if (readSource is Transaction transaction &&
+            (transaction.Status == DatabaseTransactionStatus.Committed ||
+             transaction.Status == DatabaseTransactionStatus.RolledBack))
+        {
+            readSource = transaction.Provider.ReadOnlyAccess;
+        }
+
+        return readSource;
     }
 
     // --- Start of Equality Implementation ---

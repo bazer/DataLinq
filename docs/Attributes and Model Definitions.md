@@ -25,6 +25,7 @@ using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 [Database("appdb")]
 public partial class AppDb(DataSourceAccess dataSource) : IDatabaseModel
@@ -33,8 +34,8 @@ public partial class AppDb(DataSourceAccess dataSource) : IDatabaseModel
 }
 
 [Table("users")]
-public abstract partial class User(IRowData rowData, IDataSourceAccess dataSource)
-    : Immutable<User, AppDb>(rowData, dataSource), ITableModel<AppDb>
+public abstract partial class User(IRowData rowData, IDataLinqReadSource readSource)
+    : Immutable<User, AppDb>(rowData, readSource), ITableModel<AppDb>
 {
     [PrimaryKey]
     [Column("UserId")]

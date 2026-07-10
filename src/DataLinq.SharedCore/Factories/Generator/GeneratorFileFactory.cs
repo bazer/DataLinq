@@ -19,6 +19,7 @@ public class GeneratorFileFactoryOptions
     public bool SeparateTablesAndViews { get; set; } = false;
     public IReadOnlyDictionary<ValueProperty, string> RuntimeValuePropertyTypeNames { get; set; } = new Dictionary<ValueProperty, string>();
     public IReadOnlyCollection<ValueProperty> SuppressedDefaultValueProperties { get; set; } = [];
+    public IReadOnlyCollection<string> ReadSourceConstructorModelTypeNames { get; set; } = [];
     public List<string> Usings { get; set; } = new List<string> { "System", "System.Diagnostics.CodeAnalysis", "DataLinq", "DataLinq.Interfaces", "DataLinq.Instances", "DataLinq.Attributes", "DataLinq.Mutation" };
 }
 
@@ -291,6 +292,8 @@ public class GeneratorFileFactory
         yield return $"{indent}{{";
         yield return $"{childIndent}ImmutableType = {FormatRuntimeCsTypeDeclaration(immutableType)},";
         yield return $"{childIndent}ImmutableFactory = new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataSourceAccess, global::DataLinq.Instances.IImmutableInstance>({immutableType}.NewDataLinqImmutableInstance),";
+        if (SupportsReadSourceConstruction(model))
+            yield return $"{childIndent}ReadSourceImmutableFactory = new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataLinqReadSource, global::DataLinq.Instances.IImmutableInstance>({immutableType}.NewDataLinqReadImmutableInstance),";
         var providerKeyAccessor = GetProviderKeyRowStoreAccessorExpression(model);
         if (providerKeyAccessor is not null)
             yield return $"{childIndent}ProviderKeyRowStoreAccessor = {providerKeyAccessor},";
@@ -1107,10 +1110,26 @@ public class GeneratorFileFactory
         foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(model.Attributes), namespaceTab))
             yield return row;
 
-        yield return $"{namespaceTab}public partial class Immutable{model.CsType.Name}(IRowData rowData, IDataSourceAccess dataSource) : {model.CsType.Name}(rowData, dataSource)";
+        yield return $"{namespaceTab}public partial class Immutable{model.CsType.Name} : {model.CsType.Name}";
         yield return namespaceTab + "{";
+        yield return $"{namespaceTab}{tab}public Immutable{model.CsType.Name}(IRowData rowData, IDataSourceAccess dataSource)";
+        yield return $"{namespaceTab}{tab}{tab}: base(rowData, dataSource)";
+        yield return $"{namespaceTab}{tab}" + "{";
+        yield return $"{namespaceTab}{tab}" + "}";
+        yield return "";
         yield return $"{namespaceTab}{tab}public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new Immutable{model.CsType.Name}(rowData, dataSource);";
         yield return "";
+
+        if (SupportsReadSourceConstruction(model))
+        {
+            yield return $"{namespaceTab}{tab}public Immutable{model.CsType.Name}(IRowData rowData, IDataLinqReadSource readSource)";
+            yield return $"{namespaceTab}{tab}{tab}: base(rowData, readSource)";
+            yield return $"{namespaceTab}{tab}" + "{";
+            yield return $"{namespaceTab}{tab}" + "}";
+            yield return "";
+            yield return $"{namespaceTab}{tab}public static IImmutableInstance NewDataLinqReadImmutableInstance(IRowData rowData, IDataLinqReadSource readSource) => new Immutable{model.CsType.Name}(rowData, readSource);";
+            yield return "";
+        }
 
         foreach (var valueProperty in valueProps)
         {
@@ -1152,6 +1171,15 @@ public class GeneratorFileFactory
         //    yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name} Mutate() => new(this);";
 
         yield return namespaceTab + "}";
+    }
+
+    private bool SupportsReadSourceConstruction(ModelDefinition model)
+    {
+        var fullModelTypeName = string.IsNullOrWhiteSpace(model.CsType.Namespace)
+            ? model.CsType.Name
+            : $"{model.CsType.Namespace}.{model.CsType.Name}";
+
+        return Options.ReadSourceConstructorModelTypeNames.Contains(fullModelTypeName, StringComparer.Ordinal);
     }
 
     private string GetImmutableRelationExpression(RelationProperty relationProperty, string relatedModelName)
