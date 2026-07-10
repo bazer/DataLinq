@@ -12,7 +12,7 @@ The active roadmap answers what should happen next and why. Versioned implementa
 | Release | Status | Scope |
 | --- | --- | --- |
 | [0.8](v0.8/README.md) | Implemented and released | DataLinq-owned parser/query plan, Remotion removal, bounded query composition/joins/grouping, constrained AOT/browser evidence, and release closeout |
-| [0.9](v0.9/README.md) | In progress; W0 and first characterization slice complete | backend/source execution foundation, scalar converters and typed IDs, UUID storage correctness, read-only memory preview, SQL-provider correctness gates, and exact release evidence |
+| [0.9](v0.9/README.md) | In progress; W0-W1 characterization complete, W2 next | backend/source execution foundation, scalar converters and typed IDs, UUID storage correctness, read-only memory preview, SQL-provider correctness gates, and exact release evidence |
 
 The 0.9 baseline deliberately excludes memory mutation, durable JSON persistence, commit logs/replay, production plan caching, and broad join/grouping expansion. One optional stretch may be selected only after the required release work is green.
 
@@ -27,6 +27,7 @@ Required:
 - [Read-Only Memory Backend](v0.9/In-Memory%20Database%20Implementation%20Plan.md)
 - [UUID Storage Format Support](../providers-and-features/UUID%20Storage%20Format%20Support.md)
 - [SQL Transaction and Mutable Lifecycle](v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md)
+- [Mutation Lifecycle Expected-Failure and Ownership Matrix](v0.9/Mutation%20Lifecycle%20Expected-Failure%20and%20Ownership%20Matrix.md)
 - [SQLite Transaction Isolation Alignment](../providers-and-features/SQLite%20Transaction%20Isolation%20Alignment.md)
 - [Mutable Instance Lifecycle](../query-and-runtime/Mutable%20Instance%20Lifecycle.md)
 - [Release Evidence and Closeout](v0.9/Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)

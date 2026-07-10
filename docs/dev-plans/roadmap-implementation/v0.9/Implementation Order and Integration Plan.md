@@ -542,7 +542,7 @@ Unsafe parallel work includes:
 
 The first coherent slice is characterization only. It should make the foundation safe to change without committing to final internal type names.
 
-**First slice completed:** 2026-07-10. The durable route, decision, harness, artifact, failure, and measurement record is [Baseline And Release Harness Inventory](Baseline%20and%20Release%20Harness%20Inventory.md). W1 remains active for the file-backed SQLite/WAL lane, provider lifecycle fault injection, and the explicitly classified mutation-lifecycle gaps before W2 begins. Uneven command ownership is assigned to W5, and the reproduced WebAssembly harness failure is assigned to release-evidence work; none is disguised as green current behavior.
+**W0-W1 characterization completed:** 2026-07-10. The durable route, decision, harness, artifact, failure, and measurement record is [Baseline And Release Harness Inventory](Baseline%20and%20Release%20Harness%20Inventory.md). The file-backed SQLite/WAL and provider-lifecycle suites close the remaining executable characterization, while the [Mutation Lifecycle Expected-Failure And Ownership Matrix](Mutation%20Lifecycle%20Expected-Failure%20and%20Ownership%20Matrix.md) assigns unimplemented behavior to W3 without freezing unsafe behavior as compatible. Uneven command ownership remains assigned to W5, and the reproduced WebAssembly harness failure remains assigned to release-evidence work; none is disguised as green current behavior.
 
 ### Query route inventory
 
@@ -570,11 +570,11 @@ The first coherent slice is characterization only. It should make the foundation
 - [x] Approve independent native, text, little-endian binary, and RFC-order UUID vectors before codec implementation.
 - [x] Assign UUID format-aware schema/diff characterization to SC-5/UUID-4 because current metadata cannot express byte layout honestly.
 
-### Remaining W1 work before W2
+### W1 follow-up completed before W2
 
-- [ ] Add the temporary file-backed SQLite/WAL concurrency characterization lane.
-- [ ] Add deterministic provider commit, rollback, and disposal fault-injection characterization.
-- [ ] Finish the explicit expected-failure/owner matrix for cross-transaction reuse, rollback/disposal invalidation, deletion, primary-key mutation, failed writes, and read-only writes.
+- [x] Add the temporary file-backed SQLite/WAL concurrency characterization lane.
+- [x] Add deterministic provider commit, rollback, and disposal fault-injection characterization.
+- [x] Finish the explicit expected-failure/owner matrix for cross-transaction reuse, rollback/disposal invalidation, deletion, primary-key mutation, failed writes, and read-only writes.
 
 ### Baseline evidence
 
@@ -591,7 +591,7 @@ The first coherent slice is characterization only. It should make the foundation
 - [x] Projection disposition D1 is complete enough to begin template/recipe work.
 - [x] No production architecture or support claim has changed yet.
 
-Finish the remaining W1 work above before W2. Do not start W2 by creating `IQueryPlanBackend` or `DataLinq.Memory` in isolation; that would put a new name above the existing SQL-shaped runtime without making the boundary real.
+W1 is complete and W2 is next. Do not start W2 by creating `IQueryPlanBackend` or `DataLinq.Memory` in isolation; that would put a new name above the existing SQL-shaped runtime without making the boundary real.
 
 ## Baseline Versus Final Evidence
 

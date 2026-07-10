@@ -3,7 +3,7 @@
 
 # 0.9 Baseline And Release Harness Inventory
 
-**Status:** W0 and the first characterization slice implemented on 2026-07-10. W1 remains active for the explicitly listed follow-up evidence.
+**Status:** W0-W1 characterization implemented on 2026-07-10. W2 is next.
 
 **Baseline branch:** `v0.9`.
 
@@ -21,7 +21,7 @@ It did four things:
 
 1. catalogued every expression-query entry, SQL-builder construction, original-expression dependency, primary-key shortcut, cache-cold loader, and relation loader that later waves will move
 2. resolved projection disposition D1 for every current `QueryPlanProjectionKind`
-3. added focused query, parsed-plan binding, primary-key, reader-lifetime, transaction-cache, relation, mutable-reuse, scalar-value, typed-ID-fixture, canonical-key, and UUID-vector characterization
+3. added focused query, parsed-plan binding, primary-key, reader-lifetime, transaction-cache, relation, mutable-reuse, provider-lifecycle fault, file-backed SQLite/WAL, scalar-value, typed-ID-fixture, canonical-key, and UUID-vector characterization
 4. captured reproducible build, provider, package, compatibility, and benchmark evidence, including real baseline failures instead of laundering them into green claims
 
 The production baseline is healthy across the complete SQL provider matrix. Native AOT and trimming are green. Both WebAssembly publish lanes are currently red under SDK 10.0.301 because the Blazor SDK requests a missing `ResolveWasmOutputs` target. That failure reproduced outside the sandbox and is therefore a real release-harness gap, not sandbox noise.
@@ -168,6 +168,8 @@ Command disposal is not uniformly trustworthy today. `Select.ReadFirstRow` and t
 | Same-transaction graph identity | `Transaction_InsertRelationsWithinTransaction_MaintainsGraphIdentity` |
 | Commit clears transaction cache | `Transaction_InsertRelationsReadAfterCommit_ClearsTransactionCache` |
 | Current repeated mutable reuse behavior | implicit and explicit repeated-save characterization tests |
+| Provider commit, rollback, and disposal success/failure partitions | `TransactionFaultInjectionCharacterizationTests` |
+| Private-cache WAL committed visibility, current shared-cache dirty visibility, and bounded writer contention | `SQLiteWalConcurrencyCharacterizationTests` |
 
 The following accepted behaviors are intentionally assigned to W3 rather than encoded as green current behavior:
 
@@ -177,9 +179,10 @@ The following accepted behaviors are intentionally assigned to W3 rather than en
 - primary-key mutation rejection before command creation
 - read-only mutation rejection before SQL
 - failed-statement poisoning and commit rejection
-- deterministic provider commit/rollback/disposal fault injection
 
-Current SQLite file and transaction paths enable dirty reads. Warm-cache outside-visibility tests prove cache scoping, not database isolation. File-backed WAL committed-visibility evidence belongs to SQ-1.
+The deterministic provider fake records an important defect baseline: direct provider commit/rollback failures propagate while the transaction remains open and cached; resource-disposal failures after provider completion leave a terminal-status transaction cached; wrapper disposal removes cache state before provider rollback/disposal. W3 must make those partitions cleanup-safe and invalidate touched mutables. The passing tests describe current ordering and failure state, not the accepted 0.9 contract.
+
+The temporary file-backed WAL lane proves that private-cache readers retain committed visibility during a pending write and that a competing writer surfaces SQLite `BUSY` within the configured timeout. A deliberately explicit shared-cache test also proves that current DataLinq-owned `read_uncommitted` paths can dirty-read at the direct SQL boundary. SQ-1 owns removing that behavior and inverting the defect assertion.
 
 ### Value, key, and UUID baseline
 
@@ -352,4 +355,4 @@ Do not change these before the W8 spike promotion gate:
 - provider, package, constrained-runtime, and performance before-state artifacts are reproducible
 - no production architecture or shipped support claim changed
 
-The remaining W1 WAL, provider-lifecycle fault-injection, and mutation expected-failure/owner evidence must close before W2. When W2 starts, it must not add a backend name above the current SQL-shaped runtime.
+The W1 follow-up gate is closed by the WAL and provider-lifecycle suites plus the [Mutation Lifecycle Expected-Failure And Ownership Matrix](Mutation%20Lifecycle%20Expected-Failure%20and%20Ownership%20Matrix.md). That matrix makes no red or amber runtime behavior green; W3 owns those changes. W2 may now begin, but it must not add a backend name above the current SQL-shaped runtime.
