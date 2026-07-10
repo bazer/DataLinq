@@ -229,7 +229,10 @@ internal sealed class QueryPlanSqlBuilder
             return [sourceMap.RootSource];
 
         return template.Sources
-            .Where(static source => source.Kind is QueryPlanSourceKind.RootTable or QueryPlanSourceKind.ExplicitJoin)
+            .Where(static source => source.Kind is
+                QueryPlanSourceKind.RootTable or
+                QueryPlanSourceKind.ExplicitJoin or
+                QueryPlanSourceKind.ImplicitJoin)
             .OrderBy(static source => source.Id, StringComparer.Ordinal)
             .ToArray();
     }

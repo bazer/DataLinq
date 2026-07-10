@@ -1,11 +1,9 @@
 using System.Diagnostics;
-using System.Linq.Expressions;
 using System.Threading;
 using DataLinq.Core.Factories;
 using DataLinq.Exceptions;
 using DataLinq.Linq;
 using DataLinq.Linq.Planning.Expressions;
-using DataLinq.Linq.Planning.Sql;
 using DataLinq.Metadata;
 using DataLinq.SQLite;
 using Microsoft.Data.Sqlite;
@@ -234,7 +232,7 @@ public static class PlatformSmokeRunner
         var queryCoverage = VerifyDocumentedSubsetCoverage(owners, tasks);
 
         await ReportStage(reportStage, "verifying-strict-parser-projection");
-        var strictParserProjectionTitle = VerifyStrictParserProjection(database, tasks, firstTask);
+        var strictParserProjectionTitle = VerifyStrictParserProjection(database, tasks);
 
         return new PlatformSmokeResult(
             ownerCount,
@@ -404,8 +402,7 @@ public static class PlatformSmokeRunner
 
     private static string VerifyStrictParserProjection(
         SQLiteDatabase<PlatformSmokeDb> database,
-        IQueryable<PlatformSmokeTask> tasks,
-        PlatformSmokeTask row)
+        IQueryable<PlatformSmokeTask> tasks)
     {
         var query = tasks
             .Where(x => x.Priority >= 2)
@@ -419,18 +416,11 @@ public static class PlatformSmokeRunner
             typeof(string),
             ExpressionQueryPlanParserOptions.AotStrict);
 
-        var select = new QueryPlanSqlBuilder(plan, database.Provider.ReadOnlyAccess)
-            .BuildSelect<PlatformSmokeTask>();
-        var sql = select.ToSql();
-        if (string.IsNullOrWhiteSpace(sql.Text))
-            throw new InvalidOperationException("Strict parser smoke did not render SQL.");
-
-        Expression<Func<PlatformSmokeTask, string>> projection = x => x.Title.Trim().ToUpper();
-        return (string?)ProjectionExpressionEvaluator.Evaluate(
-            projection.Body,
-            projection.Parameters[0],
-            row,
-            ProjectionEvaluationOptions.AotStrict)
+        return ExpressionQueryPlanExecutor.ExecuteEnumerable<string>(
+                database.Provider.ReadOnlyAccess,
+                plan,
+                ProjectionEvaluationOptions.AotStrict)
+            .FirstOrDefault()
             ?? throw new InvalidOperationException("Strict parser smoke projection returned null.");
     }
 

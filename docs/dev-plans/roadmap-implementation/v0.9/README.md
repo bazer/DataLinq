@@ -3,7 +3,7 @@
 
 # DataLinq 0.9 Implementation Roadmap
 
-**Status:** Implementation in progress. W0-W1 characterization is complete; W2 self-contained query shape and scalar metadata is next.
+**Status:** Implementation in progress. W0-W2 are complete: characterization, scalar metadata contracts, structural template/invocation separation, and self-contained projection recipes are merged on the 0.9 line. W3 may proceed in parallel; W4 is the next query-foundation wave.
 
 **Target release:** 0.9.
 

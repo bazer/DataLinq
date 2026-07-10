@@ -43,15 +43,23 @@ internal sealed record QueryPlanLocalSequenceBindingReference(string BindingId, 
     : QueryPlanValue(QueryPlanValueKind.LocalSequenceBinding, typeof(QueryPlanLocalSequenceBindingReference))
 ;
 
-internal sealed record QueryPlanFunctionValue(
-    QueryPlanFunctionKind Function,
-    IReadOnlyList<QueryPlanValue> Arguments,
-    Type ClrType) : QueryPlanValue(QueryPlanValueKind.Function, ClrType)
+internal sealed record QueryPlanFunctionValue : QueryPlanValue
 {
     public QueryPlanFunctionValue(QueryPlanFunctionKind function, IEnumerable<QueryPlanValue> arguments, Type clrType)
-        : this(function, Freeze(arguments, nameof(arguments)), clrType)
+        : base(QueryPlanValueKind.Function, clrType)
     {
+        if (!Enum.IsDefined(function))
+            throw new ArgumentOutOfRangeException(nameof(function), function, "Unknown query plan function.");
+
+        Function = function;
+        Arguments = Freeze(arguments, nameof(arguments));
+        if (Arguments.Count == 0)
+            throw new ArgumentException("Query plan functions must contain at least one argument.", nameof(arguments));
     }
+
+    public QueryPlanFunctionKind Function { get; }
+
+    public IReadOnlyList<QueryPlanValue> Arguments { get; }
 
     private static ReadOnlyCollection<QueryPlanValue> Freeze(IEnumerable<QueryPlanValue> values, string parameterName)
     {
@@ -109,7 +117,6 @@ internal enum QueryPlanGroupedAggregateKind
 
 internal enum QueryPlanFunctionKind
 {
-    ClientExpression,
     StringStartsWith,
     StringEndsWith,
     StringContains,

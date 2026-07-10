@@ -710,6 +710,210 @@ public class ExpressionQueryPlanParserTests
         await Assert.That(exception!.Message).Contains("Local method call 'ThrowIfInvokedEmployeeNumber' requires compatibility method reflection");
     }
 
+    [Test]
+    public async Task ExpressionParser_NormalizesAotSafeProjectionRecipeWithoutInvocationValues()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_NormalizesAotSafeProjectionRecipeWithoutInvocationValues),
+            EmployeesSeedMode.Bogus);
+
+        IQueryable<object[]> CreateQuery(int offset, int start, int length)
+            => databaseScope.Database.Query().Employees.Select(employee => new object[]
+            {
+                employee.emp_no!.Value + offset,
+                !employee.IsDeleted!.Value,
+                employee.last_login.HasValue,
+                employee.first_name.Length,
+                employee.first_name.Trim().ToUpper().Substring(start, length),
+                employee.birth_date.Year,
+                employee.last_login!.Value.Hour,
+                employee.IsDeleted == true ? employee.first_name : null!
+            });
+
+        var first = ExpressionQueryPlanParser.Convert(databaseScope.Database, CreateQuery(7, 0, 2));
+        var second = ExpressionQueryPlanParser.Convert(databaseScope.Database, CreateQuery(11, 1, 3));
+        var firstProjection = first.Template.Projection as QueryPlanProjection.ComputedRowLocal;
+        var firstTemplate = QueryPlanDebugWriter.WriteTemplate(first.Template);
+        var secondTemplate = QueryPlanDebugWriter.WriteTemplate(second.Template);
+
+        await Assert.That(firstProjection).IsNotNull();
+        await Assert.That(firstProjection!.Disposition).IsEqualTo(QueryPlanProjectionDisposition.AotSafe);
+        await Assert.That(firstProjection.Recipe).IsTypeOf<QueryPlanProjectionRecipe.NewArray>();
+        await Assert.That(firstTemplate).IsEqualTo(secondTemplate);
+        await Assert.That(first.Values.Count).IsEqualTo(3);
+        await Assert.That(second.Values.Count).IsEqualTo(3);
+        await Assert.That(firstTemplate).Contains("disposition=aot-safe");
+        await Assert.That(firstTemplate).Contains("new-array(");
+        await Assert.That(firstTemplate).Contains("binary(add");
+        await Assert.That(firstTemplate).Contains("not(");
+        await Assert.That(firstTemplate).Contains("member(nullable-value");
+        await Assert.That(firstTemplate).Contains("member(nullable-has-value");
+        await Assert.That(firstTemplate).Contains("member(string-length");
+        await Assert.That(firstTemplate).Contains("function(string-trim");
+        await Assert.That(firstTemplate).Contains("function(string-to-upper");
+        await Assert.That(firstTemplate).Contains("function(string-substring");
+        await Assert.That(firstTemplate).Contains("function(date-part-year");
+        await Assert.That(firstTemplate).Contains("function(time-part-hour");
+        await Assert.That(firstTemplate).Contains("conditional(");
+    }
+
+    [Test]
+    public async Task ExpressionParser_ConstructorRecipeIsExplicitlySqlOnlyCompatibility()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_ConstructorRecipeIsExplicitlySqlOnlyCompatibility),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().Employees
+            .Select(employee => new ProjectionDto(employee.first_name.Trim()));
+        var invocation = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+        var projection = invocation.Template.Projection as QueryPlanProjection.Anonymous;
+        var snapshot = QueryPlanDebugWriter.WriteTemplate(invocation.Template);
+
+        await Assert.That(projection).IsNotNull();
+        await Assert.That(projection!.Disposition).IsEqualTo(QueryPlanProjectionDisposition.SqlOnlyCompatibility);
+        await Assert.That(projection.Recipe).IsTypeOf<QueryPlanProjectionRecipe.CompatibilityConstructor>();
+        await Assert.That(snapshot).Contains("disposition=sql-only-compatibility");
+        await Assert.That(snapshot).Contains("compat-constructor(");
+    }
+
+    [Test]
+    public async Task ExpressionParser_RejectsUnsupportedProjectionOperatorsAndOverloadsEarly()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_RejectsUnsupportedProjectionOperatorsAndOverloadsEarly),
+            EmployeesSeedMode.Bogus);
+
+        var userDefinedOperator = databaseScope.Database.Query().Employees
+            .Select(employee =>
+                new ProjectionNumber(employee.emp_no!.Value) + new ProjectionNumber(1));
+        var checkedArithmetic = databaseScope.Database.Query().Employees
+            .Select(employee => checked(employee.emp_no!.Value + 1));
+        var unsupportedOverload = databaseScope.Database.Query().Employees
+            .Select(employee => employee.first_name.Trim('A'));
+
+        await AssertParserFailure(
+            databaseScope.Database,
+            userDefinedOperator,
+            "user-defined binary operator");
+        await AssertParserFailure(
+            databaseScope.Database,
+            checkedArithmetic,
+            "normalized row-local projection recipes",
+            "AddChecked");
+        await AssertParserFailure(
+            databaseScope.Database,
+            unsupportedOverload,
+            "Projection method 'Trim' is not supported");
+    }
+
+    [Test]
+    public async Task ExpressionParser_CapturesProjectionScalarExactlyOnce()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_CapturesProjectionScalarExactlyOnce),
+            EmployeesSeedMode.Bogus);
+
+        var probe = new ProjectionCaptureProbe();
+        var query = databaseScope.Database.Query().Employees
+            .Select(employee => new ProjectionCaptureDto(
+                employee.first_name.Trim(),
+                probe.Value));
+
+        var invocation = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+
+        await Assert.That(probe.InvocationCount).IsEqualTo(1);
+        await Assert.That(invocation.Values.Items.Count(value => value is QueryPlanInvocationValue.Scalar)).IsEqualTo(1);
+        await Assert.That(invocation.Template.Projection.Disposition)
+            .IsEqualTo(QueryPlanProjectionDisposition.SqlOnlyCompatibility);
+    }
+
+    [Test]
+    public async Task ExpressionParser_RejectsCheckedNarrowingAndCoerciveProjectionConversions()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_RejectsCheckedNarrowingAndCoerciveProjectionConversions),
+            EmployeesSeedMode.Bogus);
+
+        object boxedShort = (short)1;
+        var checkedTopLevel = databaseScope.Database.Query().Employees
+            .Select(employee => checked((short)employee.emp_no!.Value));
+        var checkedNested = databaseScope.Database.Query().Employees
+            .Select(employee => new object[] { checked((short)employee.emp_no!.Value) });
+        var narrowing = databaseScope.Database.Query().Employees
+            .Select(employee => new object[] { (short)employee.emp_no!.Value });
+        var coerciveUnboxing = databaseScope.Database.Query().Employees
+            .Select(_ => new object[] { (int)boxedShort });
+
+        await AssertParserFailure(
+            databaseScope.Database,
+            checkedTopLevel,
+            "Checked projection conversions");
+        await AssertParserFailure(
+            databaseScope.Database,
+            checkedNested,
+            "Checked projection conversions");
+        await AssertParserFailure(
+            databaseScope.Database,
+            narrowing,
+            "Projection conversion",
+            "not supported");
+        await AssertParserFailure(
+            databaseScope.Database,
+            coerciveUnboxing,
+            "Projection conversion",
+            "not supported");
+    }
+
+    [Test]
+    public async Task ExpressionParser_PreservesImplicitWideningProjectionConversion()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_PreservesImplicitWideningProjectionConversion),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().Employees
+            .Select(employee => new object[] { (long)employee.emp_no!.Value });
+        var invocation = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+        var snapshot = QueryPlanDebugWriter.WriteTemplate(invocation.Template);
+
+        await Assert.That(invocation.Template.Projection.Disposition)
+            .IsEqualTo(QueryPlanProjectionDisposition.AotSafe);
+        await Assert.That(snapshot).Contains("convert(");
+        await Assert.That(snapshot).Contains("Int64");
+    }
+
+    [Test]
+    public async Task ExpressionParser_ScalarJoinRecipeHasNoClientExpressionPlaceholder()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_ScalarJoinRecipeHasNoClientExpressionPlaceholder),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().DepartmentEmployees.Join(
+            databaseScope.Database.Query().Departments,
+            departmentEmployee => departmentEmployee.dept_no,
+            department => department.DeptNo,
+            (departmentEmployee, department) =>
+                departmentEmployee.dept_no + ":" + department.Name.Trim());
+        var invocation = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+        var projection = invocation.Template.Projection as QueryPlanProjection.JoinedRowLocal;
+        var snapshot = QueryPlanDebugWriter.WriteTemplate(invocation.Template);
+
+        await Assert.That(projection).IsNotNull();
+        await Assert.That(projection!.Members).IsEmpty();
+        await Assert.That(projection.Disposition).IsEqualTo(QueryPlanProjectionDisposition.SqlOnlyCompatibility);
+        await Assert.That(snapshot).DoesNotContain("client-expression");
+        await Assert.That(snapshot).Contains("recipe=binary(add");
+    }
+
     private static async Task AssertParserProducesDataLinqPlan<T>(Database<EmployeesDb> database, IQueryable<T> query)
     {
         var expressionSnapshot = QueryPlanDebugWriter.WriteTemplate(ExpressionQueryPlanParser.Convert(database, query).Template);
@@ -789,6 +993,30 @@ public class ExpressionQueryPlanParserTests
         => throw new InvalidOperationException("AOT-strict local method evaluation should reject before invocation.");
 
     private sealed record LocalEmployeeId(int Value);
+
+    private sealed record ProjectionDto(string Value);
+
+    private sealed record ProjectionCaptureDto(string Value, int Captured);
+
+    private sealed class ProjectionCaptureProbe
+    {
+        public int InvocationCount { get; private set; }
+
+        public int Value
+        {
+            get
+            {
+                InvocationCount++;
+                return 7;
+            }
+        }
+    }
+
+    private readonly record struct ProjectionNumber(int Value)
+    {
+        public static ProjectionNumber operator +(ProjectionNumber left, ProjectionNumber right)
+            => new(left.Value + right.Value);
+    }
 
     private sealed class LocalMethodProbe
     {

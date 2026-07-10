@@ -220,31 +220,577 @@ internal static class QueryPlanTemplateValidator
         QueryPlanProjection projection,
         QueryPlanBindingDeclarations declarations)
     {
+        if (!Enum.IsDefined(projection.Disposition))
+        {
+            throw new ArgumentException(
+                $"Query plan projection '{projection.Kind}' has undefined disposition '{projection.Disposition}'.",
+                nameof(projection));
+        }
+
+        if (projection.Disposition == QueryPlanProjectionDisposition.Unsupported)
+        {
+            throw new ArgumentException(
+                $"Query plan projection '{projection.Kind}' is unsupported in an executable query template.",
+                nameof(projection));
+        }
+
         switch (projection)
         {
             case QueryPlanProjection.Anonymous anonymous:
                 ValidateMembers(anonymous.Members, declarations);
+                ValidateProjectionRecipeRoot(anonymous.ResultType, anonymous.Disposition, anonymous.Recipe);
+                ValidateProjectionRecipe(anonymous.Recipe, declarations);
                 break;
             case QueryPlanProjection.JoinedRowLocal joined:
                 ValidateMembers(joined.Members, declarations);
+                ValidateProjectionRecipeRoot(joined.ResultType, joined.Disposition, joined.Recipe);
+                ValidateProjectionRecipe(joined.Recipe, declarations);
                 break;
             case QueryPlanProjection.SqlRow sqlRow:
                 ValidateMembers(sqlRow.Members, declarations);
+                ValidateProjectionConstructor(
+                    sqlRow.Constructor,
+                    sqlRow.ResultType,
+                    sqlRow.Members.Select(static member => member.Value.ClrType).ToArray(),
+                    "SQL-row projection");
                 break;
             case QueryPlanProjection.GroupedAggregate grouped:
                 ValidateMembers(grouped.Members, declarations);
+                ValidateProjectionConstructor(
+                    grouped.Constructor,
+                    grouped.ResultType,
+                    grouped.Members.Select(static member => member.Value.ClrType).ToArray(),
+                    "grouped-aggregate projection");
                 break;
             case QueryPlanProjection.Entity:
             case QueryPlanProjection.ScalarMember:
-            case QueryPlanProjection.ComputedRowLocal:
-            case QueryPlanProjection.TransparentIdentifier:
                 break;
+            case QueryPlanProjection.ComputedRowLocal computed:
+                ValidateProjectionRecipeRoot(computed.ResultType, computed.Disposition, computed.Recipe);
+                ValidateProjectionRecipe(computed.Recipe, declarations);
+                break;
+            case QueryPlanProjection.TransparentIdentifier:
+                throw new ArgumentException(
+                    "Transparent-identifier projections are parser-internal and cannot be retained in an executable query template.",
+                    nameof(projection));
             default:
                 throw new ArgumentException(
                     $"Unknown query plan projection '{projection.GetType().Name}'.",
                     nameof(projection));
         }
     }
+
+    private static void ValidateProjectionRecipeRoot(
+        Type projectionResultType,
+        QueryPlanProjectionDisposition projectionDisposition,
+        QueryPlanProjectionRecipe recipe)
+    {
+        if (recipe.ResultType != projectionResultType)
+        {
+            throw new ArgumentException(
+                $"Projection recipe result type '{recipe.ResultType}' does not match projection result type '{projectionResultType}'.",
+                nameof(recipe));
+        }
+
+        if (recipe.Disposition is not (
+            QueryPlanProjectionDisposition.AotSafe or
+            QueryPlanProjectionDisposition.SqlOnlyCompatibility))
+        {
+            throw new ArgumentException(
+                $"Projection recipe has invalid executable disposition '{recipe.Disposition}'.",
+                nameof(recipe));
+        }
+
+        // A projection kind may impose a stricter backend fence than its
+        // normalized recipe. Anonymous and joined-row-local projections are
+        // SQL-only in 0.9 even when their inner scalar recipe is AOT-safe.
+        if (projectionDisposition == QueryPlanProjectionDisposition.AotSafe &&
+            recipe.Disposition != QueryPlanProjectionDisposition.AotSafe)
+        {
+            throw new ArgumentException(
+                $"Projection disposition '{projectionDisposition}' does not match recipe disposition '{recipe.Disposition}'.",
+                nameof(recipe));
+        }
+    }
+
+    private static void ValidateProjectionRecipe(
+        QueryPlanProjectionRecipe recipe,
+        QueryPlanBindingDeclarations declarations)
+    {
+        ArgumentNullException.ThrowIfNull(recipe);
+
+        switch (recipe)
+        {
+            case QueryPlanProjectionRecipe.Source:
+                break;
+            case QueryPlanProjectionRecipe.SourceColumn column:
+                var columnType = column.Column.ValueProperty?.CsType.Type;
+                if (columnType is not null &&
+                    GetNonNullableType(columnType) != GetNonNullableType(column.ResultType))
+                {
+                    throw new ArgumentException(
+                        $"Projection source-column recipe type '{column.ResultType}' does not match column model type '{columnType}'.",
+                        nameof(recipe));
+                }
+                break;
+            case QueryPlanProjectionRecipe.ScalarBinding scalar:
+                ValidateReference(
+                    scalar.BindingId,
+                    QueryPlanBindingKind.Scalar,
+                    scalar.ResultType,
+                    declarations);
+                break;
+            case QueryPlanProjectionRecipe.Intrinsic intrinsic:
+                ValidateProjectionIntrinsic(intrinsic);
+                break;
+            case QueryPlanProjectionRecipe.Convert convert:
+                if (!QueryPlanProjectionRecipe.IsSupportedConversion(
+                        convert.Operand.ResultType,
+                        convert.ResultType))
+                {
+                    throw new ArgumentException(
+                        $"Projection conversion from '{convert.Operand.ResultType}' to '{convert.ResultType}' is not supported.",
+                        nameof(recipe));
+                }
+                ValidateProjectionRecipe(convert.Operand, declarations);
+                break;
+            case QueryPlanProjectionRecipe.Not not:
+                if (!IsValidProjectionNot(not.Operand.ResultType, not.ResultType))
+                {
+                    throw new ArgumentException(
+                        "Projection Not recipes require matching Boolean or nullable-Boolean operand and result types.",
+                        nameof(recipe));
+                }
+                ValidateProjectionRecipe(not.Operand, declarations);
+                break;
+            case QueryPlanProjectionRecipe.Binary binary:
+                ValidateProjectionBinary(binary);
+                ValidateProjectionRecipe(binary.Left, declarations);
+                ValidateProjectionRecipe(binary.Right, declarations);
+                break;
+            case QueryPlanProjectionRecipe.SupportedMember member:
+                ValidateProjectionSupportedMember(member);
+                ValidateProjectionRecipe(member.Instance, declarations);
+                break;
+            case QueryPlanProjectionRecipe.Function function:
+                ValidateProjectionFunction(function);
+                foreach (var argument in function.Arguments)
+                    ValidateProjectionRecipe(argument, declarations);
+                break;
+            case QueryPlanProjectionRecipe.Conditional conditional:
+                ValidateProjectionConditional(conditional);
+                ValidateProjectionRecipe(conditional.Test, declarations);
+                ValidateProjectionRecipe(conditional.IfTrue, declarations);
+                ValidateProjectionRecipe(conditional.IfFalse, declarations);
+                break;
+            case QueryPlanProjectionRecipe.NewArray newArray:
+                ValidateProjectionArray(newArray);
+                foreach (var element in newArray.Elements)
+                    ValidateProjectionRecipe(element, declarations);
+                break;
+            case QueryPlanProjectionRecipe.CompatibilityConstructor constructor:
+                ValidateCompatibilityConstructor(constructor);
+                foreach (var argument in constructor.Arguments)
+                    ValidateProjectionRecipe(argument, declarations);
+                break;
+            case QueryPlanProjectionRecipe.CompatibilityMember member:
+                ValidateCompatibilityMember(member);
+                if (member.Instance is not null)
+                    ValidateProjectionRecipe(member.Instance, declarations);
+                break;
+            default:
+                throw new ArgumentException(
+                    $"Unknown projection recipe '{recipe.GetType().Name}'.",
+                    nameof(recipe));
+        }
+    }
+
+    private static void ValidateProjectionBinary(QueryPlanProjectionRecipe.Binary binary)
+    {
+        switch (binary.Operator)
+        {
+            case QueryPlanProjectionBinaryOperator.AndAlso:
+            case QueryPlanProjectionBinaryOperator.OrElse:
+                if (binary.Left.ResultType != typeof(bool) ||
+                    binary.Right.ResultType != typeof(bool) ||
+                    binary.ResultType != typeof(bool))
+                {
+                    throw new ArgumentException(
+                        $"Projection binary operator '{binary.Operator}' requires Boolean operands and result.",
+                        nameof(binary));
+                }
+                break;
+            case QueryPlanProjectionBinaryOperator.Equal:
+            case QueryPlanProjectionBinaryOperator.NotEqual:
+                if (binary.ResultType != typeof(bool) ||
+                    !AreProjectionOperandTypesCompatible(binary.Left.ResultType, binary.Right.ResultType))
+                {
+                    throw new ArgumentException(
+                        $"Projection equality operator '{binary.Operator}' requires compatible operands and a Boolean result.",
+                        nameof(binary));
+                }
+                break;
+            case QueryPlanProjectionBinaryOperator.GreaterThan:
+            case QueryPlanProjectionBinaryOperator.GreaterThanOrEqual:
+            case QueryPlanProjectionBinaryOperator.LessThan:
+            case QueryPlanProjectionBinaryOperator.LessThanOrEqual:
+                if (GetNonNullableType(binary.ResultType) != typeof(bool) ||
+                    !AreProjectionOperandTypesCompatible(binary.Left.ResultType, binary.Right.ResultType) ||
+                    (Nullable.GetUnderlyingType(binary.ResultType) is not null &&
+                     Nullable.GetUnderlyingType(binary.Left.ResultType) is null &&
+                     Nullable.GetUnderlyingType(binary.Right.ResultType) is null))
+                {
+                    throw new ArgumentException(
+                        $"Projection comparison operator '{binary.Operator}' requires compatible operands and a Boolean or nullable-Boolean result.",
+                        nameof(binary));
+                }
+                break;
+            case QueryPlanProjectionBinaryOperator.Add:
+                if (!IsSupportedProjectionAdd(
+                        binary.Left.ResultType,
+                        binary.Right.ResultType,
+                        binary.ResultType))
+                {
+                    throw new ArgumentException(
+                        $"Projection Add does not support operand types '{binary.Left.ResultType}' and '{binary.Right.ResultType}'.",
+                        nameof(binary));
+                }
+                break;
+            default:
+                throw new ArgumentException(
+                    $"Unknown projection binary operator '{binary.Operator}'.",
+                    nameof(binary));
+        }
+    }
+
+    private static bool IsSupportedProjectionAdd(
+        Type leftType,
+        Type rightType,
+        Type resultType)
+    {
+        var leftUnderlying = Nullable.GetUnderlyingType(leftType);
+        var rightUnderlying = Nullable.GetUnderlyingType(rightType);
+        var resultUnderlying = Nullable.GetUnderlyingType(resultType);
+        var nonNullableLeft = leftUnderlying ?? leftType;
+        var nonNullableRight = rightUnderlying ?? rightType;
+        var nonNullableResult = resultUnderlying ?? resultType;
+
+        if (nonNullableLeft == typeof(string) || nonNullableRight == typeof(string))
+            return resultType == typeof(string);
+
+        var isLifted = leftUnderlying is not null || rightUnderlying is not null;
+        return IsProjectionNumericType(nonNullableLeft) &&
+            nonNullableLeft == nonNullableRight &&
+            nonNullableLeft == nonNullableResult &&
+            (isLifted == (resultUnderlying is not null));
+    }
+
+    private static bool IsValidProjectionNot(Type operandType, Type resultType)
+        => operandType == resultType &&
+           (resultType == typeof(bool) || resultType == typeof(bool?));
+
+    private static bool AreProjectionOperandTypesCompatible(Type leftType, Type rightType)
+        => GetNonNullableType(leftType) == GetNonNullableType(rightType);
+
+    private static bool IsProjectionNumericType(Type type)
+    {
+        if (type.IsEnum)
+            return false;
+
+        return Type.GetTypeCode(type) is
+            TypeCode.Byte or
+            TypeCode.SByte or
+            TypeCode.Int16 or
+            TypeCode.UInt16 or
+            TypeCode.Int32 or
+            TypeCode.UInt32 or
+            TypeCode.Int64 or
+            TypeCode.UInt64 or
+            TypeCode.Single or
+            TypeCode.Double or
+            TypeCode.Decimal;
+    }
+
+    private static void ValidateProjectionSupportedMember(
+        QueryPlanProjectionRecipe.SupportedMember member)
+    {
+        switch (member.Member)
+        {
+            case QueryPlanProjectionSupportedMemberKind.NullableHasValue:
+                if (Nullable.GetUnderlyingType(member.Instance.ResultType) is null ||
+                    member.ResultType != typeof(bool))
+                {
+                    throw new ArgumentException(
+                        "NullableHasValue projection members require a nullable instance and Boolean result.",
+                        nameof(member));
+                }
+                break;
+            case QueryPlanProjectionSupportedMemberKind.NullableValue:
+                var underlyingType = Nullable.GetUnderlyingType(member.Instance.ResultType);
+                if (underlyingType is null || member.ResultType != underlyingType)
+                {
+                    throw new ArgumentException(
+                        "NullableValue projection members require a nullable instance and its underlying result type.",
+                        nameof(member));
+                }
+                break;
+            case QueryPlanProjectionSupportedMemberKind.StringLength:
+                if (GetNonNullableType(member.Instance.ResultType) != typeof(string) ||
+                    member.ResultType != typeof(int))
+                {
+                    throw new ArgumentException(
+                        "StringLength projection members require a String instance and Int32 result.",
+                        nameof(member));
+                }
+                break;
+            default:
+                throw new ArgumentException(
+                    $"Unknown supported projection member '{member.Member}'.",
+                    nameof(member));
+        }
+    }
+
+    private static void ValidateProjectionConditional(
+        QueryPlanProjectionRecipe.Conditional conditional)
+    {
+        if (conditional.Test.ResultType != typeof(bool))
+            throw new ArgumentException("Projection conditional tests must be Boolean.", nameof(conditional));
+
+        if (!IsRecipeTypeCompatible(conditional.ResultType, conditional.IfTrue.ResultType) ||
+            !IsRecipeTypeCompatible(conditional.ResultType, conditional.IfFalse.ResultType))
+        {
+            throw new ArgumentException(
+                "Projection conditional branch types must be compatible with the conditional result type.",
+                nameof(conditional));
+        }
+    }
+
+    private static void ValidateProjectionArray(QueryPlanProjectionRecipe.NewArray newArray)
+    {
+        if (!newArray.ResultType.IsArray ||
+            newArray.ResultType.GetElementType() != newArray.ElementType)
+        {
+            throw new ArgumentException(
+                "Projection array recipe result type does not match its element type.",
+                nameof(newArray));
+        }
+
+        foreach (var element in newArray.Elements)
+        {
+            if (!IsRecipeTypeCompatible(newArray.ElementType, element.ResultType))
+            {
+                throw new ArgumentException(
+                    $"Projection array element type '{element.ResultType}' is incompatible with '{newArray.ElementType}'.",
+                    nameof(newArray));
+            }
+        }
+    }
+
+    private static void ValidateCompatibilityConstructor(
+        QueryPlanProjectionRecipe.CompatibilityConstructor constructor)
+    {
+        ValidateProjectionConstructor(
+            constructor.Constructor,
+            constructor.ResultType,
+            constructor.Arguments.Select(static argument => argument.ResultType).ToArray(),
+            "Compatibility constructor");
+    }
+
+    private static void ValidateProjectionConstructor(
+        System.Reflection.ConstructorInfo constructor,
+        Type resultType,
+        IReadOnlyList<Type> argumentTypes,
+        string context)
+    {
+        ArgumentNullException.ThrowIfNull(constructor);
+        ArgumentNullException.ThrowIfNull(resultType);
+        ArgumentNullException.ThrowIfNull(argumentTypes);
+        ArgumentException.ThrowIfNullOrWhiteSpace(context);
+
+        var declaringType = constructor.DeclaringType
+            ?? throw new ArgumentException($"{context} has no declaring type.", nameof(constructor));
+        if (declaringType != resultType)
+        {
+            throw new ArgumentException(
+                $"{context} type '{declaringType}' does not match result type '{resultType}'.",
+                nameof(constructor));
+        }
+
+        var parameters = constructor.GetParameters();
+        if (parameters.Length != argumentTypes.Count)
+        {
+            throw new ArgumentException(
+                $"{context} expects {parameters.Length} arguments but the projection contains {argumentTypes.Count}.",
+                nameof(constructor));
+        }
+
+        for (var index = 0; index < parameters.Length; index++)
+        {
+            if (!IsRecipeTypeCompatible(parameters[index].ParameterType, argumentTypes[index]))
+            {
+                throw new ArgumentException(
+                    $"{context} argument {index} has projection type '{argumentTypes[index]}', " +
+                    $"expected '{parameters[index].ParameterType}'.",
+                    nameof(constructor));
+            }
+        }
+    }
+
+    private static void ValidateCompatibilityMember(
+        QueryPlanProjectionRecipe.CompatibilityMember member)
+    {
+        var (isStatic, memberType) = member.Member switch
+        {
+            System.Reflection.FieldInfo field => (field.IsStatic, field.FieldType),
+            System.Reflection.PropertyInfo property when property.GetMethod is not null =>
+                (property.GetMethod.IsStatic, property.PropertyType),
+            System.Reflection.PropertyInfo => throw new ArgumentException(
+                $"Compatibility property '{member.Member.Name}' has no getter.",
+                nameof(member)),
+            _ => throw new ArgumentException(
+                $"Compatibility member '{member.Member.Name}' is not a field or property.",
+                nameof(member))
+        };
+
+        if (isStatic != (member.Instance is null))
+        {
+            throw new ArgumentException(
+                $"Compatibility member '{member.Member.Name}' has an invalid static/instance recipe shape.",
+                nameof(member));
+        }
+
+        if (!isStatic &&
+            member.Member.DeclaringType is { } declaringType &&
+            member.Instance is { } instance &&
+            !declaringType.IsAssignableFrom(GetNonNullableType(instance.ResultType)))
+        {
+            throw new ArgumentException(
+                $"Compatibility member instance type '{instance.ResultType}' is not assignable to '{declaringType}'.",
+                nameof(member));
+        }
+
+        if (memberType != member.ResultType)
+        {
+            throw new ArgumentException(
+                $"Compatibility member type '{memberType}' does not match recipe result type '{member.ResultType}'.",
+                nameof(member));
+        }
+    }
+
+    private static bool IsRecipeTypeCompatible(Type expectedType, Type actualType)
+        => expectedType.IsAssignableFrom(actualType) ||
+           Nullable.GetUnderlyingType(expectedType) == actualType;
+
+    private static Type GetNonNullableType(Type type)
+        => Nullable.GetUnderlyingType(type) ?? type;
+
+    private static void ValidateProjectionIntrinsic(QueryPlanProjectionRecipe.Intrinsic intrinsic)
+    {
+        if (intrinsic.IntrinsicKind == QueryPlanProjectionIntrinsicKind.Null &&
+            intrinsic.ResultType.IsValueType &&
+            Nullable.GetUnderlyingType(intrinsic.ResultType) is null)
+        {
+            throw new ArgumentException(
+                $"Null projection intrinsics require a reference or nullable result type, not '{intrinsic.ResultType}'.",
+                nameof(intrinsic));
+        }
+
+        if ((intrinsic.IntrinsicKind is QueryPlanProjectionIntrinsicKind.BooleanTrue or
+            QueryPlanProjectionIntrinsicKind.BooleanFalse) &&
+            intrinsic.ResultType != typeof(bool))
+        {
+            throw new ArgumentException(
+                $"Boolean projection intrinsics require result type '{typeof(bool)}', not '{intrinsic.ResultType}'.",
+                nameof(intrinsic));
+        }
+    }
+
+    private static void ValidateProjectionFunction(QueryPlanProjectionRecipe.Function function)
+    {
+        var expectedCount = function.FunctionKind switch
+        {
+            QueryPlanProjectionFunctionKind.StringSubstring => function.Arguments.Count is 2 or 3
+                ? function.Arguments.Count
+                : -1,
+            QueryPlanProjectionFunctionKind.StringTrim or
+            QueryPlanProjectionFunctionKind.StringToUpper or
+            QueryPlanProjectionFunctionKind.StringToLower or
+            QueryPlanProjectionFunctionKind.DatePartYear or
+            QueryPlanProjectionFunctionKind.DatePartMonth or
+            QueryPlanProjectionFunctionKind.DatePartDay or
+            QueryPlanProjectionFunctionKind.DatePartDayOfYear or
+            QueryPlanProjectionFunctionKind.DatePartDayOfWeek or
+            QueryPlanProjectionFunctionKind.TimePartHour or
+            QueryPlanProjectionFunctionKind.TimePartMinute or
+            QueryPlanProjectionFunctionKind.TimePartSecond or
+            QueryPlanProjectionFunctionKind.TimePartMillisecond => 1,
+            _ => -1
+        };
+
+        if (expectedCount < 0 || function.Arguments.Count != expectedCount)
+        {
+            throw new ArgumentException(
+                $"Projection function '{function.FunctionKind}' has invalid argument count {function.Arguments.Count}.",
+                nameof(function));
+        }
+
+
+        var sourceType = GetNonNullableType(function.Arguments[0].ResultType);
+        switch (function.FunctionKind)
+        {
+            case QueryPlanProjectionFunctionKind.StringTrim:
+            case QueryPlanProjectionFunctionKind.StringToUpper:
+            case QueryPlanProjectionFunctionKind.StringToLower:
+                if (sourceType != typeof(string) || function.ResultType != typeof(string))
+                    throw InvalidProjectionFunctionTypes(function);
+                break;
+            case QueryPlanProjectionFunctionKind.StringSubstring:
+                if (sourceType != typeof(string) ||
+                    function.ResultType != typeof(string) ||
+                    function.Arguments.Skip(1).Any(argument => GetNonNullableType(argument.ResultType) != typeof(int)))
+                {
+                    throw InvalidProjectionFunctionTypes(function);
+                }
+                break;
+            case QueryPlanProjectionFunctionKind.DatePartYear:
+            case QueryPlanProjectionFunctionKind.DatePartMonth:
+            case QueryPlanProjectionFunctionKind.DatePartDay:
+            case QueryPlanProjectionFunctionKind.DatePartDayOfYear:
+                if ((sourceType != typeof(DateTime) && sourceType != typeof(DateOnly)) ||
+                    function.ResultType != typeof(int))
+                {
+                    throw InvalidProjectionFunctionTypes(function);
+                }
+                break;
+            case QueryPlanProjectionFunctionKind.DatePartDayOfWeek:
+                if ((sourceType != typeof(DateTime) && sourceType != typeof(DateOnly)) ||
+                    function.ResultType != typeof(DayOfWeek))
+                {
+                    throw InvalidProjectionFunctionTypes(function);
+                }
+                break;
+            case QueryPlanProjectionFunctionKind.TimePartHour:
+            case QueryPlanProjectionFunctionKind.TimePartMinute:
+            case QueryPlanProjectionFunctionKind.TimePartSecond:
+            case QueryPlanProjectionFunctionKind.TimePartMillisecond:
+                if ((sourceType != typeof(DateTime) && sourceType != typeof(TimeOnly)) ||
+                    function.ResultType != typeof(int))
+                {
+                    throw InvalidProjectionFunctionTypes(function);
+                }
+                break;
+            default:
+                throw new ArgumentException(
+                    $"Unknown projection function '{function.FunctionKind}'.",
+                    nameof(function));
+        }
+    }
+
+    private static ArgumentException InvalidProjectionFunctionTypes(
+        QueryPlanProjectionRecipe.Function function)
+        => new(
+            $"Projection function '{function.FunctionKind}' has incompatible argument or result types.",
+            nameof(function));
 
     private static void ValidateMembers(
         IReadOnlyList<QueryPlanProjectionMember> members,
@@ -451,13 +997,16 @@ internal static class QueryPlanTemplateValidator
             case QueryPlanProjection.Anonymous anonymous:
                 ValidateProjectionMemberSources(anonymous.Members, sourcesById);
                 ValidateSources(anonymous.Sources, sourcesById);
+                ValidateProjectionRecipeSources(anonymous.Recipe, sourcesById);
                 break;
             case QueryPlanProjection.ComputedRowLocal computed:
                 ValidateSources(computed.Sources, sourcesById);
+                ValidateProjectionRecipeSources(computed.Recipe, sourcesById);
                 break;
             case QueryPlanProjection.JoinedRowLocal joined:
                 ValidateProjectionMemberSources(joined.Members, sourcesById);
                 ValidateSources(joined.Sources, sourcesById);
+                ValidateProjectionRecipeSources(joined.Recipe, sourcesById);
                 break;
             case QueryPlanProjection.SqlRow sqlRow:
                 ValidateProjectionMemberSources(sqlRow.Members, sourcesById);
@@ -473,6 +1022,63 @@ internal static class QueryPlanTemplateValidator
                 throw new ArgumentException(
                     $"Unknown query plan projection '{projection.GetType().Name}'.",
                     nameof(projection));
+        }
+    }
+
+    private static void ValidateProjectionRecipeSources(
+        QueryPlanProjectionRecipe recipe,
+        IReadOnlyDictionary<string, QueryPlanSourceSlot> sourcesById)
+    {
+        switch (recipe)
+        {
+            case QueryPlanProjectionRecipe.Source source:
+                ValidateSource(source.SourceSlot, sourcesById);
+                break;
+            case QueryPlanProjectionRecipe.SourceColumn column:
+                ValidateSource(column.SourceSlot, sourcesById);
+                ValidateColumn(column.SourceSlot, column.Column);
+                break;
+            case QueryPlanProjectionRecipe.Convert convert:
+                ValidateProjectionRecipeSources(convert.Operand, sourcesById);
+                break;
+            case QueryPlanProjectionRecipe.Not not:
+                ValidateProjectionRecipeSources(not.Operand, sourcesById);
+                break;
+            case QueryPlanProjectionRecipe.Binary binary:
+                ValidateProjectionRecipeSources(binary.Left, sourcesById);
+                ValidateProjectionRecipeSources(binary.Right, sourcesById);
+                break;
+            case QueryPlanProjectionRecipe.SupportedMember member:
+                ValidateProjectionRecipeSources(member.Instance, sourcesById);
+                break;
+            case QueryPlanProjectionRecipe.Function function:
+                foreach (var argument in function.Arguments)
+                    ValidateProjectionRecipeSources(argument, sourcesById);
+                break;
+            case QueryPlanProjectionRecipe.Conditional conditional:
+                ValidateProjectionRecipeSources(conditional.Test, sourcesById);
+                ValidateProjectionRecipeSources(conditional.IfTrue, sourcesById);
+                ValidateProjectionRecipeSources(conditional.IfFalse, sourcesById);
+                break;
+            case QueryPlanProjectionRecipe.NewArray newArray:
+                foreach (var element in newArray.Elements)
+                    ValidateProjectionRecipeSources(element, sourcesById);
+                break;
+            case QueryPlanProjectionRecipe.CompatibilityConstructor constructor:
+                foreach (var argument in constructor.Arguments)
+                    ValidateProjectionRecipeSources(argument, sourcesById);
+                break;
+            case QueryPlanProjectionRecipe.CompatibilityMember member when member.Instance is not null:
+                ValidateProjectionRecipeSources(member.Instance, sourcesById);
+                break;
+            case QueryPlanProjectionRecipe.ScalarBinding:
+            case QueryPlanProjectionRecipe.Intrinsic:
+            case QueryPlanProjectionRecipe.CompatibilityMember:
+                break;
+            default:
+                throw new ArgumentException(
+                    $"Unknown projection recipe '{recipe.GetType().Name}'.",
+                    nameof(recipe));
         }
     }
 

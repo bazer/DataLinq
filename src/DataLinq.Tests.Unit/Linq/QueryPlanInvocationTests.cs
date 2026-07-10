@@ -124,7 +124,10 @@ public class QueryPlanInvocationTests
             new QueryPlanProjection.Anonymous(
                 typeof(object),
                 [new QueryPlanProjectionMember("value", function)],
-                [source]),
+                [source],
+                new QueryPlanProjectionRecipe.Convert(
+                    new QueryPlanProjectionRecipe.ScalarBinding("missing", typeof(int)),
+                    typeof(object))),
             QueryPlanResult.Sequence(typeof(object)),
             QueryPlanBindingDeclarations.Empty,
             QueryPlanSpecialization.Empty));
@@ -215,7 +218,13 @@ public class QueryPlanInvocationTests
             new QueryPlanProjection.Anonymous(
                 typeof(object),
                 [new QueryPlanProjectionMember("value", Column(source, nameof(Employee.emp_no)))],
-                [missingProjectionSource]),
+                [missingProjectionSource],
+                new QueryPlanProjectionRecipe.Convert(
+                    new QueryPlanProjectionRecipe.SourceColumn(
+                        source,
+                        employeeTable.GetColumnByPropertyName(nameof(Employee.emp_no)),
+                        typeof(int?)),
+                    typeof(object))),
             QueryPlanResult.Sequence(typeof(object)),
             QueryPlanBindingDeclarations.Empty,
             QueryPlanSpecialization.Empty));

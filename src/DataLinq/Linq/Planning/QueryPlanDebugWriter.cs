@@ -184,7 +184,9 @@ internal static class QueryPlanDebugWriter
                     .Append("entity source=")
                     .Append(entity.Source.Id)
                     .Append(" type=")
-                    .AppendLine(TypeName(entity.ResultType));
+                    .Append(TypeName(entity.ResultType))
+                    .Append(" disposition=")
+                    .AppendLine(ToToken(entity.Disposition));
                 break;
 
             case QueryPlanProjection.ScalarMember scalar:
@@ -192,7 +194,9 @@ internal static class QueryPlanDebugWriter
                     .Append("scalar-member ")
                     .Append(FormatColumn(scalar.Source, scalar.Column))
                     .Append(" type=")
-                    .AppendLine(TypeName(scalar.ResultType));
+                    .Append(TypeName(scalar.ResultType))
+                    .Append(" disposition=")
+                    .AppendLine(ToToken(scalar.Disposition));
                 break;
 
             case QueryPlanProjection.Anonymous anonymous:
@@ -202,17 +206,23 @@ internal static class QueryPlanDebugWriter
                     .Append(" sources=")
                     .Append(string.Join(",", anonymous.Sources.Select(static source => source.Id)))
                     .Append(" members=")
-                    .AppendLine(FormatMembers(anonymous.Members));
+                    .Append(FormatMembers(anonymous.Members))
+                    .Append(" disposition=")
+                    .Append(ToToken(anonymous.Disposition))
+                    .Append(" recipe=")
+                    .AppendLine(FormatRecipe(anonymous.Recipe));
                 break;
 
             case QueryPlanProjection.ComputedRowLocal computed:
                 builder
                     .Append("computed-row-local type=")
                     .Append(TypeName(computed.ResultType))
-                    .Append(" shape=")
-                    .Append(computed.ExpressionShape)
                     .Append(" sources=")
-                    .AppendLine(string.Join(",", computed.Sources.Select(static source => source.Id)));
+                    .Append(string.Join(",", computed.Sources.Select(static source => source.Id)))
+                    .Append(" disposition=")
+                    .Append(ToToken(computed.Disposition))
+                    .Append(" recipe=")
+                    .AppendLine(FormatRecipe(computed.Recipe));
                 break;
 
             case QueryPlanProjection.JoinedRowLocal joined:
@@ -222,7 +232,11 @@ internal static class QueryPlanDebugWriter
                     .Append(" sources=")
                     .Append(string.Join(",", joined.Sources.Select(static source => source.Id)))
                     .Append(" members=")
-                    .AppendLine(FormatMembers(joined.Members));
+                    .Append(FormatMembers(joined.Members))
+                    .Append(" disposition=")
+                    .Append(ToToken(joined.Disposition))
+                    .Append(" recipe=")
+                    .AppendLine(FormatRecipe(joined.Recipe));
                 break;
 
             case QueryPlanProjection.SqlRow sqlRow:
@@ -230,7 +244,9 @@ internal static class QueryPlanDebugWriter
                     .Append("sql-row type=")
                     .Append(TypeName(sqlRow.ResultType))
                     .Append(" members=")
-                    .AppendLine(FormatMembers(sqlRow.Members));
+                    .Append(FormatMembers(sqlRow.Members))
+                    .Append(" disposition=")
+                    .AppendLine(ToToken(sqlRow.Disposition));
                 break;
 
             case QueryPlanProjection.TransparentIdentifier transparent:
@@ -238,7 +254,9 @@ internal static class QueryPlanDebugWriter
                     .Append("transparent-identifier type=")
                     .Append(TypeName(transparent.ResultType))
                     .Append(" sources=")
-                    .AppendLine(string.Join(", ", transparent.SourcesByMember.Select(source => $"{source.Key}={source.Value.Id}")));
+                    .Append(string.Join(", ", transparent.SourcesByMember.Select(source => $"{source.Key}={source.Value.Id}")))
+                    .Append(" disposition=")
+                    .AppendLine(ToToken(transparent.Disposition));
                 break;
 
             case QueryPlanProjection.GroupedAggregate grouped:
@@ -248,7 +266,9 @@ internal static class QueryPlanDebugWriter
                     .Append(" source=")
                     .Append(grouped.Source.Id)
                     .Append(" members=")
-                    .AppendLine(FormatMembers(grouped.Members));
+                    .Append(FormatMembers(grouped.Members))
+                    .Append(" disposition=")
+                    .AppendLine(ToToken(grouped.Disposition));
                 break;
 
             default:
@@ -383,6 +403,46 @@ internal static class QueryPlanDebugWriter
 
     private static string FormatMembers(System.Collections.Generic.IReadOnlyList<QueryPlanProjectionMember> members)
         => $"[{string.Join(", ", members.Select(static member => $"{member.Name}={FormatValue(member.Value)}"))}]";
+
+    private static string FormatRecipe(QueryPlanProjectionRecipe recipe)
+    {
+        return recipe switch
+        {
+            QueryPlanProjectionRecipe.Source source =>
+                $"source({source.SourceSlot.Id}:{TypeName(source.ResultType)})",
+            QueryPlanProjectionRecipe.SourceColumn column =>
+                $"source-column({FormatColumn(column.SourceSlot, column.Column)}:{TypeName(column.ResultType)})",
+            QueryPlanProjectionRecipe.ScalarBinding scalar =>
+                $"scalar-binding({scalar.BindingId}:{TypeName(scalar.ResultType)})",
+            QueryPlanProjectionRecipe.Intrinsic intrinsic =>
+                $"intrinsic({ToToken(intrinsic.IntrinsicKind)}:{TypeName(intrinsic.ResultType)})",
+            QueryPlanProjectionRecipe.Convert convert =>
+                $"convert({FormatRecipe(convert.Operand)} -> {TypeName(convert.ResultType)})",
+            QueryPlanProjectionRecipe.Not not =>
+                $"not({FormatRecipe(not.Operand)}:{TypeName(not.ResultType)})",
+            QueryPlanProjectionRecipe.Binary binary =>
+                $"binary({ToToken(binary.Operator)} {FormatRecipe(binary.Left)}, {FormatRecipe(binary.Right)}:{TypeName(binary.ResultType)})",
+            QueryPlanProjectionRecipe.SupportedMember member =>
+                $"member({ToToken(member.Member)} {FormatRecipe(member.Instance)}:{TypeName(member.ResultType)})",
+            QueryPlanProjectionRecipe.Function function =>
+                $"function({ToToken(function.FunctionKind)}:{TypeName(function.ResultType)} {string.Join(", ", function.Arguments.Select(FormatRecipe))})",
+            QueryPlanProjectionRecipe.Conditional conditional =>
+                $"conditional(test={FormatRecipe(conditional.Test)}, true={FormatRecipe(conditional.IfTrue)}, false={FormatRecipe(conditional.IfFalse)}:{TypeName(conditional.ResultType)})",
+            QueryPlanProjectionRecipe.NewArray newArray =>
+                $"new-array({TypeName(newArray.ElementType)} [{string.Join(", ", newArray.Elements.Select(FormatRecipe))}])",
+            QueryPlanProjectionRecipe.CompatibilityConstructor constructor =>
+                $"compat-constructor({FormatConstructor(constructor.Constructor)} [{string.Join(", ", constructor.Arguments.Select(FormatRecipe))}])",
+            QueryPlanProjectionRecipe.CompatibilityMember member =>
+                $"compat-member({FormatMember(member.Member)} instance={(member.Instance is null ? "static" : FormatRecipe(member.Instance))}:{TypeName(member.ResultType)})",
+            _ => throw new InvalidOperationException($"Unknown projection recipe '{recipe.GetType().Name}'.")
+        };
+    }
+
+    private static string FormatConstructor(System.Reflection.ConstructorInfo constructor)
+        => $"{TypeName(constructor.DeclaringType ?? typeof(object))}({string.Join(",", constructor.GetParameters().Select(parameter => TypeName(parameter.ParameterType)))})";
+
+    private static string FormatMember(System.Reflection.MemberInfo member)
+        => $"{TypeName(member.DeclaringType ?? typeof(object))}.{member.Name}";
 
     private static string FormatValue(QueryPlanValue value)
     {

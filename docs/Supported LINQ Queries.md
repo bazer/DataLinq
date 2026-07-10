@@ -8,7 +8,7 @@ For the detailed maintainer evidence behind these claims, see the [LINQ Translat
 
 ## Parser Boundary
 
-In 0.8 and later, `Database.Query()` runs through DataLinq's expression parser and query-plan SQL renderer. The production path is `ExpressionQueryPlanProvider` -> `ExpressionQueryPlanParser` -> `DataLinqQueryPlan` -> `QueryPlanSqlBuilder`.
+In 0.8 and later, `Database.Query()` runs through DataLinq's expression parser and query-plan SQL renderer. In 0.9, the production path is `ExpressionQueryPlanProvider` -> `ExpressionQueryPlanParser` -> `QueryPlanTemplate` + `QueryPlanInvocation` -> `QueryPlanSqlBuilder`.
 
 That implementation detail does not expand the public LINQ contract. The supported surface is still the test-backed subset below. Unsupported provider-query shapes should fail with DataLinq-owned `QueryTranslationException` diagnostics instead of using silent client-side predicate fallback.
 
@@ -170,12 +170,13 @@ This first slice is intentionally not a collection relation traversal engine. Th
 - predicates that traverse another relation from the related row, such as `child.Parent.Name == value`
 - collection relation traversal outside the documented one-to-many `Any(...)`/existence pattern
 
-Generated singular relation properties have a separate SQL-backed implicit inner-join slice. The test suite covers singular relation traversal in root-row predicates, ordering, and direct projection:
+Generated singular relation properties have a separate SQL-backed implicit inner-join slice. The test suite covers singular relation traversal in root-row predicates, ordering, direct projection, and supported row-local projection recipes:
 
 - `row.SingularRelation.Member` inside `Where(...)`
 - `row.SingularRelation.Member` inside `OrderBy(...)` and `ThenBy(...)`
 - `Select(row => row.SingularRelation.Member)`
 - `Select(row => new { row.Id, RelatedName = row.SingularRelation.Name })` when every projected member binds to a source-slot column
+- supported computed projection such as `Select(row => row.SingularRelation.Name.Trim())`
 - repeated access to the same relation in one query reuses one implicit join source
 
 Example:
@@ -193,7 +194,7 @@ var rows = db.Query().DepartmentEmployees
     .ToList();
 ```
 
-This is an inner join. Rows whose singular relation does not resolve are not preserved. Left-join/null-preserving traversal is not supported yet.
+This is an inner join. Rows whose singular relation does not resolve are not preserved. Left-join/null-preserving traversal is not supported yet. A computed related-member projection is not translated as a SQL expression: SQL selects the joined source keys, DataLinq materializes the rows, and the retained projection recipe performs the supported local computation.
 
 Multi-hop relation traversal, relation object projection, and collection relation projection are not supported in provider `Select(...)`.
 
@@ -202,7 +203,7 @@ Multi-hop relation traversal, relation object projection, and collection relatio
 `Select(...)` has two deliberately separate paths:
 
 - SQL-backed projection rows for direct source-slot values.
-- Row-local projection after materialization for computed .NET expressions.
+- Row-local projection after materialization from a self-contained recipe for supported computed .NET expressions.
 
 The SQL-backed path reads projected aliases directly from `IDataLinqDataReader`. The test suite covers:
 
@@ -217,6 +218,9 @@ Computed projections remain row-local after SQL filtering, ordering, paging, and
 
 - computed scalar projections such as `Select(x => x.first_name + ":" + x.emp_no.Value)`
 - computed anonymous projections using materialized member chains such as `Trim()`, `ToUpper()`, and `Length`
+- computed singular-relation member projections such as `Select(x => x.SingularRelation.Name.Trim())`
+
+The retained plan stores the normalized recipe and captured binding references; execution does not recover or compile the original `Select(...)` expression. Single-source computed recipes form the AOT-safe local path. Recipes that require joined-row materialization remain SQL-only compatibility paths in 0.9.
 
 Example:
 
@@ -242,9 +246,12 @@ The test suite covers one narrow explicit inner join shape, both as fluent `Join
 - direct member equality keys such as `outer.DepartmentId` and `inner.Id`
 - nullable `.Value` key selectors such as `employee.emp_no.Value`
 - a result selector that projects direct source-slot values from both sides
+- a result selector with supported row-local computation over joined members, such as `department.Name.Trim()` or a scalar string concatenation
 - composed `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, `Take(...)`, `Any()`, and `Count()` over projected joined members that map back to source columns
 - post-paging `Where(...)`, ordering, `Any()`, and `Count()` over SQL-backed joined projection rows, rendered through a derived-source boundary so C# operator order is preserved
 - query-syntax transparent identifiers for a single inner join, when every referenced member can bind back to a source slot
+
+Joined row-local recipes are self-contained, but they remain SQL-only in 0.9 because SQL owns joined-row selection and primary-key buffering. Post-paging composition over a row-local joined result is still unsupported; materialize before applying further LINQ-to-Objects operators.
 
 Fluent example:
 

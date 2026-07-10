@@ -3,7 +3,7 @@
 
 # Query Backend And Execution Foundation Implementation Plan
 
-**Status:** Accepted.
+**Status:** Implementation in progress. F0-F2 are complete; F3 neutral source, row, and materializer work is next.
 
 **Target release:** 0.9.
 

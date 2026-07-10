@@ -49,7 +49,7 @@ operations:
   skip scalar-binding(p2:Int32)
   take scalar-binding(p3:Int32)
 projection:
-  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), first_name=column(s0.first_name:String)]
+  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), first_name=column(s0.first_name:String)] disposition=sql-only-compatibility
 result:
   sequence type=anonymous
 binding-declarations:
@@ -150,7 +150,7 @@ sources:
 operations:
   where exists(relation=Managers parent=s0 child=s1 predicate=compare(column(s1.emp_no:Int32) == scalar-binding(p0:Int32)))
 projection:
-  scalar-member column(s0.dept_no:String) type=String
+  scalar-member column(s0.dept_no:String) type=String disposition=direct
 result:
   sequence type=String
 binding-declarations:
@@ -181,7 +181,7 @@ sources:
 operations:
   where compare(function(string-starts-with:Boolean column(s0.dept_fk:String), scalar-binding(p0:String)) == intrinsic(true:Boolean))
 projection:
-  scalar-member column(s0.emp_no:Int32) type=Int32
+  scalar-member column(s0.emp_no:Int32) type=Int32 disposition=direct
 result:
   sum type=Int32 selector=column(s0.emp_no:Int32)
 binding-declarations:
@@ -220,7 +220,7 @@ operations:
   where compare(function(string-starts-with:Boolean column(s0.dept_no:String), scalar-binding(p0:String)) == intrinsic(true:Boolean))
   group-by column(s0.dept_no:String)
 projection:
-  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32)]
+  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32)] disposition=sql-only-compatibility
 result:
   sequence type=anonymous
 binding-declarations:
@@ -261,7 +261,7 @@ sources:
 operations:
   group-by column(s0.dept_no:String)
 projection:
-  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32), SumEmployeeNumbers=grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32)), MinEmployeeNumber=grouped-aggregate(min:Int32 selector=column(s0.emp_no:Int32)), MaxEmployeeNumber=grouped-aggregate(max:Int32 selector=column(s0.emp_no:Int32)), AverageEmployeeNumber=grouped-aggregate(average:Double selector=column(s0.emp_no:Int32))]
+  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32), SumEmployeeNumbers=grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32)), MinEmployeeNumber=grouped-aggregate(min:Int32 selector=column(s0.emp_no:Int32)), MaxEmployeeNumber=grouped-aggregate(max:Int32 selector=column(s0.emp_no:Int32)), AverageEmployeeNumber=grouped-aggregate(average:Double selector=column(s0.emp_no:Int32))] disposition=sql-only-compatibility
 result:
   sequence type=anonymous
 binding-declarations:
@@ -302,7 +302,7 @@ operations:
   group-by column(s0.dept_no:String)
   having and(compare(grouped-aggregate(count:Int32) > scalar-binding(p0:Int32)), compare(grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32)) > scalar-binding(p1:Int32)))
 projection:
-  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32), SumEmployeeNumbers=grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32))]
+  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32), SumEmployeeNumbers=grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32))] disposition=sql-only-compatibility
 result:
   sequence type=anonymous
 binding-declarations:
@@ -350,7 +350,7 @@ operations:
   skip scalar-binding(p1:Int32)
   take scalar-binding(p2:Int32)
 projection:
-  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32)]
+  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), Count=grouped-aggregate(count:Int32)] disposition=sql-only-compatibility
 result:
   sequence type=anonymous
 binding-declarations:
@@ -395,7 +395,7 @@ sources:
 operations:
   group-by column(s0.dept_no:String), function(date-part-year:Int32 column(s0.from_date:DateOnly))
 projection:
-  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), FromYear=group-key(function(date-part-year:Int32 column(s0.from_date:DateOnly)):Int32), Count=grouped-aggregate(count:Int32)]
+  grouped-aggregate type=anonymous source=s0 members=[DeptNo=group-key(column(s0.dept_no:String):String), FromYear=group-key(function(date-part-year:Int32 column(s0.from_date:DateOnly)):Int32), Count=grouped-aggregate(count:Int32)] disposition=sql-only-compatibility
 result:
   sequence type=anonymous
 binding-declarations:
@@ -443,7 +443,7 @@ operations:
   join inner column(s0.dept_no:String) = column(s1.dept_no:String)
   group-by column(s1.dept_name:String)
 projection:
-  grouped-aggregate type=anonymous source=s0 members=[DepartmentName=group-key(column(s1.dept_name:String):String), Count=grouped-aggregate(count:Int32), SumEmployeeNumbers=grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32))]
+  grouped-aggregate type=anonymous source=s0 members=[DepartmentName=group-key(column(s1.dept_name:String):String), Count=grouped-aggregate(count:Int32), SumEmployeeNumbers=grouped-aggregate(sum:Int32 selector=column(s0.emp_no:Int32))] disposition=sql-only-compatibility
 result:
   sequence type=anonymous
 binding-declarations:
@@ -500,7 +500,7 @@ sources:
 operations:
   join inner column(s0.dept_no:String) = column(s1.dept_no:String)
 projection:
-  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)]
+  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)] disposition=sql-only-compatibility
 result:
   sequence type=anonymous
 binding-declarations:
@@ -545,7 +545,7 @@ operations:
   where compare(function(string-starts-with:Boolean column(s1.dept_name:String), scalar-binding(p0:String)) == intrinsic(true:Boolean))
   order-by column(s0.dept_no:String) ascending
 projection:
-  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)]
+  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)] disposition=sql-only-compatibility
 result:
   sequence type=anonymous
 binding-declarations:
@@ -589,7 +589,7 @@ operations:
   where compare(function(string-starts-with:Boolean column(s1.dept_name:String), scalar-binding(p0:String)) == intrinsic(true:Boolean))
   order-by column(s1.dept_name:String) ascending, column(s0.emp_no:Int32) ascending
 projection:
-  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), DepartmentName=column(s1.dept_name:String)]
+  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), DepartmentName=column(s1.dept_name:String)] disposition=sql-only-compatibility
 result:
   sequence type=anonymous
 binding-declarations:
@@ -625,7 +625,7 @@ operations:
   where and(compare(function(string-starts-with:Boolean column(s1.dept_name:String), scalar-binding(p0:String)) == intrinsic(true:Boolean)), compare(column(s1.dept_no:String) == scalar-binding(p1:String)))
   order-by column(s1.dept_name:String) ascending
 projection:
-  entity source=s0 type=Dept_emp
+  entity source=s0 type=Dept_emp disposition=direct
 result:
   sequence type=Dept_emp
 binding-declarations:
@@ -669,7 +669,7 @@ operations:
   where compare(function(string-starts-with:Boolean column(s0.first_name:String), scalar-binding(p1:String)) == intrinsic(true:Boolean))
   order-by column(s0.hire_date:DateOnly) descending
 projection:
-  entity source=s0 type=Employee
+  entity source=s0 type=Employee disposition=direct
 result:
   sequence type=Employee
 binding-declarations:
@@ -725,7 +725,7 @@ operations:
   where compare(function(string-starts-with:Boolean column(s1.dept_name:String), scalar-binding(p1:String)) == intrinsic(true:Boolean))
   order-by column(s0.dept_no:String) descending
 projection:
-  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)]
+  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), dept_no=column(s0.dept_no:String), DepartmentName=column(s1.dept_name:String)] disposition=sql-only-compatibility
 result:
   sequence type=anonymous
 binding-declarations:
@@ -810,7 +810,7 @@ specialization:
             databaseScope.Database,
             databaseScope.Database.Query().Employees.Select(x => x.first_name + ":" + x.emp_no!.Value));
 
-        await Assert.That(snapshot).Contains("projection:\n  computed-row-local type=String shape=Add sources=s0");
+        await Assert.That(snapshot).Contains("projection:\n  computed-row-local type=String sources=s0 disposition=aot-safe recipe=binary(add");
         await AssertNoLegacyParserTerms(snapshot);
     }
 
@@ -837,7 +837,7 @@ sources:
 operations:
   none
 projection:
-  anonymous type=anonymous sources=s0 members=[emp_no=column(s0.emp_no:Int32), NormalizedName=function(string-trim:String column(s0.first_name:String))]
+  anonymous type=anonymous sources=s0 members=[emp_no=column(s0.emp_no:Int32), NormalizedName=function(string-trim:String column(s0.first_name:String))] disposition=sql-only-compatibility recipe=compat-constructor(anonymous(Int32?,String) [source-column(column(s0.emp_no:Int32):Int32?), function(string-trim:String source-column(column(s0.first_name:String):String))])
 result:
   sequence type=anonymous
 binding-declarations:
@@ -876,7 +876,7 @@ sources:
 operations:
   join inner column(s0.dept_no:String) = column(s1.dept_no:String)
 projection:
-  joined-row-local type=anonymous sources=s0,s1 members=[emp_no=column(s0.emp_no:Int32), NormalizedDepartmentName=function(string-trim:String column(s1.dept_name:String))]
+  joined-row-local type=anonymous sources=s0,s1 members=[emp_no=column(s0.emp_no:Int32), NormalizedDepartmentName=function(string-trim:String column(s1.dept_name:String))] disposition=sql-only-compatibility recipe=compat-constructor(anonymous(Int32,String) [source-column(column(s0.emp_no:Int32):Int32), function(string-trim:String source-column(column(s1.dept_name:String):String))])
 result:
   sequence type=anonymous
 binding-declarations:
@@ -912,7 +912,7 @@ sources:
 operations:
   join inner column(s0.dept_no:String) = column(s1.dept_no:String)
 projection:
-  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), DepartmentName=column(s1.dept_name:String)]
+  sql-row type=anonymous members=[emp_no=column(s0.emp_no:Int32), DepartmentName=column(s1.dept_name:String)] disposition=sql-only-compatibility
 result:
   sequence type=anonymous
 binding-declarations:

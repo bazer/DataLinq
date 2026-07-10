@@ -188,7 +188,6 @@ internal sealed class QueryPlanSqlValueRenderer(
             QueryPlanFunctionKind.StringContains or
             QueryPlanFunctionKind.StringIsNullOrEmpty or
             QueryPlanFunctionKind.StringIsNullOrWhiteSpace => throw new QueryTranslationException($"Boolean query plan function '{function.Function}' must be rendered as a predicate."),
-            QueryPlanFunctionKind.ClientExpression => throw new QueryTranslationException("Client-expression query plan values cannot be rendered to SQL."),
             _ => throw new QueryTranslationException($"Query plan function '{function.Function}' is not supported by SQL rendering.")
         };
     }

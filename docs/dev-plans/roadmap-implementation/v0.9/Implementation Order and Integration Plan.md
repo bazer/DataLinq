@@ -591,7 +591,17 @@ The first coherent slice is characterization only. It should make the foundation
 - [x] Projection disposition D1 is complete enough to begin template/recipe work.
 - [x] No production architecture or support claim has changed yet.
 
-W1 is complete and W2 is next. Do not start W2 by creating `IQueryPlanBackend` or `DataLinq.Memory` in isolation; that would put a new name above the existing SQL-shaped runtime without making the boundary real.
+### W2 implementation completed
+
+- [x] Add the SC-1 scalar converter metadata contracts without changing runtime value behavior.
+- [x] Separate structural binding declarations and specialization from frozen invocation values.
+- [x] Make nullness and local-sequence cardinality specialization explicit and validated.
+- [x] Give every projection kind an explicit direct, AOT-safe, SQL-only compatibility, or unsupported disposition.
+- [x] Normalize retained row-local projections into immutable recipes with source-slot and binding references.
+- [x] Remove the original expression from post-parse executor contracts and derive the terminal primary-key shortcut from the validated invocation.
+- [x] Preserve SQLite, MySQL, and MariaDB projection, join, SQL-parity, and primary-key behavior through the invocation-only route.
+
+W2 is complete. W3 may continue independently, while W4 is now the next query-foundation dependency. Do not start `IQueryPlanBackend` or `DataLinq.Memory` in isolation; the neutral row, source, and materializer seam comes first.
 
 ## Baseline Versus Final Evidence
 

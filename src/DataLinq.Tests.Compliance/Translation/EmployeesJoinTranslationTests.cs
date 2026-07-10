@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Exceptions;
+using DataLinq.Linq.Planning;
+using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Testing;
 
 namespace DataLinq.Tests.Compliance;
@@ -567,6 +569,46 @@ public class EmployeesJoinTranslationTests
             .ThenBy(row => row.NormalizedDepartmentName, StringComparer.Ordinal)
             .ToArray();
 
+        await Assert.That(actual).IsEquivalentTo(expected);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExplicitInnerJoin_ScalarRecipeExecutesWithoutPlaceholderOrOriginalExpression(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExplicitInnerJoin_ScalarRecipeExecutesWithoutPlaceholderOrOriginalExpression),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var expected = employeesDatabase.Query().DepartmentEmployees
+            .ToList()
+            .Join(
+                employeesDatabase.Query().Departments.ToList(),
+                departmentEmployee => departmentEmployee.dept_no,
+                department => department.DeptNo,
+                (departmentEmployee, department) =>
+                    departmentEmployee.dept_no + ":" + department.Name.Trim())
+            .OrderBy(static value => value, StringComparer.Ordinal)
+            .ToArray();
+        var query = employeesDatabase.Query().DepartmentEmployees.Join(
+            employeesDatabase.Query().Departments,
+            departmentEmployee => departmentEmployee.dept_no,
+            department => department.DeptNo,
+            (departmentEmployee, department) =>
+                departmentEmployee.dept_no + ":" + department.Name.Trim());
+        var invocation = ExpressionQueryPlanParser.Convert(employeesDatabase, query);
+        var projection = invocation.Template.Projection as QueryPlanProjection.JoinedRowLocal;
+
+        var actual = ExpressionQueryPlanExecutor.ExecuteEnumerable<string>(
+                employeesDatabase.Provider.ReadOnlyAccess,
+                invocation)
+            .OrderBy(static value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        await Assert.That(projection).IsNotNull();
+        await Assert.That(projection!.Members).IsEmpty();
         await Assert.That(actual).IsEquivalentTo(expected);
     }
 

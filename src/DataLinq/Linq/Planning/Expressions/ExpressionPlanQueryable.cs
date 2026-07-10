@@ -51,24 +51,23 @@ internal sealed class ExpressionQueryPlanProvider : IQueryProvider
 
     public TResult Execute<TResult>(Expression expression)
     {
+        var plan = Parse(expression, typeof(TResult));
         if (dataSource is not null &&
-            ExpressionQueryPlanExecutor.TryExecuteTerminalPrimaryKeyExpression(
+            ExpressionQueryPlanExecutor.TryExecuteTerminalPrimaryKeyInvocation(
                 dataSource,
-                metadata,
-                expression,
+                plan,
                 out TResult primaryKeyResult))
         {
             return primaryKeyResult;
         }
 
-        var plan = Parse(expression, typeof(TResult));
-        return ExpressionQueryPlanExecutor.Execute<TResult>(GetDataSource(), plan, expression);
+        return ExpressionQueryPlanExecutor.Execute<TResult>(GetDataSource(), plan);
     }
 
     public IEnumerable<TElement> ExecuteEnumerable<TElement>(Expression expression)
     {
         var plan = Parse(expression, typeof(TElement));
-        return ExpressionQueryPlanExecutor.ExecuteEnumerable<TElement>(GetDataSource(), plan, expression);
+        return ExpressionQueryPlanExecutor.ExecuteEnumerable<TElement>(GetDataSource(), plan);
     }
 
     public QueryPlanInvocation Parse(Expression expression, Type resultType)
@@ -108,17 +107,15 @@ internal sealed class ExpressionPlanQueryable<T> : IOrderedQueryable<T>
 
 internal static class ExpressionQueryPlanExecutor
 {
-    internal static bool TryExecuteTerminalPrimaryKeyExpression<TResult>(
+    internal static bool TryExecuteTerminalPrimaryKeyInvocation<TResult>(
         DataSourceAccess dataSource,
-        DatabaseDefinition metadata,
-        Expression expression,
+        QueryPlanInvocation invocation,
         out TResult result)
     {
         result = default!;
 
-        if (!TryGetTerminalScalarPrimaryKeyExpression(
-                metadata,
-                expression,
+        if (!TryGetTerminalScalarPrimaryKeyInvocation(
+                invocation,
                 out var table,
                 out var primaryKey,
                 out var resultKind))
@@ -132,12 +129,22 @@ internal static class ExpressionQueryPlanExecutor
 
     public static IEnumerable<TElement> ExecuteEnumerable<TElement>(
         DataSourceAccess dataSource,
+        QueryPlanInvocation plan)
+        => ExecuteEnumerable<TElement>(
+            dataSource,
+            plan,
+            ProjectionEvaluationOptions.Default);
+
+    internal static IEnumerable<TElement> ExecuteEnumerable<TElement>(
+        DataSourceAccess dataSource,
         QueryPlanInvocation plan,
-        Expression expression)
+        ProjectionEvaluationOptions projectionOptions)
     {
         var template = plan.Template;
         if (template.Result.Kind != QueryPlanResultKind.Sequence)
             throw new QueryTranslationException($"Expression parser route expected a sequence result, but the plan result is '{template.Result.Kind}'.");
+
+        ValidateProjectionDisposition(template.Projection, projectionOptions);
 
         if (template.Projection is QueryPlanProjection.Entity)
         {
@@ -156,14 +163,21 @@ internal static class ExpressionQueryPlanExecutor
         if (template.Projection is QueryPlanProjection.SqlRow sqlRow)
             return ExecuteSqlRowProjection<TElement>(dataSource, plan, sqlRow);
 
-        return ExecuteProjectedSequence<TElement>(dataSource, plan, expression);
+        return ExecuteProjectedSequence<TElement>(dataSource, plan, projectionOptions);
     }
 
     public static TResult Execute<TResult>(
         DataSourceAccess dataSource,
+        QueryPlanInvocation plan)
+        => Execute<TResult>(dataSource, plan, ProjectionEvaluationOptions.Default);
+
+    internal static TResult Execute<TResult>(
+        DataSourceAccess dataSource,
         QueryPlanInvocation plan,
-        Expression expression)
+        ProjectionEvaluationOptions projectionOptions)
     {
+        ValidateProjectionDisposition(plan.Template.Projection, projectionOptions);
+
         return plan.Template.Result.Kind switch
         {
             QueryPlanResultKind.Count or
@@ -172,12 +186,12 @@ internal static class ExpressionQueryPlanExecutor
             QueryPlanResultKind.Min or
             QueryPlanResultKind.Max or
             QueryPlanResultKind.Average => ExecuteScalar<TResult>(dataSource, plan),
-            QueryPlanResultKind.First => ExecuteSingle<TResult>(dataSource, plan, expression, static sequence => sequence.First()),
-            QueryPlanResultKind.FirstOrDefault => ExecuteSingle<TResult>(dataSource, plan, expression, static sequence => sequence.FirstOrDefault()),
-            QueryPlanResultKind.Single => ExecuteSingle<TResult>(dataSource, plan, expression, static sequence => sequence.Single()),
-            QueryPlanResultKind.SingleOrDefault => ExecuteSingle<TResult>(dataSource, plan, expression, static sequence => sequence.SingleOrDefault()),
-            QueryPlanResultKind.Last => ExecuteSingle<TResult>(dataSource, plan, expression, static sequence => sequence.Last()),
-            QueryPlanResultKind.LastOrDefault => ExecuteSingle<TResult>(dataSource, plan, expression, static sequence => sequence.LastOrDefault()),
+            QueryPlanResultKind.First => ExecuteSingle<TResult>(dataSource, plan, projectionOptions, static sequence => sequence.First()),
+            QueryPlanResultKind.FirstOrDefault => ExecuteSingle<TResult>(dataSource, plan, projectionOptions, static sequence => sequence.FirstOrDefault()),
+            QueryPlanResultKind.Single => ExecuteSingle<TResult>(dataSource, plan, projectionOptions, static sequence => sequence.Single()),
+            QueryPlanResultKind.SingleOrDefault => ExecuteSingle<TResult>(dataSource, plan, projectionOptions, static sequence => sequence.SingleOrDefault()),
+            QueryPlanResultKind.Last => ExecuteSingle<TResult>(dataSource, plan, projectionOptions, static sequence => sequence.Last()),
+            QueryPlanResultKind.LastOrDefault => ExecuteSingle<TResult>(dataSource, plan, projectionOptions, static sequence => sequence.LastOrDefault()),
             var kind => throw new QueryTranslationException($"Expression parser route cannot execute query plan result '{kind}'.")
         };
     }
@@ -262,9 +276,8 @@ internal static class ExpressionQueryPlanExecutor
         };
     }
 
-    private static bool TryGetTerminalScalarPrimaryKeyExpression(
-        DatabaseDefinition metadata,
-        Expression expression,
+    private static bool TryGetTerminalScalarPrimaryKeyInvocation(
+        QueryPlanInvocation invocation,
         out TableDefinition table,
         out object? primaryKey,
         out QueryPlanResultKind resultKind)
@@ -273,205 +286,139 @@ internal static class ExpressionQueryPlanExecutor
         primaryKey = null;
         resultKind = default;
 
-        expression = UnwrapConvert(expression);
-        if (expression is not MethodCallExpression methodCall ||
-            !IsQueryableMethod(methodCall) ||
-            methodCall.Arguments.Count != 2 ||
-            !TryGetTerminalResultKind(methodCall.Method.Name, out resultKind))
+        var template = invocation.Template;
+        resultKind = template.Result.Kind;
+        if (!IsTerminalPrimaryKeyResult(resultKind) ||
+            template.Projection is not QueryPlanProjection.Entity
+            {
+                Source.Kind: QueryPlanSourceKind.RootTable
+            } entity ||
+            template.Sources.Count != 1 ||
+            template.Operations.Count != 1 ||
+            template.Operations[0] is not QueryPlanOperation.Where
+            {
+                Predicate: QueryPlanPredicate.Compare
+                {
+                    Operator: QueryPlanComparisonOperator.Equal
+                } comparison
+            })
         {
             return false;
         }
 
-        if (!TryGetRootTable(metadata, methodCall.Arguments[0], out table) ||
-            !table.PrimaryKeyShape.SupportsScalarProviderKeyStore)
-        {
-            return false;
-        }
-
-        if (!TryUnwrapLambda(methodCall.Arguments[1], out var predicate) ||
-            predicate.Parameters.Count != 1)
+        table = entity.Source.Table;
+        if (!table.PrimaryKeyShape.SupportsScalarProviderKeyStore ||
+            table.PrimaryKeyColumns.Count != 1)
         {
             return false;
         }
 
         var primaryKeyColumn = table.PrimaryKeyColumns[0];
-        return TryGetScalarPrimaryKeyExpressionValue(
-            predicate.Body,
-            predicate.Parameters[0],
-            table,
-            primaryKeyColumn,
-            out primaryKey);
-    }
-
-    private static bool TryGetTerminalResultKind(string methodName, out QueryPlanResultKind resultKind)
-    {
-        resultKind = methodName switch
+        if (!TryGetPrimaryKeyInvocationValue(
+                comparison.Left,
+                comparison.Right,
+                entity.Source,
+                primaryKeyColumn,
+                invocation.Values,
+                out primaryKey) &&
+            !TryGetPrimaryKeyInvocationValue(
+                comparison.Right,
+                comparison.Left,
+                entity.Source,
+                primaryKeyColumn,
+                invocation.Values,
+                out primaryKey))
         {
-            nameof(Queryable.Single) => QueryPlanResultKind.Single,
-            nameof(Queryable.SingleOrDefault) => QueryPlanResultKind.SingleOrDefault,
-            nameof(Queryable.First) => QueryPlanResultKind.First,
-            nameof(Queryable.FirstOrDefault) => QueryPlanResultKind.FirstOrDefault,
-            _ => default
-        };
+            return false;
+        }
 
-        return resultKind != default;
+        return primaryKey is null || table.PrimaryKeyShape.SupportsScalarProviderKey(primaryKey.GetType());
     }
 
-    private static bool TryGetRootTable(
-        DatabaseDefinition metadata,
-        Expression expression,
-        out TableDefinition table)
-    {
-        table = null!;
-        expression = UnwrapConvert(expression);
-
-        if (expression is not ConstantExpression { Value: IQueryable queryable })
-            return false;
-
-        if (!metadata.TryGetTableModel(queryable.ElementType, out var model))
-            return false;
-
-        table = model.Table;
-        return true;
-    }
-
-    private static bool TryGetScalarPrimaryKeyExpressionValue(
-        Expression expression,
-        ParameterExpression parameter,
-        TableDefinition table,
+    private static bool TryGetPrimaryKeyInvocationValue(
+        QueryPlanValue columnCandidate,
+        QueryPlanValue valueCandidate,
+        QueryPlanSourceSlot source,
         ColumnDefinition primaryKeyColumn,
+        QueryPlanBindingValues values,
         out object? primaryKey)
     {
         primaryKey = null;
-
-        expression = UnwrapConvert(expression);
-        if (expression is not BinaryExpression { NodeType: ExpressionType.Equal } binary)
-            return false;
-
-        if (IsPrimaryKeyColumnExpression(binary.Left, parameter, table, primaryKeyColumn) &&
-            TryEvaluateLocalScalar(binary.Right, parameter, out primaryKey))
-        {
-            return true;
-        }
-
-        if (IsPrimaryKeyColumnExpression(binary.Right, parameter, table, primaryKeyColumn) &&
-            TryEvaluateLocalScalar(binary.Left, parameter, out primaryKey))
-        {
-            return true;
-        }
-
-        return false;
+        return columnCandidate is QueryPlanColumnValue column &&
+            ReferenceEquals(column.Source, source) &&
+            ReferenceEquals(column.Column, primaryKeyColumn) &&
+            TryResolveInvocationScalar(valueCandidate, values, out primaryKey);
     }
 
-    private static bool IsPrimaryKeyColumnExpression(
-        Expression expression,
-        ParameterExpression parameter,
-        TableDefinition table,
-        ColumnDefinition primaryKeyColumn)
+    private static bool TryResolveInvocationScalar(
+        QueryPlanValue value,
+        QueryPlanBindingValues values,
+        out object? result)
     {
-        expression = UnwrapQueryColumnAccess(expression);
-        return expression is MemberExpression memberExpression &&
-            ReferenceEquals(memberExpression.Expression, parameter) &&
-            table.TryGetColumnByPropertyName(memberExpression.Member.Name, out var column) &&
-            ReferenceEquals(column, primaryKeyColumn);
-    }
-
-    private static bool TryEvaluateLocalScalar(
-        Expression expression,
-        ParameterExpression parameter,
-        out object? value)
-    {
-        expression = UnwrapConvert(expression);
-
-        switch (expression)
+        switch (value)
         {
-            case ConstantExpression constant:
-                value = constant.Value;
+            case QueryPlanIntrinsicValue { Intrinsic: QueryPlanIntrinsicKind.Null }:
+                result = null;
                 return true;
-
-            case MemberExpression memberExpression
-                when TryEvaluateMemberInstance(memberExpression.Expression, parameter, out var instance):
-                return TryGetMemberValue(memberExpression.Member, instance, out value);
-
+            case QueryPlanIntrinsicValue { Intrinsic: QueryPlanIntrinsicKind.BooleanTrue }:
+                result = true;
+                return true;
+            case QueryPlanIntrinsicValue { Intrinsic: QueryPlanIntrinsicKind.BooleanFalse }:
+                result = false;
+                return true;
+            case QueryPlanScalarBindingReference scalar
+                when values.TryGet(scalar.BindingId, out var binding) &&
+                     binding is QueryPlanInvocationValue.Scalar scalarValue:
+                result = scalarValue.Value;
+                return true;
+            case QueryPlanConvertedValue converted
+                when TryResolveInvocationScalar(converted.Value, values, out var sourceValue):
+                return TryConvertInvocationScalar(sourceValue, converted.TargetType, out result);
             default:
-                value = null;
+                result = null;
                 return false;
         }
     }
 
-    private static bool TryEvaluateMemberInstance(
-        Expression? expression,
-        ParameterExpression parameter,
-        out object? instance)
+    private static bool TryConvertInvocationScalar(object? value, Type targetType, out object? result)
     {
-        if (expression is null)
+        if (value is null)
         {
-            instance = null;
+            result = null;
             return true;
         }
 
-        if (ReferenceEquals(expression, parameter))
+        var conversionType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        if (conversionType.IsInstanceOfType(value))
         {
-            instance = null;
+            result = value;
+            return true;
+        }
+
+        try
+        {
+            result = conversionType.IsEnum
+                ? Enum.ToObject(conversionType, value)
+                : Convert.ChangeType(value, conversionType, CultureInfo.InvariantCulture);
+            return true;
+        }
+        catch (Exception exception) when (exception is InvalidCastException or FormatException or OverflowException)
+        {
+            result = null;
             return false;
         }
-
-        return TryEvaluateLocalScalar(expression, parameter, out instance);
     }
 
-    private static bool TryGetMemberValue(MemberInfo member, object? instance, out object? value)
-    {
-        switch (member)
-        {
-            case FieldInfo field:
-                value = field.GetValue(instance);
-                return true;
-
-            case PropertyInfo property:
-                value = property.GetValue(instance);
-                return true;
-
-            default:
-                value = null;
-                return false;
-        }
-    }
-
-    private static bool TryUnwrapLambda(Expression expression, out LambdaExpression lambda)
-    {
-        expression = UnwrapConvert(expression);
-        if (expression is LambdaExpression directLambda)
-        {
-            lambda = directLambda;
-            return true;
-        }
-
-        if (expression is UnaryExpression { NodeType: ExpressionType.Quote, Operand: LambdaExpression quotedLambda })
-        {
-            lambda = quotedLambda;
-            return true;
-        }
-
-        lambda = null!;
-        return false;
-    }
-
-    private static Expression UnwrapQueryColumnAccess(Expression expression)
-    {
-        expression = UnwrapConvert(expression);
-        if (expression is MemberExpression { Member.Name: "Value", Expression: not null } memberExpression &&
-            Nullable.GetUnderlyingType(memberExpression.Expression.Type) != null)
-        {
-            expression = memberExpression.Expression;
-        }
-
-        return UnwrapConvert(expression);
-    }
+    private static bool IsTerminalPrimaryKeyResult(QueryPlanResultKind resultKind)
+        => resultKind is QueryPlanResultKind.Single or
+            QueryPlanResultKind.SingleOrDefault or
+            QueryPlanResultKind.First or
+            QueryPlanResultKind.FirstOrDefault;
 
     private static TResult ExecuteSingle<TResult>(
         DataSourceAccess dataSource,
         QueryPlanInvocation plan,
-        Expression expression,
+        ProjectionEvaluationOptions projectionOptions,
         Func<IEnumerable<TResult>, TResult?> selector)
     {
         if (plan.Template.Projection is not QueryPlanProjection.Entity)
@@ -482,7 +429,7 @@ internal static class ExpressionQueryPlanExecutor
             if (plan.Template.Projection is QueryPlanProjection.SqlRow sqlRow)
                 return selector(ExecuteSqlRowProjection<TResult>(dataSource, plan, sqlRow))!;
 
-            return selector(ExecuteProjectedSequence<TResult>(dataSource, plan, expression))!;
+            return selector(ExecuteProjectedSequence<TResult>(dataSource, plan, projectionOptions))!;
         }
 
         var sequence = new QueryPlanSqlBuilder(plan, dataSource)
@@ -503,43 +450,53 @@ internal static class ExpressionQueryPlanExecutor
     private static IEnumerable<TElement> ExecuteProjectedSequence<TElement>(
         DataSourceAccess dataSource,
         QueryPlanInvocation plan,
-        Expression expression)
+        ProjectionEvaluationOptions projectionOptions)
     {
-        var selector = GetProjectionLambda(expression);
-        return plan.Template.Operations.Any(static operation => operation is QueryPlanOperation.Join)
-            ? ExecuteJoinedProjection<TElement>(dataSource, plan, selector)
-            : ExecuteSingleSourceProjection<TElement>(dataSource, plan, selector);
+        var recipe = GetProjectionRecipe(plan.Template.Projection);
+        var planSqlBuilder = new QueryPlanSqlBuilder(plan, dataSource);
+        var joinedSources = planSqlBuilder.GetJoinedSources().ToArray();
+        return joinedSources.Length > 1
+            ? ExecuteJoinedProjection<TElement>(
+                dataSource,
+                plan,
+                recipe,
+                projectionOptions,
+                planSqlBuilder,
+                joinedSources)
+            : ExecuteSingleSourceProjection<TElement>(dataSource, plan, recipe, projectionOptions);
     }
 
     private static IEnumerable<TElement> ExecuteSingleSourceProjection<TElement>(
         DataSourceAccess dataSource,
         QueryPlanInvocation plan,
-        LambdaExpression selector)
+        QueryPlanProjectionRecipe recipe,
+        ProjectionEvaluationOptions projectionOptions)
     {
-        if (selector.Parameters.Count != 1)
-            throw new QueryTranslationException($"Projection selector '{selector}' is not supported for a single-source query.");
-
         var rootSource = plan.Template.Sources.First(static source => source.Kind == QueryPlanSourceKind.RootTable);
         var entityPlan = ReprojectAsEntity(plan, rootSource);
         foreach (var row in ExecuteEntityRows(dataSource, entityPlan))
+        {
+            var sourceValues = new Dictionary<QueryPlanSourceSlot, object?>
+            {
+                [rootSource] = row
+            };
             yield return ConvertProjectionResult<TElement>(
-                ProjectionExpressionEvaluator.Evaluate(selector.Body, selector.Parameters[0], row));
+                QueryPlanProjectionRecipeEvaluator.Evaluate(
+                    recipe,
+                    sourceValues,
+                    plan.Values,
+                    projectionOptions));
+        }
     }
 
     private static IEnumerable<TElement> ExecuteJoinedProjection<TElement>(
         DataSourceAccess dataSource,
         QueryPlanInvocation plan,
-        LambdaExpression selector)
+        QueryPlanProjectionRecipe recipe,
+        ProjectionEvaluationOptions projectionOptions,
+        QueryPlanSqlBuilder planSqlBuilder,
+        QueryPlanSourceSlot[] joinedSources)
     {
-        var joinedSources = plan.Template.Sources
-            .Where(static source => source.Kind is QueryPlanSourceKind.RootTable or QueryPlanSourceKind.ExplicitJoin)
-            .OrderBy(static source => source.Id, StringComparer.Ordinal)
-            .ToArray();
-
-        if (selector.Parameters.Count != joinedSources.Length)
-            throw new QueryTranslationException($"Join projection selector '{selector}' does not match the query plan source count.");
-
-        var planSqlBuilder = new QueryPlanSqlBuilder(plan, dataSource);
         var select = planSqlBuilder.BuildSelect<TElement>();
         select.What(planSqlBuilder.GetJoinedPrimaryKeySelectors().ToArray());
 
@@ -557,16 +514,20 @@ internal static class ExpressionQueryPlanExecutor
 
         foreach (var primaryKeysBySource in joinedPrimaryKeyRows)
         {
-            var parameterValues = new Dictionary<ParameterExpression, object?>(selector.Parameters.Count);
+            var sourceValues = new Dictionary<QueryPlanSourceSlot, object?>(joinedSources.Length);
             for (var sourceIndex = 0; sourceIndex < joinedSources.Length; sourceIndex++)
             {
                 var source = joinedSources[sourceIndex];
-                parameterValues[selector.Parameters[sourceIndex]] = GetJoinedRow(dataSource, source, primaryKeysBySource[sourceIndex])
+                sourceValues[source] = GetJoinedRow(dataSource, source, primaryKeysBySource[sourceIndex])
                     ?? throw new InvalidOperationException($"Joined row for table '{source.Table.DbName}' could not be materialized from its provider primary key.");
             }
 
             yield return ConvertProjectionResult<TElement>(
-                ProjectionExpressionEvaluator.Evaluate(selector.Body, parameterValues));
+                QueryPlanProjectionRecipeEvaluator.Evaluate(
+                    recipe,
+                    sourceValues,
+                    plan.Values,
+                    projectionOptions));
         }
     }
 
@@ -708,85 +669,33 @@ internal static class ExpressionQueryPlanExecutor
             .Execute()
             .Cast<object?>();
 
-    private static LambdaExpression GetProjectionLambda(Expression expression)
-    {
-        if (TryGetProjectionLambda(expression, out var selector))
-            return selector;
-
-        throw new QueryTranslationException(
-            $"Projection expression '{expression}' is not supported by the DataLinq expression parser execution route.");
-    }
-
-    private static bool TryGetProjectionLambda(Expression expression, out LambdaExpression selector)
-    {
-        expression = UnwrapConvert(expression);
-        if (expression is MethodCallExpression methodCall && IsQueryableMethod(methodCall))
+    private static QueryPlanProjectionRecipe GetProjectionRecipe(QueryPlanProjection projection)
+        => projection switch
         {
-            if (methodCall.Method.Name == nameof(Queryable.Select) && methodCall.Arguments.Count == 2)
-            {
-                selector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
-                return true;
-            }
-
-            if (methodCall.Method.Name == nameof(Queryable.Join) && methodCall.Arguments.Count == 5)
-            {
-                selector = UnwrapLambda(methodCall.Arguments[4], methodCall.ToString());
-                return true;
-            }
-
-            if (IsTerminalOperator(methodCall.Method.Name) && methodCall.Arguments.Count > 0)
-                return TryGetProjectionLambda(methodCall.Arguments[0], out selector);
-
-            if (IsProjectionPassthroughOperator(methodCall.Method.Name) && methodCall.Arguments.Count > 0)
-                return TryGetProjectionLambda(methodCall.Arguments[0], out selector);
-        }
-
-        selector = null!;
-        return false;
-    }
-
-    private static bool IsQueryableMethod(MethodCallExpression methodCall)
-        => methodCall.Method.DeclaringType == typeof(Queryable);
-
-    private static bool IsTerminalOperator(string methodName)
-        => methodName is nameof(Queryable.Single) or
-            nameof(Queryable.SingleOrDefault) or
-            nameof(Queryable.First) or
-            nameof(Queryable.FirstOrDefault) or
-            nameof(Queryable.Last) or
-            nameof(Queryable.LastOrDefault);
-
-    private static bool IsProjectionPassthroughOperator(string methodName)
-        => methodName is nameof(Queryable.Where) or
-            nameof(Queryable.OrderBy) or
-            nameof(Queryable.OrderByDescending) or
-            nameof(Queryable.ThenBy) or
-            nameof(Queryable.ThenByDescending) or
-            nameof(Queryable.Skip) or
-            nameof(Queryable.Take);
-
-    private static LambdaExpression UnwrapLambda(Expression expression, string context)
-    {
-        expression = UnwrapConvert(expression);
-        return expression switch
-        {
-            LambdaExpression lambda => lambda,
-            UnaryExpression { NodeType: ExpressionType.Quote, Operand: LambdaExpression lambda } => lambda,
-            _ => throw new QueryTranslationException($"Lambda expression '{expression}' is not supported in {context}.")
+            QueryPlanProjection.Anonymous anonymous => anonymous.Recipe,
+            QueryPlanProjection.ComputedRowLocal computed => computed.Recipe,
+            QueryPlanProjection.JoinedRowLocal joined => joined.Recipe,
+            _ => throw new QueryTranslationException(
+                $"Projection '{projection.Kind}' does not define a normalized row-local execution recipe.")
         };
-    }
 
-    private static Expression UnwrapConvert(Expression expression)
+    private static void ValidateProjectionDisposition(
+        QueryPlanProjection projection,
+        ProjectionEvaluationOptions options)
     {
-        while (expression is UnaryExpression unary &&
-               (unary.NodeType == ExpressionType.Convert ||
-                unary.NodeType == ExpressionType.ConvertChecked ||
-                unary.NodeType == ExpressionType.Quote))
+        if (projection.Disposition == QueryPlanProjectionDisposition.Unsupported)
         {
-            expression = unary.Operand;
+            throw new QueryTranslationException(
+                $"Projection '{projection.Kind}' is an internal parser shape and cannot be executed as a final query projection.");
         }
 
-        return expression;
+        if (projection.Disposition == QueryPlanProjectionDisposition.SqlOnlyCompatibility &&
+            (!options.AllowCompatibilityObjectConstruction ||
+             !options.AllowCompatibilityMemberReflection))
+        {
+            throw new QueryTranslationException(
+                $"Projection '{projection.Kind}' requires SQL-only compatibility execution and cannot execute in AOT-strict mode.");
+        }
     }
 
     private static T ConvertProjectionResult<T>(object? value)

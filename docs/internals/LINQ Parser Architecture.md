@@ -16,6 +16,7 @@ The parser has a few hard goals:
 - preserve cache-aware materialization instead of turning every query into direct row construction
 - separate SQL-backed filtering from row-local projection
 - keep AOT-sensitive paths free of dynamic code and arbitrary local method invocation
+- make the parsed template and invocation sufficient for execution, without retaining or recovering the original expression tree
 
 The blunt version: DataLinq should be boringly correct for a known subset, not mysteriously permissive for every expression tree C# can produce.
 
@@ -26,33 +27,41 @@ flowchart TD
     A["Application query<br/>db.Query().Employees.Where(...).Select(...)"] --> B["Queryable<T><br/>ExpressionQueryPlanProvider"]
     B --> C["Expression tree<br/>System.Linq.Expressions"]
     C --> D["ExpressionQueryPlanParser"]
-    D --> E["DataLinqQueryPlan<br/>sources, operations, projection, result, bindings"]
-    E --> F["QueryPlanSqlBuilder"]
-    F --> G["SqlQuery / Select<br/>provider SQL and parameters"]
-    G --> H["Provider execution"]
-    H --> I["Cache-aware materialization"]
-    I --> J["ProjectionExpressionEvaluator<br/>row-local projection when needed"]
-    J --> K["Result returned to caller"]
+    D --> E["QueryPlanTemplate<br/>immutable structure and binding declarations"]
+    D --> F["QueryPlanBindingValues<br/>immutable invocation data"]
+    E --> G["QueryPlanInvocation.Bind"]
+    F --> G
+    G --> H["QueryPlanSqlBuilder"]
+    H --> I["SqlQuery / Select<br/>provider SQL and parameters"]
+    I --> J["Provider execution"]
+    J --> K["Cache-aware materialization"]
+    K --> L["QueryPlanProjectionRecipeEvaluator<br/>row-local projection when needed"]
+    L --> M["Result returned to caller"]
 
-    D --> L["QueryTranslationException<br/>unsupported shape"]
-    F --> L
+    D --> N["QueryTranslationException<br/>unsupported shape"]
+    G --> O["QueryPlanInvocationException<br/>invalid binding payload"]
+    H --> N
 ```
 
-The key boundary is `DataLinqQueryPlan`. The parser emits it. SQL rendering consumes it. Execution and projection use it to decide whether a query can run as SQL, needs row-local projection after materialization, or must be rejected.
+The key boundary is `QueryPlanInvocation`: an immutable `QueryPlanTemplate` paired with immutable `QueryPlanBindingValues`. SQL rendering, execution, and projection consume that boundary to decide whether a query can run directly, needs row-local recipe evaluation after materialization, or must be rejected. The original expression is parse input only; it is not retained in the template and is not recovered as a selector lambda during execution.
 
 ## The Core Plan Model
 
 ```mermaid
 flowchart LR
-    P["DataLinqQueryPlan"] --> S["Sources<br/>QueryPlanSourceSlot"]
-    P --> O["Operations<br/>Where, OrderBy, Skip, Take, Pushdown, Join"]
-    P --> R["Result<br/>Sequence, Count, Any, First, Single, Last, aggregates"]
-    P --> X["Projection<br/>Entity, ScalarMember, Anonymous, ComputedRowLocal, JoinedRowLocal"]
-    P --> B["Bindings<br/>captured scalar values and local sequences"]
+    I["QueryPlanInvocation"] --> T["QueryPlanTemplate"]
+    I --> BV["QueryPlanBindingValues<br/>captured scalar values and local sequences"]
+    T --> S["Sources<br/>QueryPlanSourceSlot"]
+    T --> O["Operations<br/>Where, OrderBy, Skip, Take, Pushdown, Join"]
+    T --> R["Result<br/>Sequence, Count, Any, First, Single, Last, aggregates"]
+    T --> X["Projection<br/>shape, disposition, optional recipe"]
+    T --> BD["Binding declarations<br/>kind, model/provider type, nullability"]
+    T --> SP["Specialization<br/>scalar nullness or local-sequence count"]
 
     O --> Q["Predicates<br/>And, Or, Not, Compare, In, Exists, fixed true/false"]
     Q --> V["Values<br/>column, constant, captured, local sequence, function, converted"]
     X --> V
+    X --> PR["QueryPlanProjectionRecipe<br/>self-contained row-local execution"]
     R --> V
 ```
 
@@ -62,10 +71,11 @@ The plan records query intent, not SQL text. That distinction matters:
 - operations preserve the accepted LINQ operator order
 - predicates model boolean logic explicitly
 - values distinguish mapped columns from constants, captured values, local sequences, and supported functions
-- bindings keep runtime values out of the structural query shape
-- projections are explicit, so SQL projection and row-local projection are not confused
+- binding declarations keep runtime values out of the structural query shape, while invocation values supply one execution's frozen payload
+- explicit specializations record value-sensitive structural assumptions such as scalar nullness and local-sequence cardinality
+- projections carry a disposition and, for row-local execution, a normalized recipe, so SQL projection and client-side row-local work are not confused
 
-That gives DataLinq a contract between parsing and execution. SQL is one consumer of the plan, not the plan itself.
+That gives DataLinq a contract between parsing and execution. SQL is one consumer of the invocation, not the invocation itself.
 
 ## Query Roots And Provider Ownership
 
@@ -79,14 +89,17 @@ sequenceDiagram
     participant Queryable as Queryable methods
     participant Provider as ExpressionQueryPlanProvider
     participant Parser as ExpressionQueryPlanParser
-    participant Plan as DataLinqQueryPlan
+    participant Template as QueryPlanTemplate
+    participant Invocation as QueryPlanInvocation
 
     App->>Queryable: Where / OrderBy / Select
     Queryable-->>App: IQueryable with expression tree
     App->>Provider: Enumerate or execute terminal operator
     Provider->>Parser: Convert expression tree
-    Parser-->>Plan: Parsed plan
-    Provider->>Provider: Execute plan
+    Parser->>Template: Freeze structural query and declarations
+    Parser->>Invocation: Bind frozen runtime values to template
+    Parser-->>Provider: Validated invocation
+    Provider->>Provider: Execute invocation
 ```
 
 Owning the provider is the important 0.8 shift. DataLinq no longer asks another library to parse the expression tree into a third-party query model and then adapts that model afterward.
@@ -194,35 +207,36 @@ Local values are evaluated by `ExpressionLocalValueEvaluator`. It allows practic
 
 That design avoids a nasty class of bugs where query translation accidentally runs application code while trying to build SQL.
 
-## Bindings
+## Bindings And Invocations
 
 Bindings separate query shape from runtime values.
 
 ```mermaid
 flowchart LR
-    A["Expression tree"] --> B["QueryPlanBindingFrame"]
-    B --> C["p0<br/>Scalar value"]
-    B --> D["p1<br/>Local sequence values"]
-    B --> E["QueryPlanBindings<br/>immutable plan snapshot"]
-    C --> F["QueryPlanCapturedValue"]
-    D --> G["QueryPlanLocalSequenceValue"]
-    F --> H["SQL parameter rendering"]
-    G --> H
+    A["Expression tree"] --> B["QueryPlanBindingCapture<br/>parse-local builder"]
+    B --> C["QueryPlanBindingDeclarations<br/>immutable structural contract"]
+    B --> D["QueryPlanBindingValues<br/>immutable execution payload"]
+    B --> E["QueryPlanSpecialization<br/>immutable structural constraints"]
+    C --> F["QueryPlanTemplate"]
+    E --> F
+    F --> G["QueryPlanInvocation.Bind"]
+    D --> G
+    G --> H["SQL rendering and execution"]
 ```
 
-A captured scalar becomes a `QueryPlanCapturedValue` such as `p0`. A local `IN (...)` list becomes a `QueryPlanLocalSequenceValue`. Empty local collections are not rendered as invalid `IN ()` SQL; they collapse to fixed true or false predicates.
+A captured scalar creates a scalar declaration, a `QueryPlanInvocationValue.Scalar` such as `p0`, and a scalar-nullness specialization. A local `IN (...)` list creates a local-sequence declaration, a `QueryPlanInvocationValue.LocalSequence`, and an exact-count specialization. Empty local collections are not rendered as invalid `IN ()` SQL; they collapse to fixed true or false predicates.
 
-The mutable `QueryPlanBindingFrame` is parser-time builder state only. `DataLinqQueryPlan` freezes it into `QueryPlanBindings`, which owns copied binding storage, keeps local sequence values protected from caller mutation, and provides stable O(1) lookup for render-time captured values.
+The mutable `QueryPlanBindingCapture` is parser-time builder state only. `QueryPlanTemplate` owns frozen `QueryPlanBindingDeclarations` and `QueryPlanSpecialization`; `QueryPlanInvocation` owns frozen `QueryPlanBindingValues`. Local sequences and array-valued scalars are copied so later caller mutation cannot alter the bound execution. Binding validates missing, duplicate, undeclared, wrong-kind, wrong-type, invalid-null, and specialization-mismatched values before rendering.
 
-This is also a useful future seam for plan caching. The structural plan and the captured values are not the same thing, and the plan boundary no longer exposes mutable binding-frame state by convention.
+This is also the necessary seam for plan caching. Structural templates and runtime values are different products, and neither boundary exposes mutable capture state by convention.
 
 ## SQL Rendering
 
-`QueryPlanSqlBuilder` consumes `DataLinqQueryPlan` and builds the lower-level `SqlQuery<T>` / `Select<T>` objects.
+`QueryPlanSqlBuilder` consumes a validated `QueryPlanInvocation` and builds the lower-level `SqlQuery<T>` / `Select<T>` objects. Structural decisions come from its template; SQL parameters and local sequences come from its binding values.
 
 ```mermaid
 flowchart TD
-    A["DataLinqQueryPlan"] --> B["QueryPlanSqlSourceMap"]
+    A["QueryPlanInvocation"] --> B["QueryPlanSqlSourceMap"]
     A --> C["QueryPlanSqlValueRenderer"]
     A --> D["QueryPlanSqlPredicateBuilder"]
     B --> E["table aliases and source lookup"]
@@ -251,7 +265,7 @@ The renderer currently handles:
 - the supported explicit inner join and single query-syntax inner join shapes
 - joined SQL-row derived-source pushdown after paging
 
-The SQL renderer is intentionally not allowed to depend on parser-specific expression nodes. If rendering needs `Expression`, `QueryModel`, or query-source identities from another parser, the plan boundary has failed.
+The SQL renderer is intentionally not allowed to depend on parser-specific expression nodes. If rendering needs `Expression`, a recovered selector lambda, `QueryModel`, or query-source identities from another parser, the invocation boundary has failed.
 
 ## Execution Paths
 
@@ -259,13 +273,13 @@ Execution has a few routes.
 
 ```mermaid
 flowchart TD
-    A["Parsed plan"] --> B{"Result kind"}
+    A["Validated invocation"] --> B{"Result kind"}
     B -- "Entity sequence or entity terminal" --> C["Build key/entity SQL"]
     C --> D["Table cache materializes immutable instances"]
     B -- "Scalar result" --> E["Build scalar SQL<br/>COUNT, ANY, SUM, MIN, MAX, AVG"]
     B -- "Scalar member, SQL-row, grouped aggregate" --> F["Build SELECT aliases<br/>and read provider rows directly"]
     B -- "Row-local projection" --> G["Materialize source rows through cache"]
-    G --> H["Evaluate supported selector"]
+    G --> H["Evaluate normalized projection recipe"]
     B -- "Row-local joined projection" --> I["Select joined primary keys"]
     I --> J["Hydrate joined rows through table caches"]
     J --> H
@@ -280,28 +294,41 @@ Entity queries usually flow through cache-aware table access. Projection queries
 - SQL handles filtering, relation-existence predicates, joins, ordering, paging, aggregate selectors, grouped aggregate rows, and direct source-slot projection aliases.
 - DataLinq materializes rows through table caches when the result is an entity or a row-local projection over entity instances.
 - Direct scalar member, SQL-row, grouped aggregate, and supported joined projection rows read SQL aliases directly.
-- Supported row-local projection expressions run over materialized rows.
+- Supported row-local projections run as normalized `QueryPlanProjectionRecipe` trees over materialized rows and immutable invocation values.
 
-For row-local explicit joins, SQL selects primary keys for both joined sources. DataLinq then buffers the joined primary-key values, materializes each row through the relevant table cache, and evaluates the result selector over the row objects. Buffering the keys before row hydration avoids nested reader use on transaction connections.
+For row-local explicit joins, SQL selects primary keys for both joined sources. DataLinq then buffers the joined primary-key values, materializes each row through the relevant table cache, and evaluates the retained recipe over the row objects. Buffering the keys before row hydration avoids nested reader use on transaction connections.
 
 For SQL-backed explicit joins, direct source-slot result members are selected as aliases and read from `IDataLinqDataReader` without hydrating joined entity rows. Post-paging joined composition stays supported only when the projected row is SQL-backed, because the derived-source boundary needs stable projection aliases.
 
 ## Projection Model
 
-The current projection model is intentionally split into plan shape and execution behavior.
+The current projection model is intentionally split into plan shape, disposition, and optional row-local execution recipe.
 
 | Projection kind | Meaning |
 | --- | --- |
 | `Entity` | Return the model instance for a source slot. |
-| `ScalarMember` | Return one mapped member from a materialized source. |
-| `Anonymous` | Return a structured row-local projection. |
-| `ComputedRowLocalExpression` | Evaluate a supported computed expression after row materialization. |
-| `JoinedRowLocal` | Evaluate a supported projection over joined materialized rows. |
+| `ScalarMember` | Return one mapped member through the direct scalar path. |
+| `Anonymous` | Return a structured row-local projection from a normalized compatibility recipe. |
+| `ComputedRowLocalExpression` | Evaluate a normalized computed recipe after row materialization. The enum name is historical; the retained projection contains no expression tree. |
+| `JoinedRowLocal` | Evaluate a normalized recipe over joined materialized rows. The projection remains SQL-only even when its inner scalar recipe is AOT-safe. |
 | `SqlRow` | Read direct source-slot projection members from SQL aliases. |
-| `TransparentIdentifier` | Bind compiler-generated query-syntax carriers back to source slots. |
+| `TransparentIdentifier` | Bind compiler-generated query-syntax carriers during parsing; it is not a valid retained executable projection. |
 | `GroupedAggregate` | Return SQL grouped aggregate rows for supported key and aggregate projection shapes. |
 
-This keeps hidden I/O out of projection. Relation-property projection inside provider `Select(...)` is rejected because it would make a provider query look like one SQL operation while hiding relation traversal behind the projection.
+Every projection has an explicit `QueryPlanProjectionDisposition`:
+
+| Disposition | Execution contract |
+| --- | --- |
+| `Direct` | No row-local recipe is required. Used by entity and scalar-member projections. |
+| `AotSafe` | The normalized recipe uses only the constrained evaluator surface and may run with `ProjectionEvaluationOptions.AotStrict`. |
+| `SqlOnlyCompatibility` | The projection requires an explicitly fenced compatibility operation or SQL-owned joined-row materialization; AOT-strict execution rejects it before evaluation. |
+| `Unsupported` | Parser-only shape. `QueryPlanTemplateValidator` prevents it from entering an executable template. |
+
+`QueryPlanProjectionRecipe` is a closed, immutable tree. It models source rows and columns, scalar binding references, null/Boolean intrinsics, supported conversions and operators, supported members and functions, conditionals, supported arrays, and explicitly marked compatibility constructor/member nodes. `QueryPlanTemplateValidator` recursively checks recipe types, source and binding references, operator shapes, constructors, members, and disposition compatibility. A projection kind may impose a stricter SQL-only fence than its inner recipe, but an AOT-safe projection cannot contain a SQL-only recipe.
+
+`QueryPlanProjectionRecipeEvaluator` evaluates the recipe with materialized source values and `QueryPlanBindingValues`. It has no API for the original `Expression`, does not call `Expression.Compile()`, and does not recover or reconstruct a projection lambda. Compatibility construction and member access are explicit recipe nodes controlled by `ProjectionEvaluationOptions`, not a catch-all client-expression fallback.
+
+This keeps hidden I/O out of projection. A mapped member reached through a supported singular relation becomes an explicit implicit-join source slot and may participate in a direct SQL projection or a SQL-only joined row-local recipe. Projecting relation objects or collections is rejected because that would hide lazy relation loading behind what looks like one provider query.
 
 Grouped aggregate projection is the exception to the row-local projection rule because aggregate rows are not entity rows. The parser records a `GroupBy` operation, a group-key value, and grouped aggregate projection members; SQL renders `GROUP BY`, and execution reads the aggregate row aliases directly from `IDataLinqDataReader`.
 
@@ -313,11 +340,12 @@ The practical goal is narrower and more useful:
 
 - no `Expression.Compile()` in supported query execution
 - no arbitrary local method invocation during parser local-value evaluation
-- row-local projection paths that can be checked under strict AOT-sensitive modes
+- self-contained row-local projection recipes with explicit AOT-safe and compatibility dispositions
+- no original-expression retention or selector-lambda recovery after parsing
 - generated metadata and generated access paths where DataLinq can avoid runtime discovery
 - compatibility fallbacks isolated from the supported constrained-platform path
 
-`ExpressionQueryPlanParserOptions.AotStrict` and related strict projection/local-evaluation options exist to keep that boundary testable.
+`ExpressionQueryPlanParserOptions.AotStrict`, `ProjectionEvaluationOptions.AotStrict`, and the disposition checks keep that boundary testable. A SQL-only projection can run only through the normal SQL execution path with the required compatibility permissions or joined-row materialization support.
 
 ## Current Progress
 
@@ -325,12 +353,13 @@ Implemented in 0.8 and later:
 
 - `Database.Query()` roots execute through the DataLinq expression parser provider.
 - `Remotion.Linq` is not part of the active production query provider or public runtime package dependency graph.
-- SQL generation consumes `DataLinqQueryPlan`.
+- SQL generation and execution consume `QueryPlanInvocation`; the original expression tree is not retained as an execution input.
 - Active SQL inspection helpers use `ExpressionQueryPlanParser` and `QueryPlanSqlBuilder`.
 - Architecture tests guard plan/parser/SQL renderer types against Remotion type exposure.
 - The support matrix is backed by active compliance tests for the documented query subset.
 - Trimmed compatibility reporting is no longer blocked by a Remotion dependency.
-- Query-plan bindings are frozen into immutable plan-owned snapshots before SQL rendering.
+- Query structure is frozen into `QueryPlanTemplate`, while binding declarations and invocation values are immutable, separately owned contracts validated by `QueryPlanInvocation.Bind(...)`.
+- Row-local projections are normalized into self-contained `QueryPlanProjectionRecipe` trees with explicit dispositions and execute through `QueryPlanProjectionRecipeEvaluator` without selector-lambda recovery.
 
 Supported parser areas include:
 
@@ -345,7 +374,7 @@ Supported parser areas include:
 - string and date/time member/function translations documented in the support matrix
 - one-to-many relation `Any(...)` and existence-equivalent `Count()` predicates
 - one narrow explicit inner `Join(...)` shape
-- singular implicit relation predicates, orderings, and direct projection rendered as inner joins
+- singular implicit relation predicates, orderings, direct projection, and supported computed row-local recipes rendered through inner joins
 
 Still deliberately outside the current support boundary:
 
@@ -373,6 +402,8 @@ Some of those are natural future work. They should still enter through the plan 
 | --- | --- | --- |
 | DataLinq-owned parser | DataLinq controls diagnostics, support boundaries, AOT behavior, and package dependencies. | DataLinq must implement and maintain the supported subset itself. |
 | Query plan before SQL | SQL rendering is not coupled to expression-tree parser details. | Every supported shape needs a plan representation before it can run. |
+| Template/invocation split | Structural query shape and binding declarations can be reasoned about independently from one execution's values. | Value-sensitive assumptions must be modeled and validated as explicit specializations. |
+| Normalized projection recipes | Row-local execution no longer depends on the original expression or runtime compilation, and AOT compatibility is explicit. | Every supported operator, member, function, conversion, or construction shape needs a recipe node and evaluator semantics. |
 | Conservative support matrix | Users get fewer fake promises and clearer failures. | Some LINQ-to-objects shapes that look natural are rejected. |
 | Row-local projection after materialization | Projection semantics stay close to normal .NET over generated model instances. | Wide-row reads can be less efficient than SQL `SELECT`-list projection. |
 | Primary-key and cache-aware execution | Repeated reads can reuse immutable instances and provider-key row caches. | Some query paths are more complex than direct SQL row materialization. |
@@ -400,14 +431,18 @@ Key implementation files:
 | Queryable provider and execution route | `src/DataLinq/Linq/Planning/Expressions/ExpressionPlanQueryable.cs` |
 | Expression parser | `src/DataLinq/Linq/Planning/Expressions/ExpressionQueryPlanParser.cs` |
 | Local value evaluation | `src/DataLinq/Linq/Planning/Expressions/ExpressionLocalValueEvaluator.cs` |
-| Query plan root | `src/DataLinq/Linq/Planning/DataLinqQueryPlan.cs` |
+| Structural query template | `src/DataLinq/Linq/Planning/QueryPlanTemplate.cs` |
+| Bound query invocation | `src/DataLinq/Linq/Planning/QueryPlanInvocation.cs` |
+| Binding declarations, values, and specialization contracts | `src/DataLinq/Linq/Planning/QueryPlanBindingContracts.cs` |
+| Parse-local binding capture | `src/DataLinq/Linq/Planning/QueryPlanBindingCapture.cs` |
 | Source slots | `src/DataLinq/Linq/Planning/QueryPlanSourceSlot.cs` |
 | Operations and joins | `src/DataLinq/Linq/Planning/QueryPlanOperation.cs` |
 | Predicates | `src/DataLinq/Linq/Planning/QueryPlanPredicate.cs` |
-| Values and bindings | `src/DataLinq/Linq/Planning/QueryPlanValue.cs`, `src/DataLinq/Linq/Planning/QueryPlanBindingFrame.cs` |
+| Query values and binding references | `src/DataLinq/Linq/Planning/QueryPlanValue.cs` |
 | Projections and results | `src/DataLinq/Linq/Planning/QueryPlanProjection.cs`, `src/DataLinq/Linq/Planning/QueryPlanResult.cs` |
+| Normalized projection recipes | `src/DataLinq/Linq/Planning/QueryPlanProjectionRecipe.cs` |
 | SQL rendering | `src/DataLinq/Linq/Planning/Sql/QueryPlanSqlBuilder.cs` |
-| Projection evaluation | `src/DataLinq/Linq/ProjectionExpressionEvaluator.cs` |
+| Projection evaluation | `src/DataLinq/Linq/Planning/QueryPlanProjectionRecipeEvaluator.cs`, `src/DataLinq/Linq/ProjectionEvaluationOptions.cs` |
 | Compliance evidence | `src/DataLinq.Tests.Compliance/Translation/` |
 
 ## Maintenance Rule
