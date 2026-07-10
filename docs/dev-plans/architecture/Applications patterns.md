@@ -2,7 +2,9 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 ### **Architectural Vision: Application Patterns for DataLinq**
 
-**Status:** Draft architecture vision. It is not implemented as a first-class DI/session API.
+**Status:** Superseded.
+
+**Current owner:** [Dependency Injection and Hosting Integration](Dependency%20Injection%20and%20Hosting%20Integration.md). The newer plan keeps explicit unit-of-work and singleton database-root ideas while deferring the ambient `AsyncLocal` session model proposed here.
 
 #### **1. Introduction & Guiding Philosophy**
 

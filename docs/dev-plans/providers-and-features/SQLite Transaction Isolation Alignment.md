@@ -2,7 +2,11 @@
 > This document is roadmap/design material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
 # SQLite Transaction Isolation Alignment
 
-**Status:** Draft design note.
+**Status:** Accepted.
+
+**Last reviewed:** 2026-07-10.
+
+**Target:** 0.9, before any memory mutation or cross-provider transaction-parity claim.
 
 ## Purpose
 

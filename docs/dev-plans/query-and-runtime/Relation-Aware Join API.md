@@ -3,7 +3,13 @@
 
 # Relation-Aware Join API
 
-**Status:** Draft design. Roadmap execution depends on 0.8 Phase 13 query composition and subquery pushdown, then continues through 0.8 Phase 14 source-slot join composition and 0.8 Phase 15 relation-aware and implicit joins.
+**Status:** Accepted.
+
+**Release horizon:** Post-baseline join work; only a bounded explicit-join slice is an optional 0.9 stretch.
+
+**Last reviewed:** 2026-07-10.
+
+**Current release plan:** [0.9 Join Continuation](../roadmap-implementation/v0.9/Join%20and%20Grouping%20Continuation%20Implementation%20Plan.md).
 
 ## Purpose
 
@@ -31,18 +37,19 @@ The preferred direction has five parts:
 
 ## Current Behavior Boundary
 
-The shipped support boundary is intentionally small. The current implementation supports one explicit inner `Join(...)` between two direct DataLinq query sources, with direct member keys or nullable `.Value` keys, and a row-local projection from both sides.
+The shipped 0.8 boundary supports one explicit inner `Join(...)` or one C# query-syntax inner join between direct DataLinq sources. Direct source-slot projection members can compose through filtering, ordering, paging, `Any()`, and `Count()`, including the documented joined post-paging pushdown slice. Supported singular relation members can also participate through the separate implicit-inner-join path.
 
-Important current limits:
+Important remaining limits:
 
-- only one explicit join
+- no multiple chained joins
+- no composite anonymous-object join keys
 - no `GroupJoin(...)`
-- no left/outer join pattern
-- no composite anonymous-object keys
-- no filtering, ordering, paging, or result operators over the joined result
-- no relation-property joins or relation-property projections inside the result selector
+- no left/outer join pattern or standard `Queryable.LeftJoin(...)`
+- no relation-aware `JoinBy(...)`, `JoinMany(...)`, `LeftJoinBy(...)`, or `LeftJoinMany(...)`
+- no opaque transparent identifiers or whole joined-entity projection shapes that cannot bind to source slots
+- no provider-side composition over row-local computed joined members
 
-The current support is documented in [`Supported LINQ Queries.md`](../../Supported%20LINQ%20Queries.md), and the executor enforces the single-join boundary in `src/DataLinq/Linq/QueryExecutor.cs`.
+The current source of truth is [`Supported LINQ Queries.md`](../../Supported%20LINQ%20Queries.md) and the [LINQ translation support matrix](../../support-matrices/LINQ%20Translation%20Support%20Matrix.md). This page owns future API design, not the shipped support claim.
 
 ## Design Principles
 
@@ -783,14 +790,19 @@ Tasks:
 
 ## Recommended Execution Order
 
-1. Query composition and subquery pushdown for operator-order-sensitive `Where(...)`, `OrderBy(...)`, `Skip(...)`, and `Take(...)`.
-2. Standard C# query syntax and multi-join composition.
-3. Relation metadata resolver.
-4. `JoinBy(...)` and `JoinMany(...)` inner joins.
-5. Implicit singular relation joins for predicates, ordering, and simple projections.
-6. Join-local `on:` predicates.
-7. `LeftJoinBy(...)` and `LeftJoinMany(...)`, plus standard `Queryable.LeftJoin(...)` on `net10.0` where available.
-8. Documentation and support matrix updates after each shipped slice.
+The operator-order, single query-syntax join, direct joined-row composition, joined post-paging, and implicit singular-relation prerequisites shipped in 0.8. Remaining work should proceed in this order:
+
+1. multiple explicit inner joins over direct source-slot projection members
+2. composite direct-member join keys
+3. filtering, ordering, paging, and result operators over those multi-join rows
+4. nullable joined-slot materialization and narrow standard `Queryable.LeftJoin(...)` support on `net10.0`
+5. a reusable relation-expression resolver for the remaining fluent APIs
+6. `JoinBy(...)` and `JoinMany(...)` inner joins
+7. join-local `on:` predicates
+8. `LeftJoinBy(...)` and `LeftJoinMany(...)`
+9. documentation and support-matrix updates after each shipped slice
+
+Only steps 1-3 are eligible for the optional 0.9 join stretch.
 
 This order keeps the foundation honest. If DataLinq cannot compose ordinary explicit joins with filtering and ordering, relation-aware joins will just be prettier syntax over a weak engine.
 

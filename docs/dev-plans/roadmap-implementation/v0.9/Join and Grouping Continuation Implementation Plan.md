@@ -1,164 +1,189 @@
 > [!WARNING]
-> This document is roadmap implementation material for the DataLinq 0.9 development line. It is not normative product documentation and should not be treated as a shipped support claim.
+> This document is roadmap implementation material. It describes optional and later work, not shipped DataLinq behavior or a committed 0.9 feature set.
 
-# 0.9 Join And Grouping Continuation Implementation Plan
+# Optional Join Expansion And Later Grouping Plan
 
-**Status:** Draft.
+**Status:** Proposed.
+
+**Target:** Optional 0.9 stretch candidate only; not part of the baseline.
 
 **Created:** 2026-07-04.
 
+**Last reviewed:** 2026-07-10.
+
 ## Purpose
 
-This document keeps the immediate 0.9 implementation plan for bounded SQL-backed join and grouping continuation.
+This document defines one bounded query-expansion option after the 0.9 architecture, scalar/UUID correctness, read-only memory preview, and release-evidence gates are secure. It also records the order of later join and grouping candidates without presenting them as 0.9 commitments.
 
-The durable API and design discussion remains in [Relation-Aware Join API](../../query-and-runtime/Relation-Aware%20Join%20API.md), while current shipped behavior remains documented in [Supported LINQ Queries](../../../Supported%20LINQ%20Queries.md) and the [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md).
+Durable API discussion remains in [Relation-Aware Join API](../../query-and-runtime/Relation-Aware%20Join%20API.md). Shipped behavior belongs in [Supported LINQ Queries](../../../Supported%20LINQ%20Queries.md) and the [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md); this plan must not be used as a current support claim.
 
-## 0.9 Goal
+## Release Decision
 
-The 0.9 query-continuation work should extend the DataLinq-owned query plan where it already has pressure:
+Join expansion is not required to ship 0.9.
+
+If the release has capacity for one query-language stretch after all baseline work is green, this plan recommends the following bounded slice:
 
 1. practical multi-inner-join pipelines
-2. grouped aggregate rows over those joined source-slot shapes
-3. relation-aware inner joins only after ordinary explicit joins are boring
+2. composite equality join keys over those pipelines
 
-The first release claim should stay narrow:
+That pair is more useful than another round of increasingly elaborate grouping shapes. It fills ordinary relational-query gaps while exercising the source-slot query plan in a controlled way.
 
-> DataLinq 0.9 extends SQL-backed source-slot join composition and grouped aggregate projection for documented query shapes.
+The stretch should be selected explicitly. Starting it is not justified merely because another baseline workstream is temporarily waiting on review or provider infrastructure.
 
-This is not a general LINQ provider expansion. It is a continuation of the 0.8 source-slot, projection-row, and grouped-row work.
+## Entry Gates
 
-## Execution Boundary
+Do not start the optional 0.9 slice until:
 
-In scope:
+- the backend-neutral query execution boundary is settled and SQL behavior has not regressed
+- the scalar-converter baseline and bounded UUID codec slice are green
+- the read-only memory capability set has reached its agreed release boundary
+- active provider, AOT/WASM, packaging, and documentation evidence has no unresolved release blocker
+- no other 0.9 stretch has been chosen instead
 
-- standard C# query syntax with multiple inner joins
-- chained explicit `Join(...)` support beyond the current single-join boundary
-- filtering, ordering, paging, `Any()`, and `Count()` over supported multi-join projection rows
-- SQL-backed direct projection rows over multi-join source slots
-- grouping over supported multi-join projection rows when key and aggregate selectors bind to source-slot values
-- typed-ID/provider-value join key normalization once scalar converters are available
-- parity between `db.Query()` and `transaction.Query()` roots
-- focused diagnostics for unsupported join and grouping shapes
-- `JoinBy(...)` and `JoinMany(...)` as stretch work only after explicit multi-join composition is stable
+If those gates are reached too late for proper provider evidence, move this whole slice to the next release. A half-tested join engine is worse than a smaller honest support matrix.
 
-Out of scope for the baseline:
+## Optional 0.9 Boundary
 
-- materialized `IGrouping<TKey,TElement>` sequences
-- grouped element enumeration
+In scope only if this stretch is selected:
+
+- standard C# query syntax with two or more inner joins
+- chained explicit `Queryable.Join(...)` beyond a single joined source
+- deterministic source-slot and SQL alias handling for multi-join rows
+- direct SQL-backed projection members from all joined source slots
+- `Where(...)`, ordering, paging, `Any()`, and `Count()` over supported direct multi-join rows
+- composite equality join keys expressed through supported anonymous/tuple-like key shapes
+- component-wise scalar-converter and UUID normalization for join keys
+- parity between read-only and transaction query roots
+- focused diagnostics for opaque, incompatible, or unsupported key/projection shapes
+
+Out of scope for the 0.9 stretch:
+
+- grouping or aggregate continuation over multi-join rows
+- materialized `IGrouping<TKey,TElement>` or grouped element enumeration
 - `GroupJoin(...)`
-- left/outer join patterns such as `DefaultIfEmpty()`
-- `LeftJoinBy(...)`, `LeftJoinMany(...)`, and standard `Queryable.LeftJoin(...)`
-- composite anonymous-object join keys unless the provider-value and source-slot machinery is ready
+- standard or pattern-based left/outer joins
+- relation-aware `JoinBy(...)`, `JoinMany(...)`, or left-join variants
 - implicit collection projection or hidden row multiplication
-- row-local computed joined projection members used for provider-side post-paging composition
-- client-side fallback for unsupported SQL query shapes
+- row-local computed joined members used for later provider-side composition
+- client-side fallback for unsupported SQL shapes
+- claims of general or full LINQ join support
 
-Left joins are a possible stretch after inner join composition and relation-aware inner joins. They are not a baseline 0.9 claim.
+## 0.9 Stretch Workstreams
 
-## Recommended Order
+These IDs are local to this plan; they do not reuse global roadmap phase numbers.
 
-### Phase 5A: Multi-Join Query Syntax And Chained `Join(...)`
-
-Work:
-
-- add failing tests for two and three explicit inner joins
-- cover compiler-lowered transparent identifiers for multi-join query syntax
-- generalize source-slot and alias handling beyond two sources
-- select primary keys and direct projection aliases for every source slot
-- preserve read-only and transaction-root execution parity
-
-Exit signal:
-
-- practical multi-table inner joins work through standard query syntax
-- direct source-slot projection rows materialize from SQL aliases
-- unsupported opaque transparent identifiers fail with useful diagnostics
-
-### Phase 5B: Composition Over Multi-Join Rows
+### JOIN-1: Multi-Inner Source Slots
 
 Work:
 
-- support `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, and `Take(...)` over direct multi-join projection members
-- support `Any()` and `Count()` over supported multi-join row shapes
-- preserve operator order through derived joined sources when later operators apply after paging
-- keep row-local computed joined projections out of provider-side composition
+- add failing parser/plan tests for two and three explicit inner joins
+- cover compiler-lowered transparent identifiers from normal query syntax
+- generalize source-slot, alias, primary-key selection, and projection binding beyond two sources
+- preserve deterministic slot identity through template/bound-plan execution
+- keep read-only and transaction query roots on the same planner path
 
 Exit signal:
 
-- multi-join rows compose like the existing single-join supported slice
-- post-paging composition uses explicit derived-source boundaries where flattening would be wrong
-- provider behavior matches in-memory LINQ expectations for the documented shapes
+- ordinary multi-table inner joins produce a stable source-slot plan
+- direct members from every source slot materialize from deterministic SQL aliases
+- opaque transparent-identifier shapes fail with a focused translation diagnostic
 
-### Phase 5C: Grouping Over Multi-Join Source Slots
+### JOIN-2: Composition Over Multi-Join Rows
 
 Work:
 
-- group over supported multi-join direct projection rows
-- support group keys that bind to source-slot values or already-supported SQL-renderable functions
-- support grouped `Count()`, direct numeric `Sum(...)`, `Min(...)`, `Max(...)`, and `Average(...)`
-- support grouped-row filtering, ordering, paging, `Any()`, and `Count()` where existing grouped-row rules apply
-- reject grouped element enumeration and materialized `IGrouping`
+- support `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, and `Take(...)` over direct source-slot members
+- support `Any()` and `Count()` over the same bounded row shapes
+- preserve operator order through derived joined sources when composition after paging requires a SQL boundary
+- reject row-local computed members when later operators would require unavailable provider expressions
 
 Exit signal:
 
-- grouped aggregate rows can use multi-join inputs without inventing a second grouping model
-- diagnostics keep unsupported grouped join and `GroupJoin` shapes outside the support boundary
+- supported multi-join rows compose consistently across active SQL providers
+- post-paging composition does not flatten away required query boundaries
+- unsupported computed-row continuation fails during translation, not during materialization
 
-### Phase 5D: Relation-Aware Inner Joins As Stretch
+### JOIN-3: Composite Equality Join Keys
 
 Work:
 
-- add a focused relation-expression resolver if explicit joins are stable
-- implement `JoinBy(...)` for singular generated relations
-- implement `JoinMany(...)` for generated collection relations
-- support relation access through already-joined anonymous row shapes
-- keep join-local `on:` predicates and left joins out unless the inner-join API is already boring
+- represent composite join keys as ordered component bindings in the query plan
+- lower supported anonymous/tuple-like equality keys to component-wise SQL equality joined with `AND`
+- validate component count, nullability, and canonical provider-type compatibility
+- normalize typed IDs and UUID physical values per target column without losing component metadata
+- cover composite keys in second and later joins, not only the first join pair
 
 Exit signal:
 
-- relation metadata can drive inner joins without explicit key selectors
-- relation-aware joins compose after earlier explicit joins
-- collection relation expansion remains explicit through `JoinMany(...)`
+- two- and multi-component inner-join keys work through ordinary query syntax
+- every key component uses the same normalization rules as scalar predicates
+- mismatched arity, incompatible provider types, and unsupported computed components produce actionable diagnostics
 
-## Verification Gates
+## Verification Gates For The Optional Slice
 
-The 0.9 join/grouping continuation should not be called supported until these are green:
+If selected, the stretch is not complete until these are green:
 
-- expression-parser snapshot tests for multi-join source slots
-- SQL-shape tests proving deterministic aliases and joined source maps
-- provider behavior tests across SQLite, MySQL, and MariaDB
-- transaction-root tests for each supported shape
-- typed-ID join key tests if scalar converters ship before the join slice
-- unsupported-shape tests for `GroupJoin`, left joins, opaque transparent identifiers, row-local joined composition, and materialized grouping
-- support-matrix and user-doc updates that list only shipped behavior
+- expression-parser and plan snapshot tests for two- and three-source joins
+- SQL-shape tests proving deterministic aliases and component-wise composite predicates
+- behavior tests across SQLite, MySQL, and MariaDB
+- read-only and transaction-root parity tests
+- scalar-converted and UUID join-component tests
+- composition tests before and after paging
+- unsupported-shape tests for `GroupJoin`, left joins, opaque identifiers, computed joined continuation, and incompatible composite keys
+- support-matrix and user-documentation updates that list only the earned shapes
 
-## Release Boundary
+The release claim, if all gates pass, should be no broader than:
 
-The 0.9 release can claim join/grouping expansion only when:
+> DataLinq supports documented multi-inner-join pipelines and composite equality join keys across its active SQL providers.
 
-- multi-join query syntax is tested from active providers
-- joined rows compose through SQL-backed projection members
-- grouping over joined rows uses the same grouped aggregate row model as 0.8
-- unsupported joins and grouping shapes fail with `QueryTranslationException`
-- docs do not imply left joins, grouped joins, or materialized `IGrouping`
+## Ordered Later Candidates
 
-Possible stronger claims, if earned:
+These are not part of the 0.9 baseline or the bounded stretch above.
 
-- relation-aware `JoinBy(...)` and `JoinMany(...)` inner joins
-- typed-ID join keys through scalar converters
-- grouped aggregate rows over relation-aware inner joins
+### JOIN-LJ1: Narrow .NET 10 `Queryable.LeftJoin`
 
-Claims to avoid unless proven:
+The next join candidate should be the standard .NET 10 `Queryable.LeftJoin` expression shape, restricted initially to direct keys and direct SQL-backed projection members. A standard BCL operator is preferable to inventing DataLinq-specific left-join sugar first.
+
+Before committing it:
+
+- decide the multi-targeting/API story for targets where `Queryable.LeftJoin` does not exist
+- define nullable-inner materialization and missing-row identity
+- prove SQL null semantics across active providers
+- keep `GroupJoin(...).SelectMany(...DefaultIfEmpty())` pattern recognition separate unless it is deliberately implemented and tested
+
+### JOIN-G1: Grouping Continuation Over Multi-Join Rows
+
+Grouping over multi-join source slots can reuse the grouped aggregate-row model after multi-join planning is stable. It should remain a separate feature with its own evidence, not ride along with inner-join work.
+
+Potential bounded scope:
+
+- keys bound directly to source-slot values or already-supported SQL functions
+- grouped `Count()`, direct numeric `Sum(...)`, `Min(...)`, `Max(...)`, and `Average(...)`
+- grouped-row filtering, ordering, paging, `Any()`, and `Count()` where existing grouped-row rules apply
+
+Materialized groupings and grouped element enumeration remain separate problems.
+
+### JOIN-R1: Relation-Aware Join Sugar
+
+`JoinBy(...)` and `JoinMany(...)` should wait until explicit multi-join, composite-key, and left-join semantics are boring. They add API-design and relation-resolution surface but little new relational capability.
+
+If pursued later, they should lower to the same explicit join plan rather than introduce a second join engine.
+
+## Claims To Avoid
 
 - "full join support"
-- "LINQ GroupJoin support"
-- "left join support"
+- "LINQ `GroupJoin` support"
+- "left join support" before the narrow standard operator is implemented
 - "navigation-property query parity with EF Core"
-- "general GroupBy support"
+- "general `GroupBy` support"
+- treating `JoinBy(...)` or `JoinMany(...)` as 0.9 release requirements
 
 ## Links
 
 - [Relation-Aware Join API](../../query-and-runtime/Relation-Aware%20Join%20API.md)
 - [LINQ Parser Architecture Review](../../query-and-runtime/LINQ%20Parser%20Architecture%20Review.md)
+- [Scalar Converters And Typed IDs Implementation Plan](Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md)
+- [UUID Storage Format Support](../../providers-and-features/UUID%20Storage%20Format%20Support.md)
 - [Supported LINQ Queries](../../../Supported%20LINQ%20Queries.md)
 - [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md)
-- [DataLinq 0.9 Rough Roadmap](README.md)
+- [DataLinq 0.9 Roadmap](README.md)

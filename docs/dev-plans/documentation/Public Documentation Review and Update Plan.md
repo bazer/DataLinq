@@ -1,6 +1,8 @@
 # Public Documentation Review and Update Plan
 
-**Status:** Active audit and update plan.
+**Status:** Implemented.
+
+**Closed:** 2026-07-09.
 
 **Scope:** Public documentation built by DocFX: `README.md`, root `index.md`, `CHANGELOG.md`, root `toc.yml`, `docs/**/*.md`, and `docs/**/toc.yml`, excluding `docs/dev-plans/**`. API metadata is in scope only for navigation/build verification, not for hand-authored content cleanup.
 

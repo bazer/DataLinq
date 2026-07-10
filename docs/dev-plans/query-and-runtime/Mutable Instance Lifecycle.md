@@ -3,7 +3,9 @@
 
 # Specification: Mutable Instance Lifecycle
 
-**Status:** Draft / Approved Direction
+**Status:** Accepted.
+**Last reviewed:** 2026-07-10.
+**Target:** 0.9 for existing SQL providers; required before memory mutation or shared committed-change batches.
 **Goal:** Define consistent semantics for reusing the same mutable instance across `Insert`, `Update`, and `Save` calls, especially when explicit transactions, rollback, and cache baselines are involved.
 
 ## 1. Design Position

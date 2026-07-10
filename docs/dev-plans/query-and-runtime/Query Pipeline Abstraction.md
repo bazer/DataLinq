@@ -2,10 +2,15 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Query Pipeline Abstraction
 
-**Status:** Draft
+**Status:** Superseded.
+
+**Last reviewed:** 2026-07-10.
+
 **Goal:** Decouple the LINQ expression translation from SQL string generation. This allows DataLinq to support non-SQL backends (In-Memory, JSON, NoSQL) by treating the query logic as an abstract syntax tree (AST) that can be visited by different executors.
 
-**Update:** The newer [Remotion.Linq Replacement Plan](Remotion.Linq%20Replacement%20Plan.md) refines this idea after Phase 8. Roadmap execution is now the version-scoped [DataLinq 0.8 Roadmap](../roadmap-implementation/v0.8/README.md). It recommends a DataLinq-owned query plan with a temporary Remotion adapter, then a supported-subset expression parser that removes or isolates Remotion from the practical AOT support boundary.
+**Current owner:** The 0.8 roadmap implemented the DataLinq-owned parser and query plan. The remaining backend/source separation is owned by the [0.9 Query Backend and Execution Foundation](../roadmap-implementation/v0.9/Query%20Backend%20and%20Execution%20Foundation%20Implementation%20Plan.md).
+
+The `QueryModel`, `IQueryTranslater`, `QueryBuilder`, and object-visitor sketches below predate the current `DataLinqQueryPlan` architecture. They are retained only as historical rationale and must not be used as an implementation checklist.
 
 ---
 

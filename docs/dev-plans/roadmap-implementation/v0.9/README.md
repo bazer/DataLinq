@@ -1,355 +1,457 @@
 > [!WARNING]
-> This folder contains rough roadmap material for the DataLinq 0.9 development line. It is not normative product documentation, and it should not be treated as a shipped support claim.
+> This folder contains roadmap material for the DataLinq 0.9 development line. It is not normative product documentation and must not be treated as a shipped support claim.
 
-# DataLinq 0.9 Rough Roadmap
+# DataLinq 0.9 Implementation Roadmap
 
-**Status:** Draft.
+**Status:** Accepted.
+
+**Target release:** 0.9.
 
 **Created:** 2026-07-03.
 
-## Theme
+**Last reviewed:** 2026-07-10.
 
-0.8 replaced the production LINQ parser, removed `Remotion.Linq` from the runtime path, hardened the generated SQLite constrained-platform story, and proved that `DataLinqQueryPlan` is a real semantic boundary.
+**Prerequisites:** DataLinq 0.8's production expression parser, immutable source-slot query-plan model, generated metadata/runtime path, and current SQL provider compliance coverage.
 
-0.9 should test whether that boundary is actually good architecture.
+## Release Thesis
 
-The proposed 0.9 theme is:
+0.9 should make DataLinq's query-plan boundary real without trying to finish every feature that the boundary could eventually enable.
 
-> Make DataLinq query plans backend-executable, make provider values first-class, then prove the design with typed IDs, broader source-slot query composition, an in-memory backend, and experimental JSON persistence for memory stores.
+The release should do three things well:
 
-The important word is "prove". The goal is not to announce broad new production backends before the execution model has earned it. The goal is to force the parser, plan model, value conversion, projection, mutation, cache, and diagnostics layers to survive outside the SQL renderer.
+1. make query execution self-contained and backend-neutral below expression parsing
+2. make scalar and UUID value conversion correct across the existing SQL providers
+3. prove the architecture with a deliberately read-only `DataLinq.Memory` preview for generated models
 
-The durable scalar-conversion design is tracked in [Scalar Converter Support](../../metadata-and-generation/Scalar%20Converter%20Support.md), and the immediate 0.9 execution slice is tracked in [Scalar Converters And Typed IDs Implementation Plan](Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md).
+It should also close two existing SQL-provider correctness gaps before DataLinq multiplies backend behavior: SQLite committed visibility and trustworthy mutable-instance baselines.
 
-The durable join design is tracked in [Relation-Aware Join API](../../query-and-runtime/Relation-Aware%20Join%20API.md), and the immediate 0.9 query-continuation slice is tracked in [Join And Grouping Continuation Implementation Plan](Join%20and%20Grouping%20Continuation%20Implementation%20Plan.md).
+The intended release claim is narrow:
 
-The durable in-memory backend design is tracked in [Memory Backend Architecture](../../backends/memory/Architecture.md), and the immediate 0.9 execution slice is tracked in [In-Memory Database Implementation Plan](In-Memory%20Database%20Implementation%20Plan.md).
+> DataLinq 0.9 introduces a backend-neutral read-query execution foundation, first-class scalar conversion and UUID storage codecs, and an AOT-friendly read-only memory preview that executes a documented subset of DataLinq query plans without SQL.
 
-The durable JSON memory-persistence design is tracked in [JSON Persistence Store Architecture](../../backends/memory/persistence/json/JSON%20Persistence%20Store%20Architecture.md), and the immediate 0.9 execution slice is tracked in [Memory JSON Persistence Implementation Plan](Memory%20JSON%20Persistence%20Implementation%20Plan.md).
+The release also aligns DataLinq-managed SQLite reads around committed visibility and makes mutable reuse explicit and safe across commit, rollback, failure, and transaction boundaries.
 
-AOT and browser/WebAssembly are first-class constraints for these designs, not compatibility polish after the providers work on desktop.
+That is already a substantial release. Memory mutation, transactional snapshots, JSON commit logs, replay, broad join/grouping expansion, and production query-plan caching do not belong in the baseline. Putting all of them into 0.9 would turn one architecture proof into several unfinished products.
 
-## Opinionated Priority
+## Why The Foundation Comes First
 
-The strongest 0.9 sequence is:
+The current query plan is useful, but it is not yet a complete backend execution unit:
 
-1. Introduce a backend-neutral query execution boundary.
-2. Split query-plan structure from runtime invocation values.
-3. Add scalar conversion/provider-value infrastructure and typed-ID support before memory and JSON get stringly.
-4. Continue decomposing the LINQ parser where backend validation, provider-value normalization, and query composition create real pressure.
-5. Continue bounded SQL-backed source-slot join and grouping support without claiming general LINQ.
-6. Build an in-memory backend as the semantic oracle.
-7. Add memory mutation, deterministic test utilities, and canonical committed operation batches.
-8. Add JSON persistence as a memory-store option, not as a pretend document database or peer query backend.
+- [`DataLinqQueryPlan`](../../../../src/DataLinq/Linq/Planning/DataLinqQueryPlan.cs) owns both structural nodes and invocation values through `QueryPlanBindings`.
+- [`ExpressionQueryPlanExecutor`](../../../../src/DataLinq/Linq/Planning/Expressions/ExpressionPlanQueryable.cs) receives the original expression alongside the plan and re-extracts projection lambdas for row-local projection execution.
+- The same executor directly constructs [`QueryPlanSqlBuilder`](../../../../src/DataLinq/Linq/Planning/Sql/QueryPlanSqlBuilder.cs), so SQL rendering remains the implicit execution center.
+- [`IDatabaseProvider`](../../../../src/DataLinq/Interfaces/IDatabaseProvider.cs) exposes `IDbCommand`, `IDbConnection`, SQL rendering helpers, and database transactions. It is not a credible neutral contract for a memory backend.
+- [`IDataSourceAccess`](../../../../src/DataLinq/Interfaces/IDataSourceAccess.cs) exposes SQL-shaped database access, and [`DataSourceAccess`](../../../../src/DataLinq/Mutation/DataSourceAccess.cs) loads from SQL strings and commands.
+- Generated database roots currently cast `IDataSourceAccess` back to the concrete SQL-shaped `DataSourceAccess` in [`GeneratorFileFactory`](../../../../src/DataLinq.SharedCore/Factories/Generator/GeneratorFileFactory.cs).
+- Cold cache and relation loads still issue provider commands directly through the existing source access path.
+- Public [`IRowData`](../../../../src/DataLinq/Instances/RowData.cs) exposes model instance values. Quietly repurposing it as a provider-value store would leak storage representations through public model APIs.
 
-Scalar conversion should move into 0.9 rather than remain a later typed-key dream. Memory row buffers, SQL query constants, relation keys, cache keys, JSON snapshots, and JSON commit logs all need the same answer to one question: what provider value represents this model value? Typed IDs are the user-facing proof that the answer is real.
+The 0.9 foundation must address those facts. Adding an `IQueryPlanBackend` beside them while leaving every lower layer SQL-shaped would only create a memory provider full of throwing SQL stubs.
 
-The join/grouping continuation should be bounded. Multi-inner-join pipelines and grouping over joined source-slot shapes rhyme with the 0.8 query-plan work. Materialized `IGrouping`, `GroupJoin`, left joins, and broad relation-aware fluent APIs should not become baseline claims unless specific evidence earns them.
+The detailed foundation work is tracked in [Query Backend And Execution Foundation Implementation Plan](Query%20Backend%20and%20Execution%20Foundation%20Implementation%20Plan.md).
 
-In-memory should come before JSON. It has fewer moving parts and will tell us whether the query plan can be executed without SQL. JSON should come after the value-conversion boundary is clearer, because JSON persistence will immediately expose enum, date/time, nullable, typed-id, and provider/model representation problems. Commit-log persistence should also wait until memory mutation can emit canonical committed operation batches.
+## 0.9 Scope
 
-The JSON work in 0.9 means DataLinq-owned memory snapshot and optional commit-log formats. It does not mean arbitrary existing JSON document mapping, JSONPath-backed table mapping, a standalone JSON query backend, or model generation from JSON samples.
+| Bucket | Commitment |
+| --- | --- |
+| Baseline | Self-contained query template/invocation/request; backend-neutral source, execution, and row-materialization seams; capability validation; SQL adapter; scalar converters and typed IDs; UUID runtime correctness; SQLite committed visibility; mutable-instance lifecycle correctness for existing SQL providers; a vertical memory spike; a read-only memory preview; release evidence across providers, AOT, WebAssembly, packages, and docs. |
+| Late stretch | Select **at most one** after the baseline is green: a bounded explicit SQL join slice, or manual snapshot-only JSON import/export for memory. Shipping neither is acceptable. |
+| Deferred | Memory mutation and transactions; canonical commit batches; commit logs, replay, compaction, or flush-on-commit; persistence CLI commands; broad join/grouping work; relation-aware join sugar; left joins; production plan caching; general async APIs; arbitrary JSON mapping. |
 
-## Candidate Phases
+## Dependency Graph
 
-The exact phase count can change. This is the rough ordering.
+The work is organized as dependent workstreams, not a global sequence of reusable phase numbers.
 
-### Phase 1: Query Backend Contract
+```mermaid
+flowchart LR
+    F0["Foundation characterization"] --> F1["Self-contained template and invocation"]
+    F1 --> F2["Neutral source, executor, and row seams"]
+    F2 --> F3["Capability validator and SQL adapter"]
 
-Define the boundary between `DataLinqQueryPlan` and backend execution.
+    V0["Scalar provider-value contract"] --> V1["Typed-ID runtime coverage"]
+    V0 --> V2["UUID storage codec coverage"]
 
-Work should include:
+    F0 --> T0["SQL transaction-state characterization"]
+    T0 --> T1["SQLite committed visibility"]
+    T0 --> T2["Mutable baseline provenance"]
 
-- a backend query executor interface
-- backend capability metadata
-- explicit capability validation before execution
-- shared diagnostics for unsupported backend/query combinations
-- a SQL backend adapter around the existing `QueryPlanSqlBuilder`
+    F2 --> M0["Vertical memory spike"]
+    V0 --> M0
+    F3 --> M0
+    M0 --> M1["Read-only memory preview"]
+    V1 --> M1
 
-The SQL path should become one backend implementation, not the implicit center of the query pipeline.
+    F3 --> E0["SQL regression evidence"]
+    M1 --> E1["Memory, AOT, and browser evidence"]
+    V1 --> E2["Scalar and typed-ID evidence"]
+    V2 --> E2
+    T1 --> E3["SQL transaction correctness evidence"]
+    T2 --> E3
+    E0 --> G["0.9 baseline gate"]
+    E1 --> G
+    E2 --> G
+    E3 --> G
 
-Exit signal:
+    G --> S{"Select zero or one stretch"}
+    S --> R["Release evidence and documentation"]
+```
 
-- existing SQL behavior still passes
-- unsupported backend capabilities fail with DataLinq-owned diagnostics
-- public docs still describe only existing shipped SQL provider behavior
+The graph has two important consequences:
 
-### Phase 2: Plan Template and Invocation Split
+- Scalar normalization must exist before memory storage and UUID query behavior become separate collections of special cases.
+- The stretch decision happens after the baseline evidence gate. The team must not start both stretch candidates and hope one happens to finish.
 
-Separate structural query shape from runtime captured values.
+## Workstream: Query Backend And Execution Foundation
 
-0.8 made bindings immutable at the plan boundary. 0.9 should continue that into a cacheable model:
+This workstream owns the architectural boundary.
 
-- `QueryPlanTemplate` or equivalent structural plan
-- invocation-time scalar and local-sequence values
-- stable binding declarations
-- cache-key rules that exclude ordinary scalar values
-- allocation measurements for repeated query shapes
+### Self-contained execution request
 
-This phase prepares query-shape caching without needing to ship broad caching behavior immediately.
+Separate query structure from runtime values without promising a production cache:
 
-Exit signal:
+- a structural query template contains sources, operations, result shape, binding declarations, and every projection recipe required for execution
+- an invocation contains the frozen scalar and local-sequence values for one execution
+- an execution request combines the invocation with a source/runtime context and cancellation state
+- execution no longer receives the original expression as a hidden second plan
+- row-local projection support either becomes an explicit, AOT-safe plan recipe or stays outside a backend's advertised capability set
 
-- repeated queries can reuse structural plan data in focused tests or prototypes
-- runtime captured values remain isolated per execution
-- no supported query behavior changes
+Currently supported SQL row-local projections must become self-contained plan/compatibility recipes so existing behavior stays green; memory may reject those recipes. Neither backend may receive or reparse the original query expression.
 
-### Phase 3: Scalar Converters, Provider Values, And Typed IDs
+The template may record explicit nullness, empty-membership, or cardinality specialization where current parsing/rendering semantics require it. 0.9 does not promise that one template is reusable across those specializations.
 
-Build the conversion boundary memory, JSON, joins, keys, and schema validation all need.
+This separation is required for correctness and backend execution. It may make future plan caching possible, but 0.9 must not add a process-wide cache, cache eviction policy, public cache key, cross-specialization reuse, or performance claim based on hypothetical reuse. Focused tests may compare compatible structural templates and measure allocations; that is evidence, not a shipped caching feature.
 
-Work should include:
+### Backend-neutral source and materialization seams
 
-- explicit scalar converter metadata and registration
-- model CLR type vs provider CLR type on column metadata
-- provider-value normalization for reads, writes, query constants, local sequences, joins, keys, relations, mutation values, memory rows, and JSON payloads
-- typed-ID equality and local `Contains(...)` query support
-- typed-ID explicit join key support where both sides normalize to compatible provider values
-- auto-increment/default provider values converted back to model values
-- schema validation based on provider storage types
-- clear diagnostics for unsupported value-object member queries
+Introduce narrow internal contracts for:
 
-This is not a general value-object query feature. It is single-column scalar conversion first, with typed IDs as the first serious ergonomic proof.
+- metadata and source identity
+- query-plan execution
+- primary-key/source-row loading
+- canonical provider-value row buffers
+- shared conversion from provider values to model-valued `RowData`
+- immutable instance creation and cache participation
 
-Exit signal:
+Keep SQL-only operations behind SQL-specific interfaces. Raw SQL strings, `IDbCommand`, connections, and SQL transactions do not belong on the neutral memory-facing contract.
 
-- conversion rules are centralized
-- typed-ID primary keys, foreign keys, equality predicates, local membership, and explicit join keys are test-covered
-- SQL and memory paths share provider-value normalization
-- JSON design can use the same conversion boundary
+Do not turn existing public `RowData` into a provider-value bag. Use an internal row buffer, decode SQL wire representations into canonical provider CLR values, apply scalar conversion into model values, and only then expose/materialize the public model row. Cache keys and relation indexes should use normalized provider-key values without leaking those values through model properties.
 
-Execution plan:
+### Capability validation
 
-- [Scalar Converters And Typed IDs Implementation Plan](Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md)
+Add one validator between parsing and execution:
 
-### Phase 4: Parser Decomposition and Normalization
+- the template declares or can be inspected for required operations, value kinds, projections, source counts, and result operators
+- each backend advertises an explicit capability set
+- invocation-sensitive limits, such as local sequence size, are validated with the invocation
+- validation finishes before commands are sent or memory rows are enumerated
+- unsupported shapes fail through a DataLinq-owned diagnostic naming the backend and unsupported plan feature
+- there is no client-side or LINQ-to-Objects fallback
 
-Split the current parser only where it reduces real complexity.
+Universal unsupported expression shapes remain parser errors. A valid DataLinq plan that a particular backend cannot execute is a capability error. That distinction needs tests because it is part of the product's honesty.
 
-Candidate seams from the architecture review:
+### SQL adapter
 
-- query method parsing
-- source binding and transparent identifiers
-- value translation
-- predicate translation
-- projection translation
-- relation traversal planning
-- plan normalization and pushdown
-- backend capability validation
+Move existing SQL execution behind the new boundary rather than rewriting the SQL engine:
 
-This should not be a vanity refactor. It should happen alongside Phase 1 and Phase 2 pressure so the extracted components are shaped by real use.
+- wrap `QueryPlanSqlBuilder` and the current projection/materialization paths in the SQL backend adapter
+- preserve current SQLite, MySQL, and MariaDB behavior and diagnostics
+- route the terminal primary-key optimization through the same neutral source/backend contract instead of maintaining an unvalidated SQL-only escape route
+- preserve telemetry, metrics, command ownership, and disposal semantics
+- migrate cold cache and relation loads to neutral source operations while leaving raw SQL APIs explicitly SQL-only
 
-Exit signal:
+The SQL adapter is the compatibility proof. The memory spike does not proceed to a public preview while existing providers require a parallel execution pipeline to stay green.
 
-- parser responsibilities are easier to test in isolation
-- backend-specific restrictions move out of expression parsing where possible
-- snapshots and compliance tests remain stable
+### Async-ready, not fake-async
 
-### Phase 5: SQL Join And Grouping Continuation
+0.9 does not promise a new public async query API. It should avoid making that future needlessly expensive:
 
-Continue the 0.8 source-slot query work where it naturally stops short.
+- carry a `CancellationToken` in the internal execution context
+- check cancellation before I/O and at bounded points in memory scans, ordering, and materialization
+- keep result/cursor ownership explicit so a future async SQL reader can have a real lifetime
+- avoid neutral interfaces whose only possible implementation is synchronous `IEnumerable<T>` over an already-open provider reader
+- keep `System.Data` async details inside the SQL adapter
+- do not add `Task.FromResult`, thread-pool wrappers, or fake asynchronous memory methods
 
-Useful scope:
+Native asynchronous database execution and public cancellation-aware terminal operators remain follow-up product work.
 
-- standard C# query syntax with multiple inner joins
-- chained explicit `Join(...)` support beyond the current single-join boundary
-- filtering, ordering, paging, `Any()`, and `Count()` over supported multi-join projection rows
-- SQL-backed direct projection rows over multi-join source slots
-- grouping over supported multi-join projection rows
-- typed-ID/provider-value join key normalization once Phase 3 lands
-- relation-aware `JoinBy(...)` and `JoinMany(...)` as stretch work after explicit multi-join composition is stable
+## Workstream: Scalar Values, Typed IDs, And UUIDs
 
-Keep the support boundary honest:
+UUID correctness should be in 0.9. It is not decorative scope: the current storage format can affect whether a correct-looking equality or `Contains(...)` query finds an existing row.
 
-- no materialized `IGrouping<TKey,TElement>` support
-- no `GroupJoin(...)`
-- no left joins as a baseline claim
-- no implicit collection projection or hidden row multiplication
-- no client-side fallback for unsupported provider query shapes
+The value pipeline must distinguish three layers:
 
-Exit signal:
+```text
+model CLR value -> canonical provider CLR value -> provider/column wire value
+```
 
-- practical multi-table inner joins work through documented query syntax
-- supported joined rows compose through SQL-backed projection members
-- grouping over joined rows uses the same grouped aggregate-row model as 0.8
-- unsupported join/grouping shapes fail with focused diagnostics
+Examples:
 
-Execution plan:
+- `CustomerId` to `int` is scalar model/provider conversion.
+- canonical `Guid` to MySQL `BINARY(16)` bytes is a column storage codec.
+- SQLite text UUID and MariaDB native UUID are different wire choices for the same canonical value.
 
-- [Join And Grouping Continuation Implementation Plan](Join%20and%20Grouping%20Continuation%20Implementation%20Plan.md)
+Those layers should share metadata and normalization entry points without pretending they are the same conversion.
 
-### Phase 6: In-Memory Backend Foundation
+### Baseline scalar and typed-ID slice
 
-Build a real DataLinq in-memory backend, not SQLite in-memory and not a loose fake.
+The baseline follows [Scalar Converter Support](../../metadata-and-generation/Scalar%20Converter%20Support.md) and the focused [Scalar Converters And Typed IDs Implementation Plan](Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md):
 
-Initial scope should be deliberately narrow:
+- explicit converter metadata and registration
+- separate model and provider CLR types on column metadata
+- centralized conversion for reads, writes, query constants, local sequences, keys, foreign keys, relation lookup, cache identity, generated/default values, and schema validation
+- typed-ID primary keys and foreign keys
+- direct equality and local `Contains(...)`
+- explicit join-key normalization where the already-supported SQL join shape uses compatible provider types
+- clear rejection of value-object member queries that are not part of scalar conversion
 
-- generated models only
-- browser/WebAssembly AOT as a baseline runtime
-- metadata-driven tables
-- primary-key indexed row storage
-- immutable row materialization compatible with existing cache expectations
-- basic seeding/loading API for tests
-- read-only query execution for a small documented subset
+Generated typed-ID source output and adapter packages for third-party typed-ID libraries are later work. Explicit converters must become boring before convenience generation is added.
 
-The in-memory backend should execute `DataLinqQueryPlan` directly. If it has to re-parse expressions or route through SQL-shaped strings, the architecture failed.
+### Baseline UUID runtime-correctness slice
 
-Exit signal:
+The baseline takes the correctness-critical portion of [UUID Storage Format Support](../../providers-and-features/UUID%20Storage%20Format%20Support.md):
 
-- primary-key lookup and simple `Where`/`OrderBy`/`Take`/projection shapes execute without SQL
-- behavior can be compared against SQLite in compliance-style tests
-- relation traversal and cache interactions have a clear design, even if not complete
+- explicit/resolved UUID storage metadata and a tested codec
+- backward-compatible MySQL `BINARY(16)` defaults for existing DataLinq data
+- column-aware read and write conversion for SQLite, MySQL, and MariaDB
+- direct equality, nullable equality, local `Contains(...)`, primary-key/cache loads, relation predicates, update/delete keys, and static defaults using the same codec
+- diagnostics for the `DefaultNewUUID(UUIDVersion.Version7)` versus MySQL/MariaDB `UUID()` semantic mismatch
+- schema validation that distinguishes compatible type shape from an unknown or incompatible UUID byte layout
+- server tests that do not rely on a matching MySqlConnector `GuidFormat` connection option
 
-### Phase 7: In-Memory Mutation, Test Utility, And Commit Batches
+Ambiguous-schema import UX, new UUID CLI configuration, automatic data migration between binary layouts, and changing compatibility defaults are not baseline work. `BINARY(16)` does not describe its byte order; 0.9 must report that ambiguity rather than guess destructively.
 
-Decide how far the in-memory backend goes beyond read queries.
+## Workstream: Existing SQL Transaction Correctness
 
-Useful scope:
+The trimmed memory backend is read-only, but the existing SQL write path still has correctness work that matters more than speculative persistence features. 0.9 should close it before adding another mutable backend.
 
-- insert/update/delete against generated mutable models
-- atomic, isolated in-process transactions with no durability claim, or explicit documentation that mutation is not transactional yet
-- relation/index invalidation behavior
-- deterministic test fixtures
-- store snapshots/forks for browser scenarios and test isolation
-- seed builders and graph-oriented fixture helpers that do not fall back to fake `IQueryable` semantics
-- canonical committed operation batches in provider-value form
+The detailed designs own this work:
 
-This phase is where the in-memory backend can become genuinely useful for user tests. It should still be honest about durability and concurrency. A fake LINQ-to-Objects read store should not be the main 0.9 testing story once the memory backend can execute DataLinq query plans directly.
+- [SQLite Transaction Isolation Alignment](../../providers-and-features/SQLite%20Transaction%20Isolation%20Alignment.md)
+- [Mutable Instance Lifecycle](../../query-and-runtime/Mutable%20Instance%20Lifecycle.md)
 
-Exit signal:
+The release boundary is:
 
-- users can seed an in-memory database and exercise common read/mutation workflows
-- unsupported ACID/durability semantics are documented instead of implied
-- successful commits produce a canonical provider-value operation batch that JSON persistence can serialize later
+- DataLinq-managed SQLite reads use committed visibility rather than relying on shared-cache dirty reads
+- transaction-local rows, tombstones, relation views, and mutable baselines remain local until the provider commit succeeds
+- committed/global cache publication and relation notification happen after provider commit, not after each attempted write
+- rollback or disposal discards transaction-local state without publishing it globally
+- a mutable baseline records provider and transaction provenance
+- reuse inside the owning active transaction and after a successful commit is well-defined
+- reuse through another transaction, after rollback/disposal, after deletion, or after an uncertain failed write is rejected with an actionable diagnostic
+- ordinary primary-key mutation and writes through read-only transactions are rejected
+- SQLite documentation describes committed visibility honestly without claiming literal equivalence to MySQL/MariaDB `ReadCommitted`
 
-### Phase 8: JSON Memory Persistence Foundation
+This is existing SQL-provider mutation correctness, not a provider-neutral mutation architecture. It does not authorize memory mutation, commit batches, persistence hooks, or transaction-parity claims for the read-only memory preview.
 
-Add experimental JSON persistence for memory stores using `System.Text.Json`.
+Coordinate cache/source edits with the query foundation so each artifact has one owner:
 
-Start with a boring, inspectable storage contract:
+- the query foundation owns neutral read, cache-miss, and materialization seams
+- the transaction plans own pending-versus-committed cache publication and mutable provenance
+- regression tests own the point where those seams meet
 
-- DataLinq-owned `datalinq-memory-snapshot/v1` format
-- single-document snapshot as the preferred V1 baseline
-- deterministic formatting for human review
-- generated models only
-- primary-key indexed load path
-- explicit load/save lifecycle
-- persistence configuration on the memory store
-- AOT-aware serialization strategy where practical
+## Workstream: Vertical Memory Spike
 
-Do not call this a document database or JSON backend. JSON is a persistence format. Query and mutation semantics still belong to `DataLinq.Memory`.
+Before a public package or polished builder API, build one end-to-end spike through the real architecture:
 
-Exit signal:
+```text
+expression parser
+  -> structural template + invocation
+  -> capability validation
+  -> memory executor
+  -> canonical provider-value row
+  -> shared model materializer/cache
+  -> generated immutable model or direct projection
+```
 
-- generated model rows can round-trip through JSON
-- primary-key lookup works after reload
-- errors for malformed JSON, duplicate keys, missing required values, and unknown schema shape are actionable
+The spike should prove:
 
-### Phase 9: JSON Persistence Mutation, Log, And Replay Proof
+- one generated database and a small seeded table
+- primary-key lookup
+- one scalar predicate with a captured value
+- ordering plus `Take`
+- an entity result and one direct scalar projection
+- `Any` or `Count`
+- the same request shape executing through the SQL adapter for parity
+- a deterministic unsupported diagnostic for a join or grouping plan
+- cancellation before execution and during a bounded memory scan
+- browser/WebAssembly AOT execution without SQLite, SQL generation, `Expression.Compile()`, or runtime code generation
 
-Execute the memory-supported query subset against state loaded from JSON persistence and prove mutation durability behavior.
+The spike fails if memory requires SQL-shaped stubs, reparses the original expression, stores immutable model instances as database state, or bypasses the shared materialization/cache boundary. Fix the foundation before expanding the memory feature.
 
-Useful scope:
+## Workstream: Read-Only Memory Preview
 
-- direct primary-key lookup
-- simple filters
-- ordering/paging
-- direct projection rows
-- basic mutation and persistence
-- canonical committed operation batches
-- optional `datalinq-memory-commit-log/v1`
-- snapshot-plus-log replay
-- focused parity tests against in-memory and SQLite
+The durable design remains in [Memory Backend Architecture](../../backends/memory/Architecture.md). The 0.9 release filter is intentionally narrower than that document, and the executable slice is tracked in [Read-Only Memory Backend Implementation Plan](In-Memory%20Database%20Implementation%20Plan.md).
 
-This should remain experimental unless durability, browser storage, schema compatibility, and performance have enough evidence to support stronger wording.
+### Baseline capability set
 
-Exit signal:
+The preview should support only generated models, one root table per query, and explicitly seeded canonical rows. Its initial query set is:
 
-- JSON persistence proves the memory backend can persist and reload data
-- commit-log mode proves replayability if included in the release claim
-- docs label it accurately as experimental or supported according to evidence
-- no SQL support claims are weakened
+- primary-key lookup
+- single-source scalar equality, inequality, ordering comparisons, null checks, boolean `And`/`Or`/`Not`, and local scalar membership
+- `OrderBy`, `ThenBy`, `Skip`, and `Take`
+- `Any`, `Count`, `First`, `FirstOrDefault`, `Single`, and `SingleOrDefault`
+- entity and direct scalar projections represented completely in the plan
+- direct column-backed constructor/anonymous-row projections only if the memory materializer has explicit Native AOT and WebAssembly evidence; otherwise they remain outside the 0.9 memory capability set
+- deterministic seed loading into isolated store instances suitable for tests and examples
+- clear capability failures for every unsupported operation
 
-## Release Boundary
+The exact matrix may be narrower if parity evidence exposes ambiguous null, string, date/time, or ordering semantics. The memory backend may be stricter than SQL in 0.9; it must never silently be looser.
 
-The ideal 0.9 release claim would be narrow:
+### Baseline exclusions
 
-> DataLinq 0.9 introduces a backend-neutral query execution boundary, first-class scalar conversion with typed-ID support, bounded SQL join/grouping continuation, an in-memory backend for generated models, and experimental JSON persistence for memory stores that proves the DataLinq query plan outside SQL.
+The memory preview does not include:
 
-That wording can strengthen only if evidence justifies it.
+- insert, update, delete, `Save`, or provider-neutral mutation
+- transactions, isolation, rollback, conflict detection, generated identities, or constraint emulation
+- commit batches, logs, replay, forks, compaction, or failure injection
+- automatic persistence or background flush
+- raw SQL
+- joins, grouping, relation predicates, or implicit collection expansion
+- post-paging `Pushdown`, unless it is deliberately added to the capability matrix with ordering/paging parity tests
+- generated relation navigation/lazy relation loading; accessing it must fail through the memory read-source capability boundary rather than falling into SQL-shaped access
+- computed row-local projections that are not fully represented by the execution template
+- a promise of SQL collation, null, date/time, or concurrency parity
 
-Possible stronger claims, if earned:
+Mutation APIs exposed by shared surfaces must fail immediately with a precise preview-capability diagnostic; they must not partially mutate state or masquerade as successful no-ops.
 
-- in-memory backend supports common generated-model read and mutation workflows
-- JSON memory persistence supports deterministic local snapshots for generated models
-- JSON memory persistence supports replayable committed mutation logs
-- typed IDs work across SQL and memory query/key/relation paths
-- multi-inner-join and grouped aggregate rows compose over documented source-slot shapes
-- repeated query shapes allocate less through plan-template reuse
+The user-facing description should say **read-only preview**. Calling this a general database replacement would be fiction.
 
-Claims to avoid unless proven:
+## Late Stretch Decision
 
-- "full backend abstraction"
-- "any backend can run DataLinq queries"
-- "all typed ID libraries work automatically"
-- "general value-object query translation"
-- "full join support"
-- "left join support"
-- "general GroupBy support"
-- "JSON database"
-- "JSON backend"
-- "in-memory database with SQL parity"
-- "arbitrary LINQ over JSON"
-- "production-grade JSON persistence"
+After all baseline gates are green, choose zero or one candidate. Do not develop both in parallel.
 
-## Cross-Cutting Requirements
+| Candidate | Maximum acceptable slice | Explicit exclusions |
+| --- | --- | --- |
+| Bounded SQL join continuation | Chained explicit inner joins over direct source-slot equi-keys, direct SQL-backed projection rows, and composite keys only if they use the same completed normalization primitive. | Grouping continuation, `GroupJoin`, left/outer joins, relation-aware `JoinBy`/`JoinMany`, collection expansion, or client fallback. |
+| Manual JSON snapshot | A deterministic, versioned snapshot format that can be explicitly exported from and loaded into a read-only memory store. Manual API calls only. | Mutation, flush-on-commit, logs, replay, compaction, schema migrations, CLI commands, browser storage adapters, or arbitrary existing JSON documents. |
 
-- Existing SQLite, MySQL, and MariaDB behavior must stay green.
-- Backend-neutral work must not weaken the documented LINQ subset.
-- Provider-value normalization must be shared by SQL, memory, cache, relation, mutation, and JSON paths.
-- Typed-ID support must be backed by explicit scalar converter metadata, not convention magic in hot paths.
-- Unsupported backend/query shapes must fail clearly.
-- AOT-sensitive code paths should avoid `Expression.Compile()`, runtime code generation, and broad reflection fallback.
-- The in-memory backend should be able to run in browser WebAssembly without native SQLite, OPFS, or browser file APIs.
-- Benchmarks should distinguish allocation evidence from latency claims.
-- Public docs must separate production SQL providers, in-memory testing support, and experimental JSON persistence.
+Use [Join And Grouping Continuation Implementation Plan](Join%20and%20Grouping%20Continuation%20Implementation%20Plan.md) or [Memory JSON Persistence Implementation Plan](Memory%20JSON%20Persistence%20Implementation%20Plan.md) only after applying the release filter above. Their wider designs remain backlog material, not an excuse to smuggle a second release into the stretch.
+
+Selection criteria:
+
+- the baseline has complete SQL, memory, value-conversion, and constrained-runtime evidence
+- the candidate can finish without changing a baseline architectural contract
+- the candidate has a small, documentable support matrix
+- implementation and verification fit inside the remaining release budget
+- choosing it does not delay correctness fixes
+
+If neither candidate meets those conditions, 0.9 ships without a stretch. That is discipline, not failure.
+
+## Release Evidence
+
+0.9 is not complete when the APIs compile. It is complete when the following evidence exists.
+
+### Query and SQL compatibility
+
+- parser/template snapshots prove runtime values are absent from structural templates
+- invocation isolation tests prove repeated executions cannot share captured values accidentally
+- self-contained execution tests prove executors do not receive or reparse the original expression
+- capability validation tests cover operations, projections, values, result operators, and invocation-sensitive limits
+- the existing documented SQL query subset remains green on SQLite, MySQL, and MariaDB
+- read-only and transaction query roots retain parity on SQL providers
+- primary-key optimizations, cold cache loads, and relation loads still use correct telemetry and cache identity
+
+### Scalar and UUID correctness
+
+- typed IDs cover reads, writes, equality, `Contains`, keys, foreign keys, relations, generated values, and schema validation
+- provider/model/wire conversions are tested separately and together
+- MySQL `BINARY(16)` equality and `Contains` pass without connection-string-dependent UUID behavior
+- MariaDB native UUID and SQLite text UUID behavior pass provider tests
+- legacy MySQL little-endian binary data remains readable
+- incompatible or unknown UUID layouts and database-side UUID-version mismatches produce actionable diagnostics
+
+### SQL transaction correctness
+
+- SQLite no longer enables dirty-read behavior as the normal DataLinq visibility mechanism
+- owning transactions see their pending DataLinq-managed changes while normal database reads do not see them before commit
+- global cache and relation notification occur only after provider commit succeeds
+- rollback and open-transaction disposal discard pending state without exposing it
+- mutable reuse, commit promotion, cross-transaction rejection, rollback invalidation, failed-write handling, deletion, primary-key mutation, and read-only transaction guards pass SQLite, MySQL, and MariaDB compliance tests
+- raw SQL and externally performed writes remain documented outside guarantees that DataLinq cannot enforce
+
+### Memory preview
+
+- every advertised memory query shape has unit and compliance-style behavior tests
+- unsupported joins, grouping, mutations, and row-local projection shapes fail before enumeration changes observable state
+- primary-key and scan paths use normalized provider values
+- SQL and memory results are compared for the shared supported subset with semantic differences explicitly documented
+- deterministic seeding and database-instance isolation are proven
+
+### Compatibility, packaging, and performance
+
+- core package targets build for the repository's `net8.0`, `net9.0`, and `net10.0` matrix
+- `DataLinq.Memory`, if packaged separately, has deliberate dependencies and no accidental SQLite/native provider payload
+- public API compatibility is reviewed; neutral internal seams do not force needless breaks in SQL provider APIs
+- generated Native AOT and trimmed smokes execute the memory path
+- Blazor WebAssembly no-AOT and AOT browser smokes execute seed, query, direct scalar projection, and unsupported-diagnostic paths without native SQLite
+- package/size reports include the new package and constrained target rather than relying on the historical target list
+- focused benchmarks record parsing, invocation creation, memory lookup/scan, and allocation baselines without claiming production plan-cache wins
+
+The constrained-runtime work should build on [Practical AOT And Size Plan](../../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md). A successful SQLite WebAssembly smoke does not prove the new memory path; the release evidence must run memory directly.
+
+### Documentation
+
+- public docs clearly separate production SQL providers, SQLite in-memory mode, and the read-only DataLinq memory preview
+- [Supported LINQ Queries](../../../Supported%20LINQ%20Queries.md) and the [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md) list memory support per shape rather than inheriting SQL claims
+- UUID storage defaults and compatibility behavior are documented per provider
+- roadmap-only mutation, transaction, persistence, cache, and stretch features are not presented as shipped
+- generated DocFX output is checked when navigation or public pages change
+
+## Baseline Exit Criteria
+
+The baseline gate is green only when all of the following are true:
+
+- SQL execution consumes the same self-contained request shape as memory
+- `ExpressionQueryPlanExecutor` no longer needs the original expression for supported execution
+- memory does not implement SQL-only provider members as throwing placeholders
+- capability validation occurs before backend work
+- scalar and UUID normalization use shared metadata-driven entry points
+- SQLite committed visibility and mutable baseline provenance pass the existing SQL provider compliance matrix
+- the read-only memory subset passes its documented matrix under normal .NET and browser AOT
+- existing providers remain green
+- package, API, performance, and documentation evidence is recorded
 
 ## Explicit Non-Goals
 
-- broad arbitrary LINQ support
-- broad value-object member translation
-- automatic typed-key generation as the first typed-ID slice
-- materialized `IGrouping<TKey,TElement>` support
-- `GroupJoin(...)`
-- left joins as a baseline 0.9 claim
-- result-set caching as the headline 0.9 feature
-- DataLinq.Store execution
-- distributed cache coordination
-- arbitrary existing JSON document mapping
-- model generation from JSON samples or JSON Schema
-- JSONPath-backed table mapping
-- standalone JSON query backend
-- a migration engine for JSON
-- replacing SQLite as the constrained-platform proof path
+- production query-plan caching, eviction, or a public cache-key contract
+- general backend plugin APIs or a claim that arbitrary backends can execute DataLinq plans
+- provider-neutral mutation or transactions
+- memory insert/update/delete support
+- commit batches, event streams, logs, replay, compaction, or CDC
+- JSON flush-on-commit or automatic persistence
+- new persistence CLI commands
+- arbitrary JSON mapping, JSONPath querying, or a standalone JSON backend
+- broad multi-join/grouping continuation in the baseline
+- materialized `IGrouping<TKey,TElement>`, `GroupJoin`, or left joins
+- generated typed-ID output or automatic third-party typed-ID discovery
+- a general value-object query language
+- public asynchronous query/mutation APIs in this release
+- replacing SQL provider integration tests with memory tests
 
-## Open Questions
+## Follow-Up After 0.9
 
-- Should in-memory use the same public provider surface as SQL providers, or a separate testing-first factory?
-- How much transaction behavior should in-memory emulate before it becomes misleading?
-- Should JSON snapshots use one file per table, one file per database, or a segmented layout?
-- Should JSON commit logs be JSON arrays, JSON Lines, or segmented log files?
-- How should schema evolution work for JSON rows generated from changing model metadata?
-- Should query-plan templates be public diagnostics, internal cache entries, or both?
-- Where should backend capability validation live so parser logic stays backend-neutral?
-- Should UUID storage format support be folded into the scalar/provider-value slice or remain a separate provider feature?
-- Should relation-aware `JoinBy(...)`/`JoinMany(...)` ship in 0.9 if explicit multi-join support lands early, or stay as the next query feature?
+Once the backend read boundary has evidence, the sensible follow-up queue is:
 
-## Likely Follow-Up After 0.9
+1. native async/cancellation-aware SQL query and mutation APIs
+2. dependency injection, explicit unit-of-work, startup validation, and testing integration
+3. provider-neutral mutation built on the trustworthy SQL mutable-instance lifecycle
+4. isolated memory transactions, constraints, deterministic keys, and committed-change receipts
+5. snapshot persistence, then logs/replay only if mutation produces a clean committed artifact
+6. the unselected join or snapshot stretch
+7. production plan caching only after benchmarks justify lifetime, identity, concurrency, and eviction rules
 
-If 0.9 proves the backend boundary, the next good candidates are:
+The related longer-term plans remain useful, but they are not 0.9 promises:
 
-- dependency-tracked result-set caching
-- generated typed-key output and optional adapter packages for popular typed-ID libraries
-- broader relation-aware join APIs, especially left joins with honest nullability semantics
-- non-SQL backend experiments beyond JSON
-- production-grade JSON persistence only if the experimental store earns it
+- [JSON Persistence Store Architecture](../../backends/memory/persistence/json/JSON%20Persistence%20Store%20Architecture.md)
+- [Relation-Aware Join API](../../query-and-runtime/Relation-Aware%20Join%20API.md)
+- [Dependency Injection And Hosting Integration](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md)
+
+## Open Decisions
+
+Only decisions that can still change the baseline belong here:
+
+- What is the smallest neutral source contract that removes the generated-root cast without forcing a public provider rewrite?
+- Which row-local projection recipes can become self-contained and AOT-safe in 0.9, and which should stay SQL-only or unsupported for memory?
+- Which provider-neutral null and string semantics should memory define, and which provider differences must remain explicit?
+- Should `DataLinq.Memory` ship as a separate preview package immediately, or remain an experimental project until the vertical spike and package evidence are green?
+- Which, if either, late stretch candidate earns the remaining release budget?

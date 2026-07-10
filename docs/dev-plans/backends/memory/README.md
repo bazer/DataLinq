@@ -3,38 +3,42 @@
 
 # Memory Backend Design Notes
 
-**Status:** Draft collection.
+**Status:** Accepted.
 
 **Created:** 2026-07-03.
 
-This folder collects durable design notes for the planned `DataLinq.Memory` backend.
+**Reframed:** 2026-07-10.
 
-Use this folder for design decisions that should outlive one implementation phase:
+This folder contains durable design notes for `DataLinq.Memory`.
 
-- provider architecture
-- AOT and browser/WebAssembly constraints
-- store and transaction semantics
-- persistence store boundaries
-- commit batches and replayability
-- query-plan execution semantics
-- seeding, snapshots, and fixture behavior
-- diagnostics, verification, and public wording
+## Current Direction
 
-Use versioned roadmap folders such as `../roadmap-implementation/v0.9/` for phase sequencing, immediate exit criteria, and release-claim boundaries.
+The immediate target is deliberately narrow:
+
+> DataLinq 0.9 should ship, at most, an experimental read-only memory preview that starts from generated metadata, accepts explicit seed data, supports primary-key lookup and a small capability-gated query subset, and proves AOT/browser execution without SQL.
+
+The preview is not a transactional database, a SQL emulator, or the default replacement for provider-backed tests. Its job is to prove the backend-neutral query and materialization architecture.
+
+Post-0.9 design may add mutation, transactions, store forks, committed-change receipts, persistence, and replay. Those remain design directions, not part of the 0.9 release boundary.
+
+## Durable Design Rules
+
+- `DataLinqQueryPlan` execution must not require SQL generation or parsing.
+- Unsupported query shapes fail through explicit backend capabilities.
+- Memory rows store canonical provider CLR values by ordinal.
+- Materialization converts those buffers into model-valued `RowData`; provider values must not leak into model-facing APIs.
+- Generated metadata and accessors are the normal startup and hot path.
+- No `Expression.Compile()`, runtime code generation, broad reflection fallback, or unrestricted LINQ-to-Objects escape hatch belongs in query execution.
+- Memory semantics are documented in their own right. Matching a few SQLite results does not prove SQL semantic parity.
+- Provider-backed tests remain necessary for SQL translation, schema, collation, constraints, concurrency, and transaction behavior.
+- Persistence formats attach to memory state; they do not become peer query backends.
 
 ## Documents
 
-- [Architecture](Architecture.md): the current long-lived design for the in-memory backend.
-- [JSON Memory Persistence](persistence/json/README.md): the current long-lived design notes for JSON snapshots and commit logs over memory stores.
+- [Architecture](Architecture.md): the long-lived architecture, with the 0.9 preview separated from post-0.9 mutation and persistence directions.
+- [JSON Memory Persistence](persistence/json/README.md): durable notes for JSON snapshot encoding and later persistence work.
 
-## Current Position
+The immediate implementation plans are:
 
-The memory backend should be a real backend over generated DataLinq metadata, not SQLite in-memory, not a cache promotion, and not a SQL parser wearing a provider costume.
-
-Persistence stores such as JSON should attach to this backend. They should load snapshots, append/replay committed operation batches, and flush memory-store state. They should not become peer query backends.
-
-The central design rule:
-
-> `DataLinqQueryPlan` should be executable by a non-SQL backend. SQL providers are one backend implementation, not the center of the design.
-
-The immediate 0.9 implementation plan lives in [0.9 In-Memory Database Implementation Plan](../../roadmap-implementation/v0.9/In-Memory%20Database%20Implementation%20Plan.md).
+- [0.9 Read-Only Memory Backend Implementation Plan](../../roadmap-implementation/v0.9/In-Memory%20Database%20Implementation%20Plan.md)
+- [0.9 Memory JSON Snapshot Prototype](../../roadmap-implementation/v0.9/Memory%20JSON%20Persistence%20Implementation%20Plan.md)

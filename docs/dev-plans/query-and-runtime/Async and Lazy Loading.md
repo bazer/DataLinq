@@ -2,7 +2,10 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Async and Lazy Loading
 
-**Status:** Draft  
+**Status:** Accepted.
+**Release horizon:** First post-0.9 adoption release.
+**Last reviewed:** 2026-07-10.
+**Dependency:** The 0.9 execution foundation must remain async/cancellation-ready, but native provider async I/O is not a 0.9 release claim.
 **Goal:** Introduce real async I/O support and define how lazy loading should behave without turning DataLinq into a magical, hard-to-reason-about API.
 
 ## 1. Why This Matters

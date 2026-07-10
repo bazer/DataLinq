@@ -2,7 +2,12 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Projections, Implicit Joins, and Client-Side Views
 
-**Status:** Draft
+**Status:** Historical.
+
+**Last reviewed:** 2026-07-10.
+
+The projection, source-slot, implicit singular-join, and SQL-backed row work described by the early stages has been superseded by the 0.8 implementation and current parser architecture. The remaining persistent/reactive view idea belongs to [Dependency-Tracked Result and Module Caching](Result%20set%20caching.md) and DataLinq.Store, not to the 0.9 execution plan.
+
 **Goal:** Evolve DataLinq from a "Row Fetcher" into a "Shape Shifter." This specification outlines how to implement LINQ Projections (`Select`) and Joins efficiently, and how to upgrade standard Projections into persistent, reactive **Client-Side Views**.
 
 **Roadmap placement:** projection and query-shaping work belongs in the main roadmap's capability expansion phase; persistent client-side views and result caching belong later with dependency-tracked result-set caching.

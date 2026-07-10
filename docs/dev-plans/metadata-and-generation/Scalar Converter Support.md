@@ -3,19 +3,34 @@
 
 # Specification: Scalar Converter Support
 
-**Status:** Draft. This is the old global scalar-converter source plan; active 0.8 work should preserve provider-value normalization seams but not pull full scalar converter ergonomics into the join phases.
+**Status:** Accepted.
+
+**Release scope:** The bounded first implementation targets 0.9; broader converter authoring remains later work.
+
+**Last reviewed:** 2026-07-10.
+
+**0.9 execution plan:** [Scalar Converters and Typed IDs Implementation Plan](../roadmap-implementation/v0.9/Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md).
+
 **Goal:** Add a first-class scalar conversion layer so a model property can use a domain CLR type while DataLinq stores, queries, caches, validates, and mutates the underlying provider CLR value consistently.
 
 The core idea is simple:
 
 ```text
-Model CLR type    <->    Provider CLR type    <->    Database column type
-CustomerId        <->    int                  <->    INT / INTEGER
-EmailAddress      <->    string               <->    VARCHAR(320) / TEXT
-OrderPayload      <->    string               <->    JSON / TEXT
+Model CLR type    <->    Canonical provider CLR type    <->    Provider physical/wire representation
+CustomerId        <->    int                            <->    INT / INTEGER
+EmailAddress      <->    string                         <->    VARCHAR(320) / TEXT
+OrderPayload      <->    string                         <->    JSON / TEXT
+Guid              <->    Guid                           <->    native UUID / text / column-specific binary layout
 ```
 
 This should be a general DataLinq feature, not a strongly typed ID feature with a generic name. Strongly typed IDs are the obvious first use case, but the same mechanism should support JSON parsing, encrypted strings, compressed payloads, custom date/string formats, URL/email/country-code value objects, and plugin-provided conversions for legacy schemas.
+
+The two conversion boundaries are deliberately distinct:
+
+- scalar converters own model value to canonical provider CLR value conversion
+- provider codecs own canonical provider CLR value to column-specific physical/wire representation
+
+UUID byte order and text/native UUID choices therefore belong to [UUID Storage Format Support](../providers-and-features/UUID%20Storage%20Format%20Support.md), not inside a typed-ID converter.
 
 ## Why This Exists
 
@@ -351,11 +366,12 @@ Required changes:
 1. **Row reading**
    - Provider reader reads the provider CLR value.
    - DataLinq converts provider value to model value before exposing the property.
-   - Cache strategy must decide whether `RowData` stores provider values, model values, or both. The likely answer is provider values in `RowData`, model conversion at property access, with optional per-instance memoization for expensive conversions.
+   - Existing public model-facing `RowData` remains model-valued. Public indexers, `GetValues()`, and `GetRowData()` already expose that behavior.
+   - Backends use a separate internal canonical-provider-value buffer for storage, comparison, keys, and query execution, then materialize model-valued `RowData` through the column converter.
 
 2. **Mutation writing**
    - `MutableRowData` accepts model values.
-   - SQL writers convert model values to provider values before provider-specific conversion like `Guid` to `BINARY(16)`.
+   - SQL writers convert model values to canonical provider values before a column/provider codec applies physical conversion such as `Guid` to a specific `BINARY(16)` layout.
 
 3. **Query constants**
    - `x.CustomerId == customerId` stores the provider value as the SQL parameter.
@@ -509,9 +525,12 @@ Minimum coverage:
 - string parsing converter trims/normalizes read values and writes canonical provider values
 - JSON whole-value converter reads and writes a POCO/value object without claiming JSON path query support
 
+## Resolved 0.9 Storage Decision
+
+The first implementation converts eagerly into model-valued `RowData`. Any later conversion memoization must be internal and preserve the same public row/indexer behavior.
+
 ## Open Questions
 
-- Should `RowData` store provider values only, model values only, or provider values plus lazy converted model cache?
 - Should direct PK lookup accept `TModelId`, or should it require `IKey` until a typed overload can be generated?
 - Should converters be allowed to depend on services, or should they stay pure and stateless for predictability?
 - How much `.Value` unwrapping should query translation support for typed IDs?

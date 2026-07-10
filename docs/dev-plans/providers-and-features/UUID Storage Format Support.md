@@ -3,8 +3,52 @@
 
 # Specification: UUID Storage Format Support
 
-**Status:** Draft specification.
+**Status:** Accepted.
+
+**Release scope:** Required 0.9 runtime correctness slice; broader UUID policy work remains later.
+
+**Target release:** DataLinq 0.9 for the bounded runtime slice defined below.
+
+**Depends on:** Scalar-converter workstreams `SC-1` through `SC-5` in [Scalar Converters And Typed IDs Implementation Plan](../roadmap-implementation/v0.9/Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md).
+
+**Last reviewed:** 2026-07-10.
+
 **Goal:** Make DataLinq responsible for UUID/`Guid` storage semantics so reads, writes, queries, defaults, validation, and generated metadata do not depend on MySqlConnector connection-string behavior.
+
+## 0.9 Decision And Ownership
+
+UUID storage correctness belongs in 0.9 immediately after the scalar-converter core. This document owns that work; the scalar plan owns only the general model-to-canonical-provider conversion boundary.
+
+The distinction is deliberate:
+
+```text
+typed/model value <-> canonical Guid <-> column-specific physical UUID value
+```
+
+Scalar converters own the first arrow. The UUID codec in this plan owns the second. The read-only memory backend stores canonical `Guid` values and does not imitate SQL binary/text layouts.
+
+The 0.9 slice is bounded to closing the current correctness hole across existing runtime paths:
+
+- resolved per-column UUID storage metadata
+- MySQL/MariaDB reads and writes for native UUID, text UUID, compatibility little-endian `BINARY(16)`, and explicit RFC-order `BINARY(16)`
+- SQLite text UUID and explicitly configured binary UUID reads and writes
+- column-aware equality and nullable query parameters
+- local `Contains(...)` and already-supported local equality-membership shapes
+- primary/composite key components, cache lookup, and relation predicates
+- insert, update, delete, and generated/default value paths
+- static default literals and a diagnostic for incompatible database-generated UUID-version claims
+- schema validation that checks both physical type and declared/resolved UUID format
+- provider evidence that relevant paths no longer depend on MySqlConnector `GuidFormat`
+
+Explicitly outside the 0.9 slice:
+
+- automatic data migration between UUID byte layouts
+- changing the compatibility default for existing MySQL `BINARY(16)` models
+- MySQL time-swap format support
+- a project-wide UUID policy or new-template default change
+- live-schema import CLI switches and ambiguous-import policy beyond a clear diagnostic
+- a broad redesign of client-side versus server-side UUID generation
+- JSON persistence encoding
 
 ## Current State
 
@@ -32,8 +76,9 @@ Relevant current files:
 - `src/DataLinq.SQLite/SQLiteDataLinqDataReader.cs`
 - `src/DataLinq.SQLite/SQLiteDataLinqDataWriter.cs`
 - `src/DataLinq/Query/Where.cs`
-- `src/DataLinq/Linq/Visitors/WhereVisitor.cs`
-- `src/DataLinq/Linq/QueryBuilder.cs`
+- `src/DataLinq/Linq/Planning/Expressions/ExpressionQueryPlanParser.cs`
+- `src/DataLinq/Linq/Planning/Sql/QueryPlanSqlValueRenderer.cs`
+- `src/DataLinq/Linq/Planning/Sql/QueryPlanSqlPredicateBuilder.cs`
 - `src/DataLinq.SharedCore/Attributes/DefaultAttribute.cs`
 - `src/DataLinq.SharedCore/Metadata/PropertyDefinition.cs`
 - `src/DataLinq.Tests.MySql/MariaDbGuidTypeMappingTests.cs`
@@ -143,10 +188,11 @@ public enum GuidStorageFormat
     Text36,
     Text32,
     Binary16LittleEndian,
-    Binary16Rfc4122,
-    Binary16MySqlTimeSwap
+    Binary16Rfc4122
 }
 ```
+
+`Binary16MySqlTimeSwap` is a possible post-0.9 extension. It should not enlarge the first correctness slice merely because MySQL exposes it.
 
 Example for compatibility with current DataLinq MySQL binary behavior:
 
@@ -196,7 +242,6 @@ public abstract Guid ExternalId { get; }
 - An exact provider match wins over `DatabaseType.Default`.
 - `ProviderDefault` means "use DataLinq's provider default," not "ask MySqlConnector."
 - `NativeUuid` requires a provider-native UUID type or a provider-specific mapping that behaves as native UUID.
-- `Binary16MySqlTimeSwap` should be MySQL/MariaDB-specific unless another provider explicitly supports the same layout.
 - `Text32` and `Text36` should validate against compatible declared database types where possible.
 
 ## Metadata Shape
@@ -271,7 +316,6 @@ Expected mappings:
 | `Text32` | lowercase undashed string | Useful for legacy `CHAR(32)`. |
 | `Binary16LittleEndian` | `byte[16]` from `Guid.ToByteArray()` | Current DataLinq/MySqlConnector compatibility format. |
 | `Binary16Rfc4122` | `byte[16]` matching UUID string order | Matches MySQL `UUID_TO_BIN(x)` without swap. |
-| `Binary16MySqlTimeSwap` | `byte[16]` matching `UUID_TO_BIN(x, 1)` | Useful only when the UUID version/layout benefits from MySQL time-part swapping. |
 
 For .NET 8+ and newer, `Guid.ToByteArray(bigEndian: true)` and `new Guid(bytes, bigEndian: true)` may be useful for RFC 4122 order. Multi-targeting may require a local implementation for older target frameworks.
 
@@ -334,25 +378,11 @@ This includes:
 - cache primary-key loads
 - update/delete primary-key predicates
 
-The current LINQ path often creates a `ColumnOperandWithDefinition` for direct comparisons, then normalizes only special cases such as `char`. That is the right place to add column-aware provider-value normalization.
+The current plan path represents mapped members as `QueryPlanColumnValue` nodes and captured/local values as plan bindings. `QueryPlanSqlValueRenderer` and `QueryPlanSqlPredicateBuilder` already retain `ColumnDefinition` for direct comparisons and membership rendering. UUID normalization belongs at that column-aware boundary, after model-to-canonical conversion and before provider parameter creation.
 
-The current `Contains(...)` path often does this:
+For local `Contains(...)` and supported equality-membership `Any(...)`, the plan must retain the target column for the complete sequence. Each canonical `Guid` value should be encoded with that column's resolved UUID format; no list path may degrade into an untyped raw `Guid` parameter collection.
 
-```csharp
-var fieldName = builder.GetColumnMaybe(member)?.DbName ?? member.Member.Name;
-var whereClause = builder.CurrentParentGroup.AddWhere(fieldName, null, connectionType);
-whereClause.In(listToProcess);
-```
-
-That loses `ColumnDefinition`. It should instead preserve the column:
-
-```csharp
-var column = builder.GetColumn(member);
-var whereClause = builder.CurrentParentGroup.AddWhere(column, null, connectionType);
-whereClause.In(NormalizeValuesForColumn(column, listToProcess));
-```
-
-The exact public `WhereGroup` API can remain string-based for user ergonomics, but internal LINQ translation should use column-aware operands wherever it knows the column.
+The legacy public `SqlQuery`/`WhereGroup` surface can remain string-based where callers provide only names, but internal DataLinq paths should use column-aware operands whenever metadata is available. A string-only explicit query cannot safely infer an ambiguous binary UUID layout and should require an explicit typed/column-aware route or fail clearly.
 
 Provider-level `CreateParameter` should not be the only normalization point because it does not know which column the parameter targets. It can remain a final safety net for provider-wide defaults, but column-aware normalization must happen earlier.
 
@@ -444,7 +474,7 @@ Recommended behavior:
 - database-side MySQL/MariaDB default:
   - `UUID()` is allowed only when the requested version is compatible with what the provider actually generates, or when the attribute/API explicitly asks for provider default UUID generation
   - `DefaultNewUUID(UUIDVersion.Version7)` should warn or fail for MySQL/MariaDB database-side SQL generation unless a real v7 expression is configured
-- binary MySQL defaults should use `UUID_TO_BIN(UUID())` only when the storage format is RFC 4122 or time-swap and the user has accepted provider UUID generation semantics
+- binary MySQL provider expressions may use `UUID_TO_BIN(UUID())` only for RFC-order storage and only when the user has explicitly accepted the provider's UUID-generation semantics
 
 This may require splitting the API:
 
@@ -459,9 +489,11 @@ or adding an option:
 [DefaultNewUUID(UUIDVersion.Version7, Generation = UUIDGeneration.Client)]
 ```
 
-The first slice can simply document and diagnose the mismatch. It should not pretend MySQL has native UUIDv7 generation if it does not.
+The 0.9 slice should document and diagnose the mismatch. A broader generation API redesign is later work; 0.9 must not pretend MySQL has native UUIDv7 generation if it does not.
 
-## Metadata Import and Model Generation
+## Post-0.9: Schema Import And Policy Tooling
+
+The following is useful follow-up work, but it is not required to fix the 0.9 runtime paths. Source-generated and runtime column metadata needed by the codec remain part of `UUID-1`; this section concerns importing ambiguous external schemas and choosing wider project policy.
 
 When importing a live schema:
 
@@ -525,47 +557,90 @@ Recommended compatibility stance:
 
 A future major version can revisit the default, but only with a clear migration story.
 
-## Implementation Slices
+## 0.9 Workstreams
 
-### Slice 1: Metadata and Codec Foundation
+These IDs are local to this plan and deliberately do not reuse roadmap-wide phase numbers.
 
-- Add `GuidStorageFormat`.
-- Add `GuidStorageAttribute`.
-- Add resolved `GuidStorageDefinition` metadata.
-- Add validation for invalid attribute usage.
-- Add codec tests for all supported formats.
-- Keep runtime behavior unchanged except for explicit codec helpers.
+### UUID-1: Metadata And Physical Codec Foundation
 
-### Slice 2: MySQL/MariaDB Runtime Conversion
+- add the bounded 0.9 `GuidStorageFormat` values
+- add `GuidStorageAttribute` and resolved `GuidStorageDefinition` metadata
+- validate format/property/provider/type compatibility
+- resolve compatibility defaults without consulting MySqlConnector `GuidFormat`
+- implement known-value codecs for native, text, little-endian binary, and RFC-order binary formats
+- carry the resolved format through runtime and source-generated metadata
 
-- Update MySQL/MariaDB writer to use the codec.
-- Update MySQL/MariaDB reader to decode via column metadata.
-- Stop calling `MySqlDataReader.GetGuid(...)` for model `Guid` columns where storage format is known.
-- Add tests for `BINARY(16)` roundtrip without `GuidFormat`.
-- Add tests for native MariaDB `UUID` behavior without `GuidFormat`.
+Exit signal:
 
-### Slice 3: Query Parameter Normalization
+- every mapped `Guid`/`Guid?` column has one resolved physical format or an actionable ambiguity diagnostic
+- known UUID strings and bytes round-trip deterministically through the codec
+- canonical `Guid` remains distinct from provider physical values
 
-- Preserve `ColumnDefinition` in LINQ `Contains(...)` translation.
-- Normalize `Guid` values in direct comparisons and `IN` lists using column metadata.
-- Normalize relation predicate values.
-- Verify explicit `SqlQuery.Where(columns, key)` and cache primary-key paths keep using writer conversion.
-- Add tests for `Contains`, equality, nullable equality, relation predicates, and cache reload by `Guid` key without MySqlConnector `GuidFormat`.
+### UUID-2: Provider Reads, Writes, And Mutation Values
 
-### Slice 4: SQL Generation and Defaults
+- update MySQL/MariaDB readers and writers to use column metadata and the codec
+- stop relying on `MySqlDataReader.GetGuid(...)` for known binary layouts
+- cover MariaDB native UUID plus MySQL/MariaDB text and binary columns
+- make SQLite text behavior explicit and support binary UUID only with an explicit format
+- route insert, update, delete-key, and generated/default hydration paths through the same conversion boundary
 
-- Format static `Guid` defaults through the codec.
-- Add provider diagnostics for unsupported `DefaultNewUUID` version semantics.
-- Decide whether MySQL/MariaDB `DefaultNewUUID` should emit provider UUID generation only through explicit provider SQL or a new generation mode.
-- Update SQL generation tests for text, native, little-endian binary, RFC 4122 binary, and time-swap binary.
+Exit signal:
 
-### Slice 5: Import, Validation, and Docs
+- relevant provider round-trips work without a MySqlConnector `GuidFormat` connection option
+- existing MySQL little-endian `BINARY(16)` data remains compatible
+- physical values returned by database defaults materialize as canonical `Guid` and then as any converted model value
 
-- Generate explicit `GuidStorage` metadata for imported UUID columns where possible.
-- Add CLI/config hints for ambiguous binary UUID imports.
-- Update schema validation to include UUID format compatibility.
-- Update MySQL/MariaDB and SQLite docs.
-- Add migration notes for users moving away from connection-string-dependent behavior.
+### UUID-3: Queries, Membership, Keys, And Relations
+
+- preserve `ColumnDefinition` through direct equality, nullable equality, and LINQ membership translation
+- normalize every local `Contains(...)` element and already-supported equality-membership `Any(...)` element with the target column codec
+- normalize explicit `SqlQuery.Where(...)` values whenever column metadata is available
+- cover primary-key and composite-key components, cache reloads, relation predicates, and update/delete key predicates
+- reject ambiguous binary UUID binding before execution instead of passing a raw `Guid` to the connector
+
+Exit signal:
+
+- equality, local membership, keys, cache lookup, and relations all bind the same physical bytes/text as writes
+- a connection-wide `GuidFormat` setting is no longer required for the supported paths
+- mixed UUID formats in one connection remain column-correct
+
+### UUID-4: Defaults And Validation
+
+- format static `Guid` SQL defaults through the resolved codec
+- diagnose `DefaultNewUUID(UUIDVersion.Version7)` when provider SQL would silently use a different UUID version
+- validate native, text, and binary storage compatibility against declared database types
+- report an unresolved format for ambiguous `BINARY(16)`/`BLOB` metadata rather than claiming a false match
+- report byte-layout changes as semantic/manual data migrations even when the SQL type remains `BINARY(16)`
+
+Exit signal:
+
+- runtime writes and static defaults produce identical physical layouts
+- schema validation distinguishes canonical `Guid` compatibility from physical UUID-format compatibility
+- 0.9 does not claim database-generated UUIDv7 semantics that the provider does not supply
+
+### UUID-5: Provider Evidence And Documentation
+
+- add focused unit, SQL-shape, and active-provider behavior tests
+- test MySQL, MariaDB, and SQLite representations included in the bounded slice
+- run tests without MySqlConnector `GuidFormat`, plus an explicit regression proving connector configuration cannot silently redefine column meaning
+- update provider docs and compatibility notes
+- document that automatic byte-layout migration, import policy, and time-swap support remain later work
+
+Exit signal:
+
+- every in-scope path has provider evidence
+- documentation describes only the formats and behaviors actually shipped in 0.9
+
+## Work After 0.9
+
+The following items remain useful, but should not delay the correctness slice:
+
+- CLI/config hints for ambiguous live-schema imports
+- richer generation policy for when explicit `GuidStorage` attributes are emitted
+- `Binary16MySqlTimeSwap`, if real user demand justifies the provider-specific surface
+- project-wide/new-template UUID defaults
+- automated or assisted data migration between binary layouts
+- a broader client-versus-server UUID-generation API
 
 ## Test Plan
 
@@ -576,28 +651,33 @@ Unit tests:
 - static SQL literals match each format
 - invalid `[GuidStorage]` usage reports model diagnostics
 - provider default resolution returns expected format per provider/type
+- canonical `Guid` values remain separate from encoded text/byte values
+- ambiguous physical formats fail before a raw connector parameter is created
 
 MySQL/MariaDB server tests:
 
 - MySQL `BINARY(16)` insert/read without `GuidFormat`
 - MySQL `BINARY(16)` equality predicate without `GuidFormat`
 - MySQL `BINARY(16)` `Contains(...)` without `GuidFormat`
+- nullable equality and local equality-membership without `GuidFormat`
 - MariaDB native `UUID` insert/read/query without `GuidFormat`
 - mixed native/text/binary UUID columns in one database
 - static default UUID literal roundtrip for binary and text
 - relation loading through `Guid` foreign keys without `GuidFormat`
+- primary and composite key lookup, update, and delete paths without `GuidFormat`
 
 SQLite tests:
 
 - `TEXT` Guid predicate matches raw text UUID
 - `BLOB` Guid predicate works with explicit binary format
-- ambiguous `BLOB` UUID import warns or requires a format hint
+- ambiguous `BLOB` runtime metadata fails with an actionable format diagnostic
 
 Regression tests:
 
 - existing `Binary16LittleEndian` data remains readable
 - `Binary16Rfc4122` and `Binary16LittleEndian` do not accidentally match the same byte sequence except for coincidental symmetric values
 - `DefaultNewUUID(UUIDVersion.Version7)` does not silently emit MySQL `UUID()` as if it were v7
+- changing only UUID byte layout is reported as a semantic migration even when the SQL type is unchanged
 
 ## Open Questions
 

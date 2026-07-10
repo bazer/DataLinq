@@ -1,206 +1,279 @@
 > [!WARNING]
 > This document is roadmap implementation material for the DataLinq 0.9 development line. It is not normative product documentation and should not be treated as a shipped support claim.
 
-# 0.9 In-Memory Database Implementation Plan
+# 0.9 Read-Only Memory Backend Implementation Plan
 
-**Status:** Draft.
+**Status:** Accepted.
 
 **Created:** 2026-07-03.
 
-## Purpose
+**Reframed:** 2026-07-10.
 
-This document keeps the immediate 0.9 implementation plan for the planned memory backend.
+**Target:** DataLinq 0.9 experimental preview.
 
-The durable architecture lives in [Memory Backend Architecture](../../backends/memory/Architecture.md). Keep broad design discussion there. Keep this page focused on sequencing, exit criteria, release boundaries, and what must be true before 0.9 can honestly claim a memory backend.
+## Decision
 
-## 0.9 Goal
+DataLinq 0.9 should keep the memory backend, but only as a read-only experimental preview.
 
-The 0.9 in-memory work should prove two things:
+The preview exists to prove that the runtime can start from generated metadata and execute a deliberately small `DataLinqQueryPlan` subset without SQL. It does not need mutation, transactions, durability, fixture-forking, or broad query parity to prove that point.
 
-1. `DataLinqQueryPlan` can be executed by a non-SQL backend.
-2. A generated-model memory backend can run in browser/WebAssembly AOT without native SQLite, OPFS, browser file APIs, `Expression.Compile()`, runtime code generation, or broad reflection fallback.
-3. Provider-value normalization is real enough that memory rows, keys, relations, predicates, mutation values, and JSON persistence do not need separate conversion rules.
+The 0.9 claim should be no stronger than:
 
-The first release claim should stay narrow:
+> DataLinq 0.9 includes an experimental, read-only memory backend for generated models. It supports seeding, primary-key lookup, and a documented query subset through DataLinq query plans, including browser/WebAssembly and strict AOT smoke coverage.
 
-> DataLinq 0.9 introduces a backend-neutral query execution boundary and a generated-model memory backend that executes a documented query subset directly from DataLinq query plans.
+Anything beyond that claim is a separate feature with separate evidence.
 
-Strengthen that wording only if evidence earns it.
+## Why This Boundary
 
-## Prerequisites
+The previous plan combined four architecture projects:
 
-Memory backend implementation should start after:
+- a backend-neutral provider/source and execution boundary
+- a read-only memory query engine
+- an in-process transactional database
+- a persistence and replay system
 
-- the backend execution contract exists
-- the plan template/invocation split is at least clear enough not to bake invocation values into backend state
-- scalar converter/provider-value metadata is centralized enough for row buffers, keys, relations, and query constants
+That is too much for one release and makes the dependency graph circular. A read-only provider is enough to expose whether query plans, materialization, provider values, capabilities, generated metadata, AOT, and browser execution are genuinely backend-neutral. Mutation can follow after those seams have survived real use.
 
-The memory backend can help prove scalar conversion, but it should not invent the conversion layer. Typed IDs are especially important here: if memory compares boxed typed-ID model values while SQL compares provider values, the architecture has already diverged.
+## Ownership And Dependencies
 
-## Phase 6A: Backend Execution Contract
+The 0.9 workstreams use local identifiers (`M0` through `M3`) rather than reusing release-wide phase numbers.
 
-This can be part of v0.9 Phase 1, but it is the hard prerequisite for a non-embarrassing memory backend.
+| Concern | Owning workstream | Memory dependency |
+| --- | --- | --- |
+| Backend-neutral provider/source, row-reading, cache, and materialization boundaries | 0.9 query/runtime foundation | Must exist before `M0` is complete |
+| Backend-neutral execution boundary, capabilities, and self-contained execution request | 0.9 query/runtime foundation | Must exist before `M1`; supported projection data must not depend on the original expression |
+| Model-to-canonical-provider conversion, including typed IDs | Scalar-converter work | Must exist before `M0` is complete |
+| Canonical-provider-to-physical UUID encoding | UUID work | Owned by SQL providers; memory must not copy it into row storage |
+| Provider-value row buffers, indexes, seeding, and memory execution | This plan | Owned here |
+| Model-valued `RowData` materialization | Shared runtime plus this adapter | Must be proven in `M0` |
+| JSON snapshot codec prototype | Optional JSON stretch plan | Starts only after `M3`; never blocks this plan |
 
-Work:
+The dependency direction is deliberately one way:
 
-- introduce a backend execution boundary over `DataLinqQueryPlan`
-- adapt SQL execution through that boundary
-- add backend capability metadata
-- add backend capability validation before execution
-- preserve existing SQL provider behavior
-- keep diagnostics DataLinq-owned when a backend cannot execute a supported plan node
+```text
+query/runtime foundation + scalar/provider conversion
+                         |
+                         v
+                 read-only memory preview
+                         |
+                         v
+             optional JSON snapshot prototype
+```
 
-Exit signal:
+Memory must consume the shared conversion system. It must not invent a second conversion layer merely to unblock itself. JSON must consume an already-working memory store. It must not be a prerequisite for memory.
 
-- `ExpressionQueryPlanExecutor` no longer assumes SQL as the only real executor
-- existing SQLite, MySQL, and MariaDB query tests stay green
-- unsupported backend/query combinations fail with clear DataLinq diagnostics
-- public docs still describe only shipped SQL provider behavior
+## Explicit 0.9 Scope
 
-## Phase 6B: Memory Store Foundation
+The preview includes:
 
-Work:
+- generated-metadata startup with no runtime schema discovery
+- explicit seed loading
+- canonical provider-value row storage by column ordinal
+- primary-key indexes and direct primary-key lookup
+- conversion from provider-value buffers to model-valued `RowData` before generated model materialization
+- a small, capability-gated query subset
+- clear diagnostics for unsupported operations and plan nodes
+- no raw SQL path
+- strict AOT and browser/WebAssembly proof
 
-- create `DataLinq.Memory`
-- create `MemoryDatabase<TDatabase>` and `MemoryDatabaseStore<TDatabase>` or equivalent
-- create store root, table state, row buffer, and primary-key index primitives
-- start the provider from generated metadata
-- store row values in provider-value form by column ordinal
-- normalize typed IDs and scalar-converted values through shared converter metadata
-- support seed loading
-- support primary-key lookup
-- support cache-aware materialization through existing runtime paths
-- keep raw SQL unsupported with a clear provider capability error
+The preview does not include:
 
-Exit signal:
+- insert, update, delete, or `Save`
+- transactions, isolation, rollback, or conflict handling
+- generated-key allocation or mutation-time defaults
+- store forks, reset APIs, named snapshots, or failure injection
+- canonical commit batches or change receipts
+- persistence, automatic loading, automatic flushing, or durability
+- commit logs, replay, or compaction
+- broad relation, join, or grouping support
+- a claim of SQL semantic equivalence
+- a claim that memory is the default substitute for provider-backed tests
 
-- generated model rows can be seeded and fetched without SQL
-- direct primary-key lookup works under ordinary runtime
-- direct primary-key lookup works under an AOT or strict compatibility smoke
-- typed-ID/provider-value keys match the SQL-backed identity path
-- the provider does not imply SQL compatibility
-
-## Phase 6C: Memory Query Subset
-
-Work:
-
-- implement plan predicate evaluation over row buffers
-- implement equality/comparison predicates over scalar columns
-- implement boolean predicate composition
-- implement local scalar `Contains(...)` membership
-- implement typed-ID equality and membership through provider values when scalar converters are enabled
-- implement `OrderBy`, `ThenBy`, `Skip`, and `Take`
-- implement `Any`, `Count`, `First`, `Single`, and `...OrDefault`
-- implement direct scalar and anonymous projection from one source
-- add parity tests against SQLite for the supported slice
-- add backend capability diagnostics for unsupported shapes
-
-Exit signal:
-
-- a small documented query subset passes under memory and SQLite
-- unsupported shapes fail clearly
-- browser WebAssembly smoke runs the memory provider
-- no unsupported query shape falls back to LINQ-to-Objects by accident
-
-## Phase 7A: Memory Mutation
+## M0: Generated Store And Seed Foundation
 
 Work:
 
-- insert generated mutable rows
-- update generated mutable rows
-- delete rows
-- stage writes inside explicit transactions
-- commit atomically
-- rollback staged changes
-- validate primary-key uniqueness
-- validate required/null constraints where metadata can prove them
-- validate foreign keys in strict mode where relation metadata is available
-- invalidate cache/index state after commit
-- emit canonical committed operation batches in provider-value form
+- create the experimental `DataLinq.Memory` package or equivalent assembly boundary
+- start the store exclusively from generated/frozen DataLinq metadata
+- define a compact row buffer containing canonical provider CLR values by column ordinal
+- normalize seed model values through the shared scalar-converter pipeline to canonical provider CLR values
+- build primary-key identities from canonical provider values
+- reject duplicate primary keys and malformed seed values with table, column, and row context
+- build the minimum primary-key index needed for direct lookup
+- expose raw SQL as an unsupported capability with a DataLinq-owned diagnostic
+- avoid native dependencies, runtime schema discovery, runtime code generation, and `Expression.Compile()`
+
+The representation boundary is mandatory:
+
+```text
+seed/model value
+    -> canonical provider CLR value
+    -> memory provider-value buffer
+    -> provider-to-model conversion
+    -> model-valued RowData
+    -> generated immutable model
+```
+
+Existing `RowData` and model indexer behavior must remain model-valued. Storing provider values internally does not authorize changing that public/runtime contract.
 
 Exit signal:
 
-- common generated-model mutation workflows pass
-- transaction behavior is documented honestly
-- browser smoke can prove mutation and read-back if included in the release claim
-- the provider claims atomic and isolated in-process mutation only, not durability
-- successful commits produce ordered insert/update/delete operation batches that JSON persistence can serialize without memory-specific hooks
+- a generated database starts without a SQL provider or live database
+- representative rows, typed IDs, and canonical `Guid` values seed successfully through shared conversion
+- configured UUID physical formats do not change the canonical value stored by memory
+- primary-key lookup returns a correctly materialized generated model
+- cache/materialization integration does not expose provider values through `RowData`
+- raw SQL fails before any parsing or accidental SQL-provider access
 
-## Phase 7B: Test And Snapshot Utility
+## M1: Capability-Gated Query Subset
 
-Work:
+Implement the smallest useful subset that exercises query-plan execution:
 
-- seed builders
-- store fork/reset/snapshot APIs
-- deterministic clock and generated-key services
-- optional relaxed fixture mode if strict mode blocks useful tests
-- optional failure injection if it stays cleanly testing-scoped
-- relation graph fixture helpers where they can be backed by real memory metadata and indexes
+- direct entity enumeration from one table
+- `Where` equality and ordered comparisons over supported scalar columns
+- boolean `&&`, `||`, and `!`
+- local scalar `Contains(...)` membership
+- `OrderBy`, `ThenBy`, `Skip`, and `Take`
+- `Any`, `Count`, `First`, `FirstOrDefault`, `Single`, and `SingleOrDefault`
+- direct scalar projection from one source
+- direct anonymous projection from one source only when the plan contains all information needed to execute it without re-reading the original expression tree
+
+Every supported node must be represented in explicit memory-backend capability metadata. Unsupported joins, relation traversals, grouping, aggregates, projection forms, methods, and result operators must fail capability validation with a diagnostic that names the unsupported shape.
+
+The executor must not:
+
+- compile expression trees
+- silently switch to unrestricted LINQ-to-Objects
+- generate or parse SQL
+- accept a query merely because SQLite accepts it
+- re-extract executable projection behavior from the original expression after planning
 
 Exit signal:
 
-- users can replace a meaningful subset of database-backed tests with memory-backed tests
-- fixture APIs do not leak into core provider complexity
-- browser/demo scenarios can start from deterministic seed data
-- test helpers do not imply that LINQ-to-Objects fake query execution proves DataLinq provider translation
+- the documented subset executes directly over memory row buffers
+- supported projection execution is driven by the execution request/plan, not a hidden copy of the source expression
+- unsupported shapes fail predictably before partial execution
+- repeated query invocation values do not leak into reusable backend state
 
-## 0.9 Verification Gates
+## M2: Semantics And Materialization Contract
 
-The memory backend should not be called supported until these are green:
+Before calling any operator supported, document and test its semantics:
 
-- unit tests for row buffers, key normalization, indexes, constraints, and snapshots
-- memory-provider tests for seed, lookup, mutation, rollback, commit, and conflict behavior
-- scalar-converter and typed-ID tests for provider-value row storage, key lookup, relation lookup, and predicates
-- commit-batch tests for deterministic provider-value insert/update/delete operation capture
-- compliance tests shared with SQLite for the supported query slice
-- AOT strict smoke for generated models
-- browser WebAssembly smoke with `MemoryDatabase<TDatabase>` as the backing store
-- unsupported-query diagnostics tests
-- allocation benchmarks for primary-key lookup and repeated simple query shapes
+- null equality and ordering
+- string equality, ordering, and case sensitivity
+- numeric comparison and coercion boundaries
+- date/time comparison
+- enum and typed-ID comparison through canonical provider values
+- canonical `Guid` comparison without applying provider-specific UUID byte layouts
+- membership with null and empty local sequences
+- deterministic paging only when ordering is sufficient
+- `First` and `Single` error/default behavior
+
+These are DataLinq memory semantics, not proof of every SQL provider's semantics. Parity tests against SQLite are useful regression pressure, but a matching result for a small sample is not evidence of general SQL equivalence.
+
+Materialization tests must prove:
+
+- memory stores provider values internally
+- provider values are converted back to model values exactly once at the materialization boundary
+- `RowData`, model properties, keys, relations, and cache identity receive the representation they expect
+- configured scalar converters do not leak provider values into model-facing APIs
+- UUID physical codecs remain outside the memory row/materialization boundary
+
+Exit signal:
+
+- each advertised operator has an explicit semantics test matrix
+- semantic differences from SQLite/MySQL/MariaDB are documented rather than hidden
+- provider/model value separation is enforced by focused tests
+
+## M3: Release Evidence
+
+Required evidence:
+
+- unit tests for row buffers, seed conversion, primary-key normalization, and duplicate-key diagnostics
+- memory-provider tests for startup, seed, lookup, supported queries, materialization, and unsupported capabilities
+- typed-ID and canonical-`Guid` tests through seed, lookup, predicate, membership, and projection paths where applicable
+- regressions proving configured UUID physical formats do not leak byte arrays/text encodings into memory rows
+- focused cross-provider tests against SQLite for the intentionally shared subset
+- strict AOT smoke using generated models
+- browser/WebAssembly smoke with no native SQLite or filesystem dependency
+- package and target-framework verification for the new preview surface
+- allocation measurements for startup, primary-key lookup, and repeated simple queries; these inform follow-up work and are not arbitrary release thresholds
 
 The browser smoke should prove:
 
-- provider startup
-- seed load
-- primary-key lookup
-- filtered query
-- ordered/paged query
-- direct projection
-- mutation and read-back if mutation is in the 0.9 claim
-- typed-ID lookup/query if typed IDs are in the release claim
-- unsupported query diagnostic
+1. generated-provider startup
+2. seed loading
+3. primary-key lookup
+4. one filtered query
+5. one ordered/paged query
+6. one supported projection
+7. one unsupported-query diagnostic
+8. typed-ID or canonical-`Guid` behavior when those features are part of the 0.9 claim
+
+No browser persistence is required. Browser execution is the proof.
 
 ## Release Boundary
 
-The 0.9 release can claim an in-memory backend only when:
+The experimental preview may ship only when:
 
-- the provider starts from generated metadata without runtime schema discovery
-- the provider runs under Native AOT or a strict AOT smoke
-- the provider runs in browser WebAssembly smoke
-- row buffers, keys, relations, and predicates use provider-value normalization
-- primary-key lookup and a documented LINQ subset execute without SQL
-- common seed and query workflows are documented
-- unsupported shapes fail with DataLinq-owned diagnostics
-- mutation semantics are either implemented and documented or explicitly out of scope
-- public docs do not blur `DataLinq.Memory`, SQLite in-memory, and JSON persistence
+- generated startup, seed loading, and primary-key lookup work without SQL
+- the provider-value-buffer-to-model-`RowData` boundary is correct
+- the supported query matrix is small, explicit, and capability-gated
+- raw SQL and unsupported queries fail clearly
+- strict AOT and browser/WebAssembly smokes pass
+- public wording says `experimental` and `read-only`
+- documentation explicitly warns that memory is neither SQL semantic proof nor a general replacement for provider-backed integration tests
 
-Possible stronger claims, if earned:
+If any of those conditions fail, cut the preview rather than quietly weakening its architecture.
 
-- memory backend supports common generated-model read and mutation workflows
-- memory backend is the default browser backing store for generated-model scenarios
-- repeated simple query shapes allocate less through backend-plan execution and future template reuse
+## Testing Position
 
-Claims to avoid unless proven:
+The memory backend is useful for:
+
+- testing DataLinq query-plan and materialization behavior inside its documented subset
+- fast application tests whose assertions do not depend on provider-specific SQL, collation, type affinity, constraints, or transaction behavior
+- examples, demos, and transient browser state
+
+It is not sufficient for:
+
+- SQL translation validation
+- migration or schema validation
+- provider collation/null/date behavior
+- server constraint and concurrency behavior
+- transaction, rollback, locking, or durability tests
+- deciding that a query works on SQLite, MySQL, or MariaDB
+
+Provider-backed compliance and integration suites remain authoritative for provider behavior.
+
+## Deferred Until After 0.9
+
+The next memory design stage may consider:
+
+1. provider-neutral mutation and transaction boundaries
+2. insert/update/delete with trustworthy mutable-instance lifecycle semantics
+3. atomic root replacement, rollback, and documented conflict handling
+4. constraints, generated values, and relation/index invalidation
+5. provider-neutral committed-change receipts or canonical commit batches
+6. store forks, reset helpers, and richer fixture APIs
+7. persistence integration, commit logs, replay, and compaction
+8. broader query capabilities based on demonstrated demand
+
+Those items remain valid design directions. They are not hidden 0.9 stretch goals.
+
+## Claims To Avoid
 
 - "SQL-compatible in-memory database"
 - "drop-in replacement for every provider"
-- "full ACID database"
 - "all LINQ works in memory"
-- "cache-backed database"
+- "default database test replacement"
+- "full ACID database"
+- "transactional memory database"
 - "browser persistence"
+- "durable store"
 
 ## Links
 
 - [Memory Backend Design Notes](../../backends/memory/README.md)
 - [Memory Backend Architecture](../../backends/memory/Architecture.md)
-- [DataLinq 0.9 Rough Roadmap](README.md)
+- [0.9 Memory JSON Snapshot Prototype](Memory%20JSON%20Persistence%20Implementation%20Plan.md)
+- [DataLinq 0.9 Roadmap](README.md)

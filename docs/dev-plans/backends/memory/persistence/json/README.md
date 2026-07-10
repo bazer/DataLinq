@@ -1,55 +1,36 @@
 > [!WARNING]
-> This folder contains roadmap and design material for planned JSON persistence for the DataLinq memory backend. It is not normative product documentation and should not be treated as a shipped support claim.
+> This folder contains roadmap and design material for planned JSON serialization and later persistence for the DataLinq memory backend. It is not normative product documentation and should not be treated as a shipped support claim.
 
 # JSON Memory Persistence Design Notes
 
-**Status:** Draft collection.
+**Status:** Proposed.
 
 **Created:** 2026-07-03.
 
-This folder collects durable design notes for planned JSON persistence stores for `DataLinq.Memory`.
+**Reframed:** 2026-07-10.
 
-Use this folder for design decisions that should outlive one implementation phase:
+## Current Direction
 
-- DataLinq-owned JSON snapshot and commit-log formats
-- AOT and browser/WebAssembly constraints
-- provider-value encoding and scalar conversion
-- persistence lifecycle, flush policy, and atomic write behavior
-- schema digest and compatibility behavior
-- replayability and commit-log compaction
-- CLI import/export/validation surfaces
+JSON remains a companion to `DataLinq.Memory`, never a peer query backend.
 
-Use versioned roadmap folders such as `../../../../roadmap-implementation/v0.9/` for phase sequencing, immediate exit criteria, and release-claim boundaries.
+The only possible 0.9 work is an optional manual snapshot-only import/export prototype after every core 0.9 gate is green. It would serialize a read-only memory store to a DataLinq-owned JSON document and import that document into a fresh read-only store.
+
+It would not provide automatic persistence, durability, storage adapters, browser storage, mutation integration, commit logs, replay, compaction, or CLI tooling.
+
+Those are post-0.9 design directions and depend on memory mutation plus a stable provider-neutral committed-change contract.
+
+## Durable Design Rules
+
+- JSON serializes memory state; it does not execute queries.
+- DataLinq metadata defines the snapshot schema.
+- Snapshots encode canonical provider CLR values through the shared scalar-conversion metadata, including typed IDs; provider-specific UUID wire codecs remain outside JSON row encoding.
+- A manual snapshot codec does not own files, URLs, browser storage, or application lifecycle.
+- Persistence policy must remain separate from snapshot encoding.
+- Commit logs and replay begin only after successful mutations produce a stable committed-change receipt.
+- Arbitrary JSON document mapping, JSONPath querying, model generation from samples, and SQL JSON columns are separate features.
 
 ## Documents
 
-- [JSON Persistence Store Architecture](JSON%20Persistence%20Store%20Architecture.md): the current long-lived design for JSON persistence over memory stores.
+- [JSON Persistence Store Architecture](JSON%20Persistence%20Store%20Architecture.md): the long-lived design, split into the optional 0.9 snapshot codec and clearly deferred persistence/replay horizons.
 
-## Current Position
-
-JSON should be a DataLinq-owned persistence store for memory backend state, not its own query backend.
-
-The memory backend owns:
-
-- row buffers
-- indexes
-- constraints
-- query-plan execution
-- transactions
-- canonical commit batches
-- snapshots and replay
-
-It is not:
-
-- arbitrary existing JSON document mapping
-- model generation from random JSON samples
-- JSON path querying over unknown document shapes
-- SQL-provider JSON column support
-- a replacement for the memory backend
-- a peer provider with separate query semantics
-
-The central design rule:
-
-> JSON is storage. `DataLinq.Memory` is the backend. DataLinq metadata is the schema. `DataLinqQueryPlan` is the query contract.
-
-The immediate 0.9 implementation plan lives in [0.9 Memory JSON Persistence Implementation Plan](../../../../roadmap-implementation/v0.9/Memory%20JSON%20Persistence%20Implementation%20Plan.md).
+The optional 0.9 implementation plan is [0.9 Memory JSON Snapshot Prototype](../../../../roadmap-implementation/v0.9/Memory%20JSON%20Persistence%20Implementation%20Plan.md).

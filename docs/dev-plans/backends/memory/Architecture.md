@@ -3,64 +3,139 @@
 
 # Memory Backend Architecture
 
-**Status:** Draft.
+**Status:** Accepted.
+
+**Release scope:** The 0.9 slice is the read-only preview defined below; mutation and persistence remain later work.
 
 **Created:** 2026-07-03.
 
+**Reframed:** 2026-07-10.
+
 ## Purpose
 
-The memory backend should prove that DataLinq's query-plan architecture is real architecture, not just a nicer way to generate SQL.
+The memory backend should prove that DataLinq's query-plan architecture is real architecture, not merely a nicer SQL-builder input.
 
-The goal is a first-class, generated-model-backed, AOT-friendly in-process backend that executes `DataLinqQueryPlan` directly. It should be useful for browser/WebAssembly applications, fast tests, examples, semantic parity checks, and short-lived application state.
+The first useful proof is smaller than a complete in-process database. DataLinq 0.9 should target a generated-model, read-only, AOT-friendly preview that executes an explicit `DataLinqQueryPlan` subset over seeded memory rows.
 
-The blunt rule:
+The blunt rule remains:
 
-> If the memory backend has to generate SQL, parse SQL, compile expression trees, or reinterpret arbitrary LINQ to work, the design failed.
+> If the memory backend must generate SQL, parse SQL, compile expression trees, or reinterpret arbitrary LINQ to work, the design failed.
+
+## Release Horizons
+
+This design intentionally separates immediate proof from later product ambitions.
+
+| Horizon | Intended scope |
+| --- | --- |
+| 0.9 experimental preview | Generated startup, explicit seeding, canonical provider-value buffers, primary-key lookup, a small capability-gated query subset, correct model materialization, AOT/browser proof |
+| Post-0.9 memory database | Mutation, transactions, constraints, concurrency policy, committed-change receipts, store forks/reset, broader indexes and queries |
+| Post-0.9 persistence | Manual and automatic persistence, durability policy, storage adapters, commit logs, replay, compaction, operational tooling |
+
+Later sections preserve useful direction for post-0.9 work, but they are not implicit 0.9 requirements.
 
 ## Design Thesis
 
-DataLinq should treat the memory backend as a backend, not as a cache trick and not as SQLite with a different connection string.
+DataLinq should treat memory as a backend, not as a cache trick and not as SQLite with a different connection string.
 
-The architecture should preserve the same core DataLinq contract:
+The architecture should preserve these contracts:
 
 - generated metadata is the schema
+- query parsing and normalization produce a backend-consumable execution request
+- backend capabilities are validated before execution
 - generated accessors and provider-key shapes are the hot path
-- query parsing produces `DataLinqQueryPlan`
-- backend execution consumes the plan
-- immutable models are materialized from provider rows
-- mutations go through explicit mutable wrappers and transactions
-- unsupported query shapes fail with DataLinq diagnostics
+- backend rows use canonical provider CLR values
+- model-facing `RowData` contains model values
+- immutable models are materialized through shared runtime paths
+- unsupported query shapes fail with DataLinq-owned diagnostics
 
-This is an unusually good fit for DataLinq because the project has already paid for generated metadata, generated factories, generated key accessors, frozen metadata, source slots, query-plan values, projection nodes, and provider-key cache identity. A memory backend should spend that capital instead of creating a parallel mini-ORM.
+The 0.9 preview intentionally omits the mutation contract. Adding memory mutation before the provider/source, row, materialization, cache, and transaction boundaries are genuinely backend-neutral would create a parallel runtime full of SQL-shaped stubs.
 
-## AOT And Browser Are First-Class
+## Required Shared Runtime Boundary
 
-AOT is not a polish item for this feature. It is one of the reasons to build it.
+A memory query executor alone is insufficient. The shared runtime needs backend-neutral seams for:
 
-The memory backend is likely to become the default browser backing store because it avoids the current SQLite/WebAssembly native dependency problem. It should therefore be designed as if WebAssembly AOT is a normal runtime, not a heroic special case.
+- provider/data-source construction
+- query execution requests
+- capability validation
+- provider row reading
+- provider-value-to-model-value conversion
+- `RowData` and immutable-model materialization
+- cache identity and lookup
 
-Hard constraints:
+SQL-specific contracts such as `IDbConnection`, `IDbCommand`, SQL parameter rendering, and database transactions must remain inside SQL adapters. The memory provider must not implement them as throwing placeholders merely to satisfy a SQL-shaped root abstraction.
 
-- no `Expression.Compile()` in the query execution path
-- no runtime code generation
-- no broad reflection fallback for model shape, accessors, or serialization-like behavior
-- no SQL parser
-- no dependency on SQLitePCLRaw, native SQLite, OPFS, or browser file APIs for the baseline
-- no background cleanup thread as a required correctness mechanism
-- no dynamic provider discovery needed for generated models
-- no lazy "just use LINQ-to-Objects" fallback for unsupported provider queries
+The execution request must also be self-contained for every advertised projection. If execution still needs the original expression tree to rediscover a selector, that projection is not yet backend-neutral and must remain unsupported by memory.
 
-Preferred implementation shape:
+An illustrative execution seam is:
 
-- generated metadata supplies table, column, relation, key, and factory information
-- generated provider-key accessors normalize key identity
-- row values are stored in provider-value form by column ordinal
-- query-plan predicates are interpreted over row buffers using metadata and bindings
-- projection rows are assembled from source slots without compiling selectors
-- row-local computed projections use the existing supported projection evaluator only where the current support contract already allows it
-- diagnostics name the unsupported plan node, backend capability, source slot, or value kind
+```csharp
+internal interface IQueryPlanBackend
+{
+    QueryBackendCapabilities Capabilities { get; }
 
-The browser baseline should be:
+    QueryBackendResult Execute(
+        QueryExecutionRequest request,
+        QueryInvocationValues values);
+}
+```
+
+The exact interface is open. The durable decisions are:
+
+- reusable plan/template structure is separate from invocation values
+- SQL and memory are adapters behind the same runtime-owned execution boundary
+- execution does not secretly retain or reinterpret the original expression
+- unsupported nodes are rejected by capability validation, not discovered halfway through enumeration
+
+## Value Representation Boundary
+
+The memory store should keep a separate internal provider-value buffer. It should not redefine existing `RowData` as provider-valued.
+
+The value path is:
+
+```text
+model value
+    -> scalar converter
+    -> canonical provider CLR value
+    -> MemoryProviderRow values by ordinal
+
+MemoryProviderRow
+    -> reverse scalar converter
+    -> model-valued RowData
+    -> generated immutable model
+```
+
+Provider-specific physical codecs are a separate boundary used by SQL readers, writers, literals, and parameter binding. For example, memory keeps a canonical `Guid`; it does not store MySQL `BINARY(16)` byte order. This distinction matters for typed IDs, enums, UUID formats, dates, and other values whose model type differs from either the canonical or physical representation.
+
+Conceptual 0.9 types:
+
+```csharp
+internal sealed class MemoryProviderRow
+{
+    public required TableDefinition Table { get; init; }
+    public required object?[] ProviderValuesByOrdinal { get; init; }
+}
+
+internal sealed class MemoryTableState
+{
+    public required TableDefinition Table { get; init; }
+    public required IReadOnlyList<MemoryProviderRow> Rows { get; init; }
+    public required IReadOnlyDictionary<DataLinqKey, MemoryProviderRow> RowsByPrimaryKey { get; init; }
+}
+```
+
+The exact collections should follow measurement. The representation rules should not:
+
+- ordinals, not names, are the hot row-access path
+- primary keys are built from canonical provider values
+- composite keys use generated/comparable shapes where available
+- invalid conversion fails during seed/import with table, column, and row context
+- model APIs never observe provider storage bytes or provider-only wrapper values
+
+## Generated Startup And Seeding
+
+The 0.9 store starts from generated/frozen model metadata. It performs no live schema discovery and requires no SQL provider.
+
+Expected preview shape:
 
 ```csharp
 var db = new MemoryDatabase<AppDb>();
@@ -75,471 +150,277 @@ var rows = db.Query().Users
     .ToList();
 ```
 
-No files. No native libraries. No browser storage permission story in the baseline. Persistence should be an explicit memory-store option, not a different query backend.
+Seed processing should:
 
-## Relationship To SQLite In-Memory
+1. resolve the generated table and column metadata
+2. read model values through generated/runtime-owned accessors
+3. convert each value through the shared scalar pipeline to its canonical provider CLR value
+4. build a `MemoryProviderRow`
+5. validate and index the primary key
+6. publish a read-only table state
 
-SQLite in-memory is a real and useful provider target, but it is not this feature.
-
-SQLite in-memory still exercises:
-
-- SQL rendering
-- SQLite SQL semantics
-- SQLite type affinity
-- SQLite transaction behavior
-- SQLite native/browser payload issues
-
-The DataLinq memory backend should exercise:
-
-- `DataLinqQueryPlan` execution without SQL
-- metadata-driven storage
-- provider-key materialization
-- provider-neutral query semantics
-- AOT-safe row access and projection
-- deterministic in-process snapshots
-
-Both are useful. They should not be confused.
-
-## Relationship To The Existing Cache
-
-The memory backend must not be "the cache, but promoted."
-
-DataLinq's cache stores materialized immutable instances and relation/index lookup results for a provider. The memory backend is the provider. It owns durable-for-this-process row state. The cache can still sit above it and provide object identity reuse, materialized relation reuse, metrics, and invalidation behavior.
-
-That split matters:
-
-- provider store: normalized row buffers, indexes, transaction snapshots
-- DataLinq cache: immutable model instances, row cache hits/misses, relation caches, invalidation metrics
-
-Conflating those layers would make mutation semantics harder to reason about and would make cache eviction accidentally delete database state. That would be clever in the worst way.
-
-## Public Product Shape
-
-Likely package:
-
-- `DataLinq.Memory`
-
-Likely entry points:
-
-```csharp
-var db = new MemoryDatabase<AppDb>();
-var db = new MemoryDatabase<AppDb>(store);
-var store = MemoryDatabaseStore.Create<AppDb>();
-var fork = store.Fork();
-```
-
-Persistence should be configured when the memory store is created:
-
-```csharp
-var db = MemoryDatabase.Open<AppDb>(options => options
-    .UseJsonPersistence("appdb.datalinq.json", json => json
-        .SnapshotOnly()
-        .FlushOnCommit()));
-
-var store = MemoryDatabaseStore.Create<AppDb>(options => options
-    .UseJsonPersistence("appdb.datalinq.json", json => json
-        .SnapshotWithCommitLog()
-        .ExplicitFlush()));
-
-var db = new MemoryDatabase<AppDb>(store);
-```
-
-Useful optional builders:
-
-```csharp
-var store = MemoryDatabaseStore.Create<AppDb>(options => options
-    .UseStrictConstraints()
-    .UseDeterministicClock(clock)
-    .UseDeterministicIds(ids));
-
-store.Seed(seed => seed
-    .Table(db => db.Departments).Rows(departments)
-    .Table(db => db.Employees).Rows(employees));
-```
-
-Naming should avoid pretending this is a generic fake database. `MemoryDatabase<TDatabase>` and `MemoryDatabaseStore<TDatabase>` are clear. `MockDatabase` is wrong. This should be real enough to run application logic, not a mocking framework.
-
-The persistence package name is still open, but it should read as a companion to memory, for example `DataLinq.Memory.Json` or `DataLinq.Persistence.Json`. A top-level `DataLinq.JsonStore` package is probably the wrong signal because it sounds like a peer query backend or a document database.
-
-## Store Model
-
-The store should be an immutable root snapshot plus explicit mutation staging.
-
-Conceptual shape:
-
-```csharp
-internal sealed class MemoryStoreRoot
-{
-    public long Version { get; init; }
-    public IReadOnlyDictionary<TableDefinition, MemoryTableState> Tables { get; init; }
-}
-
-internal sealed class MemoryTableState
-{
-    public TableDefinition Table { get; init; }
-    public IReadOnlyDictionary<DataLinqKey, MemoryRowBuffer> RowsByPrimaryKey { get; init; }
-    public IReadOnlyDictionary<MemoryIndexKey, MemoryIndexState> Indexes { get; init; }
-    public long NextGeneratedKey { get; init; }
-}
-
-internal sealed class MemoryRowBuffer
-{
-    public TableDefinition Table { get; init; }
-    public object?[] ProviderValuesByOrdinal { get; init; }
-}
-
-internal sealed class MemoryCommitBatch
-{
-    public long FromVersion { get; init; }
-    public long ToVersion { get; init; }
-    public IReadOnlyList<MemoryCommitOperation> Operations { get; init; }
-}
-```
-
-The exact data structures can change after benchmarking. The design intent should not:
-
-- rows are stored as provider values, not immutable model instances
-- column ordinal lookup is preferred over name lookup on hot paths
-- primary keys use provider-key identity
-- composite keys use generated/comparable key shapes where available
-- secondary indexes are derived from metadata, not manually configured ad hoc
-- table snapshots are replaceable as a unit
-- successful commits can be represented as canonical provider-value operation batches
-
-`System.Collections.Immutable` may be fine for the first implementation, but do not religiously commit to it before measurements. For small and medium browser data sets, allocation behavior may matter more than theoretical persistent-data-structure elegance. A copy-on-write table state with ordinary dictionaries plus versioned root swaps might be simpler and faster enough.
+The preview need only accept explicit, table-shaped seed sources that can be mapped without broad reflection. Anonymous-shape convenience mapping, deterministic key generation, fixture graphs, and relaxed partial-schema modes can wait.
 
 ## Query Execution
 
-The memory backend needs a backend-neutral execution seam before it becomes serious.
+The 0.9 executor should run a query in these stages:
 
-Candidate shape:
+1. validate the plan against memory capabilities
+2. bind invocation values through shared provider conversion
+3. resolve the single source table
+4. use primary-key lookup when the plan shape allows it
+5. otherwise interpret supported predicates over provider-value buffers
+6. apply supported ordering and paging
+7. compute the supported result operator or projection
+8. materialize model-valued rows through the shared runtime
 
-```csharp
-internal interface IQueryPlanBackend
-{
-    QueryBackendCapabilities Capabilities { get; }
+The intended first subset is:
 
-    IEnumerable<IImmutableInstance> ExecuteEntitySequence(
-        DataSourceAccess dataSource,
-        DataLinqQueryPlan plan);
-
-    object? ExecuteScalar(
-        DataSourceAccess dataSource,
-        DataLinqQueryPlan plan);
-
-    IEnumerable<object?> ExecuteProjectionSequence(
-        DataSourceAccess dataSource,
-        DataLinqQueryPlan plan);
-}
-```
-
-The interface above is only illustrative. The durable decision is that `ExpressionQueryPlanExecutor` should not directly instantiate `QueryPlanSqlBuilder` for every real path. SQL should become one backend implementation. Memory should become another.
-
-The memory executor should run the plan in stages:
-
-1. Validate backend capability support.
-2. Resolve source slots to table snapshots.
-3. Use primary-key or equality indexes where the predicate shape allows it.
-4. Interpret predicates over row buffers.
-5. Apply joins, grouping, ordering, paging, and result operators for supported shapes.
-6. Materialize immutable rows through existing DataLinq materialization paths.
-7. Apply SQL-backed-style projection rows or row-local computed projections only inside the documented support boundary.
-
-The first implementation should not attempt every current SQL-supported shape. It should fail clearly until each shape is intentionally implemented and tested.
-
-Good first query subset:
-
-- direct primary-key lookup
-- `Where` equality/comparison over scalar columns
+- direct table enumeration
+- primary-key lookup
+- equality and ordered scalar comparisons
 - boolean `&&`, `||`, and `!`
-- local `Contains(...)` membership over scalar values
-- `OrderBy`, `ThenBy`, `Skip`, `Take`
-- `Any`, `Count`, `First`, `Single`, and `...OrDefault` result shapes
-- direct scalar projection
-- direct anonymous projection from one source
+- local scalar `Contains(...)`
+- `OrderBy`, `ThenBy`, `Skip`, and `Take`
+- `Any`, `Count`, `First`, `FirstOrDefault`, `Single`, and `SingleOrDefault`
+- direct scalar projection from one source
+- direct anonymous projection from one source when the normalized plan is self-contained
 
-Later query subset:
+Explicitly later:
 
-- relation existence predicates
-- grouped aggregate rows
-- explicit joins
-- implicit singular relation traversal
-- joined projection rows
-- post-paging pushdown-equivalent behavior
+- joins
+- grouping and aggregates
+- relation existence and traversal
+- joined projections
+- post-paging rewrite equivalents
+- arbitrary method evaluation
+- arbitrary row-local compiled selectors
 
-The memory backend can be stricter than SQL at first. It must not be looser.
+Memory may implement fewer query shapes than SQL. It must never become looser by falling back to unrestricted LINQ-to-Objects.
+
+## Capabilities And Raw SQL
+
+Capability metadata is part of the backend contract, not optional polish.
+
+Diagnostics should identify at least:
+
+- backend name
+- unsupported plan node or result shape
+- source slot/table where relevant
+- unsupported value or method kind where relevant
+- the nearest supported alternative when one is unambiguous
+
+Raw SQL is categorically unsupported. The memory provider should fail immediately with a provider-capability diagnostic. It must not expose a fake `IDbConnection`, attempt SQL parsing, or route the command through a SQL provider.
 
 ## Query Semantics
 
-The memory backend should be a semantic pressure test for DataLinq, not a C# accident machine.
+The memory backend needs explicit semantics for each advertised operator:
 
-Rules:
+- null equality and ordering
+- string comparison, case sensitivity, and collation assumptions
+- numeric coercion
+- date/time comparison
+- enums, typed IDs, and canonical `Guid` values without applying provider-specific UUID byte layouts
+- membership with null and empty sequences
+- ordering stability and deterministic paging
+- result-operator error/default behavior
 
-- the supported LINQ matrix remains the public contract
-- unsupported expression shapes still fail at translation or capability validation
-- null semantics must be specified and tested
-- string comparison rules must be explicit
-- date/time member behavior must match documented DataLinq semantics
-- local sequence values must be copied/frozen the same way query-plan bindings expect
-- ordering is not stable unless the query asks for enough ordering
+These are memory-backend semantics. They are not automatically the semantic truth for SQLite, MySQL, or MariaDB, and they are not proof that generated SQL behaves identically.
 
-Important decision:
+Cross-provider tests are still valuable: they catch accidental divergence in the intentionally shared subset. They do not erase real provider differences in collation, null behavior, type affinity, date functions, constraints, or transactions.
 
-The memory backend should not blindly use ordinary LINQ-to-Objects comparison behavior if the support matrix says DataLinq semantics differ. It should implement DataLinq's provider-neutral semantics where those exist, and it should document provider-specific differences where they remain.
+## AOT And Browser Constraints
 
-## Transactions And Mutation
+AOT and browser execution are primary evidence for the feature.
 
-The useful promise is not "ACID database." The useful promise is:
+Hard constraints:
 
-> Atomic, isolated, in-process mutations over generated model tables, with no durability beyond the store lifetime.
+- no `Expression.Compile()` in query execution
+- no runtime code generation
+- no broad reflection fallback for model shape, accessors, or row materialization
+- no SQL parser
+- no SQLitePCLRaw, native SQLite, OPFS, filesystem, or browser-storage dependency in the baseline package
+- no background thread required for correctness
+- no dynamic provider discovery for generated models
 
-Initial transaction semantics:
+The browser smoke proves execution, not persistence:
 
-- every transaction starts from a store root version
-- reads inside a transaction see the starting snapshot plus the transaction's staged writes
-- insert/update/delete stage new table states
-- commit validates constraints, swaps the store root atomically, and emits a canonical commit batch
-- rollback discards staged changes
-- concurrent conflicting commits fail or retry according to a documented policy
-
-For browser/WebAssembly, a single-writer lock or serialized commit gate is probably enough. Do not build a complicated lock-free database because the phrase sounds impressive. The important user behavior is deterministic snapshots and clear conflict handling.
-
-Mutation support should include:
-
-- insert generated mutable rows
-- update generated mutable rows
-- delete rows
-- default-value application
-- generated identity/key handling
-- primary-key uniqueness validation
-- required/null validation where metadata can prove it
-- foreign-key validation in strict mode
-- relation/index invalidation after commit
-
-The existing synchronous `Insert`, `Update`, and `Save` APIs should remain honest and materializing. Async can be added later only if the runtime/provider boundary has real async work to do. For a memory backend, fake async is worse than no async.
-
-## Commit Batches And Replayability
-
-The mutation layer should treat a successful commit as a durable internal artifact, not just as "the root pointer changed."
-
-A committed mutation should produce a `MemoryCommitBatch` or equivalent value:
-
-- version before commit
-- version after commit
-- database and schema identity
-- ordered insert/update/delete operations
-- table `DbName`
-- primary-key provider values
-- changed provider values by column `DbName` or ordinal
-- optional diagnostic metadata such as transaction label, source, or timestamp when supplied by the caller
-
-The commit batch should record committed provider-value operations after validation, not every attempted object mutation. That distinction matters. Replayability should mean "rebuild the same DataLinq memory store state from a snapshot plus committed operations," not "replay arbitrary user code, failed transactions, relation-cache events, or timing-dependent behavior."
-
-This gives DataLinq three useful persistence/export shapes:
-
-- `SnapshotOnly`: write the canonical final state.
-- `CommitLogOnly`: append committed batches and replay from an empty or seed snapshot.
-- `SnapshotWithCommitLog`: write periodic snapshots plus the committed batches after the snapshot.
-
-`SnapshotOnly` should be the default first implementation because it is easiest to inspect and hardest to corrupt. `SnapshotWithCommitLog` is the serious long-term mode because it gives startup checkpoints plus full committed-state replay. `CommitLogOnly` is useful for tests, debugging, and event-sourced workflows, but it should not be the default browser persistence story until startup cost, compaction, and schema evolution are proven.
-
-Commit log support should be designed with mutation improvements, not bolted on afterward. If the transaction layer cannot naturally describe its commit as an ordered operation batch, persistence and diagnostics will both get weaker.
-
-Open replay rules:
-
-- replay must validate schema identity before applying operations
-- replay must fail on unsupported schema changes unless an explicit migration/import path is provided
-- replay must be deterministic for generated keys, defaults, and clocks
-- replay should be able to stop at a target version for debugging
-- compaction should be snapshot creation plus old-log retention policy, not silent deletion of history
-
-## Constraints
-
-Strict mode should be the default for application-like use:
-
-- duplicate primary keys fail
-- missing non-null values fail
-- foreign-key violations fail when relation metadata is available
-- unknown columns cannot be seeded
-- invalid provider-value conversions fail with table/column context
-- unsupported defaults fail unless an explicit value is supplied
-
-Relaxed mode can be useful for tests and partial fixtures:
-
-- allow missing unrelated tables
-- allow FK gaps
-- allow default-less generated keys only when the user supplies a deterministic key policy
-
-The options should be explicit. A fixture that silently creates impossible data is a test bug factory.
-
-## Indexes
-
-Minimum indexes:
-
-- primary-key index for every keyed table
-- relation/FK indexes for metadata-backed relation traversal
-
-Candidate secondary indexes:
-
-- metadata-defined indexes
-- unique indexes for constraint validation
-- single-column equality indexes for common predicates
-
-Index use should be diagnostic-visible. A user should be able to ask why a memory query scanned a table instead of using an index.
-
-Possible diagnostic output:
-
-```text
-MemoryQueryPlan
-  table: Employees
-  candidate source: index Employees.emp_no
-  predicate: emp_no IN p0
-  rows scanned: 3
-  rows matched: 3
-  projection: entity
-```
-
-The first version can keep this internal or test-only. Long term, it would be useful as `Explain()` output across backends.
-
-## Seeding, Snapshots, And Test Utility
-
-This backend should make test setup boring.
-
-Useful features:
-
-- seed tables from immutable instances
-- seed tables from mutable instances
-- seed tables from anonymous/table-shaped records only if mapping is explicit
-- import/export a deterministic snapshot object
-- import/export a deterministic committed operation log
-- replay a snapshot plus commit log to a target store version
-- fork a store cheaply for scenario tests
-- reset a store to a named seed snapshot
-- deterministic clock and generated-key services
-- opt-in failure injection for testing retry/error paths
-
-Good test shape:
-
-```csharp
-using var baseline = MemoryDatabaseStore.Create<EmployeesDb>()
-    .Seed(seed => seed
-        .Table(db => db.Departments).Rows(StandardDepartments)
-        .Table(db => db.Employees).Rows(StandardEmployees));
-
-using var scenario = baseline.Fork();
-using var db = new MemoryDatabase<EmployeesDb>(scenario);
-```
-
-The useful distinction:
-
-- `Fork()` is for independent scenario mutation
-- `Snapshot()` is for inspection/export/reuse
-- `CommitLog()` is for replay/debug/audit-like workflows over committed store operations
-- `Reset()` is for test lifecycle convenience
-
-## Browser Use Cases
-
-The browser story is not only tests.
-
-Real uses:
-
-- client-side demo data
-- transient application state with generated model ergonomics
-- offline-first prototypes before the persistence policy is chosen
-- documentation samples that run without a server
-- local-first workflows where sync/persistence is a later explicit layer
-- replacing the current SQLite browser smoke dependency for query/runtime proof
-
-The memory provider should be the simplest browser backer:
-
-- no server
-- no native SQLite
-- no OPFS baseline
-- no storage permissions
-- no hidden serialization
-- no browser-specific dependency for core behavior
-
-Persistence should be layered through memory-store options. JSON snapshot/log persistence is the likely first persistence implementation. IndexedDB, OPFS, and DataLinq.Store synchronization can come later behind the same memory-store persistence boundary instead of becoming separate query backends.
-
-## Compliance And Verification
-
-The memory backend needs its own tests, but its highest value is cross-provider pressure.
-
-Verification lanes:
-
-- unit tests for row buffers, key normalization, indexes, constraint validation, and snapshots
-- memory-provider tests for seeding, lookup, mutation, rollback, commit, and conflict handling
-- commit-batch tests for deterministic insert/update/delete operation capture
-- replay tests for snapshot-only, commit-log-only, and snapshot-with-commit-log flows when those modes ship
-- compliance tests shared with SQLite for the supported query subset
-- AOT strict smoke for generated models
-- browser WebAssembly smoke with `MemoryDatabase<TDatabase>` as the backing store
-- allocation benchmarks for primary-key lookup, repeated query shapes, and common fixture setup
-
-The AOT/browser smoke should prove:
-
-- provider startup
+- generated startup
 - seed load
 - primary-key lookup
-- filtered query
-- ordered/paged query
-- direct projection
-- mutation and read-back if mutation is in scope
-- unsupported query diagnostic
+- filter
+- order/page
+- supported projection
+- unsupported-query diagnostic
 
-The compliance rule:
+## Relationship To SQLite In-Memory
 
-If a LINQ shape is not covered for memory, it is not supported for memory. Do not inherit SQL support claims by vibes.
+SQLite in-memory and `DataLinq.Memory` test different things.
+
+SQLite in-memory exercises:
+
+- SQL translation and rendering
+- SQLite SQL semantics and type affinity
+- the SQLite driver and transaction behavior
+- schema and constraint behavior
+
+The DataLinq memory preview exercises:
+
+- backend-neutral query-plan execution
+- metadata-driven provider-value storage
+- provider/model materialization boundaries
+- explicit memory capabilities and semantics
+- AOT-safe generated access
+
+Neither makes the other redundant.
+
+## Relationship To The Cache
+
+The memory store is not the cache promoted to database status.
+
+- memory provider state owns canonical provider rows and primary-key indexes
+- the DataLinq cache owns materialized immutable instances, relation results, identity reuse, metrics, and eviction
+
+Cache eviction must never remove memory database state. Conversely, reading provider rows should still use the ordinary materialization/cache path where that path is backend-neutral.
+
+## Testing Position
+
+Good uses for the preview:
+
+- focused query-plan and materialization tests
+- fast application tests inside the explicitly supported semantics
+- samples and demos
+- transient browser application state
+
+Bad uses:
+
+- proving SQL translation
+- validating migrations or live schemas
+- asserting provider collation or date behavior
+- asserting server constraints, locking, or concurrency
+- replacing transaction or durability tests
+- declaring a query portable merely because it passed in memory
+
+Provider-backed compliance and integration tests remain the authority for provider behavior.
+
+## 0.9 Verification
+
+The preview requires:
+
+- seed/model-to-provider conversion tests
+- provider-buffer-to-model-`RowData` materialization tests
+- primary and composite key normalization tests where supported
+- typed-ID and canonical-`Guid` lookup/query tests, plus regressions proving physical UUID byte layouts do not leak into memory rows
+- capability rejection tests
+- an explicit semantics matrix for every advertised operator
+- focused SQLite comparisons for the intentionally shared subset
+- strict AOT smoke
+- browser/WebAssembly smoke without native or persistence dependencies
+- allocation measurements that guide, rather than predetermine, later data-structure choices
+
+The public claim must remain `experimental` and `read-only`.
+
+## Post-0.9: Mutation And Transactions
+
+Mutation is a later architecture stage. It should begin only after:
+
+- the provider/source/materialization boundary is proven by the read-only preview
+- mutable instances have trustworthy rollback, failed-write, and cross-transaction lifecycle rules
+- provider-neutral mutation requests can replace direct SQL construction in shared runtime paths
+- SQLite transaction-isolation behavior is aligned enough for meaningful cross-provider comparison
+
+A plausible future promise is:
+
+> Atomic, isolated, in-process mutations over generated model tables, with no durability beyond the store lifetime unless an explicit persistence layer says otherwise.
+
+Future work may include:
+
+- insert/update/delete staging
+- snapshot plus staged-write reads
+- primary-key, required-value, uniqueness, and optional relation constraints
+- generated/default value policies
+- atomic root replacement
+- rollback and documented conflict handling
+- cache/index invalidation
+
+None of those are 0.9 preview capabilities.
+
+## Post-0.9: Committed Changes And Replayability
+
+A successful future mutation should ideally produce a provider-neutral committed-change receipt. Memory-specific commit batches, JSON logs, audit events, CDC, and later store synchronization can adapt that shared primitive instead of inventing incompatible operation shapes.
+
+A receipt may eventually include:
+
+- before/after store version
+- database/schema identity
+- ordered insert/update/delete operations
+- table and column storage identities
+- canonical provider values for keys and changes
+- optional caller-supplied diagnostics
+
+This belongs to the mutation boundary, not the JSON serializer. Logs, replay-to-version, and compaction follow only after the committed-change contract is stable and deterministic.
+
+## Post-0.9: Forks, Fixtures, And Persistence
+
+Potential later utilities include:
+
+- store forks for independent mutation scenarios
+- reset to a named seed state
+- deterministic clocks and generated IDs
+- strict and relaxed fixture modes
+- snapshot objects for inspection and export
+- failure injection for retry/error tests
+- manual or automatic persistence adapters
+
+These features are attractive, but they also encourage users to treat memory as a universal database fake. Each should ship with a precise testing boundary.
+
+JSON snapshots are the most plausible first serialization format. Browser persistence, filesystem durability, automatic flush, commit logs, replay, and compaction remain separate later milestones.
 
 ## Documentation Shape
 
-When this ships, public docs should separate:
+Public documentation should distinguish:
 
-- SQL providers: SQLite, MySQL, MariaDB
-- memory provider: in-process generated-model backend
+- SQL providers: SQLite, MySQL, and MariaDB
 - SQLite in-memory: SQLite provider mode
-- JSON memory persistence: snapshot/log storage for the memory provider
-- other persistent local stores: experimental/future unless proven
+- `DataLinq.Memory`: experimental in-process generated-model backend
+- JSON snapshot encoding: optional memory-state serialization
+- future persistence stores: not shipped until their durability semantics are proven
 
-Avoid phrases like:
+Good 0.9 wording:
+
+> `DataLinq.Memory` is an experimental read-only backend for generated DataLinq models. It supports explicit seeding, primary-key lookup, and a documented query subset, and is designed for query/runtime tests, examples, and transient browser scenarios.
+
+Avoid:
 
 - "SQL-compatible in-memory database"
 - "drop-in replacement for any provider"
-- "full ACID in memory"
-- "cache-backed database"
 - "all LINQ works in memory"
-
-Better wording:
-
-> DataLinq.Memory is an in-process backend for generated DataLinq models. It executes the documented query subset directly from DataLinq query plans and is designed for tests, browser scenarios, examples, and transient application state.
-
-Persistence wording should stay attached to memory:
-
-> DataLinq memory stores can optionally persist snapshots and committed mutation logs through configured persistence stores such as JSON. Query and mutation semantics still belong to `DataLinq.Memory`; JSON is a storage format, not a query backend.
+- "default testing database"
+- "full ACID in memory"
+- "browser persistence"
 
 ## Open Questions
 
-- Should `MemoryDatabase<TDatabase>` be constructed directly, or should all instances go through `MemoryDatabaseStore<TDatabase>`?
-- Should relaxed fixture mode exist in the first release, or should strict mode ship first?
-- Should memory query semantics define the provider-neutral truth when SQL providers differ, or should it mimic SQLite for parity convenience?
-- How much of relation traversal should be in the first supported slice?
-- Should `Explain()` be memory-only at first or part of the shared backend diagnostics story?
-- Should the first persistence package be named `DataLinq.Memory.Json`, `DataLinq.Persistence.Json`, or something else that does not imply a JSON query backend?
-- Should browser persistence start with JSON snapshot-only, JSON snapshot-plus-log, IndexedDB, or deliberately wait until the memory backend is stable?
-- How much commit-log/replay support should land with the first mutation implementation?
-- Which query shapes should be in the first WebAssembly smoke beyond PK lookup and simple filters?
+- What is the smallest backend-neutral provider/source interface that avoids SQL-shaped throwing stubs?
+- Which projection forms can become fully self-contained in the normalized execution request for 0.9?
+- Should direct construction use `MemoryDatabase<TDatabase>` or a smaller preview factory?
+- Which string comparison is the least surprising documented memory default?
+- Should direct scalar comparisons operate on canonical provider values exclusively, or use column-specific comparers supplied by metadata?
+- Which query shapes beyond primary-key lookup, filter, ordering, paging, and basic result operators earn 0.9 scope?
+- What evidence should graduate the package from experimental after 0.9?
 
 ## Non-Goals
 
 - arbitrary LINQ execution
 - raw SQL execution
-- SQL compatibility
+- SQL semantic compatibility
 - SQLite compatibility quirks
+- replacing provider-backed integration tests
+- mutation or transactions in 0.9
+- store forks or reset APIs in 0.9
+- durable persistence in the baseline package
+- commit batches, replay, or compaction in 0.9
+- OPFS, IndexedDB, or browser storage in 0.9
 - cross-process sharing
-- durable persistence in the baseline memory package
-- treating persistence stores as independent query backends
 - distributed cache coordination
-- OPFS or IndexedDB persistence
-- DataLinq.Store integration
 - full migration execution
-- pretending every SQL-supported query shape is memory-supported on day one

@@ -1,232 +1,125 @@
 > [!WARNING]
-> This document is roadmap and design material for planned JSON persistence for the DataLinq memory backend. It is not normative product documentation and should not be treated as a shipped support claim.
+> This document is roadmap and design material for planned JSON serialization and later persistence for the DataLinq memory backend. It is not normative product documentation and should not be treated as a shipped support claim.
 
 # JSON Persistence Store Architecture
 
-**Status:** Draft.
+**Status:** Proposed.
+
+**Release scope:** Only the manual snapshot codec is an optional 0.9 stretch; persistence and replay remain later work.
 
 **Created:** 2026-07-03.
 
-**Reframed:** 2026-07-04.
+**Reframed:** 2026-07-10.
 
 ## Purpose
 
-JSON persistence should provide a simple, inspectable, DataLinq-owned storage format for `DataLinq.Memory` state.
+JSON should provide an inspectable, DataLinq-owned representation of `DataLinq.Memory` state.
 
-The most important use cases are:
-
-- browser/WebAssembly applications that need simple local persistence
-- small single-user applications that want readable storage without a database server
-- examples and demos that should persist state without SQLite or MySQL
-- deterministic test fixtures and repro artifacts
-- import/export of DataLinq memory-store state for local workflows
-- replayable mutation traces for debugging and audit-like workflows
-
-The JSON persistence store is deliberately narrower than "DataLinq over any JSON file." It owns the JSON shape. Existing arbitrary JSON document mapping is out of scope for this design.
+The immediate opportunity is a small snapshot codec, not a durable database. Automatic persistence, mutation logging, replay, storage adapters, and browser lifecycle integration all have additional failure semantics and dependencies. They should not hitchhike into 0.9 behind the word “JSON.”
 
 The blunt rule:
 
-> JSON is storage. `DataLinq.Memory` is the backend. DataLinq metadata is schema. Query and mutation semantics still belong to DataLinq.
+> JSON serializes memory state. `DataLinq.Memory` executes queries. Neither layer owns the other's semantics.
+
+## Release Horizons
+
+| Horizon | Intended scope |
+| --- | --- |
+| Optional 0.9 stretch | Manual import/export of one versioned, whole-store snapshot for a read-only memory store |
+| Post-0.9 persistence | Explicit open/save lifecycle, storage adapters, automatic/explicit flush policy, filesystem and browser consistency contracts |
+| Later replay tooling | Provider-neutral committed-change receipts, JSON commit logs, deterministic replay, compaction, retention, CLI operations |
+
+Only the first row is eligible for 0.9, and only after all core release gates pass.
 
 ## Design Thesis
 
-JSON should be a persistence companion to the memory backend, not its own backend.
+JSON is a companion format, not a query backend.
 
-The runtime shape should be:
+The optional 0.9 flow is:
 
-1. Configure a `MemoryDatabaseStore<TDatabase>` with a JSON persistence store.
-2. Load a DataLinq-owned JSON snapshot, replay a commit log, or both.
-3. Validate format, schema identity, and table payloads.
-4. Materialize provider-value row buffers into memory table state.
-5. Execute queries through the memory backend's `DataLinqQueryPlan` executor.
-6. Apply mutations through the memory backend transaction layer.
-7. Persist a deterministic snapshot, append committed operation batches, or both, according to store options.
+1. Build a read-only memory store from generated metadata and seed data.
+2. Explicitly export its canonical provider-value rows to a caller-owned stream or buffer.
+3. Explicitly import a snapshot into a fresh read-only memory store.
+4. Build the ordinary memory indexes.
+5. Query through the existing memory `DataLinqQueryPlan` executor.
 
-This keeps the architecture honest:
+The JSON codec owns:
 
-- JSON parsing and writing are not query execution
-- JSON path expressions are not the query language
-- JSON storage does not bypass generated metadata
-- JSON persistence does not require SQL generation
-- commit logging belongs to the memory transaction layer, not to JSON-specific mutation code
-
-## Relationship To Memory
+- format and manifest parsing/writing
+- stable table, row, and column ordering
+- JSON-token encoding of canonical provider CLR values
+- schema identity validation
+- JSON-path-aware diagnostics
 
 The memory backend owns:
 
-- row buffers
-- primary-key and secondary indexes
-- generated-key state
-- constraints
-- query-plan execution
-- transactions
-- canonical commit batches
-- snapshots
-- replay semantics
+- provider-value row buffers
+- key normalization and indexes
+- model-value materialization
+- capabilities and query execution
+- future mutation and transaction behavior
 
-The JSON persistence store owns:
+The caller owns transport and lifecycle in 0.9:
 
-- snapshot serialization
-- commit-log serialization
-- storage adapters
-- flush policy integration
-- storage-format validation
-- diagnostics over JSON locations and DataLinq metadata
+- files
+- network streams
+- packaged resources
+- browser storage
+- save timing
+- replacement and backup policy
 
-If a JSON persistence feature needs a new query behavior, the work belongs in the memory backend first. JSON should never grow a separate query evaluator.
+That last boundary is what keeps a manual codec from making accidental durability promises.
 
-## Non-Goal: Arbitrary Existing JSON Documents
+## Non-Goal: Arbitrary JSON Documents
 
-Do not mix JSON memory persistence with existing arbitrary JSON document mapping.
+This format does not map arbitrary existing JSON documents.
 
-That separate idea has different problems:
+That separate feature would need:
 
-- arrays-as-tables mapping
-- path metadata
+- arrays-as-tables and path metadata
 - schema inference
-- sample-based model generation
-- preserving unrelated document nodes
-- preserving formatting and property order
+- sample- or schema-based model generation
+- preservation of unrelated nodes and formatting
 - partial write-back into nested structures
-- polymorphic document shapes
+- polymorphic document rules
 
-Those are legitimate problems, but they are not the important persistence story for DataLinq right now.
-
-Explicitly out of scope:
-
-- generating models from arbitrary JSON samples
-- generating models from JSON Schema
-- generic JSON tree navigation as a DataLinq backend
-- JSONPath-backed table mapping
-- preserving comments, whitespace, property order, or unknown nodes from an existing JSON file
-- partial updates into arbitrary nested JSON documents
+The snapshot codec owns its document shape. It does not execute JSONPath, preserve unknown application JSON, or generate models from samples.
 
 ## Non-Goal: SQL JSON Columns
 
-SQL-provider JSON column support is a different feature.
+SQL JSON columns are also separate. They concern a single model property stored as a JSON value inside a SQLite, MySQL, or MariaDB row and may eventually support provider-native JSON functions.
 
-The existing SQL JSON column design covers JSON values stored inside MySQL, MariaDB, or SQLite columns. That feature needs attributes, provider SQL functions, JSON path predicates, and column-level serialization behavior.
+A memory snapshot describes the whole logical memory store. It must not borrow SQL JSON-column query semantics or merge a JSON-valued column into the snapshot manifest.
 
-JSON memory persistence owns the whole memory-store snapshot/log. It should not borrow JSON column vocabulary unless the underlying scalar conversion rules are truly shared.
+## Optional 0.9 Product Shape
 
-## AOT And Browser Are First-Class
-
-JSON persistence matters because the memory backend is the likely browser/WebAssembly backing store. It must therefore be designed for AOT from the beginning.
-
-Hard constraints:
-
-- use an existing JSON library; do not invent parsing or writing
-- prefer `System.Text.Json`
-- avoid reflection-based serialization for row payloads
-- avoid `Expression.Compile()`
-- avoid runtime code generation
-- avoid raw JSONPath execution as a query path
-- avoid native dependencies
-- avoid filesystem-only assumptions in core storage abstractions
-
-Recommended implementation shape:
-
-- use `Utf8JsonReader` and `Utf8JsonWriter` for canonical store payloads where direct row-buffer reading/writing is cleaner than serializer DTOs
-- use `System.Text.Json` source-generated contexts only for stable manifest/options DTOs if useful
-- write provider values directly by metadata column ordinal and type
-- use a storage abstraction so the same persistence logic can target filesystem, browser storage, in-memory strings, or future packaged assets
-
-The JSON library decision should be boring: start with `System.Text.Json`. Add another dependency only if a concrete requirement cannot be met cleanly.
-
-## Product Shape
-
-Likely packages:
-
-- `DataLinq.Memory`
-- `DataLinq.Memory.Json` or `DataLinq.Persistence.Json`
-
-Avoid `DataLinq.JsonStore` unless there is a strong reason. That name sounds like a standalone provider, JSON column support, arbitrary document mapping, or serializer helpers.
-
-Likely entry points:
+The smallest honest API accepts caller-owned I/O:
 
 ```csharp
-var db = MemoryDatabase.Open<AppDb>(options => options
-    .UseJsonPersistence("appdb.datalinq.json", json => json
-        .SnapshotOnly()
-        .FlushOnCommit()));
+await MemoryJsonSnapshot.ExportAsync(
+    store,
+    outputStream,
+    cancellationToken);
 
-var store = MemoryDatabaseStore.Create<AppDb>(options => options
-    .UseJsonPersistence("appdb.datalinq.json", json => json
-        .SnapshotWithCommitLog()
-        .ExplicitFlush()));
-
-var db = new MemoryDatabase<AppDb>(store);
+var importedStore = await MemoryJsonSnapshot.ImportAsync<AppDb>(
+    inputStream,
+    cancellationToken);
 ```
 
-Browser-oriented shape:
+Possible package names include:
 
-```csharp
-var store = MemoryDatabaseStore.Create<AppDb>(options => options
-    .UseJsonPersistence(
-        new BrowserJsonMemoryStorage("appdb"),
-        json => json
-            .SnapshotWithCommitLog()
-            .FlushOnCommit()));
+- `DataLinq.Memory.Json`
+- `DataLinq.Persistence.Json`
 
-var db = new MemoryDatabase<AppDb>(store);
-```
+For 0.9, `DataLinq.Memory.Json` is the clearer signal because the prototype encodes one backend's state and does not yet establish a general persistence abstraction. A top-level `DataLinq.JsonStore` name would wrongly suggest a peer provider or document database.
 
-Testing/export shape:
-
-```csharp
-var snapshot = store.Snapshot();
-var log = store.CommitLog();
-
-File.WriteAllText("repro.datalinq.memory.json", JsonMemorySnapshot.Write(snapshot));
-File.WriteAllText("repro.datalinq.memory.log.json", JsonMemoryCommitLog.Write(log));
-```
-
-The exact names can change. The important API distinction is:
-
-- memory database/provider: query and mutation surface
-- memory store: row state, indexes, transactions, snapshots, commit batches
-- persistence store: storage format, flush policy, schema compatibility, storage target
-- storage adapter: filesystem/browser/string transport
-
-## Persistence Modes
-
-Persistence content mode and flush policy should be separate choices.
-
-Content modes:
-
-- `SnapshotOnly`: write the canonical final state.
-- `CommitLogOnly`: append committed batches and replay from an empty or seed snapshot.
-- `SnapshotWithCommitLog`: write periodic snapshots plus the committed batches after the snapshot.
-
-Flush policies:
-
-- `FlushOnCommit`: every committed transaction updates durable storage before the commit is reported durable.
-- `ExplicitFlush`: commits update in-process state and mark the persistence store dirty; the caller flushes when appropriate.
-
-Recommended defaults:
-
-- `SnapshotOnly` plus `FlushOnCommit` for simple application use.
-- `SnapshotOnly` plus `ExplicitFlush` for fixtures and bulk test setup.
-- `SnapshotWithCommitLog` for replay/debug workflows.
-- `CommitLogOnly` only when startup cost, compaction, and seed-state rules are explicit.
-
-The content mode answers "what do we write?" The flush policy answers "when is it durable?" Mixing those into one option would produce foot-guns.
+The codec API should not accept a file path, browser-storage key, flush option, or persistence policy in 0.9. Applications can compose stream/file APIs themselves while the format is experimental.
 
 ## Snapshot Format
 
-V1 should start with one canonical JSON document for a whole memory-store snapshot.
+V1 should use one canonical JSON document for the whole read-only store.
 
-That is the right first tradeoff because:
-
-- cross-table consistency is easier
-- atomic filesystem replacement is easier
-- browser storage is easier
-- copying a repro is easier
-- human inspection is still reasonable for the intended small-store use cases
-
-Per-table files can come later if large stores, diff ergonomics, or partial-write performance justify the complexity.
-
-Candidate V1 snapshot shape:
+Candidate shape:
 
 ```json
 {
@@ -234,11 +127,7 @@ Candidate V1 snapshot shape:
   "format": "datalinq-memory-snapshot/v1",
   "database": "EmployeesDb",
   "schema": {
-    "digest": "sha256:...",
-    "mode": "strict"
-  },
-  "store": {
-    "version": 42
+    "digest": "sha256:..."
   },
   "tables": {
     "departments": [
@@ -252,358 +141,352 @@ Candidate V1 snapshot shape:
         "emp_no": 10001,
         "birth_date": "1953-09-02",
         "first_name": "Georgi",
-        "last_name": "Facello",
-        "gender": "M",
-        "hire_date": "1986-06-26"
+        "last_name": "Facello"
       }
     ]
   }
 }
 ```
 
-Snapshot rules:
+V1 rules:
 
 - `format` is required and versioned.
-- `database` is the DataLinq database metadata name.
-- `schema.digest` identifies the generated metadata shape the snapshot was written against.
-- `store.version` is the memory-store version represented by the snapshot.
-- `tables` is keyed by table `DbName`.
-- row properties are keyed by column `DbName`.
-- missing tables mean empty tables only when the compatibility mode explicitly allows it.
-- unknown tables or columns fail in strict mode.
-- output ordering is deterministic: manifest fields, tables, rows, and columns should have stable order.
+- `database` identifies the generated database metadata.
+- `schema.digest` covers a versioned, storage-relevant metadata projection.
+- `tables` uses table `DbName` keys.
+- rows use column `DbName` keys.
+- table and column order follows generated metadata.
+- keyed rows use primary-key order for deterministic export where all key components have a defined canonical comparer.
+- keyless table ordering must be explicitly defined or the table must be rejected by the prototype.
+- strict import rejects unknown/missing tables and columns unless the V1 contract explicitly permits omitted empty tables.
+- duplicate primary keys and invalid values fail before the store becomes visible.
 
-Use database and column `DbName`, not C# property names, as the default storage keys. The storage file should survive C# property renames when the underlying DataLinq schema name remains stable.
+The 0.9 document does not need:
 
-## Commit Log Format
+- store versions
+- commit IDs
+- transaction timestamps
+- log anchors
+- flush state
+- adapter metadata
 
-The commit log should serialize memory commit batches after transaction validation.
+Adding fields without real semantics produces future compatibility debt for no benefit.
 
-It should not record every setter call, failed transaction, relation-cache event, or application command. The log is a replayable DataLinq store operation log, not an application event-sourcing framework.
+## Canonical Provider-Value Encoding
 
-Candidate V1 commit-log shape:
+The snapshot stores a logical memory-store representation. It serializes canonical provider CLR values, not provider-specific SQL wire values.
 
-```json
-{
-  "$schema": "https://datalinq.org/schemas/datalinq-memory-commit-log.v1.schema.json",
-  "format": "datalinq-memory-commit-log/v1",
-  "database": "EmployeesDb",
-  "schema": {
-    "digest": "sha256:..."
-  },
-  "base": {
-    "snapshotId": "snapshot-00042",
-    "version": 42
-  },
-  "commits": [
-    {
-      "id": "commit-00043",
-      "fromVersion": 42,
-      "toVersion": 43,
-      "utc": "2026-07-04T10:15:30Z",
-      "operations": [
-        {
-          "op": "insert",
-          "table": "employees",
-          "values": {
-            "emp_no": 10001,
-            "first_name": "Georgi"
-          }
-        },
-        {
-          "op": "update",
-          "table": "employees",
-          "key": {
-            "emp_no": 10001
-          },
-          "set": {
-            "first_name": "George"
-          }
-        },
-        {
-          "op": "delete",
-          "table": "employees",
-          "key": {
-            "emp_no": 10001
-          }
-        }
-      ]
-    }
-  ]
-}
+The layers remain distinct:
+
+```text
+model CLR value
+    <-> canonical provider CLR value
+    <-> provider physical/wire representation
 ```
 
-Commit-log rules:
+Examples:
 
-- log entries are ordered and versioned
-- `fromVersion` must match the current replay store version
-- `toVersion` must become the replay store version after applying the batch
-- operations use table `DbName`
-- keys and values use column `DbName`
-- values use provider-value encoding
-- replay validates constraints unless an explicit unsafe/import mode is selected
-- replay can target a specific version for debugging
+- a typed `CustomerId` may encode as its canonical provider `int`
+- a `Guid` should normally encode as an invariant UUID string in the snapshot
+- a MySQL `BINARY(16)` byte layout remains a SQL provider codec concern
+- a MariaDB native UUID representation remains a provider concern
 
-The first implementation can store one JSON array log if appending safely is too much work. Long term, append-only JSON Lines or segmented log files may be better for large logs and browser storage. The design should not depend on full-file rewrite being the only possible log strategy.
+The snapshot schema digest may include UUID storage metadata because it is part of the model's storage contract, but the JSON writer must not emit MySQL connector bytes merely because the SQL column uses `BINARY(16)`. Import reconstructs canonical `Guid`; the SQL provider applies its physical codec later if that logical row is ever written to SQL.
 
-## Provider Value Encoding
+Initial JSON token rules should be explicit and round-trippable:
 
-JSON persistence must not invent one-off conversion rules.
+| Canonical provider value | Candidate JSON representation |
+| --- | --- |
+| `null` | JSON `null` |
+| `bool` | JSON boolean |
+| bounded integral types | JSON number when exact round-trip is proven |
+| `decimal` | invariant string unless a canonical numeric policy is proven |
+| `string` | JSON string |
+| `Guid` | lowercase dashed invariant string |
+| `DateOnly`, `TimeOnly`, `DateTime`, `DateTimeOffset` | documented invariant strings |
+| `byte[]` | base64 string |
+| enum-backed values | their configured canonical provider value |
+| typed IDs | their scalar converter's canonical provider value |
 
-All value encoding should flow through the same model-value/provider-value conversion boundary planned for v0.9. JSON persistence is where that boundary will be stress-tested.
+The codec must call shared scalar conversion metadata when the input is model-valued and must validate canonical provider types on import. It must not invent table-local conversions.
 
-Initial encoding principles:
+## Reader And Writer Shape
 
-- `null` is JSON `null`.
-- booleans are JSON booleans.
-- ordinary integral provider values can be JSON numbers when they round-trip through `System.Text.Json`.
-- `decimal` should be encoded as a string unless the conversion boundary explicitly proves JSON-number round-tripping is safe enough for the support claim.
-- `DateOnly`, `TimeOnly`, `DateTime`, `DateTimeOffset`, and `Guid` should use invariant strings.
-- byte arrays should use base64 strings.
-- enums should use their configured provider representation, not an automatic enum-name policy.
-- typed IDs should use their provider representation after scalar conversion.
-- SQL JSON columns, when supported, should store their raw provider value according to JSON column support rules, not be silently merged into the memory snapshot/log structure.
+`System.Text.Json` is the default implementation choice.
 
-Because generated metadata supplies column type, row payloads do not need type tags for every value. Type tags would make the format noisy and would weaken human readability.
+Recommended shape:
 
-## Schema Compatibility
+- `Utf8JsonReader` for controlled import and useful token/path context
+- `Utf8JsonWriter` for stable canonical output
+- source-generated serializer contexts only for small stable manifest DTOs if they simplify code
+- generated/runtime-owned table and column metadata for rows
+- no reflection-based serialization of model instances
+- no runtime code generation or compiled expressions
 
-The persistence store should have explicit schema modes:
+Import should stage all parsed state privately:
 
-- `Strict`: schema digest must match and unknown/missing shape fails.
-- `Compatible`: allow safe additive changes such as missing nullable/defaulted columns.
-- `Manual`: load only through explicit migration/import tooling.
+1. parse and validate the manifest
+2. resolve generated metadata
+3. parse each token into the expected canonical provider CLR type
+4. build memory provider rows
+5. validate primary keys and build indexes
+6. publish the completed read-only store
 
-V1 should implement `Strict` first.
+Malformed input must never expose a partially initialized store.
 
-Compatibility work should be conservative:
+Export should read the memory provider rows directly. It should not materialize every generated model merely to serialize it, and it should not re-run SQL physical codecs.
 
-- added nullable column: can load with `null`
-- added column with DataLinq default: can load with default only when default evaluation is supported
-- removed column: old value is ignored only in a migration/import path, not silent strict load
-- renamed column: requires explicit migration metadata
-- changed provider type: requires explicit migration metadata
-- changed key shape: requires explicit migration metadata
+## Schema Identity
 
-Do not build a full migration engine inside JSON persistence. A clear "schema mismatch" error is better than a clever data rewrite nobody asked for.
+V1 should implement strict matching only.
 
-## Storage Lifecycle
+The digest input needs a versioned definition that includes at least:
 
-Filesystem snapshot write strategy:
+- database storage identity
+- table storage names
+- column storage names and ordinals
+- canonical provider CLR types
+- nullability
+- primary-key shape and ordering
+- scalar converter identity/version where required for stable interpretation
+- physical storage metadata only where changing it changes the declared generated model contract
 
-1. Serialize to a temporary file in the same directory.
-2. Flush the temporary file.
-3. Replace the target file atomically where the platform supports it.
-4. Leave an actionable failure if replacement cannot be completed.
+Safe additive loading, renames, provider-type changes, converter changes, and key-shape changes belong to explicit later migration/import tooling.
 
-Browser storage strategy:
-
-- write through a storage adapter
-- require adapter-level consistency guarantees to be documented
-- do not pretend browser storage has filesystem atomic rename semantics
-- expose whether snapshot and log writes are atomic together, best-effort, or recoverable through version checks
-
-Cross-process concurrency is not a V1 goal. The persistence store can detect external changes through version, ETag, or last-write token where the storage adapter supports it, but multi-writer coordination should stay out of scope until there is a real use case.
+A clear schema-mismatch error is safer than a clever silent rewrite.
 
 ## Query Execution
 
-JSON should not execute queries.
+JSON never executes queries.
 
-The expected runtime path:
+After import:
 
-1. Load a JSON snapshot and/or replay a JSON commit log into memory-store row buffers.
-2. Build memory table and index state.
-3. Execute `DataLinqQueryPlan` through the memory backend.
-4. Mutate through memory transactions.
-5. Persist dirty memory state back to JSON snapshot/log storage according to the configured content mode and flush policy.
+1. the JSON reader is finished
+2. the in-memory provider rows and indexes exist
+3. the memory backend executes its normal documented plan subset
+4. model materialization converts canonical provider values to model-valued `RowData`
 
-This makes the design:
+No query scans JSON text, uses JSONPath, or depends on property ordering in the source document.
 
-> memory backend plus DataLinq-owned persistence
+## AOT And Browser Position
 
-not:
+The codec should be AOT-safe by construction:
 
-> document database with JSON path query execution
+- no reflection-based model serialization
+- no `Expression.Compile()`
+- no runtime code generation
+- no native dependencies
+- no filesystem assumption in the codec
 
-That is a good thing. The first version should be boring and correct.
+That does not make browser persistence a 0.9 feature. A caller could theoretically pass a browser-provided stream or byte buffer, but IndexedDB/OPFS/localStorage integration, consistency, quota, lifecycle, and recovery are unclaimed.
 
-## Mutation Semantics
-
-Mutation should follow the memory backend's in-process transaction semantics. JSON persistence observes successful commits.
-
-Supported behavior:
-
-- insert/update/delete generated mutable rows through memory transactions
-- explicit transaction staging in memory
-- primary-key uniqueness validation in memory
-- strict required/null validation in memory
-- strict foreign-key validation where relation metadata is available
-- dirty-state tracking
-- snapshot write on flush when configured
-- commit-batch append on flush or commit when configured
-
-Durability claim:
-
-- with `FlushOnCommit`, a commit is durable only after the configured snapshot/log write succeeds
-- with `ExplicitFlush`, a commit is not durable until flush succeeds
-- with `CommitLogOnly`, replayability depends on the availability and schema compatibility of the base seed/snapshot
-- with `SnapshotWithCommitLog`, recovery starts from the latest valid snapshot and replays subsequent committed batches
-
-This distinction must be visible in docs and diagnostics. Hidden durability policy is how users lose data.
-
-## CLI Surface
-
-CLI support should be simple and operational.
-
-Potential commands:
-
-```text
-datalinq memory json init
-datalinq memory json validate
-datalinq memory json export-snapshot
-datalinq memory json export-log
-datalinq memory json replay
-datalinq memory json compact
-datalinq memory json rewrite
-```
-
-Useful behavior:
-
-- create an empty memory snapshot from generated metadata
-- validate format/schema/row values without loading a runtime app
-- export current provider-backed database state to memory snapshot format
-- export committed memory operations when a log exists
-- replay a snapshot plus log to a target version
-- compact snapshot-plus-log storage by writing a new snapshot and retaining/discarding old log segments according to policy
-- rewrite to canonical formatting for diffs
-
-Do not add model generation from JSON samples or arbitrary JSON Schema in this command group. That belongs to the skipped JSON document-mapping idea, not JSON memory persistence.
+The memory backend's browser execution smoke must pass without this package. The optional JSON prototype may have strict AOT codec tests, but it must not reopen the core browser release gate.
 
 ## Diagnostics
 
-JSON persistence errors should point at both the JSON location and the DataLinq metadata location when possible.
+Import failures should identify both JSON and DataLinq metadata context where possible.
 
 Examples:
 
 - `tables.employees[12].emp_no`: duplicate primary key `10001`
-- `tables.departments[4].dept_name`: required column is null
-- `tables.salaries[9].salary`: expected decimal provider value encoded as string
-- `schema.digest`: snapshot was written for a different generated model
-- `commits[5].fromVersion`: expected version `47`, got `46`
-- `commits[8].operations[2].set.salary`: unsupported provider-value conversion
+- `tables.departments[4].dept_name`: required canonical provider value is null
+- `tables.salaries[9].salary`: expected invariant decimal string, got JSON object
+- `schema.digest`: snapshot targets a different generated storage schema
+- `tables.orders[3].customer_id`: scalar provider value is outside the target integer range
 
 Diagnostics should include:
 
-- table name
-- column name
-- row index or commit index
+- snapshot format/version
 - JSON path-like location
-- expected provider type
-- actual JSON token type
-- strict/compatible mode context
-- storage adapter context when a write fails
+- table and column names
+- row index
+- expected canonical provider type
+- actual token type or value summary
+- schema/database identity where relevant
 
-Do not make users debug malformed store files from raw `JsonException` byte offsets alone.
+Raw `JsonException` offsets alone are inadequate.
+
+## 0.9 Verification
+
+The optional prototype requires:
+
+- canonical/golden snapshot tests
+- deterministic output tests
+- schema digest tests
+- provider-value token round trips
+- typed-ID round trips through canonical provider values
+- UUID tests proving snapshots remain logical values rather than SQL byte-layout dumps
+- malformed input diagnostics
+- duplicate-key and required-value rejection
+- partial stream and cancellation tests
+- directly seeded versus imported-store lookup/query comparisons
+- strict AOT-compatible reader/writer smoke
+
+It does not require:
+
+- browser storage tests
+- filesystem atomicity tests
+- flush/reload mutation tests
+- transaction tests
+- commit-log or replay tests
+- CLI tests
+
+## Post-0.9: Persistence Boundary
+
+Automatic or lifecycle-aware persistence begins only after the snapshot codec and memory backend have stable ownership boundaries.
+
+A future persistence abstraction may own:
+
+- opening/loading a store
+- explicit save/flush
+- dirty-state integration after mutation exists
+- transport adapters
+- consistency tokens
+- backup/replace policy
+- diagnostics that distinguish memory commit failures from persistence failures
+
+Transport adapters may later target:
+
+- filesystem streams
+- in-memory bytes/strings for tests
+- IndexedDB or OPFS
+- application-provided remote/object storage
+
+Each adapter must document atomicity, consistency, overwrite, concurrency, quota, and recovery behavior. A generic `IStorageAdapter` with no meaningful guarantees would merely hide data-loss semantics behind an interface.
+
+## Post-0.9: Flush And Durability Semantics
+
+Flush policy is meaningless until memory mutation has a stable commit boundary.
+
+Future designs may distinguish:
+
+- explicit snapshot save: the caller requests serialization of current committed state
+- flush after commit: persistence succeeds before the application receives a durable-commit result
+- asynchronous/background flush: memory commit succeeds first and persistence is eventual
+
+These modes have materially different failure behavior. They must not share vague “auto-save” wording.
+
+`FlushOnCommit` is not automatically the safest default. Coordinating an in-memory root swap with an external write can require prepare/finalize or compensation semantics. That design should be made only after real mutation and adapter contracts exist.
+
+## Post-0.9: Committed Changes, Logs, And Replay
+
+Commit logging depends on a provider-neutral committed-change receipt owned by the mutation layer. JSON should serialize that receipt; it should not define what a successful DataLinq mutation means.
+
+A future log may include:
+
+- format and schema identity
+- from/to committed version
+- ordered insert/update/delete operations
+- table and column storage names
+- canonical provider values for keys and changes
+- optional caller-provided timestamp/source metadata
+
+It must exclude:
+
+- failed transactions
+- setter calls that never committed
+- cache events
+- arbitrary application commands
+- timing-dependent re-execution of user code
+
+Only after deterministic receipt replay works should the project choose among:
+
+- JSON array logs
+- JSON Lines
+- segmented logs
+- snapshot-plus-log checkpoints
+- replay to a target version
+- compaction and retention
+
+Commit-log-only startup is especially risky because generated values, defaults, schema evolution, base-state identity, and unbounded replay cost all require answers. It should not be the default merely because event logs sound sophisticated.
+
+## Post-0.9: CLI And Operational Tooling
+
+CLI work follows a stable format and lifecycle. Possible later commands include validation, canonical rewrite, snapshot export/import, replay, and compaction.
+
+Do not build 0.9 commands for:
+
+- persistence initialization
+- log export
+- replay
+- compaction
+- browser storage management
+- model generation from arbitrary JSON
+
+Tooling before semantics would fossilize an unstable format and multiply compatibility obligations.
 
 ## Performance Position
 
-JSON persistence is not a high-throughput database engine.
+JSON snapshots are not a high-throughput query or database engine.
 
-Expected V1 performance target:
+Reasonable prototype goals:
 
-- fast enough for small and medium browser/local stores
-- predictable load and save behavior
-- no accidental per-query JSON parsing
-- reasonable allocation profile after load
 - deterministic output
-- commit-log replay cost visible in diagnostics or tooling
+- predictable small/medium snapshot load and save
+- no per-query JSON parsing
+- no forced model materialization during export
+- bounded diagnostics overhead on success paths
 
-Rejected V1 ambitions:
+Rejected ambitions:
 
-- streaming query execution over huge JSON files
-- partial in-place file updates
-- multi-process concurrent writes
-- document-store indexing independent of DataLinq metadata
+- streaming queries over large JSON files
+- partial in-place updates
+- multi-process coordination
+- independent document-store indexes
+- high-frequency flush-on-commit durability
 
-Large-store work can revisit segmented/per-table snapshots and segmented logs after the simple store proves value.
-
-## Verification
-
-Test lanes:
-
-- snapshot reader/writer tests for canonical format
-- commit-log reader/writer tests for canonical format
-- snapshot-plus-log replay tests
-- schema digest and compatibility-mode tests
-- scalar/provider-value round-trip tests
-- malformed JSON diagnostics tests
-- duplicate key and constraint tests
-- load into memory state and query through the memory backend
-- mutation plus flush behavior
-- replay-to-version behavior
-- compaction behavior if compaction ships
-- strict AOT smoke
-- browser/WebAssembly smoke through a storage adapter
-- CLI validation/replay tests once CLI exists
-
-The browser smoke should prove:
-
-- open empty memory store with JSON persistence
-- seed or import JSON snapshot data
-- query loaded rows
-- mutate rows
-- flush snapshot/log data through the browser storage adapter
-- reload and query again
-- replay committed changes when log mode is enabled
+Later measurements can justify segmented or per-table snapshots. V1 should not pre-design them.
 
 ## Documentation Shape
 
-Public docs should draw clear lines:
+Public documentation must distinguish:
 
-- `DataLinq.Memory`: in-process generated-model backend
-- JSON memory persistence: DataLinq-owned snapshot/log storage for memory stores
+- `DataLinq.Memory`: the query backend
+- manual JSON snapshot codec: optional logical state import/export
+- future JSON persistence: unshipped lifecycle and durability layer
 - SQLite in-memory: SQLite provider mode
-- SQL JSON columns: JSON values inside SQL provider rows
-- arbitrary JSON document mapping: not part of JSON memory persistence
+- SQL JSON columns: JSON values inside provider rows
+- arbitrary JSON document mapping: not this design
 
-Good wording:
+Good optional-0.9 wording:
 
-> DataLinq memory stores can optionally persist generated model state to deterministic JSON snapshots and committed mutation logs. The memory backend still owns query execution, transactions, constraints, and replay semantics; JSON is the storage format.
+> DataLinq includes an experimental manual codec for exporting and importing read-only memory-store snapshots in a versioned JSON format. The caller owns storage and lifecycle; the codec provides no automatic persistence or durability guarantee.
 
-Bad wording:
+Avoid:
 
-- "query any JSON file"
 - "JSON database"
 - "JSON backend"
-- "JSONPath LINQ provider"
-- "drop-in replacement for SQL"
-- "schema-less DataLinq"
-- "automatic model generation from JSON"
+- "browser persistence"
+- "durable memory store"
+- "query any JSON file"
+- "event sourcing framework"
+- "drop-in SQL replacement"
 
 ## Open Questions
 
-- Should the first package be `DataLinq.Memory.Json`, `DataLinq.Persistence.Json`, or a different name?
-- Should the V1 snapshot format be single-file only, or should directory/per-table mode be hidden behind an experimental option?
-- Should `SnapshotOnly` plus `FlushOnCommit` be the default for all application-style construction paths?
-- What is the exact schema digest input: full metadata, storage-relevant metadata, or a versioned subset?
-- Should canonical snapshots include empty tables?
-- Should row order preserve insertion order, primary-key order, or source file order after mutation?
-- Should V1 commit logs be JSON arrays, JSON Lines, segmented files, or storage-adapter-specific?
-- How much compatibility loading should V1 attempt before explicit migration tooling exists?
-- Should browser storage target localStorage, IndexedDB, OPFS, or an abstraction only in V1?
+- Is `DataLinq.Memory.Json` the right prototype package name?
+- Which metadata fields form the versioned storage-schema digest?
+- Must all V1 tables have primary keys to guarantee canonical row ordering?
+- Should empty tables be emitted or may they be omitted under strict mode?
+- Should decimals always use strings in V1?
+- Should snapshot import accept only a fresh store, or can a later explicit API replace an existing read-only store atomically?
+- What evidence would justify promoting manual serialization into lifecycle-aware persistence?
+- Which committed-change primitive can later serve memory, audit events, CDC, and other backends without becoming memory-specific?
 
 ## Non-Goals
 
 - standalone JSON query backend
-- arbitrary existing JSON document mapping
-- CLI model generation from JSON or JSON Schema
+- arbitrary JSON document mapping
+- model generation from JSON or JSON Schema
 - JSONPath query execution
-- preserving unknown JSON nodes
-- preserving comments or whitespace
-- per-query JSON file scanning
-- partial in-place JSON file updates
+- preserving unknown document nodes, comments, whitespace, or property order
+- SQL JSON-column behavior
+- per-query JSON scanning
+- mutation integration in 0.9
+- automatic load/save or flush policy in 0.9
+- filesystem or browser storage adapters in 0.9
+- commit logs, replay, or compaction in 0.9
+- CLI tooling in 0.9
+- production durability claims
 - cross-process write coordination
-- production-grade document database behavior
-- broad arbitrary LINQ support
-- raw SQL support
-- migration engine for JSON persistence
+- schema migration engine

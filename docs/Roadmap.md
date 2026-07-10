@@ -32,21 +32,32 @@ For release-level detail, see the [changelog](../CHANGELOG.md).
 
 ## Near-Term Direction
 
-### 0.9 Backend And Provider-Value Roadmap
+### 0.9 Provider Values And Pluggable Read Execution
 
-The next draft roadmap is 0.9. Its theme is to make DataLinq query plans backend-executable, make provider values first-class, and then prove that architecture outside the SQL renderer.
+The next planned release is 0.9. Its job is narrower than the original backend-and-persistence proposal:
 
-The useful 0.9 shape is:
+> Make query execution genuinely backend-selectable, make provider values explicit, and prove both with typed IDs, correct UUID storage, and a small read-only memory backend.
 
-- backend-neutral query execution and capability diagnostics
-- query-plan template/invocation separation for repeated query shapes
-- scalar converters and typed-ID support through provider-value normalization
-- bounded SQL-backed multi-join and grouped-query continuation
-- a generated-model memory backend that executes `DataLinqQueryPlan` directly
-- memory mutation, deterministic test utility, and provider-value commit batches
-- experimental JSON persistence for memory stores through DataLinq-owned snapshot and optional commit-log formats
+The required 0.9 outcomes are:
 
-The key discipline is not to turn every good idea into a 0.9 claim. JSON persistence is storage for `DataLinq.Memory`, not a JSON query backend. Typed IDs are scalar converters over single provider values, not arbitrary value-object query translation. Multi-join and grouped-query work should extend the source-slot query plan, not imply general LINQ support.
+- a self-contained query execution request that does not need to rediscover supported projection behavior from the original expression tree
+- backend-neutral source, row-loading, materialization, and capability-validation seams, with the existing SQL path adapted through them
+- structural query shape separated from invocation values where correctness and backend execution require it, without promising a production query-plan cache
+- scalar converters based on a clear model-value to canonical-provider-value boundary
+- typed-ID support across SQL reads, writes, keys, relations, query values, and schema validation
+- column-specific UUID storage codecs across canonical provider values and provider-specific physical representations
+- an experimental read-only `DataLinq.Memory` preview for generated models, with seeding, primary-key lookup, a small documented query subset, and explicit semantics
+- Native AOT, browser WebAssembly, package, benchmark, provider-regression, and documentation evidence for the exact release claim
+- committed-visibility work for SQLite and trustworthy mutable-instance baseline rules for the existing SQL providers
+
+The memory preview is an architectural proof and a useful transient read store. It is not SQL emulation, a promise that every SQL query behaves identically in memory, or a replacement for provider-backed tests.
+
+Only one optional feature stretch should be selected after the required work is green:
+
+- bounded SQL multi-join/composite-key continuation, or
+- manual snapshot-only JSON import/export for memory stores
+
+Neither stretch is part of the baseline release claim.
 
 ### Query Plan and Remotion Removal
 
@@ -62,33 +73,49 @@ That is not the same thing as a general LINQ-provider rewrite. The support bound
 
 The detailed implementation phase record is intentionally not duplicated here. Use the changelog for release boundaries and `docs/dev-plans` for internal phase history.
 
-### Query Composition, Grouped Aggregates, and Join Continuation
+### Query Composition And Join Continuation
 
 The 0.8 query-runtime slices implemented query composition, SQL-shaped grouped aggregate rows, source-slot joins, implicit singular relation traversal, SQL-backed projection rows, single C# query-syntax inner joins, and joined post-paging pushdown.
 
-The next honest query work is narrower than "all joins":
+The next honest query work is narrower than "all joins" and is optional for 0.9:
 
 - multiple explicit inner joins
+- composite anonymous-object join keys over direct provider-normalizable members
 - filtering, ordering, paging, and result operators over supported multi-join row shapes
-- grouping over supported multi-join source-slot projection rows
 - provider-value normalized join keys, including typed IDs where scalar converters are configured
-- relation-aware `JoinBy(...)` and `JoinMany(...)` only after explicit multi-join composition is stable
-- left joins only as a later/stretch claim with real nullability semantics
+- narrow `Queryable.LeftJoin(...)` support on .NET 10 only after inner/composite joins and nullable joined-slot materialization are stable
 
-Materialized `IGrouping<TKey,TElement>`, `GroupJoin(...)`, opaque transparent identifiers, hidden collection expansion, and broad client fallback should remain unsupported unless specific tests and docs say otherwise.
+Grouped multi-join continuation, relation-aware `JoinBy(...)`/`JoinMany(...)`, materialized `IGrouping<TKey,TElement>`, `GroupJoin(...)`, opaque transparent identifiers, hidden collection expansion, and broad client fallback remain later work.
 
 ### Scalar Converters and Typed Keys
 
 The cache and metadata layers now distinguish provider-key identity from model-facing values. That makes scalar converters a 0.9 foundation, not just a later ergonomic feature:
 
 - explicit converter metadata
-- model-to-provider normalization for reads, writes, query constants, local sequences, keys, joins, relations, memory rows, mutation values, and JSON payloads
+- model-to-canonical-provider normalization for reads, writes, query constants, local sequences, keys, joins, relations, and memory row buffers
 - typed-ID equality, local membership, primary-key lookup, relation lookup, and explicit join keys
 - schema validation based on provider storage types, not only model CLR types
 - clear rejection of unsupported value-object member queries
 
+UUID storage is adjacent but distinct. Scalar conversion maps domain values to a canonical provider CLR value such as `Guid`; a provider codec maps that `Guid` to a column's physical text, native UUID, or binary byte layout. Keeping those layers separate prevents a MySQL byte-order choice from leaking into memory rows, cache identity, or JSON snapshots.
+
+Existing public model-facing `RowData` behavior should remain model-valued. Provider values belong in backend/internal buffers and should be converted when model rows are materialized.
+
+### Correctness Gates
+
+The 0.9 release should also close two existing correctness gaps before adding another mutable or persistent backend:
+
+- SQLite should move from dirty-read behavior toward documented committed-visibility semantics, with transaction-local state responsible for same-transaction reads.
+- mutable instances should be reusable only while their baseline is trustworthy; rollback, failed writes, cross-provider reuse, and cross-transaction reuse need explicit invalidation rules.
+
+These are current SQL-provider correctness requirements, not features invented for `DataLinq.Memory`.
+
 ## Later Work
+
+The first post-0.9 priority should be an adoption-focused release: native async query/relation/mutation execution with cancellation, DI/hosting integration, startup schema validation, and testing helpers that clearly distinguish business-logic tests from provider-behavior tests.
+
+Memory mutation, memory transactions, deterministic forks, canonical committed-change batches, JSON flush-on-commit durability, commit logs, replay, compaction, browser persistence adapters, and related CLI commands remain later work. They need a provider-neutral mutation contract and trustworthy transaction semantics first.
 
 Dependency-tracked result-set caching remains deferred until provider-value normalization, joins, projection semantics, invalidation, freshness vocabulary, and DataLinq.Store module contracts are stronger. A cached result-set feature without a boring correctness story would be clever in the worst way.
 
-Full migration execution also remains future work. `validate` and `diff` are real product features today; `add-migration`, `update-database`, migration history tracking, and runtime migration APIs are not. SQL JSON path querying, broad DI/hosting integration, generated typed-key output, and production-grade JSON persistence also need their own evidence before they become public claims.
+Full migration execution also remains future work. `validate` and `diff` are real product features today; `add-migration`, `update-database`, migration history tracking, and runtime migration APIs are not. SQL JSON path querying, generated typed-key output, production-grade JSON persistence, distributed coordination, and DataLinq.Store execution also need their own evidence before they become public claims.

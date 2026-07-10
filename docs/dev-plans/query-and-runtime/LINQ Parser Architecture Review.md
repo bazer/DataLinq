@@ -3,9 +3,15 @@
 
 # LINQ Parser Architecture Review
 
-**Status:** Review report and improvement backlog.
+**Status:** Historical.
 
 **Created:** 2026-06-29.
+
+**Last reviewed:** 2026-07-10.
+
+**Current owner:** [0.9 Query Backend and Execution Foundation](../roadmap-implementation/v0.9/Query%20Backend%20and%20Execution%20Foundation%20Implementation%20Plan.md).
+
+Phase 22 completed the immutable binding snapshot and indexed binding lookup work that this review originally ranked first. Treat the remaining template/invocation, self-contained projection, backend/source, capability, and AOT items as backlog context for the current 0.9 foundation plan. Do not use stale implementation observations below as current-state claims without checking the code.
 
 **Scope:** DataLinq's post-Remotion LINQ parser, query-plan model, SQL rendering path, local projection evaluation, and the architectural seams that affect maintainability, immutability, cacheability, allocations, AOT, and future non-SQL backends.
 
@@ -18,9 +24,9 @@ The blunt assessment:
 - The architecture is sound enough to keep.
 - The implementation is still too SQL-first to call backend-neutral.
 - The parser is already too large and too responsible for its own long-term health.
-- Immutability is mostly good in the plan nodes, but the binding frame is not fully frozen by type.
+- Plan bindings are now frozen with indexed lookup; other plan/execution boundaries still need explicit immutable ownership before reuse across backends.
 - Cacheability is close conceptually, but query shape and runtime values are still fused inside the plan object.
-- The generic query path remains allocation-heavy unless query-shape caching is added.
+- Repeated query parsing/rendering may still justify template reuse, but production query-shape caching now requires fresh benchmark evidence and is not a 0.9 release gate.
 - AOT support has the right instincts, especially avoiding `Expression.Compile()` in the supported path, but compatibility reflection is still the default in important evaluators.
 
 The best next step is not a rewrite. The best next step is to finish the separation the current architecture already started: make the plan truly immutable, split structural query shape from invocation values, move SQL-specific decisions out of the expression parser, and introduce a backend execution boundary.

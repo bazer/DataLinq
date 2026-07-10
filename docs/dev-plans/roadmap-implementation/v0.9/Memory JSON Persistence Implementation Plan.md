@@ -1,259 +1,278 @@
 > [!WARNING]
 > This document is roadmap implementation material for the DataLinq 0.9 development line. It is not normative product documentation and should not be treated as a shipped support claim.
 
-# 0.9 Memory JSON Persistence Implementation Plan
+# 0.9 Memory JSON Snapshot Prototype
 
-**Status:** Draft.
+**Status:** Proposed.
+
+**Target:** Optional 0.9 stretch candidate only; not part of the baseline.
 
 **Created:** 2026-07-03.
 
-**Reframed:** 2026-07-04.
+**Reframed:** 2026-07-10.
+
+## Decision
+
+JSON is not part of the 0.9 baseline. If the backend/runtime, scalar conversion, UUID storage, and read-only memory preview are complete and well evidenced, 0.9 may take exactly one JSON stretch:
+
+> An experimental, manual, snapshot-only JSON import/export prototype for read-only memory stores.
+
+This is a codec and interchange proof. It is not automatic persistence, a durability feature, a browser storage system, or a mutation log.
+
+If core 0.9 work slips, cut this entire stretch. Do not cut backend boundaries, conversion correctness, UUID fixes, memory materialization, or AOT/browser execution to keep JSON.
 
 ## Purpose
 
-This document keeps the immediate 0.9 implementation plan for JSON persistence over the planned memory backend.
+The prototype should answer three narrow questions:
 
-The durable architecture lives in [JSON Persistence Store Architecture](../../backends/memory/persistence/json/JSON%20Persistence%20Store%20Architecture.md). Keep broad design discussion there. Keep this page focused on sequencing, exit criteria, release boundaries, and what must be true before 0.9 can honestly claim JSON persistence for memory stores.
+1. Can a generated memory-store snapshot be represented in a deterministic, DataLinq-owned JSON format?
+2. Can canonical provider values, including typed-ID conversions and `Guid`, round-trip without JSON-specific model conversion rules or SQL wire encodings?
+3. Can a fresh read-only memory store import that snapshot and execute the already-supported query subset?
 
-Arbitrary existing JSON document mapping, JSONPath-backed table mapping, and CLI model generation from JSON are intentionally out of scope.
+Arbitrary JSON document mapping, JSONPath execution, SQL JSON columns, and model generation from JSON remain unrelated features.
 
-## 0.9 Goal
+## Prerequisites And Dependency Direction
 
-The 0.9 JSON persistence work should prove that `DataLinq.Memory` can persist generated model state in a deterministic, human-readable JSON format while keeping query and mutation semantics inside the memory backend.
+This plan begins only after the read-only memory preview has passed its baseline release gates:
 
-The first release claim should stay narrow:
+- backend-neutral query/source/materialization boundaries are working
+- the supported memory query subset is capability-gated
+- canonical provider-value buffers materialize into model-valued `RowData`
+- scalar converters, typed IDs, and canonical `Guid` values work through memory
+- UUID physical codecs are owned and proven by the SQL-provider work rather than copied into memory
+- strict AOT and browser execution smokes pass for memory without JSON
 
-> DataLinq 0.9 introduces experimental JSON persistence for memory stores, using DataLinq-owned snapshot and optional commit-log formats.
+The dependency direction is:
 
-Strengthen that wording only if evidence earns it.
+```text
+completed 0.9 core
+       |
+       v
+read-only memory preview
+       |
+       v
+optional manual JSON snapshot codec
+```
 
-## Prerequisites
+JSON has no authority to change memory row representation, query behavior, conversion semantics, or the 0.9 memory release gate.
 
-JSON persistence work should start after:
+Memory mutation and transactions are not prerequisites because the prototype serializes a read-only store. Conversely, this prototype is not a prerequisite for later mutation.
 
-- the backend execution contract exists
-- the memory backend can execute the first query subset
-- scalar/provider-value conversion is centralized enough to prevent JSON-specific one-off conversion rules, including typed-ID provider values
-- memory snapshots have a stable enough internal shape to export/import
+## Scope
 
-Commit-log persistence should start after:
+The optional prototype includes:
 
-- memory mutation exists
-- successful memory commits produce a canonical committed operation batch in provider-value form
-- replay rules for generated keys, defaults, clocks, and constraints are explicit
+- one versioned, whole-store JSON snapshot document
+- database and storage-relevant schema identity
+- tables keyed by table `DbName`
+- row properties keyed by column `DbName`
+- canonical provider-value encoding through shared scalar-conversion metadata
+- physical storage metadata only where required for strict schema identity
+- deterministic output ordering
+- strict format and schema validation
+- manual export from a read-only memory store
+- manual import into a fresh read-only memory store
+- actionable format, table, column, row, and JSON-location diagnostics
+- query proof over imported rows using only the existing memory capabilities
 
-Starting before those prerequisites risks building a stringly JSON side path that will not rhyme with DataLinq.
+Manual means the caller explicitly supplies or consumes bytes/streams. The codec does not own files, URLs, browser storage, flush timing, or application lifecycle.
 
-## Phase 7A: Persistence Boundary And Storage Adapters
+Illustrative shape:
 
-Work:
+```csharp
+await MemoryJsonSnapshot.ExportAsync(store, output, cancellationToken);
 
-- define the memory-store persistence boundary
-- keep persistence configuration on `MemoryDatabaseStore<TDatabase>` or equivalent
-- define content modes:
-  - `SnapshotOnly`
-  - `CommitLogOnly`
-  - `SnapshotWithCommitLog`
-- define flush policies:
-  - `FlushOnCommit`
-  - `ExplicitFlush`
-- add storage-adapter abstractions for filesystem, browser storage, and in-memory string/blob tests
-- make storage-adapter consistency limits visible in diagnostics
+var imported = await MemoryJsonSnapshot.ImportAsync<AppDb>(
+    input,
+    cancellationToken);
 
-Exit signal:
+using var db = new MemoryDatabase<AppDb>(imported);
+```
 
-- memory stores can be constructed with no persistence, JSON snapshot persistence, or future persistence adapters without changing query execution
-- public naming does not imply a standalone JSON backend
-- storage failures do not masquerade as memory query failures
+Exact names remain open. An async surface is appropriate for stream I/O; it does not imply asynchronous memory query execution.
 
-## Phase 7B: Snapshot Format And Reader/Writer
+## Explicitly Not In 0.9
 
-Work:
+- `FlushOnCommit` or `ExplicitFlush` lifecycle integration
+- automatic open/load/save behavior
+- filesystem persistence ownership or atomic file replacement
+- browser storage adapters, IndexedDB, OPFS, or localStorage
+- a general storage-adapter abstraction
+- mutation persistence
+- transaction integration
+- canonical commit batches or committed-change receipts
+- commit logs
+- replay or replay-to-version
+- snapshot-plus-log recovery
+- compaction or retention policies
+- schema migration or compatibility rewrites
+- CLI commands
+- arbitrary JSON import/mapping
+- JSONPath queries
+- a claim of durability
 
-- define `datalinq-memory-snapshot/v1`
-- choose the V1 physical shape, with single-document snapshot as the preferred baseline
-- add manifest fields for format, database name, schema digest, store version, and tables
-- use table `DbName` and column `DbName` as storage keys
-- write deterministic JSON
-- parse snapshot JSON into validated row payloads
-- report malformed snapshot data with table, column, row index, and JSON location context
+These are post-0.9 work and must not creep back in as “small” additions.
 
-Exit signal:
+## Workstream Ownership
 
-- empty memory snapshots can be created from generated metadata
-- small memory stores can round-trip through snapshots without runtime database access
-- malformed JSON and malformed row values produce actionable diagnostics
-- the format does not claim support for arbitrary JSON documents
+This plan uses local identifiers (`J0` through `J2`) instead of release-wide phase numbers.
 
-## Phase 7C: Provider-Value Encoding
+| Concern | Owner |
+| --- | --- |
+| Memory row state, provider buffers, indexes, queries | Memory backend |
+| Model-to-canonical-provider conversion, including typed IDs | Shared scalar-conversion pipeline |
+| Canonical-provider-to-physical UUID encoding | SQL provider UUID work; never applied to snapshot row tokens |
+| Snapshot manifest, JSON tokens, canonical ordering, diagnostics | JSON snapshot prototype |
+| Stream/file/browser lifecycle | Caller in 0.9; future persistence layer later |
+| Mutation receipts and replay semantics | Future provider-neutral mutation work |
 
-Work:
+## J0: Snapshot Contract
 
-- route JSON encoding through the scalar/provider-value conversion boundary
-- cover nulls, booleans, integral values, decimals, strings, dates/times, GUIDs, byte arrays, enums, and typed IDs where supported
-- add explicit unsupported diagnostics for values the conversion boundary cannot encode
-- add round-trip tests across representative column types
+Define a small `datalinq-memory-snapshot/v1` contract with:
 
-Exit signal:
+- required format/version
+- generated database identity
+- storage-relevant schema digest
+- deterministic table ordering
+- deterministic row ordering, preferably primary-key order where a table has a key
+- deterministic column ordering from generated metadata
+- strict handling of unknown/missing tables and columns
 
-- JSON persistence does not invent table-local conversion rules
-- supported provider values round-trip deterministically
-- unsupported conversion cases fail before data is silently corrupted
+Candidate shape:
 
-## Phase 7D: Snapshot Persistence Integration
+```json
+{
+  "format": "datalinq-memory-snapshot/v1",
+  "database": "EmployeesDb",
+  "schema": {
+    "digest": "sha256:..."
+  },
+  "tables": {
+    "departments": [
+      {
+        "dept_no": "d001",
+        "dept_name": "Marketing"
+      }
+    ]
+  }
+}
+```
 
-Work:
-
-- create `DataLinq.Memory.Json`, `DataLinq.Persistence.Json`, or equivalent
-- load JSON snapshots into memory table state
-- support primary-key lookup after load
-- support strict schema digest validation
-- support `SnapshotOnly`
-- support `FlushOnCommit`
-- support `ExplicitFlush`
-- write canonical snapshots on flush
-- use atomic filesystem replacement where available
-
-Exit signal:
-
-- generated model rows can be loaded from JSON into memory and fetched without SQL
-- primary-key lookup works after reload
-- schema mismatch errors are clear
-- JSON snapshot support stays distinct from SQL JSON column support
-- failed snapshot writes do not pretend commit durability succeeded
-
-## Phase 8A: Memory Query Proof Over Persisted State
-
-Work:
-
-- run the memory-supported query subset against state loaded from JSON snapshots
-- add parity tests against non-persisted memory and SQLite for the supported slice
-- prove direct scalar and anonymous projection where the memory backend supports it
-- prove unsupported shape diagnostics
-
-Exit signal:
-
-- JSON persistence proves the memory backend can execute persisted data
-- no query path scans JSON text per execution
-- unsupported query shapes do not fall back to LINQ-to-Objects by accident
-
-## Phase 8B: Mutation Commit Batches
-
-Work:
-
-- make successful memory commits produce canonical committed operation batches
-- capture insert/update/delete operations in provider-value form
-- include from-version and to-version information
-- include table and column `DbName` identities
-- keep failed transactions and attempted object mutations out of the committed log shape
-- add deterministic tests for committed batch capture
-
-Exit signal:
-
-- mutation improvements expose a clean operation-batch artifact
-- commit batches can describe replayable store-state changes without JSON-specific hooks
-- relation/index invalidation still follows the memory commit boundary
-
-## Phase 8C: Commit Log And Replay
-
-Work:
-
-- define `datalinq-memory-commit-log/v1`
-- write committed operation batches to JSON
-- load and validate commit logs
-- replay logs from an empty store, seed snapshot, or latest snapshot
-- support replay to a target version
-- report log/version/schema errors with actionable diagnostics
-- keep `CommitLogOnly` experimental unless startup, compaction, and seed-state rules are proven
+Do not add store versions, commit IDs, flush metadata, or log anchors until mutation/replay provides real semantics for them.
 
 Exit signal:
 
-- committed memory mutations can be replayed deterministically
-- snapshot-plus-log recovery works for ordinary mutation flows
-- replay fails clearly on schema mismatch or version gaps
-- log persistence is visibly a memory persistence mode, not a separate backend
+- the V1 document contract is small, versioned, and documented
+- schema digest inputs are storage-relevant and versioned
+- the format does not imply support for arbitrary JSON
 
-## Phase 8D: CLI And Browser Smoke
+## J1: Provider-Value Reader And Writer
 
 Work:
 
-- add focused CLI commands if the persistence layer is ready for tooling:
-  - `memory json init`
-  - `memory json validate`
-  - `memory json export-snapshot`
-  - `memory json export-log`
-  - `memory json replay`
-  - `memory json compact`
-  - `memory json rewrite`
-- add browser/WebAssembly smoke through a storage adapter
-- add strict AOT smoke
-- add docs that clearly separate JSON memory persistence from arbitrary JSON documents and SQL JSON columns
+- write rows by generated table/column metadata rather than reflection-driven DTO discovery
+- encode canonical provider values through the shared scalar-conversion boundary
+- cover nulls, booleans, integers, decimals, strings, dates/times, `Guid`, byte arrays, enums, and typed IDs where those types are supported by 0.9
+- decode JSON tokens back into canonical provider values
+- validate duplicates, missing required values, malformed tokens, and unsupported conversions with metadata context
+- avoid per-row runtime code generation and `Expression.Compile()`
+
+The JSON representation is logical even when a SQL wire representation is binary. A canonical `Guid` should use the snapshot's invariant UUID token; the JSON layer must not call the MySQL UUID codec, hardcode a byte order, or otherwise serialize provider wire values. The configured physical format can participate in schema identity without changing the logical row token.
 
 Exit signal:
 
-- a memory snapshot can be created and validated outside an application runtime
-- browser smoke can load, query, mutate, flush, reload, and query again
-- log mode can replay committed changes if log mode is included in the release claim
-- public wording stays experimental unless durability, browser storage, replay, and schema behavior are proven strongly enough
+- representative provider values round-trip deterministically
+- typed IDs use shared scalar-conversion metadata
+- canonical `Guid` values round-trip without leaking configured SQL text/binary layouts
+- malformed values identify JSON path, table, column, row, expected type, and actual token
+- model-facing values after import match ordinary memory materialization
+
+## J2: Manual Import/Export Integration
+
+Work:
+
+- export an already-created read-only store to a caller-provided stream or buffer
+- import a snapshot into a fresh store built from generated metadata
+- perform strict format, database, and schema checks before publishing the store
+- build primary-key indexes using the ordinary memory seed/import path
+- run primary-key lookup and the supported memory query subset over imported state
+- add cancellation and partial-read/write tests for stream APIs
+- keep storage lifecycle entirely outside the codec
+
+Exit signal:
+
+- a small store exports and imports without a database connection
+- imported and directly seeded stores produce equivalent model values and keys
+- the snapshot is deterministic across repeated exports of identical state
+- failed import never publishes a partially initialized store
+- no query scans JSON text after import
 
 ## Verification Gates
 
-JSON persistence should not be called supported until these are green:
+The optional prototype may ship only with:
 
-- persistence-boundary unit tests
-- storage-adapter failure tests
-- snapshot reader/writer tests
-- canonical snapshot output tests
-- schema digest validation tests
+- canonical snapshot golden tests
+- deterministic ordering tests
+- strict database/schema mismatch tests
 - provider-value round-trip tests
-- malformed JSON diagnostics tests
-- strict constraint tests
-- load/query parity tests against memory for the supported query subset
-- mutation plus flush/reload tests
-- commit-batch capture tests if mutation ships
-- commit-log reader/writer tests if log mode ships
-- snapshot-plus-log replay tests if log mode ships
-- replay-to-version tests if log mode ships
-- strict AOT smoke
-- browser/WebAssembly smoke through a storage adapter
-- CLI validation/replay tests if CLI commands ship
+- typed-ID and canonical-`Guid` round-trip tests
+- regression tests proving configured UUID physical formats do not become snapshot wire encodings
+- malformed JSON and row diagnostic tests
+- duplicate-key and missing-value import tests
+- direct-seed versus imported-store query comparisons
+- strict AOT-compatible reader/writer coverage
+- explicit documentation that the caller owns transport and storage
 
-## Release Boundary
+Browser storage is not a gate. The baseline memory browser smoke must remain independent of JSON.
 
-The 0.9 release can claim JSON memory persistence only when:
+## Release Boundary And Cut Rule
 
-- persistence is configured through the memory store
-- the store uses a DataLinq-owned, versioned JSON snapshot format
-- values encode through the provider-value conversion boundary
-- primary-key lookup and a documented query subset execute through `DataLinq.Memory`
-- mutation persistence semantics are explicit
-- strict schema mismatch diagnostics are actionable
-- browser/WebAssembly smoke passes if browser support is claimed
-- public docs do not blur JSON memory persistence, arbitrary JSON document mapping, SQL JSON column support, and standalone backends
+If this stretch ships, the claim should be:
 
-The release can claim commit-log replay only when:
+> DataLinq 0.9 includes an experimental manual JSON snapshot codec for importing and exporting read-only `DataLinq.Memory` state.
 
-- successful commits produce canonical operation batches
-- the log format is versioned
-- snapshot-plus-log replay is deterministic
-- version gaps and schema mismatches fail clearly
-- compaction/retention rules are documented or explicitly out of scope
+The claim must also say:
 
-Claims to avoid unless proven:
+- snapshot-only
+- manual invocation
+- no mutation integration
+- no automatic persistence or durability guarantee
+- no browser storage integration
+- no arbitrary JSON mapping
 
+If implementation requires a persistence lifecycle, storage adapters, commit semantics, replay, or CLI support, stop and move that work to the post-0.9 plan.
+
+## Post-0.9 Directions
+
+After memory mutation and a provider-neutral committed-change receipt exist, a separate persistence plan may evaluate:
+
+1. explicit save/load lifecycle
+2. filesystem and browser storage adapters
+3. atomic replacement and adapter consistency contracts
+4. automatic or explicit flush policies
+5. snapshot-plus-log formats
+6. committed-change logs and deterministic replay
+7. compaction and retention
+8. schema import/migration tooling
+9. focused CLI validation and operational commands
+
+Those items should be owned by the persistence workstream, not folded into mutation implementation.
+
+## Claims To Avoid
+
+- "JSON persistence" without the `manual snapshot prototype` qualifier
+- "durable memory database"
+- "browser persistence"
+- "JSON database" or "JSON backend"
 - "query any JSON file"
-- "JSON database"
-- "JSON backend"
-- "document database"
-- "JSONPath LINQ provider"
+- "event sourcing"
 - "automatic model generation from JSON"
 - "drop-in SQL replacement"
-- "production-grade multi-user persistence"
-- "event sourcing framework"
 
 ## Links
 
 - [JSON Memory Persistence Design Notes](../../backends/memory/persistence/json/README.md)
 - [JSON Persistence Store Architecture](../../backends/memory/persistence/json/JSON%20Persistence%20Store%20Architecture.md)
 - [Memory Backend Architecture](../../backends/memory/Architecture.md)
-- [DataLinq 0.9 Rough Roadmap](README.md)
+- [0.9 Read-Only Memory Backend Implementation Plan](In-Memory%20Database%20Implementation%20Plan.md)
+- [DataLinq 0.9 Roadmap](README.md)

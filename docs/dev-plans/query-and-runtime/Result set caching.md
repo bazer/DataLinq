@@ -3,7 +3,13 @@
 
 # DataLinq: Dependency-Tracked Result And Module Caching
 
-**Status:** Future design note. Roadmap execution is Phase 16. This depends on Phase 11 invalidation primitives, the shared freshness vocabulary, and stronger join/projection semantics; it is not current shipped behavior.
+**Status:** Proposed.
+
+**Target:** Unscheduled.
+
+**Last reviewed:** 2026-07-10.
+
+This depends on the implemented invalidation/freshness primitives plus stronger provider-value, projection, module-contract, and committed-change semantics. It is not part of 0.9 and is not current shipped behavior.
 
 ## Vision And Principle
 

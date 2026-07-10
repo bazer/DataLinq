@@ -3,7 +3,10 @@
 
 # Specification: Model Testing and Mocking Support
 
-**Status:** Draft specification.
+**Status:** Accepted.
+**Release horizon:** First post-0.9 adoption release; pure model/relation builders may land independently.
+**Last reviewed:** 2026-07-10.
+**Dependency:** Queryable provider-like tests should use the capability-declared `DataLinq.Memory` preview after 0.9 rather than inventing a second LINQ-to-Objects provider.
 **Goal:** Make DataLinq application code testable without a live database when the test is about business behavior, while preserving provider-backed tests for SQL translation, schema, transaction, and database-specific behavior.
 
 **Related work:**
@@ -50,8 +53,9 @@ The better approach is a layered test surface:
 
 1. Pure object graph builders for business logic.
 2. Metadata-aware immutable builders for tests that need real DataLinq model behavior.
-3. Fake read stores and fake units of work for application services.
-4. Provider-backed fixtures for query translation and database behavior.
+3. The capability-declared `DataLinq.Memory` backend for application-service tests that intentionally execute DataLinq query plans.
+4. Fake units of work or result-oriented stubs above `IQueryable` for command-handler behavior.
+5. Provider-backed fixtures for SQL translation and database behavior.
 
 This split matters. Mocked DataLinq tests should prove application behavior. They should not pretend to prove SQL translation, database defaults, isolation, indexes, generated columns, provider UUID encoding, or schema drift.
 
@@ -62,7 +66,7 @@ This split matters. Mocked DataLinq tests should prove application behavior. The
 - **Make relation graphs easy:** one-to-one and one-to-many relation fixtures should be first-class.
 - **Use generated metadata where correctness matters:** metadata-aware builders should validate property names, column types, required values, and primary keys.
 - **Keep pure tests pure:** users should not need a connection string, provider package, or database process to test object graph behavior.
-- **Align with DI:** fake read stores and fake units of work should match the planned DI abstractions.
+- **Align with DI:** memory-backed read registration and fake units of work should match the planned DI abstractions.
 - **Prefer deterministic tests:** test helpers should support deterministic IDs, clocks, UUIDs, default values, and seed data.
 - **Keep provider-backed tests available:** SQLite-in-memory and Testing CLI remain the right path for runtime/provider validation.
 
@@ -72,6 +76,7 @@ This split matters. Mocked DataLinq tests should prove application behavior. The
 - No attempt to make arbitrary mocking frameworks understand all DataLinq internals.
 - No automatic replacement of provider-backed tests.
 - No full memory backend in this plan. That belongs to the memory backend architecture and implementation plans.
+- No second LINQ-to-Objects `IQueryable` provider that overlaps `DataLinq.Memory` while obeying subtly different semantics.
 - No hidden database creation from unit-test helpers.
 - No test helper that silently ignores relation/key mismatches.
 
@@ -201,14 +206,14 @@ The graph builder should support:
 
 The graph builder should not merely stuff relation properties with hand-written objects. It should use DataLinq relation metadata so key direction mistakes are caught.
 
-### Layer 4: Fake Read Store
+### Layer 4: Memory-Backed Read Store
 
 Application query services often depend on read access rather than individual model instances.
 
 Desired API:
 
 ```csharp
-var store = DataLinqTest.ReadStore<EmployeesDb>()
+var store = DataLinqTest.MemoryReadStore<EmployeesDb>()
     .Seed<Employee>(employees)
     .Seed<Department>(departments)
     .Build();
@@ -217,25 +222,13 @@ var db = store.Query();
 var active = db.Employees.Where(x => x.IsDeleted != true).ToList();
 ```
 
-This is the sharpest design area.
+This adapter should seed and expose the real `DataLinq.Memory` query-plan executor after its read-only preview exists. The testing package may add fixture-oriented construction and reset helpers, but it should not implement another query engine.
 
-There are two possible strategies:
+The warning remains essential:
 
-1. LINQ-to-Objects fake query provider
-2. metadata-aware fake provider that supports a DataLinq-like subset
+> Memory-backed read stores exercise the DataLinq memory capability set. They do not prove SQL translation, collation, provider functions, transaction behavior, or physical value encoding for SQLite, MySQL, or MariaDB.
 
-For the first slice, LINQ-to-Objects is probably acceptable if the API and docs are brutally clear:
-
-> Fake read stores test application logic. They do not test DataLinq SQL translation.
-
-The fake read store should intentionally expose itself as fake, for example:
-
-```csharp
-DataLinqTest.ReadStore<EmployeesDb>()
-    .UseLinqToObjects()
-```
-
-That wording is not cosmetic. It prevents a common ORM testing failure mode: passing unit tests that exercise LINQ-to-Objects while production fails because the provider cannot translate the expression.
+If an application test does not need to exercise a query at all, stub the application/repository result above `IQueryable` instead of manufacturing a fake provider.
 
 ### Layer 5: Fake Unit of Work
 
@@ -256,13 +249,13 @@ Assert.That(unit.WasCommitted).IsTrue();
 
 The fake unit of work should:
 
-- expose a fake read root
+- expose a configured memory-backed read root or explicit result stubs when reads are required
 - record inserts
 - record updates
 - record saves
 - record deletes
 - record commit/rollback/dispose
-- optionally apply mutations to the fake read store after commit
+- optionally apply recorded mutations to testing-owned state after commit once memory mutation semantics exist
 - optionally fail on commit for error-path tests
 
 It should not try to simulate every provider transaction rule. Provider-backed tests still own that.
@@ -359,7 +352,7 @@ Desired API:
 ```csharp
 services.AddDataLinqTesting<EmployeesDb>(test =>
 {
-    test.UseFakeReadStore()
+    test.UseMemoryReadStore()
         .Seed<Employee>(employees);
 });
 ```
@@ -367,9 +360,9 @@ services.AddDataLinqTesting<EmployeesDb>(test =>
 Replacement helpers:
 
 ```csharp
-services.ReplaceDataLinqWithFake<EmployeesDb>(fake =>
+services.ReplaceDataLinqWithMemory<EmployeesDb>(memory =>
 {
-    fake.Seed<Employee>(employees);
+    memory.Seed<Employee>(employees);
 });
 ```
 
@@ -383,7 +376,7 @@ services.ReplaceDataLinqWithSqliteInMemory<EmployeesDb>(sqlite =>
 });
 ```
 
-The fake and SQLite-backed helpers should have different names. A fake read store and an in-memory SQLite database have different guarantees.
+The memory and SQLite-backed helpers should have different names. `DataLinq.Memory` and an in-memory SQLite database have different guarantees.
 
 ## Query Testing Helpers
 
@@ -391,13 +384,15 @@ There are three different query-test needs:
 
 ### Application Filtering Tests
 
-Use fake read store / LINQ-to-Objects:
+Use the memory-backed adapter only when the test deliberately exercises the documented memory capability set:
 
 ```csharp
 var result = service.FindActiveEmployees();
 ```
 
 This proves service logic only.
+
+If the application abstraction can return results instead of exposing `IQueryable`, prefer direct result stubs for pure business tests.
 
 ### Translation Shape Tests
 
@@ -499,14 +494,14 @@ DataLinq.Extensions.DependencyInjection.Testing
 - row-data builders
 - immutable builders
 - graph builders
-- fake read stores
+- memory-backend fixture adapters
 - fake unit-of-work types once DI abstractions exist
 - deterministic data helpers
 
 `DataLinq.Extensions.DependencyInjection.Testing` should contain:
 
 - `IServiceCollection` replacement helpers
-- fake DataLinq registration helpers
+- memory-backed and fake-unit-of-work registration helpers
 - SQLite-in-memory DI helpers
 
 Avoid making the runtime package carry testing dependencies.
@@ -539,33 +534,35 @@ Avoid making the runtime package carry testing dependencies.
 - Add diagnostics for missing keys, wrong relation direction, wrong model type, and duplicate labels.
 - Add tests for one-to-many, many-to-one, empty relation, composite key, and nullable foreign key graphs.
 
-### Slice 4: Fake Read Store
+### Slice 4: Memory-Backed Read Store Adapter
 
-- Add fake read root construction for generated database models.
-- Seed tables from immutable instances, mutable instances, or builder rows.
-- Use LINQ-to-Objects query execution with explicit fake naming.
-- Document that fake read stores do not prove DataLinq SQL translation.
-- Add tests for filtering, ordering, projection, and relation traversal over seeded graphs.
+- Implement after the read-only `DataLinq.Memory` preview lands.
+- Add fixture-oriented construction for generated database models.
+- Seed tables from immutable instances, mutable instances, or builder rows through memory backend APIs.
+- Expose the backend's explicit capability diagnostics rather than widening query behavior in the testing package.
+- Document that memory behavior does not prove SQL-provider behavior.
+- Add tests for registration, seeding, reset, and supported memory query shapes.
 
 ### Slice 5: Fake Unit of Work
 
 - Implement after the DI/unit-of-work abstractions land.
 - Record insert/update/save/delete operations.
 - Support commit, rollback, disposal, and failure injection.
-- Optionally apply committed mutations to fake read store.
+- Optionally apply committed mutations to testing-owned state after a compatible memory mutation contract exists.
 - Add tests for command-handler style workflows.
 
 ### Slice 6: DI Test Helpers
 
 - Add `AddDataLinqTesting<TDatabase>()`.
-- Add `ReplaceDataLinqWithFake<TDatabase>()`.
+- Add `ReplaceDataLinqWithMemory<TDatabase>()`.
+- Add `ReplaceDataLinqUnitOfWorkWithFake<TDatabase>()`.
 - Add `ReplaceDataLinqWithSqliteInMemory<TDatabase>()`.
 - Add tests with `ServiceCollection` and the planned DI package.
 
 ### Slice 7: Query Translation Assertions
 
 - Add SQL/parameter assertion helpers if the query pipeline can expose translation without executing a database command.
-- Keep this separate from fake read-store tests.
+- Keep this separate from memory-backed application tests.
 - Add tests that unsupported queries fail with useful diagnostics.
 
 ## Test Plan
@@ -580,14 +577,14 @@ Unit tests:
 - graph builder wires collection relations
 - graph builder wires reference relations
 - graph builder catches relation/key mismatches
-- fake read store executes simple LINQ-to-Objects queries
-- fake read store relation traversal works
+- memory-backed adapter executes only documented memory capability shapes
+- memory-backed adapter preserves memory capability diagnostics
 - fake unit of work records writes and commit/rollback state
 - fake unit of work supports failure injection
 
 Integration tests:
 
-- DI replacement helper swaps real DataLinq registration for fake registration
+- DI replacement helper swaps real DataLinq registration for memory-backed reads and a fake unit of work
 - SQLite-in-memory helper creates schema and seeds data
 - provider-backed tests remain the recommended path for SQL translation and provider behavior
 
@@ -596,17 +593,17 @@ Documentation tests or examples:
 - pure business logic test with shape interface
 - immutable scalar builder
 - immutable graph with relations
-- application query service using fake read store
+- application query service using the memory-backed adapter with an explicit capability caveat
 - command handler using fake unit of work
 - provider-backed test using SQLite-in-memory
 
 ## Risks and Sharp Edges
 
-- **False confidence from fake LINQ:** this is the biggest risk. The API and docs must say that fake read stores use LINQ-to-Objects and do not validate SQL translation.
+- **False confidence from memory queries:** this is the biggest risk. The API and docs must say that memory execution validates only the memory capability set and does not validate SQL translation or provider semantics.
 - **Relation graph complexity:** relations are metadata-heavy. A simplistic graph builder will become another broken mock layer.
 - **Generated interface churn:** changing generated interfaces can break user code. Prefer opt-in test-shape interfaces if needed.
 - **Cache behavior mismatch:** pure graph tests should not pretend to model cache invalidation unless they explicitly use fake cache/state helpers.
-- **Overlapping in-memory provider plan:** a full in-memory provider is valuable, but it is not the same as lightweight model mocking.
+- **Overlapping in-memory provider plan:** the testing package should adapt the memory backend for fixtures, not fork its query semantics. Pure graph builders remain distinct from both.
 - **Too many helper APIs:** testing APIs should form a small ladder, not a bag of clever utilities.
 
 ## Open Questions
@@ -614,8 +611,7 @@ Documentation tests or examples:
 - Should `ImmutableRelationMock<T>` be fixed in place or replaced with a new `TestImmutableRelation<T>` type?
 - Should the scalar immutable builder live in `DataLinq.Testing` or in the runtime package behind a low-level factory?
 - Should generated test-shape interfaces include relation properties by default, by opt-in, or not at all?
-- Should fake read stores expose `DbRead<T>` or a separate generated test database root?
-- Should fake read-store LINQ support be deliberately limited to avoid accidental translation claims?
+- Should the memory-backed testing adapter expose the normal generated query root directly or a fixture wrapper around it?
 - Should fake unit of work apply changes immediately, only on commit, or support both modes?
 - Should deterministic defaults be driven by DataLinq metadata defaults or separate test options?
 - Should query translation assertions wait until the query-plan/Remotion isolation work?

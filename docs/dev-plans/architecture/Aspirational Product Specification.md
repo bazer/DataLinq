@@ -2,6 +2,10 @@
 > This is an old aspirational product specification. It is preserved for design context only. It mixes shipped ideas, superseded assumptions, and future possibilities, so it must not be used as public product documentation or as the source of truth for current DataLinq behavior.
 # Aspirational DataLinq Product Specification
 
+**Status:** Historical.
+
+**Current owner:** [Development Roadmap](../Roadmap.md). Ideas from this page must be re-accepted in a focused current plan before they become scheduled work.
+
 ## 1. Introduction
 
 ### 1.1 Purpose
