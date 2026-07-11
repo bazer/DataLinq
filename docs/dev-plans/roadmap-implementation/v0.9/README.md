@@ -3,7 +3,7 @@
 
 # DataLinq 0.9 Implementation Roadmap
 
-**Status:** Implementation in progress. W0-W2 are complete. W4 now has the canonical provider-value row buffer, reader-free model-row construction, shared provider-to-model materializer, source-scoped committed/transaction cache services, and genuine neutral generated immutable construction with legacy compatibility. Generated database roots, neutral row-loader contracts, and SQL decoding are next. W3 may proceed in parallel.
+**Status:** Implementation in progress. W0-W2 are complete. W4 now has the canonical provider-value row buffer, reader-free model-row construction, shared provider-to-model materializer, source-scoped committed/transaction cache services, immutable primary-key row-loader contracts, and genuine neutral generated immutable construction with legacy compatibility. The SQL row-loader adapter, generated database roots, and SQL decoding are next. W3 may proceed in parallel.
 
 **Target release:** 0.9.
 

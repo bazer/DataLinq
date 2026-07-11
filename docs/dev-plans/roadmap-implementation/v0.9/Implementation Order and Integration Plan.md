@@ -612,7 +612,7 @@ W2 is complete. W3 may continue independently, while W4 is now the next query-fo
 - [x] Add the minimal metadata-only read-source contract, additive legacy bridges, optional parallel immutable-factory metadata, and metric-free factory selection.
 - [x] Emit genuine neutral generated immutable constructors/factories only for models with exact accessible read-source construction; preserve the legacy hook and generated-declaration shape.
 - [x] Bind materialization orchestration to neutral source-scoped cache/metrics services while preserving committed and transaction-local identity.
-- [ ] Add neutral row-loader contracts without SQL members.
+- [x] Add immutable primary-key source-row requests, owned finite canonical-row results, cancellation, and a source-scoped loader capability without SQL members.
 - [ ] Remove the generated database-root cast to concrete `DataSourceAccess`.
 - [ ] Route SC-2 runtime read/write/default conversion through the shared boundary.
 - [ ] Complete SC-3 canonical key and cache/relation identity normalization.

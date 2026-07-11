@@ -19,3 +19,12 @@ internal interface IDataLinqReadServices : IDataLinqReadSource
 {
     IModelMaterializationServices MaterializationServices { get; }
 }
+
+/// <summary>
+/// Read-service capability for sources whose cache-cold primary-key rows can be loaded through the
+/// neutral source-row contract. Sources implement this only when a real loader is available.
+/// </summary>
+internal interface IDataLinqSourceRowServices : IDataLinqReadServices
+{
+    ISourceRowLoader RowLoader { get; }
+}
