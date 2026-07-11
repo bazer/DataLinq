@@ -129,7 +129,17 @@ public class StateChange
                     var autoIncrement = Table.AutoIncrementPrimaryKeyColumn;
 
                     if (autoIncrement != null)
-                        mutable[autoIncrement] = newId;
+                    {
+                        var canonicalValue = GeneratedValueDecoder.DecodeAutoIncrementValue(
+                            autoIncrement,
+                            newId,
+                            "sql.generated");
+                        var modelValue = ProviderRowMaterializer.MaterializeValue(
+                            autoIncrement,
+                            canonicalValue,
+                            "sql.generated");
+                        mutable[autoIncrement] = modelValue;
+                    }
                 }
             }
             else

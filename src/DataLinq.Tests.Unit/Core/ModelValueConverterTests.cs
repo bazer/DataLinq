@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +16,7 @@ using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
-public sealed class ModelValueConverterTests
+public sealed partial class ModelValueConverterTests
 {
     [Test]
     public async Task ToCanonicalProviderValue_IdentityMappingPreservesCanonicalPrimitive()
@@ -257,6 +258,32 @@ public sealed class ModelValueConverterTests
             .Table;
     }
 
+    private static TableDefinition CreateAutoIncrementMutationTable(
+        RecordingScalarConverter converter)
+    {
+        var draft = CreateDatabaseDraft(
+            "generated_scalar_rows",
+            new MetadataValuePropertyDraft(
+                "Id",
+                new CsTypeDeclaration(typeof(MutationId)),
+                new MetadataColumnDraft("id")
+                {
+                    PrimaryKey = true,
+                    AutoIncrement = true
+                })
+            {
+                CsNullable = true,
+                ScalarConverter = CreateConverterDraft(converter)
+            });
+
+        return new MetadataDefinitionFactory()
+            .Build(draft)
+            .ValueOrException()
+            .TableModels
+            .Single()
+            .Table;
+    }
+
     private static TableDefinition CreateIdentityTable()
     {
         var draft = CreateDatabaseDraft(
@@ -357,7 +384,8 @@ public sealed class ModelValueConverterTests
     private sealed class RecordingScalarConverter(
         Type modelType,
         Type providerType,
-        Func<object?, ScalarConversionContext, object?> toProvider) : IDataLinqScalarConverter
+        Func<object?, ScalarConversionContext, object?> toProvider,
+        Func<object?, ScalarConversionContext, object?>? fromProvider = null) : IDataLinqScalarConverter
     {
         public Type ModelType { get; } = modelType;
         public Type ProviderType { get; } = providerType;
@@ -373,7 +401,9 @@ public sealed class ModelValueConverterTests
         public object? FromProviderObject(object? providerValue, in ScalarConversionContext context)
         {
             FromProviderCalls++;
-            throw new InvalidOperationException("The mutation path must not invoke provider-to-model conversion.");
+            return fromProvider is null
+                ? throw new InvalidOperationException("The mutation path must not invoke provider-to-model conversion.")
+                : fromProvider(providerValue, context);
         }
     }
 
@@ -392,7 +422,7 @@ public sealed class ModelValueConverterTests
 
     private sealed class TestMutableInstance(
         TableDefinition table,
-        IReadOnlyDictionary<ColumnDefinition, object?> values,
+        Dictionary<ColumnDefinition, object?> values,
         IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> changes) : IMutableInstance
     {
         private bool deleted;
@@ -401,22 +431,26 @@ public sealed class ModelValueConverterTests
         public object? this[string propertyName]
         {
             get => this[table.Model.ValueProperties[propertyName].Column];
-            set => throw new NotSupportedException();
+            set => this[table.Model.ValueProperties[propertyName].Column] = value;
         }
 
         public object? this[ColumnDefinition column]
         {
             get => values[column];
-            set => throw new NotSupportedException();
+            set => values[column] = value;
         }
 
         public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues() => values;
         public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues(IEnumerable<ColumnDefinition> columns) =>
             columns.Select(column => new KeyValuePair<ColumnDefinition, object?>(column, values[column]));
         public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges() => changes;
-        public bool HasPrimaryKeysSet() => true;
+        public bool HasPrimaryKeysSet() =>
+            table.PrimaryKeyColumns.All(column =>
+                values.TryGetValue(column, out var value) && value is not null);
         public ModelDefinition Metadata() => table.Model;
-        public DataLinqKey PrimaryKeys() => DataLinqKey.FromValue(7);
+        public DataLinqKey PrimaryKeys() => HasPrimaryKeysSet()
+            ? DataLinqKey.FromValues(table.PrimaryKeyColumns.Select(column => values[column]))
+            : DataLinqKey.Null;
         public MutableRowData GetRowData() => throw new NotSupportedException();
         IRowData IModelInstance.GetRowData() => rowData;
         public bool IsNew() => false;
@@ -446,7 +480,8 @@ public sealed class ModelValueConverterTests
 
     private sealed class RecordingProvider(
         DatabaseDefinition metadata,
-        RecordingPhysicalWriter writer) : IDatabaseProvider
+        RecordingPhysicalWriter writer,
+        object? generatedValue = null) : IDatabaseProvider
     {
         public string TelemetryInstanceId => "model-value-converter-tests";
         public string DatabaseName => metadata.DbName;
@@ -457,11 +492,11 @@ public sealed class ModelValueConverterTests
         public IDatabaseProviderConstants Constants => throw new NotSupportedException();
         public ReadOnlyAccess ReadOnlyAccess => new(this);
         public DatabaseType DatabaseType => DatabaseType.SQLite;
-        public IDbCommand ToDbCommand(IQuery query) => throw new NotSupportedException();
+        public IDbCommand ToDbCommand(IQuery query) => new TestDbCommand();
         public Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite) =>
             new(this, transactionType);
         public DatabaseTransaction GetNewDatabaseTransaction(TransactionType type) =>
-            new RecordingDatabaseTransaction(this, type);
+            new RecordingDatabaseTransaction(this, type, generatedValue);
         public DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) =>
             throw new NotSupportedException();
         public string GetLastIdQuery() => throw new NotSupportedException();
@@ -489,11 +524,12 @@ public sealed class ModelValueConverterTests
 
     private sealed class RecordingDatabaseTransaction(
         IDatabaseProvider provider,
-        TransactionType type) : DatabaseTransaction(provider, type)
+        TransactionType type,
+        object? generatedValue) : DatabaseTransaction(provider, type)
     {
         public override IDataLinqDataReader ExecuteReader(IDbCommand command) => throw new NotSupportedException();
         public override IDataLinqDataReader ExecuteReader(string query) => throw new NotSupportedException();
-        public override object? ExecuteScalar(IDbCommand command) => throw new NotSupportedException();
+        public override object? ExecuteScalar(IDbCommand command) => generatedValue;
         public override T ExecuteScalar<T>(IDbCommand command) => throw new NotSupportedException();
         public override object? ExecuteScalar(string query) => throw new NotSupportedException();
         public override T ExecuteScalar<T>(string query) => throw new NotSupportedException();
@@ -502,5 +538,25 @@ public sealed class ModelValueConverterTests
         public override void Rollback() { }
         public override void Commit() { }
         public override void Dispose() { }
+    }
+
+    private sealed class TestDbCommand : IDbCommand
+    {
+        [AllowNull]
+        public string CommandText { get; set; } = string.Empty;
+        public int CommandTimeout { get; set; }
+        public CommandType CommandType { get; set; }
+        public IDbConnection? Connection { get; set; }
+        public IDataParameterCollection Parameters => throw new NotSupportedException();
+        public IDbTransaction? Transaction { get; set; }
+        public UpdateRowSource UpdatedRowSource { get; set; }
+        public void Cancel() => throw new NotSupportedException();
+        public IDbDataParameter CreateParameter() => throw new NotSupportedException();
+        public int ExecuteNonQuery() => throw new NotSupportedException();
+        public IDataReader ExecuteReader() => throw new NotSupportedException();
+        public IDataReader ExecuteReader(CommandBehavior behavior) => throw new NotSupportedException();
+        public object? ExecuteScalar() => throw new NotSupportedException();
+        public void Prepare() => throw new NotSupportedException();
+        public void Dispose() { }
     }
 }

@@ -616,8 +616,9 @@ W2 is complete. W3 may continue independently, while W4 is now the next query-fo
 - [x] Bind existing SQL sources to a cancellation-aware primary-key loader that owns command/reader lifetime and decodes full rows to canonical provider values; keep live cache-cold routing behind the W3/W5 gate.
 - [x] Generate neutral database roots and static factories for exact `IDataLinqReadSource` constructors while preserving an additive legacy-root fallback.
 - [x] Convert typed model insert/update/delete values and predicates to canonical provider values before provider physical encoding without double-converting canonical loader/key paths.
+- [x] Decode checked integral SQL auto-increment results to canonical provider values and materialize generated model IDs before assignment.
 - [ ] Remove the transitional concrete `DataSourceAccess` cast from checked-in legacy roots after regeneration and migration evidence.
-- [ ] Complete SC-2 generated/default hydration and remaining query/materialization conversion through the shared boundary.
+- [ ] Complete SC-2 explicit server-default/write-slot hydration, typed-ID reload identity, UUID codecs, and remaining query/materialization conversion through the shared boundary.
 - [ ] Complete SC-3 canonical key and cache/relation identity normalization.
 
 ## Baseline Versus Final Evidence
