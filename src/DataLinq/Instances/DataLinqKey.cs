@@ -31,9 +31,15 @@ public readonly struct DataLinqKey : IEquatable<DataLinqKey>, IProviderKey
 
     public int ValueCount => valueCount == 0 ? 1 : valueCount;
 
-    public bool IsNull => ValueCount == 1 && GetValue(0) is null;
+    public bool IsNull => ValueCount == 1 && GetStoredValue(0) is null;
 
-    public object? GetValue(int index)
+    public object? GetValue(int index) => CopyMutableKeyValue(GetStoredValue(index));
+
+    // Internal cache accounting may inspect immutable storage without allocating a defensive byte[]
+    // copy. Callers must never retain or mutate the returned value.
+    internal object? GetValueUnsafe(int index) => GetStoredValue(index);
+
+    private object? GetStoredValue(int index)
     {
         if (values is not null)
             return values[index];
@@ -104,7 +110,7 @@ public readonly struct DataLinqKey : IEquatable<DataLinqKey>, IProviderKey
 
         for (var i = 0; i < ValueCount; i++)
         {
-            if (!KeyValueEquals(GetValue(i), other.GetValue(i)))
+            if (!KeyValueEquals(GetStoredValue(i), other.GetStoredValue(i)))
                 return false;
         }
 
@@ -120,11 +126,11 @@ public readonly struct DataLinqKey : IEquatable<DataLinqKey>, IProviderKey
     public override string ToString()
     {
         if (ValueCount == 1)
-            return GetValue(0)?.ToString() ?? "<null>";
+            return GetStoredValue(0)?.ToString() ?? "<null>";
 
         var valueStrings = new string[ValueCount];
         for (var i = 0; i < valueStrings.Length; i++)
-            valueStrings[i] = GetValue(i)?.ToString() ?? "<null>";
+            valueStrings[i] = GetStoredValue(i)?.ToString() ?? "<null>";
 
         return $"({string.Join(", ", valueStrings)})";
     }
@@ -171,8 +177,11 @@ public readonly struct DataLinqKey : IEquatable<DataLinqKey>, IProviderKey
         if (value is Enum enumValue)
             return Convert.ChangeType(enumValue, enumValue.GetTypeCode());
 
-        return value;
+        return CopyMutableKeyValue(value);
     }
+
+    private static object? CopyMutableKeyValue(object? value) =>
+        value is byte[] bytes ? (byte[])bytes.Clone() : value;
 
     private static bool KeyValueEquals(object? left, object? right)
     {

@@ -180,14 +180,22 @@ public sealed class ModelMaterializationServicesTests
         var runtime = new RecordingRuntime();
         var services = new ModelMaterializationServices("sql", runtime);
 
-        services.GetOrMaterialize(providerRow);
+        var first = services.GetOrMaterialize(providerRow);
         var modelBytes = (byte[])runtime.LastCacheRow![binaryColumn]!;
         modelBytes[2] = 9;
+        var exposedKeyBytes = (byte[])runtime.LastCacheKey!.Value.GetValue(1)!;
+        exposedKeyBytes[0] = 9;
+        var second = services.GetOrMaterialize(CanonicalProviderValueRow.Create(
+            table,
+            new object?[] { 42, new byte[] { 1, 2, 3 } }));
 
+        await Assert.That(second).IsSameReferenceAs(first);
         await Assert.That(runtime.LastCacheKey!.Value.ValueCount).IsEqualTo(2);
         await Assert.That(runtime.LastCacheKey.Value.GetValue(0)).IsEqualTo(42);
         await Assert.That((byte[])runtime.LastCacheKey.Value.GetValue(1)!).IsEquivalentTo(new byte[] { 1, 2, 3 });
         await Assert.That(converter.FromProviderCalls).IsEqualTo(1);
+        await Assert.That(runtime.CacheMissMetrics).IsEqualTo(1);
+        await Assert.That(runtime.CacheHitMetrics).IsEqualTo(1);
     }
 
     [Test]

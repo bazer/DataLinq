@@ -166,6 +166,7 @@ That was too broad. It made DataLinq's cache identity a DataLinq-owned wrapper i
 - it is one concrete readonly struct, not an interface hierarchy
 - it stores either one normalized value or multiple normalized components
 - it preserves key semantics needed by metadata-driven code, including enum normalization, byte-array content equality, and all-null key handling
+- it owns mutable byte-array components and returns defensive copies, so caller mutation cannot invalidate its cached hash or dictionary identity
 - it implements `IProviderKey` so components can be read uniformly
 - it is used as a bridge into generated provider-key accessors
 - it is not the desired storage key for generated row caches
