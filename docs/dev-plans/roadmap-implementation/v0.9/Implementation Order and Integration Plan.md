@@ -376,6 +376,8 @@ Merge in this order:
 4. `SC-5` schema validation, diffing, provider type inference, and physical-codec handoff.
 5. Run read/write/query/key/relation/default/schema tests for typed `int`, `long`, `Guid`, and `string` IDs across active SQL providers.
 
+Progress on 2026-07-11: step 2 is partially implemented for direct equality/inequality and the existing local `Contains(...)`/equality-`Any(...)` plan. Canonical query values and physical SQL parameters now have distinct operand views, preserving cache identity while encoding each bound value once and memoizing the operand's detached physical values. Explicit join compatibility and unsupported structured-member diagnostics remain open, so W6 is not complete.
+
 Generated optimized typed-key accessors and typed-key generation are not part of this wave. The dynamic path must be correct first.
 
 Exit:

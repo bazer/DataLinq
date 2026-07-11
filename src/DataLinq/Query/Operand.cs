@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Extensions.Helpers;
+using DataLinq.Instances;
 using DataLinq.Metadata;
 
 namespace DataLinq.Query;
@@ -110,8 +111,77 @@ public class ValueOperand : Operand
         Values = values;
     }
 
+    internal object?[] GetParameterValues(Func<IDataLinqDataWriter> writerFactory)
+    {
+        ArgumentNullException.ThrowIfNull(writerFactory);
+        return this is CanonicalColumnValueOperand canonicalOperand
+            ? canonicalOperand.GetEncodedParameterValues(writerFactory())
+            : Values;
+    }
+
     public override string ToString()
     {
         return Values.Select(x => x == null ? "NULL" : x.ToString()).ToJoinedString(", ");
+    }
+}
+
+/// <summary>
+/// Preserves canonical provider values for cache identity while retaining the column metadata needed
+/// to encode SQL parameters into provider physical values.
+/// </summary>
+internal sealed class CanonicalColumnValueOperand : ValueOperand
+{
+    private readonly object parameterValuesGate = new();
+    private object?[]? parameterValues;
+
+    internal CanonicalColumnValueOperand(ColumnDefinition column, object?[] canonicalProviderValues)
+        : base(CopyCanonicalProviderValues(canonicalProviderValues))
+    {
+        ColumnDefinition = column ?? throw new ArgumentNullException(nameof(column));
+    }
+
+    internal ColumnDefinition ColumnDefinition { get; }
+
+    internal object?[] GetEncodedParameterValues(IDataLinqDataWriter writer)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+
+        lock (parameterValuesGate)
+        {
+            if (parameterValues is null)
+            {
+                var encodedValues = new object?[Values.Length];
+                for (var index = 0; index < Values.Length; index++)
+                {
+                    var detachedCanonicalValue = CanonicalProviderValueRow.CopyMutableValue(Values[index]);
+                    var encodedValue = writer.ConvertColumnValue(ColumnDefinition, detachedCanonicalValue);
+                    encodedValues[index] = CanonicalProviderValueRow.CopyMutableValue(encodedValue);
+                }
+
+                parameterValues = encodedValues;
+            }
+
+            return CopyParameterValues(parameterValues);
+        }
+    }
+
+    private static object?[] CopyParameterValues(object?[] source)
+    {
+        var copy = new object?[source.Length];
+        for (var index = 0; index < source.Length; index++)
+            copy[index] = CanonicalProviderValueRow.CopyMutableValue(source[index]);
+
+        return copy;
+    }
+
+    private static object?[] CopyCanonicalProviderValues(object?[] source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        var copy = new object?[source.Length];
+        for (var index = 0; index < source.Length; index++)
+            copy[index] = CanonicalProviderValueRow.CopyMutableValue(source[index]);
+
+        return copy;
     }
 }

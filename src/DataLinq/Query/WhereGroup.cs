@@ -345,7 +345,7 @@ public class WhereGroup<T> : IWhere<T>
                 columnOperand.Alias,
                 where.Operator,
                 valueOperand.Values.Length));
-            values.AddRange(valueOperand.Values);
+            values.AddRange(valueOperand.GetParameterValues(Query.DataSource.Provider.GetWriter));
         }
 
         return true;

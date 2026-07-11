@@ -380,6 +380,8 @@ Required changes:
    - `ids.Contains(x.CustomerId)` maps every local model ID to provider values.
    - Unsupported expressions like `x.CustomerId.Value > 10` should be rejected unless value-member unwrapping is explicitly supported.
 
+The 0.9 expression-query SQL path now preserves both required query representations. Column-aware equality/inequality and local-membership operands keep canonical provider values for cache/key identity, retain their `ColumnDefinition`, and lazily memoize detached provider-physical parameter values through the column writer. Manual `SqlQuery` operands remain an already-physical contract and do not acquire a writer through this path. Ordered converter-backed comparisons fail translation because scalar converters do not declare order preservation. Explicit converted join compatibility and structured member diagnostics are still implementation work, and this design note remains non-normative until the release gate is complete.
+
 4. **Primary and foreign keys**
    - `KeyFactory` should create keys from provider values, not model values, so `CustomerId(1)` and raw provider `1` do not become different cache keys for the same row.
    - FK relation indexes should normalize both sides through provider values.

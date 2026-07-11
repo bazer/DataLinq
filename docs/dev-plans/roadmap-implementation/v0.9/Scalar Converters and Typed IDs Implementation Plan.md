@@ -165,6 +165,8 @@ Exit signal:
 
 ### SC-4: Query Constants And Local Sequences
 
+Progress on 2026-07-11: the expression-query SQL adapter now normalizes converter-backed values for direct equality/inequality in either operand order and for the existing local `Contains(...)`/equality-`Any(...)` membership plan. Ordered comparisons are rejected because the converter contract does not promise order preservation. The query-plan boundary produces canonical provider values and tags them with their target column. Canonical values remain visible to primary-key/cache analysis, while SQL binding lazily memoizes detached provider-writer physical values; both ordinary rendering and select-template cache hits use that physical view. Ordinary `ValueOperand` instances remain the already-physical/manual contract, so existing `SqlQuery`, source-row-loader, and provider-key paths are not double-converted or forced to expose a writer. The same handoff makes the existing MariaDB `BINARY(16)` membership regression pass without MySqlConnector `GuidFormat`, although broader UUID metadata/codec work remains in `UUID-1` through `UUID-5`. Cross-provider typed-ID predicate execution uses scalar results because cache-cold entity materialization still routes through the legacy model-typed reader; focused SQL/parameter inspection uses SQLite. That live reader handoff remains W3/W5 work. Explicit join compatibility, grouped/non-column operands, typed-ID member access, and structured value-object predicates remain open.
+
 Work:
 
 - normalize equality constants through target-column converter metadata

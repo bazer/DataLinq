@@ -65,7 +65,7 @@ The current MySQL/MariaDB documentation is honest about the weak spot:
 
 - MySQL maps `Guid` to `BINARY(16)` by default.
 - MariaDB maps `Guid` to native `UUID` by default where supported.
-- `BINARY(16)` `Guid` values depend on MySqlConnector `GuidFormat=LittleEndianBinary16`.
+- Historically, `BINARY(16)` query values depended on MySqlConnector `GuidFormat=LittleEndianBinary16`; the 0.9 query-plan equality/membership path now hands canonical `Guid` values to the column writer instead. Other UUID paths still need the explicit metadata/codec work below.
 - Native MariaDB `UUID` avoids that connection-string dependency.
 
 Relevant current files:
@@ -94,17 +94,17 @@ The implementation currently splits responsibility in a way that is too fragile:
 
 - MySQL mutations convert `Guid` to `byte[]` for `BINARY(16)` using `Guid.ToByteArray()`.
 - MySQL reads call `MySqlDataReader.GetGuid(...)`, so MySqlConnector decides how to decode bytes.
-- MySQL query parameters are passed as raw `Guid` values unless a higher-level path already converted them.
-- LINQ `Contains(...)` loses column metadata in some paths, so the provider cannot reliably encode each list value for the target column.
+- Legacy/string-only MySQL query parameters remain raw or caller-encoded because they do not carry column metadata.
+- The expression-query direct comparison and local-membership path now retains `ColumnDefinition`, keeps canonical values for cache identity, and lazily binds column-writer physical values.
 - SQLite query parameters normalize `Guid` to text at provider command creation, which is a healthier pattern than the MySQL path.
 
-The tests encode the practical failure:
+The original characterization tests encoded the practical failure:
 
 - native MariaDB `UUID` `Contains(...)` works without `GuidFormat`
-- `BINARY(16)` `Contains(...)` requires `GuidFormat=LittleEndianBinary16`
-- the same query returns no rows when `GuidFormat` is removed
+- `BINARY(16)` `Contains(...)` required `GuidFormat=LittleEndianBinary16`
+- the same query returned no rows when `GuidFormat` was removed
 
-That is not a MySqlConnector bug. It is a DataLinq ownership bug. MySqlConnector exposes several legitimate `GuidFormat` values, and DataLinq currently relies on one global connection setting to recover per-column storage meaning.
+The 2026-07-11 SC-4 query-operand slice flips that binary-membership test into a positive regression: configured and unconfigured connections now return the same rows because DataLinq uses the mapped column writer. This is one repaired query path, not completion of the UUID workstream. The original failure was not a MySqlConnector bug; it was a DataLinq ownership bug. MySqlConnector exposes several legitimate `GuidFormat` values, while DataLinq storage meaning must remain column-specific.
 
 ## Problem Statement
 

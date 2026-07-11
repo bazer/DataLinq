@@ -100,9 +100,9 @@ public class MariaDbGuidTypeMappingTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.MariaDbProviders))]
-    public async Task Runtime_Binary16ContainsQuery_RequiresGuidFormat(TestProviderDescriptor provider)
+    public async Task Runtime_Binary16ContainsQuery_WorksWithoutGuidFormat(TestProviderDescriptor provider)
     {
-        using var schema = ServerSchemaDatabase.Create(provider, nameof(Runtime_Binary16ContainsQuery_RequiresGuidFormat));
+        using var schema = ServerSchemaDatabase.Create(provider, nameof(Runtime_Binary16ContainsQuery_WorksWithoutGuidFormat));
 
         var configuredBuilder = new MySqlConnectionStringBuilder(schema.Connection.ConnectionString)
         {
@@ -132,7 +132,10 @@ public class MariaDbGuidTypeMappingTests
         using var unconfiguredDatabase = CreateMariaDbDatabase<BinaryGuidTestDatabase>(unconfiguredConnectionString, schema.Connection.DataSourceName);
         var unconfiguredResults = unconfiguredDatabase.Query().BinaryGuids.Where(x => idsToFind.Contains(x.Id)).ToList();
 
-        await Assert.That(unconfiguredResults).IsEmpty();
+        await Assert.That(unconfiguredResults.Count).IsEqualTo(2);
+        await Assert.That(unconfiguredResults.Any(x => x.Id == id1)).IsTrue();
+        await Assert.That(unconfiguredResults.Any(x => x.Id == id2)).IsTrue();
+        await Assert.That(unconfiguredResults.Any(x => x.Id == id3)).IsFalse();
     }
 
     private static MariaDBDatabase<TDatabase> CreateMariaDbDatabase<TDatabase>(string connectionString, string databaseName)

@@ -120,24 +120,16 @@ internal sealed class QueryPlanSqlValueRenderer(
         return localSequence.Values;
     }
 
-    public static (Operand left, Operand right) NormalizeValueOperandsForColumnTypes(Operand left, Operand right)
-    {
-        if (left is ColumnOperandWithDefinition leftColumn && right is ValueOperand rightValue)
-            right = NormalizeValueOperandForColumnType(leftColumn.ColumnDefinition, rightValue);
+    public (Operand Left, Operand Right) NormalizeComparisonOperands(
+        QueryPlanComparisonOperator comparisonOperator,
+        Operand left,
+        Operand right) =>
+        QueryPlanSqlColumnValueNormalizer.NormalizeComparisonOperands(comparisonOperator, left, right);
 
-        if (right is ColumnOperandWithDefinition rightColumn && left is ValueOperand leftValue)
-            left = NormalizeValueOperandForColumnType(rightColumn.ColumnDefinition, leftValue);
-
-        return (left, right);
-    }
-
-    public static object? NormalizeValueForColumnType(ColumnDefinition column, object? value)
-    {
-        var columnType = GetNonNullableColumnType(column);
-        return columnType == typeof(char)
-            ? NormalizeCharComparisonValue(value)
-            : value;
-    }
+    public ValueOperand NormalizeLocalSequenceValues(
+        ColumnDefinition column,
+        IReadOnlyList<object?> sourceValues) =>
+        QueryPlanSqlColumnValueNormalizer.NormalizeLocalSequenceValues(column, sourceValues);
 
     private QueryPlanInvocationValue.Scalar GetScalarBinding(QueryPlanScalarBindingReference scalar)
     {
@@ -224,31 +216,6 @@ internal sealed class QueryPlanSqlValueRenderer(
             _ => throw new QueryTranslationException($"Query plan value '{value.Kind}' cannot be used as a SQL function source.")
         };
     }
-
-    private static ValueOperand NormalizeValueOperandForColumnType(ColumnDefinition column, ValueOperand valueOperand)
-    {
-        var sourceValues = valueOperand.Values;
-        var values = new object?[sourceValues.Length];
-        for (var index = 0; index < sourceValues.Length; index++)
-            values[index] = NormalizeValueForColumnType(column, sourceValues[index]);
-
-        return Operand.Value(values);
-    }
-
-    private static Type GetNonNullableColumnType(ColumnDefinition column)
-    {
-        var columnType = column.ValueProperty.CsType.Type
-            ?? throw new QueryTranslationException($"Column '{column.DbName}' has no CLR type metadata.");
-
-        return Nullable.GetUnderlyingType(columnType) ?? columnType;
-    }
-
-    private static object? NormalizeCharComparisonValue(object? value) => value switch
-    {
-        int intValue when intValue >= char.MinValue && intValue <= char.MaxValue => (char)intValue,
-        string stringValue when stringValue.Length == 1 => stringValue[0],
-        _ => value
-    };
 
     private string GetAggregateColumnExpression(QueryPlanValue selector)
     {

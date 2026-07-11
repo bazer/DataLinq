@@ -86,7 +86,7 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
 
         var left = valueRenderer.RenderOperand(compare.Left);
         var right = valueRenderer.RenderOperand(compare.Right);
-        (left, right) = QueryPlanSqlValueRenderer.NormalizeValueOperandsForColumnTypes(left, right);
+        (left, right) = valueRenderer.NormalizeComparisonOperands(compare.Operator, left, right);
         var sqlOperator = ToSqlOperator(compare.Operator);
 
         if (left is ValueOperand { IsNull: true } && right is not ValueOperand)
@@ -155,20 +155,22 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
         }
 
         var item = valueRenderer.RenderOperand(inPredicate.Item);
-        var values = new object?[sourceValues.Count];
+        ValueOperand values;
         if (item is ColumnOperandWithDefinition column)
         {
-            for (var index = 0; index < sourceValues.Count; index++)
-                values[index] = QueryPlanSqlValueRenderer.NormalizeValueForColumnType(column.ColumnDefinition, sourceValues[index]);
+            values = valueRenderer.NormalizeLocalSequenceValues(column.ColumnDefinition, sourceValues);
         }
         else
         {
+            var unboundValues = new object?[sourceValues.Count];
             for (var index = 0; index < sourceValues.Count; index++)
-                values[index] = sourceValues[index];
+                unboundValues[index] = sourceValues[index];
+
+            values = Operand.Value(unboundValues);
         }
 
         group.AddWhere(
-            new Comparison(item, inPredicate.IsNegated ? Operator.NotIn : Operator.In, Operand.Value(values)),
+            new Comparison(item, inPredicate.IsNegated ? Operator.NotIn : Operator.In, values),
             connectionType);
     }
 
