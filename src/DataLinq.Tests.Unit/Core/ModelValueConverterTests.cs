@@ -59,7 +59,7 @@ public sealed partial class ModelValueConverterTests
     }
 
     [Test]
-    public async Task ToCanonicalProviderValue_NullBypassesConverterForTransitionalUnsetMutationSlot()
+    public async Task ToCanonicalProviderValue_NullBypassesConverterForExplicitNullMutationValue()
     {
         var converter = new RecordingScalarConverter(
             typeof(MutationId),

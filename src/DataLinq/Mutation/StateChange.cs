@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Metadata;
@@ -10,13 +11,20 @@ using DataLinq.Query;
 
 namespace DataLinq.Mutation;
 
+internal readonly record struct MutationWriteSlot(
+    ColumnDefinition Column,
+    bool IsAssigned,
+    object? ModelValue);
+
 /// <summary>
 /// Represents a change of state to be applied to a model within a transaction.
 /// </summary>
 public class StateChange
 {
     private readonly IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> changes;
+    private readonly IReadOnlyList<MutationWriteSlot> insertWriteSlots;
     private readonly Dictionary<ColumnDefinition, object?> originalValues = new();
+    private readonly bool hasReloadableIdentityMappedPrimaryKey;
 
     /// <summary>
     /// Gets the type of change that will be applied to the model.
@@ -79,6 +87,11 @@ public class StateChange
 
         PrimaryKeys = model.PrimaryKeys();
         changes = CaptureChanges(model);
+        insertWriteSlots = type == TransactionChangeType.Insert
+            ? CaptureInsertWriteSlots(model, table, changes)
+            : [];
+        hasReloadableIdentityMappedPrimaryKey = type == TransactionChangeType.Insert &&
+            HasReloadableIdentityMappedPrimaryKey(model, table);
         CaptureOriginalValues(model);
     }
 
@@ -88,10 +101,53 @@ public class StateChange
     internal bool TryGetOriginalValue(ColumnDefinition column, out object? value) =>
         originalValues.TryGetValue(column, out value);
 
+    internal IReadOnlyList<MutationWriteSlot> GetInsertWriteSlots() =>
+        insertWriteSlots;
+
     private static IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> CaptureChanges(IModelInstance model) =>
         model is IMutableInstance mutable
             ? mutable.GetChanges().ToArray()
             : [];
+
+    private static bool HasReloadableIdentityMappedPrimaryKey(
+        IModelInstance model,
+        TableDefinition table)
+    {
+        if (table.PrimaryKeyColumns.Count == 0 ||
+            table.PrimaryKeyColumns.Any(static column => column.HasScalarConverter))
+        {
+            return false;
+        }
+
+        if (table.PrimaryKeyColumns.All(column => model[column] is not null))
+            return true;
+
+        return table.PrimaryKeyColumns.Count == 1 &&
+            table.AutoIncrementPrimaryKeyColumn is not null;
+    }
+
+    private static IReadOnlyList<MutationWriteSlot> CaptureInsertWriteSlots(
+        IModelInstance model,
+        TableDefinition table,
+        IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> changes)
+    {
+        var assignedValues = new Dictionary<ColumnDefinition, object?>(changes.Count);
+        for (var index = 0; index < changes.Count; index++)
+            assignedValues[changes[index].Key] = changes[index].Value;
+
+        var slots = new MutationWriteSlot[table.ColumnCount];
+        for (var index = 0; index < table.ColumnCount; index++)
+        {
+            var column = table.Columns[index];
+            var isAssigned = assignedValues.TryGetValue(column, out var assignedValue);
+            slots[index] = new MutationWriteSlot(
+                column,
+                isAssigned,
+                isAssigned ? assignedValue : model[column]);
+        }
+
+        return slots;
+    }
 
     private void CaptureOriginalValues(IModelInstance model)
     {
@@ -202,16 +258,40 @@ public class StateChange
 
     private IQuery BuildInsertQuery(SqlQuery query, IDataLinqDataWriter writer)
     {
-        foreach (var column in Table.Columns)
+        foreach (var slot in insertWriteSlots)
         {
-            var val = writer.ConvertModelColumnValue(column, Model[column], "mutation.insert");
-            query.Set(column.DbName, val);
+            if (ShouldOmitUnsetServerDefault(slot, query.DataSource.Provider.DatabaseType))
+                continue;
+
+            var value = writer.ConvertModelColumnValue(
+                slot.Column,
+                slot.ModelValue,
+                "mutation.insert");
+            query.Set(slot.Column.DbName, value);
         }
 
         if (HasAutoIncrement)
             query.AddLastIdQuery();
 
         return query.InsertQuery();
+    }
+
+    private bool ShouldOmitUnsetServerDefault(
+        MutationWriteSlot slot,
+        DatabaseType databaseType)
+    {
+        if (slot.IsAssigned ||
+            slot.ModelValue is not null ||
+            !hasReloadableIdentityMappedPrimaryKey ||
+            slot.Column.PrimaryKey ||
+            slot.Column.HasScalarConverter ||
+            slot.Column.ColumnIndices.Any())
+        {
+            return false;
+        }
+
+        return slot.Column.ValueProperty.GetDefaultAttribute() is DefaultSqlAttribute defaultSql &&
+            (defaultSql.DatabaseType == DatabaseType.Default || defaultSql.DatabaseType == databaseType);
     }
 
     private IQuery BuildUpdateQuery(SqlQuery query, IDataLinqDataWriter writer)
