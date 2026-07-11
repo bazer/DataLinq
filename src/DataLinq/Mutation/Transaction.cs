@@ -88,6 +88,8 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// </summary>
     public uint TransactionID { get; }
 
+    internal MutableTransactionOwnership MutableOwnership { get; }
+
     /// <summary>
     /// Gets the list of state changes.
     /// </summary>
@@ -123,6 +125,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         Type = type;
 
         TransactionID = Interlocked.Increment(ref transactionCount);
+        MutableOwnership = new MutableTransactionOwnership(databaseProvider, TransactionID);
     }
 
     /// <summary>
@@ -139,6 +142,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         Type = type;
 
         TransactionID = Interlocked.Increment(ref transactionCount);
+        MutableOwnership = new MutableTransactionOwnership(databaseProvider, TransactionID);
     }
 
     /// <summary>
@@ -160,7 +164,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         AddAndExecute(model, TransactionChangeType.Insert);
 
         var immutable = GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
-        model.Reset(immutable);
+        model.AdvanceBaseline(immutable, MutableOwnership);
 
         return immutable;
     }
@@ -201,7 +205,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         AddAndExecute(model, TransactionChangeType.Update);
 
         var immutable = GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
-        model.Reset(immutable);
+        model.AdvanceBaseline(immutable, MutableOwnership);
 
         return immutable;
     }
@@ -285,7 +289,9 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         AddAndExecute(model, TransactionChangeType.Delete);
 
-        if (model is IMutableInstance mutable)
+        if (model is IMutableLifecycle mutableLifecycle)
+            mutableLifecycle.MarkDeleted(MutableOwnership);
+        else if (model is IMutableInstance mutable)
             mutable.SetDeleted();
     }
 
@@ -349,6 +355,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         Provider.State.ApplyChanges(Changes);
         Provider.State.RemoveTransactionFromCache(this);
+        MutableOwnership.MarkCommittedAfterPublication();
     }
 
     /// <summary>

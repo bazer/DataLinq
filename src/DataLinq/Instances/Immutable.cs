@@ -10,12 +10,13 @@ using DataLinq.Mutation;
 namespace DataLinq.Instances;
 
 public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
-    IEquatable<Immutable<T, M>>, IEquatable<IMutableInstance>
+    IEquatable<Immutable<T, M>>, IEquatable<IMutableInstance>, IImmutableBaselineOrigin
     where T : IModel
     where M : class, IDatabaseModel
 {
     private readonly IRowData rowData;
     private IDataLinqReadSource readSource;
+    private readonly MutableBaselineOrigin baselineOrigin;
 
     protected Immutable(IRowData rowData, IDataSourceAccess dataSource)
     {
@@ -24,6 +25,7 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
         // operations; the new neutral constructor below is the strict contract.
         this.rowData = rowData;
         readSource = dataSource;
+        baselineOrigin = MutableBaselineOrigin.FromReadSource(dataSource);
     }
 
     protected Immutable(IRowData rowData, IDataLinqReadSource readSource)
@@ -33,7 +35,10 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
 
         this.rowData = rowData;
         this.readSource = readSource;
+        baselineOrigin = MutableBaselineOrigin.FromReadSource(readSource);
     }
+
+    MutableBaselineOrigin IImmutableBaselineOrigin.BaselineOrigin => baselineOrigin;
 
     protected ConcurrentDictionary<RelationProperty, DataLinqKey>? relationKeys;
 

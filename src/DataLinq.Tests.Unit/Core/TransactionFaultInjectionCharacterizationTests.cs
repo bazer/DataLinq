@@ -55,6 +55,11 @@ public class TransactionFaultInjectionCharacterizationTests
 
         await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.Committed);
         await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsFalse();
+        await Assert.That(fixture.Transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.Committed);
+        await Assert.That(fixture.OwnershipLifecycle.Snapshot.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Committed);
+        await Assert.That(fixture.OwnershipLifecycle.Snapshot.TransactionOwner).IsNull();
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo(
             "provider.commit(cache=present) -> status.Committed -> provider.dispose(cache=present) -> provider.resources.dispose");
     }
@@ -71,6 +76,7 @@ public class TransactionFaultInjectionCharacterizationTests
         await Assert.That(observed).IsSameReferenceAs(expected);
         await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
         await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsTrue();
+        await AssertUnresolvedOwnership(fixture);
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo("provider.commit(cache=present)");
     }
 
@@ -86,6 +92,7 @@ public class TransactionFaultInjectionCharacterizationTests
         await Assert.That(observed).IsSameReferenceAs(expected);
         await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.Committed);
         await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsTrue();
+        await AssertUnresolvedOwnership(fixture);
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo(
             "provider.commit(cache=present) -> status.Committed -> provider.dispose(cache=present) -> provider.resources.dispose");
     }
@@ -203,7 +210,20 @@ public class TransactionFaultInjectionCharacterizationTests
         }
 
         scenario.Calls.Clear();
-        return new Fixture(provider, transaction, cache, scenario);
+        var ownershipLifecycle = MutableLifecycle.New();
+        ownershipLifecycle.ValidateHydratedAdvance();
+        ownershipLifecycle.AdvanceHydrated(transaction.MutableOwnership);
+        return new Fixture(provider, transaction, cache, scenario, ownershipLifecycle);
+    }
+
+    private static async Task AssertUnresolvedOwnership(Fixture fixture)
+    {
+        await Assert.That(fixture.Transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.Unresolved);
+        await Assert.That(fixture.OwnershipLifecycle.Snapshot.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.TransactionLocal);
+        await Assert.That(fixture.OwnershipLifecycle.Snapshot.TransactionOwner)
+            .IsSameReferenceAs(fixture.Transaction.MutableOwnership);
     }
 
     private static string Describe(IEnumerable<string> calls) => string.Join(" -> ", calls);
@@ -226,11 +246,13 @@ public class TransactionFaultInjectionCharacterizationTests
         FaultInjectingProvider provider,
         Transaction transaction,
         TableCache cache,
-        FaultScenario scenario) : IDisposable
+        FaultScenario scenario,
+        MutableLifecycle ownershipLifecycle) : IDisposable
     {
         public Transaction Transaction { get; } = transaction;
         public TableCache Cache { get; } = cache;
         public FaultScenario Scenario { get; } = scenario;
+        public MutableLifecycle OwnershipLifecycle { get; } = ownershipLifecycle;
 
         public void Dispose() => provider.Dispose();
     }

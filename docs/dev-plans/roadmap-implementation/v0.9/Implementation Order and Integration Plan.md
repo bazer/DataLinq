@@ -3,13 +3,13 @@
 
 # 0.9 Implementation Order And Integration Plan
 
-**Status:** Accepted.
+**Status:** Implementation in progress. W0-W2 are complete; W3 and W4 are active on their gated lanes.
 
 **Target release:** DataLinq 0.9.
 
 **Created:** 2026-07-10.
 
-**Last reviewed:** 2026-07-10.
+**Last reviewed:** 2026-07-11.
 
 **Authority:** This document owns the exact cross-workstream implementation order, integration points, artifact ownership, and release gates for 0.9. Feature plans own behavior inside their assigned workstreams. If a feature plan's local ordering conflicts with this release-wide sequence, this document wins until the conflict is explicitly reconciled.
 
@@ -319,6 +319,8 @@ Exit:
 - SQLite uses committed visibility without claiming literal MySQL/MariaDB `ReadCommitted` equivalence
 - pending state cannot reach global caches or outside relation subscribers before provider commit
 
+Progress on 2026-07-11: `TX-0` is already closed by W1 characterization. W3 has started with a bounded `ML-1` substrate: existing mutables capture their exact provider origin from the immutable row, transaction-local provenance uses an opaque exact-transaction token, authoritative hydration and mutable delete establish transaction-local state, and that state may normalize lazily to committed only after provider commit, global publication, and transaction-local cache cleanup succeed. This is not the `ML-1` or W3 exit. `ML-2` guards, the touched-mutables registry, failed-change removal, rollback/disposal invalidation, poisoning, full `TX-2` promotion/failure handling, and the `F6` live-read gate remain open.
+
 ### W4: Neutral Rows, Sources, Materialization, And Scalar Runtime
 
 Merge in this order:
@@ -603,7 +605,15 @@ The first coherent slice is characterization only. It should make the foundation
 - [x] Remove the original expression from post-parse executor contracts and derive the terminal primary-key shortcut from the validated invocation.
 - [x] Preserve SQLite, MySQL, and MariaDB projection, join, SQL-parity, and primary-key behavior through the invocation-only route.
 
-W2 is complete. W3 may continue independently, while W4 is now the next query-foundation dependency. Do not start `IQueryPlanBackend` or `DataLinq.Memory` in isolation; the neutral row, source, and materializer seam comes first.
+W2 is complete. W3 is proceeding independently, while W4 remains the next query-foundation dependency. Do not start `IQueryPlanBackend` or `DataLinq.Memory` in isolation; the neutral row, source, and materializer seam comes first.
+
+### W3 implementation underway
+
+- [x] Close `TX-0` with W1 transaction/cache characterization and the expected-failure ownership matrix.
+- [ ] Complete `ML-1`. The current bounded slice adds exact provider origin, opaque transaction-token ownership, authoritative hydration/delete provenance, and successful-commit token normalization; it does not yet satisfy the full exit evidence.
+- [ ] Add `ML-2` command-free guards and the `TX-1` reference-identity touched registry with failed-change removal.
+- [ ] Complete `TX-2` through `TX-4` promotion, rollback/disposal invalidation, failure partitioning, and poisoning.
+- [ ] Keep `F6` cache-cold/relation read routing gated until the W3 terminal-state suite is green.
 
 ### W4 implementation underway
 

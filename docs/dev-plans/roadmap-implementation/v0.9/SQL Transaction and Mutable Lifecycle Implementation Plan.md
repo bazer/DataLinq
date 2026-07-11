@@ -3,13 +3,13 @@
 
 # SQL Transaction And Mutable Lifecycle Implementation Plan
 
-**Status:** Accepted.
+**Status:** Implementation in progress. `TX-0` is complete; a bounded `ML-1` provenance slice is underway, while the write guards and transaction terminal-state work remain open.
 
 **Target release:** 0.9.
 
 **Created:** 2026-07-10.
 
-**Last reviewed:** 2026-07-10.
+**Last reviewed:** 2026-07-11.
 
 **Design sources:** [SQLite Transaction Isolation Alignment](../../providers-and-features/SQLite%20Transaction%20Isolation%20Alignment.md) and [Mutable Instance Lifecycle](../../query-and-runtime/Mutable%20Instance%20Lifecycle.md).
 
@@ -68,7 +68,22 @@ Implementation starts from these verified facts.
 | [`SQLiteDatabaseTransaction`](../../../../src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs) enables the same pragma and begins `ReadUncommitted` transactions. | Begin an honest provider-supported committed/serializable transaction and retain own-write visibility through the real provider transaction plus the existing local cache. |
 | File-backed `Cache=Shared` defaults are emitted by testing infrastructure and CLI config initialization, while [`SQLiteConnectionStringFactory`](../../../../src/DataLinq.SQLite/SQLiteConnectionStringFactory.cs) forces shared cache only for named memory databases. | Remove shared cache from file defaults and their tests/examples. Preserve the named-memory exception. |
 
-If `TX-0` disproves any row in this table, update this plan before moving contracts. Architecture work based on a fictional baseline is worse than no plan.
+`TX-0` is closed by the W1 transaction/cache characterization, provider-lifecycle fault harness, and expected-failure ownership matrix. Those artifacts confirmed the pending/committed cache split and provider-first publication order while assigning the missing provenance, guard, and failure semantics to W3. Later implementation must update this plan if it disproves that characterized baseline; `TX-0` is not a recurring excuse to redesign the overlay.
+
+## Current Implementation Boundary
+
+The first W3 runtime slice is deliberately narrower than the full `ML-1` exit:
+
+- an existing mutable captures its origin from the immutable row that created it and retains the exact SQL provider instance; provider type, database name, metadata identity, and connection-string equality are not substitutes
+- a transaction-local baseline retains an opaque ownership token for the exact DataLinq transaction; lifecycle state does not infer ownership from a public numeric transaction ID
+- new mutables remain origin-free until a successful mutation has produced an authoritative hydrated immutable row
+- one internal authoritative-hydration transition replaces the baseline and binds both exact provider origin and transaction token without mixing that transition with ordinary user-assignment tracking
+- mutable delete has an explicit transaction-local provenance state rather than immediately pretending that the row is globally committed-deleted
+- transaction-local provenance may normalize lazily to committed provenance only after its token records that provider commit, global cache/notification publication, and transaction-local cache cleanup all succeeded, in that order
+
+That successful-commit token normalization is only a bounded provenance substrate. It is not the full `TX-2` touched-registry promotion path, because this slice does not yet enumerate every touched mutable or perform the adjacent failure invalidations.
+
+This bounded substrate does **not** make arbitrary reuse safe by itself. `ML-2` pre-execution guards, the reference-identity touched-mutables registry, failed-change removal, rollback/open-disposal invalidation, transaction poisoning, and the `F6` live cache/relation read migration remain open. Consequently neither `ML-1` nor W3 is complete: the full `ML-1` exit still requires executable coverage of every state/owner report and proof that public reset/value APIs cannot erase ownership or invalidity.
 
 ## Scope
 
@@ -211,6 +226,8 @@ flowchart TD
 
 ## TX-0: Rebaseline Existing Transaction And Cache Behavior
 
+**Status:** Complete through the W1 characterization record.
+
 Before changing runtime state, turn current working behavior into explicit tests.
 
 Work:
@@ -245,11 +262,13 @@ Exit signal:
 Work:
 
 - introduce one internal lifecycle/provenance holder used by `Mutable<T>` and generated subclasses
-- capture provider ownership when creating a mutable from an immutable instance
+- capture the exact provider-instance origin from the immutable row when creating an existing mutable; never reconstruct ownership from database type, name, metadata, or connection text
 - represent new, committed, transaction-local, invalid, and deleted baselines
-- retain the owning transaction for transaction-local baselines
+- retain an opaque token for the exact owning DataLinq transaction rather than a public or numeric transaction identifier
 - retain a safe invalidation reason for diagnostics
-- add a single internal baseline-advance operation used after successful hydration
+- add a single internal authoritative-hydration operation that replaces the immutable baseline and binds provider/transaction provenance only after successful hydration
+- represent mutable delete as transaction-local until the owning transaction reaches its accepted commit boundary
+- allow lazy transaction-local-to-committed normalization only after provider commit, global publication, and transaction-local cache cleanup have all completed successfully
 - ensure ordinary changed-value tracking remains separate from provenance
 - ensure `Reset()` and `Reset(T)` cannot erase invalidity or transaction ownership accidentally
 - keep lifecycle internals out of public equality and hash code
@@ -257,6 +276,8 @@ Work:
 Implementation constraint:
 
 The touched registry introduced later must use reference equality. `Mutable<T>.GetHashCode()` changes from a transient identifier to a primary-key hash after insert, and two separate mutable objects may compare equal by primary key. Neither behavior is suitable for transaction ownership tracking.
+
+Current bounded progress: the provenance holder, immutable-captured provider origin, opaque transaction token, authoritative hydration/delete transitions, and commit-token normalization are the first implementation slice. The remaining work above and its exit evidence stay open. In particular, commit-token normalization does not replace `TX-1` reference-identity tracking or `TX-2` eager handling of every touched mutable and failure partition.
 
 Exit signal:
 
