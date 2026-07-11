@@ -3,7 +3,7 @@
 
 # DataLinq 0.9 Implementation Roadmap
 
-**Status:** Implementation in progress. W0-W2 are complete. W4 now has the canonical provider-value row buffer, reader-free model-row construction, shared provider-to-model materializer, source-scoped committed/transaction cache services, immutable primary-key row-loader contracts, and genuine neutral generated immutable construction with legacy compatibility. The SQL row-loader adapter, generated database roots, and SQL decoding are next. W3 may proceed in parallel.
+**Status:** Implementation in progress. W0-W2 are complete. W4 now has the canonical provider-value row buffer, reader-free model-row construction, shared provider-to-model materializer, source-scoped committed/transaction cache services, immutable primary-key row-loader contracts, a buffered SQL primary-key loader/decoder adapter, and genuine neutral generated immutable construction with legacy compatibility. Generated database roots and the remaining SC-2 runtime paths are next; live cache-cold routing still waits for W3/W5. W3 may proceed in parallel.
 
 **Target release:** 0.9.
 
@@ -49,7 +49,7 @@ W2 made the query template and invocation self-contained, but the lower read and
 - [`IDatabaseProvider`](../../../../src/DataLinq/Interfaces/IDatabaseProvider.cs) exposes `IDbCommand`, `IDbConnection`, SQL rendering helpers, and database transactions. It is not a credible neutral contract for a memory backend.
 - [`IDataLinqReadSource`](../../../../src/DataLinq/Interfaces/IDataLinqReadSource.cs) supplies the metadata-only model-construction identity. Existing SQL [`DataSourceAccess`](../../../../src/DataLinq/Mutation/DataSourceAccess.cs) instances now bind the shared materializer to source-scoped cache services without putting provider commands on that public contract; SQL database access and command loading remain legacy-specific.
 - Generated database roots currently cast `IDataSourceAccess` back to the concrete SQL-shaped `DataSourceAccess` in [`GeneratorFileFactory`](../../../../src/DataLinq.SharedCore/Factories/Generator/GeneratorFileFactory.cs).
-- Cold cache and relation loads still issue provider commands directly through the existing source access path.
+- Cold cache and relation loads still issue provider commands directly through the existing source access path. A source-scoped primary-key loader/decoder adapter now exists, but live routing deliberately waits for the W3/W5 gate; relation loading remains later F6 work.
 - Public [`IRowData`](../../../../src/DataLinq/Instances/RowData.cs) exposes model instance values. Quietly repurposing it as a provider-value store would leak storage representations through public model APIs.
 
 The 0.9 foundation must address those facts. Adding an `IQueryPlanBackend` beside them while leaving every lower layer SQL-shaped would only create a memory provider full of throwing SQL stubs.

@@ -74,6 +74,12 @@ public sealed class SourceRowLoadingContractTests
                 [CreateCanonicalRow(otherTable, 42, "Wrong table")]));
         await Assert.That(crossTableFailure.Message).Contains("contains a row from table");
         await Assert.That(crossTableFailure.Message).Contains(otherTable.DbName);
+
+        var unrequestedKeyFailure = Capture<ArgumentException>(() =>
+            new SourceRowLoadResult(
+                request,
+                [CreateCanonicalRow(table, 43, "Unrequested")]));
+        await Assert.That(unrequestedKeyFailure.Message).Contains("unrequested primary key");
     }
 
     [Test]

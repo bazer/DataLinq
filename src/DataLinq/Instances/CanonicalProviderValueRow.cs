@@ -115,6 +115,11 @@ internal sealed class CanonicalProviderValueRow
         ValidateValue(column, value, useProviderType: false, parameterName);
     }
 
+    internal static void ValidateCanonicalValue(ColumnDefinition column, object? value, string parameterName)
+    {
+        ValidateValue(column, value, useProviderType: true, parameterName);
+    }
+
     internal static object? CopyMutableValue(object? value) =>
         value is byte[] bytes ? (byte[])bytes.Clone() : value;
 

@@ -112,6 +112,7 @@ internal sealed class SourceRowLoadResult
         ArgumentNullException.ThrowIfNull(rows);
 
         var snapshot = ImmutableArray.CreateRange(rows);
+        var requestedKeys = new HashSet<DataLinqKey>(request.CanonicalProviderKeys);
         for (var index = 0; index < snapshot.Length; index++)
         {
             var row = snapshot[index]
@@ -125,6 +126,14 @@ internal sealed class SourceRowLoadResult
                     $"Source-row result for table '{request.Table.DbName}' contains a row from table '{row.Table.DbName}' at index {index}.",
                     nameof(rows));
             }
+
+            var rowKey = CreateCanonicalPrimaryKey(row);
+            if (!requestedKeys.Contains(rowKey))
+            {
+                throw new ArgumentException(
+                    $"Source-row result for table '{request.Table.DbName}' contains an unrequested primary key at index {index}.",
+                    nameof(rows));
+            }
         }
 
         Rows = snapshot;
@@ -133,6 +142,23 @@ internal sealed class SourceRowLoadResult
     internal SourcePrimaryKeyRowRequest Request { get; }
     internal TableDefinition Table => Request.Table;
     internal ImmutableArray<CanonicalProviderValueRow> Rows { get; }
+
+    private static DataLinqKey CreateCanonicalPrimaryKey(CanonicalProviderValueRow row)
+    {
+        var primaryKeyColumns = row.Table.PrimaryKeyColumns;
+        var values = new object?[primaryKeyColumns.Count];
+        for (var index = 0; index < primaryKeyColumns.Count; index++)
+        {
+            values[index] = row[primaryKeyColumns[index]];
+            if (values[index] is null)
+            {
+                throw new InvalidOperationException(
+                    $"Canonical source row for table '{row.Table.DbName}' contains a null primary-key component '{primaryKeyColumns[index].DbName}'.");
+            }
+        }
+
+        return DataLinqKey.FromValues(values);
+    }
 }
 
 /// <summary>

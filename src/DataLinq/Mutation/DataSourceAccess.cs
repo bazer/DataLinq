@@ -7,9 +7,10 @@ using DataLinq.Interfaces;
 
 namespace DataLinq.Mutation;
 
-public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqReadServices
+public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqSourceRowServices
 {
     private IModelMaterializationServices? materializationServices;
+    private ISourceRowLoader? rowLoader;
 
     /// <summary>
     /// Gets the database provider.
@@ -43,6 +44,22 @@ public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqReadService
 
             return Interlocked.CompareExchange(
                 ref materializationServices,
+                created,
+                comparand: null) ?? created;
+        }
+    }
+
+    ISourceRowLoader IDataLinqSourceRowServices.RowLoader
+    {
+        get
+        {
+            var loader = rowLoader;
+            if (loader is not null)
+                return loader;
+
+            var created = new DataSourceAccessSourceRowLoader(this);
+            return Interlocked.CompareExchange(
+                ref rowLoader,
                 created,
                 comparand: null) ?? created;
         }
