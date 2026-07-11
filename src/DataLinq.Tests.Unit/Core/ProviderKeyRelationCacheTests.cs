@@ -52,6 +52,47 @@ public class ProviderKeyRelationCacheTests
         await Assert.That(cache.Count).IsEqualTo(0);
     }
 
+    [Test]
+    public async Task IndexCache_PrimaryKeyArrays_AreOwnedByTheCache()
+    {
+        var cache = new TypedIndexCache<int>();
+        var firstPrimaryKey = DataLinqKey.FromValue(1);
+        var secondPrimaryKey = DataLinqKey.FromValue(2);
+        var replacementPrimaryKey = DataLinqKey.FromValue(999);
+        var callerOwnedPrimaryKeys = new[] { firstPrimaryKey, secondPrimaryKey };
+
+        await Assert.That(cache.TryAdd(42, callerOwnedPrimaryKeys)).IsTrue();
+
+        callerOwnedPrimaryKeys[0] = replacementPrimaryKey;
+        callerOwnedPrimaryKeys[1] = replacementPrimaryKey;
+
+        await Assert.That(cache.TryGet(42, out var cachedPrimaryKeys)).IsTrue();
+        await Assert.That(cachedPrimaryKeys).IsNotNull();
+        await Assert.That(ReferenceEquals(cachedPrimaryKeys, callerOwnedPrimaryKeys)).IsFalse();
+        await Assert.That(cachedPrimaryKeys!.Length).IsEqualTo(2);
+        await Assert.That(cachedPrimaryKeys[0]).IsEqualTo(firstPrimaryKey);
+        await Assert.That(cachedPrimaryKeys[1]).IsEqualTo(secondPrimaryKey);
+
+        await Assert.That(cache.TryRemovePrimaryKey(replacementPrimaryKey, out var removedByReplacement)).IsTrue();
+        await Assert.That(removedByReplacement).IsEqualTo(0);
+        await Assert.That(cache.Count).IsEqualTo(1);
+
+        await Assert.That(cache.TryRemovePrimaryKey(firstPrimaryKey, out var removedByOriginal)).IsTrue();
+        await Assert.That(removedByOriginal).IsEqualTo(1);
+        await Assert.That(cache.Count).IsEqualTo(0);
+
+        var unrelatedPrimaryKey = DataLinqKey.FromValue(3);
+        await Assert.That(cache.TryAdd(42, [unrelatedPrimaryKey])).IsTrue();
+        await Assert.That(cache.TryRemovePrimaryKey(secondPrimaryKey, out var removedByStaleMapping)).IsTrue();
+        await Assert.That(removedByStaleMapping).IsEqualTo(0);
+        await Assert.That(cache.Count).IsEqualTo(1);
+
+        await Assert.That(cache.TryGet(42, out var remainingPrimaryKeys)).IsTrue();
+        await Assert.That(remainingPrimaryKeys).IsNotNull();
+        await Assert.That(remainingPrimaryKeys!.Length).IsEqualTo(1);
+        await Assert.That(remainingPrimaryKeys[0]).IsEqualTo(unrelatedPrimaryKey);
+    }
+
     private readonly record struct TestCompositeProviderKey(string DepartmentNumber, int EmployeeNumber) : IProviderKey
     {
         public int ValueCount => 2;

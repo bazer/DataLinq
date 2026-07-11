@@ -8,11 +8,14 @@ It is intentionally an internals page. The names here are useful when reading ge
 
 A `RowCache` stores rows in exactly one `RowStore<TKey>`.
 
-That `TKey` is the provider-key type for the table:
+That `TKey` is normally the provider-key type for the table:
 
-- scalar primary key: the provider CLR type, such as `int`, `long`, `Guid`, or `string`
-- generated composite primary key: a generated `DataLinqPrimaryKey` struct
+- scalar primary key with stable value semantics: the provider CLR type, such as `int`, `long`, `Guid`, or `string`
+- generated composite primary key whose components have stable value semantics: a generated `DataLinqPrimaryKey` struct
+- scalar or composite primary key containing `byte[]`: `DataLinqKey`, which snapshots the bytes and compares them structurally
 - metadata-only fallback: `DataLinqKey`
+
+The binary exception is necessary rather than cosmetic. A `RowStore<byte[]>` would use array reference identity, and a generated record struct containing `byte[]` would also compare that component by array reference. Both would retain mutable caller storage and miss separately allocated byte arrays with identical contents.
 
 That rule is the important part. DataLinq should not store the same row under both a generated provider key and a second lookup-only key wrapper. Duplicating keys creates extra memory pressure and makes invalidation harder to reason about.
 
@@ -31,7 +34,7 @@ That rule is the important part. DataLinq should not store the same row under bo
 : Generated table-specific adapter. It knows how to create the exact provider-key value for a table from row data, model data, or a dynamic key carrier.
 
 `DataLinqKey`
-: A bounded dynamic key carrier for metadata-driven paths. It is not the generated hot-path row-cache identity.
+: A bounded dynamic key carrier for metadata-driven paths and the structural fallback for provider keys containing `byte[]`. It is not the normal generated hot-path row-cache identity.
 
 `TypedIndexCache<TKey>`
 : Owns relation index buckets for one foreign-key index. Scalar generated relation paths use the provider foreign-key type directly, such as `int`, `long`, `Guid`, or `string`. Composite or unsupported shapes fall back to `IndexCache`, which is `TypedIndexCache<DataLinqKey>`.
@@ -81,6 +84,8 @@ Generated Get(deptNo, empNo)
 ```
 
 No lookup-only wrapper is created for either path.
+
+Binary provider keys are the deliberate exception. The central `RowCache` add path detects a scalar `byte[]` or a composite `IProviderKey` containing `byte[]`, snapshots it into `DataLinqKey`, and fixes that cache to `RowStore<DataLinqKey>`. Lookup and removal normalize equivalent provider-key values through the same structural representation. This keeps ordinary generated keys typed while preventing array reference equality or later caller mutation from corrupting binary-key cache identity.
 
 ## Generated Relation Flow
 
@@ -151,7 +156,7 @@ metadata-driven code
   -> RowStore<TKey>
 ```
 
-The generated accessor is what prevents `DataLinqKey` from becoming a second universal row-store key. If a table has generated provider-key metadata, the accessor converts the dynamic components into the table's real row-store key before cache add, get, or remove.
+The generated accessor is what prevents `DataLinqKey` from becoming a second universal row-store key. If a table has generated provider-key metadata, the accessor converts the dynamic components into the table's real row-store key before cache add, get, or remove. `RowCache` may then select the structural `DataLinqKey` store for a binary provider-key shape; it never stores both representations.
 
 If there is no generated accessor, DataLinq can fall back to `RowStore<DataLinqKey>`. That is the dynamic compatibility path, not the normal generated model path.
 
@@ -169,9 +174,9 @@ That was too broad. It made DataLinq's cache identity a DataLinq-owned wrapper i
 - it owns mutable byte-array components and returns defensive copies, so caller mutation cannot invalidate its cached hash or dictionary identity
 - it implements `IProviderKey` so components can be read uniformly
 - it is used as a bridge into generated provider-key accessors
-- it is not the desired storage key for generated row caches
+- it is not the desired storage key for ordinary generated row caches, but it is the required structural storage key when a generated provider key contains `byte[]`
 
-That last point is the design boundary. `DataLinqKey` may allocate or box for some dynamic composite paths, but generated cache hits should use the exact provider key type and avoid DataLinq-owned key wrappers.
+That last point is the design boundary. `DataLinqKey` may allocate or box for some dynamic composite paths, but ordinary generated cache hits should use the exact provider key type and avoid DataLinq-owned key wrappers. Binary generated keys use the explicit structural exception because exact provider-key storage would be incorrect.
 
 ## Index And Relation Keys
 
@@ -182,7 +187,9 @@ Index caches are more subtle. A relation index cache has one foreign-key store, 
 - scalar `int`, `long`, `Guid`, and `string` foreign keys use `TypedIndexCache<TKey>`
 - composite or unsupported foreign keys use `IndexCache`, the `DataLinqKey` fallback
 
-The index cache values are still `DataLinqKey[]` primary-key carriers because a relation index maps one foreign key to many target primary keys. The important part is that scalar generated relation traversal does not allocate a lookup-only foreign-key carrier just to ask the index cache a question.
+The index cache values are still `DataLinqKey[]` primary-key carriers because a relation index maps one foreign key to many target primary keys. The cache clones that array once before publishing a new entry, then builds its reverse mapping from the owned snapshot. Mutating the caller's original array therefore cannot desynchronize the forward and reverse indexes. Internal cache reads intentionally remain zero-copy; those internal consumers must treat returned arrays as read-only.
+
+The important part is that scalar generated relation traversal does not allocate a lookup-only foreign-key carrier just to ask the index cache a question.
 
 That does not contradict the row-cache rule. The index cache can return dynamic primary-key carriers, while final row lookup still goes through the generated provider-key accessor when the target table has one.
 
@@ -192,12 +199,13 @@ The cache key architecture depends on these invariants:
 
 - one `RowCache` has one `RowStore<TKey>`
 - one relation index cache has one foreign-key store, typed for scalar generated foreign keys when supported
-- generated primary-key row stores use provider key values directly
+- generated primary-key row stores use provider key values directly unless a `byte[]` component requires the owned structural fallback
 - generated scalar relation traversal passes provider foreign-key values directly
 - scalar entity query materialization reads provider primary-key values directly from readers
 - joined materialization lets generated accessors build provider keys from reader ordinals
-- generated composite primary keys use generated structs, not object arrays as row-store keys
-- `DataLinqKey` is allowed in metadata-driven plumbing, not as a replacement for generated provider keys
+- generated composite primary keys use generated structs, not object arrays as row-store keys; composites containing `byte[]` normalize to `DataLinqKey`
+- index caches own the `DataLinqKey[]` arrays they publish and use for reverse mappings
+- `DataLinqKey` is allowed in metadata-driven plumbing and the binary structural fallback, not as a general replacement for generated provider keys
 - broad cache machinery is internal except where generated code needs a public bridge into `RowCache` or `TableCache.GetRow<TKey>(...)`
 - cache invalidation should remove rows by provider-key components through the same table-specific accessor path
 

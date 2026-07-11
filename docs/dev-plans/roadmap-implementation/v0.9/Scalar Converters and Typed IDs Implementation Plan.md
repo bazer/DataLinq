@@ -145,7 +145,7 @@ Exit signal:
 
 ### SC-3: Dynamic Keys, Relations, And Cache Identity
 
-Progress on 2026-07-10: full-row materialization now snapshots primary-key components from the canonical provider row before scalar conversion, including converted and composite components. `DataLinqKey` now owns mutable binary components at every ingress and returns defensive copies, preserving its cached hash and dictionary identity across caller mutation. Dynamic lookup input, foreign/index/relation normalization, generated binary-key row-store routing, index-cache array ownership, and existing SQL cache adapters remain open.
+Progress on 2026-07-10: full-row materialization now snapshots primary-key components from the canonical provider row before scalar conversion, including converted and composite components. `DataLinqKey` owns mutable binary components at every ingress and returns defensive copies, preserving its cached hash and dictionary identity across caller mutation. Scalar and generated composite provider keys containing `byte[]` now route through an owned structural row store, and index caches snapshot primary-key arrays before publishing forward and reverse mappings. Dynamic lookup input, foreign/index/relation value normalization, and existing SQL cache adapters remain open.
 
 Work:
 
