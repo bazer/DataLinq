@@ -115,6 +115,7 @@ internal interface IImmutableBaselineOrigin
 internal interface IMutableLifecycle
 {
     MutableLifecycleSnapshot Lifecycle { get; }
+    DataLinqKey BaselineCanonicalPrimaryKey { get; }
 
     void AdvanceBaseline(
         IImmutableInstance immutable,

@@ -121,7 +121,9 @@ public sealed partial class ModelValueConverterTests
         await Assert.That(convertedWriter.Calls.Count).IsEqualTo(2);
         await Assert.That(converter.ToProviderCalls).IsEmpty();
         await Assert.That(convertedPrimaryKeyWriter.Calls.Count).IsEqualTo(2);
-        await Assert.That(primaryKeyConverter.ToProviderCalls.Count).IsEqualTo(2);
+        // Capture, deferred-insert identity validation, and insert serialization each cross
+        // the model-to-canonical boundary deliberately.
+        await Assert.That(primaryKeyConverter.ToProviderCalls.Count).IsEqualTo(3);
         await Assert.That(unknownKeyWriter.Calls.Count).IsEqualTo(2);
         await Assert.That(autoIncrementTable.HasAutoIncrementPrimaryKey).IsTrue();
         await Assert.That(autoIncrementWriter.Calls.Count).IsEqualTo(1);
@@ -206,7 +208,7 @@ public sealed partial class ModelValueConverterTests
         if (assignDefault)
             changes.Add(new KeyValuePair<ColumnDefinition, object?>(defaultColumn, defaultValue));
 
-        var model = new TestMutableInstance(table, values, changes);
+        var model = new TestMutableInstance(table, values, changes, isNew: true);
         return new StateChange(model, table, TransactionChangeType.Insert);
     }
 

@@ -9,7 +9,7 @@
 
 **Created:** 2026-07-10.
 
-**Last reviewed:** 2026-07-10.
+**Last reviewed:** 2026-07-11.
 
 **Depends on:** The required workstreams in the [DataLinq 0.9 Implementation Roadmap](README.md). The final closeout begins only after their baseline evidence is green and the release has selected zero or one optional stretch.
 
@@ -508,6 +508,7 @@ Pay particular attention to:
 - capability exceptions and diagnostic properties
 - memory store/build/seed APIs
 - disposal, ownership, concurrency, isolation, and mutability implications
+- mutation-lifecycle behavioral hardening that ApiCompat cannot see: owner-controlled `MutableRowData` no longer accepts direct public reset/value mutation; immutable identity is captured canonically at construction instead of following later in-place reference/byte-array drift; and deferred public `StateChange` execution uses a validated captured candidate rather than later live mutable state
 - enum additions that might affect exhaustive user switches
 - public types accidentally exposed solely to connect internal backend seams
 

@@ -82,6 +82,8 @@ public class TransactionStatusChangeEventArgs : EventArgs
 public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction>
 {
     private static uint transactionCount = 0;
+    private int disposeState;
+    internal bool IsDisposed => Volatile.Read(ref disposeState) != 0;
 
     /// <summary>
     /// Gets the ID of the transaction.
@@ -153,13 +155,8 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <returns>The inserted model.</returns>
     public T Insert<T>(Mutable<T> model) where T : class, IImmutableInstance
     {
-        CheckIfTransactionIsValid();
-
-        if (model is null)
-            throw new ArgumentException("Model argument has null value");
-
-        if (!model.IsNew())
-            throw new ArgumentException("Model is not a new row, unable to insert");
+        ArgumentNullException.ThrowIfNull(model);
+        EnsureMutationPreflight(model, TransactionChangeType.Insert);
 
         AddAndExecute(model, TransactionChangeType.Insert);
 
@@ -170,6 +167,31 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     }
 
     /// <summary>
+    /// Applies changes to a new mutable row and inserts it.
+    /// </summary>
+    public T Insert<T>(Mutable<T> model, Action<Mutable<T>> changes)
+        where T : class, IImmutableInstance
+    {
+        return Insert<T, Mutable<T>>(model, changes);
+    }
+
+    /// <summary>
+    /// Applies changes to a generated mutable row and inserts it.
+    /// </summary>
+    public T Insert<T, TMutable>(TMutable model, Action<TMutable> changes)
+        where T : class, IImmutableInstance
+        where TMutable : Mutable<T>
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(changes);
+        EnsureMutationPreflight(model, TransactionChangeType.Insert);
+
+        changes(model);
+
+        return Insert<T>(model);
+    }
+
+    /// <summary>
     /// Inserts multiple new rows into the database.
     /// </summary>
     /// <typeparam name="T">The type of the model.</typeparam>
@@ -177,6 +199,9 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <returns>The inserted models.</returns>
     public List<T> Insert<T>(IEnumerable<Mutable<T>> models) where T : class, IImmutableInstance
     {
+        ArgumentNullException.ThrowIfNull(models);
+        EnsureMutationPreflight(TransactionChangeType.Insert, typeof(T));
+
         return models
             .Select(Insert)
             .ToList();
@@ -190,13 +215,8 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <returns>The updated model.</returns>
     public T Update<T>(Mutable<T> model) where T : class, IImmutableInstance
     {
-        CheckIfTransactionIsValid();
-
-        if (model is null)
-            throw new ArgumentException("Model argument has null value");
-
-        if (model.IsNew())
-            throw new ArgumentException("Model is a new row, unable to update");
+        ArgumentNullException.ThrowIfNull(model);
+        EnsureMutationPreflight(model, TransactionChangeType.Update);
 
         // If there are no changes to save, skip saving and return the model from the cache directly.
         if (!model.GetChanges().Any())
@@ -211,6 +231,31 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     }
 
     /// <summary>
+    /// Applies changes to an existing mutable row and updates it.
+    /// </summary>
+    public T Update<T>(Mutable<T> model, Action<Mutable<T>> changes)
+        where T : class, IImmutableInstance
+    {
+        return Update<T, Mutable<T>>(model, changes);
+    }
+
+    /// <summary>
+    /// Applies changes to a generated mutable row and updates it.
+    /// </summary>
+    public T Update<T, TMutable>(TMutable model, Action<TMutable> changes)
+        where T : class, IImmutableInstance
+        where TMutable : Mutable<T>
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(changes);
+        EnsureMutationPreflight(model, TransactionChangeType.Update);
+
+        changes(model);
+
+        return Update<T>(model);
+    }
+
+    /// <summary>
     /// Updates an existing row in the database with the specified changes.
     /// </summary>
     /// <typeparam name="T">The type of the model.</typeparam>
@@ -219,10 +264,11 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <returns>The updated model.</returns>
     public T Update<T>(T model, Action<Mutable<T>> changes) where T : class, IImmutableInstance
     {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(changes);
         var mut = new Mutable<T>(model);
-        changes(mut);
 
-        return Update(mut);
+        return Update(mut, changes);
     }
 
     /// <summary>
@@ -233,8 +279,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <returns>The inserted or updated model.</returns>
     public T Save<T>(Mutable<T> model) where T : class, IImmutableInstance
     {
-        if (model is null)
-            throw new ArgumentException("Model argument has null value");
+        ArgumentNullException.ThrowIfNull(model);
 
         if (model.IsNew())
             return Insert(model);
@@ -251,13 +296,12 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <returns>The inserted or updated model.</returns>
     public T Save<T>(T model, Action<Mutable<T>> changes) where T : class, IImmutableInstance
     {
+        ArgumentNullException.ThrowIfNull(changes);
         var mut = model == null
             ? new Mutable<T>()
             : new Mutable<T>(model);
 
-        changes(mut);
-
-        return Save(mut);
+        return Save(mut, changes);
     }
 
     /// <summary>
@@ -271,9 +315,26 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     {
         var mut = model ?? new Mutable<T>();
 
-        changes(mut);
+        return Save<T, Mutable<T>>(mut, changes);
+    }
 
-        return Save(mut);
+    /// <summary>
+    /// Applies changes to a generated mutable row and inserts or updates it according to its lifecycle.
+    /// </summary>
+    public T Save<T, TMutable>(TMutable model, Action<TMutable> changes)
+        where T : class, IImmutableInstance
+        where TMutable : Mutable<T>
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(changes);
+        var operation = model.IsNew()
+            ? TransactionChangeType.Insert
+            : TransactionChangeType.Update;
+        EnsureMutationPreflight(model, operation);
+
+        changes(model);
+
+        return Save<T>(model);
     }
 
     /// <summary>
@@ -282,10 +343,8 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <param name="model">The model to delete.</param>
     public void Delete(IModelInstance model)
     {
-        CheckIfTransactionIsValid();
-
-        if (model is null)
-            throw new ArgumentException("Model argument has null value");
+        ArgumentNullException.ThrowIfNull(model);
+        EnsureMutationPreflight(model, TransactionChangeType.Delete);
 
         AddAndExecute(model, TransactionChangeType.Delete);
 
@@ -336,10 +395,13 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
     private void AddAndExecute(params StateChange[] changes)
     {
+        foreach (var change in changes)
+            EnsureMutationPreflight(change);
+
         Changes.AddRange(changes);
 
         foreach (var change in changes)
-            change.ExecuteQuery(this);
+            change.ExecutePreflightedQuery(this);
 
         Provider.State.ApplyChanges(changes, this);
     }
@@ -349,7 +411,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// </summary>
     public void Commit()
     {
-        CheckIfTransactionIsValid();
+        EnsureTransactionCanComplete("commit");
 
         DatabaseAccess.Commit();
 
@@ -363,7 +425,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// </summary>
     public void Rollback()
     {
-        CheckIfTransactionIsValid();
+        EnsureTransactionCanComplete("roll back");
 
         DatabaseAccess.Rollback();
         Provider.State.RemoveTransactionFromCache(this);
@@ -377,16 +439,35 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         return (T?)Provider.GetTableCache(metadata.Table).GetRow(keys, this);
     }
 
-    private void CheckIfTransactionIsValid()
+    internal void EnsureMutationPreflight(
+        IModelInstance model,
+        TransactionChangeType operation) =>
+        MutationPreflight.Ensure(this, model, operation);
+
+    internal void EnsureMutationPreflight(StateChange change) =>
+        MutationPreflight.Ensure(this, change);
+
+    internal void EnsureMutationPreflight(
+        TransactionChangeType operation,
+        Type modelType) =>
+        MutationPreflight.EnsureTransactionAllowsWrite(this, operation, modelType);
+
+    private void EnsureTransactionCanComplete(string operation)
     {
-        if (Type == TransactionType.ReadOnly)
-            return;
+        if (Volatile.Read(ref disposeState) != 0)
+            throw new ObjectDisposedException(nameof(Transaction));
 
         if (Status == DatabaseTransactionStatus.Committed)
-            throw new Exception("Transaction is already committed");
+        {
+            throw new InvalidOperationException(
+                $"Cannot {operation} transaction {TransactionID} because it is already committed.");
+        }
 
         if (Status == DatabaseTransactionStatus.RolledBack)
-            throw new Exception("Transaction is rolled back");
+        {
+            throw new InvalidOperationException(
+                $"Cannot {operation} transaction {TransactionID} because it is already rolled back.");
+        }
     }
 
     /// <summary>
@@ -394,6 +475,9 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// </summary>
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref disposeState, 1) != 0)
+            return;
+
         Provider.State.RemoveTransactionFromCache(this);
         DatabaseAccess.Dispose();
     }

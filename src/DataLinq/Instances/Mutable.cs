@@ -13,6 +13,7 @@ public class Mutable<T> : IMutableInstance,
 {
     // Transient ID for distinguishing new instances
     private readonly Guid TransientId;
+    private readonly object rowDataMutationOwner = new();
 
     private readonly ModelDefinition metadata;
     public ModelDefinition Metadata() => metadata;
@@ -24,6 +25,9 @@ public class Mutable<T> : IMutableInstance,
     private readonly MutableLifecycle lifecycle;
     internal MutableLifecycleSnapshot Lifecycle => lifecycle.Snapshot;
     MutableLifecycleSnapshot IMutableLifecycle.Lifecycle => Lifecycle;
+    private DataLinqKey baselineCanonicalPrimaryKey;
+    DataLinqKey IMutableLifecycle.BaselineCanonicalPrimaryKey =>
+        baselineCanonicalPrimaryKey;
 
     public bool IsNew() => lifecycle.IsNew;
     public bool IsDeleted() => lifecycle.IsDeleted;
@@ -87,15 +91,34 @@ public class Mutable<T> : IMutableInstance,
 
     public object? this[ColumnDefinition column]
     {
-        get => mutableRowData[column];
+        get
+        {
+            ValidateMappedColumn(column);
+            return mutableRowData[column];
+        }
         set
         {
+            ValidateMappedColumn(column);
             if (metadata.Table.PrimaryKeyColumns.Contains(column))
             {
                 _isPkCached = false;
                 _cachedPrimaryKey = null;
             }
-            mutableRowData.SetValue(column, value);
+            mutableRowData.SetValue(column, value, rowDataMutationOwner);
+        }
+    }
+
+    private void ValidateMappedColumn(ColumnDefinition column)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+
+        if (column.Index < 0 ||
+            column.Index >= metadata.Table.ColumnCount ||
+            !ReferenceEquals(metadata.Table.Columns[column.Index], column))
+        {
+            throw new ArgumentException(
+                "The column must be the exact mapped column definition for this mutable model.",
+                nameof(column));
         }
     }
 
@@ -110,7 +133,7 @@ public class Mutable<T> : IMutableInstance,
                 _isPkCached = false;
                 _cachedPrimaryKey = null;
             }
-            mutableRowData.SetValue(column, value);
+            mutableRowData.SetValue(column, value, rowDataMutationOwner);
         }
     }
 
@@ -122,8 +145,9 @@ public class Mutable<T> : IMutableInstance,
     protected Mutable(ModelDefinition metadata)
     {
         this.metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-        this.mutableRowData = new MutableRowData(metadata.Table);
+        this.mutableRowData = new MutableRowData(metadata.Table, rowDataMutationOwner);
         lifecycle = MutableLifecycle.New();
+        baselineCanonicalPrimaryKey = DataLinqKey.Null;
         _isPkCached = false;
         _cachedPrimaryKey = null;
         TransientId = Guid.NewGuid();
@@ -133,10 +157,11 @@ public class Mutable<T> : IMutableInstance,
     public Mutable(T model)
     {
         this.immutableInstance = model;
-        this.mutableRowData = new MutableRowData(model.GetRowData());
         this.metadata = model.Metadata();
+        this.mutableRowData = new MutableRowData(model.GetRowData(), rowDataMutationOwner);
         lifecycle = MutableLifecycle.FromImmutable(model);
         _cachedPrimaryKey = model.PrimaryKeys();
+        baselineCanonicalPrimaryKey = _cachedPrimaryKey.Value;
         _isPkCached = true;
         // Initialize TransientId (though less critical here) ---
         TransientId = Guid.NewGuid();
@@ -153,7 +178,7 @@ public class Mutable<T> : IMutableInstance,
                 : throw new InvalidOperationException(
                     $"Existing mutable model '{typeof(T).FullName}' has no immutable baseline to reset.");
 
-        mutableRowData.Reset(); // Clears MutatedData
+        mutableRowData.Reset(rowDataMutationOwner); // Clears MutatedData
         _cachedPrimaryKey = resetPrimaryKey;
         _isPkCached = resetPrimaryKey is not null;
     }
@@ -218,8 +243,9 @@ public class Mutable<T> : IMutableInstance,
         var replacementPrimaryKey = model.PrimaryKeys();
 
         immutableInstance = model;
-        mutableRowData.Reset(replacementRowData);
+        mutableRowData.Reset(replacementRowData, rowDataMutationOwner);
         _cachedPrimaryKey = replacementPrimaryKey;
+        baselineCanonicalPrimaryKey = replacementPrimaryKey;
         _isPkCached = true;
     }
 

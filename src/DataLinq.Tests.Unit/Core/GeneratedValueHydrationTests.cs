@@ -26,7 +26,7 @@ public sealed partial class ModelValueConverterTests
         {
             [idColumn] = null
         };
-        var model = new TestMutableInstance(table, values, []);
+        var model = new TestMutableInstance(table, values, [], isNew: true);
         var stateChange = new StateChange(model, table, TransactionChangeType.Insert);
 
         stateChange.ExecuteQuery(transaction);
@@ -59,7 +59,7 @@ public sealed partial class ModelValueConverterTests
         {
             [idColumn] = null
         };
-        var model = new TestMutableInstance(table, values, []);
+        var model = new TestMutableInstance(table, values, [], isNew: true);
         var stateChange = new StateChange(model, table, TransactionChangeType.Insert);
 
         var exception = Capture<GeneratedValueDecodingException>(() =>
@@ -90,7 +90,7 @@ public sealed partial class ModelValueConverterTests
         {
             [idColumn] = null
         };
-        var model = new TestMutableInstance(table, values, []);
+        var model = new TestMutableInstance(table, values, [], isNew: true);
         var stateChange = new StateChange(model, table, TransactionChangeType.Insert);
 
         var exception = Capture<ProviderValueMaterializationException>(() =>

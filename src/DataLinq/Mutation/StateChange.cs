@@ -62,6 +62,13 @@ public class StateChange
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(table);
 
+        if (!ReferenceEquals(table, model.Metadata().Table))
+        {
+            throw new ArgumentException(
+                "The state-change table must be the model's exact mapped table definition.",
+                nameof(table));
+        }
+
         if (table.Type == TableType.View)
             throw new InvalidOperationException("Cannot change a view.");
 
@@ -85,7 +92,7 @@ public class StateChange
         Table = table;
         Type = type;
 
-        PrimaryKeys = model.PrimaryKeys();
+        PrimaryKeys = KeyFactory.GetKey(model, table.PrimaryKeyColumns);
         changes = CaptureChanges(model);
         insertWriteSlots = type == TransactionChangeType.Insert
             ? CaptureInsertWriteSlots(model, table, changes)
@@ -95,14 +102,20 @@ public class StateChange
         CaptureOriginalValues(model);
     }
 
-    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges() =>
-        changes;
+    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges()
+    {
+        for (var index = 0; index < changes.Count; index++)
+            yield return changes[index];
+    }
 
     internal bool TryGetOriginalValue(ColumnDefinition column, out object? value) =>
         originalValues.TryGetValue(column, out value);
 
     internal IReadOnlyList<MutationWriteSlot> GetInsertWriteSlots() =>
         insertWriteSlots;
+
+    internal bool HasSameCanonicalPrimaryKeyIdentity() =>
+        PrimaryKeys.Equals(KeyFactory.GetKey(Model, Table.PrimaryKeyColumns));
 
     private static IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> CaptureChanges(IModelInstance model) =>
         model is IMutableInstance mutable
@@ -167,6 +180,20 @@ public class StateChange
     /// <param name="transaction">The transaction to execute the query on.</param>
     public void ExecuteQuery(Transaction transaction)
     {
+        ArgumentNullException.ThrowIfNull(transaction);
+        transaction.EnsureMutationPreflight(this);
+
+        ExecuteQueryCore(transaction);
+    }
+
+    internal void ExecutePreflightedQuery(Transaction transaction)
+    {
+        ArgumentNullException.ThrowIfNull(transaction);
+        ExecuteQueryCore(transaction);
+    }
+
+    private void ExecuteQueryCore(Transaction transaction)
+    {
         var telemetryContext = DataLinqTelemetryContext.FromProvider(transaction.Provider);
         var activity = DataLinqTelemetry.StartMutationActivity(telemetryContext, Table.DbName, Type, transaction.Type);
         var startedAt = Stopwatch.GetTimestamp();
@@ -175,9 +202,9 @@ public class StateChange
 
         try
         {
-            if (Type == TransactionChangeType.Insert && HasAutoIncrement && !Model.HasPrimaryKeysSet())
+            if (Type == TransactionChangeType.Insert && HasAutoIncrement && PrimaryKeys.IsNull)
             {
-                var newId = transaction.DatabaseAccess.ExecuteScalar(GetDbCommand(transaction));
+                var newId = transaction.DatabaseAccess.ExecuteScalar(GetDbCommandCore(transaction));
                 affectedRows = 1;
 
                 if (Model is IMutableInstance mutable)
@@ -199,7 +226,7 @@ public class StateChange
                 }
             }
             else
-                affectedRows = transaction.DatabaseAccess.ExecuteNonQuery(GetDbCommand(transaction));
+                affectedRows = transaction.DatabaseAccess.ExecuteNonQuery(GetDbCommandCore(transaction));
 
             succeeded = true;
         }
@@ -234,8 +261,16 @@ public class StateChange
     /// </summary>
     /// <param name="transaction">The transaction the command is for.</param>
     /// <returns>The database command to execute.</returns>
-    public IDbCommand GetDbCommand(Transaction transaction) =>
-        transaction.Provider.ToDbCommand(GetQuery(transaction));
+    public IDbCommand GetDbCommand(Transaction transaction)
+    {
+        ArgumentNullException.ThrowIfNull(transaction);
+        transaction.EnsureMutationPreflight(this);
+
+        return GetDbCommandCore(transaction);
+    }
+
+    private IDbCommand GetDbCommandCore(Transaction transaction) =>
+        transaction.Provider.ToDbCommand(GetQueryCore(transaction));
 
     /// <summary>
     /// Generates the query for the state change.
@@ -243,6 +278,14 @@ public class StateChange
     /// <param name="transaction">The transaction the query is for.</param>
     /// <returns>The query representing the state change.</returns>
     public IQuery GetQuery(Transaction transaction)
+    {
+        ArgumentNullException.ThrowIfNull(transaction);
+        transaction.EnsureMutationPreflight(this);
+
+        return GetQueryCore(transaction);
+    }
+
+    private IQuery GetQueryCore(Transaction transaction)
     {
         var query = new SqlQuery(Table, transaction);
         var writer = transaction.Provider.GetWriter();
@@ -296,11 +339,16 @@ public class StateChange
 
     private IQuery BuildUpdateQuery(SqlQuery query, IDataLinqDataWriter writer)
     {
-        foreach (var column in Table.PrimaryKeyColumns)
+        for (var index = 0; index < Table.PrimaryKeyColumns.Count; index++)
+        {
+            var column = Table.PrimaryKeyColumns[index];
             query.Where(column.DbName).EqualTo(
-                writer.ConvertModelColumnValue(column, Model[column], "mutation.update.key"));
+                writer.ConvertColumnValue(
+                    column,
+                    PrimaryKeys.GetValue(index)));
+        }
 
-        foreach (var change in ((IMutableInstance)Model).GetChanges())
+        foreach (var change in changes)
             query.Set(
                 change.Key.DbName,
                 writer.ConvertModelColumnValue(change.Key, change.Value, "mutation.update.value"));
@@ -310,9 +358,14 @@ public class StateChange
 
     private IQuery BuildDeleteQuery(SqlQuery query, IDataLinqDataWriter writer)
     {
-        foreach (var column in Table.PrimaryKeyColumns)
+        for (var index = 0; index < Table.PrimaryKeyColumns.Count; index++)
+        {
+            var column = Table.PrimaryKeyColumns[index];
             query.Where(column.DbName).EqualTo(
-                writer.ConvertModelColumnValue(column, Model[column], "mutation.delete.key"));
+                writer.ConvertColumnValue(
+                    column,
+                    PrimaryKeys.GetValue(index)));
+        }
 
         return query.DeleteQuery();
     }

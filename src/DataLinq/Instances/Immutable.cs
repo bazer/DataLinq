@@ -26,6 +26,7 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
         this.rowData = rowData;
         readSource = dataSource;
         baselineOrigin = MutableBaselineOrigin.FromReadSource(dataSource);
+        CaptureCanonicalPrimaryKey(rowData, allowUnavailableLegacyRow: true);
     }
 
     protected Immutable(IRowData rowData, IDataLinqReadSource readSource)
@@ -36,6 +37,7 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
         this.rowData = rowData;
         this.readSource = readSource;
         baselineOrigin = MutableBaselineOrigin.FromReadSource(readSource);
+        CaptureCanonicalPrimaryKey(rowData, allowUnavailableLegacyRow: false);
     }
 
     MutableBaselineOrigin IImmutableBaselineOrigin.BaselineOrigin => baselineOrigin;
@@ -46,6 +48,27 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
 
     // Cache the primary key once calculated for performance
     protected DataLinqKey? _cachedPrimaryKey = null;
+
+    private void CaptureCanonicalPrimaryKey(
+        IRowData? sourceRow,
+        bool allowUnavailableLegacyRow)
+    {
+        if (sourceRow is null)
+            return;
+
+        try
+        {
+            _cachedPrimaryKey = KeyFactory.GetKey(
+                sourceRow,
+                sourceRow.Table.PrimaryKeyColumns);
+        }
+        catch (NotSupportedException) when (allowUnavailableLegacyRow)
+        {
+            // Legacy row-local projection shells can expose metadata without readable values.
+            // Preserve their historical construction behavior; a real key access still fails.
+            // The strict neutral-source constructor does not accept this compatibility escape.
+        }
+    }
 
     public object? this[ColumnDefinition column] => rowData[column];
     public object? this[int columnIndex] => rowData[columnIndex];

@@ -3,7 +3,7 @@
 
 # SQL Transaction And Mutable Lifecycle Implementation Plan
 
-**Status:** Implementation in progress. `TX-0` is complete; a bounded `ML-1` provenance slice is underway, while the write guards and transaction terminal-state work remain open.
+**Status:** Implementation in progress. `TX-0`, the bounded `ML-1` provenance substrate, and the representable `ML-2` pre-execution guard slice are implemented. `TX-1` successful-change recording/touched tracking and the remaining terminal-state work are still open.
 
 **Target release:** 0.9.
 
@@ -24,7 +24,7 @@ It has two related objectives:
 
 The current code is closer to the desired cache-publication model than the older design discussion implies. DataLinq already keeps rows and notifications transaction-scoped while a transaction is open, commits the provider transaction before applying global cache changes, and discards transaction rows on rollback. The implementation must preserve and characterize that working behavior rather than rebuilding it under new names.
 
-The missing correctness layer is mutable provenance and failure state. A mutable is reset to transaction-local values after each successful statement today, but it does not remember which provider or transaction owns that baseline. A failed statement can also remain in the transaction's `Changes` collection. Those are the sharp edges this plan closes before the query foundation rewires source and cache access.
+The original missing correctness layer was mutable provenance and failure state. The bounded `ML-1` substrate now remembers the exact provider and, for a transaction-local baseline, the exact transaction token; `ML-2` enforces that provenance before provider work. A provider statement that fails after passing preflight can still remain in the transaction's `Changes` collection, and the transaction does not yet own a complete touched-mutable registry or terminal failure state. Those remaining sharp edges are the next lifecycle work before the query foundation rewires source and cache access.
 
 ## Release Decision
 
@@ -48,11 +48,11 @@ The 0.9 behavior is deliberately conservative:
 
 This is existing SQL-provider mutation correctness. It does not create provider-neutral mutation contracts, memory transactions, commit receipts, or persistence hooks.
 
-## Current-Code Rebaseline
+## W1 Before-State Rebaseline
 
-Implementation starts from these verified facts.
+The following table preserves the verified W1 before-state that motivated the implementation slices. It is historical evidence, not a present-tense description; the progress callouts below record which deficits have since been closed.
 
-| Current fact | Consequence for this plan |
+| W1 before-state fact | Consequence for this plan |
 | --- | --- |
 | [`Transaction.AddAndExecute`](../../../../src/DataLinq/Mutation/Transaction.cs) calls `Provider.State.ApplyChanges(changes, this)` after a successful statement. | Pending cache application is already explicitly transaction-scoped. Do not replace it with a second overlay system. |
 | [`TableCache.ApplyChanges`](../../../../src/DataLinq/Cache/TableCache.Invalidation.cs) dispatches to transaction-local or committed application based on the transaction argument. | Preserve this split and characterize its notifications, row identity, and cleanup before changing source contracts. |
@@ -83,7 +83,7 @@ The first W3 runtime slice is deliberately narrower than the full `ML-1` exit:
 
 That successful-commit token normalization is only a bounded provenance substrate. It is not the full `TX-2` touched-registry promotion path, because this slice does not yet enumerate every touched mutable or perform the adjacent failure invalidations.
 
-This bounded substrate does **not** make arbitrary reuse safe by itself. `ML-2` pre-execution guards, the reference-identity touched-mutables registry, failed-change removal, rollback/open-disposal invalidation, transaction poisoning, and the `F6` live cache/relation read migration remain open. Consequently neither `ML-1` nor W3 is complete: the full `ML-1` exit still requires executable coverage of every state/owner report and proof that public reset/value APIs cannot erase ownership or invalidity.
+This bounded substrate does **not** make arbitrary reuse safe by itself. The `ML-2` command-free guard slice now closes unsafe pre-execution reuse for the lifecycle states currently represented, including the public row-data and deferred-`StateChange` escape hatches. The reference-identity touched-mutables registry, successful-only change recording, rollback/open-disposal invalidation, transaction poisoning/uncertain outcomes, and the `F6` live cache/relation read migration remain open. Consequently neither `ML-1` nor W3 is complete: the full lifecycle exit still depends on the adjacent `TX-1` through `TX-4` terminal transitions and their provider evidence.
 
 ## Scope
 
@@ -313,6 +313,8 @@ Exit signal:
 - `TransactionType.ReadOnly` cannot insert, update, save, or delete
 - same-transaction reuse remains green
 - cross-provider, cross-transaction, invalid, deleted, and primary-key mutation cases have focused tests
+
+Progress on 2026-07-11: the currently representable `ML-2` slice is implemented. `MutationGuardException` reports operation/model/table and safe provider/transaction context without values, SQL, connection strings, or database names. Exact provider/token ownership is checked before the no-change branch and before callback/generated mutation actions; read-only, committed, rolled-back, and disposed wrappers reject writes while read-only commit/read behavior remains valid. Insert/update shape, invalid/deleted state, tracked primary-key assignment, untracked canonical key drift, foreign table/column handles, and known immutable-delete ownership are guarded before command construction. Public `StateChange` execution revalidates its captured candidate and renders captured canonical keys, rather than trusting later live mutable state. Owner-controlled `MutableRowData` mutation methods now reject direct reset/value writes so callers must use lifecycle-aware mutable APIs. This is an intentional 0.9 behavioral hardening that must appear in upgrade evidence even though its public signatures are unchanged. The poisoned-transaction bullet remains owned by `TX-4`, because no poison state exists yet; it is not claimed complete here.
 
 ## TX-1: Track Touched Mutables And Successful Changes
 

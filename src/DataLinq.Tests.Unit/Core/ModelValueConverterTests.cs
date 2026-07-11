@@ -190,7 +190,11 @@ public sealed partial class ModelValueConverterTests
             var changes = type == TransactionChangeType.Update
                 ? new[] { new KeyValuePair<ColumnDefinition, object?>(valueColumn, values[valueColumn]) }
                 : [];
-            var model = new TestMutableInstance(table, values, changes);
+            var model = new TestMutableInstance(
+                table,
+                values,
+                changes,
+                isNew: type == TransactionChangeType.Insert);
             var stateChange = new StateChange(model, table, type);
 
             _ = stateChange.GetQuery(transaction);
@@ -205,7 +209,9 @@ public sealed partial class ModelValueConverterTests
             }
         }
 
-        await Assert.That(converter.ToProviderCalls.Count).IsEqualTo(8);
+        // Insert performs one additional canonical-key validation so a deferred public
+        // StateChange cannot switch explicit/auto identity after capture.
+        await Assert.That(converter.ToProviderCalls.Count).IsEqualTo(9);
         await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
     }
 
@@ -423,7 +429,8 @@ public sealed partial class ModelValueConverterTests
     private sealed class TestMutableInstance(
         TableDefinition table,
         Dictionary<ColumnDefinition, object?> values,
-        IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> changes) : IMutableInstance
+        IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> changes,
+        bool isNew = false) : IMutableInstance
     {
         private bool deleted;
         private readonly TestRowData rowData = new(table, values);
@@ -453,7 +460,7 @@ public sealed partial class ModelValueConverterTests
             : DataLinqKey.Null;
         public MutableRowData GetRowData() => throw new NotSupportedException();
         IRowData IModelInstance.GetRowData() => rowData;
-        public bool IsNew() => false;
+        public bool IsNew() => isNew;
         public bool IsDeleted() => deleted;
         public void SetDeleted() => deleted = true;
         public void Reset() { }
