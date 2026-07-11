@@ -67,6 +67,10 @@ public sealed class ScalarConverterGeneratorTests : GeneratorTestBase
         await Assert.That(code).Contains("new global::DataLinq.Attributes.ScalarConverterAttribute(typeof(global::ScalarGenerator.CustomerIdConverter))");
         await Assert.That(code).DoesNotContain("DataLinqPrimaryKey");
         await Assert.That(code).DoesNotContain("ProviderKeyRowStoreAccessor =");
+        await Assert.That(code).Contains(
+            "global::DataLinq.Instances.KeyFactory.CreateKeyFromModelValues([tenant, id], [DataLinqColumn_Tenant, DataLinqColumn_Id])");
+        await Assert.That(code).Contains(
+            "public static ScalarRow? Get(int tenant, CustomerId id, IDataSourceAccess dataSource)");
     }
 
     [Test]

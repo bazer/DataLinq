@@ -3,7 +3,7 @@
 
 # DataLinq 0.9 Implementation Roadmap
 
-**Status:** Implementation in progress. W0-W2 are complete. W4 now has the canonical provider-value row buffer, reader-free model-row construction, shared bidirectional scalar conversion for materialization and typed model mutation serialization, checked integral auto-increment result hydration, source-scoped committed/transaction cache services, immutable primary-key row-loader contracts, a buffered SQL primary-key loader/decoder adapter, genuine neutral generated immutable construction, and neutral generated database roots with legacy compatibility. Explicit server-default slots and the remaining SC-2 query paths are next; live cache-cold routing and typed-ID reload identity still wait for W3/W5 and SC-3. W3 may proceed in parallel.
+**Status:** Implementation in progress. W0-W2 are complete. W4 now has the canonical provider-value row buffer, reader-free model-row construction, shared bidirectional scalar conversion for materialization and typed model mutation serialization, checked integral auto-increment result hydration, canonical model-row/model-instance key normalization, source-scoped committed/transaction cache services, immutable primary-key row-loader contracts, a buffered SQL primary-key loader/decoder adapter, genuine neutral generated immutable construction, and neutral generated database roots with legacy compatibility. Explicit server-default slots and the remaining SC-2 query paths are next; live cache-cold routing plus reader/external relation-key normalization still wait for W3/W5 and later SC-3/SC-4 work. W3 may proceed in parallel.
 
 **Target release:** 0.9.
 

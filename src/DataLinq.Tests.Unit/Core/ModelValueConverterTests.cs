@@ -205,7 +205,7 @@ public sealed partial class ModelValueConverterTests
             }
         }
 
-        await Assert.That(converter.ToProviderCalls.Count).IsEqualTo(5);
+        await Assert.That(converter.ToProviderCalls.Count).IsEqualTo(8);
         await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
     }
 
@@ -449,7 +449,7 @@ public sealed partial class ModelValueConverterTests
                 values.TryGetValue(column, out var value) && value is not null);
         public ModelDefinition Metadata() => table.Model;
         public DataLinqKey PrimaryKeys() => HasPrimaryKeysSet()
-            ? DataLinqKey.FromValues(table.PrimaryKeyColumns.Select(column => values[column]))
+            ? KeyFactory.GetKey(rowData, table.PrimaryKeyColumns)
             : DataLinqKey.Null;
         public MutableRowData GetRowData() => throw new NotSupportedException();
         IRowData IModelInstance.GetRowData() => rowData;

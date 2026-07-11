@@ -31,9 +31,13 @@ public sealed partial class ModelValueConverterTests
 
         stateChange.ExecuteQuery(transaction);
 
+        var canonicalKey = model.PrimaryKeys();
+
         await Assert.That(model[idColumn]).IsEqualTo(new MutationId(42));
         await Assert.That(model[idColumn]).IsTypeOf<MutationId>();
-        await Assert.That(converter.ToProviderCalls).IsEmpty();
+        await Assert.That(canonicalKey.GetValue(0)).IsEqualTo(42);
+        await Assert.That(canonicalKey.GetValue(0)).IsTypeOf<int>();
+        await Assert.That(converter.ToProviderCalls.Count).IsEqualTo(1);
         await Assert.That(converter.FromProviderCalls).IsEqualTo(1);
         await Assert.That(writer.Calls.Single().CanonicalValue).IsNull();
     }

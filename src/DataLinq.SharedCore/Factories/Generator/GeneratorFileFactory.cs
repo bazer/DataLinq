@@ -1092,6 +1092,31 @@ public class GeneratorFileFactory
                 yield return $"";
             }
 
+            if (model.Table.PrimaryKeyColumns.Length > 0 &&
+                model.Table.PrimaryKeyShape.HasScalarConverter)
+            {
+                var primaryKeys = model.Table.PrimaryKeyColumns
+                    .Select(c => c.ValueProperty)
+                    .ToList();
+                var keyString = primaryKeys
+                    .Select(x => $"{x.CsType.Name} {x.PropertyName.ToCamelCase()}")
+                    .ToJoinedString(", ");
+                var keyValues = primaryKeys
+                    .Select(x => x.PropertyName.ToCamelCase())
+                    .ToJoinedString(", ");
+                var keyColumns = primaryKeys
+                    .Select(GetGeneratedColumnHandleName)
+                    .ToJoinedString(", ");
+                var normalizedKeyExpression = primaryKeys.Count == 1
+                    ? $"global::DataLinq.Instances.KeyFactory.CreateKeyFromModelValue({keyValues}, {keyColumns})"
+                    : $"global::DataLinq.Instances.KeyFactory.CreateKeyFromModelValues([{keyValues}], [{keyColumns}])";
+
+                yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, IDataSourceAccess dataSource) => IImmutable<{model.CsType.Name}>.GetByProviderKey({normalizedKeyExpression}, dataSource);";
+                yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Database<{model.Database.CsType.Name}> database) => IImmutable<{model.CsType.Name}>.GetByProviderKey({normalizedKeyExpression}, database.Provider.ReadOnlyAccess);";
+                yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Transaction<{model.Database.CsType.Name}> transaction) => IImmutable<{model.CsType.Name}>.GetByProviderKey({normalizedKeyExpression}, transaction);";
+                yield return "";
+            }
+
 
             var requiredProps = GetRequiredValueProperties(model);
 

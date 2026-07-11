@@ -205,7 +205,7 @@ public partial class TableCache
             values[i] = value;
         }
 
-        key = DataLinqKey.FromValues(values);
+        key = KeyFactory.CreateKeyFromModelValues(values, columns);
         return true;
     }
 
