@@ -131,13 +131,13 @@ public class ModelFileFactory
             yield return $"{namespaceTab}{FormatIndexCacheAttribute(indexCache)}";
 
         yield return $"{namespaceTab}[Database({FormatStringLiteral(database.Name)})]";
-        yield return $"{namespaceTab}public partial class {dbName}(DataSourceAccess dataSource) : IDatabaseModel<{dbName}>";
+        yield return $"{namespaceTab}public partial class {dbName}(IDataLinqReadSource readSource) : IDatabaseModel<{dbName}>";
         //yield return $"{namespaceTab}public interface {dbName} : IDatabaseModel";
         yield return namespaceTab + "{";
 
         foreach (var t in database.TableModels.OrderBy(x => x.Table.DbName))
         {
-            yield return $"{namespaceTab}{tab}public DbRead<{t.Model.CsType.Name}> {t.CsPropertyName} {{ get; }} = new(dataSource);";
+            yield return $"{namespaceTab}{tab}public DbRead<{t.Model.CsType.Name}> {t.CsPropertyName} {{ get; }} = new(readSource);";
             //yield return $"{namespaceTab}{tab}DbRead<I{t.Model.CsTypeName}> {t.CsPropertyName} {{ get; }}";
         }
 

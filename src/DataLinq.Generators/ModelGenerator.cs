@@ -150,6 +150,11 @@ public sealed class ModelGenerator : IIncrementalGenerator
                 database,
                 compilation,
                 context.CancellationToken);
+            var supportsReadSourceDatabaseConstruction =
+                SourceModelSyntaxResolver.HasExactDatabaseReadSourceConstructor(
+                    database,
+                    compilation,
+                    context.CancellationToken);
 
             GeneratorFileFactoryOptions CreateOptions(bool nullableReferenceTypes) => new()
             {
@@ -157,6 +162,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
                 RuntimeValuePropertyTypeNames = runtimeValuePropertyTypeNames,
                 SuppressedDefaultValueProperties = validationContext.SuppressedDefaultValueProperties,
                 ReadSourceConstructorModelTypeNames = readSourceConstructorModelTypeNames,
+                SupportsReadSourceDatabaseConstruction = supportsReadSourceDatabaseConstruction,
             };
 
             var databaseNullableContext = ResolveDatabaseNullableReferenceTypes(database, compilation, useNullableReferenceTypes);

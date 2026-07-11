@@ -9,6 +9,7 @@ using System.Reflection;
 using DataLinq.Diagnostics;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Linq.Planning.Sql;
@@ -18,23 +19,26 @@ namespace DataLinq.Linq.Planning.Expressions;
 internal sealed class ExpressionQueryPlanProvider : IQueryProvider
 {
     private readonly DatabaseDefinition metadata;
-    private readonly DataSourceAccess? dataSource;
+    private readonly IDataLinqReadSource? readSource;
 
     public ExpressionQueryPlanProvider(DatabaseDefinition metadata)
     {
         this.metadata = metadata;
     }
 
-    private ExpressionQueryPlanProvider(DataSourceAccess dataSource)
+    private ExpressionQueryPlanProvider(IDataLinqReadSource readSource)
     {
-        this.dataSource = dataSource;
-        metadata = dataSource.Provider.Metadata;
+        this.readSource = readSource;
+        metadata = readSource.Metadata;
     }
 
     public static ExpressionQueryPlanProvider ForExecution(DataSourceAccess dataSource)
+        => ForExecution((IDataLinqReadSource)dataSource);
+
+    public static ExpressionQueryPlanProvider ForExecution(IDataLinqReadSource readSource)
     {
-        ArgumentNullException.ThrowIfNull(dataSource);
-        return new ExpressionQueryPlanProvider(dataSource);
+        ArgumentNullException.ThrowIfNull(readSource);
+        return new ExpressionQueryPlanProvider(readSource);
     }
 
     public IQueryable<TElement> CreateRoot<TElement>()
@@ -52,8 +56,8 @@ internal sealed class ExpressionQueryPlanProvider : IQueryProvider
     public TResult Execute<TResult>(Expression expression)
     {
         var plan = Parse(expression, typeof(TResult));
-        if (dataSource is not null &&
-            ExpressionQueryPlanExecutor.TryExecuteTerminalPrimaryKeyInvocation(
+        var dataSource = GetSqlDataSource();
+        if (ExpressionQueryPlanExecutor.TryExecuteTerminalPrimaryKeyInvocation(
                 dataSource,
                 plan,
                 out TResult primaryKeyResult))
@@ -61,20 +65,33 @@ internal sealed class ExpressionQueryPlanProvider : IQueryProvider
             return primaryKeyResult;
         }
 
-        return ExpressionQueryPlanExecutor.Execute<TResult>(GetDataSource(), plan);
+        return ExpressionQueryPlanExecutor.Execute<TResult>(dataSource, plan);
     }
 
     public IEnumerable<TElement> ExecuteEnumerable<TElement>(Expression expression)
     {
         var plan = Parse(expression, typeof(TElement));
-        return ExpressionQueryPlanExecutor.ExecuteEnumerable<TElement>(GetDataSource(), plan);
+        return ExpressionQueryPlanExecutor.ExecuteEnumerable<TElement>(GetSqlDataSource(), plan);
     }
 
     public QueryPlanInvocation Parse(Expression expression, Type resultType)
         => ExpressionQueryPlanParser.Convert(metadata, expression, resultType);
 
-    private DataSourceAccess GetDataSource()
-        => dataSource ?? throw new NotSupportedException("The DataLinq expression plan provider was created for parsing only and cannot execute queries.");
+    private DataSourceAccess GetSqlDataSource()
+    {
+        if (readSource is DataSourceAccess dataSource)
+            return dataSource;
+
+        if (readSource is null)
+        {
+            throw new NotSupportedException(
+                "The DataLinq expression plan provider was created for parsing only and cannot execute queries.");
+        }
+
+        throw new NotSupportedException(
+            $"Read source type '{readSource.GetType().FullName}' does not yet provide query-plan execution. " +
+            "Use a SQL DataSourceAccess or a read backend with DataLinq query-plan execution services.");
+    }
 }
 
 internal sealed class ExpressionPlanQueryable<T> : IOrderedQueryable<T>

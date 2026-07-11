@@ -1,5 +1,7 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Linq.Expressions;
+using DataLinq.Interfaces;
 using DataLinq.Mutation;
 
 namespace DataLinq;
@@ -15,6 +17,19 @@ public class DbRead<T> : Queryable<T>
     /// </summary>
     /// <param name="transaction">The transaction.</param>
     public DbRead(DataSourceAccess transaction) : base(transaction, transaction.Provider.Metadata.GetTableModel(typeof(T)).Table) { }
+
+    /// <summary>
+    /// Initializes a generated query root from a backend-neutral read source.
+    /// </summary>
+    public DbRead(IDataLinqReadSource readSource)
+        : base(
+            readSource,
+            (readSource ?? throw new ArgumentNullException(nameof(readSource)))
+                .Metadata
+                .GetTableModel(typeof(T))
+                .Table)
+    {
+    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DbRead{T}"/> class.

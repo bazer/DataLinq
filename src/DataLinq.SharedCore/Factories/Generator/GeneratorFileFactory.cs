@@ -20,6 +20,7 @@ public class GeneratorFileFactoryOptions
     public IReadOnlyDictionary<ValueProperty, string> RuntimeValuePropertyTypeNames { get; set; } = new Dictionary<ValueProperty, string>();
     public IReadOnlyCollection<ValueProperty> SuppressedDefaultValueProperties { get; set; } = [];
     public IReadOnlyCollection<string> ReadSourceConstructorModelTypeNames { get; set; } = [];
+    public bool SupportsReadSourceDatabaseConstruction { get; set; }
     public List<string> Usings { get; set; } = new List<string> { "System", "System.Diagnostics.CodeAnalysis", "DataLinq", "DataLinq.Interfaces", "DataLinq.Instances", "DataLinq.Attributes", "DataLinq.Mutation" };
 }
 
@@ -183,7 +184,16 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}public partial class {database.CsType.Name} : global::DataLinq.Interfaces.IDatabaseModel<{database.CsType.Name}>";
         yield return namespaceTab + "{";
         yield return $"{namespaceTab}{tab}public static {database.CsType.Name} NewDataLinqDatabase(global::DataLinq.Interfaces.IDataSourceAccess dataSource) =>";
-        yield return $"{namespaceTab}{tab}{tab}new {GetGlobalTypeName(database.CsType)}((global::DataLinq.Mutation.DataSourceAccess)dataSource);";
+        if (Options.SupportsReadSourceDatabaseConstruction)
+            yield return $"{namespaceTab}{tab}{tab}new {GetGlobalTypeName(database.CsType)}(dataSource);";
+        else
+            yield return $"{namespaceTab}{tab}{tab}new {GetGlobalTypeName(database.CsType)}((global::DataLinq.Mutation.DataSourceAccess)dataSource);";
+        if (Options.SupportsReadSourceDatabaseConstruction)
+        {
+            yield return "";
+            yield return $"{namespaceTab}{tab}public static {database.CsType.Name} NewDataLinqReadDatabase(global::DataLinq.Interfaces.IDataLinqReadSource readSource) =>";
+            yield return $"{namespaceTab}{tab}{tab}new {GetGlobalTypeName(database.CsType)}(readSource);";
+        }
         yield return "";
         yield return $"{namespaceTab}{tab}public static global::DataLinq.Metadata.GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>";
         yield return $"{namespaceTab}{tab}{tab}new(";

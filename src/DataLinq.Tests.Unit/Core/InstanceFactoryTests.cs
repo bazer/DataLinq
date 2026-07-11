@@ -27,6 +27,78 @@ public class InstanceFactoryTests
     }
 
     [Test]
+    public async Task NewReadDatabase_LegacyModelAndSqlSource_UsesLegacyFactory()
+    {
+        var dataSource = new FakeDataSourceAccess();
+
+        var database = InstanceFactory.NewReadDatabase<FactoryDatabase>(dataSource);
+
+        await Assert.That(database.DataSource).IsSameReferenceAs(dataSource);
+    }
+
+    [Test]
+    public async Task NewReadDatabase_LegacyModelAndNeutralSource_RequiresRegeneration()
+    {
+        var rowData = CreateFactoryRowData(
+            (_, _) => throw new InvalidOperationException("Factory must not run."));
+        var readSource = new NeutralReadSource(rowData.Table.Database);
+
+        var exception = Capture<InvalidOperationException>(() =>
+            InstanceFactory.NewReadDatabase<FactoryDatabase>(readSource));
+
+        await Assert.That(exception.Message).Contains("Generated read-source database factory not defined");
+        await Assert.That(exception.Message).Contains(typeof(FactoryDatabase).FullName!);
+        await Assert.That(exception.Message).Contains("Regenerate the database model root");
+    }
+
+    [Test]
+    public async Task NewReadDatabase_NeutralFactory_UsesExactNeutralSource()
+    {
+        var rowData = CreateFactoryRowData(
+            (_, _) => throw new InvalidOperationException("Factory must not run."));
+        var readSource = new NeutralReadSource(rowData.Table.Database);
+
+        var database = InstanceFactory.NewReadDatabase<NeutralFactoryDatabase>(readSource);
+
+        await Assert.That(database.ReadSource).IsSameReferenceAs(readSource);
+        await Assert.That(database.ReadSource).IsNotAssignableTo<IDataSourceAccess>();
+    }
+
+    [Test]
+    public async Task DbRead_NeutralSource_ConstructsRootAndDefersBackendRequirementUntilExecution()
+    {
+        var rowData = CreateFactoryRowData(
+            (_, _) => throw new InvalidOperationException("Factory must not run."));
+        var readSource = new NeutralReadSource(rowData.Table.Database);
+
+        var query = new DbRead<FactoryRow>(readSource);
+
+        await Assert.That(query.Expression).IsNotNull();
+        await Assert.That(query.Provider).IsNotNull();
+
+        var exception = Capture<NotSupportedException>(() => query.ToList());
+
+        await Assert.That(exception.Message).Contains(typeof(NeutralReadSource).FullName!);
+        await Assert.That(exception.Message).Contains("does not yet provide query-plan execution");
+    }
+
+    [Test]
+    public async Task Queryable_NeutralSource_RejectsTableFromDifferentMetadataGraph()
+    {
+        var firstRowData = CreateFactoryRowData(
+            (_, _) => throw new InvalidOperationException("Factory must not run."));
+        var secondRowData = CreateFactoryRowData(
+            (_, _) => throw new InvalidOperationException("Factory must not run."));
+        var readSource = new NeutralReadSource(firstRowData.Table.Database);
+
+        var exception = Capture<ArgumentException>(() =>
+            new Queryable<FactoryRow>(readSource, secondRowData.Table));
+
+        await Assert.That(exception.ParamName).IsEqualTo("table");
+        await Assert.That(exception.Message).Contains("Read source metadata does not own query-root table");
+    }
+
+    [Test]
     public async Task IDataSourceAccess_Metadata_UsesProviderMetadataByDefault()
     {
         var rowData = CreateFactoryRowData(
@@ -275,6 +347,27 @@ public class InstanceFactoryTests
 
         public static FactoryDatabase NewDataLinqDatabase(IDataSourceAccess dataSource) =>
             new((DataSourceAccess)dataSource);
+    }
+
+    private sealed class NeutralFactoryDatabase(IDataLinqReadSource readSource)
+        : IDatabaseModel<NeutralFactoryDatabase>
+    {
+        public IDataLinqReadSource ReadSource { get; } = readSource;
+
+        public static MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>
+            new("NeutralFactoryDatabase", new CsTypeDeclaration(typeof(NeutralFactoryDatabase)));
+
+        public static void SetDataLinqGeneratedMetadata(DatabaseDefinition metadata)
+        {
+        }
+
+        public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() => new([]);
+
+        public static NeutralFactoryDatabase NewDataLinqDatabase(IDataSourceAccess dataSource) =>
+            new(dataSource);
+
+        public static NeutralFactoryDatabase NewDataLinqReadDatabase(IDataLinqReadSource readSource) =>
+            new(readSource);
     }
 
     private sealed class FactoryRow;

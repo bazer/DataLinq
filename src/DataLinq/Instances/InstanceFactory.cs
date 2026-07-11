@@ -148,4 +148,11 @@ public static class InstanceFactory
     {
         return T.NewDataLinqDatabase(dataSource);
     }
+
+    public static T NewReadDatabase<T>(IDataLinqReadSource readSource)
+        where T : class, IDatabaseModel<T>
+    {
+        ArgumentNullException.ThrowIfNull(readSource);
+        return T.NewDataLinqReadDatabase(readSource);
+    }
 }

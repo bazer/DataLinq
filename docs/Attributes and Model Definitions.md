@@ -25,12 +25,11 @@ using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
-using DataLinq.Mutation;
 
 [Database("appdb")]
-public partial class AppDb(DataSourceAccess dataSource) : IDatabaseModel
+public partial class AppDb(IDataLinqReadSource readSource) : IDatabaseModel
 {
-    public DbRead<User> Users { get; } = new(dataSource);
+    public DbRead<User> Users { get; } = new(readSource);
 }
 
 [Table("users")]

@@ -3,7 +3,7 @@
 
 # DataLinq 0.9 Implementation Roadmap
 
-**Status:** Implementation in progress. W0-W2 are complete. W4 now has the canonical provider-value row buffer, reader-free model-row construction, shared provider-to-model materializer, source-scoped committed/transaction cache services, immutable primary-key row-loader contracts, a buffered SQL primary-key loader/decoder adapter, and genuine neutral generated immutable construction with legacy compatibility. Generated database roots and the remaining SC-2 runtime paths are next; live cache-cold routing still waits for W3/W5. W3 may proceed in parallel.
+**Status:** Implementation in progress. W0-W2 are complete. W4 now has the canonical provider-value row buffer, reader-free model-row construction, shared provider-to-model materializer, source-scoped committed/transaction cache services, immutable primary-key row-loader contracts, a buffered SQL primary-key loader/decoder adapter, genuine neutral generated immutable construction, and neutral generated database roots with legacy compatibility. The remaining SC-2 runtime paths are next; live cache-cold routing still waits for W3/W5. W3 may proceed in parallel.
 
 **Target release:** 0.9.
 
@@ -48,7 +48,7 @@ W2 made the query template and invocation self-contained, but the lower read and
 - The expression executor directly constructs [`QueryPlanSqlBuilder`](../../../../src/DataLinq/Linq/Planning/Sql/QueryPlanSqlBuilder.cs), so SQL rendering remains the implicit execution center.
 - [`IDatabaseProvider`](../../../../src/DataLinq/Interfaces/IDatabaseProvider.cs) exposes `IDbCommand`, `IDbConnection`, SQL rendering helpers, and database transactions. It is not a credible neutral contract for a memory backend.
 - [`IDataLinqReadSource`](../../../../src/DataLinq/Interfaces/IDataLinqReadSource.cs) supplies the metadata-only model-construction identity. Existing SQL [`DataSourceAccess`](../../../../src/DataLinq/Mutation/DataSourceAccess.cs) instances now bind the shared materializer to source-scoped cache services without putting provider commands on that public contract; SQL database access and command loading remain legacy-specific.
-- Generated database roots currently cast `IDataSourceAccess` back to the concrete SQL-shaped `DataSourceAccess` in [`GeneratorFileFactory`](../../../../src/DataLinq.SharedCore/Factories/Generator/GeneratorFileFactory.cs).
+- Newly generated database roots accept `IDataLinqReadSource`; Roslyn emits a distinct neutral root factory when it sees that exact constructor. Existing checked-in roots retain an additive default bridge and their concrete SQL-shaped cast until they are regenerated, so the migration does not break consumer assemblies.
 - Cold cache and relation loads still issue provider commands directly through the existing source access path. A source-scoped primary-key loader/decoder adapter now exists, but live routing deliberately waits for the W3/W5 gate; relation loading remains later F6 work.
 - Public [`IRowData`](../../../../src/DataLinq/Instances/RowData.cs) exposes model instance values. Quietly repurposing it as a provider-value store would leak storage representations through public model APIs.
 
@@ -440,7 +440,6 @@ The related longer-term plans remain useful, but they are not 0.9 promises:
 
 Only decisions that can still change the baseline belong here:
 
-- What is the smallest neutral source contract that removes the generated-root cast without forcing a public provider rewrite?
 - Which provider-neutral null and string semantics should memory define, and which provider differences must remain explicit?
 - Does the separate, initially non-packable `DataLinq.Memory` project pass the promotion gate and earn its preview NuGet package? Failure requires an explicit roadmap re-scope; memory does not move into core as a shortcut.
 - Which, if either, late stretch candidate earns the remaining release budget?

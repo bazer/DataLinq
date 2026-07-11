@@ -113,12 +113,12 @@ public class ModelFileFactoryTests
             .CreateModelFiles(database)
             .Single(file => file.path == "QuoteDb.cs");
 
-        await Assert.That(generatedFile.contents).Contains("public DbRead<QuoteModel> QuoteModels { get; } = new(dataSource);");
+        await Assert.That(generatedFile.contents).Contains("public DbRead<QuoteModel> QuoteModels { get; } = new(readSource);");
         await Assert.That(generatedFile.contents).DoesNotContain("new DbRead<QuoteModel>(dataSource)");
     }
 
     [Test]
-    public async Task CreateModelFiles_ModelUsesNeutralReadSourceWhileDatabaseRootRemainsLegacy()
+    public async Task CreateModelFiles_ModelsAndDatabaseRootUseNeutralReadSource()
     {
         var database = CreateDatabaseWithDefaultValue(new CsTypeDeclaration(typeof(string)), "generated");
 
@@ -133,7 +133,10 @@ public class ModelFileFactoryTests
 
         var databaseFile = generatedFiles.Single(file => file.path == "QuoteDb.cs");
         await Assert.That(databaseFile.contents).Contains(
-            "public partial class QuoteDb(DataSourceAccess dataSource) : IDatabaseModel<QuoteDb>");
+            "public partial class QuoteDb(IDataLinqReadSource readSource) : IDatabaseModel<QuoteDb>");
+        await Assert.That(databaseFile.contents).Contains(
+            "public DbRead<QuoteModel> QuoteModels { get; } = new(readSource);");
+        await Assert.That(databaseFile.contents).DoesNotContain("DataSourceAccess dataSource");
     }
 
     [Test]

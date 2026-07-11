@@ -99,6 +99,29 @@ internal static class SourceModelSyntaxResolver
             SymbolEqualityComparer.Default.Equals(constructor.Parameters[1].Type, readSourceType));
     }
 
+    public static bool HasExactDatabaseReadSourceConstructor(
+        DatabaseDefinition database,
+        Compilation compilation,
+        System.Threading.CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var databaseMetadataName = string.IsNullOrWhiteSpace(database.CsType.Namespace)
+            ? database.CsType.Name
+            : $"{database.CsType.Namespace}.{database.CsType.Name}";
+        var databaseType = compilation.GetTypeByMetadataName(databaseMetadataName);
+        var readSourceType = compilation.GetTypeByMetadataName(ReadSourceMetadataName);
+        if (databaseType is null || readSourceType is null)
+            return false;
+
+        return databaseType.InstanceConstructors.Any(constructor =>
+            constructor.Parameters.Length == 1 &&
+            constructor.Parameters[0].RefKind == RefKind.None &&
+            SymbolEqualityComparer.Default.Equals(
+                constructor.Parameters[0].Type,
+                readSourceType));
+    }
+
     private static bool IsAccessibleFromGeneratedDerivedType(IMethodSymbol constructor) =>
         constructor.DeclaredAccessibility is
             Accessibility.Public or

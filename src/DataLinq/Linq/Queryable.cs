@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using DataLinq.Linq.Planning.Expressions;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 
@@ -20,11 +21,23 @@ public class Queryable<T> : IOrderedQueryable<T>
     }
 
     public Queryable(DataSourceAccess dataSource, TableDefinition table)
+        : this((IDataLinqReadSource)dataSource, table)
     {
-        ArgumentNullException.ThrowIfNull(dataSource);
+    }
+
+    public Queryable(IDataLinqReadSource readSource, TableDefinition table)
+    {
+        ArgumentNullException.ThrowIfNull(readSource);
         ArgumentNullException.ThrowIfNull(table);
 
-        provider = ExpressionQueryPlanProvider.ForExecution(dataSource);
+        if (!ReferenceEquals(table.Database, readSource.Metadata))
+        {
+            throw new ArgumentException(
+                $"Read source metadata does not own query-root table '{table.DbName}'.",
+                nameof(table));
+        }
+
+        provider = ExpressionQueryPlanProvider.ForExecution(readSource);
         Expression = Expression.Constant(this);
     }
 
