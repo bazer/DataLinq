@@ -3,7 +3,7 @@
 
 # SQL Transaction And Mutable Lifecycle Implementation Plan
 
-**Status:** Implementation in progress. `TX-0`, the bounded `ML-1` provenance substrate, and the representable `ML-2` pre-execution guard slice are implemented. `TX-1` successful-change recording/touched tracking and the remaining terminal-state work are still open.
+**Status:** Implementation in progress. `TX-0`, the bounded `ML-1` provenance substrate, the representable `ML-2` pre-execution guard slice, and the `TX-1A` touched-mutable registry are implemented. `TX-1B` successful-change recording and the remaining terminal-state work are still open.
 
 **Target release:** 0.9.
 
@@ -81,9 +81,9 @@ The first W3 runtime slice is deliberately narrower than the full `ML-1` exit:
 - mutable delete has an explicit transaction-local provenance state rather than immediately pretending that the row is globally committed-deleted
 - transaction-local provenance may normalize lazily to committed provenance only after its token records that provider commit, global cache/notification publication, and transaction-local cache cleanup all succeeded, in that order
 
-That successful-commit token normalization is only a bounded provenance substrate. It is not the full `TX-2` touched-registry promotion path, because this slice does not yet enumerate every touched mutable or perform the adjacent failure invalidations.
+That successful-commit token normalization is only a bounded provenance substrate. `TX-1A` now enumerates lifecycle-aware mutables after their successful authoritative transition, but `TX-2` does not yet consume that registry for eager promotion and the adjacent failure invalidations remain open.
 
-This bounded substrate does **not** make arbitrary reuse safe by itself. The `ML-2` command-free guard slice now closes unsafe pre-execution reuse for the lifecycle states currently represented, including the public row-data and deferred-`StateChange` escape hatches. The reference-identity touched-mutables registry, successful-only change recording, rollback/open-disposal invalidation, transaction poisoning/uncertain outcomes, and the `F6` live cache/relation read migration remain open. Consequently neither `ML-1` nor W3 is complete: the full lifecycle exit still depends on the adjacent `TX-1` through `TX-4` terminal transitions and their provider evidence.
+This bounded substrate does **not** make arbitrary reuse safe by itself. The `ML-2` command-free guard slice now closes unsafe pre-execution reuse for the lifecycle states currently represented, including the public row-data and deferred-`StateChange` escape hatches, and `TX-1A` supplies the reference-identity registry of successfully transitioned lifecycle mutables. Successful-only change recording, registry-driven promotion/invalidation, rollback/open-disposal invalidation, transaction poisoning/uncertain outcomes, and the `F6` live cache/relation read migration remain open. Consequently neither `ML-1` nor W3 is complete: the full lifecycle exit still depends on `TX-1B` and the adjacent `TX-2` through `TX-4` terminal transitions and their provider evidence.
 
 ## Scope
 
@@ -275,9 +275,9 @@ Work:
 
 Implementation constraint:
 
-The touched registry introduced later must use reference equality. `Mutable<T>.GetHashCode()` changes from a transient identifier to a primary-key hash after insert, and two separate mutable objects may compare equal by primary key. Neither behavior is suitable for transaction ownership tracking.
+The `TX-1A` touched registry uses reference equality. `Mutable<T>.GetHashCode()` changes from a transient identifier to a primary-key hash after insert, and two separate mutable objects may compare equal by primary key. Neither behavior is suitable for transaction ownership tracking.
 
-Current bounded progress: the provenance holder, immutable-captured provider origin, opaque transaction token, authoritative hydration/delete transitions, and commit-token normalization are the first implementation slice. The remaining work above and its exit evidence stay open. In particular, commit-token normalization does not replace `TX-1` reference-identity tracking or `TX-2` eager handling of every touched mutable and failure partition.
+Current bounded progress: the provenance holder, immutable-captured provider origin, opaque transaction token, authoritative hydration/delete transitions, commit-token normalization, and `TX-1A` reference-identity registry are implemented. The remaining exit evidence stays open. In particular, the registry does not replace `TX-1B` successful-only candidate recording or `TX-2` through `TX-4` consumption of every touched mutable across promotion and failure partitions.
 
 Exit signal:
 
@@ -344,6 +344,8 @@ preflight guards
 ```
 
 If existing generated-key mechanics require constructing a `StateChange` before execution, that object remains an uncommitted candidate. It is not a successful change until execution and hydration complete.
+
+Progress on 2026-07-11: the bounded `TX-1A` registry substrate is implemented. Each transaction owns a reference-identity set of lifecycle-aware mutables and registers an insert/update mutable only after its hydrated baseline advances successfully, or a mutable-delete input only after its transaction-local delete transition succeeds. Repeated writes to the same object retain one entry, while distinct mutable objects for the same primary key remain distinct entries; insert-then-update coverage also crosses the mutable's new-to-persisted lifecycle transition. Clean no-change updates, immutable deletes, failed preflight attempts, and legacy mutables without the internal lifecycle contract do not create entries. This does not complete `TX-1`: `Changes` is still attempt-first and public `StateChange.ExecuteQuery(...)` still bypasses transaction-owned finalization. Moving those candidates safely requires the adjacent minimal `TX-4` poison gate because provider execution can succeed before cache application, full reload, or baseline advancement fails. `TX-1B` and that failure gate therefore remain coupled rather than landing an unsafe half-fix.
 
 Exit signal:
 

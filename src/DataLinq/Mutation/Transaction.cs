@@ -82,6 +82,8 @@ public class TransactionStatusChangeEventArgs : EventArgs
 public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction>
 {
     private static uint transactionCount = 0;
+    private readonly HashSet<IMutableLifecycle> touchedMutables =
+        new(ReferenceEqualityComparer.Instance);
     private int disposeState;
     internal bool IsDisposed => Volatile.Read(ref disposeState) != 0;
 
@@ -91,6 +93,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     public uint TransactionID { get; }
 
     internal MutableTransactionOwnership MutableOwnership { get; }
+    internal IReadOnlyCollection<IMutableLifecycle> TouchedMutables => touchedMutables;
 
     /// <summary>
     /// Gets the list of state changes.
@@ -162,6 +165,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         var immutable = GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
         model.AdvanceBaseline(immutable, MutableOwnership);
+        RegisterTouchedMutable(model);
 
         return immutable;
     }
@@ -226,6 +230,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         var immutable = GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
         model.AdvanceBaseline(immutable, MutableOwnership);
+        RegisterTouchedMutable(model);
 
         return immutable;
     }
@@ -349,7 +354,10 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         AddAndExecute(model, TransactionChangeType.Delete);
 
         if (model is IMutableLifecycle mutableLifecycle)
+        {
             mutableLifecycle.MarkDeleted(MutableOwnership);
+            RegisterTouchedMutable(mutableLifecycle);
+        }
         else if (model is IMutableInstance mutable)
             mutable.SetDeleted();
     }
@@ -438,6 +446,9 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         return (T?)Provider.GetTableCache(metadata.Table).GetRow(keys, this);
     }
+
+    private void RegisterTouchedMutable(IMutableLifecycle mutable) =>
+        touchedMutables.Add(mutable);
 
     internal void EnsureMutationPreflight(
         IModelInstance model,
