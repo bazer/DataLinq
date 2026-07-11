@@ -994,6 +994,14 @@ public class GeneratorFileFactory
                 yield return $"{namespaceTab}{tab}{tab}{tab}return cache.TryAddRow(providerKey, rowData.Size, row);";
                 yield return $"{namespaceTab}{tab}{tab}" + "}";
                 yield return "";
+                yield return $"{namespaceTab}{tab}{tab}public bool TryAddCanonicalRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.DataLinqKey canonicalProviderKey, global::DataLinq.Instances.RowData rowData, global::DataLinq.Instances.IImmutableInstance row)";
+                yield return $"{namespaceTab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}if (!TryCreateDataLinqPrimaryKey(canonicalProviderKey, out var providerKey))";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}return false;";
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}{tab}return cache.TryAddRow(providerKey, rowData.Size, row);";
+                yield return $"{namespaceTab}{tab}{tab}" + "}";
+                yield return "";
                 yield return $"{namespaceTab}{tab}{tab}public bool TryGetRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.DataLinqKey key, out global::DataLinq.Instances.IImmutableInstance{GetUseNullableReferenceTypes()} row)";
                 yield return $"{namespaceTab}{tab}{tab}" + "{";
                 yield return $"{namespaceTab}{tab}{tab}{tab}if (!TryCreateDataLinqPrimaryKey(key, out var providerKey))";

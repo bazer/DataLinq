@@ -60,6 +60,19 @@ internal static class ProviderKeyComponents
 public interface IProviderKeyRowStoreAccessor
 {
     bool TryAddRow(RowCache cache, RowData rowData, IImmutableInstance row);
+
+    /// <summary>
+    /// Adds a row using primary-key components captured before provider-to-model conversion. Older
+    /// generated accessors retain their legacy row-data behavior; current accessors override this
+    /// method to preserve the exact provider-key store.
+    /// </summary>
+    bool TryAddCanonicalRow(
+        RowCache cache,
+        DataLinqKey canonicalProviderKey,
+        RowData rowData,
+        IImmutableInstance row) =>
+        TryAddRow(cache, rowData, row);
+
     bool TryGetRow(RowCache cache, DataLinqKey key, out IImmutableInstance? row);
     bool TryRemoveRow(RowCache cache, DataLinqKey key, out int numRowsRemoved);
     bool TryCreateKey(IRowData rowData, out DataLinqKey key);

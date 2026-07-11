@@ -31,7 +31,7 @@ That rule is the important part. DataLinq should not store the same row under bo
 : A tiny component reader for provider keys. Generated composite keys implement it so metadata-driven code can inspect key components without knowing the generated struct's fields.
 
 `IProviderKeyRowStoreAccessor`
-: Generated table-specific adapter. It knows how to create the exact provider-key value for a table from row data, model data, or a dynamic key carrier.
+: Generated table-specific adapter. It knows how to create the exact provider-key value for a table from row data, model data, or a dynamic key carrier. Current accessors also publish with the canonical provider key captured before provider-to-model conversion; the default method preserves older generated accessors until regeneration.
 
 `DataLinqKey`
 : A bounded dynamic key carrier for metadata-driven paths and the structural fallback for provider keys containing `byte[]`. It is not the normal generated hot-path row-cache identity.
@@ -156,7 +156,7 @@ metadata-driven code
   -> RowStore<TKey>
 ```
 
-The generated accessor is what prevents `DataLinqKey` from becoming a second universal row-store key. If a table has generated provider-key metadata, the accessor converts the dynamic components into the table's real row-store key before cache add, get, or remove. `RowCache` may then select the structural `DataLinqKey` store for a binary provider-key shape; it never stores both representations.
+The generated accessor is what prevents `DataLinqKey` from becoming a second universal row-store key. If a table has generated provider-key metadata, the accessor converts the dynamic components into the table's real row-store key before cache add, get, or remove. Shared materialization calls `TryAddCanonicalRow(...)`, so scalar conversion cannot replace provider identity with a model wrapper before publication. `RowCache` may then select the structural `DataLinqKey` store for a binary provider-key shape; it never stores both representations.
 
 If there is no generated accessor, DataLinq can fall back to `RowStore<DataLinqKey>`. That is the dynamic compatibility path, not the normal generated model path.
 
@@ -200,6 +200,7 @@ The cache key architecture depends on these invariants:
 - one `RowCache` has one `RowStore<TKey>`
 - one relation index cache has one foreign-key store, typed for scalar generated foreign keys when supported
 - generated primary-key row stores use provider key values directly unless a `byte[]` component requires the owned structural fallback
+- shared materialization publishes the canonical provider key captured before model conversion
 - generated scalar relation traversal passes provider foreign-key values directly
 - scalar entity query materialization reads provider primary-key values directly from readers
 - joined materialization lets generated accessors build provider keys from reader ordinals

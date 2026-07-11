@@ -27,7 +27,8 @@ public sealed class GeneratedNeutralMaterializationTests
         canonicalValues[table.GetColumnByDbName("name").Index] = "neutral";
 
         IDataLinqReadSource readSource = new NeutralReadSource(metadata);
-        var runtime = new NoCacheNeutralRuntime(readSource);
+        var cache = new NoCacheMaterializationCache();
+        var runtime = new ReadSourceModelMaterializationRuntime(readSource, cache);
         var services = new ModelMaterializationServices("generated-neutral-test", runtime);
 
         var materialized = services.GetOrMaterialize(
@@ -39,7 +40,10 @@ public sealed class GeneratedNeutralMaterializationTests
         await Assert.That(row.Name).IsEqualTo("neutral");
         await Assert.That(row.GetReadSource()).IsSameReferenceAs(readSource);
         await Assert.That(readSource is IDataSourceAccess).IsFalse();
-        await Assert.That(runtime.FactoryCalls).IsEqualTo(1);
+        await Assert.That(cache.CacheLookupCalls).IsEqualTo(1);
+        await Assert.That(cache.CacheMissMetrics).IsEqualTo(1);
+        await Assert.That(cache.MaterializationMetrics).IsEqualTo(1);
+        await Assert.That(cache.PublicationCalls).IsEqualTo(1);
 
         var exception = Capture<InvalidOperationException>(() => row.GetDataSource());
         await Assert.That(exception.Message).Contains(nameof(IDataSourceAccess));
@@ -66,39 +70,42 @@ public sealed class GeneratedNeutralMaterializationTests
         public DatabaseDefinition Metadata { get; } = metadata;
     }
 
-    private sealed class NoCacheNeutralRuntime(IDataLinqReadSource readSource)
-        : IModelMaterializationRuntime
+    private sealed class NoCacheMaterializationCache : IReadSourceMaterializationCache
     {
-        public int FactoryCalls { get; private set; }
+        public int CacheLookupCalls { get; private set; }
+        public int CacheMissMetrics { get; private set; }
+        public int MaterializationMetrics { get; private set; }
+        public int PublicationCalls { get; private set; }
 
         public bool TryGetCached(
             TableDefinition table,
             DataLinqKey canonicalProviderKey,
             out IImmutableInstance? instance)
         {
+            CacheLookupCalls++;
             instance = null;
             return false;
-        }
-
-        public IImmutableInstance CreateImmutable(RowData rowData)
-        {
-            FactoryCalls++;
-            return InstanceFactory.NewReadSourceImmutableRow(rowData, readSource);
         }
 
         public ModelCachePublicationResult PublishCached(
             TableDefinition table,
             DataLinqKey canonicalProviderKey,
             RowData rowData,
-            IImmutableInstance instance) =>
-            ModelCachePublicationResult.NotCached();
+            IImmutableInstance instance)
+        {
+            PublicationCalls++;
+            return ModelCachePublicationResult.NotCached();
+        }
 
         public void RecordCacheLookup(TableDefinition table, bool hit)
         {
+            if (!hit)
+                CacheMissMetrics++;
         }
 
         public void RecordMaterialization(TableDefinition table)
         {
+            MaterializationMetrics++;
         }
 
         public void RecordCacheInsertion(TableDefinition table)

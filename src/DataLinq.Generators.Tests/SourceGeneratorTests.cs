@@ -57,6 +57,8 @@ public class SourceGeneratorTests : GeneratorTestBase
         await Assert.That(code.Contains("IImmutable<Employee>.Get(KeyFactory.CreateKeyFromValue(empNo), dataSource)", StringComparison.Ordinal)).IsFalse();
         await Assert.That(code.Contains("ProviderKeyRowStoreAccessor = new global::DataLinq.Tests.Models.Employees.Employee.DataLinqProviderKeyRowStoreAccessor()", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("return cache.TryAddRow(providerKey, rowData.Size, row);", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("public bool TryAddCanonicalRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.DataLinqKey canonicalProviderKey, global::DataLinq.Instances.RowData rowData, global::DataLinq.Instances.IImmutableInstance row)", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("if (!TryCreateDataLinqPrimaryKey(canonicalProviderKey, out var providerKey))", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("internal readonly record struct DataLinqPrimaryKey(string deptNo, int empNo) : IProviderKey", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("internal static bool TryCreateDataLinqPrimaryKey(IRowData rowData, out DataLinqPrimaryKey providerKey)", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("internal static bool TryCreateDataLinqPrimaryKey(global::DataLinq.IDataLinqDataReader reader, global::System.Collections.Generic.IReadOnlyList<int> primaryKeyOrdinals, out int providerKey)", StringComparison.Ordinal)).IsTrue();

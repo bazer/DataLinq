@@ -1,11 +1,15 @@
 ﻿using System.Collections.Generic;
 using System.Data;
+using System.Threading;
+using DataLinq.Cache;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
 
 namespace DataLinq.Mutation;
 
-public abstract class DataSourceAccess : IDataSourceAccess
+public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqReadServices
 {
+    private IModelMaterializationServices? materializationServices;
 
     /// <summary>
     /// Gets the database provider.
@@ -20,6 +24,28 @@ public abstract class DataSourceAccess : IDataSourceAccess
     protected DataSourceAccess(IDatabaseProvider provider)
     {
         Provider = provider;
+    }
+
+    IModelMaterializationServices IDataLinqReadServices.MaterializationServices
+    {
+        get
+        {
+            var services = materializationServices;
+            if (services is not null)
+                return services;
+
+            var runtime = new ReadSourceModelMaterializationRuntime(
+                this,
+                new DataSourceAccessMaterializationCache(this));
+            var created = new ModelMaterializationServices(
+                $"sql:{Provider.DatabaseType}",
+                runtime);
+
+            return Interlocked.CompareExchange(
+                ref materializationServices,
+                created,
+                comparand: null) ?? created;
+        }
     }
 
     /// <summary>

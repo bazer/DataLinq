@@ -1,4 +1,5 @@
 using System;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
 
 namespace DataLinq.Instances;
@@ -52,6 +53,71 @@ internal interface IModelMaterializationRuntime
     /// Records an actual cache insertion and refreshes cache occupancy accounting.
     /// </summary>
     void RecordCacheInsertion(TableDefinition table);
+}
+
+/// <summary>
+/// Source-owned identity-cache and metrics boundary used by neutral materialization. Implementations
+/// retain committed versus transaction-local scope without exposing provider-specific state.
+/// </summary>
+internal interface IReadSourceMaterializationCache
+{
+    bool TryGetCached(
+        TableDefinition table,
+        DataLinqKey canonicalProviderKey,
+        out IImmutableInstance? instance);
+
+    ModelCachePublicationResult PublishCached(
+        TableDefinition table,
+        DataLinqKey canonicalProviderKey,
+        RowData rowData,
+        IImmutableInstance instance);
+
+    void RecordCacheLookup(TableDefinition table, bool hit);
+    void RecordMaterialization(TableDefinition table);
+    void RecordCacheInsertion(TableDefinition table);
+}
+
+/// <summary>
+/// Binds the shared materialization algorithm to one read source and its correctly scoped identity
+/// cache. Immutable construction stays source-neutral; cache ownership remains with the source.
+/// </summary>
+internal sealed class ReadSourceModelMaterializationRuntime : IModelMaterializationRuntime
+{
+    private readonly IDataLinqReadSource readSource;
+    private readonly IReadSourceMaterializationCache cache;
+
+    internal ReadSourceModelMaterializationRuntime(
+        IDataLinqReadSource readSource,
+        IReadSourceMaterializationCache cache)
+    {
+        this.readSource = readSource ?? throw new ArgumentNullException(nameof(readSource));
+        this.cache = cache ?? throw new ArgumentNullException(nameof(cache));
+    }
+
+    public bool TryGetCached(
+        TableDefinition table,
+        DataLinqKey canonicalProviderKey,
+        out IImmutableInstance? instance) =>
+        cache.TryGetCached(table, canonicalProviderKey, out instance);
+
+    public IImmutableInstance CreateImmutable(RowData rowData) =>
+        InstanceFactory.NewReadSourceImmutableRow(rowData, readSource);
+
+    public ModelCachePublicationResult PublishCached(
+        TableDefinition table,
+        DataLinqKey canonicalProviderKey,
+        RowData rowData,
+        IImmutableInstance instance) =>
+        cache.PublishCached(table, canonicalProviderKey, rowData, instance);
+
+    public void RecordCacheLookup(TableDefinition table, bool hit) =>
+        cache.RecordCacheLookup(table, hit);
+
+    public void RecordMaterialization(TableDefinition table) =>
+        cache.RecordMaterialization(table);
+
+    public void RecordCacheInsertion(TableDefinition table) =>
+        cache.RecordCacheInsertion(table);
 }
 
 internal enum ModelCachePublication
