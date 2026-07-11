@@ -125,7 +125,7 @@ Exit signal:
 
 ### SC-2: Runtime Materialization And Mutation
 
-Progress on 2026-07-11: the shared canonical-provider-to-model row materializer is implemented with column-only conversion context, null bypass, output validation, and safe diagnostics. `ProviderRowDecoder` now decodes full SQL reader rows into canonical provider values before scalar materialization, and the buffered SQL primary-key row-loader adapter owns command/reader lifetime around it. That adapter is not yet routed through live `TableCache` reads. Model-to-canonical mutation writes, generated/default hydration, UUID physical codecs, and the remaining query/materialization routes remain open; SC-2 is not complete.
+Progress on 2026-07-11: the shared canonical-provider-to-model row materializer is implemented with column-only conversion context, null bypass, output validation, and safe diagnostics. `ProviderRowDecoder` now decodes full SQL reader rows into canonical provider values before scalar materialization, and the buffered SQL primary-key row-loader adapter owns command/reader lifetime around it. That adapter is not yet routed through live `TableCache` reads. `ModelValueConverter` now applies the reverse model-to-canonical mapping exactly once for insert values, update values and keys, and delete keys before the provider writer performs physical encoding. Existing canonical loader/key writer calls do not enter that model conversion path. Null mutation slots temporarily preserve pass-through because the current row shape cannot distinguish an explicit null from an unset server default. Generated/default hydration, UUID physical codecs, and the remaining query/materialization routes remain open; SC-2 is not complete.
 
 Work:
 

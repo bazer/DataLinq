@@ -49,6 +49,7 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         await Assert.That(result.Rows[1][table.GetColumnByDbName("name")]).IsEqualTo("Grace");
         await Assert.That(writer.Values.Select(static value => value.Value).ToArray())
             .IsEquivalentTo(new object?[] { 42, 43 });
+        await Assert.That(converter.ToProviderCalls).IsEqualTo(0);
         await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
         await Assert.That(provider.CommandCreationCalls).IsEqualTo(1);
         await Assert.That(databaseAccess.LastCommand).IsSameReferenceAs(command);
@@ -152,10 +153,14 @@ public sealed class DataSourceAccessSourceRowLoaderTests
 
     private sealed class RecordingIdConverter : DataLinqScalarConverter<ModelId, int>
     {
+        public int ToProviderCalls { get; private set; }
         public int FromProviderCalls { get; private set; }
 
-        public override int ToProvider(ModelId modelValue, in ScalarConversionContext context) =>
-            modelValue.Value;
+        public override int ToProvider(ModelId modelValue, in ScalarConversionContext context)
+        {
+            ToProviderCalls++;
+            return modelValue.Value;
+        }
 
         public override ModelId FromProvider(int providerValue, in ScalarConversionContext context)
         {

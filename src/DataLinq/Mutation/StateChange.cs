@@ -194,7 +194,7 @@ public class StateChange
     {
         foreach (var column in Table.Columns)
         {
-            var val = writer.ConvertColumnValue(column, Model[column]);
+            var val = writer.ConvertModelColumnValue(column, Model[column], "mutation.insert");
             query.Set(column.DbName, val);
         }
 
@@ -207,10 +207,13 @@ public class StateChange
     private IQuery BuildUpdateQuery(SqlQuery query, IDataLinqDataWriter writer)
     {
         foreach (var column in Table.PrimaryKeyColumns)
-            query.Where(column.DbName).EqualTo(writer.ConvertColumnValue(column, Model[column]));
+            query.Where(column.DbName).EqualTo(
+                writer.ConvertModelColumnValue(column, Model[column], "mutation.update.key"));
 
         foreach (var change in ((IMutableInstance)Model).GetChanges())
-            query.Set(change.Key.DbName, writer.ConvertColumnValue(change.Key, change.Value));
+            query.Set(
+                change.Key.DbName,
+                writer.ConvertModelColumnValue(change.Key, change.Value, "mutation.update.value"));
 
         return query.UpdateQuery();
     }
@@ -218,7 +221,8 @@ public class StateChange
     private IQuery BuildDeleteQuery(SqlQuery query, IDataLinqDataWriter writer)
     {
         foreach (var column in Table.PrimaryKeyColumns)
-            query.Where(column.DbName).EqualTo(writer.ConvertColumnValue(column, Model[column]));
+            query.Where(column.DbName).EqualTo(
+                writer.ConvertModelColumnValue(column, Model[column], "mutation.delete.key"));
 
         return query.DeleteQuery();
     }
