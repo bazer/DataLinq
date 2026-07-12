@@ -36,7 +36,7 @@ The important current limitations are equally real:
 - some supported local projection execution still depends on the original expression tree
 - model values, canonical provider values, and provider physical/wire values are not separate first-class contracts
 - DataLinq has no native async database I/O surface
-- mutable baselines do not yet have complete rollback/cross-transaction provenance rules
+- managed mutable baselines now have explicit rollback/cross-transaction provenance, but raw-handle and full-concurrency boundaries remain unresolved
 - there is no memory backend, JSON memory persistence package, or migration execution engine
 
 ## Roadmap Principles

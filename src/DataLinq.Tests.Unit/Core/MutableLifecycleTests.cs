@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Cache;
@@ -20,11 +21,7 @@ public sealed class MutableLifecycleTests
 {
     static MutableLifecycleTests()
     {
-        var employeesMetadata = MetadataFromTypeFactory
-            .ParseDatabaseFromDatabaseModel(typeof(EmployeesDb))
-            .ValueOrException();
-        EmployeesDb.SetDataLinqGeneratedMetadata(employeesMetadata);
-        DatabaseDefinition.TryAddLoadedDatabase(typeof(EmployeesDb), employeesMetadata);
+        EmployeesGeneratedMetadataFixture.EnsureInitialized();
     }
 
     [Test]
@@ -44,7 +41,30 @@ public sealed class MutableLifecycleTests
         await Assert.That(lifecycle.TransactionOwner).IsNull();
         await Assert.That(lifecycle.NeutralReadSourceOwner).IsNull();
         await Assert.That(lifecycle.InvalidationReason).IsNull();
+        await Assert.That(mutable.first_name).IsEqualTo("Changed");
         await Assert.That(mutable.GetHashCode()).IsEqualTo(initialHash);
+
+        var inheritedLifecycleFields = typeof(Mutable<Employee>)
+            .GetFields(
+                BindingFlags.Instance |
+                BindingFlags.NonPublic |
+                BindingFlags.DeclaredOnly)
+            .Where(field => field.FieldType == typeof(MutableLifecycle))
+            .ToArray();
+        var generatedLifecycleFields = mutable.GetType()
+            .GetFields(
+                BindingFlags.Instance |
+                BindingFlags.Public |
+                BindingFlags.NonPublic |
+                BindingFlags.DeclaredOnly)
+            .Where(field => field.FieldType == typeof(MutableLifecycle))
+            .ToArray();
+
+        await Assert.That(inheritedLifecycleFields.Length).IsEqualTo(1);
+        await Assert.That(generatedLifecycleFields).IsEmpty();
+        await Assert.That(mutable.GetType().GetProperty(
+            "Lifecycle",
+            BindingFlags.Instance | BindingFlags.Public)).IsNull();
     }
 
     [Test]
