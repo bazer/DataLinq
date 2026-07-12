@@ -91,6 +91,50 @@ public class CacheNotificationManagerTests
 
     [Test]
     [NotInParallel]
+    public async Task Notify_WhenSubscriberThrows_ContinuesSweepAndRethrowsOriginalFailure()
+    {
+        var expected = new InvalidOperationException("first notification failure");
+        var throwingSubscriber = new ThrowingSubscriber(expected);
+        var laterSubscriber = new MockSubscriber();
+        manager.Subscribe(throwingSubscriber);
+        manager.Subscribe(laterSubscriber);
+        var occupiedNotificationBytes = manager.GetMemoryEstimate().NotificationBytes;
+
+        var observed = Capture<InvalidOperationException>(manager.Notify);
+
+        await Assert.That(observed).IsSameReferenceAs(expected);
+        await Assert.That(throwingSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(laterSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(GetSubscriberCount()).IsEqualTo(0);
+        await Assert.That(manager.GetMemoryEstimate().NotificationBytes).IsLessThan(occupiedNotificationBytes);
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task Notify_WhenMultipleSubscribersThrow_CompletesSweepAndAggregatesFailures()
+    {
+        var firstFailure = new InvalidOperationException("first notification failure");
+        var secondFailure = new NotSupportedException("second notification failure");
+        var firstSubscriber = new ThrowingSubscriber(firstFailure);
+        var secondSubscriber = new ThrowingSubscriber(secondFailure);
+        var laterSubscriber = new MockSubscriber();
+        manager.Subscribe(firstSubscriber);
+        manager.Subscribe(secondSubscriber);
+        manager.Subscribe(laterSubscriber);
+
+        var observed = Capture<AggregateException>(manager.Notify);
+
+        await Assert.That(observed.InnerExceptions.Count).IsEqualTo(2);
+        await Assert.That(observed.InnerExceptions[0]).IsSameReferenceAs(firstFailure);
+        await Assert.That(observed.InnerExceptions[1]).IsSameReferenceAs(secondFailure);
+        await Assert.That(firstSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(secondSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(laterSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(GetSubscriberCount()).IsEqualTo(0);
+    }
+
+    [Test]
+    [NotInParallel]
     public async Task Notify_DoesNotNotifyGarbageCollectedSubscriber()
     {
         var liveSubscriber = new MockSubscriber();
@@ -121,6 +165,29 @@ public class CacheNotificationManagerTests
         manager.Notify();
 
         await Assert.That(subscriber.ClearCacheCallCount).IsEqualTo(1);
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task Discard_DropsSubscribersWithoutInvokingAndRepairsAccounting()
+    {
+        var firstSubscriber = new MockSubscriber();
+        var secondSubscriber = new MockSubscriber();
+        manager.Subscribe(firstSubscriber);
+        manager.Subscribe(secondSubscriber);
+        var occupiedNotificationBytes = manager.GetMemoryEstimate().NotificationBytes;
+
+        manager.Discard();
+
+        await Assert.That(GetSubscriberCount()).IsEqualTo(0);
+        await Assert.That(manager.GetMemoryEstimate().NotificationBytes).IsLessThan(occupiedNotificationBytes);
+        await Assert.That(firstSubscriber.ClearCacheCallCount).IsEqualTo(0);
+        await Assert.That(secondSubscriber.ClearCacheCallCount).IsEqualTo(0);
+
+        manager.Notify();
+
+        await Assert.That(firstSubscriber.ClearCacheCallCount).IsEqualTo(0);
+        await Assert.That(secondSubscriber.ClearCacheCallCount).IsEqualTo(0);
     }
 
     [Test]
@@ -173,6 +240,21 @@ public class CacheNotificationManagerTests
         var subscribersField = typeof(TableCache.CacheNotificationManager).GetField("_subscribers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         var queue = subscribersField!.GetValue(manager)!;
         return (int)queue.GetType().GetProperty("Count")!.GetValue(queue)!;
+    }
+
+    private static TException Capture<TException>(Action action)
+        where TException : Exception
+    {
+        try
+        {
+            action();
+        }
+        catch (TException exception)
+        {
+            return exception;
+        }
+
+        throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -255,6 +337,19 @@ public class CacheNotificationManagerTests
 
             Interlocked.Increment(ref clearCacheCallCount);
             waitHandle?.Set();
+        }
+    }
+
+    private sealed class ThrowingSubscriber(Exception exception) : ICacheNotification
+    {
+        private int clearCacheCallCount;
+
+        public int ClearCacheCallCount => clearCacheCallCount;
+
+        public void Clear()
+        {
+            Interlocked.Increment(ref clearCacheCallCount);
+            throw exception;
         }
     }
 

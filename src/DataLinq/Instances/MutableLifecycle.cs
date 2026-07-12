@@ -32,7 +32,8 @@ internal enum MutableInvalidationReason
 internal enum MutableTransactionOutcome
 {
     Unresolved,
-    Committed
+    Committed,
+    CommittedStateFinalizationFailed
 }
 
 internal sealed class MutableTransactionOwnership
@@ -53,7 +54,16 @@ internal sealed class MutableTransactionOwnership
         (MutableTransactionOutcome)Volatile.Read(ref outcome);
 
     internal void MarkCommittedAfterPublication() =>
-        Volatile.Write(ref outcome, (int)MutableTransactionOutcome.Committed);
+        Interlocked.CompareExchange(
+            ref outcome,
+            (int)MutableTransactionOutcome.Committed,
+            (int)MutableTransactionOutcome.Unresolved);
+
+    internal void MarkCommittedStateFinalizationFailed() =>
+        Interlocked.CompareExchange(
+            ref outcome,
+            (int)MutableTransactionOutcome.CommittedStateFinalizationFailed,
+            (int)MutableTransactionOutcome.Unresolved);
 }
 
 internal readonly record struct MutableBaselineOrigin(
@@ -156,6 +166,7 @@ internal sealed class MutableLifecycle
             ? origin.TransactionOwner
             : null;
         neutralReadSourceOwner = origin.NeutralReadSourceOwner;
+        invalidationReason = GetOriginInvalidationReason(origin);
     }
 
     internal static MutableLifecycle New() =>
@@ -179,11 +190,23 @@ internal sealed class MutableLifecycle
         {
             var effectiveBaselineKind = baselineKind;
             var effectiveTransactionOwner = transactionOwner;
+            var effectiveInvalidationReason = invalidationReason;
             if (effectiveBaselineKind == MutableBaselineKind.TransactionLocal &&
-                effectiveTransactionOwner?.Outcome == MutableTransactionOutcome.Committed)
+                effectiveTransactionOwner is not null)
             {
-                effectiveBaselineKind = MutableBaselineKind.Committed;
-                effectiveTransactionOwner = null;
+                switch (effectiveTransactionOwner.Outcome)
+                {
+                    case MutableTransactionOutcome.Committed:
+                        effectiveBaselineKind = MutableBaselineKind.Committed;
+                        effectiveTransactionOwner = null;
+                        break;
+                    case MutableTransactionOutcome.CommittedStateFinalizationFailed:
+                        effectiveBaselineKind = MutableBaselineKind.Invalid;
+                        effectiveTransactionOwner = null;
+                        effectiveInvalidationReason =
+                            MutableInvalidationReason.CommittedStateFinalizationFailed;
+                        break;
+                }
             }
 
             return new MutableLifecycleSnapshot(
@@ -192,7 +215,7 @@ internal sealed class MutableLifecycle
                 providerOwner,
                 effectiveTransactionOwner,
                 neutralReadSourceOwner,
-                invalidationReason);
+                effectiveInvalidationReason);
         }
     }
 
@@ -285,6 +308,9 @@ internal sealed class MutableLifecycle
         if (owner is null)
             return false;
 
+        if (owner.Outcome == MutableTransactionOutcome.CommittedStateFinalizationFailed)
+            return false;
+
         if (baselineKind == MutableBaselineKind.Committed)
         {
             return transactionOwner is null &&
@@ -324,10 +350,19 @@ internal sealed class MutableLifecycle
     }
 
     private static MutableBaselineKind GetBaselineKind(MutableBaselineOrigin origin) =>
-        origin.TransactionOwner is null ||
-        origin.TransactionOwner.Outcome == MutableTransactionOutcome.Committed
-            ? MutableBaselineKind.Committed
-            : MutableBaselineKind.TransactionLocal;
+        origin.TransactionOwner?.Outcome switch
+        {
+            null or MutableTransactionOutcome.Committed => MutableBaselineKind.Committed,
+            MutableTransactionOutcome.CommittedStateFinalizationFailed => MutableBaselineKind.Invalid,
+            _ => MutableBaselineKind.TransactionLocal
+        };
+
+    private static MutableInvalidationReason? GetOriginInvalidationReason(
+        MutableBaselineOrigin origin) =>
+        origin.TransactionOwner?.Outcome ==
+            MutableTransactionOutcome.CommittedStateFinalizationFailed
+                ? MutableInvalidationReason.CommittedStateFinalizationFailed
+                : null;
 
     private void ApplyOrigin(MutableBaselineOrigin origin)
     {
@@ -337,7 +372,7 @@ internal sealed class MutableLifecycle
             ? origin.TransactionOwner
             : null;
         neutralReadSourceOwner = origin.NeutralReadSourceOwner;
-        invalidationReason = null;
+        invalidationReason = GetOriginInvalidationReason(origin);
     }
 
     private static bool HasSameCommittedOwner(

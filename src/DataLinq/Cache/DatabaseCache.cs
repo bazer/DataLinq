@@ -141,6 +141,104 @@ public class DatabaseCache : IDisposable
         }
     }
 
+    internal IReadOnlyList<Exception> RemoveTransactionBestEffort(Transaction transaction)
+    {
+        List<Exception>? failures = null;
+
+        foreach (var table in TableCaches.Values)
+        {
+            try
+            {
+                if (!table.TryRemoveTransaction(transaction) &&
+                    table.IsTransactionInCache(transaction))
+                {
+                    (failures ??= []).Add(new InvalidOperationException(
+                        $"Transaction {transaction.TransactionID} remained in cache for table '{table.Table.DbName}' after best-effort removal."));
+                }
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+        }
+
+        return failures is null ? Array.Empty<Exception>() : failures;
+    }
+
+    internal IReadOnlyList<Exception> ClearForRecovery()
+    {
+        List<Exception>? failures = null;
+        var tables = TableCaches.Values.ToArray();
+
+        // Finish structural cleanup for every table before notifying any subscribers.
+        // Recovery callers cannot safely expose a mixture of cleared and stale tables
+        // to relation callbacks after the database commit has already succeeded.
+        foreach (var table in tables)
+        {
+            try
+            {
+                table.ClearRowsWithoutNotification();
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+
+            try
+            {
+                table.ClearIndex();
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+        }
+
+        foreach (var table in tables)
+        {
+            try
+            {
+                table.NotifyRecoveryClear();
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+
+            // A recovery notification may itself subscribe more relation objects.
+            // Once recovery requires fresh materialization, none of those callbacks
+            // are safe to retain for a later clear or provider disposal.
+            try
+            {
+                table.DiscardRecoveryNotifications();
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+        }
+
+        return failures is null ? Array.Empty<Exception>() : failures;
+    }
+
+    internal IReadOnlyList<Exception> DiscardRecoveryNotifications()
+    {
+        List<Exception>? failures = null;
+        foreach (var table in TableCaches.Values)
+        {
+            try
+            {
+                table.DiscardRecoveryNotifications();
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+        }
+
+        return failures is null ? Array.Empty<Exception>() : failures;
+    }
+
     public void CleanRelationNotifications()
     {
         foreach (var table in TableCaches.Values)

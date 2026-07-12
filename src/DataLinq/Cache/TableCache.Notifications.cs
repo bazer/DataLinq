@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
@@ -59,8 +60,10 @@ public partial class TableCache
                 index.Columns.SequenceEqual(index.Table.PrimaryKeyColumns);
         }
 
-        // Use ConcurrentQueue. Subscribe stays lock-free and O(1).
-        // Notify self-clears by swapping the queue, and Clean compacts dead
+        // Use ConcurrentQueue for O(1) subscriptions. Queue replacement and
+        // subscription enqueue are serialized briefly so recovery can establish
+        // a precise discard boundary without racing an enqueue into an old queue.
+        // Notify invokes subscribers outside that gate, and Clean compacts dead
         // weak references for read-heavy workloads that don't notify often.
         private readonly DataLinqTableMetricsHandle metricsHandle;
         private ConcurrentQueue<CacheNotificationSubscription> _subscribers = new();
@@ -68,6 +71,7 @@ public partial class TableCache
         private int _approximateSubscriberCount = 0;
         private long _notificationBytes = 0;
         private long _relationObjectBytes = 0;
+        private long _discardGeneration = 0;
 
         internal CacheNotificationManager(DataLinqTableMetricsHandle metricsHandle)
         {
@@ -99,18 +103,25 @@ public partial class TableCache
                 CacheMemoryEstimator.WeakReferenceBytes);
             var relationObjectBytes = EstimateRelationSubscriptionBytes(relationKey, loadedPrimaryKeyArray);
 
-            // This is a fully thread-safe, lock-free, O(1) operation.
-            _subscribers.Enqueue(new CacheNotificationSubscription(
-                new WeakReference<ICacheNotification>(subscriber),
-                transaction,
-                tableWide,
-                relationKey,
-                loadedPrimaryKeyArray,
-                notificationBytes,
-                relationObjectBytes));
-            AddSubscriptionEstimate(notificationBytes, relationObjectBytes);
-            var approximateQueueDepth = Interlocked.Increment(ref _approximateSubscriberCount);
-            metricsHandle.RecordCacheNotificationSubscribe(approximateQueueDepth);
+            EnterMaintenanceGate();
+            try
+            {
+                _subscribers.Enqueue(new CacheNotificationSubscription(
+                    new WeakReference<ICacheNotification>(subscriber),
+                    transaction,
+                    tableWide,
+                    relationKey,
+                    loadedPrimaryKeyArray,
+                    notificationBytes,
+                    relationObjectBytes));
+                AddSubscriptionEstimate(notificationBytes, relationObjectBytes);
+                var approximateQueueDepth = Interlocked.Increment(ref _approximateSubscriberCount);
+                metricsHandle.RecordCacheNotificationSubscribe(approximateQueueDepth);
+            }
+            finally
+            {
+                ExitMaintenanceGate();
+            }
         }
 
         internal CacheMemoryEstimate GetMemoryEstimate()
@@ -140,13 +151,12 @@ public partial class TableCache
                 return;
             }
 
-            // 2. Serialize the queue swap with Clean() without blocking Subscribe().
+            // 2. Serialize the queue swap with Subscribe(), Clean(), and Discard().
             // We only hold this gate long enough to take a private snapshot.
-            var spinWait = new SpinWait();
-            while (Interlocked.CompareExchange(ref _maintenanceState, 1, 0) != 0)
-                spinWait.SpinOnce();
+            EnterMaintenanceGate();
 
             ConcurrentQueue<CacheNotificationSubscription>? subscribersToNotify = null;
+            long discardGeneration;
             try
             {
                 // Another maintenance operation may already have swapped the queue
@@ -161,16 +171,17 @@ public partial class TableCache
                 // to the new queue without interfering with this notification pass.
                 subscribersToNotify = Interlocked.Exchange(ref _subscribers, new ConcurrentQueue<CacheNotificationSubscription>());
                 Interlocked.Exchange(ref _approximateSubscriberCount, 0);
+                discardGeneration = Volatile.Read(ref _discardGeneration);
             }
             finally
             {
-                Volatile.Write(ref _maintenanceState, 0);
+                ExitMaintenanceGate();
             }
 
             // 4. Iterate over our private snapshot outside the maintenance gate.
             var snapshotEntries = 0;
             var liveSubscribers = 0;
-            var requeuedSubscribers = 0;
+            List<Exception>? notificationFailures = null;
             foreach (var subscription in subscribersToNotify)
             {
                 snapshotEntries++;
@@ -180,15 +191,23 @@ public partial class TableCache
                         subscription.Matches(impact))
                     {
                         liveSubscribers++;
-                        subscriber.Clear();
-                        DropSubscriptionEstimate(subscription);
+                        try
+                        {
+                            subscriber.Clear();
+                        }
+                        catch (Exception exception)
+                        {
+                            (notificationFailures ??= []).Add(exception);
+                        }
+                        finally
+                        {
+                            DropSubscriptionEstimate(subscription);
+                        }
                     }
                     else
                     {
                         DropSubscriptionEstimate(subscription);
-                        _subscribers.Enqueue(subscription);
-                        AddSubscriptionEstimate(subscription);
-                        requeuedSubscribers++;
+                        TryRequeueAfterNotify(subscription, discardGeneration);
                     }
                 }
                 else
@@ -197,8 +216,47 @@ public partial class TableCache
                 }
             }
 
-            var approximateQueueDepth = Interlocked.Add(ref _approximateSubscriberCount, requeuedSubscribers);
+            var approximateQueueDepth = Volatile.Read(ref _approximateSubscriberCount);
             metricsHandle.RecordCacheNotificationNotifySweep(snapshotEntries, liveSubscribers, approximateQueueDepth);
+
+            if (notificationFailures is { Count: 1 })
+                ExceptionDispatchInfo.Capture(notificationFailures[0]).Throw();
+
+            if (notificationFailures is { Count: > 1 })
+                throw new AggregateException("Multiple cache notification subscribers failed to clear.", notificationFailures);
+        }
+
+        internal void Discard()
+        {
+            EnterMaintenanceGate();
+            try
+            {
+                Interlocked.Increment(ref _discardGeneration);
+                var subscribersToDiscard = Interlocked.Exchange(
+                    ref _subscribers,
+                    new ConcurrentQueue<CacheNotificationSubscription>());
+                Interlocked.Exchange(ref _approximateSubscriberCount, 0);
+
+                var discardedSubscribers = 0;
+                foreach (var subscription in subscribersToDiscard)
+                {
+                    discardedSubscribers++;
+                    DropSubscriptionEstimate(subscription);
+                }
+
+                if (discardedSubscribers > 0)
+                {
+                    metricsHandle.RecordCacheNotificationCleanSweep(
+                        discardedSubscribers,
+                        requeuedSubscribers: 0,
+                        droppedSubscribers: discardedSubscribers,
+                        currentQueueDepth: 0);
+                }
+            }
+            finally
+            {
+                ExitMaintenanceGate();
+            }
         }
 
         internal void Clean()
@@ -277,6 +335,37 @@ public partial class TableCache
             return bytes;
         }
 
+        private bool TryRequeueAfterNotify(
+            CacheNotificationSubscription subscription,
+            long discardGeneration)
+        {
+            EnterMaintenanceGate();
+            try
+            {
+                if (Volatile.Read(ref _discardGeneration) != discardGeneration)
+                    return false;
+
+                _subscribers.Enqueue(subscription);
+                AddSubscriptionEstimate(subscription);
+                Interlocked.Increment(ref _approximateSubscriberCount);
+                return true;
+            }
+            finally
+            {
+                ExitMaintenanceGate();
+            }
+        }
+
+        private void EnterMaintenanceGate()
+        {
+            var spinWait = new SpinWait();
+            while (Interlocked.CompareExchange(ref _maintenanceState, 1, 0) != 0)
+                spinWait.SpinOnce();
+        }
+
+        private void ExitMaintenanceGate() =>
+            Volatile.Write(ref _maintenanceState, 0);
+
         private void AddSubscriptionEstimate(CacheNotificationSubscription subscription) =>
             AddSubscriptionEstimate(subscription.NotificationBytes, subscription.RelationObjectBytes);
 
@@ -324,4 +413,7 @@ public partial class TableCache
 
     internal CacheMemoryEstimate GetNotificationMemoryEstimate() =>
         notificationManager?.GetMemoryEstimate() ?? CacheMemoryEstimate.Empty;
+
+    internal void DiscardRecoveryNotifications() =>
+        notificationManager?.Discard();
 }

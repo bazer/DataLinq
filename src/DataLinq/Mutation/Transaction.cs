@@ -566,9 +566,16 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             {
                 DatabaseAccess.Commit();
 
-                Provider.State.ApplyChanges(successfulChanges);
-                Provider.State.RemoveTransactionFromCache(this);
-                PromoteTouchedMutablesAfterCommit();
+                try
+                {
+                    Provider.State.ApplyChanges(successfulChanges);
+                    Provider.State.RemoveTransactionFromCache(this);
+                    PromoteTouchedMutablesAfterCommit();
+                }
+                catch (Exception finalizationFailure)
+                {
+                    ThrowCommittedStateFinalizationFailure(finalizationFailure);
+                }
 
                 Volatile.Write(ref managedCommitFinalizationState, 2);
                 PublishDeferredCommittedStatus();
@@ -628,6 +635,48 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         MutableOwnership.MarkCommittedAfterPublication();
         touchedMutables.Clear();
+    }
+
+    private void ThrowCommittedStateFinalizationFailure(Exception finalizationFailure)
+    {
+        MutableOwnership.MarkCommittedStateFinalizationFailed();
+        foreach (var touchedMutable in touchedMutables)
+        {
+            touchedMutable.Invalidate(
+                MutableInvalidationReason.CommittedStateFinalizationFailed);
+        }
+
+        touchedMutables.Clear();
+
+        var cleanupFailures = new List<Exception>();
+        CollectCleanupFailures(
+            cleanupFailures,
+            () => Provider.State.Cache.RemoveTransactionBestEffort(this));
+        CollectCleanupFailures(
+            cleanupFailures,
+            Provider.State.Cache.ClearForRecovery);
+        CollectCleanupFailures(
+            cleanupFailures,
+            Provider.State.Cache.DiscardRecoveryNotifications);
+
+        throw new TransactionCommitFinalizationException(
+            TransactionID,
+            finalizationFailure,
+            cleanupFailures);
+    }
+
+    private static void CollectCleanupFailures(
+        List<Exception> failures,
+        Func<IReadOnlyList<Exception>> cleanup)
+    {
+        try
+        {
+            failures.AddRange(cleanup());
+        }
+        catch (Exception cleanupFailure)
+        {
+            failures.Add(cleanupFailure);
+        }
     }
 
     private void HandleDatabaseStatusChanged(

@@ -638,6 +638,118 @@ public sealed class TransactionMutationFailureTests
     }
 
     [Test]
+    public async Task GlobalCommitNotificationFailure_InvalidatesLocalStateAndClearsProviderCaches()
+    {
+        using var fixture = new ScriptedFixture();
+        fixture.Provider.State.Cache.CleanupScheduler?.Stop();
+        using var transaction = fixture.Database.Transaction();
+        var deleted = fixture.CreateExistingMutable(426, "delete");
+        fixture.PrimeCommittedRow(901, "unrelated committed row");
+        fixture.PrimeCommittedOtherRow(902);
+        _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(deleted);
+        var expected = new InjectedMutationException("global commit notification");
+        var throwingNotification = new ThrowingNotification(expected);
+        var laterNotification = new CountingNotification();
+        fixture.RowCache.SubscribeToChanges(throwingNotification);
+        fixture.RowCache.SubscribeToChanges(laterNotification);
+        var wrapperCommittedCalls = 0;
+        transaction.OnStatusChanged += (_, args) =>
+        {
+            if (args.Status == DatabaseTransactionStatus.Committed)
+                wrapperCommittedCalls++;
+        };
+
+        await Assert.That(fixture.RowCache.RowCount).IsEqualTo(1);
+        await Assert.That(fixture.OtherRowCache.RowCount).IsEqualTo(1);
+        await Assert.That(fixture.RowCache.IsTransactionInCache(transaction)).IsTrue();
+        await Assert.That(transaction.TouchedMutables.Count).IsEqualTo(1);
+        await Assert.That(deleted.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.TransactionLocal);
+
+        var observed = Capture<TransactionCommitFinalizationException>(transaction.Commit);
+
+        await Assert.That(observed.TransactionId).IsEqualTo(transaction.TransactionID);
+        await Assert.That(observed.InnerException).IsSameReferenceAs(expected);
+        await Assert.That(observed.CleanupFailures).IsEmpty();
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Committed);
+        await Assert.That(fixture.Scenario.Commits).IsEqualTo(1);
+        await Assert.That(fixture.Scenario.Rollbacks).IsEqualTo(0);
+        await Assert.That(wrapperCommittedCalls).IsEqualTo(0);
+        await Assert.That(throwingNotification.ClearCalls).IsEqualTo(1);
+        await Assert.That(laterNotification.ClearCalls).IsEqualTo(1);
+        await Assert.That(transaction.TouchedMutables).IsEmpty();
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.CommittedStateFinalizationFailed);
+        await Assert.That(deleted.Lifecycle.RowKind).IsEqualTo(MutableRowKind.Deleted);
+        await Assert.That(deleted.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(deleted.Lifecycle.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.CommittedStateFinalizationFailed);
+        await Assert.That(deleted.HasStoredCommittedBaseline).IsFalse();
+        await Assert.That(fixture.Provider.State.Cache.TableCaches.Values.All(
+            cache => !cache.IsTransactionInCache(transaction))).IsTrue();
+        await Assert.That(fixture.Provider.State.Cache.TableCaches.Values.All(
+            IsStructurallyEmpty)).IsTrue();
+
+        using var retry = fixture.Database.Transaction();
+        var countsBeforeRetry = fixture.Scenario.SnapshotCounts();
+        var retryFailure = Capture<MutationGuardException>(() => retry.Update(deleted));
+
+        await Assert.That(retryFailure.Message)
+            .Contains("the database committed but local state finalization failed");
+        await Assert.That(fixture.Scenario.SnapshotCounts()).IsEqualTo(countsBeforeRetry);
+        await Assert.That(fixture.Scenario.Rollbacks).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task RecoveryNotificationFailure_IsReportedWithoutMaskingPrimaryFailure()
+    {
+        using var fixture = new ScriptedFixture();
+        fixture.Provider.State.Cache.CleanupScheduler?.Stop();
+        using var transaction = fixture.Database.Transaction();
+        var deleted = fixture.CreateExistingMutable(427, "delete");
+        _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(deleted);
+        var recoveryTables = fixture.Provider.State.Cache.TableCaches.Values
+            .Where(cache => !ReferenceEquals(cache, fixture.RowCache))
+            .ToArray();
+        var recoveryFailureTable = recoveryTables[^2];
+        var laterRecoveryTable = recoveryTables[^1];
+        var primaryFailure = new InjectedMutationException("primary global commit notification");
+        var recoveryFailure = new InjectedMutationException("recovery-only notification");
+        var primaryNotification = new ThrowingNotification(primaryFailure);
+        var recoveryNotification = new ThrowingNotification(recoveryFailure);
+        var laterNotification = new CountingNotification();
+        fixture.RowCache.SubscribeToChanges(primaryNotification);
+        recoveryFailureTable.SubscribeToChanges(recoveryNotification);
+        laterRecoveryTable.SubscribeToChanges(laterNotification);
+        var wrapperCommittedCalls = 0;
+        transaction.OnStatusChanged += (_, args) =>
+        {
+            if (args.Status == DatabaseTransactionStatus.Committed)
+                wrapperCommittedCalls++;
+        };
+
+        var observed = Capture<TransactionCommitFinalizationException>(transaction.Commit);
+
+        await Assert.That(observed.InnerException).IsSameReferenceAs(primaryFailure);
+        await Assert.That(observed.CleanupFailures.Count).IsEqualTo(1);
+        await Assert.That(observed.CleanupFailures[0]).IsSameReferenceAs(recoveryFailure);
+        await Assert.That(primaryNotification.ClearCalls).IsEqualTo(1);
+        await Assert.That(recoveryNotification.ClearCalls).IsEqualTo(1);
+        await Assert.That(laterNotification.ClearCalls).IsEqualTo(1);
+        await Assert.That(fixture.Scenario.Commits).IsEqualTo(1);
+        await Assert.That(fixture.Scenario.Rollbacks).IsEqualTo(0);
+        await Assert.That(wrapperCommittedCalls).IsEqualTo(0);
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Committed);
+        await Assert.That(fixture.Provider.State.Cache.TableCaches.Values.All(
+            cache => !cache.IsTransactionInCache(transaction))).IsTrue();
+    }
+
+    [Test]
     public async Task GlobalCommitNotification_CannotSwitchImmutableReadSourceBeforeFinalization()
     {
         using var fixture = new ScriptedFixture();
@@ -728,6 +840,11 @@ public sealed class TransactionMutationFailureTests
         await Assert.That(transaction.Failure.Cause).IsSameReferenceAs(expectedCause);
     }
 
+    private static bool IsStructurallyEmpty(TableCache cache) =>
+        cache.RowCount == 0 &&
+        cache.TransactionRowsCount == 0 &&
+        cache.IndicesCount.All(index => index.count == 0);
+
     private static async Task AssertInvalidMutation(
         Mutable<TransactionMutationGuardRow> mutable,
         string expectedValue)
@@ -774,7 +891,9 @@ public sealed class TransactionMutationFailureTests
             RowTable = Provider.Metadata.GetTableModel(typeof(TransactionMutationGuardRow)).Table;
             BinaryTable = Provider.Metadata.GetTableModel(typeof(TransactionMutationGuardBinaryRow)).Table;
             AutoTable = Provider.Metadata.GetTableModel(typeof(TransactionMutationGuardAutoRow)).Table;
+            OtherRowTable = Provider.Metadata.GetTableModel(typeof(TransactionMutationGuardOtherRow)).Table;
             RowCache = Provider.GetTableCache(RowTable);
+            OtherRowCache = Provider.GetTableCache(OtherRowTable);
         }
 
         internal ScriptedMutationScenario Scenario { get; }
@@ -783,7 +902,9 @@ public sealed class TransactionMutationFailureTests
         internal TableDefinition RowTable { get; }
         internal TableDefinition BinaryTable { get; }
         internal TableDefinition AutoTable { get; }
+        internal TableDefinition OtherRowTable { get; }
         internal TableCache RowCache { get; }
+        internal TableCache OtherRowCache { get; }
 
         internal Mutable<TransactionMutationGuardRow> CreateExistingMutable(
             int id,
@@ -812,6 +933,36 @@ public sealed class TransactionMutationFailureTests
             new(InstanceFactory.NewImmutableRow<TransactionMutationGuardBinaryRow>(
                 new ScriptedBinaryRowData(BinaryTable, id, payload),
                 Provider.ReadOnlyAccess));
+
+        internal void PrimeCommittedRow(int id, string value)
+        {
+            var rows = new RowCache();
+            if (!rows.TryAddRow(id, 128, CreateImmutable(id, value)))
+                throw new InvalidOperationException("Could not prime the committed row cache.");
+
+            SetCommittedRows(RowCache, rows);
+        }
+
+        internal void PrimeCommittedOtherRow(int id)
+        {
+            var immutable = InstanceFactory.NewImmutableRow<TransactionMutationGuardOtherRow>(
+                new ScriptedOtherRowData(OtherRowTable, id),
+                Provider.ReadOnlyAccess);
+            var rows = new RowCache();
+            if (!rows.TryAddRow(id, 128, immutable))
+                throw new InvalidOperationException("Could not prime the other committed row cache.");
+
+            SetCommittedRows(OtherRowCache, rows);
+        }
+
+        private static void SetCommittedRows(TableCache cache, RowCache rows)
+        {
+            var rowCacheField = typeof(TableCache).GetField(
+                "rowCache",
+                System.Reflection.BindingFlags.NonPublic |
+                System.Reflection.BindingFlags.Instance);
+            rowCacheField!.SetValue(cache, rows);
+        }
 
         public void Dispose() => Database.Dispose();
     }
@@ -1088,6 +1239,29 @@ public sealed class TransactionMutationFailureTests
                 "payload" => payload,
                 _ => null
             };
+
+        public object? this[int columnIndex] => this[Table.Columns[columnIndex]];
+        public object? GetValue(ColumnDefinition column) => this[column];
+        public object? GetValue(int columnIndex) => this[columnIndex];
+        public IEnumerable<object?> GetValues(IEnumerable<ColumnDefinition> columns) =>
+            columns.Select(column => this[column]);
+        public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues() =>
+            GetColumnAndValues(Table.Columns);
+        public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues(
+            IEnumerable<ColumnDefinition> columns) =>
+            columns.Select(column => new KeyValuePair<ColumnDefinition, object?>(
+                column,
+                this[column]));
+    }
+
+    private sealed class ScriptedOtherRowData(
+        TableDefinition table,
+        int id) : IRowData
+    {
+        public TableDefinition Table { get; } = table;
+
+        public object? this[ColumnDefinition column] =>
+            column.DbName == "id" ? id : null;
 
         public object? this[int columnIndex] => this[Table.Columns[columnIndex]];
         public object? GetValue(ColumnDefinition column) => this[column];

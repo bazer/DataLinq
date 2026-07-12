@@ -126,6 +126,28 @@ public sealed class MutableLifecycleTests
     }
 
     [Test]
+    public async Task CommittedFinalizationFailure_InvalidatesTokenDerivedLifecyclePermanently()
+    {
+        using var provider = new IdentityProvider("provider-a");
+        var owner = new MutableTransactionOwnership(provider, transactionId: 21);
+        var lifecycle = MutableLifecycle.New();
+        lifecycle.AdvanceHydrated(owner);
+
+        owner.MarkCommittedStateFinalizationFailed();
+        owner.MarkCommittedAfterPublication();
+
+        var failed = lifecycle.Snapshot;
+        await Assert.That(owner.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.CommittedStateFinalizationFailed);
+        await Assert.That(failed.RowKind).IsEqualTo(MutableRowKind.Existing);
+        await Assert.That(failed.BaselineKind).IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(failed.TransactionOwner).IsNull();
+        await Assert.That(failed.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.CommittedStateFinalizationFailed);
+        await Assert.That(lifecycle.TryPromoteCommitted(owner)).IsFalse();
+    }
+
+    [Test]
     public async Task TransactionOwnership_ConcurrentCommitSnapshotsNeverTear()
     {
         using var provider = new IdentityProvider("provider-a");
