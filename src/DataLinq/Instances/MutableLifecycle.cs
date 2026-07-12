@@ -125,6 +125,11 @@ internal interface IMutableLifecycle
     void Invalidate(MutableInvalidationReason reason);
 }
 
+internal interface IMutableChangeTracking
+{
+    long MutationVersion { get; }
+}
+
 internal sealed class MutableLifecycle
 {
     private MutableRowKind rowKind;
@@ -281,6 +286,9 @@ internal sealed class MutableLifecycle
 
     internal void Invalidate(MutableInvalidationReason reason)
     {
+        if (baselineKind == MutableBaselineKind.Invalid)
+            return;
+
         baselineKind = MutableBaselineKind.Invalid;
         invalidationReason = reason;
     }

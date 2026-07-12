@@ -8,6 +8,7 @@ using DataLinq.Attributes;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
+using DataLinq.Mutation;
 using DataLinq.Query;
 
 namespace DataLinq.Cache;
@@ -236,6 +237,7 @@ public partial class TableCache
 
         public RowData? ReadFirstRow()
         {
+            DataSourceAccess.EnsureReadAllowed(dataSource, "read a cache row");
             using var command = ToDbCommand();
             using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
 

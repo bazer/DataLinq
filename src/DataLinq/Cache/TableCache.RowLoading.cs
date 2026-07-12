@@ -7,6 +7,7 @@ using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
+using DataLinq.Mutation;
 using DataLinq.Query;
 
 namespace DataLinq.Cache;
@@ -72,6 +73,7 @@ public partial class TableCache
 
         if (TryConvertScalarProviderColumnValue(foreignKey, index.Columns, dataSource, out var predicateColumn, out var predicateValue))
         {
+            DataSourceAccess.EnsureReadAllowed(dataSource, "load relation rows");
             var scalarQuery = new ScalarColumnRowsQuery(Table, dataSource, predicateColumn, predicateValue);
             using var command = scalarQuery.ToDbCommand();
             using var reader = dataSource.DatabaseAccess.ExecuteReader(command);

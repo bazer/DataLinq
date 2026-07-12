@@ -27,6 +27,14 @@ public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqSourceRowSe
         Provider = provider;
     }
 
+    internal static void EnsureReadAllowed(
+        IDataSourceAccess dataSource,
+        string operation)
+    {
+        if (dataSource is Transaction transaction)
+            transaction.EnsureCanRead(operation);
+    }
+
     IModelMaterializationServices IDataLinqReadServices.MaterializationServices
     {
         get

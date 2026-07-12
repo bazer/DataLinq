@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using DataLinq.Metadata;
 
 namespace DataLinq.Instances;
@@ -8,6 +9,8 @@ namespace DataLinq.Instances;
 public class MutableRowData : IRowData
 {
     private readonly object? mutationOwner;
+    private long mutationVersion;
+    internal long MutationVersion => Volatile.Read(ref mutationVersion);
     IRowData? ImmutableRowData { get; set; }
     Dictionary<ColumnDefinition, object?> MutatedData { get; } = new Dictionary<ColumnDefinition, object?>();
     public TableDefinition Table { get; }
@@ -54,6 +57,7 @@ public class MutableRowData : IRowData
     private void ResetCore()
     {
         MutatedData.Clear();
+        Interlocked.Increment(ref mutationVersion);
     }
 
     public void Reset(IRowData immutableRowData)
@@ -77,6 +81,7 @@ public class MutableRowData : IRowData
 
         this.ImmutableRowData = immutableRowData;
         MutatedData.Clear();
+        Interlocked.Increment(ref mutationVersion);
     }
 
     public object? GetValue(ColumnDefinition column)
@@ -129,6 +134,8 @@ public class MutableRowData : IRowData
             MutatedData[column] = value;
         else
             MutatedData[column] = Convert.ChangeType(value, column.ValueProperty.CsType.Type);
+
+        Interlocked.Increment(ref mutationVersion);
     }
 
     private void ThrowIfOwnerControlled()

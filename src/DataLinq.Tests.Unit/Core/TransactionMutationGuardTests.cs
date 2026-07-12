@@ -1312,6 +1312,7 @@ public abstract partial class TransactionMutationGuardRow(
     public abstract int Id { get; }
 
     [Column("value")]
+    [Index("idx_transaction_mutation_guard_value", IndexCharacteristic.Simple, IndexType.BTREE)]
     [Type(DatabaseType.SQLite, "text")]
     public abstract string Value { get; }
 }
@@ -1358,6 +1359,11 @@ public abstract partial class TransactionMutationGuardBinaryRow(
     [Column("id")]
     [Type(DatabaseType.SQLite, "blob")]
     public abstract byte[] Id { get; }
+
+    [Column("payload")]
+    [Nullable]
+    [Type(DatabaseType.SQLite, "blob")]
+    public abstract byte[]? Payload { get; }
 }
 
 public sealed class TransactionMutationGuardReferenceId(int value)

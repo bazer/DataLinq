@@ -9,7 +9,7 @@
 
 **Created:** 2026-07-10.
 
-**Last reviewed:** 2026-07-11.
+**Last reviewed:** 2026-07-12.
 
 **Depends on:** The required workstreams in the [DataLinq 0.9 Implementation Roadmap](README.md). The final closeout begins only after their baseline evidence is green and the release has selected zero or one optional stretch.
 
@@ -449,7 +449,9 @@ The final matrix must include the focused evidence owned by the feature plans:
 - a hard-coded or raw-SQL pre-0.9 UUID byte fixture, not a fixture produced by the new codec being tested
 - an explicit regression showing a conflicting connector `GuidFormat` cannot redefine column metadata
 - SQLite committed visibility and pending-versus-committed cache publication
-- mutable provenance, rollback/disposal invalidation, failed-write handling, deletion, primary-key mutation rejection, and read-only transaction guards
+- mutable provenance, primary-key mutation rejection, read-only transaction guards, successful-only private mutation authority, detached public `Changes` behavior, and public `StateChange.ExecuteQuery(...)` finalization
+- mutation-failure evidence partitioned between statement preparation/execution, generated-value hydration, transaction-local cache application, authoritative-row hydration, and lifecycle finalization
+- separate still-open evidence for provider-commit unknown outcomes, post-commit publication failures, ordinary rollback/open-disposal invalidation, attached completion, and low-level raw-handle escape closure
 - every advertised memory query shape and every documented unsupported category
 - cancellation and disposal on success, failure, and early rejection
 - the selected stretch's matrix, if one was selected
@@ -508,7 +510,9 @@ Pay particular attention to:
 - capability exceptions and diagnostic properties
 - memory store/build/seed APIs
 - disposal, ownership, concurrency, isolation, and mutability implications
-- mutation-lifecycle behavioral hardening that ApiCompat cannot see: owner-controlled `MutableRowData` no longer accepts direct public reset/value mutation; immutable identity is captured canonically at construction instead of following later in-place reference/byte-array drift; and deferred public `StateChange` execution uses a validated captured candidate rather than later live mutable state
+- mutation-lifecycle behavioral hardening that ApiCompat cannot see: owner-controlled `MutableRowData` no longer accepts direct public reset/value mutation; immutable identity is captured canonically at construction instead of following later in-place reference/byte-array drift; `Transaction.Changes` still returns `List<StateChange>` but now returns a detached ordered snapshot whose mutation cannot change commit authority; `StateChange.GetChanges()` detaches array values; and public `StateChange.ExecuteQuery(...)` is single-attempt once provider execution begins and now performs the same generated-key, pending-cache, authoritative-hydration, lifecycle, successful-recording, and failure-poisoning path as normal transaction mutations
+- captured mutable candidates reject later assignment or in-place array drift before provider work, successful relation/index impact keys are finalized from authoritative hydration rather than a later live mutable, and `TransactionPoisonedException` is the safe diagnostic for later DataLinq-managed operations
+- low-level `Transaction.DatabaseAccess` and captured underlying `IDbTransaction` handles remain outside managed poison and operation guards; this limitation must be reviewed explicitly rather than hidden behind the unchanged public property signature
 - enum additions that might affect exhaustive user switches
 - public types accidentally exposed solely to connect internal backend seams
 
@@ -800,6 +804,8 @@ The draft should include:
 - the narrow release thesis
 - new package/API highlights
 - SQL-provider compatibility and transaction fixes
+- the managed poison recovery contract: the original mutation exception is rethrown, later managed reads/writes/commit are rejected, affected lifecycle mutables are invalidated, and recovery requires rollback or disposal followed by fresh committed materialization
+- the explicit limitation that low-level `DatabaseAccess` or underlying transaction handles can bypass those managed guards and must not be reused after mutation failure
 - typed-ID and UUID behavior
 - exact memory preview boundary
 - upgrade/rebuild or migration notes

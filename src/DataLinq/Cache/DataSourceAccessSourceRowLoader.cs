@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 using DataLinq.Query;
 
 namespace DataLinq.Cache;
@@ -25,6 +26,7 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader
     public SourceRowLoadResult Load(SourcePrimaryKeyRowRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
+        DataSourceAccess.EnsureReadAllowed(dataSource, "load source rows");
 
         if (!ReferenceEquals(request.Table.Database, dataSource.Metadata))
         {

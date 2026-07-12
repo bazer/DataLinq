@@ -2,6 +2,7 @@ using System;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
+using DataLinq.Mutation;
 
 namespace DataLinq.Cache;
 
@@ -50,6 +51,7 @@ internal sealed class DataSourceAccessMaterializationCache : IReadSourceMaterial
     private TableCache GetTableCache(TableDefinition table)
     {
         ArgumentNullException.ThrowIfNull(table);
+        DataSourceAccess.EnsureReadAllowed(dataSource, "access materialized rows");
 
         if (!ReferenceEquals(table.Database, dataSource.Metadata))
         {

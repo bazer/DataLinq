@@ -9,7 +9,7 @@
 
 **Created:** 2026-07-10.
 
-**Last reviewed:** 2026-07-11.
+**Last reviewed:** 2026-07-12.
 
 **Authority:** This document owns the exact cross-workstream implementation order, integration points, artifact ownership, and release gates for 0.9. Feature plans own behavior inside their assigned workstreams. If a feature plan's local ordering conflicts with this release-wide sequence, this document wins until the conflict is explicitly reconciled.
 
@@ -304,14 +304,16 @@ Merge in this order:
 2. Add mutable lifecycle state with stable provider-instance and transaction ownership.
 3. Add write guards for read-only transactions, cross-provider/cross-transaction reuse, invalid/deleted mutables, and ordinary primary-key mutation.
 4. Track touched mutables and support repeated reuse inside the same owning transaction.
-5. Ensure failed commands cannot leave publishable `StateChange` entries; poison an explicit write transaction after mutation or commit failure so only rollback/disposal remains legal.
-6. Promote mutable baselines only after provider commit; invalidate them after rollback, open-transaction disposal, or poisoned completion.
-7. Define attached-transaction completion: once DataLinq mutables are touched, completion must be observed through the wrapper or their baselines become invalid.
-8. Retune transaction/cache/relation compliance tests across SQLite, MySQL, and MariaDB.
-9. Stop enabling SQLite dirty reads.
-10. Remove shared cache from normal file-backed SQLite defaults while retaining the explicit named in-memory exception.
-11. Preserve/configure `DefaultTimeout`, add file-backed WAL contention evidence, and defer automatic retry policy.
-12. Update transaction, caching/mutation, SQLite, and troubleshooting documentation.
+5. Make the successful-change authority private and append only fully finalized mutations; poison the managed transaction after post-preflight statement, generated-value, pending-cache, authoritative-hydration, or lifecycle-finalization failure so only rollback/disposal remains legal.
+6. Promote mutable baselines only after provider commit and local publication; partition post-commit publication failure without pretending the database rolled back.
+7. Invalidate touched mutables after rollback or open-transaction disposal, even when provider cleanup fails.
+8. Classify provider commit failure as outcome-unknown unless provider evidence proves otherwise, and block later managed reuse.
+9. Define attached-transaction completion: once DataLinq mutables are touched, completion must be observed through the wrapper or their baselines become invalid.
+10. Retune transaction/cache/relation compliance tests across SQLite, MySQL, and MariaDB.
+11. Stop enabling SQLite dirty reads.
+12. Remove shared cache from normal file-backed SQLite defaults while retaining the explicit named in-memory exception.
+13. Preserve/configure `DefaultTimeout`, add file-backed WAL contention evidence, and defer automatic retry policy.
+14. Update transaction, caching/mutation, SQLite, and troubleshooting documentation.
 
 Exit:
 
@@ -319,7 +321,7 @@ Exit:
 - SQLite uses committed visibility without claiming literal MySQL/MariaDB `ReadCommitted` equivalence
 - pending state cannot reach global caches or outside relation subscribers before provider commit
 
-Progress on 2026-07-11: `TX-0` is already closed by W1 characterization. W3 has the bounded `ML-1` provenance substrate and the executable `ML-2` pre-execution guard slice. Existing mutables capture exact provider origin, transaction-local provenance uses an opaque exact-transaction token, and authoritative hydration/delete establish transaction-local state that normalizes only after provider commit, global publication, and local-cache cleanup succeed. Every supported model-mutation route now rejects read-only/terminal wrappers, invalid/deleted or wrong-owner mutables, unsupported row shapes, primary-key drift, and foreign metadata before command construction; no-change, callback/generated, immutable-delete, and public `StateChange` routes have focused backstops. `TX-1A` now records successfully transitioned lifecycle mutables in a reference-identity registry without treating no-change or immutable-delete paths as touches. This is not the `ML-1` or W3 exit. `TX-1B` successful-change recording and its minimal poison coupling, rollback/disposal invalidation, the `TX-4` poisoned/uncertain partitions, full `TX-2` promotion/failure handling, attached completion, and the `F6` live-read gate remain open.
+Progress on 2026-07-11: `TX-0` is already closed by W1 characterization. W3 has the bounded `ML-1` provenance substrate and the executable `ML-2` pre-execution guard slice. Existing mutables capture exact provider origin, transaction-local provenance uses an opaque exact-transaction token, and authoritative hydration/delete establish transaction-local state that normalizes only after provider commit, global publication, and local-cache cleanup succeed. Every supported model-mutation route rejects read-only/terminal wrappers, invalid/deleted or wrong-owner mutables, unsupported row shapes, primary-key drift, and foreign metadata before command construction; no-change, callback/generated, immutable-delete, and public `StateChange` routes have focused backstops. `TX-1A` records successfully transitioned lifecycle mutables by reference identity. `TX-1B` now owns a private ordered collection of only fully finalized mutations; the public `Changes` list is a detached snapshot and public `StateChange.ExecuteQuery(...)` enters the same transaction-owned path. Successful execution freezes generated primary keys and relation/index impact keys, while captured mutation values detect later assignment or in-place array drift before provider work. Bounded `TX-4A` poisons the managed wrapper after post-preflight mutation-pipeline failure, invalidates the current and previously touched lifecycle mutables, preserves the original exception, and gates managed reads, writes, callbacks, and commit until rollback or disposal. Mutation/cache-callback managed reentrancy is rejected and completion entry points are serialized; `TX-2` still owns terminal status-callback reads in the provider-commit-to-publication window. A later terminal state supplies the terminal diagnostic rather than a stale poison diagnostic. This is not the `ML-1` or W3 exit. `TX-2`, `TX-3`, provider-commit-unknown and post-commit-publication handling, raw low-level escape closure, attached completion, full concurrency semantics, and the `F6` live-read gate remain open.
 
 ### W4: Neutral Rows, Sources, Materialization, And Scalar Runtime
 
@@ -611,10 +613,13 @@ W2 is complete. W3 is proceeding independently, while W4 remains the next query-
 
 - [x] Close `TX-0` with W1 transaction/cache characterization and the expected-failure ownership matrix.
 - [ ] Complete `ML-1`. The current bounded slice adds exact provider origin, opaque transaction-token ownership, authoritative hydration/delete provenance, and successful-commit token normalization; it does not yet satisfy the full exit evidence.
-- [x] Add `ML-2` command-free guards for the currently representable lifecycle/owner states; the poisoned-transaction check becomes executable with `TX-4` rather than being claimed early.
+- [x] Add `ML-2` command-free guards for the currently representable lifecycle/owner states, including the active poisoned-transaction preflight.
 - [x] Add the bounded `TX-1A` reference-identity touched registry after successful hydrated-baseline or mutable-delete transitions.
-- [ ] Complete `TX-1B` successful-change recording and failed-candidate exclusion together with the minimal `TX-4` poison gate required after statement/cache/hydration failures.
-- [ ] Complete `TX-2` through `TX-4` promotion, rollback/disposal invalidation, failure partitioning, and poisoning.
+- [x] Complete `TX-1B` successful-only private mutation authority, detached public `Changes` snapshots, and failed-candidate exclusion together with bounded `TX-4A` poisoning after post-preflight statement, generated-value, pending-cache, authoritative-hydration, or lifecycle-finalization failures.
+- [ ] Complete `TX-2` commit publication, mutable promotion, and post-commit publication failure handling.
+- [ ] Complete `TX-3` rollback/open-disposal invalidation, including provider-cleanup failures.
+- [ ] Complete the remaining `TX-4` provider-commit-unknown partition without claiming that low-level `DatabaseAccess` or underlying `IDbTransaction` handles are gated.
+- [ ] Complete attached-transaction lifecycle handling and full concurrency semantics.
 - [ ] Keep `F6` cache-cold/relation read routing gated until the W3 terminal-state suite is green.
 
 ### W4 implementation underway

@@ -57,6 +57,7 @@ internal static class MutationPreflight
     {
         ArgumentNullException.ThrowIfNull(transaction);
         ArgumentNullException.ThrowIfNull(change);
+
         Ensure(transaction, change.Model, change.Type);
 
         var capturedChanges = change.GetChanges().ToArray();
@@ -88,6 +89,35 @@ internal static class MutationPreflight
                 modelType: null,
                 "The model primary-key identity changed after this state change was captured.",
                 "Create a new state change from the current committed baseline before retrying.");
+        }
+
+        if (!change.HasSameCapturedMutation())
+        {
+            throw MutationRejected(
+                transaction,
+                change.Type,
+                change.Model,
+                modelType: null,
+                "The mutable assignments changed after this state change was captured.",
+                "Create a fresh state change from the current mutable before retrying.");
+        }
+    }
+
+    internal static void EnsureExecution(
+        Transaction transaction,
+        StateChange change)
+    {
+        Ensure(transaction, change);
+
+        if (change.HasExecutionAttempted)
+        {
+            throw MutationRejected(
+                transaction,
+                change.Type,
+                change.Model,
+                modelType: null,
+                "This state change has already started provider execution.",
+                "Create a fresh state change from a trustworthy mutable baseline before retrying.");
         }
     }
 
@@ -143,6 +173,8 @@ internal static class MutationPreflight
                 $"Transaction {transaction.TransactionID} is already rolled back.",
                 "Start a new transaction and materialize a fresh committed row before retrying the mutation.");
         }
+
+        transaction.EnsureMutationNotPoisoned(operation);
 
         if (transaction.Type == TransactionType.ReadOnly)
         {

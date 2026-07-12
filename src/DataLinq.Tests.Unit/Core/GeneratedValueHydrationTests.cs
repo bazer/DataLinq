@@ -29,9 +29,9 @@ public sealed partial class ModelValueConverterTests
         var model = new TestMutableInstance(table, values, [], isNew: true);
         var stateChange = new StateChange(model, table, TransactionChangeType.Insert);
 
-        stateChange.ExecuteQuery(transaction);
+        stateChange.ExecutePreflightedQuery(transaction);
 
-        var canonicalKey = model.PrimaryKeys();
+        var canonicalKey = stateChange.PrimaryKeys;
 
         await Assert.That(model[idColumn]).IsEqualTo(new MutationId(42));
         await Assert.That(model[idColumn]).IsTypeOf<MutationId>();
@@ -63,7 +63,7 @@ public sealed partial class ModelValueConverterTests
         var stateChange = new StateChange(model, table, TransactionChangeType.Insert);
 
         var exception = Capture<GeneratedValueDecodingException>(() =>
-            stateChange.ExecuteQuery(transaction));
+            stateChange.ExecutePreflightedQuery(transaction));
 
         await Assert.That(exception.Column).IsSameReferenceAs(idColumn);
         await Assert.That(exception.SourceName).IsEqualTo("sql.generated");
@@ -94,7 +94,7 @@ public sealed partial class ModelValueConverterTests
         var stateChange = new StateChange(model, table, TransactionChangeType.Insert);
 
         var exception = Capture<ProviderValueMaterializationException>(() =>
-            stateChange.ExecuteQuery(transaction));
+            stateChange.ExecutePreflightedQuery(transaction));
 
         await Assert.That(exception.Column).IsSameReferenceAs(idColumn);
         await Assert.That(exception.SourceName).IsEqualTo("sql.generated");

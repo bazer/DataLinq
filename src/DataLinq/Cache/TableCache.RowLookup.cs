@@ -218,6 +218,10 @@ public partial class TableCache
 
     private void EnsureTransactionRowCache(IDataSourceAccess dataSource)
     {
+        DataSourceAccess.EnsureReadAllowed(
+            dataSource,
+            "read through the transaction cache");
+
         if (dataSource is Transaction transaction && transaction.Type != TransactionType.ReadOnly)
         {
             var rowsByTransaction = GetOrCreateTransactionRows();

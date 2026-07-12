@@ -6,6 +6,7 @@ using System.Linq;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Metadata;
+using DataLinq.Mutation;
 
 namespace DataLinq.Query;
 
@@ -138,9 +139,13 @@ public class Select<T> : IQuery
 
     public IEnumerable<IDataLinqDataReader> ReadReader()
     {
-        return query.DataSource
+        DataSourceAccess.EnsureReadAllowed(query.DataSource, "read query rows");
+        foreach (var reader in query.DataSource
             .DatabaseAccess
-            .ReadReader(query.DataSource.Provider.ToDbCommand(this));
+            .ReadReader(query.DataSource.Provider.ToDbCommand(this)))
+        {
+            yield return reader;
+        }
     }
 
     public IEnumerable<RowData> ReadRows()
@@ -155,6 +160,7 @@ public class Select<T> : IQuery
 
     public RowData? ReadFirstRow()
     {
+        DataSourceAccess.EnsureReadAllowed(query.DataSource, "read the first query row");
         // Resolve the actual columns being fetched to ensure the RowData
         // reader aligns with the DataReader's fields.
         var columnsToRead = GetColumnsToRead();
@@ -356,6 +362,7 @@ public class Select<T> : IQuery
 
     public V ExecuteScalar<V>()
     {
+        DataSourceAccess.EnsureReadAllowed(query.DataSource, "execute a scalar query");
         var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
         var activity = DataLinqTelemetry.StartQueryActivity(
             telemetryContext,
@@ -399,6 +406,7 @@ public class Select<T> : IQuery
 
     public object? ExecuteScalar()
     {
+        DataSourceAccess.EnsureReadAllowed(query.DataSource, "execute a scalar query");
         var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
         var activity = DataLinqTelemetry.StartQueryActivity(
             telemetryContext,

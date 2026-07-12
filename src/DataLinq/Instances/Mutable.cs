@@ -8,7 +8,7 @@ namespace DataLinq.Instances;
 
 // Add IEquatable interfaces
 public class Mutable<T> : IMutableInstance,
-    IEquatable<Mutable<T>>, IEquatable<T>, IMutableLifecycle // T is the Immutable type
+    IEquatable<Mutable<T>>, IEquatable<T>, IMutableLifecycle, IMutableChangeTracking // T is the Immutable type
     where T : class, IImmutableInstance
 {
     // Transient ID for distinguishing new instances
@@ -28,6 +28,7 @@ public class Mutable<T> : IMutableInstance,
     private DataLinqKey baselineCanonicalPrimaryKey;
     DataLinqKey IMutableLifecycle.BaselineCanonicalPrimaryKey =>
         baselineCanonicalPrimaryKey;
+    long IMutableChangeTracking.MutationVersion => mutableRowData.MutationVersion;
 
     public bool IsNew() => lifecycle.IsNew;
     public bool IsDeleted() => lifecycle.IsDeleted;

@@ -95,7 +95,9 @@ public partial class TableCache
                     {
                         var columnIndex = columnIndices[i];
                         if (invalidatedIndices.Add(columnIndex))
-                            RemoveIndexOnBothSides(columnIndex, change.Model);
+                            RemoveIndexOnBothSides(
+                                columnIndex,
+                                change.GetCurrentRelationKey(columnIndex));
                     }
                 }
             }
@@ -103,7 +105,9 @@ public partial class TableCache
             {
                 foreach (var columnIndex in change.Table.ColumnIndices)
                 {
-                    RemoveIndexOnBothSides(columnIndex, change.Model);
+                    RemoveIndexOnBothSides(
+                        columnIndex,
+                        change.GetCurrentRelationKey(columnIndex));
                 }
             }
         }
@@ -123,15 +127,13 @@ public partial class TableCache
 
         return numRows;
 
-        int RemoveIndexOnBothSides(ColumnIndex columnIndex, IModelInstance model)
+        int RemoveIndexOnBothSides(ColumnIndex columnIndex, DataLinqKey foreignKey)
         {
-            var fk = KeyFactory.GetKey(model, columnIndex.Columns);
-
-            if (TryRemoveForeignKeyIndex(columnIndex, fk, out var indexRowsThisSide))
+            if (TryRemoveForeignKeyIndex(columnIndex, foreignKey, out var indexRowsThisSide))
                 numRows += indexRowsThisSide;
 
             foreach (var index in columnIndex.RelationParts.Select(x => x.GetOtherSide().ColumnIndex))
-                if (DatabaseCache.GetTableCache(index.Table).TryRemoveForeignKeyIndex(index, fk, out var indexRowsOtherSide))
+                if (DatabaseCache.GetTableCache(index.Table).TryRemoveForeignKeyIndex(index, foreignKey, out var indexRowsOtherSide))
                     numRows += indexRowsOtherSide;
 
             return numRows;
@@ -149,7 +151,7 @@ public partial class TableCache
         {
             case TransactionChangeType.Insert:
             case TransactionChangeType.Delete:
-                AddCurrentRelationKeys(change.Model, change.Table.ColumnIndices, impactBuilder);
+                AddCurrentRelationKeys(change, change.Table.ColumnIndices, impactBuilder);
                 break;
             case TransactionChangeType.Update:
                 AddUpdatedRelationKeys(change, impactBuilder);
@@ -158,12 +160,12 @@ public partial class TableCache
     }
 
     private static void AddCurrentRelationKeys(
-        IModelInstance model,
+        StateChange change,
         IEnumerable<ColumnIndex> indices,
         CacheInvalidationImpactBuilder impactBuilder)
     {
         foreach (var index in indices)
-            impactBuilder.AddRelationKey(index, KeyFactory.GetKey(model, index.Columns));
+            impactBuilder.AddRelationKey(index, change.GetCurrentRelationKey(index));
     }
 
     private static void AddUpdatedRelationKeys(StateChange change, CacheInvalidationImpactBuilder impactBuilder)
@@ -178,7 +180,9 @@ public partial class TableCache
                 if (!invalidatedIndices.Add(columnIndex))
                     continue;
 
-                impactBuilder.AddRelationKey(columnIndex, KeyFactory.GetKey(change.Model, columnIndex.Columns));
+                impactBuilder.AddRelationKey(
+                    columnIndex,
+                    change.GetCurrentRelationKey(columnIndex));
 
                 if (TryGetOriginalKey(change, columnIndex.Columns, out var originalKey))
                     impactBuilder.AddRelationKey(columnIndex, originalKey);

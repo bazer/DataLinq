@@ -191,11 +191,17 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
 
     public IDataLinqReadSource GetReadSource()
     {
-        if (readSource is Transaction transaction &&
-            (transaction.Status == DatabaseTransactionStatus.Committed ||
-             transaction.Status == DatabaseTransactionStatus.RolledBack))
+        if (readSource is Transaction transaction)
         {
-            readSource = transaction.Provider.ReadOnlyAccess;
+            if (transaction.Status == DatabaseTransactionStatus.Committed ||
+                transaction.Status == DatabaseTransactionStatus.RolledBack)
+            {
+                readSource = transaction.Provider.ReadOnlyAccess;
+            }
+            else
+            {
+                transaction.EnsureCanRead("access a transaction-bound immutable row");
+            }
         }
 
         return readSource;
