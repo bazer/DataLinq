@@ -2,17 +2,16 @@ using DataLinq.Attributes;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
-using DataLinq.Mutation;
 
 namespace DataLinq.PlatformCompatibility.Smoke;
 
 [Database("platform_smoke")]
 [UseCache]
-public sealed partial class PlatformSmokeDb(DataSourceAccess dataSource) : IDatabaseModel
+public sealed partial class PlatformSmokeDb(IDataLinqReadSource readSource) : IDatabaseModel
 {
-    public DbRead<PlatformSmokeOwner> Owners { get; } = new(dataSource);
+    public DbRead<PlatformSmokeOwner> Owners { get; } = new(readSource);
 
-    public DbRead<PlatformSmokeTask> Tasks { get; } = new(dataSource);
+    public DbRead<PlatformSmokeTask> Tasks { get; } = new(readSource);
 }
 
 [Table("platform_smoke_owners")]

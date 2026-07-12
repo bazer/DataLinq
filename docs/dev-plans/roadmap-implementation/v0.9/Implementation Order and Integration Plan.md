@@ -648,7 +648,7 @@ W2 is complete. W3 is proceeding independently, while W4 remains the next query-
 - [x] Decode checked integral SQL auto-increment results to canonical provider values and materialize generated model IDs before assignment.
 - [x] Normalize converter-backed model-row/model-instance key components, including current/original invalidation keys, while keeping metadata-free provider keys and generated fast paths separate.
 - [x] Preserve insert write-slot assignment provenance and omit only reload-safe, provider-applicable server SQL defaults without collapsing explicit null into unset.
-- [ ] Remove the transitional concrete `DataSourceAccess` cast from checked-in legacy roots after regeneration and migration evidence.
+- [x] Remove the transitional concrete `DataSourceAccess` cast from repository-owned roots: Employees, Allround, and the platform/AOT smoke now declare exact `IDataLinqReadSource` construction and emit both legacy and neutral factories; dedicated legacy fixtures retain compatibility coverage.
 - [ ] Complete SC-2 deferred default shapes, UUID codecs, live read routing, and remaining query/materialization conversion through the shared boundary.
 - [ ] Complete SC-3 reader-sourced and external relation/index lookup normalization without losing operand provenance.
 

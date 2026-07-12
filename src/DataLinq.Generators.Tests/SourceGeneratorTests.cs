@@ -40,8 +40,10 @@ public class SourceGeneratorTests : GeneratorTestBase
         await Assert.That(code.Contains("NewDataLinqReadImmutableInstance", StringComparison.Ordinal)).IsFalse();
         await Assert.That(code.Contains("ReadSourceImmutableFactory", StringComparison.Ordinal)).IsFalse();
         await Assert.That(code.Contains("public partial class EmployeesDb : global::DataLinq.Interfaces.IDatabaseModel<EmployeesDb>", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(code.Contains("new global::DataLinq.Tests.Models.Employees.EmployeesDb((global::DataLinq.Mutation.DataSourceAccess)dataSource);", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(code.Contains("NewDataLinqReadDatabase", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(code.Contains("new global::DataLinq.Tests.Models.Employees.EmployeesDb(dataSource);", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("public static EmployeesDb NewDataLinqReadDatabase(global::DataLinq.Interfaces.IDataLinqReadSource readSource)", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("new global::DataLinq.Tests.Models.Employees.EmployeesDb(readSource);", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("(global::DataLinq.Mutation.DataSourceAccess)dataSource", StringComparison.Ordinal)).IsFalse();
         await Assert.That(code.Contains("public static global::DataLinq.Metadata.GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("public static global::DataLinq.Core.Factories.MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("public static void SetDataLinqGeneratedMetadata(global::DataLinq.Metadata.DatabaseDefinition metadata)", StringComparison.Ordinal)).IsTrue();
@@ -93,6 +95,9 @@ public class SourceGeneratorTests : GeneratorTestBase
 
         await Assert.That(code.Contains("public partial class ImmutablePayment", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("public partial class MutablePayment", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("new global::DataLinq.Tests.Models.Allround.AllroundBenchmark(dataSource);", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("new global::DataLinq.Tests.Models.Allround.AllroundBenchmark(readSource);", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("(global::DataLinq.Mutation.DataSourceAccess)dataSource", StringComparison.Ordinal)).IsFalse();
     }
 
     [Test]
@@ -114,6 +119,17 @@ public class SourceGeneratorTests : GeneratorTestBase
         await Assert.That(code.Contains("public partial class MutableLocation", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("public partial class ImmutablePayment", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("public partial class MutableEmployee", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task TestPlatformSmoke()
+    {
+        var syntax = GenerateCodeFromFolder(["DataLinq.PlatformCompatibility.Smoke"], false).ToList();
+        var code = SyntaxTreesToString(syntax);
+
+        await Assert.That(code.Contains("new global::DataLinq.PlatformCompatibility.Smoke.PlatformSmokeDb(dataSource);", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("new global::DataLinq.PlatformCompatibility.Smoke.PlatformSmokeDb(readSource);", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("(global::DataLinq.Mutation.DataSourceAccess)dataSource", StringComparison.Ordinal)).IsFalse();
     }
 
     [Test]
