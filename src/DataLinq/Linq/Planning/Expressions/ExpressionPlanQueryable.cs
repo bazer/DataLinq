@@ -603,10 +603,26 @@ internal static class ExpressionQueryPlanExecutor
         QueryPlanProjection.ScalarMember projection)
     {
         var select = new QueryPlanSqlBuilder(plan, dataSource).BuildSelect<TElement>();
+        var sourceName = $"sql:{dataSource.Provider.DatabaseType}:scalar-projection";
 
         foreach (var reader in select.ReadReader())
         {
             var ordinal = reader.GetOrdinal(QueryPlanSqlBuilder.ScalarProjectionAlias);
+            if (projection.Column.HasScalarConverter)
+            {
+                var canonicalValue = ProviderRowDecoder.DecodeCanonicalValue(
+                    reader,
+                    projection.Column,
+                    ordinal,
+                    sourceName);
+                var modelValue = ProviderRowMaterializer.MaterializeValue(
+                    projection.Column,
+                    canonicalValue,
+                    sourceName);
+                yield return ConvertProjectionResult<TElement>(modelValue);
+                continue;
+            }
+
             var rawValue = reader.IsDbNull(ordinal) ? null : reader.GetValue(ordinal);
             yield return ConvertProjectionResult<TElement>(ConvertReaderValue(rawValue, projection.ResultType));
         }

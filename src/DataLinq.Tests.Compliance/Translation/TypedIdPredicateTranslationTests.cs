@@ -6,6 +6,9 @@ using DataLinq.Diagnostics;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Linq;
+using DataLinq.Linq.Planning;
+using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Mutation;
 using DataLinq.Testing;
 
@@ -110,6 +113,79 @@ public sealed class TypedIdPredicateTranslationTests
     }
 
     [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task TypedIdScalarProjection_MaterializesModelAndNullableValuesAcrossProviders(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<TypedIdPredicateDb>.Create(
+            provider,
+            nameof(TypedIdScalarProjection_MaterializesModelAndNullableValuesAcrossProviders));
+
+        var inserted = databaseScope.Database.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO typedidqueryrows (id, parent_id, name) VALUES " +
+            "(101, NULL, 'alpha'), (102, 101, 'beta'), (103, 101, 'gamma')");
+        var database = databaseScope.Database;
+
+        var idsQuery = database.Query().Rows
+            .OrderBy(row => row.Name)
+            .Select(row => row.Id);
+        var ids = idsQuery.ToList();
+        var idsInvocation = ExpressionQueryPlanParser.Convert(database, idsQuery);
+        var strictIds = ExpressionQueryPlanExecutor.ExecuteEnumerable<QueryTypedId>(
+                database.Provider.ReadOnlyAccess,
+                idsInvocation,
+                ProjectionEvaluationOptions.AotStrict)
+            .ToList();
+        var parentIds = database.Query().Rows
+            .OrderBy(row => row.Name)
+            .Select(row => row.ParentId)
+            .ToList();
+        var wrappedIds = database.Query().Rows
+            .OrderBy(row => row.Name)
+            .Select(row => (QueryTypedId?)row.Id)
+            .ToList();
+        var boxedIds = database.Query().Rows
+            .OrderBy(row => row.Name)
+            .Select(row => (object)row.Id)
+            .ToList();
+        var joinedIds = database.Query().Rows
+            .Join(
+                database.Query().Rows,
+                outer => outer.Id,
+                inner => inner.Id,
+                (_, inner) => inner.Id)
+            .ToList();
+        var castException = Capture<QueryTranslationException>(() =>
+            CurrentQueryTranslationInspection.BuildSql(
+                database,
+                database.Query().Rows.Select(row => (int)row.Id)));
+        var betaName = "beta";
+        var singleId = database.Query().Rows
+            .Where(row => row.Name == betaName)
+            .Select(row => row.Id)
+            .Single();
+
+        await Assert.That(inserted).IsEqualTo(3);
+        await Assert.That(ids).IsEquivalentTo(
+            new[] { new QueryTypedId(101), new QueryTypedId(102), new QueryTypedId(103) });
+        await Assert.That(ids.All(static id => id.GetType() == typeof(QueryTypedId))).IsTrue();
+        await Assert.That(strictIds).IsEquivalentTo(ids);
+        await Assert.That(parentIds).IsEquivalentTo(
+            new QueryTypedId?[] { null, new(101), new(101) });
+        await Assert.That(wrappedIds).IsEquivalentTo(
+            new QueryTypedId?[] { new(101), new(102), new(103) });
+        await Assert.That(boxedIds).IsEquivalentTo(
+            new object[] { new QueryTypedId(101), new QueryTypedId(102), new QueryTypedId(103) });
+        await Assert.That(boxedIds.All(static id => id.GetType() == typeof(QueryTypedId))).IsTrue();
+        await Assert.That(joinedIds).IsEquivalentTo(
+            new[] { new QueryTypedId(101), new QueryTypedId(102), new QueryTypedId(103) });
+        await Assert.That(castException.Message)
+            .Contains("Projection conversion from 'DataLinq.Tests.Compliance.QueryTypedId' to 'System.Int32' is not supported");
+        await Assert.That(singleId).IsEqualTo(new QueryTypedId(102));
+        await Assert.That(singleId.GetType()).IsEqualTo(typeof(QueryTypedId));
+    }
+
+    [Test]
     public async Task TypedIdPredicates_BindCanonicalProviderValuesAcrossTemplateAndMembershipPaths()
     {
         using var databaseScope = TemporaryModelTestDatabase<TypedIdPredicateDb>.Create(
@@ -184,6 +260,8 @@ public sealed class TypedIdPredicateTranslationTests
 
 public readonly record struct QueryTypedId(int Value)
 {
+    public static explicit operator int(QueryTypedId value) => value.Value;
+
     public static bool operator >(QueryTypedId left, QueryTypedId right) => left.Value > right.Value;
     public static bool operator <(QueryTypedId left, QueryTypedId right) => left.Value < right.Value;
     public static bool operator >=(QueryTypedId left, QueryTypedId right) => left.Value >= right.Value;
