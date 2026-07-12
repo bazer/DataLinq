@@ -103,3 +103,4 @@ Transactions attached from caller-owned connections are deliberately not reconfi
 - Prefer `Guid` as `TEXT` unless you have a very specific reason not to.
 - Define enums in your source models rather than expecting SQLite introspection to infer them.
 - Prefer WAL with private/default cache for file-backed concurrent readers and writers. Reserve shared cache for cases such as named in-memory databases that actually require it.
+- DataLinq's CLI and test defaults omit `Cache` for file-backed databases. Explicit caller-supplied cache modes are preserved; named in-memory databases are normalized to shared cache so DataLinq's multiple connections see the same database.

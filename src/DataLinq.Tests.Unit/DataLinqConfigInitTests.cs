@@ -47,8 +47,20 @@ public class DataLinqConfigInitTests
         await Assert.That(mainConfig.Databases.Single().Connections).IsEmpty();
         await Assert.That(userConfig.Schema).IsNull();
         await Assert.That(userConfig.Databases.Single().Connections.Single().Type).IsEqualTo("SQLite");
-        await Assert.That(userConfig.Databases.Single().Connections.Single().ConnectionString).IsEqualTo("Data Source=app.local.db;Cache=Shared;");
+        await Assert.That(userConfig.Databases.Single().Connections.Single().ConnectionString).IsEqualTo("Data Source=app.local.db;");
         await Assert.That(File.ReadAllText(fixture.GitignorePath)).Contains("datalinq.user.json");
+    }
+
+    [Test]
+    public async Task DefaultSqliteConnection_OmitsFileSharedCache()
+    {
+        var connection = CliConfigInit.CreateDefaultConnectionInput(
+            "AppDb",
+            DataLinq.DatabaseType.SQLite,
+            "app.local.db");
+
+        await Assert.That(connection.ConnectionString)
+            .IsEqualTo("Data Source=app.local.db;");
     }
 
     [Test]
@@ -73,6 +85,7 @@ public class DataLinqConfigInitTests
         var plan = CliConfigInit.CreateMissingUserConfigPlan(
             state.Paths,
             [
+                // Generated file defaults omit Cache, but an explicit caller choice must round-trip.
                 new ConfigInitConnectionInput(
                     "AppDb",
                     "SQLite",
@@ -206,11 +219,10 @@ public class DataLinqConfigInitTests
             "Models",
             UseNullableReferenceTypes: true,
             UseFileScopedNamespaces: true,
-            new ConfigInitConnectionInput(
+            CliConfigInit.CreateDefaultConnectionInput(
                 "AppDb",
-                "SQLite",
-                "app.local.db",
-                "Data Source=app.local.db;Cache=Shared;"));
+                DataLinq.DatabaseType.SQLite,
+                "app.local.db"));
 
     private sealed class ConfigInitFixture : IDisposable
     {

@@ -158,13 +158,15 @@ If you want MySQL instead of MariaDB, change `"Type": "MariaDB"` to `"Type": "My
         {
           "Type": "SQLite",
           "DataSourceName": "app.db",
-          "ConnectionString": "Data Source=app.db;Cache=Shared;"
+          "ConnectionString": "Data Source=app.db;"
         }
       ]
     }
   ]
 }
 ```
+
+For file-backed SQLite, omitting `Cache` uses the provider's private/default cache and is the recommended WAL configuration. DataLinq preserves an explicit caller-supplied cache mode; use `Cache=Shared` only when you deliberately accept its table-lock behavior or need a named in-memory database shared across connections.
 
 The `DataSourceName` is also used as the default target file name for SQLite operations unless you override it with `--data-source`.
 
@@ -204,7 +206,7 @@ Example local override:
         {
           "Type": "SQLite",
           "DataSourceName": "app.local.db",
-          "ConnectionString": "Data Source=app.local.db;Cache=Shared;"
+          "ConnectionString": "Data Source=app.local.db;"
         }
       ]
     }

@@ -298,7 +298,7 @@ For `ConnectionString`, include examples:
 
 ```json
 "examples": [
-  "Data Source=app.db;Cache=Shared;",
+  "Data Source=app.db;",
   "Server=localhost;Database=appdb;User ID=app;Password=${env:DATALINQ_APPDB_PASSWORD};",
   "Server=localhost;Database=appdb;User ID=app;Password=${secret:datalinq/AppDb/password};",
   "Server=localhost;Database=appdb;User ID=app;Password=${prompt:AppDb password};"

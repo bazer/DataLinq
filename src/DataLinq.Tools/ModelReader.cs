@@ -59,7 +59,7 @@ public class ModelReader : Generator
 
             var connectionString = connection.ConnectionString;
             if (connection.Type == DatabaseType.SQLite)
-                connectionString = connectionString.ChangeValue("Data Source", connection.GetRootedPath(basePath)); // $"Data Source={databaseName};Cache=Shared;";
+                connectionString = connectionString.ChangeValue("Data Source", connection.GetRootedPath(basePath));
 
             DatabaseDefinition dbMetadata = PluginHook.MetadataFromSqlFactories[connection.Type]
                 .GetMetadataFromSqlFactory(sqlOptions)

@@ -36,7 +36,7 @@ The important current limitations are equally real:
 - some supported local projection execution still depends on the original expression tree
 - model values, canonical provider values, and provider physical/wire values are not separate first-class contracts
 - DataLinq has no native async database I/O surface
-- DataLinq-owned SQLite access now has committed visibility, while file-backed shared-cache defaults and the remaining contention matrix are still open
+- DataLinq-owned SQLite access now has committed visibility and generated file-backed connections use private/default cache, while the remaining contention matrix is still open
 - mutable baselines do not yet have complete rollback/cross-transaction provenance rules
 - there is no memory backend, JSON memory persistence package, or migration execution engine
 

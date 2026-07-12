@@ -10,7 +10,7 @@
 
 **0.9 execution plan:** [SQL Transaction and Mutable Lifecycle Implementation Plan](../roadmap-implementation/v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md).
 
-**Implementation progress:** `SQ-1` is complete. Every DataLinq-owned SQLite scalar, reader, non-query, and transaction connection now resets `PRAGMA read_uncommitted = false`; owned transactions use deferred `IsolationLevel.Serializable`; attached connections retain caller policy; file/WAL evidence covers pending insert/update/delete, rollback, explicit shared-cache locking, and bounded writer contention; and the full SQLite compliance lane is green. `SQ-2` file-backed shared-cache default removal and the remaining `SQ-3` contention/diagnostic matrix remain open.
+**Implementation progress:** `SQ-1` and `SQ-2` are complete. Every DataLinq-owned SQLite scalar, reader, non-query, and transaction connection resets `PRAGMA read_uncommitted = false`; owned transactions use deferred `IsolationLevel.Serializable`; attached connections retain caller policy; CLI and test-harness file defaults omit `Cache`; named memory retains shared cache; file/WAL evidence covers pending insert/update/delete, rollback, explicit shared-cache locking, and bounded writer contention; and the full SQLite compliance lane is green at 732/732. Only the remaining `SQ-3` contention/diagnostic matrix is open.
 
 ## Purpose
 
@@ -38,8 +38,11 @@ The relevant implementation points are:
   - routes non-query, scalar, and reader connections through the same owned policy
 - `src/DataLinq.SQLite/SQLiteProvider.cs`
   - enables WAL through `PRAGMA journal_mode = WAL`
+- `src/DataLinq.CLI/CliConfigInit.cs`
+  - generates file-backed SQLite connection strings without a `Cache` key
 - `src/DataLinq.Testing/Environment/PodmanTestEnvironmentSettings.cs`
-  - creates SQLite file and named in-memory test connections with `Cache=Shared`
+  - creates file-backed test connections with private/default cache
+  - retains `Mode=Memory;Cache=Shared` for named in-memory test connections
 - `src/DataLinq.MySql/Shared/SqlDatabaseTransaction.cs`
   - opens MySQL/MariaDB transactions with `IsolationLevel.ReadCommitted`
 - `src/DataLinq/Mutation/Transaction.cs`
@@ -51,7 +54,7 @@ The relevant implementation points are:
 - active compliance tests
   - already cover transaction-local row visibility, outside relation stability before commit, and rollback preserving committed cache state
 
-The earlier version of this plan treated pending-versus-committed cache application as missing. Current code has most of that overlay and publication order already, so `SQ-1` reused it instead of building a second cache overlay. Ordinary owned SQLite access no longer opts into dirty reads. The remaining connection-policy defect is that several file-backed generated/test defaults still opt into shared cache.
+The earlier version of this plan treated pending-versus-committed cache application as missing. Current code has most of that overlay and publication order already, so `SQ-1` reused it instead of building a second cache overlay. Ordinary owned SQLite access no longer opts into dirty reads, and `SQ-2` removed DataLinq-generated shared cache from file-backed defaults without rewriting explicit caller settings.
 
 ## SQLite Semantics That Matter
 
@@ -252,10 +255,10 @@ Do not use shared in-memory SQLite as the final arbiter for concurrent committed
    - Owned SQLite transactions begin with deferred `IsolationLevel.Serializable`.
    - Same-transaction visibility remains green through the provider transaction and overlay, not dirty reads.
 
-3. **Remove shared cache from file-backed SQLite defaults**
-   - Keep shared cache only for named in-memory databases where multiple connections must share one database.
-   - Keep WAL for file-backed SQLite.
-   - Update both Testing environment defaults and CLI configuration/init examples and tests.
+3. **Remove shared cache from file-backed SQLite defaults — complete (`SQ-2`)**
+   - CLI and Testing environment file defaults omit the `Cache` key and therefore use private/default cache.
+   - Named in-memory databases retain shared cache where multiple connections must share one database.
+   - Explicit caller-supplied cache settings are preserved rather than rewritten.
 
 4. **Characterize contention without inventing retries**
    - Preserve/configure `DefaultTimeout` deliberately.
@@ -266,10 +269,10 @@ Do not use shared in-memory SQLite as the final arbiter for concurrent committed
    - Move SQLite isolation assertions toward provider-independent committed visibility.
    - Keep provider-specific tests only where SQLite is genuinely different, such as snapshot behavior and single-writer limits.
 
-6. **Update shipped docs — complete for `SQ-1`**
+6. **Update shipped docs — complete for `SQ-1` and `SQ-2`**
    - Shipped transaction, troubleshooting, backend, and roadmap pages describe committed visibility.
    - The SQLite caveat names snapshot/serializable and single-writer behavior instead of claiming MySQL/MariaDB `ReadCommitted` equivalence.
-   - `SQ-2` still owns file-backed `Cache=Shared` config/default examples.
+   - File-backed config examples omit `Cache`; named-memory and explicit caller settings remain documented exceptions.
 
 ## Risks And Open Questions
 

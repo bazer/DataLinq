@@ -180,7 +180,7 @@ internal static class CliConfigInit
     public static string CreateDefaultConnectionString(string provider, string dataSourceName) =>
         provider switch
         {
-            "SQLite" => $"Data Source={dataSourceName};Cache=Shared;",
+            "SQLite" => $"Data Source={dataSourceName};",
             "MySQL" => $"Server=localhost;Database={dataSourceName};User ID=root;Password=${{prompt:{dataSourceName} password}};",
             "MariaDB" => $"Server=localhost;Database={dataSourceName};User ID=root;Password=${{prompt:{dataSourceName} password}};",
             _ => $"Data Source={dataSourceName};"
