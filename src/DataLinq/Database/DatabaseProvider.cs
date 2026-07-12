@@ -178,6 +178,13 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     /// <param name="dbTransaction">The existing database transaction.</param>
     /// <param name="transactionType">The type of the transaction.</param>
     /// <returns>A new Transaction object that wraps the provided IDbTransaction.</returns>
+    /// <remarks>
+    /// The provider transaction must be active on an open, provider-compatible connection.
+    /// After attachment, complete it only through the returned DataLinq wrapper. Completing or
+    /// disposing the original handle directly bypasses managed cache and mutable-lifecycle
+    /// finalization and is unsupported. The wrapper consumes the attached transaction and may
+    /// close or dispose its connection during completion.
+    /// </remarks>
     public Transaction AttachTransaction(IDbTransaction dbTransaction, TransactionType transactionType = TransactionType.ReadAndWrite)
     {
         return new Transaction(this, dbTransaction, transactionType);

@@ -136,6 +136,15 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// </summary>
     public DatabaseTransactionStatus Status => DatabaseAccess.Status;
 
+    /// <summary>
+    /// Gets low-level access to the provider transaction adapter.
+    /// </summary>
+    /// <remarks>
+    /// Direct completion through this adapter or its <see cref="DatabaseTransaction.DbTransaction"/>
+    /// bypasses managed cache publication, transaction-local cleanup, and mutable lifecycle
+    /// finalization. Use <see cref="Commit"/>, <see cref="Rollback"/>, or <see cref="Dispose"/>
+    /// on this wrapper for coordinated completion.
+    /// </remarks>
     public override DatabaseTransaction DatabaseAccess { get; }
 
     /// <summary>
@@ -172,6 +181,12 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <param name="databaseProvider">The database provider.</param>
     /// <param name="dbTransaction">The database transaction.</param>
     /// <param name="type">The type of the transaction.</param>
+    /// <remarks>
+    /// The provider transaction must be active on an open, compatible connection. After
+    /// attachment, complete it only through this wrapper. Completing or disposing the original
+    /// handle directly is unsupported because it bypasses managed cache and mutable-lifecycle
+    /// finalization.
+    /// </remarks>
     public Transaction(IDatabaseProvider databaseProvider, IDbTransaction dbTransaction, TransactionType type) : base(databaseProvider)
     {
         //Provider = databaseProvider;
@@ -1477,6 +1492,12 @@ public class Transaction<T> : Transaction, IDataSourceAccess<T>
     /// <param name="databaseProvider">The database provider.</param>
     /// <param name="dbTransaction">The database transaction.</param>
     /// <param name="type">The type of the transaction.</param>
+    /// <remarks>
+    /// The provider transaction must be active on an open, compatible connection. After
+    /// attachment, complete it only through this wrapper. Completing or disposing the original
+    /// handle directly is unsupported because it bypasses managed cache and mutable-lifecycle
+    /// finalization.
+    /// </remarks>
     public Transaction(IDatabaseProvider<T> databaseProvider, IDbTransaction dbTransaction, TransactionType type) : base(databaseProvider, dbTransaction, type)
     {
         Database = InstanceFactory.NewDatabase<T>(this);

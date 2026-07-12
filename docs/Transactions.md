@@ -69,14 +69,28 @@ dbConnection.Open();
 using var dbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
 using var transaction = employeesDb.AttachTransaction(dbTransaction);
 
-var dept = transaction.Query().Departments.Single(x => x.DeptNo == "d099");
-dbTransaction.Commit();
+var dept = transaction.Query().Departments.Single(x => x.DeptNo == "d099").Mutate();
+dept.Name = "Transactional department";
+transaction.Update(dept);
 transaction.Commit();
 ```
 
-This is advanced, but it is real supported behavior and worth documenting because it gives you a bridge to lower-level ADO.NET flows.
+This is an advanced ownership bridge to a provider-compatible ADO.NET transaction. The transaction must still be active on an open connection when it is attached.
 
-The important subtlety is that the underlying ADO.NET transaction and the DataLinq wrapper each have work to finish. The raw transaction controls the database commit. The DataLinq wrapper also needs to complete so it can finish its own transaction bookkeeping and cache merge.
+After attachment, the DataLinq wrapper is the completion authority:
+
+- perform mapped reads and writes through `transaction`
+- call `transaction.Commit()`, `transaction.Rollback()`, or `transaction.Dispose()` to finish
+- do not call `Commit()`, `Rollback()`, or `Dispose()` on the original `dbTransaction`
+- do not complete through `transaction.DatabaseAccess` or `transaction.DatabaseAccess.DbTransaction`
+
+Those low-level handles cannot finalize DataLinq's transaction-local rows, relation notifications, or mutable baselines. Current SQLite, MySQL, and MariaDB adapters also close and dispose the attached provider transaction and its connection during wrapper completion, so treat both as consumed instead of expecting to reuse the connection afterward.
+
+If the original handle is completed externally anyway, DataLinq cannot infer whether it committed or rolled back. Supported providers detect the inactive handle on the next managed commit, rollback, read, write, transaction-bound fallback, or disposal operation. The wrapper then rejects the operation, invalidates transaction-derived mutable state, and clears caches conservatively instead of publishing a guessed result. Dispose the wrapper if that was not already the failing operation, discard transaction-bound rows and mutables, and materialize fresh committed rows through the database.
+
+Raw writes are a separate boundary. DataLinq cannot reconstruct cache or relation effects for SQL executed before attachment or directly through the ADO.NET handles. If lower-level code changes mapped rows, either keep that workflow outside DataLinq's cache-coherent path or explicitly invalidate the affected DataLinq cache after completion; see [Explicit Cache Invalidation](Caching%20and%20Mutation.md#explicit-cache-invalidation).
+
+Attached connections retain caller-selected isolation and provider settings. In particular, DataLinq does not rewrite SQLite pragmas on a caller-owned connection to make it match DataLinq-owned connection policy.
 
 ## Transaction Semantics
 
@@ -150,4 +164,4 @@ Within the transaction, relation reads such as `employee.salaries` are covered b
 
 - Use implicit transactions for simple single writes.
 - Use explicit transactions for multi-step workflows, relation-heavy updates, or when you need reads and writes to share one transaction scope.
-- Use `AttachTransaction(...)` only when you already have a real reason to control the ADO.NET transaction yourself.
+- Use `AttachTransaction(...)` only when you already have a real reason to supply the ADO.NET transaction, then transfer completion and lifecycle coordination to the returned DataLinq wrapper.

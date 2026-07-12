@@ -140,7 +140,13 @@ When you use `AttachTransaction(...)`, you are managing two layers:
 - the underlying `IDbTransaction`
 - the DataLinq transaction wrapper
 
-The raw transaction controls the actual database commit or rollback. The DataLinq wrapper still needs to finish so its own lifecycle and cache state are completed.
+Once attached, finish through the DataLinq wrapper only. Calling `Commit()`, `Rollback()`, or `Dispose()` on the original handle—or completing through `transaction.DatabaseAccess`—bypasses DataLinq's mutable-lifecycle and cache coordination.
+
+If the original handle was already completed, do not call both commits and hope they cancel out. The wrapper will report an unknown external-completion outcome, invalidate transaction-derived state, and clear caches conservatively where the provider exposes the inactive handle. Dispose the wrapper if needed, discard transaction-bound rows and mutables, and query fresh committed rows through the database.
+
+Also remember that raw SQL writes are not reconstructed into DataLinq cache or relation publication. Explicitly invalidate affected cache entries after a lower-level write, or keep the entire mapped write flow inside the wrapper.
+
+See [Attaching an Existing ADO.NET Transaction](Transactions.md#attaching-an-existing-adonet-transaction) for the full ownership contract.
 
 ## SQLite and MySQL/MariaDB Behave Differently in Transaction Visibility Tests
 
