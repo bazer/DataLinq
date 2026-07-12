@@ -80,6 +80,15 @@ public sealed class SourceRowLoadingContractTests
                 request,
                 [CreateCanonicalRow(table, 43, "Unrequested")]));
         await Assert.That(unrequestedKeyFailure.Message).Contains("unrequested primary key");
+
+        var duplicateKeyFailure = Capture<ArgumentException>(() =>
+            new SourceRowLoadResult(
+                request,
+                [
+                    CreateCanonicalRow(table, 42, "Ada"),
+                    CreateCanonicalRow(table, 42, "Duplicate")
+                ]));
+        await Assert.That(duplicateKeyFailure.Message).Contains("duplicate primary key");
     }
 
     [Test]

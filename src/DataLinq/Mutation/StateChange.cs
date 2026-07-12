@@ -33,7 +33,8 @@ public class StateChange
     private readonly IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> changes;
     private readonly IReadOnlyList<MutationWriteSlot> insertWriteSlots;
     private readonly Dictionary<ColumnDefinition, object?> originalValues = new();
-    private readonly bool hasReloadableIdentityMappedPrimaryKey;
+    private readonly bool hasReloadablePrimaryKey;
+    private readonly bool hasIntegralCanonicalPrimaryKeyShape;
     private readonly long? capturedMutationVersion;
     private Dictionary<ColumnIndex, DataLinqKey>? finalizedRelationKeys;
     private IReadOnlyList<KeyValuePair<ColumnDefinition, object?>>? finalizedModelChanges;
@@ -118,8 +119,10 @@ public class StateChange
         insertWriteSlots = type == TransactionChangeType.Insert
             ? CaptureInsertWriteSlots(model, table, changes)
             : [];
-        hasReloadableIdentityMappedPrimaryKey = type == TransactionChangeType.Insert &&
-            HasReloadableIdentityMappedPrimaryKey(model, table);
+        hasReloadablePrimaryKey = type == TransactionChangeType.Insert &&
+            HasReloadablePrimaryKey(PrimaryKeys, table);
+        hasIntegralCanonicalPrimaryKeyShape = type == TransactionChangeType.Insert &&
+            ProviderKeyComponents.HasOnlyIntegralCanonicalComponents(table);
         CaptureOriginalValues(model);
     }
 
@@ -235,17 +238,25 @@ public class StateChange
         return Equals(captured, current);
     }
 
-    private static bool HasReloadableIdentityMappedPrimaryKey(
-        IModelInstance model,
+    private static bool HasReloadablePrimaryKey(
+        DataLinqKey primaryKeys,
         TableDefinition table)
     {
-        if (table.PrimaryKeyColumns.Count == 0 ||
-            table.PrimaryKeyColumns.Any(static column => column.HasScalarConverter))
-        {
+        if (table.PrimaryKeyColumns.Count == 0)
             return false;
+
+        var hasCompleteCanonicalKey =
+            primaryKeys.ValueCount == table.PrimaryKeyColumns.Count;
+        for (var index = 0;
+             hasCompleteCanonicalKey && index < primaryKeys.ValueCount;
+             index++)
+        {
+            var component = primaryKeys.GetValueUnsafe(index);
+            hasCompleteCanonicalKey = component is not null &&
+                !ReferenceEquals(component, DBNull.Value);
         }
 
-        if (table.PrimaryKeyColumns.All(column => model[column] is not null))
+        if (hasCompleteCanonicalKey)
             return true;
 
         return table.PrimaryKeyColumns.Count == 1 &&
@@ -582,7 +593,7 @@ public class StateChange
         supportsDefaultOnlyInsert &&
         !slot.IsAssigned &&
         slot.ModelValue is null &&
-        hasReloadableIdentityMappedPrimaryKey &&
+        hasReloadablePrimaryKey &&
         ReferenceEquals(slot.Column, Table.AutoIncrementPrimaryKeyColumn);
 
     private bool ShouldOmitUnsetServerDefault(
@@ -591,9 +602,10 @@ public class StateChange
     {
         if (slot.IsAssigned ||
             slot.ModelValue is not null ||
-            !hasReloadableIdentityMappedPrimaryKey ||
+            !hasReloadablePrimaryKey ||
             slot.Column.PrimaryKey ||
-            slot.Column.HasScalarConverter ||
+            (slot.Column.HasScalarConverter &&
+             !hasIntegralCanonicalPrimaryKeyShape) ||
             slot.Column.ColumnIndices.Any())
         {
             return false;

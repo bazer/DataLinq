@@ -78,6 +78,22 @@ public partial class TableCache
 
         RecordSingleRowCacheLookup(hit: false);
 
+        if (GetIntegralCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
+        {
+            var canonicalKey = ProviderKeyComponents.ToDataLinqKey(primaryKey);
+            var loadedRows = LoadCanonicalRowsAfterKnownMiss(
+                [canonicalKey],
+                sourceServices);
+            Log.LoadRowsFromDatabase(
+                loggingConfiguration.CacheLogger,
+                Table,
+                1);
+
+            return loadedRows.TryGetValue(canonicalKey, out var loaded)
+                ? loaded
+                : null;
+        }
+
         var rowData = GetRowDataFromPrimaryKeyValue(primaryKey, dataSource);
         if (rowData is not null)
             return RecordDatabaseRowLoaded(addRow(this, rowData, dataSource, primaryKey));

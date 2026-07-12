@@ -2,10 +2,12 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Diagnostics;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
+using DataLinq.Query;
 using DataLinq.Testing;
 
 namespace DataLinq.Tests.Compliance;
@@ -45,6 +47,73 @@ public sealed class TypedIdPredicateTranslationTests
         await Assert.That(nullableNullEquality).IsEqualTo(1);
         await Assert.That(contains).IsEqualTo(2);
         await Assert.That(localAny).IsEqualTo(2);
+    }
+
+    [Test]
+    [NotInParallel]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task TypedIdMaterialization_BatchedColdAndOrderedMixedCachePreserveIdentityAndTelemetry(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<TypedIdPredicateDb>.Create(
+            provider,
+            nameof(TypedIdMaterialization_BatchedColdAndOrderedMixedCachePreserveIdentityAndTelemetry));
+
+        var inserted = databaseScope.Database.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO typedidqueryrows (id, parent_id, name) VALUES " +
+            "(101, NULL, 'alpha'), (102, 101, 'beta'), (103, 101, 'gamma')");
+        var database = databaseScope.Database;
+        var table = database.Provider.Metadata.GetTableModel(typeof(TypedIdQueryRow)).Table;
+        var tableCache = database.Provider.GetTableCache(table);
+        var readOnlyAccess = database.Provider.ReadOnlyAccess;
+        var selectedProviderIds = new[] { 101, 103 };
+
+        database.Provider.State.ClearCache();
+
+        DataLinqMetrics.Reset();
+        var coldRows = tableCache
+            .GetRows(selectedProviderIds, readOnlyAccess)
+            .Cast<TypedIdQueryRow>()
+            .ToList();
+        var coldSnapshot = DataLinqMetrics.Snapshot();
+
+        await Assert.That(inserted).IsEqualTo(3);
+        await Assert.That(coldRows.Select(static row => row.Id).ToArray())
+            .IsEquivalentTo(new[] { new QueryTypedId(101), new QueryTypedId(103) });
+        await Assert.That(coldSnapshot.Queries.EntityExecutions).IsEqualTo(0);
+        await Assert.That(coldSnapshot.Commands.ReaderExecutions).IsEqualTo(1);
+        await Assert.That(coldSnapshot.RowCache.Hits).IsEqualTo(0);
+        await Assert.That(coldSnapshot.RowCache.Misses).IsEqualTo(2);
+        await Assert.That(coldSnapshot.RowCache.Stores).IsEqualTo(2);
+        await Assert.That(coldSnapshot.RowCache.DatabaseRowsLoaded).IsEqualTo(2);
+        await Assert.That(coldSnapshot.RowCache.Materializations).IsEqualTo(2);
+
+        database.Provider.State.ClearCache();
+        var warmRow = (TypedIdQueryRow)(tableCache.GetRow(103, readOnlyAccess) ??
+            throw new InvalidOperationException("Expected the canonical warm-up key to load a row."));
+
+        DataLinqMetrics.Reset();
+        var orderedRows = tableCache
+            .GetRows(
+                selectedProviderIds,
+                readOnlyAccess,
+                [new OrderBy(table.GetColumnByDbName("name"), alias: null, ascending: true)])
+            .Cast<TypedIdQueryRow>()
+            .ToList();
+        var mixedSnapshot = DataLinqMetrics.Snapshot();
+
+        await Assert.That(orderedRows.Count).IsEqualTo(2);
+        await Assert.That(orderedRows[0].Name).IsEqualTo("alpha");
+        await Assert.That(orderedRows[1].Name).IsEqualTo("gamma");
+        await Assert.That(orderedRows.Single(row => row.Id == new QueryTypedId(103)))
+            .IsSameReferenceAs(warmRow);
+        await Assert.That(mixedSnapshot.Queries.EntityExecutions).IsEqualTo(0);
+        await Assert.That(mixedSnapshot.Commands.ReaderExecutions).IsEqualTo(1);
+        await Assert.That(mixedSnapshot.RowCache.Hits).IsEqualTo(1);
+        await Assert.That(mixedSnapshot.RowCache.Misses).IsEqualTo(1);
+        await Assert.That(mixedSnapshot.RowCache.Stores).IsEqualTo(1);
+        await Assert.That(mixedSnapshot.RowCache.DatabaseRowsLoaded).IsEqualTo(1);
+        await Assert.That(mixedSnapshot.RowCache.Materializations).IsEqualTo(1);
     }
 
     [Test]
@@ -137,6 +206,7 @@ public sealed class QueryTypedIdConverter : DataLinqScalarConverter<QueryTypedId
         new(providerValue);
 }
 
+[UseCache]
 [Database("typedidpredicates")]
 public sealed partial class TypedIdPredicateDb(DataSourceAccess dataSource) : IDatabaseModel
 {

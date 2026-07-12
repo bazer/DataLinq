@@ -11,6 +11,8 @@ namespace DataLinq.Instances;
 internal interface IModelMaterializationServices
 {
     IImmutableInstance GetOrMaterialize(CanonicalProviderValueRow providerRow);
+    IImmutableInstance MaterializeAfterKnownCacheMiss(
+        CanonicalProviderValueRow providerRow);
 }
 
 /// <summary>
@@ -166,11 +168,21 @@ internal sealed class ModelMaterializationServices : IModelMaterializationServic
     }
 
     public IImmutableInstance GetOrMaterialize(CanonicalProviderValueRow providerRow)
+        => Materialize(providerRow, probeCache: true);
+
+    public IImmutableInstance MaterializeAfterKnownCacheMiss(
+        CanonicalProviderValueRow providerRow) =>
+        Materialize(providerRow, probeCache: false);
+
+    private IImmutableInstance Materialize(
+        CanonicalProviderValueRow providerRow,
+        bool probeCache)
     {
         ArgumentNullException.ThrowIfNull(providerRow);
 
-        var hasCanonicalKey = TryCreateCanonicalPrimaryKey(providerRow, out var canonicalProviderKey);
-        if (hasCanonicalKey)
+        var hasCanonicalKey =
+            providerRow.TryCreateCanonicalPrimaryKey(out var canonicalProviderKey);
+        if (hasCanonicalKey && probeCache)
         {
             var cacheHit =
                 runtime.TryGetCached(providerRow.Table, canonicalProviderKey, out var cached) &&
@@ -212,32 +224,5 @@ internal sealed class ModelMaterializationServices : IModelMaterializationServic
                 throw new InvalidOperationException(
                     $"Materialization runtime returned an invalid cache publication result for table '{providerRow.Table.DbName}'.");
         }
-    }
-
-    private static bool TryCreateCanonicalPrimaryKey(
-        CanonicalProviderValueRow providerRow,
-        out DataLinqKey canonicalProviderKey)
-    {
-        var primaryKeyColumns = providerRow.Table.PrimaryKeyColumns;
-        if (primaryKeyColumns.Count == 0)
-        {
-            canonicalProviderKey = DataLinqKey.Null;
-            return false;
-        }
-
-        var values = new object?[primaryKeyColumns.Count];
-        for (var index = 0; index < primaryKeyColumns.Count; index++)
-        {
-            var column = primaryKeyColumns[index];
-            values[index] = providerRow[column];
-            if (values[index] is null)
-            {
-                throw new InvalidOperationException(
-                    $"Canonical provider row for table '{providerRow.Table.DbName}' contains null primary-key component '{column.DbName}'.");
-            }
-        }
-
-        canonicalProviderKey = DataLinqKey.FromValues(values);
-        return true;
     }
 }

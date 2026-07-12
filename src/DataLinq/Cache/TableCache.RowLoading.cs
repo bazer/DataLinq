@@ -37,13 +37,29 @@ public partial class TableCache
 
         if (keysToLoad.Count != 0)
         {
-            foreach (var split in keysToLoad.SplitList(500))
+            if (GetIntegralCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
             {
-                foreach (var rowData in GetRowDataFromPrimaryKeyValues(split, dataSource))
+                var canonicalKeys = keysToLoad
+                    .Select(ProviderKeyComponents.ToDataLinqKey)
+                    .Distinct()
+                    .ToList();
+                foreach (var loaded in LoadCanonicalRowsAfterKnownMiss(
+                    canonicalKeys,
+                    sourceServices))
                 {
-                    MetricsHandle.RecordDatabaseRowsLoaded(1);
-                    var row = AddRow(rowData, dataSource);
-                    rowsByPrimaryKey.TryAdd(CreatePrimaryKey(rowData), row);
+                    rowsByPrimaryKey.TryAdd(loaded.Key, loaded.Value);
+                }
+            }
+            else
+            {
+                foreach (var split in keysToLoad.SplitList(500))
+                {
+                    foreach (var rowData in GetRowDataFromPrimaryKeyValues(split, dataSource))
+                    {
+                        MetricsHandle.RecordDatabaseRowsLoaded(1);
+                        var row = AddRow(rowData, dataSource);
+                        rowsByPrimaryKey.TryAdd(CreatePrimaryKey(rowData), row);
+                    }
                 }
             }
 
@@ -200,12 +216,28 @@ public partial class TableCache
 
         if (keysToLoad.Count != 0)
         {
-            foreach (var split in keysToLoad.SplitList(500))
+            if (GetIntegralCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
             {
-                foreach (var rowData in GetRowDataFromPrimaryKeyValues(split, dataSource, orderings))
+                var canonicalKeys = keysToLoad
+                    .Select(ProviderKeyComponents.ToDataLinqKey)
+                    .Distinct()
+                    .ToList();
+                foreach (var loaded in LoadCanonicalRowsAfterKnownMiss(
+                    canonicalKeys,
+                    sourceServices))
                 {
-                    MetricsHandle.RecordDatabaseRowsLoaded(1);
-                    loadedRows.Add(AddRow(rowData, dataSource));
+                    loadedRows.Add(loaded.Value);
+                }
+            }
+            else
+            {
+                foreach (var split in keysToLoad.SplitList(500))
+                {
+                    foreach (var rowData in GetRowDataFromPrimaryKeyValues(split, dataSource, orderings))
+                    {
+                        MetricsHandle.RecordDatabaseRowsLoaded(1);
+                        loadedRows.Add(AddRow(rowData, dataSource));
+                    }
                 }
             }
 
@@ -241,6 +273,54 @@ public partial class TableCache
         }
 
         return orderedRows ?? rows;
+    }
+
+    private IReadOnlyDictionary<DataLinqKey, IImmutableInstance>
+        LoadCanonicalRowsAfterKnownMiss(
+            List<DataLinqKey> canonicalProviderKeys,
+            IDataLinqSourceRowServices sourceServices)
+    {
+        var rows = new Dictionary<DataLinqKey, IImmutableInstance>(
+            canonicalProviderKeys.Count);
+        foreach (var split in canonicalProviderKeys.SplitList(500))
+        {
+            var request = new SourcePrimaryKeyRowRequest(Table, split);
+            var result = sourceServices.RowLoader.Load(request);
+            foreach (var providerRow in result.Rows)
+            {
+                if (!providerRow.TryCreateCanonicalPrimaryKey(out var key))
+                {
+                    throw new InvalidOperationException(
+                        $"Source row for table '{Table.DbName}' did not contain a canonical primary key.");
+                }
+
+                var row = sourceServices.MaterializationServices
+                    .MaterializeAfterKnownCacheMiss(providerRow);
+                if (!rows.TryAdd(key, row))
+                {
+                    throw new InvalidOperationException(
+                        $"Source row loader returned duplicate canonical primary key '{key}' for table '{Table.DbName}'.");
+                }
+
+                MetricsHandle.RecordDatabaseRowsLoaded(1);
+            }
+        }
+
+        return rows;
+    }
+
+    private IDataLinqSourceRowServices? GetIntegralCanonicalPrimaryKeySourceServices(
+        IDataSourceAccess dataSource)
+    {
+        if (dataSource is not IDataLinqSourceRowServices sourceServices)
+            return null;
+
+        // Source-row results currently validate requested keys with canonical CLR equality.
+        // Keep collation- and codec-sensitive keys on the legacy provider path until that
+        // contract can represent provider equality (for example case-insensitive CHAR keys).
+        return ProviderKeyComponents.HasOnlyIntegralCanonicalComponents(Table)
+            ? sourceServices
+            : null;
     }
 
     private DataLinqKey CreatePrimaryKey(RowData rowData)

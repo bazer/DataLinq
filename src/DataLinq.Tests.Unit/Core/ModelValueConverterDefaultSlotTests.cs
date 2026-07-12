@@ -61,7 +61,7 @@ public sealed partial class ModelValueConverterTests
     }
 
     [Test]
-    public async Task StateChange_Insert_DefaultOmissionGuardsPreserveLegacyWrites()
+    public async Task StateChange_Insert_DefaultOmissionPreservesUnsafeWritesAndSupportsConvertedValues()
     {
         var providerMismatchTable = CreateDefaultSlotTable(DatabaseType.MySQL);
         var exactProviderTable = CreateDefaultSlotTable(DatabaseType.SQLite);
@@ -72,6 +72,9 @@ public sealed partial class ModelValueConverterTests
             typeof(int),
             static (value, _) => ((MutationId)value!).Value);
         var convertedTable = CreateDefaultSlotTable(converter: converter);
+        var convertedDefaultWithStringKeyTable = CreateDefaultSlotTable(
+            converter: converter,
+            primaryKeyType: typeof(string));
         var primaryKeyConverter = new RecordingScalarConverter(
             typeof(MutationId),
             typeof(int),
@@ -100,6 +103,12 @@ public sealed partial class ModelValueConverterTests
             CreateDefaultSlotStateChange(clientDefaultTable, assignDefault: false, defaultValue: null));
         var convertedWriter = BuildInsertAndCaptureWriter(
             CreateDefaultSlotStateChange(convertedTable, assignDefault: false, defaultValue: null));
+        var convertedDefaultWithStringKeyWriter = BuildInsertAndCaptureWriter(
+            CreateDefaultSlotStateChange(
+                convertedDefaultWithStringKeyTable,
+                assignDefault: false,
+                defaultValue: null,
+                primaryKeyValue: "known-key"));
         var convertedPrimaryKeyWriter = BuildInsertAndCaptureWriter(
             CreateDefaultSlotStateChange(
                 convertedPrimaryKeyTable,
@@ -164,9 +173,16 @@ public sealed partial class ModelValueConverterTests
         await Assert.That(indexedTable.GetColumnByDbName("server_value").ColumnIndices.Any()).IsTrue();
         await Assert.That(indexedWriter.Calls.Count).IsEqualTo(2);
         await Assert.That(clientDefaultWriter.Calls.Count).IsEqualTo(2);
-        await Assert.That(convertedWriter.Calls.Count).IsEqualTo(2);
+        await Assert.That(convertedWriter.Calls.Count).IsEqualTo(1);
+        await Assert.That(convertedWriter.Calls.Single().Column)
+            .IsSameReferenceAs(convertedTable.GetColumnByDbName("id"));
+        await Assert.That(convertedDefaultWithStringKeyWriter.Calls.Count).IsEqualTo(2);
+        await Assert.That(convertedDefaultWithStringKeyWriter.Calls[1].Column)
+            .IsSameReferenceAs(convertedDefaultWithStringKeyTable.GetColumnByDbName("server_value"));
         await Assert.That(converter.ToProviderCalls).IsEmpty();
-        await Assert.That(convertedPrimaryKeyWriter.Calls.Count).IsEqualTo(2);
+        await Assert.That(convertedPrimaryKeyWriter.Calls.Count).IsEqualTo(1);
+        await Assert.That(convertedPrimaryKeyWriter.Calls.Single().Column)
+            .IsSameReferenceAs(convertedPrimaryKeyTable.GetColumnByDbName("id"));
         // Capture, deferred-insert identity validation, and insert serialization each cross
         // the model-to-canonical boundary deliberately.
         await Assert.That(primaryKeyConverter.ToProviderCalls.Count).IsEqualTo(3);
@@ -185,7 +201,7 @@ public sealed partial class ModelValueConverterTests
         await Assert.That(explicitAutoIncrementWriter.Calls.Single().Column)
             .IsSameReferenceAs(autoIncrementTable.AutoIncrementPrimaryKeyColumn);
         await Assert.That(explicitAutoIncrementWriter.Calls.Single().CanonicalValue).IsEqualTo(19);
-        await Assert.That(convertedAutoIncrementWriter.Calls.Count).IsEqualTo(2);
+        await Assert.That(convertedAutoIncrementWriter.Calls).IsEmpty();
         await Assert.That(autoIncrementPrimaryKeyConverter.ToProviderCalls).IsEmpty();
         await Assert.That(nonIntegralAutoIncrementWriter.Calls.Count).IsEqualTo(2);
         await Assert.That(untrackedValueWriter.Calls.Count).IsEqualTo(2);

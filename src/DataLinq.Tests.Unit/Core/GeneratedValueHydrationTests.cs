@@ -39,7 +39,7 @@ public sealed partial class ModelValueConverterTests
         await Assert.That(canonicalKey.GetValue(0)).IsTypeOf<int>();
         await Assert.That(converter.ToProviderCalls.Count).IsEqualTo(1);
         await Assert.That(converter.FromProviderCalls).IsEqualTo(1);
-        await Assert.That(writer.Calls.Single().CanonicalValue).IsNull();
+        await Assert.That(writer.Calls).IsEmpty();
     }
 
     [Test]

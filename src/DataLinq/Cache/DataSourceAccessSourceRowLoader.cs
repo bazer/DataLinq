@@ -64,6 +64,16 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader
         if (table.PrimaryKeyColumns.Count == 1)
         {
             var column = table.PrimaryKeyColumns[0];
+
+            if (request.CanonicalProviderKeys.Length == 1)
+            {
+                query.Where(column.DbName).EqualTo(
+                    writer.ConvertColumnValue(
+                        column,
+                        request.CanonicalProviderKeys[0].GetValue(0)));
+                return query.SelectQuery();
+            }
+
             var values = new object?[request.CanonicalProviderKeys.Length];
             for (var index = 0; index < values.Length; index++)
             {

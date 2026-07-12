@@ -110,6 +110,31 @@ internal sealed class CanonicalProviderValueRow
         return estimatedValueSizes[columnOrdinal];
     }
 
+    internal bool TryCreateCanonicalPrimaryKey(out DataLinqKey key)
+    {
+        var primaryKeyColumns = Table.PrimaryKeyColumns;
+        if (primaryKeyColumns.Count == 0)
+        {
+            key = DataLinqKey.Null;
+            return false;
+        }
+
+        var keyValues = new object?[primaryKeyColumns.Count];
+        for (var index = 0; index < primaryKeyColumns.Count; index++)
+        {
+            var column = primaryKeyColumns[index];
+            keyValues[index] = this[column];
+            if (keyValues[index] is null)
+            {
+                throw new InvalidOperationException(
+                    $"Canonical provider row for table '{Table.DbName}' contains null primary-key component '{column.DbName}'.");
+            }
+        }
+
+        key = DataLinqKey.FromValues(keyValues);
+        return true;
+    }
+
     internal static void ValidateModelValue(ColumnDefinition column, object? value, string parameterName)
     {
         ValidateValue(column, value, useProviderType: false, parameterName);

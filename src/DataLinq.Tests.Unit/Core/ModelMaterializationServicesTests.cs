@@ -87,6 +87,30 @@ public sealed class ModelMaterializationServicesTests
     }
 
     [Test]
+    public async Task MaterializeAfterKnownCacheMiss_SkipsSecondLookupAndReturnsConcurrentWinner()
+    {
+        var converter = new RecordingScalarConverter(static value => new MaterializedId((int)value!));
+        var table = CreateConvertedKeyTable(converter);
+        var providerRow = CanonicalProviderValueRow.Create(table, new object?[] { 42 });
+        var winner = new TestImmutableInstance();
+        var runtime = new RecordingRuntime { CompetingWinner = winner };
+        var services = new ModelMaterializationServices("sql", runtime);
+
+        var materialized = services.MaterializeAfterKnownCacheMiss(providerRow);
+
+        await Assert.That(materialized).IsSameReferenceAs(winner);
+        await Assert.That(materialized).IsNotSameReferenceAs(runtime.LastCreatedInstance!);
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(1);
+        await Assert.That(runtime.CacheLookupCalls).IsEqualTo(0);
+        await Assert.That(runtime.CacheHitMetrics).IsEqualTo(0);
+        await Assert.That(runtime.CacheMissMetrics).IsEqualTo(0);
+        await Assert.That(runtime.FactoryCalls).IsEqualTo(1);
+        await Assert.That(runtime.CacheAddCalls).IsEqualTo(1);
+        await Assert.That(runtime.MaterializationMetrics).IsEqualTo(1);
+        await Assert.That(runtime.CacheInsertionMetrics).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task GetOrMaterialize_RejectedCacheInsertionReturnsCreatedWithoutStoreMetric()
     {
         var converter = new RecordingScalarConverter(static value => new MaterializedId((int)value!));

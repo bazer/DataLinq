@@ -87,6 +87,33 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         await Assert.That(reader.Disposed).IsTrue();
     }
 
+    [Test]
+    public async Task Load_SingleScalarPrimaryKeyUsesEqualityPredicate()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var reader = new TrackingReader([[42, "Ada"]]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var request = new SourcePrimaryKeyRowRequest(
+            table,
+            [DataLinqKey.FromValue(42)]);
+
+        _ = ((IDataLinqSourceRowServices)source).RowLoader.Load(request);
+
+        var select = (Select<object>)provider.LastQuery!;
+        var primaryKey = select.Query.TryGetSimplePrimaryKey();
+        await Assert.That(primaryKey).IsNotNull();
+        await Assert.That(primaryKey!.Value.GetValue(0)).IsEqualTo(42);
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
     private static TableDefinition CreateTable(RecordingIdConverter converter)
     {
         var scalarConverter = new MetadataScalarConverterDraft(
@@ -185,6 +212,7 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         TrackingCommand command) : IDatabaseProvider
     {
         public int CommandCreationCalls { get; private set; }
+        public IQuery? LastQuery { get; private set; }
         public string TelemetryInstanceId { get; } = Guid.NewGuid().ToString("N");
         public string DatabaseName => metadata.DbName;
         public string ConnectionString => "tracking";
@@ -198,6 +226,7 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         public IDbCommand ToDbCommand(IQuery query)
         {
             CommandCreationCalls++;
+            LastQuery = query;
             return command;
         }
 
