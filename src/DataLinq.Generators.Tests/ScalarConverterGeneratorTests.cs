@@ -122,6 +122,206 @@ public sealed class ScalarConverterGeneratorTests : GeneratorTestBase
     }
 
     [Test]
+    public async Task ExplicitGuidConverter_ResolvesAndEmitsGuidStorageAfterScalarMetadata()
+    {
+        var source = Parse(
+            """
+            using System;
+            using DataLinq;
+            using DataLinq.Attributes;
+            using DataLinq.Instances;
+            using DataLinq.Interfaces;
+            using DataLinq.Mutation;
+
+            namespace ScalarGenerator;
+
+            public readonly record struct CustomerId(Guid Value);
+
+            public sealed class CustomerIdConverter : DataLinqScalarConverter<CustomerId, Guid>
+            {
+                public override Guid ToProvider(CustomerId value, in ScalarConversionContext context) => value.Value;
+                public override CustomerId FromProvider(Guid value, in ScalarConversionContext context) => new(value);
+            }
+
+            [Database("scalar")]
+            public partial class ScalarDb(DataSourceAccess dataSource) : IDatabaseModel<ScalarDb>
+            {
+                public DbRead<ScalarRow> Rows { get; } = new(dataSource);
+            }
+
+            [Table("scalar_rows")]
+            public abstract partial class ScalarRow(IRowData rowData, IDataSourceAccess dataSource)
+                : Immutable<ScalarRow, ScalarDb>(rowData, dataSource), ITableModel<ScalarDb>
+            {
+                [PrimaryKey]
+                [Type(DatabaseType.MySQL, "binary", 16)]
+                [GuidStorage(DatabaseType.MySQL, GuidStorageFormat.Binary16Rfc4122)]
+                [Column("id")]
+                [ScalarConverter(typeof(CustomerIdConverter))]
+                public abstract CustomerId Id { get; }
+            }
+            """);
+
+        var (outputCompilation, diagnostics, generatedTrees) = RunGeneratorAgainstRuntimeWithDiagnostics([source]);
+        var code = string.Join(Environment.NewLine, generatedTrees.Select(static tree => tree.ToString()));
+
+        await AssertNoErrors(outputCompilation, diagnostics);
+        await Assert.That(code).Contains("typeof(global::System.Guid)");
+        await Assert.That(code).Contains(
+            "new global::DataLinq.Metadata.GuidStorageDefinition(global::DataLinq.DatabaseType.MySQL, global::DataLinq.Attributes.GuidStorageFormat.Binary16Rfc4122, true)");
+    }
+
+    [Test]
+    public async Task AssemblyRegisteredGuidConverter_ResolvesAndEmitsGuidStorageAfterScalarMetadata()
+    {
+        var source = Parse(
+            """
+            using System;
+            using DataLinq;
+            using DataLinq.Attributes;
+            using DataLinq.Instances;
+            using DataLinq.Interfaces;
+            using DataLinq.Mutation;
+
+            [assembly: ScalarConverterRegistration(typeof(ScalarGenerator.CustomerId), typeof(ScalarGenerator.CustomerIdConverter))]
+
+            namespace ScalarGenerator;
+
+            public readonly record struct CustomerId(Guid Value);
+
+            public sealed class CustomerIdConverter : DataLinqScalarConverter<CustomerId, Guid>
+            {
+                public override Guid ToProvider(CustomerId value, in ScalarConversionContext context) => value.Value;
+                public override CustomerId FromProvider(Guid value, in ScalarConversionContext context) => new(value);
+            }
+
+            [Database("scalar")]
+            public partial class ScalarDb(DataSourceAccess dataSource) : IDatabaseModel<ScalarDb>
+            {
+                public DbRead<ScalarRow> Rows { get; } = new(dataSource);
+            }
+
+            [Table("scalar_rows")]
+            public abstract partial class ScalarRow(IRowData rowData, IDataSourceAccess dataSource)
+                : Immutable<ScalarRow, ScalarDb>(rowData, dataSource), ITableModel<ScalarDb>
+            {
+                [PrimaryKey]
+                [Type(DatabaseType.SQLite, "TEXT")]
+                [GuidStorage(DatabaseType.SQLite, GuidStorageFormat.Text36)]
+                [Column("id")]
+                public abstract CustomerId Id { get; }
+            }
+            """);
+
+        var (outputCompilation, diagnostics, generatedTrees) = RunGeneratorAgainstRuntimeWithDiagnostics([source]);
+        var code = string.Join(Environment.NewLine, generatedTrees.Select(static tree => tree.ToString()));
+
+        await AssertNoErrors(outputCompilation, diagnostics);
+        await Assert.That(code).Contains("ScalarConverterOrigin.AssemblyRegistration");
+        await Assert.That(code).Contains("typeof(global::System.Guid)");
+        await Assert.That(code).Contains(
+            "new global::DataLinq.Metadata.GuidStorageDefinition(global::DataLinq.DatabaseType.SQLite, global::DataLinq.Attributes.GuidStorageFormat.Text36, true)");
+        await Assert.That(code).DoesNotContain("new global::DataLinq.Attributes.ScalarConverterAttribute(");
+    }
+
+    [Test]
+    public async Task GuidModelConvertedToNonGuidProviders_DoesNotResolveProvisionalUuidMetadata()
+    {
+        var source = Parse(
+            """
+            using System;
+            using DataLinq;
+            using DataLinq.Attributes;
+            using DataLinq.Instances;
+            using DataLinq.Interfaces;
+            using DataLinq.Mutation;
+
+            namespace ScalarGenerator;
+
+            public sealed class GuidStringConverter : DataLinqScalarConverter<Guid, string>
+            {
+                public override string ToProvider(Guid value, in ScalarConversionContext context) => value.ToString("D");
+                public override Guid FromProvider(string value, in ScalarConversionContext context) => Guid.ParseExact(value, "D");
+            }
+
+            public sealed class GuidBytesConverter : DataLinqScalarConverter<Guid, byte[]>
+            {
+                public override byte[] ToProvider(Guid value, in ScalarConversionContext context) => value.ToByteArray();
+                public override Guid FromProvider(byte[] value, in ScalarConversionContext context) => new(value);
+            }
+
+            [Database("scalar")]
+            public partial class ScalarDb(DataSourceAccess dataSource) : IDatabaseModel<ScalarDb>
+            {
+                public DbRead<ScalarRow> Rows { get; } = new(dataSource);
+            }
+
+            [Table("scalar_rows")]
+            public abstract partial class ScalarRow(IRowData rowData, IDataSourceAccess dataSource)
+                : Immutable<ScalarRow, ScalarDb>(rowData, dataSource), ITableModel<ScalarDb>
+            {
+                [PrimaryKey]
+                [Type(DatabaseType.MySQL, "char", 36)]
+                [Column("text_id")]
+                [ScalarConverter(typeof(GuidStringConverter))]
+                public abstract Guid TextId { get; }
+
+                [Type(DatabaseType.SQLite, "BLOB")]
+                [Column("blob_value")]
+                [ScalarConverter(typeof(GuidBytesConverter))]
+                public abstract Guid BlobValue { get; }
+            }
+            """);
+
+        var (outputCompilation, diagnostics, generatedTrees) = RunGeneratorAgainstRuntimeWithDiagnostics([source]);
+        var code = string.Join(Environment.NewLine, generatedTrees.Select(static tree => tree.ToString()));
+
+        await AssertNoErrors(outputCompilation, diagnostics);
+        await Assert.That(code).Contains("typeof(global::System.String)");
+        await Assert.That(code).Contains("typeof(global::System.Byte[])");
+        await Assert.That(code).DoesNotContain("new global::DataLinq.Metadata.GuidStorageDefinition(");
+    }
+
+    [Test]
+    public async Task UserDefinedGuidName_IsNotTreatedAsSystemGuid()
+    {
+        var source = Parse(
+            """
+            using DataLinq;
+            using DataLinq.Attributes;
+            using DataLinq.Instances;
+            using DataLinq.Interfaces;
+            using DataLinq.Mutation;
+
+            namespace ScalarGenerator;
+
+            public readonly record struct Guid(int Value);
+
+            [Database("scalar")]
+            public partial class ScalarDb(DataSourceAccess dataSource) : IDatabaseModel<ScalarDb>
+            {
+                public DbRead<ScalarRow> Rows { get; } = new(dataSource);
+            }
+
+            [Table("scalar_rows")]
+            public abstract partial class ScalarRow(IRowData rowData, IDataSourceAccess dataSource)
+                : Immutable<ScalarRow, ScalarDb>(rowData, dataSource), ITableModel<ScalarDb>
+            {
+                [PrimaryKey]
+                [Type(DatabaseType.MySQL, "binary", 16)]
+                [Column("id")]
+                public abstract Guid Id { get; }
+            }
+            """);
+
+        var (outputCompilation, diagnostics, generatedTrees) = RunGeneratorAgainstRuntimeWithDiagnostics([source]);
+        var code = string.Join(Environment.NewLine, generatedTrees.Select(static tree => tree.ToString()));
+
+        await AssertNoErrors(outputCompilation, diagnostics);
+        await Assert.That(code).DoesNotContain("new global::DataLinq.Metadata.GuidStorageDefinition(");
+    }
+
+    [Test]
     public async Task ExplicitConverter_OverridesAssemblyRegistration()
     {
         var source = Parse(

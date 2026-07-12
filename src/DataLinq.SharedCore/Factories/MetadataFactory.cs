@@ -24,7 +24,7 @@ public struct MetadataFromDatabaseFactoryOptions
     }
 }
 
-public static class MetadataFactory
+public static partial class MetadataFactory
 {
     [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public static void ParseInterfaces(DatabaseDefinition database)
@@ -1428,6 +1428,49 @@ public static class MetadataFactory
                             $"Value property '{GetValuePropertyDisplayName(property)}' has multiple [GuidStorage] attributes for database type '{attribute.DatabaseType}'. A value property can define only one UUID storage format per provider.");
                     }
                 }
+
+                var unresolvedScopes = new HashSet<DatabaseType>();
+                foreach (var attribute in property.Attributes.OfType<GuidStorageUnresolvedAttribute>())
+                {
+                    if (!IsValidProviderScopedDatabaseType(attribute.DatabaseType) ||
+                        attribute.DatabaseType == DatabaseType.Default)
+                    {
+                        return CreateValuePropertyAttributeFailure(
+                            property,
+                            attribute,
+                            $"Unresolved Guid storage marker on value property '{GetValuePropertyDisplayName(property)}' uses unsupported concrete database type '{attribute.DatabaseType}'.");
+                    }
+
+                    if (!unresolvedScopes.Add(attribute.DatabaseType))
+                    {
+                        return CreateValuePropertyAttributeFailure(
+                            property,
+                            attribute,
+                            $"Value property '{GetValuePropertyDisplayName(property)}' has multiple unresolved Guid storage markers for database type '{attribute.DatabaseType}'.");
+                    }
+
+                    if (providerScopes.Contains(DatabaseType.Default) ||
+                        providerScopes.Contains(attribute.DatabaseType))
+                    {
+                        return CreateValuePropertyAttributeFailure(
+                            property,
+                            attribute,
+                            $"Value property '{GetValuePropertyDisplayName(property)}' cannot combine an unresolved Guid storage marker for '{attribute.DatabaseType}' with an explicit GuidStorage declaration that already selects its format. Remove the generated unresolved marker after choosing the explicit format.");
+                    }
+                }
+            }
+
+            foreach (var property in tableModel.Model.RelationProperties.Values)
+            {
+                var attribute = property.Attributes.FirstOrDefault(static x =>
+                    x is GuidStorageAttribute or GuidStorageUnresolvedAttribute);
+                if (attribute is not null)
+                {
+                    return CreateRelationPropertyAttributeFailure(
+                        property,
+                        attribute,
+                        $"Guid storage attribute on relation property '{property.Model.CsType.Name}.{property.PropertyName}' is invalid. Guid storage can be declared only on mapped value properties.");
+                }
             }
         }
 
@@ -1905,6 +1948,24 @@ public static class MetadataFactory
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, attributeLocation.Value);
 
         return CreateValuePropertyFailure(property, message);
+    }
+
+    private static IDLOptionFailure CreateRelationPropertyAttributeFailure(
+        RelationProperty property,
+        Attribute attribute,
+        string message)
+    {
+        var attributeLocation = property.GetAttributeSourceLocation(attribute);
+        if (attributeLocation.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, attributeLocation.Value);
+
+        if (property.SourceInfo.HasValue && property.CsFile.HasValue)
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                message,
+                property.SourceInfo.Value.GetPropertyLocation(property.CsFile.Value));
+
+        return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, property);
     }
 
     private static SourceLocation? GetTableNameSourceLocation(ModelDefinition model)

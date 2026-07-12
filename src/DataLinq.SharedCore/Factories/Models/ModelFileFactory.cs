@@ -332,9 +332,19 @@ public class ModelFileFactory
     private IEnumerable<string> WriteValueProperty(ValueProperty valueProperty)
     {
         var c = valueProperty.Column;
+        var unresolvedGuidStorageProviders = new HashSet<DatabaseType>(
+            c.UnresolvedGuidStorageProviders);
+        unresolvedGuidStorageProviders.UnionWith(valueProperty.Attributes
+            .OfType<GuidStorageUnresolvedAttribute>()
+            .Select(static attribute => attribute.DatabaseType));
 
         foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(valueProperty.Attributes), $"{namespaceTab}{tab}"))
             yield return row;
+
+        foreach (var provider in unresolvedGuidStorageProviders.OrderBy(static x => x))
+        {
+            yield return $"{namespaceTab}{tab}#error DATALINQ_UUID_STORAGE_UNRESOLVED: UUID byte order for {c.Table.Model.CsType.Name}.{valueProperty.PropertyName} is not encoded by the {provider} schema. Replace the generated GuidStorageUnresolved marker with an explicit GuidStorage attribute selecting Binary16LittleEndian or Binary16Rfc4122, then regenerate the model.";
+        }
 
         foreach (var comment in valueProperty.Attributes.OfType<CommentAttribute>())
             yield return $"{namespaceTab}{tab}{FormatCommentAttribute(comment)}";
@@ -382,16 +392,22 @@ public class ModelFileFactory
 
         foreach (var dbType in c.DbTypes.OrderBy(x => x.DatabaseType))
         {
-            if (dbType.Signed.HasValue && dbType.Decimals.HasValue && dbType.Length.HasValue)
-                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {dbType.Decimals}, {(dbType.Signed.Value ? "true" : "false")})]";
-            else if (dbType.Signed.HasValue && dbType.Length.HasValue)
-                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {(dbType.Signed.Value ? "true" : "false")})]";
-            else if (dbType.Signed.HasValue && !dbType.Length.HasValue)
-                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {(dbType.Signed.Value ? "true" : "false")})]";
-            else if (dbType.Length.HasValue && dbType.Decimals.HasValue)
-                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {dbType.Decimals})]";
-            else if (dbType.Length.HasValue)
-                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length})]";
+            var isNativeMariaDbUuid = dbType.DatabaseType == DatabaseType.MariaDB &&
+                string.Equals(dbType.Name, "uuid", StringComparison.OrdinalIgnoreCase);
+            var length = isNativeMariaDbUuid ? null : dbType.Length;
+            var decimals = isNativeMariaDbUuid ? null : dbType.Decimals;
+            var signed = isNativeMariaDbUuid ? null : dbType.Signed;
+
+            if (signed.HasValue && decimals.HasValue && length.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {length}, {decimals}, {(signed.Value ? "true" : "false")})]";
+            else if (signed.HasValue && length.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {length}, {(signed.Value ? "true" : "false")})]";
+            else if (signed.HasValue && !length.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {(signed.Value ? "true" : "false")})]";
+            else if (length.HasValue && decimals.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {length}, {decimals})]";
+            else if (length.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {length})]";
             else
                 yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)})]";
         }
@@ -404,6 +420,9 @@ public class ModelFileFactory
                 ? $"{namespaceTab}{tab}[GuidStorage(GuidStorageFormat.{guidStorage.Format})]"
                 : $"{namespaceTab}{tab}[GuidStorage(DatabaseType.{guidStorage.DatabaseType}, GuidStorageFormat.{guidStorage.Format})]";
         }
+
+        foreach (var provider in unresolvedGuidStorageProviders.OrderBy(static x => x))
+            yield return $"{namespaceTab}{tab}[GuidStorageUnresolved(DatabaseType.{provider})]";
 
         if (valueProperty.HasDefaultValue())
         {

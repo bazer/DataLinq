@@ -261,7 +261,9 @@ public class MetadataFromModelsFactory
             TableModels = tableModels
         };
 
-        if (!new MetadataDefinitionFactory().Build(database).TryUnwrap(out var builtDatabase, out var buildFailure))
+        var buildResult = new MetadataDefinitionFactory()
+            .BuildDeferredSourceMetadata(database);
+        if (!buildResult.TryUnwrap(out var builtDatabase, out var buildFailure))
             return buildFailure;
 
         return builtDatabase;

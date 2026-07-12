@@ -61,6 +61,7 @@ public sealed record MetadataTableDraft(string DbName)
 public sealed record MetadataColumnDraft(string DbName)
 {
     public IReadOnlyList<DatabaseColumnType> DbTypes { get; init; } = [];
+    public IReadOnlyList<GuidStorageDefinition> GuidStorageDefinitions { get; init; } = [];
     public bool OwnsDbTypes { get; init; }
     public bool PrimaryKey { get; init; }
     public bool ForeignKey { get; init; }
@@ -537,6 +538,8 @@ internal static class MetadataTypedDraftConverter
 
             column.SetDbTypesCore(dbTypes);
         }
+
+        column.SetGuidStorageDefinitionsCore(draft.GuidStorageDefinitions ?? []);
 
         return column;
     }

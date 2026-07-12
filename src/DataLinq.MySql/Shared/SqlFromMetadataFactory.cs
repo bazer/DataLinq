@@ -26,7 +26,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         throw new NotImplementedException($"No SQL factory for {databaseType}");
     }
 
-    private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum", "float", "double", "blob", "tinyblob", "mediumblob", "longblob" };
+    private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum", "float", "double", "blob", "tinyblob", "mediumblob", "longblob", "uuid" };
 
     public virtual Option<int, IDLOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
     {
@@ -85,7 +85,9 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             if (defaultValue != null)
                 row.DefaultValue(defaultValue);
 
-            sql.Unsigned(dbType.Signed);
+            sql.Unsigned(string.Equals(dbType.Name, "uuid", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : dbType.Signed);
             sql.Nullable(column.Nullable)
                 .Autoincrement(column.AutoIncrement);
 

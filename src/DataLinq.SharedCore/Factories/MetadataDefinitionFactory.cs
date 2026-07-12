@@ -35,7 +35,7 @@ public sealed class MetadataDefinitionFactory
         if (!draft.TryCreateConstructionGraph().TryUnwrap(out var constructionGraph, out var constructionGraphFailure))
             return constructionGraphFailure;
 
-        return DLOptionFailure.CatchAll(() => BuildCore(constructionGraph));
+        return DLOptionFailure.CatchAll(() => BuildCore(constructionGraph, GuidStorageResolutionMode.Model));
     }
 
     public Option<DatabaseDefinition, IDLOptionFailure> Build(MetadataDatabaseDraft draft)
@@ -46,7 +46,7 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataTypedDraftConverter.ToConstructionGraph(draft).TryUnwrap(out var constructionGraph, out var constructionGraphFailure))
             return constructionGraphFailure;
 
-        return DLOptionFailure.CatchAll(() => BuildCore(constructionGraph));
+        return DLOptionFailure.CatchAll(() => BuildCore(constructionGraph, GuidStorageResolutionMode.Model));
     }
 
     [Obsolete(MetadataMutationGuard.MutableFactoryInputObsoleteMessage)]
@@ -80,14 +80,35 @@ public sealed class MetadataDefinitionFactory
         return DLOptionFailure.CatchAll(() => BuildProviderMetadataCore(constructionGraph));
     }
 
+    internal Option<DatabaseDefinition, IDLOptionFailure> BuildDeferredSourceMetadata(
+        MetadataDatabaseDraft draft)
+        => BuildSourceMetadata(draft, GuidStorageResolutionMode.DeferredSource);
+
+    private Option<DatabaseDefinition, IDLOptionFailure> BuildSourceMetadata(
+        MetadataDatabaseDraft draft,
+        GuidStorageResolutionMode guidStorageResolutionMode)
+    {
+        if (draft is null)
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
+
+        if (!MetadataTypedDraftConverter.ToConstructionGraph(draft)
+            .TryUnwrap(out var constructionGraph, out var constructionGraphFailure))
+            return constructionGraphFailure;
+
+        return DLOptionFailure.CatchAll(() =>
+            BuildCore(constructionGraph, guidStorageResolutionMode));
+    }
+
     private Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadataCore(DatabaseDefinition draft)
     {
         MetadataFactory.ParseInterfacesCore(draft);
 
-        return BuildCore(draft);
+        return BuildCore(draft, GuidStorageResolutionMode.ProviderSnapshot);
     }
 
-    private Option<DatabaseDefinition, IDLOptionFailure> BuildCore(DatabaseDefinition draft)
+    private Option<DatabaseDefinition, IDLOptionFailure> BuildCore(
+        DatabaseDefinition draft,
+        GuidStorageResolutionMode guidStorageResolutionMode)
     {
         if (!MetadataFactory.ValidateExistingTableModels(draft).TryUnwrap(out _, out var tableModelFailure))
             return tableModelFailure;
@@ -172,6 +193,10 @@ public sealed class MetadataDefinitionFactory
 
         if (!MetadataFactory.ValidateExistingRelationParts(draft).TryUnwrap(out _, out var finalizedRelationPartFailure))
             return finalizedRelationPartFailure;
+
+        if (!MetadataFactory.ResolveGuidStorageDefinitionsCore(draft, guidStorageResolutionMode)
+            .TryUnwrap(out _, out var guidStorageResolutionFailure))
+            return guidStorageResolutionFailure;
 
         MetadataFactory.IndexColumnsCore(draft);
         draft.Freeze();

@@ -227,6 +227,63 @@ public class SourceGeneratorTests : GeneratorTestBase
             "new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.Attributes.GuidStorageFormat.Text36)");
         await Assert.That(code).Contains(
             "new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.DatabaseType.MySQL, global::DataLinq.Attributes.GuidStorageFormat.Binary16Rfc4122)");
+        await Assert.That(code).Contains(
+            "new global::DataLinq.Metadata.GuidStorageDefinition(global::DataLinq.DatabaseType.MySQL, global::DataLinq.Attributes.GuidStorageFormat.Binary16Rfc4122, true)");
+        await Assert.That(code).Contains(
+            "new global::DataLinq.Metadata.GuidStorageDefinition(global::DataLinq.DatabaseType.SQLite, global::DataLinq.Attributes.GuidStorageFormat.Text36, true)");
+    }
+
+    [Test]
+    public async Task UnresolvedGuidStorage_BlocksCompilationAndSuppressesDatabaseOutput()
+    {
+        var source = CSharpSyntaxTree.ParseText(
+            """
+            using DataLinq;
+            using DataLinq.Attributes;
+            using DataLinq.Instances;
+            using DataLinq.Interfaces;
+            using DataLinq.Mutation;
+
+            namespace UnresolvedGuidStorageGeneratorTest;
+
+            [Database("unresolved_guid_storage")]
+            public partial class UnresolvedGuidStorageDb(DataSourceAccess dataSource)
+                : IDatabaseModel<UnresolvedGuidStorageDb>
+            {
+                public DbRead<UnresolvedGuidStorageRow> Rows { get; } = new(dataSource);
+            }
+
+            [Table("unresolved_guid_storage_rows")]
+            public abstract partial class UnresolvedGuidStorageRow(
+                IRowData rowData,
+                IDataSourceAccess dataSource)
+                : Immutable<UnresolvedGuidStorageRow, UnresolvedGuidStorageDb>(rowData, dataSource),
+                  ITableModel<UnresolvedGuidStorageDb>
+            {
+                #error DATALINQ_UUID_STORAGE_UNRESOLVED: choose the UUID byte order.
+                [PrimaryKey]
+                [Type(DatabaseType.MySQL, "binary", 16)]
+                [GuidStorageUnresolved(DatabaseType.MySQL)]
+                [Column("id")]
+                public abstract System.Guid Id { get; }
+            }
+            """,
+            path: "UnresolvedGuidStorageGeneratorTest.cs");
+
+        var (outputCompilation, generatorDiagnostics, generatedTrees) =
+            RunGeneratorWithDiagnostics([source]);
+        var diagnostic = generatorDiagnostics.Single(x => x.Id == "DLG001");
+        var generatedCode = SyntaxTreesToString(generatedTrees);
+
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.GetMessage()).Contains("UUID storage");
+        await Assert.That(diagnostic.GetMessage()).Contains("unresolved");
+        await Assert.That(outputCompilation.GetDiagnostics()
+            .Any(x => x.Id == "CS1029")).IsTrue();
+        await Assert.That(generatedCode).DoesNotContain(
+            "ImmutableUnresolvedGuidStorageRow");
+        await Assert.That(generatedCode).DoesNotContain(
+            "IDatabaseModel<UnresolvedGuidStorageDb>");
     }
 
     [Test]

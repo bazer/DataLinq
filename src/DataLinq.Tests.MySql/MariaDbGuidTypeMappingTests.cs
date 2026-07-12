@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.MariaDB;
@@ -33,10 +34,28 @@ public class MariaDbGuidTypeMappingTests
             new MetadataFromDatabaseFactoryOptions { Include = ["uuid_test"] });
 
         var column = database.TableModels.Single().Table.Columns.Single();
+        var dbType = column.GetDbTypeFor(DatabaseType.MariaDB)!;
+        var modelSource = string.Join(
+            Environment.NewLine,
+            new ModelFileFactory(new ModelFileFactoryOptions())
+                .CreateModelFiles(database)
+                .Select(static file => file.contents));
+        var generatedSql = new SqlFromMariaDBFactory()
+            .GetCreateTables(database, foreignKeyRestrict: false)
+            .ValueOrException()
+            .Text;
 
         await Assert.That(column.DbName).IsEqualTo("id");
         await Assert.That(column.ValueProperty.CsType.Name).IsEqualTo("Guid");
-        await Assert.That(column.GetDbTypeFor(DatabaseType.MariaDB)!.Name).IsEqualTo("uuid");
+        await Assert.That(dbType.Name).IsEqualTo("uuid");
+        await Assert.That(dbType.Length).IsNull();
+        await Assert.That(dbType.Decimals).IsNull();
+        await Assert.That(dbType.Signed).IsNull();
+        await Assert.That(modelSource)
+            .Contains("[Type(DatabaseType.MariaDB, \"uuid\")]");
+        await Assert.That(modelSource).DoesNotContain("\"uuid\",");
+        await Assert.That(generatedSql).DoesNotContain("UUID(");
+        await Assert.That(generatedSql).DoesNotContain("UNSIGNED");
     }
 
     [Test]

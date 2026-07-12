@@ -60,6 +60,73 @@ public class MetadataTransformer
                relationPart.ColumnIndex.Columns.Any(static column => column.Nullable);
     }
 
+    private static bool SourceSuppliesGuidStoragePolicy(
+        ColumnDefinition sourceColumn,
+        ValueProperty mergedDestinationProperty,
+        IReadOnlyCollection<GuidStorageAttribute> sourceDeclarations,
+        DatabaseType provider)
+    {
+        var mergedKnownType = MetadataTypeConverter.GetType(
+            mergedDestinationProperty.CsType.Name);
+        if (mergedKnownType is not null &&
+            (Nullable.GetUnderlyingType(mergedKnownType) ?? mergedKnownType) !=
+            typeof(Guid))
+        {
+            return true;
+        }
+
+        if (sourceDeclarations.Any(x =>
+            x.DatabaseType == DatabaseType.Default ||
+            x.DatabaseType == provider))
+        {
+            return true;
+        }
+
+        var sourceLooksLikeCanonicalGuid = sourceColumn.IsGuidColumn ||
+            (sourceColumn.ProviderClrType is null &&
+             (string.Equals(
+                  sourceColumn.ProviderCsType.Name,
+                  nameof(Guid),
+                  StringComparison.Ordinal) ||
+              string.Equals(
+                  sourceColumn.ProviderCsType.Name,
+                  typeof(Guid).FullName,
+                  StringComparison.Ordinal)));
+        if (!sourceLooksLikeCanonicalGuid ||
+            provider is not (DatabaseType.MySQL or DatabaseType.MariaDB))
+            return false;
+
+        DatabaseColumnType? sourceType = sourceColumn.DbTypes
+            .FirstOrDefault(x => x.DatabaseType == provider);
+        if (sourceType is null)
+        {
+            var defaultType = sourceColumn.DbTypes
+                .FirstOrDefault(x => x.DatabaseType == DatabaseType.Default);
+            if (defaultType is not null &&
+                string.Equals(defaultType.Name, "uuid", StringComparison.OrdinalIgnoreCase))
+            {
+                sourceType = provider == DatabaseType.MySQL
+                    ? new DatabaseColumnType(DatabaseType.MySQL, "binary", 16)
+                    : new DatabaseColumnType(DatabaseType.MariaDB, "uuid");
+            }
+            else if (sourceColumn.DbTypes.Count == 0)
+            {
+                sourceType = EffectiveColumnTypeResolver
+                    .ResolveFromCanonicalProviderType(sourceColumn, provider);
+            }
+        }
+
+        // A pre-0.9 model that already maps this provider to bare BINARY(16)
+        // carries DataLinq's historical Guid.ToByteArray compatibility policy.
+        // Text/native mappings and cross-provider translations say nothing
+        // about the byte order of a newly imported binary column.
+        return sourceType is not null &&
+            string.Equals(sourceType.Name, "binary", StringComparison.OrdinalIgnoreCase) &&
+            sourceType.Length == 16 &&
+            !sourceType.Decimals.HasValue &&
+            !sourceType.Signed.HasValue;
+    }
+
     public DatabaseDefinition TransformDatabaseSnapshot(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
     {
         var transformedMetadata = MetadataDefinitionSnapshot.Copy(destMetadata);
@@ -136,6 +203,18 @@ public class MetadataTransformer
             }
 
             var destProperty = destColumn.ValueProperty;
+            var destinationUnresolvedGuidStorageProviders =
+                new HashSet<DatabaseType>(destColumn
+                    .UnresolvedGuidStorageProviders
+                    .Concat(destProperty.Attributes
+                        .OfType<GuidStorageUnresolvedAttribute>()
+                        .Select(static x => x.DatabaseType)));
+            // UUID definitions are derived from the final canonical scalar mapping,
+            // provider type, and merged declarations. This graph is an intermediate
+            // model-generation snapshot: emitted source retains the raw declarations,
+            // and the source generator resolves fresh definitions when it compiles.
+            destColumn.SetGuidStorageDefinitionsCore([]);
+            destColumn.SetUnresolvedGuidStorageProvidersCore([]);
             var key = destProperty.PropertyName;
 
             // Check if the property name has changed and update the key
@@ -209,6 +288,48 @@ public class MetadataTransformer
                         .Concat(sourceGuidStorage.Select(x =>
                             new GuidStorageAttribute(x.DatabaseType, x.Format))));
             }
+
+            var sourceUnresolvedGuidStorageProviders =
+                new HashSet<DatabaseType>(srcProperty.Column
+                    .UnresolvedGuidStorageProviders
+                    .Concat(srcProperty.Attributes
+                        .OfType<GuidStorageUnresolvedAttribute>()
+                        .Select(static x => x.DatabaseType)));
+            var mergedUnresolvedGuidStorageProviders =
+                new HashSet<DatabaseType>();
+            foreach (var provider in destinationUnresolvedGuidStorageProviders)
+            {
+                if (sourceUnresolvedGuidStorageProviders.Contains(provider))
+                {
+                    mergedUnresolvedGuidStorageProviders.Add(provider);
+                    continue;
+                }
+
+                var sourceSuppliesPolicy = SourceSuppliesGuidStoragePolicy(
+                    srcProperty.Column,
+                    destProperty,
+                    sourceGuidStorage,
+                    provider);
+
+                if (!sourceSuppliesPolicy)
+                    mergedUnresolvedGuidStorageProviders.Add(provider);
+            }
+
+            destProperty.SetAttributesCore(
+                destProperty.Attributes
+                    .Where(x =>
+                        x is not GuidStorageUnresolvedAttribute &&
+                        (x is not GuidStorageAttribute storage ||
+                         (storage.DatabaseType == DatabaseType.Default
+                            ? mergedUnresolvedGuidStorageProviders.Count == 0
+                            : !mergedUnresolvedGuidStorageProviders.Contains(
+                                storage.DatabaseType))))
+                    .Concat(mergedUnresolvedGuidStorageProviders
+                        .OrderBy(static x => x)
+                        .Select(static x =>
+                            new GuidStorageUnresolvedAttribute(x))));
+            destColumn.SetUnresolvedGuidStorageProvidersCore(
+                mergedUnresolvedGuidStorageProviders.OrderBy(static x => x));
 
             foreach (var srcDbType in srcProperty.Column.DbTypes)
             {

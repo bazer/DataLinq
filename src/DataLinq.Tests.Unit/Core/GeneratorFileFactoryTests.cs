@@ -317,6 +317,25 @@ public class GeneratorFileFactoryTests
             "new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.DatabaseType.MySQL, global::DataLinq.Attributes.GuidStorageFormat.Binary16Rfc4122)");
     }
 
+    [Test]
+    public async Task CreateModelFiles_ResolvedGuidStorage_EmitsGeneratedMetadataDraft()
+    {
+        var database = CreateDatabaseWithResolvedGuidStorage();
+
+        var generatedFile = new GeneratorFileFactory(new GeneratorFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "GeneratorDb.DataLinqMetadata.cs");
+
+        await Assert.That(generatedFile.contents).Contains(
+            "GuidStorageDefinitions =");
+        await Assert.That(generatedFile.contents).Contains(
+            "new global::DataLinq.Metadata.GuidStorageDefinition(global::DataLinq.DatabaseType.MySQL, global::DataLinq.Attributes.GuidStorageFormat.Binary16LittleEndian, false)");
+        await Assert.That(generatedFile.contents).Contains(
+            "new global::DataLinq.Metadata.GuidStorageDefinition(global::DataLinq.DatabaseType.MariaDB, global::DataLinq.Attributes.GuidStorageFormat.NativeUuid, false)");
+        await Assert.That(generatedFile.contents).Contains(
+            "new global::DataLinq.Metadata.GuidStorageDefinition(global::DataLinq.DatabaseType.SQLite, global::DataLinq.Attributes.GuidStorageFormat.Text36, false)");
+    }
+
     private static DatabaseDefinition CreateDatabaseWithDefaultValue(
         string propertyName,
         CsTypeDeclaration propertyType,
@@ -399,6 +418,58 @@ public class GeneratorFileFactoryTests
                                     new GuidStorageAttribute(
                                         DatabaseType.MySQL,
                                         GuidStorageFormat.Binary16Rfc4122)
+                                ]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("generator_table"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithResolvedGuidStorage()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "GeneratorDb",
+            new CsTypeDeclaration("GeneratorDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "GeneratorModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("GeneratorModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    GuidStorageDefinitions =
+                                    [
+                                        new GuidStorageDefinition(
+                                            DatabaseType.MySQL,
+                                            GuidStorageFormat.Binary16LittleEndian,
+                                            IsExplicit: false),
+                                        new GuidStorageDefinition(
+                                            DatabaseType.MariaDB,
+                                            GuidStorageFormat.NativeUuid,
+                                            IsExplicit: false),
+                                        new GuidStorageDefinition(
+                                            DatabaseType.SQLite,
+                                            GuidStorageFormat.Text36,
+                                            IsExplicit: false)
+                                    ]
+                                })
+                            {
+                                Attributes =
+                                [
+                                    new PrimaryKeyAttribute(),
+                                    new ColumnAttribute("id")
                                 ]
                             }
                         ]

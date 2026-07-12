@@ -214,6 +214,9 @@ internal static class MetadataDefinitionSnapshot
         foreach (var dbType in source.DbTypes)
             column.AddDbTypeCore(dbType.Clone());
 
+        column.SetGuidStorageDefinitionsCore(source.GuidStorageDefinitions);
+        column.SetUnresolvedGuidStorageProvidersCore(source.UnresolvedGuidStorageProviders);
+
         return column;
     }
 

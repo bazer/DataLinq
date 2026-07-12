@@ -288,6 +288,37 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         await Assert.That(sql.Contains("DEFAULT UUID()", StringComparison.Ordinal)).IsTrue();
     }
 
+    [Test]
+    public async Task GetCreateTables_ProviderSnapshotNativeUuidModifiers_AreNotSerialized()
+    {
+        var database = new MetadataDefinitionFactory()
+            .BuildProviderMetadata(CreateDatabaseDraft(
+                CreateColumn(
+                    "Id",
+                    new CsTypeDeclaration(typeof(Guid)),
+                    "id",
+                    primaryKey: true,
+                    dbTypes:
+                    [
+                        new DatabaseColumnType(
+                            DataLinq.DatabaseType.MariaDB,
+                            "uuid",
+                            length: 36,
+                            decimals: 2,
+                            signed: false)
+                    ])))
+            .ValueOrException();
+        var sql = SqlFromMetadataFactory
+            .GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB)
+            .GetCreateTables(database, foreignKeyRestrict: false)
+            .ValueOrException()
+            .Text;
+
+        await Assert.That(sql).Contains("`id` UUID NOT NULL");
+        await Assert.That(sql).DoesNotContain("UUID(");
+        await Assert.That(sql).DoesNotContain("UNSIGNED");
+    }
+
     private static (TableDefinition table, ColumnDefinition column, ValueProperty property) CreateValueProperty(
         string columnName,
         string csTypeName,
@@ -353,6 +384,14 @@ public class MetadataFromSqlFactoryDefaultParsingTests
 
     private static DatabaseDefinition CreateDatabase(params MetadataValuePropertyDraft[] columns)
     {
+        return new MetadataDefinitionFactory()
+            .Build(CreateDatabaseDraft(columns))
+            .ValueOrException();
+    }
+
+    private static MetadataDatabaseDraft CreateDatabaseDraft(
+        params MetadataValuePropertyDraft[] columns)
+    {
         var draft = new MetadataDatabaseDraft(
             "TestDb",
             new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
@@ -369,7 +408,7 @@ public class MetadataFromSqlFactoryDefaultParsingTests
             ]
         };
 
-        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+        return draft;
     }
 
     private static MetadataValuePropertyDraft CreateColumn(

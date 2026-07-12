@@ -14,9 +14,12 @@ public class SqlFromMySqlFactory : SqlFromMetadataFactory
         if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.MySQL))
             return column.DbTypes.First(x => x.DatabaseType == DatabaseType.MySQL);
 
+        var fallbackType = column.HasScalarConverter
+            ? EffectiveColumnTypeResolver.ResolveFromCanonicalProviderType(column, DatabaseType.MySQL)
+            : GetDbTypeFromCsType(column.ValueProperty);
         var type = column.DbTypes
-            .Select(x => TryGetColumnType(x))
-            .Concat(GetDbTypeFromCsType(column.ValueProperty).Yield())
+            .Select(x => TryGetColumnType(column, x))
+            .Concat(fallbackType.Yield())
             .Where(x => x != null)
             .FirstOrDefault();
 
@@ -24,6 +27,34 @@ public class SqlFromMySqlFactory : SqlFromMetadataFactory
             throw new Exception($"Could not find a MySQL database type for '{column.Table.Model.CsType.Name}.{column.ValueProperty.PropertyName}'");
 
         return type;
+    }
+
+    protected virtual DatabaseColumnType? TryGetColumnType(
+        ColumnDefinition column,
+        DatabaseColumnType dbType)
+    {
+        var translated = TryGetColumnType(dbType);
+        if ((column.IsGuidColumn ||
+             (column.ProviderClrType is null &&
+              (column.ProviderCsType.Name.Equals("Guid", StringComparison.Ordinal) ||
+               column.ProviderCsType.Name.Equals("System.Guid", StringComparison.Ordinal)))) &&
+            dbType.DatabaseType == DatabaseType.Default &&
+            dbType.Name.Equals("uuid", StringComparison.OrdinalIgnoreCase) &&
+            translated is not null &&
+            translated.Name.Equals("binary", StringComparison.OrdinalIgnoreCase) &&
+            translated.Length == dbType.Length &&
+            translated.Decimals == dbType.Decimals &&
+            translated.Signed == dbType.Signed)
+        {
+            return new DatabaseColumnType(
+                DatabaseType.MySQL,
+                "binary",
+                dbType.Length ?? 16,
+                dbType.Decimals,
+                dbType.Signed);
+        }
+
+        return translated;
     }
 
     protected virtual DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)

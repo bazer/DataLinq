@@ -775,6 +775,32 @@ public class SyntaxParser
             return new GuidStorageAttribute(databaseType, format);
         }
 
+        if (name == "GuidStorageUnresolved")
+        {
+            if (arguments.Count != 1)
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidArgument,
+                    $"Attribute '{name}' must have exactly 1 argument");
+            }
+
+            var databaseTypeArgument = arguments[0];
+            if (!Enum.TryParse(
+                    databaseTypeArgument.Split('.').Last(),
+                    out DatabaseType databaseType) ||
+                databaseType is DatabaseType.Unknown or DatabaseType.Default ||
+                !Enum.IsDefined(typeof(DatabaseType), databaseType))
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidType,
+                    $"Invalid concrete DatabaseType value '{databaseTypeArgument}'");
+            }
+
+            return new GuidStorageUnresolvedAttribute(databaseType);
+        }
+
         if (name == "Check")
         {
             if (arguments.Count == 2)

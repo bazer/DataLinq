@@ -3,7 +3,7 @@
 
 # Specification: UUID Storage Format Support
 
-**Status:** Implementation in progress. Bounded `UUID-1A` declaration/codec primitives are implemented; resolved per-provider column metadata and every provider/runtime integration remain open.
+**Status:** Implementation in progress. Bounded `UUID-1A` declaration/codec primitives and `UUID-1B` immutable provider-keyed resolution are implemented; provider reads, writes, queries, defaults, and schema comparison/validation consumption remain open.
 
 **Release scope:** Required 0.9 runtime correctness slice; broader UUID policy work remains later.
 
@@ -15,7 +15,7 @@
 
 **Goal:** Make DataLinq responsible for UUID/`Guid` storage semantics so reads, writes, queries, defaults, validation, and generated metadata do not depend on MySqlConnector connection-string behavior.
 
-**Current implementation boundary:** `GuidStorageFormat` freezes the five 0.9 formats, `GuidStorageAttribute` declarations receive intrinsic provider/format/duplicate validation, and raw declarations survive source parsing, CLI metadata merge/model regeneration, and source-generated runtime metadata. The internal `GuidCodec` deterministically converts canonical `Guid` values to native-text, exact text, legacy .NET mixed-endian bytes, or RFC-order bytes and back. No provider currently resolves or consumes these declarations; `UUID-1` is not complete.
+**Current implementation boundary:** `GuidStorageFormat` freezes the five 0.9 formats, `GuidStorageAttribute` declarations receive intrinsic validation immediately and canonical-type validation after semantic scalar resolution, and raw declarations survive source parsing, CLI metadata merge/model regeneration, and source-generated runtime metadata. Syntax-only metadata deliberately defers scalar-dependent UUID resolution. The internal `GuidCodec` deterministically converts canonical `Guid` values to native-text, exact text, legacy .NET mixed-endian bytes, or RFC-order bytes and back. `ColumnDefinition` now owns immutable definitions resolved per applicable built-in provider after scalar conversion, including typed IDs over canonical `Guid`; generated metadata carries those definitions and runtime construction recomputes them to reject inconsistent non-empty carried definitions. Provider readers, writers, query binders, defaults, and schema comparison do not consume the definitions yet, so aggregate `UUID-1` provider support is not complete.
 
 ## 0.9 Decision And Ownership
 
@@ -245,35 +245,39 @@ public abstract Guid ExternalId { get; }
 
 ### Attribute Rules
 
-- `GuidStorageAttribute` is valid only when the resolved canonical provider CLR type is `Guid`/`Guid?`; this includes typed IDs whose scalar converter produces canonical `Guid`. That eligibility check belongs to `UUID-1B`, after scalar mapping is resolved.
+- `GuidStorageAttribute` is valid only when the resolved canonical provider CLR type is `Guid`/`Guid?`; this includes typed IDs whose scalar converter produces canonical `Guid`. Resolution runs after scalar mapping, including Roslyn assembly registrations.
 - Multiple provider-specific attributes are allowed, with at most one declaration per `DatabaseType`.
 - An exact provider match wins over `DatabaseType.Default`.
 - no attribute means use DataLinq's deterministic provider default, not MySqlConnector's connection-wide behavior
 - `NativeUuid` requires a provider-native UUID type or a provider-specific mapping that behaves as native UUID.
-- `Text32` and `Text36` should validate against compatible declared database types where possible.
+- `Text32`, `Text36`, native, and binary formats validate against parity-aligned built-in effective-type rules. Exact provider declarations are shared directly, while translated and canonical-fallback behavior is kept aligned with the SQL factories by focused parity tests; downstream factory overrides remain outside provider-neutral metadata resolution.
+- Concrete `[Type]` scopes define the applicable providers. No type or a `DatabaseType.Default` type applies to all built-in providers; an exact provider `GuidStorage` declaration also makes that provider applicable. A default storage declaration is a fallback, not a hidden provider-selection mechanism.
 
 ## Metadata Shape
 
 `ColumnDefinition` should expose resolved UUID storage metadata rather than requiring every provider path to scan attributes:
 
 ```csharp
-public sealed class GuidStorageDefinition
-{
-    public DatabaseType DatabaseType { get; }
-    public GuidStorageFormat Format { get; }
-    public bool IsExplicit { get; }
-}
+public sealed record GuidStorageDefinition(
+    DatabaseType DatabaseType,
+    GuidStorageFormat Format,
+    bool IsExplicit);
 ```
 
 Useful helpers:
 
 ```csharp
 public bool IsGuidColumn { get; }
-public IReadOnlyList<GuidStorageDefinition> GuidStorageDefinitions { get; }
+public MetadataCollection<GuidStorageDefinition> GuidStorageDefinitions { get; }
 public GuidStorageDefinition? GetGuidStorageFor(DatabaseType databaseType);
+public bool IsGuidStorageUnresolvedFor(DatabaseType databaseType);
 ```
 
 Resolved definitions must be provider-keyed. Runtime metadata is cached by model CLR type, and one model can legitimately declare MariaDB native UUID plus MySQL binary UUID storage; a singular mutable `ColumnDefinition.GuidStorage` would be incorrect.
+
+The resolved and unresolved lookups are exact-only. `DatabaseType.Default` exists only in raw declarations and is expanded to concrete provider definitions during resolution. Definitions are emitted in stable MySQL, MariaDB, SQLite order, copied through snapshots and typed drafts, and included in metadata equivalence digests. A non-empty carried generated definition is not trusted: the runtime factory recomputes the expected result from scalar mapping, raw declarations, and the effective physical type, then rejects inconsistent metadata with a regeneration diagnostic. Missing definitions from older generated payloads are recomputed for compatibility. Provider-snapshot callers can use `IsGuidStorageUnresolvedFor(...)` to distinguish ambiguous byte layout from a provider that is simply not applicable.
+
+Effective-type sharing is defined for DataLinq's built-in provider factories. Their existing protected virtual translation hooks remain active, but UUID metadata cannot predict arbitrary downstream subclass overrides during provider-neutral metadata construction. Custom mappings should use exact provider `[Type]` plus explicit `[GuidStorage]`; a general third-party provider/type-policy seam is outside the 0.9 contract.
 
 The resolved metadata should answer:
 
@@ -340,7 +344,7 @@ Recommended default strategy:
 
 - keep current default `Guid` -> `BINARY(16)` for compatibility
 - resolve that default as `Binary16LittleEndian` for existing behavior
-- emit a diagnostic or generated attribute when importing/generating so the format is visible
+- emit resolved generated metadata so the format is visible to runtime consumers
 - consider switching new-project templates to explicit `Binary16Rfc4122` or `Text36`, but do not silently change the runtime default in a minor release
 
 ### MariaDB
@@ -350,11 +354,11 @@ MariaDB should continue preferring native `UUID` where supported.
 Recommended default strategy:
 
 - native `UUID` -> `NativeUuid`
-- explicit `BINARY(16)` -> require or infer a binary storage format
+- model `BINARY(16)` without a declaration -> `Binary16LittleEndian` for compatibility; live provider snapshots do not infer byte order from the SQL type alone
 - `CHAR(36)` / `VARCHAR(36)` -> `Text36`
 - `CHAR(32)` / `VARCHAR(32)` -> `Text32`
 
-MariaDB provider version detection already exists for native UUID support. That detection should feed storage-format resolution instead of only type generation.
+The supported 0.9 MariaDB matrix starts at 10.11, where native `UUID` is available, so immutable metadata resolves the built-in no-type default to `NativeUuid`. Existing runtime version detection remains a guard for older ad hoc connections; `UUID-2` must reject unsupported native UUID use there rather than mutating globally cached column metadata.
 
 ### SQLite
 
@@ -367,6 +371,8 @@ Recommended behavior:
 - imported `BLOB` named `guid`/`uuid` should probably generate an explicit warning because byte layout cannot be inferred from SQLite type affinity
 
 SQLite query parameter normalization already converts `Guid` to text in `SQLiteProvider.CreateParameter`. That pattern should become column-aware if binary UUID support is formalized.
+
+Live-schema metadata never infers byte order from bare MySQL/MariaDB `BINARY(16)` or SQLite `BLOB`. The unresolved provider provenance survives metadata snapshots. If model-file generation cannot merge an existing source declaration that supplies the policy, it emits a blocking `DATALINQ_UUID_STORAGE_UNRESOLVED` source diagnostic instructing the user to choose little-endian compatibility or RFC/string order; the import pipeline therefore cannot silently turn an unknown schema layout into a model default.
 
 ## Query and Parameter Binding
 
@@ -593,16 +599,24 @@ Bounded exit signal is green: known strings and bytes round-trip deterministical
 
 ### UUID-1B: Resolved Provider-Keyed Metadata
 
-- add provider-keyed immutable `GuidStorageDefinition` metadata and lookup
-- validate eligibility against resolved canonical provider type so typed IDs over `Guid` remain supported
+Implemented on 2026-07-12:
+
+- add provider-keyed immutable `GuidStorageDefinition` metadata and exact lookup
+- validate eligibility against resolved canonical provider type so typed IDs over `Guid` remain supported and `Guid` models converted to another canonical type are rejected
+- resolve against parity-aligned built-in MySQL, MariaDB, and SQLite physical-type rules, including canonical-provider fallback for typed IDs, while retaining the SQL factories' existing extension hooks outside this provider-neutral contract
 - resolve exact-provider-over-default declarations and deterministic no-attribute compatibility defaults without consulting MySqlConnector `GuidFormat`
-- validate native/text/binary physical type compatibility and diagnose ambiguous `BINARY(16)`/`BLOB` mappings
-- carry the resolved format, not merely raw attributes, through runtime and source-generated metadata
+- validate the bounded native/text/binary matrix; keep model MySQL/MariaDB `BINARY(16)` on legacy little-endian compatibility, require explicit byte order for SQLite `BLOB`, and leave bare binary provider snapshots unresolved rather than inventing schema meaning
+- carry resolved definitions through snapshots, typed drafts, source-generated runtime metadata, and equivalence digests; recompute definitions at runtime and reject inconsistent non-empty carried metadata
+- resolve source-generator metadata only after explicit and assembly-registered scalar converters establish canonical provider types
+- preserve unresolved binary provider-snapshot provenance through model generation and emit a blocking source diagnostic unless merged source metadata supplies an explicit or compatibility policy
 
 Exit signal:
 
-- every mapped canonical-`Guid` column has one resolved physical format per applicable provider or an actionable ambiguity diagnostic
-- one model can resolve distinct MySQL, MariaDB, and SQLite formats without mutable global provider state
+- every model-mapped canonical-`Guid` column has one resolved physical format per applicable provider or an actionable ambiguity diagnostic
+- one model resolves distinct MySQL, MariaDB, and SQLite formats without mutable global provider state
+- live provider metadata does not claim a binary byte order that the schema cannot reveal
+
+The exit signal is green. This is resolved metadata, not provider UUID behavior; `UUID-2` remains the first consumer slice.
 
 ### UUID-2: Provider Reads, Writes, And Mutation Values
 

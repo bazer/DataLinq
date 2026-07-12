@@ -4,8 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
 using DataLinq.ErrorHandling;
+using DataLinq.MariaDB;
+using DataLinq.Metadata;
+using DataLinq.MySql;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
@@ -165,6 +169,53 @@ public class MetadataFromFileFactoryTests
         await Assert.That(defaultAttribute.CodeExpression).IsEqualTo("ExternalStatus.Inactive");
     }
 
+    [Test]
+    public async Task ReadFiles_UnqualifiedGuidDefaultUuid_UsesProviderSpecificToolingTypes()
+    {
+        using var fixture = new SourceGuidFileFixture(
+            "[Type(DatabaseType.Default, \"uuid\")]");
+        var database = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions())
+            .ReadFiles("source_guid", [fixture.TempDirectory])
+            .ValueOrException()
+            .Single();
+        var column = database.TableModels.Single().Table.Columns.Single();
+        var mySqlType = new SqlFromMySqlFactory().GetDbType(column);
+        var mariaDbType = new SqlFromMariaDBFactory().GetDbType(column);
+
+        await Assert.That(column.ProviderClrType).IsNull();
+        await Assert.That(column.ProviderCsType.Name).IsEqualTo("Guid");
+        await Assert.That(mySqlType.Name).IsEqualTo("binary");
+        await Assert.That(mySqlType.Length).IsEqualTo(16UL);
+        await Assert.That(mariaDbType.Name).IsEqualTo("uuid");
+        await Assert.That(mariaDbType.Length).IsNull();
+    }
+
+    [Test]
+    public async Task ReadFiles_UnqualifiedGuidBinaryType_IsAcceptedAsLegacyTransformPolicy()
+    {
+        using var fixture = new SourceGuidFileFixture(
+            "[Type(DatabaseType.MySQL, \"binary\", 16)]");
+        var source = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions())
+            .ReadFiles("source_guid", [fixture.TempDirectory])
+            .ValueOrException()
+            .Single();
+        var destination = MetadataDefinitionSnapshot.Copy(source);
+        var destinationColumn = destination.TableModels.Single().Table.Columns.Single();
+        destinationColumn.SetScalarMappingCore(
+            ColumnScalarMapping.Identity(new CsTypeDeclaration(typeof(Guid))));
+        destinationColumn.SetUnresolvedGuidStorageProvidersCore(
+            [DatabaseType.MySQL]);
+        destination.Freeze();
+
+        var transformed = new MetadataTransformer(new MetadataTransformerOptions())
+            .TransformDatabaseSnapshot(source, destination);
+        var transformedColumn = transformed.TableModels.Single().Table.Columns.Single();
+
+        await Assert.That(transformedColumn.UnresolvedGuidStorageProviders).IsEmpty();
+        await Assert.That(transformedColumn.ValueProperty.Attributes
+            .OfType<GuidStorageUnresolvedAttribute>()).IsEmpty();
+    }
+
     private sealed class MetadataFromFileFactoryFixture : IDisposable
     {
         public MetadataFromFileFactoryFixture()
@@ -314,6 +365,60 @@ public abstract partial class ExternalEnumRow(IRowData rowData, IDataSourceAcces
 
     [Column("status"), Default(ExternalStatus.Inactive)]
     public abstract ExternalStatus Status { get; }
+}
+""";
+    }
+
+    private sealed class SourceGuidFileFixture : IDisposable
+    {
+        public SourceGuidFileFixture(string typeAttribute)
+        {
+            TempDirectory = Path.Combine(
+                Path.GetTempPath(),
+                "DataLinqSourceGuidTest_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(TempDirectory);
+            File.WriteAllText(
+                Path.Combine(TempDirectory, "SourceGuidModels.cs"),
+                SourceCode.Replace("%TYPE_ATTRIBUTE%", typeAttribute),
+                Encoding.UTF8);
+        }
+
+        public string TempDirectory { get; }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(TempDirectory))
+                Directory.Delete(TempDirectory, recursive: true);
+        }
+
+        private const string SourceCode = """
+using System;
+using DataLinq;
+using DataLinq.Attributes;
+using DataLinq.Instances;
+using DataLinq.Interfaces;
+using DataLinq.Mutation;
+
+namespace SourceGuidFileTest;
+
+[Database("source_guid")]
+public partial class SourceGuidDb : IDatabaseModel
+{
+    public SourceGuidDb(DataSourceAccess dataSource) {}
+    public DbRead<SourceGuidRow> Rows { get; }
+}
+
+[Table("source_guid_rows")]
+public abstract partial class SourceGuidRow(
+    IRowData rowData,
+    IDataSourceAccess dataSource)
+    : Immutable<SourceGuidRow, SourceGuidDb>(rowData, dataSource),
+      ITableModel<SourceGuidDb>
+{
+    [PrimaryKey]
+    [Column("id")]
+    %TYPE_ATTRIBUTE%
+    public abstract Guid Id { get; }
 }
 """;
     }

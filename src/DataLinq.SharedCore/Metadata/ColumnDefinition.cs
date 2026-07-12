@@ -99,6 +99,8 @@ public class DatabaseColumnType(DatabaseType databaseType, string name, ulong? l
 public class ColumnDefinition(string dbName, TableDefinition table) : IDefinition
 {
     private MetadataCollection<DatabaseColumnType> dbTypes = MetadataCollection<DatabaseColumnType>.Empty;
+    private MetadataCollection<GuidStorageDefinition> guidStorageDefinitions = MetadataCollection<GuidStorageDefinition>.Empty;
+    private MetadataCollection<DatabaseType> unresolvedGuidStorageProviders = MetadataCollection<DatabaseType>.Empty;
     private ColumnScalarMapping scalarMapping = null!;
 
     public TableDefinition Table { get; } = table;
@@ -198,6 +200,67 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     public Type? ProviderClrType => scalarMapping.ProviderClrType;
     public IDataLinqScalarConverter? ScalarConverter => scalarMapping.Converter;
     public bool HasScalarConverter => scalarMapping.HasConverter;
+    /// <summary>
+    /// Gets whether this column's resolved canonical provider CLR type is
+    /// <see cref="Guid"/>.
+    /// </summary>
+    public bool IsGuidColumn
+    {
+        get
+        {
+            if (ProviderClrType is { } providerClrType)
+                return (System.Nullable.GetUnderlyingType(providerClrType) ?? providerClrType) == typeof(Guid);
+
+            return (string.Equals(ProviderCsType.Name, nameof(Guid), StringComparison.Ordinal) &&
+                    string.Equals(ProviderCsType.Namespace, typeof(Guid).Namespace, StringComparison.Ordinal)) ||
+                   string.Equals(ProviderCsType.Name, typeof(Guid).FullName, StringComparison.Ordinal);
+        }
+    }
+    /// <summary>
+    /// Gets the immutable UUID storage definitions resolved for concrete
+    /// database providers.
+    /// </summary>
+    public MetadataCollection<GuidStorageDefinition> GuidStorageDefinitions => guidStorageDefinitions;
+    internal MetadataCollection<DatabaseType> UnresolvedGuidStorageProviders => unresolvedGuidStorageProviders;
+
+    /// <summary>
+    /// Gets the UUID storage definition resolved for one concrete provider.
+    /// The lookup is exact and does not fall back to
+    /// <see cref="DatabaseType.Default"/>.
+    /// </summary>
+    /// <param name="databaseType">The concrete provider to look up.</param>
+    /// <returns>The resolved definition, or <see langword="null"/>.</returns>
+    public GuidStorageDefinition? GetGuidStorageFor(DatabaseType databaseType)
+    {
+        for (var i = 0; i < guidStorageDefinitions.Count; i++)
+        {
+            var definition = guidStorageDefinitions[i];
+            if (definition.DatabaseType == databaseType)
+                return definition;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Gets whether provider-imported metadata could not determine the UUID
+    /// byte layout for the specified provider.
+    /// </summary>
+    /// <param name="databaseType">The concrete provider to inspect.</param>
+    /// <returns>
+    /// <see langword="true"/> when the provider is applicable but its UUID
+    /// storage format remains unresolved; otherwise <see langword="false"/>.
+    /// </returns>
+    public bool IsGuidStorageUnresolvedFor(DatabaseType databaseType)
+    {
+        for (var i = 0; i < unresolvedGuidStorageProviders.Count; i++)
+        {
+            if (unresolvedGuidStorageProviders[i] == databaseType)
+                return true;
+        }
+
+        return false;
+    }
 
     public CsFileDeclaration? CsFile => Table?.Model?.CsFile;
 
@@ -219,6 +282,18 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     {
         ThrowIfFrozen();
         scalarMapping = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    internal void SetGuidStorageDefinitionsCore(IEnumerable<GuidStorageDefinition> definitions)
+    {
+        ThrowIfFrozen();
+        guidStorageDefinitions = new MetadataCollection<GuidStorageDefinition>(definitions);
+    }
+
+    internal void SetUnresolvedGuidStorageProvidersCore(IEnumerable<DatabaseType> databaseTypes)
+    {
+        ThrowIfFrozen();
+        unresolvedGuidStorageProviders = new MetadataCollection<DatabaseType>(databaseTypes);
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]

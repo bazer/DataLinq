@@ -97,9 +97,12 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
         if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.SQLite))
             return column.DbTypes.First(x => x.DatabaseType == DatabaseType.SQLite);
 
+        var fallbackType = GetDbTypeFromCsType(
+            column.ValueProperty,
+            DatabaseType.SQLite);
         var type = column.DbTypes
             .Select(x => TryGetColumnType(x))
-            .Concat(GetDbTypeFromCsType(column.ValueProperty, DatabaseType.SQLite).Yield())
+            .Concat(fallbackType.Yield())
             .Where(x => x != null)
             .FirstOrDefault();
 
@@ -202,6 +205,13 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
 
     protected virtual DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property, DatabaseType databaseType)
     {
+        if (property.Column.HasScalarConverter)
+        {
+            return EffectiveColumnTypeResolver.ResolveFromCanonicalProviderType(
+                property.Column,
+                databaseType);
+        }
+
         var csTypeName = property.CsType.Name.ToLower();
 
         return csTypeName switch

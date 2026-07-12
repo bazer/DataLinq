@@ -95,7 +95,13 @@ public sealed class GuidStorageMetadataTests
                                 new CsTypeDeclaration(typeof(Guid)),
                                 new MetadataColumnDraft("id")
                                 {
-                                    PrimaryKey = true
+                                    PrimaryKey = true,
+                                    DbTypes =
+                                    [
+                                        new DatabaseColumnType(DatabaseType.MySQL, "binary", 16),
+                                        new DatabaseColumnType(DatabaseType.MariaDB, "char", 36),
+                                        new DatabaseColumnType(DatabaseType.SQLite, "TEXT")
+                                    ]
                                 })
                             {
                                 Attributes = attributes

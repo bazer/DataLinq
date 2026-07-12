@@ -29,6 +29,13 @@ internal static class ScalarConverterMetadataResolver
 
         var database = MetadataDefinitionSnapshot.Copy(source);
 
+        foreach (var column in database.TableModels
+            .Where(static tableModel => !tableModel.IsStub)
+            .SelectMany(static tableModel => tableModel.Table.Columns))
+        {
+            column.SetGuidStorageDefinitionsCore([]);
+        }
+
         foreach (var tableModel in database.TableModels.Where(static tableModel => !tableModel.IsStub))
         {
             foreach (var relationProperty in tableModel.Model.RelationProperties.Values)
@@ -92,7 +99,11 @@ internal static class ScalarConverterMetadataResolver
                     var registration = registrations.FirstOrDefault(candidate =>
                         SymbolEqualityComparer.Default.Equals(candidate.ModelType, propertyType));
                     if (registration is null)
+                    {
+                        property.Column.SetScalarMappingCore(ColumnScalarMapping.Identity(
+                            CreateTypeDeclaration(propertyType)));
                         continue;
+                    }
 
                     converterType = registration.ConverterType;
                     origin = ScalarConverterOrigin.AssemblyRegistration;
@@ -116,6 +127,12 @@ internal static class ScalarConverterMetadataResolver
                     sourceLocation));
             }
         }
+
+        var guidStorageResult = MetadataFactory.ResolveGuidStorageDefinitionsCore(
+            database,
+            GuidStorageResolutionMode.Model);
+        if (!guidStorageResult.TryUnwrap(out _, out var guidStorageFailure))
+            return guidStorageFailure;
 
         database.Freeze();
         return database;

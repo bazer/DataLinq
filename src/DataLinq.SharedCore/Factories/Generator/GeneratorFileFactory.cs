@@ -391,6 +391,16 @@ public class GeneratorFileFactory
             yield return row;
         if (column.DbTypes.Count > 0)
             yield return $"{childIndent}OwnsDbTypes = true,";
+        if (column.GuidStorageDefinitions.Count > 0)
+        {
+            foreach (var row in GuidStorageDefinitionCollection(
+                "GuidStorageDefinitions",
+                column.GuidStorageDefinitions,
+                childIndent))
+            {
+                yield return row;
+            }
+        }
         yield return $"{childIndent}PrimaryKey = {FormatBool(column.PrimaryKey)},";
         yield return $"{childIndent}ForeignKey = {FormatBool(column.ForeignKey)},";
         yield return $"{childIndent}AutoIncrement = {FormatBool(column.AutoIncrement)},";
@@ -446,6 +456,17 @@ public class GeneratorFileFactory
         foreach (var attribute in property.Attributes.Where(static attribute => attribute is not ScalarConverterSourceAttribute))
             yield return $"{indent}{tab}{FormatAttribute(attribute)},";
 
+        var declaredUnresolvedProviders = new HashSet<DatabaseType>(property.Attributes
+            .OfType<GuidStorageUnresolvedAttribute>()
+            .Select(static attribute => attribute.DatabaseType));
+        foreach (var provider in property.Column.UnresolvedGuidStorageProviders)
+        {
+            if (declaredUnresolvedProviders.Add(provider))
+            {
+                yield return $"{indent}{tab}new global::DataLinq.Attributes.GuidStorageUnresolvedAttribute(global::DataLinq.DatabaseType.{provider}),";
+            }
+        }
+
         if (property.Column.ScalarMapping.Origin == ScalarConverterOrigin.Property &&
             property.Column.ScalarMapping.ConverterCsType is { } converterCsType)
         {
@@ -474,6 +495,22 @@ public class GeneratorFileFactory
         foreach (var dbType in dbTypes)
         {
             yield return $"{indent}{tab}new global::DataLinq.Metadata.DatabaseColumnType(global::DataLinq.DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {FormatNullableULong(dbType.Length)}, {FormatNullableUInt(dbType.Decimals)}, {FormatNullableBool(dbType.Signed)}),";
+        }
+
+        yield return $"{indent}],";
+    }
+
+    private IEnumerable<string> GuidStorageDefinitionCollection(
+        string propertyName,
+        IEnumerable<GuidStorageDefinition> definitions,
+        string indent)
+    {
+        yield return $"{indent}{propertyName} =";
+        yield return $"{indent}[";
+
+        foreach (var definition in definitions)
+        {
+            yield return $"{indent}{tab}new global::DataLinq.Metadata.GuidStorageDefinition(global::DataLinq.DatabaseType.{definition.DatabaseType}, global::DataLinq.Attributes.GuidStorageFormat.{definition.Format}, {FormatBool(definition.IsExplicit)}),";
         }
 
         yield return $"{indent}],";
@@ -598,6 +635,8 @@ public class GeneratorFileFactory
             $"new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.Attributes.GuidStorageFormat.{value.Format})",
         GuidStorageAttribute value =>
             $"new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.DatabaseType.{value.DatabaseType}, global::DataLinq.Attributes.GuidStorageFormat.{value.Format})",
+        GuidStorageUnresolvedAttribute value =>
+            $"new global::DataLinq.Attributes.GuidStorageUnresolvedAttribute(global::DataLinq.DatabaseType.{value.DatabaseType})",
         EnumAttribute value => $"new global::DataLinq.Attributes.EnumAttribute({FormatStringArguments(value.Values)})",
         PrimaryKeyAttribute => "new global::DataLinq.Attributes.PrimaryKeyAttribute()",
         NullableAttribute => "new global::DataLinq.Attributes.NullableAttribute()",
