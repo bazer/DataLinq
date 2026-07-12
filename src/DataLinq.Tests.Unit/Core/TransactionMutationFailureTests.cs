@@ -883,12 +883,145 @@ public sealed class TransactionMutationFailureTests
     }
 
     [Test]
-    public async Task CommitFailureAfterProviderStatus_DoesNotPublishPromoteOrRaiseWrapperStatus()
+    public async Task CommitFailureBeforeProviderStatus_RecoversProviderCachesAndKeepsRollbackAvailable()
     {
         using var fixture = new ScriptedFixture();
+        fixture.Provider.State.Cache.CleanupScheduler?.Stop();
+        using var transaction = fixture.Database.Transaction();
+        var deleted = fixture.CreateExistingMutable(429, "delete");
+        var transactionBound = fixture.CreateImmutable(430, "bound", transaction);
+        fixture.PrimeCommittedRow(905, "stale committed row");
+        fixture.PrimeCommittedOtherRow(906);
+        _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(deleted);
+        var notification = new CountingNotification();
+        fixture.RowCache.SubscribeToChanges(notification);
+        var wrapperCommittedCalls = 0;
+        transaction.OnStatusChanged += (_, args) =>
+        {
+            if (args.Status == DatabaseTransactionStatus.Committed)
+                wrapperCommittedCalls++;
+        };
+        var expected = new InjectedMutationException("provider commit before status");
+        fixture.Scenario.CommitFailureBeforeStatus = expected;
+
+        var observed = Capture<InjectedMutationException>(transaction.Commit);
+
+        await Assert.That(observed).IsSameReferenceAs(expected);
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
+        await Assert.That(wrapperCommittedCalls).IsEqualTo(0);
+        await Assert.That(notification.ClearCalls).IsEqualTo(1);
+        await Assert.That(transaction.Changes).Count().IsEqualTo(1);
+        await Assert.That(transaction.TouchedMutables).IsEmpty();
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.CommitOutcomeUnknown);
+        await Assert.That(deleted.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(deleted.Lifecycle.TransactionOwner).IsNull();
+        await Assert.That(deleted.Lifecycle.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.CommitOutcomeUnknown);
+        await Assert.That(fixture.Provider.State.Cache.TableCaches.Values.All(
+            cache => !cache.IsTransactionInCache(transaction))).IsTrue();
+        await Assert.That(fixture.Provider.State.Cache.TableCaches.Values.All(
+            IsStructurallyEmpty)).IsTrue();
+        await AssertManagedCompletionContext(
+            observed,
+            transaction,
+            "Commit",
+            MutableInvalidationReason.CommitOutcomeUnknown);
+
+        var countsBeforeGates = fixture.Scenario.SnapshotCounts();
+        var fallbackFailure = Capture<InvalidOperationException>(() =>
+            _ = transactionBound.GetReadSource());
+        var writeFailure = Capture<InvalidOperationException>(() => transaction.Delete(deleted));
+        var repeatedCommitFailure = Capture<InvalidOperationException>(transaction.Commit);
+
+        foreach (var gateFailure in new[]
+                 {
+                     fallbackFailure,
+                     writeFailure,
+                     repeatedCommitFailure
+                 })
+        {
+            await Assert.That(gateFailure.Message).Contains("provider commit call failed");
+        }
+
+        await Assert.That(fixture.Scenario.SnapshotCounts()).IsEqualTo(countsBeforeGates);
+
+        var rollbackFailure = Capture<InvalidOperationException>(transaction.Rollback);
+
+        await Assert.That(rollbackFailure.Message).Contains("cannot report a definite rollback");
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
+        await Assert.That(fixture.Scenario.Rollbacks).IsEqualTo(1);
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.CommitOutcomeUnknown);
+        await Assert.That(fixture.Provider.State.Cache.TableCaches.Values.All(
+            cache => !cache.IsTransactionInCache(transaction))).IsTrue();
+    }
+
+    [Test]
+    public async Task CommitProviderFailure_ReportsRecoveryFailuresWithoutMaskingProviderCause()
+    {
+        using var fixture = new ScriptedFixture();
+        fixture.Provider.State.Cache.CleanupScheduler?.Stop();
+        using var transaction = fixture.Database.Transaction();
+        var deleted = fixture.CreateExistingMutable(431, "delete");
+        fixture.PrimeCommittedRow(907, "stale committed row");
+        fixture.PrimeCommittedOtherRow(908);
+        _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(deleted);
+        var providerFailure = new InjectedMutationException("provider commit before status");
+        var recoveryFailure = new InjectedMutationException("commit recovery notification");
+        var throwingNotification = new ThrowingNotification(recoveryFailure);
+        var allStructuresClearedAtNotification = false;
+        var laterNotification = new MutatingNotification(() =>
+            allStructuresClearedAtNotification =
+                fixture.Provider.State.Cache.TableCaches.Values.All(IsStructurallyEmpty));
+        fixture.RowCache.SubscribeToChanges(throwingNotification);
+        fixture.OtherRowCache.SubscribeToChanges(laterNotification);
+        fixture.Scenario.CommitFailureBeforeStatus = providerFailure;
+
+        var observed = Capture<InjectedMutationException>(transaction.Commit);
+
+        await Assert.That(observed).IsSameReferenceAs(providerFailure);
+        await Assert.That(observed.Data["DataLinq.TransactionId"])
+            .IsEqualTo(transaction.TransactionID);
+        await Assert.That(observed.Data["DataLinq.CompletionOperation"])
+            .IsEqualTo("Commit");
+        await Assert.That(observed.Data["DataLinq.LocalFinalizationAttempted"] is true)
+            .IsTrue();
+        await Assert.That(observed.Data["DataLinq.MutableInvalidationReason"])
+            .IsEqualTo(MutableInvalidationReason.CommitOutcomeUnknown.ToString());
+        var secondaryFailures =
+            observed.Data["DataLinq.SecondaryCompletionFailures"] as IReadOnlyList<Exception> ??
+            throw new InvalidOperationException("Commit recovery failures were not retained.");
+        await Assert.That(secondaryFailures.Count).IsEqualTo(1);
+        await Assert.That(secondaryFailures[0]).IsSameReferenceAs(recoveryFailure);
+        await Assert.That(throwingNotification.ClearCalls).IsEqualTo(1);
+        await Assert.That(laterNotification.ClearCalls).IsEqualTo(1);
+        await Assert.That(allStructuresClearedAtNotification).IsTrue();
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
+        await Assert.That(transaction.TouchedMutables).IsEmpty();
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.CommitOutcomeUnknown);
+        await Assert.That(deleted.Lifecycle.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.CommitOutcomeUnknown);
+        await Assert.That(fixture.Provider.State.Cache.TableCaches.Values.All(
+            IsStructurallyEmpty)).IsTrue();
+    }
+
+    [Test]
+    public async Task CommitFailureAfterProviderStatus_RecoversProviderCachesWithoutPublishing()
+    {
+        using var fixture = new ScriptedFixture();
+        fixture.Provider.State.Cache.CleanupScheduler?.Stop();
         using var transaction = fixture.Database.Transaction();
         var deleted = fixture.CreateExistingMutable(425, "delete");
         var transactionBound = fixture.CreateImmutable(428, "bound", transaction);
+        fixture.PrimeCommittedRow(903, "stale committed row");
+        fixture.PrimeCommittedOtherRow(904);
         _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
         fixture.Scenario.EnqueueNonQueryResult(1);
         transaction.Delete(deleted);
@@ -908,10 +1041,10 @@ public sealed class TransactionMutationFailureTests
         await Assert.That(observed).IsSameReferenceAs(expected);
         await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Committed);
         await Assert.That(wrapperCommittedCalls).IsEqualTo(0);
-        await Assert.That(notification.ClearCalls).IsEqualTo(0);
-        await Assert.That(fixture.RowCache.IsTransactionInCache(transaction)).IsTrue();
+        await Assert.That(notification.ClearCalls).IsEqualTo(1);
+        await Assert.That(fixture.RowCache.IsTransactionInCache(transaction)).IsFalse();
         await Assert.That(transaction.Changes).Count().IsEqualTo(1);
-        await Assert.That(transaction.TouchedMutables.Count).IsEqualTo(1);
+        await Assert.That(transaction.TouchedMutables).IsEmpty();
         await Assert.That(transaction.MutableOwnership.Outcome)
             .IsEqualTo(MutableTransactionOutcome.CommitOutcomeUnknown);
         await Assert.That(deleted.Lifecycle.BaselineKind)
@@ -920,6 +1053,13 @@ public sealed class TransactionMutationFailureTests
         await Assert.That(deleted.Lifecycle.InvalidationReason)
             .IsEqualTo(MutableInvalidationReason.CommitOutcomeUnknown);
         await Assert.That(deleted.HasStoredCommittedBaseline).IsFalse();
+        await Assert.That(fixture.Provider.State.Cache.TableCaches.Values.All(
+            IsStructurallyEmpty)).IsTrue();
+        await AssertManagedCompletionContext(
+            observed,
+            transaction,
+            "Commit",
+            MutableInvalidationReason.CommitOutcomeUnknown);
 
         var countsBeforeGates = fixture.Scenario.SnapshotCounts();
         var fallbackFailure = Capture<InvalidOperationException>(() =>
@@ -1367,6 +1507,7 @@ public sealed class TransactionMutationFailureTests
         internal int Commits { get; set; }
         internal int Rollbacks { get; set; }
         internal int Disposals { get; set; }
+        internal Exception? CommitFailureBeforeStatus { get; set; }
         internal Exception? CommitFailureAfterStatus { get; set; }
         internal Exception? RollbackFailure { get; set; }
         internal Exception? DisposeRollbackFailure { get; set; }
@@ -1553,6 +1694,9 @@ public sealed class TransactionMutationFailureTests
         public override void Commit()
         {
             scenario.Commits++;
+            if (scenario.CommitFailureBeforeStatus is not null)
+                throw scenario.CommitFailureBeforeStatus;
+
             SetStatus(DatabaseTransactionStatus.Committed);
             if (scenario.CommitFailureAfterStatus is not null)
                 throw scenario.CommitFailureAfterStatus;

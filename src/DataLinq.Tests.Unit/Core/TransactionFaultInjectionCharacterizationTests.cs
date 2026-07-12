@@ -64,7 +64,7 @@ public class TransactionFaultInjectionCharacterizationTests
     }
 
     [Test]
-    public async Task CommitProviderFailure_MarksOutcomeUnknownAndPreservesItThroughRollbackCleanup()
+    public async Task CommitProviderFailure_RecoversCachesAndPreservesOutcomeThroughRollback()
     {
         using var fixture = CreateFixture();
         var expected = new InjectedProviderException("commit");
@@ -77,10 +77,15 @@ public class TransactionFaultInjectionCharacterizationTests
 
         await Assert.That(observed).IsSameReferenceAs(expected);
         await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
-        await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsTrue();
+        await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsFalse();
         await AssertInvalidOwnership(
             fixture,
             MutableTransactionOutcome.CommitOutcomeUnknown,
+            MutableInvalidationReason.CommitOutcomeUnknown);
+        await AssertManagedCompletionContext(
+            observed,
+            fixture.Transaction,
+            "Commit",
             MutableInvalidationReason.CommitOutcomeUnknown);
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo("provider.commit(cache=present)");
 
@@ -117,7 +122,7 @@ public class TransactionFaultInjectionCharacterizationTests
     }
 
     [Test]
-    public async Task CommitDisposalFailure_MarksOutcomeUnknownAndAllowsOnlyDisposalCleanup()
+    public async Task CommitDisposalFailure_RecoversCachesAndAllowsOnlyDisposal()
     {
         using var fixture = CreateFixture();
         var expected = new InjectedProviderException("commit disposal");
@@ -130,10 +135,15 @@ public class TransactionFaultInjectionCharacterizationTests
 
         await Assert.That(observed).IsSameReferenceAs(expected);
         await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.Committed);
-        await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsTrue();
+        await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsFalse();
         await AssertInvalidOwnership(
             fixture,
             MutableTransactionOutcome.CommitOutcomeUnknown,
+            MutableInvalidationReason.CommitOutcomeUnknown);
+        await AssertManagedCompletionContext(
+            observed,
+            fixture.Transaction,
+            "Commit",
             MutableInvalidationReason.CommitOutcomeUnknown);
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo(
             "provider.commit(cache=present) -> provider.dispose(cache=present) -> provider.resources.dispose");

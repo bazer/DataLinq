@@ -188,7 +188,7 @@ public class DatabaseCache : IDisposable
 
         // Finish structural cleanup for every table before notifying any subscribers.
         // Recovery callers cannot safely expose a mixture of cleared and stale tables
-        // to relation callbacks after the database commit has already succeeded.
+        // to relation callbacks after a commit succeeded or may have reached the database.
         foreach (var table in tables)
         {
             try

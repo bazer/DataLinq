@@ -577,9 +577,14 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                 {
                     DatabaseAccess.Commit();
                 }
-                catch
+                catch (Exception providerFailure)
                 {
-                    MutableOwnership.MarkCommitOutcomeUnknown();
+                    var recoveryFailures = FinalizeCommitOutcomeUnknownState();
+                    AddManagedCompletionFailureContext(
+                        providerFailure,
+                        operation: "Commit",
+                        MutableInvalidationReason.CommitOutcomeUnknown,
+                        recoveryFailures);
                     throw;
                 }
 
@@ -747,6 +752,37 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         {
             failures.Add(cleanupFailure);
         }
+    }
+
+    private IReadOnlyList<Exception> FinalizeCommitOutcomeUnknownState()
+    {
+        var recoveryFailures = new List<Exception>();
+
+        MutableOwnership.MarkCommitOutcomeUnknown();
+        foreach (var touchedMutable in touchedMutables)
+        {
+            try
+            {
+                touchedMutable.Invalidate(
+                    MutableInvalidationReason.CommitOutcomeUnknown);
+            }
+            catch (Exception exception)
+            {
+                recoveryFailures.Add(exception);
+            }
+        }
+
+        touchedMutables.Clear();
+        CollectCleanupFailures(
+            recoveryFailures,
+            () => Provider.State.Cache.RemoveTransactionBestEffort(this));
+        CollectCleanupFailures(
+            recoveryFailures,
+            Provider.State.Cache.ClearForRecovery);
+        CollectCleanupFailures(
+            recoveryFailures,
+            Provider.State.Cache.DiscardRecoveryNotifications);
+        return recoveryFailures;
     }
 
     private IReadOnlyList<Exception> FinalizeUncommittedState(
