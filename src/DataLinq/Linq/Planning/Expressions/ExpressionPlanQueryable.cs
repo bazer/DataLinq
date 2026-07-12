@@ -634,6 +634,7 @@ internal static class ExpressionQueryPlanExecutor
         QueryPlanProjection.SqlRow projection)
     {
         var select = new QueryPlanSqlBuilder(plan, dataSource).BuildSelect<TElement>();
+        var sourceName = $"sql:{dataSource.Provider.DatabaseType}:row-projection";
 
         foreach (var reader in select.ReadReader())
         {
@@ -642,12 +643,66 @@ internal static class ExpressionQueryPlanExecutor
             {
                 var member = projection.Members[index];
                 var ordinal = reader.GetOrdinal(member.Name);
+                if (TryReadConvertedSqlRowValue(
+                        reader,
+                        member.Value,
+                        ordinal,
+                        sourceName,
+                        out var modelValue))
+                {
+                    values[index] = modelValue;
+                    continue;
+                }
+
                 var rawValue = reader.IsDbNull(ordinal) ? null : reader.GetValue(ordinal);
                 values[index] = ConvertReaderValue(rawValue, member.Value.ClrType);
             }
 
             yield return CreateProjectionRow<TElement>(projection.Constructor, values);
         }
+    }
+
+    private static bool TryReadConvertedSqlRowValue(
+        IDataLinqDataReader reader,
+        QueryPlanValue value,
+        int ordinal,
+        string sourceName,
+        out object? modelValue)
+    {
+        if (value is QueryPlanConvertedValue converted)
+        {
+            if (!TryReadConvertedSqlRowValue(
+                    reader,
+                    converted.Value,
+                    ordinal,
+                    sourceName,
+                    out var innerValue))
+            {
+                modelValue = null;
+                return false;
+            }
+
+            modelValue = ConvertReaderValue(innerValue, converted.TargetType);
+            return true;
+        }
+
+        if (value is not QueryPlanColumnValue { Column.HasScalarConverter: true } columnValue)
+        {
+            modelValue = null;
+            return false;
+        }
+
+        var canonicalValue = ProviderRowDecoder.DecodeCanonicalValue(
+            reader,
+            columnValue.Column,
+            ordinal,
+            sourceName);
+        modelValue = ProviderRowMaterializer.MaterializeValue(
+            columnValue.Column,
+            canonicalValue,
+            sourceName);
+        modelValue = ConvertReaderValue(modelValue, columnValue.ClrType);
+        return true;
     }
 
     private static TElement CreateProjectionRow<TElement>(ConstructorInfo constructor, IReadOnlyList<object?> values)

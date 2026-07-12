@@ -186,6 +186,90 @@ public sealed class TypedIdPredicateTranslationTests
     }
 
     [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task TypedIdSqlRowProjection_MaterializesAliasedRootJoinedAndTerminalRowsAcrossProviders(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<TypedIdPredicateDb>.Create(
+            provider,
+            nameof(TypedIdSqlRowProjection_MaterializesAliasedRootJoinedAndTerminalRowsAcrossProviders));
+
+        var inserted = databaseScope.Database.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO typedidqueryrows (id, parent_id, name) VALUES " +
+            "(101, NULL, 'alpha'), (102, 101, 'beta'), (103, 101, 'gamma')");
+        var database = databaseScope.Database;
+
+        var rootQuery = database.Query().Rows
+            .OrderBy(row => row.Name)
+            .Select(row => new
+            {
+                Label = row.Name,
+                Identifier = row.Id,
+                Parent = row.ParentId,
+                Lifted = (QueryTypedId?)row.Id,
+                Boxed = (object)row.Id,
+                BoxedParent = (object?)row.ParentId
+            });
+        var rootInvocation = ExpressionQueryPlanParser.Convert(database, rootQuery);
+        var rootRows = rootQuery.ToList();
+
+        var joinedQuery = database.Query().Rows.Join(
+            database.Query().Rows,
+            child => child.ParentId!.Value,
+            parent => parent.Id,
+            (child, parent) => new
+            {
+                ChildName = child.Name,
+                ChildId = child.Id,
+                ChildParentId = child.ParentId,
+                ParentId = parent.Id,
+                ParentParentId = parent.ParentId
+            });
+        var joinedInvocation = ExpressionQueryPlanParser.Convert(database, joinedQuery);
+        var joinedRows = joinedQuery.ToList();
+
+        var betaName = "beta";
+        var singleRow = database.Query().Rows
+            .Where(row => row.Name == betaName)
+            .Select(row => new
+            {
+                Label = row.Name,
+                Identifier = row.Id,
+                Parent = row.ParentId
+            })
+            .Single();
+
+        await Assert.That(inserted).IsEqualTo(3);
+        await Assert.That(rootInvocation.Template.Projection).IsTypeOf<QueryPlanProjection.SqlRow>();
+        await Assert.That(joinedInvocation.Template.Projection).IsTypeOf<QueryPlanProjection.SqlRow>();
+        await Assert.That(rootInvocation.Template.Projection.Disposition)
+            .IsEqualTo(QueryPlanProjectionDisposition.SqlOnlyCompatibility);
+        await Assert.That(rootRows.Select(static row => row.Label).ToArray())
+            .IsEquivalentTo(new[] { "alpha", "beta", "gamma" });
+        await Assert.That(rootRows.Select(static row => row.Identifier).ToArray())
+            .IsEquivalentTo(new[] { new QueryTypedId(101), new QueryTypedId(102), new QueryTypedId(103) });
+        await Assert.That(rootRows.Select(static row => row.Parent).ToArray())
+            .IsEquivalentTo(new QueryTypedId?[] { null, new(101), new(101) });
+        await Assert.That(rootRows.Select(static row => row.Lifted).ToArray())
+            .IsEquivalentTo(new QueryTypedId?[] { new(101), new(102), new(103) });
+        await Assert.That(rootRows.All(static row => row.Boxed is QueryTypedId)).IsTrue();
+        await Assert.That(rootRows[0].BoxedParent).IsNull();
+        await Assert.That(rootRows.Skip(1).All(static row => row.BoxedParent is QueryTypedId)).IsTrue();
+
+        var joinedByName = joinedRows.ToDictionary(static row => row.ChildName);
+        await Assert.That(joinedByName.Count).IsEqualTo(2);
+        await Assert.That(joinedByName["beta"].ChildId).IsEqualTo(new QueryTypedId(102));
+        await Assert.That(joinedByName["gamma"].ChildId).IsEqualTo(new QueryTypedId(103));
+        await Assert.That(joinedRows.All(static row => row.ChildParentId == new QueryTypedId(101))).IsTrue();
+        await Assert.That(joinedRows.All(static row => row.ParentId == new QueryTypedId(101))).IsTrue();
+        await Assert.That(joinedRows.All(static row => row.ParentParentId is null)).IsTrue();
+
+        await Assert.That(singleRow.Label).IsEqualTo("beta");
+        await Assert.That(singleRow.Identifier).IsEqualTo(new QueryTypedId(102));
+        await Assert.That(singleRow.Parent).IsEqualTo(new QueryTypedId(101));
+    }
+
+    [Test]
     public async Task TypedIdPredicates_BindCanonicalProviderValuesAcrossTemplateAndMembershipPaths()
     {
         using var databaseScope = TemporaryModelTestDatabase<TypedIdPredicateDb>.Create(
