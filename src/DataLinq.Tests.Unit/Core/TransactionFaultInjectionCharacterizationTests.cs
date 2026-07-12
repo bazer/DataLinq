@@ -61,7 +61,7 @@ public class TransactionFaultInjectionCharacterizationTests
             .IsEqualTo(MutableBaselineKind.Committed);
         await Assert.That(fixture.OwnershipLifecycle.Snapshot.TransactionOwner).IsNull();
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo(
-            "provider.commit(cache=present) -> status.Committed -> provider.dispose(cache=present) -> provider.resources.dispose");
+            "provider.commit(cache=present) -> provider.dispose(cache=present) -> provider.resources.dispose -> status.Committed");
     }
 
     [Test]
@@ -94,7 +94,7 @@ public class TransactionFaultInjectionCharacterizationTests
         await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsTrue();
         await AssertUnresolvedOwnership(fixture);
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo(
-            "provider.commit(cache=present) -> status.Committed -> provider.dispose(cache=present) -> provider.resources.dispose");
+            "provider.commit(cache=present) -> provider.dispose(cache=present) -> provider.resources.dispose");
     }
 
     [Test]

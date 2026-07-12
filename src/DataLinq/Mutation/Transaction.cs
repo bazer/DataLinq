@@ -100,6 +100,8 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     private TransactionFailure? failure;
     private int exclusiveOperationState;
     private int internalReadThreadId;
+    private int managedCommitFinalizationState;
+    private int deferredCommittedStatus;
     private int disposeState;
     internal bool IsDisposed => Volatile.Read(ref disposeState) != 0;
     internal TransactionFailure? Failure => Volatile.Read(ref failure);
@@ -132,7 +134,11 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     public override DatabaseTransaction DatabaseAccess { get; }
 
     /// <summary>
-    /// Occurs when the status of the transaction changes.
+    /// Occurs when the managed transaction status changes. For commits initiated through
+    /// <see cref="Commit"/>, the committed notification is raised only after committed cache
+    /// publication, transaction-local cache cleanup, and mutable baseline promotion have
+    /// completed. Direct low-level completion through <see cref="DatabaseAccess"/> retains
+    /// provider timing and bypasses this managed finalization contract.
     /// </summary>
     public event EventHandler<TransactionStatusChangeEventArgs>? OnStatusChanged;
 
@@ -145,7 +151,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     {
         //Provider = databaseProvider;
         DatabaseAccess = databaseProvider.GetNewDatabaseTransaction(type);
-        DatabaseAccess.OnStatusChanged += (_, args) => OnStatusChanged?.Invoke(this, new TransactionStatusChangeEventArgs(this, args.Status));
+        DatabaseAccess.OnStatusChanged += HandleDatabaseStatusChanged;
         Type = type;
 
         TransactionID = Interlocked.Increment(ref transactionCount);
@@ -162,7 +168,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     {
         //Provider = databaseProvider;
         DatabaseAccess = databaseProvider.AttachDatabaseTransaction(dbTransaction, type);
-        DatabaseAccess.OnStatusChanged += (_, args) => OnStatusChanged?.Invoke(this, new TransactionStatusChangeEventArgs(this, args.Status));
+        DatabaseAccess.OnStatusChanged += HandleDatabaseStatusChanged;
         Type = type;
 
         TransactionID = Interlocked.Increment(ref transactionCount);
@@ -555,12 +561,23 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         try
         {
             EnsureTransactionCanComplete("commit", rejectPoisoned: true);
+            Volatile.Write(ref managedCommitFinalizationState, 1);
+            try
+            {
+                DatabaseAccess.Commit();
 
-            DatabaseAccess.Commit();
+                Provider.State.ApplyChanges(successfulChanges);
+                Provider.State.RemoveTransactionFromCache(this);
+                PromoteTouchedMutablesAfterCommit();
 
-            Provider.State.ApplyChanges(successfulChanges);
-            Provider.State.RemoveTransactionFromCache(this);
-            MutableOwnership.MarkCommittedAfterPublication();
+                Volatile.Write(ref managedCommitFinalizationState, 2);
+                PublishDeferredCommittedStatus();
+            }
+            finally
+            {
+                Volatile.Write(ref deferredCommittedStatus, 0);
+                Volatile.Write(ref managedCommitFinalizationState, 0);
+            }
         }
         finally
         {
@@ -598,6 +615,49 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     private void RegisterTouchedMutable(IMutableLifecycle mutable) =>
         touchedMutables.Add(mutable);
 
+    private void PromoteTouchedMutablesAfterCommit()
+    {
+        foreach (var touchedMutable in touchedMutables)
+        {
+            if (!touchedMutable.TryPromoteCommitted(MutableOwnership))
+            {
+                touchedMutable.Invalidate(
+                    MutableInvalidationReason.CommittedStateFinalizationFailed);
+            }
+        }
+
+        MutableOwnership.MarkCommittedAfterPublication();
+        touchedMutables.Clear();
+    }
+
+    private void HandleDatabaseStatusChanged(
+        object? sender,
+        DatabaseTransactionStatusChangeEventArgs args)
+    {
+        if (args.Status == DatabaseTransactionStatus.Committed &&
+            Volatile.Read(ref managedCommitFinalizationState) != 0)
+        {
+            Volatile.Write(ref deferredCommittedStatus, 1);
+            return;
+        }
+
+        OnStatusChanged?.Invoke(
+            this,
+            new TransactionStatusChangeEventArgs(this, args.Status));
+    }
+
+    private void PublishDeferredCommittedStatus()
+    {
+        if (Interlocked.Exchange(ref deferredCommittedStatus, 0) == 0)
+            return;
+
+        OnStatusChanged?.Invoke(
+            this,
+            new TransactionStatusChangeEventArgs(
+                this,
+                DatabaseTransactionStatus.Committed));
+    }
+
     internal void EnsureMutationNotPoisoned(TransactionChangeType operation)
     {
         ThrowIfOperationInProgress($"execute {operation.ToString().ToLowerInvariant()}");
@@ -625,6 +685,15 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             ThrowIfOperationInProgress(operation);
 
         ThrowIfPoisoned(operation);
+    }
+
+    internal void EnsureTerminalReadSourceFallbackAllowed(string operation)
+    {
+        if (Status == DatabaseTransactionStatus.Committed &&
+            Volatile.Read(ref managedCommitFinalizationState) == 1)
+        {
+            ThrowIfOperationInProgress(operation);
+        }
     }
 
     internal void EnsureMutationPreflight(

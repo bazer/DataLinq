@@ -185,6 +185,8 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
             if (transaction.Status == DatabaseTransactionStatus.Committed ||
                 transaction.Status == DatabaseTransactionStatus.RolledBack)
             {
+                transaction.EnsureTerminalReadSourceFallbackAllowed(
+                    "switch a transaction-bound relation to committed reads");
                 dataSource = dataSource.Provider.ReadOnlyAccess;
             }
             else

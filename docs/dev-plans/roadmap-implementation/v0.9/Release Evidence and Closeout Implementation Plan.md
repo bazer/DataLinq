@@ -451,7 +451,8 @@ The final matrix must include the focused evidence owned by the feature plans:
 - SQLite committed visibility and pending-versus-committed cache publication
 - mutable provenance, primary-key mutation rejection, read-only transaction guards, successful-only private mutation authority, detached public `Changes` behavior, and public `StateChange.ExecuteQuery(...)` finalization
 - mutation-failure evidence partitioned between statement preparation/execution, generated-value hydration, transaction-local cache application, authoritative-row hydration, and lifecycle finalization
-- separate still-open evidence for provider-commit unknown outcomes, post-commit publication failures, ordinary rollback/open-disposal invalidation, attached completion, and low-level raw-handle escape closure
+- confirmed-success owned-transaction finalization: global publication, transaction-cache cleanup, explicit touched-mutable promotion with committed-delete preservation, ownership-token commit, registry clearing, transaction-bound fallback gating, and a wrapper `Committed` event deferred until that state is observable
+- separate still-open evidence for provider-call outcome-unknown commits, `TX-2B` known-committed publication/local-cleanup failures, ordinary rollback/open-disposal invalidation, attached completion, low-level raw-handle escape closure, and full concurrency semantics
 - every advertised memory query shape and every documented unsupported category
 - cancellation and disposal on success, failure, and early rejection
 - the selected stretch's matrix, if one was selected
@@ -512,6 +513,7 @@ Pay particular attention to:
 - disposal, ownership, concurrency, isolation, and mutability implications
 - mutation-lifecycle behavioral hardening that ApiCompat cannot see: owner-controlled `MutableRowData` no longer accepts direct public reset/value mutation; immutable identity is captured canonically at construction instead of following later in-place reference/byte-array drift; `Transaction.Changes` still returns `List<StateChange>` but now returns a detached ordered snapshot whose mutation cannot change commit authority; `StateChange.GetChanges()` detaches array values; and public `StateChange.ExecuteQuery(...)` is single-attempt once provider execution begins and now performs the same generated-key, pending-cache, authoritative-hydration, lifecycle, successful-recording, and failure-poisoning path as normal transaction mutations
 - captured mutable candidates reject later assignment or in-place array drift before provider work, successful relation/index impact keys are finalized from authoritative hydration rather than a later live mutable, and `TransactionPoisonedException` is the safe diagnostic for later DataLinq-managed operations
+- for a confirmed-success DataLinq-owned commit, the wrapper `Committed` event is now raised after global publication, transaction-cache cleanup, explicit touched promotion, ownership-token commit, and registry clearing; transaction-bound immutable/foreign-key/relation fallback is rejected during the earlier provider-terminal/local-finalization window, and a throwing wrapper observer surfaces only after finalization
 - low-level `Transaction.DatabaseAccess` and captured underlying `IDbTransaction` handles remain outside managed poison and operation guards; this limitation must be reviewed explicitly rather than hidden behind the unchanged public property signature
 - enum additions that might affect exhaustive user switches
 - public types accidentally exposed solely to connect internal backend seams
@@ -805,7 +807,9 @@ The draft should include:
 - new package/API highlights
 - SQL-provider compatibility and transaction fixes
 - the managed poison recovery contract: the original mutation exception is rethrown, later managed reads/writes/commit are rejected, affected lifecycle mutables are invalidated, and recovery requires rollback or disposal followed by fresh committed materialization
+- the bounded successful owned-commit contract: committed publication and local cleanup precede explicit mutable promotion/token finalization, and the wrapper `Committed` event observes the finalized state
 - the explicit limitation that low-level `DatabaseAccess` or underlying transaction handles can bypass those managed guards and must not be reused after mutation failure
+- the still-open distinction between `TX-2B` known-committed local publication failure, a provider-call exception with unknown commit outcome, and unsupported attached/external completion
 - typed-ID and UUID behavior
 - exact memory preview boundary
 - upgrade/rebuild or migration notes

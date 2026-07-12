@@ -196,6 +196,8 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
             if (transaction.Status == DatabaseTransactionStatus.Committed ||
                 transaction.Status == DatabaseTransactionStatus.RolledBack)
             {
+                transaction.EnsureTerminalReadSourceFallbackAllowed(
+                    "switch a transaction-bound immutable row to committed reads");
                 readSource = transaction.Provider.ReadOnlyAccess;
             }
             else

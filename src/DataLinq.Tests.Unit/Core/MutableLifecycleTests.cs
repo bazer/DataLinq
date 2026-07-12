@@ -101,6 +101,31 @@ public sealed class MutableLifecycleTests
     }
 
     [Test]
+    public async Task ExplicitCommitPromotion_RequiresExactOwnerAndPreservesDeletedState()
+    {
+        using var provider = new IdentityProvider("provider-a");
+        var owner = new MutableTransactionOwnership(provider, transactionId: 20);
+        var lookalikeOwner = new MutableTransactionOwnership(provider, transactionId: 20);
+        var lifecycle = MutableLifecycle.New();
+        lifecycle.AdvanceHydrated(owner);
+        lifecycle.MarkDeleted(owner);
+
+        await Assert.That(lifecycle.TryPromoteCommitted(lookalikeOwner)).IsFalse();
+        await Assert.That(lifecycle.Snapshot.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.TransactionLocal);
+
+        await Assert.That(lifecycle.TryPromoteCommitted(owner)).IsTrue();
+        await Assert.That(lifecycle.TryPromoteCommitted(owner)).IsTrue();
+
+        var committed = lifecycle.Snapshot;
+        await Assert.That(owner.Outcome).IsEqualTo(MutableTransactionOutcome.Unresolved);
+        await Assert.That(committed.RowKind).IsEqualTo(MutableRowKind.Deleted);
+        await Assert.That(committed.BaselineKind).IsEqualTo(MutableBaselineKind.Committed);
+        await Assert.That(committed.ProviderOwner).IsSameReferenceAs(provider);
+        await Assert.That(committed.TransactionOwner).IsNull();
+    }
+
+    [Test]
     public async Task TransactionOwnership_ConcurrentCommitSnapshotsNeverTear()
     {
         using var provider = new IdentityProvider("provider-a");

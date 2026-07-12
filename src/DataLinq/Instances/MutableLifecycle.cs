@@ -25,7 +25,8 @@ internal enum MutableInvalidationReason
     RolledBack,
     OpenTransactionDisposed,
     MutationFailed,
-    CommitOutcomeUnknown
+    CommitOutcomeUnknown,
+    CommittedStateFinalizationFailed
 }
 
 internal enum MutableTransactionOutcome
@@ -122,6 +123,7 @@ internal interface IMutableLifecycle
         MutableTransactionOwnership owner);
 
     void MarkDeleted(MutableTransactionOwnership owner);
+    bool TryPromoteCommitted(MutableTransactionOwnership owner);
     void Invalidate(MutableInvalidationReason reason);
 }
 
@@ -138,6 +140,9 @@ internal sealed class MutableLifecycle
     private MutableTransactionOwnership? transactionOwner;
     private IDataLinqReadSource? neutralReadSourceOwner;
     private MutableInvalidationReason? invalidationReason;
+    internal bool HasStoredCommittedBaseline =>
+        baselineKind == MutableBaselineKind.Committed &&
+        transactionOwner is null;
 
     private MutableLifecycle(
         MutableRowKind rowKind,
@@ -273,6 +278,31 @@ internal sealed class MutableLifecycle
         transactionOwner = owner;
         neutralReadSourceOwner = null;
         invalidationReason = null;
+    }
+
+    internal bool TryPromoteCommitted(MutableTransactionOwnership owner)
+    {
+        if (owner is null)
+            return false;
+
+        if (baselineKind == MutableBaselineKind.Committed)
+        {
+            return transactionOwner is null &&
+                ReferenceEquals(providerOwner, owner.Provider);
+        }
+
+        if (baselineKind != MutableBaselineKind.TransactionLocal ||
+            !ReferenceEquals(transactionOwner, owner) ||
+            !ReferenceEquals(providerOwner, owner.Provider))
+        {
+            return false;
+        }
+
+        baselineKind = MutableBaselineKind.Committed;
+        transactionOwner = null;
+        neutralReadSourceOwner = null;
+        invalidationReason = null;
+        return true;
     }
 
     internal void MarkDeletedWithoutTransaction()

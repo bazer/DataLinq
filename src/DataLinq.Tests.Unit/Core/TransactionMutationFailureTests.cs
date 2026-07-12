@@ -544,6 +544,179 @@ public sealed class TransactionMutationFailureTests
         await Assert.That(mutable["Value"]).IsEqualTo("unsaved");
     }
 
+    [Test]
+    public async Task CommitStatusPublication_ObservesFullyFinalizedCommitState()
+    {
+        using var fixture = new ScriptedFixture();
+        using var transaction = fixture.Database.Transaction();
+        var firstDeleted = fixture.CreateExistingMutable(418, "delete one");
+        var secondDeleted = fixture.CreateExistingMutable(424, "delete two");
+        var transactionBound = fixture.CreateImmutable(419, "bound", transaction);
+        _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(firstDeleted);
+        transaction.Delete(secondDeleted);
+        CommitPublicationSnapshot? observed = null;
+        var statusCalls = 0;
+        transaction.OnStatusChanged += (_, args) =>
+        {
+            if (args.Status != DatabaseTransactionStatus.Committed)
+                return;
+
+            statusCalls++;
+            observed = new CommitPublicationSnapshot(
+                fixture.RowCache.IsTransactionInCache(transaction),
+                transaction.TouchedMutables.Count,
+                transaction.MutableOwnership.Outcome,
+                firstDeleted.Lifecycle,
+                transactionBound.GetReadSource());
+        };
+
+        await Assert.That(fixture.RowCache.IsTransactionInCache(transaction)).IsTrue();
+        await Assert.That(transaction.TouchedMutables.Count).IsEqualTo(2);
+        await Assert.That(firstDeleted.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.TransactionLocal);
+        await Assert.That(firstDeleted.HasStoredCommittedBaseline).IsFalse();
+        await Assert.That(secondDeleted.HasStoredCommittedBaseline).IsFalse();
+
+        transaction.Commit();
+
+        await Assert.That(statusCalls).IsEqualTo(1);
+        await Assert.That(observed).IsNotNull();
+        await Assert.That(observed!.TransactionCachePresent).IsFalse();
+        await Assert.That(observed.TouchedMutableCount).IsEqualTo(0);
+        await Assert.That(observed.OwnershipOutcome)
+            .IsEqualTo(MutableTransactionOutcome.Committed);
+        await Assert.That(observed.MutableLifecycle.RowKind)
+            .IsEqualTo(MutableRowKind.Deleted);
+        await Assert.That(observed.MutableLifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Committed);
+        await Assert.That(observed.MutableLifecycle.TransactionOwner).IsNull();
+        await Assert.That(firstDeleted.HasStoredCommittedBaseline).IsTrue();
+        await Assert.That(secondDeleted.HasStoredCommittedBaseline).IsTrue();
+        await Assert.That(observed.ReadSource)
+            .IsSameReferenceAs(fixture.Provider.ReadOnlyAccess);
+    }
+
+    [Test]
+    public async Task CommitFailureAfterProviderStatus_DoesNotPublishPromoteOrRaiseWrapperStatus()
+    {
+        using var fixture = new ScriptedFixture();
+        using var transaction = fixture.Database.Transaction();
+        var deleted = fixture.CreateExistingMutable(425, "delete");
+        _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(deleted);
+        var notification = new CountingNotification();
+        fixture.RowCache.SubscribeToChanges(notification);
+        var wrapperCommittedCalls = 0;
+        transaction.OnStatusChanged += (_, args) =>
+        {
+            if (args.Status == DatabaseTransactionStatus.Committed)
+                wrapperCommittedCalls++;
+        };
+        var expected = new InjectedMutationException("provider commit after status");
+        fixture.Scenario.CommitFailureAfterStatus = expected;
+
+        var observed = Capture<InjectedMutationException>(transaction.Commit);
+
+        await Assert.That(observed).IsSameReferenceAs(expected);
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Committed);
+        await Assert.That(wrapperCommittedCalls).IsEqualTo(0);
+        await Assert.That(notification.ClearCalls).IsEqualTo(0);
+        await Assert.That(fixture.RowCache.IsTransactionInCache(transaction)).IsTrue();
+        await Assert.That(transaction.Changes).Count().IsEqualTo(1);
+        await Assert.That(transaction.TouchedMutables.Count).IsEqualTo(1);
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.Unresolved);
+        await Assert.That(deleted.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.TransactionLocal);
+        await Assert.That(deleted.Lifecycle.TransactionOwner)
+            .IsSameReferenceAs(transaction.MutableOwnership);
+        await Assert.That(deleted.HasStoredCommittedBaseline).IsFalse();
+    }
+
+    [Test]
+    public async Task GlobalCommitNotification_CannotSwitchImmutableReadSourceBeforeFinalization()
+    {
+        using var fixture = new ScriptedFixture();
+        using var transaction = fixture.Database.Transaction();
+        var deleted = fixture.CreateExistingMutable(420, "delete");
+        var transactionBound = fixture.CreateImmutable(421, "bound", transaction);
+        _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(deleted);
+        var notification = new InspectingNotification(() =>
+        {
+            var cachePresent = fixture.RowCache.IsTransactionInCache(transaction);
+            var failure = Capture<InvalidOperationException>(() =>
+                _ = transactionBound.GetReadSource());
+            return new PrePublicationSnapshot(
+                transaction.Status,
+                cachePresent,
+                transaction.TouchedMutables.Count,
+                transaction.MutableOwnership.Outcome,
+                deleted.Lifecycle,
+                failure);
+        });
+        fixture.RowCache.SubscribeToChanges(notification);
+
+        transaction.Commit();
+
+        await Assert.That(notification.ClearCalls).IsEqualTo(1);
+        await Assert.That(notification.Snapshot).IsNotNull();
+        await Assert.That(notification.Snapshot!.ProviderStatus)
+            .IsEqualTo(DatabaseTransactionStatus.Committed);
+        await Assert.That(notification.Snapshot.TransactionCachePresent).IsTrue();
+        await Assert.That(notification.Snapshot.TouchedMutableCount).IsEqualTo(1);
+        await Assert.That(notification.Snapshot.OwnershipOutcome)
+            .IsEqualTo(MutableTransactionOutcome.Unresolved);
+        await Assert.That(notification.Snapshot.MutableLifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.TransactionLocal);
+        await Assert.That(notification.Snapshot.MutableLifecycle.TransactionOwner)
+            .IsSameReferenceAs(transaction.MutableOwnership);
+        await Assert.That(notification.Snapshot.FallbackFailure.Message)
+            .Contains("while another managed transaction operation is being finalized");
+        await Assert.That(transactionBound.GetReadSource())
+            .IsSameReferenceAs(fixture.Provider.ReadOnlyAccess);
+    }
+
+    [Test]
+    public async Task ThrowingCommittedStatusObserver_CannotInterruptCommitFinalization()
+    {
+        using var fixture = new ScriptedFixture();
+        using var transaction = fixture.Database.Transaction();
+        var deleted = fixture.CreateExistingMutable(422, "delete");
+        var transactionBound = fixture.CreateImmutable(423, "bound", transaction);
+        _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(deleted);
+        var expected = new InjectedMutationException("committed status observer");
+        transaction.OnStatusChanged += (_, args) =>
+        {
+            if (args.Status == DatabaseTransactionStatus.Committed)
+                throw expected;
+        };
+
+        var observed = Capture<InjectedMutationException>(transaction.Commit);
+
+        await Assert.That(observed).IsSameReferenceAs(expected);
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Committed);
+        await Assert.That(fixture.RowCache.IsTransactionInCache(transaction)).IsFalse();
+        await Assert.That(transaction.TouchedMutables).IsEmpty();
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.Committed);
+        await Assert.That(deleted.Lifecycle.RowKind).IsEqualTo(MutableRowKind.Deleted);
+        await Assert.That(deleted.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Committed);
+        await Assert.That(deleted.Lifecycle.TransactionOwner).IsNull();
+        await Assert.That(deleted.HasStoredCommittedBaseline).IsTrue();
+        await Assert.That(transactionBound.GetReadSource())
+            .IsSameReferenceAs(fixture.Provider.ReadOnlyAccess);
+        await Assert.That(fixture.Scenario.Commits).IsEqualTo(1);
+    }
+
     private static async Task AssertPoisoned(
         Transaction transaction,
         TransactionFailureStage expectedStage,
@@ -619,10 +792,11 @@ public sealed class TransactionMutationFailureTests
 
         internal TransactionMutationGuardRow CreateImmutable(
             int id,
-            string value) =>
+            string value,
+            IDataSourceAccess? dataSource = null) =>
             InstanceFactory.NewImmutableRow<TransactionMutationGuardRow>(
                 new ScriptedRowData(RowTable, id, value),
-                Provider.ReadOnlyAccess);
+                dataSource ?? Provider.ReadOnlyAccess);
 
         internal Mutable<TransactionMutationGuardAutoRow> CreateNewAutoMutable(
             string value)
@@ -668,6 +842,7 @@ public sealed class TransactionMutationFailureTests
         internal int Commits { get; set; }
         internal int Rollbacks { get; set; }
         internal int Disposals { get; set; }
+        internal Exception? CommitFailureAfterStatus { get; set; }
 
         internal void EnqueueNonQueryResult(int result) => nonQuerySteps.Enqueue(result);
         internal void EnqueueNonQueryFailure(Exception exception) => nonQuerySteps.Enqueue(exception);
@@ -852,6 +1027,8 @@ public sealed class TransactionMutationFailureTests
         {
             scenario.Commits++;
             SetStatus(DatabaseTransactionStatus.Committed);
+            if (scenario.CommitFailureAfterStatus is not null)
+                throw scenario.CommitFailureAfterStatus;
         }
 
         public override void Rollback()
@@ -985,6 +1162,41 @@ public sealed class TransactionMutationFailureTests
             mutation();
         }
     }
+
+    private sealed class InspectingNotification(
+        Func<PrePublicationSnapshot> inspect) : ICacheNotification
+    {
+        internal int ClearCalls { get; private set; }
+        internal PrePublicationSnapshot? Snapshot { get; private set; }
+
+        public void Clear()
+        {
+            ClearCalls++;
+            Snapshot = inspect();
+        }
+    }
+
+    private sealed class CountingNotification : ICacheNotification
+    {
+        internal int ClearCalls { get; private set; }
+
+        public void Clear() => ClearCalls++;
+    }
+
+    private sealed record CommitPublicationSnapshot(
+        bool TransactionCachePresent,
+        int TouchedMutableCount,
+        MutableTransactionOutcome OwnershipOutcome,
+        MutableLifecycleSnapshot MutableLifecycle,
+        IDataLinqReadSource ReadSource);
+
+    private sealed record PrePublicationSnapshot(
+        DatabaseTransactionStatus ProviderStatus,
+        bool TransactionCachePresent,
+        int TouchedMutableCount,
+        MutableTransactionOutcome OwnershipOutcome,
+        MutableLifecycleSnapshot MutableLifecycle,
+        InvalidOperationException FallbackFailure);
 
     private sealed class InjectedMutationException(string stage)
         : Exception($"Injected mutation failure during {stage}.");

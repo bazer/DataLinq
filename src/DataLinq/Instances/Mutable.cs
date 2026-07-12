@@ -24,6 +24,7 @@ public class Mutable<T> : IMutableInstance,
 
     private readonly MutableLifecycle lifecycle;
     internal MutableLifecycleSnapshot Lifecycle => lifecycle.Snapshot;
+    internal bool HasStoredCommittedBaseline => lifecycle.HasStoredCommittedBaseline;
     MutableLifecycleSnapshot IMutableLifecycle.Lifecycle => Lifecycle;
     private DataLinqKey baselineCanonicalPrimaryKey;
     DataLinqKey IMutableLifecycle.BaselineCanonicalPrimaryKey =>
@@ -210,6 +211,9 @@ public class Mutable<T> : IMutableInstance,
     internal void Invalidate(MutableInvalidationReason reason) =>
         lifecycle.Invalidate(reason);
 
+    internal bool TryPromoteCommitted(MutableTransactionOwnership owner) =>
+        lifecycle.TryPromoteCommitted(owner);
+
     void IMutableLifecycle.AdvanceBaseline(
         IImmutableInstance immutable,
         MutableTransactionOwnership owner)
@@ -226,6 +230,9 @@ public class Mutable<T> : IMutableInstance,
 
     void IMutableLifecycle.MarkDeleted(MutableTransactionOwnership owner) =>
         lifecycle.MarkDeleted(owner);
+
+    bool IMutableLifecycle.TryPromoteCommitted(MutableTransactionOwnership owner) =>
+        lifecycle.TryPromoteCommitted(owner);
 
     void IMutableLifecycle.Invalidate(MutableInvalidationReason reason) =>
         lifecycle.Invalidate(reason);
