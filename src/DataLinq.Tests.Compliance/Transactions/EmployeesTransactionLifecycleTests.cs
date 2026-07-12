@@ -3,6 +3,8 @@ using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Cache;
+using DataLinq.Exceptions;
+using DataLinq.Instances;
 using DataLinq.Mutation;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
@@ -60,11 +62,12 @@ public class EmployeesTransactionLifecycleTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task Transaction_AttachExternalMutationAndCommit_PersistsChanges(TestProviderDescriptor provider)
+    public async Task Transaction_AttachedWrapperCommit_PersistsAndPromotesMutable(
+        TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
-            nameof(Transaction_AttachExternalMutationAndCommit_PersistsChanges),
+            nameof(Transaction_AttachedWrapperCommit_PersistsAndPromotesMutable),
             EmployeesSeedMode.Bogus);
 
         var employeesDatabase = databaseScope.Database;
@@ -88,11 +91,133 @@ public class EmployeesTransactionLifecycleTests
 
         mutableEmployee.first_name = "Rick";
         transaction.Save(mutableEmployee);
-        dbTransaction.Commit();
         transaction.Commit();
 
         var persistedEmployee = employeesDatabase.Query().Employees.Single(x => x.emp_no == employeeNumber);
         await Assert.That(persistedEmployee.first_name).IsEqualTo("Rick");
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.Committed);
+        await Assert.That(mutableEmployee.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Committed);
+        await Assert.That(mutableEmployee.Lifecycle.TransactionOwner).IsNull();
+
+        mutableEmployee.first_name = "Morty";
+        employeesDatabase.Update(mutableEmployee);
+
+        var reusedEmployee = employeesDatabase.Query().Employees
+            .Single(x => x.emp_no == employeeNumber);
+        await Assert.That(reusedEmployee.first_name).IsEqualTo("Morty");
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Transaction_AttachedWrapperRollback_InvalidatesMutableAndPreservesRow(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Transaction_AttachedWrapperRollback_InvalidatesMutableAndPreservesRow),
+            EmployeesSeedMode.Bogus);
+        var database = databaseScope.Database;
+        var original = _employees.GetOrCreateEmployee(999701, database);
+        var originalFirstName = original.first_name;
+        var mutable = original.Mutate();
+
+        using IDbConnection connection = database.Provider.GetDbConnection();
+        connection.Open();
+        using var providerTransaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
+        using var transaction = database.AttachTransaction(providerTransaction);
+
+        mutable.first_name = "Rollback";
+        transaction.Update(mutable);
+        transaction.Rollback();
+
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.RolledBack);
+        await Assert.That(mutable.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(mutable.Lifecycle.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.RolledBack);
+
+        var persisted = database.Query().Employees.Single(x => x.emp_no == original.emp_no);
+        await Assert.That(persisted.first_name).IsEqualTo(originalFirstName);
+
+        var reuseFailure = Capture<MutationGuardException>(() => database.Update(mutable));
+        await Assert.That(reuseFailure.Message).Contains("Materialize a fresh committed row");
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public Task Transaction_ExternalCommitThenWrapperCommit_RejectsGuessedPublication(
+        TestProviderDescriptor provider) =>
+        AssertExternalCompletionThenWrapperCommit(
+            provider,
+            nameof(Transaction_ExternalCommitThenWrapperCommit_RejectsGuessedPublication),
+            employeeNumber: 999702,
+            commitExternally: true);
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public Task Transaction_ExternalRollbackThenWrapperCommit_RejectsGuessedPublication(
+        TestProviderDescriptor provider) =>
+        AssertExternalCompletionThenWrapperCommit(
+            provider,
+            nameof(Transaction_ExternalRollbackThenWrapperCommit_RejectsGuessedPublication),
+            employeeNumber: 999703,
+            commitExternally: false);
+
+    private async Task AssertExternalCompletionThenWrapperCommit(
+        TestProviderDescriptor provider,
+        string testName,
+        int employeeNumber,
+        bool commitExternally)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            testName,
+            EmployeesSeedMode.Bogus);
+        var database = databaseScope.Database;
+        var baseline = _employees.GetOrCreateEmployee(employeeNumber, database).Mutate();
+        baseline.first_name = "Bob";
+        database.Update(baseline);
+        var mutable = database.Query().Employees.Single(x => x.emp_no == employeeNumber).Mutate();
+
+        using IDbConnection connection = database.Provider.GetDbConnection();
+        connection.Open();
+        using var providerTransaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
+        using var transaction = database.AttachTransaction(providerTransaction);
+
+        mutable.first_name = "Rick";
+        transaction.Update(mutable);
+
+        if (commitExternally)
+            providerTransaction.Commit();
+        else
+            providerTransaction.Rollback();
+
+        var failure = Capture<Exception>(transaction.Commit);
+
+        await Assert.That(transaction.Status)
+            .IsNotEqualTo(DatabaseTransactionStatus.Committed);
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.CommitOutcomeUnknown);
+        await Assert.That(transaction.TouchedMutables).IsEmpty();
+        await Assert.That(mutable.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(mutable.Lifecycle.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.CommitOutcomeUnknown);
+        await Assert.That(failure.Data["DataLinq.MutableInvalidationReason"])
+            .IsEqualTo(MutableInvalidationReason.CommitOutcomeUnknown.ToString());
+        await Assert.That(database.Provider.State.Cache.TableCaches.Values.All(
+            IsStructurallyEmpty)).IsTrue();
+
+        var persisted = database.Query().Employees.Single(x => x.emp_no == employeeNumber);
+        await Assert.That(persisted.first_name)
+            .IsEqualTo(commitExternally ? "Rick" : "Bob");
+
+        var reuseFailure = Capture<MutationGuardException>(() => database.Update(mutable));
+        await Assert.That(reuseFailure.Message).Contains("commit outcome is unknown");
     }
 
     [Test]
@@ -696,6 +821,26 @@ public class EmployeesTransactionLifecycleTests
         {
             ClearCount++;
         }
+    }
+
+    private static bool IsStructurallyEmpty(TableCache cache) =>
+        cache.RowCount == 0 &&
+        cache.TransactionRowsCount == 0 &&
+        cache.IndicesCount.All(index => index.count == 0);
+
+    private static TException Capture<TException>(Action action)
+        where TException : Exception
+    {
+        try
+        {
+            action();
+        }
+        catch (TException exception)
+        {
+            return exception;
+        }
+
+        throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
     }
 
     private static async Task AssertThrows<TException>(Action action)

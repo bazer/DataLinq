@@ -136,14 +136,41 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
         return new SQLiteDataLinqDataReader(reader!);
     }
 
+    private IDbTransaction GetActiveProviderTransaction(string operation)
+    {
+        var dbTransaction = DbTransaction ??
+            throw new InvalidOperationException(
+                $"Cannot {operation} because the provider transaction handle is unavailable. DataLinq cannot infer whether it committed or rolled back.");
+
+        IDbConnection? connection;
+        try
+        {
+            connection = dbTransaction.Connection;
+        }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException(
+                $"Cannot {operation} because the provider transaction handle is no longer readable. DataLinq cannot infer whether it committed or rolled back.",
+                exception);
+        }
+
+        if (connection?.State != ConnectionState.Open)
+        {
+            throw new InvalidOperationException(
+                $"Cannot {operation} because the provider transaction is no longer active on an open connection. DataLinq cannot infer whether it committed or rolled back. " +
+                "Complete attached transactions through the DataLinq wrapper instead of the original transaction handle.");
+        }
+
+        return dbTransaction;
+    }
+
     public override void Commit()
     {
         try
         {
             if (Status == DatabaseTransactionStatus.Open)
             {
-                if (DbTransaction?.Connection?.State == ConnectionState.Open)
-                    DbTransaction.Commit();
+                GetActiveProviderTransaction("commit").Commit();
 
                 CompleteTransactionTelemetry(DatabaseTransactionStatus.Committed);
             }
@@ -164,8 +191,7 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
         {
             if (Status == DatabaseTransactionStatus.Open)
             {
-                if (DbTransaction?.Connection?.State == ConnectionState.Open)
-                    DbTransaction.Rollback();
+                GetActiveProviderTransaction("roll back").Rollback();
 
                 CompleteTransactionTelemetry(DatabaseTransactionStatus.RolledBack);
             }
