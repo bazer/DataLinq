@@ -1,6 +1,9 @@
 using System;
+using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
+using DataLinq.Cache;
+using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Mutation;
 using DataLinq.Tests.Models.Employees;
@@ -137,6 +140,129 @@ public sealed class EmployeesMutableLifecycleTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public Task OwnedRollback_InvalidatesInsertUpdateDeleteAndPreservesCommittedState(
+        TestProviderDescriptor provider) =>
+        AssertOwnedUncommittedFinalization(
+            provider,
+            nameof(OwnedRollback_InvalidatesInsertUpdateDeleteAndPreservesCommittedState),
+            idBase: 990011,
+            disposeOpenTransaction: false);
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public Task OwnedOpenDispose_InvalidatesInsertUpdateDeleteAndPreservesCommittedState(
+        TestProviderDescriptor provider) =>
+        AssertOwnedUncommittedFinalization(
+            provider,
+            nameof(OwnedOpenDispose_InvalidatesInsertUpdateDeleteAndPreservesCommittedState),
+            idBase: 990014,
+            disposeOpenTransaction: true);
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task OwnedRollback_DiscardsTransactionScopedSubscriber(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(OwnedRollback_DiscardsTransactionScopedSubscriber),
+            EmployeesSeedMode.Bogus);
+        var database = databaseScope.Database;
+        var original = database.Insert(employees.NewEmployee(990017));
+        var later = database.Insert(employees.NewEmployee(990018));
+        var employeeCache = GetEmployeeCache(database);
+        var transactionScoped = new CountingNotification();
+        var committedScoped = new CountingNotification();
+
+        using (var transaction = database.Transaction())
+        {
+            var mutable = original.Mutate();
+            mutable.first_name = "tx pending";
+            transaction.Update(mutable);
+            employeeCache.SubscribeToChanges(transactionScoped, transaction);
+            employeeCache.SubscribeToChanges(committedScoped);
+
+            transaction.Rollback();
+
+            await Assert.That(transactionScoped.ClearCalls).IsEqualTo(0);
+            await Assert.That(committedScoped.ClearCalls).IsEqualTo(0);
+        }
+
+        var laterMutable = later.Mutate();
+        laterMutable.first_name = "committed";
+        database.Update(laterMutable);
+
+        await Assert.That(transactionScoped.ClearCalls).IsEqualTo(0);
+        await Assert.That(committedScoped.ClearCalls).IsEqualTo(1);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task AttachedExternallyCommittedThenWrapperRollback_ReportsOutcomeUnknown(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(AttachedExternallyCommittedThenWrapperRollback_ReportsOutcomeUnknown),
+            EmployeesSeedMode.Bogus);
+        var database = databaseScope.Database;
+        using IDbConnection connection = database.Provider.GetDbConnection();
+        connection.Open();
+        using var externalTransaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
+        var transaction = database.AttachTransaction(externalTransaction);
+        Exception? disposeFailure = null;
+
+        try
+        {
+            var transactionEmployee = transaction.Query().Employees.OrderBy(x => x.emp_no).First();
+            var transactionMutable = transactionEmployee.Mutate();
+            var employeeCache = GetEmployeeCache(database);
+
+            externalTransaction.Commit();
+
+            var failure = Capture<Exception>(transaction.Rollback);
+
+            await Assert.That(transaction.MutableOwnership.Outcome)
+                .IsEqualTo(MutableTransactionOutcome.RollbackOutcomeUnknown);
+            await AssertInvalid(
+                transactionMutable.Lifecycle,
+                MutableInvalidationReason.RollbackOutcomeUnknown,
+                MutableRowKind.Existing);
+            await Assert.That(employeeCache.IsTransactionInCache(transaction)).IsFalse();
+            await Assert.That(failure.Data["DataLinq.MutableInvalidationReason"])
+                .IsEqualTo(MutableInvalidationReason.RollbackOutcomeUnknown.ToString());
+
+            var fallbackFailure = Capture<InvalidOperationException>(() =>
+                _ = transactionEmployee.GetReadSource());
+            await Assert.That(fallbackFailure.Message).Contains("fresh committed");
+        }
+        finally
+        {
+            try
+            {
+                transaction.Dispose();
+            }
+            catch (Exception exception)
+            {
+                // Some adapters keep the completed external transaction attached and reject the
+                // wrapper's disposal-time rollback. That provider failure is legal, but it must
+                // not replace the already established outcome-unknown ownership classification.
+                disposeFailure = exception;
+            }
+        }
+
+        await Assert.That(transaction.IsDisposed).IsTrue();
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.RollbackOutcomeUnknown);
+        if (disposeFailure is not null)
+        {
+            await Assert.That(disposeFailure.Data["DataLinq.MutableInvalidationReason"])
+                .IsEqualTo(MutableInvalidationReason.RollbackOutcomeUnknown.ToString());
+        }
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Reset_PreservesTransactionProvenanceAndRejectsAReplacementOwner(
         TestProviderDescriptor provider)
     {
@@ -235,6 +361,150 @@ public sealed class EmployeesMutableLifecycleTests
         await Assert.That(snapshot.InvalidationReason).IsNull();
     }
 
+    private async Task AssertOwnedUncommittedFinalization(
+        TestProviderDescriptor provider,
+        string testName,
+        int idBase,
+        bool disposeOpenTransaction)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            testName,
+            EmployeesSeedMode.Bogus);
+        var database = databaseScope.Database;
+        var updateId = idBase;
+        var deleteId = idBase + 1;
+        var insertId = idBase + 2;
+        database.Insert(employees.NewEmployee(updateId));
+        database.Insert(employees.NewEmployee(deleteId));
+        database.Provider.State.ClearCache();
+
+        var committedUpdate = database.Query().Employees.Single(x => x.emp_no == updateId);
+        var committedDelete = database.Query().Employees.Single(x => x.emp_no == deleteId);
+        var originalFirstName = committedUpdate.first_name;
+        var updateMutable = committedUpdate.Mutate();
+        var deleteMutable = committedDelete.Mutate();
+        var insertMutable = employees.NewEmployee(insertId);
+        var employeeCache = GetEmployeeCache(database);
+        var transaction = database.Transaction();
+        RollbackObservation? observation = null;
+        var expectedReason = disposeOpenTransaction
+            ? MutableInvalidationReason.OpenTransactionDisposed
+            : MutableInvalidationReason.RolledBack;
+        var expectedOutcome = disposeOpenTransaction
+            ? MutableTransactionOutcome.OpenTransactionDisposed
+            : MutableTransactionOutcome.RolledBack;
+
+        try
+        {
+            updateMutable.first_name = disposeOpenTransaction
+                ? "tx disposed"
+                : "tx rollback";
+            transaction.Update(updateMutable);
+            transaction.Insert(insertMutable);
+            transaction.Delete(deleteMutable);
+
+            transaction.OnStatusChanged += (_, args) =>
+            {
+                if (args.Status != DatabaseTransactionStatus.RolledBack)
+                    return;
+
+                observation = new RollbackObservation(
+                    transaction.MutableOwnership.Outcome,
+                    transaction.TouchedMutables.Count,
+                    employeeCache.IsTransactionInCache(transaction),
+                    updateMutable.Lifecycle,
+                    insertMutable.Lifecycle,
+                    deleteMutable.Lifecycle,
+                    transaction.IsDisposed);
+            };
+
+            if (disposeOpenTransaction)
+                transaction.Dispose();
+            else
+                transaction.Rollback();
+
+            await Assert.That(transaction.Status)
+                .IsEqualTo(DatabaseTransactionStatus.RolledBack);
+            await Assert.That(transaction.MutableOwnership.Outcome)
+                .IsEqualTo(expectedOutcome);
+            await Assert.That(transaction.TouchedMutables).IsEmpty();
+            await Assert.That(employeeCache.IsTransactionInCache(transaction)).IsFalse();
+            await Assert.That(observation).IsNotNull();
+            var finalizedObservation = observation ??
+                throw new InvalidOperationException("The rolled-back status callback did not run.");
+            await Assert.That(finalizedObservation.OwnershipOutcome).IsEqualTo(expectedOutcome);
+            await Assert.That(finalizedObservation.TouchedMutableCount).IsEqualTo(0);
+            await Assert.That(finalizedObservation.TransactionCachePresent).IsFalse();
+            await Assert.That(finalizedObservation.WrapperDisposed).IsEqualTo(disposeOpenTransaction);
+            await AssertInvalid(
+                finalizedObservation.UpdateLifecycle,
+                expectedReason,
+                MutableRowKind.Existing);
+            await AssertInvalid(
+                finalizedObservation.InsertLifecycle,
+                expectedReason,
+                MutableRowKind.Existing);
+            await AssertInvalid(
+                finalizedObservation.DeleteLifecycle,
+                expectedReason,
+                MutableRowKind.Deleted);
+
+            await AssertInvalid(updateMutable.Lifecycle, expectedReason, MutableRowKind.Existing);
+            await AssertInvalid(insertMutable.Lifecycle, expectedReason, MutableRowKind.Existing);
+            await AssertInvalid(deleteMutable.Lifecycle, expectedReason, MutableRowKind.Deleted);
+
+            var resetFailure = Capture<InvalidOperationException>(deleteMutable.Reset);
+            await Assert.That(resetFailure.Message).Contains(expectedReason.ToString());
+
+            using var explicitRetry = database.Transaction();
+            var explicitFailures = new[]
+            {
+                Capture<MutationGuardException>(() => explicitRetry.Update(updateMutable)),
+                Capture<MutationGuardException>(() => explicitRetry.Insert(insertMutable)),
+                Capture<MutationGuardException>(() => explicitRetry.Delete(deleteMutable))
+            };
+            var implicitFailures = new[]
+            {
+                Capture<MutationGuardException>(() => database.Update(updateMutable)),
+                Capture<MutationGuardException>(() => database.Insert(insertMutable)),
+                Capture<MutationGuardException>(() => database.Delete(deleteMutable))
+            };
+
+            foreach (var failure in explicitFailures.Concat(implicitFailures))
+                await Assert.That(failure.Message).Contains("Materialize a fresh committed row");
+
+            await Assert.That(employeeCache.IsTransactionInCache(explicitRetry)).IsFalse();
+
+            var persistedUpdate = database.Query().Employees.Single(x => x.emp_no == updateId);
+            var persistedDelete = database.Query().Employees.Single(x => x.emp_no == deleteId);
+            await Assert.That(persistedUpdate.first_name).IsEqualTo(originalFirstName);
+            await Assert.That(ReferenceEquals(committedUpdate, persistedUpdate)).IsTrue();
+            await Assert.That(ReferenceEquals(committedDelete, persistedDelete)).IsTrue();
+            await Assert.That(database.Query().Employees.Any(x => x.emp_no == insertId))
+                .IsFalse();
+        }
+        finally
+        {
+            transaction.Dispose();
+        }
+    }
+
+    private static async Task AssertInvalid(
+        MutableLifecycleSnapshot snapshot,
+        MutableInvalidationReason reason,
+        MutableRowKind rowKind)
+    {
+        await Assert.That(snapshot.RowKind).IsEqualTo(rowKind);
+        await Assert.That(snapshot.BaselineKind).IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(snapshot.TransactionOwner).IsNull();
+        await Assert.That(snapshot.InvalidationReason).IsEqualTo(reason);
+    }
+
+    private static TableCache GetEmployeeCache(Database<EmployeesDb> database) =>
+        database.Provider.GetTableCache(
+            database.Provider.Metadata.GetTableModel(typeof(Employee)).Table);
+
     private static TException Capture<TException>(Action action)
         where TException : Exception
     {
@@ -248,5 +518,21 @@ public sealed class EmployeesMutableLifecycleTests
         }
 
         throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
+    }
+
+    private sealed record RollbackObservation(
+        MutableTransactionOutcome OwnershipOutcome,
+        int TouchedMutableCount,
+        bool TransactionCachePresent,
+        MutableLifecycleSnapshot UpdateLifecycle,
+        MutableLifecycleSnapshot InsertLifecycle,
+        MutableLifecycleSnapshot DeleteLifecycle,
+        bool WrapperDisposed);
+
+    private sealed class CountingNotification : ICacheNotification
+    {
+        internal int ClearCalls { get; private set; }
+
+        public void Clear() => ClearCalls++;
     }
 }

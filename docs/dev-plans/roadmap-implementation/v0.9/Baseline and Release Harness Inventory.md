@@ -3,7 +3,7 @@
 
 # 0.9 Baseline And Release Harness Inventory
 
-**Status:** W0-W1 characterization implemented on 2026-07-10. W2 is next.
+**Status:** W0-W2 complete. W3 and W4 implementation are active against this 2026-07-10 characterization baseline; bounded managed-wrapper `TX-3` rollback/open-disposal finalization is recorded below.
 
 **Baseline branch:** `v0.9`.
 
@@ -163,6 +163,7 @@ Command disposal is not uniformly trustworthy today. `Select.ReadFirstRow` and t
 | Provider commit precedes global publication | `Transaction.Commit` order plus commit invalidation/notification tests |
 | Rollback preserves committed row identity and purges transaction rows | `Cache_Rollback_DoesNotInvalidateReadOnlyRowCacheForUncommittedMutation` |
 | Open transaction disposal rolls back and purges transaction rows | `Cache_OpenTransactionDispose_RemovesTransactionRowsAndPreservesReadOnlyRowCache` |
+| Managed-wrapper rollback/open disposal terminalizes touched ownership, drops exact transaction rows/subscriptions, preserves committed state, and publishes wrapper `RolledBack` only after finalization | deterministic `TransactionFaultInjectionCharacterizationTests`, `TransactionMutationFailureTests`, `MutableLifecycleTests`, and `CacheNotificationManagerTests`; active-provider `EmployeesMutableLifecycleTests` |
 | Outside relation remains stable before commit and refreshes after commit | `Transaction_InsertRelations_PersistsAfterCommit` |
 | Relation rollback remains scoped and does not notify outside subscribers | `Transaction_RelationInsertRollback_KeepsViewsScopedAndDoesNotNotifyOutsideSubscriber` |
 | Same-transaction graph identity | `Transaction_InsertRelationsWithinTransaction_MaintainsGraphIdentity` |
@@ -171,7 +172,7 @@ Command disposal is not uniformly trustworthy today. `Select.ReadFirstRow` and t
 | Provider commit, rollback, and disposal success/failure partitions | `TransactionFaultInjectionCharacterizationTests` |
 | Private-cache WAL committed visibility, current shared-cache dirty visibility, and bounded writer contention | `SQLiteWalConcurrencyCharacterizationTests` |
 
-The following accepted behaviors are intentionally assigned to W3 rather than encoded as green current behavior:
+The following accepted behaviors were intentionally assigned to W3 rather than encoded as green W1 behavior:
 
 - provider and transaction provenance
 - cross-provider and cross-transaction mutable rejection
@@ -180,7 +181,7 @@ The following accepted behaviors are intentionally assigned to W3 rather than en
 - read-only mutation rejection before SQL
 - failed-statement poisoning and commit rejection
 
-The deterministic provider fake records an important defect baseline: direct provider commit/rollback failures propagate while the transaction remains open and cached; resource-disposal failures after provider completion leave a terminal-status transaction cached; wrapper disposal removes cache state before provider rollback/disposal. W3 must make those partitions cleanup-safe and invalidate touched mutables. The passing tests describe current ordering and failure state, not the accepted 0.9 contract.
+Subsequent W3 slices have closed the listed provenance, cross-owner, primary-key, read-only, mutation-poisoning, and bounded managed-wrapper rollback/open-disposal deficits. Bounded `TX-3` replaces the rollback/disposal defect expectations with provider-first completion attempts, accurate `RolledBack`/`RollbackOutcomeUnknown`/`OpenTransactionDisposed` ownership, touched invalidation and registry clearing, exact transaction row/subscription discard, committed-cache preservation, deferred finalized wrapper status, and an only-dispose gate after a failed rollback that remains open. The adjacent managed fence now records permanent `CommitOutcomeUnknown` when the provider `Commit()` call throws, preserves the exact provider exception, rejects further managed use, and permits only status-compatible rollback or scoped disposal cleanup. Determining whether that commit reached the database, repairing provider-wide committed-cache freshness, attached/external completion beyond the narrow externally completed rollback fence, raw handles, arbitrary local-cache primitive fault injection, full provider commit-fault evidence, and full concurrency remain open; the W1 statements above remain historical baseline rather than present-tense runtime claims.
 
 The temporary file-backed WAL lane proves that private-cache readers retain committed visibility during a pending write and that a competing writer surfaces SQLite `BUSY` within the configured timeout. A deliberately explicit shared-cache test also proves that current DataLinq-owned `read_uncommitted` paths can dirty-read at the direct SQL boundary. SQ-1 owns removing that behavior and inverting the defect assertion.
 

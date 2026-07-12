@@ -97,6 +97,12 @@ public partial class TableCache
             RelationCacheKey? relationKey,
             IReadOnlyCollection<DataLinqKey> loadedPrimaryKeys)
         {
+            if (transaction is not null &&
+                transaction.MutableOwnership.Outcome != MutableTransactionOutcome.Unresolved)
+            {
+                return;
+            }
+
             var loadedPrimaryKeyArray = loadedPrimaryKeys.Count == 0 ? [] : loadedPrimaryKeys.ToArray();
             var notificationBytes = CacheMemoryEstimator.SaturatingAdd(
                 CacheMemoryEstimator.NotificationSubscriptionBytes,
@@ -106,6 +112,12 @@ public partial class TableCache
             EnterMaintenanceGate();
             try
             {
+                if (transaction is not null &&
+                    transaction.MutableOwnership.Outcome != MutableTransactionOutcome.Unresolved)
+                {
+                    return;
+                }
+
                 _subscribers.Enqueue(new CacheNotificationSubscription(
                     new WeakReference<ICacheNotification>(subscriber),
                     transaction,
@@ -259,6 +271,51 @@ public partial class TableCache
             }
         }
 
+        internal void Discard(Transaction transaction)
+        {
+            ArgumentNullException.ThrowIfNull(transaction);
+
+            EnterMaintenanceGate();
+            try
+            {
+                if (_subscribers.IsEmpty)
+                    return;
+
+                var subscribersToFilter = Interlocked.Exchange(
+                    ref _subscribers,
+                    new ConcurrentQueue<CacheNotificationSubscription>());
+                Interlocked.Exchange(ref _approximateSubscriberCount, 0);
+
+                var snapshotEntries = 0;
+                var requeuedSubscribers = 0;
+                foreach (var subscription in subscribersToFilter)
+                {
+                    snapshotEntries++;
+                    DropSubscriptionEstimate(subscription);
+
+                    if (ReferenceEquals(subscription.Transaction, transaction))
+                        continue;
+
+                    _subscribers.Enqueue(subscription);
+                    AddSubscriptionEstimate(subscription);
+                    requeuedSubscribers++;
+                }
+
+                var approximateQueueDepth = Interlocked.Add(
+                    ref _approximateSubscriberCount,
+                    requeuedSubscribers);
+                metricsHandle.RecordCacheNotificationCleanSweep(
+                    snapshotEntries,
+                    requeuedSubscribers,
+                    snapshotEntries - requeuedSubscribers,
+                    approximateQueueDepth);
+            }
+            finally
+            {
+                ExitMaintenanceGate();
+            }
+        }
+
         internal void Clean()
         {
             // Best-effort compaction. If Notify() is already in progress, skip this
@@ -345,6 +402,12 @@ public partial class TableCache
                 if (Volatile.Read(ref _discardGeneration) != discardGeneration)
                     return false;
 
+                if (subscription.Transaction is { } transaction &&
+                    transaction.MutableOwnership.Outcome != MutableTransactionOutcome.Unresolved)
+                {
+                    return false;
+                }
+
                 _subscribers.Enqueue(subscription);
                 AddSubscriptionEstimate(subscription);
                 Interlocked.Increment(ref _approximateSubscriberCount);
@@ -416,4 +479,7 @@ public partial class TableCache
 
     internal void DiscardRecoveryNotifications() =>
         notificationManager?.Discard();
+
+    internal void DiscardTransactionNotifications(Transaction transaction) =>
+        notificationManager?.Discard(transaction);
 }

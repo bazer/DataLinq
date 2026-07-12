@@ -3,7 +3,7 @@
 
 # SQL Transaction And Mutable Lifecycle Implementation Plan
 
-**Status:** Implementation in progress. `TX-0`, the bounded `ML-1` provenance substrate, the representable `ML-2` pre-execution guard slice, `TX-1` (`TX-1A` touched-mutable tracking plus `TX-1B` successful-change authority), `TX-2A` confirmed-success finalization for DataLinq-owned transactions, and bounded `TX-2B` recovery after a known-successful provider commit followed by committed-publication or transaction-cache-cleanup failure are implemented. Bounded `TX-4A` poisoning and managed-operation gates are implemented for post-preflight mutation-pipeline failures. `TX-3`, provider-call exceptions with an outcome-unknown commit, raw low-level escape closure, attached completion, full concurrency semantics, and the remaining terminal-state work are still open.
+**Status:** Implementation in progress. `TX-0`, the bounded `ML-1` provenance substrate, the representable `ML-2` pre-execution guard slice, `TX-1` (`TX-1A` touched-mutable tracking plus `TX-1B` successful-change authority), `TX-2A` confirmed-success finalization for DataLinq-owned transactions, bounded `TX-2B` known-committed recovery, bounded `TX-3` managed-wrapper rollback/open-disposal finalization, bounded `TX-4A` mutation-pipeline poisoning, and the bounded managed provider-call `CommitOutcomeUnknown` fence are implemented. Determining the database outcome after a throwing provider commit, provider-wide committed-cache freshness/repair, raw low-level escape closure, attached/external completion beyond the narrow rollback fence, local-cleanup fault injection beyond the supported cache primitives, full provider evidence, full concurrency semantics, and the remaining terminal-state work are still open.
 
 **Target release:** 0.9.
 
@@ -24,7 +24,7 @@ It has two related objectives:
 
 The current code is closer to the desired cache-publication model than the older design discussion implies. DataLinq already keeps rows and notifications transaction-scoped while a transaction is open, commits the provider transaction before applying global cache changes, and discards transaction rows on rollback. The implementation must preserve and characterize that working behavior rather than rebuilding it under new names.
 
-The original missing correctness layer was mutable provenance and failure state. The bounded `ML-1` substrate remembers the exact provider and, for a transaction-local baseline, the exact transaction token; `ML-2` enforces that provenance before provider work. `TX-1` now makes a private ordered list the sole commit authority and adds a candidate only after every DataLinq mutation-finalization stage succeeds. `TX-2A` consumes that authority on the confirmed-success path for an owned transaction, completes global and local cache work, promotes the touched registry, commits the token, and defers the wrapper `Committed` event until that local finalization is complete. Bounded `TX-2B` now recovers conservatively when the provider commit is known to have succeeded but later committed publication or transaction-cache cleanup fails: it invalidates transaction-derived ownership, removes local state best-effort, clears provider-wide committed row/index structures before recovery notifications, and reports a dedicated known-committed diagnostic without rollback or a wrapper `Committed` event. Bounded `TX-4A` poisons the managed wrapper after a post-preflight mutation-pipeline failure, invalidates affected lifecycle mutables, and prevents later managed use from publishing earlier pending successes. Provider-call outcome uncertainty, rollback, disposal, attached-transaction, and low-level escape partitions remain lifecycle work before the query foundation rewires source and cache access.
+The original missing correctness layer was mutable provenance and failure state. The bounded `ML-1` substrate remembers the exact provider and, for a transaction-local baseline, the exact transaction token; `ML-2` enforces that provenance before provider work. `TX-1` now makes a private ordered list the sole commit authority and adds a candidate only after every DataLinq mutation-finalization stage succeeds. `TX-2A` consumes that authority on the confirmed-success path for an owned transaction, completes global and local cache work, promotes the touched registry, commits the token, and defers the wrapper `Committed` event until that local finalization is complete. Bounded `TX-2B` recovers conservatively when the provider commit is known to have succeeded but later committed publication or transaction-cache cleanup fails. Bounded `TX-3` consumes the same ownership authority for managed-wrapper rollback and open disposal. Bounded `TX-4A` poisons the managed wrapper after a post-preflight mutation-pipeline failure. The adjacent provider-call fence now handles the distinct case where managed `Commit()` itself throws: it preserves the exact provider exception, marks transaction-derived ownership `CommitOutcomeUnknown`, blocks managed reads/writes/callbacks/commit and terminal read-source fallback, permits rollback only while provider status remains nonterminal, and makes disposal perform exact transaction cleanup. It deliberately does not infer whether the database committed or repair potentially stale provider-wide committed cache state. Those outcome/freshness questions, attached/external completion beyond the narrow rollback fence, raw low-level escape, cleanup-fault injection beyond supported primitives, full provider evidence, and full concurrency remain lifecycle work before the query foundation rewires source and cache access.
 
 ## Release Decision
 
@@ -35,12 +35,15 @@ The 0.9 behavior is deliberately conservative:
 - reuse inside that transaction is allowed
 - successful commit promotes the baseline to committed
 - rollback or disposal of an open transaction invalidates every mutable touched by it
+- a throwing rollback that leaves the provider open records `RollbackOutcomeUnknown`; the managed wrapper permits only disposal and never pretends the rollback succeeded
+- managed rollback/disposal removes only exact transaction rows and subscriptions, preserving committed/global cache and relation state
 - cross-provider and cross-transaction writes fail before SQL execution
 - ordinary primary-key mutation fails before SQL execution
 - writes through `TransactionType.ReadOnly` fail before SQL execution
 - any post-preflight DataLinq-managed mutation-pipeline failure poisons the DataLinq transaction; only rollback or disposal remains legal through the managed wrapper
 - a failed mutation is never added to the private successful-change authority and can never be published as committed cache state through the managed wrapper
 - after a provider commit is known to have succeeded, a committed-publication or transaction-cache-cleanup failure is reported as known committed, invalidates transaction-derived mutable baselines, and clears cache state conservatively rather than pretending rollback occurred
+- when the provider `Commit()` call itself throws, DataLinq preserves that exception, records `CommitOutcomeUnknown`, publishes nothing globally, gates managed reuse/fallback, and allows only status-compatible rollback or scoped disposal cleanup; it does not guess the database outcome or claim committed-cache freshness
 - an attached external transaction that performs DataLinq mutations must be completed through the DataLinq transaction wrapper
 - DataLinq-owned SQLite connections use committed/serializable visibility and never enable `PRAGMA read_uncommitted = true`
 - file-backed SQLite defaults do not opt into shared cache
@@ -82,9 +85,9 @@ The first W3 runtime slice is deliberately narrower than the full `ML-1` exit:
 - mutable delete has an explicit transaction-local provenance state rather than immediately pretending that the row is globally committed-deleted
 - transaction-local provenance may normalize lazily to committed provenance only after its token records that provider commit, global cache/notification publication, and transaction-local cache cleanup all succeeded, in that order
 
-That successful-commit token normalization began as a bounded provenance substrate. `TX-1A` enumerates lifecycle-aware mutables after their successful authoritative transition, `TX-1B` owns the ordered successful changes privately after complete mutation finalization, and `TX-2A` consumes the registry for explicit promotion after a confirmed owned-transaction commit, committed publication, and transaction-cache cleanup. If the provider commit succeeded but either later local stage fails, bounded `TX-2B` marks the ownership token `CommittedStateFinalizationFailed` so even transaction-derived lifecycle snapshots that were not reached directly normalize to invalid rather than committed. `TX-3` does not yet consume the registry for ordinary rollback/open-disposal invalidation.
+That successful-commit token normalization began as a bounded provenance substrate. `TX-1A` enumerates lifecycle-aware mutables after their successful authoritative transition, `TX-1B` owns the ordered successful changes privately after complete mutation finalization, and `TX-2A` consumes the registry for explicit promotion after a confirmed owned-transaction commit, committed publication, and transaction-cache cleanup. If the provider commit succeeded but either later local stage fails, bounded `TX-2B` marks the ownership token `CommittedStateFinalizationFailed`. If the provider `Commit()` call throws before DataLinq can establish its outcome, the bounded managed fence instead marks the token `CommitOutcomeUnknown`; that terminal token invalidates transaction-derived lifecycle snapshots immediately while retaining exact transaction cache state until wrapper rollback/disposal cleanup. Bounded `TX-3` terminalizes unresolved ownership after managed-wrapper rollback or open disposal. Explicit rollback records `RolledBack` only when the provider reports that result; a throwing provider that remains open records `RollbackOutcomeUnknown` and installs a rollback-attempt gate instead of pretending success. Direct open-wrapper disposal records `OpenTransactionDisposed` regardless of the provider cleanup result; disposal after an earlier `CommitOutcomeUnknown` or other terminal outcome preserves that outcome.
 
-This bounded substrate does **not** make arbitrary reuse safe by itself. The `ML-2` command-free guard slice closes unsafe pre-execution reuse for the lifecycle states currently represented, including the public row-data and deferred-`StateChange` escape hatches. `TX-1A` supplies the reference-identity registry, and `TX-1B` routes normal and public `StateChange` execution through one transaction-owned pipeline whose private successful list cannot be changed through the detached public `Changes` snapshot. Captured mutation values detect later assignment and in-place array drift before provider work; generated primary keys are captured after provider execution, while relation/index impact keys remain provisional until authoritative-row hydration finalizes them for later cache publication. On the confirmed-success owned path, `TX-2A` defers the wrapper `Committed` event until global publication, transaction-cache cleanup, touched-mutable promotion, token commit, and registry clearing are complete. A transaction-bound immutable, foreign key, or relation cannot switch to committed read access merely because the provider status changed while that finalization is still running. If `DatabaseAccess.Commit()` returned successfully but committed publication or transaction-cache cleanup fails, bounded `TX-2B` throws `TransactionCommitFinalizationException`, preserves the original local failure as `InnerException`, exposes any additional cleanup failures, invalidates the ownership token and touched mutables with `CommittedStateFinalizationFailed`, makes a best-effort local removal pass, structurally clears every provider table's committed rows and indices, and only then attempts best-effort recovery notifications. It does not roll back or publish the deferred wrapper `Committed` event. Bounded `TX-4A` covers provider statement preparation/execution, generated-value decoding, pending-cache application, authoritative-row hydration, and lifecycle-finalization failure. It preserves the original exception, poisons the managed wrapper, invalidates the current and previously touched lifecycle mutables, and gates managed reads, writes, callbacks, and commit until rollback or disposal. Mutation/cache-callback managed reentrancy is rejected and completion entry points are serialized. Terminal committed/rolled-back/disposed diagnostics win after the transaction reaches that state. Consequently neither `ML-1` nor W3 is complete: ordinary rollback/open-disposal invalidation, provider-call exceptions with an outcome-unknown commit, raw low-level escape closure, attached completion, full concurrency semantics, and the `F6` live cache/relation read migration remain open.
+This bounded substrate does **not** make arbitrary reuse safe by itself. The `ML-2` command-free guard slice closes unsafe pre-execution reuse for the lifecycle states currently represented, including the public row-data and deferred-`StateChange` escape hatches. `TX-1A` supplies the reference-identity registry, and `TX-1B` routes normal and public `StateChange` execution through one transaction-owned pipeline whose private successful list cannot be changed through the detached public `Changes` snapshot. Captured mutation values detect later assignment and in-place array drift before provider work; generated primary keys are captured after provider execution, while relation/index impact keys remain provisional until authoritative-row hydration finalizes them for later cache publication. On the confirmed-success owned path, `TX-2A` defers the wrapper `Committed` event until global publication, transaction-cache cleanup, touched-mutable promotion, token commit, and registry clearing are complete. If `DatabaseAccess.Commit()` returned successfully but committed publication or transaction-cache cleanup fails, bounded `TX-2B` performs known-committed recovery. If `DatabaseAccess.Commit()` throws, the bounded `CommitOutcomeUnknown` fence preserves the exact exception, skips global publication, permanently invalidates token-derived lifecycle state, and rejects managed reads, writes, callbacks, repeated commit, and terminal fallback. `Rollback()` is allowed only while provider status remains nonterminal and cannot overwrite `CommitOutcomeUnknown`; `Dispose()` preserves that reason while removing exact transaction rows/subscriptions. Neither action proves whether the original commit reached the database, and this fence does not clear or repair provider-wide committed caches. Bounded `TX-3` covers ordinary explicit rollback and disposal of open/poisoned unresolved ownership, while bounded `TX-4A` covers mutation-pipeline failure. Consequently neither `ML-1` nor W3 is complete: database-outcome determination and provider-wide cache freshness after a throwing commit, raw low-level escape closure, attached/external completion beyond the narrow rollback fence, local-cleanup fault injection beyond the supported cache primitives, full provider evidence, full concurrency semantics, and the `F6` live cache/relation read migration remain open.
 
 ## Scope
 
@@ -167,10 +170,11 @@ internal enum MutableBaselineKind
 internal enum MutableInvalidationReason
 {
     RolledBack,
+    RollbackOutcomeUnknown,
     OpenTransactionDisposed,
     MutationFailed,
     CommitOutcomeUnknown,
-    Deleted
+    CommittedStateFinalizationFailed
 }
 ```
 
@@ -190,7 +194,9 @@ Dirty state remains the set of explicit assignments since the baseline. It does 
 | Transaction-local in `T` | another successful write in `T` | New clean transaction-local baseline still owned by `T`. |
 | Transaction-local in `T` | write through another transaction or implicit write | Reject before SQL; state is unchanged. |
 | Transaction-local in `T` | successful commit | Clean committed baseline owned by provider `P`; transaction ownership removed. |
-| Transaction-local in `T` | rollback or open disposal | Invalid; no later write may reuse it. |
+| Transaction-local in `T` | confirmed rollback | Invalid with `RolledBack`; no later write may reuse it. |
+| Transaction-local in `T` | rollback throws while the provider remains open | Invalid with `RollbackOutcomeUnknown`; no later managed operation except disposal may reuse the wrapper. |
+| Transaction-local in `T` | open-wrapper disposal | Invalid with `OpenTransactionDisposed`; no later write may reuse it, even if provider cleanup throws. |
 | Any writable state | mutation command failure | Invalid; `T` poisoned; failed change absent from successful changes. |
 | Any transaction-local state | provider commit failure/unknown outcome | Invalid with an uncertain-commit diagnostic; no global publication. |
 | Existing mutable | committed delete | Deleted terminal state; later mutation fails. |
@@ -279,7 +285,7 @@ Implementation constraint:
 
 The `TX-1A` touched registry uses reference equality. `Mutable<T>.GetHashCode()` changes from a transient identifier to a primary-key hash after insert, and two separate mutable objects may compare equal by primary key. Neither behavior is suitable for transaction ownership tracking.
 
-Current bounded progress: the provenance holder, immutable-captured provider origin, opaque transaction token, authoritative hydration/delete transitions, `TX-1A` reference-identity registry, `TX-1B` successful-only mutation authority, `TX-2A` confirmed-success owned-transaction promotion/token finalization, bounded `TX-2B` known-committed publication/local-cleanup recovery, and bounded `TX-4A` mutation-failure invalidation are implemented. The remaining exit evidence stays open. In particular, `TX-2B` applies only after the provider commit call returned successfully; it does not replace `TX-3` ordinary rollback/open-disposal invalidation or the `TX-4` provider-call outcome-unknown partition.
+Current bounded progress: the provenance holder, immutable-captured provider origin, opaque transaction token, authoritative hydration/delete transitions, `TX-1A` reference-identity registry, `TX-1B` successful-only mutation authority, `TX-2A` confirmed-success owned-transaction promotion/token finalization, bounded `TX-2B` known-committed publication/local-cleanup recovery, bounded `TX-3` managed-wrapper rollback/open-disposal finalization, bounded `TX-4A` mutation-failure invalidation, and the managed provider-call `CommitOutcomeUnknown` fence are implemented. `TX-2B` applies only after the provider commit call returned successfully. The commit-call fence applies only when wrapper `Commit()` throws: it makes later managed use safe by rejection and scoped cleanup, but does not determine the database outcome or make provider-wide committed caches trustworthy.
 
 Exit signal:
 
@@ -348,7 +354,7 @@ If generated-key mechanics require constructing a `StateChange` before execution
 
 Execution-time impact keys are sufficient for the immediate transaction-local eviction pass. Insert defaults or provider triggers may change indexed values, so the authoritative reload replaces those provisional keys before the change enters successful commit authority; committed publication never derives impact from a later live mutable value.
 
-Progress through 2026-07-12: `TX-1A` and `TX-1B` are implemented. Each transaction owns a reference-identity set of lifecycle-aware mutables and registers an insert/update mutable only after its hydrated baseline advances successfully, or a mutable-delete input only after its transaction-local delete transition succeeds. Repeated writes to the same object retain one entry, while distinct mutable objects for the same primary key remain distinct entries; insert-then-update coverage also crosses the mutable's new-to-persisted lifecycle transition. Clean no-change updates, immutable deletes, and failed preflight attempts do not create entries. The ordered successful-change authority is private; public `Changes` returns a detached snapshot whose clearing or forged additions cannot alter commit publication. Normal mutation APIs and public `StateChange.ExecuteQuery(...)` use the same transaction-owned finalization path. Captured mutable values are detached from reference-array mutation and revalidated before execution. Provider execution captures generated primary keys and provisional relation/index impacts; authoritative hydration then finalizes those impacts for the later committed cache phase before the candidate enters successful authority. Mutation/cache-callback managed reentrancy is rejected and completion entry points are serialized. `TX-2A` closes the confirmed-success owned-transaction status-callback window after this mutation authority is consumed; bounded `TX-2B` now recovers the known-committed local-failure path without claiming rollback. The adjacent bounded `TX-4A` poison gate makes this ordering safe when provider execution succeeds before a later cache, hydration, or lifecycle stage fails; these slices do not close rollback, disposal, provider-call outcome uncertainty, raw-handle, attached, or full concurrency partitions.
+Progress through 2026-07-12: `TX-1A` and `TX-1B` are implemented. Each transaction owns a reference-identity set of lifecycle-aware mutables and records only fully finalized changes in private authority. `TX-2A` closes the confirmed-success owned-transaction status-callback window; bounded `TX-2B` recovers the known-committed local-failure path; bounded `TX-3` consumes ownership for ordinary managed rollback/open disposal; and bounded `TX-4A` poisons post-preflight mutation failures. The adjacent managed provider-call fence now marks `CommitOutcomeUnknown` when `DatabaseAccess.Commit()` throws, preserves the exact provider exception, blocks managed reads/writes/callbacks/repeated commit/fallback, permits rollback only before provider status becomes terminal, and makes disposal perform scoped cleanup without changing the unknown outcome. These slices do not determine whether the failed commit reached the database, repair provider-wide committed caches, close raw-handle or attached/external completion beyond the narrow rollback fence, inject arbitrary local-cleanup failures, supply full real-provider commit-fault evidence, or establish full concurrency.
 
 Exit signal:
 
@@ -418,25 +424,31 @@ Focused core evidence injects a committed/global notification failure after prov
 
 ## TX-3: Rollback And Open-Transaction Disposal
 
-Work:
+Bounded managed-wrapper implementation:
 
-- on explicit rollback, invoke provider rollback before terminal cleanup when the provider transaction is still open
-- discard transaction-local rows and notifications without applying successful pending changes globally
-- invalidate every touched mutable, including inserts, updates, and transaction-local deletes
-- on disposal of an open or poisoned transaction, perform the provider's rollback/disposal path and the same invalidation
-- perform mutable invalidation and local-cache cleanup even when provider rollback or disposal throws
-- keep the original provider exception while attaching enough DataLinq context to explain that mutable baselines are invalid
-- prevent public `Reset()` from making those mutables writable again
-- preserve committed/global cache entries when no committed publication occurred
+- explicit `Rollback()` invokes provider rollback before local finalization when the provider transaction is still open
+- after the provider attempt, exact transaction rows and transaction-owned notification subscriptions are discarded without invoking those subscribers or applying successful pending changes globally
+- the ownership token reaches `RolledBack` only if the provider reached rolled-back status; otherwise it reaches `RollbackOutcomeUnknown`
+- every touched insert, update, and transaction-local mutable delete is invalidated with that outcome, except that an earlier stronger `MutationFailed` reason remains intact; the touched registry is then cleared
+- if a failed rollback leaves the provider transaction open, an internal rollback-attempt gate blocks managed reads, writes, callbacks, commit, and another rollback; only `Dispose()` remains legal
+- direct disposal of an open or poisoned managed wrapper invokes the provider disposal path first, then records `OpenTransactionDisposed` and performs the same exact transaction cleanup even when provider rollback/resource disposal throws; disposal after an earlier terminal token outcome preserves that outcome
+- disposal after a completed commit or rollback does not reclassify already-finalized mutable state
+- the exact provider exception remains the primary rethrown exception; namespaced DataLinq context identifies the transaction, operation, invalidation result, local-finalization attempt, and any secondary cleanup/observer failures without replacing the provider cause
+- any provider `RolledBack` status publication is deferred at the wrapper until token/mutable finalization, registry clearing, and scoped cache cleanup complete; an observer exception cannot interrupt provider or local cleanup, while a provider that remains open publishes no false rolled-back event
+- public `Reset()` cannot make an invalid mutable writable again
+- committed/global rows, indices, relations, and subscriptions are not cleared when no committed publication occurred
 
 Rollback does not attempt to reconstruct an earlier mutable baseline. The user must materialize a fresh committed row or create a new mutable.
+
+This is deliberately bounded to completion through the managed wrapper. Direct `DatabaseAccess` or underlying `IDbTransaction` completion cannot consume the wrapper's ownership registry. Attached/external completion remains `TX-5`; local-cache cleanup fault injection beyond the supported concurrent cache primitives and full races between mutation, completion, and raw handles remain open.
 
 Exit signal:
 
 - every touched mutable rejects later writes after rollback or open disposal
-- no transaction-local cache entries survive terminal cleanup
+- no exact transaction row or notification subscription survives managed-wrapper terminal cleanup
 - committed caches and relations are not cleared merely because a pending write rolled back
-- rollback/disposal failure still cannot leave a mutable marked trustworthy
+- rollback/disposal failure still cannot leave a mutable marked trustworthy, and a failed rollback cannot leave an apparently reusable managed wrapper
+- wrapper `RolledBack` observers, when the provider reaches that status, see finalized token, mutable, registry, and scoped-cache state
 
 ## TX-4: Poison Mutation Failures And Handle Uncertain Outcomes
 
@@ -459,24 +471,28 @@ Bounded `TX-4A` is implemented for mutation-pipeline failure:
 
 The deterministic core fault lane covers command construction, provider statement failure, generated-ID decode, pending-cache notification/application, direct callback mutation drift before hydration, authoritative reload miss, earlier-success retention, later managed gates, legal/idempotent disposal, captured scalar and in-place array drift, relation-impact-key freezing, managed callback reentrancy, null-FK read gating, terminal diagnostics after rollback, and the explicit raw-access bypass. Provider compliance covers a successful update followed by a duplicate-key failure and rollback across active SQLite, MySQL, and MariaDB targets, public `Changes` snapshot isolation, mutable-delete and auto-increment-insert `StateChange` execution through transaction authority, frozen indexed impact keys, and the null-FK poison gate.
 
-This is deliberately not full `TX-4`. Low-level `DatabaseAccess` and underlying `IDbTransaction` handles remain capable of bypassing the managed poison and operation gates. Provider commit failure is still outcome-uncertain unless the provider can prove otherwise, and the remaining cross-provider rule is:
+The bounded managed provider-call fence is now implemented for an exception thrown by `DatabaseAccess.Commit()`:
 
-- do not apply global cache changes
-- invalidate touched mutables
-- reject further writes and commit
-- permit rollback/disposal cleanup where the provider still allows it
-- require a fresh committed read before retrying at application level
+- preserve and rethrow the exact provider exception from the original `Commit()` call
+- mark the ownership token `CommitOutcomeUnknown`; token-derived and directly touched lifecycle state becomes permanently invalid with the same reason
+- do not apply private successful changes to global cache state and do not raise the wrapper `Committed` event
+- reject later managed reads, writes, callbacks, repeated commit, and transaction-bound immutable/foreign-key/relation fallback
+- allow `Rollback()` only while provider status remains nonterminal; even if that attempt reports rolled back, preserve `CommitOutcomeUnknown` and report that DataLinq cannot prove a definite database rollback
+- allow `Dispose()` in every status, preserving `CommitOutcomeUnknown` while clearing the touched registry and removing exact transaction rows/subscriptions
+- never treat scoped cleanup as proof of the database outcome or as repair of provider-wide committed cache state
 
-Post-provider-commit committed-publication or transaction-cache-cleanup failure is the bounded, known-committed `TX-2B` partition and no longer shares the provider-call ambiguity. An exception from the provider `Commit()` call remains outcome-unknown `TX-4`, not a `TX-2A` success or `TX-2B` known-committed path. Ordinary rollback/open-disposal invalidation remains `TX-3`; the fact that mutation failure and known-committed local failure already invalidate their touched mutables does not close those terminal paths. Attached completion, raw escape closure, convenience-helper cleanup exception partitioning outside the bounded recovery path, and full concurrency semantics also remain open.
+This is deliberately not full `TX-4`. DataLinq still cannot determine whether a throwing provider commit actually committed, and it does not yet evict/repair provider-wide committed rows, indices, or relations that may be stale if the database did commit. Low-level `DatabaseAccess` and underlying `IDbTransaction` calls bypass the fence. Evidence is deterministic core fault injection, not a complete real-provider failure matrix or a full concurrency contract.
+
+Post-provider-commit committed-publication or transaction-cache-cleanup failure is the bounded, known-committed `TX-2B` partition and no longer shares this ambiguity. Bounded `TX-3` closes ordinary managed rollback/open-disposal invalidation. Attached/external completion remains `TX-5`; only the narrow wrapper `Rollback()` fence for an already externally completed attached handle now records `RollbackOutcomeUnknown`, removes scoped state, and blocks terminal fallback instead of pretending definite rollback.
 
 Do not automatically retry a mutation or commit. Without idempotency tokens and provider-specific evidence, a retry can duplicate an insert or repeat a partially observed operation.
 
 Remaining full-`TX-4` exit signal:
 
-- fault-injection tests prove failed changes cannot be committed or published
-- a poisoned transaction cannot be reused accidentally
-- earlier successful statements in the same transaction are rolled back rather than published
-- diagnostics distinguish definite rollback, mutation failure, and unknown commit outcome
+- provider-specific evidence classifies or explicitly constrains database outcome after a throwing commit
+- provider-wide committed-cache freshness is restored conservatively when the database may have committed
+- raw/direct completion and concurrency boundaries are either closed or documented as unsupported
+- diagnostics continue to distinguish definite rollback, mutation failure, known-committed local finalization failure, and unknown commit outcome
 
 ## TX-5: Define Attached External Transaction Ownership
 
@@ -487,7 +503,7 @@ The 0.9 contract is:
 - attaching before DataLinq writes is supported
 - same-transaction reads and DataLinq-managed writes use the normal local cache and mutable lifecycle
 - once DataLinq touches a mutable, commit or rollback must be performed through the DataLinq transaction wrapper
-- externally closing the underlying transaction bypasses DataLinq promotion/invalidation and is unsupported
+- externally closing the underlying transaction remains unsupported; a later wrapper `Rollback()` now fences a detectably closed attached handle as `RollbackOutcomeUnknown`, but cannot infer external commit versus rollback or reconstruct publication
 - disposal without an observed DataLinq commit invalidates touched mutables conservatively
 - raw writes performed before attachment are outside DataLinq's cache-change reconstruction
 - attached SQLite connections retain caller-owned pragma/connection policy; the committed-visibility guarantee applies to DataLinq-owned connections unless attached settings are validated as compatible
@@ -500,6 +516,8 @@ Work:
 - cover attached DataLinq writes followed by wrapper commit and rollback
 - cover external closure followed by wrapper access with a deterministic diagnostic
 - do not attempt to intercept arbitrary calls on the original `IDbTransaction`
+
+Current bounded fence: when an attached handle is detectably no longer open before wrapper `Rollback()`, DataLinq invalidates token-derived state with `RollbackOutcomeUnknown`, removes exact transaction rows/subscriptions, blocks terminal read-source fallback, and reports a deterministic fresh-materialization diagnostic. This does not make external completion supported, does not cover wrapper `Commit()` after external completion, and is not the `TX-5` exit.
 
 Exit signal:
 
@@ -619,11 +637,11 @@ After each `F6` migration slice, rerun the transaction/cache characterization te
 - managed reads, writes, callbacks, and commit are rejected on a poisoned transaction while rollback/dispose remain legal
 - captured scalar/reference-array mutation drift rejects before provider work, direct callback drift rejects before authoritative hydration, and successful generated primary-key and relation/index impact keys are frozen after execution
 - mutation/cache-callback managed reentrancy is rejected and completion entry points are serialized; on a confirmed successful owned commit, the wrapper `Committed` event observes completed publication, local cleanup, promotion/token finalization, and registry clearing
-- ordinary rollback/dispose invalidates all touched mutables **(open, `TX-3`)**
-- provider commit failure causes no global publication and records outcome unknown **(open, remaining `TX-4`)**
+- managed-wrapper rollback/dispose terminalizes ownership, invalidates all touched mutables, discards exact transaction rows/subscriptions, and defers wrapper `RolledBack` status until finalization **(green, bounded `TX-3`)**
+- a managed provider `Commit()` exception preserves the exact cause, records `CommitOutcomeUnknown`, performs no global publication, gates managed reuse/fallback, permits only status-compatible rollback or scoped disposal, and never launders cleanup into a known database outcome **(green, bounded `TX-4` fence)**
 - after a known-successful provider commit, committed-publication or transaction-cache-cleanup failure invalidates ownership/mutables, removes local state best-effort, clears provider-wide committed row/index state before recovery notifications, and throws a dedicated original-cause-preserving diagnostic **(green, bounded `TX-2B`)**
 
-Current deterministic evidence is `src/DataLinq.Tests.Unit/Core/TransactionMutationFailureTests.cs`. It covers the bounded `TX-1B`/`TX-4A` bullets above, the `TX-2A` final callback state, transaction-bound read-source fallback gate and throwing-observer ordering, plus bounded `TX-2B` known-committed notification-failure recovery. `MutableLifecycleTests` separately proves exact-owner/idempotent promotion with committed-delete preservation and permanent token-derived invalidation after committed-state finalization failure. `CacheNotificationManagerTests` proves that subscriber failures do not truncate a sweep, while `DatabaseCacheTests` proves every provider table is structurally cleared before best-effort recovery notifications and that notification failures are collected. The fault fixture explicitly proves that raw `DatabaseAccess` remains outside managed poison and operation guards. This evidence does not classify a throwing provider `Commit()` call, close convenience-helper cleanup exceptions outside the bounded recovery path, prove attached completion, or establish full concurrency semantics.
+Current deterministic evidence spans `src/DataLinq.Tests.Unit/Core/TransactionMutationFailureTests.cs`, `TransactionFaultInjectionCharacterizationTests.cs`, `MutableLifecycleTests.cs`, `CacheNotificationManagerTests.cs`, and `DatabaseCacheTests.cs`. In addition to the bounded `TX-1B`/`TX-2A`/`TX-2B`/`TX-3`/`TX-4A` cases, it proves provider-commit exceptions before and after provider status transition preserve the exact cause, permanently install `CommitOutcomeUnknown`, skip publication/status reporting, gate managed reads/writes/repeated commit/fallback, preserve uncertainty through status-compatible rollback, and use disposal for scoped cleanup. The fault fixture explicitly proves raw `DatabaseAccess` remains outside managed guards. This evidence does not determine the database result of a throwing commit, prove provider-wide committed-cache freshness/repair, inject arbitrary local-cache primitive failures, supply full real-provider commit-fault coverage, close attached/external completion beyond the narrow rollback fence, or establish full concurrency semantics.
 
 ### SQLite, MySQL, and MariaDB compliance
 
@@ -642,7 +660,7 @@ Current deterministic evidence is `src/DataLinq.Tests.Unit/Core/TransactionMutat
 
 Current provider evidence for bounded `TX-1B`/`TX-4A` is `src/DataLinq.Tests.Compliance/Transactions/EmployeesTransactionFailureTests.cs`: a successful update followed by a duplicate-key failure retains only the earlier success as private diagnostic state, rejects managed reuse/commit, rolls back the database change, and emits no committed cache notification across active providers. The same fixture proves public `Changes` mutation cannot alter private commit authority; public mutable-delete and auto-increment-insert `StateChange` execution use transaction-owned finalization; successful indexed impact keys remain frozen when the mutable is edited again before commit; and first null-FK access cannot bypass a poisoned managed read gate. The other bullets remain release targets unless their owning slice is already identified as green elsewhere.
 
-Current provider evidence for `TX-2A` is `src/DataLinq.Tests.Compliance/Transactions/EmployeesTransactionCommitPublicationTests.cs`. Its owned-transaction commit callback observes the committed global notification, absent transaction cache/rows, empty touched registry, committed ownership token, explicitly promoted mutable, and a successful outside read; the same mutable is then reused through the provider. Bounded `TX-2B` currently has deterministic core/cache fault evidence rather than a real-provider injected publication/local-cleanup fault. Neither evidence covers attached completion or a throwing provider `Commit()` call.
+Current provider evidence for `TX-2A` is `src/DataLinq.Tests.Compliance/Transactions/EmployeesTransactionCommitPublicationTests.cs`. Its owned-transaction commit callback observes the committed global notification, absent transaction cache/rows, empty touched registry, committed ownership token, explicitly promoted mutable, and a successful outside read; the same mutable is then reused through the provider. `src/DataLinq.Tests.Compliance/State/EmployeesMutableLifecycleTests.cs` supplies bounded `TX-3` owned-wrapper insert/update/mutable-delete rollback and open-dispose coverage, later implicit/explicit reuse rejection, scoped subscription discard, committed-cache preservation, and the narrow externally completed attached-handle rollback fence across active SQLite, MySQL, and MariaDB providers. Provider cleanup and commit-call failures remain deterministic core evidence because real connectors do not expose stable rollback/disposal/commit fault hooks. Bounded `TX-2B` likewise has deterministic core/cache fault evidence rather than a real-provider injected publication/local-cleanup fault. The active-provider evidence does not inject a throwing provider `Commit()` call or close attached/external completion beyond the narrow rollback fence.
 
 ### SQLite-specific evidence
 
@@ -682,7 +700,7 @@ Exit signal:
 
 ## Detailed Failure Matrix
 
-The preflight, statement-preparation/execution, generated-value, transaction-local cache, authoritative-row hydration, and lifecycle-finalization rows are green for bounded `TX-1B`/`TX-4A`. Confirmed-success owned-transaction publication, local cleanup, explicit promotion, token commit, registry clearing, and deferred wrapper status publication are green for `TX-2A`. Known-committed recovery after a successful provider commit followed by committed-publication or transaction-cache-cleanup failure is green for bounded `TX-2B`. Provider-call outcome uncertainty, ordinary rollback/open-disposal, raw-handle, attached-completion, convenience-cleanup outside that bounded recovery path, and full-concurrency partitions remain open.
+The preflight, statement-preparation/execution, generated-value, transaction-local cache, authoritative-row hydration, and lifecycle-finalization rows are green for bounded `TX-1B`/`TX-4A`. Confirmed-success owned finalization is green for `TX-2A`; known-committed local-failure recovery is green for bounded `TX-2B`; managed rollback/open-disposal finalization is green for bounded `TX-3`; and the managed provider-call fence is green for installing and enforcing `CommitOutcomeUnknown`. Database-outcome determination, provider-wide committed-cache freshness/repair, raw handles, attached/external completion beyond the narrow rollback fence, arbitrary local-cleanup fault injection, full provider commit-fault evidence, and full concurrency remain open.
 
 | Failure point | Successful change recorded? | Global cache publication? | Mutable result | Legal next transaction action |
 | --- | --- | --- | --- | --- |
@@ -692,10 +710,12 @@ The preflight, statement-preparation/execution, generated-value, transaction-loc
 | Transaction-local cache application | No finalized/publishable change | No | Invalid | Rollback or dispose only. |
 | Authoritative-row hydration | No finalized/publishable change | No | Invalid | Rollback or dispose only. |
 | Mutable lifecycle finalization or private successful recording | No finalized/publishable change | No | Invalid | Rollback or dispose only. |
-| Provider commit before confirmation | Pending successful changes remain local only | No | Invalid; outcome unknown | Rollback if provider permits, otherwise dispose; fresh read required. |
+| Provider `Commit()` call throws (`TX-4`, bounded managed fence) | Pending successful authority remains local/diagnostic until scoped cleanup | No; provider-wide committed caches are not repaired by this slice | Ownership and touched mutables become invalid with `CommitOutcomeUnknown`; exact provider exception is preserved | Managed reads/writes/callbacks/commit/fallback reject. Rollback is allowed only while provider status is nonterminal and preserves uncertainty; disposal removes exact transaction state. Fresh read required. |
 | Confirmed successful owned commit (`TX-2A`) | Provider changes are committed and private successful authority is finalized | Yes, followed by transaction-cache removal | Explicitly promoted to committed; owner mismatch is invalidated rather than trusted | Token is committed, registry is empty, then the wrapper `Committed` event is published. |
 | Global cache publication/transaction-cache cleanup failure after confirmed provider commit (`TX-2B`, bounded green) | Provider changes are committed | Attempted; provider-wide committed rows and indices are structurally cleared before best-effort notifications | Ownership token and touched mutables become invalid with `CommittedStateFinalizationFailed`; database commit succeeded | No rollback or wrapper `Committed` event; inspect `TransactionCommitFinalizationException`, then materialize fresh committed state. |
-| Provider rollback | No new committed changes | No | Invalid regardless of rollback exception | Dispose/cleanup. |
+| Confirmed managed-wrapper rollback (`TX-3`, bounded green) | Pending successful authority remains diagnostic only | No; exact transaction rows/subscriptions are discarded and committed cache state remains | Token and newly terminalized touched mutables become invalid with `RolledBack`; an earlier `MutationFailed` reason is preserved | Wrapper `RolledBack` event runs after finalization; materialize fresh committed state before another write. |
+| Managed-wrapper rollback throws while provider remains open (`TX-3`, bounded green) | Pending successful authority remains diagnostic only | No; exact transaction rows/subscriptions are still discarded | Token and touched mutables become invalid with `RollbackOutcomeUnknown`; the exact provider exception remains primary | Only wrapper disposal is legal; do not retry managed rollback, write, read, or commit. |
+| Open-wrapper disposal (`TX-3`, bounded green) | Pending successful authority remains diagnostic only | No; exact transaction rows/subscriptions are discarded and committed cache state remains | Token and newly terminalized touched mutables become invalid with `OpenTransactionDisposed`, even if provider cleanup throws | Wrapper is disposed; materialize fresh committed state before another write. |
 
 ## Baseline Exit Criteria
 
@@ -718,7 +738,7 @@ This implementation plan is complete when:
 - foundation `F3`/`F6` preserves provider and transaction cache scope
 - public docs make no stronger claim than the tested behavior
 
-Current progress closes `TX-2A` confirmed-success finalization for owned transactions and bounded `TX-2B` known-committed recovery after later committed-publication or transaction-cache-cleanup failure. It does not make this overall exit green: provider-call outcome uncertainty, ordinary rollback/open-disposal invalidation, attached completion, raw escape closure, SQLite isolation, full provider evidence, full concurrency semantics, and `F6` remain required.
+Current progress closes `TX-2A` confirmed-success finalization, bounded `TX-2B` known-committed recovery, bounded `TX-3` managed rollback/open-disposal finalization, and the managed `CommitOutcomeUnknown` safety fence after a throwing provider commit. It does not make this overall exit green: database-outcome determination and provider-wide committed-cache repair after that throw, attached/external completion beyond the narrow rollback fence, raw escape closure, SQLite isolation, full provider commit-fault evidence, full concurrency semantics, and `F6` remain required.
 
 ## Risks And Mitigations
 

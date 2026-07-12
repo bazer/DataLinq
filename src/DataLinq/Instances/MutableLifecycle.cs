@@ -23,6 +23,7 @@ internal enum MutableBaselineKind
 internal enum MutableInvalidationReason
 {
     RolledBack,
+    RollbackOutcomeUnknown,
     OpenTransactionDisposed,
     MutationFailed,
     CommitOutcomeUnknown,
@@ -33,6 +34,10 @@ internal enum MutableTransactionOutcome
 {
     Unresolved,
     Committed,
+    RolledBack,
+    RollbackOutcomeUnknown,
+    OpenTransactionDisposed,
+    CommitOutcomeUnknown,
     CommittedStateFinalizationFailed
 }
 
@@ -52,6 +57,8 @@ internal sealed class MutableTransactionOwnership
     internal uint TransactionId { get; }
     internal MutableTransactionOutcome Outcome =>
         (MutableTransactionOutcome)Volatile.Read(ref outcome);
+    internal MutableInvalidationReason? InvalidationReason =>
+        GetInvalidationReason(Outcome);
 
     internal void MarkCommittedAfterPublication() =>
         Interlocked.CompareExchange(
@@ -64,6 +71,41 @@ internal sealed class MutableTransactionOwnership
             ref outcome,
             (int)MutableTransactionOutcome.CommittedStateFinalizationFailed,
             (int)MutableTransactionOutcome.Unresolved);
+
+    internal void MarkRolledBack() =>
+        MarkTerminal(MutableTransactionOutcome.RolledBack);
+
+    internal void MarkRollbackOutcomeUnknown() =>
+        MarkTerminal(MutableTransactionOutcome.RollbackOutcomeUnknown);
+
+    internal void MarkOpenTransactionDisposed() =>
+        MarkTerminal(MutableTransactionOutcome.OpenTransactionDisposed);
+
+    internal void MarkCommitOutcomeUnknown() =>
+        MarkTerminal(MutableTransactionOutcome.CommitOutcomeUnknown);
+
+    private void MarkTerminal(MutableTransactionOutcome terminalOutcome) =>
+        Interlocked.CompareExchange(
+            ref outcome,
+            (int)terminalOutcome,
+            (int)MutableTransactionOutcome.Unresolved);
+
+    internal static MutableInvalidationReason? GetInvalidationReason(
+        MutableTransactionOutcome outcome) =>
+        outcome switch
+        {
+            MutableTransactionOutcome.RolledBack =>
+                MutableInvalidationReason.RolledBack,
+            MutableTransactionOutcome.RollbackOutcomeUnknown =>
+                MutableInvalidationReason.RollbackOutcomeUnknown,
+            MutableTransactionOutcome.OpenTransactionDisposed =>
+                MutableInvalidationReason.OpenTransactionDisposed,
+            MutableTransactionOutcome.CommitOutcomeUnknown =>
+                MutableInvalidationReason.CommitOutcomeUnknown,
+            MutableTransactionOutcome.CommittedStateFinalizationFailed =>
+                MutableInvalidationReason.CommittedStateFinalizationFailed,
+            _ => null
+        };
 }
 
 internal readonly record struct MutableBaselineOrigin(
@@ -200,11 +242,11 @@ internal sealed class MutableLifecycle
                         effectiveBaselineKind = MutableBaselineKind.Committed;
                         effectiveTransactionOwner = null;
                         break;
-                    case MutableTransactionOutcome.CommittedStateFinalizationFailed:
+                    case var terminalOutcome when
+                        MutableTransactionOwnership.GetInvalidationReason(terminalOutcome) is { } reason:
                         effectiveBaselineKind = MutableBaselineKind.Invalid;
                         effectiveTransactionOwner = null;
-                        effectiveInvalidationReason =
-                            MutableInvalidationReason.CommittedStateFinalizationFailed;
+                        effectiveInvalidationReason = reason;
                         break;
                 }
             }
@@ -308,7 +350,7 @@ internal sealed class MutableLifecycle
         if (owner is null)
             return false;
 
-        if (owner.Outcome == MutableTransactionOutcome.CommittedStateFinalizationFailed)
+        if (owner.InvalidationReason is not null)
             return false;
 
         if (baselineKind == MutableBaselineKind.Committed)
@@ -346,23 +388,26 @@ internal sealed class MutableLifecycle
             return;
 
         baselineKind = MutableBaselineKind.Invalid;
+        transactionOwner = null;
         invalidationReason = reason;
     }
 
-    private static MutableBaselineKind GetBaselineKind(MutableBaselineOrigin origin) =>
-        origin.TransactionOwner?.Outcome switch
+    private static MutableBaselineKind GetBaselineKind(MutableBaselineOrigin origin)
+    {
+        if (origin.TransactionOwner is null)
+            return MutableBaselineKind.Committed;
+
+        return origin.TransactionOwner.Outcome switch
         {
-            null or MutableTransactionOutcome.Committed => MutableBaselineKind.Committed,
-            MutableTransactionOutcome.CommittedStateFinalizationFailed => MutableBaselineKind.Invalid,
-            _ => MutableBaselineKind.TransactionLocal
+            MutableTransactionOutcome.Unresolved => MutableBaselineKind.TransactionLocal,
+            MutableTransactionOutcome.Committed => MutableBaselineKind.Committed,
+            _ => MutableBaselineKind.Invalid
         };
+    }
 
     private static MutableInvalidationReason? GetOriginInvalidationReason(
         MutableBaselineOrigin origin) =>
-        origin.TransactionOwner?.Outcome ==
-            MutableTransactionOutcome.CommittedStateFinalizationFailed
-                ? MutableInvalidationReason.CommittedStateFinalizationFailed
-                : null;
+        origin.TransactionOwner?.InvalidationReason;
 
     private void ApplyOrigin(MutableBaselineOrigin origin)
     {

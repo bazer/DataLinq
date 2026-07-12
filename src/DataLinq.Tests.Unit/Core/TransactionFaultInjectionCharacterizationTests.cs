@@ -14,8 +14,7 @@ using DataLinq.Tests.Models.Employees;
 namespace DataLinq.Tests.Unit.Core;
 
 /// <summary>
-/// Freezes the provider-failure partitions that exist before the v0.9 TX-1 through TX-4 work.
-/// Tests named CurrentBehavior document a known gap; they are not the target failure contract.
+/// Verifies provider completion, rollback/disposal cleanup, and managed status-publication ordering.
 /// </summary>
 public class TransactionFaultInjectionCharacterizationTests
 {
@@ -65,40 +64,111 @@ public class TransactionFaultInjectionCharacterizationTests
     }
 
     [Test]
-    public async Task CommitProviderFailure_CurrentBehavior_PropagatesAndRetainsOpenTransactionCache()
+    public async Task CommitProviderFailure_MarksOutcomeUnknownAndPreservesItThroughRollbackCleanup()
     {
         using var fixture = CreateFixture();
         var expected = new InjectedProviderException("commit");
         fixture.Scenario.CommitFailure = expected;
+        var transactionBound = new TransactionBoundImmutable(
+            new SourceOnlyRowData(fixture.Cache.Table),
+            fixture.Transaction);
 
         var observed = CaptureException(fixture.Transaction.Commit);
 
         await Assert.That(observed).IsSameReferenceAs(expected);
         await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
         await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsTrue();
-        await AssertUnresolvedOwnership(fixture);
+        await AssertInvalidOwnership(
+            fixture,
+            MutableTransactionOutcome.CommitOutcomeUnknown,
+            MutableInvalidationReason.CommitOutcomeUnknown);
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo("provider.commit(cache=present)");
+
+        var callsBeforeGates = fixture.Scenario.Calls.ToArray();
+        var readFailure = CaptureException(() => _ = transactionBound.GetReadSource());
+        var writeFailure = CaptureException(() => fixture.Transaction.Delete(
+            new TransactionBoundImmutable(
+                new SourceOnlyRowData(fixture.Cache.Table),
+                fixture.Transaction.Provider.ReadOnlyAccess)));
+        var repeatedCommitFailure = CaptureException(fixture.Transaction.Commit);
+
+        foreach (var gateFailure in new[] { readFailure, writeFailure, repeatedCommitFailure })
+        {
+            await Assert.That(gateFailure).IsTypeOf<InvalidOperationException>();
+            await Assert.That(gateFailure.Message).Contains("provider commit call failed");
+        }
+
+        await Assert.That(fixture.Scenario.Calls).IsEquivalentTo(callsBeforeGates);
+
+        var rollbackFailure = CaptureException(fixture.Transaction.Rollback);
+
+        await Assert.That(rollbackFailure).IsTypeOf<InvalidOperationException>();
+        await Assert.That(rollbackFailure.Message).Contains("cannot report a definite rollback");
+        await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
+        await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsFalse();
+        await AssertInvalidOwnership(
+            fixture,
+            MutableTransactionOutcome.CommitOutcomeUnknown,
+            MutableInvalidationReason.CommitOutcomeUnknown);
+        await AssertFinalizedStatusObservation(
+            fixture,
+            MutableTransactionOutcome.CommitOutcomeUnknown,
+            MutableInvalidationReason.CommitOutcomeUnknown);
     }
 
     [Test]
-    public async Task CommitDisposalFailure_CurrentBehavior_PropagatesAndRetainsCommittedTransactionCache()
+    public async Task CommitDisposalFailure_MarksOutcomeUnknownAndAllowsOnlyDisposalCleanup()
     {
         using var fixture = CreateFixture();
         var expected = new InjectedProviderException("commit disposal");
         fixture.Scenario.ResourceDisposalFailure = expected;
+        var transactionBound = new TransactionBoundImmutable(
+            new SourceOnlyRowData(fixture.Cache.Table),
+            fixture.Transaction);
 
         var observed = CaptureException(fixture.Transaction.Commit);
 
         await Assert.That(observed).IsSameReferenceAs(expected);
         await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.Committed);
         await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsTrue();
-        await AssertUnresolvedOwnership(fixture);
+        await AssertInvalidOwnership(
+            fixture,
+            MutableTransactionOutcome.CommitOutcomeUnknown,
+            MutableInvalidationReason.CommitOutcomeUnknown);
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo(
             "provider.commit(cache=present) -> provider.dispose(cache=present) -> provider.resources.dispose");
+
+        var callsBeforeGates = fixture.Scenario.Calls.ToArray();
+        var fallbackFailure = CaptureException(() => _ = transactionBound.GetReadSource());
+        var writeFailure = CaptureException(() => fixture.Transaction.Delete(
+            new TransactionBoundImmutable(
+                new SourceOnlyRowData(fixture.Cache.Table),
+                fixture.Transaction.Provider.ReadOnlyAccess)));
+        var rollbackFailure = CaptureException(fixture.Transaction.Rollback);
+
+        foreach (var gateFailure in new[] { fallbackFailure, writeFailure, rollbackFailure })
+        {
+            await Assert.That(gateFailure).IsTypeOf<InvalidOperationException>();
+            await Assert.That(gateFailure.Message).Contains("provider commit call failed");
+            await Assert.That(gateFailure.Message).Contains("only Dispose() remains legal");
+        }
+
+        await Assert.That(fixture.Scenario.Calls).IsEquivalentTo(callsBeforeGates);
+
+        fixture.Scenario.ResourceDisposalFailure = null;
+        fixture.Transaction.Dispose();
+
+        await Assert.That(fixture.Transaction.IsDisposed).IsTrue();
+        await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.Committed);
+        await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsFalse();
+        await AssertInvalidOwnership(
+            fixture,
+            MutableTransactionOutcome.CommitOutcomeUnknown,
+            MutableInvalidationReason.CommitOutcomeUnknown);
     }
 
     [Test]
-    public async Task Rollback_ProviderCompletesBeforeTransactionCacheCleanup()
+    public async Task Rollback_ProviderCompletesBeforeFinalizedStatusPublication()
     {
         using var fixture = CreateFixture();
 
@@ -106,12 +176,20 @@ public class TransactionFaultInjectionCharacterizationTests
 
         await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
         await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsFalse();
+        await AssertInvalidOwnership(
+            fixture,
+            MutableTransactionOutcome.RolledBack,
+            MutableInvalidationReason.RolledBack);
+        await AssertFinalizedStatusObservation(
+            fixture,
+            MutableTransactionOutcome.RolledBack,
+            MutableInvalidationReason.RolledBack);
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo(
-            "provider.rollback(cache=present) -> status.RolledBack -> provider.dispose(cache=present) -> provider.resources.dispose");
+            "provider.rollback(cache=present) -> provider.dispose(cache=present) -> provider.resources.dispose -> status.RolledBack");
     }
 
     [Test]
-    public async Task RollbackProviderFailure_CurrentBehavior_PropagatesAndRetainsOpenTransactionCache()
+    public async Task RollbackProviderFailure_InvalidatesOwnershipCleansCacheAndGatesManagedOperations()
     {
         using var fixture = CreateFixture();
         var expected = new InjectedProviderException("rollback");
@@ -121,12 +199,58 @@ public class TransactionFaultInjectionCharacterizationTests
 
         await Assert.That(observed).IsSameReferenceAs(expected);
         await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
-        await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsTrue();
+        await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsFalse();
+        await AssertInvalidOwnership(
+            fixture,
+            MutableTransactionOutcome.RollbackOutcomeUnknown,
+            MutableInvalidationReason.RollbackOutcomeUnknown);
+        await AssertManagedCompletionContext(
+            expected,
+            fixture.Transaction,
+            "Rollback",
+            MutableInvalidationReason.RollbackOutcomeUnknown);
+        await Assert.That(fixture.Scenario.StatusObservations).IsEmpty();
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo("provider.rollback(cache=present)");
+
+        var callsBeforeGates = fixture.Scenario.Calls.ToArray();
+        var readFailure = CaptureException(() =>
+            fixture.Transaction.GetFromQuery<Employee>("SELECT 1").ToArray());
+        var writeFailure = CaptureException(() => fixture.Transaction.Delete(
+            new TransactionBoundImmutable(
+                new SourceOnlyRowData(fixture.Cache.Table),
+                fixture.Transaction.Provider.ReadOnlyAccess)));
+        var commitFailure = CaptureException(fixture.Transaction.Commit);
+        var secondRollbackFailure = CaptureException(fixture.Transaction.Rollback);
+
+        foreach (var gateFailure in new[]
+        {
+            readFailure,
+            writeFailure,
+            commitFailure,
+            secondRollbackFailure
+        })
+        {
+            await Assert.That(gateFailure is InvalidOperationException).IsTrue();
+            await Assert.That(gateFailure.Message)
+                .Contains("rollback outcome is unknown");
+            await Assert.That(gateFailure.Message)
+                .Contains("Only Dispose() remains legal");
+        }
+
+        await Assert.That(fixture.Scenario.Calls).IsEquivalentTo(callsBeforeGates);
+
+        fixture.Transaction.Dispose();
+
+        await Assert.That(fixture.Transaction.IsDisposed).IsTrue();
+        await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsFalse();
+        await AssertInvalidOwnership(
+            fixture,
+            MutableTransactionOutcome.RollbackOutcomeUnknown,
+            MutableInvalidationReason.RollbackOutcomeUnknown);
     }
 
     [Test]
-    public async Task RollbackDisposalFailure_CurrentBehavior_PropagatesAndRetainsRolledBackTransactionCache()
+    public async Task RollbackDisposalFailure_InvalidatesOwnershipAndCleansCacheBeforeRethrowing()
     {
         using var fixture = CreateFixture();
         var expected = new InjectedProviderException("rollback disposal");
@@ -136,13 +260,26 @@ public class TransactionFaultInjectionCharacterizationTests
 
         await Assert.That(observed).IsSameReferenceAs(expected);
         await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
-        await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsTrue();
+        await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsFalse();
+        await AssertInvalidOwnership(
+            fixture,
+            MutableTransactionOutcome.RolledBack,
+            MutableInvalidationReason.RolledBack);
+        await AssertManagedCompletionContext(
+            expected,
+            fixture.Transaction,
+            "Rollback",
+            MutableInvalidationReason.RolledBack);
+        await AssertFinalizedStatusObservation(
+            fixture,
+            MutableTransactionOutcome.RolledBack,
+            MutableInvalidationReason.RolledBack);
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo(
-            "provider.rollback(cache=present) -> status.RolledBack -> provider.dispose(cache=present) -> provider.resources.dispose");
+            "provider.rollback(cache=present) -> provider.dispose(cache=present) -> provider.resources.dispose -> status.RolledBack");
     }
 
     [Test]
-    public async Task Dispose_CleansTransactionCacheBeforeProviderRollbackAndDisposal()
+    public async Task Dispose_CleansAndInvalidatesBeforeFinalizedRolledBackStatusPublication()
     {
         using var fixture = CreateFixture();
 
@@ -150,12 +287,20 @@ public class TransactionFaultInjectionCharacterizationTests
 
         await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
         await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsFalse();
+        await AssertInvalidOwnership(
+            fixture,
+            MutableTransactionOutcome.OpenTransactionDisposed,
+            MutableInvalidationReason.OpenTransactionDisposed);
+        await AssertFinalizedStatusObservation(
+            fixture,
+            MutableTransactionOutcome.OpenTransactionDisposed,
+            MutableInvalidationReason.OpenTransactionDisposed);
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo(
-            "provider.dispose(cache=absent) -> provider.rollback-during-dispose -> status.RolledBack -> provider.resources.dispose");
+            "provider.dispose(cache=present) -> provider.rollback-during-dispose -> provider.resources.dispose -> status.RolledBack");
     }
 
     [Test]
-    public async Task DisposeRollbackFailure_PropagatesButTransactionCacheIsAlreadyClean()
+    public async Task DisposeRollbackFailure_InvalidatesOwnershipAndKeepsCacheClean()
     {
         using var fixture = CreateFixture();
         var expected = new InjectedProviderException("dispose rollback");
@@ -166,12 +311,22 @@ public class TransactionFaultInjectionCharacterizationTests
         await Assert.That(observed).IsSameReferenceAs(expected);
         await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
         await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsFalse();
+        await AssertInvalidOwnership(
+            fixture,
+            MutableTransactionOutcome.OpenTransactionDisposed,
+            MutableInvalidationReason.OpenTransactionDisposed);
+        await AssertManagedCompletionContext(
+            expected,
+            fixture.Transaction,
+            "Dispose",
+            MutableInvalidationReason.OpenTransactionDisposed);
+        await Assert.That(fixture.Scenario.StatusObservations).IsEmpty();
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo(
-            "provider.dispose(cache=absent) -> provider.rollback-during-dispose");
+            "provider.dispose(cache=present) -> provider.rollback-during-dispose");
     }
 
     [Test]
-    public async Task DisposeResourceFailure_PropagatesAfterRollbackAndTransactionCacheCleanup()
+    public async Task DisposeResourceFailure_InvalidatesOwnershipAndKeepsCacheClean()
     {
         using var fixture = CreateFixture();
         var expected = new InjectedProviderException("resource disposal");
@@ -182,8 +337,21 @@ public class TransactionFaultInjectionCharacterizationTests
         await Assert.That(observed).IsSameReferenceAs(expected);
         await Assert.That(fixture.Transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
         await Assert.That(fixture.Cache.IsTransactionInCache(fixture.Transaction)).IsFalse();
+        await AssertInvalidOwnership(
+            fixture,
+            MutableTransactionOutcome.OpenTransactionDisposed,
+            MutableInvalidationReason.OpenTransactionDisposed);
+        await AssertManagedCompletionContext(
+            expected,
+            fixture.Transaction,
+            "Dispose",
+            MutableInvalidationReason.OpenTransactionDisposed);
+        await AssertFinalizedStatusObservation(
+            fixture,
+            MutableTransactionOutcome.OpenTransactionDisposed,
+            MutableInvalidationReason.OpenTransactionDisposed);
         await Assert.That(Describe(fixture.Scenario.Calls)).IsEqualTo(
-            "provider.dispose(cache=absent) -> provider.rollback-during-dispose -> status.RolledBack -> provider.resources.dispose");
+            "provider.dispose(cache=present) -> provider.rollback-during-dispose -> provider.resources.dispose -> status.RolledBack");
     }
 
     private static Fixture CreateFixture()
@@ -197,7 +365,18 @@ public class TransactionFaultInjectionCharacterizationTests
         var cache = provider.GetTableCache(employeeTable);
 
         scenario.IsTransactionCached = () => cache.IsTransactionInCache(transaction);
-        transaction.OnStatusChanged += (_, args) => scenario.Calls.Add($"status.{args.Status}");
+        var ownershipLifecycle = MutableLifecycle.New();
+        ownershipLifecycle.ValidateHydratedAdvance();
+        ownershipLifecycle.AdvanceHydrated(transaction.MutableOwnership);
+        transaction.OnStatusChanged += (_, args) =>
+        {
+            scenario.Calls.Add($"status.{args.Status}");
+            scenario.StatusObservations.Add(new StatusObservation(
+                args.Status,
+                cache.IsTransactionInCache(transaction),
+                transaction.MutableOwnership.Outcome,
+                ownershipLifecycle.Snapshot));
+        };
 
         // A public lookup is enough to create the transaction cache scope. The fake reader
         // returns no rows because these tests only need the lifecycle entry, not row data.
@@ -210,9 +389,7 @@ public class TransactionFaultInjectionCharacterizationTests
         }
 
         scenario.Calls.Clear();
-        var ownershipLifecycle = MutableLifecycle.New();
-        ownershipLifecycle.ValidateHydratedAdvance();
-        ownershipLifecycle.AdvanceHydrated(transaction.MutableOwnership);
+        scenario.StatusObservations.Clear();
         return new Fixture(provider, transaction, cache, scenario, ownershipLifecycle);
     }
 
@@ -224,6 +401,54 @@ public class TransactionFaultInjectionCharacterizationTests
             .IsEqualTo(MutableBaselineKind.TransactionLocal);
         await Assert.That(fixture.OwnershipLifecycle.Snapshot.TransactionOwner)
             .IsSameReferenceAs(fixture.Transaction.MutableOwnership);
+    }
+
+    private static async Task AssertInvalidOwnership(
+        Fixture fixture,
+        MutableTransactionOutcome expectedOutcome,
+        MutableInvalidationReason expectedReason)
+    {
+        await Assert.That(fixture.Transaction.MutableOwnership.Outcome)
+            .IsEqualTo(expectedOutcome);
+        await Assert.That(fixture.OwnershipLifecycle.Snapshot.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(fixture.OwnershipLifecycle.Snapshot.TransactionOwner).IsNull();
+        await Assert.That(fixture.OwnershipLifecycle.Snapshot.InvalidationReason)
+            .IsEqualTo(expectedReason);
+    }
+
+    private static async Task AssertFinalizedStatusObservation(
+        Fixture fixture,
+        MutableTransactionOutcome expectedOutcome,
+        MutableInvalidationReason expectedReason)
+    {
+        await Assert.That(fixture.Scenario.StatusObservations).Count().IsEqualTo(1);
+        var observation = fixture.Scenario.StatusObservations.Single();
+        await Assert.That(observation.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
+        await Assert.That(observation.TransactionCachePresent).IsFalse();
+        await Assert.That(observation.OwnershipOutcome).IsEqualTo(expectedOutcome);
+        await Assert.That(observation.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(observation.Lifecycle.InvalidationReason).IsEqualTo(expectedReason);
+    }
+
+    private static async Task AssertManagedCompletionContext(
+        Exception exception,
+        Transaction transaction,
+        string operation,
+        MutableInvalidationReason expectedReason)
+    {
+        await Assert.That(exception.Data["DataLinq.TransactionId"])
+            .IsEqualTo(transaction.TransactionID);
+        await Assert.That(exception.Data["DataLinq.CompletionOperation"])
+            .IsEqualTo(operation);
+        await Assert.That(
+            exception.Data["DataLinq.LocalFinalizationAttempted"] is true)
+            .IsTrue();
+        await Assert.That(exception.Data["DataLinq.MutableInvalidationReason"])
+            .IsEqualTo(expectedReason.ToString());
+        await Assert.That(exception.Data.Contains("DataLinq.SecondaryCompletionFailures"))
+            .IsFalse();
     }
 
     private static string Describe(IEnumerable<string> calls) => string.Join(" -> ", calls);
@@ -275,6 +500,7 @@ public class TransactionFaultInjectionCharacterizationTests
     private sealed class FaultScenario
     {
         public List<string> Calls { get; } = [];
+        public List<StatusObservation> StatusObservations { get; } = [];
         public Func<bool> IsTransactionCached { get; set; } = static () => false;
         public Exception? CommitFailure { get; set; }
         public Exception? RollbackFailure { get; set; }
@@ -283,6 +509,12 @@ public class TransactionFaultInjectionCharacterizationTests
 
         public string CacheState => IsTransactionCached() ? "present" : "absent";
     }
+
+    private sealed record StatusObservation(
+        DatabaseTransactionStatus Status,
+        bool TransactionCachePresent,
+        MutableTransactionOutcome OwnershipOutcome,
+        MutableLifecycleSnapshot Lifecycle);
 
     private sealed class FaultInjectingProvider : SQLiteProvider<EmployeesDb>
     {

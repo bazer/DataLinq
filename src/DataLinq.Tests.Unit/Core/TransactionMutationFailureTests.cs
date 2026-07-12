@@ -227,6 +227,11 @@ public sealed class TransactionMutationFailureTests
 
         await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
         await Assert.That(fixture.Scenario.Rollbacks).IsEqualTo(1);
+        await Assert.That(transaction.TouchedMutables).IsEmpty();
+        await Assert.That(deleted.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(deleted.Lifecycle.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.MutationFailed);
     }
 
     [Test]
@@ -249,6 +254,284 @@ public sealed class TransactionMutationFailureTests
             .IsEqualTo(MutableBaselineKind.Invalid);
         await Assert.That(mutable.Lifecycle.InvalidationReason)
             .IsEqualTo(MutableInvalidationReason.MutationFailed);
+    }
+
+    [Test]
+    public async Task SuccessfulMutableDelete_RollbackInvalidatesAndDiscardsScopedStateBeforeStatusPublication()
+    {
+        using var fixture = new ScriptedFixture();
+        fixture.Provider.State.Cache.CleanupScheduler?.Stop();
+        using var transaction = fixture.Database.Transaction();
+        var deleted = fixture.CreateExistingMutable(430, "delete then roll back");
+        _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(deleted);
+        var scopedNotification = new CountingNotification();
+        fixture.RowCache.SubscribeToChanges(scopedNotification, transaction);
+        RollbackPublicationSnapshot? observed = null;
+        transaction.OnStatusChanged += (_, args) =>
+        {
+            if (args.Status == DatabaseTransactionStatus.RolledBack)
+            {
+                observed = CaptureRollbackPublication(
+                    fixture,
+                    transaction,
+                    deleted,
+                    scopedNotification);
+            }
+        };
+
+        transaction.Rollback();
+
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
+        await AssertRollbackInvalidation(
+            transaction,
+            deleted,
+            MutableTransactionOutcome.RolledBack,
+            MutableInvalidationReason.RolledBack);
+        await AssertFinalizedRollbackPublication(
+            observed,
+            MutableTransactionOutcome.RolledBack,
+            MutableInvalidationReason.RolledBack);
+        await Assert.That(fixture.RowCache.IsTransactionInCache(transaction)).IsFalse();
+        await Assert.That(scopedNotification.ClearCalls).IsEqualTo(0);
+
+        fixture.RowCache.ClearRows();
+
+        await Assert.That(scopedNotification.ClearCalls).IsEqualTo(0);
+        var resetFailure = Capture<InvalidOperationException>(deleted.Reset);
+        using var retry = fixture.Database.Transaction();
+        var countsBeforeRetry = fixture.Scenario.SnapshotCounts();
+        var retryFailure = Capture<MutationGuardException>(() => retry.Delete(deleted));
+
+        await Assert.That(resetFailure.Message).Contains("RolledBack");
+        await Assert.That(retryFailure.Message).Contains("transaction was rolled back");
+        await Assert.That(fixture.Scenario.SnapshotCounts()).IsEqualTo(countsBeforeRetry);
+        await Assert.That(fixture.RowCache.IsTransactionInCache(retry)).IsFalse();
+    }
+
+    [Test]
+    public async Task SuccessfulMutableDelete_OpenDisposeInvalidatesAndDiscardsScopedStateBeforeStatusPublication()
+    {
+        using var fixture = new ScriptedFixture();
+        fixture.Provider.State.Cache.CleanupScheduler?.Stop();
+        var transaction = fixture.Database.Transaction();
+        var deleted = fixture.CreateExistingMutable(431, "delete then dispose");
+        _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(deleted);
+        var scopedNotification = new CountingNotification();
+        fixture.RowCache.SubscribeToChanges(scopedNotification, transaction);
+        RollbackPublicationSnapshot? observed = null;
+        transaction.OnStatusChanged += (_, args) =>
+        {
+            if (args.Status == DatabaseTransactionStatus.RolledBack)
+            {
+                observed = CaptureRollbackPublication(
+                    fixture,
+                    transaction,
+                    deleted,
+                    scopedNotification);
+            }
+        };
+
+        transaction.Dispose();
+        transaction.Dispose();
+
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
+        await Assert.That(transaction.IsDisposed).IsTrue();
+        await Assert.That(fixture.Scenario.Disposals).IsEqualTo(1);
+        await AssertRollbackInvalidation(
+            transaction,
+            deleted,
+            MutableTransactionOutcome.OpenTransactionDisposed,
+            MutableInvalidationReason.OpenTransactionDisposed);
+        await AssertFinalizedRollbackPublication(
+            observed,
+            MutableTransactionOutcome.OpenTransactionDisposed,
+            MutableInvalidationReason.OpenTransactionDisposed);
+        await Assert.That(fixture.RowCache.IsTransactionInCache(transaction)).IsFalse();
+        await Assert.That(scopedNotification.ClearCalls).IsEqualTo(0);
+
+        fixture.RowCache.ClearRows();
+
+        await Assert.That(scopedNotification.ClearCalls).IsEqualTo(0);
+        var resetFailure = Capture<InvalidOperationException>(deleted.Reset);
+        using var retry = fixture.Database.Transaction();
+        var countsBeforeRetry = fixture.Scenario.SnapshotCounts();
+        var retryFailure = Capture<MutationGuardException>(() => retry.Delete(deleted));
+
+        await Assert.That(resetFailure.Message).Contains("OpenTransactionDisposed");
+        await Assert.That(retryFailure.Message).Contains("open transaction was disposed");
+        await Assert.That(fixture.Scenario.SnapshotCounts()).IsEqualTo(countsBeforeRetry);
+        await Assert.That(fixture.RowCache.IsTransactionInCache(retry)).IsFalse();
+    }
+
+    [Test]
+    public async Task ThrowingRolledBackStatusObserver_CannotInterruptRollbackFinalization()
+    {
+        using var fixture = new ScriptedFixture();
+        fixture.Provider.State.Cache.CleanupScheduler?.Stop();
+        using var transaction = fixture.Database.Transaction();
+        var deleted = fixture.CreateExistingMutable(432, "throwing rollback observer");
+        _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(deleted);
+        var scopedNotification = new CountingNotification();
+        fixture.RowCache.SubscribeToChanges(scopedNotification, transaction);
+        var expected = new InjectedMutationException("rolled-back status observer");
+        transaction.OnStatusChanged += (_, args) =>
+        {
+            if (args.Status == DatabaseTransactionStatus.RolledBack)
+                throw expected;
+        };
+
+        var observed = Capture<InjectedMutationException>(transaction.Rollback);
+
+        await Assert.That(observed).IsSameReferenceAs(expected);
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
+        await Assert.That(fixture.RowCache.IsTransactionInCache(transaction)).IsFalse();
+        await AssertRollbackInvalidation(
+            transaction,
+            deleted,
+            MutableTransactionOutcome.RolledBack,
+            MutableInvalidationReason.RolledBack);
+        await Assert.That(scopedNotification.ClearCalls).IsEqualTo(0);
+
+        fixture.RowCache.ClearRows();
+
+        await Assert.That(scopedNotification.ClearCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task SuccessfulMutableDelete_RollbackProviderFailureInvalidatesAndGatesUntilDispose()
+    {
+        using var fixture = new ScriptedFixture();
+        fixture.Provider.State.Cache.CleanupScheduler?.Stop();
+        var transaction = fixture.Database.Transaction();
+        var deleted = fixture.CreateExistingMutable(434, "rollback provider failure");
+        _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(deleted);
+        var scopedNotification = new CountingNotification();
+        fixture.RowCache.SubscribeToChanges(scopedNotification, transaction);
+        var expected = new InjectedMutationException("provider rollback");
+        fixture.Scenario.RollbackFailure = expected;
+
+        var observed = Capture<InjectedMutationException>(transaction.Rollback);
+
+        await Assert.That(observed).IsSameReferenceAs(expected);
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
+        await Assert.That(fixture.RowCache.IsTransactionInCache(transaction)).IsFalse();
+        await AssertRollbackInvalidation(
+            transaction,
+            deleted,
+            MutableTransactionOutcome.RollbackOutcomeUnknown,
+            MutableInvalidationReason.RollbackOutcomeUnknown);
+        await AssertManagedCompletionContext(
+            expected,
+            transaction,
+            "Rollback",
+            MutableInvalidationReason.RollbackOutcomeUnknown);
+        await Assert.That(scopedNotification.ClearCalls).IsEqualTo(0);
+
+        fixture.RowCache.ClearRows();
+
+        await Assert.That(scopedNotification.ClearCalls).IsEqualTo(0);
+        var countsBeforeGates = fixture.Scenario.SnapshotCounts();
+        var readFailure = Capture<InvalidOperationException>(() => _ = transaction.Query());
+        var writeFailure = Capture<InvalidOperationException>(() => transaction.Delete(deleted));
+        var commitFailure = Capture<InvalidOperationException>(transaction.Commit);
+        var secondRollbackFailure = Capture<InvalidOperationException>(transaction.Rollback);
+
+        foreach (var gateFailure in new[]
+        {
+            readFailure,
+            writeFailure,
+            commitFailure,
+            secondRollbackFailure
+        })
+        {
+            await Assert.That(gateFailure.Message)
+                .Contains("rollback outcome is unknown");
+            await Assert.That(gateFailure.Message)
+                .Contains("Only Dispose() remains legal");
+        }
+
+        await Assert.That(fixture.Scenario.SnapshotCounts()).IsEqualTo(countsBeforeGates);
+
+        transaction.Dispose();
+
+        await Assert.That(transaction.IsDisposed).IsTrue();
+        await Assert.That(fixture.Scenario.Disposals).IsEqualTo(1);
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.RollbackOutcomeUnknown);
+        await Assert.That(deleted.Lifecycle.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.RollbackOutcomeUnknown);
+    }
+
+    [Test]
+    public async Task SuccessfulMutableDelete_DisposeRollbackFailureStillInvalidatesAndCleans()
+    {
+        using var fixture = new ScriptedFixture();
+        fixture.Provider.State.Cache.CleanupScheduler?.Stop();
+        var transaction = fixture.Database.Transaction();
+        var deleted = fixture.CreateExistingMutable(435, "dispose rollback failure");
+        _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(deleted);
+        var scopedNotification = new CountingNotification();
+        fixture.RowCache.SubscribeToChanges(scopedNotification, transaction);
+        var expected = new InjectedMutationException("dispose rollback");
+        fixture.Scenario.DisposeRollbackFailure = expected;
+
+        var observed = Capture<InjectedMutationException>(transaction.Dispose);
+
+        await Assert.That(observed).IsSameReferenceAs(expected);
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
+        await Assert.That(transaction.IsDisposed).IsTrue();
+        await Assert.That(fixture.RowCache.IsTransactionInCache(transaction)).IsFalse();
+        await AssertRollbackInvalidation(
+            transaction,
+            deleted,
+            MutableTransactionOutcome.OpenTransactionDisposed,
+            MutableInvalidationReason.OpenTransactionDisposed);
+        await AssertManagedCompletionContext(
+            expected,
+            transaction,
+            "Dispose",
+            MutableInvalidationReason.OpenTransactionDisposed);
+        await Assert.That(scopedNotification.ClearCalls).IsEqualTo(0);
+        await Assert.That(fixture.Scenario.Disposals).IsEqualTo(1);
+
+        fixture.RowCache.ClearRows();
+        transaction.Dispose();
+
+        await Assert.That(scopedNotification.ClearCalls).IsEqualTo(0);
+        await Assert.That(fixture.Scenario.Disposals).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task CommittedTransaction_DisposeDoesNotReclassifyPromotedMutable()
+    {
+        using var fixture = new ScriptedFixture();
+        var transaction = fixture.Database.Transaction();
+        var deleted = fixture.CreateExistingMutable(433, "commit then dispose");
+        fixture.Scenario.EnqueueNonQueryResult(1);
+        transaction.Delete(deleted);
+
+        transaction.Commit();
+        transaction.Dispose();
+
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Committed);
+        await Assert.That(transaction.IsDisposed).IsTrue();
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.Committed);
+        await Assert.That(deleted.Lifecycle.RowKind).IsEqualTo(MutableRowKind.Deleted);
+        await Assert.That(deleted.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Committed);
+        await Assert.That(deleted.Lifecycle.InvalidationReason).IsNull();
+        await Assert.That(deleted.HasStoredCommittedBaseline).IsTrue();
     }
 
     [Test]
@@ -605,6 +888,7 @@ public sealed class TransactionMutationFailureTests
         using var fixture = new ScriptedFixture();
         using var transaction = fixture.Database.Transaction();
         var deleted = fixture.CreateExistingMutable(425, "delete");
+        var transactionBound = fixture.CreateImmutable(428, "bound", transaction);
         _ = fixture.RowCache.GetRow(int.MaxValue, transaction);
         fixture.Scenario.EnqueueNonQueryResult(1);
         transaction.Delete(deleted);
@@ -629,12 +913,38 @@ public sealed class TransactionMutationFailureTests
         await Assert.That(transaction.Changes).Count().IsEqualTo(1);
         await Assert.That(transaction.TouchedMutables.Count).IsEqualTo(1);
         await Assert.That(transaction.MutableOwnership.Outcome)
-            .IsEqualTo(MutableTransactionOutcome.Unresolved);
+            .IsEqualTo(MutableTransactionOutcome.CommitOutcomeUnknown);
         await Assert.That(deleted.Lifecycle.BaselineKind)
-            .IsEqualTo(MutableBaselineKind.TransactionLocal);
-        await Assert.That(deleted.Lifecycle.TransactionOwner)
-            .IsSameReferenceAs(transaction.MutableOwnership);
+            .IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(deleted.Lifecycle.TransactionOwner).IsNull();
+        await Assert.That(deleted.Lifecycle.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.CommitOutcomeUnknown);
         await Assert.That(deleted.HasStoredCommittedBaseline).IsFalse();
+
+        var countsBeforeGates = fixture.Scenario.SnapshotCounts();
+        var fallbackFailure = Capture<InvalidOperationException>(() =>
+            _ = transactionBound.GetReadSource());
+        var writeFailure = Capture<InvalidOperationException>(() => transaction.Delete(deleted));
+        var rollbackFailure = Capture<InvalidOperationException>(transaction.Rollback);
+
+        foreach (var gateFailure in new[] { fallbackFailure, writeFailure, rollbackFailure })
+        {
+            await Assert.That(gateFailure.Message).Contains("provider commit call failed");
+            await Assert.That(gateFailure.Message).Contains("only Dispose() remains legal");
+        }
+
+        await Assert.That(fixture.Scenario.SnapshotCounts()).IsEqualTo(countsBeforeGates);
+
+        fixture.Scenario.CommitFailureAfterStatus = null;
+        transaction.Dispose();
+
+        await Assert.That(transaction.IsDisposed).IsTrue();
+        await Assert.That(fixture.RowCache.IsTransactionInCache(transaction)).IsFalse();
+        await Assert.That(transaction.TouchedMutables).IsEmpty();
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.CommitOutcomeUnknown);
+        await Assert.That(deleted.Lifecycle.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.CommitOutcomeUnknown);
     }
 
     [Test]
@@ -840,6 +1150,70 @@ public sealed class TransactionMutationFailureTests
         await Assert.That(transaction.Failure.Cause).IsSameReferenceAs(expectedCause);
     }
 
+    private static RollbackPublicationSnapshot CaptureRollbackPublication(
+        ScriptedFixture fixture,
+        Transaction transaction,
+        Mutable<TransactionMutationGuardRow> mutable,
+        CountingNotification scopedNotification) =>
+        new(
+            fixture.RowCache.IsTransactionInCache(transaction),
+            transaction.TouchedMutables.Count,
+            transaction.MutableOwnership.Outcome,
+            mutable.Lifecycle,
+            scopedNotification.ClearCalls);
+
+    private static async Task AssertRollbackInvalidation(
+        Transaction transaction,
+        Mutable<TransactionMutationGuardRow> mutable,
+        MutableTransactionOutcome expectedOutcome,
+        MutableInvalidationReason expectedReason)
+    {
+        await Assert.That(transaction.TouchedMutables).IsEmpty();
+        await Assert.That(transaction.MutableOwnership.Outcome).IsEqualTo(expectedOutcome);
+        await Assert.That(mutable.Lifecycle.RowKind).IsEqualTo(MutableRowKind.Deleted);
+        await Assert.That(mutable.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(mutable.Lifecycle.TransactionOwner).IsNull();
+        await Assert.That(mutable.Lifecycle.InvalidationReason).IsEqualTo(expectedReason);
+        await Assert.That(mutable.HasStoredCommittedBaseline).IsFalse();
+    }
+
+    private static async Task AssertFinalizedRollbackPublication(
+        RollbackPublicationSnapshot? observation,
+        MutableTransactionOutcome expectedOutcome,
+        MutableInvalidationReason expectedReason)
+    {
+        await Assert.That(observation).IsNotNull();
+        await Assert.That(observation!.TransactionCachePresent).IsFalse();
+        await Assert.That(observation.TouchedMutableCount).IsEqualTo(0);
+        await Assert.That(observation.OwnershipOutcome).IsEqualTo(expectedOutcome);
+        await Assert.That(observation.MutableLifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(observation.MutableLifecycle.TransactionOwner).IsNull();
+        await Assert.That(observation.MutableLifecycle.InvalidationReason)
+            .IsEqualTo(expectedReason);
+        await Assert.That(observation.ScopedNotificationClearCalls).IsEqualTo(0);
+    }
+
+    private static async Task AssertManagedCompletionContext(
+        Exception exception,
+        Transaction transaction,
+        string operation,
+        MutableInvalidationReason expectedReason)
+    {
+        await Assert.That(exception.Data["DataLinq.TransactionId"])
+            .IsEqualTo(transaction.TransactionID);
+        await Assert.That(exception.Data["DataLinq.CompletionOperation"])
+            .IsEqualTo(operation);
+        await Assert.That(
+            exception.Data["DataLinq.LocalFinalizationAttempted"] is true)
+            .IsTrue();
+        await Assert.That(exception.Data["DataLinq.MutableInvalidationReason"])
+            .IsEqualTo(expectedReason.ToString());
+        await Assert.That(exception.Data.Contains("DataLinq.SecondaryCompletionFailures"))
+            .IsFalse();
+    }
+
     private static bool IsStructurallyEmpty(TableCache cache) =>
         cache.RowCount == 0 &&
         cache.TransactionRowsCount == 0 &&
@@ -994,6 +1368,8 @@ public sealed class TransactionMutationFailureTests
         internal int Rollbacks { get; set; }
         internal int Disposals { get; set; }
         internal Exception? CommitFailureAfterStatus { get; set; }
+        internal Exception? RollbackFailure { get; set; }
+        internal Exception? DisposeRollbackFailure { get; set; }
 
         internal void EnqueueNonQueryResult(int result) => nonQuerySteps.Enqueue(result);
         internal void EnqueueNonQueryFailure(Exception exception) => nonQuerySteps.Enqueue(exception);
@@ -1185,6 +1561,9 @@ public sealed class TransactionMutationFailureTests
         public override void Rollback()
         {
             scenario.Rollbacks++;
+            if (scenario.RollbackFailure is not null)
+                throw scenario.RollbackFailure;
+
             SetStatus(DatabaseTransactionStatus.RolledBack);
         }
 
@@ -1192,7 +1571,12 @@ public sealed class TransactionMutationFailureTests
         {
             scenario.Disposals++;
             if (Status == DatabaseTransactionStatus.Open)
+            {
+                if (scenario.DisposeRollbackFailure is not null)
+                    throw scenario.DisposeRollbackFailure;
+
                 SetStatus(DatabaseTransactionStatus.RolledBack);
+            }
         }
     }
 
@@ -1371,6 +1755,13 @@ public sealed class TransactionMutationFailureTests
         MutableTransactionOutcome OwnershipOutcome,
         MutableLifecycleSnapshot MutableLifecycle,
         InvalidOperationException FallbackFailure);
+
+    private sealed record RollbackPublicationSnapshot(
+        bool TransactionCachePresent,
+        int TouchedMutableCount,
+        MutableTransactionOutcome OwnershipOutcome,
+        MutableLifecycleSnapshot MutableLifecycle,
+        int ScopedNotificationClearCalls);
 
     private sealed class InjectedMutationException(string stage)
         : Exception($"Injected mutation failure during {stage}.");

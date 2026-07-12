@@ -192,6 +192,55 @@ public class CacheNotificationManagerTests
 
     [Test]
     [NotInParallel]
+    public async Task DiscardTransaction_DropsOnlyMatchingSubscribersWithoutInvokingAndRepairsAccounting()
+    {
+        var provider = new FakeDatabaseProvider();
+        var firstTransaction = new Transaction(provider, TransactionType.ReadAndWrite);
+        var secondTransaction = new Transaction(provider, TransactionType.ReadAndWrite);
+        var table = CreateNotificationTable();
+        var relationKey = new RelationCacheKey(
+            table.ColumnIndices.Single(x => x.Name == "idx_memory_notification_rows_name"),
+            DataLinqKey.FromValue("dept-1"));
+        var globalSubscriber = new MockSubscriber();
+        var firstTransactionSubscriber = new MockSubscriber();
+        var secondTransactionSubscriber = new MockSubscriber();
+
+        manager.Subscribe(globalSubscriber);
+        manager.Subscribe(
+            firstTransactionSubscriber,
+            firstTransaction,
+            relationKey,
+            [DataLinqKey.FromValue(1)]);
+        manager.Subscribe(
+            secondTransactionSubscriber,
+            secondTransaction,
+            relationKey,
+            [DataLinqKey.FromValue(2)]);
+        var occupiedEstimate = manager.GetMemoryEstimate();
+
+        manager.Discard(firstTransaction);
+
+        var retainedEstimate = manager.GetMemoryEstimate();
+        await Assert.That(GetSubscriberCount()).IsEqualTo(2);
+        await Assert.That(retainedEstimate.NotificationBytes)
+            .IsLessThan(occupiedEstimate.NotificationBytes);
+        await Assert.That(retainedEstimate.RelationObjectBytes)
+            .IsLessThan(occupiedEstimate.RelationObjectBytes);
+        await Assert.That(retainedEstimate.RelationObjectBytes).IsGreaterThan(0);
+        await Assert.That(globalSubscriber.ClearCacheCallCount).IsEqualTo(0);
+        await Assert.That(firstTransactionSubscriber.ClearCacheCallCount).IsEqualTo(0);
+        await Assert.That(secondTransactionSubscriber.ClearCacheCallCount).IsEqualTo(0);
+
+        manager.Notify();
+
+        await Assert.That(globalSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(firstTransactionSubscriber.ClearCacheCallCount).IsEqualTo(0);
+        await Assert.That(secondTransactionSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(GetSubscriberCount()).IsEqualTo(0);
+    }
+
+    [Test]
+    [NotInParallel]
     public async Task GetMemoryEstimate_TableWideSubscription_CountsNotificationBytes()
     {
         var subscriber = new MockSubscriber();
@@ -367,7 +416,8 @@ public class CacheNotificationManagerTests
 
         public IDbCommand ToDbCommand(IQuery query) => throw new NotSupportedException();
         public Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite) => throw new NotSupportedException();
-        public DatabaseTransaction GetNewDatabaseTransaction(TransactionType type) => throw new NotSupportedException();
+        public DatabaseTransaction GetNewDatabaseTransaction(TransactionType type) =>
+            new FakeDatabaseTransaction(type);
         public DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) => throw new NotSupportedException();
         public string GetLastIdQuery() => throw new NotSupportedException();
         public string GetSqlForFunction(SqlFunctionType functionType, string columnName, object[]? arguments) => throw new NotSupportedException();
@@ -388,5 +438,20 @@ public class CacheNotificationManagerTests
         public IDbConnection GetDbConnection() => throw new NotSupportedException();
         public Sql GetCreateSql() => throw new NotSupportedException();
         public void Dispose() { }
+    }
+
+    private sealed class FakeDatabaseTransaction(TransactionType type) : DatabaseTransaction(type)
+    {
+        public override IDataLinqDataReader ExecuteReader(IDbCommand command) => throw new NotSupportedException();
+        public override IDataLinqDataReader ExecuteReader(string query) => throw new NotSupportedException();
+        public override object? ExecuteScalar(IDbCommand command) => throw new NotSupportedException();
+        public override T ExecuteScalar<T>(IDbCommand command) => throw new NotSupportedException();
+        public override object? ExecuteScalar(string query) => throw new NotSupportedException();
+        public override T ExecuteScalar<T>(string query) => throw new NotSupportedException();
+        public override int ExecuteNonQuery(IDbCommand command) => throw new NotSupportedException();
+        public override int ExecuteNonQuery(string query) => throw new NotSupportedException();
+        public override void Rollback() => throw new NotSupportedException();
+        public override void Commit() => throw new NotSupportedException();
+        public override void Dispose() { }
     }
 }

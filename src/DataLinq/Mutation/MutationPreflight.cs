@@ -152,6 +152,8 @@ internal static class MutationPreflight
                 "Start a new transaction and materialize a fresh committed row before retrying the mutation.");
         }
 
+        transaction.EnsureMutationCommitOutcomeKnown(operation);
+
         if (transaction.Status == DatabaseTransactionStatus.Committed)
         {
             throw MutationRejected(
@@ -676,6 +678,7 @@ internal static class MutationPreflight
         reason switch
         {
             MutableInvalidationReason.RolledBack => "its transaction was rolled back",
+            MutableInvalidationReason.RollbackOutcomeUnknown => "its transaction rollback outcome is unknown",
             MutableInvalidationReason.OpenTransactionDisposed => "its open transaction was disposed",
             MutableInvalidationReason.MutationFailed => "a mutation failed",
             MutableInvalidationReason.CommitOutcomeUnknown => "the commit outcome is unknown",

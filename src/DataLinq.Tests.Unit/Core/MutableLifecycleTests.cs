@@ -148,6 +148,101 @@ public sealed class MutableLifecycleTests
     }
 
     [Test]
+    public async Task RolledBackOutcome_InvalidatesTokenDerivedLifecyclePermanently()
+    {
+        using var provider = new IdentityProvider("provider-a");
+        var owner = new MutableTransactionOwnership(provider, transactionId: 22);
+        var lifecycle = MutableLifecycle.New();
+        lifecycle.AdvanceHydrated(owner);
+
+        owner.MarkRolledBack();
+        owner.MarkCommittedAfterPublication();
+        owner.MarkRollbackOutcomeUnknown();
+        owner.MarkOpenTransactionDisposed();
+
+        var rolledBack = lifecycle.Snapshot;
+        await Assert.That(owner.Outcome).IsEqualTo(MutableTransactionOutcome.RolledBack);
+        await Assert.That(rolledBack.RowKind).IsEqualTo(MutableRowKind.Existing);
+        await Assert.That(rolledBack.BaselineKind).IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(rolledBack.TransactionOwner).IsNull();
+        await Assert.That(rolledBack.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.RolledBack);
+        await Assert.That(lifecycle.TryPromoteCommitted(owner)).IsFalse();
+    }
+
+    [Test]
+    public async Task RollbackOutcomeUnknown_InvalidatesTokenDerivedLifecyclePermanently()
+    {
+        using var provider = new IdentityProvider("provider-a");
+        var owner = new MutableTransactionOwnership(provider, transactionId: 23);
+        var lifecycle = MutableLifecycle.New();
+        lifecycle.AdvanceHydrated(owner);
+
+        owner.MarkRollbackOutcomeUnknown();
+        owner.MarkRolledBack();
+        owner.MarkCommittedAfterPublication();
+        owner.MarkOpenTransactionDisposed();
+
+        var outcomeUnknown = lifecycle.Snapshot;
+        await Assert.That(owner.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.RollbackOutcomeUnknown);
+        await Assert.That(outcomeUnknown.RowKind).IsEqualTo(MutableRowKind.Existing);
+        await Assert.That(outcomeUnknown.BaselineKind).IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(outcomeUnknown.TransactionOwner).IsNull();
+        await Assert.That(outcomeUnknown.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.RollbackOutcomeUnknown);
+        await Assert.That(lifecycle.TryPromoteCommitted(owner)).IsFalse();
+    }
+
+    [Test]
+    public async Task OpenTransactionDisposedOutcome_InvalidatesTokenDerivedLifecyclePermanently()
+    {
+        using var provider = new IdentityProvider("provider-a");
+        var owner = new MutableTransactionOwnership(provider, transactionId: 24);
+        var lifecycle = MutableLifecycle.New();
+        lifecycle.AdvanceHydrated(owner);
+
+        owner.MarkOpenTransactionDisposed();
+        owner.MarkRolledBack();
+        owner.MarkCommittedAfterPublication();
+        owner.MarkRollbackOutcomeUnknown();
+
+        var disposed = lifecycle.Snapshot;
+        await Assert.That(owner.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.OpenTransactionDisposed);
+        await Assert.That(disposed.RowKind).IsEqualTo(MutableRowKind.Existing);
+        await Assert.That(disposed.BaselineKind).IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(disposed.TransactionOwner).IsNull();
+        await Assert.That(disposed.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.OpenTransactionDisposed);
+        await Assert.That(lifecycle.TryPromoteCommitted(owner)).IsFalse();
+    }
+
+    [Test]
+    public async Task CommitOutcomeUnknown_InvalidatesTokenDerivedLifecyclePermanently()
+    {
+        using var provider = new IdentityProvider("provider-a");
+        var owner = new MutableTransactionOwnership(provider, transactionId: 25);
+        var lifecycle = MutableLifecycle.New();
+        lifecycle.AdvanceHydrated(owner);
+
+        owner.MarkCommitOutcomeUnknown();
+        owner.MarkCommittedAfterPublication();
+        owner.MarkRolledBack();
+        owner.MarkOpenTransactionDisposed();
+
+        var outcomeUnknown = lifecycle.Snapshot;
+        await Assert.That(owner.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.CommitOutcomeUnknown);
+        await Assert.That(outcomeUnknown.RowKind).IsEqualTo(MutableRowKind.Existing);
+        await Assert.That(outcomeUnknown.BaselineKind).IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(outcomeUnknown.TransactionOwner).IsNull();
+        await Assert.That(outcomeUnknown.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.CommitOutcomeUnknown);
+        await Assert.That(lifecycle.TryPromoteCommitted(owner)).IsFalse();
+    }
+
+    [Test]
     public async Task TransactionOwnership_ConcurrentCommitSnapshotsNeverTear()
     {
         using var provider = new IdentityProvider("provider-a");

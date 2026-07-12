@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using DataLinq.Attributes;
 using DataLinq.Diagnostics;
 using DataLinq.Interfaces;
@@ -135,9 +136,15 @@ public class DatabaseCache : IDisposable
 
     public void RemoveTransaction(Transaction transaction)
     {
-        foreach (var table in TableCaches.Values)
+        var failures = RemoveTransactionBestEffort(transaction);
+        if (failures.Count == 1)
+            ExceptionDispatchInfo.Capture(failures[0]).Throw();
+
+        if (failures.Count > 1)
         {
-            table.TryRemoveTransaction(transaction);
+            throw new AggregateException(
+                $"Multiple failures occurred while removing transaction {transaction.TransactionID} from provider cache state.",
+                failures);
         }
     }
 
@@ -155,6 +162,15 @@ public class DatabaseCache : IDisposable
                     (failures ??= []).Add(new InvalidOperationException(
                         $"Transaction {transaction.TransactionID} remained in cache for table '{table.Table.DbName}' after best-effort removal."));
                 }
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+
+            try
+            {
+                table.DiscardTransactionNotifications(transaction);
             }
             catch (Exception exception)
             {
