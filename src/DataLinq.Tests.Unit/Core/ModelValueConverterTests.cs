@@ -488,7 +488,8 @@ public sealed partial class ModelValueConverterTests
     private sealed class RecordingProvider(
         DatabaseDefinition metadata,
         RecordingPhysicalWriter writer,
-        object? generatedValue = null) : IDatabaseProvider
+        object? generatedValue = null,
+        bool supportsDefaultOnlyInsert = true) : IDatabaseProvider
     {
         public string TelemetryInstanceId => "model-value-converter-tests";
         public string DatabaseName => metadata.DbName;
@@ -496,7 +497,8 @@ public sealed partial class ModelValueConverterTests
         public DatabaseDefinition Metadata => metadata;
         public DatabaseAccess DatabaseAccess => throw new NotSupportedException();
         public State State => throw new NotSupportedException();
-        public IDatabaseProviderConstants Constants => throw new NotSupportedException();
+        public IDatabaseProviderConstants Constants { get; } =
+            new RecordingProviderConstants(supportsDefaultOnlyInsert);
         public ReadOnlyAccess ReadOnlyAccess => new(this);
         public DatabaseType DatabaseType => DatabaseType.SQLite;
         public IDbCommand ToDbCommand(IQuery query) => new TestDbCommand();
@@ -520,13 +522,25 @@ public sealed partial class ModelValueConverterTests
         public bool DatabaseExists(string? databaseName = null) => throw new NotSupportedException();
         public bool FileOrServerExists() => throw new NotSupportedException();
         public IDataLinqDataWriter GetWriter() => writer;
-        public Sql GetTableName(Sql sql, string tableName, string? alias = null) => throw new NotSupportedException();
+        public Sql GetTableName(Sql sql, string tableName, string? alias = null) =>
+            sql.AddText(tableName);
         public M Commit<M>(Func<Transaction, M> func) => throw new NotSupportedException();
         public void Commit(Action<Transaction> action) => throw new NotSupportedException();
         public bool TableExists(string tableName, string? databaseName = null) => throw new NotSupportedException();
         public IDbConnection GetDbConnection() => throw new NotSupportedException();
         public Sql GetCreateSql() => throw new NotSupportedException();
         public void Dispose() { }
+    }
+
+    private sealed class RecordingProviderConstants(bool supportsDefaultOnlyInsert)
+        : IDatabaseProviderConstants
+    {
+        public string ParameterSign => "@";
+        public string LastInsertCommand => "last_id()";
+        public string EscapeCharacter => "\"";
+        public bool SupportsMultipleDatabases => false;
+        public string? DefaultValuesInsertClause =>
+            supportsDefaultOnlyInsert ? "DEFAULT VALUES" : null;
     }
 
     private sealed class RecordingDatabaseTransaction(

@@ -16,8 +16,8 @@ internal static class ModelValueConverter
         ArgumentNullException.ThrowIfNull(column);
         ProviderRowMaterializer.ValidateSourceName(sourceName);
 
-        // Mutation rows do not yet distinguish an explicit null from an unset server-generated/default slot.
-        // Preserve the legacy null pass-through until the planned write-slot envelope makes that state explicit.
+        // MutationWriteSlot omission is decided before this conversion boundary. Any null
+        // that reaches the converter is therefore an explicit provider null and passes through.
         if (modelValue is null)
             return null;
 

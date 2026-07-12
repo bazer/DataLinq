@@ -12,12 +12,12 @@ public sealed class ServerDefaultInsertTests
 {
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task Insert_DistinguishesUnsetServerDefaultFromExplicitNull(
+    public async Task Insert_DefaultOnlyAndExplicitAssignmentsRoundTrip(
         TestProviderDescriptor provider)
     {
         using var databaseScope = TemporaryModelTestDatabase<ServerDefaultInsertDb>.Create(
             provider,
-            nameof(Insert_DistinguishesUnsetServerDefaultFromExplicitNull));
+            nameof(Insert_DefaultOnlyAndExplicitAssignmentsRoundTrip));
 
         var unset = databaseScope.Database.Insert(new MutableServerDefaultInsertRow());
         var assignedNull = databaseScope.Database.Insert(new MutableServerDefaultInsertRow
@@ -28,21 +28,37 @@ public sealed class ServerDefaultInsertTests
         {
             ServerValue = "client-value"
         });
+        var assignedNullIdentity = databaseScope.Database.Insert(new MutableServerDefaultInsertRow
+        {
+            Id = null
+        });
+        var assignedIdentity = databaseScope.Database.Insert(new MutableServerDefaultInsertRow
+        {
+            Id = 7001
+        });
 
         databaseScope.Database.Provider.State.ClearCache();
         var reloadedUnset = databaseScope.Database.Query().Rows.Single(row => row.Id == unset.Id);
         var reloadedAssignedNull = databaseScope.Database.Query().Rows.Single(row => row.Id == assignedNull.Id);
         var reloadedAssignedValue = databaseScope.Database.Query().Rows.Single(row => row.Id == assignedValue.Id);
+        var reloadedAssignedNullIdentity = databaseScope.Database.Query().Rows.Single(row => row.Id == assignedNullIdentity.Id);
+        var reloadedAssignedIdentity = databaseScope.Database.Query().Rows.Single(row => row.Id == assignedIdentity.Id);
 
         await Assert.That(unset.Id).IsNotNull();
         await Assert.That(assignedNull.Id).IsNotNull();
         await Assert.That(assignedValue.Id).IsNotNull();
+        await Assert.That(assignedNullIdentity.Id).IsNotNull();
+        await Assert.That(assignedIdentity.Id).IsEqualTo(7001);
         await Assert.That(unset.ServerValue).IsEqualTo("server-generated");
         await Assert.That(assignedNull.ServerValue).IsNull();
         await Assert.That(assignedValue.ServerValue).IsEqualTo("client-value");
+        await Assert.That(assignedNullIdentity.ServerValue).IsEqualTo("server-generated");
+        await Assert.That(assignedIdentity.ServerValue).IsEqualTo("server-generated");
         await Assert.That(reloadedUnset.ServerValue).IsEqualTo("server-generated");
         await Assert.That(reloadedAssignedNull.ServerValue).IsNull();
         await Assert.That(reloadedAssignedValue.ServerValue).IsEqualTo("client-value");
+        await Assert.That(reloadedAssignedNullIdentity.ServerValue).IsEqualTo("server-generated");
+        await Assert.That(reloadedAssignedIdentity.ServerValue).IsEqualTo("server-generated");
     }
 }
 

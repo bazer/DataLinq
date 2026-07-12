@@ -6,6 +6,7 @@ using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
+using DataLinq.Query;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
@@ -76,6 +77,16 @@ public sealed partial class ModelValueConverterTests
             typeof(int),
             static (value, _) => ((MutationId)value!).Value);
         var convertedPrimaryKeyTable = CreateDefaultSlotTable(primaryKeyConverter: primaryKeyConverter);
+        var autoIncrementPrimaryKeyConverter = new RecordingScalarConverter(
+            typeof(MutationId),
+            typeof(int),
+            static (value, _) => ((MutationId)value!).Value);
+        var convertedAutoIncrementTable = CreateDefaultSlotTable(
+            primaryKeyConverter: autoIncrementPrimaryKeyConverter,
+            autoIncrement: true);
+        var nonIntegralAutoIncrementTable = CreateDefaultSlotTable(
+            primaryKeyType: typeof(string),
+            autoIncrement: true);
         var unknownKeyTable = CreateDefaultSlotTable();
         var autoIncrementTable = CreateDefaultSlotTable(autoIncrement: true);
 
@@ -101,12 +112,47 @@ public sealed partial class ModelValueConverterTests
                 assignDefault: false,
                 defaultValue: null,
                 hasPrimaryKey: false));
-        var autoIncrementWriter = BuildInsertAndCaptureWriter(
+        var unsetAutoIncrementWriter = BuildInsertAndCaptureWriter(
+            CreateDefaultSlotStateChange(
+                autoIncrementTable,
+                assignDefault: false,
+                defaultValue: null,
+                hasPrimaryKey: false,
+                assignPrimaryKey: false));
+        var unsupportedDefaultOnlyInsertWriter = BuildInsertAndCaptureWriter(
+            CreateDefaultSlotStateChange(
+                autoIncrementTable,
+                assignDefault: false,
+                defaultValue: null,
+                hasPrimaryKey: false,
+                assignPrimaryKey: false),
+            supportsDefaultOnlyInsert: false);
+        var assignedNullAutoIncrementWriter = BuildInsertAndCaptureWriter(
             CreateDefaultSlotStateChange(
                 autoIncrementTable,
                 assignDefault: false,
                 defaultValue: null,
                 hasPrimaryKey: false));
+        var explicitAutoIncrementWriter = BuildInsertAndCaptureWriter(
+            CreateDefaultSlotStateChange(
+                autoIncrementTable,
+                assignDefault: false,
+                defaultValue: null,
+                primaryKeyValue: 19));
+        var convertedAutoIncrementWriter = BuildInsertAndCaptureWriter(
+            CreateDefaultSlotStateChange(
+                convertedAutoIncrementTable,
+                assignDefault: false,
+                defaultValue: null,
+                hasPrimaryKey: false,
+                assignPrimaryKey: false));
+        var nonIntegralAutoIncrementWriter = BuildInsertAndCaptureWriter(
+            CreateDefaultSlotStateChange(
+                nonIntegralAutoIncrementTable,
+                assignDefault: false,
+                defaultValue: null,
+                hasPrimaryKey: false,
+                assignPrimaryKey: false));
         var untrackedValueWriter = BuildInsertAndCaptureWriter(
             CreateDefaultSlotStateChange(
                 CreateDefaultSlotTable(),
@@ -126,11 +172,41 @@ public sealed partial class ModelValueConverterTests
         await Assert.That(primaryKeyConverter.ToProviderCalls.Count).IsEqualTo(3);
         await Assert.That(unknownKeyWriter.Calls.Count).IsEqualTo(2);
         await Assert.That(autoIncrementTable.HasAutoIncrementPrimaryKey).IsTrue();
-        await Assert.That(autoIncrementWriter.Calls.Count).IsEqualTo(1);
-        await Assert.That(autoIncrementWriter.Calls.Single().Column)
+        await Assert.That(unsetAutoIncrementWriter.Calls).IsEmpty();
+        await Assert.That(unsupportedDefaultOnlyInsertWriter.Calls.Count).IsEqualTo(1);
+        await Assert.That(unsupportedDefaultOnlyInsertWriter.Calls.Single().Column)
             .IsSameReferenceAs(autoIncrementTable.AutoIncrementPrimaryKeyColumn);
-        await Assert.That(autoIncrementWriter.Calls.Single().CanonicalValue).IsNull();
+        await Assert.That(unsupportedDefaultOnlyInsertWriter.Calls.Single().CanonicalValue).IsNull();
+        await Assert.That(assignedNullAutoIncrementWriter.Calls.Count).IsEqualTo(1);
+        await Assert.That(assignedNullAutoIncrementWriter.Calls.Single().Column)
+            .IsSameReferenceAs(autoIncrementTable.AutoIncrementPrimaryKeyColumn);
+        await Assert.That(assignedNullAutoIncrementWriter.Calls.Single().CanonicalValue).IsNull();
+        await Assert.That(explicitAutoIncrementWriter.Calls.Count).IsEqualTo(1);
+        await Assert.That(explicitAutoIncrementWriter.Calls.Single().Column)
+            .IsSameReferenceAs(autoIncrementTable.AutoIncrementPrimaryKeyColumn);
+        await Assert.That(explicitAutoIncrementWriter.Calls.Single().CanonicalValue).IsEqualTo(19);
+        await Assert.That(convertedAutoIncrementWriter.Calls.Count).IsEqualTo(2);
+        await Assert.That(autoIncrementPrimaryKeyConverter.ToProviderCalls).IsEmpty();
+        await Assert.That(nonIntegralAutoIncrementWriter.Calls.Count).IsEqualTo(2);
         await Assert.That(untrackedValueWriter.Calls.Count).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task InsertQuery_ProviderWithoutDefaultOnlyCapabilityPreservesLegacyEmptyShape()
+    {
+        var table = CreateDefaultSlotTable(autoIncrement: true);
+        var writer = new RecordingPhysicalWriter();
+        var provider = new RecordingProvider(
+            table.Database,
+            writer,
+            supportsDefaultOnlyInsert: false);
+        var transaction = new Transaction(provider, TransactionType.WriteOnly);
+
+        var sql = new SqlQuery(table, transaction).InsertQuery().ToSql();
+
+        await Assert.That(sql.Text)
+            .IsEqualTo($"INSERT INTO {table.DbName} VALUES (NULL)");
+        await Assert.That(sql.Parameters).IsEmpty();
     }
 
     private static TableDefinition CreateDefaultSlotTable(
@@ -139,6 +215,7 @@ public sealed partial class ModelValueConverterTests
         bool clientDefault = false,
         RecordingScalarConverter? converter = null,
         RecordingScalarConverter? primaryKeyConverter = null,
+        Type? primaryKeyType = null,
         bool autoIncrement = false)
     {
         var defaultAttributes = new List<Attribute>
@@ -162,10 +239,10 @@ public sealed partial class ModelValueConverterTests
             ScalarConverter = converter is null ? null : CreateConverterDraft(converter)
         };
         var draft = CreateDatabaseDraft(
-            $"default_slot_rows_{defaultDatabaseType}_{indexed}_{clientDefault}_{converter is not null}_{primaryKeyConverter is not null}_{autoIncrement}",
+            $"default_slot_rows_{defaultDatabaseType}_{indexed}_{clientDefault}_{converter is not null}_{primaryKeyConverter is not null}_{primaryKeyType?.Name}_{autoIncrement}",
             new MetadataValuePropertyDraft(
                 "Id",
-                new CsTypeDeclaration(primaryKeyConverter?.ModelType ?? typeof(int)),
+                new CsTypeDeclaration(primaryKeyConverter?.ModelType ?? primaryKeyType ?? typeof(int)),
                 new MetadataColumnDraft("id")
                 {
                     PrimaryKey = true,
@@ -191,7 +268,8 @@ public sealed partial class ModelValueConverterTests
         bool assignDefault,
         object? defaultValue,
         bool hasPrimaryKey = true,
-        object? primaryKeyValue = null)
+        object? primaryKeyValue = null,
+        bool assignPrimaryKey = true)
     {
         var idColumn = table.GetColumnByDbName("id");
         var defaultColumn = table.GetColumnByDbName("server_value");
@@ -201,10 +279,9 @@ public sealed partial class ModelValueConverterTests
             [idColumn] = primaryKeyValue,
             [defaultColumn] = defaultValue
         };
-        var changes = new List<KeyValuePair<ColumnDefinition, object?>>
-        {
-            new(idColumn, primaryKeyValue)
-        };
+        var changes = new List<KeyValuePair<ColumnDefinition, object?>>();
+        if (assignPrimaryKey)
+            changes.Add(new KeyValuePair<ColumnDefinition, object?>(idColumn, primaryKeyValue));
         if (assignDefault)
             changes.Add(new KeyValuePair<ColumnDefinition, object?>(defaultColumn, defaultValue));
 
@@ -212,10 +289,15 @@ public sealed partial class ModelValueConverterTests
         return new StateChange(model, table, TransactionChangeType.Insert);
     }
 
-    private static RecordingPhysicalWriter BuildInsertAndCaptureWriter(StateChange stateChange)
+    private static RecordingPhysicalWriter BuildInsertAndCaptureWriter(
+        StateChange stateChange,
+        bool supportsDefaultOnlyInsert = true)
     {
         var writer = new RecordingPhysicalWriter();
-        var provider = new RecordingProvider(stateChange.Table.Database, writer);
+        var provider = new RecordingProvider(
+            stateChange.Table.Database,
+            writer,
+            supportsDefaultOnlyInsert: supportsDefaultOnlyInsert);
         var transaction = new Transaction(provider, TransactionType.WriteOnly);
 
         _ = stateChange.GetQuery(transaction);

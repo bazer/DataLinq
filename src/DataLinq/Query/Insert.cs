@@ -16,7 +16,9 @@ public class Insert<T> : IQuery
     {
         int length = query.SetList.Count;
         if (length == 0)
-            return sql.AddText("VALUES (NULL)");
+            return sql.AddText(
+                query.DataSource.Provider.Constants.DefaultValuesInsertClause ??
+                "VALUES (NULL)");
 
         sql.AddText("(");
         var columnIndex = 0;

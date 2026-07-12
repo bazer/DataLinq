@@ -584,7 +584,7 @@ Exit signal:
 - named in-memory databases still work across the multiple connections DataLinq opens
 - tests distinguish the named-memory exception from the recommended file-backed configuration
 
-`SQ-2` is green. `CliConfigInit` emits file-backed SQLite connection strings without a `Cache` key, and `PodmanTestEnvironmentSettings` does the same for `sqlite-file` while retaining `Mode=Memory;Cache=Shared` for `sqlite-memory`. Focused tests prove the generated file path resolves and opens, the file builder reports the provider default cache, the named-memory builder remains shared, and explicit caller strings continue to round-trip unchanged. The complete SQLite compliance lane passes at 732/732 on the new defaults.
+`SQ-2` is green. `CliConfigInit` emits file-backed SQLite connection strings without a `Cache` key, and `PodmanTestEnvironmentSettings` does the same for `sqlite-file` while retaining `Mode=Memory;Cache=Shared` for `sqlite-memory`. Focused tests prove the generated file path resolves and opens, the file builder reports the provider default cache, the named-memory builder remains shared, and explicit caller strings continue to round-trip unchanged. The complete SQLite compliance lane passes at 736/736 on the new defaults.
 
 ## SQ-3: Record Contention And Timeout Evidence
 

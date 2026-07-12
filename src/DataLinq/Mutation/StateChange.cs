@@ -249,7 +249,8 @@ public class StateChange
             return true;
 
         return table.PrimaryKeyColumns.Count == 1 &&
-            table.AutoIncrementPrimaryKeyColumn is not null;
+            table.AutoIncrementPrimaryKeyColumn is { } autoIncrementPrimaryKey &&
+            GeneratedValueDecoder.CanDecodeAutoIncrementValue(autoIncrementPrimaryKey);
     }
 
     private static IReadOnlyList<MutationWriteSlot> CaptureInsertWriteSlots(
@@ -553,9 +554,13 @@ public class StateChange
 
     private IQuery BuildInsertQuery(SqlQuery query, IDataLinqDataWriter writer)
     {
+        var supportsDefaultOnlyInsert =
+            query.DataSource.Provider.Constants.DefaultValuesInsertClause is not null;
+
         foreach (var slot in insertWriteSlots)
         {
-            if (ShouldOmitUnsetServerDefault(slot, query.DataSource.Provider.DatabaseType))
+            if (ShouldOmitUnsetAutoIncrementPrimaryKey(slot, supportsDefaultOnlyInsert) ||
+                ShouldOmitUnsetServerDefault(slot, query.DataSource.Provider.DatabaseType))
                 continue;
 
             var value = writer.ConvertModelColumnValue(
@@ -570,6 +575,15 @@ public class StateChange
 
         return query.InsertQuery();
     }
+
+    private bool ShouldOmitUnsetAutoIncrementPrimaryKey(
+        MutationWriteSlot slot,
+        bool supportsDefaultOnlyInsert) =>
+        supportsDefaultOnlyInsert &&
+        !slot.IsAssigned &&
+        slot.ModelValue is null &&
+        hasReloadableIdentityMappedPrimaryKey &&
+        ReferenceEquals(slot.Column, Table.AutoIncrementPrimaryKeyColumn);
 
     private bool ShouldOmitUnsetServerDefault(
         MutationWriteSlot slot,

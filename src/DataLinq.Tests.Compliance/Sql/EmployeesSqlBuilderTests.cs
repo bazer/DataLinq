@@ -280,6 +280,13 @@ LIMIT 1",
 
         var (parameterSign, escapeCharacter, databasePrefix) = GetSqlConstants(databaseScope.Database);
         var lastInsertCommand = databaseScope.Database.Provider.Constants.LastInsertCommand;
+        var defaultValuesInsertClause = databaseScope.Database.Provider.DatabaseType switch
+        {
+            DatabaseType.SQLite => "DEFAULT VALUES",
+            DatabaseType.MySQL or DatabaseType.MariaDB => "() VALUES ()",
+            _ => throw new System.NotSupportedException(
+                "The compliance provider does not declare an expected default-only INSERT shape.")
+        };
 
         var what = databaseScope.Database.From("departments").What("dept_name").SelectQuery().ToSql();
         var explicitJoin = databaseScope.Database
@@ -322,6 +329,8 @@ LIMIT 1",
             .ToSql();
         var insert = databaseScope.Database.From("departments").Set("dept_no", "d005").InsertQuery().ToSql();
         var insertWithLastId = databaseScope.Database.From("departments").Set("dept_no", "d005").AddLastIdQuery().InsertQuery().ToSql();
+        var defaultOnlyInsert = databaseScope.Database.From("departments").InsertQuery().ToSql();
+        var defaultOnlyInsertWithLastId = databaseScope.Database.From("departments").AddLastIdQuery().InsertQuery().ToSql();
 
         var oneId = new[] { 3 };
         var manyIds = new[] { 1, 2, 3 };
@@ -363,6 +372,13 @@ ORDER BY d.{escapeCharacter}dept_no{escapeCharacter} DESC");
             $@"INSERT INTO {databasePrefix}{escapeCharacter}departments{escapeCharacter} ({escapeCharacter}dept_no{escapeCharacter}) VALUES ({parameterSign}v0);
 SELECT {lastInsertCommand}",
             (1, $"{parameterSign}v0", "d005"));
+        await AssertSql(
+            defaultOnlyInsert,
+            $"INSERT INTO {databasePrefix}{escapeCharacter}departments{escapeCharacter} {defaultValuesInsertClause}");
+        await AssertSql(
+            defaultOnlyInsertWithLastId,
+            $@"INSERT INTO {databasePrefix}{escapeCharacter}departments{escapeCharacter} {defaultValuesInsertClause};
+SELECT {lastInsertCommand}");
         await AssertSql(
             inOne,
             $@"SELECT d.{escapeCharacter}dept_no{escapeCharacter}, d.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} d

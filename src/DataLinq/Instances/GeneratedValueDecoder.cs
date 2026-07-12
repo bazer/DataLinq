@@ -43,7 +43,7 @@ internal static class GeneratedValueDecoder
                     $"Column '{column.Table.DbName}.{column.DbName}' has no runtime canonical provider CLR type metadata.");
             providerType = Nullable.GetUnderlyingType(providerType) ?? providerType;
 
-            if (!IsIntegralType(providerType))
+            if (!CanDecodeAutoIncrementValue(column))
             {
                 throw new NotSupportedException(
                     $"Auto-increment hydration supports integral canonical provider CLR types, but column '{column.Table.DbName}.{column.DbName}' uses '{providerType.FullName}'.");
@@ -81,6 +81,21 @@ internal static class GeneratedValueDecoder
                 canonicalValue,
                 exception);
         }
+    }
+
+    internal static bool CanDecodeAutoIncrementValue(ColumnDefinition column)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+
+        if (!column.AutoIncrement)
+            return false;
+
+        var providerType = column.ProviderClrType;
+        if (providerType is null)
+            return false;
+
+        providerType = Nullable.GetUnderlyingType(providerType) ?? providerType;
+        return IsIntegralType(providerType);
     }
 
     private static bool IsIntegralType(Type type) =>
