@@ -581,6 +581,7 @@ internal static class ExpressionQueryPlanExecutor
         QueryPlanProjection.GroupedAggregate projection)
     {
         var select = new QueryPlanSqlBuilder(plan, dataSource).BuildSelect<TElement>();
+        var sourceName = $"sql:{dataSource.Provider.DatabaseType}:grouped-projection";
 
         foreach (var reader in select.ReadReader())
         {
@@ -588,6 +589,21 @@ internal static class ExpressionQueryPlanExecutor
             for (var index = 0; index < projection.Members.Count; index++)
             {
                 var member = projection.Members[index];
+                // Grouped SELECT emits one selector per projection member in this order.
+                // The slot ordinal prevents alias comparison from pairing the value with different column metadata.
+                if (member.Value is QueryPlanGroupKeyValue groupKey &&
+                    IsModelCompatibleConvertedColumnShape(groupKey.Key, groupKey.ClrType) &&
+                    TryReadScalarConvertedColumnValue(
+                        reader,
+                        groupKey.Key,
+                        index,
+                        sourceName,
+                        out var modelValue))
+                {
+                    values[index] = ConvertReaderValue(modelValue, groupKey.ClrType);
+                    continue;
+                }
+
                 var ordinal = reader.GetOrdinal(member.Name);
                 var rawValue = reader.IsDbNull(ordinal) ? null : reader.GetValue(ordinal);
                 values[index] = ConvertReaderValue(rawValue, member.Value.ClrType);
@@ -643,7 +659,7 @@ internal static class ExpressionQueryPlanExecutor
             {
                 var member = projection.Members[index];
                 var ordinal = reader.GetOrdinal(member.Name);
-                if (TryReadConvertedSqlRowValue(
+                if (TryReadScalarConvertedColumnValue(
                         reader,
                         member.Value,
                         ordinal,
@@ -662,7 +678,7 @@ internal static class ExpressionQueryPlanExecutor
         }
     }
 
-    private static bool TryReadConvertedSqlRowValue(
+    private static bool TryReadScalarConvertedColumnValue(
         IDataLinqDataReader reader,
         QueryPlanValue value,
         int ordinal,
@@ -671,7 +687,7 @@ internal static class ExpressionQueryPlanExecutor
     {
         if (value is QueryPlanConvertedValue converted)
         {
-            if (!TryReadConvertedSqlRowValue(
+            if (!TryReadScalarConvertedColumnValue(
                     reader,
                     converted.Value,
                     ordinal,
@@ -703,6 +719,42 @@ internal static class ExpressionQueryPlanExecutor
             sourceName);
         modelValue = ConvertReaderValue(modelValue, columnValue.ClrType);
         return true;
+    }
+
+    private static bool IsModelCompatibleConvertedColumnShape(
+        QueryPlanValue value,
+        Type resultType)
+    {
+        var leaf = value;
+        while (leaf is QueryPlanConvertedValue converted)
+            leaf = converted.Value;
+
+        if (leaf is not QueryPlanColumnValue { Column.HasScalarConverter: true } columnValue)
+            return false;
+
+        var declaredModelType = columnValue.Column.ModelClrType ?? columnValue.ClrType;
+        var modelType = Nullable.GetUnderlyingType(declaredModelType) ?? declaredModelType;
+        if (!IsAssignableFromModelType(modelType, columnValue.ClrType) ||
+            !IsAssignableFromModelType(modelType, resultType))
+        {
+            return false;
+        }
+
+        while (value is QueryPlanConvertedValue converted)
+        {
+            if (!IsAssignableFromModelType(modelType, converted.TargetType))
+                return false;
+
+            value = converted.Value;
+        }
+
+        return true;
+    }
+
+    private static bool IsAssignableFromModelType(Type modelType, Type targetType)
+    {
+        var nonNullableTarget = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        return nonNullableTarget.IsAssignableFrom(modelType);
     }
 
     private static TElement CreateProjectionRow<TElement>(ConstructorInfo constructor, IReadOnlyList<object?> values)

@@ -270,6 +270,105 @@ public sealed class TypedIdPredicateTranslationTests
     }
 
     [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task TypedIdGroupedAggregateKeys_MaterializeScalarNullableAndCompositeValuesAcrossProviders(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<TypedIdPredicateDb>.Create(
+            provider,
+            nameof(TypedIdGroupedAggregateKeys_MaterializeScalarNullableAndCompositeValuesAcrossProviders));
+
+        var inserted = databaseScope.Database.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO typedidqueryrows (id, parent_id, name) VALUES " +
+            "(101, NULL, 'alpha'), (102, 101, 'beta'), (103, 101, 'gamma')");
+        var database = databaseScope.Database;
+
+        var scalarQuery = database.Query().Rows
+            .GroupBy(row => row.Id)
+            .Select(group => new
+            {
+                Count = group.Count(),
+                Identifier = group.Key
+            });
+        var scalarInvocation = ExpressionQueryPlanParser.Convert(database, scalarQuery);
+        var scalarGroups = scalarQuery
+            .ToList()
+            .OrderBy(static group => group.Identifier.Value)
+            .ToArray();
+
+        var nullableGroups = database.Query().Rows
+            .GroupBy(row => row.ParentId)
+            .Select(group => new
+            {
+                Count = group.Count(),
+                Parent = group.Key
+            })
+            .ToList();
+
+        var compositeQuery = database.Query().Rows
+            .GroupBy(row => new
+            {
+                row.Id,
+                row.ParentId
+            })
+            .Select(group => new
+            {
+                Count = group.Count(),
+                Identifier = group.Key.Id,
+                Parent = group.Key.ParentId
+            });
+        var compositeInvocation = ExpressionQueryPlanParser.Convert(database, compositeQuery);
+        var compositeGroups = compositeQuery
+            .ToList()
+            .OrderBy(static group => group.Identifier.Value)
+            .ToArray();
+
+        var boxedGroups = database.Query().Rows
+            .GroupBy(row => (object)row.Id)
+            .Select(group => new
+            {
+                Count = group.Count(),
+                Identifier = group.Key
+            })
+            .ToList();
+        var providerGroups = database.Query().Rows
+            .GroupBy(row => (int)row.Id)
+            .Select(group => new
+            {
+                Count = group.Count(),
+                Identifier = group.Key
+            })
+            .ToList();
+
+        await Assert.That(inserted).IsEqualTo(3);
+        await Assert.That(scalarInvocation.Template.Projection).IsTypeOf<QueryPlanProjection.GroupedAggregate>();
+        await Assert.That(compositeInvocation.Template.Projection).IsTypeOf<QueryPlanProjection.GroupedAggregate>();
+        await Assert.That(scalarInvocation.Template.Projection.Disposition)
+            .IsEqualTo(QueryPlanProjectionDisposition.SqlOnlyCompatibility);
+
+        await Assert.That(scalarGroups.Select(static group => group.Identifier).ToArray())
+            .IsEquivalentTo(new[] { new QueryTypedId(101), new QueryTypedId(102), new QueryTypedId(103) });
+        await Assert.That(scalarGroups.All(static group => group.Count == 1)).IsTrue();
+
+        var nullParentGroup = nullableGroups.Single(static group => group.Parent is null);
+        var parentGroup = nullableGroups.Single(static group => group.Parent == new QueryTypedId(101));
+        await Assert.That(nullParentGroup.Count).IsEqualTo(1);
+        await Assert.That(parentGroup.Count).IsEqualTo(2);
+        await Assert.That(parentGroup.Parent!.Value.GetType()).IsEqualTo(typeof(QueryTypedId));
+
+        await Assert.That(compositeGroups.Select(static group => group.Identifier).ToArray())
+            .IsEquivalentTo(new[] { new QueryTypedId(101), new QueryTypedId(102), new QueryTypedId(103) });
+        await Assert.That(compositeGroups.Select(static group => group.Parent).ToArray())
+            .IsEquivalentTo(new QueryTypedId?[] { null, new(101), new(101) });
+        await Assert.That(compositeGroups.All(static group => group.Count == 1)).IsTrue();
+
+        await Assert.That(boxedGroups.All(static group => group.Identifier is QueryTypedId)).IsTrue();
+        await Assert.That(providerGroups.Select(static group => group.Identifier).ToArray())
+            .IsEquivalentTo(new[] { 101, 102, 103 });
+        await Assert.That(providerGroups.All(static group => group.Count == 1)).IsTrue();
+    }
+
+    [Test]
     public async Task TypedIdPredicates_BindCanonicalProviderValuesAcrossTemplateAndMembershipPaths()
     {
         using var databaseScope = TemporaryModelTestDatabase<TypedIdPredicateDb>.Create(
