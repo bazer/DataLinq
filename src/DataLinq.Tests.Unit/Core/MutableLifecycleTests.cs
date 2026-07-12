@@ -243,6 +243,30 @@ public sealed class MutableLifecycleTests
     }
 
     [Test]
+    public async Task ExternalCompletionUnknown_InvalidatesTokenDerivedLifecyclePermanently()
+    {
+        using var provider = new IdentityProvider("provider-a");
+        var owner = new MutableTransactionOwnership(provider, transactionId: 26);
+        var lifecycle = MutableLifecycle.New();
+        lifecycle.AdvanceHydrated(owner);
+
+        owner.MarkExternalCompletionUnknown();
+        owner.MarkCommittedAfterPublication();
+        owner.MarkRolledBack();
+        owner.MarkCommitOutcomeUnknown();
+
+        var outcomeUnknown = lifecycle.Snapshot;
+        await Assert.That(owner.Outcome)
+            .IsEqualTo(MutableTransactionOutcome.ExternalCompletionUnknown);
+        await Assert.That(outcomeUnknown.RowKind).IsEqualTo(MutableRowKind.Existing);
+        await Assert.That(outcomeUnknown.BaselineKind).IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(outcomeUnknown.TransactionOwner).IsNull();
+        await Assert.That(outcomeUnknown.InvalidationReason)
+            .IsEqualTo(MutableInvalidationReason.ExternalCompletionUnknown);
+        await Assert.That(lifecycle.TryPromoteCommitted(owner)).IsFalse();
+    }
+
+    [Test]
     public async Task TransactionOwnership_ConcurrentCommitSnapshotsNeverTear()
     {
         using var provider = new IdentityProvider("provider-a");

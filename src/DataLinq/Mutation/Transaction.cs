@@ -579,7 +579,9 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                 }
                 catch (Exception providerFailure)
                 {
-                    var recoveryFailures = FinalizeCommitOutcomeUnknownState();
+                    var recoveryFailures = FinalizeUncertainCompletionState(
+                        MutableTransactionOutcome.CommitOutcomeUnknown,
+                        MutableInvalidationReason.CommitOutcomeUnknown);
                     AddManagedCompletionFailureContext(
                         providerFailure,
                         operation: "Commit",
@@ -628,7 +630,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             try
             {
                 var attachedRollbackWasAmbiguous =
-                    IsAttachedRollbackOutcomeAmbiguous();
+                    IsAttachedProviderTransactionUnavailable();
                 Exception? providerFailure = null;
                 try
                 {
@@ -661,9 +663,13 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                         rolledBack);
                 }
 
-                var cleanupFailures = FinalizeUncommittedState(
-                    outcome,
-                    invalidationReason);
+                var cleanupFailures = attachedRollbackWasAmbiguous
+                    ? FinalizeUncertainCompletionState(
+                        outcome,
+                        invalidationReason)
+                    : FinalizeUncommittedState(
+                        outcome,
+                        invalidationReason);
 
                 Volatile.Write(ref managedRollbackFinalizationState, 2);
                 var observerFailure = CaptureDeferredRolledBackStatusFailure();
@@ -754,17 +760,26 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         }
     }
 
-    private IReadOnlyList<Exception> FinalizeCommitOutcomeUnknownState()
+    private IReadOnlyList<Exception> FinalizeUncertainCompletionState(
+        MutableTransactionOutcome outcome,
+        MutableInvalidationReason invalidationReason)
     {
         var recoveryFailures = new List<Exception>();
 
-        MutableOwnership.MarkCommitOutcomeUnknown();
+        try
+        {
+            MarkMutableOwnershipOutcome(outcome);
+        }
+        catch (Exception exception)
+        {
+            recoveryFailures.Add(exception);
+        }
+
         foreach (var touchedMutable in touchedMutables)
         {
             try
             {
-                touchedMutable.Invalidate(
-                    MutableInvalidationReason.CommitOutcomeUnknown);
+                touchedMutable.Invalidate(invalidationReason);
             }
             catch (Exception exception)
             {
@@ -843,7 +858,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             "DataLinq invalidated transaction-derived state with an unknown rollback outcome; materialize fresh committed rows before continuing.");
     }
 
-    private bool IsAttachedRollbackOutcomeAmbiguous()
+    private bool IsAttachedProviderTransactionUnavailable()
     {
         if (!isAttachedTransaction)
             return false;
@@ -861,6 +876,33 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         }
     }
 
+    private void EnsureAttachedTransactionNotCompletedExternally(string operation)
+    {
+        if (!isAttachedTransaction ||
+            MutableOwnership.Outcome != MutableTransactionOutcome.Unresolved ||
+            !IsAttachedProviderTransactionUnavailable())
+        {
+            return;
+        }
+
+        var failure = CreateExternalCompletionFailure(operation);
+        var recoveryFailures = FinalizeUncertainCompletionState(
+            MutableTransactionOutcome.ExternalCompletionUnknown,
+            MutableInvalidationReason.ExternalCompletionUnknown);
+        AddManagedCompletionFailureContext(
+            failure,
+            operation,
+            MutableInvalidationReason.ExternalCompletionUnknown,
+            recoveryFailures);
+        throw failure;
+    }
+
+    private InvalidOperationException CreateExternalCompletionFailure(string operation) =>
+        new(
+            $"Cannot {operation} through transaction {TransactionID} because its attached provider transaction is no longer active. " +
+            "The original handle was completed or invalidated outside the DataLinq wrapper, so DataLinq cannot infer whether it committed or rolled back. " +
+            "Provider cache state was invalidated conservatively; dispose this wrapper and materialize fresh committed rows before continuing.");
+
     private void MarkMutableOwnershipOutcome(MutableTransactionOutcome outcome)
     {
         switch (outcome)
@@ -876,6 +918,9 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                 break;
             case MutableTransactionOutcome.CommitOutcomeUnknown:
                 MutableOwnership.MarkCommitOutcomeUnknown();
+                break;
+            case MutableTransactionOutcome.ExternalCompletionUnknown:
+                MutableOwnership.MarkExternalCompletionUnknown();
                 break;
             default:
                 throw new ArgumentOutOfRangeException(
@@ -1015,6 +1060,8 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     internal void EnsureMutationNotPoisoned(TransactionChangeType operation)
     {
         ThrowIfOperationInProgress($"execute {operation.ToString().ToLowerInvariant()}");
+        ThrowIfExternalCompletionUnknown(
+            $"execute {operation.ToString().ToLowerInvariant()}");
         ThrowIfCommitOutcomeUnknown(
             $"execute {operation.ToString().ToLowerInvariant()}",
             allowRollback: false);
@@ -1022,16 +1069,24 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         ThrowIfPoisoned($"execute {operation.ToString().ToLowerInvariant()}");
     }
 
-    internal void EnsureMutationCommitOutcomeKnown(TransactionChangeType operation) =>
+    internal void EnsureMutationCommitOutcomeKnown(TransactionChangeType operation)
+    {
+        var operationDescription =
+            $"execute {operation.ToString().ToLowerInvariant()}";
+        EnsureAttachedTransactionNotCompletedExternally(operationDescription);
+        ThrowIfExternalCompletionUnknown(operationDescription);
         ThrowIfCommitOutcomeUnknown(
-            $"execute {operation.ToString().ToLowerInvariant()}",
+            operationDescription,
             allowRollback: false);
+    }
 
     internal void EnsureCanRead(string operation)
     {
         if (IsDisposed)
             throw new ObjectDisposedException(nameof(Transaction));
 
+        EnsureAttachedTransactionNotCompletedExternally(operation);
+        ThrowIfExternalCompletionUnknown(operation);
         ThrowIfCommitOutcomeUnknown(operation, allowRollback: false);
 
         if (Status == DatabaseTransactionStatus.Committed)
@@ -1056,6 +1111,8 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
     internal void EnsureTerminalReadSourceFallbackAllowed(string operation)
     {
+        EnsureAttachedTransactionNotCompletedExternally(operation);
+        ThrowIfExternalCompletionUnknown(operation);
         ThrowIfCommitOutcomeUnknown(operation, allowRollback: false);
 
         if (MutableOwnership.Outcome is
@@ -1094,6 +1151,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         if (Volatile.Read(ref disposeState) != 0)
             throw new ObjectDisposedException(nameof(Transaction));
 
+        ThrowIfExternalCompletionUnknown(operation);
         ThrowIfCommitOutcomeUnknown(
             operation,
             allowRollback: !rejectPoisoned);
@@ -1184,6 +1242,19 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             $"{allowedRecovery} Materialize fresh committed rows before retrying through a new transaction.");
     }
 
+    private void ThrowIfExternalCompletionUnknown(string operation)
+    {
+        if (MutableOwnership.Outcome !=
+            MutableTransactionOutcome.ExternalCompletionUnknown)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"Cannot {operation} through transaction {TransactionID} because its attached provider transaction was completed or invalidated outside the DataLinq wrapper. " +
+            "DataLinq cannot infer whether it committed or rolled back. Only Dispose() remains legal; materialize fresh committed rows before retrying through a new transaction.");
+    }
+
     private void BeginInternalRead()
     {
         var threadId = Environment.CurrentManagedThreadId;
@@ -1235,7 +1306,22 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             var ownershipOutcome = MutableOwnership.Outcome;
             var commitOutcomeUnknown =
                 ownershipOutcome == MutableTransactionOutcome.CommitOutcomeUnknown;
+            var externalCompletionAlreadyKnown =
+                ownershipOutcome == MutableTransactionOutcome.ExternalCompletionUnknown;
+            var attachedProviderTransactionUnavailable =
+                IsAttachedProviderTransactionUnavailable();
+            var externalCompletionDetected =
+                ownershipOutcome == MutableTransactionOutcome.Unresolved &&
+                attachedProviderTransactionUnavailable;
+            var externalCompletionUnknown =
+                externalCompletionAlreadyKnown || externalCompletionDetected;
+            var suppressRolledBackObservation =
+                externalCompletionUnknown ||
+                (attachedProviderTransactionUnavailable && ownershipOutcome is
+                    MutableTransactionOutcome.CommitOutcomeUnknown or
+                    MutableTransactionOutcome.RollbackOutcomeUnknown);
             var finalizeOpenTransaction = commitOutcomeUnknown ||
+                externalCompletionDetected ||
                 (ownershipOutcome == MutableTransactionOutcome.Unresolved &&
                  Status != DatabaseTransactionStatus.Committed &&
                  Status != DatabaseTransactionStatus.RolledBack);
@@ -1252,6 +1338,9 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                     providerFailure = exception;
                 }
 
+                if (externalCompletionDetected && providerFailure is null)
+                    providerFailure = CreateExternalCompletionFailure("dispose");
+
                 IReadOnlyList<Exception> cleanupFailures;
                 MutableInvalidationReason? invalidationReason =
                     MutableOwnership.InvalidationReason;
@@ -1259,13 +1348,21 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                 {
                     var terminalOutcome = commitOutcomeUnknown
                         ? MutableTransactionOutcome.CommitOutcomeUnknown
-                        : MutableTransactionOutcome.OpenTransactionDisposed;
+                        : externalCompletionDetected
+                            ? MutableTransactionOutcome.ExternalCompletionUnknown
+                            : MutableTransactionOutcome.OpenTransactionDisposed;
                     invalidationReason = commitOutcomeUnknown
                         ? MutableInvalidationReason.CommitOutcomeUnknown
-                        : MutableInvalidationReason.OpenTransactionDisposed;
-                    cleanupFailures = FinalizeUncommittedState(
-                        terminalOutcome,
-                        invalidationReason.Value);
+                        : externalCompletionDetected
+                            ? MutableInvalidationReason.ExternalCompletionUnknown
+                            : MutableInvalidationReason.OpenTransactionDisposed;
+                    cleanupFailures = externalCompletionDetected
+                        ? FinalizeUncertainCompletionState(
+                            terminalOutcome,
+                            invalidationReason.Value)
+                        : FinalizeUncommittedState(
+                            terminalOutcome,
+                            invalidationReason.Value);
                 }
                 else
                 {
@@ -1277,7 +1374,9 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                 }
 
                 Volatile.Write(ref managedRollbackFinalizationState, 2);
-                var observerFailure = CaptureDeferredRolledBackStatusFailure();
+                var observerFailure = suppressRolledBackObservation
+                    ? null
+                    : CaptureDeferredRolledBackStatusFailure();
                 ThrowManagedCompletionFailures(
                     operation: "Dispose",
                     invalidationReason,

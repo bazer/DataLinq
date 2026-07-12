@@ -27,6 +27,7 @@ internal enum MutableInvalidationReason
     OpenTransactionDisposed,
     MutationFailed,
     CommitOutcomeUnknown,
+    ExternalCompletionUnknown,
     CommittedStateFinalizationFailed
 }
 
@@ -38,6 +39,7 @@ internal enum MutableTransactionOutcome
     RollbackOutcomeUnknown,
     OpenTransactionDisposed,
     CommitOutcomeUnknown,
+    ExternalCompletionUnknown,
     CommittedStateFinalizationFailed
 }
 
@@ -84,6 +86,9 @@ internal sealed class MutableTransactionOwnership
     internal void MarkCommitOutcomeUnknown() =>
         MarkTerminal(MutableTransactionOutcome.CommitOutcomeUnknown);
 
+    internal void MarkExternalCompletionUnknown() =>
+        MarkTerminal(MutableTransactionOutcome.ExternalCompletionUnknown);
+
     private void MarkTerminal(MutableTransactionOutcome terminalOutcome) =>
         Interlocked.CompareExchange(
             ref outcome,
@@ -102,6 +107,8 @@ internal sealed class MutableTransactionOwnership
                 MutableInvalidationReason.OpenTransactionDisposed,
             MutableTransactionOutcome.CommitOutcomeUnknown =>
                 MutableInvalidationReason.CommitOutcomeUnknown,
+            MutableTransactionOutcome.ExternalCompletionUnknown =>
+                MutableInvalidationReason.ExternalCompletionUnknown,
             MutableTransactionOutcome.CommittedStateFinalizationFailed =>
                 MutableInvalidationReason.CommittedStateFinalizationFailed,
             _ => null

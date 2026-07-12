@@ -9,7 +9,7 @@
 **Goal:** Define consistent semantics for reusing the same mutable instance across `Insert`, `Update`, and `Save` calls, especially when explicit transactions, rollback, and cache baselines are involved.
 **0.9 execution plan:** [SQL Transaction and Mutable Lifecycle Implementation Plan](../roadmap-implementation/v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md).
 
-**Implementation progress:** The bounded provenance/guard, touched-authority, confirmed-commit, known-committed recovery, mutation-poisoning, managed-wrapper rollback/open-disposal, managed provider-call uncertainty-recovery, and active attached wrapper commit/rollback slices are implemented. A throwing managed `Commit()` becomes permanently `CommitOutcomeUnknown`; transaction-derived state is invalidated, managed reuse is rejected, and provider-wide committed rows/indices are conservatively evicted before recovery notifications. Active attached transactions now promote or invalidate through wrapper-only commit/rollback across all providers, while wrapper commit after external completion is rejected into the unknown-outcome recovery path. This restores cache safety without pretending to know whether the database committed. Provider-specific outcome evidence, external completion followed by managed read/write/dispose, raw-handle closure, arbitrary local-cleanup fault injection, full provider commit-fault evidence, and full concurrency remain open; this specification does not turn those gaps into shipped support.
+**Implementation progress:** The bounded provenance/guard, touched-authority, confirmed-commit, known-committed recovery, mutation-poisoning, managed-wrapper rollback/open-disposal, managed provider-call uncertainty-recovery, active attached wrapper completion, and inactive attached-handle detection/recovery slices are implemented. A throwing managed `Commit()` becomes permanently `CommitOutcomeUnknown`; transaction-derived state is invalidated, managed reuse is rejected, and provider-wide committed rows/indices are conservatively evicted before recovery notifications. Active attached transactions promote or invalidate through wrapper-only commit/rollback across all providers. If the original attached handle is completed externally, wrapper commit and rollback retain their distinct unknown-outcome diagnostics, while first managed read/write/fallback/dispose records permanent `ExternalCompletionUnknown`; all of those paths invalidate transaction-derived state and recover caches without pretending to know whether the database committed. Provider-specific outcome evidence after a throwing commit, raw low-level escape prevention, arbitrary local-cleanup fault injection, full provider commit-fault evidence, and full concurrency remain open; this specification does not turn those gaps into shipped support.
 
 ## 1. Design Position
 
@@ -251,8 +251,8 @@ Runtime mutable instances need explicit lifecycle/provenance state. The implemen
 
 - baseline kinds: new/no baseline, committed, transaction-local, invalid
 - row kinds: new, existing, or deleted
-- invalidation reasons: `RolledBack`, `RollbackOutcomeUnknown`, `OpenTransactionDisposed`, `MutationFailed`, `CommitOutcomeUnknown`, and `CommittedStateFinalizationFailed`
-- transaction-owner outcomes: unresolved, committed, rolled back, rollback outcome unknown, open transaction disposed, commit outcome unknown, or committed-state finalization failed
+- invalidation reasons: `RolledBack`, `RollbackOutcomeUnknown`, `OpenTransactionDisposed`, `MutationFailed`, `CommitOutcomeUnknown`, `ExternalCompletionUnknown`, and `CommittedStateFinalizationFailed`
+- transaction-owner outcomes: unresolved, committed, rolled back, rollback outcome unknown, open transaction disposed, commit outcome unknown, external completion unknown, or committed-state finalization failed
 
 The exact names are not important. The important part is that the mutable knows:
 
@@ -298,7 +298,7 @@ On direct disposal of an open or poisoned managed wrapper:
 
 Do not promote mutable baselines before the commit completes.
 
-For attached external transactions, once DataLinq writes through the wrapper and binds a mutable to it, completion must also be observed through the DataLinq wrapper. If external completion cannot be observed reliably, the touched mutable baselines are invalid rather than guessed committed.
+For attached external transactions, once DataLinq writes through the wrapper and binds a mutable to it, completion must also be observed through the DataLinq wrapper. If the original handle is instead completed externally, supported providers expose it as inactive. The wrapper then rejects continued managed use, permanently invalidates touched/token-derived baselines, removes scoped state, and evicts provider-wide committed caches because the external action may have committed. Wrapper `Commit()` and `Rollback()` preserve their operation-specific unknown outcomes; first managed read, write, fallback, or disposal records `ExternalCompletionUnknown`. None of those classifications guesses the database result.
 
 ## 7. API Guard Rules
 
@@ -375,5 +375,7 @@ Add compliance tests for SQLite, MySQL, and MariaDB covering:
 - [x] Keep failed-write assignments inspectable while preventing an untrusted baseline from becoming writable.
 - [x] Recover conservatively from a throwing managed provider `Commit()` with permanent `CommitOutcomeUnknown`, managed-operation rejection, touched/scoped cleanup, provider-wide committed-cache eviction, and exact-cause-preserving recovery-failure context.
 - [x] Prove active attached wrapper-only commit promotion/reuse and rollback invalidation across every provider, and reject wrapper commit after external completion into conservative unknown-outcome cache recovery.
-- [ ] Complete the remaining provider/terminal matrix. Owned and active-attached wrapper commit/rollback plus bounded managed uncertainty recovery are covered; provider-specific database-outcome evidence, external completion followed by managed read/write/dispose, raw handles, arbitrary local-cleanup fault injection, full provider commit-fault evidence, and full concurrency remain open.
+- [x] Detect an inactive attached original handle before managed read/write/fallback/dispose, classify it as `ExternalCompletionUnknown`, recover provider-wide caches, block later managed work except disposal, and prove actual external commit/rollback rematerialization across every provider.
+- [x] Recover provider-wide caches when wrapper `Rollback()` first observes an externally completed attached handle, while retaining `RollbackOutcomeUnknown` instead of guessing the external result.
+- [ ] Complete the remaining provider/terminal matrix. Owned and active-attached wrapper completion plus bounded managed uncertainty recovery are covered; provider-specific database-outcome evidence after a throwing commit, raw low-level escapes, arbitrary local-cleanup fault injection, full provider commit-fault evidence, and full concurrency remain open.
 - [ ] Update public shipped docs after the full supported lifecycle/provider boundary, including attached/external policy, is ready to claim.

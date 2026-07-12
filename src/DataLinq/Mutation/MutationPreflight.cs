@@ -682,6 +682,7 @@ internal static class MutationPreflight
             MutableInvalidationReason.OpenTransactionDisposed => "its open transaction was disposed",
             MutableInvalidationReason.MutationFailed => "a mutation failed",
             MutableInvalidationReason.CommitOutcomeUnknown => "the commit outcome is unknown",
+            MutableInvalidationReason.ExternalCompletionUnknown => "the attached transaction was completed externally with an unknown outcome",
             MutableInvalidationReason.CommittedStateFinalizationFailed => "the database committed but local state finalization failed",
             _ => "the lifecycle origin is unavailable"
         };

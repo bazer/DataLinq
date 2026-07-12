@@ -4,7 +4,7 @@
 
 **Status:** Accepted.
 
-**Last reviewed:** 2026-07-10.
+**Last reviewed:** 2026-07-12.
 
 **Target:** 0.9, before any memory mutation or cross-provider transaction-parity claim.
 
@@ -217,7 +217,7 @@ Recommended contract:
 - `AttachTransaction` supports DataLinq-managed writes with normal overlay semantics after attachment.
 - raw writes performed before attachment are outside DataLinq's cache model
 - docs and tests should distinguish "same attached transaction can read its own raw writes" from "outside DataLinq reads should not see attached raw writes"
-- once DataLinq has touched a mutable through an attached transaction, commit or rollback must be observed through the DataLinq wrapper; unknown external completion invalidates the touched mutable baseline
+- once DataLinq has touched a mutable through an attached transaction, commit or rollback must be observed through the DataLinq wrapper; supported providers now detect an inactive original handle before later managed read/write/fallback/dispose, invalidate transaction-derived baselines, and evict caches conservatively without guessing whether the external action committed or rolled back
 
 ## Test Strategy
 

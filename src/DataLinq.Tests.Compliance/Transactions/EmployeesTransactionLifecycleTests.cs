@@ -19,6 +19,14 @@ public class EmployeesTransactionLifecycleTests
     private readonly EmployeesTestData _employees = new();
     private const int ConcurrentTransactionCount = 4;
 
+    private enum ExternalWrapperOperation
+    {
+        Read,
+        Write,
+        Rollback,
+        Dispose
+    }
+
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_AttachExternalTransactionExposesUncommittedRows(TestProviderDescriptor provider)
@@ -167,6 +175,61 @@ public class EmployeesTransactionLifecycleTests
             employeeNumber: 999703,
             commitExternally: false);
 
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public Task Transaction_ExternalCommitThenWrapperRead_RecoversCachesAndRejectsTheRead(
+        TestProviderDescriptor provider) =>
+        AssertExternalCompletionThenWrapperOperation(
+            provider,
+            nameof(Transaction_ExternalCommitThenWrapperRead_RecoversCachesAndRejectsTheRead),
+            employeeNumber: 999704,
+            commitExternally: true,
+            ExternalWrapperOperation.Read);
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public Task Transaction_ExternalRollbackThenWrapperWrite_RecoversCachesAndRejectsTheWrite(
+        TestProviderDescriptor provider) =>
+        AssertExternalCompletionThenWrapperOperation(
+            provider,
+            nameof(Transaction_ExternalRollbackThenWrapperWrite_RecoversCachesAndRejectsTheWrite),
+            employeeNumber: 999705,
+            commitExternally: false,
+            ExternalWrapperOperation.Write);
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public Task Transaction_ExternalCommitThenWrapperDispose_RecoversCachesAndReportsAmbiguity(
+        TestProviderDescriptor provider) =>
+        AssertExternalCompletionThenWrapperOperation(
+            provider,
+            nameof(Transaction_ExternalCommitThenWrapperDispose_RecoversCachesAndReportsAmbiguity),
+            employeeNumber: 999706,
+            commitExternally: true,
+            ExternalWrapperOperation.Dispose);
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public Task Transaction_ExternalCommitThenWrapperRollback_RecoversCachesAndReportsAmbiguity(
+        TestProviderDescriptor provider) =>
+        AssertExternalCompletionThenWrapperOperation(
+            provider,
+            nameof(Transaction_ExternalCommitThenWrapperRollback_RecoversCachesAndReportsAmbiguity),
+            employeeNumber: 999707,
+            commitExternally: true,
+            ExternalWrapperOperation.Rollback);
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public Task Transaction_ExternalRollbackThenWrapperRollback_RecoversCachesAndReportsAmbiguity(
+        TestProviderDescriptor provider) =>
+        AssertExternalCompletionThenWrapperOperation(
+            provider,
+            nameof(Transaction_ExternalRollbackThenWrapperRollback_RecoversCachesAndReportsAmbiguity),
+            employeeNumber: 999708,
+            commitExternally: false,
+            ExternalWrapperOperation.Rollback);
+
     private async Task AssertExternalCompletionThenWrapperCommit(
         TestProviderDescriptor provider,
         string testName,
@@ -196,6 +259,9 @@ public class EmployeesTransactionLifecycleTests
         else
             providerTransaction.Rollback();
 
+        await Assert.That(providerTransaction.Connection?.State)
+            .IsNotEqualTo(ConnectionState.Open);
+
         var failure = Capture<Exception>(transaction.Commit);
 
         await Assert.That(transaction.Status)
@@ -218,6 +284,109 @@ public class EmployeesTransactionLifecycleTests
 
         var reuseFailure = Capture<MutationGuardException>(() => database.Update(mutable));
         await Assert.That(reuseFailure.Message).Contains("commit outcome is unknown");
+    }
+
+    private async Task AssertExternalCompletionThenWrapperOperation(
+        TestProviderDescriptor provider,
+        string testName,
+        int employeeNumber,
+        bool commitExternally,
+        ExternalWrapperOperation operation)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            testName,
+            EmployeesSeedMode.Bogus);
+        var database = databaseScope.Database;
+        var baseline = _employees.GetOrCreateEmployee(employeeNumber, database).Mutate();
+        baseline.first_name = "Bob";
+        database.Update(baseline);
+        var mutable = database.Query().Employees.Single(x => x.emp_no == employeeNumber).Mutate();
+
+        using IDbConnection connection = database.Provider.GetDbConnection();
+        connection.Open();
+        using var providerTransaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
+        using var transaction = database.AttachTransaction(providerTransaction);
+        var observedRolledBack = false;
+        transaction.OnStatusChanged += (_, args) =>
+            observedRolledBack |= args.Status == DatabaseTransactionStatus.RolledBack;
+
+        mutable.first_name = "Rick";
+        var transactionEmployee = transaction.Update(mutable);
+
+        if (commitExternally)
+            providerTransaction.Commit();
+        else
+            providerTransaction.Rollback();
+
+        await Assert.That(providerTransaction.Connection?.State)
+            .IsNotEqualTo(ConnectionState.Open);
+
+        InvalidOperationException failure;
+        switch (operation)
+        {
+            case ExternalWrapperOperation.Read:
+                failure = Capture<InvalidOperationException>(() =>
+                    _ = transaction.Query().Employees.Single(x => x.emp_no == employeeNumber));
+                break;
+            case ExternalWrapperOperation.Write:
+                mutable.first_name = "Morty";
+                failure = Capture<InvalidOperationException>(() => transaction.Update(mutable));
+                break;
+            case ExternalWrapperOperation.Rollback:
+                failure = Capture<InvalidOperationException>(transaction.Rollback);
+                break;
+            case ExternalWrapperOperation.Dispose:
+                failure = Capture<InvalidOperationException>(transaction.Dispose);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(operation), operation, null);
+        }
+
+        if (operation != ExternalWrapperOperation.Rollback)
+            await Assert.That(failure.Message).Contains("outside the DataLinq wrapper");
+
+        var expectedOutcome = operation == ExternalWrapperOperation.Rollback
+            ? MutableTransactionOutcome.RollbackOutcomeUnknown
+            : MutableTransactionOutcome.ExternalCompletionUnknown;
+        var expectedInvalidationReason = operation == ExternalWrapperOperation.Rollback
+            ? MutableInvalidationReason.RollbackOutcomeUnknown
+            : MutableInvalidationReason.ExternalCompletionUnknown;
+        await Assert.That(failure.Data["DataLinq.MutableInvalidationReason"])
+            .IsEqualTo(expectedInvalidationReason.ToString());
+        await Assert.That(transaction.MutableOwnership.Outcome)
+            .IsEqualTo(expectedOutcome);
+        await Assert.That(transaction.TouchedMutables).IsEmpty();
+        await Assert.That(mutable.Lifecycle.BaselineKind)
+            .IsEqualTo(MutableBaselineKind.Invalid);
+        await Assert.That(mutable.Lifecycle.InvalidationReason)
+            .IsEqualTo(expectedInvalidationReason);
+        await Assert.That(database.Provider.State.Cache.TableCaches.Values.All(
+            IsStructurallyEmpty)).IsTrue();
+
+        if (operation != ExternalWrapperOperation.Dispose)
+        {
+            var fallbackFailure = Capture<InvalidOperationException>(() =>
+                _ = transactionEmployee.GetReadSource());
+            await Assert.That(fallbackFailure.Message).Contains(
+                operation == ExternalWrapperOperation.Rollback
+                    ? "fresh committed"
+                    : "cannot infer whether it committed or rolled back");
+            transaction.Dispose();
+        }
+
+        await Assert.That(transaction.IsDisposed).IsTrue();
+        await Assert.That(observedRolledBack).IsFalse();
+
+        var persisted = database.Query().Employees.Single(x => x.emp_no == employeeNumber);
+        await Assert.That(persisted.first_name)
+            .IsEqualTo(commitExternally ? "Rick" : "Bob");
+
+        var reuseFailure = Capture<MutationGuardException>(() => database.Update(mutable));
+        await Assert.That(reuseFailure.Message).Contains(
+            operation == ExternalWrapperOperation.Rollback
+                ? "rollback outcome is unknown"
+                : "completed externally with an unknown outcome");
     }
 
     [Test]
