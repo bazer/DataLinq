@@ -77,7 +77,47 @@ public sealed class ProviderRowDecoderTests
         await Assert.That(thrown).IsSameReferenceAs(cancellation);
     }
 
-    private static TableDefinition CreateTable(RecordingIdConverter converter)
+    [Test]
+    public async Task KeyFactory_ScalarConvertedReaderKeyStaysCanonicalWithoutModelConversion()
+    {
+        var converter = new RecordingIdConverter();
+        var table = CreateTable(converter, primaryKeyAfterName: true);
+        var reader = new RecordingReader([42]);
+
+        var key = KeyFactory.GetKey(reader, table.PrimaryKeyColumns);
+
+        await Assert.That(key.GetValue(0)).IsEqualTo(42);
+        await Assert.That(key.GetValue(0)).IsTypeOf<int>();
+        await Assert.That(reader.Int32Reads).IsEqualTo(1);
+        await Assert.That(reader.GenericColumnReads).IsEqualTo(0);
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
+        await Assert.That(table.PrimaryKeyColumns[0].Index).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task KeyFactory_ScalarConvertedReaderFailureKeepsKeySelectionContext()
+    {
+        var converter = new RecordingIdConverter();
+        var table = CreateTable(converter, primaryKeyAfterName: true);
+        var physicalFailure = new FormatException("secret key payload");
+        var reader = new RecordingReader([42])
+        {
+            Int32Failure = physicalFailure
+        };
+
+        var exception = Capture<ProviderValueDecodingException>(() =>
+            KeyFactory.GetKey(reader, table.PrimaryKeyColumns));
+
+        await Assert.That(exception.InnerException).IsSameReferenceAs(physicalFailure);
+        await Assert.That(exception.SourceName).IsEqualTo("reader.key-selection");
+        await Assert.That(exception.Column).IsSameReferenceAs(table.PrimaryKeyColumns[0]);
+        await Assert.That(exception.Message).DoesNotContain("secret key payload");
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
+    }
+
+    private static TableDefinition CreateTable(
+        RecordingIdConverter converter,
+        bool primaryKeyAfterName = false)
     {
         var scalarConverter = new MetadataScalarConverterDraft(
             new CsTypeDeclaration(typeof(ModelId)),
@@ -87,6 +127,17 @@ public sealed class ProviderRowDecoderTests
         {
             Origin = ScalarConverterOrigin.Property
         };
+        var idProperty = new MetadataValuePropertyDraft(
+            "Id",
+            new CsTypeDeclaration(typeof(ModelId)),
+            new MetadataColumnDraft("id") { PrimaryKey = true })
+        {
+            ScalarConverter = scalarConverter
+        };
+        var nameProperty = new MetadataValuePropertyDraft(
+            "Name",
+            new CsTypeDeclaration(typeof(string)),
+            new MetadataColumnDraft("name"));
         var draft = new MetadataDatabaseDraft(
             "ProviderRowDecoderDb",
             new CsTypeDeclaration(typeof(ProviderRowDecoderTests)))
@@ -97,20 +148,9 @@ public sealed class ProviderRowDecoderTests
                     "Rows",
                     new MetadataModelDraft(new CsTypeDeclaration(typeof(DecoderRowModel)))
                     {
-                        ValueProperties =
-                        [
-                            new MetadataValuePropertyDraft(
-                                "Id",
-                                new CsTypeDeclaration(typeof(ModelId)),
-                                new MetadataColumnDraft("id") { PrimaryKey = true })
-                            {
-                                ScalarConverter = scalarConverter
-                            },
-                            new MetadataValuePropertyDraft(
-                                "Name",
-                                new CsTypeDeclaration(typeof(string)),
-                                new MetadataColumnDraft("name"))
-                        ]
+                        ValueProperties = primaryKeyAfterName
+                            ? [nameProperty, idProperty]
+                            : [idProperty, nameProperty]
                     },
                     new MetadataTableDraft("materialization_rows"))
             ]

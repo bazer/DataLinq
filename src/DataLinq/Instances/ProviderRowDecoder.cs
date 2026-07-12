@@ -23,37 +23,63 @@ internal static class ProviderRowDecoder
         for (var ordinal = 0; ordinal < table.ColumnCount; ordinal++)
         {
             var column = table.Columns[ordinal];
-            object? canonicalValue = null;
-            var valueProduced = false;
-
-            try
-            {
-                canonicalValue = reader.IsDbNull(ordinal)
-                    ? null
-                    : DecodeNonNullValue(reader, column, ordinal);
-                valueProduced = true;
-                CanonicalProviderValueRow.ValidateCanonicalValue(
-                    column,
-                    canonicalValue,
-                    nameof(canonicalValue));
-                canonicalValues[ordinal] = canonicalValue;
-            }
-            catch (Exception exception) when (
-                exception is not ProviderValueDecodingException and
-                not OperationCanceledException and
-                not OutOfMemoryException and
-                not AccessViolationException)
-            {
-                throw new ProviderValueDecodingException(
-                    column,
-                    sourceName,
-                    valueProduced,
-                    canonicalValue,
-                    exception);
-            }
+            canonicalValues[ordinal] = DecodeCanonicalValueCore(
+                reader,
+                column,
+                ordinal,
+                sourceName);
         }
 
         return CanonicalProviderValueRow.Create(table, canonicalValues);
+    }
+
+    internal static object? DecodeCanonicalValue(
+        IDataLinqDataReader reader,
+        ColumnDefinition column,
+        int ordinal,
+        string sourceName)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        ArgumentNullException.ThrowIfNull(column);
+        ProviderRowMaterializer.ValidateSourceName(sourceName);
+
+        return DecodeCanonicalValueCore(reader, column, ordinal, sourceName);
+    }
+
+    private static object? DecodeCanonicalValueCore(
+        IDataLinqDataReader reader,
+        ColumnDefinition column,
+        int ordinal,
+        string sourceName)
+    {
+        object? canonicalValue = null;
+        var valueProduced = false;
+
+        try
+        {
+            canonicalValue = reader.IsDbNull(ordinal)
+                ? null
+                : DecodeNonNullValue(reader, column, ordinal);
+            valueProduced = true;
+            CanonicalProviderValueRow.ValidateCanonicalValue(
+                column,
+                canonicalValue,
+                nameof(canonicalValue));
+            return canonicalValue;
+        }
+        catch (Exception exception) when (
+            exception is not ProviderValueDecodingException and
+            not OperationCanceledException and
+            not OutOfMemoryException and
+            not AccessViolationException)
+        {
+            throw new ProviderValueDecodingException(
+                column,
+                sourceName,
+                valueProduced,
+                canonicalValue,
+                exception);
+        }
     }
 
     private static object DecodeNonNullValue(

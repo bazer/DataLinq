@@ -7,7 +7,6 @@ using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
-using DataLinq.Query;
 using DataLinq.Testing;
 
 namespace DataLinq.Tests.Compliance;
@@ -63,25 +62,21 @@ public sealed class TypedIdPredicateTranslationTests
             "INSERT INTO typedidqueryrows (id, parent_id, name) VALUES " +
             "(101, NULL, 'alpha'), (102, 101, 'beta'), (103, 101, 'gamma')");
         var database = databaseScope.Database;
-        var table = database.Provider.Metadata.GetTableModel(typeof(TypedIdQueryRow)).Table;
-        var tableCache = database.Provider.GetTableCache(table);
-        var readOnlyAccess = database.Provider.ReadOnlyAccess;
-        var selectedProviderIds = new[] { 101, 103 };
+        var selectedIds = new[] { new QueryTypedId(101), new QueryTypedId(103) };
 
         database.Provider.State.ClearCache();
 
         DataLinqMetrics.Reset();
-        var coldRows = tableCache
-            .GetRows(selectedProviderIds, readOnlyAccess)
-            .Cast<TypedIdQueryRow>()
+        var coldRows = database.Query().Rows
+            .Where(row => selectedIds.Contains(row.Id))
             .ToList();
         var coldSnapshot = DataLinqMetrics.Snapshot();
 
         await Assert.That(inserted).IsEqualTo(3);
         await Assert.That(coldRows.Select(static row => row.Id).ToArray())
             .IsEquivalentTo(new[] { new QueryTypedId(101), new QueryTypedId(103) });
-        await Assert.That(coldSnapshot.Queries.EntityExecutions).IsEqualTo(0);
-        await Assert.That(coldSnapshot.Commands.ReaderExecutions).IsEqualTo(1);
+        await Assert.That(coldSnapshot.Queries.EntityExecutions).IsEqualTo(1);
+        await Assert.That(coldSnapshot.Commands.ReaderExecutions).IsEqualTo(2);
         await Assert.That(coldSnapshot.RowCache.Hits).IsEqualTo(0);
         await Assert.That(coldSnapshot.RowCache.Misses).IsEqualTo(2);
         await Assert.That(coldSnapshot.RowCache.Stores).IsEqualTo(2);
@@ -89,26 +84,24 @@ public sealed class TypedIdPredicateTranslationTests
         await Assert.That(coldSnapshot.RowCache.Materializations).IsEqualTo(2);
 
         database.Provider.State.ClearCache();
-        var warmRow = (TypedIdQueryRow)(tableCache.GetRow(103, readOnlyAccess) ??
-            throw new InvalidOperationException("Expected the canonical warm-up key to load a row."));
+        var warmId = new QueryTypedId(103);
+        var warmRow = database.Query().Rows
+            .Single(row => row.Id == warmId);
 
         DataLinqMetrics.Reset();
-        var orderedRows = tableCache
-            .GetRows(
-                selectedProviderIds,
-                readOnlyAccess,
-                [new OrderBy(table.GetColumnByDbName("name"), alias: null, ascending: true)])
-            .Cast<TypedIdQueryRow>()
+        var orderedRows = database.Query().Rows
+            .Where(row => selectedIds.Contains(row.Id))
+            .OrderByDescending(row => row.Name)
             .ToList();
         var mixedSnapshot = DataLinqMetrics.Snapshot();
 
         await Assert.That(orderedRows.Count).IsEqualTo(2);
-        await Assert.That(orderedRows[0].Name).IsEqualTo("alpha");
-        await Assert.That(orderedRows[1].Name).IsEqualTo("gamma");
+        await Assert.That(orderedRows[0].Name).IsEqualTo("gamma");
+        await Assert.That(orderedRows[1].Name).IsEqualTo("alpha");
         await Assert.That(orderedRows.Single(row => row.Id == new QueryTypedId(103)))
             .IsSameReferenceAs(warmRow);
-        await Assert.That(mixedSnapshot.Queries.EntityExecutions).IsEqualTo(0);
-        await Assert.That(mixedSnapshot.Commands.ReaderExecutions).IsEqualTo(1);
+        await Assert.That(mixedSnapshot.Queries.EntityExecutions).IsEqualTo(1);
+        await Assert.That(mixedSnapshot.Commands.ReaderExecutions).IsEqualTo(2);
         await Assert.That(mixedSnapshot.RowCache.Hits).IsEqualTo(1);
         await Assert.That(mixedSnapshot.RowCache.Misses).IsEqualTo(1);
         await Assert.That(mixedSnapshot.RowCache.Stores).IsEqualTo(1);

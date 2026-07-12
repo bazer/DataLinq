@@ -656,8 +656,9 @@ W2 is complete. W3 is proceeding independently, while W4 remains the next query-
 - [x] Keep converter-backed `MutableRowData` assignments in the public model domain: validate the resolved model CLR type, reject canonical provider values without converter calls or partial mutation, and preserve primitive identity-column conversion behavior.
 - [x] Freeze `UUID-1A` declaration vocabulary and strict codec primitives, validate raw provider/format uniqueness, and preserve declarations through source parsing, metadata merge/model regeneration, source-generated runtime metadata, and equivalence digests without claiming provider integration.
 - [x] Complete `UUID-1B` provider-keyed resolved metadata, canonical-`Guid`/typed-ID eligibility, built-in effective provider-type selection, deterministic compatibility defaults, physical compatibility diagnostics, durable provider-snapshot ambiguity, generated resolved-format metadata, and inconsistent carried-definition rejection without changing provider reads or writes.
-- [ ] Complete SC-2 for indexed defaults, rows with unknown non-auto keys, collation/codec-sensitive primary keys, UUID provider integration, initial typed-ID key selection, remaining reader/query conversion, and foreign-key/relation/index routing; bounded integral-canonical primary-key/cache-cold loading and converter-backed non-indexed default hydration are green.
-- [ ] Complete SC-3 reader-sourced and external relation/index lookup normalization without losing operand provenance.
+- [ ] Complete SC-2 for indexed defaults, rows with unknown non-auto keys, collation/codec-sensitive primary keys, UUID provider integration, remaining reader/query conversion, and foreign-key/relation/index routing; bounded integral-canonical primary-key/cache-cold loading and converter-backed non-indexed default hydration are green.
+- [x] Decode scalar converter-backed primary-key projections to canonical provider values before `DataLinqKey` construction and cache handoff, preserving converted typed-store and terminal-fast-path gates.
+- [ ] Complete SC-3 composite/joined reader-key and external relation/index lookup normalization without losing operand provenance.
 
 ## Baseline Versus Final Evidence
 
