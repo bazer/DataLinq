@@ -282,6 +282,70 @@ public class MetadataTransformerTests
         return new MetadataDefinitionFactory().Build(draft).ValueOrException();
     }
 
+    private static DatabaseDefinition CreateGuidStorageTransformDatabase(bool source)
+    {
+        Attribute[] attributes = source
+            ?
+            [
+                new ColumnAttribute("id"),
+                new PrimaryKeyAttribute(),
+                new GuidStorageAttribute(GuidStorageFormat.Text36),
+                new GuidStorageAttribute(
+                    DatabaseType.MySQL,
+                    GuidStorageFormat.Binary16Rfc4122)
+            ]
+            :
+            [
+                new ColumnAttribute("id"),
+                new PrimaryKeyAttribute(),
+                new GuidStorageAttribute(
+                    DatabaseType.MySQL,
+                    GuidStorageFormat.Binary16LittleEndian),
+                new GuidStorageAttribute(
+                    DatabaseType.SQLite,
+                    GuidStorageFormat.Text36)
+            ];
+
+        return Build(new MetadataDatabaseDraft(
+            "GuidTransformDb",
+            new CsTypeDeclaration(
+                source ? "GuidTransformDb" : "guid_transform_db",
+                source ? "SourceNamespace" : "RawNamespace",
+                ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration(
+                        source ? "GuidTransformRow" : "guid_transform_row",
+                        source ? "SourceNamespace" : "RawNamespace",
+                        ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                source ? "Id" : "id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes =
+                                    [
+                                        new DatabaseColumnType(DatabaseType.MySQL, "binary", 16),
+                                        new DatabaseColumnType(DatabaseType.SQLite, "TEXT")
+                                    ]
+                                })
+                            {
+                                Attributes = attributes
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("guid_transform_rows"))
+            ]
+        });
+    }
+
     [Test]
     public async Task TransformDatabaseSnapshot_AppliesNamesAndAttributes()
     {
@@ -321,6 +385,33 @@ public class MetadataTransformerTests
         await Assert.That(destinationModel.RelationProperties.ContainsKey("RelatedItems")).IsTrue();
         await Assert.That(destinationModel.RelationProperties.ContainsKey("rel_prop_db")).IsFalse();
         await Assert.That(destinationModel.RelationProperties["RelatedItems"].PropertyName).IsEqualTo("RelatedItems");
+    }
+
+    [Test]
+    public async Task TransformDatabaseSnapshot_GuidStorage_SourceWinsPerProviderAndPreservesOthers()
+    {
+        var sourceDatabase = CreateGuidStorageTransformDatabase(source: true);
+        var destinationDatabase = CreateGuidStorageTransformDatabase(source: false);
+        var transformer = new MetadataTransformer(new MetadataTransformerOptions());
+
+        var transformed = transformer.TransformDatabaseSnapshot(
+            sourceDatabase,
+            destinationDatabase);
+        var declarations = transformed.TableModels[0]
+            .Model.ValueProperties["Id"]
+            .Attributes
+            .OfType<GuidStorageAttribute>()
+            .OrderBy(x => x.DatabaseType)
+            .ToArray();
+
+        await Assert.That(declarations.Length).IsEqualTo(3);
+        await Assert.That(declarations[0].DatabaseType).IsEqualTo(DatabaseType.Default);
+        await Assert.That(declarations[0].Format).IsEqualTo(GuidStorageFormat.Text36);
+        await Assert.That(declarations[1].DatabaseType).IsEqualTo(DatabaseType.MySQL);
+        await Assert.That(declarations[1].Format)
+            .IsEqualTo(GuidStorageFormat.Binary16Rfc4122);
+        await Assert.That(declarations[2].DatabaseType).IsEqualTo(DatabaseType.SQLite);
+        await Assert.That(declarations[2].Format).IsEqualTo(GuidStorageFormat.Text36);
     }
 
     [Test]

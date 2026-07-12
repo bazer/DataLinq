@@ -223,6 +223,8 @@ Exit signal:
 
 The bounded 0.9 UUID storage slice begins with metadata/codec work after `SC-1` and consumes `SC-2` through `SC-5` at its provider, query/key, and validation boundaries. The granular prerequisites are defined by [UUID Storage Format Support](../../providers-and-features/UUID%20Storage%20Format%20Support.md); UUID work is not duplicated here.
 
+Bounded `UUID-1A` progress on 2026-07-12 freezes the public declaration vocabulary, preserves raw declarations through every generation surface, and implements strict canonical-`Guid`/physical codec primitives. It deliberately does not consume `SC-2`: provider-keyed resolved column metadata remains `UUID-1B`, and readers, writers, queries, keys, defaults, and schema behavior remain later UUID work.
+
 That slice is required because a canonical `Guid` does not say whether a given database column uses native UUID, text, little-endian `BINARY(16)`, or RFC-order `BINARY(16)`. UUID reads, writes, parameters, local membership, keys, relations, defaults, and validation must all use the same column codec.
 
 ## Verification Gates

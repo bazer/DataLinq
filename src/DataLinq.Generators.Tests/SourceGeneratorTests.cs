@@ -178,6 +178,58 @@ public class SourceGeneratorTests : GeneratorTestBase
     }
 
     [Test]
+    public async Task GeneratedMetadata_GuidStorageDeclarations_ArePreservedAndCompile()
+    {
+        var source = CSharpSyntaxTree.ParseText(
+            """
+            using DataLinq;
+            using DataLinq.Attributes;
+            using DataLinq.Instances;
+            using DataLinq.Interfaces;
+            using DataLinq.Mutation;
+
+            namespace GuidStorageGeneratorTest;
+
+            [Database("guid_storage")]
+            public partial class GuidStorageDb(DataSourceAccess dataSource) : IDatabaseModel<GuidStorageDb>
+            {
+                public DbRead<GuidStorageRow> Rows { get; } = new(dataSource);
+            }
+
+            [Table("guid_storage_rows")]
+            public abstract partial class GuidStorageRow(IRowData rowData, IDataSourceAccess dataSource)
+                : Immutable<GuidStorageRow, GuidStorageDb>(rowData, dataSource), ITableModel<GuidStorageDb>
+            {
+                [PrimaryKey]
+                [Type(DatabaseType.MySQL, "binary", 16)]
+                [Type(DatabaseType.SQLite, "TEXT")]
+                [GuidStorage(GuidStorageFormat.Text36)]
+                [GuidStorage(DatabaseType.MySQL, GuidStorageFormat.Binary16Rfc4122)]
+                [Column("id")]
+                public abstract System.Guid Id { get; }
+            }
+            """,
+            path: "GuidStorageGeneratorTest.cs");
+
+        var (outputCompilation, generatorDiagnostics, generatedTrees) =
+            RunGeneratorWithDiagnostics([source]);
+        var code = SyntaxTreesToString(generatedTrees);
+        var generatorErrors = generatorDiagnostics
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        var compilationErrors = outputCompilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ToList();
+
+        await Assert.That(generatorErrors).IsEmpty();
+        await Assert.That(compilationErrors).IsEmpty();
+        await Assert.That(code).Contains(
+            "new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.Attributes.GuidStorageFormat.Text36)");
+        await Assert.That(code).Contains(
+            "new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.DatabaseType.MySQL, global::DataLinq.Attributes.GuidStorageFormat.Binary16Rfc4122)");
+    }
+
+    [Test]
     public async Task ReadSourceConstructor_EmitsNeutralFactoryAndCompiles()
     {
         var source = CSharpSyntaxTree.ParseText(

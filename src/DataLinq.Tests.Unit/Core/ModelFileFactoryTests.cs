@@ -198,6 +198,26 @@ public class ModelFileFactoryTests
     }
 
     [Test]
+    public async Task CreateModelFiles_GuidStorageAttributes_EmitStableDeclarations()
+    {
+        var database = CreateDatabaseWithGuidStorage();
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "GuidStorageModel.cs");
+
+        await Assert.That(generatedFile.contents).Contains(
+            "[GuidStorage(GuidStorageFormat.Text36)]");
+        await Assert.That(generatedFile.contents).Contains(
+            "[GuidStorage(DatabaseType.MySQL, GuidStorageFormat.Binary16Rfc4122)]");
+
+        var syntaxTree = CSharpSyntaxTree.ParseText(generatedFile.contents);
+        var syntaxErrors = syntaxTree.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        await Assert.That(syntaxErrors).IsEmpty();
+    }
+
+    [Test]
     public async Task CreateModelFiles_MetadataStringArguments_EscapeLiterals()
     {
         var database = CreateDatabaseWithEscapedMetadataStrings();
@@ -676,6 +696,50 @@ public class ModelFileFactoryTests
                         ]
                     },
                     new MetadataTableDraft("comment_model"))
+            ]
+        };
+
+        return Build(draft);
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithGuidStorage()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "GuidStorageDb",
+            new CsTypeDeclaration("GuidStorageDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "GuidStorageModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("GuidStorageModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes =
+                                    [
+                                        new DatabaseColumnType(DatabaseType.MySQL, "binary", 16),
+                                        new DatabaseColumnType(DatabaseType.SQLite, "TEXT")
+                                    ]
+                                })
+                            {
+                                Attributes =
+                                [
+                                    new GuidStorageAttribute(GuidStorageFormat.Text36),
+                                    new GuidStorageAttribute(
+                                        DatabaseType.MySQL,
+                                        GuidStorageFormat.Binary16Rfc4122)
+                                ]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("guid_storage_models"))
             ]
         };
 

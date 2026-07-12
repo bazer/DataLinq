@@ -594,6 +594,10 @@ public class GeneratorFileFactory
         CommentAttribute value => value.DatabaseType == DatabaseType.Default
             ? $"new global::DataLinq.Attributes.CommentAttribute({FormatStringLiteral(value.Text)})"
             : $"new global::DataLinq.Attributes.CommentAttribute(global::DataLinq.DatabaseType.{value.DatabaseType}, {FormatStringLiteral(value.Text)})",
+        GuidStorageAttribute value when value.DatabaseType == DatabaseType.Default =>
+            $"new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.Attributes.GuidStorageFormat.{value.Format})",
+        GuidStorageAttribute value =>
+            $"new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.DatabaseType.{value.DatabaseType}, global::DataLinq.Attributes.GuidStorageFormat.{value.Format})",
         EnumAttribute value => $"new global::DataLinq.Attributes.EnumAttribute({FormatStringArguments(value.Values)})",
         PrimaryKeyAttribute => "new global::DataLinq.Attributes.PrimaryKeyAttribute()",
         NullableAttribute => "new global::DataLinq.Attributes.NullableAttribute()",

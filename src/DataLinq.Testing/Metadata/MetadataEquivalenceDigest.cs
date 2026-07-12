@@ -114,8 +114,14 @@ public static class MetadataEquivalenceDigest
         var foreignKeys = property.Attributes
             .OfType<ForeignKeyAttribute>()
             .Select(x => $"fk:{x.Name}:{x.Table}:{x.Column}:{x.OnUpdate}:{x.OnDelete}");
+        var guidStorage = property.Attributes
+            .OfType<GuidStorageAttribute>()
+            .Select(x => $"guid:{x.DatabaseType}:{x.Format}");
 
-        return string.Join(",", comments.Concat(foreignKeys).OrderBy(x => x, StringComparer.Ordinal));
+        return string.Join(",", comments
+            .Concat(foreignKeys)
+            .Concat(guidStorage)
+            .OrderBy(x => x, StringComparer.Ordinal));
     }
 
     private static string FormatViewDefinition(TableDefinition table) =>

@@ -116,6 +116,9 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateProviderScopedAttributeDatabaseTypes(draft).TryUnwrap(out _, out var attributeDatabaseTypeFailure))
             return attributeDatabaseTypeFailure;
 
+        if (!MetadataFactory.ValidateGuidStorageAttributeMetadata(draft).TryUnwrap(out _, out var guidStorageFailure))
+            return guidStorageFailure;
+
         if (!MetadataFactory.ValidateSchemaAnnotationMetadata(draft).TryUnwrap(out _, out var schemaAnnotationFailure))
             return schemaAnnotationFailure;
 

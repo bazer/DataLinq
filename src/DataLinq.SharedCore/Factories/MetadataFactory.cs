@@ -1394,6 +1394,46 @@ public static class MetadataFactory
         databaseType != DatabaseType.Unknown &&
         Enum.IsDefined(typeof(DatabaseType), databaseType);
 
+    public static Option<bool, IDLOptionFailure> ValidateGuidStorageAttributeMetadata(
+        DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            foreach (var property in tableModel.Model.ValueProperties.Values)
+            {
+                var providerScopes = new HashSet<DatabaseType>();
+                foreach (var attribute in property.Attributes.OfType<GuidStorageAttribute>())
+                {
+                    if (!IsValidProviderScopedDatabaseType(attribute.DatabaseType))
+                    {
+                        return CreateValuePropertyAttributeFailure(
+                            property,
+                            attribute,
+                            $"Guid storage attribute on value property '{GetValuePropertyDisplayName(property)}' uses unsupported database type '{attribute.DatabaseType}'.");
+                    }
+
+                    if (!Enum.IsDefined(typeof(GuidStorageFormat), attribute.Format))
+                    {
+                        return CreateValuePropertyAttributeFailure(
+                            property,
+                            attribute,
+                            $"Guid storage attribute on value property '{GetValuePropertyDisplayName(property)}' uses unsupported format '{attribute.Format}'.");
+                    }
+
+                    if (!providerScopes.Add(attribute.DatabaseType))
+                    {
+                        return CreateValuePropertyAttributeFailure(
+                            property,
+                            attribute,
+                            $"Value property '{GetValuePropertyDisplayName(property)}' has multiple [GuidStorage] attributes for database type '{attribute.DatabaseType}'. A value property can define only one UUID storage format per provider.");
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
     public static Option<bool, IDLOptionFailure> ValidateSchemaAnnotationMetadata(DatabaseDefinition database)
     {
         foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))

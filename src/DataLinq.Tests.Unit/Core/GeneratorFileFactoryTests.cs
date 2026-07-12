@@ -302,6 +302,21 @@ public class GeneratorFileFactoryTests
         await Assert.That(generatedFile.contents).Contains("/// Generated property &lt;name&gt;");
     }
 
+    [Test]
+    public async Task CreateModelFiles_GuidStorageAttributes_EmitGeneratedMetadata()
+    {
+        var database = CreateDatabaseWithGuidStorage();
+
+        var generatedFile = new GeneratorFileFactory(new GeneratorFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "GeneratorDb.DataLinqMetadata.cs");
+
+        await Assert.That(generatedFile.contents).Contains(
+            "new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.Attributes.GuidStorageFormat.Text36)");
+        await Assert.That(generatedFile.contents).Contains(
+            "new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.DatabaseType.MySQL, global::DataLinq.Attributes.GuidStorageFormat.Binary16Rfc4122)");
+    }
+
     private static DatabaseDefinition CreateDatabaseWithDefaultValue(
         string propertyName,
         CsTypeDeclaration propertyType,
@@ -341,6 +356,50 @@ public class GeneratorFileFactoryTests
                             {
                                 Attributes = propertyAttributes,
                                 EnumProperty = enumProperty
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("generator_table"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithGuidStorage()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "GeneratorDb",
+            new CsTypeDeclaration("GeneratorDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "GeneratorModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("GeneratorModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes =
+                                    [
+                                        new DatabaseColumnType(DatabaseType.MySQL, "binary", 16),
+                                        new DatabaseColumnType(DatabaseType.SQLite, "TEXT")
+                                    ]
+                                })
+                            {
+                                Attributes =
+                                [
+                                    new GuidStorageAttribute(GuidStorageFormat.Text36),
+                                    new GuidStorageAttribute(
+                                        DatabaseType.MySQL,
+                                        GuidStorageFormat.Binary16Rfc4122)
+                                ]
                             }
                         ]
                     },

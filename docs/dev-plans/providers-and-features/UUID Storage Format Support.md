@@ -3,7 +3,7 @@
 
 # Specification: UUID Storage Format Support
 
-**Status:** Accepted.
+**Status:** Implementation in progress. Bounded `UUID-1A` declaration/codec primitives are implemented; resolved per-provider column metadata and every provider/runtime integration remain open.
 
 **Release scope:** Required 0.9 runtime correctness slice; broader UUID policy work remains later.
 
@@ -11,9 +11,11 @@
 
 **Depends on:** The scalar value contract starts with `SC-1`; the complete UUID slice consumes `SC-2` through `SC-5` at the per-workstream boundaries defined below. See [Scalar Converters And Typed IDs Implementation Plan](../roadmap-implementation/v0.9/Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md).
 
-**Last reviewed:** 2026-07-10.
+**Last reviewed:** 2026-07-12.
 
 **Goal:** Make DataLinq responsible for UUID/`Guid` storage semantics so reads, writes, queries, defaults, validation, and generated metadata do not depend on MySqlConnector connection-string behavior.
+
+**Current implementation boundary:** `GuidStorageFormat` freezes the five 0.9 formats, `GuidStorageAttribute` declarations receive intrinsic provider/format/duplicate validation, and raw declarations survive source parsing, CLI metadata merge/model regeneration, and source-generated runtime metadata. The internal `GuidCodec` deterministically converts canonical `Guid` values to native-text, exact text, legacy .NET mixed-endian bytes, or RFC-order bytes and back. No provider currently resolves or consumes these declarations; `UUID-1` is not complete.
 
 ## 0.9 Decision And Ownership
 
@@ -243,8 +245,8 @@ public abstract Guid ExternalId { get; }
 
 ### Attribute Rules
 
-- `GuidStorageAttribute` is valid only on `Guid` and `Guid?` properties.
-- Multiple provider-specific attributes are allowed.
+- `GuidStorageAttribute` is valid only when the resolved canonical provider CLR type is `Guid`/`Guid?`; this includes typed IDs whose scalar converter produces canonical `Guid`. That eligibility check belongs to `UUID-1B`, after scalar mapping is resolved.
+- Multiple provider-specific attributes are allowed, with at most one declaration per `DatabaseType`.
 - An exact provider match wins over `DatabaseType.Default`.
 - no attribute means use DataLinq's deterministic provider default, not MySqlConnector's connection-wide behavior
 - `NativeUuid` requires a provider-native UUID type or a provider-specific mapping that behaves as native UUID.
@@ -267,8 +269,11 @@ Useful helpers:
 
 ```csharp
 public bool IsGuidColumn { get; }
-public GuidStorageDefinition? GuidStorage { get; }
+public IReadOnlyList<GuidStorageDefinition> GuidStorageDefinitions { get; }
+public GuidStorageDefinition? GetGuidStorageFor(DatabaseType databaseType);
 ```
+
+Resolved definitions must be provider-keyed. Runtime metadata is cached by model CLR type, and one model can legitimately declare MariaDB native UUID plus MySQL binary UUID storage; a singular mutable `ColumnDefinition.GuidStorage` would be incorrect.
 
 The resolved metadata should answer:
 
@@ -297,33 +302,29 @@ Introduce a small internal codec layer:
 ```csharp
 internal static class GuidCodec
 {
-    public static object ToProviderValue(
-        Guid value,
+    internal static object ToPhysicalValue(
+        Guid canonicalValue,
         GuidStorageFormat format);
 
-    public static Guid FromProviderValue(
-        object value,
-        GuidStorageFormat format);
-
-    public static string ToSqlLiteral(
-        Guid value,
+    internal static Guid FromPhysicalValue(
+        object physicalValue,
         GuidStorageFormat format);
 }
 ```
 
-The concrete API may be provider-specific rather than static. The important part is that the conversion logic lives in one place and is called everywhere.
+The codec deliberately says *physical*, not *provider*, because scalar conversion already defines the canonical provider value as `Guid`. SQL literal quoting and binary-literal syntax remain provider-owned rather than entering the generic codec.
 
 Expected mappings:
 
 | Format | Provider value | Notes |
 | --- | --- | --- |
-| `NativeUuid` | `Guid` or string, provider-specific | Prefer provider-native handling only when it is proven stable. |
+| `NativeUuid` | lowercase dashed string on write; exact dashed string or `Guid` on read | Preserves current MariaDB text binding and avoids connector-wide `GuidFormat` reinterpretation. |
 | `Text36` | lowercase dashed string | Matches `Guid.ToString("D")` and MySQL/MariaDB `UUID()` text. |
 | `Text32` | lowercase undashed string | Useful for legacy `CHAR(32)`. |
-| `Binary16LittleEndian` | `byte[16]` from `Guid.ToByteArray()` | Current DataLinq/MySqlConnector compatibility format. |
+| `Binary16LittleEndian` | `byte[16]` from `Guid.ToByteArray()` | Current compatibility format; this is .NET's legacy mixed-endian layout, not a uniformly little-endian 128-bit integer. |
 | `Binary16Rfc4122` | `byte[16]` matching UUID string order | Matches MySQL `UUID_TO_BIN(x)` without swap. |
 
-For .NET 8+ and newer, `Guid.ToByteArray(bigEndian: true)` and `new Guid(bytes, bigEndian: true)` may be useful for RFC 4122 order. Multi-targeting may require a local implementation for older target frameworks.
+The runtime targets net8.0, net9.0, and net10.0, so `Guid.ToByteArray(bigEndian: true)` and `new Guid(bytes, bigEndian: true)` provide one implementation across every supported target. The codec source is linked into the SQL provider assemblies while remaining internal.
 
 ## Provider Behavior
 
@@ -444,7 +445,7 @@ X'...'
 using `Guid.ToByteArray()`. That should become:
 
 ```text
-Guid -> GuidCodec.ToSqlLiteral(value, resolvedFormat)
+Guid -> GuidCodec.ToPhysicalValue(value, resolvedFormat) -> provider-owned SQL literal formatting
 ```
 
 Examples:
@@ -499,7 +500,7 @@ The 0.9 slice should document and diagnose the mismatch. A broader generation AP
 
 ## Post-0.9: Schema Import And Policy Tooling
 
-The following is useful follow-up work, but it is not required to fix the 0.9 runtime paths. Source-generated and runtime column metadata needed by the codec remain part of `UUID-1`; this section concerns importing ambiguous external schemas and choosing wider project policy.
+The following is useful follow-up work, but it is not required to fix the 0.9 runtime paths. Resolved source-generated and runtime column metadata needed by providers remain part of `UUID-1B`; this section concerns importing ambiguous external schemas and choosing wider project policy.
 
 When importing a live schema:
 
@@ -569,28 +570,39 @@ These IDs are local to this plan and deliberately do not reuse roadmap-wide phas
 
 | UUID workstream | Scalar/foundation prerequisites |
 | --- | --- |
-| `UUID-1` metadata and codecs | `SC-1`; coordinate the generic provider-codec hook with `SC-5` |
-| `UUID-2` provider reads/writes | `UUID-1`, `SC-2` |
-| `UUID-3` queries, keys, relations | `UUID-1`, `UUID-2`, `SC-3`, `SC-4` |
-| `UUID-4` defaults and validation | `UUID-1`, `UUID-2`, `SC-5` |
-| `UUID-5` evidence and docs | `UUID-1` through `UUID-4` |
+| `UUID-1A` declaration vocabulary, preservation, and codec primitives | `SC-1` |
+| `UUID-1B` resolved provider-keyed metadata and compatibility defaults | `UUID-1A`; coordinate physical compatibility with `SC-5` |
+| `UUID-2` provider reads/writes | `UUID-1B`, `SC-2` |
+| `UUID-3` queries, keys, relations | `UUID-1B`, `UUID-2`, `SC-3`, `SC-4` |
+| `UUID-4` defaults and validation | `UUID-1B`, `UUID-2`, `SC-5` |
+| `UUID-5` evidence and docs | `UUID-1A` through `UUID-4` |
 
-Known-value byte/string vectors and current-behavior characterization should be recorded during the initial baseline lane, before `UUID-1` changes metadata or defaults.
+Known-value byte/string vectors and current-behavior characterization were recorded before `UUID-1A`; the implemented codec tests now consume those frozen vectors without changing provider behavior or defaults.
 
-### UUID-1: Metadata And Physical Codec Foundation
+### UUID-1A: Declaration And Physical Codec Primitives
 
-- add the bounded 0.9 `GuidStorageFormat` values
-- add `GuidStorageAttribute` and resolved `GuidStorageDefinition` metadata
-- validate format/property/provider/type compatibility
-- resolve compatibility defaults without consulting MySqlConnector `GuidFormat`
-- implement known-value codecs for native, text, little-endian binary, and RFC-order binary formats
-- carry the resolved format through runtime and source-generated metadata
+Implemented on 2026-07-12:
+
+- freeze the bounded 0.9 `GuidStorageFormat` values without `ProviderDefault` or MySQL time-swap
+- add `GuidStorageAttribute` with default and provider-scoped declarations
+- reject undefined provider/format values and duplicate declarations for one provider
+- preserve declarations through syntax parsing, metadata transformation, model-file generation, source-generated metadata, and equivalence digests
+- implement strict known-value codecs for native text, exact text, legacy .NET mixed-endian binary, and RFC-order binary formats with owned arrays
+
+Bounded exit signal is green: known strings and bytes round-trip deterministically, canonical `Guid` remains distinct from physical values, and declaration metadata is lossless. This is not provider UUID support.
+
+### UUID-1B: Resolved Provider-Keyed Metadata
+
+- add provider-keyed immutable `GuidStorageDefinition` metadata and lookup
+- validate eligibility against resolved canonical provider type so typed IDs over `Guid` remain supported
+- resolve exact-provider-over-default declarations and deterministic no-attribute compatibility defaults without consulting MySqlConnector `GuidFormat`
+- validate native/text/binary physical type compatibility and diagnose ambiguous `BINARY(16)`/`BLOB` mappings
+- carry the resolved format, not merely raw attributes, through runtime and source-generated metadata
 
 Exit signal:
 
-- every mapped `Guid`/`Guid?` column has one resolved physical format or an actionable ambiguity diagnostic
-- known UUID strings and bytes round-trip deterministically through the codec
-- canonical `Guid` remains distinct from provider physical values
+- every mapped canonical-`Guid` column has one resolved physical format per applicable provider or an actionable ambiguity diagnostic
+- one model can resolve distinct MySQL, MariaDB, and SQLite formats without mutable global provider state
 
 ### UUID-2: Provider Reads, Writes, And Mutation Values
 

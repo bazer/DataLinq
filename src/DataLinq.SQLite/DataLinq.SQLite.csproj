@@ -26,6 +26,9 @@
 
 	<ItemGroup>
 		<!-- Shared source files -->
+		<Compile Include="..\DataLinq\Database\GuidCodec.cs">
+			<Link>Core\Database\GuidCodec.cs</Link>
+		</Compile>
 		<Compile Include="..\DataLinq.SharedCore\Extensions\**\*.cs">
 			<!-- Adjust path -->
 			<Link>Core\%(RecursiveDir)%(FileName)%(Extension)</Link>

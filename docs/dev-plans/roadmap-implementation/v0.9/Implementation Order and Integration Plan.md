@@ -394,13 +394,14 @@ Exit:
 
 ### W7: UUID Runtime Correctness
 
-Known-value vectors and `UUID-1` metadata/codec work may begin after `SC-1`; `UUID-2` may begin after `SC-2`. Wave 7 is the integration/completion checkpoint after the scalar key/query/schema prerequisites are ready. Execute and close the UUID plan in its granular dependency order:
+Known-value vectors and bounded `UUID-1A` declaration/codec primitives are green after `SC-1`; `UUID-1B` resolved metadata is next, and `UUID-2` provider integration still waits for `SC-2`. Wave 7 is the integration/completion checkpoint after the scalar key/query/schema prerequisites are ready. Execute and close the UUID plan in its granular dependency order:
 
-1. `UUID-1`: metadata and known-value codec foundation.
-2. `UUID-2`: provider reads, writes, mutations, and generated/default hydration.
-3. `UUID-3`: equality, nullable equality, membership, keys, cache, relations, update/delete predicates, and column-aware explicit queries.
-4. `UUID-4`: static defaults, UUID-version diagnostics, validation, and semantic diffing.
-5. `UUID-5`: provider evidence and documentation.
+1. `UUID-1A`: declaration vocabulary, intrinsic validation, lossless generation round-trips, and known-value codec primitives. Complete.
+2. `UUID-1B`: provider-keyed resolved metadata, compatibility defaults, and physical compatibility diagnostics.
+3. `UUID-2`: provider reads, writes, mutations, and generated/default hydration.
+4. `UUID-3`: equality, nullable equality, membership, keys, cache, relations, update/delete predicates, and column-aware explicit queries.
+5. `UUID-4`: static defaults, UUID-version diagnostics, validation, and semantic diffing.
+6. `UUID-5`: provider evidence and documentation.
 
 Exit:
 
@@ -651,7 +652,9 @@ W2 is complete. W3 is proceeding independently, while W4 remains the next query-
 - [x] Omit an unassigned null, identity-mapped, non-converted integral auto-increment primary key so an otherwise zero-column insert uses provider-owned syntax; prove SQLite `DEFAULT VALUES` and MySQL/MariaDB `() VALUES ()` through active-provider SQL-shape and end-to-end coverage while assigned nulls and explicit IDs remain writes.
 - [x] Remove the transitional concrete `DataSourceAccess` cast from repository-owned roots: Employees, Allround, and the platform/AOT smoke now declare exact `IDataLinqReadSource` construction and emit both legacy and neutral factories; dedicated legacy fixtures retain compatibility coverage.
 - [x] Keep converter-backed `MutableRowData` assignments in the public model domain: validate the resolved model CLR type, reject canonical provider values without converter calls or partial mutation, and preserve primitive identity-column conversion behavior.
-- [ ] Complete SC-2 default hydration for indexed or converter-backed defaults and unknown non-auto keys, UUID codecs, live read routing, and remaining query/materialization conversion through the shared boundary.
+- [x] Freeze `UUID-1A` declaration vocabulary and strict codec primitives, validate raw provider/format uniqueness, and preserve declarations through source parsing, metadata merge/model regeneration, source-generated runtime metadata, and equivalence digests without claiming provider integration.
+- [ ] Complete `UUID-1B` provider-keyed resolved metadata, compatibility defaults, physical compatibility diagnostics, and generated resolved-format metadata.
+- [ ] Complete SC-2 default hydration for indexed or converter-backed defaults and unknown non-auto keys, UUID provider integration, live read routing, and remaining query/materialization conversion through the shared boundary.
 - [ ] Complete SC-3 reader-sourced and external relation/index lookup normalization without losing operand provenance.
 
 ## Baseline Versus Final Evidence

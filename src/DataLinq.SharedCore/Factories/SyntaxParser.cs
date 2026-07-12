@@ -734,6 +734,47 @@ public class SyntaxParser
             return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 1 or 2 arguments");
         }
 
+        if (name == "GuidStorage")
+        {
+            if (arguments.Count is < 1 or > 2)
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidArgument,
+                    $"Attribute '{name}' must have 1 or 2 arguments");
+            }
+
+            var formatArgument = arguments[arguments.Count - 1];
+            if (!Enum.TryParse(
+                    formatArgument.Split('.').Last(),
+                    out GuidStorageFormat format) ||
+                !Enum.IsDefined(typeof(GuidStorageFormat), format))
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidType,
+                    $"Invalid GuidStorageFormat value '{formatArgument}'");
+            }
+
+            if (arguments.Count == 1)
+                return new GuidStorageAttribute(format);
+
+            var databaseTypeArgument = arguments[0];
+            if (!Enum.TryParse(
+                    databaseTypeArgument.Split('.').Last(),
+                    out DatabaseType databaseType) ||
+                databaseType == DatabaseType.Unknown ||
+                !Enum.IsDefined(typeof(DatabaseType), databaseType))
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidType,
+                    $"Invalid DatabaseType value '{databaseTypeArgument}'");
+            }
+
+            return new GuidStorageAttribute(databaseType, format);
+        }
+
         if (name == "Check")
         {
             if (arguments.Count == 2)

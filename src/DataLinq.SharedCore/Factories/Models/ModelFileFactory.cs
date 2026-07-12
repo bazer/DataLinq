@@ -396,6 +396,15 @@ public class ModelFileFactory
                 yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)})]";
         }
 
+        foreach (var guidStorage in valueProperty.Attributes
+            .OfType<GuidStorageAttribute>()
+            .OrderBy(x => x.DatabaseType))
+        {
+            yield return guidStorage.DatabaseType == DatabaseType.Default
+                ? $"{namespaceTab}{tab}[GuidStorage(GuidStorageFormat.{guidStorage.Format})]"
+                : $"{namespaceTab}{tab}[GuidStorage(DatabaseType.{guidStorage.DatabaseType}, GuidStorageFormat.{guidStorage.Format})]";
+        }
+
         if (valueProperty.HasDefaultValue())
         {
             var defaultAttr = valueProperty.GetDefaultAttribute();

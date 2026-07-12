@@ -82,6 +82,10 @@ public sealed class MetadataDefinitionDraft
         if (!attributeDatabaseTypeValidation.HasValue)
             return attributeDatabaseTypeValidation.Failure;
 
+        var guidStorageValidation = MetadataFactory.ValidateGuidStorageAttributeMetadata(metadata);
+        if (!guidStorageValidation.HasValue)
+            return guidStorageValidation.Failure;
+
         var schemaAnnotationValidation = MetadataFactory.ValidateSchemaAnnotationMetadata(metadata);
         if (!schemaAnnotationValidation.HasValue)
             return schemaAnnotationValidation.Failure;

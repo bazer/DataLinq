@@ -195,6 +195,21 @@ public class MetadataTransformer
                     destProperty.AddAttributeCore(new TypeAttribute(srcAttribute.DatabaseType, srcAttribute.Name, srcAttribute.Length, srcAttribute.Decimals, srcAttribute.Signed));
             }
 
+            var sourceGuidStorage = srcProperty.Attributes
+                .OfType<GuidStorageAttribute>()
+                .ToArray();
+            if (sourceGuidStorage.Length != 0)
+            {
+                var sourceProviders = new HashSet<DatabaseType>(
+                    sourceGuidStorage.Select(x => x.DatabaseType));
+                destProperty.SetAttributesCore(
+                    destProperty.Attributes
+                        .Where(x => x is not GuidStorageAttribute storage ||
+                            !sourceProviders.Contains(storage.DatabaseType))
+                        .Concat(sourceGuidStorage.Select(x =>
+                            new GuidStorageAttribute(x.DatabaseType, x.Format))));
+            }
+
             foreach (var srcDbType in srcProperty.Column.DbTypes)
             {
                 if (!destProperty.Column.DbTypes.Any(x => x.DatabaseType == srcDbType.DatabaseType))

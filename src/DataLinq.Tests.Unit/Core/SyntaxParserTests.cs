@@ -224,6 +224,93 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParseAttributeSyntax_GuidStorage_Default()
+    {
+        var (parser, syntax) = GetAttributeSyntax(
+            "[GuidStorage(GuidStorageFormat.Text36)]");
+        var attribute = (GuidStorageAttribute)parser
+            .ParseAttribute(syntax)
+            .ValueOrException();
+
+        await Assert.That(attribute.DatabaseType).IsEqualTo(DatabaseType.Default);
+        await Assert.That(attribute.Format).IsEqualTo(GuidStorageFormat.Text36);
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_GuidStorage_Provider()
+    {
+        var (parser, syntax) = GetAttributeSyntax(
+            "[GuidStorage(DatabaseType.MySQL, GuidStorageFormat.Binary16Rfc4122)]");
+        var attribute = (GuidStorageAttribute)parser
+            .ParseAttribute(syntax)
+            .ValueOrException();
+
+        await Assert.That(attribute.DatabaseType).IsEqualTo(DatabaseType.MySQL);
+        await Assert.That(attribute.Format)
+            .IsEqualTo(GuidStorageFormat.Binary16Rfc4122);
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_GuidStorage_InvalidFormat_ReturnsInvalidTypeFailure()
+    {
+        string[] declarations =
+        [
+            "[GuidStorage(GuidStorageFormat.NotAFormat)]",
+            "[GuidStorage(999)]"
+        ];
+
+        foreach (var declaration in declarations)
+        {
+            var (parser, syntax) = GetAttributeSyntax(declaration);
+            var result = parser.ParseAttribute(syntax);
+
+            await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+            await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidType);
+            await Assert.That(failure.Message).Contains("GuidStorageFormat");
+        }
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_GuidStorage_InvalidProvider_ReturnsInvalidTypeFailure()
+    {
+        string[] declarations =
+        [
+            "[GuidStorage(DatabaseType.Unknown, GuidStorageFormat.Text36)]",
+            "[GuidStorage(999, GuidStorageFormat.Text36)]"
+        ];
+
+        foreach (var declaration in declarations)
+        {
+            var (parser, syntax) = GetAttributeSyntax(declaration);
+            var result = parser.ParseAttribute(syntax);
+
+            await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+            await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidType);
+            await Assert.That(failure.Message).Contains("DatabaseType");
+        }
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_GuidStorage_InvalidArity_ReturnsInvalidArgumentFailure()
+    {
+        string[] declarations =
+        [
+            "[GuidStorage]",
+            "[GuidStorage(DatabaseType.MySQL, GuidStorageFormat.Text36, GuidStorageFormat.Text32)]"
+        ];
+
+        foreach (var declaration in declarations)
+        {
+            var (parser, syntax) = GetAttributeSyntax(declaration);
+            var result = parser.ParseAttribute(syntax);
+
+            await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+            await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidArgument);
+            await Assert.That(failure.Message).Contains("1 or 2 arguments");
+        }
+    }
+
+    [Test]
     public async Task ParseAttributeSyntax_Comment_UnescapesStringLiteral()
     {
         var (parser, syntax) = GetAttributeSyntax("[Comment(\"Comment with \\\"quotes\\\"\")]");
