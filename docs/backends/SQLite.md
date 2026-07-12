@@ -84,12 +84,22 @@ Supported imported defaults are also emitted back out as `DEFAULT` clauses durin
 
 ## Transaction Behavior
 
-The SQLite transaction implementation currently opens transactions with `IsolationLevel.ReadUncommitted`.
+DataLinq-owned SQLite connections explicitly set `PRAGMA read_uncommitted = false` whenever they open. This includes non-query, scalar, and reader paths, so a pooled connection cannot leak a previous caller's dirty-read setting into normal DataLinq access.
 
-That matters because visibility of uncommitted writes can differ from MySQL and MariaDB in the tests. If you are comparing provider behavior directly, account for that instead of calling it flaky.
+Owned transactions begin with `IsolationLevel.Serializable` in deferred mode. The deferred start lets independent read transactions coexist; SQLite acquires the real write lock when a transaction writes. The owning transaction sees its own changes, while an ordinary outside reader cannot receive those pending values.
+
+Call this **committed visibility**, not SQLite `ReadCommitted`. SQLite still has snapshot/serializable behavior and a single-writer model:
+
+- file-backed WAL with private/default cache can keep serving the last committed snapshot during a pending write
+- explicit shared-cache connections can return `SQLITE_LOCKED` instead of that snapshot
+- writer contention can return `SQLITE_BUSY` within the configured timeout
+- DataLinq does not automatically retry failed statements or transactions
+
+Transactions attached from caller-owned connections are deliberately not reconfigured. Their pragmas, isolation, timeout, and cache mode remain the caller's policy; complete them through the DataLinq wrapper as described in [Transactions](../Transactions.md#attaching-an-existing-adonet-transaction).
 
 ## Best Practices
 
 - Use naming conventions if you want richer generated types from an existing SQLite schema.
 - Prefer `Guid` as `TEXT` unless you have a very specific reason not to.
 - Define enums in your source models rather than expecting SQLite introspection to infer them.
+- Prefer WAL with private/default cache for file-backed concurrent readers and writers. Reserve shared cache for cases such as named in-memory databases that actually require it.

@@ -3,7 +3,7 @@
 
 # SQL Transaction And Mutable Lifecycle Implementation Plan
 
-**Status:** Implementation in progress. `TX-0`, the bounded `ML-1` provenance substrate, the representable `ML-2` pre-execution guard slice, `TX-1` (`TX-1A` touched-mutable tracking plus `TX-1B` successful-change authority), `TX-2A` confirmed-success finalization for DataLinq-owned transactions, bounded `TX-2B` known-committed recovery, bounded `TX-3` managed-wrapper rollback/open-disposal finalization, bounded `TX-4A` mutation-pipeline poisoning, bounded managed provider-call `CommitOutcomeUnknown` cache recovery, and the full `TX-5` attached-transaction contract (`TX-5A` active wrapper completion plus `TX-5B` externally completed handle recovery and public ownership guidance) are implemented. Provider-specific outcome evidence after a throwing commit, raw low-level escape prevention, local-cleanup fault injection beyond the supported cache primitives, full real-provider commit-fault evidence, full concurrency semantics, and the remaining terminal-state work are still open.
+**Status:** Implementation in progress. `TX-0`, the bounded `ML-1` provenance substrate, the representable `ML-2` pre-execution guard slice, `TX-1` (`TX-1A` touched-mutable tracking plus `TX-1B` successful-change authority), `TX-2A` confirmed-success finalization for DataLinq-owned transactions, bounded `TX-2B` known-committed recovery, bounded `TX-3` managed-wrapper rollback/open-disposal finalization, bounded `TX-4A` mutation-pipeline poisoning, bounded managed provider-call `CommitOutcomeUnknown` cache recovery, the full `TX-5` attached-transaction contract, and `SQ-1` DataLinq-owned SQLite committed visibility are implemented. Provider-specific outcome evidence after a throwing commit, raw low-level escape prevention, local-cleanup fault injection beyond the supported cache primitives, full real-provider commit-fault evidence, full concurrency semantics, file-backed shared-cache default removal, and the remaining terminal-state work are still open.
 
 **Target release:** 0.9.
 
@@ -68,8 +68,8 @@ The following table preserves the verified W1 before-state that motivated the im
 | `CheckIfTransactionIsValid()` returns early for `TransactionType.ReadOnly`. | Write APIs currently lack the required read-only guard. Fix it before deeper lifecycle work. |
 | `Changes.AddRange(...)` runs before SQL execution. | A failed statement can remain in the change list. Successful-change recording and transaction poisoning must become atomic from DataLinq's perspective. |
 | Existing compliance tests cover transaction-local cache identity, commit invalidation, rollback cache preservation, relation visibility, and repeated implicit `Save()`. | Treat them as required characterization, then add the missing provenance and failure matrix. |
-| [`SQLiteDbAccess`](../../../../src/DataLinq.SQLite/SQLiteDbAccess.cs) enables `PRAGMA read_uncommitted = true` for normal non-query, scalar, and reader connections. | DataLinq-owned non-transactional SQLite connections must explicitly use the committed default instead. |
-| [`SQLiteDatabaseTransaction`](../../../../src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs) enables the same pragma and begins `ReadUncommitted` transactions. | Begin an honest provider-supported committed/serializable transaction and retain own-write visibility through the real provider transaction plus the existing local cache. |
+| At W1, [`SQLiteDbAccess`](../../../../src/DataLinq.SQLite/SQLiteDbAccess.cs) enabled `PRAGMA read_uncommitted = true` for normal non-query, scalar, and reader connections. | `SQ-1` now routes every owned access path through one committed-visibility policy that resets the pragma to `false`. |
+| At W1, [`SQLiteDatabaseTransaction`](../../../../src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs) enabled the same pragma and began `ReadUncommitted` transactions. | `SQ-1` now begins deferred serializable transactions and retains own-write visibility through the real provider transaction plus the existing local cache. |
 | File-backed `Cache=Shared` defaults are emitted by testing infrastructure and CLI config initialization, while [`SQLiteConnectionStringFactory`](../../../../src/DataLinq.SQLite/SQLiteConnectionStringFactory.cs) forces shared cache only for named memory databases. | Remove shared cache from file defaults and their tests/examples. Preserve the named-memory exception. |
 
 `TX-0` is closed by the W1 transaction/cache characterization, provider-lifecycle fault harness, and expected-failure ownership matrix. Those artifacts confirmed the pending/committed cache split and provider-first publication order while assigning the missing provenance, guard, and failure semantics to W3. Later implementation must update this plan if it disproves that characterized baseline; `TX-0` is not a recurring excuse to redesign the overlay.
@@ -542,21 +542,23 @@ For DataLinq-owned SQLite connections:
 
 Work:
 
-- update non-query, scalar, and reader connection initialization in `SQLiteDbAccess`
-- update owned transaction initialization in `SQLiteDatabaseTransaction`
-- add a focused helper/test seam so all owned connection paths use the same pragma policy
-- leave attached caller-owned connection configuration explicit under `TX-5`
-- add provider tests proving normal DataLinq reads do not see another transaction's pending insert, update, or delete
-- use file-backed SQLite with WAL as the authoritative concurrency lane
-- retain named in-memory tests as a fast functional lane, not the concurrency oracle
+- [x] update non-query, scalar, and reader connection initialization in `SQLiteDbAccess`
+- [x] update owned transaction initialization in `SQLiteDatabaseTransaction`
+- [x] add a focused helper/test seam so all owned connection paths use the same pragma policy
+- [x] leave attached caller-owned connection configuration explicit under `TX-5`
+- [x] add provider tests proving normal DataLinq reads do not see another transaction's pending insert, update, or delete
+- [x] use file-backed SQLite with WAL as the authoritative concurrency lane
+- [x] retain named in-memory tests as a fast functional lane, not the concurrency oracle
 
 Exit signal:
 
 - no DataLinq-owned SQLite path enables dirty reads
 - an owning transaction sees its successful writes
-- normal outside reads observe the old committed state until commit
+- private/default-cache file-WAL outside reads observe the old committed state until commit; explicit shared cache never exposes pending data and may lock
 - rollback preserves the old committed state
 - docs avoid claiming MySQL-style per-statement `READ COMMITTED` snapshots
+
+`SQ-1` is green. `SQLiteConnectionPolicy` resets every DataLinq-owned connection to `PRAGMA read_uncommitted = false`; scalar, reader, and non-query tests poison and reuse pooled connections to prove the reset. Owned transactions use deferred `IsolationLevel.Serializable`, preserving concurrent read transactions and same-transaction writes without taking an immediate write lock. File-backed private-cache WAL tests prove outside direct SQL reads retain committed insert/update/delete state until commit, explicit shared cache locks rather than leaking pending data, rollback preserves committed state, and configured writer timeout remains bounded. Attached transactions retain a caller-enabled pragma. The full SQLite compliance lane remains green. `SQ-2` still owns removal of file-backed `Cache=Shared` defaults and examples.
 
 ## SQ-2: Remove Shared Cache From File-Backed Defaults
 
@@ -667,23 +669,23 @@ Current provider evidence for `TX-2A` is `src/DataLinq.Tests.Compliance/Transact
 
 ### SQLite-specific evidence
 
-- owned connections report `read_uncommitted = 0`
-- normal outside entity, projection, scalar/aggregate, and direct DataLinq SQL reads do not see pending writes where the provider permits concurrent reads
-- same transaction reads its own insert/update/delete
-- file-backed default connections do not request shared cache
-- named in-memory connections retain the required shared-cache/keepalive behavior
-- file-backed WAL contention respects configured timeout and never returns dirty rows
+- [x] owned scalar, reader, non-query, and transaction connections report `read_uncommitted = 0`, including after pooled-state poisoning
+- [x] private-cache file/WAL outside direct SQL reads retain committed insert/update/delete state until commit
+- [x] the same owned transaction reads its own insert/update/delete and the full SQLite compliance lane remains green
+- [ ] file-backed generated/default connections do not request shared cache (`SQ-2`)
+- [x] named in-memory connections retain the required shared-cache/keepalive behavior
+- [x] file-backed WAL contention respects configured timeout and never returns dirty rows; explicit shared cache may surface `SQLITE_LOCKED`
 
 ### Documentation
 
 Update only after behavior is green:
 
-- `docs/Caching and Mutation.md`
-- `docs/Transactions.md`
-- `docs/Troubleshooting.md`
-- `docs/backends/SQLite.md`
-- XML documentation for mutation and transaction APIs
-- CLI/config examples that currently recommend file-backed `Cache=Shared`
+- [x] `docs/Caching and Mutation.md` already routes transaction semantics to the canonical page and contains no stale isolation claim
+- [x] `docs/Transactions.md`
+- [x] `docs/Troubleshooting.md`
+- [x] `docs/backends/SQLite.md`
+- [x] XML documentation for mutation and transaction APIs remains accurate for owned versus attached policy
+- [ ] CLI/config examples that currently recommend file-backed `Cache=Shared` (`SQ-2`)
 
 Documentation must say:
 
@@ -742,7 +744,7 @@ This implementation plan is complete when:
 - foundation `F3`/`F6` preserves provider and transaction cache scope
 - public docs make no stronger claim than the tested behavior
 
-Current progress closes `TX-2A` confirmed-success finalization, bounded `TX-2B` known-committed recovery, bounded `TX-3` managed rollback/open-disposal finalization, managed `CommitOutcomeUnknown` cache recovery after a throwing provider commit, and full `TX-5` attached ownership/completion/recovery documentation and evidence. It does not make this overall exit green: provider-specific outcome evidence after a throwing commit, raw escape prevention, SQLite isolation, full provider commit-fault evidence, full concurrency semantics, and `F6` remain required.
+Current progress closes `TX-2A` confirmed-success finalization, bounded `TX-2B` known-committed recovery, bounded `TX-3` managed rollback/open-disposal finalization, managed `CommitOutcomeUnknown` cache recovery after a throwing provider commit, full `TX-5` attached ownership/completion/recovery, and `SQ-1` DataLinq-owned SQLite committed visibility. It does not make this overall exit green: provider-specific outcome evidence after a throwing commit, raw escape prevention, `SQ-2` file-backed shared-cache defaults, the remaining SQLite contention matrix, full provider commit-fault evidence, full concurrency semantics, and `F6` remain required.
 
 ## Risks And Mitigations
 

@@ -126,13 +126,16 @@ That is the correct behavior. A transaction object is not a reusable session obj
 
 ## Provider Caveat: SQLite vs MySQL/MariaDB
 
-One provider-specific caveat is already visible in the tests and transaction implementations:
+DataLinq-owned SQLite connections enforce `PRAGMA read_uncommitted = false`, including when a pooled connection previously enabled it. Owned SQLite transactions use `IsolationLevel.Serializable` in deferred mode. The owning transaction still sees its own writes, while an ordinary outside connection never receives those pending values.
 
-- SQLite transactions are opened with `ReadUncommitted`
-- MySQL and MariaDB transactions are opened with `ReadCommitted`
-- SQLite may therefore expose uncommitted writes to other connections in scenarios where MySQL and MariaDB do not
+That is **committed visibility**, not literal MySQL/MariaDB `READ COMMITTED` equivalence:
 
-So if you are writing cross-provider tests around visibility of uncommitted data, do not assume identical behavior.
+- SQLite has snapshot/serializable transaction behavior and a single-writer model.
+- File-backed SQLite with WAL and private/default cache can let outside readers retain the last committed value during a pending write.
+- Explicit SQLite shared-cache configurations can produce `SQLITE_LOCKED` instead of serving that committed snapshot. They still must not expose the pending value.
+- MySQL and MariaDB continue to use `IsolationLevel.ReadCommitted`.
+
+Attached SQLite transactions retain the caller's connection pragmas and isolation policy. DataLinq applies its committed-visibility policy only to connections and transactions it owns.
 
 ## Relations Inside Transactions
 

@@ -448,7 +448,7 @@ The final matrix must include the focused evidence owned by the feature plans:
 - MySQL binary UUID tests without a `GuidFormat` connection option
 - a hard-coded or raw-SQL pre-0.9 UUID byte fixture, not a fixture produced by the new codec being tested
 - an explicit regression showing a conflicting connector `GuidFormat` cannot redefine column metadata
-- SQLite committed visibility and pending-versus-committed cache publication
+- `SQ-1` SQLite committed-visibility evidence: owned scalar/reader/non-query/transaction policy, pooled-state reset, deferred serializable transactions, attached-policy preservation, private-WAL pending insert/update/delete isolation, explicit shared-cache lock behavior, rollback/commit, bounded writer timeout, and full SQLite compliance
 - mutable provenance, primary-key mutation rejection, read-only transaction guards, successful-only private mutation authority, detached public `Changes` behavior, and public `StateChange.ExecuteQuery(...)` finalization
 - mutation-failure evidence partitioned between statement preparation/execution, generated-value hydration, transaction-local cache application, authoritative-row hydration, and lifecycle finalization
 - confirmed-success owned-transaction finalization: global publication, transaction-cache cleanup, explicit touched-mutable promotion with committed-delete preservation, ownership-token commit, registry clearing, transaction-bound fallback gating, and a wrapper `Committed` event deferred until that state is observable

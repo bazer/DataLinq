@@ -58,32 +58,21 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
                 SetStatus(DatabaseTransactionStatus.Open);
                 dbConnection = new SqliteConnection(connectionString);
                 dbConnection.Open();
-                SetIsolationLevel((dbConnection as SqliteConnection)!, IsolationLevel.ReadUncommitted);
-                DbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadUncommitted);
+                SQLiteConnectionPolicy.ApplyCommittedVisibility(
+                    (SqliteConnection)dbConnection,
+                    command => ExecuteCommandWithTelemetry(
+                        command,
+                        "non_query",
+                        transactional: false,
+                        transactionType: null,
+                        command.ExecuteNonQuery));
+                DbTransaction = ((SqliteConnection)dbConnection).BeginTransaction(
+                    SQLiteConnectionPolicy.OwnedTransactionIsolationLevel,
+                    deferred: true);
                 BeginTransactionTelemetry();
             }
 
             return dbConnection;
-        }
-    }
-
-    private void SetIsolationLevel(SqliteConnection connection, IsolationLevel isolationLevel)
-    {
-        switch (isolationLevel)
-        {
-            case IsolationLevel.ReadUncommitted:
-                using (var command = new SqliteCommand("PRAGMA read_uncommitted = true;", connection))
-                {
-                    ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
-                }
-                break;
-            case IsolationLevel.Serializable:
-            default:
-                using (var command = new SqliteCommand("PRAGMA read_uncommitted = false;", connection))
-                {
-                    ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
-                }
-                break;
         }
     }
 

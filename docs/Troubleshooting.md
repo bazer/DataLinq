@@ -150,14 +150,11 @@ See [Attaching an Existing ADO.NET Transaction](Transactions.md#attaching-an-exi
 
 ## SQLite and MySQL/MariaDB Behave Differently in Transaction Visibility Tests
 
-They do.
+They do, but DataLinq-owned SQLite paths no longer opt into dirty reads.
 
-The current providers do not use the same isolation level defaults:
+Owned SQLite connections reset `PRAGMA read_uncommitted = false`, and owned transactions use deferred `Serializable` isolation. MySQL and MariaDB use `ReadCommitted`. Both give DataLinq committed visibility, but SQLite remains snapshot-oriented and single-writer rather than becoming a clone of MySQL transaction semantics.
 
-- SQLite uses `ReadUncommitted`
-- MySQL and MariaDB use `ReadCommitted`
-
-So cross-connection visibility of uncommitted writes is not identical. Write tests accordingly.
+For file-backed concurrency tests, use WAL with private/default cache. If an explicit SQLite shared-cache connection reports `SQLITE_LOCKED` while another transaction is writing, that is real table-lock behavior—not permission to enable dirty reads. Attached transactions keep the caller's SQLite pragmas, so inspect the supplied connection policy separately.
 
 ## Relation Reads Look Stale During a Complex Write Flow
 

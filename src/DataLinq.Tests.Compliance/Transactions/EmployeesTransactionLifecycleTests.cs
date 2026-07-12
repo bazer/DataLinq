@@ -29,11 +29,12 @@ public class EmployeesTransactionLifecycleTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task Transaction_AttachExternalTransactionExposesUncommittedRows(TestProviderDescriptor provider)
+    public async Task Transaction_AttachedExternalTransactionReadsItsOwnRawWrite(
+        TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
-            nameof(Transaction_AttachExternalTransactionExposesUncommittedRows),
+            nameof(Transaction_AttachedExternalTransactionReadsItsOwnRawWrite),
             EmployeesSeedMode.Bogus);
 
         var employeesDatabase = databaseScope.Database;
@@ -58,14 +59,21 @@ public class EmployeesTransactionLifecycleTests
         await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
 
         var department = transaction.Query().Departments.Single(x => x.DeptNo == "d099");
-        var outsideTransactionCount = employeesDatabase.Query().Departments.Count(x => x.DeptNo == "d099");
 
         await Assert.That(department.Name).IsEqualTo("Transactions");
 
-        if (employeesDatabase.DatabaseType == DatabaseType.SQLite)
-            await Assert.That(outsideTransactionCount).IsEqualTo(1);
-        else
+        if (employeesDatabase.DatabaseType != DatabaseType.SQLite)
+        {
+            var outsideTransactionCount = employeesDatabase.Query().Departments
+                .Count(x => x.DeptNo == "d099");
             await Assert.That(outsideTransactionCount).IsEqualTo(0);
+        }
+
+        transaction.Rollback();
+
+        var afterRollbackCount = employeesDatabase.Query().Departments
+            .Count(x => x.DeptNo == "d099");
+        await Assert.That(afterRollbackCount).IsEqualTo(0);
     }
 
     [Test]

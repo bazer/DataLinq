@@ -22,33 +22,34 @@ public class SQLiteDbAccess : DatabaseAccess
         this.loggingConfiguration = loggingConfiguration;
     }
 
-    private void SetIsolationLevel(SqliteConnection connection, IsolationLevel isolationLevel)
+    private SqliteConnection OpenOwnedConnection()
     {
-        switch (isolationLevel)
+        var connection = new SqliteConnection(connectionString);
+        try
         {
-            case IsolationLevel.ReadUncommitted:
-                using (var command = new SqliteCommand("PRAGMA read_uncommitted = true;", connection))
-                {
-                    ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
-                }
-                break;
-            case IsolationLevel.Serializable:
-            default:
-                using (var command = new SqliteCommand("PRAGMA read_uncommitted = false;", connection))
-                {
-                    ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
-                }
-                break;
+            connection.Open();
+            SQLiteConnectionPolicy.ApplyCommittedVisibility(
+                connection,
+                command => ExecuteCommandWithTelemetry(
+                    command,
+                    "non_query",
+                    transactional: false,
+                    transactionType: null,
+                    command.ExecuteNonQuery));
+            return connection;
+        }
+        catch
+        {
+            connection.Dispose();
+            throw;
         }
     }
 
     public override int ExecuteNonQuery(IDbCommand command)
     {
-        using (var connection = new SqliteConnection(connectionString))
+        using (var connection = OpenOwnedConnection())
         {
-            connection.Open();
             command.Connection = connection;
-            SetIsolationLevel(connection, IsolationLevel.ReadUncommitted);
             Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
             int result = ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
             connection.Close();
@@ -71,11 +72,9 @@ public class SQLiteDbAccess : DatabaseAccess
 
     public override object? ExecuteScalar(IDbCommand command)
     {
-        using (var connection = new SqliteConnection(connectionString))
+        using (var connection = OpenOwnedConnection())
         {
-            connection.Open();
             command.Connection = connection;
-            SetIsolationLevel(connection, IsolationLevel.ReadUncommitted);
             Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
             var result = ExecuteCommandWithTelemetry(command, "scalar", transactional: false, transactionType: null, command.ExecuteScalar);
             connection.Close();
@@ -86,20 +85,26 @@ public class SQLiteDbAccess : DatabaseAccess
 
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)
     {
-        var connection = new SqliteConnection(connectionString);
-        connection.Open();
-        command.Connection = connection;
-        SetIsolationLevel(connection, IsolationLevel.ReadUncommitted);
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        var connection = OpenOwnedConnection();
+        try
+        {
+            command.Connection = connection;
+            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
-        var reader = ExecuteCommandWithTelemetry(
-            command,
-            "reader",
-            transactional: false,
-            transactionType: null,
-            () => command.ExecuteReader(CommandBehavior.CloseConnection) as SqliteDataReader);
+            var reader = ExecuteCommandWithTelemetry(
+                command,
+                "reader",
+                transactional: false,
+                transactionType: null,
+                () => command.ExecuteReader(CommandBehavior.CloseConnection) as SqliteDataReader);
 
-        return new SQLiteDataLinqDataReader(reader!);
+            return new SQLiteDataLinqDataReader(reader!);
+        }
+        catch
+        {
+            connection.Dispose();
+            throw;
+        }
     }
 
     public override IDataLinqDataReader ExecuteReader(string query) =>

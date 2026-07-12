@@ -10,15 +10,17 @@
 
 **0.9 execution plan:** [SQL Transaction and Mutable Lifecycle Implementation Plan](../roadmap-implementation/v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md).
 
+**Implementation progress:** `SQ-1` is complete. Every DataLinq-owned SQLite scalar, reader, non-query, and transaction connection now resets `PRAGMA read_uncommitted = false`; owned transactions use deferred `IsolationLevel.Serializable`; attached connections retain caller policy; file/WAL evidence covers pending insert/update/delete, rollback, explicit shared-cache locking, and bounded writer contention; and the full SQLite compliance lane is green. `SQ-2` file-backed shared-cache default removal and the remaining `SQ-3` contention/diagnostic matrix remain open.
+
 ## Purpose
 
-DataLinq currently opens SQLite transactions and non-transactional SQLite commands with `ReadUncommitted`, while MySQL and MariaDB transactions use `ReadCommitted`.
+At the start of this plan, DataLinq opened SQLite transactions and non-transactional commands with `ReadUncommitted`, while MySQL and MariaDB used `ReadCommitted`. `SQ-1` has removed that owned-connection dirty-read policy.
 
-That difference leaks into user-visible behavior:
+That former difference leaked into user-visible behavior:
 
 - SQLite can expose uncommitted writes to other DataLinq reads when shared-cache mode and `PRAGMA read_uncommitted = true` are both active.
 - MySQL and MariaDB do not expose those pending writes under the current `ReadCommitted` transaction path.
-- Some relation and transaction tests now encode SQLite-specific dirty visibility instead of provider-independent committed visibility.
+- Some relation and transaction tests encoded SQLite-specific dirty visibility instead of provider-independent committed visibility; `SQ-1` retuned those boundaries.
 
 The goal is to define a path where DataLinq-visible SQLite behavior aligns with MySQL/MariaDB for the important ORM surface: uncommitted writes should be visible inside the owning transaction and invisible outside it until commit.
 
@@ -26,11 +28,14 @@ The goal is to define a path where DataLinq-visible SQLite behavior aligns with 
 
 The relevant implementation points are:
 
+- `src/DataLinq.SQLite/SQLiteConnectionPolicy.cs`
+  - centralizes DataLinq-owned committed visibility as `PRAGMA read_uncommitted = false`
+  - defines owned transaction isolation as `IsolationLevel.Serializable`
 - `src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs`
-  - opens SQLite provider transactions with `IsolationLevel.ReadUncommitted`
-  - sets `PRAGMA read_uncommitted = true`
+  - applies the owned policy before beginning a deferred serializable transaction
+  - deliberately leaves attached caller-owned connections unchanged
 - `src/DataLinq.SQLite/SQLiteDbAccess.cs`
-  - sets `ReadUncommitted` for non-transaction SQLite commands too
+  - routes non-query, scalar, and reader connections through the same owned policy
 - `src/DataLinq.SQLite/SQLiteProvider.cs`
   - enables WAL through `PRAGMA journal_mode = WAL`
 - `src/DataLinq.Testing/Environment/PodmanTestEnvironmentSettings.cs`
@@ -46,7 +51,7 @@ The relevant implementation points are:
 - active compliance tests
   - already cover transaction-local row visibility, outside relation stability before commit, and rollback preserving committed cache state
 
-The earlier version of this plan treated pending-versus-committed cache application as missing. Current code has most of that overlay and publication order already. The first implementation task is therefore characterization and gap analysis, not a second cache-overlay rewrite. The remaining SQLite-specific defect is that ordinary SQLite access and transactions still opt into dirty-read behavior, while several file-backed defaults still opt into shared cache.
+The earlier version of this plan treated pending-versus-committed cache application as missing. Current code has most of that overlay and publication order already, so `SQ-1` reused it instead of building a second cache overlay. Ordinary owned SQLite access no longer opts into dirty reads. The remaining connection-policy defect is that several file-backed generated/test defaults still opt into shared cache.
 
 ## SQLite Semantics That Matter
 
@@ -57,7 +62,7 @@ SQLite's default isolation is serializable. Separate connections do not see each
 - the connections use shared cache
 - the reader enables `PRAGMA read_uncommitted`
 
-The current SQLite test/provider shape does exactly that for file and named in-memory connections.
+At the start of this plan, the SQLite test/provider shape did exactly that for file and named in-memory connections. `SQ-1` removed the reader-side prerequisite from DataLinq-owned paths; file-backed generated/test defaults still request shared cache until `SQ-2`.
 
 WAL is the right SQLite feature for file-backed reader/writer concurrency. Shared-cache mode is not. SQLite documents shared cache as obsolete and discouraged, and Microsoft documents that `Cache=Shared` changes transaction/table locking behavior. Microsoft also warns that mixing shared-cache mode and WAL is discouraged.
 
@@ -80,7 +85,7 @@ That target should be named something like **committed visibility semantics**, n
 
 ## Non-Goals
 
-DataLinq should not pretend it can fully sanitize arbitrary SQLite dirty reads while the SQLite connection itself remains in `ReadUncommitted` mode.
+DataLinq should not pretend it can sanitize arbitrary caller-owned SQLite connections that remain in `ReadUncommitted` mode. `SQ-1` controls DataLinq-owned connections; attached and external connections retain caller policy.
 
 The following surfaces cannot be made fully safe by a cache overlay alone:
 
@@ -192,7 +197,7 @@ This preserves the core rule: a transaction sees itself; outsiders do not.
 
 ## Relation Cache Rules
 
-Relations are where the current dirty-read behavior becomes most visible.
+Relations were where the former dirty-read behavior became most visible.
 
 Existing immutable relation objects subscribe to table cache changes and clear their cached collection when a related table changes. That is fine for committed changes. It is wrong for pending transaction changes.
 
@@ -242,10 +247,10 @@ Do not use shared in-memory SQLite as the final arbiter for concurrent committed
    - Add failures only for behavior that is still wrong; do not replace the working overlay with parallel APIs.
    - Coordinate mutable provenance, poisoned-transaction behavior, and publication gaps through the 0.9 transaction execution plan.
 
-2. **Change SQLite default isolation**
-   - Stop setting `PRAGMA read_uncommitted = true`.
-   - Begin SQLite transactions with the provider-supported committed/serializable behavior.
-   - Preserve same-transaction visibility through the overlay, not dirty reads.
+2. **Change SQLite default isolation — complete (`SQ-1`)**
+   - DataLinq-owned paths set `PRAGMA read_uncommitted = false` through one shared policy.
+   - Owned SQLite transactions begin with deferred `IsolationLevel.Serializable`.
+   - Same-transaction visibility remains green through the provider transaction and overlay, not dirty reads.
 
 3. **Remove shared cache from file-backed SQLite defaults**
    - Keep shared cache only for named in-memory databases where multiple connections must share one database.
@@ -261,9 +266,10 @@ Do not use shared in-memory SQLite as the final arbiter for concurrent committed
    - Move SQLite isolation assertions toward provider-independent committed visibility.
    - Keep provider-specific tests only where SQLite is genuinely different, such as snapshot behavior and single-writer limits.
 
-6. **Update shipped docs**
-   - Replace the current SQLite `ReadUncommitted` caveat with the final committed visibility behavior once implemented.
-   - Keep a SQLite caveat for snapshot/serializable semantics versus MySQL/MariaDB `ReadCommitted`.
+6. **Update shipped docs — complete for `SQ-1`**
+   - Shipped transaction, troubleshooting, backend, and roadmap pages describe committed visibility.
+   - The SQLite caveat names snapshot/serializable and single-writer behavior instead of claiming MySQL/MariaDB `ReadCommitted` equivalence.
+   - `SQ-2` still owns file-backed `Cache=Shared` config/default examples.
 
 ## Risks And Open Questions
 
