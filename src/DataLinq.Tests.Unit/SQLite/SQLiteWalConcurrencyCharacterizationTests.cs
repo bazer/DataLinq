@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -173,7 +174,8 @@ public sealed class SQLiteWalConcurrencyCharacterizationTests
     }
 
     [Test]
-    public async Task FileBackedWal_PrivateCacheSecondWriter_SurfacesBusyWithinConfiguredTimeout()
+    [NotInParallel]
+    public async Task FileBackedWal_PrivateCacheSecondWriter_PreservesTimeoutsAndFailureTelemetry()
     {
         using var database = WalDatabaseFixture.Create(SqliteCacheMode.Private, defaultTimeoutSeconds: 1);
         var competingAccess = new SQLiteDbAccess(database.ConnectionString, NullLogging);
@@ -183,30 +185,99 @@ public sealed class SQLiteWalConcurrencyCharacterizationTests
             NullLogging);
 
         await Assert.That(database.JournalMode).IsEqualTo("wal");
+        await Assert.That(new SqliteConnectionStringBuilder(database.ConnectionString).DefaultTimeout)
+            .IsEqualTo(1);
         await Assert.That(transaction.ExecuteNonQuery("UPDATE wal_rows SET value = 'first-writer' WHERE id = 1")).IsEqualTo(1);
 
-        SqliteException? busyException = null;
-        var stopwatch = Stopwatch.StartNew();
-
-        try
+        var stoppedActivities = new List<Activity>();
+        using var listener = new ActivityListener
         {
-            competingAccess.ExecuteNonQuery("UPDATE wal_rows SET value = 'second-writer' WHERE id = 1");
-        }
-        catch (SqliteException exception)
+            ShouldListenTo = source => source.Name == "DataLinq",
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) =>
+                ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = stoppedActivities.Add
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        var defaultTimeoutAttempt = CaptureBusyAttempt(() =>
+            competingAccess.ExecuteNonQuery(
+                "UPDATE wal_rows SET value = 'default-timeout' WHERE id = 1"));
+
+        using var explicitTimeoutCommand = new SqliteCommand(
+            "UPDATE wal_rows SET value = 'explicit-timeout' WHERE id = 1")
         {
-            busyException = exception;
+            CommandTimeout = 2
+        };
+        var explicitTimeoutAttempt = CaptureBusyAttempt(() =>
+            competingAccess.ExecuteNonQuery(explicitTimeoutCommand));
+
+        foreach (var attempt in new[]
+                 {
+                     defaultTimeoutAttempt,
+                     explicitTimeoutAttempt
+                 })
+        {
+            await Assert.That(attempt.Exception.SqliteErrorCode).IsEqualTo(5);
+            await Assert.That(attempt.Exception.SqliteExtendedErrorCode).IsEqualTo(5);
+            await Assert.That(attempt.Exception.Message.Contains(
+                "locked",
+                StringComparison.OrdinalIgnoreCase)).IsTrue();
         }
 
-        stopwatch.Stop();
+        await Assert.That(defaultTimeoutAttempt.Elapsed)
+            .IsGreaterThanOrEqualTo(TimeSpan.FromMilliseconds(500));
+        await Assert.That(defaultTimeoutAttempt.Elapsed)
+            .IsLessThan(TimeSpan.FromSeconds(5));
+        await Assert.That(explicitTimeoutCommand.CommandTimeout).IsEqualTo(2);
+        await Assert.That(explicitTimeoutAttempt.Elapsed)
+            .IsGreaterThanOrEqualTo(TimeSpan.FromMilliseconds(1500));
+        await Assert.That(explicitTimeoutAttempt.Elapsed)
+            .IsLessThan(TimeSpan.FromSeconds(6));
 
-        await Assert.That(busyException).IsNotNull();
-        await Assert.That(busyException!.SqliteErrorCode).IsEqualTo(5);
-        await Assert.That(busyException.Message.Contains("locked", StringComparison.OrdinalIgnoreCase)).IsTrue();
-        await Assert.That(stopwatch.Elapsed).IsLessThan(TimeSpan.FromSeconds(5));
+        var failedUpdateActivities = stoppedActivities
+            .Where(activity =>
+                activity.OperationName == "datalinq.db.command" &&
+                Equals(activity.GetTagItem("db.operation.name"), "update"))
+            .ToArray();
+
+        await Assert.That(failedUpdateActivities.Length).IsEqualTo(2);
+        foreach (var activity in failedUpdateActivities)
+        {
+            await Assert.That(activity.Kind).IsEqualTo(ActivityKind.Client);
+            await Assert.That(activity.Status).IsEqualTo(ActivityStatusCode.Error);
+            await Assert.That(activity.GetTagItem("datalinq.command.kind"))
+                .IsEqualTo("non_query");
+            await Assert.That((bool)activity.GetTagItem("datalinq.transactional")!)
+                .IsFalse();
+            await Assert.That(activity.GetTagItem("error.type"))
+                .IsEqualTo(typeof(SqliteException).FullName);
+            await Assert.That(activity.StatusDescription!.Contains(
+                "locked",
+                StringComparison.OrdinalIgnoreCase)).IsTrue();
+        }
 
         transaction.Rollback();
 
         await Assert.That(competingAccess.ExecuteScalar<string>("SELECT value FROM wal_rows WHERE id = 1")).IsEqualTo("committed");
+    }
+
+    private static (SqliteException Exception, TimeSpan Elapsed) CaptureBusyAttempt(
+        Func<int> execute)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            _ = execute();
+        }
+        catch (SqliteException exception)
+        {
+            stopwatch.Stop();
+            return (exception, stopwatch.Elapsed);
+        }
+
+        stopwatch.Stop();
+        throw new InvalidOperationException(
+            "Expected the competing SQLite writer to surface SQLITE_BUSY.");
     }
 
     private static void SetPooledReadUncommitted(

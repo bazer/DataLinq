@@ -95,6 +95,8 @@ Call this **committed visibility**, not SQLite `ReadCommitted`. SQLite still has
 - writer contention can return `SQLITE_BUSY` within the configured timeout
 - DataLinq does not automatically retry failed statements or transactions
 
+DataLinq preserves the connection string's `Default Timeout` and an explicit command's `CommandTimeout`. When contention fails, the original `SqliteException` remains the thrown exception, including its SQLite error codes and message. The `datalinq.db.command` activity records the operation, command kind, transactional flag, error type, and error status without recording SQL text.
+
 Transactions attached from caller-owned connections are deliberately not reconfigured. Their pragmas, isolation, timeout, and cache mode remain the caller's policy; complete them through the DataLinq wrapper as described in [Transactions](../Transactions.md#attaching-an-existing-adonet-transaction).
 
 ## Best Practices

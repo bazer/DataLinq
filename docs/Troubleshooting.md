@@ -156,6 +156,8 @@ Owned SQLite connections reset `PRAGMA read_uncommitted = false`, and owned tran
 
 For file-backed concurrency tests, use WAL with private/default cache. If an explicit SQLite shared-cache connection reports `SQLITE_LOCKED` while another transaction is writing, that is real table-lock behavior—not permission to enable dirty reads. Attached transactions keep the caller's SQLite pragmas, so inspect the supplied connection policy separately.
 
+For `SQLITE_BUSY`/`SQLITE_LOCKED`, inspect the original `SqliteException` (`SqliteErrorCode` 5 or 6) and the failed `datalinq.db.command` activity. DataLinq preserves the provider exception and records `db.operation.name`, `datalinq.command.kind`, `datalinq.transactional`, and `error.type`; it does not retry the command. Configure `Default Timeout` or an explicit `CommandTimeout` for bounded waits. If the application retries sustained writer contention, retry an idempotent whole operation or transaction—not an arbitrary statement whose outcome may be unclear.
+
 ## Relation Reads Look Stale During a Complex Write Flow
 
 If several related operations must behave as one unit, do them inside one explicit transaction and read through `transaction.Query()`.

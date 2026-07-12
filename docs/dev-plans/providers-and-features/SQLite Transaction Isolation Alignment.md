@@ -10,7 +10,7 @@
 
 **0.9 execution plan:** [SQL Transaction and Mutable Lifecycle Implementation Plan](../roadmap-implementation/v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md).
 
-**Implementation progress:** `SQ-1` and `SQ-2` are complete. Every DataLinq-owned SQLite scalar, reader, non-query, and transaction connection resets `PRAGMA read_uncommitted = false`; owned transactions use deferred `IsolationLevel.Serializable`; attached connections retain caller policy; CLI and test-harness file defaults omit `Cache`; named memory retains shared cache; file/WAL evidence covers pending insert/update/delete, rollback, explicit shared-cache locking, and bounded writer contention; and the full SQLite compliance lane is green at 732/732. Only the remaining `SQ-3` contention/diagnostic matrix is open.
+**Implementation progress:** `SQ-1`, `SQ-2`, and the bounded `SQ-3` matrix are complete. Every DataLinq-owned SQLite scalar, reader, non-query, and transaction connection resets `PRAGMA read_uncommitted = false`; owned transactions use deferred `IsolationLevel.Serializable`; attached connections retain caller policy; CLI and test-harness file defaults omit `Cache`; named memory retains shared cache; file/WAL evidence covers pending insert/update/delete, rollback, explicit shared-cache locking, connection-default and command-level timeouts, preserved provider error codes, failed-operation telemetry, and bounded writer contention; and the full SQLite compliance lane is green at 732/732. Automatic retry remains deliberately out of scope.
 
 ## Purpose
 
@@ -260,10 +260,10 @@ Do not use shared in-memory SQLite as the final arbiter for concurrent committed
    - Named in-memory databases retain shared cache where multiple connections must share one database.
    - Explicit caller-supplied cache settings are preserved rather than rewritten.
 
-4. **Characterize contention without inventing retries**
-   - Preserve/configure `DefaultTimeout` deliberately.
-   - Add temporary file-backed WAL contention tests and actionable lock/busy diagnostics.
-   - Defer automatic retry/backoff policy.
+4. **Characterize contention without inventing retries — complete (`SQ-3`)**
+   - File-WAL evidence proves connection-default and explicit command timeout behavior.
+   - `SQLITE_BUSY` retains provider codes/message and a failed `update` command activity with bounded operation context.
+   - `SQLITE_LOCKED` remains an explicit shared-cache outcome, and automatic retry/backoff remains out of scope.
 
 5. **Retune tests**
    - Move SQLite isolation assertions toward provider-independent committed visibility.

@@ -104,7 +104,7 @@ Existing public model-facing `RowData` behavior should remain model-valued. Prov
 
 The 0.9 release also closes two existing correctness gaps before adding another mutable or persistent backend:
 
-- DataLinq-owned SQLite paths now enforce committed visibility, with transaction-local state responsible for same-transaction reads, and generated file-backed connections now use private/default cache. Completing the remaining contention and diagnostic evidence remains 0.9 follow-through work.
+- DataLinq-owned SQLite paths now enforce committed visibility, with transaction-local state responsible for same-transaction reads; generated file-backed connections use private/default cache; and bounded WAL evidence records committed readers, `SQLITE_BUSY`/`SQLITE_LOCKED`, caller timeouts, and failure telemetry without automatic retries.
 - mutable instances should be reusable only while their baseline is trustworthy; rollback, failed writes, cross-provider reuse, and cross-transaction reuse need explicit invalidation rules.
 
 These are current SQL-provider correctness requirements, not features invented for `DataLinq.Memory`.

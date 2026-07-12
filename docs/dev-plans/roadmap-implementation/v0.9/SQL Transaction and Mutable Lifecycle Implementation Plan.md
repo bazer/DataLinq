@@ -3,7 +3,7 @@
 
 # SQL Transaction And Mutable Lifecycle Implementation Plan
 
-**Status:** Implementation in progress. `TX-0`, the bounded `ML-1` provenance substrate, the representable `ML-2` pre-execution guard slice, `TX-1` (`TX-1A` touched-mutable tracking plus `TX-1B` successful-change authority), `TX-2A` confirmed-success finalization for DataLinq-owned transactions, bounded `TX-2B` known-committed recovery, bounded `TX-3` managed-wrapper rollback/open-disposal finalization, bounded `TX-4A` mutation-pipeline poisoning, bounded managed provider-call `CommitOutcomeUnknown` cache recovery, the full `TX-5` attached-transaction contract, `SQ-1` DataLinq-owned SQLite committed visibility, and `SQ-2` file-backed shared-cache default removal are implemented. Provider-specific outcome evidence after a throwing commit, raw low-level escape prevention, local-cleanup fault injection beyond the supported cache primitives, full real-provider commit-fault evidence, full concurrency semantics, and the remaining terminal-state work are still open.
+**Status:** Implementation in progress. `TX-0`, the bounded `ML-1` provenance substrate, the representable `ML-2` pre-execution guard slice, `TX-1` (`TX-1A` touched-mutable tracking plus `TX-1B` successful-change authority), `TX-2A` confirmed-success finalization for DataLinq-owned transactions, bounded `TX-2B` known-committed recovery, bounded `TX-3` managed-wrapper rollback/open-disposal finalization, bounded `TX-4A` mutation-pipeline poisoning, bounded managed provider-call `CommitOutcomeUnknown` cache recovery, the full `TX-5` attached-transaction contract, `SQ-1` DataLinq-owned SQLite committed visibility, `SQ-2` file-backed shared-cache default removal, and bounded `SQ-3` contention/diagnostic evidence are implemented. Provider-specific outcome evidence after a throwing commit, raw low-level escape prevention, local-cleanup fault injection beyond the supported cache primitives, full real-provider commit-fault evidence, full concurrency semantics beyond the bounded SQLite matrix, and the remaining terminal-state work are still open.
 
 **Target release:** 0.9.
 
@@ -585,13 +585,13 @@ Removing dirty reads may expose real SQLite locking behavior. 0.9 should observe
 
 Work:
 
-- preserve caller-supplied `SqliteConnectionStringBuilder.DefaultTimeout` and command timeout behavior
-- do not add automatic transaction, statement, or commit retries
-- add bounded file-backed WAL tests with one writer and concurrent readers
-- record whether readers observe the last committed snapshot and whether writer contention produces a bounded busy/locked failure
-- ensure lock errors retain SQLite/provider details and DataLinq operation context
-- document that applications with sustained writer contention need an application-specific retry/idempotency policy
-- add benchmark or timing evidence only to catch pathological initialization/pragma overhead, not to promise a universal latency threshold
+- [x] preserve caller-supplied `SqliteConnectionStringBuilder.DefaultTimeout` and command timeout behavior
+- [x] do not add automatic transaction, statement, or commit retries
+- [x] add bounded file-backed WAL tests with one writer and concurrent readers
+- [x] record whether readers observe the last committed snapshot and whether writer contention produces a bounded busy/locked failure
+- [x] ensure lock errors retain SQLite/provider details and DataLinq operation context
+- [x] document that applications with sustained writer contention need an application-specific retry/idempotency policy
+- [x] add timing evidence only at the configured timeout boundary; no universal latency promise or retry benchmark is introduced
 
 Exit signal:
 
@@ -599,6 +599,8 @@ Exit signal:
 - contention tests terminate deterministically and never expose dirty data
 - no hidden retry can duplicate a mutation
 - remaining SQLite single-writer and snapshot differences are documented
+
+Bounded `SQ-3` is green without a runtime policy change. The file-WAL characterization proves an unconfigured command honors the one-second connection default, an explicit command honors its two-second override, both attempts preserve `SQLITE_BUSY` code 5 and the provider message, and two attempted updates produce exactly two failed `datalinq.db.command` activities tagged as non-transactional `update` operations with `SqliteException` error context. Private-cache readers keep the last committed snapshot, explicit shared cache either returns that committed value or surfaces `SQLITE_LOCKED`, and DataLinq performs no automatic retry.
 
 ## Foundation F3/F6 Interaction Gate
 
@@ -676,7 +678,7 @@ Current provider evidence for `TX-2A` is `src/DataLinq.Tests.Compliance/Transact
 - [x] the same owned transaction reads its own insert/update/delete and the full SQLite compliance lane remains green
 - [x] file-backed generated/default connections do not request shared cache (`SQ-2`)
 - [x] named in-memory connections retain the required shared-cache/keepalive behavior
-- [x] file-backed WAL contention respects configured timeout and never returns dirty rows; explicit shared cache may surface `SQLITE_LOCKED`
+- [x] file-backed WAL contention honors connection-default and explicit command timeouts, preserves provider busy details, emits failed-operation telemetry, performs no retry, and never returns dirty rows; explicit shared cache may surface `SQLITE_LOCKED`
 
 ### Documentation
 
@@ -746,7 +748,7 @@ This implementation plan is complete when:
 - foundation `F3`/`F6` preserves provider and transaction cache scope
 - public docs make no stronger claim than the tested behavior
 
-Current progress closes `TX-2A` confirmed-success finalization, bounded `TX-2B` known-committed recovery, bounded `TX-3` managed rollback/open-disposal finalization, managed `CommitOutcomeUnknown` cache recovery after a throwing provider commit, full `TX-5` attached ownership/completion/recovery, `SQ-1` DataLinq-owned SQLite committed visibility, and `SQ-2` file-backed shared-cache default removal. It does not make this overall exit green: provider-specific outcome evidence after a throwing commit, raw escape prevention, the remaining SQLite contention matrix, full provider commit-fault evidence, full concurrency semantics, and `F6` remain required.
+Current progress closes `TX-2A` confirmed-success finalization, bounded `TX-2B` known-committed recovery, bounded `TX-3` managed rollback/open-disposal finalization, managed `CommitOutcomeUnknown` cache recovery after a throwing provider commit, full `TX-5` attached ownership/completion/recovery, `SQ-1` DataLinq-owned SQLite committed visibility, `SQ-2` file-backed shared-cache default removal, and bounded `SQ-3` contention/diagnostic evidence. It does not make this overall exit green: provider-specific outcome evidence after a throwing commit, raw escape prevention, full provider commit-fault evidence, full concurrency semantics beyond the bounded SQLite matrix, and `F6` remain required.
 
 ## Risks And Mitigations
 
