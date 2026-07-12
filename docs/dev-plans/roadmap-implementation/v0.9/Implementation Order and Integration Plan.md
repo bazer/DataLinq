@@ -649,6 +649,7 @@ W2 is complete. W3 is proceeding independently, while W4 remains the next query-
 - [x] Normalize converter-backed model-row/model-instance key components, including current/original invalidation keys, while keeping metadata-free provider keys and generated fast paths separate.
 - [x] Preserve insert write-slot assignment provenance and omit only reload-safe, provider-applicable server SQL defaults without collapsing explicit null into unset.
 - [x] Remove the transitional concrete `DataSourceAccess` cast from repository-owned roots: Employees, Allround, and the platform/AOT smoke now declare exact `IDataLinqReadSource` construction and emit both legacy and neutral factories; dedicated legacy fixtures retain compatibility coverage.
+- [x] Keep converter-backed `MutableRowData` assignments in the public model domain: validate the resolved model CLR type, reject canonical provider values without converter calls or partial mutation, and preserve primitive identity-column conversion behavior.
 - [ ] Complete SC-2 deferred default shapes, UUID codecs, live read routing, and remaining query/materialization conversion through the shared boundary.
 - [ ] Complete SC-3 reader-sourced and external relation/index lookup normalization without losing operand provenance.
 

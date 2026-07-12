@@ -9,7 +9,7 @@
 
 **Created:** 2026-07-04.
 
-**Last reviewed:** 2026-07-11.
+**Last reviewed:** 2026-07-12.
 
 ## Purpose
 
@@ -126,6 +126,8 @@ Exit signal:
 ### SC-2: Runtime Materialization And Mutation
 
 Progress on 2026-07-11: the shared canonical-provider-to-model row materializer is implemented with column-only conversion context, null bypass, output validation, and safe diagnostics. `ProviderRowDecoder` now decodes full SQL reader rows into canonical provider values before scalar materialization, and the buffered SQL primary-key row-loader adapter owns command/reader lifetime around it. That adapter is not yet routed through live `TableCache` reads. `ModelValueConverter` now applies reverse model-to-canonical mapping once per serialization, identity-capture, or identity-validation boundary for insert values, update values and keys, and delete keys. `StateChange` captures canonical update/delete keys and reuses them for physical rendering, so the provider writer does not double-convert those keys at render time. Existing canonical loader/key writer calls do not enter that model conversion path. Raw SQL auto-increment results now accept only checked conversions among the eight integral CLR types, then use the same single-column canonical-to-model materializer before assigning the mutable generated-ID slot. This covers SQLite `Int64`-shaped and MySQL/MariaDB unsigned result shapes without decimal rounding or string parsing. It does not complete typed-ID insert reloads, which still need the live neutral read route. Insert mutations now preserve one table-ordinal write slot per column with explicit assignment provenance. An assigned null is therefore written as SQL `NULL`; an unset null is omitted only when it has a provider-applicable `DefaultSql`, is not a primary key, index participant, or converter-backed column, and the row can be reloaded through either a known non-converted primary-key shape or one non-converted integral auto-increment key. Existing post-insert reload then materializes the server-generated value. Provider-mismatched `DefaultSql` and client `[Default]` values intentionally remain writes. Indexed or converter-backed defaults, non-auto unknown keys, and all-columns-omitted inserts remain deferred alongside UUID physical codecs, live read routing, and the remaining query/materialization routes; SC-2 is not complete.
+
+Bounded mutable-assignment progress on 2026-07-12 removes the generic `Convert.ChangeType` fallback from converter-backed `MutableRowData` columns. Those setters now validate against the resolved model CLR type and keep public row/indexer state model-valued; passing the canonical provider CLR value is rejected with table, column, expected-model-type, and received-type context without invoking either converter direction or recording a mutation. Exact model values and null retain existing assignment behavior, while non-converted primitive columns retain their historical conversion fallback. This closes the explicit mutable-setter work item but not deferred defaults, UUID physical codecs, live read routing, or the remaining SC-2 routes.
 
 Work:
 

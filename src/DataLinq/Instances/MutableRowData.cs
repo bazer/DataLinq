@@ -130,7 +130,18 @@ public class MutableRowData : IRowData
     {
         ValidateMappedColumn(column);
 
-        if (value == null || column.ValueProperty.CsType.Type == null || value.GetType() == column.ValueProperty.CsType.Type)
+        if (value == null)
+            MutatedData[column] = value;
+        else if (column.HasScalarConverter)
+        {
+            CanonicalProviderValueRow.ValidateModelValue(
+                column,
+                value,
+                nameof(value));
+            MutatedData[column] = value;
+        }
+        else if (column.ValueProperty.CsType.Type == null ||
+                 value.GetType() == column.ValueProperty.CsType.Type)
             MutatedData[column] = value;
         else
             MutatedData[column] = Convert.ChangeType(value, column.ValueProperty.CsType.Type);
