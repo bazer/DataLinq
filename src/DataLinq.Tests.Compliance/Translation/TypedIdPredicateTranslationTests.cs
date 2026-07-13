@@ -271,6 +271,100 @@ public sealed class TypedIdPredicateTranslationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task TypedIdExplicitConstructorSqlRowProjection_MaterializesRootJoinedAndTerminalRowsAcrossProviders(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<TypedIdPredicateDb>.Create(
+            provider,
+            nameof(TypedIdExplicitConstructorSqlRowProjection_MaterializesRootJoinedAndTerminalRowsAcrossProviders));
+
+        var inserted = databaseScope.Database.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO typedidqueryrows (id, parent_id, name) VALUES " +
+            "(101, NULL, 'alpha'), (102, 101, 'beta'), (103, 101, 'gamma')");
+        var database = databaseScope.Database;
+
+        var rootQuery = database.Query().Rows
+            .OrderBy(row => row.Name)
+            .Select(row => new TypedIdConstructorProjection(
+                row.Name,
+                row.Id,
+                row.ParentId,
+                (QueryTypedId?)row.Id,
+                (object)row.Id));
+        var rootInvocation = ExpressionQueryPlanParser.Convert(database, rootQuery);
+        var rootProjection = rootInvocation.Template.Projection as QueryPlanProjection.SqlRow;
+        var rootRows = rootQuery.ToList();
+
+        var joinedQuery = database.Query().Rows.Join(
+            database.Query().Rows,
+            child => child.ParentId!.Value,
+            parent => parent.Id,
+            (child, parent) => new TypedIdJoinedConstructorProjection(
+                child.Name,
+                child.Id,
+                child.ParentId,
+                parent.Id,
+                parent.ParentId));
+        var joinedInvocation = ExpressionQueryPlanParser.Convert(database, joinedQuery);
+        var joinedProjection = joinedInvocation.Template.Projection as QueryPlanProjection.SqlRow;
+        var joinedRows = joinedQuery.ToList();
+
+        var betaName = "beta";
+        var singleRow = database.Query().Rows
+            .Where(row => row.Name == betaName)
+            .Select(row => new TypedIdConstructorProjection(
+                row.Name,
+                row.Id,
+                row.ParentId,
+                (QueryTypedId?)row.Id,
+                (object)row.Id))
+            .Single();
+        var strictException = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanExecutor.ExecuteEnumerable<TypedIdConstructorProjection>(
+                    database.Provider.ReadOnlyAccess,
+                    rootInvocation,
+                    ProjectionEvaluationOptions.AotStrict)
+                .ToList());
+
+        await Assert.That(inserted).IsEqualTo(3);
+        await Assert.That(rootProjection).IsNotNull();
+        await Assert.That(joinedProjection).IsNotNull();
+        await Assert.That(rootProjection!.RowType).IsEqualTo(typeof(TypedIdConstructorProjection));
+        await Assert.That(rootProjection.Constructor.DeclaringType).IsEqualTo(typeof(TypedIdConstructorProjection));
+        await Assert.That(joinedProjection!.RowType).IsEqualTo(typeof(TypedIdJoinedConstructorProjection));
+        await Assert.That(joinedProjection.Constructor.DeclaringType).IsEqualTo(typeof(TypedIdJoinedConstructorProjection));
+        await Assert.That(rootProjection.Disposition)
+            .IsEqualTo(QueryPlanProjectionDisposition.SqlOnlyCompatibility);
+        await Assert.That(joinedProjection.Disposition)
+            .IsEqualTo(QueryPlanProjectionDisposition.SqlOnlyCompatibility);
+        await Assert.That(strictException.Message).Contains("requires SQL-only compatibility execution");
+
+        await Assert.That(rootRows.Select(static row => row.Label).ToArray())
+            .IsEquivalentTo(new[] { "alpha", "beta", "gamma" });
+        await Assert.That(rootRows.Select(static row => row.Identifier).ToArray())
+            .IsEquivalentTo(new[] { new QueryTypedId(101), new QueryTypedId(102), new QueryTypedId(103) });
+        await Assert.That(rootRows.Select(static row => row.Parent).ToArray())
+            .IsEquivalentTo(new QueryTypedId?[] { null, new(101), new(101) });
+        await Assert.That(rootRows.Select(static row => row.Lifted).ToArray())
+            .IsEquivalentTo(new QueryTypedId?[] { new(101), new(102), new(103) });
+        await Assert.That(rootRows.All(static row => row.Boxed is QueryTypedId)).IsTrue();
+
+        var joinedByName = joinedRows.ToDictionary(static row => row.ChildName);
+        await Assert.That(joinedByName.Count).IsEqualTo(2);
+        await Assert.That(joinedByName["beta"].ChildId).IsEqualTo(new QueryTypedId(102));
+        await Assert.That(joinedByName["gamma"].ChildId).IsEqualTo(new QueryTypedId(103));
+        await Assert.That(joinedRows.All(static row => row.ChildParentId == new QueryTypedId(101))).IsTrue();
+        await Assert.That(joinedRows.All(static row => row.ParentId == new QueryTypedId(101))).IsTrue();
+        await Assert.That(joinedRows.All(static row => row.ParentParentId is null)).IsTrue();
+
+        await Assert.That(singleRow.Label).IsEqualTo("beta");
+        await Assert.That(singleRow.Identifier).IsEqualTo(new QueryTypedId(102));
+        await Assert.That(singleRow.Parent).IsEqualTo(new QueryTypedId(101));
+        await Assert.That(singleRow.Boxed).IsTypeOf<QueryTypedId>();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TypedIdGroupedAggregateKeys_MaterializeScalarNullableAndCompositeValuesAcrossProviders(
         TestProviderDescriptor provider)
     {
@@ -440,6 +534,20 @@ public sealed class TypedIdPredicateTranslationTests
         throw new Exception($"Expected exception of type '{typeof(TException).Name}'.");
     }
 }
+
+public sealed record TypedIdConstructorProjection(
+    string Label,
+    QueryTypedId Identifier,
+    QueryTypedId? Parent,
+    QueryTypedId? Lifted,
+    object Boxed);
+
+public sealed record TypedIdJoinedConstructorProjection(
+    string ChildName,
+    QueryTypedId ChildId,
+    QueryTypedId? ChildParentId,
+    QueryTypedId ParentId,
+    QueryTypedId? ParentParentId);
 
 public readonly record struct QueryTypedId(int Value)
 {
