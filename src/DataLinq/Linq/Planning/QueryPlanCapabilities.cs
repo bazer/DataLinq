@@ -42,7 +42,8 @@ internal enum QueryPlanFeatureCategory
     ScalarNullness,
     LocalSequenceShape,
     OrderingShape,
-    PagingCompositionShape
+    PagingCompositionShape,
+    ScalarProjectionShape
 }
 
 internal enum QueryPlanSourceCountKind
@@ -89,6 +90,7 @@ internal static class QueryPlanExactInt32ValueShapeFacts
         var definition = column.Column;
         return column.ClrType == typeof(int) &&
             !definition.Nullable &&
+            !definition.ValueProperty.CsNullable &&
             !definition.HasScalarConverter &&
             definition.ModelClrType == typeof(int) &&
             definition.ProviderClrType == typeof(int);
@@ -214,6 +216,38 @@ internal static class QueryPlanPagingCompositionShapeFacts
         }
 
         return QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering;
+    }
+}
+
+internal enum QueryPlanScalarProjectionShape
+{
+    DirectNonNullableInt32RootColumn,
+    Other
+}
+
+internal static class QueryPlanScalarProjectionShapeFacts
+{
+    internal static QueryPlanScalarProjectionShape Classify(
+        QueryPlanProjection.ScalarMember projection,
+        IReadOnlyList<QueryPlanSourceSlot> sources)
+    {
+        ArgumentNullException.ThrowIfNull(projection);
+        ArgumentNullException.ThrowIfNull(sources);
+
+        if (sources.Count != 1 ||
+            !ReferenceEquals(projection.Source, sources[0]) ||
+            projection.Source.Kind != QueryPlanSourceKind.RootTable ||
+            !ReferenceEquals(projection.Column.Table, projection.Source.Table) ||
+            !QueryPlanExactInt32ValueShapeFacts.IsDirectNonNullableInt32Column(
+                new QueryPlanColumnValue(
+                    projection.Source,
+                    projection.Column,
+                    projection.ResultType)))
+        {
+            return QueryPlanScalarProjectionShape.Other;
+        }
+
+        return QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn;
     }
 }
 
@@ -388,6 +422,9 @@ internal readonly record struct QueryPlanFeature(
     public static QueryPlanFeature PagingCompositionShape(QueryPlanPagingCompositionShape value) =>
         new(QueryPlanFeatureCategory.PagingCompositionShape, (int)value);
 
+    public static QueryPlanFeature ScalarProjectionShape(QueryPlanScalarProjectionShape value) =>
+        new(QueryPlanFeatureCategory.ScalarProjectionShape, (int)value);
+
     public string Token => ValueUse is null
         ? $"{Category}:{GetValueName()}"
         : $"{Category}:{GetValueName()}@{ValueUse}";
@@ -430,6 +467,7 @@ internal readonly record struct QueryPlanFeature(
         QueryPlanFeatureCategory.LocalSequenceShape => Name<QueryPlanLocalSequenceShapeKind>(),
         QueryPlanFeatureCategory.OrderingShape => Name<QueryPlanOrderingShape>(),
         QueryPlanFeatureCategory.PagingCompositionShape => Name<QueryPlanPagingCompositionShape>(),
+        QueryPlanFeatureCategory.ScalarProjectionShape => Name<QueryPlanScalarProjectionShape>(),
         _ => Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
     };
 
@@ -487,6 +525,7 @@ internal static class QueryPlanFeatureCatalog
         Add(features, Enum.GetValues<QueryPlanLocalSequenceShapeKind>(), QueryPlanFeature.LocalSequenceShape);
         Add(features, Enum.GetValues<QueryPlanOrderingShape>(), QueryPlanFeature.OrderingShape);
         Add(features, Enum.GetValues<QueryPlanPagingCompositionShape>(), QueryPlanFeature.PagingCompositionShape);
+        Add(features, Enum.GetValues<QueryPlanScalarProjectionShape>(), QueryPlanFeature.ScalarProjectionShape);
 
         return Array.AsReadOnly(features.ToArray());
     }
@@ -636,6 +675,7 @@ internal sealed class QueryBackendCapabilities
                     QueryPlanPagingCompositionShape.Other
                     ? QueryBackendCapabilityDisposition.Supported
                     : QueryBackendCapabilityDisposition.Unsupported,
+            QueryPlanFeatureCategory.ScalarProjectionShape => QueryBackendCapabilityDisposition.Supported,
             QueryPlanFeatureCategory.SourceCount or
             QueryPlanFeatureCategory.SourceKind or
             QueryPlanFeatureCategory.SourceCardinality or

@@ -90,10 +90,9 @@ internal sealed class MemoryDatabase<TDatabase>
     /// Executes a focused generated query with an explicit token until the public query API carries
     /// cancellation. This remains an internal spike surface and does not bypass plan validation.
     /// </summary>
-    internal IEnumerable<TModel> Execute<TModel>(
-        IQueryable<TModel> query,
+    internal IEnumerable<TResult> Execute<TResult>(
+        IQueryable<TResult> query,
         CancellationToken cancellationToken = default)
-        where TModel : class, ITableModel<TDatabase>
     {
         ArgumentNullException.ThrowIfNull(query);
         if (query.Provider is not ExpressionQueryPlanProvider provider)
@@ -102,13 +101,13 @@ internal sealed class MemoryDatabase<TDatabase>
                 "The memory query did not use the DataLinq expression-plan provider.");
         }
 
-        var invocation = provider.Parse(query.Expression, typeof(TModel));
+        var invocation = provider.Parse(query.Expression, typeof(TResult));
         var request = ValidatedQueryExecutionRequest.Prepare(
             new QueryExecutionRequest(
                 invocation,
                 new QueryExecutionContext(readSource, cancellationToken)));
 
-        return ExpressionQueryPlanExecutor.ExecuteEnumerable<TModel>(request);
+        return ExpressionQueryPlanExecutor.ExecuteEnumerable<TResult>(request);
     }
 
     internal int GetStoredRowCount<TModel>()

@@ -11,6 +11,7 @@ using DataLinq.Linq.Planning;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Metadata;
 using DataLinq.Tests.Models.Employees;
+using DataLinq.Tests.Unit.Core;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Linq;
@@ -57,7 +58,8 @@ public class QueryPlanCapabilityValidationTests
             [QueryPlanFeatureCategory.ScalarNullness] = 2,
             [QueryPlanFeatureCategory.LocalSequenceShape] = 3,
             [QueryPlanFeatureCategory.OrderingShape] = 2,
-            [QueryPlanFeatureCategory.PagingCompositionShape] = 5
+            [QueryPlanFeatureCategory.PagingCompositionShape] = 5,
+            [QueryPlanFeatureCategory.ScalarProjectionShape] = 2
         };
 
         var actualCategoryCounts = QueryPlanFeatureCatalog.All
@@ -73,15 +75,15 @@ public class QueryPlanCapabilityValidationTests
                 $"{feature.Token}={QueryBackendCapabilities.Sql.GetDisposition(feature)}"));
         var sqlMatrixFingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sqlMatrix)));
 
-        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(607);
+        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(609);
         await Assert.That(tokens.Distinct(StringComparer.Ordinal).Count()).IsEqualTo(tokens.Length);
         await Assert.That(actualCategoryCounts.Count).IsEqualTo(expectedCategoryCounts.Count);
         foreach (var expected in expectedCategoryCounts)
             await Assert.That(actualCategoryCounts[expected.Key]).IsEqualTo(expected.Value);
 
-        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(349);
+        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(351);
         await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Unsupported)).IsEqualTo(258);
-        await Assert.That(sqlMatrixFingerprint).IsEqualTo("4C4EEBE9EA8FC70DFD6631FCB8F0DCDC1F42F7E12F562E0115E13A2E6765C0A3");
+        await Assert.That(sqlMatrixFingerprint).IsEqualTo("7BEF16B9F6B98AE4DBC5F7A27ACBD8370737C37697AAF5CBEADCA15AD83D29C3");
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.Projection(QueryPlanProjectionKind.TransparentIdentifier)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
@@ -115,6 +117,13 @@ public class QueryPlanCapabilityValidationTests
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.TakeBeforeSkipInScope)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.ScalarProjectionShape(
+                QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.ScalarProjectionShape(QueryPlanScalarProjectionShape.Other)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.RepeatedSkipInScope)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
@@ -344,6 +353,16 @@ public class QueryPlanCapabilityValidationTests
     [Test]
     public async Task Requirements_ClassifyOnlySingleRootOwnedExactInt32PrimaryKeyOrdering()
     {
+        var exactTable = GetGeneratedNeutralTable();
+        var exactSource = Source("s0", "t0", exactTable, QueryPlanSourceKind.RootTable);
+        var exactId = new QueryPlanColumnValue(
+            exactSource,
+            exactTable.GetColumnByPropertyName(nameof(GeneratedNeutralMaterializationRow.Id)));
+        var exact = ExtractOrderingShape(CreateEntityInvocation(
+            exactSource,
+            [new QueryPlanOperation.OrderBy([
+                new QueryPlanOrdering(exactId, QueryPlanOrderingDirection.Ascending)
+            ])]));
         var ascending = ExtractOrderingShape(ParseEmployeeQuery(static rows =>
             rows.OrderBy(static row => row.emp_no)));
         var descending = ExtractOrderingShape(ParseEmployeeQuery(static rows =>
@@ -407,8 +426,9 @@ public class QueryPlanCapabilityValidationTests
             QueryPlanSpecialization.Empty);
         var foreignRootColumn = ExtractOrderingShape(QueryPlanInvocation.Bind(foreignRootTemplate, []));
 
-        await Assert.That(ascending).IsEqualTo(QueryPlanOrderingShape.SingleDirectNonNullableInt32PrimaryKeyColumn);
-        await Assert.That(descending).IsEqualTo(QueryPlanOrderingShape.SingleDirectNonNullableInt32PrimaryKeyColumn);
+        await Assert.That(exact).IsEqualTo(QueryPlanOrderingShape.SingleDirectNonNullableInt32PrimaryKeyColumn);
+        await Assert.That(ascending).IsEqualTo(QueryPlanOrderingShape.Other);
+        await Assert.That(descending).IsEqualTo(QueryPlanOrderingShape.Other);
         await Assert.That(stringColumn).IsEqualTo(QueryPlanOrderingShape.Other);
         await Assert.That(multipleKeys).IsEqualTo(QueryPlanOrderingShape.Other);
         await Assert.That(converted).IsEqualTo(QueryPlanOrderingShape.Other);
@@ -424,6 +444,72 @@ public class QueryPlanCapabilityValidationTests
         static QueryPlanOrderingShape ExtractOrderingShape(QueryPlanInvocation invocation) =>
             (QueryPlanOrderingShape)QueryPlanRequirements.Extract(invocation).Structural.Single(
                 static requirement => requirement.Feature.Category == QueryPlanFeatureCategory.OrderingShape).Feature.Value;
+    }
+
+    [Test]
+    public async Task Requirements_ClassifyExactAndBroaderScalarProjectionShapes()
+    {
+        var table = GetTable<Salaries>();
+        var source = Source("s0", "t0", table, QueryPlanSourceKind.RootTable);
+        var employeeNumber = table.GetColumnByPropertyName(nameof(Salaries.emp_no));
+        var employeeTable = GetTable<Employee>();
+        var employeeSource = Source("s0", "t0", employeeTable, QueryPlanSourceKind.RootTable);
+        var nullableEmployeeNumber = employeeTable.GetColumnByPropertyName(nameof(Employee.emp_no));
+        var firstName = employeeTable.GetColumnByPropertyName(nameof(Employee.first_name));
+        var exactInvocation = CreateScalarInvocation(source, employeeNumber, typeof(int));
+
+        var exact = ExtractScalarProjectionShape(exactInvocation);
+        var stringColumn = ExtractScalarProjectionShape(
+            CreateScalarInvocation(employeeSource, firstName, typeof(string)));
+        var nullableModelColumn = ExtractScalarProjectionShape(
+            CreateScalarInvocation(employeeSource, nullableEmployeeNumber, typeof(int)));
+        var widened = ExtractScalarProjectionShape(
+            CreateScalarInvocation(source, employeeNumber, typeof(long)));
+        var boxed = ExtractScalarProjectionShape(
+            CreateScalarInvocation(source, employeeNumber, typeof(object)));
+
+        await Assert.That(exact).IsEqualTo(
+            QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn);
+        await Assert.That(stringColumn).IsEqualTo(QueryPlanScalarProjectionShape.Other);
+        await Assert.That(nullableModelColumn).IsEqualTo(QueryPlanScalarProjectionShape.Other);
+        await Assert.That(widened).IsEqualTo(QueryPlanScalarProjectionShape.Other);
+        await Assert.That(boxed).IsEqualTo(QueryPlanScalarProjectionShape.Other);
+
+        var unsupported = Capture<QueryBackendCapabilityException>(() =>
+            QueryPlanCapabilityValidator.Validate(
+                exactInvocation,
+                WithUnsupported(
+                    "without-exact-int-projection",
+                    QueryPlanFeature.ScalarProjectionShape(
+                        QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn))));
+
+        await Assert.That(unsupported.Feature).IsEqualTo(
+            "ScalarProjectionShape:DirectNonNullableInt32RootColumn");
+        await Assert.That(unsupported.Location).IsEqualTo("projection.scalar.shape");
+        await Assert.That(unsupported.SourceId).IsEqualTo("s0");
+        await Assert.That(unsupported.ColumnName).IsEqualTo("emp_no");
+
+        static QueryPlanScalarProjectionShape ExtractScalarProjectionShape(
+            QueryPlanInvocation invocation) =>
+            (QueryPlanScalarProjectionShape)QueryPlanRequirements.Extract(invocation).Structural.Single(
+                static requirement => requirement.Feature.Category ==
+                    QueryPlanFeatureCategory.ScalarProjectionShape).Feature.Value;
+
+        static QueryPlanInvocation CreateScalarInvocation(
+            QueryPlanSourceSlot source,
+            ColumnDefinition column,
+            Type resultType)
+        {
+            var template = new QueryPlanTemplate(
+                [source],
+                [],
+                new QueryPlanProjection.ScalarMember(source, column, resultType),
+                QueryPlanResult.Sequence(resultType),
+                QueryPlanBindingDeclarations.Empty,
+                QueryPlanSpecialization.Empty);
+
+            return QueryPlanInvocation.Bind(template, []);
+        }
     }
 
     [Test]
@@ -1129,14 +1215,16 @@ public class QueryPlanCapabilityValidationTests
     [Test]
     public async Task Requirements_ClassifyOnlyExactInt32ColumnScalarComparisonShape()
     {
-        var table = GetTable<Employee>();
+        var table = GetGeneratedNeutralTable();
         var source = Source("s0", "t0", table, QueryPlanSourceKind.RootTable);
         var employeeNumber = new QueryPlanColumnValue(
             source,
-            table.GetColumnByPropertyName(nameof(Employee.emp_no)));
+            table.GetColumnByPropertyName(nameof(GeneratedNeutralMaterializationRow.Id)));
+        var employeeTable = GetTable<Employee>();
+        var employeeSource = Source("s0", "t0", employeeTable, QueryPlanSourceKind.RootTable);
         var firstName = new QueryPlanColumnValue(
-            source,
-            table.GetColumnByPropertyName(nameof(Employee.first_name)));
+            employeeSource,
+            employeeTable.GetColumnByPropertyName(nameof(Employee.first_name)));
 
         var directCapture = new QueryPlanBindingCapture();
         var directScalar = directCapture.CaptureScalar(42, typeof(int));
@@ -1158,7 +1246,7 @@ public class QueryPlanCapabilityValidationTests
         var textCapture = new QueryPlanBindingCapture();
         var textScalar = textCapture.CaptureScalar("forty-two", typeof(string));
         var text = ExtractShape(CreatePredicateInvocation(
-            source,
+            employeeSource,
             new QueryPlanPredicate.Compare(
                 firstName,
                 QueryPlanComparisonOperator.Equal,
@@ -1496,6 +1584,15 @@ public class QueryPlanCapabilityValidationTests
     {
         var metadata = GetDatabase();
         return metadata.TableModels.Single(model => model.Model.CsType.Type == typeof(TModel)).Table;
+    }
+
+    private static TableDefinition GetGeneratedNeutralTable()
+    {
+        var metadata = MetadataFromTypeFactory
+            .ParseDatabaseFromDatabaseModel(typeof(GeneratedNeutralMaterializationDb))
+            .ValueOrException();
+        return metadata.TableModels.Single(
+            model => model.Model.CsType.Type == typeof(GeneratedNeutralMaterializationRow)).Table;
     }
 
     private static DatabaseDefinition GetDatabase() =>

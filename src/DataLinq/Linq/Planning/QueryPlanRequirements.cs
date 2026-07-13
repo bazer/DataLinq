@@ -77,7 +77,7 @@ internal sealed class QueryPlanRequirements
                 HasDirectColumnSqlRowMembers(template.Projection),
                 template.Sources[0].Id);
 
-            VisitProjection(template.Projection, "projection");
+            VisitProjection(template.Projection, template.Sources, "projection");
             VisitResult(template.Result, "result", template.Sources[0].Id);
 
             for (var index = 0; index < template.BindingDeclarations.Count; index++)
@@ -400,7 +400,10 @@ internal sealed class QueryPlanRequirements
                     "Unknown query plan function shape.")
             };
 
-        private void VisitProjection(QueryPlanProjection projection, string location)
+        private void VisitProjection(
+            QueryPlanProjection projection,
+            IReadOnlyList<QueryPlanSourceSlot> sources,
+            string location)
         {
             var sourceId = projection switch
             {
@@ -425,6 +428,12 @@ internal sealed class QueryPlanRequirements
                 case QueryPlanProjection.Entity:
                     break;
                 case QueryPlanProjection.ScalarMember scalar:
+                    AddStructural(
+                        QueryPlanFeature.ScalarProjectionShape(
+                            QueryPlanScalarProjectionShapeFacts.Classify(scalar, sources)),
+                        $"{location}.scalar.shape",
+                        scalar.Source.Id,
+                        scalar.Column.DbName);
                     VisitValue(new QueryPlanColumnValue(scalar.Source, scalar.Column, scalar.ResultType), QueryPlanValueUse.ProjectionMember, $"{location}.member");
                     break;
                 case QueryPlanProjection.Anonymous anonymous:

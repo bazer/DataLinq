@@ -253,8 +253,10 @@ public sealed class MemoryVerticalSpikeTests
             "PagingCountShape:NonNegativeInt32ScalarBinding",
             "Predicate:Compare",
             "Projection:Entity",
+            "Projection:ScalarMember",
             "ProjectionDisposition:Direct",
             "Result:Sequence",
+            "ScalarProjectionShape:DirectNonNullableInt32RootColumn",
             "ScalarNullness:NonNull",
             "SourceCardinality:Many",
             "SourceCount:Single",
@@ -264,6 +266,7 @@ public sealed class MemoryVerticalSpikeTests
             "PagingCompositionShape:SingleTakeAfterSingleOrdering",
             "Value:Column@Ordering",
             "Value:Column@PredicateOperand",
+            "Value:Column@ProjectionMember",
             "Value:ScalarBinding@PagingCount",
             "Value:ScalarBinding@PredicateOperand"
         ]);

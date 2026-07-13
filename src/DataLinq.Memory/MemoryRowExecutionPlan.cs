@@ -9,16 +9,16 @@ using DataLinq.Metadata;
 namespace DataLinq.Memory;
 
 /// <summary>
-/// Invocation-local interpreter state for the currently admitted memory entity-sequence closure.
+/// Invocation-local interpreter state for the admitted memory row-selection closure.
 /// </summary>
-internal sealed class MemoryEntityExecutionPlan
+internal sealed class MemoryRowExecutionPlan
 {
     private const string ComparisonSourceName = "memory-query:equality";
     private readonly MemoryInt32EqualityPredicate[] predicates;
     private readonly MemoryInt32PrimaryKeyOrdering? ordering;
     private readonly int? takeCount;
 
-    private MemoryEntityExecutionPlan(
+    private MemoryRowExecutionPlan(
         MemoryInt32EqualityPredicate[] predicates,
         MemoryInt32PrimaryKeyOrdering? ordering,
         int? takeCount)
@@ -30,12 +30,14 @@ internal sealed class MemoryEntityExecutionPlan
 
     internal bool RequiresBufferedOrdering => ordering is not null;
 
-    internal static MemoryEntityExecutionPlan Compile(
+    internal static MemoryRowExecutionPlan Compile(
         ValidatedQueryExecutionRequest request,
-        QueryPlanProjection.Entity entity)
+        QueryPlanSourceSlot rootSource)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(entity);
+        ArgumentNullException.ThrowIfNull(rootSource);
+        if (rootSource.Kind != QueryPlanSourceKind.RootTable)
+            throw CapabilityInvariant("the selected row source is not a root table.");
 
         var operations = request.Invocation.Template.Operations;
         var predicates = new List<MemoryInt32EqualityPredicate>(operations.Count);
@@ -53,7 +55,7 @@ internal sealed class MemoryEntityExecutionPlan
                             $"operation {index} applies a filter after Take.");
                     }
 
-                    predicates.Add(CompileEquality(request.Invocation, entity, comparison, index));
+                    predicates.Add(CompileEquality(request.Invocation, rootSource, comparison, index));
                     break;
 
                 case QueryPlanOperation.OrderBy orderBy:
@@ -63,7 +65,7 @@ internal sealed class MemoryEntityExecutionPlan
                             $"operation {index} introduces a repeated or post-Take ordering.");
                     }
 
-                    ordering = CompileOrdering(entity, orderBy, index);
+                    ordering = CompileOrdering(rootSource, orderBy, index);
                     break;
 
                 case QueryPlanOperation.Take take:
@@ -83,7 +85,7 @@ internal sealed class MemoryEntityExecutionPlan
             }
         }
 
-        return new MemoryEntityExecutionPlan(predicates.ToArray(), ordering, takeCount);
+        return new MemoryRowExecutionPlan(predicates.ToArray(), ordering, takeCount);
     }
 
     internal IReadOnlyList<CanonicalProviderValueRow> PrepareOrderedRows(
@@ -150,7 +152,7 @@ internal sealed class MemoryEntityExecutionPlan
 
     private static MemoryInt32EqualityPredicate CompileEquality(
         QueryPlanInvocation invocation,
-        QueryPlanProjection.Entity entity,
+        QueryPlanSourceSlot rootSource,
         QueryPlanPredicate.Compare comparison,
         int operationIndex)
     {
@@ -181,13 +183,13 @@ internal sealed class MemoryEntityExecutionPlan
                 $"operation {operationIndex} has operands inconsistent with its validated comparison shape.")
         };
 
-        ValidateColumn(entity, column, operationIndex);
+        ValidateColumn(rootSource, column, operationIndex);
         var canonicalValue = ResolveCanonicalValue(invocation, column.Column, scalar, operationIndex);
         return new MemoryInt32EqualityPredicate(column.Column, canonicalValue);
     }
 
     private static MemoryInt32PrimaryKeyOrdering CompileOrdering(
-        QueryPlanProjection.Entity entity,
+        QueryPlanSourceSlot rootSource,
         QueryPlanOperation.OrderBy orderBy,
         int operationIndex)
     {
@@ -198,15 +200,15 @@ internal sealed class MemoryEntityExecutionPlan
                 $"operation {operationIndex} is not a single direct-column ordering.");
         }
 
-        ValidateColumn(entity, column, operationIndex);
+        ValidateColumn(rootSource, column, operationIndex);
         var definition = column.Column;
         if (column.ClrType != typeof(int) ||
             definition.Nullable ||
             definition.HasScalarConverter ||
             definition.ModelClrType != typeof(int) ||
             definition.ProviderClrType != typeof(int) ||
-            entity.Source.Table.PrimaryKeyColumns.Count != 1 ||
-            !ReferenceEquals(entity.Source.Table.PrimaryKeyColumns[0], definition))
+            rootSource.Table.PrimaryKeyColumns.Count != 1 ||
+            !ReferenceEquals(rootSource.Table.PrimaryKeyColumns[0], definition))
         {
             throw CapabilityInvariant(
                 $"operation {operationIndex} is not the exact non-nullable Int32 primary-key ordering " +
@@ -247,13 +249,13 @@ internal sealed class MemoryEntityExecutionPlan
     }
 
     private static void ValidateColumn(
-        QueryPlanProjection.Entity entity,
+        QueryPlanSourceSlot rootSource,
         QueryPlanColumnValue value,
         int operationIndex)
     {
         var column = value.Column;
-        if (!ReferenceEquals(value.Source, entity.Source) ||
-            !ReferenceEquals(column.Table, entity.Source.Table))
+        if (!ReferenceEquals(value.Source, rootSource) ||
+            !ReferenceEquals(column.Table, rootSource.Table))
         {
             throw CapabilityInvariant(
                 $"operation {operationIndex} references a column outside the root entity source.");
@@ -298,7 +300,7 @@ internal sealed class MemoryEntityExecutionPlan
     }
 
     private static InvalidOperationException CapabilityInvariant(string detail) =>
-        new($"The memory capability profile admitted an invalid entity-sequence shape: {detail}");
+        new($"The memory capability profile admitted an invalid row-selection shape: {detail}");
 }
 
 internal sealed class MemoryInt32EqualityPredicate
