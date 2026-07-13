@@ -187,15 +187,12 @@ internal static class ExpressionQueryPlanExecutor
             return ExecuteEntityTerminal<TResult>(request);
         }
 
+        if (plan.Template.Result.IsScalarResult)
+            return ExecuteScalar<TResult>(request);
+
         var dataSource = GetSqlCompatibilityDataSource(request);
         return plan.Template.Result.Kind switch
         {
-            QueryPlanResultKind.Count or
-            QueryPlanResultKind.Any or
-            QueryPlanResultKind.Sum or
-            QueryPlanResultKind.Min or
-            QueryPlanResultKind.Max or
-            QueryPlanResultKind.Average => ExecuteScalar<TResult>(dataSource, plan),
             QueryPlanResultKind.First => ExecuteSingle<TResult>(dataSource, plan, projectionOptions, static sequence => sequence.First()),
             QueryPlanResultKind.FirstOrDefault => ExecuteSingle<TResult>(dataSource, plan, projectionOptions, static sequence => sequence.FirstOrDefault()),
             QueryPlanResultKind.Single => ExecuteSingle<TResult>(dataSource, plan, projectionOptions, static sequence => sequence.Single()),
@@ -300,14 +297,8 @@ internal static class ExpressionQueryPlanExecutor
         return selector(ExecuteProjectedSequence<TResult>(dataSource, plan, projectionOptions))!;
     }
 
-    private static TResult ExecuteScalar<TResult>(DataSourceAccess dataSource, QueryPlanInvocation plan)
-    {
-        var select = new QueryPlanSqlBuilder(plan, dataSource)
-            .BuildSelect<TResult>();
-        var result = select.ExecuteScalar();
-
-        return ConvertScalarResult<TResult>(result, plan.Template.Result);
-    }
+    private static TResult ExecuteScalar<TResult>(ValidatedQueryExecutionRequest request)
+        => request.Backend.ExecuteScalar<TResult>(request);
 
     private static IEnumerable<TElement> ExecuteProjectedSequence<TElement>(
         DataSourceAccess dataSource,
@@ -717,26 +708,4 @@ internal static class ExpressionQueryPlanExecutor
         return Convert.ChangeType(value, nonNullableTarget, CultureInfo.InvariantCulture);
     }
 
-    private static TResult ConvertScalarResult<TResult>(object? result, QueryPlanResult planResult)
-    {
-        if (result is DBNull)
-            result = null;
-
-        if (planResult.Kind == QueryPlanResultKind.Any)
-            return (TResult)(object)(Convert.ToInt64(result ?? 0, CultureInfo.InvariantCulture) > 0);
-
-        if (result is null)
-        {
-            if (planResult.Kind == QueryPlanResultKind.Sum || Nullable.GetUnderlyingType(typeof(TResult)) is not null)
-                return default!;
-
-            throw new InvalidOperationException($"Scalar query plan result '{planResult.Kind}' returned no value.");
-        }
-
-        var targetType = Nullable.GetUnderlyingType(typeof(TResult)) ?? typeof(TResult);
-        if (targetType.IsInstanceOfType(result))
-            return (TResult)result;
-
-        return (TResult)Convert.ChangeType(result, targetType, CultureInfo.InvariantCulture);
-    }
 }

@@ -48,6 +48,37 @@ public class EmployeesAggregateTranslationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ScalarResultFamily_WorksFromTransactionRoot(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ScalarResultFamily_WorksFromTransactionRoot),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        using var transaction = employeesDatabase.Transaction();
+
+        var readOnly = employeesDatabase.Query().Managers
+            .Where(manager => manager.dept_fk.StartsWith("d00"));
+        var transactionQuery = transaction.Query().Managers
+            .Where(manager => manager.dept_fk.StartsWith("d00"));
+
+        await Assert.That(transactionQuery.Count()).IsEqualTo(readOnly.Count());
+        await Assert.That(transactionQuery.Any()).IsEqualTo(readOnly.Any());
+        await Assert.That(transactionQuery.Select(manager => manager.emp_no).Count())
+            .IsEqualTo(readOnly.Select(manager => manager.emp_no).Count());
+        await Assert.That(transactionQuery.Select(manager => manager.emp_no).Any())
+            .IsEqualTo(readOnly.Select(manager => manager.emp_no).Any());
+        await Assert.That(transactionQuery.Sum(manager => manager.emp_no)).IsEqualTo(readOnly.Sum(manager => manager.emp_no));
+        await Assert.That(transactionQuery.Min(manager => manager.emp_no)).IsEqualTo(readOnly.Min(manager => manager.emp_no));
+        await Assert.That(transactionQuery.Max(manager => manager.emp_no)).IsEqualTo(readOnly.Max(manager => manager.emp_no));
+        await Assert.That(NearlyEqual(
+            transactionQuery.Average(manager => manager.emp_no),
+            readOnly.Average(manager => manager.emp_no))).IsTrue();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ScalarAggregates_OverNullableNumericMembers_MatchInMemoryResults(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

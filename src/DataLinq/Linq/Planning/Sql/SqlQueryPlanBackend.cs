@@ -42,6 +42,27 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
             request.Context.CancellationToken);
     }
 
+    public TResult ExecuteScalar<TResult>(ValidatedQueryExecutionRequest request)
+    {
+        EnsureScalarRequest(request);
+        request.Context.CancellationToken.ThrowIfCancellationRequested();
+
+        if (request.Invocation.Template.Result.ResultType != typeof(TResult))
+        {
+            throw new InvalidOperationException(
+                $"The SQL scalar backend was asked for '{typeof(TResult).FullName}', but the validated query plan returns " +
+                $"'{request.Invocation.Template.Result.ResultType.FullName}'.");
+        }
+
+        DataSourceAccess.EnsureReadAllowed(dataSource, "execute a query plan");
+
+        var value = new QueryPlanSqlBuilder(request.Invocation, dataSource)
+            .BuildSelect<object>()
+            .ExecuteScalar(request.Context.CancellationToken);
+
+        return ConvertScalarResult<TResult>(value, request.Invocation.Template.Result);
+    }
+
     public bool TryExecuteTerminalEntity(
         ValidatedQueryExecutionRequest request,
         out IImmutableInstance? result)
@@ -66,6 +87,29 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
 
     private void EnsureEntityRequest(ValidatedQueryExecutionRequest request)
     {
+        EnsureRequest(request);
+
+        if (request.Invocation.Template.Projection is not QueryPlanProjection.Entity ||
+            !IsEntityResult(request.Invocation.Template.Result.Kind))
+        {
+            throw new InvalidOperationException(
+                "The SQL entity backend requires an entity sequence or entity terminal result.");
+        }
+    }
+
+    private void EnsureScalarRequest(ValidatedQueryExecutionRequest request)
+    {
+        EnsureRequest(request);
+
+        if (!request.Invocation.Template.Result.IsScalarResult)
+        {
+            throw new InvalidOperationException(
+                "The SQL scalar backend requires a Count, Any, Sum, Min, Max, or Average result.");
+        }
+    }
+
+    private void EnsureRequest(ValidatedQueryExecutionRequest request)
+    {
         ArgumentNullException.ThrowIfNull(request);
         request.EnsureBackend(this);
 
@@ -73,13 +117,6 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
         {
             throw new InvalidOperationException(
                 "The SQL query backend cannot execute a request created for another read source.");
-        }
-
-        if (request.Invocation.Template.Projection is not QueryPlanProjection.Entity ||
-            !IsEntityResult(request.Invocation.Template.Result.Kind))
-        {
-            throw new InvalidOperationException(
-                "The SQL entity backend requires an entity sequence or entity terminal result.");
         }
     }
 
@@ -308,6 +345,38 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
             QueryPlanResultKind.FirstOrDefault or
             QueryPlanResultKind.Last or
             QueryPlanResultKind.LastOrDefault;
+
+    private static TResult ConvertScalarResult<TResult>(
+        object? result,
+        QueryPlanResult planResult)
+    {
+        if (result is DBNull)
+            result = null;
+
+        if (planResult.Kind == QueryPlanResultKind.Any)
+        {
+            return (TResult)(object)(
+                Convert.ToInt64(result ?? 0, CultureInfo.InvariantCulture) > 0);
+        }
+
+        if (result is null)
+        {
+            if (planResult.Kind == QueryPlanResultKind.Sum ||
+                Nullable.GetUnderlyingType(typeof(TResult)) is not null)
+            {
+                return default!;
+            }
+
+            throw new InvalidOperationException(
+                $"Scalar query plan result '{planResult.Kind}' returned no value.");
+        }
+
+        var targetType = Nullable.GetUnderlyingType(typeof(TResult)) ?? typeof(TResult);
+        if (targetType.IsInstanceOfType(result))
+            return (TResult)result;
+
+        return (TResult)Convert.ChangeType(result, targetType, CultureInfo.InvariantCulture);
+    }
 }
 
 internal sealed class EnumeratorQueryEntityCursor : IQueryEntityCursor

@@ -28,6 +28,14 @@ internal sealed record QueryPlanResult
 
     public QueryPlanValue? AggregateSelector { get; }
 
+    public bool IsScalarResult =>
+        Kind is QueryPlanResultKind.Count or
+            QueryPlanResultKind.Any or
+            QueryPlanResultKind.Sum or
+            QueryPlanResultKind.Min or
+            QueryPlanResultKind.Max or
+            QueryPlanResultKind.Average;
+
     public static QueryPlanResult Sequence(Type resultType) => new(QueryPlanResultKind.Sequence, resultType);
 }
 

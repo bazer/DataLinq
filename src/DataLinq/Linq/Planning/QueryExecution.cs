@@ -130,6 +130,8 @@ internal interface IQueryPlanBackend
 
     IQueryEntityCursor OpenEntityCursor(ValidatedQueryExecutionRequest request);
 
+    TResult ExecuteScalar<TResult>(ValidatedQueryExecutionRequest request);
+
     bool TryExecuteTerminalEntity(
         ValidatedQueryExecutionRequest request,
         out IImmutableInstance? result);

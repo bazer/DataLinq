@@ -31,10 +31,13 @@ public sealed class QueryPlanCapabilityExecutionTests
                 employees.Where(employee => employee.first_name.Substring(1) == capturedValue).ToList());
             var terminalFailure = Capture<QueryBackendCapabilityException>(() =>
                 employees.Where(employee => employee.first_name.Substring(1) == capturedValue).FirstOrDefault());
+            var scalarFailure = Capture<QueryBackendCapabilityException>(() =>
+                employees.Where(employee => employee.first_name.Substring(1) == capturedValue).Count());
             var snapshot = DataLinqMetrics.Snapshot();
 
             await AssertUnsupportedSubstringDiagnostic(sequenceFailure, capturedValue);
             await AssertUnsupportedSubstringDiagnostic(terminalFailure, capturedValue);
+            await AssertUnsupportedSubstringDiagnostic(scalarFailure, capturedValue);
             await Assert.That(snapshot.Commands.TotalExecutions).IsEqualTo(0);
             await Assert.That(snapshot.Queries.EntityExecutions).IsEqualTo(0);
             await Assert.That(snapshot.Queries.ScalarExecutions).IsEqualTo(0);

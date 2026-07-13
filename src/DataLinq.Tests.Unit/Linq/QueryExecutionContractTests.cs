@@ -10,6 +10,7 @@ using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Linq.Planning;
+using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Linq.Planning.Sql;
 using DataLinq.Metadata;
 using DataLinq.Tests.Models.Employees;
@@ -35,6 +36,27 @@ public class QueryExecutionContractTests
 
         await Assert.That(exception.Feature).IsEqualTo(unsupportedFeature.Token);
         await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
+        await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Prepare_RejectsUnsupportedScalarPlanBeforeExecutingBackend()
+    {
+        var (metadata, invocation) = CreateScalarInvocation(QueryPlanResultKind.Count, typeof(int));
+        var unsupportedFeature = QueryPlanFeature.Result(QueryPlanResultKind.Count);
+        var backend = new TrackingBackend(CreateCapabilities(unsupportedFeature));
+        var source = new TrackingReadSource(metadata, backend);
+        var request = new QueryExecutionRequest(
+            invocation,
+            new QueryExecutionContext(source, CancellationToken.None));
+
+        var exception = Capture<QueryBackendCapabilityException>(() =>
+            ValidatedQueryExecutionRequest.Prepare(request));
+
+        await Assert.That(exception.Feature).IsEqualTo(unsupportedFeature.Token);
+        await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
+        await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
         await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
     }
 
@@ -55,6 +77,7 @@ public class QueryExecutionContractTests
 
         await Assert.That(source.BackendAccesses).IsEqualTo(0);
         await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
         await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
     }
 
@@ -75,6 +98,7 @@ public class QueryExecutionContractTests
         await Assert.That(exception.Message).Contains("does not own query-plan source 's0'");
         await Assert.That(source.BackendAccesses).IsEqualTo(0);
         await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
         await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
     }
 
@@ -95,6 +119,7 @@ public class QueryExecutionContractTests
         await Assert.That(exception.Message).Contains("backend bound to another source");
         await Assert.That(source.BackendAccesses).IsEqualTo(1);
         await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
         await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
     }
 
@@ -143,6 +168,50 @@ public class QueryExecutionContractTests
 
         await Assert.That(constructors.Length).IsGreaterThan(0);
         await Assert.That(constructors.All(static constructor => constructor.IsPrivate)).IsTrue();
+    }
+
+    [Test]
+    public async Task ScalarCount_UsesExactValidatedBackendOnceAndReturnsSemanticResult()
+    {
+        var (metadata, invocation) = CreateScalarInvocation(QueryPlanResultKind.Count, typeof(int));
+        var backend = new TrackingBackend(
+            CreateCapabilities(),
+            7);
+        var source = new TrackingReadSource(metadata, backend);
+        var request = ValidatedQueryExecutionRequest.Prepare(
+            new QueryExecutionRequest(
+                invocation,
+                new QueryExecutionContext(source, CancellationToken.None)));
+
+        var result = ExpressionQueryPlanExecutor.Execute<int>(request);
+
+        await Assert.That(result).IsEqualTo(7);
+        await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(1);
+        await Assert.That(ReferenceEquals(backend.LastScalarRequest, request)).IsTrue();
+        await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task ScalarAny_UsesBackendValueWithoutOpeningEntityPaths()
+    {
+        var (metadata, invocation) = CreateScalarInvocation(QueryPlanResultKind.Any, typeof(bool));
+        var backend = new TrackingBackend(
+            CreateCapabilities(),
+            false);
+        var source = new TrackingReadSource(metadata, backend);
+        var request = ValidatedQueryExecutionRequest.Prepare(
+            new QueryExecutionRequest(
+                invocation,
+                new QueryExecutionContext(source, CancellationToken.None)));
+
+        var result = ExpressionQueryPlanExecutor.Execute<bool>(request);
+
+        await Assert.That(result).IsFalse();
+        await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(1);
+        await Assert.That(ReferenceEquals(backend.LastScalarRequest, request)).IsTrue();
+        await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
     }
 
     [Test]
@@ -232,6 +301,25 @@ public class QueryExecutionContractTests
             QueryPlanInvocation.Bind(template, Array.Empty<QueryPlanInvocationValue>()));
     }
 
+    private static (DatabaseDefinition Metadata, QueryPlanInvocation Invocation) CreateScalarInvocation(
+        QueryPlanResultKind resultKind,
+        Type resultType)
+    {
+        var (metadata, entityInvocation) = CreateEntityInvocation();
+        var entityTemplate = entityInvocation.Template;
+        var template = new QueryPlanTemplate(
+            entityTemplate.Sources,
+            entityTemplate.Operations,
+            entityTemplate.Projection,
+            new QueryPlanResult(resultKind, resultType),
+            entityTemplate.BindingDeclarations,
+            entityTemplate.Specialization);
+
+        return (
+            metadata,
+            QueryPlanInvocation.Bind(template, Array.Empty<QueryPlanInvocationValue>()));
+    }
+
     private static DatabaseDefinition GetEmployeesMetadata()
         => MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
 
@@ -292,7 +380,9 @@ public class QueryExecutionContractTests
         }
     }
 
-    private sealed class TrackingBackend(QueryBackendCapabilities capabilities) : IQueryPlanBackend
+    private sealed class TrackingBackend(
+        QueryBackendCapabilities capabilities,
+        object? scalarResult = null) : IQueryPlanBackend
     {
         public IDataLinqReadSource Source { get; private set; } = null!;
 
@@ -300,7 +390,11 @@ public class QueryExecutionContractTests
 
         public int OpenEntityCursorCalls { get; private set; }
 
+        public int ExecuteScalarCalls { get; private set; }
+
         public int TryExecuteTerminalEntityCalls { get; private set; }
+
+        public ValidatedQueryExecutionRequest? LastScalarRequest { get; private set; }
 
         public void Bind(IDataLinqReadSource source) => Source = source;
 
@@ -310,6 +404,16 @@ public class QueryExecutionContractTests
             return new EnumeratorQueryEntityCursor(
                 new TrackingEntityEnumerator(rowCount: 0),
                 CancellationToken.None);
+        }
+
+        public TResult ExecuteScalar<TResult>(ValidatedQueryExecutionRequest request)
+        {
+            request.EnsureBackend(this);
+            ExecuteScalarCalls++;
+            LastScalarRequest = request;
+            return scalarResult is null
+                ? default!
+                : (TResult)scalarResult;
         }
 
         public bool TryExecuteTerminalEntity(
