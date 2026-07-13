@@ -177,7 +177,9 @@ public partial class TableCache
 
         var newKeys = KeyFactory.GetKeys(select, Table.PrimaryKeyColumns).ToArray();
 
-        if (indexCachePolicy.type != IndexCacheType.None)
+        // Key-only transaction reads are scoped to the transaction and must not publish
+        // their visible key set into the shared committed index cache.
+        if (dataSource is ReadOnlyAccess && indexCachePolicy.type != IndexCacheType.None)
             GetIndexCache(index).TryAdd(foreignKey, newKeys);
 
         RefreshOccupancyMetrics();

@@ -204,6 +204,80 @@ public class EmployeesOptimizationTests
     [Test]
     [NotInParallel]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task RelationIndex_IntegralColdLoadPopulatesWarmKeyPath(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(RelationIndex_IntegralColdLoadPopulatesWarmKeyPath),
+            EmployeesSeedMode.Bogus);
+
+        var database = databaseScope.Database;
+        var employeeNumber = database.Query().salaries
+            .OrderBy(static salary => salary.emp_no)
+            .Select(static salary => salary.emp_no)
+            .First();
+        var employeeTable = database.Provider.Metadata
+            .GetTableModel(typeof(Employee))
+            .Table;
+        var salariesTable = database.Provider.Metadata
+            .GetTableModel(typeof(Salaries))
+            .Table;
+        var relation = employeeTable.Model.RelationProperties[nameof(Employee.salaries)];
+        var relationIndex = relation.RelationPart.GetOtherSide().ColumnIndex;
+        var salariesCache = database.Provider.GetTableCache(salariesTable);
+
+        database.Provider.State.ClearCache();
+        DataLinqMetrics.Reset();
+
+        try
+        {
+            var coldRows = salariesCache
+                .GetRows(employeeNumber, relation, database.Provider.ReadOnlyAccess)
+                .Cast<Salaries>()
+                .ToArray();
+            var coldSnapshot = DataLinqMetrics.Snapshot();
+
+            var warmRows = salariesCache
+                .GetRows(employeeNumber, relation, database.Provider.ReadOnlyAccess)
+                .Cast<Salaries>()
+                .ToArray();
+            var warmSnapshot = DataLinqMetrics.Snapshot();
+
+            await Assert.That(coldRows).IsNotEmpty();
+            await Assert.That(warmRows.Select(static row => row.PrimaryKeys()).ToArray())
+                .IsEquivalentTo(coldRows.Select(static row => row.PrimaryKeys()).ToArray());
+            await Assert.That(warmRows.Length).IsEqualTo(coldRows.Length);
+            for (var index = 0; index < coldRows.Length; index++)
+                await Assert.That(warmRows[index]).IsSameReferenceAs(coldRows[index]);
+
+            await Assert.That(salariesCache.IndicesCount
+                .Single(item => item.index == relationIndex.Name)
+                .count).IsEqualTo(1);
+
+            await Assert.That(coldSnapshot.Commands.ReaderExecutions).IsEqualTo(1);
+            await Assert.That(coldSnapshot.RowCache.Hits).IsEqualTo(0);
+            await Assert.That(coldSnapshot.RowCache.Misses).IsEqualTo(coldRows.Length);
+            await Assert.That(coldSnapshot.RowCache.Stores).IsEqualTo(coldRows.Length);
+            await Assert.That(coldSnapshot.RowCache.DatabaseRowsLoaded).IsEqualTo(coldRows.Length);
+            await Assert.That(coldSnapshot.RowCache.Materializations).IsEqualTo(coldRows.Length);
+
+            await Assert.That(warmSnapshot.Commands.ReaderExecutions).IsEqualTo(1);
+            await Assert.That(warmSnapshot.RowCache.Hits).IsEqualTo(coldRows.Length);
+            await Assert.That(warmSnapshot.RowCache.Misses).IsEqualTo(coldRows.Length);
+            await Assert.That(warmSnapshot.RowCache.Stores).IsEqualTo(coldRows.Length);
+            await Assert.That(warmSnapshot.RowCache.DatabaseRowsLoaded).IsEqualTo(coldRows.Length);
+            await Assert.That(warmSnapshot.RowCache.Materializations).IsEqualTo(coldRows.Length);
+        }
+        finally
+        {
+            DataLinqMetrics.Reset();
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_PrimaryKeySingle_ColdCacheMiss_LoadsAndStoresRow(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

@@ -5,7 +5,7 @@
 
 **Status:** Active.
 
-**Last reviewed:** 2026-07-10.
+**Last reviewed:** 2026-07-13.
 
 ## Purpose
 
@@ -32,7 +32,7 @@ The 0.8 release established the foundation that 0.9 consumes:
 
 The important current limitations are equally real:
 
-- retained expression-query result families now execute behind the selected SQL backend, but primary-key, joined-key, cache, relation, and legacy reader routes are not yet fully backend-neutral
+- retained expression-query result families execute behind the selected SQL backend, and bounded neutral routes now cover integral/scalar-UUID primary keys plus exact single-column integral relation indices; broader primary/joined keys, cache/relation families, and legacy reader routes are not yet backend-neutral
 - projection recipes are self-contained after parsing, but only the SQL adapter implements their execution; there is no memory capability profile or backend yet
 - model values, canonical provider values, and provider physical/wire values are not separate first-class contracts
 - DataLinq has no native async database I/O surface
@@ -67,7 +67,7 @@ The condensed order is:
 1. record the clean 0.8 behavior, package, compatibility, and performance baseline
 2. characterize query execution, transaction/cache behavior, mutable lifecycle, and scalar/UUID values in parallel
 3. land scalar metadata plus self-contained template/invocation and projection recipes
-4. finish existing SQL transaction/mutable correctness before neutral cache/relation routing moves
+4. satisfy the applicable per-family SQL transaction/cache fault and terminal-state gate before each neutral cache/relation routing slice moves
 5. land the shared canonical row/source/materializer boundary, scalar runtime conversion, capability validation, and SQL adapter
 6. complete typed-ID query/key/schema behavior; run the granular UUID physical-codec lane and separate-project primitive memory spike where their dependencies allow
 7. promote memory to a read-only preview package only if the spike gate passes, then complete its explicit semantics while UUID remains an independent required release gate

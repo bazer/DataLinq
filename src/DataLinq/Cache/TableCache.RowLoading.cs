@@ -80,14 +80,39 @@ public partial class TableCache
         var rowCount = 0;
         IImmutableInstance? singleRow = null;
         List<IImmutableInstance>? rows = null;
-        var cachePrimaryKeys = indexCachePolicy.type != IndexCacheType.None;
+        // The index cache is shared committed state. A transaction can observe pending
+        // inserts, updates, and deletes, so publishing its visible key set here would let
+        // transaction-local state survive rollback and poison later read-only relation loads.
+        var cachePrimaryKeys = dataSource is ReadOnlyAccess &&
+            indexCachePolicy.type != IndexCacheType.None;
         var primaryKeyCount = 0;
         var singlePrimaryKey = default(DataLinqKey);
         List<DataLinqKey>? primaryKeys = null;
         var rowCacheHits = 0;
         var rowCacheMisses = 0;
 
-        if (TryConvertScalarProviderColumnValue(foreignKey, index.Columns, dataSource, out var predicateColumn, out var predicateValue))
+        if (TryGetCanonicalIndexSourceServices(
+            foreignKey,
+            index,
+            dataSource,
+            out var sourceServices,
+            out var canonicalProviderIndexKey))
+        {
+            var request = new SourceIndexRowRequest(
+                Table,
+                index,
+                canonicalProviderIndexKey);
+            var result = sourceServices.IndexRowLoader.Load(request);
+            if (!ReferenceEquals(result.Request, request))
+            {
+                throw new InvalidOperationException(
+                    $"Source index row loader returned a result for a different request than table '{Table.DbName}' index '{index.Name}'.");
+            }
+
+            foreach (var providerRow in result.Rows)
+                AddCanonicalRow(providerRow, sourceServices);
+        }
+        else if (TryConvertScalarProviderColumnValue(foreignKey, index.Columns, dataSource, out var predicateColumn, out var predicateValue))
         {
             DataSourceAccess.EnsureReadAllowed(dataSource, "load relation rows");
             var scalarQuery = new ScalarColumnRowsQuery(Table, dataSource, predicateColumn, predicateValue);
@@ -121,6 +146,31 @@ public partial class TableCache
         RefreshOccupancyMetrics();
 
         return GetRowArray();
+
+        void AddCanonicalRow(
+            CanonicalProviderValueRow providerRow,
+            IDataLinqIndexRowServices sourceServices)
+        {
+            if (!providerRow.TryCreateCanonicalPrimaryKey(out var primaryKey))
+            {
+                throw new InvalidOperationException(
+                    $"Source index row for table '{Table.DbName}' did not contain a canonical primary key.");
+            }
+
+            AddPrimaryKey(primaryKey);
+
+            if (GetRowFromCache(primaryKey, dataSource, out var cachedRow))
+            {
+                rowCacheHits++;
+                AddLoadedRow(cachedRow!);
+                return;
+            }
+
+            rowCacheMisses++;
+            MetricsHandle.RecordDatabaseRowsLoaded(1);
+            AddLoadedRow(sourceServices.MaterializationServices
+                .MaterializeAfterKnownCacheMiss(providerRow));
+        }
 
         void AddRowData(RowData rowData)
         {
@@ -191,6 +241,37 @@ public partial class TableCache
                 _ => primaryKeys!.ToArray()
             };
         }
+    }
+
+    private static bool TryGetCanonicalIndexSourceServices<TKey>(
+        TKey foreignKey,
+        ColumnIndex index,
+        IDataSourceAccess dataSource,
+        out IDataLinqIndexRowServices sourceServices,
+        out DataLinqKey canonicalProviderIndexKey)
+        where TKey : notnull
+    {
+        sourceServices = null!;
+        canonicalProviderIndexKey = DataLinqKey.Null;
+
+        // F6-B deliberately admits only exact, single-column integral provider keys.
+        // String/CHAR collation, UUID codecs, composite keys, and converter-backed model
+        // values remain on the legacy SQL path until their normalization contracts land.
+        if (dataSource is not IDataLinqIndexRowServices availableServices ||
+            index.Table.PrimaryKeyColumns.Count == 0 ||
+            index.Columns.Count != 1 ||
+            index.Columns[0].HasScalarConverter ||
+            !ProviderKeyComponents.HasOnlyIntegralCanonicalComponents(index.Columns) ||
+            !ProviderKeyComponents.TryCreateExactCanonicalKey(
+                foreignKey,
+                index.Columns,
+                out canonicalProviderIndexKey))
+        {
+            return false;
+        }
+
+        sourceServices = availableServices;
+        return true;
     }
 
     private IEnumerable<IImmutableInstance> LoadOrderedRowsFromDatabaseAndCache<TKey>(IReadOnlyList<TKey> primaryKeys, IDataSourceAccess dataSource, List<OrderBy> orderings)

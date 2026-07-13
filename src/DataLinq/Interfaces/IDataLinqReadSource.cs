@@ -31,6 +31,15 @@ internal interface IDataLinqSourceRowServices : IDataLinqReadServices
 }
 
 /// <summary>
+/// Optional read-service capability for sources that can load full rows by a canonical index value.
+/// Sources without relation/index loading support do not implement this interface.
+/// </summary>
+internal interface IDataLinqIndexRowServices : IDataLinqReadServices
+{
+    ISourceIndexRowLoader IndexRowLoader { get; }
+}
+
+/// <summary>
 /// Optional execution capability implemented by read sources that can execute neutral query plans.
 /// </summary>
 internal interface IDataLinqQueryPlanServices : IDataLinqReadServices

@@ -4,12 +4,15 @@ using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using DataLinq.Attributes;
 using DataLinq.Cache;
 using DataLinq.Core.Factories;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
@@ -19,6 +22,81 @@ namespace DataLinq.Tests.Unit.Core;
 
 public sealed class DataSourceAccessSourceRowLoaderTests
 {
+    [Test]
+    [NotInParallel]
+    public async Task TableCache_IndexDispatch_UsesNeutralLoaderOnlyForExactIntegralKey()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+
+        try
+        {
+            var integral = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                42,
+                useScalarConverter: false,
+                includePrimaryKey: true);
+            var converterFallback = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                DataLinqKey.FromValue(42),
+                useScalarConverter: true,
+                includePrimaryKey: true);
+            var primaryKeylessFallback = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                42,
+                useScalarConverter: false,
+                includePrimaryKey: false);
+            var stringFallback = LoadEmptyRelationRows(
+                "idx_source_rows_name",
+                "Ada",
+                useScalarConverter: false,
+                includePrimaryKey: true);
+
+            await Assert.That(integral.Rows).IsEmpty();
+            await Assert.That(integral.NeutralEligible).IsTrue();
+            await Assert.That(integral.Query).IsTypeOf<Select<object>>();
+            await Assert.That(integral.WriterValues.Select(static value => value.Value).ToArray())
+                .IsEquivalentTo(new object?[] { 42 });
+
+            await Assert.That(stringFallback.Rows).IsEmpty();
+            await Assert.That(stringFallback.NeutralEligible).IsFalse();
+            await Assert.That(stringFallback.Query.GetType().Name)
+                .Contains("ScalarColumnRowsQuery");
+            await Assert.That(converterFallback.Rows).IsEmpty();
+            await Assert.That(converterFallback.NeutralEligible).IsFalse();
+            await Assert.That(primaryKeylessFallback.Rows).IsEmpty();
+            await Assert.That(primaryKeylessFallback.NeutralEligible).IsFalse();
+        }
+        finally
+        {
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    public async Task SourceRowCapabilities_ShareOneCachedSqlLoader()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var reader = new TrackingReader([]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+
+        var primaryKeyLoader = ((IDataLinqSourceRowServices)source).RowLoader;
+        var indexLoader = ((IDataLinqIndexRowServices)source).IndexRowLoader;
+
+        await Assert.That(primaryKeyLoader).IsSameReferenceAs(indexLoader);
+        await Assert.That(((IDataLinqSourceRowServices)source).RowLoader)
+            .IsSameReferenceAs(primaryKeyLoader);
+        await Assert.That(((IDataLinqIndexRowServices)source).IndexRowLoader)
+            .IsSameReferenceAs(indexLoader);
+    }
+
     [Test]
     public async Task SelectReadReader_CancellationDuringCommandCreationDisposesWithoutProviderExecution()
     {
@@ -188,6 +266,117 @@ public sealed class DataSourceAccessSourceRowLoaderTests
     }
 
     [Test]
+    public async Task LoadIndex_UsesEqualityPredicateAndOwnsBufferedResultLifetime()
+    {
+        var converter = new RecordingIdConverter();
+        var table = CreateTable(converter);
+        var nameColumn = table.GetColumnByDbName("name");
+        var index = table.ColumnIndices.Single(candidate => candidate.Name == "idx_source_rows_name");
+        var reader = new TrackingReader(
+        [
+            [42, "Ada"],
+            [43, "Ada"]
+        ]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var writer = new RecordingWriter();
+        var provider = new TrackingProvider(table.Database, databaseAccess, writer, command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var request = new SourceIndexRowRequest(
+            table,
+            index,
+            DataLinqKey.FromValue("Ada"));
+
+        var result = ((IDataLinqIndexRowServices)source).IndexRowLoader.Load(request);
+
+        var select = (Select<object>)provider.LastQuery!;
+        var hasTemplate = select.Query.TryGetTemplateKey(
+            paramPrefix: null,
+            out var templateKey,
+            out var values);
+        await Assert.That(hasTemplate).IsTrue();
+        await Assert.That(templateKey.PredicateCount).IsEqualTo(1);
+        await Assert.That(templateKey.PredicateColumn1).IsEqualTo("name");
+        await Assert.That(templateKey.PredicateOperator1).IsEqualTo(Operator.Equal);
+        await Assert.That(values).IsEquivalentTo(new object?[] { "Ada" });
+        await Assert.That(writer.Values.Count).IsEqualTo(1);
+        await Assert.That(writer.Values[0].Column).IsSameReferenceAs(nameColumn);
+        await Assert.That(writer.Values[0].Value).IsEqualTo("Ada");
+        await Assert.That(result.Request).IsSameReferenceAs(request);
+        await Assert.That(result.Rows.Length).IsEqualTo(2);
+        await Assert.That(result.Rows[0][nameColumn]).IsEqualTo("Ada");
+        await Assert.That(result.Rows[1][table.GetColumnByDbName("id")]).IsEqualTo(43);
+        await Assert.That(converter.ToProviderCalls).IsEqualTo(0);
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
+        await Assert.That(provider.CommandCreationCalls).IsEqualTo(1);
+        await Assert.That(databaseAccess.LastCommand).IsSameReferenceAs(command);
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
+    [Test]
+    public async Task LoadIndex_PreCancelledRequestSkipsProviderWork()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var index = table.ColumnIndices.Single(candidate => candidate.Name == "idx_source_rows_name");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var reader = new TrackingReader([[42, "Ada"]]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var writer = new RecordingWriter();
+        var provider = new TrackingProvider(table.Database, databaseAccess, writer, command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var request = new SourceIndexRowRequest(
+            table,
+            index,
+            DataLinqKey.FromValue("Ada"),
+            cancellation.Token);
+
+        var exception = Capture<OperationCanceledException>(() =>
+            ((IDataLinqIndexRowServices)source).IndexRowLoader.Load(request));
+
+        await Assert.That(exception.CancellationToken).IsEqualTo(cancellation.Token);
+        await Assert.That(writer.Values).IsEmpty();
+        await Assert.That(provider.CommandCreationCalls).IsEqualTo(0);
+        await Assert.That(databaseAccess.LastCommand).IsNull();
+        await Assert.That(command.Disposed).IsFalse();
+        await Assert.That(reader.Disposed).IsFalse();
+    }
+
+    [Test]
+    public async Task LoadIndex_CancellationDuringReadDisposesCommandAndReader()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var index = table.ColumnIndices.Single(candidate => candidate.Name == "idx_source_rows_name");
+        using var cancellation = new CancellationTokenSource();
+        var reader = new TrackingReader([[42, "Ada"]])
+        {
+            BeforeReturningRow = cancellation.Cancel
+        };
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var request = new SourceIndexRowRequest(
+            table,
+            index,
+            DataLinqKey.FromValue("Ada"),
+            cancellation.Token);
+
+        var exception = Capture<OperationCanceledException>(() =>
+            ((IDataLinqIndexRowServices)source).IndexRowLoader.Load(request));
+
+        await Assert.That(exception.CancellationToken).IsEqualTo(cancellation.Token);
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
+    [Test]
     public async Task Load_SingleScalarPrimaryKeyUsesEqualityPredicate()
     {
         var table = CreateTable(new RecordingIdConverter());
@@ -214,7 +403,10 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         await Assert.That(reader.Disposed).IsTrue();
     }
 
-    private static TableDefinition CreateTable(RecordingIdConverter converter)
+    private static TableDefinition CreateTable(
+        RecordingIdConverter converter,
+        bool useScalarConverter = true,
+        bool includePrimaryKey = true)
     {
         var scalarConverter = new MetadataScalarConverterDraft(
             new CsTypeDeclaration(typeof(ModelId)),
@@ -223,6 +415,19 @@ public sealed class DataSourceAccessSourceRowLoaderTests
             () => converter)
         {
             Origin = ScalarConverterOrigin.Property
+        };
+        var idProperty = new MetadataValuePropertyDraft(
+            "Id",
+            new CsTypeDeclaration(useScalarConverter ? typeof(ModelId) : typeof(int)),
+            new MetadataColumnDraft("id") { PrimaryKey = includePrimaryKey })
+        {
+            ScalarConverter = useScalarConverter ? scalarConverter : null,
+            Attributes =
+            [
+                new IndexAttribute(
+                    "idx_source_rows_id",
+                    IndexCharacteristic.Simple)
+            ]
         };
         var draft = new MetadataDatabaseDraft(
             "SourceRowLoaderDb",
@@ -236,20 +441,26 @@ public sealed class DataSourceAccessSourceRowLoaderTests
                     {
                         ValueProperties =
                         [
-                            new MetadataValuePropertyDraft(
-                                "Id",
-                                new CsTypeDeclaration(typeof(ModelId)),
-                                new MetadataColumnDraft("id") { PrimaryKey = true })
-                            {
-                                ScalarConverter = scalarConverter
-                            },
+                            idProperty,
                             new MetadataValuePropertyDraft(
                                 "Name",
                                 new CsTypeDeclaration(typeof(string)),
                                 new MetadataColumnDraft("name"))
+                            {
+                                Attributes =
+                                [
+                                    new IndexAttribute(
+                                        "idx_source_rows_name",
+                                        IndexCharacteristic.Simple)
+                                ]
+                            }
                         ]
                     },
-                    new MetadataTableDraft("source_rows"))
+                    new MetadataTableDraft("source_rows")
+                    {
+                        Type = includePrimaryKey ? TableType.Table : TableType.View,
+                        Definition = includePrimaryKey ? null : "SELECT * FROM source_rows"
+                    })
             ]
         };
 
@@ -258,6 +469,67 @@ public sealed class DataSourceAccessSourceRowLoaderTests
             .ValueOrException()
             .TableModels[0]
             .Table;
+    }
+
+    private static (
+        IImmutableInstance[] Rows,
+        IQuery Query,
+        (ColumnDefinition Column, object? Value)[] WriterValues,
+        bool NeutralEligible)
+        LoadEmptyRelationRows<TKey>(
+            string indexName,
+            TKey key,
+            bool useScalarConverter,
+            bool includePrimaryKey)
+        where TKey : notnull
+    {
+        var table = CreateTable(
+            new RecordingIdConverter(),
+            useScalarConverter,
+            includePrimaryKey);
+        var reader = new TrackingReader([]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var writer = new RecordingWriter();
+        var provider = new TrackingProvider(table.Database, databaseAccess, writer, command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+
+        using var databaseCache = new DatabaseCache(
+            provider,
+            DataLinqLoggingConfiguration.NullConfiguration);
+        var tableCache = databaseCache.GetTableCache(table);
+        var index = table.ColumnIndices.Single(candidate => candidate.Name == indexName);
+        var eligibilityMethod = typeof(TableCache)
+            .GetMethod(
+                "TryGetCanonicalIndexSourceServices",
+                BindingFlags.Static | BindingFlags.NonPublic)!
+            .MakeGenericMethod(typeof(TKey));
+        object?[] eligibilityArguments =
+        [
+            key,
+            index,
+            source,
+            null,
+            DataLinqKey.Null
+        ];
+        var neutralEligible = (bool)eligibilityMethod.Invoke(
+            null,
+            eligibilityArguments)!;
+
+        var method = typeof(TableCache)
+            .GetMethod(
+                "LoadRowsFromForeignKeyAndCache",
+                BindingFlags.Instance | BindingFlags.NonPublic)!
+            .MakeGenericMethod(typeof(TKey));
+        var rows = (IImmutableInstance[])method.Invoke(
+            tableCache,
+            [key, index, source])!;
+
+        return (
+            rows,
+            provider.LastQuery ?? throw new InvalidOperationException("No relation-row query was created."),
+            writer.Values.ToArray(),
+            neutralEligible);
     }
 
     private static TException Capture<TException>(Action action)

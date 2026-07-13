@@ -9,11 +9,11 @@ using DataLinq.Linq.Planning.Sql;
 
 namespace DataLinq.Mutation;
 
-public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqSourceRowServices, IDataLinqQueryPlanServices
+public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqSourceRowServices, IDataLinqIndexRowServices, IDataLinqQueryPlanServices
 {
     private IModelMaterializationServices? materializationServices;
     private IQueryPlanBackend? queryPlanBackend;
-    private ISourceRowLoader? rowLoader;
+    private DataSourceAccessSourceRowLoader? rowLoader;
 
     /// <summary>
     /// Gets the database provider.
@@ -61,19 +61,22 @@ public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqSourceRowSe
     }
 
     ISourceRowLoader IDataLinqSourceRowServices.RowLoader
-    {
-        get
-        {
-            var loader = rowLoader;
-            if (loader is not null)
-                return loader;
+        => GetOrCreateRowLoader();
 
-            var created = new DataSourceAccessSourceRowLoader(this);
-            return Interlocked.CompareExchange(
-                ref rowLoader,
-                created,
-                comparand: null) ?? created;
-        }
+    ISourceIndexRowLoader IDataLinqIndexRowServices.IndexRowLoader
+        => GetOrCreateRowLoader();
+
+    private DataSourceAccessSourceRowLoader GetOrCreateRowLoader()
+    {
+        var loader = rowLoader;
+        if (loader is not null)
+            return loader;
+
+        var created = new DataSourceAccessSourceRowLoader(this);
+        return Interlocked.CompareExchange(
+            ref rowLoader,
+            created,
+            comparand: null) ?? created;
     }
 
     IQueryPlanBackend IDataLinqQueryPlanServices.QueryPlanBackend

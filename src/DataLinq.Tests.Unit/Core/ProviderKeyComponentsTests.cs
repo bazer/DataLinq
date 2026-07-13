@@ -41,6 +41,42 @@ public sealed class ProviderKeyComponentsTests
             DatabaseType.SQLite)).IsFalse();
     }
 
+    [Test]
+    public async Task ExactCanonicalKey_RejectsModelValuesWrongTypesAndWrongShapes()
+    {
+        var columns = CreateIntegralTable().PrimaryKeyColumns;
+
+        var accepted = ProviderKeyComponents.TryCreateExactCanonicalKey(
+            42,
+            columns,
+            out var canonicalKey);
+        var dynamicAccepted = ProviderKeyComponents.TryCreateExactCanonicalKey(
+            DataLinqKey.FromValue(43),
+            columns,
+            out var dynamicCanonicalKey);
+        var modelRejected = ProviderKeyComponents.TryCreateExactCanonicalKey(
+            new IntegralKeyId(42),
+            columns,
+            out _);
+        var wrongTypeRejected = ProviderKeyComponents.TryCreateExactCanonicalKey(
+            42L,
+            columns,
+            out _);
+        var wrongShapeRejected = ProviderKeyComponents.TryCreateExactCanonicalKey(
+            DataLinqKey.FromValues([42, 43]),
+            columns,
+            out _);
+
+        await Assert.That(ProviderKeyComponents.HasOnlyIntegralCanonicalComponents(columns)).IsTrue();
+        await Assert.That(accepted).IsTrue();
+        await Assert.That(canonicalKey.GetValue(0)).IsEqualTo(42);
+        await Assert.That(dynamicAccepted).IsTrue();
+        await Assert.That(dynamicCanonicalKey.GetValue(0)).IsEqualTo(43);
+        await Assert.That(modelRejected).IsFalse();
+        await Assert.That(wrongTypeRejected).IsFalse();
+        await Assert.That(wrongShapeRejected).IsFalse();
+    }
+
     private static TableDefinition CreateIntegralTable()
     {
         var draft = new MetadataDatabaseDraft(
@@ -131,6 +167,7 @@ public sealed class ProviderKeyComponentsTests
 
     private sealed class IntegralKeyRow;
     private sealed class GuidKeyRow;
+    private readonly record struct IntegralKeyId(int Value);
     private readonly record struct GuidKeyId(Guid Value);
 
     private sealed class GuidKeyIdConverter : DataLinqScalarConverter<GuidKeyId, Guid>

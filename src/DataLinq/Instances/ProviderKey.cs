@@ -33,10 +33,18 @@ internal static class ProviderKeyComponents
     {
         ArgumentNullException.ThrowIfNull(table);
 
-        if (table.PrimaryKeyColumns.Count == 0)
+        return HasOnlyIntegralCanonicalComponents(table.PrimaryKeyColumns);
+    }
+
+    internal static bool HasOnlyIntegralCanonicalComponents(
+        IReadOnlyList<ColumnDefinition> columns)
+    {
+        ArgumentNullException.ThrowIfNull(columns);
+
+        if (columns.Count == 0)
             return false;
 
-        foreach (var column in table.PrimaryKeyColumns)
+        foreach (var column in columns)
         {
             var providerType = column.ProviderClrType;
             if (providerType is null)
@@ -51,6 +59,40 @@ internal static class ProviderKeyComponents
                 providerType != typeof(uint) &&
                 providerType != typeof(long) &&
                 providerType != typeof(ulong))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    internal static bool TryCreateExactCanonicalKey<TKey>(
+        TKey key,
+        IReadOnlyList<ColumnDefinition> columns,
+        out DataLinqKey canonicalKey)
+        where TKey : notnull
+    {
+        ArgumentNullException.ThrowIfNull(columns);
+
+        canonicalKey = ToDataLinqKey(key);
+        if (canonicalKey.ValueCount != columns.Count)
+            return false;
+
+        for (var index = 0; index < columns.Count; index++)
+        {
+            var providerType = columns[index].ProviderClrType;
+            if (providerType is null)
+                return false;
+
+            var expectedType = Nullable.GetUnderlyingType(providerType) ?? providerType;
+            if (expectedType.IsEnum)
+                expectedType = Enum.GetUnderlyingType(expectedType);
+
+            var value = canonicalKey.GetValue(index);
+            if (value is null ||
+                ReferenceEquals(value, DBNull.Value) ||
+                value.GetType() != expectedType)
             {
                 return false;
             }
