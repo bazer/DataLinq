@@ -837,6 +837,7 @@ internal static class QueryPlanTemplateValidator
                     declarations);
                 break;
             case QueryPlanFunctionValue function:
+                ValidateFunction(function);
                 foreach (var argument in function.Arguments)
                     ValidateValue(argument, declarations);
                 break;
@@ -855,6 +856,40 @@ internal static class QueryPlanTemplateValidator
                 throw new ArgumentException(
                     $"Unknown query plan value '{value.GetType().Name}'.",
                     nameof(value));
+        }
+    }
+
+    private static void ValidateFunction(QueryPlanFunctionValue function)
+    {
+        var hasValidArgumentCount = function.Function switch
+        {
+            QueryPlanFunctionKind.StringStartsWith or
+            QueryPlanFunctionKind.StringEndsWith or
+            QueryPlanFunctionKind.StringContains => function.Arguments.Count == 2,
+            QueryPlanFunctionKind.StringSubstring => function.Arguments.Count is 2 or 3,
+            QueryPlanFunctionKind.StringIsNullOrEmpty or
+            QueryPlanFunctionKind.StringIsNullOrWhiteSpace or
+            QueryPlanFunctionKind.StringLength or
+            QueryPlanFunctionKind.StringTrim or
+            QueryPlanFunctionKind.StringToUpper or
+            QueryPlanFunctionKind.StringToLower or
+            QueryPlanFunctionKind.DatePartYear or
+            QueryPlanFunctionKind.DatePartMonth or
+            QueryPlanFunctionKind.DatePartDay or
+            QueryPlanFunctionKind.DatePartDayOfYear or
+            QueryPlanFunctionKind.DatePartDayOfWeek or
+            QueryPlanFunctionKind.TimePartHour or
+            QueryPlanFunctionKind.TimePartMinute or
+            QueryPlanFunctionKind.TimePartSecond or
+            QueryPlanFunctionKind.TimePartMillisecond => function.Arguments.Count == 1,
+            _ => false
+        };
+
+        if (!hasValidArgumentCount)
+        {
+            throw new ArgumentException(
+                $"Query plan function '{function.Function}' has invalid argument count {function.Arguments.Count}.",
+                nameof(function));
         }
     }
 
