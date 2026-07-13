@@ -1,12 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using DataLinq.Diagnostics;
+using System.Threading;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -56,41 +55,31 @@ internal sealed class ExpressionQueryPlanProvider : IQueryProvider
     public TResult Execute<TResult>(Expression expression)
     {
         var plan = Parse(expression, typeof(TResult));
-        var dataSource = GetSqlDataSource();
-        if (ExpressionQueryPlanExecutor.TryExecuteTerminalPrimaryKeyInvocation(
-                dataSource,
-                plan,
-                out TResult primaryKeyResult))
-        {
-            return primaryKeyResult;
-        }
-
-        return ExpressionQueryPlanExecutor.Execute<TResult>(dataSource, plan);
+        var request = ValidatedQueryExecutionRequest.Prepare(CreateExecutionRequest(plan));
+        return ExpressionQueryPlanExecutor.Execute<TResult>(request);
     }
 
     public IEnumerable<TElement> ExecuteEnumerable<TElement>(Expression expression)
     {
         var plan = Parse(expression, typeof(TElement));
-        return ExpressionQueryPlanExecutor.ExecuteEnumerable<TElement>(GetSqlDataSource(), plan);
+        var request = ValidatedQueryExecutionRequest.Prepare(CreateExecutionRequest(plan));
+        return ExpressionQueryPlanExecutor.ExecuteEnumerable<TElement>(request);
     }
 
     public QueryPlanInvocation Parse(Expression expression, Type resultType)
         => ExpressionQueryPlanParser.Convert(metadata, expression, resultType);
 
-    private DataSourceAccess GetSqlDataSource()
+    private QueryExecutionRequest CreateExecutionRequest(QueryPlanInvocation invocation)
     {
-        if (readSource is DataSourceAccess dataSource)
-            return dataSource;
-
         if (readSource is null)
         {
             throw new NotSupportedException(
                 "The DataLinq expression plan provider was created for parsing only and cannot execute queries.");
         }
 
-        throw new NotSupportedException(
-            $"Read source type '{readSource.GetType().FullName}' does not yet provide query-plan execution. " +
-            "Use a SQL DataSourceAccess or a read backend with DataLinq query-plan execution services.");
+        return new QueryExecutionRequest(
+            invocation,
+            new QueryExecutionContext(readSource, CancellationToken.None));
     }
 }
 
@@ -124,39 +113,30 @@ internal sealed class ExpressionPlanQueryable<T> : IOrderedQueryable<T>
 
 internal static class ExpressionQueryPlanExecutor
 {
-    internal static bool TryExecuteTerminalPrimaryKeyInvocation<TResult>(
-        DataSourceAccess dataSource,
-        QueryPlanInvocation invocation,
-        out TResult result)
-    {
-        result = default!;
-
-        if (!TryGetTerminalScalarPrimaryKeyInvocation(
-                invocation,
-                out var table,
-                out var primaryKey,
-                out var resultKind))
-        {
-            return false;
-        }
-
-        result = ExecuteTerminalPrimaryKeyLookup<TResult>(dataSource, table, primaryKey, resultKind);
-        return true;
-    }
-
     public static IEnumerable<TElement> ExecuteEnumerable<TElement>(
-        DataSourceAccess dataSource,
+        IDataLinqReadSource source,
         QueryPlanInvocation plan)
         => ExecuteEnumerable<TElement>(
-            dataSource,
-            plan,
+            Prepare(source, plan),
             ProjectionEvaluationOptions.Default);
 
     internal static IEnumerable<TElement> ExecuteEnumerable<TElement>(
-        DataSourceAccess dataSource,
+        IDataLinqReadSource source,
         QueryPlanInvocation plan,
         ProjectionEvaluationOptions projectionOptions)
+        => ExecuteEnumerable<TElement>(
+            Prepare(source, plan),
+            projectionOptions);
+
+    internal static IEnumerable<TElement> ExecuteEnumerable<TElement>(
+        ValidatedQueryExecutionRequest request)
+        => ExecuteEnumerable<TElement>(request, ProjectionEvaluationOptions.Default);
+
+    private static IEnumerable<TElement> ExecuteEnumerable<TElement>(
+        ValidatedQueryExecutionRequest request,
+        ProjectionEvaluationOptions projectionOptions)
     {
+        var plan = request.Invocation;
         var template = plan.Template;
         if (template.Result.Kind != QueryPlanResultKind.Sequence)
             throw new QueryTranslationException($"Expression parser route expected a sequence result, but the plan result is '{template.Result.Kind}'.");
@@ -164,12 +144,9 @@ internal static class ExpressionQueryPlanExecutor
         ValidateProjectionDisposition(template.Projection, projectionOptions);
 
         if (template.Projection is QueryPlanProjection.Entity)
-        {
-            return new QueryPlanSqlBuilder(plan, dataSource)
-                .BuildSelect<object>()
-                .Execute()
-                .Cast<TElement>();
-        }
+            return ExecuteEntitySequence<TElement>(request);
+
+        var dataSource = GetSqlCompatibilityDataSource(request);
 
         if (template.Projection is QueryPlanProjection.GroupedAggregate groupedAggregate)
             return ExecuteGroupedAggregateProjection<TElement>(dataSource, plan, groupedAggregate);
@@ -184,17 +161,33 @@ internal static class ExpressionQueryPlanExecutor
     }
 
     public static TResult Execute<TResult>(
-        DataSourceAccess dataSource,
+        IDataLinqReadSource source,
         QueryPlanInvocation plan)
-        => Execute<TResult>(dataSource, plan, ProjectionEvaluationOptions.Default);
+        => Execute<TResult>(Prepare(source, plan), ProjectionEvaluationOptions.Default);
 
     internal static TResult Execute<TResult>(
-        DataSourceAccess dataSource,
+        IDataLinqReadSource source,
         QueryPlanInvocation plan,
         ProjectionEvaluationOptions projectionOptions)
+        => Execute<TResult>(Prepare(source, plan), projectionOptions);
+
+    internal static TResult Execute<TResult>(ValidatedQueryExecutionRequest request)
+        => Execute<TResult>(request, ProjectionEvaluationOptions.Default);
+
+    private static TResult Execute<TResult>(
+        ValidatedQueryExecutionRequest request,
+        ProjectionEvaluationOptions projectionOptions)
     {
+        var plan = request.Invocation;
         ValidateProjectionDisposition(plan.Template.Projection, projectionOptions);
 
+        if (plan.Template.Projection is QueryPlanProjection.Entity &&
+            IsEntityTerminalResult(plan.Template.Result.Kind))
+        {
+            return ExecuteEntityTerminal<TResult>(request);
+        }
+
+        var dataSource = GetSqlCompatibilityDataSource(request);
         return plan.Template.Result.Kind switch
         {
             QueryPlanResultKind.Count or
@@ -213,224 +206,78 @@ internal static class ExpressionQueryPlanExecutor
         };
     }
 
-    private static TResult ExecuteTerminalPrimaryKeyLookup<TResult>(
-        DataSourceAccess dataSource,
-        TableDefinition table,
-        object? primaryKey,
-        QueryPlanResultKind resultKind)
+    private static ValidatedQueryExecutionRequest Prepare(
+        IDataLinqReadSource source,
+        QueryPlanInvocation invocation)
     {
-        var telemetryContext = DataLinqTelemetryContext.FromProvider(dataSource.Provider);
-        var activity = DataLinqTelemetry.StartQueryActivity(
-            telemetryContext,
-            table.DbName,
-            "entity",
-            dataSource is Transaction);
-        var startedAt = Stopwatch.GetTimestamp();
-        var succeeded = false;
+        ArgumentNullException.ThrowIfNull(source);
+        return ValidatedQueryExecutionRequest.Prepare(
+            new QueryExecutionRequest(
+                invocation,
+                new QueryExecutionContext(source, CancellationToken.None)));
+    }
 
-        DataLinqMetrics.RecordEntityQueryExecution(dataSource.Provider);
-
-        try
+    private static DataSourceAccess GetSqlCompatibilityDataSource(
+        ValidatedQueryExecutionRequest request)
+    {
+        if (request.Backend is SqlQueryPlanBackend sqlBackend)
         {
-            var row = primaryKey is null
-                ? null
-                : GetRowByScalarPrimaryKey(dataSource, table, primaryKey);
-
-            var result = ConvertPrimaryKeyLookupResult<TResult>(row, resultKind);
-            succeeded = true;
-            return result;
-        }
-        catch (Exception exception)
-        {
-            DataLinqTelemetry.RecordException(activity, exception);
-            throw;
-        }
-        finally
-        {
-            var duration = Stopwatch.GetElapsedTime(startedAt);
-            DataLinqTelemetry.RecordQueryExecution(
-                telemetryContext,
-                table.DbName,
-                "entity",
-                dataSource is Transaction,
-                succeeded,
-                duration);
-
-            if (activity is not null)
+            request.EnsureBackend(sqlBackend);
+            if (!ReferenceEquals(request.Context.Source, sqlBackend.DataSource))
             {
-                if (!succeeded)
-                    activity.SetStatus(ActivityStatusCode.Error);
-
-                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
-                activity.Dispose();
+                throw new InvalidOperationException(
+                    "The SQL compatibility executor cannot use a backend bound to another read source.");
             }
+
+            return sqlBackend.DataSource;
         }
+
+        throw new NotSupportedException(
+            $"Query backend '{request.Backend.Capabilities.BackendName}' does not support the retained SQL compatibility executor.");
     }
 
-    private static IImmutableInstance? GetRowByScalarPrimaryKey(
-        DataSourceAccess dataSource,
-        TableDefinition table,
-        object primaryKey)
+    private static IEnumerable<TElement> ExecuteEntitySequence<TElement>(
+        ValidatedQueryExecutionRequest request)
     {
-        var tableCache = dataSource.Provider.GetTableCache(table);
-        if (tableCache.TryGetRowFromProviderKeyValue(primaryKey, dataSource, out var row))
-            return row;
-
-        return tableCache.GetRow(DataLinqKey.FromValue(primaryKey), dataSource);
+        using var cursor = request.Backend.OpenEntityCursor(request);
+        while (cursor.MoveNext())
+            yield return (TElement)(object)cursor.Current;
     }
 
-    private static TResult ConvertPrimaryKeyLookupResult<TResult>(
-        IImmutableInstance? row,
-        QueryPlanResultKind resultKind)
+    private static TResult ExecuteEntityTerminal<TResult>(
+        ValidatedQueryExecutionRequest request)
     {
-        if (row is not null)
-            return (TResult)(object)row;
-
-        return resultKind switch
+        if (request.Backend.TryExecuteTerminalEntity(request, out var optimizedResult))
         {
-            QueryPlanResultKind.SingleOrDefault or QueryPlanResultKind.FirstOrDefault => default!,
-            _ => throw new InvalidOperationException("Sequence contains no elements")
+            return optimizedResult is null
+                ? default!
+                : (TResult)(object)optimizedResult;
+        }
+
+        var sequence = ExecuteEntitySequence<TResult>(request);
+        return request.Invocation.Template.Result.Kind switch
+        {
+            // The backend receives the original First result shape and therefore bounds the
+            // cursor to one row. Single forces the final MoveNext that records successful
+            // completion in the underlying lazy SQL iterator instead of reporting early disposal.
+            QueryPlanResultKind.First => sequence.Single(),
+            QueryPlanResultKind.FirstOrDefault => sequence.SingleOrDefault()!,
+            QueryPlanResultKind.Single => sequence.Single(),
+            QueryPlanResultKind.SingleOrDefault => sequence.SingleOrDefault()!,
+            QueryPlanResultKind.Last => sequence.Last(),
+            QueryPlanResultKind.LastOrDefault => sequence.LastOrDefault()!,
+            var kind => throw new QueryTranslationException(
+                $"Expression parser route expected an entity terminal result, but the plan result is '{kind}'.")
         };
     }
 
-    private static bool TryGetTerminalScalarPrimaryKeyInvocation(
-        QueryPlanInvocation invocation,
-        out TableDefinition table,
-        out object? primaryKey,
-        out QueryPlanResultKind resultKind)
-    {
-        table = null!;
-        primaryKey = null;
-        resultKind = default;
-
-        var template = invocation.Template;
-        resultKind = template.Result.Kind;
-        if (!IsTerminalPrimaryKeyResult(resultKind) ||
-            template.Projection is not QueryPlanProjection.Entity
-            {
-                Source.Kind: QueryPlanSourceKind.RootTable
-            } entity ||
-            template.Sources.Count != 1 ||
-            template.Operations.Count != 1 ||
-            template.Operations[0] is not QueryPlanOperation.Where
-            {
-                Predicate: QueryPlanPredicate.Compare
-                {
-                    Operator: QueryPlanComparisonOperator.Equal
-                } comparison
-            })
-        {
-            return false;
-        }
-
-        table = entity.Source.Table;
-        if (!table.PrimaryKeyShape.SupportsScalarProviderKeyStore ||
-            table.PrimaryKeyColumns.Count != 1)
-        {
-            return false;
-        }
-
-        var primaryKeyColumn = table.PrimaryKeyColumns[0];
-        if (!TryGetPrimaryKeyInvocationValue(
-                comparison.Left,
-                comparison.Right,
-                entity.Source,
-                primaryKeyColumn,
-                invocation.Values,
-                out primaryKey) &&
-            !TryGetPrimaryKeyInvocationValue(
-                comparison.Right,
-                comparison.Left,
-                entity.Source,
-                primaryKeyColumn,
-                invocation.Values,
-                out primaryKey))
-        {
-            return false;
-        }
-
-        return primaryKey is null || table.PrimaryKeyShape.SupportsScalarProviderKey(primaryKey.GetType());
-    }
-
-    private static bool TryGetPrimaryKeyInvocationValue(
-        QueryPlanValue columnCandidate,
-        QueryPlanValue valueCandidate,
-        QueryPlanSourceSlot source,
-        ColumnDefinition primaryKeyColumn,
-        QueryPlanBindingValues values,
-        out object? primaryKey)
-    {
-        primaryKey = null;
-        return columnCandidate is QueryPlanColumnValue column &&
-            ReferenceEquals(column.Source, source) &&
-            ReferenceEquals(column.Column, primaryKeyColumn) &&
-            TryResolveInvocationScalar(valueCandidate, values, out primaryKey);
-    }
-
-    private static bool TryResolveInvocationScalar(
-        QueryPlanValue value,
-        QueryPlanBindingValues values,
-        out object? result)
-    {
-        switch (value)
-        {
-            case QueryPlanIntrinsicValue { Intrinsic: QueryPlanIntrinsicKind.Null }:
-                result = null;
-                return true;
-            case QueryPlanIntrinsicValue { Intrinsic: QueryPlanIntrinsicKind.BooleanTrue }:
-                result = true;
-                return true;
-            case QueryPlanIntrinsicValue { Intrinsic: QueryPlanIntrinsicKind.BooleanFalse }:
-                result = false;
-                return true;
-            case QueryPlanScalarBindingReference scalar
-                when values.TryGet(scalar.BindingId, out var binding) &&
-                     binding is QueryPlanInvocationValue.Scalar scalarValue:
-                result = scalarValue.Value;
-                return true;
-            case QueryPlanConvertedValue converted
-                when TryResolveInvocationScalar(converted.Value, values, out var sourceValue):
-                return TryConvertInvocationScalar(sourceValue, converted.TargetType, out result);
-            default:
-                result = null;
-                return false;
-        }
-    }
-
-    private static bool TryConvertInvocationScalar(object? value, Type targetType, out object? result)
-    {
-        if (value is null)
-        {
-            result = null;
-            return true;
-        }
-
-        var conversionType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-        if (conversionType.IsInstanceOfType(value))
-        {
-            result = value;
-            return true;
-        }
-
-        try
-        {
-            result = conversionType.IsEnum
-                ? Enum.ToObject(conversionType, value)
-                : Convert.ChangeType(value, conversionType, CultureInfo.InvariantCulture);
-            return true;
-        }
-        catch (Exception exception) when (exception is InvalidCastException or FormatException or OverflowException)
-        {
-            result = null;
-            return false;
-        }
-    }
-
-    private static bool IsTerminalPrimaryKeyResult(QueryPlanResultKind resultKind)
-        => resultKind is QueryPlanResultKind.Single or
+    private static bool IsEntityTerminalResult(QueryPlanResultKind resultKind)
+        => resultKind is QueryPlanResultKind.First or
+            QueryPlanResultKind.FirstOrDefault or
+            QueryPlanResultKind.Single or
             QueryPlanResultKind.SingleOrDefault or
-            QueryPlanResultKind.First or
-            QueryPlanResultKind.FirstOrDefault;
+            QueryPlanResultKind.Last or
+            QueryPlanResultKind.LastOrDefault;
 
     private static TResult ExecuteSingle<TResult>(
         DataSourceAccess dataSource,
@@ -438,21 +285,19 @@ internal static class ExpressionQueryPlanExecutor
         ProjectionEvaluationOptions projectionOptions,
         Func<IEnumerable<TResult>, TResult?> selector)
     {
-        if (plan.Template.Projection is not QueryPlanProjection.Entity)
+        if (plan.Template.Projection is QueryPlanProjection.Entity)
         {
-            if (plan.Template.Projection is QueryPlanProjection.ScalarMember scalarMember)
-                return selector(ExecuteScalarProjection<TResult>(dataSource, plan, scalarMember))!;
-
-            if (plan.Template.Projection is QueryPlanProjection.SqlRow sqlRow)
-                return selector(ExecuteSqlRowProjection<TResult>(dataSource, plan, sqlRow))!;
-
-            return selector(ExecuteProjectedSequence<TResult>(dataSource, plan, projectionOptions))!;
+            throw new QueryTranslationException(
+                "Entity terminal results must execute through the selected query backend.");
         }
 
-        var sequence = new QueryPlanSqlBuilder(plan, dataSource)
-            .BuildSelect<TResult>()
-            .ExecuteAs<TResult>();
-        return selector(sequence)!;
+        if (plan.Template.Projection is QueryPlanProjection.ScalarMember scalarMember)
+            return selector(ExecuteScalarProjection<TResult>(dataSource, plan, scalarMember))!;
+
+        if (plan.Template.Projection is QueryPlanProjection.SqlRow sqlRow)
+            return selector(ExecuteSqlRowProjection<TResult>(dataSource, plan, sqlRow))!;
+
+        return selector(ExecuteProjectedSequence<TResult>(dataSource, plan, projectionOptions))!;
     }
 
     private static TResult ExecuteScalar<TResult>(DataSourceAccess dataSource, QueryPlanInvocation plan)

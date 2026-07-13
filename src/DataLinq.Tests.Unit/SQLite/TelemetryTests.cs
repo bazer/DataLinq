@@ -215,15 +215,27 @@ public sealed class TelemetryTests
 
             await Assert.That(db.Provider.DatabaseAccess.ExecuteNonQuery("INSERT INTO telemetryrows (name) VALUES ('theta')")).IsEqualTo(1);
 
-            var row = db.Query().Rows.Single(x => x.Name == "theta");
+            var row = db.Query().Rows.First(x => x.Name == "theta");
+            var optionalRow = db.Query().Rows.FirstOrDefault(x => x.Name == "theta");
             await Assert.That(row.Name).IsEqualTo("theta");
+            await Assert.That(optionalRow).IsNotNull();
+            await Assert.That(optionalRow!.Name).IsEqualTo("theta");
 
-            var queryActivity = stoppedActivities.Single(x => x.OperationName == "datalinq.query");
+            var queryActivities = stoppedActivities
+                .Where(x => x.OperationName == "datalinq.query")
+                .ToArray();
+            await Assert.That(queryActivities.Length).IsEqualTo(2);
+
+            var queryActivity = queryActivities[0];
             await Assert.That(queryActivity.Kind).IsEqualTo(ActivityKind.Internal);
             await Assert.That(queryActivity.GetTagItem("db.system")).IsEqualTo("sqlite");
             await Assert.That(queryActivity.GetTagItem("datalinq.table")).IsEqualTo("telemetryrows");
             await Assert.That(queryActivity.GetTagItem("datalinq.query.kind")).IsEqualTo("entity");
-            await Assert.That(queryActivity.GetTagItem("datalinq.outcome")).IsEqualTo("success");
+            foreach (var activity in queryActivities)
+            {
+                await Assert.That(activity.GetTagItem("datalinq.outcome")).IsEqualTo("success");
+                await Assert.That(activity.Status).IsNotEqualTo(ActivityStatusCode.Error);
+            }
         });
     }
 

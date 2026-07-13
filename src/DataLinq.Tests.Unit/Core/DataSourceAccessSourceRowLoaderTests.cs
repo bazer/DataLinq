@@ -20,6 +20,41 @@ namespace DataLinq.Tests.Unit.Core;
 public sealed class DataSourceAccessSourceRowLoaderTests
 {
     [Test]
+    public async Task SelectReadReader_EarlyDisposalOwnsCommandAndReaderLifetime()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var reader = new TrackingReader(
+        [
+            [42, "Ada"],
+            [43, "Grace"]
+        ]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var rows = new SqlQuery(table, source).SelectQuery().ReadReader().GetEnumerator();
+
+        try
+        {
+            await Assert.That(rows.MoveNext()).IsTrue();
+            await Assert.That(command.Disposed).IsFalse();
+            await Assert.That(reader.Disposed).IsFalse();
+        }
+        finally
+        {
+            rows.Dispose();
+        }
+
+        await Assert.That(databaseAccess.LastCommand).IsSameReferenceAs(command);
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
+    [Test]
     public async Task Load_BuffersCanonicalRowsAndOwnsCommandReaderLifetime()
     {
         var converter = new RecordingIdConverter();

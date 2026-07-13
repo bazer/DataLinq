@@ -4,12 +4,15 @@ using System.Threading;
 using DataLinq.Cache;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Linq.Planning;
+using DataLinq.Linq.Planning.Sql;
 
 namespace DataLinq.Mutation;
 
-public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqSourceRowServices
+public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqSourceRowServices, IDataLinqQueryPlanServices
 {
     private IModelMaterializationServices? materializationServices;
+    private IQueryPlanBackend? queryPlanBackend;
     private ISourceRowLoader? rowLoader;
 
     /// <summary>
@@ -68,6 +71,22 @@ public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqSourceRowSe
             var created = new DataSourceAccessSourceRowLoader(this);
             return Interlocked.CompareExchange(
                 ref rowLoader,
+                created,
+                comparand: null) ?? created;
+        }
+    }
+
+    IQueryPlanBackend IDataLinqQueryPlanServices.QueryPlanBackend
+    {
+        get
+        {
+            var backend = queryPlanBackend;
+            if (backend is not null)
+                return backend;
+
+            IQueryPlanBackend created = new SqlQueryPlanBackend(this);
+            return Interlocked.CompareExchange(
+                ref queryPlanBackend,
                 created,
                 comparand: null) ?? created;
         }

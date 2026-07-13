@@ -140,9 +140,8 @@ public class Select<T> : IQuery
     public IEnumerable<IDataLinqDataReader> ReadReader()
     {
         DataSourceAccess.EnsureReadAllowed(query.DataSource, "read query rows");
-        foreach (var reader in query.DataSource
-            .DatabaseAccess
-            .ReadReader(query.DataSource.Provider.ToDbCommand(this)))
+        using var command = ToDbCommand();
+        foreach (var reader in query.DataSource.DatabaseAccess.ReadReader(command))
         {
             yield return reader;
         }

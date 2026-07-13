@@ -1,0 +1,356 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
+using DataLinq.Core.Factories;
+using DataLinq.Exceptions;
+using DataLinq.Instances;
+using DataLinq.Interfaces;
+using DataLinq.Linq.Planning;
+using DataLinq.Linq.Planning.Sql;
+using DataLinq.Metadata;
+using DataLinq.Tests.Models.Employees;
+using ThrowAway.Extensions;
+
+namespace DataLinq.Tests.Unit.Linq;
+
+public class QueryExecutionContractTests
+{
+    [Test]
+    public async Task Prepare_RejectsUnsupportedPlanBeforeOpeningBackendEntityPaths()
+    {
+        var (metadata, invocation) = CreateEntityInvocation(QueryPlanResultKind.Single);
+        var unsupportedFeature = QueryPlanFeature.Projection(QueryPlanProjectionKind.Entity);
+        var backend = new TrackingBackend(CreateCapabilities(unsupportedFeature));
+        var source = new TrackingReadSource(metadata, backend);
+        var request = new QueryExecutionRequest(
+            invocation,
+            new QueryExecutionContext(source, CancellationToken.None));
+
+        var exception = Capture<QueryBackendCapabilityException>(() =>
+            ValidatedQueryExecutionRequest.Prepare(request));
+
+        await Assert.That(exception.Feature).IsEqualTo(unsupportedFeature.Token);
+        await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Prepare_RejectsPreCancellationBeforeAccessingBackend()
+    {
+        var (metadata, invocation) = CreateEntityInvocation();
+        var backend = new TrackingBackend(CreateCapabilities());
+        var source = new TrackingReadSource(metadata, backend);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var request = new QueryExecutionRequest(
+            invocation,
+            new QueryExecutionContext(source, cancellation.Token));
+
+        _ = Capture<OperationCanceledException>(() =>
+            ValidatedQueryExecutionRequest.Prepare(request));
+
+        await Assert.That(source.BackendAccesses).IsEqualTo(0);
+        await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Prepare_RejectsForeignMetadataBeforeAccessingBackend()
+    {
+        var (_, invocation) = CreateEntityInvocation();
+        var foreignMetadata = GetEmployeesMetadata();
+        var backend = new TrackingBackend(CreateCapabilities());
+        var source = new TrackingReadSource(foreignMetadata, backend);
+        var request = new QueryExecutionRequest(
+            invocation,
+            new QueryExecutionContext(source, CancellationToken.None));
+
+        var exception = Capture<ArgumentException>(() =>
+            ValidatedQueryExecutionRequest.Prepare(request));
+
+        await Assert.That(exception.Message).Contains("does not own query-plan source 's0'");
+        await Assert.That(source.BackendAccesses).IsEqualTo(0);
+        await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Prepare_RejectsBackendBoundToAnotherReadSource()
+    {
+        var (metadata, invocation) = CreateEntityInvocation();
+        var backend = new TrackingBackend(CreateCapabilities());
+        _ = new TrackingReadSource(metadata, backend);
+        var source = new TrackingReadSource(metadata, backend, bindBackend: false);
+        var request = new QueryExecutionRequest(
+            invocation,
+            new QueryExecutionContext(source, CancellationToken.None));
+
+        var exception = Capture<InvalidOperationException>(() =>
+            ValidatedQueryExecutionRequest.Prepare(request));
+
+        await Assert.That(exception.Message).Contains("backend bound to another source");
+        await Assert.That(source.BackendAccesses).IsEqualTo(1);
+        await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Prepare_StoresRequirementsAndTheExactSelectedBackend()
+    {
+        var (metadata, invocation) = CreateEntityInvocation();
+        var backend = new TrackingBackend(CreateCapabilities());
+        var source = new TrackingReadSource(metadata, backend);
+        var context = new QueryExecutionContext(source, CancellationToken.None);
+        var request = new QueryExecutionRequest(invocation, context);
+
+        var validated = ValidatedQueryExecutionRequest.Prepare(request);
+
+        await Assert.That(ReferenceEquals(validated.Request, request)).IsTrue();
+        await Assert.That(ReferenceEquals(validated.Invocation, invocation)).IsTrue();
+        await Assert.That(ReferenceEquals(validated.Context, context)).IsTrue();
+        await Assert.That(ReferenceEquals(validated.Backend, backend)).IsTrue();
+        await Assert.That(validated.Requirements.Structural.Count).IsGreaterThan(0);
+        await Assert.That(validated.Requirements.Structural.Any(requirement =>
+            requirement.Feature == QueryPlanFeature.Projection(QueryPlanProjectionKind.Entity))).IsTrue();
+        await Assert.That(source.BackendAccesses).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task BackendEntryPointsRequireValidatedRequestsAndValidatedConstructionIsPrivate()
+    {
+        var entryMethods = typeof(IQueryPlanBackend)
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Where(static method => !method.IsSpecialName)
+            .OrderBy(static method => method.Name, StringComparer.Ordinal)
+            .ToArray();
+        var constructors = typeof(ValidatedQueryExecutionRequest)
+            .GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+        await Assert.That(entryMethods.Length).IsGreaterThanOrEqualTo(2);
+        foreach (var method in entryMethods)
+        {
+            var parameters = method.GetParameters();
+            await Assert.That(parameters.Length).IsGreaterThan(0);
+            await Assert.That(parameters[0].ParameterType).IsEqualTo(typeof(ValidatedQueryExecutionRequest));
+            await Assert.That(parameters.Any(parameter =>
+                parameter.ParameterType == typeof(QueryExecutionRequest) ||
+                parameter.ParameterType == typeof(QueryPlanInvocation))).IsFalse();
+        }
+
+        await Assert.That(constructors.Length).IsGreaterThan(0);
+        await Assert.That(constructors.All(static constructor => constructor.IsPrivate)).IsTrue();
+    }
+
+    [Test]
+    public async Task EntityCursor_DisposesEnumeratorAfterCompleteEnumeration()
+    {
+        var rows = new TrackingEntityEnumerator(rowCount: 1);
+        var cursor = new EnumeratorQueryEntityCursor(rows, CancellationToken.None);
+
+        await Assert.That(cursor.MoveNext()).IsTrue();
+        await Assert.That(cursor.MoveNext()).IsFalse();
+        await Assert.That(rows.DisposeCalls).IsEqualTo(1);
+        await Assert.That(cursor.MoveNext()).IsFalse();
+        await Assert.That(rows.DisposeCalls).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task EntityCursor_DisposesEnumeratorWhenConsumerStopsEarly()
+    {
+        var rows = new TrackingEntityEnumerator(rowCount: 2);
+        var cursor = new EnumeratorQueryEntityCursor(rows, CancellationToken.None);
+
+        await Assert.That(cursor.MoveNext()).IsTrue();
+        cursor.Dispose();
+        cursor.Dispose();
+
+        await Assert.That(rows.DisposeCalls).IsEqualTo(1);
+        await Assert.That(cursor.MoveNext()).IsFalse();
+    }
+
+    [Test]
+    public async Task EntityCursor_DisposesEnumeratorWhenEnumerationFails()
+    {
+        var rows = new TrackingEntityEnumerator(rowCount: 2, throwOnMoveNextCall: 2);
+        var cursor = new EnumeratorQueryEntityCursor(rows, CancellationToken.None);
+
+        await Assert.That(cursor.MoveNext()).IsTrue();
+        var exception = Capture<InvalidOperationException>(() => cursor.MoveNext());
+
+        await Assert.That(exception.Message).IsEqualTo("Synthetic entity enumeration failure.");
+        await Assert.That(rows.DisposeCalls).IsEqualTo(1);
+        await Assert.That(cursor.MoveNext()).IsFalse();
+    }
+
+    [Test]
+    public async Task EntityCursor_DisposesEnumeratorWhenCancellationIsObserved()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var rows = new TrackingEntityEnumerator(rowCount: 2);
+        var cursor = new EnumeratorQueryEntityCursor(rows, cancellation.Token);
+
+        await Assert.That(cursor.MoveNext()).IsTrue();
+        cancellation.Cancel();
+        _ = Capture<OperationCanceledException>(() => cursor.MoveNext());
+
+        await Assert.That(rows.MoveNextCalls).IsEqualTo(1);
+        await Assert.That(rows.DisposeCalls).IsEqualTo(1);
+        await Assert.That(cursor.MoveNext()).IsFalse();
+    }
+
+    private static (DatabaseDefinition Metadata, QueryPlanInvocation Invocation) CreateEntityInvocation(
+        QueryPlanResultKind resultKind = QueryPlanResultKind.Sequence)
+    {
+        var metadata = GetEmployeesMetadata();
+        var table = metadata.TableModels
+            .Single(model => model.Model.CsType.Type == typeof(Employee))
+            .Table;
+        var source = new QueryPlanSourceSlot(
+            "s0",
+            "t0",
+            table,
+            typeof(Employee),
+            QueryPlanSourceKind.RootTable,
+            QueryPlanSourceCardinality.Many,
+            IsNullable: false);
+        var template = new QueryPlanTemplate(
+            [source],
+            [],
+            new QueryPlanProjection.Entity(source),
+            resultKind == QueryPlanResultKind.Sequence
+                ? QueryPlanResult.Sequence(typeof(Employee))
+                : new QueryPlanResult(resultKind, typeof(Employee)),
+            QueryPlanBindingDeclarations.Empty,
+            QueryPlanSpecialization.Empty);
+
+        return (
+            metadata,
+            QueryPlanInvocation.Bind(template, Array.Empty<QueryPlanInvocationValue>()));
+    }
+
+    private static DatabaseDefinition GetEmployeesMetadata()
+        => MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
+
+    private static QueryBackendCapabilities CreateCapabilities(QueryPlanFeature? unsupportedFeature = null)
+        => new(
+            "test",
+            QueryPlanFeatureCatalog.All.Select(feature =>
+                new KeyValuePair<QueryPlanFeature, QueryBackendCapabilityDisposition>(
+                    feature,
+                    unsupportedFeature.HasValue && feature == unsupportedFeature.Value
+                        ? QueryBackendCapabilityDisposition.Unsupported
+                        : QueryBackendCapabilityDisposition.Supported)));
+
+    private static TException Capture<TException>(Action action)
+        where TException : Exception
+    {
+        try
+        {
+            action();
+        }
+        catch (TException exception)
+        {
+            return exception;
+        }
+
+        throw new InvalidOperationException($"Expected {typeof(TException).Name} to be thrown.");
+    }
+
+    private sealed class TrackingReadSource : IDataLinqQueryPlanServices
+    {
+        private readonly IQueryPlanBackend backend;
+
+        public TrackingReadSource(
+            DatabaseDefinition metadata,
+            IQueryPlanBackend backend,
+            bool bindBackend = true)
+        {
+            Metadata = metadata;
+            this.backend = backend;
+            if (bindBackend && backend is TrackingBackend trackingBackend)
+                trackingBackend.Bind(this);
+        }
+
+        public DatabaseDefinition Metadata { get; }
+
+        public int BackendAccesses { get; private set; }
+
+        public IModelMaterializationServices MaterializationServices =>
+            throw new InvalidOperationException("Materialization services must not be accessed by request preparation.");
+
+        public IQueryPlanBackend QueryPlanBackend
+        {
+            get
+            {
+                BackendAccesses++;
+                return backend;
+            }
+        }
+    }
+
+    private sealed class TrackingBackend(QueryBackendCapabilities capabilities) : IQueryPlanBackend
+    {
+        public IDataLinqReadSource Source { get; private set; } = null!;
+
+        public QueryBackendCapabilities Capabilities { get; } = capabilities;
+
+        public int OpenEntityCursorCalls { get; private set; }
+
+        public int TryExecuteTerminalEntityCalls { get; private set; }
+
+        public void Bind(IDataLinqReadSource source) => Source = source;
+
+        public IQueryEntityCursor OpenEntityCursor(ValidatedQueryExecutionRequest request)
+        {
+            OpenEntityCursorCalls++;
+            return new EnumeratorQueryEntityCursor(
+                new TrackingEntityEnumerator(rowCount: 0),
+                CancellationToken.None);
+        }
+
+        public bool TryExecuteTerminalEntity(
+            ValidatedQueryExecutionRequest request,
+            out IImmutableInstance? result)
+        {
+            TryExecuteTerminalEntityCalls++;
+            result = null;
+            return false;
+        }
+    }
+
+    private sealed class TrackingEntityEnumerator(
+        int rowCount,
+        int? throwOnMoveNextCall = null) : IEnumerator<IImmutableInstance>
+    {
+        private int remainingRows = rowCount;
+
+        public int DisposeCalls { get; private set; }
+
+        public int MoveNextCalls { get; private set; }
+
+        public IImmutableInstance Current => null!;
+
+        object IEnumerator.Current => Current;
+
+        public bool MoveNext()
+        {
+            MoveNextCalls++;
+            if (MoveNextCalls == throwOnMoveNextCall)
+                throw new InvalidOperationException("Synthetic entity enumeration failure.");
+
+            if (remainingRows == 0)
+                return false;
+
+            remainingRows--;
+            return true;
+        }
+
+        public void Reset() => throw new NotSupportedException();
+
+        public void Dispose() => DisposeCalls++;
+    }
+}

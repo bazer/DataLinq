@@ -1,5 +1,6 @@
 using DataLinq.Metadata;
 using DataLinq.Instances;
+using DataLinq.Linq.Planning;
 
 namespace DataLinq.Interfaces;
 
@@ -27,4 +28,12 @@ internal interface IDataLinqReadServices : IDataLinqReadSource
 internal interface IDataLinqSourceRowServices : IDataLinqReadServices
 {
     ISourceRowLoader RowLoader { get; }
+}
+
+/// <summary>
+/// Optional execution capability implemented by read sources that can execute neutral query plans.
+/// </summary>
+internal interface IDataLinqQueryPlanServices : IDataLinqReadServices
+{
+    IQueryPlanBackend QueryPlanBackend { get; }
 }
