@@ -115,30 +115,184 @@ public sealed class MemoryVerticalSpikeTests
     }
 
     [Test]
-    public async Task UnsupportedWhere_FailsCapabilityValidationBeforeMemoryEnumeration()
+    public async Task CapturedInt32Equality_FiltersCanonicalRowsBeforeMaterializationAndReusesIdentity()
+    {
+        var database = CreateSeededDatabase();
+        var direct = database.Find<MemoryPrimitiveRow>(DataLinqKey.FromValue(42));
+        var groupId = 7;
+
+        var rows = database.Model.Rows
+            .Where(row => row.GroupId == groupId)
+            .ToArray();
+
+        await Assert.That(rows.Length).IsEqualTo(1);
+        await Assert.That(rows[0]).IsSameReferenceAs(direct);
+        await Assert.That(rows[0].Id).IsEqualTo(42);
+        await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(2);
+        await Assert.That(database.Diagnostics.PredicateEvaluations).IsEqualTo(2);
+        await Assert.That(database.Diagnostics.PredicateRejections).IsEqualTo(1);
+        await Assert.That(database.Diagnostics.CacheLookups).IsEqualTo(2);
+        await Assert.That(database.Diagnostics.CacheHits).IsEqualTo(1);
+        await Assert.That(database.Diagnostics.CacheMisses).IsEqualTo(1);
+        await Assert.That(database.Diagnostics.Materializations).IsEqualTo(1);
+        await Assert.That(database.GetMaterializedRowCount<MemoryPrimitiveRow>()).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task NoMatchInt32Equality_CompletesWithoutMaterializationOrCacheWork()
+    {
+        var database = CreateSeededDatabase();
+        var id = 999;
+
+        var rows = database.Model.Rows
+            .Where(row => row.Id == id)
+            .ToArray();
+
+        await Assert.That(rows).IsEmpty();
+        await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(2);
+        await Assert.That(database.Diagnostics.PredicateEvaluations).IsEqualTo(2);
+        await Assert.That(database.Diagnostics.PredicateRejections).IsEqualTo(2);
+        await Assert.That(database.Diagnostics.CacheLookups).IsEqualTo(0);
+        await Assert.That(database.Diagnostics.Materializations).IsEqualTo(0);
+        await Assert.That(database.GetMaterializedRowCount<MemoryPrimitiveRow>()).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task CapturedInt32Equality_RebindsChangedCaptureAndSupportsReversedOperands()
+    {
+        var database = CreateSeededDatabase();
+        var groupId = 7;
+        var query = database.Model.Rows.Where(row => row.GroupId == groupId);
+
+        var first = query.ToArray();
+        groupId = 3;
+        var second = query.ToArray();
+        var reversed = database.Model.Rows.Where(row => groupId == row.GroupId).ToArray();
+
+        await Assert.That(first.Select(static row => row.Id)).IsEquivalentTo([42]);
+        await Assert.That(second.Select(static row => row.Id)).IsEquivalentTo([7]);
+        await Assert.That(reversed.Length).IsEqualTo(1);
+        await Assert.That(reversed[0]).IsSameReferenceAs(second[0]);
+        await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(6);
+        await Assert.That(database.Diagnostics.PredicateEvaluations).IsEqualTo(6);
+        await Assert.That(database.Diagnostics.PredicateRejections).IsEqualTo(3);
+        await Assert.That(database.Diagnostics.CacheLookups).IsEqualTo(3);
+        await Assert.That(database.Diagnostics.CacheHits).IsEqualTo(1);
+        await Assert.That(database.Diagnostics.Materializations).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task RepeatedEqualityWhere_ShortCircuitsAndAcceptsLiteralScalarBindings()
+    {
+        var database = CreateSeededDatabase();
+        var groupId = 7;
+
+        var rows = database.Model.Rows
+            .Where(row => row.GroupId == groupId)
+            .Where(row => row.Id == 42)
+            .ToArray();
+
+        await Assert.That(rows.Length).IsEqualTo(1);
+        await Assert.That(rows[0].Id).IsEqualTo(42);
+        await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(2);
+        await Assert.That(database.Diagnostics.PredicateEvaluations).IsEqualTo(3);
+        await Assert.That(database.Diagnostics.PredicateRejections).IsEqualTo(1);
+        await Assert.That(database.Diagnostics.Materializations).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task FilteredEntityScan_ObservesPreCancellationAndCancellationBetweenRows()
+    {
+        var database = CreateSeededDatabase();
+        var groupId = 7;
+        var query = database.Model.Rows.Where(row => row.GroupId == groupId);
+        using var preCancelled = new CancellationTokenSource();
+        preCancelled.Cancel();
+
+        var preCancelledException = Capture<OperationCanceledException>(() =>
+            database.Execute(query, preCancelled.Token));
+
+        await Assert.That(preCancelledException.CancellationToken).IsEqualTo(preCancelled.Token);
+        await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(0);
+        await Assert.That(database.Diagnostics.PredicateEvaluations).IsEqualTo(0);
+        await Assert.That(database.Diagnostics.CacheLookups).IsEqualTo(0);
+
+        using var cancellation = new CancellationTokenSource();
+        using var rows = database.Execute(query, cancellation.Token).GetEnumerator();
+        await Assert.That(rows.MoveNext()).IsTrue();
+        await Assert.That(rows.Current.Id).IsEqualTo(42);
+        cancellation.Cancel();
+
+        var midScanException = Capture<OperationCanceledException>(() => rows.MoveNext());
+
+        await Assert.That(midScanException.CancellationToken).IsEqualTo(cancellation.Token);
+        await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(1);
+        await Assert.That(database.Diagnostics.PredicateEvaluations).IsEqualTo(1);
+        await Assert.That(database.Diagnostics.PredicateRejections).IsEqualTo(0);
+        await Assert.That(database.Diagnostics.Materializations).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task UnsupportedQueryShapes_FailBeforeMemoryEnumeration()
     {
         var database = CreateSeededDatabase();
         var before = database.Diagnostics;
 
         await Assert.That(database.SupportedCapabilityTokens).IsEquivalentTo(
         [
+            "BindingKind:Scalar",
+            "ComparisonOperator:Equal",
+            "ComparisonShape:DirectNonNullableInt32ColumnAndScalar",
+            "NullSemantics:Default",
+            "Operation:Where",
+            "Predicate:Compare",
             "Projection:Entity",
             "ProjectionDisposition:Direct",
             "Result:Sequence",
+            "ScalarNullness:NonNull",
             "SourceCardinality:Many",
             "SourceCount:Single",
             "SourceKind:RootTable",
             "SourceNullability:NonNullable",
-            "SourceTopology:ExactlyOneRoot"
+            "SourceTopology:ExactlyOneRoot",
+            "Value:Column@PredicateOperand",
+            "Value:ScalarBinding@PredicateOperand"
         ]);
 
-        var exception = Capture<QueryTranslationException>(() =>
-            database.Model.Rows.Where(static row => row.GroupId == 7).ToArray());
+        var notEqual = Capture<QueryTranslationException>(() =>
+            database.Model.Rows.Where(static row => row.GroupId != 7).ToArray());
+        var take = Capture<QueryTranslationException>(() =>
+            database.Model.Rows.Take(1).ToArray());
+        var orderBy = Capture<QueryTranslationException>(() =>
+            database.Model.Rows.OrderBy(static row => row.Id).ToArray());
+        var name = "seven";
+        var stringEquality = Capture<QueryTranslationException>(() =>
+            database.Model.Rows.Where(row => row.Name == name).ToArray());
+        var columnEquality = Capture<QueryTranslationException>(() =>
+            database.Model.Rows.Where(static row => row.Id == row.GroupId).ToArray());
+        long promotedGroupId = 7;
+        var promotedEquality = Capture<QueryTranslationException>(() =>
+            database.Model.Rows.Where(row => row.GroupId == promotedGroupId).ToArray());
 
-        await Assert.That(exception.Message).Contains(
-            "Backend 'memory' cannot execute query plan feature 'Operation:Where'");
-        await Assert.That(exception.Message).Contains("Location: operations[0]");
+        await Assert.That(notEqual.Message).Contains(
+            "Backend 'memory' cannot execute query plan feature 'ComparisonOperator:NotEqual'");
+        await Assert.That(notEqual.Message).Contains("Location: operations[0].predicate.operator");
+        await Assert.That(take.Message).Contains(
+            "Backend 'memory' cannot execute query plan feature 'Operation:Take'");
+        await Assert.That(orderBy.Message).Contains(
+            "Backend 'memory' cannot execute query plan feature 'Operation:OrderBy'");
+        await Assert.That(stringEquality.Message).Contains(
+            "Backend 'memory' cannot execute query plan feature 'ComparisonShape:DefaultNullSemantics'");
+        await Assert.That(stringEquality.Message).Contains("Location: operations[0].predicate.shape");
+        await Assert.That(stringEquality.Message).DoesNotContain(name);
+        await Assert.That(columnEquality.Message).Contains(
+            "Backend 'memory' cannot execute query plan feature 'ComparisonShape:DefaultNullSemantics'");
+        await Assert.That(columnEquality.Message).Contains("Location: operations[0].predicate.shape");
+        await Assert.That(promotedEquality.Message).Contains(
+            "Backend 'memory' cannot execute query plan feature 'ComparisonShape:DefaultNullSemantics'");
+        await Assert.That(promotedEquality.Message).Contains("Location: operations[0].predicate.shape");
         await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(before.ScanRowsVisited);
+        await Assert.That(database.Diagnostics.PredicateEvaluations).IsEqualTo(before.PredicateEvaluations);
         await Assert.That(database.Diagnostics.CacheLookups).IsEqualTo(before.CacheLookups);
         await Assert.That(database.Diagnostics.Materializations).IsEqualTo(before.Materializations);
     }

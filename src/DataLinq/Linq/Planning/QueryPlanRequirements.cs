@@ -590,7 +590,14 @@ internal sealed class QueryPlanRequirements
         private QueryPlanComparisonShape GetComparisonShape(QueryPlanPredicate.Compare comparison)
         {
             if (comparison.NullSemantics == QueryPlanNullSemantics.Default)
-                return QueryPlanComparisonShape.DefaultNullSemantics;
+            {
+                return QueryPlanComparisonShapeFacts.IsDirectNonNullableInt32ColumnAndScalar(
+                    comparison.Left,
+                    comparison.Right,
+                    invocation.Template.BindingDeclarations)
+                    ? QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar
+                    : QueryPlanComparisonShape.DefaultNullSemantics;
+            }
 
             if (comparison.NullSemantics == QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull &&
                 comparison.Operator == QueryPlanComparisonOperator.NotEqual)

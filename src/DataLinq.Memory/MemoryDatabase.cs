@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -82,10 +83,23 @@ internal sealed class MemoryDatabase<TDatabase>
         where TModel : class, ITableModel<TDatabase>
     {
         var query = new DbRead<TModel>(readSource);
+        return Execute(query, cancellationToken);
+    }
+
+    /// <summary>
+    /// Executes a focused generated query with an explicit token until the public query API carries
+    /// cancellation. This remains an internal spike surface and does not bypass plan validation.
+    /// </summary>
+    internal IEnumerable<TModel> Execute<TModel>(
+        IQueryable<TModel> query,
+        CancellationToken cancellationToken = default)
+        where TModel : class, ITableModel<TDatabase>
+    {
+        ArgumentNullException.ThrowIfNull(query);
         if (query.Provider is not ExpressionQueryPlanProvider provider)
         {
             throw new InvalidOperationException(
-                "The memory query root did not use the DataLinq expression-plan provider.");
+                "The memory query did not use the DataLinq expression-plan provider.");
         }
 
         var invocation = provider.Parse(query.Expression, typeof(TModel));

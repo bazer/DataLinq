@@ -35,7 +35,7 @@ public class QueryPlanCapabilityValidationTests
             [QueryPlanFeatureCategory.RelationPart] = 2,
             [QueryPlanFeatureCategory.ComparisonOperator] = 6,
             [QueryPlanFeatureCategory.NullSemantics] = 2,
-            [QueryPlanFeatureCategory.ComparisonShape] = 4,
+            [QueryPlanFeatureCategory.ComparisonShape] = 5,
             [QueryPlanFeatureCategory.Value] = 104,
             [QueryPlanFeatureCategory.Intrinsic] = 39,
             [QueryPlanFeatureCategory.Function] = 247,
@@ -69,15 +69,15 @@ public class QueryPlanCapabilityValidationTests
                 $"{feature.Token}={QueryBackendCapabilities.Sql.GetDisposition(feature)}"));
         var sqlMatrixFingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sqlMatrix)));
 
-        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(598);
+        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(599);
         await Assert.That(tokens.Distinct(StringComparer.Ordinal).Count()).IsEqualTo(tokens.Length);
         await Assert.That(actualCategoryCounts.Count).IsEqualTo(expectedCategoryCounts.Count);
         foreach (var expected in expectedCategoryCounts)
             await Assert.That(actualCategoryCounts[expected.Key]).IsEqualTo(expected.Value);
 
-        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(343);
+        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(344);
         await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Unsupported)).IsEqualTo(255);
-        await Assert.That(sqlMatrixFingerprint).IsEqualTo("6BF5AB3C1D947977A481963F07D28329036F653BAE5C49F6B8F01A58C86ADA1E");
+        await Assert.That(sqlMatrixFingerprint).IsEqualTo("2B1724B0302E42B29D5051DA912B5D25DA18943CE5613E1DF0A77E01C3AC30A3");
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.Projection(QueryPlanProjectionKind.TransparentIdentifier)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
@@ -823,6 +823,107 @@ public class QueryPlanCapabilityValidationTests
                     expected),
                 capture);
         }
+    }
+
+    [Test]
+    public async Task Requirements_ClassifyOnlyExactInt32ColumnScalarComparisonShape()
+    {
+        var table = GetTable<Employee>();
+        var source = Source("s0", "t0", table, QueryPlanSourceKind.RootTable);
+        var employeeNumber = new QueryPlanColumnValue(
+            source,
+            table.GetColumnByPropertyName(nameof(Employee.emp_no)));
+        var firstName = new QueryPlanColumnValue(
+            source,
+            table.GetColumnByPropertyName(nameof(Employee.first_name)));
+
+        var directCapture = new QueryPlanBindingCapture();
+        var directScalar = directCapture.CaptureScalar(42, typeof(int));
+        var direct = ExtractShape(CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.Compare(
+                employeeNumber,
+                QueryPlanComparisonOperator.Equal,
+                directScalar),
+            directCapture));
+        var reversed = ExtractShape(CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.Compare(
+                directScalar,
+                QueryPlanComparisonOperator.Equal,
+                employeeNumber),
+            directCapture));
+
+        var textCapture = new QueryPlanBindingCapture();
+        var textScalar = textCapture.CaptureScalar("forty-two", typeof(string));
+        var text = ExtractShape(CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.Compare(
+                firstName,
+                QueryPlanComparisonOperator.Equal,
+                textScalar),
+            textCapture));
+
+        var mismatchedProviderCapture = new QueryPlanBindingCapture();
+        var mismatchedProviderScalar = mismatchedProviderCapture.CaptureScalar(
+            42,
+            typeof(int),
+            typeof(long));
+        var mismatchedProvider = ExtractShape(CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.Compare(
+                employeeNumber,
+                QueryPlanComparisonOperator.Equal,
+                mismatchedProviderScalar),
+            mismatchedProviderCapture));
+
+        var nullableCapture = new QueryPlanBindingCapture();
+        var nullableScalar = nullableCapture.CaptureScalar(42, typeof(int?));
+        var nullable = ExtractShape(CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.Compare(
+                employeeNumber,
+                QueryPlanComparisonOperator.Equal,
+                nullableScalar),
+            nullableCapture));
+
+        var promotedCapture = new QueryPlanBindingCapture();
+        var promotedScalar = promotedCapture.CaptureScalar(42L, typeof(long));
+        var promotedScalarShape = ExtractShape(CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.Compare(
+                employeeNumber,
+                QueryPlanComparisonOperator.Equal,
+                promotedScalar),
+            promotedCapture));
+        var promotedColumnShape = ExtractShape(CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.Compare(
+                new QueryPlanColumnValue(source, employeeNumber.Column, typeof(long)),
+                QueryPlanComparisonOperator.Equal,
+                directScalar),
+            directCapture));
+
+        var columnToColumn = ExtractShape(CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.Compare(
+                employeeNumber,
+                QueryPlanComparisonOperator.Equal,
+                employeeNumber),
+            new QueryPlanBindingCapture()));
+
+        await Assert.That(direct).IsEqualTo(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar);
+        await Assert.That(reversed).IsEqualTo(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar);
+        await Assert.That(text).IsEqualTo(QueryPlanComparisonShape.DefaultNullSemantics);
+        await Assert.That(mismatchedProvider).IsEqualTo(QueryPlanComparisonShape.DefaultNullSemantics);
+        await Assert.That(nullable).IsEqualTo(QueryPlanComparisonShape.DefaultNullSemantics);
+        await Assert.That(promotedScalarShape).IsEqualTo(QueryPlanComparisonShape.DefaultNullSemantics);
+        await Assert.That(promotedColumnShape).IsEqualTo(QueryPlanComparisonShape.DefaultNullSemantics);
+        await Assert.That(columnToColumn).IsEqualTo(QueryPlanComparisonShape.DefaultNullSemantics);
+
+        static QueryPlanComparisonShape ExtractShape(QueryPlanInvocation invocation) =>
+            (QueryPlanComparisonShape)QueryPlanRequirements.Extract(invocation).Structural.Single(
+                static requirement => requirement.Feature.Category == QueryPlanFeatureCategory.ComparisonShape).Feature.Value;
     }
 
     [Test]

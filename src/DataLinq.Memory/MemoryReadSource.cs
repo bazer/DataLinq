@@ -23,6 +23,8 @@ internal sealed class MemoryReadSource :
     private long primaryKeyRequests;
     private long primaryKeyProbes;
     private long scanRowsVisited;
+    private long predicateEvaluations;
+    private long predicateRejections;
     private long cacheLookups;
     private long cacheHits;
     private long cacheMisses;
@@ -85,6 +87,13 @@ internal sealed class MemoryReadSource :
     internal void RecordScanRowVisited() =>
         Interlocked.Increment(ref scanRowsVisited);
 
+    internal void RecordPredicateEvaluation(bool matched)
+    {
+        Interlocked.Increment(ref predicateEvaluations);
+        if (!matched)
+            Interlocked.Increment(ref predicateRejections);
+    }
+
     internal int GetMaterializedRowCount(TableDefinition table) =>
         GetMaterializedRowCache(table).Count;
 
@@ -98,6 +107,8 @@ internal sealed class MemoryReadSource :
         PrimaryKeyRequests: Interlocked.Read(ref primaryKeyRequests),
         PrimaryKeyProbes: Interlocked.Read(ref primaryKeyProbes),
         ScanRowsVisited: Interlocked.Read(ref scanRowsVisited),
+        PredicateEvaluations: Interlocked.Read(ref predicateEvaluations),
+        PredicateRejections: Interlocked.Read(ref predicateRejections),
         CacheLookups: Interlocked.Read(ref cacheLookups),
         CacheHits: Interlocked.Read(ref cacheHits),
         CacheMisses: Interlocked.Read(ref cacheMisses),

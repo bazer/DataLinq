@@ -18,9 +18,18 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             QueryPlanFeature.SourceKind(QueryPlanSourceKind.RootTable),
             QueryPlanFeature.SourceCardinality(QueryPlanSourceCardinality.Many),
             QueryPlanFeature.SourceNullability(QueryPlanSourceNullability.NonNullable),
+            QueryPlanFeature.Operation(QueryPlanOperationKind.Where),
+            QueryPlanFeature.Predicate(QueryPlanPredicateKind.Compare),
+            QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.Equal),
+            QueryPlanFeature.NullSemantics(QueryPlanNullSemantics.Default),
+            QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar),
+            QueryPlanFeature.ValueKind(QueryPlanValueKind.Column, QueryPlanValueUse.PredicateOperand),
+            QueryPlanFeature.ValueKind(QueryPlanValueKind.ScalarBinding, QueryPlanValueUse.PredicateOperand),
             QueryPlanFeature.Projection(QueryPlanProjectionKind.Entity),
             QueryPlanFeature.ProjectionDisposition(QueryPlanProjectionDisposition.Direct),
-            QueryPlanFeature.Result(QueryPlanResultKind.Sequence)
+            QueryPlanFeature.Result(QueryPlanResultKind.Sequence),
+            QueryPlanFeature.BindingKind(QueryPlanBindingKind.Scalar),
+            QueryPlanFeature.ScalarNullness(QueryPlanBindingNullness.NonNull)
         };
 
     internal static IReadOnlyList<string> SupportedCapabilityTokens { get; } =
@@ -57,7 +66,6 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
 
         var template = request.Invocation.Template;
         if (template.Sources.Count != 1 ||
-            template.Operations.Count != 0 ||
             template.Projection is not QueryPlanProjection.Entity
             {
                 Source.Kind: QueryPlanSourceKind.RootTable
@@ -68,9 +76,11 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             throw CreateCapabilityInvariantException(request);
         }
 
+        var executionPlan = MemoryEntityExecutionPlan.Compile(request, entity);
         return new MemoryEntityCursor(
             source,
             source.GetRows(entity.Source.Table),
+            executionPlan,
             request.Context.CancellationToken);
     }
 
@@ -103,25 +113,28 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
         ValidatedQueryExecutionRequest request) =>
         new(
             "The memory capability profile validated a request outside its implemented " +
-            $"pass-through entity-sequence shape. Projection: '{request.Invocation.Template.Projection.Kind}'; " +
+            $"entity-sequence shape. Projection: '{request.Invocation.Template.Projection.Kind}'; " +
             $"result: '{request.Invocation.Template.Result.Kind}'; operations: {request.Invocation.Template.Operations.Count}.");
 }
 
 internal sealed class MemoryEntityCursor : IQueryEntityCursor
 {
     private readonly MemoryReadSource source;
+    private readonly MemoryEntityExecutionPlan executionPlan;
     private readonly CancellationToken cancellationToken;
     private IReadOnlyList<CanonicalProviderValueRow>? rows;
     private IImmutableInstance? current;
-    private int currentIndex = -1;
+    private int nextRowIndex;
 
     internal MemoryEntityCursor(
         MemoryReadSource source,
         IReadOnlyList<CanonicalProviderValueRow> rows,
+        MemoryEntityExecutionPlan executionPlan,
         CancellationToken cancellationToken)
     {
         this.source = source ?? throw new ArgumentNullException(nameof(source));
         this.rows = rows ?? throw new ArgumentNullException(nameof(rows));
+        this.executionPlan = executionPlan ?? throw new ArgumentNullException(nameof(executionPlan));
         this.cancellationToken = cancellationToken;
     }
 
@@ -136,22 +149,28 @@ internal sealed class MemoryEntityCursor : IQueryEntityCursor
 
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var nextIndex = checked(currentIndex + 1);
-            if (nextIndex >= currentRows.Count)
+            while (true)
             {
-                Dispose();
-                return false;
+                cancellationToken.ThrowIfCancellationRequested();
+                if (nextRowIndex >= currentRows.Count)
+                {
+                    Dispose();
+                    return false;
+                }
+
+                var row = currentRows[nextRowIndex++];
+                source.RecordScanRowVisited();
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!executionPlan.Matches(row, source, cancellationToken))
+                    continue;
+
+                cancellationToken.ThrowIfCancellationRequested();
+                var next = source.Materialize(row);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                current = next;
+                return true;
             }
-
-            source.RecordScanRowVisited();
-            cancellationToken.ThrowIfCancellationRequested();
-            var next = source.Materialize(currentRows[nextIndex]);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            currentIndex = nextIndex;
-            current = next;
-            return true;
         }
         catch
         {

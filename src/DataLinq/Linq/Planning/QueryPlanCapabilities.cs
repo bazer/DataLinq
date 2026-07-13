@@ -73,7 +73,51 @@ internal enum QueryPlanComparisonShape
     DefaultNullSemantics,
     NullableNotEqualColumnAndNullValue,
     NullableNotEqualColumnAndNonNullValue,
-    UnsupportedNullableNotEqual
+    UnsupportedNullableNotEqual,
+    DirectNonNullableInt32ColumnAndScalar
+}
+
+internal static class QueryPlanComparisonShapeFacts
+{
+    internal static bool IsDirectNonNullableInt32ColumnAndScalar(
+        QueryPlanValue left,
+        QueryPlanValue right,
+        QueryPlanBindingDeclarations declarations) =>
+        IsDirectNonNullableInt32ColumnWithScalar(left, right, declarations) ||
+        IsDirectNonNullableInt32ColumnWithScalar(right, left, declarations);
+
+    private static bool IsDirectNonNullableInt32ColumnWithScalar(
+        QueryPlanValue columnValue,
+        QueryPlanValue scalarValue,
+        QueryPlanBindingDeclarations declarations)
+    {
+        ArgumentNullException.ThrowIfNull(declarations);
+        if (!IsDirectNonNullableInt32Column(columnValue) ||
+            scalarValue is not QueryPlanScalarBindingReference { ClrType: var scalarType } scalar ||
+            scalarType != typeof(int) ||
+            !declarations.TryGet(scalar.BindingId, out var declaration))
+        {
+            return false;
+        }
+
+        return declaration.Kind == QueryPlanBindingKind.Scalar &&
+            declaration.ModelType == typeof(int) &&
+            declaration.ProviderType == typeof(int) &&
+            !declaration.AllowsNull;
+    }
+
+    private static bool IsDirectNonNullableInt32Column(QueryPlanValue value)
+    {
+        if (value is not QueryPlanColumnValue column)
+            return false;
+
+        var definition = column.Column;
+        return column.ClrType == typeof(int) &&
+            !definition.Nullable &&
+            !definition.HasScalarConverter &&
+            definition.ModelClrType == typeof(int) &&
+            definition.ProviderClrType == typeof(int);
+    }
 }
 
 internal enum QueryPlanFunctionShape
