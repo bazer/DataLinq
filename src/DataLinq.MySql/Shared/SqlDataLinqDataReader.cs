@@ -167,7 +167,6 @@ public struct SqlDataLinqDataReader : IDataLinqDataReader, IDisposable
             return default;
 
         if (column.IsGuidColumn &&
-            !column.PrimaryKey &&
             databaseType is DatabaseType.MySQL or DatabaseType.MariaDB)
         {
             var definition = SqlGuidStorageCodec.GetRequiredDefinition(column, databaseType.Value);

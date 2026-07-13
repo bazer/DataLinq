@@ -37,7 +37,7 @@ public partial class TableCache
 
         if (keysToLoad.Count != 0)
         {
-            if (GetIntegralCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
+            if (GetCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
             {
                 var canonicalKeys = keysToLoad
                     .Select(ProviderKeyComponents.ToDataLinqKey)
@@ -216,7 +216,7 @@ public partial class TableCache
 
         if (keysToLoad.Count != 0)
         {
-            if (GetIntegralCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
+            if (GetCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
             {
                 var canonicalKeys = keysToLoad
                     .Select(ProviderKeyComponents.ToDataLinqKey)
@@ -309,16 +309,20 @@ public partial class TableCache
         return rows;
     }
 
-    private IDataLinqSourceRowServices? GetIntegralCanonicalPrimaryKeySourceServices(
+    private IDataLinqSourceRowServices? GetCanonicalPrimaryKeySourceServices(
         IDataSourceAccess dataSource)
     {
         if (dataSource is not IDataLinqSourceRowServices sourceServices)
             return null;
 
-        // Source-row results currently validate requested keys with canonical CLR equality.
-        // Keep collation- and codec-sensitive keys on the legacy provider path until that
-        // contract can represent provider equality (for example case-insensitive CHAR keys).
-        return ProviderKeyComponents.HasOnlyIntegralCanonicalComponents(Table)
+        // Source-row results validate requested keys with canonical CLR equality. Integral
+        // components are provider-neutral. A scalar Guid is also exact only when this source
+        // reports a supported concrete database type with resolved column storage metadata;
+        // string/collation, composite UUID, and other provider-sensitive shapes remain on the
+        // legacy path.
+        return ProviderKeyComponents.SupportsNeutralSourceRowLoading(
+            Table,
+            dataSource.Provider.DatabaseType)
             ? sourceServices
             : null;
     }

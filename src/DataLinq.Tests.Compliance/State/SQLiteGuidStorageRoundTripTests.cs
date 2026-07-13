@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
@@ -13,6 +14,183 @@ public sealed class SQLiteGuidStorageRoundTripTests
 {
     private static readonly Guid KnownGuid = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
     private static readonly Guid AlternateGuid = Guid.Parse("fedcba98-7654-3210-89ab-cdef01234567");
+
+    [Test]
+    [NotInParallel]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.SqliteProviders))]
+    public async Task ScalarGuidPrimaryKeys_UseResolvedCodecsAcrossSQLiteCacheAndMutationPaths(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<SQLiteGuidStorageDb>.Create(
+            provider,
+            nameof(ScalarGuidPrimaryKeys_UseResolvedCodecsAcrossSQLiteCacheAndMutationPaths));
+        var database = databaseScope.Database;
+        var knownTypedId = new SQLiteGuidStorageId(KnownGuid);
+        var alternateTypedId = new SQLiteGuidStorageId(AlternateGuid);
+
+        SQLiteDirectGuidKeyRow insertedDirectKnown;
+        SQLiteTypedGuidKeyRow insertedTypedKnown;
+        using (var transaction = database.Transaction())
+        {
+            insertedDirectKnown = transaction.Insert(new MutableSQLiteDirectGuidKeyRow
+            {
+                Id = KnownGuid,
+                Value = "direct-known"
+            });
+            _ = transaction.Insert(new MutableSQLiteDirectGuidKeyRow
+            {
+                Id = AlternateGuid,
+                Value = "direct-alternate"
+            });
+            insertedTypedKnown = transaction.Insert(new MutableSQLiteTypedGuidKeyRow
+            {
+                Id = knownTypedId,
+                Value = "typed-known"
+            });
+            _ = transaction.Insert(new MutableSQLiteTypedGuidKeyRow
+            {
+                Id = alternateTypedId,
+                Value = "typed-alternate"
+            });
+            transaction.Commit();
+        }
+
+        await Assert.That(insertedDirectKnown.Id).IsEqualTo(KnownGuid);
+        await Assert.That(insertedTypedKnown.Id).IsEqualTo(knownTypedId);
+        await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
+                "SELECT hex(id) FROM direct_guid_key_rows WHERE value = 'direct-known'"))
+            .IsEqualTo("33221100554477668899AABBCCDDEEFF");
+        await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
+                "SELECT hex(id) FROM direct_guid_key_rows WHERE value = 'direct-alternate'"))
+            .IsEqualTo("98BADCFE5476103289ABCDEF01234567");
+        await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
+                "SELECT hex(id) FROM typed_guid_key_rows WHERE value = 'typed-known'"))
+            .IsEqualTo("00112233445566778899AABBCCDDEEFF");
+        await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
+                "SELECT hex(id) FROM typed_guid_key_rows WHERE value = 'typed-alternate'"))
+            .IsEqualTo("FEDCBA987654321089ABCDEF01234567");
+
+        database.Provider.State.ClearCache();
+        using (var transaction = database.Transaction())
+        {
+            var directReload = transaction.Query().DirectGuidKeyRows.Single(row => row.Id == KnownGuid);
+            var typedReload = transaction.Query().TypedGuidKeyRows.Single(row => row.Id == knownTypedId);
+
+            await Assert.That(directReload.Value).IsEqualTo("direct-known");
+            await Assert.That(typedReload.Value).IsEqualTo("typed-known");
+            await Assert.That(directReload.GetReadSource()).IsSameReferenceAs(transaction);
+            await Assert.That(typedReload.GetReadSource()).IsSameReferenceAs(transaction);
+            transaction.Rollback();
+        }
+
+        database.Provider.State.ClearCache();
+        DataLinqMetrics.Reset();
+        var coldDirect = database.Query().DirectGuidKeyRows.Single(row => row.Id == KnownGuid);
+        await AssertEntityCacheMetrics(
+            DataLinqMetrics.Snapshot(),
+            readerExecutions: 1,
+            hits: 0,
+            misses: 1,
+            stores: 1,
+            databaseRowsLoaded: 1,
+            materializations: 1);
+
+        DataLinqMetrics.Reset();
+        var warmDirect = database.Query().DirectGuidKeyRows.Single(row => row.Id == KnownGuid);
+        await Assert.That(warmDirect).IsSameReferenceAs(coldDirect);
+        await AssertEntityCacheMetrics(
+            DataLinqMetrics.Snapshot(),
+            readerExecutions: 0,
+            hits: 1,
+            misses: 0,
+            stores: 0,
+            databaseRowsLoaded: 0,
+            materializations: 0);
+
+        database.Provider.State.ClearCache();
+        DataLinqMetrics.Reset();
+        var coldTyped = database.Query().TypedGuidKeyRows.Single(row => row.Id == knownTypedId);
+        await AssertEntityCacheMetrics(
+            DataLinqMetrics.Snapshot(),
+            readerExecutions: 1,
+            hits: 0,
+            misses: 1,
+            stores: 1,
+            databaseRowsLoaded: 1,
+            materializations: 1);
+
+        DataLinqMetrics.Reset();
+        var warmTyped = database.Query().TypedGuidKeyRows.Single(row => row.Id == knownTypedId);
+        await Assert.That(warmTyped).IsSameReferenceAs(coldTyped);
+        await AssertEntityCacheMetrics(
+            DataLinqMetrics.Snapshot(),
+            readerExecutions: 0,
+            hits: 1,
+            misses: 0,
+            stores: 0,
+            databaseRowsLoaded: 0,
+            materializations: 0);
+
+        var directIds = new[] { KnownGuid, AlternateGuid };
+        database.Provider.State.ClearCache();
+        DataLinqMetrics.Reset();
+        var directBatch = database.Query().DirectGuidKeyRows
+            .Where(row => directIds.Contains(row.Id))
+            .ToList();
+        await Assert.That(directBatch.Select(static row => row.Id).ToArray())
+            .IsEquivalentTo(directIds);
+        await AssertEntityCacheMetrics(
+            DataLinqMetrics.Snapshot(),
+            readerExecutions: 2,
+            hits: 0,
+            misses: 2,
+            stores: 2,
+            databaseRowsLoaded: 2,
+            materializations: 2);
+
+        var typedIds = new[] { knownTypedId, alternateTypedId };
+        database.Provider.State.ClearCache();
+        DataLinqMetrics.Reset();
+        var typedBatch = database.Query().TypedGuidKeyRows
+            .Where(row => typedIds.Contains(row.Id))
+            .ToList();
+        await Assert.That(typedBatch.Select(static row => row.Id).ToArray())
+            .IsEquivalentTo(typedIds);
+        await AssertEntityCacheMetrics(
+            DataLinqMetrics.Snapshot(),
+            readerExecutions: 2,
+            hits: 0,
+            misses: 2,
+            stores: 2,
+            databaseRowsLoaded: 2,
+            materializations: 2);
+
+        var directMutable = directBatch.Single(row => row.Id == KnownGuid).Mutate();
+        directMutable.Value = "direct-updated";
+        var directUpdated = database.Update(directMutable);
+        var typedMutable = typedBatch.Single(row => row.Id == knownTypedId).Mutate();
+        typedMutable.Value = "typed-updated";
+        var typedUpdated = database.Update(typedMutable);
+
+        await Assert.That(directUpdated.Value).IsEqualTo("direct-updated");
+        await Assert.That(typedUpdated.Value).IsEqualTo("typed-updated");
+        await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
+                "SELECT value FROM direct_guid_key_rows WHERE hex(id) = '33221100554477668899AABBCCDDEEFF'"))
+            .IsEqualTo("direct-updated");
+        await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
+                "SELECT value FROM typed_guid_key_rows WHERE hex(id) = '00112233445566778899AABBCCDDEEFF'"))
+            .IsEqualTo("typed-updated");
+
+        database.Delete(directBatch.Single(row => row.Id == AlternateGuid));
+        database.Delete(typedBatch.Single(row => row.Id == alternateTypedId));
+
+        await Assert.That(Convert.ToInt32(database.Provider.DatabaseAccess.ExecuteScalar(
+                "SELECT COUNT(*) FROM direct_guid_key_rows WHERE hex(id) = '98BADCFE5476103289ABCDEF01234567'")))
+            .IsEqualTo(0);
+        await Assert.That(Convert.ToInt32(database.Provider.DatabaseAccess.ExecuteScalar(
+                "SELECT COUNT(*) FROM typed_guid_key_rows WHERE hex(id) = 'FEDCBA987654321089ABCDEF01234567'")))
+            .IsEqualTo(0);
+    }
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.SqliteProviders))]
@@ -558,6 +736,24 @@ public sealed class SQLiteGuidStorageRoundTripTests
                 .IsEqualTo(optionalText36);
         }
     }
+
+    private static async Task AssertEntityCacheMetrics(
+        DataLinqMetricsSnapshot snapshot,
+        long readerExecutions,
+        long hits,
+        long misses,
+        long stores,
+        long databaseRowsLoaded,
+        long materializations)
+    {
+        await Assert.That(snapshot.Queries.EntityExecutions).IsEqualTo(1);
+        await Assert.That(snapshot.Commands.ReaderExecutions).IsEqualTo(readerExecutions);
+        await Assert.That(snapshot.RowCache.Hits).IsEqualTo(hits);
+        await Assert.That(snapshot.RowCache.Misses).IsEqualTo(misses);
+        await Assert.That(snapshot.RowCache.Stores).IsEqualTo(stores);
+        await Assert.That(snapshot.RowCache.DatabaseRowsLoaded).IsEqualTo(databaseRowsLoaded);
+        await Assert.That(snapshot.RowCache.Materializations).IsEqualTo(materializations);
+    }
 }
 
 public readonly record struct SQLiteGuidStorageId(Guid Value);
@@ -578,6 +774,8 @@ public sealed class SQLiteGuidStorageIdConverter
 public sealed partial class SQLiteGuidStorageDb(DataSourceAccess dataSource) : IDatabaseModel
 {
     public DbRead<SQLiteGuidStorageRow> Rows { get; } = new(dataSource);
+    public DbRead<SQLiteDirectGuidKeyRow> DirectGuidKeyRows { get; } = new(dataSource);
+    public DbRead<SQLiteTypedGuidKeyRow> TypedGuidKeyRows { get; } = new(dataSource);
 }
 
 [Table("guid_storage_rows")]
@@ -626,4 +824,39 @@ public abstract partial class SQLiteGuidStorageRow(IRowData rowData, IDataSource
     [ScalarConverter(typeof(SQLiteGuidStorageIdConverter))]
     [Column("optional_typed_text36")]
     public abstract SQLiteGuidStorageId? OptionalTypedText36 { get; }
+}
+
+[UseCache]
+[Table("direct_guid_key_rows")]
+public abstract partial class SQLiteDirectGuidKeyRow(IRowData rowData, IDataSourceAccess dataSource)
+    : Immutable<SQLiteDirectGuidKeyRow, SQLiteGuidStorageDb>(rowData, dataSource),
+      ITableModel<SQLiteGuidStorageDb>
+{
+    [PrimaryKey]
+    [Type(DatabaseType.SQLite, "BLOB")]
+    [GuidStorage(DatabaseType.SQLite, GuidStorageFormat.Binary16LittleEndian)]
+    [Column("id")]
+    public abstract Guid Id { get; }
+
+    [Type(DatabaseType.SQLite, "TEXT")]
+    [Column("value")]
+    public abstract string Value { get; }
+}
+
+[UseCache]
+[Table("typed_guid_key_rows")]
+public abstract partial class SQLiteTypedGuidKeyRow(IRowData rowData, IDataSourceAccess dataSource)
+    : Immutable<SQLiteTypedGuidKeyRow, SQLiteGuidStorageDb>(rowData, dataSource),
+      ITableModel<SQLiteGuidStorageDb>
+{
+    [PrimaryKey]
+    [Type(DatabaseType.SQLite, "BLOB")]
+    [GuidStorage(DatabaseType.SQLite, GuidStorageFormat.Binary16Rfc4122)]
+    [ScalarConverter(typeof(SQLiteGuidStorageIdConverter))]
+    [Column("id")]
+    public abstract SQLiteGuidStorageId Id { get; }
+
+    [Type(DatabaseType.SQLite, "TEXT")]
+    [Column("value")]
+    public abstract string Value { get; }
 }

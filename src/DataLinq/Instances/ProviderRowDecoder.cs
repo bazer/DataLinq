@@ -28,7 +28,7 @@ internal static class ProviderRowDecoder
                 column,
                 ordinal,
                 sourceName,
-                useColumnAwareGuidForFullRow: true);
+                useColumnAwareGuid: true);
         }
 
         return CanonicalProviderValueRow.Create(table, canonicalValues);
@@ -38,7 +38,8 @@ internal static class ProviderRowDecoder
         IDataLinqDataReader reader,
         ColumnDefinition column,
         int ordinal,
-        string sourceName)
+        string sourceName,
+        bool useColumnAwareGuid = false)
     {
         ArgumentNullException.ThrowIfNull(reader);
         ArgumentNullException.ThrowIfNull(column);
@@ -49,7 +50,7 @@ internal static class ProviderRowDecoder
             column,
             ordinal,
             sourceName,
-            useColumnAwareGuidForFullRow: false);
+            useColumnAwareGuid);
     }
 
     private static object? DecodeCanonicalValueCore(
@@ -57,7 +58,7 @@ internal static class ProviderRowDecoder
         ColumnDefinition column,
         int ordinal,
         string sourceName,
-        bool useColumnAwareGuidForFullRow)
+        bool useColumnAwareGuid)
     {
         object? canonicalValue = null;
         var valueProduced = false;
@@ -70,7 +71,7 @@ internal static class ProviderRowDecoder
                     reader,
                     column,
                     ordinal,
-                    useColumnAwareGuidForFullRow);
+                    useColumnAwareGuid);
             valueProduced = true;
             CanonicalProviderValueRow.ValidateCanonicalValue(
                 column,
@@ -97,8 +98,15 @@ internal static class ProviderRowDecoder
         IDataLinqDataReader reader,
         ColumnDefinition column,
         int ordinal,
-        bool useColumnAwareGuidForFullRow)
+        bool useColumnAwareGuid)
     {
+        if (useColumnAwareGuid && column.IsGuidColumn)
+        {
+            return reader.GetValue<object>(column, ordinal)
+                ?? throw new InvalidOperationException(
+                    $"Reader returned null for non-NULL column '{column.Table.DbName}.{column.DbName}'.");
+        }
+
         if (!column.HasScalarConverter)
         {
             return reader.GetValue<object>(column, ordinal)
@@ -116,16 +124,7 @@ internal static class ProviderRowDecoder
         if (providerType == typeof(long))
             return Convert.ToInt64(ReadRawValue(reader, column, ordinal), CultureInfo.InvariantCulture);
         if (providerType == typeof(Guid))
-        {
-            if (useColumnAwareGuidForFullRow && !column.PrimaryKey)
-            {
-                return reader.GetValue<object>(column, ordinal)
-                    ?? throw new InvalidOperationException(
-                        $"Reader returned null for non-NULL column '{column.Table.DbName}.{column.DbName}'.");
-            }
-
             return reader.GetGuid(ordinal);
-        }
         if (providerType == typeof(string))
             return reader.GetString(ordinal);
         if (providerType == typeof(bool))

@@ -122,7 +122,7 @@ public sealed class ProviderRowDecoderTests
     }
 
     [Test]
-    public async Task DecodeFullRow_KeepsMetadataFreeGuidReadForConvertedPrimaryKey()
+    public async Task DecodeFullRow_UsesColumnAwareGuidReadForConvertedPrimaryKey()
     {
         var converter = new RecordingGuidIdConverter();
         var table = CreateGuidTable(converter, guidIsPrimaryKey: true);
@@ -133,8 +133,8 @@ public sealed class ProviderRowDecoderTests
         var guidColumn = table.GetColumnByDbName("external_id");
 
         await Assert.That(canonicalRow[guidColumn]).IsEqualTo(expected);
-        await Assert.That(reader.GuidReads).IsEqualTo(1);
-        await Assert.That(reader.GenericColumnReads).IsEqualTo(1);
+        await Assert.That(reader.GuidReads).IsEqualTo(0);
+        await Assert.That(reader.GenericColumnReads).IsEqualTo(2);
         await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
     }
 
@@ -171,6 +171,23 @@ public sealed class ProviderRowDecoderTests
         await Assert.That(reader.GenericColumnReads).IsEqualTo(0);
         await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
         await Assert.That(table.PrimaryKeyColumns[0].Index).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task KeyFactory_ScalarConvertedGuidReaderKeyUsesColumnAwareDecoding()
+    {
+        var converter = new RecordingGuidIdConverter();
+        var table = CreateGuidTable(converter, guidIsPrimaryKey: true);
+        var expected = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
+        var reader = new RecordingReader([expected]);
+
+        var key = KeyFactory.GetKey(reader, table.PrimaryKeyColumns);
+
+        await Assert.That(key.GetValue(0)).IsEqualTo(expected);
+        await Assert.That(key.GetValue(0)).IsTypeOf<Guid>();
+        await Assert.That(reader.GenericColumnReads).IsEqualTo(1);
+        await Assert.That(reader.GuidReads).IsEqualTo(0);
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
     }
 
     [Test]

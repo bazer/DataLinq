@@ -59,6 +59,27 @@ internal static class ProviderKeyComponents
         return true;
     }
 
+    internal static bool SupportsNeutralSourceRowLoading(
+        TableDefinition table,
+        DatabaseType databaseType)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+
+        if (HasOnlyIntegralCanonicalComponents(table))
+            return true;
+
+        if (table.PrimaryKeyColumns.Count != 1 ||
+            databaseType is not (DatabaseType.SQLite or DatabaseType.MySQL or DatabaseType.MariaDB))
+        {
+            return false;
+        }
+
+        var column = table.PrimaryKeyColumns[0];
+        return column.IsGuidColumn &&
+            column.GetGuidStorageFor(databaseType) is not null &&
+            !column.IsGuidStorageUnresolvedFor(databaseType);
+    }
+
     internal static int GetValueCount<TKey>(TKey key)
         where TKey : notnull =>
         key is IProviderKey providerKey ? providerKey.ValueCount : 1;

@@ -25,7 +25,7 @@ public class SQLiteDataLinqDataWriter(SqlFromSQLiteFactory sqlFromSQLiteFactory)
         if (value == null)
             return null;
 
-        if (column.IsGuidColumn && !column.PrimaryKey && value is Guid guid)
+        if (column.IsGuidColumn && value is Guid guid)
             return SQLiteGuidStorageCodec.ToPhysicalValue(column, guid);
 
         if (value is Guid legacyGuid)

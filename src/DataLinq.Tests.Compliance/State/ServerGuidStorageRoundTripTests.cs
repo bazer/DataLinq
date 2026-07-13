@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.MariaDB;
@@ -17,6 +18,13 @@ public sealed class ServerGuidStorageRoundTripTests
 {
     private static readonly Guid KnownGuid = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
     private static readonly Guid AlternateGuid = Guid.Parse("fedcba98-7654-3210-89ab-cdef01234567");
+    private static readonly MySqlGuidFormat?[] ConnectorGuidFormats =
+    [
+        null,
+        MySqlGuidFormat.Char32,
+        MySqlGuidFormat.Binary16,
+        MySqlGuidFormat.LittleEndianBinary16
+    ];
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ServerProviders))]
@@ -165,15 +173,7 @@ public sealed class ServerGuidStorageRoundTripTests
 
         await Assert.That(inserted).IsEqualTo(2);
 
-        MySqlGuidFormat?[] connectorGuidFormats =
-        [
-            null,
-            MySqlGuidFormat.Char32,
-            MySqlGuidFormat.Binary16,
-            MySqlGuidFormat.LittleEndianBinary16
-        ];
-
-        foreach (var connectorGuidFormat in connectorGuidFormats)
+        foreach (var connectorGuidFormat in ConnectorGuidFormats)
         {
             using var database = CreateDatabase(
                 provider,
@@ -182,6 +182,164 @@ public sealed class ServerGuidStorageRoundTripTests
             database.Provider.State.ClearCache();
 
             await AssertNonKeyGuidPredicateBindings(database, provider.DatabaseType);
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ServerProviders))]
+    public async Task ScalarGuidPrimaryKeys_PreserveCodecIdentityAcrossConnectorGuidFormats(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<ServerGuidStorageDb>.Create(
+            provider,
+            nameof(ScalarGuidPrimaryKeys_PreserveCodecIdentityAcrossConnectorGuidFormats));
+
+        foreach (var connectorGuidFormat in ConnectorGuidFormats)
+        {
+            using var database = CreateDatabase(
+                provider,
+                WithGuidFormat(databaseScope.Connection.ConnectionString, connectorGuidFormat),
+                databaseScope.Connection.DataSourceName);
+            var access = database.Provider.DatabaseAccess;
+
+            _ = access.ExecuteNonQuery("DELETE FROM guid_primary_key_rows");
+            _ = access.ExecuteNonQuery("DELETE FROM typed_guid_primary_key_rows");
+            database.Provider.State.ClearCache();
+
+            ServerGuidPrimaryKeyRow insertedDirectKnown;
+            ServerGuidPrimaryKeyRow insertedDirectAlternate;
+            ServerTypedGuidPrimaryKeyRow insertedTypedKnown;
+            ServerTypedGuidPrimaryKeyRow insertedTypedAlternate;
+            using (var transaction = database.Transaction())
+            {
+                insertedDirectKnown = transaction.Insert(new MutableServerGuidPrimaryKeyRow
+                {
+                    Id = KnownGuid,
+                    Name = "direct-known"
+                });
+                insertedDirectAlternate = transaction.Insert(new MutableServerGuidPrimaryKeyRow
+                {
+                    Id = AlternateGuid,
+                    Name = "direct-alternate"
+                });
+                insertedTypedKnown = transaction.Insert(new MutableServerTypedGuidPrimaryKeyRow
+                {
+                    Id = new ServerGuidStorageId(KnownGuid),
+                    Name = "typed-known"
+                });
+                insertedTypedAlternate = transaction.Insert(new MutableServerTypedGuidPrimaryKeyRow
+                {
+                    Id = new ServerGuidStorageId(AlternateGuid),
+                    Name = "typed-alternate"
+                });
+                transaction.Commit();
+            }
+
+            await Assert.That(insertedDirectKnown.Id).IsEqualTo(KnownGuid);
+            await Assert.That(insertedDirectKnown.Name).IsEqualTo("direct-known");
+            await Assert.That(insertedDirectAlternate.Id).IsEqualTo(AlternateGuid);
+            await Assert.That(insertedDirectAlternate.Name).IsEqualTo("direct-alternate");
+            await Assert.That(insertedTypedKnown.Id).IsEqualTo(new ServerGuidStorageId(KnownGuid));
+            await Assert.That(insertedTypedKnown.Name).IsEqualTo("typed-known");
+            await Assert.That(insertedTypedAlternate.Id).IsEqualTo(new ServerGuidStorageId(AlternateGuid));
+            await Assert.That(insertedTypedAlternate.Name).IsEqualTo("typed-alternate");
+            await AssertPrimaryKeyPhysicalStorage(database, provider.DatabaseType);
+
+            database.Provider.State.ClearCache();
+            var coldDirect = ServerGuidPrimaryKeyRow.Get(KnownGuid, database)
+                ?? throw new InvalidOperationException("The cold direct UUID primary-key lookup returned no row.");
+            var coldTyped = ServerTypedGuidPrimaryKeyRow.Get(new ServerGuidStorageId(KnownGuid), database)
+                ?? throw new InvalidOperationException("The cold typed UUID primary-key lookup returned no row.");
+
+            await Assert.That(coldDirect.Id).IsEqualTo(KnownGuid);
+            await Assert.That(coldDirect.Name).IsEqualTo("direct-known");
+            await Assert.That(coldTyped.Id).IsEqualTo(new ServerGuidStorageId(KnownGuid));
+            await Assert.That(coldTyped.Name).IsEqualTo("typed-known");
+
+            DataLinqMetrics.Reset();
+            var warmDirect = ServerGuidPrimaryKeyRow.Get(KnownGuid, database);
+            var warmTyped = ServerTypedGuidPrimaryKeyRow.Get(new ServerGuidStorageId(KnownGuid), database);
+            var warmSnapshot = DataLinqMetrics.Snapshot();
+
+            await Assert.That(warmDirect).IsSameReferenceAs(coldDirect);
+            await Assert.That(warmTyped).IsSameReferenceAs(coldTyped);
+            await Assert.That(warmSnapshot.Commands.ReaderExecutions).IsEqualTo(0);
+
+            database.Provider.State.ClearCache();
+            Guid[] directKeys = [KnownGuid, AlternateGuid];
+            ServerGuidStorageId[] typedKeys =
+            [
+                new(KnownGuid),
+                new(AlternateGuid)
+            ];
+            var directBatch = database.Query().DirectKeyRows
+                .Where(row => directKeys.Contains(row.Id))
+                .OrderBy(row => row.Name)
+                .ToArray();
+            var typedBatch = database.Query().TypedKeyRows
+                .Where(row => typedKeys.Contains(row.Id))
+                .OrderBy(row => row.Name)
+                .ToArray();
+
+            await Assert.That(directBatch.Select(static row => row.Id).ToArray())
+                .IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+            await Assert.That(directBatch.Select(static row => row.Name).ToArray())
+                .IsEquivalentTo(new[] { "direct-alternate", "direct-known" });
+            await Assert.That(typedBatch.Select(static row => row.Id).ToArray())
+                .IsEquivalentTo(new[]
+                {
+                    new ServerGuidStorageId(KnownGuid),
+                    new ServerGuidStorageId(AlternateGuid)
+                });
+            await Assert.That(typedBatch.Select(static row => row.Name).ToArray())
+                .IsEquivalentTo(new[] { "typed-alternate", "typed-known" });
+
+            var batchedDirectKnown = directBatch.Single(static row => row.Id == KnownGuid);
+            var batchedTypedKnown = typedBatch.Single(static row => row.Id == new ServerGuidStorageId(KnownGuid));
+            DataLinqMetrics.Reset();
+            var cachedDirectAfterBatch = ServerGuidPrimaryKeyRow.Get(KnownGuid, database);
+            var cachedTypedAfterBatch = ServerTypedGuidPrimaryKeyRow.Get(new ServerGuidStorageId(KnownGuid), database);
+            var batchCacheSnapshot = DataLinqMetrics.Snapshot();
+
+            await Assert.That(cachedDirectAfterBatch).IsSameReferenceAs(batchedDirectKnown);
+            await Assert.That(cachedTypedAfterBatch).IsSameReferenceAs(batchedTypedKnown);
+            await Assert.That(batchCacheSnapshot.Commands.ReaderExecutions).IsEqualTo(0);
+
+            var directMutable = batchedDirectKnown.Mutate();
+            directMutable.Name = "direct-updated";
+            var updatedDirect = database.Update(directMutable);
+            var typedMutable = batchedTypedKnown.Mutate();
+            typedMutable.Name = "typed-updated";
+            var updatedTyped = database.Update(typedMutable);
+
+            await Assert.That(updatedDirect.Id).IsEqualTo(KnownGuid);
+            await Assert.That(updatedDirect.Name).IsEqualTo("direct-updated");
+            await Assert.That(updatedTyped.Id).IsEqualTo(new ServerGuidStorageId(KnownGuid));
+            await Assert.That(updatedTyped.Name).IsEqualTo("typed-updated");
+            await Assert.That(access.ExecuteScalar<string>(
+                "SELECT name FROM guid_primary_key_rows WHERE name = 'direct-updated'"))
+                .IsEqualTo("direct-updated");
+            await Assert.That(access.ExecuteScalar<string>(
+                "SELECT name FROM typed_guid_primary_key_rows WHERE name = 'typed-updated'"))
+                .IsEqualTo("typed-updated");
+
+            var directAlternate = directBatch.Single(static row => row.Id == AlternateGuid);
+            var typedAlternate = typedBatch.Single(static row => row.Id == new ServerGuidStorageId(AlternateGuid));
+            database.Delete(directAlternate);
+            database.Delete(typedAlternate);
+
+            database.Provider.State.ClearCache();
+            await Assert.That(ServerGuidPrimaryKeyRow.Get(AlternateGuid, database)).IsNull();
+            await Assert.That(ServerTypedGuidPrimaryKeyRow.Get(new ServerGuidStorageId(AlternateGuid), database)).IsNull();
+            await Assert.That(Convert.ToInt32(access.ExecuteScalar(
+                "SELECT COUNT(*) FROM guid_primary_key_rows"))).IsEqualTo(1);
+            await Assert.That(Convert.ToInt32(access.ExecuteScalar(
+                "SELECT COUNT(*) FROM typed_guid_primary_key_rows"))).IsEqualTo(1);
+            await AssertPrimaryKeyPhysicalStorage(
+                database,
+                provider.DatabaseType,
+                includeAlternate: false);
         }
     }
 
@@ -575,6 +733,39 @@ public sealed class ServerGuidStorageRoundTripTests
         }
     }
 
+    private static async Task AssertPrimaryKeyPhysicalStorage(
+        Database<ServerGuidStorageDb> database,
+        DatabaseType databaseType,
+        bool includeAlternate = true)
+    {
+        var knownHex = GetProviderSpecificHex(
+            databaseType,
+            "33221100554477668899AABBCCDDEEFF",
+            "00112233445566778899AABBCCDDEEFF");
+        var alternateHex = GetProviderSpecificHex(
+            databaseType,
+            "98BADCFE5476103289ABCDEF01234567",
+            "FEDCBA987654321089ABCDEF01234567");
+        var access = database.Provider.DatabaseAccess;
+
+        await Assert.That(access.ExecuteScalar<string>(
+            "SELECT HEX(id) FROM guid_primary_key_rows WHERE name IN ('direct-known', 'direct-updated')"))
+            .IsEqualTo(knownHex);
+        await Assert.That(access.ExecuteScalar<string>(
+            "SELECT HEX(id) FROM typed_guid_primary_key_rows WHERE name IN ('typed-known', 'typed-updated')"))
+            .IsEqualTo(knownHex);
+
+        if (!includeAlternate)
+            return;
+
+        await Assert.That(access.ExecuteScalar<string>(
+            "SELECT HEX(id) FROM guid_primary_key_rows WHERE name = 'direct-alternate'"))
+            .IsEqualTo(alternateHex);
+        await Assert.That(access.ExecuteScalar<string>(
+            "SELECT HEX(id) FROM typed_guid_primary_key_rows WHERE name = 'typed-alternate'"))
+            .IsEqualTo(alternateHex);
+    }
+
     private static Database<ServerGuidStorageDb> CreateDatabase(
         TestProviderDescriptor provider,
         string connectionString,
@@ -636,6 +827,49 @@ public sealed class ServerGuidStorageIdConverter
 public sealed partial class ServerGuidStorageDb(DataSourceAccess dataSource) : IDatabaseModel
 {
     public DbRead<ServerGuidStorageRow> Rows { get; } = new(dataSource);
+    public DbRead<ServerGuidPrimaryKeyRow> DirectKeyRows { get; } = new(dataSource);
+    public DbRead<ServerTypedGuidPrimaryKeyRow> TypedKeyRows { get; } = new(dataSource);
+}
+
+[UseCache]
+[Table("guid_primary_key_rows")]
+public abstract partial class ServerGuidPrimaryKeyRow(IRowData rowData, IDataSourceAccess dataSource)
+    : Immutable<ServerGuidPrimaryKeyRow, ServerGuidStorageDb>(rowData, dataSource),
+      ITableModel<ServerGuidStorageDb>
+{
+    [PrimaryKey]
+    [Type(DatabaseType.MySQL, "binary", 16)]
+    [GuidStorage(DatabaseType.MySQL, GuidStorageFormat.Binary16LittleEndian)]
+    [Type(DatabaseType.MariaDB, "binary", 16)]
+    [GuidStorage(DatabaseType.MariaDB, GuidStorageFormat.Binary16Rfc4122)]
+    [Column("id")]
+    public abstract Guid Id { get; }
+
+    [Type(DatabaseType.MySQL, "varchar", 40)]
+    [Type(DatabaseType.MariaDB, "varchar", 40)]
+    [Column("name")]
+    public abstract string Name { get; }
+}
+
+[UseCache]
+[Table("typed_guid_primary_key_rows")]
+public abstract partial class ServerTypedGuidPrimaryKeyRow(IRowData rowData, IDataSourceAccess dataSource)
+    : Immutable<ServerTypedGuidPrimaryKeyRow, ServerGuidStorageDb>(rowData, dataSource),
+      ITableModel<ServerGuidStorageDb>
+{
+    [PrimaryKey]
+    [Type(DatabaseType.MySQL, "binary", 16)]
+    [GuidStorage(DatabaseType.MySQL, GuidStorageFormat.Binary16LittleEndian)]
+    [Type(DatabaseType.MariaDB, "binary", 16)]
+    [GuidStorage(DatabaseType.MariaDB, GuidStorageFormat.Binary16Rfc4122)]
+    [ScalarConverter(typeof(ServerGuidStorageIdConverter))]
+    [Column("id")]
+    public abstract ServerGuidStorageId Id { get; }
+
+    [Type(DatabaseType.MySQL, "varchar", 40)]
+    [Type(DatabaseType.MariaDB, "varchar", 40)]
+    [Column("name")]
+    public abstract string Name { get; }
 }
 
 [Table("guid_storage_rows")]

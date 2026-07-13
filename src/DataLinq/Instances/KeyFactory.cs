@@ -57,6 +57,17 @@ public static class KeyFactory
         {
             // The fast path
             var column = columns[0];
+            if (column.IsGuidColumn)
+            {
+                return CreateKeyFromValue(
+                    ProviderRowDecoder.DecodeCanonicalValue(
+                        reader,
+                        column,
+                        ordinal: 0,
+                        sourceName: "reader.key-selection",
+                        useColumnAwareGuid: true));
+            }
+
             if (column.HasScalarConverter)
             {
                 return CreateKeyFromValue(
@@ -70,8 +81,6 @@ public static class KeyFactory
             var columnType = column.ValueProperty.CsType.Type;
             if (columnType == typeof(int))
                 return CreateKeyFromValue(reader.GetInt32(0));
-            else if (columnType == typeof(Guid))
-                return CreateKeyFromValue(reader.GetGuid(0));
             else if (columnType == typeof(string))
                 return CreateKeyFromValue(reader.GetString(0));
             else

@@ -78,7 +78,7 @@ public partial class TableCache
 
         RecordSingleRowCacheLookup(hit: false);
 
-        if (GetIntegralCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
+        if (GetCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
         {
             var canonicalKey = ProviderKeyComponents.ToDataLinqKey(primaryKey);
             var loadedRows = LoadCanonicalRowsAfterKnownMiss(
