@@ -122,7 +122,7 @@ public class SQLiteDataLinqDataReader : IDataLinqDataReader
         if (IsDbNull(ordinal))
             return default;
 
-        if (column.IsGuidColumn)
+        if (column.IsGuidColumn && !column.PrimaryKey)
         {
             var physicalValue = GetValue(ordinal);
             return (T?)(object)SQLiteGuidStorageCodec.FromPhysicalValue(column, physicalValue);

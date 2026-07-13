@@ -167,7 +167,6 @@ public struct SqlDataLinqDataReader : IDataLinqDataReader, IDisposable
             return default;
 
         if (column.IsGuidColumn &&
-            !column.HasScalarConverter &&
             !column.PrimaryKey &&
             databaseType is DatabaseType.MySQL or DatabaseType.MariaDB)
         {
@@ -189,6 +188,9 @@ public struct SqlDataLinqDataReader : IDataLinqDataReader, IDisposable
                 : GuidCodec.FromPhysicalValue(physicalValue, definition.Format);
             return (T?)(object)canonicalValue;
         }
+
+        if (column.IsGuidColumn && column.HasScalarConverter)
+            return (T?)(object)GetGuid(ordinal);
 
         var csType = column.ValueProperty.CsType.Type
             ?? throw new InvalidOperationException($"Column '{column.Table.DbName}.{column.DbName}' does not have runtime C# type metadata.");

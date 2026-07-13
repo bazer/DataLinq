@@ -26,7 +26,6 @@ public class SqlDataLinqDataWriter(SqlFromMetadataFactory sqlFromMetadataFactory
             return null;
 
         if (column.IsGuidColumn &&
-            !column.HasScalarConverter &&
             !column.PrimaryKey &&
             value is Guid guid)
             return SqlGuidStorageCodec.ToPhysicalValue(

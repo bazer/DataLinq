@@ -33,7 +33,9 @@ public sealed class SQLiteGuidStorageRoundTripTests
                 Text32 = KnownGuid,
                 BinaryLittleEndian = KnownGuid,
                 BinaryRfc4122 = KnownGuid,
-                OptionalText36 = null
+                OptionalText36 = null,
+                TypedBinaryRfc4122 = new SQLiteGuidStorageId(KnownGuid),
+                OptionalTypedText36 = null
             });
             transaction.Commit();
         }
@@ -46,6 +48,8 @@ public sealed class SQLiteGuidStorageRoundTripTests
         await Assert.That(inserted.BinaryLittleEndian).IsEqualTo(KnownGuid);
         await Assert.That(inserted.BinaryRfc4122).IsEqualTo(KnownGuid);
         await Assert.That(inserted.OptionalText36).IsNull();
+        await Assert.That(inserted.TypedBinaryRfc4122).IsEqualTo(new SQLiteGuidStorageId(KnownGuid));
+        await Assert.That(inserted.OptionalTypedText36).IsNull();
         await AssertPhysicalStorage(
             database,
             insertedId,
@@ -61,7 +65,9 @@ public sealed class SQLiteGuidStorageRoundTripTests
             "text32 = 'fedcba987654321089abcdef01234567', " +
             "binary_little_endian = X'98BADCFE5476103289ABCDEF01234567', " +
             "binary_rfc4122 = X'FEDCBA987654321089ABCDEF01234567', " +
-            "optional_text36 = 'fedcba98-7654-3210-89ab-cdef01234567' " +
+            "optional_text36 = 'fedcba98-7654-3210-89ab-cdef01234567', " +
+            "typed_binary_rfc4122 = X'FEDCBA987654321089ABCDEF01234567', " +
+            "optional_typed_text36 = 'fedcba98-7654-3210-89ab-cdef01234567' " +
             $"WHERE id = {insertedId}");
 
         database.Provider.State.ClearCache();
@@ -73,6 +79,8 @@ public sealed class SQLiteGuidStorageRoundTripTests
         await Assert.That(rawReloaded.BinaryLittleEndian).IsEqualTo(AlternateGuid);
         await Assert.That(rawReloaded.BinaryRfc4122).IsEqualTo(AlternateGuid);
         await Assert.That(rawReloaded.OptionalText36).IsEqualTo(AlternateGuid);
+        await Assert.That(rawReloaded.TypedBinaryRfc4122).IsEqualTo(new SQLiteGuidStorageId(AlternateGuid));
+        await Assert.That(rawReloaded.OptionalTypedText36).IsEqualTo(new SQLiteGuidStorageId(AlternateGuid));
 
         var mutable = rawReloaded.Mutate();
         mutable.Text36 = KnownGuid;
@@ -80,6 +88,8 @@ public sealed class SQLiteGuidStorageRoundTripTests
         mutable.BinaryLittleEndian = KnownGuid;
         mutable.BinaryRfc4122 = KnownGuid;
         mutable.OptionalText36 = null;
+        mutable.TypedBinaryRfc4122 = new SQLiteGuidStorageId(KnownGuid);
+        mutable.OptionalTypedText36 = null;
         var updated = database.Update(mutable);
 
         await Assert.That(updated.Text36).IsEqualTo(KnownGuid);
@@ -87,6 +97,8 @@ public sealed class SQLiteGuidStorageRoundTripTests
         await Assert.That(updated.BinaryLittleEndian).IsEqualTo(KnownGuid);
         await Assert.That(updated.BinaryRfc4122).IsEqualTo(KnownGuid);
         await Assert.That(updated.OptionalText36).IsNull();
+        await Assert.That(updated.TypedBinaryRfc4122).IsEqualTo(new SQLiteGuidStorageId(KnownGuid));
+        await Assert.That(updated.OptionalTypedText36).IsNull();
         await AssertPhysicalStorage(
             database,
             insertedId,
@@ -104,6 +116,8 @@ public sealed class SQLiteGuidStorageRoundTripTests
         await Assert.That(finalReload.BinaryLittleEndian).IsEqualTo(KnownGuid);
         await Assert.That(finalReload.BinaryRfc4122).IsEqualTo(KnownGuid);
         await Assert.That(finalReload.OptionalText36).IsNull();
+        await Assert.That(finalReload.TypedBinaryRfc4122).IsEqualTo(new SQLiteGuidStorageId(KnownGuid));
+        await Assert.That(finalReload.OptionalTypedText36).IsNull();
     }
 
     private static async Task AssertPhysicalStorage(
@@ -130,6 +144,9 @@ public sealed class SQLiteGuidStorageRoundTripTests
             $"SELECT hex(binary_rfc4122) FROM guid_storage_rows WHERE id = {id}"))
             .IsEqualTo(binaryRfc4122Hex);
         await Assert.That(access.ExecuteScalar<string>(
+            $"SELECT hex(typed_binary_rfc4122) FROM guid_storage_rows WHERE id = {id}"))
+            .IsEqualTo(binaryRfc4122Hex);
+        await Assert.That(access.ExecuteScalar<string>(
             $"SELECT typeof(text36) FROM guid_storage_rows WHERE id = {id}"))
             .IsEqualTo("text");
         await Assert.That(access.ExecuteScalar<string>(
@@ -141,6 +158,9 @@ public sealed class SQLiteGuidStorageRoundTripTests
         await Assert.That(access.ExecuteScalar<string>(
             $"SELECT typeof(binary_rfc4122) FROM guid_storage_rows WHERE id = {id}"))
             .IsEqualTo("blob");
+        await Assert.That(access.ExecuteScalar<string>(
+            $"SELECT typeof(typed_binary_rfc4122) FROM guid_storage_rows WHERE id = {id}"))
+            .IsEqualTo("blob");
 
         var optionalIsNull = Convert.ToInt32(access.ExecuteScalar(
             $"SELECT optional_text36 IS NULL FROM guid_storage_rows WHERE id = {id}"));
@@ -151,7 +171,31 @@ public sealed class SQLiteGuidStorageRoundTripTests
                 $"SELECT optional_text36 FROM guid_storage_rows WHERE id = {id}"))
                 .IsEqualTo(optionalText36);
         }
+
+        var optionalTypedIsNull = Convert.ToInt32(access.ExecuteScalar(
+            $"SELECT optional_typed_text36 IS NULL FROM guid_storage_rows WHERE id = {id}"));
+        await Assert.That(optionalTypedIsNull).IsEqualTo(optionalText36 is null ? 1 : 0);
+        if (optionalText36 is not null)
+        {
+            await Assert.That(access.ExecuteScalar<string>(
+                $"SELECT optional_typed_text36 FROM guid_storage_rows WHERE id = {id}"))
+                .IsEqualTo(optionalText36);
+        }
     }
+}
+
+public readonly record struct SQLiteGuidStorageId(Guid Value);
+
+public sealed class SQLiteGuidStorageIdConverter
+    : DataLinqScalarConverter<SQLiteGuidStorageId, Guid>
+{
+    public override Guid ToProvider(
+        SQLiteGuidStorageId modelValue,
+        in ScalarConversionContext context) => modelValue.Value;
+
+    public override SQLiteGuidStorageId FromProvider(
+        Guid providerValue,
+        in ScalarConversionContext context) => new(providerValue);
 }
 
 [Database("sqliteguidstorage")]
@@ -194,4 +238,16 @@ public abstract partial class SQLiteGuidStorageRow(IRowData rowData, IDataSource
     [Type(DatabaseType.SQLite, "TEXT")]
     [Column("optional_text36")]
     public abstract Guid? OptionalText36 { get; }
+
+    [Type(DatabaseType.SQLite, "BLOB")]
+    [GuidStorage(DatabaseType.SQLite, GuidStorageFormat.Binary16Rfc4122)]
+    [ScalarConverter(typeof(SQLiteGuidStorageIdConverter))]
+    [Column("typed_binary_rfc4122")]
+    public abstract SQLiteGuidStorageId TypedBinaryRfc4122 { get; }
+
+    [Nullable]
+    [Type(DatabaseType.SQLite, "TEXT")]
+    [ScalarConverter(typeof(SQLiteGuidStorageIdConverter))]
+    [Column("optional_typed_text36")]
+    public abstract SQLiteGuidStorageId? OptionalTypedText36 { get; }
 }

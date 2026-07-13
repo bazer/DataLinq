@@ -78,6 +78,85 @@ public sealed class ProviderRowDecoderTests
     }
 
     [Test]
+    public async Task DecodeFullRow_UsesColumnAwareReadForConvertedNonPrimaryGuid()
+    {
+        var converter = new RecordingGuidIdConverter();
+        var table = CreateGuidTable(converter, guidIsPrimaryKey: false);
+        var expected = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
+        var reader = new RecordingReader([7, expected]);
+
+        var canonicalRow = ProviderRowDecoder.DecodeFullRow(reader, table, "sql:test");
+        var guidColumn = table.GetColumnByDbName("external_id");
+
+        await Assert.That(canonicalRow[guidColumn]).IsEqualTo(expected);
+        await Assert.That(canonicalRow[guidColumn]).IsTypeOf<Guid>();
+        await Assert.That(reader.GenericColumnReads).IsEqualTo(2);
+        await Assert.That(reader.GuidReads).IsEqualTo(0);
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
+
+        var modelRow = ProviderRowMaterializer.Materialize(canonicalRow, "sql:test");
+
+        await Assert.That(modelRow[guidColumn]).IsEqualTo(new GuidModelId(expected));
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task DecodeCanonicalValue_KeepsMetadataFreeGuidReadOutsideFullRows()
+    {
+        var converter = new RecordingGuidIdConverter();
+        var table = CreateGuidTable(converter, guidIsPrimaryKey: false);
+        var expected = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
+        var reader = new RecordingReader([7, expected]);
+        var guidColumn = table.GetColumnByDbName("external_id");
+
+        var canonicalValue = ProviderRowDecoder.DecodeCanonicalValue(
+            reader,
+            guidColumn,
+            ordinal: 1,
+            sourceName: "projection:test");
+
+        await Assert.That(canonicalValue).IsEqualTo(expected);
+        await Assert.That(reader.GenericColumnReads).IsEqualTo(0);
+        await Assert.That(reader.GuidReads).IsEqualTo(1);
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task DecodeFullRow_KeepsMetadataFreeGuidReadForConvertedPrimaryKey()
+    {
+        var converter = new RecordingGuidIdConverter();
+        var table = CreateGuidTable(converter, guidIsPrimaryKey: true);
+        var expected = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
+        var reader = new RecordingReader([expected, "Ada"]);
+
+        var canonicalRow = ProviderRowDecoder.DecodeFullRow(reader, table, "sql:test");
+        var guidColumn = table.GetColumnByDbName("external_id");
+
+        await Assert.That(canonicalRow[guidColumn]).IsEqualTo(expected);
+        await Assert.That(reader.GuidReads).IsEqualTo(1);
+        await Assert.That(reader.GenericColumnReads).IsEqualTo(1);
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task DecodeFullRow_NullConvertedGuidBypassesReaderAndConverter()
+    {
+        var converter = new RecordingGuidIdConverter();
+        var table = CreateGuidTable(converter, guidIsPrimaryKey: false);
+        var reader = new RecordingReader([7, null]);
+        var guidColumn = table.GetColumnByDbName("external_id");
+
+        var canonicalRow = ProviderRowDecoder.DecodeFullRow(reader, table, "sql:test");
+        var modelRow = ProviderRowMaterializer.Materialize(canonicalRow, "sql:test");
+
+        await Assert.That(canonicalRow[guidColumn]).IsNull();
+        await Assert.That(modelRow[guidColumn]).IsNull();
+        await Assert.That(reader.GenericColumnReads).IsEqualTo(1);
+        await Assert.That(reader.GuidReads).IsEqualTo(0);
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task KeyFactory_ScalarConvertedReaderKeyStaysCanonicalWithoutModelConversion()
     {
         var converter = new RecordingIdConverter();
@@ -163,6 +242,63 @@ public sealed class ProviderRowDecoderTests
             .Table;
     }
 
+    private static TableDefinition CreateGuidTable(
+        RecordingGuidIdConverter converter,
+        bool guidIsPrimaryKey)
+    {
+        var scalarConverter = new MetadataScalarConverterDraft(
+            new CsTypeDeclaration(typeof(GuidModelId)),
+            new CsTypeDeclaration(typeof(Guid)),
+            new CsTypeDeclaration(typeof(RecordingGuidIdConverter)),
+            () => converter)
+        {
+            Origin = ScalarConverterOrigin.Property
+        };
+        var guidProperty = new MetadataValuePropertyDraft(
+            "ExternalId",
+            new CsTypeDeclaration(typeof(GuidModelId)),
+            new MetadataColumnDraft("external_id")
+            {
+                PrimaryKey = guidIsPrimaryKey,
+                Nullable = !guidIsPrimaryKey
+            })
+        {
+            CsNullable = !guidIsPrimaryKey,
+            ScalarConverter = scalarConverter
+        };
+        var idProperty = new MetadataValuePropertyDraft(
+            "Id",
+            new CsTypeDeclaration(typeof(int)),
+            new MetadataColumnDraft("id") { PrimaryKey = true });
+        var nameProperty = new MetadataValuePropertyDraft(
+            "Name",
+            new CsTypeDeclaration(typeof(string)),
+            new MetadataColumnDraft("name"));
+        var draft = new MetadataDatabaseDraft(
+            "ProviderRowDecoderGuidDb",
+            new CsTypeDeclaration(typeof(ProviderRowDecoderTests)))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration(typeof(DecoderRowModel)))
+                    {
+                        ValueProperties = guidIsPrimaryKey
+                            ? [guidProperty, nameProperty]
+                            : [idProperty, guidProperty]
+                    },
+                    new MetadataTableDraft("guid_materialization_rows"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory()
+            .Build(draft)
+            .ValueOrException()
+            .TableModels[0]
+            .Table;
+    }
+
     private static TException Capture<TException>(Action action)
         where TException : Exception
     {
@@ -179,6 +315,7 @@ public sealed class ProviderRowDecoderTests
     }
 
     private sealed record ModelId(int Value);
+    private readonly record struct GuidModelId(Guid Value);
     private sealed class DecoderRowModel;
 
     private sealed class RecordingIdConverter : DataLinqScalarConverter<ModelId, int>
@@ -195,10 +332,25 @@ public sealed class ProviderRowDecoderTests
         }
     }
 
+    private sealed class RecordingGuidIdConverter : DataLinqScalarConverter<GuidModelId, Guid>
+    {
+        public int FromProviderCalls { get; private set; }
+
+        public override Guid ToProvider(GuidModelId modelValue, in ScalarConversionContext context) =>
+            modelValue.Value;
+
+        public override GuidModelId FromProvider(Guid providerValue, in ScalarConversionContext context)
+        {
+            FromProviderCalls++;
+            return new GuidModelId(providerValue);
+        }
+    }
+
     private sealed class RecordingReader(object?[] values) : IDataLinqDataReader
     {
         public Exception? Int32Failure { get; init; }
         public int Int32Reads { get; private set; }
+        public int GuidReads { get; private set; }
         public int GenericColumnReads { get; private set; }
 
         public object GetValue(int ordinal) => values[ordinal]!;
@@ -216,7 +368,11 @@ public sealed class ProviderRowDecoderTests
         }
 
         public DateOnly GetDateOnly(int ordinal) => (DateOnly)values[ordinal]!;
-        public Guid GetGuid(int ordinal) => (Guid)values[ordinal]!;
+        public Guid GetGuid(int ordinal)
+        {
+            GuidReads++;
+            return (Guid)values[ordinal]!;
+        }
         public byte[]? GetBytes(int ordinal) => (byte[]?)values[ordinal];
         public long GetBytes(int ordinal, Span<byte> buffer) => throw new NotSupportedException();
 

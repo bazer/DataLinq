@@ -25,8 +25,15 @@ public class SQLiteDataLinqDataWriter(SqlFromSQLiteFactory sqlFromSQLiteFactory)
         if (value == null)
             return null;
 
-        if (column.IsGuidColumn && value is Guid guid)
+        if (column.IsGuidColumn && !column.PrimaryKey && value is Guid guid)
             return SQLiteGuidStorageCodec.ToPhysicalValue(column, guid);
+
+        if (value is Guid legacyGuid)
+        {
+            var dbType = sqlFromSQLiteFactory.GetDbType(column);
+            if (dbType.Name == "binary" && dbType.Length == 16)
+                return legacyGuid.ToByteArray();
+        }
 
         return value;
     }

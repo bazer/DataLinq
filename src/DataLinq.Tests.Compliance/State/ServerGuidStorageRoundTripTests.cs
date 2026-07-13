@@ -59,7 +59,9 @@ public sealed class ServerGuidStorageRoundTripTests
             "binary_little_endian = X'98BADCFE5476103289ABCDEF01234567', " +
             "binary_rfc4122 = X'FEDCBA987654321089ABCDEF01234567', " +
             $"provider_specific_binary = X'{GetProviderSpecificHex(provider.DatabaseType, "98BADCFE5476103289ABCDEF01234567", "FEDCBA987654321089ABCDEF01234567")}', " +
-            "optional_text36 = 'fedcba98-7654-3210-89ab-cdef01234567' " +
+            "optional_text36 = 'fedcba98-7654-3210-89ab-cdef01234567', " +
+            $"typed_provider_specific_binary = X'{GetProviderSpecificHex(provider.DatabaseType, "98BADCFE5476103289ABCDEF01234567", "FEDCBA987654321089ABCDEF01234567")}', " +
+            "optional_typed_text36 = 'fedcba98-7654-3210-89ab-cdef01234567' " +
             $"WHERE id = {insertedId}");
         await Assert.That(rawUpdated).IsEqualTo(1);
 
@@ -133,7 +135,11 @@ public sealed class ServerGuidStorageRoundTripTests
                 BinaryLittleEndian = value,
                 BinaryRfc4122 = value,
                 ProviderSpecificBinary = value,
-                OptionalText36 = optionalText36
+                OptionalText36 = optionalText36,
+                TypedProviderSpecificBinary = new ServerGuidStorageId(value),
+                OptionalTypedText36 = optionalText36.HasValue
+                    ? new ServerGuidStorageId(optionalText36.Value)
+                    : null
             };
         }
 
@@ -145,6 +151,10 @@ public sealed class ServerGuidStorageRoundTripTests
         mutable.BinaryRfc4122 = value;
         mutable.ProviderSpecificBinary = value;
         mutable.OptionalText36 = optionalText36;
+        mutable.TypedProviderSpecificBinary = new ServerGuidStorageId(value);
+        mutable.OptionalTypedText36 = optionalText36.HasValue
+            ? new ServerGuidStorageId(optionalText36.Value)
+            : null;
         return mutable;
     }
 
@@ -160,6 +170,11 @@ public sealed class ServerGuidStorageRoundTripTests
         await Assert.That(row.BinaryRfc4122).IsEqualTo(expected);
         await Assert.That(row.ProviderSpecificBinary).IsEqualTo(expected);
         await Assert.That(row.OptionalText36).IsEqualTo(optionalText36);
+        await Assert.That(row.TypedProviderSpecificBinary).IsEqualTo(new ServerGuidStorageId(expected));
+        await Assert.That(row.OptionalTypedText36).IsEqualTo(
+            optionalText36.HasValue
+                ? new ServerGuidStorageId(optionalText36.Value)
+                : null);
     }
 
     private static async Task AssertPhysicalStorage(
@@ -196,6 +211,12 @@ public sealed class ServerGuidStorageRoundTripTests
                 database.DatabaseType,
                 binaryLittleEndianHex,
                 binaryRfc4122Hex));
+        await Assert.That(access.ExecuteScalar<string>(
+            $"SELECT HEX(typed_provider_specific_binary) FROM guid_storage_rows WHERE id = {id}"))
+            .IsEqualTo(GetProviderSpecificHex(
+                database.DatabaseType,
+                binaryLittleEndianHex,
+                binaryRfc4122Hex));
         await Assert.That(Convert.ToInt32(access.ExecuteScalar(
             $"SELECT OCTET_LENGTH(binary_little_endian) FROM guid_storage_rows WHERE id = {id}")))
             .IsEqualTo(16);
@@ -205,6 +226,9 @@ public sealed class ServerGuidStorageRoundTripTests
         await Assert.That(Convert.ToInt32(access.ExecuteScalar(
             $"SELECT OCTET_LENGTH(provider_specific_binary) FROM guid_storage_rows WHERE id = {id}")))
             .IsEqualTo(16);
+        await Assert.That(Convert.ToInt32(access.ExecuteScalar(
+            $"SELECT OCTET_LENGTH(typed_provider_specific_binary) FROM guid_storage_rows WHERE id = {id}")))
+            .IsEqualTo(16);
 
         var optionalIsNull = Convert.ToInt32(access.ExecuteScalar(
             $"SELECT optional_text36 IS NULL FROM guid_storage_rows WHERE id = {id}"));
@@ -213,6 +237,16 @@ public sealed class ServerGuidStorageRoundTripTests
         {
             await Assert.That(access.ExecuteScalar<string>(
                 $"SELECT HEX(optional_text36) FROM guid_storage_rows WHERE id = {id}"))
+                .IsEqualTo(Convert.ToHexString(Encoding.ASCII.GetBytes(optionalText36)));
+        }
+
+        var optionalTypedIsNull = Convert.ToInt32(access.ExecuteScalar(
+            $"SELECT optional_typed_text36 IS NULL FROM guid_storage_rows WHERE id = {id}"));
+        await Assert.That(optionalTypedIsNull).IsEqualTo(optionalText36 is null ? 1 : 0);
+        if (optionalText36 is not null)
+        {
+            await Assert.That(access.ExecuteScalar<string>(
+                $"SELECT HEX(optional_typed_text36) FROM guid_storage_rows WHERE id = {id}"))
                 .IsEqualTo(Convert.ToHexString(Encoding.ASCII.GetBytes(optionalText36)));
         }
     }
@@ -252,6 +286,20 @@ public sealed class ServerGuidStorageRoundTripTests
             databaseType,
             "The server UUID storage test only supports MySQL and MariaDB.")
     };
+}
+
+public readonly record struct ServerGuidStorageId(Guid Value);
+
+public sealed class ServerGuidStorageIdConverter
+    : DataLinqScalarConverter<ServerGuidStorageId, Guid>
+{
+    public override Guid ToProvider(
+        ServerGuidStorageId modelValue,
+        in ScalarConversionContext context) => modelValue.Value;
+
+    public override ServerGuidStorageId FromProvider(
+        Guid providerValue,
+        in ScalarConversionContext context) => new(providerValue);
 }
 
 [Database("serverguidstorage")]
@@ -321,4 +369,21 @@ public abstract partial class ServerGuidStorageRow(IRowData rowData, IDataSource
     [GuidStorage(DatabaseType.MariaDB, GuidStorageFormat.Text36)]
     [Column("optional_text36")]
     public abstract Guid? OptionalText36 { get; }
+
+    [Type(DatabaseType.MySQL, "binary", 16)]
+    [GuidStorage(DatabaseType.MySQL, GuidStorageFormat.Binary16LittleEndian)]
+    [Type(DatabaseType.MariaDB, "binary", 16)]
+    [GuidStorage(DatabaseType.MariaDB, GuidStorageFormat.Binary16Rfc4122)]
+    [ScalarConverter(typeof(ServerGuidStorageIdConverter))]
+    [Column("typed_provider_specific_binary")]
+    public abstract ServerGuidStorageId TypedProviderSpecificBinary { get; }
+
+    [Nullable]
+    [Type(DatabaseType.MySQL, "char", 36)]
+    [GuidStorage(DatabaseType.MySQL, GuidStorageFormat.Text36)]
+    [Type(DatabaseType.MariaDB, "char", 36)]
+    [GuidStorage(DatabaseType.MariaDB, GuidStorageFormat.Text36)]
+    [ScalarConverter(typeof(ServerGuidStorageIdConverter))]
+    [Column("optional_typed_text36")]
+    public abstract ServerGuidStorageId? OptionalTypedText36 { get; }
 }
