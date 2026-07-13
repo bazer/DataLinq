@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Metadata;
 using DataLinq.Utils;
 using MySqlConnector;
@@ -10,11 +11,18 @@ namespace DataLinq.MySql;
 public struct SqlDataLinqDataReader : IDataLinqDataReader, IDisposable
 {
     public SqlDataLinqDataReader(MySqlDataReader dataReader)
+        : this(dataReader, null)
+    {
+    }
+
+    internal SqlDataLinqDataReader(MySqlDataReader dataReader, DatabaseType? databaseType)
     {
         this.dataReader = dataReader;
+        this.databaseType = databaseType;
     }
 
     private readonly MySqlDataReader dataReader;
+    private readonly DatabaseType? databaseType;
 
     public void Dispose()
     {
@@ -157,6 +165,30 @@ public struct SqlDataLinqDataReader : IDataLinqDataReader, IDisposable
     {
         if (IsDbNull(ordinal))
             return default;
+
+        if (column.IsGuidColumn &&
+            !column.HasScalarConverter &&
+            !column.PrimaryKey &&
+            databaseType is DatabaseType.MySQL or DatabaseType.MariaDB)
+        {
+            var definition = SqlGuidStorageCodec.GetRequiredDefinition(column, databaseType.Value);
+            object physicalValue = definition.Format switch
+            {
+                GuidStorageFormat.NativeUuid or
+                GuidStorageFormat.Text36 or
+                GuidStorageFormat.Text32 => GetValue(ordinal),
+                GuidStorageFormat.Binary16LittleEndian or GuidStorageFormat.Binary16Rfc4122 =>
+                    GetBytes(ordinal) ?? throw new InvalidOperationException(
+                        $"Column '{column.Table.DbName}.{column.DbName}' returned no bytes for non-NULL UUID storage."),
+                _ => throw new InvalidOperationException(
+                    $"Column '{column.Table.DbName}.{column.DbName}' resolved unsupported UUID storage format '{definition.Format}'.")
+            };
+
+            var canonicalValue = physicalValue is Guid connectorGuid
+                ? connectorGuid
+                : GuidCodec.FromPhysicalValue(physicalValue, definition.Format);
+            return (T?)(object)canonicalValue;
+        }
 
         var csType = column.ValueProperty.CsType.Type
             ?? throw new InvalidOperationException($"Column '{column.Table.DbName}.{column.DbName}' does not have runtime C# type metadata.");

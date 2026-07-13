@@ -15,6 +15,7 @@ namespace DataLinq.MySql;
 public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
 {
     protected abstract DatabaseType DatabaseType { get; }
+    internal DatabaseType ProviderDatabaseType => DatabaseType;
 
     public static SqlFromMetadataFactory GetFactoryFromDatabaseType(DatabaseType databaseType)
     {

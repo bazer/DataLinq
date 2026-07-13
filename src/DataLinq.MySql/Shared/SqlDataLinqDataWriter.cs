@@ -25,15 +25,24 @@ public class SqlDataLinqDataWriter(SqlFromMetadataFactory sqlFromMetadataFactory
         if (value == null)
             return null;
 
-        if (value is Guid guid)
+        if (column.IsGuidColumn &&
+            !column.HasScalarConverter &&
+            !column.PrimaryKey &&
+            value is Guid guid)
+            return SqlGuidStorageCodec.ToPhysicalValue(
+                column,
+                SqlFromMetadataFactory.ProviderDatabaseType,
+                guid);
+
+        if (value is Guid legacyGuid)
         {
             var dbType = SqlFromMetadataFactory.GetDbType(column);
 
             if (dbType.Name == "uuid" || (dbType.Name == "char" && dbType.Length == 36))
-                return guid.ToString();
+                return legacyGuid.ToString();
 
             if (dbType.Name == "binary" && dbType.Length == 16)
-                return guid.ToByteArray();
+                return legacyGuid.ToByteArray();
         }
 
         return value;

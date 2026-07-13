@@ -16,6 +16,7 @@ public class SqlDatabaseTransaction : DatabaseTransaction
     private readonly string databaseName;
     private readonly MySqlDataSource? dataSource;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
+    private readonly DatabaseType? databaseType;
 
     public SqlDatabaseTransaction(MySqlDataSource dataSource, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration)
         : this(null, dataSource, type, databaseName, loggingConfiguration)
@@ -28,6 +29,7 @@ public class SqlDatabaseTransaction : DatabaseTransaction
         this.dataSource = dataSource;
         this.databaseName = databaseName;
         this.loggingConfiguration = loggingConfiguration;
+        this.databaseType = databaseProvider?.DatabaseType;
     }
 
     public SqlDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration)
@@ -46,6 +48,7 @@ public class SqlDatabaseTransaction : DatabaseTransaction
         dbConnection = dbTransaction.Connection;
         this.databaseName = databaseName;
         this.loggingConfiguration = loggingConfiguration;
+        this.databaseType = databaseProvider?.DatabaseType;
         BeginTransactionTelemetry();
     }
 
@@ -124,7 +127,7 @@ public class SqlDatabaseTransaction : DatabaseTransaction
             Type,
             () => command.ExecuteReader() as MySqlDataReader);
 
-        return new SqlDataLinqDataReader(reader!);
+        return new SqlDataLinqDataReader(reader!, databaseType);
     }
 
     private IDbTransaction GetActiveProviderTransaction(string operation)
