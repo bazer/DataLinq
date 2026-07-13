@@ -234,17 +234,29 @@ internal abstract record QueryPlanBindingSpecialization(string BindingId, QueryP
         public QueryPlanBindingNullness Nullness { get; }
     }
 
-    internal sealed record LocalSequenceCount : QueryPlanBindingSpecialization
+    internal sealed record LocalSequenceShape : QueryPlanBindingSpecialization
     {
-        public LocalSequenceCount(string bindingId, int count)
+        public LocalSequenceShape(string bindingId, int count, int nullCount)
             : base(bindingId, QueryPlanBindingKind.LocalSequence)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(bindingId);
             ArgumentOutOfRangeException.ThrowIfNegative(count);
+            ArgumentOutOfRangeException.ThrowIfNegative(nullCount);
+            if (nullCount > count)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(nullCount),
+                    nullCount,
+                    "Local-sequence null count cannot exceed its total count.");
+            }
+
             Count = count;
+            NullCount = nullCount;
         }
 
         public int Count { get; }
+
+        public int NullCount { get; }
     }
 }
 

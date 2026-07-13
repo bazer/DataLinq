@@ -171,12 +171,15 @@ internal sealed class QueryPlanInvocation
                 }
 
                 break;
-            case (QueryPlanBindingSpecialization.LocalSequenceCount sequenceConstraint, QueryPlanInvocationValue.LocalSequence sequence):
-                if (sequence.Values.Count != sequenceConstraint.Count)
+            case (QueryPlanBindingSpecialization.LocalSequenceShape sequenceConstraint, QueryPlanInvocationValue.LocalSequence sequence):
+                var actualNullCount = sequence.Values.Count(static item => item is null);
+                if (sequence.Values.Count != sequenceConstraint.Count ||
+                    actualNullCount != sequenceConstraint.NullCount)
                 {
                     throw new QueryPlanInvocationException(
-                        $"Invocation local-sequence binding '{declaration.Id}' has count {sequence.Values.Count}, " +
-                        $"but the template requires exact count {sequenceConstraint.Count}.");
+                        $"Invocation local-sequence binding '{declaration.Id}' has shape " +
+                        $"(count {sequence.Values.Count}, null count {actualNullCount}), but the template requires " +
+                        $"exact shape (count {sequenceConstraint.Count}, null count {sequenceConstraint.NullCount}).");
                 }
 
                 break;

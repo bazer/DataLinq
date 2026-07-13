@@ -68,7 +68,10 @@ internal sealed class QueryPlanBindingCapture : IQueryPlanSpecializationLookup
                 declaredProviderType,
                 AllowsNull(declaredModelType)),
             new QueryPlanInvocationValue.LocalSequence(id, copiedValues),
-            new QueryPlanBindingSpecialization.LocalSequenceCount(id, copiedValues.Count));
+            new QueryPlanBindingSpecialization.LocalSequenceShape(
+                id,
+                copiedValues.Count,
+                CountNulls(copiedValues)));
 
         return new QueryPlanLocalSequenceBindingReference(id, declaredModelType);
     }
@@ -117,6 +120,18 @@ internal sealed class QueryPlanBindingCapture : IQueryPlanSpecializationLookup
         }
 
         return typeof(object);
+    }
+
+    private static int CountNulls(IReadOnlyList<object?> values)
+    {
+        var count = 0;
+        for (var index = 0; index < values.Count; index++)
+        {
+            if (values[index] is null)
+                count++;
+        }
+
+        return count;
     }
 
     private static object? CopyScalarValue(object? value)

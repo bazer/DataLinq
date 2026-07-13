@@ -84,7 +84,7 @@ public class QueryPlanInvocationTests
             source,
             [new QueryPlanOperation.Skip(new QueryPlanScalarBindingReference("p0", typeof(int)))],
             [sequence],
-            [new QueryPlanBindingSpecialization.LocalSequenceCount("p0", 1)]));
+            [new QueryPlanBindingSpecialization.LocalSequenceShape("p0", 1, 0)]));
         var wrongType = Capture<ArgumentException>(() => Template(
             source,
             [new QueryPlanOperation.Skip(new QueryPlanScalarBindingReference("p0", typeof(long)))],
@@ -251,7 +251,7 @@ public class QueryPlanInvocationTests
             source,
             [],
             [scalar],
-            [new QueryPlanBindingSpecialization.LocalSequenceCount("p0", 1)]));
+            [new QueryPlanBindingSpecialization.LocalSequenceShape("p0", 1, 0)]));
 
         await Assert.That(undeclared).IsNotNull();
         await Assert.That(undeclared!.Message).Contains("undeclared binding 'missing'");
@@ -278,6 +278,27 @@ public class QueryPlanInvocationTests
         await Assert.That(impossible!.Message).Contains("does not allow null invocation values");
         await Assert.That(undefined).IsNotNull();
         await Assert.That(undefined!.ParamName).IsEqualTo("nullness");
+    }
+
+    [Test]
+    public async Task Template_RejectsImpossibleAndInvalidLocalSequenceShapeSpecializations()
+    {
+        var table = GetTable<Employee>();
+        var source = Source(table);
+        var sequence = SequenceDeclaration("p0", typeof(int), allowsNull: false);
+
+        var impossible = Capture<ArgumentException>(() => Template(
+            source,
+            [],
+            [sequence],
+            [new QueryPlanBindingSpecialization.LocalSequenceShape("p0", 2, 1)]));
+        var invalid = Capture<ArgumentOutOfRangeException>(() =>
+            new QueryPlanBindingSpecialization.LocalSequenceShape("p0", 1, 2));
+
+        await Assert.That(impossible).IsNotNull();
+        await Assert.That(impossible!.Message).Contains("does not allow null invocation values");
+        await Assert.That(invalid).IsNotNull();
+        await Assert.That(invalid!.ParamName).IsEqualTo("nullCount");
     }
 
     [Test]
@@ -370,7 +391,7 @@ public class QueryPlanInvocationTests
                 new QueryPlanLocalSequenceBindingReference("p0", typeof(int)),
                 IsNegated: false))],
             [declaration],
-            [new QueryPlanBindingSpecialization.LocalSequenceCount("p0", 2)]);
+            [new QueryPlanBindingSpecialization.LocalSequenceShape("p0", 2, 0)]);
 
         var wrongType = Capture<QueryPlanInvocationException>(() => QueryPlanInvocation.Bind(template, [
             new QueryPlanInvocationValue.LocalSequence("p0", [1, "two"])
@@ -386,13 +407,23 @@ public class QueryPlanInvocationTests
     }
 
     [Test]
-    public async Task Invocation_RejectsScalarNullnessAndExactSequenceCountMismatches()
+    public async Task Invocation_RejectsScalarNullnessAndExactSequenceShapeMismatches()
     {
         var nonNullTemplate = ScalarTemplate(
             allowsNull: true,
             QueryPlanBindingNullness.NonNull,
             bindingType: typeof(string));
         var sequenceTemplate = SequenceTemplate(requiredCount: 3);
+        var table = GetTable<Employee>();
+        var source = Source(table);
+        var nullableSequenceTemplate = Template(
+            source,
+            [new QueryPlanOperation.Where(new QueryPlanPredicate.In(
+                Column(source, nameof(Employee.last_login)),
+                new QueryPlanLocalSequenceBindingReference("p0", typeof(TimeOnly?)),
+                IsNegated: false))],
+            [SequenceDeclaration("p0", typeof(TimeOnly?), allowsNull: true)],
+            [new QueryPlanBindingSpecialization.LocalSequenceShape("p0", 2, 1)]);
 
         var nullness = Capture<QueryPlanInvocationException>(() => QueryPlanInvocation.Bind(nonNullTemplate, [
             new QueryPlanInvocationValue.Scalar("p0", null)
@@ -400,11 +431,16 @@ public class QueryPlanInvocationTests
         var cardinality = Capture<QueryPlanInvocationException>(() => QueryPlanInvocation.Bind(sequenceTemplate, [
             new QueryPlanInvocationValue.LocalSequence("p0", [1, 2])
         ]));
+        var nullShape = Capture<QueryPlanInvocationException>(() => QueryPlanInvocation.Bind(nullableSequenceTemplate, [
+            new QueryPlanInvocationValue.LocalSequence("p0", [new TimeOnly(9, 15), new TimeOnly(10, 30)])
+        ]));
 
         await Assert.That(nullness).IsNotNull();
         await Assert.That(nullness!.Message).Contains("requires 'NonNull'");
         await Assert.That(cardinality).IsNotNull();
-        await Assert.That(cardinality!.Message).Contains("requires exact count 3");
+        await Assert.That(cardinality!.Message).Contains("requires exact shape (count 3, null count 0)");
+        await Assert.That(nullShape).IsNotNull();
+        await Assert.That(nullShape!.Message).Contains("requires exact shape (count 2, null count 1)");
     }
 
     [Test]
@@ -426,7 +462,7 @@ public class QueryPlanInvocationTests
             declarations,
             [
                 new QueryPlanBindingSpecialization.ScalarNullness("p0", QueryPlanBindingNullness.NonNull),
-                new QueryPlanBindingSpecialization.LocalSequenceCount("p1", 2)
+                new QueryPlanBindingSpecialization.LocalSequenceShape("p1", 2, 0)
             ]);
         var bytes = new byte[] { 1, 2 };
         object?[] numbers = [10, 20];
@@ -454,7 +490,7 @@ public class QueryPlanInvocationTests
             source,
             [],
             [declaration],
-            [new QueryPlanBindingSpecialization.LocalSequenceCount("p0", 1)]);
+            [new QueryPlanBindingSpecialization.LocalSequenceShape("p0", 1, 0)]);
         var bytes = new byte[] { 1, 2 };
 
         var invocation = QueryPlanInvocation.Bind(template, [
@@ -519,7 +555,7 @@ public class QueryPlanInvocationTests
             ],
             [
                 new QueryPlanBindingSpecialization.ScalarNullness("p0", QueryPlanBindingNullness.NonNull),
-                new QueryPlanBindingSpecialization.LocalSequenceCount("p1", 2)
+                new QueryPlanBindingSpecialization.LocalSequenceShape("p1", 2, 0)
             ]);
         var start = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -590,7 +626,7 @@ public class QueryPlanInvocationTests
                 new QueryPlanLocalSequenceBindingReference("p0", typeof(int)),
                 IsNegated: false))],
             [SequenceDeclaration("p0", typeof(int))],
-            [new QueryPlanBindingSpecialization.LocalSequenceCount("p0", requiredCount)]);
+            [new QueryPlanBindingSpecialization.LocalSequenceShape("p0", requiredCount, 0)]);
     }
 
     private static QueryPlanTemplate Template(

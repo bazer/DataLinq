@@ -323,9 +323,8 @@ public sealed class SQLiteGuidStorageRoundTripTests
         };
         foreach (var sql in optionalInequalitySql)
         {
-            await Assert.That(sql.Parameters.Count).IsEqualTo(2);
+            await Assert.That(sql.Parameters.Count).IsEqualTo(1);
             await Assert.That(sql.Parameters[0].Value).IsEqualTo(expectedText36);
-            await Assert.That(sql.Parameters[1].Value).IsNull();
         }
 
         var optionalMembershipSql = new[]
@@ -350,6 +349,151 @@ public sealed class SQLiteGuidStorageRoundTripTests
         await Assert.That(typedNullSql.Parameters).IsEmpty();
         await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(directNullSql.Text)).Contains(" IS NULL");
         await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(typedNullSql.Text)).Contains(" IS NULL");
+
+        await AssertNullableInvocationSpecialization(database);
+    }
+
+    private static async Task AssertNullableInvocationSpecialization(
+        Database<SQLiteGuidStorageDb> database)
+    {
+        Guid? nullGuidProbe = null;
+        SQLiteGuidStorageId? nullTypedProbe = null;
+        var rows = database.Query().Rows;
+
+        await AssertNullableBoundQuery(
+            database,
+            rows.Where(row => row.OptionalText36 == nullGuidProbe),
+            [null],
+            " IS NULL");
+        await AssertNullableBoundQuery(
+            database,
+            rows.Where(row => nullGuidProbe == row.OptionalText36),
+            [null],
+            " IS NULL");
+        await AssertNullableBoundQuery(
+            database,
+            rows.Where(row => row.OptionalText36 != nullGuidProbe),
+            [KnownGuid],
+            " IS NOT NULL");
+        await AssertNullableBoundQuery(
+            database,
+            rows.Where(row => nullGuidProbe != row.OptionalText36),
+            [KnownGuid],
+            " IS NOT NULL");
+
+        await AssertNullableBoundQuery(
+            database,
+            rows.Where(row => row.OptionalTypedText36 == nullTypedProbe),
+            [null],
+            " IS NULL");
+        await AssertNullableBoundQuery(
+            database,
+            rows.Where(row => nullTypedProbe == row.OptionalTypedText36),
+            [null],
+            " IS NULL");
+        await AssertNullableBoundQuery(
+            database,
+            rows.Where(row => row.OptionalTypedText36 != nullTypedProbe),
+            [KnownGuid],
+            " IS NOT NULL");
+        await AssertNullableBoundQuery(
+            database,
+            rows.Where(row => nullTypedProbe != row.OptionalTypedText36),
+            [KnownGuid],
+            " IS NOT NULL");
+
+        await AssertNullableSequenceShape(database, [], [], [], [KnownGuid, null]);
+        await AssertNullableSequenceShape(database, [null], [null], [null], [KnownGuid]);
+        await AssertNullableSequenceShape(
+            database,
+            [KnownGuid],
+            [new SQLiteGuidStorageId(KnownGuid)],
+            [KnownGuid],
+            [null],
+            KnownGuid.ToString("D"));
+        await AssertNullableSequenceShape(
+            database,
+            [KnownGuid, null],
+            [new SQLiteGuidStorageId(KnownGuid), null],
+            [KnownGuid, null],
+            [],
+            KnownGuid.ToString("D"));
+    }
+
+    private static async Task AssertNullableSequenceShape(
+        Database<SQLiteGuidStorageDb> database,
+        Guid?[] directValues,
+        SQLiteGuidStorageId?[] typedValues,
+        Guid?[] expectedPositiveRows,
+        Guid?[] expectedNegativeRows,
+        params object[] expectedParameterValues)
+    {
+        var rows = database.Query().Rows;
+        IQueryable<SQLiteGuidStorageRow>[] positiveQueries =
+        [
+            rows.Where(row => Enumerable.Contains(directValues, row.OptionalText36)),
+            rows.Where(row => directValues.Any(value => value == row.OptionalText36)),
+            rows.Where(row => directValues.Any(value => row.OptionalText36 == value)),
+            rows.Where(row => Enumerable.Contains(typedValues, row.OptionalTypedText36)),
+            rows.Where(row => typedValues.Any(value => value == row.OptionalTypedText36)),
+            rows.Where(row => typedValues.Any(value => row.OptionalTypedText36 == value))
+        ];
+        IQueryable<SQLiteGuidStorageRow>[] negativeQueries =
+        [
+            rows.Where(row => !Enumerable.Contains(directValues, row.OptionalText36)),
+            rows.Where(row => !directValues.Any(value => value == row.OptionalText36)),
+            rows.Where(row => !directValues.Any(value => row.OptionalText36 == value)),
+            rows.Where(row => !Enumerable.Contains(typedValues, row.OptionalTypedText36)),
+            rows.Where(row => !typedValues.Any(value => value == row.OptionalTypedText36)),
+            rows.Where(row => !typedValues.Any(value => row.OptionalTypedText36 == value))
+        ];
+
+        foreach (var query in positiveQueries)
+        {
+            await AssertNullableBoundQuery(
+                database,
+                query,
+                expectedPositiveRows,
+                expectedSqlFragment: null,
+                expectedParameterValues);
+        }
+
+        foreach (var query in negativeQueries)
+        {
+            await AssertNullableBoundQuery(
+                database,
+                query,
+                expectedNegativeRows,
+                expectedSqlFragment: null,
+                expectedParameterValues);
+        }
+    }
+
+    private static async Task AssertNullableBoundQuery(
+        Database<SQLiteGuidStorageDb> database,
+        IQueryable<SQLiteGuidStorageRow> query,
+        Guid?[] expectedRows,
+        string? expectedSqlFragment,
+        params object[] expectedParameterValues)
+    {
+        var sql = CurrentQueryTranslationInspection.BuildSql(database, query);
+        var actualRows = query.ToArray();
+
+        await Assert.That(actualRows.Select(static row => row.OptionalText36).ToArray())
+            .IsEquivalentTo(expectedRows);
+        await Assert.That(sql.Parameters.Count).IsEqualTo(expectedParameterValues.Length);
+        await Assert.That(sql.Parameters.All(static parameter =>
+                parameter.Value is not null && parameter.Value != DBNull.Value))
+            .IsTrue();
+        await Assert.That(sql.Parameters.Select(static parameter => parameter.Value!)
+                .SequenceEqual(expectedParameterValues))
+            .IsTrue();
+
+        if (expectedSqlFragment is not null)
+        {
+            await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text))
+                .Contains(expectedSqlFragment);
+        }
     }
 
     private static async Task AssertPhysicalStorage(

@@ -124,6 +124,17 @@ internal static class QueryPlanTemplateValidator
                     "but the declaration does not allow null invocation values.",
                     nameof(specialization));
             }
+
+            if (constraint is QueryPlanBindingSpecialization.LocalSequenceShape
+                {
+                    NullCount: > 0
+                } && !declaration.AllowsNull)
+            {
+                throw new ArgumentException(
+                    $"Query plan specialization for binding '{constraint.BindingId}' requires null sequence elements, " +
+                    "but the declaration does not allow null invocation values.",
+                    nameof(specialization));
+            }
         }
 
         foreach (var declaration in declarations.Items)

@@ -265,11 +265,11 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
-    public async Task ExpressionParser_EmptyUnsupportedLocalPredicateRetainsCountSpecialization()
+    public async Task ExpressionParser_EmptyUnsupportedLocalPredicateRetainsSequenceShapeSpecialization()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(ExpressionParser_EmptyUnsupportedLocalPredicateRetainsCountSpecialization),
+            nameof(ExpressionParser_EmptyUnsupportedLocalPredicateRetainsSequenceShapeSpecialization),
             EmployeesSeedMode.Bogus);
 
         var ids = Array.Empty<int>();
@@ -279,12 +279,13 @@ public class ExpressionQueryPlanParserTests
         var invocation = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
         var where = invocation.Template.Operations.OfType<QueryPlanOperation.Where>().Single();
         var specialization = invocation.Template.Specialization.Items
-            .OfType<QueryPlanBindingSpecialization.LocalSequenceCount>()
+            .OfType<QueryPlanBindingSpecialization.LocalSequenceShape>()
             .Single();
         var values = invocation.Values.Items.OfType<QueryPlanInvocationValue.LocalSequence>().Single();
 
         await Assert.That(where.Predicate).IsEqualTo(new QueryPlanPredicate.Fixed(false));
         await Assert.That(specialization.Count).IsEqualTo(0);
+        await Assert.That(specialization.NullCount).IsEqualTo(0);
         await Assert.That(values.Values).IsEmpty();
     }
 

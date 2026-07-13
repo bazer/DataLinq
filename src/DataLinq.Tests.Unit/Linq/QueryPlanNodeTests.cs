@@ -32,7 +32,7 @@ public class QueryPlanNodeTests
     }
 
     [Test]
-    public async Task EmptyMembership_IsRepresentedByInvocationAndExplicitCountSpecialization()
+    public async Task EmptyMembership_IsRepresentedByInvocationAndExplicitSequenceShapeSpecialization()
     {
         var table = GetTable<Employee>();
         var source = Source("s0", table);
@@ -52,8 +52,9 @@ public class QueryPlanNodeTests
 
         await Assert.That(typeof(QueryPlanLocalSequenceBindingReference).GetProperty("Count")).IsNull();
         await Assert.That(template.Specialization.TryGet(sequence.BindingId, out var specialization)).IsTrue();
-        await Assert.That(specialization).IsTypeOf<QueryPlanBindingSpecialization.LocalSequenceCount>();
-        await Assert.That(((QueryPlanBindingSpecialization.LocalSequenceCount)specialization).Count).IsEqualTo(0);
+        await Assert.That(specialization).IsTypeOf<QueryPlanBindingSpecialization.LocalSequenceShape>();
+        await Assert.That(((QueryPlanBindingSpecialization.LocalSequenceShape)specialization).Count).IsEqualTo(0);
+        await Assert.That(((QueryPlanBindingSpecialization.LocalSequenceShape)specialization).NullCount).IsEqualTo(0);
         await Assert.That(((QueryPlanInvocationValue.LocalSequence)invocation.Values[0]).Values).IsEmpty();
     }
 
@@ -74,6 +75,20 @@ public class QueryPlanNodeTests
         await Assert.That(specialization.Count).IsEqualTo(2);
         await Assert.That(declarations[0].Kind).IsEqualTo(QueryPlanBindingKind.Scalar);
         await Assert.That(declarations[1].Kind).IsEqualTo(QueryPlanBindingKind.LocalSequence);
+    }
+
+    [Test]
+    public async Task BindingCapture_SpecializesLocalSequencesByCountAndNullCount()
+    {
+        var capture = new QueryPlanBindingCapture();
+        var sequence = capture.CaptureLocalSequence([1, null, null], typeof(int?));
+
+        await Assert.That(capture.CreateSpecialization().TryGet(sequence.BindingId, out var specialization)).IsTrue();
+        await Assert.That(specialization).IsTypeOf<QueryPlanBindingSpecialization.LocalSequenceShape>();
+
+        var shape = (QueryPlanBindingSpecialization.LocalSequenceShape)specialization;
+        await Assert.That(shape.Count).IsEqualTo(3);
+        await Assert.That(shape.NullCount).IsEqualTo(2);
     }
 
     [Test]
@@ -112,7 +127,7 @@ public class QueryPlanNodeTests
         await Assert.That(templateSnapshot).Contains("local-sequence-binding(p1:Int32)");
         await Assert.That(templateSnapshot).Contains("binding-declarations:");
         await Assert.That(templateSnapshot).Contains("p0 scalar model=String provider=String allows-null=true");
-        await Assert.That(templateSnapshot).Contains("p1 local-sequence count=3");
+        await Assert.That(templateSnapshot).Contains("p1 local-sequence count=3 null-count=0");
         await Assert.That(templateSnapshot).DoesNotContain("SensitiveName");
         await Assert.That(templateSnapshot).DoesNotContain("10");
         await Assert.That(invocationSnapshot).Contains("p0 scalar value=<redacted>");

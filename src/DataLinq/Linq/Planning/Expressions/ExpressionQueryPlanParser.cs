@@ -1692,7 +1692,8 @@ internal sealed class ExpressionQueryPlanParser
         if (IsEnumerableMethod(methodCall, nameof(Enumerable.Contains)) && methodCall.Arguments.Count == 2)
         {
             var values = EvaluateLocalSequence(methodCall.Arguments[0]);
-            return CreateLocalMembershipPredicate(values, methodCall.Arguments[1], isNegated, out predicate);
+            var elementType = methodCall.Method.GetGenericArguments()[0];
+            return CreateLocalMembershipPredicate(values, elementType, methodCall.Arguments[1], isNegated, out predicate);
         }
 
         if (methodCall.Method.Name != nameof(Enumerable.Contains))
@@ -1716,26 +1717,35 @@ internal sealed class ExpressionQueryPlanParser
             GetNonNullableType(sequenceExpression.Type) != typeof(string) &&
             TryEvaluateLocalSequence(sequenceExpression, out var instanceValues))
         {
-            return CreateLocalMembershipPredicate(instanceValues, itemExpression, isNegated, out predicate);
+            var genericArguments = methodCall.Method.GetGenericArguments();
+            var elementType = genericArguments.Length == 1
+                ? genericArguments[0]
+                : itemExpression.Type;
+            return CreateLocalMembershipPredicate(instanceValues, elementType, itemExpression, isNegated, out predicate);
         }
 
         return false;
     }
 
-    private bool CreateLocalMembershipPredicate(object?[] values, Expression itemExpression, bool isNegated, out QueryPlanPredicate predicate)
+    private bool CreateLocalMembershipPredicate(
+        object?[] values,
+        Type elementType,
+        Expression itemExpression,
+        bool isNegated,
+        out QueryPlanPredicate predicate)
     {
         itemExpression = UnwrapQueryColumnAccess(itemExpression);
 
         if (TryGetColumnValue(itemExpression, out var item))
         {
-            var sequence = bindings.CaptureLocalSequence(values, item.ClrType);
+            var sequence = bindings.CaptureLocalSequence(values, elementType);
             predicate = new QueryPlanPredicate.In(item, sequence, isNegated);
             return true;
         }
 
         if (values.Length == 0)
         {
-            _ = bindings.CaptureLocalSequence(values, itemExpression.Type);
+            _ = bindings.CaptureLocalSequence(values, elementType);
             predicate = new QueryPlanPredicate.Fixed(isNegated);
             return true;
         }
@@ -1821,7 +1831,7 @@ internal sealed class ExpressionQueryPlanParser
 
         predicate = new QueryPlanPredicate.In(
             outerColumn,
-            bindings.CaptureLocalSequence(values, outerColumn.ClrType),
+            bindings.CaptureLocalSequence(values, localCandidate.Type),
             isNegated);
         return true;
     }

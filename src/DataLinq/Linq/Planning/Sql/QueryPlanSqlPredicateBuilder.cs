@@ -81,16 +81,14 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
         if (TryApplyBooleanFunctionComparison(compare, group, connectionType))
             return;
 
-        if (TryApplyIntrinsicNullComparison(compare, group, connectionType))
-            return;
-
         var left = valueRenderer.RenderOperand(compare.Left);
         var right = valueRenderer.RenderOperand(compare.Right);
         (left, right) = valueRenderer.NormalizeComparisonOperands(compare.Operator, left, right);
-        var sqlOperator = ToSqlOperator(compare.Operator);
 
-        if (left is ValueOperand { IsNull: true } && right is not ValueOperand)
-            (left, right) = (right, left);
+        if (TryApplyNullComparison(compare.Operator, left, right, group, connectionType))
+            return;
+
+        var sqlOperator = ToSqlOperator(compare.Operator);
 
         if (compare.NullSemantics == QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull &&
             TryGetNullableColumnAndNonNullValue(left, right, out var nullableColumn, out var value) ||
@@ -100,48 +98,42 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
             var orGroup = new WhereGroup<T>(query, BooleanType.Or);
             group.AddSubGroup(orGroup, connectionType);
             orGroup.AddWhere(new Comparison(nullableColumn, Operator.NotEqual, value), BooleanType.And);
-            orGroup.AddWhere(new Comparison(nullableColumn, Operator.Equal, Operand.Value((object?)null)), BooleanType.Or);
+            AddNullComparison(orGroup, nullableColumn, isNotNull: false, BooleanType.Or);
             return;
         }
 
         group.AddWhere(new Comparison(left, sqlOperator, right), connectionType);
     }
 
-    private bool TryApplyIntrinsicNullComparison(
-        QueryPlanPredicate.Compare compare,
+    private static bool TryApplyNullComparison(
+        QueryPlanComparisonOperator comparisonOperator,
+        Operand left,
+        Operand right,
         WhereGroup<T> group,
         BooleanType connectionType)
     {
-        var leftIsNull = IsNullIntrinsic(compare.Left);
-        var rightIsNull = IsNullIntrinsic(compare.Right);
+        var leftIsNull = left is ValueOperand { IsNull: true };
+        var rightIsNull = right is ValueOperand { IsNull: true };
         if (!leftIsNull && !rightIsNull)
             return false;
 
-        var left = leftIsNull && !rightIsNull
-            ? valueRenderer.RenderOperand(compare.Right)
+        var operand = leftIsNull && !rightIsNull
+            ? right
             : leftIsNull
                 ? Operand.RawSql("NULL")
-                : valueRenderer.RenderOperand(compare.Left);
-        var sqlOperator = compare.Operator switch
+                : left;
+        var sqlOperator = comparisonOperator switch
         {
             QueryPlanComparisonOperator.Equal => Operator.EqualNull,
             QueryPlanComparisonOperator.NotEqual => Operator.NotEqualNull,
-            _ => ToSqlOperator(compare.Operator)
+            _ => ToSqlOperator(comparisonOperator)
         };
 
         group.AddWhere(
-            new Comparison(left, sqlOperator, Operand.RawSql("NULL")),
+            new Comparison(operand, sqlOperator, Operand.RawSql("NULL")),
             connectionType);
         return true;
     }
-
-    private static bool IsNullIntrinsic(QueryPlanValue value)
-        => value switch
-        {
-            QueryPlanIntrinsicValue { Intrinsic: QueryPlanIntrinsicKind.Null } => true,
-            QueryPlanConvertedValue converted => IsNullIntrinsic(converted.Value),
-            _ => false
-        };
 
     private void ApplyIn(QueryPlanPredicate.In inPredicate, WhereGroup<T> group, BooleanType connectionType)
     {
@@ -155,24 +147,73 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
         }
 
         var item = valueRenderer.RenderOperand(inPredicate.Item);
+        var itemAllowsNull = item is ColumnOperandWithDefinition itemColumn
+            ? itemColumn.ColumnDefinition.ValueProperty.CsNullable
+            : CanBeNull(inPredicate.Item.ClrType);
+        var nonNullValues = new object?[sourceValues.Count];
+        var nonNullCount = 0;
+        for (var index = 0; index < sourceValues.Count; index++)
+        {
+            if (sourceValues[index] is not { } value)
+                continue;
+
+            nonNullValues[nonNullCount++] = value;
+        }
+
+        var containsNull = nonNullCount != sourceValues.Count;
+        if (nonNullCount == 0)
+        {
+            if (itemAllowsNull)
+                AddNullComparison(group, item, inPredicate.IsNegated, connectionType);
+            else
+                group.AddFixedCondition(inPredicate.IsNegated ? Operator.AlwaysTrue : Operator.AlwaysFalse, connectionType);
+
+            return;
+        }
+
+        if (nonNullCount != nonNullValues.Length)
+            Array.Resize(ref nonNullValues, nonNullCount);
+
         ValueOperand values;
         if (item is ColumnOperandWithDefinition column)
         {
-            values = valueRenderer.NormalizeLocalSequenceValues(column.ColumnDefinition, sourceValues);
+            values = valueRenderer.NormalizeLocalSequenceValues(column.ColumnDefinition, nonNullValues);
         }
         else
         {
-            var unboundValues = new object?[sourceValues.Count];
-            for (var index = 0; index < sourceValues.Count; index++)
-                unboundValues[index] = sourceValues[index];
-
-            values = Operand.Value(unboundValues);
+            values = Operand.Value(nonNullValues);
         }
 
-        group.AddWhere(
-            new Comparison(item, inPredicate.IsNegated ? Operator.NotIn : Operator.In, values),
-            connectionType);
+        var membership = new Comparison(item, inPredicate.IsNegated ? Operator.NotIn : Operator.In, values);
+        if (!itemAllowsNull)
+        {
+            group.AddWhere(membership, connectionType);
+            return;
+        }
+
+        var joinType = inPredicate.IsNegated == containsNull
+            ? BooleanType.And
+            : BooleanType.Or;
+        var compound = new WhereGroup<T>(query, joinType);
+        group.AddSubGroup(compound, connectionType);
+        compound.AddWhere(membership, BooleanType.And);
+        AddNullComparison(compound, item, isNotNull: inPredicate.IsNegated == containsNull, joinType);
     }
+
+    private static void AddNullComparison(
+        WhereGroup<T> group,
+        Operand operand,
+        bool isNotNull,
+        BooleanType connectionType)
+        => group.AddWhere(
+            new Comparison(
+                operand,
+                isNotNull ? Operator.NotEqualNull : Operator.EqualNull,
+                Operand.RawSql("NULL")),
+            connectionType);
+
+    private static bool CanBeNull(Type type)
+        => !type.IsValueType || Nullable.GetUnderlyingType(type) is not null;
 
     private void ApplyExists(QueryPlanPredicate.Exists exists, WhereGroup<T> group, BooleanType connectionType)
     {

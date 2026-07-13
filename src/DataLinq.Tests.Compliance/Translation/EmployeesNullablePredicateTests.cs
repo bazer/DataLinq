@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Tests.Models.Employees;
@@ -134,6 +135,100 @@ public class EmployeesNullablePredicateTests
         await Assert.That(actualNotEqual).IsEquivalentTo(expectedNotEqual);
         await Assert.That(actualNotEqual).IsEquivalentTo(new[] { 2021, 2022 });
         await Assert.That(actualReversedNotEqual).IsEquivalentTo(expectedNotEqual);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task NullableLocalMembershipPredicates_MatchCSharpNullSemantics(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(NullableLocalMembershipPredicates_MatchCSharpNullSemantics),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        _ = SetupNullablePredicateRows(employeesDatabase);
+        TimeOnly?[] empty = [];
+        TimeOnly?[] nullOnly = [null];
+        TimeOnly?[] loginOnly = [LoginA];
+        TimeOnly?[] loginAndNull = [LoginA, null];
+        var loginAndNullList = new List<TimeOnly?> { LoginA, null };
+        var rows = employeesDatabase.Query().Employees
+            .Where(employee => EmployeeNumbers.Contains(employee.emp_no!.Value));
+
+        var emptyMatches = rows
+            .Where(employee => Enumerable.Contains(empty, employee.last_login))
+            .Select(employee => employee.emp_no!.Value)
+            .OrderBy(value => value)
+            .ToArray();
+        var emptyExcludes = rows
+            .Where(employee => !Enumerable.Contains(empty, employee.last_login))
+            .Select(employee => employee.emp_no!.Value)
+            .OrderBy(value => value)
+            .ToArray();
+        var nullMatches = rows
+            .Where(employee => Enumerable.Contains(nullOnly, employee.last_login))
+            .Select(employee => employee.emp_no!.Value)
+            .OrderBy(value => value)
+            .ToArray();
+        var nullExcludes = rows
+            .Where(employee => !Enumerable.Contains(nullOnly, employee.last_login))
+            .Select(employee => employee.emp_no!.Value)
+            .OrderBy(value => value)
+            .ToArray();
+        var loginMatches = rows
+            .Where(employee => Enumerable.Contains(loginOnly, employee.last_login))
+            .Select(employee => employee.emp_no!.Value)
+            .OrderBy(value => value)
+            .ToArray();
+        var loginExcludes = rows
+            .Where(employee => !Enumerable.Contains(loginOnly, employee.last_login))
+            .Select(employee => employee.emp_no!.Value)
+            .OrderBy(value => value)
+            .ToArray();
+        var negatedCompoundLoginExcludes = rows
+            .Where(employee => !(Enumerable.Contains(loginOnly, employee.last_login) || employee.emp_no == -1))
+            .Select(employee => employee.emp_no!.Value)
+            .OrderBy(value => value)
+            .ToArray();
+        var mixedMatches = rows
+            .Where(employee => Enumerable.Contains(loginAndNull, employee.last_login))
+            .Select(employee => employee.emp_no!.Value)
+            .OrderBy(value => value)
+            .ToArray();
+        var instanceContainsMixedMatches = rows
+            .Where(employee => loginAndNullList.Contains(employee.last_login))
+            .Select(employee => employee.emp_no!.Value)
+            .OrderBy(value => value)
+            .ToArray();
+        var mixedExcludes = rows
+            .Where(employee => !Enumerable.Contains(loginAndNull, employee.last_login))
+            .Select(employee => employee.emp_no!.Value)
+            .OrderBy(value => value)
+            .ToArray();
+        var localFirstAnyMatches = rows
+            .Where(employee => loginAndNull.Any(value => value == employee.last_login))
+            .Select(employee => employee.emp_no!.Value)
+            .OrderBy(value => value)
+            .ToArray();
+        var columnFirstAnyMatches = rows
+            .Where(employee => loginAndNull.Any(value => employee.last_login == value))
+            .Select(employee => employee.emp_no!.Value)
+            .OrderBy(value => value)
+            .ToArray();
+
+        await Assert.That(emptyMatches).IsEmpty();
+        await Assert.That(emptyExcludes).IsEquivalentTo(new[] { 2020, 2021, 2022 });
+        await Assert.That(nullMatches).IsEquivalentTo(new[] { 2021 });
+        await Assert.That(nullExcludes).IsEquivalentTo(new[] { 2020, 2022 });
+        await Assert.That(loginMatches).IsEquivalentTo(new[] { 2020 });
+        await Assert.That(loginExcludes).IsEquivalentTo(new[] { 2021, 2022 });
+        await Assert.That(negatedCompoundLoginExcludes).IsEquivalentTo(loginExcludes);
+        await Assert.That(mixedMatches).IsEquivalentTo(new[] { 2020, 2021 });
+        await Assert.That(instanceContainsMixedMatches).IsEquivalentTo(mixedMatches);
+        await Assert.That(mixedExcludes).IsEquivalentTo(new[] { 2022 });
+        await Assert.That(localFirstAnyMatches).IsEquivalentTo(mixedMatches);
+        await Assert.That(columnFirstAnyMatches).IsEquivalentTo(mixedMatches);
     }
 
     private static Employee[] SetupNullablePredicateRows(Database<EmployeesDb> employeesDatabase)

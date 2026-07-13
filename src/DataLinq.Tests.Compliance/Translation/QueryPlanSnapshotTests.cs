@@ -59,7 +59,7 @@ binding-declarations:
   p3 scalar model=Int32 provider=Int32 allows-null=false
 specialization:
   p0 scalar nullness=non-null
-  p1 local-sequence count=0
+  p1 local-sequence count=0 null-count=0
   p2 scalar nullness=non-null
   p3 scalar nullness=non-null
 """);

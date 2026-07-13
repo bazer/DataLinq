@@ -84,6 +84,8 @@ The test suite covers `Contains(...)` against in-memory collections used as an `
 
 Empty local `Contains(...)` predicates are also covered in direct, negated, `AND`, and `OR` compositions. The translator treats those as fixed true/false conditions instead of emitting invalid `IN ()` SQL.
 
+Nullable local membership preserves C# null semantics rather than exposing SQL's raw three-valued `IN` behavior. For a nullable column, a non-null-only membership check also guards `IS NOT NULL`, so it remains false for null even when nested under an outer negation. A mixed sequence such as `[value, null]` matches either the non-null value or `NULL`; negating it excludes both. Negating a non-null-only sequence still includes a `NULL` column value, a null-only sequence becomes `IS NULL`/`IS NOT NULL`, and an empty sequence remains fixed false/true. Only non-null sequence members become SQL parameters.
+
 Local `Any(predicate)` over in-memory collections is covered for equality-membership shapes that can safely become `IN (...)` or `NOT IN (...)`:
 
 - `ids.Any(id => id == row.Id)`
@@ -140,6 +142,8 @@ It also covers nullable value predicates such as:
 - mixed nullable/non-nullable equality and inequality such as `x.last_login == login` and `x.last_login != login`
 
 For `nullable != nonNullable`, null rows are included, matching C# lifted nullable semantics.
+
+Captured nullable scalars are specialized by nullness. Equality or inequality against a captured null value renders `IS NULL` or `IS NOT NULL` directly instead of binding a null comparison parameter.
 
 ## Supported Relation Predicates
 

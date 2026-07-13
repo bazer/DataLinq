@@ -348,10 +348,12 @@ internal static class QueryPlanDebugWriter
                         .Append("scalar nullness=")
                         .Append(ToToken(scalar.Nullness));
                     break;
-                case QueryPlanBindingSpecialization.LocalSequenceCount sequence:
+                case QueryPlanBindingSpecialization.LocalSequenceShape sequence:
                     builder
                         .Append("local-sequence count=")
-                        .Append(sequence.Count.ToString(CultureInfo.InvariantCulture));
+                        .Append(sequence.Count.ToString(CultureInfo.InvariantCulture))
+                        .Append(" null-count=")
+                        .Append(sequence.NullCount.ToString(CultureInfo.InvariantCulture));
                     break;
                 default:
                     throw new InvalidOperationException(
