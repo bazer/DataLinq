@@ -120,6 +120,184 @@ public sealed class ServerGuidStorageRoundTripTests
         }
     }
 
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ServerProviders))]
+    public async Task NonKeyGuidPredicates_BindResolvedPhysicalValuesAcrossConnectorGuidFormats(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<ServerGuidStorageDb>.Create(
+            provider,
+            nameof(NonKeyGuidPredicates_BindResolvedPhysicalValuesAcrossConnectorGuidFormats));
+
+        var knownProviderHex = GetProviderSpecificHex(
+            provider.DatabaseType,
+            "33221100554477668899AABBCCDDEEFF",
+            "00112233445566778899AABBCCDDEEFF");
+        var alternateProviderHex = GetProviderSpecificHex(
+            provider.DatabaseType,
+            "98BADCFE5476103289ABCDEF01234567",
+            "FEDCBA987654321089ABCDEF01234567");
+        var inserted = databaseScope.Database.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO guid_storage_rows (" +
+            "native_or_text36, text36, text32, binary_little_endian, binary_rfc4122, " +
+            "provider_specific_binary, optional_text36, typed_provider_specific_binary, optional_typed_text36" +
+            ") VALUES (" +
+            "'00112233-4455-6677-8899-aabbccddeeff', " +
+            "'00112233-4455-6677-8899-aabbccddeeff', " +
+            "'00112233445566778899aabbccddeeff', " +
+            "X'33221100554477668899AABBCCDDEEFF', " +
+            "X'00112233445566778899AABBCCDDEEFF', " +
+            $"X'{knownProviderHex}', " +
+            "'00112233-4455-6677-8899-aabbccddeeff', " +
+            $"X'{knownProviderHex}', " +
+            "'00112233-4455-6677-8899-aabbccddeeff'" +
+            "), (" +
+            "'fedcba98-7654-3210-89ab-cdef01234567', " +
+            "'fedcba98-7654-3210-89ab-cdef01234567', " +
+            "'fedcba987654321089abcdef01234567', " +
+            "X'98BADCFE5476103289ABCDEF01234567', " +
+            "X'FEDCBA987654321089ABCDEF01234567', " +
+            $"X'{alternateProviderHex}', " +
+            "NULL, " +
+            $"X'{alternateProviderHex}', " +
+            "NULL" +
+            ")");
+
+        await Assert.That(inserted).IsEqualTo(2);
+
+        MySqlGuidFormat?[] connectorGuidFormats =
+        [
+            null,
+            MySqlGuidFormat.Char32,
+            MySqlGuidFormat.Binary16,
+            MySqlGuidFormat.LittleEndianBinary16
+        ];
+
+        foreach (var connectorGuidFormat in connectorGuidFormats)
+        {
+            using var database = CreateDatabase(
+                provider,
+                WithGuidFormat(databaseScope.Connection.ConnectionString, connectorGuidFormat),
+                databaseScope.Connection.DataSourceName);
+            database.Provider.State.ClearCache();
+
+            await AssertNonKeyGuidPredicateBindings(database, provider.DatabaseType);
+        }
+    }
+
+    private static async Task AssertNonKeyGuidPredicateBindings(
+        Database<ServerGuidStorageDb> database,
+        DatabaseType databaseType)
+    {
+        var guidProbe = KnownGuid;
+        var missingGuid = Guid.Parse("01234567-89ab-cdef-1032-547698badcfe");
+        var typedProbe = new ServerGuidStorageId(KnownGuid);
+        Guid? nullableGuidProbe = KnownGuid;
+        ServerGuidStorageId? nullableTypedProbe = new ServerGuidStorageId(KnownGuid);
+        var guidValues = new[] { KnownGuid, missingGuid };
+        var typedValues = new[]
+        {
+            new ServerGuidStorageId(KnownGuid),
+            new ServerGuidStorageId(missingGuid)
+        };
+        Guid?[] nullableGuidValues = [KnownGuid, missingGuid];
+        ServerGuidStorageId?[] nullableTypedValues =
+        [
+            new ServerGuidStorageId(KnownGuid),
+            new ServerGuidStorageId(missingGuid)
+        ];
+
+        var knownBinary = GetProviderSpecificBytes(
+            databaseType,
+            "33221100554477668899AABBCCDDEEFF",
+            "00112233445566778899AABBCCDDEEFF");
+        var missingBinary = GetProviderSpecificBytes(
+            databaseType,
+            "67452301AB89EFCD1032547698BADCFE",
+            "0123456789ABCDEF1032547698BADCFE");
+        const string knownText = "00112233-4455-6677-8899-aabbccddeeff";
+        const string missingText = "01234567-89ab-cdef-1032-547698badcfe";
+
+        var rows = database.Query().Rows;
+
+        await AssertBoundQuery(database, rows.Where(row => row.NativeOrText36 == guidProbe), 1, knownText);
+        await AssertBoundQuery(database, rows.Where(row => row.Text36 == guidProbe), 1, knownText);
+        await AssertBoundQuery(database, rows.Where(row => row.Text32 == guidProbe), 1, KnownGuid.ToString("N"));
+        await AssertBoundQuery(database, rows.Where(row => row.BinaryLittleEndian == guidProbe), 1, KnownGuid.ToByteArray());
+        await AssertBoundQuery(database, rows.Where(row => row.BinaryRfc4122 == guidProbe), 1, KnownGuid.ToByteArray(bigEndian: true));
+
+        await AssertBoundQuery(database, rows.Where(row => row.ProviderSpecificBinary == guidProbe), 1, knownBinary);
+        await AssertBoundQuery(database, rows.Where(row => guidProbe == row.ProviderSpecificBinary), 1, knownBinary);
+        await AssertBoundQuery(database, rows.Where(row => row.ProviderSpecificBinary != guidProbe), 1, knownBinary);
+        await AssertBoundQuery(database, rows.Where(row => guidProbe != row.ProviderSpecificBinary), 1, knownBinary);
+        await AssertBoundQuery(database, rows.Where(row => guidValues.Contains(row.ProviderSpecificBinary)), 1, knownBinary, missingBinary);
+        await AssertBoundQuery(database, rows.Where(row => guidValues.Any(value => value == row.ProviderSpecificBinary)), 1, knownBinary, missingBinary);
+        await AssertBoundQuery(database, rows.Where(row => guidValues.Any(value => row.ProviderSpecificBinary == value)), 1, knownBinary, missingBinary);
+
+        await AssertBoundQuery(database, rows.Where(row => row.TypedProviderSpecificBinary == typedProbe), 1, knownBinary);
+        await AssertBoundQuery(database, rows.Where(row => typedProbe == row.TypedProviderSpecificBinary), 1, knownBinary);
+        await AssertBoundQuery(database, rows.Where(row => row.TypedProviderSpecificBinary != typedProbe), 1, knownBinary);
+        await AssertBoundQuery(database, rows.Where(row => typedProbe != row.TypedProviderSpecificBinary), 1, knownBinary);
+        await AssertBoundQuery(database, rows.Where(row => typedValues.Contains(row.TypedProviderSpecificBinary)), 1, knownBinary, missingBinary);
+        await AssertBoundQuery(database, rows.Where(row => typedValues.Any(value => value == row.TypedProviderSpecificBinary)), 1, knownBinary, missingBinary);
+        await AssertBoundQuery(database, rows.Where(row => typedValues.Any(value => row.TypedProviderSpecificBinary == value)), 1, knownBinary, missingBinary);
+
+        await AssertBoundQuery(database, rows.Where(row => row.OptionalText36 == nullableGuidProbe), 1, knownText);
+        await AssertBoundQuery(database, rows.Where(row => nullableGuidProbe == row.OptionalText36), 1, knownText);
+        await AssertBoundQuery(database, rows.Where(row => row.OptionalText36 != nullableGuidProbe), 1, knownText, null);
+        await AssertBoundQuery(database, rows.Where(row => nullableGuidProbe != row.OptionalText36), 1, knownText, null);
+        await AssertBoundQuery(database, rows.Where(row => row.OptionalText36 == null), 1);
+        await AssertBoundQuery(database, rows.Where(row => null == row.OptionalText36), 1);
+        await AssertBoundQuery(database, rows.Where(row => Enumerable.Contains(nullableGuidValues, row.OptionalText36)), 1, knownText, missingText);
+        await AssertBoundQuery(database, rows.Where(row => nullableGuidValues.Any(value => value == row.OptionalText36)), 1, knownText, missingText);
+        await AssertBoundQuery(database, rows.Where(row => nullableGuidValues.Any(value => row.OptionalText36 == value)), 1, knownText, missingText);
+
+        await AssertBoundQuery(database, rows.Where(row => row.OptionalTypedText36 == nullableTypedProbe), 1, knownText);
+        await AssertBoundQuery(database, rows.Where(row => nullableTypedProbe == row.OptionalTypedText36), 1, knownText);
+        await AssertBoundQuery(database, rows.Where(row => row.OptionalTypedText36 != nullableTypedProbe), 1, knownText, null);
+        await AssertBoundQuery(database, rows.Where(row => nullableTypedProbe != row.OptionalTypedText36), 1, knownText, null);
+        await AssertBoundQuery(database, rows.Where(row => row.OptionalTypedText36 == null), 1);
+        await AssertBoundQuery(database, rows.Where(row => null == row.OptionalTypedText36), 1);
+        await AssertBoundQuery(database, rows.Where(row => Enumerable.Contains(nullableTypedValues, row.OptionalTypedText36)), 1, knownText, missingText);
+        await AssertBoundQuery(database, rows.Where(row => nullableTypedValues.Any(value => value == row.OptionalTypedText36)), 1, knownText, missingText);
+        await AssertBoundQuery(database, rows.Where(row => nullableTypedValues.Any(value => row.OptionalTypedText36 == value)), 1, knownText, missingText);
+    }
+
+    private static async Task AssertBoundQuery(
+        Database<ServerGuidStorageDb> database,
+        IQueryable<ServerGuidStorageRow> query,
+        int expectedCount,
+        params object?[] expectedParameterValues)
+    {
+        var sql = CurrentQueryTranslationInspection.BuildSql(database, query);
+        var actualCount = query.Count();
+
+        await Assert.That(actualCount).IsEqualTo(expectedCount);
+        await Assert.That(sql.Parameters.Count).IsEqualTo(expectedParameterValues.Length);
+        if (expectedParameterValues.Length == 0)
+        {
+            await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text))
+                .Contains(" IS NULL");
+        }
+
+        for (var index = 0; index < expectedParameterValues.Length; index++)
+        {
+            var actual = sql.Parameters[index].Value;
+            var expected = expectedParameterValues[index];
+            if (expected is byte[] expectedBytes)
+            {
+                await Assert.That(actual).IsTypeOf<byte[]>();
+                var actualBytes = actual as byte[]
+                    ?? throw new InvalidOperationException($"UUID parameter {index} was not encoded as bytes.");
+                await Assert.That(Convert.ToHexString(actualBytes))
+                    .IsEqualTo(Convert.ToHexString(expectedBytes));
+                continue;
+            }
+
+            await Assert.That(actual).IsEqualTo(expected);
+        }
+    }
+
     private static MutableServerGuidStorageRow CreateMutable(
         Guid value,
         Guid? optionalText36,
@@ -286,6 +464,12 @@ public sealed class ServerGuidStorageRoundTripTests
             databaseType,
             "The server UUID storage test only supports MySQL and MariaDB.")
     };
+
+    private static byte[] GetProviderSpecificBytes(
+        DatabaseType databaseType,
+        string littleEndianHex,
+        string rfc4122Hex) => Convert.FromHexString(
+            GetProviderSpecificHex(databaseType, littleEndianHex, rfc4122Hex));
 }
 
 public readonly record struct ServerGuidStorageId(Guid Value);
