@@ -68,7 +68,7 @@ internal sealed class QueryPlanSqlValueRenderer(
 
         var selector = aggregate.Selector
             ?? throw new QueryTranslationException($"Grouped aggregate '{aggregate.Aggregate}' requires a selector.");
-        var selectorSql = GetAggregateColumnExpression(selector);
+        var selectorSql = GetAggregateColumnExpression(selector, aggregate.Aggregate.ToString());
 
         return aggregate.Aggregate switch
         {
@@ -217,51 +217,10 @@ internal sealed class QueryPlanSqlValueRenderer(
         };
     }
 
-    private string GetAggregateColumnExpression(QueryPlanValue selector)
+    private string GetAggregateColumnExpression(QueryPlanValue selector, string operatorName)
     {
-        var unwrapped = selector is QueryPlanConvertedValue converted
-            ? converted.Value
-            : selector;
-
-        if (unwrapped is not QueryPlanColumnValue column)
-        {
-            throw new QueryTranslationException(
-                $"Query plan aggregate selector '{unwrapped.Kind}' is not supported. " +
-                "Only direct numeric source-slot columns are supported.");
-        }
-
-        if (!IsNumericType(unwrapped.ClrType))
-        {
-            throw new QueryTranslationException(
-                $"Query plan aggregate selector column '{column.Column.DbName}' must be numeric. " +
-                $"Selector type: {unwrapped.ClrType}");
-        }
-
+        var column = QueryPlanAggregateSelectorValidator.RequireDirectNumericColumn(selector, operatorName);
         return RenderColumnSql(column);
-    }
-
-    private static bool IsNumericType(Type type)
-    {
-        type = Nullable.GetUnderlyingType(type) ?? type;
-
-        if (type.IsEnum)
-            return false;
-
-        return Type.GetTypeCode(type) switch
-        {
-            TypeCode.Byte or
-            TypeCode.SByte or
-            TypeCode.Int16 or
-            TypeCode.UInt16 or
-            TypeCode.Int32 or
-            TypeCode.UInt32 or
-            TypeCode.Int64 or
-            TypeCode.UInt64 or
-            TypeCode.Single or
-            TypeCode.Double or
-            TypeCode.Decimal => true,
-            _ => false
-        };
     }
 
     private static object? ConvertScalarValue(object? value, Type targetType)

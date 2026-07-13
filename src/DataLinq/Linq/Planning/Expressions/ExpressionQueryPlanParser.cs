@@ -1447,6 +1447,7 @@ internal sealed class ExpressionQueryPlanParser
         if (TryConvertValue(selector, out var value) &&
             UnwrapConvertedValue(value) is QueryPlanColumnValue)
         {
+            QueryPlanAggregateSelectorValidator.RejectConverterBackedColumn(value, operatorName);
             return value;
         }
 
@@ -2093,7 +2094,10 @@ internal sealed class ExpressionQueryPlanParser
         }
 
         if (TryConvertValue(selector, out var value))
+        {
+            QueryPlanAggregateSelectorValidator.RejectConverterBackedColumn(value, operatorName);
             return value;
+        }
 
         throw new QueryTranslationException(
             $"Aggregate selector '{selector}' is not supported for '{operatorName}' by the DataLinq expression parser. " +
