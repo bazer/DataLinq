@@ -356,6 +356,69 @@ public sealed class TelemetryTests
 
     [Test]
     [NotInParallel]
+    public async Task ExpressionLocalProjection_PreservesEntityTelemetryDuringCacheBackedHydration()
+    {
+        await WithTelemetryDatabase(async db =>
+        {
+            await Assert.That(db.Provider.DatabaseAccess.ExecuteNonQuery(
+                "INSERT INTO telemetryrows (name) VALUES (' local-projection-transaction ')"))
+                .IsEqualTo(1);
+
+            DataLinqMetrics.Reset();
+            var stoppedActivities = new List<Activity>();
+
+            using var listener = new ActivityListener
+            {
+                ShouldListenTo = source => source.Name == "DataLinq",
+                Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+                ActivityStopped = activity => stoppedActivities.Add(activity)
+            };
+
+            ActivitySource.AddActivityListener(listener);
+
+            using (var transaction = db.Transaction(TransactionType.ReadOnly))
+            {
+                var name = transaction.Query().Rows
+                    .Where(row => row.Name == " local-projection-transaction ")
+                    .Select(row => row.Name.Trim())
+                    .Single();
+                await Assert.That(name).IsEqualTo("local-projection-transaction");
+                transaction.Commit();
+            }
+
+            var snapshot = DataLinqMetrics.Snapshot();
+            var provider = snapshot.Providers.Single();
+
+            await Assert.That(snapshot.Queries.EntityExecutions).IsEqualTo(1);
+            await Assert.That(snapshot.Queries.ScalarExecutions).IsEqualTo(0);
+            await Assert.That(snapshot.Commands.ReaderExecutions).IsGreaterThanOrEqualTo(1);
+            await Assert.That(snapshot.Commands.ScalarExecutions).IsEqualTo(0);
+            await Assert.That(snapshot.Commands.Failures).IsEqualTo(0);
+            await Assert.That(provider.Queries).IsEqualTo(snapshot.Queries);
+            await Assert.That(provider.Commands).IsEqualTo(snapshot.Commands);
+
+            var queryActivity = stoppedActivities.Single(activity =>
+                activity.OperationName == "datalinq.query");
+            await Assert.That(queryActivity.GetTagItem("datalinq.query.kind")).IsEqualTo("entity");
+            await Assert.That(Equals(queryActivity.GetTagItem("datalinq.transactional"), true)).IsTrue();
+            await Assert.That(queryActivity.GetTagItem("datalinq.outcome")).IsEqualTo("success");
+            await Assert.That(queryActivity.Status).IsNotEqualTo(ActivityStatusCode.Error);
+
+            var readerActivities = stoppedActivities
+                .Where(activity =>
+                    activity.OperationName == "datalinq.db.command" &&
+                    Equals(activity.GetTagItem("datalinq.command.kind"), "reader"))
+                .ToArray();
+            await Assert.That(readerActivities.Length).IsGreaterThanOrEqualTo(1);
+            await Assert.That(readerActivities.All(activity =>
+                Equals(activity.GetTagItem("datalinq.transactional"), true))).IsTrue();
+            await Assert.That(readerActivities.All(activity =>
+                Equals(activity.GetTagItem("datalinq.transaction.type"), "read_only"))).IsTrue();
+        });
+    }
+
+    [Test]
+    [NotInParallel]
     public async Task Snapshot_CapturesCacheOccupancyAndCleanupForSQLite()
     {
         await WithTelemetryDatabase(async db =>

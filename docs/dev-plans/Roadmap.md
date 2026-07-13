@@ -32,8 +32,8 @@ The 0.8 release established the foundation that 0.9 consumes:
 
 The important current limitations are equally real:
 
-- query execution is still coupled to SQL/ADO.NET below the plan renderer
-- some supported local projection execution still depends on the original expression tree
+- retained expression-query result families now execute behind the selected SQL backend, but primary-key, joined-key, cache, relation, and legacy reader routes are not yet fully backend-neutral
+- projection recipes are self-contained after parsing, but only the SQL adapter implements their execution; there is no memory capability profile or backend yet
 - model values, canonical provider values, and provider physical/wire values are not separate first-class contracts
 - DataLinq has no native async database I/O surface
 - managed mutable baselines now have explicit rollback/cross-transaction provenance, but raw-handle and full-concurrency boundaries remain unresolved

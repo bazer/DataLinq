@@ -287,6 +287,61 @@ public class QueryExecutionContractTests
         await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
         await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
         await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
+        await Assert.That(backend.ProjectionMoveNextCalls).IsEqualTo(2);
+    }
+
+    [Test]
+    [Arguments("Anonymous")]
+    [Arguments("ComputedRowLocalExpression")]
+    [Arguments("JoinedRowLocal")]
+    public async Task RetainedLocalProjectionSequence_UsesExactValidatedBackendOnce(
+        string projectionKindName)
+    {
+        var projectionKind = Enum.Parse<QueryPlanProjectionKind>(projectionKindName);
+        var (metadata, invocation) = CreateRetainedLocalProjectionInvocation(projectionKind);
+        var backend = new TrackingBackend(
+            CreateCapabilities(),
+            projectionResults: ["Ada", "Grace"]);
+        var source = new TrackingReadSource(metadata, backend);
+        var request = ValidatedQueryExecutionRequest.Prepare(
+            new QueryExecutionRequest(
+                invocation,
+                new QueryExecutionContext(source, CancellationToken.None)));
+
+        var result = ExpressionQueryPlanExecutor.ExecuteEnumerable<string>(request).ToArray();
+
+        await Assert.That(result).IsEquivalentTo(["Ada", "Grace"]);
+        await Assert.That(backend.OpenProjectionCursorCalls).IsEqualTo(1);
+        await Assert.That(ReferenceEquals(backend.LastProjectionRequest, request)).IsTrue();
+        await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
+        await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task RetainedLocalProjectionTerminal_UsesExactValidatedBackendOnce()
+    {
+        var (metadata, invocation) = CreateRetainedLocalProjectionInvocation(
+            QueryPlanProjectionKind.ComputedRowLocalExpression,
+            QueryPlanResultKind.First);
+        var backend = new TrackingBackend(
+            CreateCapabilities(),
+            projectionResults: ["Ada"]);
+        var source = new TrackingReadSource(metadata, backend);
+        var request = ValidatedQueryExecutionRequest.Prepare(
+            new QueryExecutionRequest(
+                invocation,
+                new QueryExecutionContext(source, CancellationToken.None)));
+
+        var result = ExpressionQueryPlanExecutor.Execute<string>(request);
+
+        await Assert.That(result).IsEqualTo("Ada");
+        await Assert.That(backend.OpenProjectionCursorCalls).IsEqualTo(1);
+        await Assert.That(ReferenceEquals(backend.LastProjectionRequest, request)).IsTrue();
+        await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
+        await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
+        await Assert.That(backend.ProjectionMoveNextCalls).IsEqualTo(2);
     }
 
     [Test]
@@ -306,6 +361,52 @@ public class QueryExecutionContractTests
 
         await Assert.That(result).IsEquivalentTo(["Ada"]);
         await Assert.That(backend.OpenProjectionCursorCalls).IsEqualTo(1);
+        await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task AotStrictComputedRowLocalProjection_StillUsesBackendCursor()
+    {
+        var (metadata, invocation) = CreateRetainedLocalProjectionInvocation(
+            QueryPlanProjectionKind.ComputedRowLocalExpression);
+        var backend = new TrackingBackend(
+            CreateCapabilities(),
+            projectionResults: ["Ada"]);
+        var source = new TrackingReadSource(metadata, backend);
+
+        var result = ExpressionQueryPlanExecutor.ExecuteEnumerable<string>(
+                source,
+                invocation,
+                ProjectionEvaluationOptions.AotStrict)
+            .ToArray();
+
+        await Assert.That(result).IsEquivalentTo(["Ada"]);
+        await Assert.That(backend.OpenProjectionCursorCalls).IsEqualTo(1);
+        await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
+        await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    [Arguments("Anonymous")]
+    [Arguments("JoinedRowLocal")]
+    public async Task AotStrictSqlOnlyLocalProjection_RejectsBeforeOpeningBackendCursor(
+        string projectionKindName)
+    {
+        var (metadata, invocation) = CreateRetainedLocalProjectionInvocation(
+            Enum.Parse<QueryPlanProjectionKind>(projectionKindName));
+        var backend = new TrackingBackend(CreateCapabilities());
+        var source = new TrackingReadSource(metadata, backend);
+
+        var exception = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanExecutor.ExecuteEnumerable<string>(
+                    source,
+                    invocation,
+                    ProjectionEvaluationOptions.AotStrict)
+                .ToArray());
+
+        await Assert.That(exception.Message).Contains("AOT-strict mode");
+        await Assert.That(backend.OpenProjectionCursorCalls).IsEqualTo(0);
         await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
         await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
     }
@@ -546,6 +647,46 @@ public class QueryExecutionContractTests
             QueryPlanInvocation.Bind(template, Array.Empty<QueryPlanInvocationValue>()));
     }
 
+    private static (DatabaseDefinition Metadata, QueryPlanInvocation Invocation) CreateRetainedLocalProjectionInvocation(
+        QueryPlanProjectionKind projectionKind,
+        QueryPlanResultKind resultKind = QueryPlanResultKind.Sequence)
+    {
+        var (metadata, entityInvocation) = CreateEntityInvocation();
+        var entityTemplate = entityInvocation.Template;
+        var source = entityTemplate.Sources.Single();
+        var column = source.Table.GetColumnByDbName("first_name");
+        var member = new QueryPlanProjectionMember(
+            "Value",
+            new QueryPlanColumnValue(source, column, typeof(string)));
+        var recipe = new QueryPlanProjectionRecipe.SourceColumn(source, column, typeof(string));
+        QueryPlanProjection projection = projectionKind switch
+        {
+            QueryPlanProjectionKind.Anonymous =>
+                new QueryPlanProjection.Anonymous(typeof(string), [member], [source], recipe),
+            QueryPlanProjectionKind.ComputedRowLocalExpression =>
+                new QueryPlanProjection.ComputedRowLocal(typeof(string), recipe, [source]),
+            QueryPlanProjectionKind.JoinedRowLocal =>
+                new QueryPlanProjection.JoinedRowLocal(typeof(string), [member], [source], recipe),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(projectionKind),
+                projectionKind,
+                "Expected a retained local projection kind.")
+        };
+        var template = new QueryPlanTemplate(
+            entityTemplate.Sources,
+            entityTemplate.Operations,
+            projection,
+            resultKind == QueryPlanResultKind.Sequence
+                ? QueryPlanResult.Sequence(typeof(string))
+                : new QueryPlanResult(resultKind, typeof(string)),
+            entityTemplate.BindingDeclarations,
+            entityTemplate.Specialization);
+
+        return (
+            metadata,
+            QueryPlanInvocation.Bind(template, Array.Empty<QueryPlanInvocationValue>()));
+    }
+
     private static DatabaseDefinition GetEmployeesMetadata()
         => MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
 
@@ -627,6 +768,8 @@ public class QueryExecutionContractTests
 
         public ValidatedQueryExecutionRequest? LastProjectionRequest { get; private set; }
 
+        public int ProjectionMoveNextCalls { get; private set; }
+
         public void Bind(IDataLinqReadSource source) => Source = source;
 
         public IQueryEntityCursor OpenEntityCursor(ValidatedQueryExecutionRequest request)
@@ -644,9 +787,11 @@ public class QueryExecutionContractTests
             OpenProjectionCursorCalls++;
             LastProjectionRequest = request;
             return new EnumeratorQueryProjectionCursor<TResult>(
-                (projectionResults ?? [])
-                    .Select(static value => value is null ? default! : (TResult)value)
-                    .GetEnumerator(),
+                new TrackingProjectionEnumerator<TResult>(
+                    (projectionResults ?? [])
+                        .Select(static value => value is null ? default! : (TResult)value)
+                        .ToArray(),
+                    onMoveNext: () => ProjectionMoveNextCalls++),
                 request.Context.CancellationToken);
         }
 
@@ -704,7 +849,8 @@ public class QueryExecutionContractTests
 
     private sealed class TrackingProjectionEnumerator<TResult>(
         IReadOnlyList<TResult> values,
-        int? throwOnMoveNextCall = null) : IEnumerator<TResult>
+        int? throwOnMoveNextCall = null,
+        Action? onMoveNext = null) : IEnumerator<TResult>
     {
         private int index = -1;
 
@@ -719,6 +865,7 @@ public class QueryExecutionContractTests
         public bool MoveNext()
         {
             MoveNextCalls++;
+            onMoveNext?.Invoke();
             if (MoveNextCalls == throwOnMoveNextCall)
                 throw new InvalidOperationException("Synthetic projection enumeration failure.");
 

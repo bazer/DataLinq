@@ -43,6 +43,16 @@ public sealed class QueryPlanCapabilityExecutionTests
                     .Where(employee => employee.first_name.Substring(1) == capturedValue)
                     .Select(employee => new { employee.first_name })
                     .FirstOrDefault());
+            var localProjectionSequenceFailure = Capture<QueryBackendCapabilityException>(() =>
+                employees
+                    .Where(employee => employee.first_name.Substring(1) == capturedValue)
+                    .Select(employee => employee.first_name.Trim())
+                    .ToList());
+            var localProjectionTerminalFailure = Capture<QueryBackendCapabilityException>(() =>
+                employees
+                    .Where(employee => employee.first_name.Substring(1) == capturedValue)
+                    .Select(employee => new LocalProjectionBox(employee.first_name.Trim()))
+                    .FirstOrDefault());
             var snapshot = DataLinqMetrics.Snapshot();
 
             await AssertUnsupportedSubstringDiagnostic(sequenceFailure, capturedValue);
@@ -50,6 +60,8 @@ public sealed class QueryPlanCapabilityExecutionTests
             await AssertUnsupportedSubstringDiagnostic(scalarFailure, capturedValue);
             await AssertUnsupportedSubstringDiagnostic(projectionSequenceFailure, capturedValue);
             await AssertUnsupportedSubstringDiagnostic(projectionTerminalFailure, capturedValue);
+            await AssertUnsupportedSubstringDiagnostic(localProjectionSequenceFailure, capturedValue);
+            await AssertUnsupportedSubstringDiagnostic(localProjectionTerminalFailure, capturedValue);
             await Assert.That(snapshot.Commands.TotalExecutions).IsEqualTo(0);
             await Assert.That(snapshot.Queries.EntityExecutions).IsEqualTo(0);
             await Assert.That(snapshot.Queries.ScalarExecutions).IsEqualTo(0);
@@ -90,4 +102,6 @@ public sealed class QueryPlanCapabilityExecutionTests
 
         throw new Exception($"Expected exception of type '{typeof(TException).Name}'.");
     }
+
+    private sealed record LocalProjectionBox(string Value);
 }

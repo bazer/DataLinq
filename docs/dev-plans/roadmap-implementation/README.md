@@ -12,7 +12,7 @@ The active roadmap answers what should happen next and why. Versioned implementa
 | Release | Status | Scope |
 | --- | --- | --- |
 | [0.8](v0.8/README.md) | Implemented and released | DataLinq-owned parser/query plan, Remotion removal, bounded query composition/joins/grouping, constrained AOT/browser evidence, and release closeout |
-| [0.9](v0.9/README.md) | In progress; W0-W1 characterization complete, W2 next | backend/source execution foundation, scalar converters and typed IDs, UUID storage correctness, read-only memory preview, SQL-provider correctness gates, and exact release evidence |
+| [0.9](v0.9/README.md) | In progress; W0-W2 and F5 complete, W3-W5 active | backend/source execution foundation, scalar converters and typed IDs, UUID storage correctness, read-only memory preview, SQL-provider correctness gates, and exact release evidence |
 
 The 0.9 baseline deliberately excludes memory mutation, durable JSON persistence, commit logs/replay, production plan caching, and broad join/grouping expansion. One optional stretch may be selected only after the required release work is green.
 

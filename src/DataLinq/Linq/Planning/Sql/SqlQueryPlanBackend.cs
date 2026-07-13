@@ -25,8 +25,6 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
 
     public IDataLinqReadSource Source => dataSource;
 
-    internal DataSourceAccess DataSource => dataSource;
-
     public IQueryEntityCursor OpenEntityCursor(ValidatedQueryExecutionRequest request)
     {
         EnsureEntityRequest(request);
@@ -49,11 +47,26 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
         request.Context.CancellationToken.ThrowIfCancellationRequested();
         DataSourceAccess.EnsureReadAllowed(dataSource, "execute a query plan");
 
-        var rows = new SqlDirectProjectionExecutor(
-                dataSource,
-                request.Context.CancellationToken)
-            .Execute<TResult>(request.Invocation)
-            .GetEnumerator();
+        var results = request.Invocation.Template.Projection switch
+        {
+            QueryPlanProjection.ScalarMember or
+            QueryPlanProjection.SqlRow or
+            QueryPlanProjection.GroupedAggregate =>
+                new SqlDirectProjectionExecutor(
+                        dataSource,
+                        request.Context.CancellationToken)
+                    .Execute<TResult>(request.Invocation),
+            QueryPlanProjection.Anonymous or
+            QueryPlanProjection.ComputedRowLocal or
+            QueryPlanProjection.JoinedRowLocal =>
+                new SqlLocalProjectionExecutor(
+                        dataSource,
+                        request.Context.CancellationToken)
+                    .Execute<TResult>(request.Invocation),
+            var projection => throw new InvalidOperationException(
+                $"Projection '{projection.Kind}' is not an executable SQL projection.")
+        };
+        var rows = results.GetEnumerator();
 
         try
         {
@@ -147,13 +160,17 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
                 IsProjectionResult(result.Kind),
             QueryPlanProjection.GroupedAggregate =>
                 result.Kind == QueryPlanResultKind.Sequence,
+            QueryPlanProjection.Anonymous or
+            QueryPlanProjection.ComputedRowLocal or
+            QueryPlanProjection.JoinedRowLocal =>
+                IsProjectionResult(result.Kind),
             _ => false
         };
 
         if (!supportsResult)
         {
             throw new InvalidOperationException(
-                "The SQL projection backend requires a supported ScalarMember, SqlRow, or GroupedAggregate projection result.");
+                "The SQL projection backend requires a supported direct or retained local projection result.");
         }
 
         if (projection.ResultType != typeof(TResult) ||
