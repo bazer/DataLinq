@@ -19,12 +19,21 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             QueryPlanFeature.SourceCardinality(QueryPlanSourceCardinality.Many),
             QueryPlanFeature.SourceNullability(QueryPlanSourceNullability.NonNullable),
             QueryPlanFeature.Operation(QueryPlanOperationKind.Where),
+            QueryPlanFeature.Operation(QueryPlanOperationKind.OrderBy),
+            QueryPlanFeature.Operation(QueryPlanOperationKind.Take),
+            QueryPlanFeature.OrderingDirection(QueryPlanOrderingDirection.Ascending),
+            QueryPlanFeature.OrderingDirection(QueryPlanOrderingDirection.Descending),
+            QueryPlanFeature.OrderingShape(QueryPlanOrderingShape.SingleDirectNonNullableInt32PrimaryKeyColumn),
+            QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering),
             QueryPlanFeature.Predicate(QueryPlanPredicateKind.Compare),
             QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.Equal),
             QueryPlanFeature.NullSemantics(QueryPlanNullSemantics.Default),
             QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar),
             QueryPlanFeature.ValueKind(QueryPlanValueKind.Column, QueryPlanValueUse.PredicateOperand),
             QueryPlanFeature.ValueKind(QueryPlanValueKind.ScalarBinding, QueryPlanValueUse.PredicateOperand),
+            QueryPlanFeature.ValueKind(QueryPlanValueKind.Column, QueryPlanValueUse.Ordering),
+            QueryPlanFeature.ValueKind(QueryPlanValueKind.ScalarBinding, QueryPlanValueUse.PagingCount),
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegativeInt32ScalarBinding),
             QueryPlanFeature.Projection(QueryPlanProjectionKind.Entity),
             QueryPlanFeature.ProjectionDisposition(QueryPlanProjectionDisposition.Direct),
             QueryPlanFeature.Result(QueryPlanResultKind.Sequence),
@@ -125,6 +134,7 @@ internal sealed class MemoryEntityCursor : IQueryEntityCursor
     private IReadOnlyList<CanonicalProviderValueRow>? rows;
     private IImmutableInstance? current;
     private int nextRowIndex;
+    private bool orderedRowsPrepared;
 
     internal MemoryEntityCursor(
         MemoryReadSource source,
@@ -149,6 +159,9 @@ internal sealed class MemoryEntityCursor : IQueryEntityCursor
 
         try
         {
+            if (executionPlan.RequiresBufferedOrdering)
+                return MoveNextOrdered(currentRows);
+
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -177,6 +190,30 @@ internal sealed class MemoryEntityCursor : IQueryEntityCursor
             Dispose();
             throw;
         }
+    }
+
+    private bool MoveNextOrdered(IReadOnlyList<CanonicalProviderValueRow> currentRows)
+    {
+        if (!orderedRowsPrepared)
+        {
+            currentRows = executionPlan.PrepareOrderedRows(currentRows, source, cancellationToken);
+            rows = currentRows;
+            orderedRowsPrepared = true;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (nextRowIndex >= currentRows.Count)
+        {
+            Dispose();
+            return false;
+        }
+
+        var row = currentRows[nextRowIndex++];
+        cancellationToken.ThrowIfCancellationRequested();
+        var next = source.Materialize(row);
+        cancellationToken.ThrowIfCancellationRequested();
+        current = next;
+        return true;
     }
 
     public void Dispose()

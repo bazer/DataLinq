@@ -123,10 +123,10 @@ internal sealed class ExpressionQueryPlanParser
         return methodCall.Method.Name switch
         {
             nameof(Queryable.Where) => ParseWhere(methodCall),
-            nameof(Queryable.OrderBy) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Ascending),
-            nameof(Queryable.OrderByDescending) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Descending),
-            nameof(Queryable.ThenBy) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Ascending),
-            nameof(Queryable.ThenByDescending) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Descending),
+            nameof(Queryable.OrderBy) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Ascending, isSecondary: false),
+            nameof(Queryable.OrderByDescending) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Descending, isSecondary: false),
+            nameof(Queryable.ThenBy) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Ascending, isSecondary: true),
+            nameof(Queryable.ThenByDescending) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Descending, isSecondary: true),
             nameof(Queryable.Skip) => ParsePaging(methodCall, isSkip: true),
             nameof(Queryable.Take) => ParsePaging(methodCall, isSkip: false),
             nameof(Queryable.Select) => ParseSelect(methodCall),
@@ -201,7 +201,10 @@ internal sealed class ExpressionQueryPlanParser
         return parsed;
     }
 
-    private ParsedQuery ParseOrderBy(MethodCallExpression methodCall, QueryPlanOrderingDirection direction)
+    private ParsedQuery ParseOrderBy(
+        MethodCallExpression methodCall,
+        QueryPlanOrderingDirection direction,
+        bool isSecondary)
     {
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
@@ -210,18 +213,27 @@ internal sealed class ExpressionQueryPlanParser
         RejectUnsupportedPostGroupedPagingComposition(parsed, methodCall.Method.Name);
         PushDownPostPagingOperations(methodCall.Method.Name);
 
+        var precedingOrderBy = operations.LastOrDefault() as QueryPlanOperation.OrderBy;
+        if (isSecondary && precedingOrderBy is null)
+        {
+            throw new QueryTranslationException(
+                $"LINQ operator '{methodCall.Method.Name}' requires an immediately preceding OrderBy or OrderByDescending operation. " +
+                $"Expression: {methodCall}");
+        }
+
         var keySelector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
         if (keySelector.Parameters.Count != 1)
             throw new QueryTranslationException($"Ordering key selector '{keySelector}' is not supported.");
 
         var ordering = CreateOrdering(parsed, keySelector, direction);
 
-        if (operations.LastOrDefault() is QueryPlanOperation.OrderBy lastOrderBy)
+        if (isSecondary)
         {
-            operations[^1] = new QueryPlanOperation.OrderBy(lastOrderBy.Orderings.Concat([ordering]));
+            operations[^1] = new QueryPlanOperation.OrderBy(precedingOrderBy!.Orderings.Concat([ordering]));
         }
         else
         {
+            operations.RemoveAll(static operation => operation is QueryPlanOperation.OrderBy);
             operations.Add(new QueryPlanOperation.OrderBy([ordering]));
         }
 
@@ -239,17 +251,17 @@ internal sealed class ExpressionQueryPlanParser
         if (CanBindProjectionParameter(parsed))
         {
             return WithProjection(keySelector.Parameters[0], parsed.Projection!, () =>
-                new QueryPlanOrdering(ConvertValue(keySelector.Body), direction));
+                new QueryPlanOrdering(ConvertOrderingValue(keySelector.Body), direction));
         }
 
         if (CanBindGroupedProjectionParameter(parsed))
         {
             return WithProjection(keySelector.Parameters[0], parsed.Projection!, () =>
-                new QueryPlanOrdering(ConvertValue(keySelector.Body), direction));
+                new QueryPlanOrdering(ConvertOrderingValue(keySelector.Body), direction));
         }
 
         return WithSource(keySelector.Parameters[0], parsed.RootSource, () =>
-            new QueryPlanOrdering(ConvertValue(keySelector.Body), direction));
+            new QueryPlanOrdering(ConvertOrderingValue(keySelector.Body), direction));
     }
 
     private static bool TryCreateProjectedOrdering(
@@ -260,15 +272,42 @@ internal sealed class ExpressionQueryPlanParser
     {
         if (projection is QueryPlanProjection.ScalarMember scalarProjection &&
             keySelector.Parameters.Count == 1 &&
-            UnwrapConvert(keySelector.Body) == keySelector.Parameters[0])
+            TryCreateProjectedOrderingValue(
+                scalarProjection,
+                keySelector.Body,
+                keySelector.Parameters[0],
+                out var value))
         {
-            ordering = new QueryPlanOrdering(
-                new QueryPlanColumnValue(scalarProjection.Source, scalarProjection.Column, scalarProjection.ResultType),
-                direction);
+            ordering = new QueryPlanOrdering(value, direction);
             return true;
         }
 
         ordering = null!;
+        return false;
+    }
+
+    private static bool TryCreateProjectedOrderingValue(
+        QueryPlanProjection.ScalarMember projection,
+        Expression expression,
+        ParameterExpression parameter,
+        out QueryPlanValue value)
+    {
+        if (expression == parameter)
+        {
+            value = new QueryPlanColumnValue(projection.Source, projection.Column, projection.ResultType);
+            return true;
+        }
+
+        if (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary &&
+            TryCreateProjectedOrderingValue(projection, unary.Operand, parameter, out var operand))
+        {
+            value = unary.Operand.Type == unary.Type
+                ? operand
+                : new QueryPlanConvertedValue(operand, unary.Type);
+            return true;
+        }
+
+        value = null!;
         return false;
     }
 
@@ -2120,6 +2159,20 @@ internal sealed class ExpressionQueryPlanParser
             return value;
 
         throw new QueryTranslationException($"Value expression '{expression}' is not supported by the DataLinq expression parser.");
+    }
+
+    private QueryPlanValue ConvertOrderingValue(Expression expression)
+    {
+        if (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary &&
+            ContainsQueryReference(unary.Operand))
+        {
+            var operand = ConvertOrderingValue(unary.Operand);
+            return unary.Operand.Type == unary.Type
+                ? operand
+                : new QueryPlanConvertedValue(operand, unary.Type);
+        }
+
+        return ConvertValue(expression);
     }
 
     private bool TryConvertValue(Expression expression, out QueryPlanValue value)

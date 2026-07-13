@@ -15,11 +15,20 @@ internal sealed class MemoryEntityExecutionPlan
 {
     private const string ComparisonSourceName = "memory-query:equality";
     private readonly MemoryInt32EqualityPredicate[] predicates;
+    private readonly MemoryInt32PrimaryKeyOrdering? ordering;
+    private readonly int? takeCount;
 
-    private MemoryEntityExecutionPlan(MemoryInt32EqualityPredicate[] predicates)
+    private MemoryEntityExecutionPlan(
+        MemoryInt32EqualityPredicate[] predicates,
+        MemoryInt32PrimaryKeyOrdering? ordering,
+        int? takeCount)
     {
         this.predicates = predicates;
+        this.ordering = ordering;
+        this.takeCount = takeCount;
     }
+
+    internal bool RequiresBufferedOrdering => ordering is not null;
 
     internal static MemoryEntityExecutionPlan Compile(
         ValidatedQueryExecutionRequest request,
@@ -30,18 +39,96 @@ internal sealed class MemoryEntityExecutionPlan
 
         var operations = request.Invocation.Template.Operations;
         var predicates = new List<MemoryInt32EqualityPredicate>(operations.Count);
+        MemoryInt32PrimaryKeyOrdering? ordering = null;
+        int? takeCount = null;
+        var hasSeenTake = false;
         for (var index = 0; index < operations.Count; index++)
         {
-            if (operations[index] is not QueryPlanOperation.Where { Predicate: QueryPlanPredicate.Compare comparison })
+            switch (operations[index])
             {
-                throw CapabilityInvariant(
-                    $"operation {index} is not a direct equality filter admitted by this checkpoint.");
-            }
+                case QueryPlanOperation.Where { Predicate: QueryPlanPredicate.Compare comparison }:
+                    if (hasSeenTake)
+                    {
+                        throw CapabilityInvariant(
+                            $"operation {index} applies a filter after Take.");
+                    }
 
-            predicates.Add(CompileEquality(request.Invocation, entity, comparison, index));
+                    predicates.Add(CompileEquality(request.Invocation, entity, comparison, index));
+                    break;
+
+                case QueryPlanOperation.OrderBy orderBy:
+                    if (ordering is not null || hasSeenTake)
+                    {
+                        throw CapabilityInvariant(
+                            $"operation {index} introduces a repeated or post-Take ordering.");
+                    }
+
+                    ordering = CompileOrdering(entity, orderBy, index);
+                    break;
+
+                case QueryPlanOperation.Take take:
+                    if (ordering is null || hasSeenTake)
+                    {
+                        throw CapabilityInvariant(
+                            $"operation {index} is not the single Take following one ordering admitted by this checkpoint.");
+                    }
+
+                    takeCount = ResolveTakeCount(request.Invocation, take.Count, index);
+                    hasSeenTake = true;
+                    break;
+
+                default:
+                    throw CapabilityInvariant(
+                        $"operation {index} is not admitted by the memory entity-sequence checkpoint.");
+            }
         }
 
-        return new MemoryEntityExecutionPlan(predicates.ToArray());
+        return new MemoryEntityExecutionPlan(predicates.ToArray(), ordering, takeCount);
+    }
+
+    internal IReadOnlyList<CanonicalProviderValueRow> PrepareOrderedRows(
+        IReadOnlyList<CanonicalProviderValueRow> rows,
+        MemoryReadSource source,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        ArgumentNullException.ThrowIfNull(source);
+        var currentOrdering = ordering ?? throw CapabilityInvariant(
+            "buffered row preparation was requested without a validated ordering.");
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (takeCount == 0)
+            return Array.Empty<CanonicalProviderValueRow>();
+
+        var matches = new List<CanonicalProviderValueRow>(rows.Count);
+        for (var index = 0; index < rows.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var row = rows[index];
+            source.RecordScanRowVisited();
+            cancellationToken.ThrowIfCancellationRequested();
+            if (Matches(row, source, cancellationToken))
+                matches.Add(row);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var ordered = currentOrdering.Sort(matches, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var resultCount = takeCount is { } limit
+            ? Math.Min(limit, ordered.Length)
+            : ordered.Length;
+        if (resultCount == ordered.Length)
+            return ordered;
+
+        var selected = new CanonicalProviderValueRow[resultCount];
+        for (var index = 0; index < resultCount; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            selected[index] = ordered[index];
+        }
+
+        return selected;
     }
 
     internal bool Matches(
@@ -99,6 +186,66 @@ internal sealed class MemoryEntityExecutionPlan
         return new MemoryInt32EqualityPredicate(column.Column, canonicalValue);
     }
 
+    private static MemoryInt32PrimaryKeyOrdering CompileOrdering(
+        QueryPlanProjection.Entity entity,
+        QueryPlanOperation.OrderBy orderBy,
+        int operationIndex)
+    {
+        if (orderBy.Orderings.Count != 1 ||
+            orderBy.Orderings[0] is not { Value: QueryPlanColumnValue column } ordering)
+        {
+            throw CapabilityInvariant(
+                $"operation {operationIndex} is not a single direct-column ordering.");
+        }
+
+        ValidateColumn(entity, column, operationIndex);
+        var definition = column.Column;
+        if (column.ClrType != typeof(int) ||
+            definition.Nullable ||
+            definition.HasScalarConverter ||
+            definition.ModelClrType != typeof(int) ||
+            definition.ProviderClrType != typeof(int) ||
+            entity.Source.Table.PrimaryKeyColumns.Count != 1 ||
+            !ReferenceEquals(entity.Source.Table.PrimaryKeyColumns[0], definition))
+        {
+            throw CapabilityInvariant(
+                $"operation {operationIndex} is not the exact non-nullable Int32 primary-key ordering " +
+                "admitted by the validated capability token.");
+        }
+
+        if (ordering.Direction is not QueryPlanOrderingDirection.Ascending and
+            not QueryPlanOrderingDirection.Descending)
+        {
+            throw CapabilityInvariant(
+                $"operation {operationIndex} has unknown ordering direction '{ordering.Direction}'.");
+        }
+
+        return new MemoryInt32PrimaryKeyOrdering(definition, ordering.Direction);
+    }
+
+    private static int ResolveTakeCount(
+        QueryPlanInvocation invocation,
+        QueryPlanValue count,
+        int operationIndex)
+    {
+        if (count is not QueryPlanScalarBindingReference { ClrType: var countType } scalar ||
+            countType != typeof(int) ||
+            !invocation.Template.BindingDeclarations.TryGet(scalar.BindingId, out var declaration) ||
+            declaration.Kind != QueryPlanBindingKind.Scalar ||
+            declaration.ModelType != typeof(int) ||
+            declaration.ProviderType != typeof(int) ||
+            declaration.AllowsNull ||
+            !invocation.Values.TryGet(scalar.BindingId, out var binding) ||
+            binding is not QueryPlanInvocationValue.Scalar { Value: int value } ||
+            value < 0)
+        {
+            throw CapabilityInvariant(
+                $"operation {operationIndex} is not a direct non-negative Int32 scalar-binding Take.");
+        }
+
+        return value;
+    }
+
     private static void ValidateColumn(
         QueryPlanProjection.Entity entity,
         QueryPlanColumnValue value,
@@ -151,7 +298,7 @@ internal sealed class MemoryEntityExecutionPlan
     }
 
     private static InvalidOperationException CapabilityInvariant(string detail) =>
-        new($"The memory capability profile admitted an invalid equality shape: {detail}");
+        new($"The memory capability profile admitted an invalid entity-sequence shape: {detail}");
 }
 
 internal sealed class MemoryInt32EqualityPredicate
@@ -176,5 +323,99 @@ internal sealed class MemoryInt32EqualityPredicate
             : throw new InvalidOperationException(
                 $"Canonical memory row column '{column.Table.DbName}.{column.DbName}' contained " +
                 $"'{rowValue?.GetType().FullName ?? "null"}' after Int32 capability validation.");
+    }
+}
+
+internal sealed class MemoryInt32PrimaryKeyOrdering
+{
+    private readonly ColumnDefinition column;
+    private readonly QueryPlanOrderingDirection direction;
+
+    internal MemoryInt32PrimaryKeyOrdering(
+        ColumnDefinition column,
+        QueryPlanOrderingDirection direction)
+    {
+        this.column = column ?? throw new ArgumentNullException(nameof(column));
+        this.direction = direction;
+    }
+
+    internal CanonicalProviderValueRow[] Sort(
+        IReadOnlyList<CanonicalProviderValueRow> rows,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var source = new CanonicalProviderValueRow[rows.Count];
+        for (var index = 0; index < rows.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            source[index] = rows[index];
+        }
+
+        if (source.Length < 2)
+            return source;
+
+        var destination = new CanonicalProviderValueRow[source.Length];
+        for (var width = 1; width < source.Length;)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var runLength = (long)width * 2;
+            for (long start = 0; start < source.Length; start += runLength)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var left = (int)start;
+                var middle = (int)Math.Min(start + width, source.Length);
+                var right = middle;
+                var end = (int)Math.Min(start + runLength, source.Length);
+                var target = left;
+
+                while (left < middle && right < end)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    destination[target++] = Compare(source[left], source[right]) <= 0
+                        ? source[left++]
+                        : source[right++];
+                }
+
+                while (left < middle)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    destination[target++] = source[left++];
+                }
+
+                while (right < end)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    destination[target++] = source[right++];
+                }
+            }
+
+            (source, destination) = (destination, source);
+            width = width > source.Length / 2 ? source.Length : width * 2;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return source;
+    }
+
+    private int Compare(CanonicalProviderValueRow leftRow, CanonicalProviderValueRow rightRow)
+    {
+        var left = GetKey(leftRow);
+        var right = GetKey(rightRow);
+        var comparison = left < right ? -1 : left > right ? 1 : 0;
+        return direction == QueryPlanOrderingDirection.Ascending
+            ? comparison
+            : -comparison;
+    }
+
+    private int GetKey(CanonicalProviderValueRow row)
+    {
+        var value = row[column];
+        return value is int int32Value
+            ? int32Value
+            : throw new InvalidOperationException(
+                $"Canonical memory row primary-key column '{column.Table.DbName}.{column.DbName}' contained " +
+                $"'{value?.GetType().FullName ?? "null"}' after Int32 ordering capability validation.");
     }
 }

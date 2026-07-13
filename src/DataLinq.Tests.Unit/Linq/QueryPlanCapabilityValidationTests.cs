@@ -6,7 +6,9 @@ using System.Text;
 using System.Threading.Tasks;
 using DataLinq.Core.Factories;
 using DataLinq.Exceptions;
+using DataLinq.Interfaces;
 using DataLinq.Linq.Planning;
+using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Metadata;
 using DataLinq.Tests.Models.Employees;
 using ThrowAway.Extensions;
@@ -42,7 +44,7 @@ public class QueryPlanCapabilityValidationTests
             [QueryPlanFeatureCategory.FunctionShape] = 4,
             [QueryPlanFeatureCategory.GroupedAggregate] = 65,
             [QueryPlanFeatureCategory.AggregateSelectorShape] = 4,
-            [QueryPlanFeatureCategory.PagingCountShape] = 4,
+            [QueryPlanFeatureCategory.PagingCountShape] = 5,
             [QueryPlanFeatureCategory.Projection] = 8,
             [QueryPlanFeatureCategory.ProjectionDisposition] = 4,
             [QueryPlanFeatureCategory.ProjectionRecipe] = 13,
@@ -53,7 +55,9 @@ public class QueryPlanCapabilityValidationTests
             [QueryPlanFeatureCategory.Result] = 13,
             [QueryPlanFeatureCategory.BindingKind] = 2,
             [QueryPlanFeatureCategory.ScalarNullness] = 2,
-            [QueryPlanFeatureCategory.LocalSequenceShape] = 3
+            [QueryPlanFeatureCategory.LocalSequenceShape] = 3,
+            [QueryPlanFeatureCategory.OrderingShape] = 2,
+            [QueryPlanFeatureCategory.PagingCompositionShape] = 5
         };
 
         var actualCategoryCounts = QueryPlanFeatureCatalog.All
@@ -69,15 +73,15 @@ public class QueryPlanCapabilityValidationTests
                 $"{feature.Token}={QueryBackendCapabilities.Sql.GetDisposition(feature)}"));
         var sqlMatrixFingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sqlMatrix)));
 
-        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(599);
+        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(607);
         await Assert.That(tokens.Distinct(StringComparer.Ordinal).Count()).IsEqualTo(tokens.Length);
         await Assert.That(actualCategoryCounts.Count).IsEqualTo(expectedCategoryCounts.Count);
         foreach (var expected in expectedCategoryCounts)
             await Assert.That(actualCategoryCounts[expected.Key]).IsEqualTo(expected.Value);
 
-        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(344);
-        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Unsupported)).IsEqualTo(255);
-        await Assert.That(sqlMatrixFingerprint).IsEqualTo("2B1724B0302E42B29D5051DA912B5D25DA18943CE5613E1DF0A77E01C3AC30A3");
+        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(349);
+        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Unsupported)).IsEqualTo(258);
+        await Assert.That(sqlMatrixFingerprint).IsEqualTo("4C4EEBE9EA8FC70DFD6631FCB8F0DCDC1F42F7E12F562E0115E13A2E6765C0A3");
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.Projection(QueryPlanProjectionKind.TransparentIdentifier)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
@@ -86,6 +90,33 @@ public class QueryPlanCapabilityValidationTests
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.AggregateSelectorShape(QueryPlanAggregateSelectorShape.ConverterBackedColumn)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegative)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegativeInt32ScalarBinding)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.OrderingShape(QueryPlanOrderingShape.SingleDirectNonNullableInt32PrimaryKeyColumn)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.OrderingShape(QueryPlanOrderingShape.Other)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.Other)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.RepeatedTakeInScope)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.TakeBeforeSkipInScope)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.RepeatedSkipInScope)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
     }
 
@@ -203,6 +234,28 @@ public class QueryPlanCapabilityValidationTests
         var supportedTake = QueryPlanCapabilityValidator.Validate(
             CreateBoundPagingInvocation(5, typeof(int), isSkip: false),
             QueryBackendCapabilities.Sql);
+        var supportedGeneric = QueryPlanCapabilityValidator.Validate(
+            CreateBoundPagingInvocation(7L, typeof(long), isSkip: false),
+            QueryBackendCapabilities.Sql);
+        var convertedCapture = new QueryPlanBindingCapture();
+        var supportedConverted = QueryPlanCapabilityValidator.Validate(
+            CreatePagingInvocation(
+                new QueryPlanConvertedValue(
+                    convertedCapture.CaptureScalar(11, typeof(int)),
+                    typeof(int)),
+                convertedCapture,
+                isSkip: false),
+            QueryBackendCapabilities.Sql);
+        var mismatchedProviderCapture = new QueryPlanBindingCapture();
+        var supportedMismatchedProvider = QueryPlanCapabilityValidator.Validate(
+            CreatePagingInvocation(
+                mismatchedProviderCapture.CaptureScalar(13, typeof(int), typeof(long)),
+                mismatchedProviderCapture,
+                isSkip: false),
+            QueryBackendCapabilities.Sql);
+        var supportedNullable = QueryPlanCapabilityValidator.Validate(
+            CreateBoundPagingInvocation(15, typeof(int?), isSkip: false),
+            QueryBackendCapabilities.Sql);
         var negative = Capture<QueryBackendCapabilityException>(() =>
             QueryPlanCapabilityValidator.Validate(
                 CreateBoundPagingInvocation(-3, typeof(int), isSkip: true),
@@ -221,11 +274,31 @@ public class QueryPlanCapabilityValidationTests
 
         await AssertRequirement(
             supportedSkip.Invocation,
-            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegative),
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegativeInt32ScalarBinding),
             "operations[0].count.shape",
             sourceId: "s0");
         await AssertRequirement(
             supportedTake.Invocation,
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegativeInt32ScalarBinding),
+            "operations[0].count.shape",
+            sourceId: "s0");
+        await AssertRequirement(
+            supportedGeneric.Invocation,
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegative),
+            "operations[0].count.shape",
+            sourceId: "s0");
+        await AssertRequirement(
+            supportedConverted.Invocation,
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegative),
+            "operations[0].count.shape",
+            sourceId: "s0");
+        await AssertRequirement(
+            supportedMismatchedProvider.Invocation,
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegative),
+            "operations[0].count.shape",
+            sourceId: "s0");
+        await AssertRequirement(
+            supportedNullable.Invocation,
             QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegative),
             "operations[0].count.shape",
             sourceId: "s0");
@@ -266,6 +339,210 @@ public class QueryPlanCapabilityValidationTests
 
             return QueryPlanInvocation.Bind(template, capture.InvocationValues);
         }
+    }
+
+    [Test]
+    public async Task Requirements_ClassifyOnlySingleRootOwnedExactInt32PrimaryKeyOrdering()
+    {
+        var ascending = ExtractOrderingShape(ParseEmployeeQuery(static rows =>
+            rows.OrderBy(static row => row.emp_no)));
+        var descending = ExtractOrderingShape(ParseEmployeeQuery(static rows =>
+            rows.OrderByDescending(static row => row.emp_no)));
+        var stringColumn = ExtractOrderingShape(ParseEmployeeQuery(static rows =>
+            rows.OrderBy(static row => row.first_name)));
+        var multipleKeys = ExtractOrderingShape(ParseEmployeeQuery(static rows =>
+            rows.OrderBy(static row => row.emp_no).ThenBy(static row => row.first_name)));
+
+        var employeeTable = GetTable<Employee>();
+        var employeeSource = Source("s0", "t0", employeeTable, QueryPlanSourceKind.RootTable);
+        var employeeNumber = new QueryPlanColumnValue(
+            employeeSource,
+            employeeTable.GetColumnByPropertyName(nameof(Employee.emp_no)));
+        var converted = ExtractOrderingShape(CreateEntityInvocation(
+            employeeSource,
+            [new QueryPlanOperation.OrderBy([
+                new QueryPlanOrdering(
+                    new QueryPlanConvertedValue(employeeNumber, typeof(long)),
+                    QueryPlanOrderingDirection.Ascending)
+            ])]));
+        var repeated = ExtractOrderingShape(CreateEntityInvocation(
+            employeeSource,
+            [
+                OrderBy(employeeNumber),
+                OrderBy(employeeNumber)
+            ]));
+        var separated = ExtractOrderingShape(CreateEntityInvocation(
+            employeeSource,
+            [
+                OrderBy(employeeNumber),
+                new QueryPlanOperation.Where(new QueryPlanPredicate.Fixed(true)),
+                OrderBy(employeeNumber)
+            ]));
+
+        var salariesTable = GetTable<Salaries>();
+        var salariesSource = Source("s0", "t0", salariesTable, QueryPlanSourceKind.RootTable);
+        var compositePrimaryKeyColumn = ExtractOrderingShape(CreateEntityInvocation(
+            salariesSource,
+            [OrderBy(new QueryPlanColumnValue(
+                salariesSource,
+                salariesTable.GetColumnByPropertyName(nameof(Salaries.emp_no))))]));
+
+        var viewTable = GetTable<current_dept_emp>();
+        var viewSource = Source("s0", "t0", viewTable, QueryPlanSourceKind.RootTable);
+        var nonPrimaryKeyInt32Column = ExtractOrderingShape(CreateEntityInvocation(
+            viewSource,
+            [OrderBy(new QueryPlanColumnValue(
+                viewSource,
+                viewTable.GetColumnByPropertyName(nameof(current_dept_emp.emp_no))))]));
+
+        var foreignRoot = Source("s1", "t1", employeeTable, QueryPlanSourceKind.RootTable);
+        var foreignRootTemplate = new QueryPlanTemplate(
+            [employeeSource, foreignRoot],
+            [OrderBy(new QueryPlanColumnValue(
+                foreignRoot,
+                employeeTable.GetColumnByPropertyName(nameof(Employee.emp_no))))],
+            new QueryPlanProjection.Entity(employeeSource),
+            QueryPlanResult.Sequence(typeof(Employee)),
+            QueryPlanBindingDeclarations.Empty,
+            QueryPlanSpecialization.Empty);
+        var foreignRootColumn = ExtractOrderingShape(QueryPlanInvocation.Bind(foreignRootTemplate, []));
+
+        await Assert.That(ascending).IsEqualTo(QueryPlanOrderingShape.SingleDirectNonNullableInt32PrimaryKeyColumn);
+        await Assert.That(descending).IsEqualTo(QueryPlanOrderingShape.SingleDirectNonNullableInt32PrimaryKeyColumn);
+        await Assert.That(stringColumn).IsEqualTo(QueryPlanOrderingShape.Other);
+        await Assert.That(multipleKeys).IsEqualTo(QueryPlanOrderingShape.Other);
+        await Assert.That(converted).IsEqualTo(QueryPlanOrderingShape.Other);
+        await Assert.That(compositePrimaryKeyColumn).IsEqualTo(QueryPlanOrderingShape.Other);
+        await Assert.That(nonPrimaryKeyInt32Column).IsEqualTo(QueryPlanOrderingShape.Other);
+        await Assert.That(foreignRootColumn).IsEqualTo(QueryPlanOrderingShape.Other);
+        await Assert.That(repeated).IsEqualTo(QueryPlanOrderingShape.Other);
+        await Assert.That(separated).IsEqualTo(QueryPlanOrderingShape.Other);
+
+        static QueryPlanOperation.OrderBy OrderBy(QueryPlanValue value) =>
+            new([new QueryPlanOrdering(value, QueryPlanOrderingDirection.Ascending)]);
+
+        static QueryPlanOrderingShape ExtractOrderingShape(QueryPlanInvocation invocation) =>
+            (QueryPlanOrderingShape)QueryPlanRequirements.Extract(invocation).Structural.Single(
+                static requirement => requirement.Feature.Category == QueryPlanFeatureCategory.OrderingShape).Feature.Value;
+    }
+
+    [Test]
+    public async Task Requirements_ClassifyPagingCompositionPerScope()
+    {
+        var generated = ExtractPagingCompositionShape(ParseEmployeeQuery(static rows =>
+            rows.OrderBy(static row => row.emp_no).Take(17)));
+        var skipThenTake = ExtractPagingCompositionShape(ParseEmployeeQuery(static rows =>
+            rows.OrderBy(static row => row.emp_no).Skip(2).Take(17)));
+        var takeBeforeSkip = ExtractPagingCompositionShape(ParseEmployeeQuery(static rows =>
+            rows.OrderBy(static row => row.emp_no).Take(17).Skip(2)));
+        var repeatedSkip = ExtractPagingCompositionShape(ParseEmployeeQuery(static rows =>
+            rows.OrderBy(static row => row.emp_no).Skip(2).Skip(3)));
+
+        var table = GetTable<Employee>();
+        var source = Source("s0", "t0", table, QueryPlanSourceKind.RootTable);
+        var employeeNumber = new QueryPlanColumnValue(
+            source,
+            table.GetColumnByPropertyName(nameof(Employee.emp_no)));
+        var ordering = new QueryPlanOperation.OrderBy([
+            new QueryPlanOrdering(employeeNumber, QueryPlanOrderingDirection.Ascending)
+        ]);
+        var where = new QueryPlanOperation.Where(new QueryPlanPredicate.Fixed(true));
+        var capture = new QueryPlanBindingCapture();
+        var take = new QueryPlanOperation.Take(capture.CaptureScalar(19, typeof(int)));
+        var skip = new QueryPlanOperation.Skip(capture.CaptureScalar(23, typeof(int)));
+
+        var whereBeforeAndBetween = ExtractPagingCompositionShape(CreateEntityInvocation(
+            source,
+            [where, ordering, where, take],
+            capture));
+        var bareTake = ExtractPagingCompositionShape(CreateEntityInvocation(
+            source,
+            [take],
+            capture));
+        var bareSkip = ExtractPagingCompositionShape(CreateEntityInvocation(
+            source,
+            [skip],
+            capture));
+        var repeatedTake = ExtractPagingCompositionShape(CreateEntityInvocation(
+            source,
+            [ordering, take, take],
+            capture));
+        var beforeOrdering = ExtractPagingCompositionShape(CreateEntityInvocation(
+            source,
+            [take, ordering],
+            capture));
+        var notLast = ExtractPagingCompositionShape(CreateEntityInvocation(
+            source,
+            [ordering, take, where],
+            capture));
+
+        await Assert.That(generated).IsEqualTo(QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering);
+        await Assert.That(whereBeforeAndBetween).IsEqualTo(QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering);
+        await Assert.That(bareTake).IsEqualTo(QueryPlanPagingCompositionShape.Other);
+        await Assert.That(bareSkip).IsEqualTo(QueryPlanPagingCompositionShape.Other);
+        await Assert.That(skipThenTake).IsEqualTo(QueryPlanPagingCompositionShape.Other);
+        await Assert.That(takeBeforeSkip).IsEqualTo(QueryPlanPagingCompositionShape.TakeBeforeSkipInScope);
+        await Assert.That(repeatedTake).IsEqualTo(QueryPlanPagingCompositionShape.RepeatedTakeInScope);
+        await Assert.That(repeatedSkip).IsEqualTo(QueryPlanPagingCompositionShape.RepeatedSkipInScope);
+        await Assert.That(beforeOrdering).IsEqualTo(QueryPlanPagingCompositionShape.Other);
+        await Assert.That(notLast).IsEqualTo(QueryPlanPagingCompositionShape.Other);
+
+        static QueryPlanPagingCompositionShape ExtractPagingCompositionShape(QueryPlanInvocation invocation) =>
+            (QueryPlanPagingCompositionShape)QueryPlanRequirements.Extract(invocation).Structural.Single(
+                static requirement => requirement.Feature.Category == QueryPlanFeatureCategory.PagingCompositionShape).Feature.Value;
+    }
+
+    [Test]
+    public async Task SqlProfile_RejectsUnsafeSameScopePagingBeforeRendering()
+    {
+        var cases = new[]
+        {
+            (
+                Invocation: ParseEmployeeQuery(static rows =>
+                    rows.OrderBy(static row => row.emp_no).Take(197531).Take(864209)),
+                Feature: "PagingCompositionShape:RepeatedTakeInScope"),
+            (
+                Invocation: ParseEmployeeQuery(static rows =>
+                    rows.OrderBy(static row => row.emp_no).Take(197531).Skip(864209)),
+                Feature: "PagingCompositionShape:TakeBeforeSkipInScope"),
+            (
+                Invocation: ParseEmployeeQuery(static rows =>
+                    rows.OrderBy(static row => row.emp_no).Skip(197531).Skip(864209)),
+                Feature: "PagingCompositionShape:RepeatedSkipInScope")
+        };
+
+        foreach (var item in cases)
+        {
+            var exception = Capture<QueryBackendCapabilityException>(() =>
+                QueryPlanCapabilityValidator.Validate(item.Invocation, QueryBackendCapabilities.Sql));
+
+            await Assert.That(exception.Feature).IsEqualTo(item.Feature);
+            await Assert.That(exception.Location).IsEqualTo("operations.pagingComposition.shape");
+            await Assert.That(exception.SourceId).IsEqualTo("s0");
+            await Assert.That(exception.Message).DoesNotContain("197531");
+            await Assert.That(exception.Message).DoesNotContain("864209");
+        }
+    }
+
+    [Test]
+    public async Task CapabilityValidation_ReportsPagingCompositionLocationWithoutLeakingTheCount()
+    {
+        const int count = 197531;
+        var invocation = ParseEmployeeQuery(rows =>
+            rows.OrderBy(static row => row.emp_no).Take(count));
+        var unsupported = Capture<QueryBackendCapabilityException>(() =>
+            QueryPlanCapabilityValidator.Validate(
+                invocation,
+                WithUnsupported(
+                    "without-bounded-take",
+                    QueryPlanFeature.PagingCompositionShape(
+                        QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering))));
+
+        await Assert.That(unsupported.Feature).IsEqualTo(
+            "PagingCompositionShape:SingleTakeAfterSingleOrdering");
+        await Assert.That(unsupported.Location).IsEqualTo("operations.pagingComposition.shape");
+        await Assert.That(unsupported.SourceId).IsEqualTo("s0");
+        await Assert.That(unsupported.Message).DoesNotContain(count.ToString());
     }
 
     [Test]
@@ -498,6 +775,30 @@ public class QueryPlanCapabilityValidationTests
         await Assert.That(exception.Feature).IsEqualTo("Value:Function@Ordering");
         await Assert.That(exception.Location).IsEqualTo("operations[0].orderings[0].value");
         await Assert.That(exception.SourceId).IsEqualTo("s0");
+    }
+
+    [Test]
+    public async Task SqlProfile_RejectsParsedNumericOrderingConversionsBeforeRendering()
+    {
+        var widening = ParseEmployeeQuery(static rows =>
+            rows.OrderBy(static row => (long)row.emp_no!.Value));
+        var checkedNarrowing = ParseEmployeeQuery(static rows =>
+            rows.OrderBy(static row => checked((byte)row.emp_no!.Value)));
+
+        var wideningException = Capture<QueryBackendCapabilityException>(() =>
+            QueryPlanCapabilityValidator.Validate(widening, QueryBackendCapabilities.Sql));
+        var narrowingException = Capture<QueryBackendCapabilityException>(() =>
+            QueryPlanCapabilityValidator.Validate(checkedNarrowing, QueryBackendCapabilities.Sql));
+
+        await AssertConversionRejection(wideningException);
+        await AssertConversionRejection(narrowingException);
+
+        static async Task AssertConversionRejection(QueryBackendCapabilityException exception)
+        {
+            await Assert.That(exception.Feature).IsEqualTo("Value:Converted@Ordering");
+            await Assert.That(exception.Location).IsEqualTo("operations[0].orderings[0].value");
+            await Assert.That(exception.SourceId).IsEqualTo("s0");
+        }
     }
 
     [Test]
@@ -1035,6 +1336,32 @@ public class QueryPlanCapabilityValidationTests
         await Assert.That(unsupported.ColumnName).IsEqualTo("first_name");
     }
 
+    private static QueryPlanInvocation ParseEmployeeQuery(
+        Func<IQueryable<Employee>, IQueryable<Employee>> buildQuery)
+    {
+        var metadata = GetDatabase();
+        var rows = new DbRead<Employee>(new CapabilityReadSource(metadata));
+        var query = buildQuery(rows);
+        return ExpressionQueryPlanParser.Convert(metadata, query.Expression, typeof(Employee));
+    }
+
+    private static QueryPlanInvocation CreateEntityInvocation(
+        QueryPlanSourceSlot source,
+        IEnumerable<QueryPlanOperation> operations,
+        QueryPlanBindingCapture? capture = null)
+    {
+        capture ??= new QueryPlanBindingCapture();
+        var template = new QueryPlanTemplate(
+            [source],
+            operations,
+            new QueryPlanProjection.Entity(source),
+            QueryPlanResult.Sequence(source.ElementType),
+            capture.CreateDeclarations(),
+            capture.CreateSpecialization());
+
+        return QueryPlanInvocation.Bind(template, capture.InvocationValues);
+    }
+
     private static QueryPlanInvocation CreateExistsInvocation(RelationProperty relation)
     {
         var parentTable = relation.RelationPart.ColumnIndex.Table;
@@ -1167,9 +1494,12 @@ public class QueryPlanCapabilityValidationTests
 
     private static TableDefinition GetTable<TModel>()
     {
-        var metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
+        var metadata = GetDatabase();
         return metadata.TableModels.Single(model => model.Model.CsType.Type == typeof(TModel)).Table;
     }
+
+    private static DatabaseDefinition GetDatabase() =>
+        MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
 
     private static TException Capture<TException>(Action action)
         where TException : Exception
@@ -1189,4 +1519,6 @@ public class QueryPlanCapabilityValidationTests
     private sealed record GroupProjection(string Key, int Count);
 
     private sealed record StringProjection(string Value);
+
+    private sealed record CapabilityReadSource(DatabaseDefinition Metadata) : IDataLinqReadSource;
 }

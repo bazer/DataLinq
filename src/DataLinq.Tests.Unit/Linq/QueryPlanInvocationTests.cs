@@ -189,6 +189,90 @@ public class QueryPlanInvocationTests
     }
 
     [Test]
+    public async Task Template_RequiresEverySourceElementTypeToMatchItsTableModel()
+    {
+        var table = GetTable<Employee>();
+        var source = Source(table) with { ElementType = typeof(string) };
+
+        var exception = Capture<ArgumentException>(() => new QueryPlanTemplate(
+            [source],
+            [],
+            new QueryPlanProjection.Entity(source),
+            QueryPlanResult.Sequence(typeof(string)),
+            QueryPlanBindingDeclarations.Empty,
+            QueryPlanSpecialization.Empty));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("source slot 's0'");
+        await Assert.That(exception.Message).Contains(typeof(string).FullName!);
+        await Assert.That(exception.Message).Contains(typeof(Employee).FullName!);
+        await Assert.That(exception.Message).Contains(table.DbName);
+    }
+
+    [Test]
+    public async Task Template_RequiresProjectionReturningResultsToUseTheProjectionType()
+    {
+        var table = GetTable<Employee>();
+        var source = Source(table);
+        var projection = new QueryPlanProjection.Entity(source);
+        var projectionReturningKinds = new[]
+        {
+            QueryPlanResultKind.Sequence,
+            QueryPlanResultKind.Single,
+            QueryPlanResultKind.SingleOrDefault,
+            QueryPlanResultKind.First,
+            QueryPlanResultKind.FirstOrDefault,
+            QueryPlanResultKind.Last,
+            QueryPlanResultKind.LastOrDefault
+        };
+
+        foreach (var resultKind in projectionReturningKinds)
+        {
+            var mismatch = Capture<ArgumentException>(() => new QueryPlanTemplate(
+                [source],
+                [],
+                projection,
+                new QueryPlanResult(resultKind, typeof(string)),
+                QueryPlanBindingDeclarations.Empty,
+                QueryPlanSpecialization.Empty));
+            var valid = new QueryPlanTemplate(
+                [source],
+                [],
+                projection,
+                new QueryPlanResult(resultKind, typeof(Employee)),
+                QueryPlanBindingDeclarations.Empty,
+                QueryPlanSpecialization.Empty);
+
+            await Assert.That(mismatch).IsNotNull();
+            await Assert.That(mismatch!.Message).Contains(resultKind.ToString());
+            await Assert.That(mismatch.Message).Contains(typeof(string).FullName!);
+            await Assert.That(mismatch.Message).Contains(typeof(Employee).FullName!);
+            await Assert.That(valid.Result.ResultType).IsEqualTo(typeof(Employee));
+        }
+
+        var scalar = new QueryPlanTemplate(
+            [source],
+            [],
+            projection,
+            new QueryPlanResult(QueryPlanResultKind.Count, typeof(int)),
+            QueryPlanBindingDeclarations.Empty,
+            QueryPlanSpecialization.Empty);
+        var aggregate = new QueryPlanTemplate(
+            [source],
+            [],
+            projection,
+            new QueryPlanResult(
+                QueryPlanResultKind.Sum,
+                typeof(int),
+                Column(source, nameof(Employee.emp_no))),
+            QueryPlanBindingDeclarations.Empty,
+            QueryPlanSpecialization.Empty);
+
+        await Assert.That(scalar.Result.ResultType).IsEqualTo(typeof(int));
+        await Assert.That(aggregate.Result.ResultType).IsEqualTo(typeof(int));
+    }
+
+    [Test]
     public async Task Template_ValidatesJoinAndProjectionSourceCollections()
     {
         var employeeTable = GetTable<Employee>();

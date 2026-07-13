@@ -244,7 +244,13 @@ public sealed class MemoryVerticalSpikeTests
             "ComparisonOperator:Equal",
             "ComparisonShape:DirectNonNullableInt32ColumnAndScalar",
             "NullSemantics:Default",
+            "Operation:OrderBy",
+            "Operation:Take",
             "Operation:Where",
+            "OrderingDirection:Ascending",
+            "OrderingDirection:Descending",
+            "OrderingShape:SingleDirectNonNullableInt32PrimaryKeyColumn",
+            "PagingCountShape:NonNegativeInt32ScalarBinding",
             "Predicate:Compare",
             "Projection:Entity",
             "ProjectionDisposition:Direct",
@@ -255,16 +261,19 @@ public sealed class MemoryVerticalSpikeTests
             "SourceKind:RootTable",
             "SourceNullability:NonNullable",
             "SourceTopology:ExactlyOneRoot",
+            "PagingCompositionShape:SingleTakeAfterSingleOrdering",
+            "Value:Column@Ordering",
             "Value:Column@PredicateOperand",
+            "Value:ScalarBinding@PagingCount",
             "Value:ScalarBinding@PredicateOperand"
         ]);
 
         var notEqual = Capture<QueryTranslationException>(() =>
             database.Model.Rows.Where(static row => row.GroupId != 7).ToArray());
-        var take = Capture<QueryTranslationException>(() =>
+        var bareTake = Capture<QueryTranslationException>(() =>
             database.Model.Rows.Take(1).ToArray());
-        var orderBy = Capture<QueryTranslationException>(() =>
-            database.Model.Rows.OrderBy(static row => row.Id).ToArray());
+        var nonPrimaryKeyOrderBy = Capture<QueryTranslationException>(() =>
+            database.Model.Rows.OrderBy(static row => row.GroupId).ToArray());
         var name = "seven";
         var stringEquality = Capture<QueryTranslationException>(() =>
             database.Model.Rows.Where(row => row.Name == name).ToArray());
@@ -277,10 +286,10 @@ public sealed class MemoryVerticalSpikeTests
         await Assert.That(notEqual.Message).Contains(
             "Backend 'memory' cannot execute query plan feature 'ComparisonOperator:NotEqual'");
         await Assert.That(notEqual.Message).Contains("Location: operations[0].predicate.operator");
-        await Assert.That(take.Message).Contains(
-            "Backend 'memory' cannot execute query plan feature 'Operation:Take'");
-        await Assert.That(orderBy.Message).Contains(
-            "Backend 'memory' cannot execute query plan feature 'Operation:OrderBy'");
+        await Assert.That(bareTake.Message).Contains(
+            "Backend 'memory' cannot execute query plan feature 'PagingCompositionShape:Other'");
+        await Assert.That(nonPrimaryKeyOrderBy.Message).Contains(
+            "Backend 'memory' cannot execute query plan feature 'OrderingShape:Other'");
         await Assert.That(stringEquality.Message).Contains(
             "Backend 'memory' cannot execute query plan feature 'ComparisonShape:DefaultNullSemantics'");
         await Assert.That(stringEquality.Message).Contains("Location: operations[0].predicate.shape");

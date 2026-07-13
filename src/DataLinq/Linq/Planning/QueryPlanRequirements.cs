@@ -99,6 +99,25 @@ internal sealed class QueryPlanRequirements
             bool sqlRowHasDirectColumnMembers,
             string defaultSourceId)
         {
+            var orderByOperations = operations.OfType<QueryPlanOperation.OrderBy>().ToArray();
+            if (orderByOperations.Length != 0)
+            {
+                var firstOrdering = orderByOperations[0].Orderings[0];
+                AddStructural(
+                    QueryPlanFeature.OrderingShape(QueryPlanOrderingShapeFacts.Classify(operations, defaultSourceId)),
+                    $"{location}.ordering.shape",
+                    FindSourceId(firstOrdering.Value) ?? defaultSourceId,
+                    firstOrdering.Value is QueryPlanColumnValue column ? column.Column.DbName : null);
+            }
+
+            if (operations.Any(static operation => operation is QueryPlanOperation.Skip or QueryPlanOperation.Take))
+            {
+                AddStructural(
+                    QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShapeFacts.Classify(operations)),
+                    $"{location}.pagingComposition.shape",
+                    defaultSourceId);
+            }
+
             var hasSeenPushdown = false;
             for (var index = 0; index < operations.Count; index++)
             {
@@ -670,6 +689,18 @@ internal sealed class QueryPlanRequirements
                     return QueryPlanPagingCountShape.Invalid;
                 if (value is null)
                     return QueryPlanPagingCountShape.Null;
+
+                if (value is int int32Value)
+                {
+                    if (int32Value < 0)
+                        return QueryPlanPagingCountShape.Negative;
+
+                    return QueryPlanExactInt32ValueShapeFacts.IsDirectNonNullableInt32ScalarBinding(
+                        count,
+                        invocation.Template.BindingDeclarations)
+                            ? QueryPlanPagingCountShape.NonNegativeInt32ScalarBinding
+                            : QueryPlanPagingCountShape.NonNegative;
+                }
 
                 return Convert.ToInt32(value, CultureInfo.InvariantCulture) < 0
                     ? QueryPlanPagingCountShape.Negative

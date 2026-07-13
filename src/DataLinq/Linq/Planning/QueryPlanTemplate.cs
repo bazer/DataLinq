@@ -83,15 +83,58 @@ internal static class QueryPlanTemplateValidator
         ArgumentNullException.ThrowIfNull(template);
 
         ValidateSpecialization(template.BindingDeclarations, template.Specialization);
+        ValidateSourceElementTypes(template.Sources);
         ValidateSourceReferences(template);
 
         foreach (var operation in template.Operations)
             ValidateOperation(operation, template.BindingDeclarations);
 
         ValidateProjection(template.Projection, template.BindingDeclarations);
+        ValidateResultType(template.Projection, template.Result);
         if (template.Result.AggregateSelector is not null)
             ValidateValue(template.Result.AggregateSelector, template.BindingDeclarations);
     }
+
+    private static void ValidateSourceElementTypes(IReadOnlyList<QueryPlanSourceSlot> sources)
+    {
+        foreach (var source in sources)
+        {
+            var modelType = source.Table.Model.CsType.Type;
+            if (source.ElementType == modelType)
+                continue;
+
+            throw new ArgumentException(
+                $"Query plan source slot '{source.Id}' element type '{TypeName(source.ElementType)}' does not match " +
+                $"table '{source.Table.DbName}' model CLR type '{TypeName(modelType)}'.",
+                nameof(sources));
+        }
+    }
+
+    private static void ValidateResultType(
+        QueryPlanProjection projection,
+        QueryPlanResult result)
+    {
+        if (result.Kind is not (
+                QueryPlanResultKind.Sequence or
+                QueryPlanResultKind.Single or
+                QueryPlanResultKind.SingleOrDefault or
+                QueryPlanResultKind.First or
+                QueryPlanResultKind.FirstOrDefault or
+                QueryPlanResultKind.Last or
+                QueryPlanResultKind.LastOrDefault) ||
+            result.ResultType == projection.ResultType)
+        {
+            return;
+        }
+
+        throw new ArgumentException(
+            $"Query plan result '{result.Kind}' CLR type '{TypeName(result.ResultType)}' does not match " +
+            $"projection '{projection.Kind}' CLR type '{TypeName(projection.ResultType)}'.",
+            nameof(result));
+    }
+
+    private static string TypeName(Type? type) =>
+        type?.FullName ?? type?.Name ?? "<unresolved>";
 
     private static void ValidateSpecialization(
         QueryPlanBindingDeclarations declarations,

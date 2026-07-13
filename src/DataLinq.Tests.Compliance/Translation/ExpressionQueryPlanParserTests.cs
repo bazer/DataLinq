@@ -56,6 +56,81 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
+    public async Task ExpressionParser_PrimaryOrderingRemovesPriorTopLevelOrderings()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_PrimaryOrderingRemovesPriorTopLevelOrderings),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().Managers
+            .OrderBy(row => row.dept_fk)
+            .ThenBy(row => row.emp_no)
+            .Where(row => row.emp_no > 0)
+            .OrderByDescending(row => row.emp_no);
+
+        var invocation = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+        var orderBy = invocation.Template.Operations.OfType<QueryPlanOperation.OrderBy>().Single();
+        var ordering = orderBy.Orderings.Single();
+        var column = ordering.Value as QueryPlanColumnValue;
+
+        await Assert.That(invocation.Template.Operations.Count).IsEqualTo(2);
+        await Assert.That(invocation.Template.Operations[0]).IsTypeOf<QueryPlanOperation.Where>();
+        await Assert.That(invocation.Template.Operations[1]).IsTypeOf<QueryPlanOperation.OrderBy>();
+        await Assert.That(orderBy.Orderings.Count).IsEqualTo(1);
+        await Assert.That(ordering.Direction).IsEqualTo(QueryPlanOrderingDirection.Descending);
+        await Assert.That(column).IsNotNull();
+        await Assert.That(column!.Column.DbName).IsEqualTo("emp_no");
+    }
+
+    [Test]
+    public async Task ExpressionParser_RootThenByRequiresAPrecedingPrimaryOrdering()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_RootThenByRequiresAPrecedingPrimaryOrdering),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().Managers
+            .ThenBy(row => row.emp_no);
+
+        var exception = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(databaseScope.Database, query));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("ThenBy");
+        await Assert.That(exception.Message).Contains("immediately preceding OrderBy");
+    }
+
+    [Test]
+    public async Task ExpressionParser_OrderingPreservesQueryReferencingNumericConversions()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_OrderingPreservesQueryReferencingNumericConversions),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().Managers
+            .OrderBy(row => (long)row.emp_no)
+            .ThenBy(row => checked((byte)row.emp_no));
+
+        var invocation = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+        var orderings = invocation.Template.Operations
+            .OfType<QueryPlanOperation.OrderBy>()
+            .Single()
+            .Orderings;
+        var longConversion = orderings[0].Value as QueryPlanConvertedValue;
+        var byteConversion = orderings[1].Value as QueryPlanConvertedValue;
+
+        await Assert.That(longConversion).IsNotNull();
+        await Assert.That(longConversion!.TargetType).IsEqualTo(typeof(long));
+        await Assert.That(longConversion.Value).IsTypeOf<QueryPlanColumnValue>();
+        await Assert.That(byteConversion).IsNotNull();
+        await Assert.That(byteConversion!.TargetType).IsEqualTo(typeof(byte));
+        await Assert.That(byteConversion.Value).IsTypeOf<QueryPlanColumnValue>();
+    }
+
+    [Test]
     public async Task ExpressionParser_ResultAndAggregateShapesParseToDataLinqPlan()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

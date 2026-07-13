@@ -187,12 +187,27 @@ internal sealed class SqlLocalProjectionExecutor
             template.Sources,
             template.Operations,
             new QueryPlanProjection.Entity(source),
-            template.Result,
+            ReprojectResultAsEntity(template.Result, source.ElementType),
             template.BindingDeclarations,
             template.Specialization);
 
         return QueryPlanInvocation.Bind(entityTemplate, invocation.Values.Items);
     }
+
+    private static QueryPlanResult ReprojectResultAsEntity(
+        QueryPlanResult result,
+        Type entityType)
+        => result.Kind switch
+        {
+            QueryPlanResultKind.Sequence or
+            QueryPlanResultKind.Single or
+            QueryPlanResultKind.SingleOrDefault or
+            QueryPlanResultKind.First or
+            QueryPlanResultKind.FirstOrDefault or
+            QueryPlanResultKind.Last or
+            QueryPlanResultKind.LastOrDefault => new QueryPlanResult(result.Kind, entityType),
+            _ => result
+        };
 
     private IEnumerable<object?> ExecuteEntityRows(QueryPlanInvocation invocation)
     {
