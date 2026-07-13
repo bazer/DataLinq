@@ -40,10 +40,11 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
             typeof(T),
             databaseType,
             loggingConfiguration,
+            databaseName: null,
             metadataFactory: MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>,
-            createReadOnlyAccess: false)
+            createReadOnlyAccess: false,
+            metadataBinder: T.SetDataLinqGeneratedMetadata)
     {
-        T.SetDataLinqGeneratedMetadata(Metadata);
         ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
 
@@ -61,9 +62,9 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
             loggingConfiguration,
             databaseName: databaseName,
             metadataFactory: MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>,
-            createReadOnlyAccess: false)
+            createReadOnlyAccess: false,
+            metadataBinder: T.SetDataLinqGeneratedMetadata)
     {
-        T.SetDataLinqGeneratedMetadata(Metadata);
         ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
 
@@ -87,8 +88,6 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     public DatabaseDefinition Metadata { get; }
     public State State { get; }
 
-    private static readonly object lockObject = new();
-
     /// <summary>
     /// Retrieves the table cache for a given table metadata.
     /// </summary>
@@ -111,15 +110,31 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
         string? databaseName = null,
         Func<Option<DatabaseDefinition, IDLOptionFailure>>? metadataFactory = null,
         bool createReadOnlyAccess = true)
+        : this(
+            connectionString,
+            type,
+            databaseType,
+            loggingConfiguration,
+            databaseName,
+            metadataFactory,
+            createReadOnlyAccess,
+            metadataBinder: null)
     {
-        DatabaseDefinition resolvedMetadata;
-        lock (lockObject)
-        {
-            if (DatabaseDefinition.TryGetLoadedDatabase(type, out var metadata))
-            {
-                resolvedMetadata = metadata;
-            }
-            else
+    }
+
+    private protected DatabaseProvider(
+        string connectionString,
+        Type type,
+        DatabaseType databaseType,
+        DataLinqLoggingConfiguration loggingConfiguration,
+        string? databaseName,
+        Func<Option<DatabaseDefinition, IDLOptionFailure>>? metadataFactory,
+        bool createReadOnlyAccess,
+        Action<DatabaseDefinition>? metadataBinder)
+    {
+        Metadata = DatabaseDefinition.ResolveLoadedDatabase(
+            type,
+            () =>
             {
                 if (metadataFactory is null)
                 {
@@ -127,12 +142,9 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
                         $"Database provider for '{type.FullName}' requires generated DataLinq metadata. Use a generated generic provider path or pass a metadata factory.");
                 }
 
-                resolvedMetadata = metadataFactory();
-                DatabaseDefinition.TryAddLoadedDatabase(type, resolvedMetadata);
-            }
-        }
-
-        Metadata = resolvedMetadata;
+                return metadataFactory();
+            },
+            metadataBinder);
         CsModelType = type;
         DatabaseType = databaseType;
         LoggingConfiguration = loggingConfiguration;

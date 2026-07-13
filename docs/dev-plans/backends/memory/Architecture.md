@@ -96,9 +96,9 @@ The value path is:
 model value
     -> scalar converter
     -> canonical provider CLR value
-    -> MemoryProviderRow values by ordinal
+    -> CanonicalProviderValueRow values by ordinal
 
-MemoryProviderRow
+CanonicalProviderValueRow
     -> reverse scalar converter
     -> model-valued RowData
     -> generated immutable model
@@ -106,20 +106,13 @@ MemoryProviderRow
 
 Provider-specific physical codecs are a separate boundary used by SQL readers, writers, literals, and parameter binding. For example, memory keeps a canonical `Guid`; it does not store MySQL `BINARY(16)` byte order. This distinction matters for typed IDs, enums, UUID formats, dates, and other values whose model type differs from either the canonical or physical representation.
 
-Conceptual 0.9 types:
+The shared runtime now owns `CanonicalProviderValueRow`; memory must store that type directly rather than introducing the older conceptual `MemoryProviderRow` duplicate. The first spike owns an array plus a primary-key-to-row-ordinal dictionary per table and exposes them internally only through read-only views:
 
 ```csharp
-internal sealed class MemoryProviderRow
-{
-    public required TableDefinition Table { get; init; }
-    public required object?[] ProviderValuesByOrdinal { get; init; }
-}
-
 internal sealed class MemoryTableState
 {
-    public required TableDefinition Table { get; init; }
-    public required IReadOnlyList<MemoryProviderRow> Rows { get; init; }
-    public required IReadOnlyDictionary<DataLinqKey, MemoryProviderRow> RowsByPrimaryKey { get; init; }
+    private readonly IReadOnlyList<CanonicalProviderValueRow> rows;
+    private readonly IReadOnlyDictionary<DataLinqKey, int> primaryKeyOrdinals;
 }
 ```
 
@@ -155,7 +148,7 @@ Seed processing should:
 1. resolve the generated table and column metadata
 2. read model values through generated/runtime-owned accessors
 3. convert each value through the shared scalar pipeline to its canonical provider CLR value
-4. build a `MemoryProviderRow`
+4. build a `CanonicalProviderValueRow`
 5. validate and index the primary key
 6. publish a read-only table state
 

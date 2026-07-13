@@ -9,6 +9,7 @@ namespace DataLinq.Metadata;
 public class DatabaseDefinition : IDefinition
 {
     private static readonly ConcurrentDictionary<Type, DatabaseDefinition> loadedDatabases = new();
+    private static readonly object loadedDatabasesSyncRoot = new();
     private MetadataCollection<Attribute> attributes = MetadataCollection<Attribute>.Empty;
     private MetadataCollection<ModelUsing> usings = MetadataCollection<ModelUsing>.Empty;
     private MetadataCollection<TableModel> tableModels = MetadataCollection<TableModel>.Empty;
@@ -48,6 +49,46 @@ public class DatabaseDefinition : IDefinition
             throw new ArgumentNullException(nameof(databaseModelType));
 
         return loadedDatabases.TryRemove(databaseModelType, out metadata);
+    }
+
+    /// <summary>
+    /// Resolves and optionally binds the one runtime metadata graph for a generated database model.
+    /// Factory execution and generated static binding share this lock across SQL and neutral sources,
+    /// so runtime startup paths using this resolver cannot observe handles temporarily bound to a
+    /// losing first-use candidate.
+    /// </summary>
+    internal static DatabaseDefinition ResolveLoadedDatabase(
+        Type databaseModelType,
+        Func<DatabaseDefinition> metadataFactory,
+        Action<DatabaseDefinition>? metadataBinder = null)
+    {
+        if (databaseModelType is null)
+            throw new ArgumentNullException(nameof(databaseModelType));
+        if (metadataFactory is null)
+            throw new ArgumentNullException(nameof(metadataFactory));
+
+        lock (loadedDatabasesSyncRoot)
+        {
+            if (!loadedDatabases.TryGetValue(databaseModelType, out var metadata))
+            {
+                var candidate = metadataFactory()
+                    ?? throw new InvalidOperationException(
+                        $"Metadata factory for database model '{databaseModelType.FullName}' returned null.");
+
+                if (loadedDatabases.TryAdd(databaseModelType, candidate))
+                {
+                    metadata = candidate;
+                }
+                else if (!loadedDatabases.TryGetValue(databaseModelType, out metadata))
+                {
+                    throw new InvalidOperationException(
+                        $"Generated metadata for '{databaseModelType.FullName}' lost its registry publication race without a winning definition.");
+                }
+            }
+
+            metadataBinder?.Invoke(metadata);
+            return metadata;
+        }
     }
 
     public DatabaseDefinition(string name, CsTypeDeclaration csType, string? dbName = null)

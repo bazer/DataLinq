@@ -11,6 +11,8 @@
 
 **Target:** DataLinq 0.9 experimental preview.
 
+**F7/W8 spike progress (2026-07-13):** The separate non-packable runtime and TUnit projects now exist. The first internal checkpoint stores dense `CanonicalProviderValueRow` instances behind per-table primary-key ordinal maps, keeps materialized immutable identities in separate existing `RowCache` instances, executes direct neutral primary-key lookup plus one pass-through root entity plan, and rejects an unsupported `Where` before memory enumeration. Canonical seed publication and source-local identity are proven, while a shared SQL/memory registry lock serializes resolution through generated binding; a gated unit test proves a concurrent caller cannot observe the winner before binding completes, and a 32-way cold start proves convergence on that graph. The seed API remains internal and provider-valued. Focused evidence is `6/6`; the integrated unit and generator gates pass `1129/1129` and `57/57`. The runtime builds for net8/net9/net10 and its package closure has no SQL provider or native database dependency. This is not `M0` or `M1` completion: model-valued seed conversion, the required query subset, documented semantics, parity, typed IDs/`Guid`, public API/package design, concurrent cache maintenance, and constrained-runtime smokes remain open.
+
 ## Decision
 
 DataLinq 0.9 should keep the memory backend, but only as a read-only experimental preview.

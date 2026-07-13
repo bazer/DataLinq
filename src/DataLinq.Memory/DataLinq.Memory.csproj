@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<Description>Experimental read-only in-memory backend for generated DataLinq models.</Description>
+		<IsPackable>false</IsPackable>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<EnableAotAnalyzer>true</EnableAotAnalyzer>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="DataLinq.Tests.Memory" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\DataLinq\DataLinq.csproj" />
+	</ItemGroup>
+
+</Project>

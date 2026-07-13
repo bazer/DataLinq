@@ -9,11 +9,12 @@ internal static class EmployeesGeneratedMetadataFixture
 {
     static EmployeesGeneratedMetadataFixture()
     {
-        var metadata = MetadataFromTypeFactory
-            .ParseDatabaseFromDatabaseModel(typeof(EmployeesDb))
-            .ValueOrException();
-        EmployeesDb.SetDataLinqGeneratedMetadata(metadata);
-        DatabaseDefinition.TryAddLoadedDatabase(typeof(EmployeesDb), metadata);
+        _ = DatabaseDefinition.ResolveLoadedDatabase(
+            typeof(EmployeesDb),
+            () => MetadataFromTypeFactory
+                .ParseDatabaseFromDatabaseModel(typeof(EmployeesDb))
+                .ValueOrException(),
+            EmployeesDb.SetDataLinqGeneratedMetadata);
     }
 
     internal static void EnsureInitialized()
