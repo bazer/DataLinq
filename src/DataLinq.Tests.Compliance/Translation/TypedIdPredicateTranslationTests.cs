@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
@@ -183,6 +184,94 @@ public sealed class TypedIdPredicateTranslationTests
             .Contains("Projection conversion from 'DataLinq.Tests.Compliance.QueryTypedId' to 'System.Int32' is not supported");
         await Assert.That(singleId).IsEqualTo(new QueryTypedId(102));
         await Assert.That(singleId.GetType()).IsEqualTo(typeof(QueryTypedId));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task TypedIdAotSafeLocalProjectionRecipe_MaterializesModelValuesAcrossProviders(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<TypedIdPredicateDb>.Create(
+            provider,
+            nameof(TypedIdAotSafeLocalProjectionRecipe_MaterializesModelValuesAcrossProviders));
+
+        var inserted = databaseScope.Database.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO typedidqueryrows (id, parent_id, name) VALUES " +
+            "(101, NULL, 'alpha'), (102, 101, 'beta'), (103, 101, 'gamma')");
+        var database = databaseScope.Database;
+
+        var query = database.Query().Rows
+            .OrderBy(row => row.Name)
+            .Select(row => new object?[]
+            {
+                row.Id,
+                row.ParentId,
+                (QueryTypedId?)row.Id,
+                (object)row.Id,
+                (object?)row.ParentId,
+                row.ParentId.HasValue,
+                row.ParentId.HasValue ? (object)row.ParentId.Value : null
+            });
+        var invocation = ExpressionQueryPlanParser.Convert(database, query);
+        var projection = invocation.Template.Projection as QueryPlanProjection.ComputedRowLocal;
+
+        database.Provider.State.ClearCache();
+        var strictRows = ExpressionQueryPlanExecutor.ExecuteEnumerable<object?[]>(
+                database.Provider.ReadOnlyAccess,
+                invocation,
+                ProjectionEvaluationOptions.AotStrict)
+            .ToList();
+
+        database.Provider.State.ClearCache();
+        var normalRows = query.ToList();
+
+        var betaName = "beta";
+        var normalSingle = database.Query().Rows
+            .Where(row => row.Name == betaName)
+            .Select(row => new object?[]
+            {
+                row.Id,
+                row.ParentId,
+                (QueryTypedId?)row.Id,
+                (object)row.Id,
+                (object?)row.ParentId,
+                row.ParentId.HasValue,
+                row.ParentId.HasValue ? (object)row.ParentId.Value : null
+            })
+            .Single();
+        var terminalInvocation = ExpressionQueryPlanParser.Convert(database, () =>
+            database.Query().Rows
+                .Where(row => row.Name == betaName)
+                .Select(row => new object?[]
+                {
+                    row.Id,
+                    row.ParentId,
+                    (QueryTypedId?)row.Id,
+                    (object)row.Id,
+                    (object?)row.ParentId,
+                    row.ParentId.HasValue,
+                    row.ParentId.HasValue ? (object)row.ParentId.Value : null
+                })
+                .Single());
+        database.Provider.State.ClearCache();
+        var strictSingle = ExpressionQueryPlanExecutor.Execute<object?[]>(
+            database.Provider.ReadOnlyAccess,
+            terminalInvocation,
+            ProjectionEvaluationOptions.AotStrict);
+
+        await Assert.That(inserted).IsEqualTo(3);
+        await Assert.That(projection).IsNotNull();
+        await Assert.That(projection!.Disposition).IsEqualTo(QueryPlanProjectionDisposition.AotSafe);
+        await Assert.That(projection.Recipe).IsTypeOf<QueryPlanProjectionRecipe.NewArray>();
+        await Assert.That(terminalInvocation.Template.Projection).IsTypeOf<QueryPlanProjection.ComputedRowLocal>();
+        await Assert.That(terminalInvocation.Template.Projection.Disposition)
+            .IsEqualTo(QueryPlanProjectionDisposition.AotSafe);
+        await Assert.That(terminalInvocation.Template.Result.Kind).IsEqualTo(QueryPlanResultKind.Single);
+
+        await AssertLocalProjectionRows(strictRows);
+        await AssertLocalProjectionRows(normalRows);
+        await AssertLocalProjectionBetaRow(normalSingle);
+        await AssertLocalProjectionBetaRow(strictSingle);
     }
 
     [Test]
@@ -517,6 +606,39 @@ public sealed class TypedIdPredicateTranslationTests
 
         await Assert.That(exception.Message).Contains("do not declare whether they preserve ordering");
         await Assert.That(exception.Message).Contains("typedidqueryrows.id");
+    }
+
+    private static async Task AssertLocalProjectionRows(IReadOnlyList<object?[]> rows)
+    {
+        await Assert.That(rows.Count).IsEqualTo(3);
+        await Assert.That(rows.Select(static row => (QueryTypedId)row[0]!).ToArray())
+            .IsEquivalentTo(new[] { new QueryTypedId(101), new QueryTypedId(102), new QueryTypedId(103) });
+        await Assert.That(rows.Select(static row => row[1] is QueryTypedId id ? id : (QueryTypedId?)null).ToArray())
+            .IsEquivalentTo(new QueryTypedId?[] { null, new(101), new(101) });
+        await Assert.That(rows.Select(static row => (QueryTypedId)row[2]!).ToArray())
+            .IsEquivalentTo(new[] { new QueryTypedId(101), new QueryTypedId(102), new QueryTypedId(103) });
+        await Assert.That(rows.All(static row => row[0] is QueryTypedId)).IsTrue();
+        await Assert.That(rows.All(static row => row[2] is QueryTypedId)).IsTrue();
+        await Assert.That(rows.All(static row => row[3] is QueryTypedId)).IsTrue();
+        await Assert.That(rows[0][4]).IsNull();
+        await Assert.That(rows.Skip(1).All(static row => row[4] is QueryTypedId)).IsTrue();
+        await Assert.That(rows.Select(static row => (bool)row[5]!).ToArray())
+            .IsEquivalentTo(new[] { false, true, true });
+        await Assert.That(rows[0][6]).IsNull();
+        await Assert.That(rows.Skip(1).All(static row => row[6] is QueryTypedId)).IsTrue();
+        await Assert.That(rows.SelectMany(static row => row.Take(5)).Any(static value => value is int)).IsFalse();
+    }
+
+    private static async Task AssertLocalProjectionBetaRow(object?[] row)
+    {
+        await Assert.That(row.Length).IsEqualTo(7);
+        await Assert.That(row[0]).IsEqualTo(new QueryTypedId(102));
+        await Assert.That(row[1]).IsEqualTo(new QueryTypedId(101));
+        await Assert.That(row[2]).IsEqualTo(new QueryTypedId(102));
+        await Assert.That(row[3]).IsTypeOf<QueryTypedId>();
+        await Assert.That(row[4]).IsTypeOf<QueryTypedId>();
+        await Assert.That((bool)row[5]!).IsTrue();
+        await Assert.That(row[6]).IsEqualTo(new QueryTypedId(101));
     }
 
     private static TException Capture<TException>(Action action)
