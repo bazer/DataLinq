@@ -130,6 +130,9 @@ internal interface IQueryPlanBackend
 
     IQueryEntityCursor OpenEntityCursor(ValidatedQueryExecutionRequest request);
 
+    IQueryProjectionCursor<TResult> OpenProjectionCursor<TResult>(
+        ValidatedQueryExecutionRequest request);
+
     TResult ExecuteScalar<TResult>(ValidatedQueryExecutionRequest request);
 
     bool TryExecuteTerminalEntity(
@@ -140,6 +143,13 @@ internal interface IQueryPlanBackend
 internal interface IQueryEntityCursor : IDisposable
 {
     IImmutableInstance Current { get; }
+
+    bool MoveNext();
+}
+
+internal interface IQueryProjectionCursor<out TResult> : IDisposable
+{
+    TResult Current { get; }
 
     bool MoveNext();
 }

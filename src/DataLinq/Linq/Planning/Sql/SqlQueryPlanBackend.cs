@@ -42,6 +42,33 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
             request.Context.CancellationToken);
     }
 
+    public IQueryProjectionCursor<TResult> OpenProjectionCursor<TResult>(
+        ValidatedQueryExecutionRequest request)
+    {
+        EnsureProjectionRequest<TResult>(request);
+        request.Context.CancellationToken.ThrowIfCancellationRequested();
+        DataSourceAccess.EnsureReadAllowed(dataSource, "execute a query plan");
+
+        var rows = new SqlDirectProjectionExecutor(
+                dataSource,
+                request.Context.CancellationToken)
+            .Execute<TResult>(request.Invocation)
+            .GetEnumerator();
+
+        try
+        {
+            request.Context.CancellationToken.ThrowIfCancellationRequested();
+            return new EnumeratorQueryProjectionCursor<TResult>(
+                rows,
+                request.Context.CancellationToken);
+        }
+        catch
+        {
+            rows.Dispose();
+            throw;
+        }
+    }
+
     public TResult ExecuteScalar<TResult>(ValidatedQueryExecutionRequest request)
     {
         EnsureScalarRequest(request);
@@ -105,6 +132,36 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
         {
             throw new InvalidOperationException(
                 "The SQL scalar backend requires a Count, Any, Sum, Min, Max, or Average result.");
+        }
+    }
+
+    private void EnsureProjectionRequest<TResult>(ValidatedQueryExecutionRequest request)
+    {
+        EnsureRequest(request);
+
+        var projection = request.Invocation.Template.Projection;
+        var result = request.Invocation.Template.Result;
+        var supportsResult = projection switch
+        {
+            QueryPlanProjection.ScalarMember or QueryPlanProjection.SqlRow =>
+                IsProjectionResult(result.Kind),
+            QueryPlanProjection.GroupedAggregate =>
+                result.Kind == QueryPlanResultKind.Sequence,
+            _ => false
+        };
+
+        if (!supportsResult)
+        {
+            throw new InvalidOperationException(
+                "The SQL projection backend requires a supported ScalarMember, SqlRow, or GroupedAggregate projection result.");
+        }
+
+        if (projection.ResultType != typeof(TResult) ||
+            result.ResultType != typeof(TResult))
+        {
+            throw new InvalidOperationException(
+                $"The SQL projection backend was asked for '{typeof(TResult).FullName}', but the validated query plan projects " +
+                $"'{projection.ResultType.FullName}' and returns '{result.ResultType.FullName}'.");
         }
     }
 
@@ -346,6 +403,15 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
             QueryPlanResultKind.Last or
             QueryPlanResultKind.LastOrDefault;
 
+    private static bool IsProjectionResult(QueryPlanResultKind resultKind)
+        => resultKind is QueryPlanResultKind.Sequence or
+            QueryPlanResultKind.Single or
+            QueryPlanResultKind.SingleOrDefault or
+            QueryPlanResultKind.First or
+            QueryPlanResultKind.FirstOrDefault or
+            QueryPlanResultKind.Last or
+            QueryPlanResultKind.LastOrDefault;
+
     private static TResult ConvertScalarResult<TResult>(
         object? result,
         QueryPlanResult planResult)
@@ -400,6 +466,63 @@ internal sealed class EnumeratorQueryEntityCursor : IQueryEntityCursor
         {
             if (!hasCurrent || rows is null)
                 throw new InvalidOperationException("The query cursor is not positioned on a row.");
+
+            return rows.Current;
+        }
+    }
+
+    public bool MoveNext()
+    {
+        if (rows is null)
+            return false;
+
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            hasCurrent = rows.MoveNext();
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!hasCurrent)
+                Dispose();
+
+            return hasCurrent;
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
+    }
+
+    public void Dispose()
+    {
+        hasCurrent = false;
+        var currentRows = Interlocked.Exchange(ref rows, null);
+        currentRows?.Dispose();
+    }
+}
+
+internal sealed class EnumeratorQueryProjectionCursor<TResult> : IQueryProjectionCursor<TResult>
+{
+    private readonly CancellationToken cancellationToken;
+    private IEnumerator<TResult>? rows;
+    private bool hasCurrent;
+
+    public EnumeratorQueryProjectionCursor(
+        IEnumerator<TResult> rows,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        this.rows = rows;
+        this.cancellationToken = cancellationToken;
+    }
+
+    public TResult Current
+    {
+        get
+        {
+            if (!hasCurrent || rows is null)
+                throw new InvalidOperationException("The query projection cursor is not positioned on a result.");
 
             return rows.Current;
         }

@@ -20,6 +20,71 @@ namespace DataLinq.Tests.Unit.Core;
 public sealed class DataSourceAccessSourceRowLoaderTests
 {
     [Test]
+    public async Task SelectReadReader_CancellationDuringCommandCreationDisposesWithoutProviderExecution()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        using var cancellation = new CancellationTokenSource();
+        var reader = new TrackingReader([[42, "Ada"]]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command,
+            cancellation.Cancel);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        using var rows = new SqlQuery(table, source)
+            .SelectQuery()
+            .ReadReader(cancellation.Token)
+            .GetEnumerator();
+
+        var exception = Capture<OperationCanceledException>(() => rows.MoveNext());
+
+        await Assert.That(exception.CancellationToken).IsEqualTo(cancellation.Token);
+        await Assert.That(provider.CommandCreationCalls).IsEqualTo(1);
+        await Assert.That(databaseAccess.LastCommand).IsNull();
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsFalse();
+    }
+
+    [Test]
+    public async Task SelectReadReader_CancellationAfterYieldedRowDisposesCommandAndReader()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        using var cancellation = new CancellationTokenSource();
+        var reader = new TrackingReader(
+        [
+            [42, "Ada"],
+            [43, "Grace"]
+        ]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        using var rows = new SqlQuery(table, source)
+            .SelectQuery()
+            .ReadReader(cancellation.Token)
+            .GetEnumerator();
+
+        await Assert.That(rows.MoveNext()).IsTrue();
+        await Assert.That(command.Disposed).IsFalse();
+        await Assert.That(reader.Disposed).IsFalse();
+
+        cancellation.Cancel();
+        var exception = Capture<OperationCanceledException>(() => rows.MoveNext());
+
+        await Assert.That(exception.CancellationToken).IsEqualTo(cancellation.Token);
+        await Assert.That(databaseAccess.LastCommand).IsSameReferenceAs(command);
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
+    [Test]
     public async Task SelectReadReader_EarlyDisposalOwnsCommandAndReaderLifetime()
     {
         var table = CreateTable(new RecordingIdConverter());
@@ -244,7 +309,8 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         DatabaseDefinition metadata,
         TrackingDatabaseAccess databaseAccess,
         RecordingWriter writer,
-        TrackingCommand command) : IDatabaseProvider
+        TrackingCommand command,
+        Action? onCommandCreated = null) : IDatabaseProvider
     {
         public int CommandCreationCalls { get; private set; }
         public IQuery? LastQuery { get; private set; }
@@ -262,6 +328,7 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         {
             CommandCreationCalls++;
             LastQuery = query;
+            onCommandCreated?.Invoke();
             return command;
         }
 

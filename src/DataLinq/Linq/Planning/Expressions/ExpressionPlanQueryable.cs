@@ -1,10 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
 using System.Threading;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
@@ -146,17 +144,10 @@ internal static class ExpressionQueryPlanExecutor
         if (template.Projection is QueryPlanProjection.Entity)
             return ExecuteEntitySequence<TElement>(request);
 
+        if (IsBackendProjection(template.Projection))
+            return ExecuteProjectionSequence<TElement>(request);
+
         var dataSource = GetSqlCompatibilityDataSource(request);
-
-        if (template.Projection is QueryPlanProjection.GroupedAggregate groupedAggregate)
-            return ExecuteGroupedAggregateProjection<TElement>(dataSource, plan, groupedAggregate);
-
-        if (template.Projection is QueryPlanProjection.ScalarMember scalarMember)
-            return ExecuteScalarProjection<TElement>(dataSource, plan, scalarMember);
-
-        if (template.Projection is QueryPlanProjection.SqlRow sqlRow)
-            return ExecuteSqlRowProjection<TElement>(dataSource, plan, sqlRow);
-
         return ExecuteProjectedSequence<TElement>(dataSource, plan, projectionOptions);
     }
 
@@ -189,6 +180,9 @@ internal static class ExpressionQueryPlanExecutor
 
         if (plan.Template.Result.IsScalarResult)
             return ExecuteScalar<TResult>(request);
+
+        if (IsBackendProjection(plan.Template.Projection))
+            return ExecuteProjectionTerminal<TResult>(request);
 
         var dataSource = GetSqlCompatibilityDataSource(request);
         return plan.Template.Result.Kind switch
@@ -241,6 +235,14 @@ internal static class ExpressionQueryPlanExecutor
             yield return (TElement)(object)cursor.Current;
     }
 
+    private static IEnumerable<TElement> ExecuteProjectionSequence<TElement>(
+        ValidatedQueryExecutionRequest request)
+    {
+        using var cursor = request.Backend.OpenProjectionCursor<TElement>(request);
+        while (cursor.MoveNext())
+            yield return cursor.Current;
+    }
+
     private static TResult ExecuteEntityTerminal<TResult>(
         ValidatedQueryExecutionRequest request)
     {
@@ -276,6 +278,28 @@ internal static class ExpressionQueryPlanExecutor
             QueryPlanResultKind.Last or
             QueryPlanResultKind.LastOrDefault;
 
+    private static bool IsBackendProjection(QueryPlanProjection projection)
+        => projection is QueryPlanProjection.ScalarMember or
+            QueryPlanProjection.SqlRow or
+            QueryPlanProjection.GroupedAggregate;
+
+    private static TResult ExecuteProjectionTerminal<TResult>(
+        ValidatedQueryExecutionRequest request)
+    {
+        var sequence = ExecuteProjectionSequence<TResult>(request);
+        return request.Invocation.Template.Result.Kind switch
+        {
+            QueryPlanResultKind.First => sequence.First(),
+            QueryPlanResultKind.FirstOrDefault => sequence.FirstOrDefault()!,
+            QueryPlanResultKind.Single => sequence.Single(),
+            QueryPlanResultKind.SingleOrDefault => sequence.SingleOrDefault()!,
+            QueryPlanResultKind.Last => sequence.Last(),
+            QueryPlanResultKind.LastOrDefault => sequence.LastOrDefault()!,
+            var kind => throw new QueryTranslationException(
+                $"Expression parser route expected a direct projection terminal result, but the plan result is '{kind}'.")
+        };
+    }
+
     private static TResult ExecuteSingle<TResult>(
         DataSourceAccess dataSource,
         QueryPlanInvocation plan,
@@ -288,11 +312,11 @@ internal static class ExpressionQueryPlanExecutor
                 "Entity terminal results must execute through the selected query backend.");
         }
 
-        if (plan.Template.Projection is QueryPlanProjection.ScalarMember scalarMember)
-            return selector(ExecuteScalarProjection<TResult>(dataSource, plan, scalarMember))!;
-
-        if (plan.Template.Projection is QueryPlanProjection.SqlRow sqlRow)
-            return selector(ExecuteSqlRowProjection<TResult>(dataSource, plan, sqlRow))!;
+        if (IsBackendProjection(plan.Template.Projection))
+        {
+            throw new QueryTranslationException(
+                "Direct projection terminal results must execute through the selected query backend.");
+        }
 
         return selector(ExecuteProjectedSequence<TResult>(dataSource, plan, projectionOptions))!;
     }
@@ -333,7 +357,7 @@ internal static class ExpressionQueryPlanExecutor
             {
                 [rootSource] = row
             };
-            yield return ConvertProjectionResult<TElement>(
+            yield return QueryProjectionResultMaterializer.ConvertResult<TElement>(
                 QueryPlanProjectionRecipeEvaluator.Evaluate(
                     recipe,
                     sourceValues,
@@ -375,7 +399,7 @@ internal static class ExpressionQueryPlanExecutor
                     ?? throw new InvalidOperationException($"Joined row for table '{source.Table.DbName}' could not be materialized from its provider primary key.");
             }
 
-            yield return ConvertProjectionResult<TElement>(
+            yield return QueryProjectionResultMaterializer.ConvertResult<TElement>(
                 QueryPlanProjectionRecipeEvaluator.Evaluate(
                     recipe,
                     sourceValues,
@@ -409,204 +433,6 @@ internal static class ExpressionQueryPlanExecutor
             values[index] = reader.GetValue<object>(primaryKeyColumns[index], primaryKeyOrdinals[index]);
 
         return DataLinqKey.FromValues(values);
-    }
-
-    private static IEnumerable<TElement> ExecuteGroupedAggregateProjection<TElement>(
-        DataSourceAccess dataSource,
-        QueryPlanInvocation plan,
-        QueryPlanProjection.GroupedAggregate projection)
-    {
-        var select = new QueryPlanSqlBuilder(plan, dataSource).BuildSelect<TElement>();
-        var sourceName = $"sql:{dataSource.Provider.DatabaseType}:grouped-projection";
-
-        foreach (var reader in select.ReadReader())
-        {
-            var values = new object?[projection.Members.Count];
-            for (var index = 0; index < projection.Members.Count; index++)
-            {
-                var member = projection.Members[index];
-                // Grouped SELECT emits one selector per projection member in this order.
-                // The slot ordinal prevents alias comparison from pairing the value with different column metadata.
-                if (member.Value is QueryPlanGroupKeyValue groupKey &&
-                    IsModelCompatibleConvertedColumnShape(groupKey.Key, groupKey.ClrType) &&
-                    TryReadScalarConvertedColumnValue(
-                        reader,
-                        groupKey.Key,
-                        index,
-                        sourceName,
-                        out var modelValue))
-                {
-                    values[index] = ConvertReaderValue(modelValue, groupKey.ClrType);
-                    continue;
-                }
-
-                var ordinal = reader.GetOrdinal(member.Name);
-                var rawValue = reader.IsDbNull(ordinal) ? null : reader.GetValue(ordinal);
-                values[index] = ConvertReaderValue(rawValue, member.Value.ClrType);
-            }
-
-            yield return CreateProjectionRow<TElement>(projection.Constructor, values);
-        }
-    }
-
-    private static IEnumerable<TElement> ExecuteScalarProjection<TElement>(
-        DataSourceAccess dataSource,
-        QueryPlanInvocation plan,
-        QueryPlanProjection.ScalarMember projection)
-    {
-        var select = new QueryPlanSqlBuilder(plan, dataSource).BuildSelect<TElement>();
-        var sourceName = $"sql:{dataSource.Provider.DatabaseType}:scalar-projection";
-
-        foreach (var reader in select.ReadReader())
-        {
-            var ordinal = reader.GetOrdinal(QueryPlanSqlBuilder.ScalarProjectionAlias);
-            if (projection.Column.HasScalarConverter)
-            {
-                var canonicalValue = ProviderRowDecoder.DecodeCanonicalValue(
-                    reader,
-                    projection.Column,
-                    ordinal,
-                    sourceName);
-                var modelValue = ProviderRowMaterializer.MaterializeValue(
-                    projection.Column,
-                    canonicalValue,
-                    sourceName);
-                yield return ConvertProjectionResult<TElement>(modelValue);
-                continue;
-            }
-
-            var rawValue = reader.IsDbNull(ordinal) ? null : reader.GetValue(ordinal);
-            yield return ConvertProjectionResult<TElement>(ConvertReaderValue(rawValue, projection.ResultType));
-        }
-    }
-
-    private static IEnumerable<TElement> ExecuteSqlRowProjection<TElement>(
-        DataSourceAccess dataSource,
-        QueryPlanInvocation plan,
-        QueryPlanProjection.SqlRow projection)
-    {
-        var select = new QueryPlanSqlBuilder(plan, dataSource).BuildSelect<TElement>();
-        var sourceName = $"sql:{dataSource.Provider.DatabaseType}:row-projection";
-
-        foreach (var reader in select.ReadReader())
-        {
-            var values = new object?[projection.Members.Count];
-            for (var index = 0; index < projection.Members.Count; index++)
-            {
-                var member = projection.Members[index];
-                var ordinal = reader.GetOrdinal(member.Name);
-                if (TryReadScalarConvertedColumnValue(
-                        reader,
-                        member.Value,
-                        ordinal,
-                        sourceName,
-                        out var modelValue))
-                {
-                    values[index] = modelValue;
-                    continue;
-                }
-
-                var rawValue = reader.IsDbNull(ordinal) ? null : reader.GetValue(ordinal);
-                values[index] = ConvertReaderValue(rawValue, member.Value.ClrType);
-            }
-
-            yield return CreateProjectionRow<TElement>(projection.Constructor, values);
-        }
-    }
-
-    private static bool TryReadScalarConvertedColumnValue(
-        IDataLinqDataReader reader,
-        QueryPlanValue value,
-        int ordinal,
-        string sourceName,
-        out object? modelValue)
-    {
-        if (value is QueryPlanConvertedValue converted)
-        {
-            if (!TryReadScalarConvertedColumnValue(
-                    reader,
-                    converted.Value,
-                    ordinal,
-                    sourceName,
-                    out var innerValue))
-            {
-                modelValue = null;
-                return false;
-            }
-
-            modelValue = ConvertReaderValue(innerValue, converted.TargetType);
-            return true;
-        }
-
-        if (value is not QueryPlanColumnValue { Column.HasScalarConverter: true } columnValue)
-        {
-            modelValue = null;
-            return false;
-        }
-
-        var canonicalValue = ProviderRowDecoder.DecodeCanonicalValue(
-            reader,
-            columnValue.Column,
-            ordinal,
-            sourceName);
-        modelValue = ProviderRowMaterializer.MaterializeValue(
-            columnValue.Column,
-            canonicalValue,
-            sourceName);
-        modelValue = ConvertReaderValue(modelValue, columnValue.ClrType);
-        return true;
-    }
-
-    private static bool IsModelCompatibleConvertedColumnShape(
-        QueryPlanValue value,
-        Type resultType)
-    {
-        var leaf = value;
-        while (leaf is QueryPlanConvertedValue converted)
-            leaf = converted.Value;
-
-        if (leaf is not QueryPlanColumnValue { Column.HasScalarConverter: true } columnValue)
-            return false;
-
-        var declaredModelType = columnValue.Column.ModelClrType ?? columnValue.ClrType;
-        var modelType = Nullable.GetUnderlyingType(declaredModelType) ?? declaredModelType;
-        if (!IsAssignableFromModelType(modelType, columnValue.ClrType) ||
-            !IsAssignableFromModelType(modelType, resultType))
-        {
-            return false;
-        }
-
-        while (value is QueryPlanConvertedValue converted)
-        {
-            if (!IsAssignableFromModelType(modelType, converted.TargetType))
-                return false;
-
-            value = converted.Value;
-        }
-
-        return true;
-    }
-
-    private static bool IsAssignableFromModelType(Type modelType, Type targetType)
-    {
-        var nonNullableTarget = Nullable.GetUnderlyingType(targetType) ?? targetType;
-        return nonNullableTarget.IsAssignableFrom(modelType);
-    }
-
-    private static TElement CreateProjectionRow<TElement>(ConstructorInfo constructor, IReadOnlyList<object?> values)
-    {
-        var parameters = constructor.GetParameters();
-        if (parameters.Length != values.Count)
-        {
-            throw new QueryTranslationException(
-                $"Projection constructor expects {parameters.Length} values, but the query plan supplied {values.Count}.");
-        }
-
-        var arguments = new object?[values.Count];
-        for (var index = 0; index < values.Count; index++)
-            arguments[index] = ConvertReaderValue(values[index], parameters[index].ParameterType);
-
-        return ConvertProjectionResult<TElement>(constructor.Invoke(arguments));
     }
 
     private static int[][] GetJoinedPrimaryKeyOrdinals(IDataLinqDataReader reader, IReadOnlyList<QueryPlanSourceSlot> sources)
@@ -672,40 +498,6 @@ internal static class ExpressionQueryPlanExecutor
             throw new QueryTranslationException(
                 $"Projection '{projection.Kind}' requires SQL-only compatibility execution and cannot execute in AOT-strict mode.");
         }
-    }
-
-    private static T ConvertProjectionResult<T>(object? value)
-    {
-        if (value is null)
-            return default!;
-
-        if (value is T typed)
-            return typed;
-
-        var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
-        return (T)Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);
-    }
-
-    private static object? ConvertReaderValue(object? value, Type targetType)
-    {
-        if (value is DBNull)
-            value = null;
-
-        if (value is null)
-            return null;
-
-        var nonNullableTarget = Nullable.GetUnderlyingType(targetType) ?? targetType;
-        if (nonNullableTarget.IsInstanceOfType(value))
-            return value;
-
-        if (nonNullableTarget.IsEnum)
-        {
-            return value is string stringValue
-                ? Enum.Parse(nonNullableTarget, stringValue, ignoreCase: false)
-                : Enum.ToObject(nonNullableTarget, value);
-        }
-
-        return Convert.ChangeType(value, nonNullableTarget, CultureInfo.InvariantCulture);
     }
 
 }

@@ -33,11 +33,23 @@ public sealed class QueryPlanCapabilityExecutionTests
                 employees.Where(employee => employee.first_name.Substring(1) == capturedValue).FirstOrDefault());
             var scalarFailure = Capture<QueryBackendCapabilityException>(() =>
                 employees.Where(employee => employee.first_name.Substring(1) == capturedValue).Count());
+            var projectionSequenceFailure = Capture<QueryBackendCapabilityException>(() =>
+                employees
+                    .Where(employee => employee.first_name.Substring(1) == capturedValue)
+                    .Select(employee => employee.first_name)
+                    .ToList());
+            var projectionTerminalFailure = Capture<QueryBackendCapabilityException>(() =>
+                employees
+                    .Where(employee => employee.first_name.Substring(1) == capturedValue)
+                    .Select(employee => new { employee.first_name })
+                    .FirstOrDefault());
             var snapshot = DataLinqMetrics.Snapshot();
 
             await AssertUnsupportedSubstringDiagnostic(sequenceFailure, capturedValue);
             await AssertUnsupportedSubstringDiagnostic(terminalFailure, capturedValue);
             await AssertUnsupportedSubstringDiagnostic(scalarFailure, capturedValue);
+            await AssertUnsupportedSubstringDiagnostic(projectionSequenceFailure, capturedValue);
+            await AssertUnsupportedSubstringDiagnostic(projectionTerminalFailure, capturedValue);
             await Assert.That(snapshot.Commands.TotalExecutions).IsEqualTo(0);
             await Assert.That(snapshot.Queries.EntityExecutions).IsEqualTo(0);
             await Assert.That(snapshot.Queries.ScalarExecutions).IsEqualTo(0);

@@ -139,11 +139,24 @@ public class Select<T> : IQuery
     }
 
     public IEnumerable<IDataLinqDataReader> ReadReader()
+        => ReadReader(CancellationToken.None);
+
+    internal IEnumerable<IDataLinqDataReader> ReadReader(CancellationToken cancellationToken)
     {
         DataSourceAccess.EnsureReadAllowed(query.DataSource, "read query rows");
+        cancellationToken.ThrowIfCancellationRequested();
         using var command = ToDbCommand();
-        foreach (var reader in query.DataSource.DatabaseAccess.ReadReader(command))
+        cancellationToken.ThrowIfCancellationRequested();
+        using var reader = query.DataSource.DatabaseAccess.ExecuteReader(command);
+
+        while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var hasRow = reader.ReadNextRow();
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!hasRow)
+                yield break;
+
             yield return reader;
         }
     }
