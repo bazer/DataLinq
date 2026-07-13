@@ -122,6 +122,12 @@ public class SQLiteDataLinqDataReader : IDataLinqDataReader
         if (IsDbNull(ordinal))
             return default;
 
+        if (column.IsGuidColumn)
+        {
+            var physicalValue = GetValue(ordinal);
+            return (T?)(object)SQLiteGuidStorageCodec.FromPhysicalValue(column, physicalValue);
+        }
+
         var csType = column.ValueProperty.CsType.Type
             ?? throw new InvalidOperationException($"Column '{column.Table.DbName}.{column.DbName}' does not have runtime C# type metadata.");
 

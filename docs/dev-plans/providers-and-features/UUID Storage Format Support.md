@@ -3,7 +3,7 @@
 
 # Specification: UUID Storage Format Support
 
-**Status:** Implementation in progress. Bounded `UUID-1A` declaration/codec primitives and `UUID-1B` immutable provider-keyed resolution are implemented; provider reads, writes, queries, defaults, and schema comparison/validation consumption remain open.
+**Status:** Implementation in progress. Bounded `UUID-1A` declaration/codec primitives and `UUID-1B` immutable provider-keyed resolution are implemented. A bounded SQLite-first `UUID-2` checkpoint now consumes resolved formats for direct non-key full-row `Guid` reads and insert/update writes across Text36, Text32, little-endian BLOB, and RFC-order BLOB storage, plus nullable Text36/SQL NULL. MySQL/MariaDB reads and writes, typed IDs, projections, queries, keys, relations, defaults, and schema comparison/validation remain open; aggregate `UUID-2` is not complete.
 
 **Release scope:** Required 0.9 runtime correctness slice; broader UUID policy work remains later.
 
@@ -11,11 +11,11 @@
 
 **Depends on:** The scalar value contract starts with `SC-1`; the complete UUID slice consumes `SC-2` through `SC-5` at the per-workstream boundaries defined below. See [Scalar Converters And Typed IDs Implementation Plan](../roadmap-implementation/v0.9/Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md).
 
-**Last reviewed:** 2026-07-12.
+**Last reviewed:** 2026-07-13.
 
 **Goal:** Make DataLinq responsible for UUID/`Guid` storage semantics so reads, writes, queries, defaults, validation, and generated metadata do not depend on MySqlConnector connection-string behavior.
 
-**Current implementation boundary:** `GuidStorageFormat` freezes the five 0.9 formats, `GuidStorageAttribute` declarations receive intrinsic validation immediately and canonical-type validation after semantic scalar resolution, and raw declarations survive source parsing, CLI metadata merge/model regeneration, and source-generated runtime metadata. Syntax-only metadata deliberately defers scalar-dependent UUID resolution. The internal `GuidCodec` deterministically converts canonical `Guid` values to native-text, exact text, legacy .NET mixed-endian bytes, or RFC-order bytes and back. `ColumnDefinition` now owns immutable definitions resolved per applicable built-in provider after scalar conversion, including typed IDs over canonical `Guid`; generated metadata carries those definitions and runtime construction recomputes them to reject inconsistent non-empty carried definitions. Provider readers, writers, query binders, defaults, and schema comparison do not consume the definitions yet, so aggregate `UUID-1` provider support is not complete.
+**Current implementation boundary:** `GuidStorageFormat` freezes the five 0.9 formats, `GuidStorageAttribute` declarations receive intrinsic validation immediately and canonical-type validation after semantic scalar resolution, and raw declarations survive source parsing, CLI metadata merge/model regeneration, and source-generated runtime metadata. Syntax-only metadata deliberately defers scalar-dependent UUID resolution. The internal `GuidCodec` deterministically converts canonical `Guid` values to native-text, exact text, legacy .NET mixed-endian bytes, or RFC-order bytes and back. `ColumnDefinition` now owns immutable definitions resolved per applicable built-in provider after scalar conversion, including typed IDs over canonical `Guid`; generated metadata carries those definitions and runtime construction recomputes them to reject inconsistent non-empty carried definitions. SQLite's column-aware reader and mutation writer now consume exact resolved definitions for direct non-key full-row `Guid` values across Text36, Text32, little-endian BLOB, and RFC-order BLOB storage, plus nullable Text36/SQL NULL. Other SQLite reader/query/key/default routes and every MySQL/MariaDB consumer remain open, so aggregate `UUID-2` provider support is not complete.
 
 ## 0.9 Decision And Ownership
 
@@ -370,7 +370,7 @@ Recommended behavior:
 - `BLOB` with `Guid` -> explicit `Binary16LittleEndian` or `Binary16Rfc4122`
 - imported `BLOB` named `guid`/`uuid` should probably generate an explicit warning because byte layout cannot be inferred from SQLite type affinity
 
-SQLite query parameter normalization already converts `Guid` to text in `SQLiteProvider.CreateParameter`. That pattern should become column-aware if binary UUID support is formalized.
+Mapped SQLite full-row reads and mutation writes now normalize direct non-key `Guid` values through resolved column metadata in the bounded provider-consumption slice above. `SQLiteProvider.CreateParameter` remains the legacy metadata-free text fallback; query parameter normalization is still open and must become column-aware before binary UUID query support is claimed.
 
 Live-schema metadata never infers byte order from bare MySQL/MariaDB `BINARY(16)` or SQLite `BLOB`. The unresolved provider provenance survives metadata snapshots. If model-file generation cannot merge an existing source declaration that supplies the policy, it emits a blocking `DATALINQ_UUID_STORAGE_UNRESOLVED` source diagnostic instructing the user to choose little-endian compatibility or RFC/string order; the import pipeline therefore cannot silently turn an unknown schema layout into a model default.
 
@@ -619,6 +619,8 @@ Exit signal:
 The exit signal is green. This is resolved metadata, not provider UUID behavior; `UUID-2` remains the first consumer slice.
 
 ### UUID-2: Provider Reads, Writes, And Mutation Values
+
+SQLite-first progress on 2026-07-13: mapped canonical `Guid` values on direct non-key full-row paths now require an exact resolved SQLite definition. Mutation writes encode through `GuidCodec`, while the column-aware reader decodes raw TEXT/BLOB values through the same format before model materialization. Active file-backed and in-memory evidence covers non-nullable `Guid` across inferred Text36, explicit Text32, little-endian BLOB, and RFC-order BLOB, plus nullable Text36/SQL NULL, owned-transaction insert, update, exact raw write vectors, and independently raw-seeded cache-cleared reads. Typed IDs, projections, predicates/membership, UUID keys/cache/relations/delete keys, defaults, ambiguous BLOB snapshots/imports, MySQL/MariaDB, and aggregate `UUID-2` completion remain open.
 
 - update MySQL/MariaDB readers and writers to use column metadata and the codec
 - stop relying on `MySqlDataReader.GetGuid(...)` for known binary layouts
