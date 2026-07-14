@@ -150,7 +150,29 @@ internal sealed class SqlLocalProjectionExecutor
     {
         var primaryKeyColumns = source.Table.PrimaryKeyColumns;
         if (primaryKeyColumns.Count == 1)
-            return reader.GetValue<object>(primaryKeyColumns[0], primaryKeyOrdinals[0])!;
+        {
+            var primaryKeyColumn = primaryKeyColumns[0];
+            var providerType = primaryKeyColumn.ProviderClrType;
+
+            // Joined local projections buffer reader keys before cache hydration. Converted
+            // primary keys cannot use the generated/model-valued scalar fast path, so preserve
+            // the already-proven SC-3 dynamic-key boundary for the exact canonical Int32 slice.
+            // Wider converted, UUID, and composite reader keys remain on their existing paths
+            // until their provider and codec contracts are proven independently.
+            if (primaryKeyColumn.HasScalarConverter &&
+                providerType is not null &&
+                (Nullable.GetUnderlyingType(providerType) ?? providerType) == typeof(int))
+            {
+                return DataLinqKey.FromValue(
+                    ProviderRowDecoder.DecodeCanonicalValue(
+                        reader,
+                        primaryKeyColumn,
+                        primaryKeyOrdinals[0],
+                        "reader.joined-key-selection"));
+            }
+
+            return reader.GetValue<object>(primaryKeyColumn, primaryKeyOrdinals[0])!;
+        }
 
         var values = new object?[primaryKeyColumns.Count];
         for (var index = 0; index < values.Length; index++)

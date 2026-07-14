@@ -454,6 +454,98 @@ public sealed class TypedIdPredicateTranslationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task TypedIdJoinedRowLocalProjection_HydratesCanonicalPrimaryKeysAcrossProviders(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<TypedIdPredicateDb>.Create(
+            provider,
+            nameof(TypedIdJoinedRowLocalProjection_HydratesCanonicalPrimaryKeysAcrossProviders));
+
+        var inserted = databaseScope.Database.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO typedidqueryrows (id, parent_id, name) VALUES " +
+            "(101, NULL, 'alpha'), (102, 101, 'beta'), (103, 101, 'gamma')");
+        var database = databaseScope.Database;
+        var query = database.Query().Rows.Join(
+            database.Query().Rows,
+            child => child.ParentId!.Value,
+            parent => parent.Id,
+            (child, parent) => new object?[]
+            {
+                child,
+                parent,
+                child.Id,
+                child.ParentId,
+                parent.Id,
+                child.Name,
+                parent.Name
+            });
+        var invocation = ExpressionQueryPlanParser.Convert(database, query);
+        var projection = invocation.Template.Projection as QueryPlanProjection.JoinedRowLocal;
+        var joinedSources = invocation.Template.Sources
+            .Where(static source => source.Kind is QueryPlanSourceKind.RootTable or QueryPlanSourceKind.ExplicitJoin)
+            .ToArray();
+
+        database.Provider.State.ClearCache();
+        var rows = query
+            .ToList()
+            .OrderBy(static row => ((TypedIdQueryRow)row[0]!).Id.Value)
+            .ToArray();
+
+        var beta = (TypedIdQueryRow)rows[0][0]!;
+        var gamma = (TypedIdQueryRow)rows[1][0]!;
+        var betaParent = (TypedIdQueryRow)rows[0][1]!;
+        var gammaParent = (TypedIdQueryRow)rows[1][1]!;
+        var table = database.Provider.Metadata.GetTableModel(typeof(TypedIdQueryRow)).Table;
+        var tableCache = database.Provider.GetTableCache(table);
+        var cachedParent = tableCache.GetRow(
+            DataLinqKey.FromValue(101),
+            database.Provider.ReadOnlyAccess);
+        var cachedBeta = tableCache.GetRow(
+            DataLinqKey.FromValue(102),
+            database.Provider.ReadOnlyAccess);
+        var cachedGamma = tableCache.GetRow(
+            DataLinqKey.FromValue(103),
+            database.Provider.ReadOnlyAccess);
+
+        await Assert.That(inserted).IsEqualTo(3);
+        await Assert.That(projection).IsNotNull();
+        await Assert.That(projection!.Disposition)
+            .IsEqualTo(QueryPlanProjectionDisposition.SqlOnlyCompatibility);
+        await Assert.That(joinedSources.Length).IsEqualTo(2);
+        await Assert.That(joinedSources.All(static source =>
+            source.Table.PrimaryKeyColumns.Count == 1 &&
+            source.Table.PrimaryKeyColumns[0].HasScalarConverter &&
+            source.Table.PrimaryKeyColumns[0].ProviderClrType == typeof(int)))
+            .IsTrue();
+
+        await Assert.That(rows.Length).IsEqualTo(2);
+        await Assert.That(beta.Id).IsEqualTo(new QueryTypedId(102));
+        await Assert.That(gamma.Id).IsEqualTo(new QueryTypedId(103));
+        await Assert.That(betaParent.Id).IsEqualTo(new QueryTypedId(101));
+        await Assert.That(gammaParent).IsSameReferenceAs(betaParent);
+        await Assert.That(beta.ParentId).IsEqualTo(new QueryTypedId(101));
+        await Assert.That(gamma.ParentId).IsEqualTo(new QueryTypedId(101));
+        await Assert.That(rows.Select(static row => row[2]).All(static value => value is QueryTypedId))
+            .IsTrue();
+        await Assert.That(rows.Select(static row => row[3]).All(static value => value is QueryTypedId))
+            .IsTrue();
+        await Assert.That(rows.Select(static row => row[4]).All(static value => value is QueryTypedId))
+            .IsTrue();
+        await Assert.That(rows.Select(static row => (string)row[5]!).ToArray())
+            .IsEquivalentTo(new[] { "beta", "gamma" });
+        await Assert.That(rows.Select(static row => (string)row[6]!).ToArray())
+            .IsEquivalentTo(new[] { "alpha", "alpha" });
+
+        await Assert.That(beta.PrimaryKeys().GetValue(0)).IsTypeOf<int>();
+        await Assert.That(gamma.PrimaryKeys().GetValue(0)).IsTypeOf<int>();
+        await Assert.That(betaParent.PrimaryKeys().GetValue(0)).IsTypeOf<int>();
+        await Assert.That(cachedParent).IsSameReferenceAs(betaParent);
+        await Assert.That(cachedBeta).IsSameReferenceAs(beta);
+        await Assert.That(cachedGamma).IsSameReferenceAs(gamma);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TypedIdGroupedAggregateKeys_MaterializeScalarNullableAndCompositeValuesAcrossProviders(
         TestProviderDescriptor provider)
     {
