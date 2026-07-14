@@ -250,6 +250,28 @@ public class GeneratorFileFactoryTests
     }
 
     [Test]
+    [Arguments(UUIDVersion.Version4, "global::System.Guid.NewGuid()")]
+    [Arguments(UUIDVersion.Version7, "global::DataLinq.Instances.GeneratedDefaultValueFactory.CreateVersion7Guid()")]
+    public async Task CreateModelFiles_RequiredConstructor_EvaluatesDynamicDefaultExactlyOnce(
+        UUIDVersion version,
+        string expectedExpression)
+    {
+        var database = CreateDatabaseWithUuidDefaultAndRequiredName(version);
+
+        var generatedCode = new GeneratorFileFactory(new GeneratorFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "GeneratorModel.cs")
+            .contents;
+
+        var invocationCount = generatedCode.Split(expectedExpression, StringSplitOptions.None).Length - 1;
+
+        await Assert.That(invocationCount).IsEqualTo(1);
+        await Assert.That(generatedCode).Contains($"this.Id = {expectedExpression};");
+        await Assert.That(generatedCode).Contains("public MutableGeneratorModel(string name) : this()");
+        await Assert.That(generatedCode).Contains("this.Name = name;");
+    }
+
+    [Test]
     public async Task CreateModelFiles_DefaultEnumValue_UsesEnumMember()
     {
         var database = CreateDatabaseWithDefaultValue(
@@ -375,6 +397,55 @@ public class GeneratorFileFactoryTests
                             {
                                 Attributes = propertyAttributes,
                                 EnumProperty = enumProperty
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("generator_table"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithUuidDefaultAndRequiredName(UUIDVersion version)
+    {
+        var draft = new MetadataDatabaseDraft(
+            "GeneratorDb",
+            new CsTypeDeclaration("GeneratorDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "GeneratorModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("GeneratorModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.SQLite, "TEXT")]
+                                })
+                            {
+                                Attributes =
+                                [
+                                    new ColumnAttribute("id"),
+                                    new GuidStorageAttribute(GuidStorageFormat.Text36),
+                                    new DefaultNewUUIDAttribute(version)
+                                ]
+                            },
+                            new MetadataValuePropertyDraft(
+                                "Name",
+                                new CsTypeDeclaration(typeof(string)),
+                                new MetadataColumnDraft("name")
+                                {
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.SQLite, "TEXT")]
+                                })
+                            {
+                                Attributes = [new ColumnAttribute("name")]
                             }
                         ]
                     },

@@ -285,6 +285,68 @@ public class SourceGeneratorTests : GeneratorTestBase
     }
 
     [Test]
+    public async Task DefaultNewUuid_GeneratesRuntimeHelperSingleOwnerInitializationAndCompiles()
+    {
+        var source = CSharpSyntaxTree.ParseText(
+            """
+            using DataLinq;
+            using DataLinq.Attributes;
+            using DataLinq.Instances;
+            using DataLinq.Interfaces;
+            using DataLinq.Mutation;
+
+            namespace DefaultNewUuidGeneratorTest;
+
+            [Database("default_new_uuid")]
+            public partial class DefaultNewUuidDb(DataSourceAccess dataSource) : IDatabaseModel<DefaultNewUuidDb>
+            {
+                public DbRead<DefaultNewUuidRow> Rows { get; } = new(dataSource);
+            }
+
+            [Table("default_new_uuid_rows")]
+            public abstract partial class DefaultNewUuidRow(IRowData rowData, IDataSourceAccess dataSource)
+                : Immutable<DefaultNewUuidRow, DefaultNewUuidDb>(rowData, dataSource), ITableModel<DefaultNewUuidDb>
+            {
+                [PrimaryKey]
+                [Type(DatabaseType.SQLite, "TEXT")]
+                [GuidStorage(GuidStorageFormat.Text36)]
+                [DefaultNewUUID(UUIDVersion.Version7)]
+                [Column("version7_id")]
+                public abstract global::System.Guid Version7Id { get; }
+
+                [Type(DatabaseType.SQLite, "TEXT")]
+                [GuidStorage(GuidStorageFormat.Text36)]
+                [DefaultNewUUID(UUIDVersion.Version4)]
+                [Column("version4_id")]
+                public abstract global::System.Guid Version4Id { get; }
+
+                [Type(DatabaseType.SQLite, "TEXT")]
+                [Column("name")]
+                public abstract string Name { get; }
+            }
+            """,
+            path: "DefaultNewUuidGeneratorTest.cs");
+
+        var (outputCompilation, generatorDiagnostics, generatedTrees) =
+            RunGeneratorWithDiagnostics([source]);
+        var code = SyntaxTreesToString(generatedTrees);
+        var errors = generatorDiagnostics
+            .Concat(outputCompilation.GetDiagnostics())
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        const string version4Expression = "global::System.Guid.NewGuid()";
+        const string version7Expression =
+            "global::DataLinq.Instances.GeneratedDefaultValueFactory.CreateVersion7Guid()";
+
+        await Assert.That(errors).IsEmpty();
+        await Assert.That(code.Split(version4Expression, StringSplitOptions.None).Length - 1).IsEqualTo(1);
+        await Assert.That(code.Split(version7Expression, StringSplitOptions.None).Length - 1).IsEqualTo(1);
+        await Assert.That(code).Contains("public MutableDefaultNewUuidRow(string name) : this()");
+        await Assert.That(code).Contains("this.Name = name;");
+        await Assert.That(code).DoesNotContain("Guid.CreateVersion7()");
+    }
+
+    [Test]
     public async Task UnresolvedGuidStorage_BlocksCompilationAndSuppressesDatabaseOutput()
     {
         var source = CSharpSyntaxTree.ParseText(

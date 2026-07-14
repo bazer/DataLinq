@@ -229,8 +229,8 @@ public class ValueProperty : PropertyDefinition
 
             return defaultNewUUID.Version switch
             {
-                UUIDVersion.Version4 => "Guid.NewGuid()",
-                UUIDVersion.Version7 => "Guid.CreateVersion7()",
+                UUIDVersion.Version4 => "global::System.Guid.NewGuid()",
+                UUIDVersion.Version7 => "global::DataLinq.Instances.GeneratedDefaultValueFactory.CreateVersion7Guid()",
                 _ => throw new NotImplementedException(),
             };
         }

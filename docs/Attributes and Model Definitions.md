@@ -208,7 +208,7 @@ The argument must be an actual string literal in the exact 36-character Guid `D`
 
 Once provider metadata resolves the column's `[GuidStorage]`, the existing SQLite, MySQL, and MariaDB codecs encode the canonical `Guid` into the same Text36, Text32, native UUID, little-endian binary, or RFC-order binary representation used by runtime writes. The bounded provider matrix covers all 13 direct-`Guid` format combinations.
 
-`[Default("00112233-4455-6677-8899-aabbccddeeff")]` remains a string default and is invalid for a `Guid` property; DataLinq does not silently coerce it. `DefaultGuid` also does not define converter-backed defaults, source/database merge precedence, static provider-default import, SQLite expression/BLOB import, or dynamic `[DefaultNewUUID]` ownership and generation semantics.
+`[Default("00112233-4455-6677-8899-aabbccddeeff")]` remains a string default and is invalid for a `Guid` property; DataLinq does not silently coerce it. `DefaultGuid` also does not define converter-backed defaults, source/database merge precedence, static provider-default import, or SQLite expression/BLOB import. Dynamic client generation belongs to `[DefaultNewUUID]`, described below.
 
 ### `[DefaultCurrentTimestamp]`
 
@@ -228,8 +228,12 @@ This attribute supports a `UUIDVersion` argument, including `Version4` and `Vers
 
 Use it on `Guid` properties. Anything else is a model error, not a meaningful configuration.
 
+Generated mutable models initialize Version4 with `Guid.NewGuid()` and Version7 with DataLinq's RFC 9562 runtime helper, which works on `net8.0`, `net9.0`, and `net10.0`. The parameterless generated constructor owns client-default evaluation. A generated constructor with required arguments delegates to it and does not generate another UUID, so each new mutable instance evaluates each dynamic default once. Constructing a mutable copy from an immutable instance preserves the existing values instead of generating replacements.
+
+Version7 embeds the current UTC Unix timestamp in milliseconds and fills the remaining 74 usable bits with random data. This is the same stateless contract as .NET's `Guid.CreateVersion7()`: it does not promise invocation order within one millisecond, monotonic behavior after clock rollback, or distributed sequencing. RFC-order text/binary storage retains the timestamp prefix's lexical ordering; legacy little-endian binary storage does not.
+
 > [!WARNING]
-> UUID version selection is preserved by direct source parsing, direct metadata-to-model regeneration, schema comparison, migration snapshots, and metadata-equivalence checks, but it is not yet a portable generation contract. This does not yet guarantee preservation when source and database metadata are merged; source-precedence behavior remains open. SQLite, MySQL, and MariaDB DDL generation deliberately rejects both Version4 and Version7 `[DefaultNewUUID]` declarations until DataLinq has a verified provider-version and storage-format mapping. An exact MySQL/MariaDB `UUID()` default imported from an existing schema remains provider-scoped `[DefaultSql]`; DataLinq does not relabel that expression as UUIDv4 or UUIDv7. Use provider-scoped `[DefaultSql]` only when you intentionally accept the expression's real UUID version and physical storage. Client-side Version7 generation also remains incomplete on .NET 8, where `Guid.CreateVersion7()` is unavailable.
+> UUID version selection is preserved by direct source parsing, direct metadata-to-model regeneration, schema comparison, migration snapshots, and metadata-equivalence checks. This does not yet guarantee preservation when source and database metadata are merged; source-precedence behavior remains open. SQLite, MySQL, and MariaDB DDL generation deliberately rejects both Version4 and Version7 `[DefaultNewUUID]` declarations until DataLinq has a verified provider-version and storage-format mapping. An exact MySQL/MariaDB `UUID()` default imported from an existing schema remains provider-scoped `[DefaultSql]`; DataLinq does not relabel that expression as UUIDv4 or UUIDv7. Use provider-scoped `[DefaultSql]` only when you intentionally accept the expression's real UUID version and physical storage. The client contract applies only to direct `Guid` properties; it does not define converter-backed typed-ID defaults.
 
 ## Index Attributes
 

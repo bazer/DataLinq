@@ -1358,9 +1358,6 @@ public class GeneratorFileFactory
             yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}({paramList}) : this()";
             yield return $"{namespaceTab}{tab}" + "{";
 
-            foreach (var v in defaultProps)
-                yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.GetDefaultValueCode()};";
-
             // For each required property, assign the passed parameter to the property.
             foreach (var v in requiredProps)
                 yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.PropertyName.ToCamelCase()};";
