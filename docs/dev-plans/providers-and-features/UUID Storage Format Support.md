@@ -711,7 +711,7 @@ Still open:
 - add verified provider-version capability and exact physical-storage mappings before enabling automatic server generation
 - import static provider Guid defaults into the fixed-value carrier where the provider representation is unambiguous
 - preserve or diagnose SQLite UUID default expressions and BLOB literals during schema import
-- add independent canonical compatibility and authoritative source-only typed-ID converter resolution
+- extend canonical compatibility beyond finalized converter-backed `Int32` and add authoritative source-only typed-ID converter resolution
 - complete the aggregate UUID-4 provider/evidence matrix
 
 Exit signal:
@@ -720,7 +720,7 @@ Exit signal:
 - schema validation distinguishes canonical `Guid` compatibility from physical UUID-format compatibility
 - 0.9 does not claim database-generated UUIDv7 semantics that the provider does not supply
 
-The format comparison, fixed direct-`Guid` source-carrier and DDL-literal, and fail-closed UUID-version truthfulness portions of the exit signal are green. Converter-backed defaults, complete client generation, automatic server capability/storage mapping, source-transform ownership, static provider-default import, SQLite expression/BLOB import, canonical/source-only validation, and aggregate evidence keep UUID-4 incomplete.
+The format comparison, fixed direct-`Guid` source-carrier and DDL-literal, and fail-closed UUID-version truthfulness portions of the exit signal are green. The finalized converter-backed canonical `Int32` checkpoint narrows the general schema prerequisite but does not complete Guid-specific or source-only canonical resolution. Converter-backed defaults, complete client generation, automatic server capability/storage mapping, source-transform ownership, static provider-default import, SQLite expression/BLOB import, broader canonical/source-only validation, and aggregate evidence keep UUID-4 incomplete.
 
 ### UUID-5: Provider Evidence And Documentation
 

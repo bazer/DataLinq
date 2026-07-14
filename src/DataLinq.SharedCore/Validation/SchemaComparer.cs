@@ -193,6 +193,12 @@ public sealed class SchemaComparer
 
             if (string.Equals(modelTypeSignature, databaseTypeSignature, StringComparison.Ordinal))
             {
+                CompareCanonicalProviderTypeCompatibility(
+                    modelColumn,
+                    databaseColumn,
+                    databasePhysicalType,
+                    differences);
+
                 CompareGuidStorage(
                     modelColumn,
                     databaseColumn,
@@ -531,14 +537,78 @@ public sealed class SchemaComparer
         if (type == null)
             return null;
 
+        var name = type.Name.ToLowerInvariant();
+        var length = type.Length;
+        var signed = type.Signed;
+
+        if (options.Capabilities.DatabaseType is DatabaseType.MySQL or DatabaseType.MariaDB &&
+            IsIntegerDatabaseType(name))
+        {
+            if (name == "integer")
+                name = "int";
+
+            // MySQL/MariaDB integer display width is not storage semantics.
+            // Information schema also represents ordinary signed integers as
+            // Signed == null, while model fallback metadata historically uses
+            // Signed == true. Only an explicit unsigned marker is meaningful.
+            length = null;
+            signed = signed == false ? false : null;
+        }
+
         return string.Join(
             "|",
             type.DatabaseType,
-            type.Name.ToLowerInvariant(),
-            type.Length?.ToString(CultureInfo.InvariantCulture) ?? "",
+            name,
+            length?.ToString(CultureInfo.InvariantCulture) ?? "",
             type.Decimals?.ToString(CultureInfo.InvariantCulture) ?? "",
-            type.Signed?.ToString(CultureInfo.InvariantCulture) ?? "");
+            signed?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
+
+    private void CompareCanonicalProviderTypeCompatibility(
+        ColumnDefinition modelColumn,
+        ColumnDefinition databaseColumn,
+        DatabaseColumnType? databasePhysicalType,
+        List<SchemaDifference> differences)
+    {
+        if (!modelColumn.HasScalarConverter ||
+            databasePhysicalType is null ||
+            modelColumn.ProviderClrType is not { } providerClrType ||
+            (Nullable.GetUnderlyingType(providerClrType) ?? providerClrType) != typeof(int) ||
+            IsCanonicalInt32Compatible(databasePhysicalType))
+        {
+            return;
+        }
+
+        var provider = options.Capabilities.DatabaseType;
+        var path = $"{modelColumn.Table.DbName}.{modelColumn.DbName}";
+        differences.Add(new SchemaDifference(
+            SchemaDifferenceKind.ColumnCanonicalTypeMismatch,
+            SchemaDifferenceSeverity.Error,
+            SchemaDifferenceSafety.Ambiguous,
+            path,
+            $"Converter-backed canonical provider type '{typeof(int).FullName}' at '{path}' is incompatible with observed {provider} type '{FormatDbTypeDisplay(databasePhysicalType)}'. Use SQLite INTEGER or a signed MySQL/MariaDB INT column, or change the scalar converter's canonical provider type.",
+            modelColumn,
+            databaseColumn));
+    }
+
+    private bool IsCanonicalInt32Compatible(DatabaseColumnType type)
+    {
+        var provider = options.Capabilities.DatabaseType;
+        if (provider == DatabaseType.SQLite)
+        {
+            return string.Equals(type.Name, "integer", StringComparison.OrdinalIgnoreCase) &&
+                   !type.Decimals.HasValue;
+        }
+
+        return provider is DatabaseType.MySQL or DatabaseType.MariaDB &&
+               (string.Equals(type.Name, "int", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(type.Name, "integer", StringComparison.OrdinalIgnoreCase)) &&
+               !type.Decimals.HasValue &&
+               type.Signed != false;
+    }
+
+    private static bool IsIntegerDatabaseType(string name) =>
+        name is "tinyint" or "smallint" or "mediumint" or "int" or "integer" or "bigint";
 
     private DatabaseColumnType? GetExactDatabaseType(ColumnDefinition column) =>
         column.DbTypes.FirstOrDefault(type =>

@@ -22,5 +22,6 @@ public enum SchemaDifferenceKind
     TableCommentMismatch,
     ColumnCommentMismatch,
     ColumnGuidStorageFormatUnresolved,
-    ColumnGuidStorageFormatMismatch
+    ColumnGuidStorageFormatMismatch,
+    ColumnCanonicalTypeMismatch
 }

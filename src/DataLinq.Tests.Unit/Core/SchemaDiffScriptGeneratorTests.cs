@@ -160,6 +160,25 @@ public class SchemaDiffScriptGeneratorTests
         await Assert.That(script).Contains("-- No SQL generated for informational metadata drift.");
     }
 
+    [Test]
+    public async Task Generate_CanonicalTypeMismatch_RequiresReviewWithoutSql()
+    {
+        var difference = new SchemaDifference(
+            SchemaDifferenceKind.ColumnCanonicalTypeMismatch,
+            SchemaDifferenceSeverity.Error,
+            SchemaDifferenceSafety.Ambiguous,
+            "account.id",
+            "Canonical Int32 is incompatible with VARCHAR storage.");
+
+        var script = new SchemaDiffScriptGenerator().Generate(DatabaseType.MySQL, [difference]);
+
+        await Assert.That(script).Contains("-- REVIEW REQUIRED Error/Ambiguous ColumnCanonicalTypeMismatch account.id");
+        await Assert.That(script).Contains("-- No SQL generated: ambiguous change.");
+        await Assert.That(script).DoesNotContain("ALTER TABLE");
+        await Assert.That(script).DoesNotContain("CREATE TABLE");
+        await Assert.That(script).DoesNotContain("CREATE INDEX");
+    }
+
     private static DatabaseDefinition CreateDatabase(params MetadataTableModelDraft[] tableModels)
     {
         var draft = new MetadataDatabaseDraft(
