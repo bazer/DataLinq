@@ -100,7 +100,8 @@ internal sealed class SqlLocalProjectionExecutor
                 primaryKeysBySource[sourceIndex] = ReadPrimaryKey(
                     reader,
                     joinedSources[sourceIndex],
-                    primaryKeyOrdinalsBySource[sourceIndex]);
+                    primaryKeyOrdinalsBySource[sourceIndex],
+                    dataSource.Provider.DatabaseType);
             }
 
             joinedPrimaryKeyRows.Add(primaryKeysBySource);
@@ -146,7 +147,8 @@ internal sealed class SqlLocalProjectionExecutor
     internal static object ReadPrimaryKey(
         IDataLinqDataReader reader,
         QueryPlanSourceSlot source,
-        IReadOnlyList<int> primaryKeyOrdinals)
+        IReadOnlyList<int> primaryKeyOrdinals,
+        DatabaseType databaseType)
     {
         var primaryKeyColumns = source.Table.PrimaryKeyColumns;
         if (primaryKeyColumns.Count == 1)
@@ -157,21 +159,27 @@ internal sealed class SqlLocalProjectionExecutor
             // Joined local projections buffer reader keys before cache hydration. Converted
             // primary keys cannot use the generated/model-valued scalar fast path, so preserve
             // the already-proven SC-3 dynamic-key boundary for the exact canonical Int32 and
-            // Int64 slices. Other converted integral types, UUID, and composite reader keys
-            // remain on their existing paths until their provider and codec contracts are
-            // proven independently.
+            // Int64 slices. Canonical UUID keys additionally require an active concrete
+            // provider and resolved storage metadata so physical UUID decoding stays
+            // column-aware. Other converted types and composite reader keys remain on their
+            // existing paths until their provider and codec contracts are proven independently.
             var canonicalProviderType = providerType is null
                 ? null
                 : Nullable.GetUnderlyingType(providerType) ?? providerType;
+            var useColumnAwareGuid = canonicalProviderType == typeof(Guid) &&
+                ProviderKeyComponents.SupportsNeutralSourceRowLoading(source.Table, databaseType);
             if (primaryKeyColumn.HasScalarConverter &&
-                (canonicalProviderType == typeof(int) || canonicalProviderType == typeof(long)))
+                (canonicalProviderType == typeof(int) ||
+                 canonicalProviderType == typeof(long) ||
+                 useColumnAwareGuid))
             {
                 return DataLinqKey.FromValue(
                     ProviderRowDecoder.DecodeCanonicalValue(
                         reader,
                         primaryKeyColumn,
                         primaryKeyOrdinals[0],
-                        "reader.joined-key-selection"));
+                        "reader.joined-key-selection",
+                        useColumnAwareGuid));
             }
 
             return reader.GetValue<object>(primaryKeyColumn, primaryKeyOrdinals[0])!;
