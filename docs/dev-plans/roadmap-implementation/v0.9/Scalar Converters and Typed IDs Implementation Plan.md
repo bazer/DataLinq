@@ -3,7 +3,7 @@
 
 # 0.9 Scalar Converters And Typed IDs Implementation Plan
 
-**Status:** Implementation in progress. `SC-1` is complete; `SC-2` through `SC-5` have bounded green slices but are not complete.
+**Status:** Implementation in progress. `SC-1` is complete; `SC-2` through `SC-5` have bounded green slices but are not complete. `SC-6` now has a bounded model-valued seed/read proof and remains incomplete for the advertised memory query surface.
 
 **Target:** Required 0.9 baseline work.
 
@@ -268,6 +268,8 @@ Exit signal:
 - the read-only memory backend does not implement a second converter system
 - typed IDs behave consistently for the memory query shapes included in 0.9
 - public models materialized from memory expose the same model values as SQL-backed models
+
+Bounded SC-6 progress on 2026-07-14 proves the seed/read half of this boundary without widening the memory query profile. Internal dense table-ordinal model rows pass through the existing `ModelValueConverter` before atomic `CanonicalProviderValueRow` publication and canonical primary-key indexing. One generated fixture combines a Guid-backed typed-ID primary key, a direct `Guid`, a second non-null typed field, and a nullable typed field. The two non-null converted cells call `ToProvider` once each during seed; null bypasses the converter. Cold materialization calls `FromProvider` once for each non-null converted cell, and the existing generated immutable primary-key capture calls `ToProvider` once more (cumulative `ToProvider=3`, `FromProvider=2`). Warm canonical-key lookup and root enumeration reuse the same immutable instance with no additional calls. Test cache eviction and rematerialization add two `FromProvider` calls plus one key-capture `ToProvider` call (cumulative `ToProvider=4`, `FromProvider=4`). A differential canonical-seed case sends canonical `Guid` cells through `SeedCanonical` with zero seed-time `ToProvider`; cold materialization invokes `FromProvider` for all three converted fields plus one `ToProvider` for immutable primary-key capture. Deliberately different SQLite, MySQL, and MariaDB `GuidStorage` declarations never select a physical codec: the store cells and key remain `Guid`, not string or bytes. Full model type/nullability preflight precedes a row's first converter, completed reseeds and concurrent same-table attempts reject before their converter execution, and invalid or duplicate rows leave the table unpublished; invalid-cell top-level diagnostics are value-redacted and retain row/column context. Converter code runs outside the seed monitor. Focused tests pass `7/7`, the full memory project passes `40/40`, and `DataLinq.Memory` builds cleanly for net8/net9/net10. The API remains internal and dense; typed-ID/`Guid` predicates, projections, membership, ordering, relations, public package/API design, and AOT/browser evidence remain open, so SC-6 and `M0` are not complete.
 
 ## UUID Handoff
 

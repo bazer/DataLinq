@@ -55,6 +55,21 @@ internal sealed class MemoryDatabase<TDatabase>
         return this;
     }
 
+    /// <summary>
+    /// Seeds one table exactly once from dense table-ordinal model values.
+    /// Every cell is normalized through the shared model-to-canonical conversion boundary before
+    /// the table state is published. This remains an internal spike API rather than the eventual
+    /// generated-accessor seed surface.
+    /// </summary>
+    internal MemoryDatabase<TDatabase> SeedModelValues<TModel>(
+        params object?[][] modelRows)
+        where TModel : class, ITableModel<TDatabase>
+    {
+        var table = GetTable<TModel>();
+        store.SeedModelValues(table, modelRows);
+        return this;
+    }
+
     internal TModel? Find<TModel>(
         DataLinqKey canonicalProviderKey,
         CancellationToken cancellationToken = default)
@@ -132,6 +147,14 @@ internal sealed class MemoryDatabase<TDatabase>
     internal int GetStoredRowCount<TModel>()
         where TModel : class, ITableModel<TDatabase> =>
         store.GetRowCount(GetTable<TModel>());
+
+    /// <summary>
+    /// Test-only canonical-row inspection hook for representation-boundary assertions.
+    /// The returned rows are read-only objects owned by the store.
+    /// </summary>
+    internal IReadOnlyList<CanonicalProviderValueRow> GetCanonicalRowsForTest<TModel>()
+        where TModel : class, ITableModel<TDatabase> =>
+        store.GetRows(GetTable<TModel>());
 
     internal int GetMaterializedRowCount<TModel>()
         where TModel : class, ITableModel<TDatabase> =>
