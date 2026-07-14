@@ -2804,6 +2804,92 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_GuidValuedDefaultOnGuidProperty_Succeeds()
+    {
+        var expected = Guid.ParseExact("00112233-4455-6677-8899-aabbccddeeff", "D");
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedIdProperty(),
+                CreateTypedValueProperty(
+                    "PublicId",
+                    typeof(Guid),
+                    "public_id",
+                    attributes: [new ColumnAttribute("public_id"), new DefaultAttribute(expected)])
+            ]);
+
+        var built = new MetadataDefinitionFactory()
+            .Build(database)
+            .ValueOrException();
+        var defaultAttribute = built.TableModels.Single()
+            .Model.ValueProperties["PublicId"]
+            .GetDefaultAttribute();
+
+        await Assert.That(defaultAttribute).IsNotNull();
+        await Assert.That(defaultAttribute!.Value).IsTypeOf<Guid>();
+        await Assert.That((Guid)defaultAttribute.Value).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task Build_GuidValuedDefaultOnStringProperty_ReturnsPropertyTypeDiagnostic()
+    {
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedIdProperty(),
+                CreateTypedValueProperty(
+                    "PublicId",
+                    typeof(string),
+                    "public_id",
+                    attributes:
+                    [
+                        new ColumnAttribute("public_id"),
+                        new DefaultAttribute(Guid.ParseExact("00112233-4455-6677-8899-aabbccddeeff", "D"))
+                    ])
+            ]);
+
+        var result = new MetadataDefinitionFactory().Build(database);
+
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Item.PublicId");
+        await Assert.That(failure.Message).Contains("Guid");
+        await Assert.That(failure.Message).Contains("string");
+    }
+
+    [Test]
+    public async Task Build_GuidValuedDefaultOnConverterBackedTypedProperty_ReturnsPropertyTypeDiagnostic()
+    {
+        var property = CreateTypedValueProperty(
+            "PublicId",
+            typeof(DefaultGuidTypedId),
+            "public_id",
+            attributes:
+            [
+                new ColumnAttribute("public_id"),
+                new DefaultAttribute(Guid.ParseExact("00112233-4455-6677-8899-aabbccddeeff", "D"))
+            ]);
+        property = property with
+        {
+            ScalarConverter = new MetadataScalarConverterDraft(
+                new CsTypeDeclaration(typeof(DefaultGuidTypedId)),
+                new CsTypeDeclaration(typeof(Guid)),
+                new CsTypeDeclaration(typeof(DefaultGuidTypedIdConverter)),
+                static () => new DefaultGuidTypedIdConverter())
+        };
+        var database = CreateSingleTableTypedDraft(
+            valueProperties: [CreateTypedIdProperty(), property]);
+
+        var result = new MetadataDefinitionFactory().Build(database);
+
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Item.PublicId");
+        await Assert.That(failure.Message).Contains("Guid");
+        await Assert.That(failure.Message).Contains(nameof(DefaultGuidTypedId));
+    }
+
+    [Test]
     public async Task Build_DefaultCurrentTimestampOnNonTemporalProperty_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableTypedDraft(
@@ -4713,6 +4799,19 @@ public class MetadataDefinitionFactoryTests
             Attributes = attributes ?? [],
             EnumProperty = enumProperty
         };
+    }
+
+    private readonly record struct DefaultGuidTypedId(Guid Value);
+
+    private sealed class DefaultGuidTypedIdConverter : DataLinqScalarConverter<DefaultGuidTypedId, Guid>
+    {
+        public override Guid ToProvider(
+            DefaultGuidTypedId modelValue,
+            in ScalarConversionContext context) => modelValue.Value;
+
+        public override DefaultGuidTypedId FromProvider(
+            Guid providerValue,
+            in ScalarConversionContext context) => new(providerValue);
     }
 
     private static TableModel CreateTableModel(

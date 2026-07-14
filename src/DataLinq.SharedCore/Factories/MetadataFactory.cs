@@ -3145,6 +3145,13 @@ public static partial class MetadataFactory
 
                 var defaultAttribute = defaultAttributes[0];
 
+                if (defaultAttribute.Value is Guid && !IsGuidType(property.CsType.Name))
+                {
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Guid-valued defaults can only be used when the model CLR type is Guid, but value property '{GetValuePropertyDisplayName(property)}' has C# type '{property.CsType.Name}'. Converter-backed typed IDs cannot use a Guid default carrier because the carrier represents a model value, not a provider value.");
+                }
+
                 if (defaultAttribute is DefaultSqlAttribute defaultSql &&
                     !IsValidProviderScopedDatabaseType(defaultSql.DatabaseType))
                 {
@@ -3197,7 +3204,7 @@ public static partial class MetadataFactory
         csTypeName is "DateOnly" or "TimeOnly" or "DateTime" or "DateTimeOffset";
 
     private static bool IsGuidType(string csTypeName) =>
-        csTypeName is "Guid" or "System.Guid";
+        csTypeName is "Guid" or "System.Guid" or "global::System.Guid";
 
     public static Option<bool, IDLOptionFailure> ValidateExistingRelationPropertyBindings(DatabaseDefinition database)
     {

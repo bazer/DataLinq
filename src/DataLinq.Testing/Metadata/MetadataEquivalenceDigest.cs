@@ -118,7 +118,11 @@ public static class MetadataEquivalenceDigest
             _ => attribute.Value.ToString()
         };
 
-        return $"{attribute.GetType().Name}:{value}";
+        var attributeTypeName = attribute is DefaultGuidAttribute
+            ? nameof(DefaultAttribute)
+            : attribute.GetType().Name;
+
+        return $"{attributeTypeName}:{value}";
     }
 
     private static string FormatModelAttributes(ModelDefinition model)

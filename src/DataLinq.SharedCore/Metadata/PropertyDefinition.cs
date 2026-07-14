@@ -224,7 +224,7 @@ public class ValueProperty : PropertyDefinition
         }
         else if (defaultAttr is DefaultNewUUIDAttribute defaultNewUUID)
         {
-            if (CsType.Name != "Guid" && CsType.Name != "System.Guid")
+            if (CsType.Name is not ("Guid" or "System.Guid" or "global::System.Guid"))
                 throw new InvalidOperationException($"DefaultNewUUIDAttribute can only be used with Guid type, but found {CsType.Name}.");
 
             return defaultNewUUID.Version switch
@@ -257,6 +257,9 @@ public class ValueProperty : PropertyDefinition
 
         if (!string.IsNullOrWhiteSpace(defaultAttr.CodeExpression))
             return defaultAttr.CodeExpression;
+
+        if (defaultAttr.Value is Guid guid)
+            return $"global::System.Guid.Parse({CSharpLiteralFormatter.FormatString(guid.ToString("D"))})";
 
         if (EnumProperty != null)
             return FormatEnumDefaultValue(defaultAttr.Value);
@@ -300,7 +303,7 @@ public class ValueProperty : PropertyDefinition
             "TimeSpan" => $"TimeSpan.Parse({CSharpLiteralFormatter.FormatString(((TimeSpan)value).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture))})",
             "DateOnly" => $"DateOnly.Parse({CSharpLiteralFormatter.FormatString(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty)})",
             "TimeOnly" => $"TimeOnly.Parse({CSharpLiteralFormatter.FormatString(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty)})",
-            "Guid" or "System.Guid" => $"Guid.Parse({CSharpLiteralFormatter.FormatString(((Guid)value).ToString())})",
+            "Guid" or "System.Guid" or "global::System.Guid" => $"global::System.Guid.Parse({CSharpLiteralFormatter.FormatString(((Guid)value).ToString("D"))})",
             _ => value.ToString() ?? string.Empty,
         };
     }

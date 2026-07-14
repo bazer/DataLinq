@@ -513,6 +513,55 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParseAttributeSyntax_DefaultGuid_NormalizesExactDStringToBaseDefaultAttribute()
+    {
+        const string expectedText = "00112233-4455-6677-8899-aabbccddeeff";
+        var expected = Guid.ParseExact(expectedText, "D");
+        string[] declarations =
+        [
+            @"[DefaultGuid(""00112233-4455-6677-8899-aabbccddeeff"")]",
+            @"[global::DataLinq.Attributes.DefaultGuid(""00112233-4455-6677-8899-AABBCCDDEEFF"")]"
+        ];
+
+        foreach (var declaration in declarations)
+        {
+            var (parser, syntax) = GetAttributeSyntax(declaration);
+            var attribute = parser.ParseAttribute(syntax).ValueOrException();
+
+            await Assert.That(attribute).IsTypeOf<DefaultAttribute>();
+            var defaultAttribute = (DefaultAttribute)attribute;
+            await Assert.That(defaultAttribute.Value).IsTypeOf<Guid>();
+            await Assert.That((Guid)defaultAttribute.Value).IsEqualTo(expected);
+            await Assert.That(defaultAttribute.CodeExpression).IsNull();
+        }
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_DefaultGuid_RejectsNonExactOrNonLiteralArguments()
+    {
+        string[] declarations =
+        [
+            @"[DefaultGuid(""not-a-guid"")]",
+            @"[DefaultGuid(""00112233445566778899aabbccddeeff"")]",
+            @"[DefaultGuid(""{00112233-4455-6677-8899-aabbccddeeff}"")]",
+            @"[DefaultGuid(""(00112233-4455-6677-8899-aabbccddeeff)"")]",
+            @"[DefaultGuid(123)]",
+            @"[DefaultGuid($""00112233-4455-6677-8899-aabbccddeeff"")]",
+            @"[DefaultGuid(KnownGuid)]"
+        ];
+
+        foreach (var declaration in declarations)
+        {
+            var (parser, syntax) = GetAttributeSyntax(declaration);
+            var result = parser.ParseAttribute(syntax);
+
+            await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+            await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidArgument);
+            await Assert.That(failure.Message).Contains("DefaultGuid");
+        }
+    }
+
+    [Test]
     public async Task ParseAttributeSyntax_DefaultSql()
     {
         var (parser, syntax) = GetAttributeSyntax(@"[DefaultSql(DatabaseType.MySQL, ""(json_object())"")]");

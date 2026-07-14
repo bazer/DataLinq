@@ -212,6 +212,72 @@ public sealed class SchemaComparerGuidStorageTests
     }
 
     [Test]
+    public async Task Compare_DefaultGuidCarrierAndBaseGuidDefault_AreSemanticallyEquivalent()
+    {
+        const string uppercaseText = "00112233-4455-6677-8899-AABBCCDDEEFF";
+        var expected = Guid.ParseExact(uppercaseText, "D");
+        var physicalType = new DatabaseColumnType(DatabaseType.SQLite, "TEXT");
+        var baseDefault = BuildDatabase(
+            new CsTypeDeclaration(typeof(Guid)),
+            physicalType,
+            GuidStorageFormat.Text36,
+            MetadataBuildMode.Model,
+            defaultAttribute: new DefaultAttribute(expected));
+        var sourceCarrier = BuildDatabase(
+            new CsTypeDeclaration(typeof(Guid)),
+            physicalType,
+            GuidStorageFormat.Text36,
+            MetadataBuildMode.Model,
+            defaultAttribute: new DefaultGuidAttribute(uppercaseText));
+        var customDefault = BuildDatabase(
+            new CsTypeDeclaration(typeof(Guid)),
+            physicalType,
+            GuidStorageFormat.Text36,
+            MetadataBuildMode.Model,
+            defaultAttribute: new CustomGuidDefaultAttribute(uppercaseText));
+
+        var schemaDifferences = SchemaComparer.Compare(
+            baseDefault,
+            sourceCarrier,
+            DatabaseType.SQLite);
+        var roundtripDifferences = MetadataRoundtripComparison.CompareSupportedSubset(
+            baseDefault,
+            sourceCarrier,
+            DatabaseType.SQLite);
+        var baseDigest = MetadataEquivalenceDigest.CreateText(baseDefault);
+        var carrierDigest = MetadataEquivalenceDigest.CreateText(sourceCarrier);
+        var generatedAt = new DateTimeOffset(2026, 7, 14, 12, 0, 0, TimeSpan.Zero);
+        var baseSnapshot = SchemaMigrationSnapshot.FromDatabase(
+            baseDefault,
+            DatabaseType.SQLite,
+            generatedAt);
+        var carrierSnapshot = SchemaMigrationSnapshot.FromDatabase(
+            sourceCarrier,
+            DatabaseType.SQLite,
+            generatedAt);
+        var customSnapshot = SchemaMigrationSnapshot.FromDatabase(
+            customDefault,
+            DatabaseType.SQLite,
+            generatedAt);
+        var customDifferences = SchemaComparer.Compare(
+            baseDefault,
+            customDefault,
+            DatabaseType.SQLite);
+        var customDigest = MetadataEquivalenceDigest.CreateText(customDefault);
+
+        await Assert.That(schemaDifferences).IsEmpty();
+        await Assert.That(roundtripDifferences).IsEmpty();
+        await Assert.That(carrierDigest).IsEqualTo(baseDigest);
+        await Assert.That(carrierSnapshot.Tables.Single().Columns.Single().Default)
+            .IsEqualTo(baseSnapshot.Tables.Single().Columns.Single().Default);
+        await Assert.That(customDifferences.Select(static difference => difference.Kind).ToArray())
+            .IsEquivalentTo([SchemaDifferenceKind.ColumnDefaultMismatch]);
+        await Assert.That(customDigest).IsNotEqualTo(baseDigest);
+        await Assert.That(customSnapshot.Tables.Single().Columns.Single().Default)
+            .StartsWith($"{nameof(CustomGuidDefaultAttribute)}|", StringComparison.Ordinal);
+    }
+
+    [Test]
     public async Task Compare_SameFormat_IgnoresDeclarationProvenance()
     {
         var physicalType = new DatabaseColumnType(DatabaseType.MySQL, "char", 36);
@@ -507,6 +573,9 @@ public sealed class SchemaComparerGuidStorageTests
 
     private sealed class SchemaGuidStorageRow;
     private readonly record struct SchemaGuidId(Guid Value);
+
+    private sealed class CustomGuidDefaultAttribute(string value)
+        : DefaultAttribute(Guid.ParseExact(value, "D"));
 
     private sealed class SchemaGuidIdConverter : DataLinqScalarConverter<SchemaGuidId, Guid>
     {

@@ -193,6 +193,23 @@ public abstract string Status { get; }
 public abstract AccountStatus Status { get; }
 ```
 
+### `[DefaultGuid(...)]`
+
+Declares one fixed `Guid` model value using a legal C# attribute argument:
+
+```csharp
+[DefaultGuid("00112233-4455-6677-8899-aabbccddeeff")]
+public abstract Guid ExternalId { get; }
+```
+
+The argument must be an actual string literal in the exact 36-character Guid `D` format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`). Uppercase hexadecimal is accepted, but `generate models` emits the canonical lowercase form. Compact, braced, parenthesized, constant, and computed-expression forms are rejected.
+
+`DefaultGuid` is a storage-neutral source carrier, not a new semantic default category. Source parsing normalizes it to the ordinary base `DefaultAttribute` meaning with a real `Guid` value and no retained C# code expression. Runtime metadata therefore contains a `Guid`, generated mutable initialization uses `global::System.Guid.Parse(...)`, and metadata-to-model generation writes the carrier or an exact base `DefaultAttribute(Guid)` back as `[DefaultGuid("...")]` only when `CodeExpression` is null. Schema comparison, migration snapshots, and equivalence digests treat the carrier and base representation as the same fixed default value; metadata roundtrip comparison also requires the same code expression. Custom Guid-valued `DefaultAttribute` subclasses remain distinct. A Guid default carrying a `CodeExpression` keeps that distinction in roundtrip comparison and fails closed during model regeneration; schema comparison, snapshots, and digests intentionally describe the fixed default value rather than its client initialization expression. This normalization does not require another migration-snapshot format bump; new snapshots remain at format version 2.
+
+Once provider metadata resolves the column's `[GuidStorage]`, the existing SQLite, MySQL, and MariaDB codecs encode the canonical `Guid` into the same Text36, Text32, native UUID, little-endian binary, or RFC-order binary representation used by runtime writes. The bounded provider matrix covers all 13 direct-`Guid` format combinations.
+
+`[Default("00112233-4455-6677-8899-aabbccddeeff")]` remains a string default and is invalid for a `Guid` property; DataLinq does not silently coerce it. `DefaultGuid` also does not define converter-backed defaults, source/database merge precedence, static provider-default import, SQLite expression/BLOB import, or dynamic `[DefaultNewUUID]` ownership and generation semantics.
+
 ### `[DefaultCurrentTimestamp]`
 
 Marks a property as using the provider's current date/time default.

@@ -978,6 +978,37 @@ public class SyntaxParser
             return new DefaultAttribute(ParseDefaultAttributeValue(argument), codeExpression);
         }
 
+        if (name == "DefaultGuid")
+        {
+            var rawArguments = attributeSyntax.ArgumentList?.Arguments;
+            if (rawArguments is null || rawArguments.Value.Count != 1)
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidArgument,
+                    $"Attribute '{name}' requires exactly one string literal in Guid 'D' format");
+            }
+
+            if (rawArguments.Value[0].Expression is not LiteralExpressionSyntax literal ||
+                literal.Token.Value is not string stringValue)
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidArgument,
+                    $"Attribute '{name}' requires an actual string literal; constants and expressions are not accepted");
+            }
+
+            if (!DefaultGuidAttribute.TryParseExactD(stringValue, out var guid))
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidArgument,
+                    $"Attribute '{name}' value must use the exact 36-character Guid 'D' format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
+            }
+
+            return new DefaultAttribute(guid);
+        }
+
         if (name == "DefaultSql")
         {
             if (arguments.Count != 2)

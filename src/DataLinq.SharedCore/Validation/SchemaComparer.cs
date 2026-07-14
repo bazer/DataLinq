@@ -802,7 +802,11 @@ public sealed class SchemaComparer
             _ => attribute.Value.ToString()
         };
 
-        return $"{attribute.GetType().Name}|{value}";
+        var attributeTypeName = attribute is DefaultGuidAttribute
+            ? nameof(DefaultAttribute)
+            : attribute.GetType().Name;
+
+        return $"{attributeTypeName}|{value}";
     }
 
     private static bool TryGetEnumDefaultNumericValue(

@@ -149,7 +149,11 @@ public sealed record SchemaMigrationSnapshotColumn(
             _ => attribute.Value.ToString()
         };
 
-        return $"{attribute.GetType().Name}|{value}";
+        var attributeTypeName = attribute is DefaultGuidAttribute
+            ? nameof(DefaultAttribute)
+            : attribute.GetType().Name;
+
+        return $"{attributeTypeName}|{value}";
     }
 
     private static string? GetEffectiveComment(IEnumerable<Attribute> attributes, DatabaseType databaseType)

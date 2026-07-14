@@ -234,6 +234,57 @@ public class SourceGeneratorTests : GeneratorTestBase
     }
 
     [Test]
+    public async Task DefaultGuid_GeneratesTypedInitializationAndMetadataAndCompiles()
+    {
+        const string expectedGuid = "00112233-4455-6677-8899-aabbccddeeff";
+        var source = CSharpSyntaxTree.ParseText(
+            $$"""
+            using DataLinq;
+            using DataLinq.Attributes;
+            using DataLinq.Instances;
+            using DataLinq.Interfaces;
+            using DataLinq.Mutation;
+
+            namespace DefaultGuidGeneratorTest;
+
+            [Database("default_guid")]
+            public partial class DefaultGuidDb(DataSourceAccess dataSource) : IDatabaseModel<DefaultGuidDb>
+            {
+                public DbRead<DefaultGuidRow> Rows { get; } = new(dataSource);
+            }
+
+            [Table("default_guid_rows")]
+            public abstract partial class DefaultGuidRow(IRowData rowData, IDataSourceAccess dataSource)
+                : Immutable<DefaultGuidRow, DefaultGuidDb>(rowData, dataSource), ITableModel<DefaultGuidDb>
+            {
+                [PrimaryKey]
+                [Type(DatabaseType.MySQL, "binary", 16)]
+                [Type(DatabaseType.SQLite, "TEXT")]
+                [GuidStorage(GuidStorageFormat.Text36)]
+                [GuidStorage(DatabaseType.MySQL, GuidStorageFormat.Binary16Rfc4122)]
+                [DefaultGuid("{{expectedGuid}}")] // exact-D source carrier
+                [Column("id")]
+                public abstract global::System.Guid Id { get; }
+            }
+            """,
+            path: "DefaultGuidGeneratorTest.cs");
+
+        var (outputCompilation, generatorDiagnostics, generatedTrees) =
+            RunGeneratorWithDiagnostics([source]);
+        var code = SyntaxTreesToString(generatedTrees);
+        var errors = generatorDiagnostics
+            .Concat(outputCompilation.GetDiagnostics())
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ToList();
+
+        await Assert.That(errors).IsEmpty();
+        await Assert.That(code).Contains($"this.Id = global::System.Guid.Parse(\"{expectedGuid}\");");
+        await Assert.That(code).Contains(
+            $"new global::DataLinq.Attributes.DefaultAttribute(new global::System.Guid(\"{expectedGuid}\"))");
+        await Assert.That(code).DoesNotContain("new global::DataLinq.Attributes.DefaultGuidAttribute");
+    }
+
+    [Test]
     public async Task UnresolvedGuidStorage_BlocksCompilationAndSuppressesDatabaseOutput()
     {
         var source = CSharpSyntaxTree.ParseText(

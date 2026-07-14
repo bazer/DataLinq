@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
@@ -9,6 +10,7 @@ using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
@@ -30,6 +32,75 @@ public class ModelFileFactoryTests
         var syntaxErrors = syntaxTree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
 
         await Assert.That(syntaxErrors).IsEmpty();
+    }
+
+    [Test]
+    public async Task CreateModelFiles_GuidDefault_EmitsCanonicalDefaultGuidAndReparsesToBaseMetadata()
+    {
+        const string uppercaseText = "00112233-4455-6677-8899-AABBCCDDEEFF";
+        const string canonicalText = "00112233-4455-6677-8899-aabbccddeeff";
+        var expected = Guid.ParseExact(uppercaseText, "D");
+        var database = CreateDatabaseWithGuidDefault(new DefaultAttribute(expected));
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "QuoteModel.cs");
+
+        await Assert.That(generatedFile.contents)
+            .Contains($"[DefaultGuid(\"{canonicalText}\")]");
+        await Assert.That(generatedFile.contents).DoesNotContain("Guid.Parse");
+        await Assert.That(generatedFile.contents).DoesNotContain("new Guid");
+
+        var root = CSharpSyntaxTree.ParseText(generatedFile.contents)
+            .GetCompilationUnitRoot();
+        var attributeSyntax = root.DescendantNodes()
+            .OfType<AttributeSyntax>()
+            .Single(attribute => attribute.Name.ToString().Contains("DefaultGuid", StringComparison.Ordinal));
+        var parser = new SyntaxParser(
+            root.DescendantNodes().OfType<TypeDeclarationSyntax>().ToImmutableArray());
+        var parsedAttribute = parser.ParseAttribute(attributeSyntax).ValueOrException();
+
+        await Assert.That(parsedAttribute).IsTypeOf<DefaultAttribute>();
+        var defaultAttribute = (DefaultAttribute)parsedAttribute;
+        await Assert.That(defaultAttribute.Value).IsTypeOf<Guid>();
+        await Assert.That((Guid)defaultAttribute.Value).IsEqualTo(expected);
+        await Assert.That(defaultAttribute.CodeExpression).IsNull();
+
+        var customDatabase = CreateDatabaseWithGuidDefault(
+            new CustomGuidDefaultAttribute(uppercaseText));
+        NotSupportedException? customException = null;
+        try
+        {
+            _ = new ModelFileFactory(new ModelFileFactoryOptions())
+                .CreateModelFiles(customDatabase)
+                .ToList();
+        }
+        catch (NotSupportedException exception)
+        {
+            customException = exception;
+        }
+
+        await Assert.That(customException).IsNotNull();
+        await Assert.That(customException!.Message).Contains(nameof(CustomGuidDefaultAttribute));
+        await Assert.That(customException.Message).Contains("QuoteModel.QuoteText");
+
+        var expressionDatabase = CreateDatabaseWithGuidDefault(
+            new DefaultAttribute(expected, "CustomGuidFactory.Create()"));
+        NotSupportedException? expressionException = null;
+        try
+        {
+            _ = new ModelFileFactory(new ModelFileFactoryOptions())
+                .CreateModelFiles(expressionDatabase)
+                .ToList();
+        }
+        catch (NotSupportedException exception)
+        {
+            expressionException = exception;
+        }
+
+        await Assert.That(expressionException).IsNotNull();
+        await Assert.That(expressionException!.Message).Contains("CodeExpression");
+        await Assert.That(expressionException.Message).Contains("QuoteModel.QuoteText");
     }
 
     [Test]
@@ -493,6 +564,48 @@ public class ModelFileFactoryTests
 
         return Build(draft);
     }
+
+    private static DatabaseDefinition CreateDatabaseWithGuidDefault(DefaultAttribute defaultAttribute)
+    {
+        var draft = new MetadataDatabaseDraft(
+            "QuoteDb",
+            new CsTypeDeclaration("QuoteDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "QuoteModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("QuoteModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ModelInstanceInterface = new CsTypeDeclaration("IQuoteModel", "TestNamespace", ModelCsType.Interface),
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "QuoteText",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("quote_text")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.MySQL, "char", 36)]
+                                })
+                            {
+                                Attributes =
+                                [
+                                    new GuidStorageAttribute(DatabaseType.MySQL, GuidStorageFormat.Text36),
+                                    defaultAttribute
+                                ]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("quote_table"))
+            ]
+        };
+
+        return Build(draft);
+    }
+
+    private sealed class CustomGuidDefaultAttribute(string value)
+        : DefaultAttribute(Guid.ParseExact(value, "D"));
 
     private static DatabaseDefinition CreateDatabaseWithLayoutProperties()
     {

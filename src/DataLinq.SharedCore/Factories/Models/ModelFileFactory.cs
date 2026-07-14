@@ -433,6 +433,11 @@ public class ModelFileFactory
                 yield return $"{namespaceTab}{tab}[DefaultNewUUID(UUIDVersion.{defaultNewUuid.Version})]";
             else if (defaultAttr is DefaultSqlAttribute defaultSql)
                 yield return $"{namespaceTab}{tab}[DefaultSql(DatabaseType.{defaultSql.DatabaseType}, {SymbolDisplay.FormatLiteral(defaultSql.Expression, quote: true)})]";
+            else if (defaultAttr?.Value is Guid guid && IsSupportedFixedGuidDefault(defaultAttr))
+                yield return $"{namespaceTab}{tab}[DefaultGuid({FormatStringLiteral(guid.ToString("D").ToLowerInvariant())})]";
+            else if (defaultAttr?.Value is Guid)
+                throw new NotSupportedException(
+                    $"Model regeneration cannot preserve Guid-valued default attribute '{defaultAttr.GetType().FullName}' on value property '{valueProperty.Model.CsType.Name}.{valueProperty.PropertyName}' when it is a custom subtype or carries a CodeExpression. Use an expression-free DefaultGuidAttribute or exact DefaultAttribute with a Guid value.");
             else if (defaultAttr != null)
                 yield return $"{namespaceTab}{tab}[Default({valueProperty.GetDefaultValueCode()})]";
         }
@@ -444,6 +449,11 @@ public class ModelFileFactory
         yield return $"{namespaceTab}{tab}public abstract {c.ValueProperty.CsType.Name}{GetPropertyNullable(c)} {c.ValueProperty.PropertyName} {{ get; }}";
         yield return "";
     }
+
+    private static bool IsSupportedFixedGuidDefault(DefaultAttribute attribute) =>
+        attribute.CodeExpression is null &&
+        (attribute is DefaultGuidAttribute ||
+         attribute.GetType() == typeof(DefaultAttribute));
 
     private IEnumerable<string> WriteRelationProperty(
         RelationProperty relationProperty,
