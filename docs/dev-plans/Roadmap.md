@@ -32,12 +32,12 @@ The 0.8 release established the foundation that 0.9 consumes:
 
 The important current limitations are equally real:
 
-- retained expression-query result families execute behind the selected SQL backend, and bounded neutral routes now cover integral/scalar-UUID primary keys plus exact single-column integral relation indices; broader primary/joined keys, cache/relation families, and legacy reader routes are not yet backend-neutral
-- projection recipes are self-contained after parsing, but only the SQL adapter implements their execution; there is no memory capability profile or backend yet
+- retained expression-query result families execute behind the selected SQL backend, and bounded neutral routes now cover integral/scalar-UUID primary keys, exact single-column integral relation indices, and one exact resolved canonical-`Guid` relation/index family with representative converter-backed binary evidence across SQLite, MySQL, and MariaDB; broader primary/joined keys, cache/relation families, direct-`Guid` relation execution, text/native UUID relation evidence, and legacy reader routes are not yet backend-neutral
+- projection recipes are self-contained after parsing, and the SQL adapter still owns the complete retained recipe family; the separate non-packable memory preview executes only its exhaustively gated exact-`Int32` root/scalar subset rather than general local or joined recipes
 - model values, canonical provider values, and provider physical/wire values are not separate first-class contracts
 - DataLinq has no native async database I/O surface
 - managed mutable baselines now have explicit rollback/cross-transaction provenance, but raw-handle and full-concurrency boundaries remain unresolved
-- there is no memory backend, JSON memory persistence package, or migration execution engine
+- there is no public/packaged memory backend, JSON memory persistence package, or migration execution engine; the existing private read-only preview remains deliberately bounded
 
 ## Roadmap Principles
 

@@ -19,6 +19,9 @@ public sealed class ProviderKeyComponentsTests
         var directGuid = CreateGuidTable(converted: false, componentCount: 1);
         var convertedGuid = CreateGuidTable(converted: true, componentCount: 1);
         var compositeGuid = CreateGuidTable(converted: false, componentCount: 2);
+        var unresolvedGuid = CreateUnresolvedGuidTable();
+        var directGuidColumn = directGuid.PrimaryKeyColumns.Single();
+        var unresolvedGuidColumn = unresolvedGuid.PrimaryKeyColumns.Single();
 
         await Assert.That(ProviderKeyComponents.SupportsNeutralSourceRowLoading(
             integral,
@@ -38,6 +41,21 @@ public sealed class ProviderKeyComponentsTests
             DatabaseType.Unknown)).IsFalse();
         await Assert.That(ProviderKeyComponents.SupportsNeutralSourceRowLoading(
             compositeGuid,
+            DatabaseType.SQLite)).IsFalse();
+        await Assert.That(ProviderKeyComponents.SupportsNeutralSourceRowLoading(
+            unresolvedGuid,
+            DatabaseType.SQLite)).IsFalse();
+
+        await Assert.That(ProviderKeyComponents.SupportsResolvedCanonicalGuidColumn(
+            directGuidColumn,
+            DatabaseType.SQLite)).IsTrue();
+        await Assert.That(ProviderKeyComponents.SupportsResolvedCanonicalGuidColumn(
+            directGuidColumn,
+            DatabaseType.MySQL)).IsFalse();
+        await Assert.That(unresolvedGuidColumn.IsGuidStorageUnresolvedFor(
+            DatabaseType.SQLite)).IsTrue();
+        await Assert.That(ProviderKeyComponents.SupportsResolvedCanonicalGuidColumn(
+            unresolvedGuidColumn,
             DatabaseType.SQLite)).IsFalse();
     }
 
@@ -160,6 +178,46 @@ public sealed class ProviderKeyComponentsTests
 
         return new MetadataDefinitionFactory()
             .Build(draft)
+            .ValueOrException()
+            .TableModels.Single()
+            .Table;
+    }
+
+    private static TableDefinition CreateUnresolvedGuidTable()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "UnresolvedGuidKeyDb",
+            new CsTypeDeclaration(typeof(ProviderKeyComponentsTests)))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration(typeof(GuidKeyRow)))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes =
+                                    [
+                                        new DatabaseColumnType(
+                                            DatabaseType.SQLite,
+                                            "BLOB")
+                                    ]
+                                })
+                        ]
+                    },
+                    new MetadataTableDraft("unresolved_guid_key_rows"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory()
+            .BuildProviderMetadata(draft)
             .ValueOrException()
             .TableModels.Single()
             .Table;

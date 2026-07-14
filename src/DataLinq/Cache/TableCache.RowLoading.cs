@@ -254,17 +254,29 @@ public partial class TableCache
         sourceServices = null!;
         canonicalProviderIndexKey = DataLinqKey.Null;
 
-        // F6-B admits only exact, single-column integral canonical provider keys. The
-        // bounded converter-backed extension admits only Int32 and Int64 and requires the
-        // caller to have already supplied that exact canonical value; model wrappers must
-        // still fail the exact-key check below so this boundary never converts or
-        // double-converts them. String/CHAR collation, UUID codecs, other converted integral
-        // types, and composite keys remain on the legacy SQL path.
+        // F6-B admits exact, single-column canonical provider keys only. Integral keys retain
+        // their existing rule: converter-free columns admit every integral CLR type, while the
+        // bounded converter-backed extension admits only Int32 and Int64. A scalar Guid is
+        // admitted only for a concrete built-in provider with resolved active-provider storage.
+        // The caller must already supply the exact canonical value; model wrappers still fail
+        // the exact-key check below, so this boundary never converts or double-converts them.
+        // String/CHAR collation, unresolved UUID layouts, other converted integral types, and
+        // composite keys remain on the legacy SQL path.
         if (dataSource is not IDataLinqIndexRowServices availableServices ||
             index.Table.PrimaryKeyColumns.Count == 0 ||
-            index.Columns.Count != 1 ||
-            !SupportsCanonicalIndexSourceColumn(index.Columns[0]) ||
-            !ProviderKeyComponents.HasOnlyIntegralCanonicalComponents(index.Columns) ||
+            index.Columns.Count != 1)
+        {
+            return false;
+        }
+
+        var indexColumn = index.Columns[0];
+        var supportsIntegralKey = SupportsCanonicalIntegralIndexSourceColumn(indexColumn) &&
+            ProviderKeyComponents.HasOnlyIntegralCanonicalComponents(index.Columns);
+        var supportsResolvedGuidKey =
+            ProviderKeyComponents.SupportsResolvedCanonicalGuidColumn(
+                indexColumn,
+                dataSource.Provider.DatabaseType);
+        if ((!supportsIntegralKey && !supportsResolvedGuidKey) ||
             !ProviderKeyComponents.TryCreateExactCanonicalKey(
                 foreignKey,
                 index.Columns,
@@ -277,7 +289,7 @@ public partial class TableCache
         return true;
     }
 
-    private static bool SupportsCanonicalIndexSourceColumn(ColumnDefinition column)
+    private static bool SupportsCanonicalIntegralIndexSourceColumn(ColumnDefinition column)
     {
         if (!column.HasScalarConverter)
             return true;

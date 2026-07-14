@@ -116,8 +116,19 @@ internal static class ProviderKeyComponents
             return false;
         }
 
-        var column = table.PrimaryKeyColumns[0];
-        return column.IsGuidColumn &&
+        return SupportsResolvedCanonicalGuidColumn(
+            table.PrimaryKeyColumns[0],
+            databaseType);
+    }
+
+    internal static bool SupportsResolvedCanonicalGuidColumn(
+        ColumnDefinition column,
+        DatabaseType databaseType)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+
+        return databaseType is DatabaseType.SQLite or DatabaseType.MySQL or DatabaseType.MariaDB &&
+            column.IsGuidColumn &&
             column.GetGuidStorageFor(databaseType) is not null &&
             !column.IsGuidStorageUnresolvedFor(databaseType);
     }

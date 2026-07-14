@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Linq;
@@ -28,38 +29,19 @@ public sealed class JoinedGuidTypedIdKeyHydrationTests
             provider,
             nameof(JoinedRowLocal_RawGuidTypedIdsHydrateCanonicalKeysAcrossProviders));
         var database = databaseScope.Database;
-        var parentHex = PhysicalHex(
-            provider.DatabaseType,
-            littleEndian: "33221100554477668899AABBCCDDEEFF",
-            rfc4122: "00112233445566778899AABBCCDDEEFF");
-        var firstChildHex = PhysicalHex(
-            provider.DatabaseType,
-            littleEndian: "67452301AB89EFCD1032547698BADCFE",
-            rfc4122: "0123456789ABCDEF1032547698BADCFE");
-        var secondChildHex = PhysicalHex(
-            provider.DatabaseType,
-            littleEndian: "98BADCFE5476103289ABCDEF01234567",
-            rfc4122: "FEDCBA987654321089ABCDEF01234567");
+        var seed = SeedRawRows(database, provider.DatabaseType);
 
-        var insertedParent = database.Provider.DatabaseAccess.ExecuteNonQuery(
-            "INSERT INTO joined_guid_typed_id_parents (id, name) VALUES " +
-            $"(X'{parentHex}', 'parent')");
-        var insertedChildren = database.Provider.DatabaseAccess.ExecuteNonQuery(
-            "INSERT INTO joined_guid_typed_id_children (id, parent_id, name) VALUES " +
-            $"(X'{firstChildHex}', X'{parentHex}', 'child-a'), " +
-            $"(X'{secondChildHex}', X'{parentHex}', 'child-b')");
-
-        await Assert.That(insertedParent).IsEqualTo(1);
-        await Assert.That(insertedChildren).IsEqualTo(2);
+        await Assert.That(seed.InsertedParent).IsEqualTo(1);
+        await Assert.That(seed.InsertedChildren).IsEqualTo(2);
         await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
                 "SELECT HEX(id) FROM joined_guid_typed_id_parents WHERE name = 'parent'"))
-            .IsEqualTo(parentHex);
+            .IsEqualTo(seed.ParentHex);
         await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
                 "SELECT HEX(id) FROM joined_guid_typed_id_children WHERE name = 'child-a'"))
-            .IsEqualTo(firstChildHex);
+            .IsEqualTo(seed.FirstChildHex);
         await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
                 "SELECT HEX(id) FROM joined_guid_typed_id_children WHERE name = 'child-b'"))
-            .IsEqualTo(secondChildHex);
+            .IsEqualTo(seed.SecondChildHex);
 
         var query = database.Query().Children.Join(
             database.Query().Parents,
@@ -181,6 +163,181 @@ public sealed class JoinedGuidTypedIdKeyHydrationTests
         }
     }
 
+    [Test]
+    [NotInParallel]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task GuidTypedIdRelation_RawRowsRollbackThenColdLoadWarmsCanonicalIndexAcrossProviders(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<JoinedGuidTypedIdDb>.Create(
+            provider,
+            nameof(GuidTypedIdRelation_RawRowsRollbackThenColdLoadWarmsCanonicalIndexAcrossProviders));
+        var database = databaseScope.Database;
+        var seed = SeedRawRows(database, provider.DatabaseType);
+        var parentTable = database.Provider.Metadata
+            .GetTableModel(typeof(JoinedGuidTypedIdParent))
+            .Table;
+        var childTable = database.Provider.Metadata
+            .GetTableModel(typeof(JoinedGuidTypedIdChild))
+            .Table;
+        var relation = parentTable.Model.RelationProperties[nameof(JoinedGuidTypedIdParent.Children)];
+        var relationIndex = relation.RelationPart.GetOtherSide().ColumnIndex;
+        var relationColumn = relationIndex.Columns.Single();
+        var expectedFormat = provider.DatabaseType == DatabaseType.MySQL
+            ? GuidStorageFormat.Binary16LittleEndian
+            : GuidStorageFormat.Binary16Rfc4122;
+        var childCache = database.Provider.GetTableCache(childTable);
+
+        await Assert.That(seed.InsertedParent).IsEqualTo(1);
+        await Assert.That(seed.InsertedChildren).IsEqualTo(2);
+        await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
+                "SELECT HEX(id) FROM joined_guid_typed_id_parents WHERE name = 'parent'"))
+            .IsEqualTo(seed.ParentHex);
+        await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
+                "SELECT HEX(parent_id) FROM joined_guid_typed_id_children WHERE name = 'child-a'"))
+            .IsEqualTo(seed.ParentHex);
+        await Assert.That(
+            relationColumn.HasScalarConverter &&
+            relationColumn.ProviderClrType == typeof(Guid) &&
+            relationColumn.GetGuidStorageFor(provider.DatabaseType)?.Format == expectedFormat)
+            .IsTrue();
+
+        database.Provider.State.ClearCache();
+        using (var transaction = database.Transaction())
+        {
+            var deletedChild = transaction.Query().Children
+                .Single(child => child.Name == "child-a");
+            transaction.Delete(deletedChild);
+
+            var transactionParent = transaction.Query().Parents
+                .Single(parent => parent.Name == "parent");
+            await Assert.That(transactionParent.Children.Select(static child => child.Name).ToArray())
+                .IsEquivalentTo(["child-b"]);
+
+            transaction.Rollback();
+        }
+
+        await Assert.That(childCache.IndicesCount
+            .Single(item => item.index == relationIndex.Name)
+            .count).IsEqualTo(0);
+
+        var committedParent = database.Query().Parents
+            .Single(parent => parent.Name == "parent");
+        var canonicalParentKey = committedParent.PrimaryKeys();
+
+        JoinedGuidTypedIdConverter.Reset();
+        DataLinqMetrics.Reset();
+        try
+        {
+            var coldRows = committedParent.Children
+                .OrderBy(static child => child.Name)
+                .ToArray();
+            var coldSnapshot = DataLinqMetrics.Snapshot();
+            var coldToProviderCalls = JoinedGuidTypedIdConverter.ToProviderCalls;
+            var coldFromProviderCalls = JoinedGuidTypedIdConverter.FromProviderCalls;
+
+            var warmRows = childCache
+                .GetRows(canonicalParentKey, relation, database.Provider.ReadOnlyAccess)
+                .Cast<JoinedGuidTypedIdChild>()
+                .OrderBy(static child => child.Name)
+                .ToArray();
+            var warmSnapshot = DataLinqMetrics.Snapshot();
+            var warmToProviderCalls = JoinedGuidTypedIdConverter.ToProviderCalls;
+            var warmFromProviderCalls = JoinedGuidTypedIdConverter.FromProviderCalls;
+
+            var relatedParents = coldRows.Select(static child => child.Parent).ToArray();
+            var referenceSnapshot = DataLinqMetrics.Snapshot();
+
+            await Assert.That(canonicalParentKey.GetValue(0)).IsTypeOf<Guid>();
+            await Assert.That(canonicalParentKey.GetValue(0)).IsEqualTo(ParentGuid);
+            await Assert.That(coldRows.Select(static child => child.Id).ToArray())
+                .IsEquivalentTo(
+                [
+                    new JoinedGuidTypedId(FirstChildGuid),
+                    new JoinedGuidTypedId(SecondChildGuid)
+                ]);
+            await Assert.That(coldRows.Select(static child => child.ParentId).ToArray())
+                .IsEquivalentTo(new JoinedGuidTypedId?[]
+                {
+                    new JoinedGuidTypedId(ParentGuid),
+                    new JoinedGuidTypedId(ParentGuid)
+                });
+            await Assert.That(coldRows.Select(static child => child.PrimaryKeys().GetValue(0))
+                .All(static value => value is Guid)).IsTrue();
+            await Assert.That(warmRows.Length).IsEqualTo(coldRows.Length);
+            for (var index = 0; index < coldRows.Length; index++)
+                await Assert.That(warmRows[index]).IsSameReferenceAs(coldRows[index]);
+
+            await Assert.That(childCache.IndicesCount
+                .Single(item => item.index == relationIndex.Name)
+                .count).IsEqualTo(1);
+            await Assert.That(relatedParents.All(parent => ReferenceEquals(parent, committedParent)))
+                .IsTrue();
+
+            await Assert.That(coldSnapshot.Commands.ReaderExecutions).IsEqualTo(1);
+            await Assert.That(coldSnapshot.RowCache.Hits).IsEqualTo(0);
+            await Assert.That(coldSnapshot.RowCache.Misses).IsEqualTo(coldRows.Length);
+            await Assert.That(coldSnapshot.RowCache.Stores).IsEqualTo(coldRows.Length);
+            await Assert.That(coldSnapshot.RowCache.DatabaseRowsLoaded).IsEqualTo(coldRows.Length);
+            await Assert.That(coldSnapshot.RowCache.Materializations).IsEqualTo(coldRows.Length);
+            await Assert.That(coldSnapshot.Relations.CollectionLoads).IsEqualTo(1);
+
+            await Assert.That(warmSnapshot.Commands.ReaderExecutions).IsEqualTo(1);
+            await Assert.That(warmSnapshot.RowCache.Hits).IsEqualTo(coldRows.Length);
+            await Assert.That(warmSnapshot.RowCache.Misses).IsEqualTo(coldRows.Length);
+            await Assert.That(warmSnapshot.RowCache.Stores).IsEqualTo(coldRows.Length);
+            await Assert.That(warmSnapshot.RowCache.DatabaseRowsLoaded).IsEqualTo(coldRows.Length);
+            await Assert.That(warmSnapshot.RowCache.Materializations).IsEqualTo(coldRows.Length);
+
+            await Assert.That(referenceSnapshot.Commands.ReaderExecutions).IsEqualTo(1);
+            await Assert.That(referenceSnapshot.Relations.ReferenceLoads).IsEqualTo(coldRows.Length);
+            await Assert.That(coldToProviderCalls).IsEqualTo(3);
+            await Assert.That(coldFromProviderCalls).IsEqualTo(4);
+            await Assert.That(warmToProviderCalls).IsEqualTo(coldToProviderCalls);
+            await Assert.That(warmFromProviderCalls).IsEqualTo(coldFromProviderCalls);
+            await Assert.That(JoinedGuidTypedIdConverter.ToProviderCalls).IsEqualTo(5);
+            await Assert.That(JoinedGuidTypedIdConverter.FromProviderCalls).IsEqualTo(4);
+        }
+        finally
+        {
+            DataLinqMetrics.Reset();
+            JoinedGuidTypedIdConverter.Reset();
+        }
+    }
+
+    private static RawGuidSeed SeedRawRows(
+        Database<JoinedGuidTypedIdDb> database,
+        DatabaseType databaseType)
+    {
+        var parentHex = PhysicalHex(
+            databaseType,
+            littleEndian: "33221100554477668899AABBCCDDEEFF",
+            rfc4122: "00112233445566778899AABBCCDDEEFF");
+        var firstChildHex = PhysicalHex(
+            databaseType,
+            littleEndian: "67452301AB89EFCD1032547698BADCFE",
+            rfc4122: "0123456789ABCDEF1032547698BADCFE");
+        var secondChildHex = PhysicalHex(
+            databaseType,
+            littleEndian: "98BADCFE5476103289ABCDEF01234567",
+            rfc4122: "FEDCBA987654321089ABCDEF01234567");
+
+        var insertedParent = database.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO joined_guid_typed_id_parents (id, name) VALUES " +
+            $"(X'{parentHex}', 'parent')");
+        var insertedChildren = database.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO joined_guid_typed_id_children (id, parent_id, name) VALUES " +
+            $"(X'{firstChildHex}', X'{parentHex}', 'child-a'), " +
+            $"(X'{secondChildHex}', X'{parentHex}', 'child-b')");
+
+        return new RawGuidSeed(
+            insertedParent,
+            insertedChildren,
+            parentHex,
+            firstChildHex,
+            secondChildHex);
+    }
+
     private static string PhysicalHex(
         DatabaseType databaseType,
         string littleEndian,
@@ -193,6 +350,13 @@ public sealed class JoinedGuidTypedIdKeyHydrationTests
             databaseType,
             "The joined typed UUID key test only supports SQLite, MySQL, and MariaDB.")
     };
+
+    private sealed record RawGuidSeed(
+        int InsertedParent,
+        int InsertedChildren,
+        string ParentHex,
+        string FirstChildHex,
+        string SecondChildHex);
 }
 
 public readonly record struct JoinedGuidTypedId(Guid Value);
