@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -108,6 +109,24 @@ internal sealed class MemoryDatabase<TDatabase>
                 new QueryExecutionContext(readSource, cancellationToken)));
 
         return ExpressionQueryPlanExecutor.ExecuteEnumerable<TResult>(request);
+    }
+
+    /// <summary>
+    /// Executes a focused scalar query with an explicit token until the public query API carries
+    /// cancellation. This remains an internal spike surface and uses the ordinary parser and gate.
+    /// </summary>
+    internal TResult Execute<TResult>(
+        Expression<Func<TResult>> query,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        var invocation = ExpressionQueryPlanParser.Convert(Metadata, query.Body, typeof(TResult));
+        var request = ValidatedQueryExecutionRequest.Prepare(
+            new QueryExecutionRequest(
+                invocation,
+                new QueryExecutionContext(readSource, cancellationToken)));
+
+        return ExpressionQueryPlanExecutor.Execute<TResult>(request);
     }
 
     internal int GetStoredRowCount<TModel>()

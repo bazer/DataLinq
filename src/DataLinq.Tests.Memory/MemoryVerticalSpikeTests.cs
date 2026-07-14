@@ -255,6 +255,8 @@ public sealed class MemoryVerticalSpikeTests
             "Projection:Entity",
             "Projection:ScalarMember",
             "ProjectionDisposition:Direct",
+            "Result:Any",
+            "Result:Count",
             "Result:Sequence",
             "ScalarProjectionShape:DirectNonNullableInt32RootColumn",
             "ScalarNullness:NonNull",

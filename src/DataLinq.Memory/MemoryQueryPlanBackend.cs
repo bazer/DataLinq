@@ -41,6 +41,8 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             QueryPlanFeature.ScalarProjectionShape(
                 QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn),
             QueryPlanFeature.Result(QueryPlanResultKind.Sequence),
+            QueryPlanFeature.Result(QueryPlanResultKind.Any),
+            QueryPlanFeature.Result(QueryPlanResultKind.Count),
             QueryPlanFeature.BindingKind(QueryPlanBindingKind.Scalar),
             QueryPlanFeature.ScalarNullness(QueryPlanBindingNullness.NonNull),
             QueryPlanFeature.ValueKind(
@@ -136,7 +138,51 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
     {
         ArgumentNullException.ThrowIfNull(request);
         request.EnsureBackend(this);
-        throw CreateCapabilityInvariantException(request);
+        var cancellationToken = request.Context.CancellationToken;
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var template = request.Invocation.Template;
+        if (template.Sources.Count != 1 ||
+            template.Sources[0].Kind != QueryPlanSourceKind.RootTable)
+        {
+            throw CreateCapabilityInvariantException(request);
+        }
+
+        var rootSource = template.Projection switch
+        {
+            QueryPlanProjection.Entity entity
+                when ReferenceEquals(entity.Source, template.Sources[0]) => entity.Source,
+            QueryPlanProjection.ScalarMember projection
+                when ReferenceEquals(projection.Source, template.Sources[0]) &&
+                     QueryPlanScalarProjectionShapeFacts.Classify(projection, template.Sources) ==
+                         QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn => projection.Source,
+            _ => null
+        };
+        var requiredResultType = template.Result.Kind switch
+        {
+            QueryPlanResultKind.Any => typeof(bool),
+            QueryPlanResultKind.Count => typeof(int),
+            _ => null
+        };
+        if (rootSource is null ||
+            requiredResultType is null ||
+            template.Result.ResultType != requiredResultType ||
+            typeof(TResult) != requiredResultType)
+        {
+            throw CreateCapabilityInvariantException(request);
+        }
+
+        var executionPlan = MemoryRowExecutionPlan.Compile(request, rootSource);
+        using var rows = OpenCanonicalRowCursor(rootSource, executionPlan, cancellationToken);
+        object result = template.Result.Kind switch
+        {
+            QueryPlanResultKind.Any => MoveAny(rows, cancellationToken),
+            QueryPlanResultKind.Count => CountRows(rows, cancellationToken),
+            _ => throw CreateCapabilityInvariantException(request)
+        };
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return (TResult)result;
     }
 
     public bool TryExecuteTerminalEntity(
@@ -160,11 +206,35 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
         return new MemoryCanonicalRowCursor(source, rows, executionPlan, cancellationToken);
     }
 
+    private static bool MoveAny(
+        MemoryCanonicalRowCursor rows,
+        CancellationToken cancellationToken)
+    {
+        var result = rows.MoveNext();
+        cancellationToken.ThrowIfCancellationRequested();
+        return result;
+    }
+
+    private static int CountRows(
+        MemoryCanonicalRowCursor rows,
+        CancellationToken cancellationToken)
+    {
+        var count = 0;
+        while (rows.MoveNext())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            count = checked(count + 1);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return count;
+    }
+
     private static InvalidOperationException CreateCapabilityInvariantException(
         ValidatedQueryExecutionRequest request) =>
         new(
             "The memory capability profile validated a request outside its implemented " +
-            $"row-sequence shape. Projection: '{request.Invocation.Template.Projection.Kind}'; " +
+            $"query shape. Projection: '{request.Invocation.Template.Projection.Kind}'; " +
             $"result: '{request.Invocation.Template.Result.Kind}'; operations: {request.Invocation.Template.Operations.Count}.");
 }
 

@@ -114,6 +114,23 @@ internal static class QueryPlanTemplateValidator
         QueryPlanProjection projection,
         QueryPlanResult result)
     {
+        var requiredScalarType = result.Kind switch
+        {
+            QueryPlanResultKind.Any => typeof(bool),
+            QueryPlanResultKind.Count => typeof(int),
+            _ => null
+        };
+        if (requiredScalarType is not null)
+        {
+            if (result.ResultType == requiredScalarType)
+                return;
+
+            throw new ArgumentException(
+                $"Query plan result '{result.Kind}' requires CLR type '{TypeName(requiredScalarType)}', " +
+                $"but received '{TypeName(result.ResultType)}'.",
+                nameof(result));
+        }
+
         if (result.Kind is not (
                 QueryPlanResultKind.Sequence or
                 QueryPlanResultKind.Single or

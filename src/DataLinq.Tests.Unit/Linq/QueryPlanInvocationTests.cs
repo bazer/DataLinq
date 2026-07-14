@@ -210,7 +210,7 @@ public class QueryPlanInvocationTests
     }
 
     [Test]
-    public async Task Template_RequiresProjectionReturningResultsToUseTheProjectionType()
+    public async Task Template_RequiresProjectionAndScalarResultsToUseCanonicalTypes()
     {
         var table = GetTable<Employee>();
         var source = Source(table);
@@ -270,6 +270,39 @@ public class QueryPlanInvocationTests
 
         await Assert.That(scalar.Result.ResultType).IsEqualTo(typeof(int));
         await Assert.That(aggregate.Result.ResultType).IsEqualTo(typeof(int));
+
+        var validAny = CreateScalarResult(QueryPlanResultKind.Any, typeof(bool));
+        var validCount = CreateScalarResult(QueryPlanResultKind.Count, typeof(int));
+        var invalidAny = Capture<ArgumentException>(() =>
+            CreateScalarResult(QueryPlanResultKind.Any, typeof(int)));
+        var invalidCount = Capture<ArgumentException>(() =>
+            CreateScalarResult(QueryPlanResultKind.Count, typeof(bool)));
+        var invalidSelector = Capture<ArgumentException>(() => new QueryPlanResult(
+            QueryPlanResultKind.Count,
+            typeof(int),
+            Column(source, nameof(Employee.emp_no))));
+
+        await Assert.That(validAny.Result.ResultType).IsEqualTo(typeof(bool));
+        await Assert.That(validCount.Result.ResultType).IsEqualTo(typeof(int));
+        await Assert.That(invalidAny).IsNotNull();
+        await Assert.That(invalidAny!.Message).Contains(QueryPlanResultKind.Any.ToString());
+        await Assert.That(invalidAny.Message).Contains(typeof(int).FullName!);
+        await Assert.That(invalidAny.Message).Contains(typeof(bool).FullName!);
+        await Assert.That(invalidCount).IsNotNull();
+        await Assert.That(invalidCount!.Message).Contains(QueryPlanResultKind.Count.ToString());
+        await Assert.That(invalidCount.Message).Contains(typeof(bool).FullName!);
+        await Assert.That(invalidCount.Message).Contains(typeof(int).FullName!);
+        await Assert.That(invalidSelector).IsNotNull();
+        await Assert.That(invalidSelector!.Message).Contains("must not record an aggregate selector");
+
+        QueryPlanTemplate CreateScalarResult(QueryPlanResultKind kind, Type resultType) =>
+            new(
+                [source],
+                [],
+                projection,
+                new QueryPlanResult(kind, resultType),
+                QueryPlanBindingDeclarations.Empty,
+                QueryPlanSpecialization.Empty);
     }
 
     [Test]
