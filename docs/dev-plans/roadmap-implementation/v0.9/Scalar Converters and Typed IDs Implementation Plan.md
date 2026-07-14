@@ -3,7 +3,7 @@
 
 # 0.9 Scalar Converters And Typed IDs Implementation Plan
 
-**Status:** Implementation in progress. `SC-1` is complete; `SC-2`, `SC-3`, and `SC-4` have bounded green slices but are not complete.
+**Status:** Implementation in progress. `SC-1` is complete; `SC-2` through `SC-5` have bounded green slices but are not complete.
 
 **Target:** Required 0.9 baseline work.
 
@@ -218,6 +218,8 @@ Exit signal:
 - unsupported structured value-object predicates fail before backend execution
 
 ### SC-5: Schema Validation And Provider Handoff
+
+Bounded progress on 2026-07-14 makes finalized scalar metadata participate in physical schema comparison without invoking converter code. On the model side, `SchemaComparer` now uses the shared effective-column-type resolver, so a converter-backed primitive canonical type with no explicit `[Type]` receives the same active-provider fallback as SQL generation; provider-default declarations also translate through that shared path. The database side remains an exact observation of the active provider rather than synthesizing missing metadata. Focused SQLite, MySQL, and MariaDB cases pass `5/5`, including missing live-provider metadata and physical drift between matching canonical `Int32` mappings; integrated gates pass `58/58` generator, `1153/1153` unit, and `803/803` SQLite file/memory compliance tests. This is not yet separate canonical-versus-physical compatibility validation, UUID format validation, or SC-5 completion. The configured `datalinq validate`/`diff` path still parses model files as deferred syntax metadata: a `[ScalarConverter]` there remains a marker and assembly registrations are not semantically resolved, so converter-only source still needs an explicit `[Type]` until that authoritative metadata handoff is implemented.
 
 Work:
 

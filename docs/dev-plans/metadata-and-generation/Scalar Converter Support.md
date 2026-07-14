@@ -7,7 +7,7 @@
 
 **Release scope:** The bounded first implementation targets 0.9; broader converter authoring remains later work.
 
-**Last reviewed:** 2026-07-10.
+**Last reviewed:** 2026-07-14.
 
 **0.9 execution plan:** [Scalar Converters and Typed IDs Implementation Plan](../roadmap-implementation/v0.9/Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md).
 
@@ -391,6 +391,8 @@ The 0.9 expression-query SQL path now preserves both required query representati
 
 6. **Schema validation and diff**
    - Schema validation should compare database column type against the provider CLR type mapping and explicit `[Type(...)]`, not against the model CLR type.
+
+The first bounded implementation now resolves the model's effective physical type from authoritative canonical-provider metadata before comparing it with an exact active-provider database type. This removes false physical drift for converter-backed primitive columns without `[Type]`, keeps explicit/default physical declarations and real mismatches visible, and never invokes converter code. It does not yet provide a separate canonical-compatibility diagnostic or UUID-format comparison. The configured CLI validation/diff path also still loads deferred syntax-only model metadata; converter markers and assembly registrations do not yet supply canonical provider metadata there, so that source-only path continues to require explicit `[Type]` metadata.
 
 ## Query Translation Boundary
 

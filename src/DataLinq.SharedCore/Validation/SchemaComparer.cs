@@ -178,8 +178,8 @@ public sealed class SchemaComparer
                 SchemaDifferenceKind.ColumnTypeMismatch,
                 path,
                 "type",
-                FormatDbType(modelColumn.GetDbTypeFor(options.Capabilities.DatabaseType)),
-                FormatDbType(databaseColumn.GetDbTypeFor(options.Capabilities.DatabaseType)),
+                FormatDbType(EffectiveColumnTypeResolver.Resolve(modelColumn, options.Capabilities.DatabaseType)),
+                FormatDbType(GetExactDatabaseType(databaseColumn)),
                 modelColumn,
                 databaseColumn);
         }
@@ -521,6 +521,10 @@ public sealed class SchemaComparer
             type.Decimals?.ToString(CultureInfo.InvariantCulture) ?? "",
             type.Signed?.ToString(CultureInfo.InvariantCulture) ?? "");
     }
+
+    private DatabaseColumnType? GetExactDatabaseType(ColumnDefinition column) =>
+        column.DbTypes.FirstOrDefault(type =>
+            type.DatabaseType == options.Capabilities.DatabaseType);
 
     private string? FormatDefault(ColumnDefinition column)
     {
