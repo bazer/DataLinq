@@ -128,6 +128,9 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
             };
         }
 
+        if (defaultAttr is DefaultNewUUIDAttribute defaultNewUuid)
+            throw CreateUnsupportedDatabaseGeneratedUuidDefaultException(column, defaultNewUuid);
+
         if (defaultAttr is DefaultSqlAttribute defaultSql)
             return defaultSql.DatabaseType is DatabaseType.Default or DatabaseType.SQLite
                 ? defaultSql.Expression
@@ -182,6 +185,15 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
         new(
             $"Guid SQL default for column '{column.Table.DbName}.{column.DbName}' can be rendered only from a finalized Guid value on a direct canonical Guid mapping. " +
             "Converter-backed mappings, noncanonical default values, and dynamic/generated UUID defaults require separate conversion or generation semantics and are not supported by this literal path.");
+
+    private static InvalidOperationException CreateUnsupportedDatabaseGeneratedUuidDefaultException(
+        ColumnDefinition column,
+        DefaultNewUUIDAttribute attribute) =>
+        new(
+            $"Database-generated UUID default for column '{column.Table.DbName}.{column.DbName}' requests '{attribute.Version}' on '{DatabaseType.SQLite}', " +
+            "but DataLinq has no verified SQLite storage-format mapping for that contract. " +
+            $"Use a provider-scoped [DefaultSql(DatabaseType.SQLite, \"...\")] only when the SQLite expression and resulting physical storage are intentional, " +
+            "or generate the UUID in client code.");
 
     protected virtual DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
     {

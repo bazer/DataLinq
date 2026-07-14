@@ -792,6 +792,9 @@ public sealed class SchemaComparer
         if (TryGetEnumDefaultNumericValue(column.ValueProperty, attribute, out var enumNumericValue))
             return $"{attribute.GetType().Name}|{enumNumericValue.ToString(CultureInfo.InvariantCulture)}";
 
+        if (attribute is DefaultNewUUIDAttribute defaultNewUuid)
+            return $"{attribute.GetType().Name}|{defaultNewUuid.NewUUID}|{defaultNewUuid.Version}";
+
         var value = attribute.Value switch
         {
             null => "",

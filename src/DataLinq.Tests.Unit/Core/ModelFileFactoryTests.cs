@@ -218,6 +218,27 @@ public class ModelFileFactoryTests
     }
 
     [Test]
+    public async Task CreateModelFiles_DefaultNewUuid_PreservesExplicitVersions()
+    {
+        var database = CreateDatabaseWithUuidGenerationDefaults();
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "UuidDefaultModel.cs");
+
+        await Assert.That(generatedFile.contents).Contains(
+            "[DefaultNewUUID(UUIDVersion.Version4)]");
+        await Assert.That(generatedFile.contents).Contains(
+            "[DefaultNewUUID(UUIDVersion.Version7)]");
+        await Assert.That(generatedFile.contents).DoesNotContain("[DefaultNewUUID]");
+
+        var syntaxTree = CSharpSyntaxTree.ParseText(generatedFile.contents);
+        var syntaxErrors = syntaxTree.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        await Assert.That(syntaxErrors).IsEmpty();
+    }
+
+    [Test]
     public async Task CreateModelFiles_MetadataStringArguments_EscapeLiterals()
     {
         var database = CreateDatabaseWithEscapedMetadataStrings();
@@ -740,6 +761,50 @@ public class ModelFileFactoryTests
                         ]
                     },
                     new MetadataTableDraft("guid_storage_models"))
+            ]
+        };
+
+        return Build(draft);
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithUuidGenerationDefaults()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "UuidDefaultDb",
+            new CsTypeDeclaration("UuidDefaultDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "UuidDefaultModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("UuidDefaultModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true
+                                }),
+                            new MetadataValuePropertyDraft(
+                                "Version4Id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("version4_id"))
+                            {
+                                Attributes = [new DefaultNewUUIDAttribute(UUIDVersion.Version4)]
+                            },
+                            new MetadataValuePropertyDraft(
+                                "Version7Id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("version7_id"))
+                            {
+                                Attributes = [new DefaultNewUUIDAttribute(UUIDVersion.Version7)]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("uuid_default_models"))
             ]
         };
 

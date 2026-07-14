@@ -78,7 +78,7 @@ public class SchemaMigrationSnapshotTests
         var json = snapshot.ToJson();
         var roundTripped = SchemaMigrationSnapshot.FromJson(json);
 
-        await Assert.That(json).Contains("\"formatVersion\": 1");
+        await Assert.That(json).Contains("\"formatVersion\": 2");
         await Assert.That(json).DoesNotContain("source");
         await Assert.That(roundTripped.FormatVersion).IsEqualTo(snapshot.FormatVersion);
         await Assert.That(roundTripped.DatabaseName).IsEqualTo(snapshot.DatabaseName);
@@ -88,6 +88,46 @@ public class SchemaMigrationSnapshotTests
         await Assert.That(roundTripped.GeneratedAtUtc).IsEqualTo(snapshot.GeneratedAtUtc);
         await Assert.That(roundTripped.Tables.Single().Columns.Single().Name).IsEqualTo("id");
         await Assert.That(roundTripped.Tables.Single().Columns.Single().DbType?.Name).IsEqualTo("integer");
+    }
+
+    [Test]
+    public async Task FromDatabase_DefaultNewUuidVersions_AreSerializedDistinctly()
+    {
+        static Attribute[] UuidAttributes(UUIDVersion version) =>
+        [
+            new DefaultNewUUIDAttribute(version),
+            new GuidStorageAttribute(DatabaseType.SQLite, GuidStorageFormat.Text36),
+            new GuidStorageAttribute(DatabaseType.MySQL, GuidStorageFormat.Binary16LittleEndian),
+            new GuidStorageAttribute(DatabaseType.MariaDB, GuidStorageFormat.NativeUuid)
+        ];
+
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn(
+                        "version4_id",
+                        typeof(Guid),
+                        nullable: false,
+                        attributes: UuidAttributes(UUIDVersion.Version4)),
+                    CreateColumn(
+                        "version7_id",
+                        typeof(Guid),
+                        nullable: false,
+                        attributes: UuidAttributes(UUIDVersion.Version7))
+                ]));
+
+        var snapshot = SchemaMigrationSnapshot.FromDatabase(
+            database,
+            DatabaseType.MariaDB,
+            new DateTimeOffset(2026, 7, 14, 12, 0, 0, TimeSpan.Zero));
+        var columns = snapshot.Tables.Single().Columns;
+
+        await Assert.That(columns.Single(x => x.Name == "version4_id").Default)
+            .IsEqualTo("DefaultNewUUIDAttribute|NewUUID|Version4");
+        await Assert.That(columns.Single(x => x.Name == "version7_id").Default)
+            .IsEqualTo("DefaultNewUUIDAttribute|NewUUID|Version7");
     }
 
     private static DatabaseDefinition CreateDatabase(params MetadataTableModelDraft[] tableModels)
@@ -153,6 +193,17 @@ public class SchemaMigrationSnapshotTests
 
     private static DatabaseColumnType GetColumnType(DatabaseType databaseType, Type csType)
     {
+        if (csType == typeof(Guid))
+        {
+            return databaseType switch
+            {
+                DatabaseType.SQLite => new DatabaseColumnType(databaseType, "text"),
+                DatabaseType.MySQL => new DatabaseColumnType(databaseType, "binary", 16),
+                DatabaseType.MariaDB => new DatabaseColumnType(databaseType, "uuid"),
+                _ => throw new ArgumentOutOfRangeException(nameof(databaseType), databaseType, null)
+            };
+        }
+
         if (databaseType == DatabaseType.SQLite)
         {
             return csType == typeof(string)

@@ -538,6 +538,18 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
         var attribute = parser.ParseAttribute(syntax).ValueOrException();
 
         await Assert.That(attribute).IsTypeOf<DefaultNewUUIDAttribute>();
+        await Assert.That(((DefaultNewUUIDAttribute)attribute).Version).IsEqualTo(UUIDVersion.Version7);
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_DefaultValue_NewUUIDQualifiedVersion()
+    {
+        var (parser, syntax) = GetAttributeSyntax(
+            @"[global::DataLinq.Attributes.DefaultNewUUID(global::DataLinq.Attributes.UUIDVersion.Version4)]");
+        var attribute = parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute).IsTypeOf<DefaultNewUUIDAttribute>();
+        await Assert.That(((DefaultNewUUIDAttribute)attribute).Version).IsEqualTo(UUIDVersion.Version4);
     }
 
     [Test]

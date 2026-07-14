@@ -19,6 +19,12 @@ public class MetadataFromSqlFactoryDefaultParsingTests
     public sealed record TemporalAliasCase(string ColumnDefault, string CsTypeName, string ExpectedSqlDefault);
     public sealed record ZeroDateCase(string ColumnDefault, string CsTypeName);
     public sealed record SqlLiteralFormattingCase(CsTypeDeclaration CsType, object DefaultValue, string ExpectedSqlDefault);
+    public sealed record UuidGenerationCase(DataLinq.DatabaseType DatabaseType, UUIDVersion Version);
+    public sealed record UuidImportCase(
+        DataLinq.DatabaseType DatabaseType,
+        Type CsType,
+        string ColumnDefault,
+        string ExpectedExpression);
     public sealed record GuidDefaultScenario(
         DataLinq.DatabaseType DatabaseType,
         string DbTypeName,
@@ -26,8 +32,10 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         GuidStorageFormat StorageFormat,
         string ExpectedSqlDefault);
 
-    private sealed class TestMetadataFromSqlFactory(MetadataFromDatabaseFactoryOptions options)
-        : MetadataFromSqlFactory(options, DataLinq.DatabaseType.MariaDB)
+    private sealed class TestMetadataFromSqlFactory(
+        MetadataFromDatabaseFactoryOptions options,
+        DataLinq.DatabaseType databaseType = DataLinq.DatabaseType.MariaDB)
+        : MetadataFromSqlFactory(options, databaseType)
     {
         public DefaultAttribute? ParseDefaultForTest(TableDefinition table, ICOLUMNS column, ValueProperty property)
         {
@@ -85,6 +93,38 @@ public class MetadataFromSqlFactoryDefaultParsingTests
     {
         yield return () => new ZeroDateCase("'0000-00-00'", "DateOnly");
         yield return () => new ZeroDateCase("'0000-00-00 00:00:00'", "DateTime");
+    }
+
+    public static IEnumerable<Func<UuidGenerationCase>> UuidGenerationCases()
+    {
+        yield return () => new UuidGenerationCase(DataLinq.DatabaseType.MySQL, UUIDVersion.Version4);
+        yield return () => new UuidGenerationCase(DataLinq.DatabaseType.MySQL, UUIDVersion.Version7);
+        yield return () => new UuidGenerationCase(DataLinq.DatabaseType.MariaDB, UUIDVersion.Version4);
+        yield return () => new UuidGenerationCase(DataLinq.DatabaseType.MariaDB, UUIDVersion.Version7);
+    }
+
+    public static IEnumerable<Func<UuidImportCase>> UuidImportCases()
+    {
+        yield return () => new UuidImportCase(
+            DataLinq.DatabaseType.MySQL,
+            typeof(string),
+            "UUID()",
+            "(UUID())");
+        yield return () => new UuidImportCase(
+            DataLinq.DatabaseType.MySQL,
+            typeof(Guid),
+            "(uuid())",
+            "(uuid())");
+        yield return () => new UuidImportCase(
+            DataLinq.DatabaseType.MariaDB,
+            typeof(string),
+            "uuid()",
+            "(uuid())");
+        yield return () => new UuidImportCase(
+            DataLinq.DatabaseType.MariaDB,
+            typeof(Guid),
+            "(UUID())",
+            "(UUID())");
     }
 
     public static IEnumerable<Func<SqlLiteralFormattingCase>> SqlLiteralFormattingCases()
@@ -209,6 +249,45 @@ public class MetadataFromSqlFactoryDefaultParsingTests
 
         await Assert.That(defaultAttr).IsTypeOf<DefaultAttribute>();
         await Assert.That((string)((DefaultAttribute)defaultAttr!).Value).IsEqualTo("abc");
+    }
+
+    [Test]
+    [MethodDataSource(nameof(UuidImportCases))]
+    public async Task ParseDefaultValue_UuidFunction_PreservesProviderSqlWithoutInventingVersion(
+        UuidImportCase testCase)
+    {
+        var factory = new TestMetadataFromSqlFactory(
+            new MetadataFromDatabaseFactoryOptions(),
+            testCase.DatabaseType);
+        var (table, _, property) = CreateProperty(
+            "test_col",
+            new CsTypeDeclaration(testCase.CsType));
+        var dbTypeName = testCase.DatabaseType == DataLinq.DatabaseType.MariaDB &&
+            testCase.CsType == typeof(Guid)
+                ? "uuid"
+                : "char";
+        var dbColumn = new TestColumn(
+            "test_col",
+            dbTypeName,
+            dbTypeName,
+            testCase.ColumnDefault);
+
+        var defaultAttr = factory.ParseDefaultForTest(table, dbColumn, property);
+
+        await Assert.That(defaultAttr).IsTypeOf<DefaultSqlAttribute>();
+        var defaultSql = (DefaultSqlAttribute)defaultAttr!;
+        await Assert.That(defaultSql.DatabaseType).IsEqualTo(testCase.DatabaseType);
+        await Assert.That(defaultSql.Expression).IsEqualTo(testCase.ExpectedExpression);
+
+        var (_, columnWithDefault, _) = CreateProperty(
+            "test_col",
+            new CsTypeDeclaration(testCase.CsType),
+            [defaultSql]);
+        var renderedDefault = SqlFromMetadataFactory
+            .GetFactoryFromDatabaseType(testCase.DatabaseType)
+            .GetDefaultValue(columnWithDefault);
+
+        await Assert.That(renderedDefault).IsEqualTo(testCase.ExpectedExpression);
     }
 
     [Test]
@@ -490,16 +569,33 @@ public class MetadataFromSqlFactoryDefaultParsingTests
     }
 
     [Test]
-    public async Task GetDefaultValue_DefaultNewUuid_RoundTripsToUuidFunction()
+    [MethodDataSource(nameof(UuidGenerationCases))]
+    public async Task GetDefaultValue_DefaultNewUuid_RejectsUnverifiedProviderSemantics(
+        UuidGenerationCase testCase)
     {
         var (_, column, _) = CreateProperty(
             "test_col",
             new CsTypeDeclaration(typeof(Guid)),
-            [new DefaultNewUUIDAttribute()]);
+            [new DefaultNewUUIDAttribute(testCase.Version)]);
+        InvalidOperationException? exception = null;
 
-        var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(column);
+        try
+        {
+            _ = SqlFromMetadataFactory
+                .GetFactoryFromDatabaseType(testCase.DatabaseType)
+                .GetDefaultValue(column);
+        }
+        catch (InvalidOperationException caught)
+        {
+            exception = caught;
+        }
 
-        await Assert.That(sqlDefault).IsEqualTo("UUID()");
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("test_table.test_col");
+        await Assert.That(exception.Message).Contains(testCase.DatabaseType.ToString());
+        await Assert.That(exception.Message).Contains(testCase.Version.ToString());
+        await Assert.That(exception.Message).Contains("DefaultSql");
+        await Assert.That(exception.Message).Contains("UUID()");
     }
 
     [Test]
@@ -531,7 +627,10 @@ public class MetadataFromSqlFactoryDefaultParsingTests
                 "PublicId",
                 typeof(Guid),
                 "public_id",
-                attributes: [new DefaultNewUUIDAttribute()]));
+                attributes:
+                [
+                    new DefaultSqlAttribute(DataLinq.DatabaseType.MariaDB, "UUID()")
+                ]));
 
         var sqlResult = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetCreateTables(database, foreignKeyRestrict: false);
 

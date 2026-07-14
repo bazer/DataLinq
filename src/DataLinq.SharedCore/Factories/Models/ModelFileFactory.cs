@@ -429,8 +429,8 @@ public class ModelFileFactory
             var defaultAttr = valueProperty.GetDefaultAttribute();
             if (defaultAttr is DefaultCurrentTimestampAttribute)
                 yield return $"{namespaceTab}{tab}[DefaultCurrentTimestamp]";
-            else if (defaultAttr is DefaultNewUUIDAttribute)
-                yield return $"{namespaceTab}{tab}[DefaultNewUUID]";
+            else if (defaultAttr is DefaultNewUUIDAttribute defaultNewUuid)
+                yield return $"{namespaceTab}{tab}[DefaultNewUUID(UUIDVersion.{defaultNewUuid.Version})]";
             else if (defaultAttr is DefaultSqlAttribute defaultSql)
                 yield return $"{namespaceTab}{tab}[DefaultSql(DatabaseType.{defaultSql.DatabaseType}, {SymbolDisplay.FormatLiteral(defaultSql.Expression, quote: true)})]";
             else if (defaultAttr != null)

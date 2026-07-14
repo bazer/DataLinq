@@ -140,8 +140,8 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             };
         }
 
-        if (defaultAttr is DefaultNewUUIDAttribute)
-            return "UUID()";
+        if (defaultAttr is DefaultNewUUIDAttribute defaultNewUuid)
+            throw CreateUnsupportedDatabaseGeneratedUuidDefaultException(column, defaultNewUuid);
 
         if (defaultAttr is DefaultSqlAttribute defaultSql)
             return defaultSql.DatabaseType is DatabaseType.Default || defaultSql.DatabaseType == DatabaseType
@@ -243,6 +243,16 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         new(
             $"Guid SQL default for column '{column.Table.DbName}.{column.DbName}' can be rendered only from a finalized Guid value on a direct canonical Guid mapping. " +
             "Converter-backed mappings, noncanonical default values, and dynamic/generated UUID defaults require separate conversion or generation semantics and are not supported by this literal path.");
+
+    private InvalidOperationException CreateUnsupportedDatabaseGeneratedUuidDefaultException(
+        ColumnDefinition column,
+        DefaultNewUUIDAttribute attribute) =>
+        new(
+            $"Database-generated UUID default for column '{column.Table.DbName}.{column.DbName}' requests '{attribute.Version}' on '{DatabaseType}', " +
+            "but DataLinq has no verified provider-version and storage-format mapping for that contract. " +
+            $"DataLinq will not substitute UUID(), whose UUID version does not match '{attribute.Version}'. " +
+            $"Use a provider-scoped [DefaultSql(DatabaseType.{DatabaseType}, \"...\")] only when the provider expression and resulting physical storage are intentional, " +
+            "or generate the UUID in client code.");
 
     private static string? ResolveEnumDefaultValue(ValueProperty property, DefaultAttribute? defaultAttr)
     {

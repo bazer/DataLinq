@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Metadata;
+using DataLinq.Testing;
 using DataLinq.Tools;
 using DataLinq.Validation;
 using ThrowAway.Extensions;
@@ -172,6 +173,42 @@ public sealed class SchemaComparerGuidStorageTests
         await Assert.That(differences.Single().Message).Contains(nameof(GuidStorageFormat.Text32));
         await Assert.That(differences.Single().Message).Contains(nameof(GuidStorageFormat.Text36));
         await Assert.That(differences.Single().Message).Contains("manual data migration");
+    }
+
+    [Test]
+    public async Task Compare_DefaultNewUuidVersions_AreSemanticallyDistinct()
+    {
+        var physicalType = new DatabaseColumnType(DatabaseType.SQLite, "TEXT");
+        var version4 = BuildDatabase(
+            new CsTypeDeclaration(typeof(Guid)),
+            physicalType,
+            GuidStorageFormat.Text36,
+            MetadataBuildMode.Model,
+            defaultAttribute: new DefaultNewUUIDAttribute(UUIDVersion.Version4));
+        var version7 = BuildDatabase(
+            new CsTypeDeclaration(typeof(Guid)),
+            physicalType,
+            GuidStorageFormat.Text36,
+            MetadataBuildMode.Model,
+            defaultAttribute: new DefaultNewUUIDAttribute(UUIDVersion.Version7));
+
+        var schemaDifferences = SchemaComparer.Compare(version4, version7, DatabaseType.SQLite);
+        var roundtripDifferences = MetadataRoundtripComparison.CompareSupportedSubset(
+            version4,
+            version7,
+            DatabaseType.SQLite);
+        var version4Digest = MetadataEquivalenceDigest.CreateText(version4);
+        var version7Digest = MetadataEquivalenceDigest.CreateText(version7);
+
+        await Assert.That(schemaDifferences.Select(static difference => difference.Kind).ToArray())
+            .IsEquivalentTo([SchemaDifferenceKind.ColumnDefaultMismatch]);
+        await Assert.That(roundtripDifferences.Count).IsEqualTo(1);
+        await Assert.That(roundtripDifferences.Single()).Contains(".default");
+        await Assert.That(roundtripDifferences.Single()).Contains(UUIDVersion.Version4.ToString());
+        await Assert.That(roundtripDifferences.Single()).Contains(UUIDVersion.Version7.ToString());
+        await Assert.That(version4Digest).Contains(UUIDVersion.Version4.ToString());
+        await Assert.That(version7Digest).Contains(UUIDVersion.Version7.ToString());
+        await Assert.That(version4Digest).IsNotEqualTo(version7Digest);
     }
 
     [Test]
@@ -390,11 +427,20 @@ public sealed class SchemaComparerGuidStorageTests
         GuidStorageFormat? guidStorageFormat,
         MetadataBuildMode mode,
         IDataLinqScalarConverter? converter = null,
-        DatabaseType? guidStorageProvider = null)
+        DatabaseType? guidStorageProvider = null,
+        DefaultAttribute? defaultAttribute = null)
     {
-        IReadOnlyList<Attribute> attributes = guidStorageFormat.HasValue
-            ? [new GuidStorageAttribute(guidStorageProvider ?? physicalType.DatabaseType, guidStorageFormat.Value)]
-            : [];
+        var attributes = new List<Attribute>();
+        if (guidStorageFormat.HasValue)
+        {
+            attributes.Add(new GuidStorageAttribute(
+                guidStorageProvider ?? physicalType.DatabaseType,
+                guidStorageFormat.Value));
+        }
+
+        if (defaultAttribute != null)
+            attributes.Add(defaultAttribute);
+
         var draft = new MetadataDatabaseDraft(
             "SchemaGuidStorageDb",
             new CsTypeDeclaration(typeof(SchemaComparerGuidStorageTests)))

@@ -62,6 +62,76 @@ public class GuidStorageStaticDefaultTests
     }
 
     [Test]
+    [Arguments(UUIDVersion.Version4)]
+    [Arguments(UUIDVersion.Version7)]
+    public async Task GetDefaultValue_DefaultNewUuid_RejectsUnverifiedSqliteSemantics(
+        UUIDVersion version)
+    {
+        var database = Build(
+            CreateIdColumn(),
+            new MetadataValuePropertyDraft(
+                "Generated",
+                new CsTypeDeclaration(typeof(Guid)),
+                new MetadataColumnDraft("generated")
+                {
+                    DbTypes = [new DatabaseColumnType(DatabaseType.SQLite, "TEXT")]
+                })
+            {
+                Attributes =
+                [
+                    new ColumnAttribute("generated"),
+                    new DefaultNewUUIDAttribute(version),
+                    new GuidStorageAttribute(DatabaseType.SQLite, GuidStorageFormat.Text36)
+                ]
+            });
+        var column = database.TableModels.Single().Table.Columns.Single(x => x.DbName == "generated");
+        InvalidOperationException? exception = null;
+
+        try
+        {
+            _ = new SqlFromSQLiteFactory().GetDefaultValue(column);
+        }
+        catch (InvalidOperationException caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("guid_defaults.generated");
+        await Assert.That(exception.Message).Contains(DatabaseType.SQLite.ToString());
+        await Assert.That(exception.Message).Contains(version.ToString());
+        await Assert.That(exception.Message).Contains("DefaultSql");
+    }
+
+    [Test]
+    public async Task GetDefaultValue_ExplicitSqliteDefaultSql_RemainsProviderEscapeHatch()
+    {
+        const string expression = "lower(hex(randomblob(16)))";
+        var database = Build(
+            CreateIdColumn(),
+            new MetadataValuePropertyDraft(
+                "Generated",
+                new CsTypeDeclaration(typeof(Guid)),
+                new MetadataColumnDraft("generated")
+                {
+                    DbTypes = [new DatabaseColumnType(DatabaseType.SQLite, "TEXT")]
+                })
+            {
+                Attributes =
+                [
+                    new ColumnAttribute("generated"),
+                    new DefaultSqlAttribute(DatabaseType.SQLite, expression),
+                    new GuidStorageAttribute(DatabaseType.SQLite, GuidStorageFormat.Text36)
+                ]
+            });
+        var column = database.TableModels.Single().Table.Columns.Single(x => x.DbName == "generated");
+
+        var renderedDefault = new SqlFromSQLiteFactory().GetDefaultValue(column);
+
+        await Assert.That(renderedDefault).IsEqualTo(expression);
+    }
+
+    [Test]
     public async Task GetDefaultValue_AmbiguousBlobMetadata_IsRejected()
     {
         var database = new MetadataDefinitionFactory()

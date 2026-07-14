@@ -359,8 +359,10 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
             (property.CsType.Type == typeof(TimeOnly) && IsCurrentTimeDefault(normalizedExpression)))
             return new DefaultCurrentTimestampAttribute();
 
-        if (normalizedExpression.StartsWith("UUID()", StringComparison.CurrentCultureIgnoreCase))
-            return new DefaultNewUUIDAttribute();
+        if (string.Equals(normalizedExpression, "UUID()", StringComparison.OrdinalIgnoreCase))
+            return new DefaultSqlAttribute(
+                databaseType,
+                FormatRawDefaultExpression(dbColumns.COLUMN_DEFAULT.Trim(), normalizedExpression));
 
         if (property.CsType.Type == typeof(bool) && normalizedExpression.StartsWith("b'"))
             return new DefaultAttribute(normalizedExpression == "b'1'");

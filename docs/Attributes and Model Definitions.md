@@ -212,7 +212,7 @@ This attribute supports a `UUIDVersion` argument, including `Version4` and `Vers
 Use it on `Guid` properties. Anything else is a model error, not a meaningful configuration.
 
 > [!WARNING]
-> UUID version selection is not yet a portable database-generation contract. MySQL/MariaDB provider DDL and import do not currently preserve Version4 versus Version7 semantics, SQLite has no equivalent built-in generator, and Version7 client code requires a target-framework-aware implementation because `Guid.CreateVersion7()` is unavailable on .NET 8. Use an explicit provider-scoped `[DefaultSql]` only when you intentionally accept that provider expression's real semantics; do not assume it is equivalent to `[DefaultNewUUID]`.
+> UUID version selection is preserved by direct source parsing, direct metadata-to-model regeneration, schema comparison, migration snapshots, and metadata-equivalence checks, but it is not yet a portable generation contract. This does not yet guarantee preservation when source and database metadata are merged; source-precedence behavior remains open. SQLite, MySQL, and MariaDB DDL generation deliberately rejects both Version4 and Version7 `[DefaultNewUUID]` declarations until DataLinq has a verified provider-version and storage-format mapping. An exact MySQL/MariaDB `UUID()` default imported from an existing schema remains provider-scoped `[DefaultSql]`; DataLinq does not relabel that expression as UUIDv4 or UUIDv7. Use provider-scoped `[DefaultSql]` only when you intentionally accept the expression's real UUID version and physical storage. Client-side Version7 generation also remains incomplete on .NET 8, where `Guid.CreateVersion7()` is unavailable.
 
 ## Index Attributes
 

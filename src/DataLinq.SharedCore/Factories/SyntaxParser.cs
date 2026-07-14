@@ -1004,7 +1004,8 @@ public class SyntaxParser
 
             if (arguments.Count == 1)
             {
-                if (!UUIDVersion.TryParse(arguments[0], out UUIDVersion version))
+                var versionName = arguments[0].Split('.').Last();
+                if (!UUIDVersion.TryParse(versionName, out UUIDVersion version))
                     return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid UUIDVersion value '{arguments[0]}'");
 
                 return new DefaultNewUUIDAttribute(version);

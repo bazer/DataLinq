@@ -108,6 +108,9 @@ public static class MetadataEquivalenceDigest
         if (attribute is DefaultSqlAttribute defaultSql)
             return $"{nameof(DefaultSqlAttribute)}:{defaultSql.DatabaseType}:{NormalizeSql(defaultSql.Expression)}";
 
+        if (attribute is DefaultNewUUIDAttribute defaultNewUuid)
+            return $"{nameof(DefaultNewUUIDAttribute)}:{defaultNewUuid.NewUUID}:{defaultNewUuid.Version}";
+
         var value = attribute.Value switch
         {
             null => "",
