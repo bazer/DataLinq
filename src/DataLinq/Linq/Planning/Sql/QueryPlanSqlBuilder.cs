@@ -28,6 +28,7 @@ internal sealed class QueryPlanSqlBuilder
         this.invocation = invocation;
         template = invocation.Template;
         this.dataSource = dataSource;
+        QueryPlanSqlJoinCompatibilityValidator.Validate(template, dataSource.Provider.DatabaseType);
         sourceMap = new QueryPlanSqlSourceMap(template);
         valueRenderer = new QueryPlanSqlValueRenderer(dataSource, sourceMap, invocation.Values);
     }

@@ -257,6 +257,8 @@ The test suite covers one narrow explicit inner join shape, both as fluent `Join
 
 Joined row-local recipes are self-contained, but they remain SQL-only in 0.9 because SQL owns joined-row selection and primary-key buffering. Post-paging composition over a row-local joined result is still unsupported; materialize before applying further LINQ-to-Objects operators.
 
+For scalar-converter-backed join keys, both columns must declare the same resolved model type, canonical provider type, and converter type. Canonical `Guid` keys must also use the same resolved storage format for the active provider. DataLinq rejects a known mismatch before issuing SQL. This is a nominal safety check, not a proof of converter behavior: a converter used on join keys must encode equal model values identically for both columns and must not change that equality mapping based on `ScalarConversionContext.Column`.
+
 Fluent example:
 
 ```csharp

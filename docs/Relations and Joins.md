@@ -71,6 +71,8 @@ var rows = db.Query().DepartmentEmployees
 
 That query uses an implicit inner join. DataLinq binds `row.departments.Name` to a relation source slot and renders the related table in SQL. Repeated references to the same singular relation reuse the same implicit join source.
 
+Before rendering an implicit or explicit join, DataLinq checks converter-aware key compatibility. Converter-backed columns need matching resolved model, canonical provider, and nominal converter types; canonical `Guid` columns also need the same resolved storage format for the active provider. Known mismatches fail before SQL execution. Converter authors still own the behavioral invariant that equal model keys encode to equal canonical values for both columns—the framework cannot infer that from a converter class alone.
+
 This is deliberately narrow:
 
 - supported: singular relation member access in `Where`, `OrderBy`, `ThenBy`, and direct `Select(...)` projection
