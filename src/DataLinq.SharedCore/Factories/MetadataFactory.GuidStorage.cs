@@ -107,11 +107,11 @@ public static partial class MetadataFactory
 
                     if (declaration is not null)
                     {
-                        if (!IsGuidStorageFormatCompatible(
+                        if (!GuidStoragePhysicalTypeResolver.IsCompatible(
                             provider,
                             effectiveType,
                             declaration.Format,
-                            mode))
+                            allowSchemaModifiers: mode == GuidStorageResolutionMode.ProviderSnapshot))
                         {
                             return CreateValuePropertyAttributeFailure(
                                 property,
@@ -123,12 +123,14 @@ public static partial class MetadataFactory
                         continue;
                     }
 
-                    var inferredFormat = InferGuidStorageFormat(provider, effectiveType, mode);
+                    var inferredFormat = GuidStoragePhysicalTypeResolver.InferCompatibilityDefault(
+                        provider,
+                        effectiveType,
+                        allowSchemaModifiers: mode == GuidStorageResolutionMode.ProviderSnapshot);
                     if (inferredFormat.HasValue)
                     {
                         if (mode == GuidStorageResolutionMode.ProviderSnapshot &&
-                            inferredFormat.Value == GuidStorageFormat.Binary16LittleEndian &&
-                            IsBinary16(provider, effectiveType))
+                            GuidStoragePhysicalTypeResolver.HasAmbiguousBinaryLayout(provider, effectiveType))
                         {
                             // A live BINARY(16) schema does not reveal byte order. Model metadata
                             // deliberately keeps the historical DataLinq compatibility default,
@@ -147,7 +149,8 @@ public static partial class MetadataFactory
                         continue;
                     }
 
-                    if (provider == DatabaseType.SQLite && IsSqliteBlob(effectiveType))
+                    if (provider == DatabaseType.SQLite &&
+                        GuidStoragePhysicalTypeResolver.HasAmbiguousBinaryLayout(provider, effectiveType))
                     {
                         return CreateColumnPropertyFailure(
                             column,
@@ -200,84 +203,6 @@ public static partial class MetadataFactory
 
         return GuidStorageProviders.Where(concreteTypes.Contains).ToArray();
     }
-
-    private static GuidStorageFormat? InferGuidStorageFormat(
-        DatabaseType provider,
-        DatabaseColumnType type,
-        GuidStorageResolutionMode mode)
-    {
-        if (provider == DatabaseType.MariaDB &&
-            IsNativeUuidType(type, allowSchemaModifiers: mode == GuidStorageResolutionMode.ProviderSnapshot))
-            return GuidStorageFormat.NativeUuid;
-
-        if (provider is DatabaseType.MySQL or DatabaseType.MariaDB)
-        {
-            if (IsBinary16(provider, type))
-                return GuidStorageFormat.Binary16LittleEndian;
-            if (IsTextType(type, 36))
-                return GuidStorageFormat.Text36;
-            if (IsTextType(type, 32))
-                return GuidStorageFormat.Text32;
-
-            return null;
-        }
-
-        if (provider == DatabaseType.SQLite && IsName(type, "text"))
-            return GuidStorageFormat.Text36;
-
-        return null;
-    }
-
-    private static bool IsGuidStorageFormatCompatible(
-        DatabaseType provider,
-        DatabaseColumnType type,
-        GuidStorageFormat format,
-        GuidStorageResolutionMode mode) => format switch
-    {
-        GuidStorageFormat.NativeUuid =>
-            provider == DatabaseType.MariaDB &&
-            IsNativeUuidType(type, allowSchemaModifiers: mode == GuidStorageResolutionMode.ProviderSnapshot),
-        GuidStorageFormat.Text36 =>
-            provider == DatabaseType.SQLite
-                ? IsName(type, "text")
-                : provider is DatabaseType.MySQL or DatabaseType.MariaDB && IsTextType(type, 36),
-        GuidStorageFormat.Text32 =>
-            provider == DatabaseType.SQLite
-                ? IsName(type, "text")
-                : provider is DatabaseType.MySQL or DatabaseType.MariaDB && IsTextType(type, 32),
-        GuidStorageFormat.Binary16LittleEndian or GuidStorageFormat.Binary16Rfc4122 =>
-            provider == DatabaseType.SQLite
-                ? IsSqliteBlob(type)
-                : provider is DatabaseType.MySQL or DatabaseType.MariaDB && IsBinary16(provider, type),
-        _ => false
-    };
-
-    private static bool IsTextType(DatabaseColumnType type, ulong length) =>
-        (IsName(type, "char") || IsName(type, "varchar")) &&
-        type.Length == length &&
-        !type.Decimals.HasValue &&
-        !type.Signed.HasValue;
-
-    private static bool IsBinary16(DatabaseType provider, DatabaseColumnType type) =>
-        provider is DatabaseType.MySQL or DatabaseType.MariaDB &&
-        IsName(type, "binary") &&
-        type.Length == 16 &&
-        !type.Decimals.HasValue &&
-        !type.Signed.HasValue;
-
-    private static bool IsSqliteBlob(DatabaseColumnType type) => IsName(type, "blob");
-
-    private static bool IsNativeUuidType(
-        DatabaseColumnType type,
-        bool allowSchemaModifiers) =>
-        IsName(type, "uuid") &&
-        (allowSchemaModifiers ||
-         ((!type.Length.HasValue || type.Length == 0) &&
-          (!type.Decimals.HasValue || type.Decimals == 0) &&
-          !type.Signed.HasValue));
-
-    private static bool IsName(DatabaseColumnType type, string expected) =>
-        string.Equals(type.Name, expected, StringComparison.OrdinalIgnoreCase);
 
     private static string FormatCanonicalProviderType(ColumnDefinition column) =>
         column.ProviderClrType?.FullName ??

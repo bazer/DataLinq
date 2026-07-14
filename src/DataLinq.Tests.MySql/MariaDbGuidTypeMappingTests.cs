@@ -51,6 +51,10 @@ public class MariaDbGuidTypeMappingTests
         await Assert.That(dbType.Length).IsNull();
         await Assert.That(dbType.Decimals).IsNull();
         await Assert.That(dbType.Signed).IsNull();
+        await Assert.That(column.GetGuidStorageFor(DatabaseType.MariaDB)!.Format)
+            .IsEqualTo(GuidStorageFormat.NativeUuid);
+        await Assert.That(column.GetGuidStorageFor(DatabaseType.MariaDB)!.IsExplicit).IsFalse();
+        await Assert.That(column.IsGuidStorageUnresolvedFor(DatabaseType.MariaDB)).IsFalse();
         await Assert.That(modelSource)
             .Contains("[Type(DatabaseType.MariaDB, \"uuid\")]");
         await Assert.That(modelSource).DoesNotContain("\"uuid\",");

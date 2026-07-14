@@ -200,7 +200,7 @@ The W1-V tests approve independent values and current seams without pretending t
 
 The approved vector is `00112233-4455-6677-8899-aabbccddeeff`. Its current DataLinq/MySQL compatibility bytes are `33221100554477668899AABBCCDDEEFF`; its RFC-order bytes are `00112233445566778899AABBCCDDEEFF`.
 
-Format-aware schema validation and diffing cannot be characterized honestly before `GuidStorageDefinition` exists. Typed-ID conversion remains SC-1 and later work. Provider-native MariaDB fixtures, raw legacy binary rows, and column-aware provider-codec evidence remain UUID-1 through UUID-5 work.
+At W1, format-aware schema validation and diffing could not be characterized honestly before `GuidStorageDefinition`; that was a baseline limitation. UUID-1B introduced the metadata, and bounded UUID-4 now covers physical-type-gated format matching, unobservable-layout diagnostics, and trusted same-type manual-migration differences. Source-only typed-ID converter resolution, independent canonical compatibility, static/default UUID encoding, and version diagnostics remain later work.
 
 ## Baseline Evidence Manifest
 

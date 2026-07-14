@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.Core.Factories;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 
@@ -173,15 +174,32 @@ public sealed class SchemaComparer
 
         if (options.Capabilities.CompareColumnTypes)
         {
+            var modelPhysicalType = EffectiveColumnTypeResolver.Resolve(
+                modelColumn,
+                options.Capabilities.DatabaseType);
+            var databasePhysicalType = GetExactDatabaseType(databaseColumn);
+            var modelTypeSignature = FormatDbType(modelPhysicalType);
+            var databaseTypeSignature = FormatDbType(databasePhysicalType);
+
             AddMismatchIfDifferent(
                 differences,
                 SchemaDifferenceKind.ColumnTypeMismatch,
                 path,
                 "type",
-                FormatDbType(EffectiveColumnTypeResolver.Resolve(modelColumn, options.Capabilities.DatabaseType)),
-                FormatDbType(GetExactDatabaseType(databaseColumn)),
+                modelTypeSignature,
+                databaseTypeSignature,
                 modelColumn,
                 databaseColumn);
+
+            if (string.Equals(modelTypeSignature, databaseTypeSignature, StringComparison.Ordinal))
+            {
+                CompareGuidStorage(
+                    modelColumn,
+                    databaseColumn,
+                    modelPhysicalType,
+                    databasePhysicalType,
+                    differences);
+            }
         }
 
         if (options.Capabilities.CompareNullability)
@@ -526,6 +544,236 @@ public sealed class SchemaComparer
         column.DbTypes.FirstOrDefault(type =>
             type.DatabaseType == options.Capabilities.DatabaseType);
 
+    private void CompareGuidStorage(
+        ColumnDefinition modelColumn,
+        ColumnDefinition databaseColumn,
+        DatabaseColumnType? modelPhysicalType,
+        DatabaseColumnType? databasePhysicalType,
+        List<SchemaDifference> differences)
+    {
+        if (modelPhysicalType is null || databasePhysicalType is null)
+            return;
+
+        var provider = options.Capabilities.DatabaseType;
+        var path = $"{modelColumn.Table.DbName}.{modelColumn.DbName}";
+
+        if (HasDeferredBareGuidCandidate(modelColumn))
+        {
+            differences.Add(new SchemaDifference(
+                SchemaDifferenceKind.ColumnGuidStorageFormatUnresolved,
+                SchemaDifferenceSeverity.Error,
+                SchemaDifferenceSafety.Ambiguous,
+                path,
+                $"Model UUID storage intent is unresolved at '{path}' for {provider}. Deferred source metadata sees a direct 'Guid' property, but cannot prove that an assembly-registered scalar converter does not change its canonical provider type. Use authoritative compiled metadata, or declare provider-scoped GuidStorage only when the canonical type is truly Guid.",
+                modelColumn,
+                databaseColumn));
+            return;
+        }
+
+        if (!HasModelGuidStorageIntent(modelColumn))
+            return;
+
+        var modelStorage = ResolveModelGuidStorage(modelColumn, modelPhysicalType, provider);
+        var databaseStorage = ResolveDatabaseGuidStorage(databaseColumn, databasePhysicalType, provider);
+
+        if (modelStorage.State == GuidStorageResolutionState.Incompatible)
+        {
+            differences.Add(new SchemaDifference(
+                SchemaDifferenceKind.ColumnGuidStorageFormatMismatch,
+                SchemaDifferenceSeverity.Error,
+                SchemaDifferenceSafety.Ambiguous,
+                path,
+                $"Model UUID storage format '{modelStorage.Format}' at '{path}' is incompatible with effective {provider} type '{FormatDbTypeDisplay(modelPhysicalType)}'. Align the GuidStorage declaration and physical Type mapping before validating this schema.",
+                modelColumn,
+                databaseColumn));
+            return;
+        }
+
+        if (modelStorage.State == GuidStorageResolutionState.Unresolved)
+        {
+            differences.Add(new SchemaDifference(
+                SchemaDifferenceKind.ColumnGuidStorageFormatUnresolved,
+                SchemaDifferenceSeverity.Error,
+                SchemaDifferenceSafety.Ambiguous,
+                path,
+                $"Model UUID storage format is unresolved at '{path}' for {provider}. Physical type '{FormatDbTypeDisplay(modelPhysicalType)}' does not establish one safe UUID representation. Declare an explicit provider-scoped GuidStorage format before treating the schema as compatible.",
+                modelColumn,
+                databaseColumn));
+            return;
+        }
+
+        if (databaseStorage.State == GuidStorageResolutionState.Incompatible)
+        {
+            differences.Add(new SchemaDifference(
+                SchemaDifferenceKind.ColumnGuidStorageFormatMismatch,
+                SchemaDifferenceSeverity.Error,
+                SchemaDifferenceSafety.Ambiguous,
+                path,
+                $"Database UUID storage metadata at '{path}' for {provider} claims format '{databaseStorage.Format}', which is incompatible with physical type '{FormatDbTypeDisplay(databasePhysicalType)}'. Refresh or correct the trusted database storage metadata before generating a migration.",
+                modelColumn,
+                databaseColumn));
+            return;
+        }
+
+        if (databaseStorage.State == GuidStorageResolutionState.Unresolved)
+        {
+            differences.Add(new SchemaDifference(
+                SchemaDifferenceKind.ColumnGuidStorageFormatUnresolved,
+                SchemaDifferenceSeverity.Error,
+                SchemaDifferenceSafety.Ambiguous,
+                path,
+                $"Database UUID storage format is unresolved at '{path}' for {provider}. Model expects '{modelStorage.Format}', but physical type '{FormatDbTypeDisplay(databasePhysicalType)}' does not encode its UUID representation. Provide a trusted storage hint before treating the schema as compatible.",
+                modelColumn,
+                databaseColumn));
+            return;
+        }
+
+        if (modelStorage.Format == databaseStorage.Format)
+            return;
+
+        differences.Add(new SchemaDifference(
+            SchemaDifferenceKind.ColumnGuidStorageFormatMismatch,
+            SchemaDifferenceSeverity.Error,
+            SchemaDifferenceSafety.Ambiguous,
+            path,
+            $"Database UUID storage format differs at '{path}' for {provider}. Model: '{modelStorage.Format}', database: '{databaseStorage.Format}'. The SQL type '{FormatDbTypeDisplay(databasePhysicalType)}' is unchanged, but changing UUID representation requires a manual data migration; DataLinq will not generate an automatic rewrite.",
+            modelColumn,
+            databaseColumn));
+    }
+
+    private static GuidStorageResolution ResolveModelGuidStorage(
+        ColumnDefinition column,
+        DatabaseColumnType physicalType,
+        DatabaseType provider)
+    {
+        if (column.IsGuidStorageUnresolvedFor(provider) ||
+            column.ValueProperty.Attributes
+                .OfType<GuidStorageUnresolvedAttribute>()
+                .Any(attribute => attribute.DatabaseType == provider))
+            return GuidStorageResolution.Unresolved;
+
+        var definition = column.GetGuidStorageFor(provider);
+        if (definition is not null)
+            return CreateGuidStorageResolution(provider, physicalType, definition.Format, allowSchemaModifiers: false);
+
+        var declarations = column.ValueProperty.Attributes.OfType<GuidStorageAttribute>().ToArray();
+        var declaration = declarations.FirstOrDefault(attribute => attribute.DatabaseType == provider) ??
+            declarations.FirstOrDefault(attribute => attribute.DatabaseType == DatabaseType.Default);
+        if (declaration is not null)
+            return CreateGuidStorageResolution(provider, physicalType, declaration.Format, allowSchemaModifiers: false);
+
+        var inferred = GuidStoragePhysicalTypeResolver.InferCompatibilityDefault(
+            provider,
+            physicalType,
+            allowSchemaModifiers: false);
+        return inferred.HasValue
+            ? GuidStorageResolution.Resolved(inferred.Value)
+            : GuidStorageResolution.Unresolved;
+    }
+
+    private static bool HasModelGuidStorageIntent(ColumnDefinition column)
+    {
+        if (column.IsGuidColumn)
+            return true;
+
+        if (!IsDeferredDirectGuidSyntax(column) || HasDeferredScalarConverterMarker(column))
+            return false;
+
+        return column.ValueProperty.Attributes.Any(static attribute =>
+            attribute is GuidStorageAttribute or GuidStorageUnresolvedAttribute);
+    }
+
+    private static bool HasDeferredBareGuidCandidate(ColumnDefinition column) =>
+        IsDeferredDirectGuidSyntax(column) &&
+        !HasDeferredScalarConverterMarker(column) &&
+        !column.ValueProperty.Attributes.Any(static attribute =>
+            attribute is GuidStorageAttribute or GuidStorageUnresolvedAttribute);
+
+    private static bool IsDeferredDirectGuidSyntax(ColumnDefinition column) =>
+        column.ProviderClrType is null &&
+        !column.HasScalarConverter &&
+        IsGuidSyntaxName(column.ProviderCsType.Name);
+
+    private static bool IsGuidSyntaxName(string typeName)
+    {
+        const string globalAlias = "global::";
+        var normalizedName = typeName.StartsWith(globalAlias, StringComparison.Ordinal)
+            ? typeName.Substring(globalAlias.Length)
+            : typeName;
+
+        return string.Equals(normalizedName, nameof(Guid), StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(normalizedName, typeof(Guid).FullName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasDeferredScalarConverterMarker(ColumnDefinition column) =>
+        column.ValueProperty.Attributes.Any(static attribute =>
+            attribute is ScalarConverterSourceAttribute);
+
+    private static GuidStorageResolution ResolveDatabaseGuidStorage(
+        ColumnDefinition column,
+        DatabaseColumnType physicalType,
+        DatabaseType provider)
+    {
+        if (column.IsGuidStorageUnresolvedFor(provider))
+            return GuidStorageResolution.Unresolved;
+
+        var definition = column.GetGuidStorageFor(provider);
+        if (definition is not null)
+        {
+            var observableFormat = GuidStoragePhysicalTypeResolver.InferSchemaObservableFormat(
+                provider,
+                physicalType,
+                allowSchemaModifiers: true);
+            var declaredResolution = CreateGuidStorageResolution(
+                provider,
+                physicalType,
+                definition.Format,
+                allowSchemaModifiers: true);
+            if (declaredResolution.State == GuidStorageResolutionState.Incompatible)
+                return declaredResolution;
+
+            if (definition.IsExplicit || definition.Format == observableFormat)
+                return declaredResolution;
+
+            return GuidStorageResolution.Unresolved;
+        }
+
+        var inferred = GuidStoragePhysicalTypeResolver.InferSchemaObservableFormat(
+            provider,
+            physicalType,
+            allowSchemaModifiers: true);
+        return inferred.HasValue
+            ? GuidStorageResolution.Resolved(inferred.Value)
+            : GuidStorageResolution.Unresolved;
+    }
+
+    private static GuidStorageResolution CreateGuidStorageResolution(
+        DatabaseType provider,
+        DatabaseColumnType physicalType,
+        GuidStorageFormat format,
+        bool allowSchemaModifiers) =>
+        GuidStoragePhysicalTypeResolver.IsCompatible(
+            provider,
+            physicalType,
+            format,
+            allowSchemaModifiers)
+            ? GuidStorageResolution.Resolved(format)
+            : GuidStorageResolution.Incompatible(format);
+
+    private static string FormatDbTypeDisplay(DatabaseColumnType type)
+    {
+        var parameters = new List<string>(2);
+        if (type.Length.HasValue)
+            parameters.Add(type.Length.Value.ToString(CultureInfo.InvariantCulture));
+        if (type.Decimals.HasValue)
+            parameters.Add(type.Decimals.Value.ToString(CultureInfo.InvariantCulture));
+
+        var formatted = parameters.Count == 0
+            ? type.Name
+            : $"{type.Name}({string.Join(",", parameters)})";
+        return type.Signed == false ? $"{formatted} unsigned" : formatted;
+    }
+
     private string? FormatDefault(ColumnDefinition column)
     {
         var attribute = column.ValueProperty.GetDefaultAttribute();
@@ -636,6 +884,27 @@ public sealed class SchemaComparer
         action == ReferentialAction.Unspecified
             ? "not specified"
             : action.ToString();
+
+    private enum GuidStorageResolutionState
+    {
+        Resolved,
+        Unresolved,
+        Incompatible
+    }
+
+    private readonly record struct GuidStorageResolution(
+        GuidStorageResolutionState State,
+        GuidStorageFormat? Format)
+    {
+        public static GuidStorageResolution Unresolved =>
+            new(GuidStorageResolutionState.Unresolved, null);
+
+        public static GuidStorageResolution Resolved(GuidStorageFormat format) =>
+            new(GuidStorageResolutionState.Resolved, format);
+
+        public static GuidStorageResolution Incompatible(GuidStorageFormat format) =>
+            new(GuidStorageResolutionState.Incompatible, format);
+    }
 
     private sealed class IndexSignature
     {

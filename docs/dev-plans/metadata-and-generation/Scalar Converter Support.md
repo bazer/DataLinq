@@ -34,7 +34,7 @@ UUID byte order and text/native UUID choices therefore belong to [UUID Storage F
 
 ## Why This Exists
 
-DataLinq currently treats a column's model CLR type as the value that provider readers, provider writers, query translation, mutation SQL, cache keys, and generated model properties all share. That works for primitives, enums, `Guid`, `DateOnly`, `TimeOnly`, and similar direct storage types.
+The pre-0.9 baseline treated a column's model CLR type as the value that provider readers, provider writers, query translation, mutation SQL, cache keys, and generated model properties all shared. That worked for primitives, enums, `Guid`, `DateOnly`, `TimeOnly`, and similar direct storage types.
 
 It breaks down when the public model should be stricter than storage:
 
@@ -392,7 +392,7 @@ The 0.9 expression-query SQL path now preserves both required query representati
 6. **Schema validation and diff**
    - Schema validation should compare database column type against the provider CLR type mapping and explicit `[Type(...)]`, not against the model CLR type.
 
-The first bounded implementation now resolves the model's effective physical type from authoritative canonical-provider metadata before comparing it with an exact active-provider database type. This removes false physical drift for converter-backed primitive columns without `[Type]`, keeps explicit/default physical declarations and real mismatches visible, and never invokes converter code. It does not yet provide a separate canonical-compatibility diagnostic or UUID-format comparison. The configured CLI validation/diff path also still loads deferred syntax-only model metadata; converter markers and assembly registrations do not yet supply canonical provider metadata there, so that source-only path continues to require explicit `[Type]` metadata.
+The first bounded implementation resolves the model's effective physical type from authoritative canonical-provider metadata before comparing it with an exact active-provider database type. This removes false physical drift for converter-backed primitive columns without `[Type]`, keeps explicit/default physical declarations and real mismatches visible, and never invokes converter code. A second bounded handoff composes UUID-format comparison after exact physical type equality: resolved or raw-declared Guid storage can match schema-observable MySQL/MariaDB text/native layouts, while unhinted binary and SQLite text/blob representations remain unresolved and trusted same-type changes require manual migration. This still does not provide a separate canonical-compatibility diagnostic. Configured CLI validation/diff also loads deferred syntax-only model metadata: raw `[GuidStorage]` can state direct UUID intent, but bare Guid syntax is unresolved because assembly registrations are invisible, and property/assembly converter semantics do not yet make source-only typed-ID metadata authoritative.
 
 ## Query Translation Boundary
 
