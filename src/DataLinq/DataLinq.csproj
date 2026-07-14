@@ -20,6 +20,7 @@
 		<InternalsVisibleTo Include="DataLinq.PlatformCompatibility.Smoke" />
 		<InternalsVisibleTo Include="DataLinq.Tests.Unit" />
 		<InternalsVisibleTo Include="DataLinq.Tests.Compliance" />
+		<InternalsVisibleTo Include="DataLinq.Tests.Memory" />
 	</ItemGroup>
 
 	<ItemGroup>
