@@ -232,6 +232,154 @@ public sealed class SchemaComparerScalarStorageTests
     }
 
     [Test]
+    public async Task Compare_ConverterBackedCanonicalLong_UsesProviderPhysicalFallback()
+    {
+        foreach (var databaseType in BuiltInProviders)
+        {
+            var converter = new SchemaLongTypedIdConverter();
+            var model = BuildModel(
+                new CsTypeDeclaration(typeof(SchemaLongTypedId)),
+                dbTypes: [],
+                CreateLongScalarConverter(converter));
+            var database = BuildProviderSnapshot(
+                new CsTypeDeclaration(typeof(long)),
+                [GetCanonicalLongType(databaseType)]);
+
+            var differences = SchemaComparer.Compare(model, database, databaseType);
+
+            await Assert.That(differences).IsEmpty();
+            await Assert.That(converter.Calls).IsEqualTo(0);
+        }
+    }
+
+    [Test]
+    public async Task Compare_ConverterBackedCanonicalLong_NormalizesImportedServerBigInt()
+    {
+        foreach (var databaseType in ServerProviders)
+        {
+            var converter = new SchemaLongTypedIdConverter();
+            var model = BuildModel(
+                new CsTypeDeclaration(typeof(SchemaLongTypedId)),
+                dbTypes: [],
+                CreateLongScalarConverter(converter));
+            var database = BuildProviderSnapshot(
+                new CsTypeDeclaration(typeof(long)),
+                [new DatabaseColumnType(databaseType, "BIGINT", 20)]);
+
+            var differences = SchemaComparer.Compare(model, database, databaseType);
+
+            await Assert.That(differences).IsEmpty();
+            await Assert.That(converter.Calls).IsEqualTo(0);
+        }
+    }
+
+    [Test]
+    public async Task Compare_ConverterBackedCanonicalLong_RejectsMatchingTextStorage()
+    {
+        foreach (var databaseType in BuiltInProviders)
+        {
+            var converter = new SchemaLongTypedIdConverter();
+            var textType = GetTextType(databaseType);
+            var model = BuildModel(
+                new CsTypeDeclaration(typeof(SchemaLongTypedId)),
+                dbTypes: [textType],
+                CreateLongScalarConverter(converter));
+            var database = BuildProviderSnapshot(
+                new CsTypeDeclaration(typeof(string)),
+                [textType]);
+
+            var differences = SchemaComparer.Compare(model, database, databaseType);
+
+            await AssertCanonicalLongMismatch(differences, databaseType, textType.Name);
+            await Assert.That(converter.Calls).IsEqualTo(0);
+        }
+    }
+
+    [Test]
+    public async Task Compare_ConverterBackedCanonicalLong_RejectsMatchingNarrowOrUnsignedServerStorage()
+    {
+        foreach (var databaseType in ServerProviders)
+        {
+            var cases = new[]
+            {
+                new DatabaseColumnType(databaseType, "int", signed: true),
+                new DatabaseColumnType(databaseType, "mediumint", signed: true),
+                new DatabaseColumnType(databaseType, "bigint", signed: false)
+            };
+
+            foreach (var physicalType in cases)
+            {
+                var converter = new SchemaLongTypedIdConverter();
+                var model = BuildModel(
+                    new CsTypeDeclaration(typeof(SchemaLongTypedId)),
+                    dbTypes: [physicalType],
+                    CreateLongScalarConverter(converter));
+                var database = BuildProviderSnapshot(
+                    new CsTypeDeclaration(typeof(long)),
+                    [physicalType]);
+
+                var differences = SchemaComparer.Compare(model, database, databaseType);
+
+                await AssertCanonicalLongMismatch(
+                    differences,
+                    databaseType,
+                    physicalType.Signed == false ? "bigint unsigned" : physicalType.Name);
+                await Assert.That(converter.Calls).IsEqualTo(0);
+            }
+        }
+    }
+
+    [Test]
+    public async Task Compare_CanonicalLongAgainstNarrowServerDatabase_RemainsPhysicalMismatchOnly()
+    {
+        foreach (var databaseType in ServerProviders)
+        {
+            var converter = new SchemaLongTypedIdConverter();
+            var model = BuildModel(
+                new CsTypeDeclaration(typeof(SchemaLongTypedId)),
+                dbTypes: [],
+                CreateLongScalarConverter(converter));
+            var database = BuildProviderSnapshot(
+                new CsTypeDeclaration(typeof(int)),
+                [new DatabaseColumnType(databaseType, "int", 11)]);
+
+            var differences = SchemaComparer.Compare(model, database, databaseType);
+
+            await Assert.That(differences.Select(static difference => difference.Kind).ToArray())
+                .IsEquivalentTo([SchemaDifferenceKind.ColumnTypeMismatch]);
+            await Assert.That(converter.Calls).IsEqualTo(0);
+        }
+    }
+
+    [Test]
+    public async Task Compare_UnresolvedCanonicalLongClrType_SkipsCompatibilityCheck()
+    {
+        foreach (var databaseType in BuiltInProviders)
+        {
+            var converter = new SchemaLongTypedIdConverter();
+            var textType = GetTextType(databaseType);
+            var unresolvedConverter = new MetadataScalarConverterDraft(
+                new CsTypeDeclaration(typeof(SchemaLongTypedId)),
+                new CsTypeDeclaration("Int64", "System", ModelCsType.Primitive),
+                new CsTypeDeclaration(typeof(SchemaLongTypedIdConverter)),
+                () => converter);
+            var model = BuildModel(
+                new CsTypeDeclaration(typeof(SchemaLongTypedId)),
+                dbTypes: [textType],
+                unresolvedConverter);
+            var database = BuildProviderSnapshot(
+                new CsTypeDeclaration(typeof(string)),
+                [textType]);
+
+            var differences = SchemaComparer.Compare(model, database, databaseType);
+
+            await Assert.That(model.TableModels.Single().Table.Columns.Single().ProviderClrType).IsNull();
+            await Assert.That(differences).IsEmpty();
+            await Assert.That(converter.Calls).IsEqualTo(0);
+        }
+    }
+
+    [Test]
     public async Task Compare_ServerNonIntegerModifiers_RemainPhysicalTypeDifferences()
     {
         foreach (var databaseType in ServerProviders)
@@ -407,6 +555,14 @@ public sealed class SchemaComparerScalarStorageTests
             new CsTypeDeclaration(typeof(SchemaTypedIdConverter)),
             () => converter);
 
+    private static MetadataScalarConverterDraft CreateLongScalarConverter(
+        SchemaLongTypedIdConverter converter) =>
+        new(
+            new CsTypeDeclaration(typeof(SchemaLongTypedId)),
+            new CsTypeDeclaration(typeof(long)),
+            new CsTypeDeclaration(typeof(SchemaLongTypedIdConverter)),
+            () => converter);
+
     private static DatabaseColumnType GetCanonicalIntType(DatabaseType databaseType) =>
         databaseType == DatabaseType.SQLite
             ? new DatabaseColumnType(databaseType, "integer")
@@ -416,6 +572,11 @@ public sealed class SchemaComparerScalarStorageTests
         databaseType == DatabaseType.SQLite
             ? new DatabaseColumnType(DatabaseType.Default, "integer")
             : new DatabaseColumnType(DatabaseType.Default, "integer", signed: true);
+
+    private static DatabaseColumnType GetCanonicalLongType(DatabaseType databaseType) =>
+        databaseType == DatabaseType.SQLite
+            ? new DatabaseColumnType(databaseType, "integer")
+            : new DatabaseColumnType(databaseType, "bigint", signed: true);
 
     private static DatabaseColumnType GetTextType(DatabaseType databaseType) =>
         databaseType == DatabaseType.SQLite
@@ -439,8 +600,26 @@ public sealed class SchemaComparerScalarStorageTests
         await Assert.That(difference.Message).Contains(observedType);
     }
 
+    private static async Task AssertCanonicalLongMismatch(
+        IReadOnlyList<SchemaDifference> differences,
+        DatabaseType databaseType,
+        string observedType)
+    {
+        await Assert.That(differences).Count().IsEqualTo(1);
+
+        var difference = differences.Single();
+        await Assert.That(difference.Kind).IsEqualTo(SchemaDifferenceKind.ColumnCanonicalTypeMismatch);
+        await Assert.That(difference.Severity).IsEqualTo(SchemaDifferenceSeverity.Error);
+        await Assert.That(difference.Safety).IsEqualTo(SchemaDifferenceSafety.Ambiguous);
+        await Assert.That(difference.Path).IsEqualTo("schema_scalar_storage_rows.id");
+        await Assert.That(difference.Message).Contains(typeof(long).FullName!);
+        await Assert.That(difference.Message).Contains(databaseType.ToString());
+        await Assert.That(difference.Message).Contains(observedType);
+    }
+
     private sealed class SchemaScalarStorageRow;
     private readonly record struct SchemaTypedId(int Value);
+    private readonly record struct SchemaLongTypedId(long Value);
 
     private sealed class SchemaTypedIdConverter : DataLinqScalarConverter<SchemaTypedId, int>
     {
@@ -460,6 +639,27 @@ public sealed class SchemaComparerScalarStorageTests
         {
             Calls++;
             return new SchemaTypedId(providerValue);
+        }
+    }
+
+    private sealed class SchemaLongTypedIdConverter : DataLinqScalarConverter<SchemaLongTypedId, long>
+    {
+        public int Calls { get; private set; }
+
+        public override long ToProvider(
+            SchemaLongTypedId modelValue,
+            in ScalarConversionContext context)
+        {
+            Calls++;
+            return modelValue.Value;
+        }
+
+        public override SchemaLongTypedId FromProvider(
+            long providerValue,
+            in ScalarConversionContext context)
+        {
+            Calls++;
+            return new SchemaLongTypedId(providerValue);
         }
     }
 }

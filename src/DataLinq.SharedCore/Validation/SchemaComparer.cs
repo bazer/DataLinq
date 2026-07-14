@@ -572,21 +572,32 @@ public sealed class SchemaComparer
     {
         if (!modelColumn.HasScalarConverter ||
             databasePhysicalType is null ||
-            modelColumn.ProviderClrType is not { } providerClrType ||
-            (Nullable.GetUnderlyingType(providerClrType) ?? providerClrType) != typeof(int) ||
-            IsCanonicalInt32Compatible(databasePhysicalType))
+            modelColumn.ProviderClrType is not { } providerClrType)
         {
             return;
         }
 
+        providerClrType = Nullable.GetUnderlyingType(providerClrType) ?? providerClrType;
+        if (providerClrType != typeof(int) && providerClrType != typeof(long))
+            return;
+
+        var isCompatible = providerClrType == typeof(int)
+            ? IsCanonicalInt32Compatible(databasePhysicalType)
+            : IsCanonicalInt64Compatible(databasePhysicalType);
+        if (isCompatible)
+            return;
+
         var provider = options.Capabilities.DatabaseType;
         var path = $"{modelColumn.Table.DbName}.{modelColumn.DbName}";
+        var requiredStorage = providerClrType == typeof(int)
+            ? "SQLite INTEGER or a signed MySQL/MariaDB INT column"
+            : "SQLite INTEGER or a signed MySQL/MariaDB BIGINT column";
         differences.Add(new SchemaDifference(
             SchemaDifferenceKind.ColumnCanonicalTypeMismatch,
             SchemaDifferenceSeverity.Error,
             SchemaDifferenceSafety.Ambiguous,
             path,
-            $"Converter-backed canonical provider type '{typeof(int).FullName}' at '{path}' is incompatible with observed {provider} type '{FormatDbTypeDisplay(databasePhysicalType)}'. Use SQLite INTEGER or a signed MySQL/MariaDB INT column, or change the scalar converter's canonical provider type.",
+            $"Converter-backed canonical provider type '{providerClrType.FullName}' at '{path}' is incompatible with observed {provider} type '{FormatDbTypeDisplay(databasePhysicalType)}'. Use {requiredStorage}, or change the scalar converter's canonical provider type.",
             modelColumn,
             databaseColumn));
     }
@@ -603,6 +614,21 @@ public sealed class SchemaComparer
         return provider is DatabaseType.MySQL or DatabaseType.MariaDB &&
                (string.Equals(type.Name, "int", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(type.Name, "integer", StringComparison.OrdinalIgnoreCase)) &&
+               !type.Decimals.HasValue &&
+               type.Signed != false;
+    }
+
+    private bool IsCanonicalInt64Compatible(DatabaseColumnType type)
+    {
+        var provider = options.Capabilities.DatabaseType;
+        if (provider == DatabaseType.SQLite)
+        {
+            return string.Equals(type.Name, "integer", StringComparison.OrdinalIgnoreCase) &&
+                   !type.Decimals.HasValue;
+        }
+
+        return provider is DatabaseType.MySQL or DatabaseType.MariaDB &&
+               string.Equals(type.Name, "bigint", StringComparison.OrdinalIgnoreCase) &&
                !type.Decimals.HasValue &&
                type.Signed != false;
     }

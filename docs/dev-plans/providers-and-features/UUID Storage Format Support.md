@@ -707,6 +707,8 @@ A following bounded client-generation checkpoint makes direct `DefaultNewUUID` V
 
 Focused runtime evidence passes `5/5`, constructor-generation coverage passes `16/16`, the focused source-generator case passes `1/1`, and the existing fail-closed SQLite default guard passes `6/6`. Integrated gates pass `60/60` generator, `1203/1203` unit, and `803/803` SQLite file/memory tests. The generated consumer fixture builds cleanly with zero warnings or errors for net8.0, net9.0, and net10.0.
 
+A later bounded scalar checkpoint narrows another general prerequisite without adding UUID support. Finalized canonical `Int64` now follows the exact compatibility rule already established for `Int32`: SQLite `INTEGER` and signed MySQL/MariaDB `BIGINT` are accepted after physical equality, while matching text, narrower signed server integers, and unsigned `BIGINT` reject without converter execution. The same exact long is admitted through one `F6-B` PK/FK relation shape and decoded for one `JoinedRowLocal` key shape; values from `5_000_000_101` through `6_000_000_203` prove high-range preservation. Focused evidence is `19/19` schema, `8/8` live schema across four servers, `11/11` loader, and `2/2` joined-reader seam including the `Int16` legacy-path exclusion; dedicated relation/joined compliance passes `4/4` on SQLite file/memory plus `8/8` across four servers. Current integrated gates pass `60/60` generator, `1211/1211` unit, `807/807` SQLite file/memory, `1630/1630` four-server compliance, and `380/380` provider-specific executions. This does not admit canonical `Guid`, UUID relations, joined typed-UUID hydration, composite/codec-sensitive keys, source-only converter resolution, or converter-backed defaults; the memory backend remains an exact-`Int32` island.
+
 Still open:
 
 - define converter-backed model-default conversion instead of treating model values as canonical values
@@ -714,7 +716,7 @@ Still open:
 - add verified provider-version capability and exact physical-storage mappings before enabling automatic server generation
 - import static provider Guid defaults into the fixed-value carrier where the provider representation is unambiguous
 - preserve or diagnose SQLite UUID default expressions and BLOB literals during schema import
-- extend canonical compatibility beyond finalized converter-backed `Int32` and add authoritative source-only typed-ID converter resolution
+- extend canonical compatibility beyond finalized converter-backed `Int32` and `Int64`, and add authoritative source-only typed-ID converter resolution
 - complete the aggregate UUID-4 provider/evidence matrix
 
 Exit signal:
@@ -723,7 +725,7 @@ Exit signal:
 - schema validation distinguishes canonical `Guid` compatibility from physical UUID-format compatibility
 - 0.9 does not claim database-generated UUIDv7 semantics that the provider does not supply
 
-The format comparison, fixed direct-`Guid` source-carrier and DDL-literal, fail-closed UUID-version truthfulness, and net8-safe single-evaluation generated-client portions of the exit signal are green. The finalized converter-backed canonical `Int32` checkpoint narrows the general schema prerequisite but does not complete Guid-specific or source-only canonical resolution. Converter-backed defaults, automatic server capability/storage mapping, source-transform ownership, static provider-default import, SQLite expression/BLOB import, broader canonical/source-only validation, and aggregate evidence keep UUID-4 incomplete.
+The format comparison, fixed direct-`Guid` source-carrier and DDL-literal, fail-closed UUID-version truthfulness, and net8-safe single-evaluation generated-client portions of the exit signal are green. The finalized converter-backed canonical `Int32` and `Int64` checkpoints narrow the general schema prerequisite but do not complete Guid-specific or source-only canonical resolution. Converter-backed defaults, automatic server capability/storage mapping, source-transform ownership, static provider-default import, SQLite expression/BLOB import, broader canonical/source-only validation, and aggregate evidence keep UUID-4 incomplete.
 
 ### UUID-5: Provider Evidence And Documentation
 

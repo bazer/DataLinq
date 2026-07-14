@@ -46,12 +46,24 @@ public sealed class DataSourceAccessSourceRowLoaderTests
                 new ModelId(42),
                 useScalarConverter: true,
                 includePrimaryKey: true);
-            var convertedLongCanonicalFallback = LoadEmptyRelationRows(
+            var convertedLongCanonical = LoadEmptyRelationRows(
                 "idx_source_rows_id",
                 DataLinqKey.FromValue(42L),
                 useScalarConverter: true,
                 includePrimaryKey: true,
                 converter: new RecordingLongIdConverter());
+            var convertedLongModelFallback = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                new LongModelId(42L),
+                useScalarConverter: true,
+                includePrimaryKey: true,
+                converter: new RecordingLongIdConverter());
+            var convertedShortCanonicalFallback = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                DataLinqKey.FromValue((short)42),
+                useScalarConverter: true,
+                includePrimaryKey: true,
+                converter: new RecordingShortIdConverter());
             var primaryKeylessFallback = LoadEmptyRelationRows(
                 "idx_source_rows_id",
                 42,
@@ -86,10 +98,23 @@ public sealed class DataSourceAccessSourceRowLoaderTests
             await Assert.That(convertedModelFallback.ToProviderCalls).IsEqualTo(0);
             await Assert.That(convertedModelFallback.FromProviderCalls).IsEqualTo(0);
 
-            await Assert.That(convertedLongCanonicalFallback.Rows).IsEmpty();
-            await Assert.That(convertedLongCanonicalFallback.NeutralEligible).IsFalse();
-            await Assert.That(convertedLongCanonicalFallback.ToProviderCalls).IsEqualTo(0);
-            await Assert.That(convertedLongCanonicalFallback.FromProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedLongCanonical.Rows).IsEmpty();
+            await Assert.That(convertedLongCanonical.NeutralEligible).IsTrue();
+            await Assert.That(convertedLongCanonical.Query).IsTypeOf<Select<object>>();
+            await Assert.That(convertedLongCanonical.WriterValues.Select(static value => value.Value).ToArray())
+                .IsEquivalentTo(new object?[] { 42L });
+            await Assert.That(convertedLongCanonical.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedLongCanonical.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(convertedLongModelFallback.Rows).IsEmpty();
+            await Assert.That(convertedLongModelFallback.NeutralEligible).IsFalse();
+            await Assert.That(convertedLongModelFallback.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedLongModelFallback.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(convertedShortCanonicalFallback.Rows).IsEmpty();
+            await Assert.That(convertedShortCanonicalFallback.NeutralEligible).IsFalse();
+            await Assert.That(convertedShortCanonicalFallback.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedShortCanonicalFallback.FromProviderCalls).IsEqualTo(0);
             await Assert.That(primaryKeylessFallback.Rows).IsEmpty();
             await Assert.That(primaryKeylessFallback.NeutralEligible).IsFalse();
         }
@@ -438,6 +463,7 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         {
             RecordingIdConverter => (typeof(ModelId), typeof(int), typeof(RecordingIdConverter)),
             RecordingLongIdConverter => (typeof(LongModelId), typeof(long), typeof(RecordingLongIdConverter)),
+            RecordingShortIdConverter => (typeof(ShortModelId), typeof(short), typeof(RecordingShortIdConverter)),
             _ => throw new ArgumentOutOfRangeException(nameof(converter))
         };
         var scalarConverter = new MetadataScalarConverterDraft(
@@ -593,6 +619,7 @@ public sealed class DataSourceAccessSourceRowLoaderTests
 
     private sealed record ModelId(int Value);
     private sealed record LongModelId(long Value);
+    private sealed record ShortModelId(short Value);
     private sealed class SourceRowModel;
 
     private sealed class RecordingIdConverter : DataLinqScalarConverter<ModelId, int>, IRecordingScalarConverter
@@ -628,6 +655,24 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         {
             FromProviderCalls++;
             return new LongModelId(providerValue);
+        }
+    }
+
+    private sealed class RecordingShortIdConverter : DataLinqScalarConverter<ShortModelId, short>, IRecordingScalarConverter
+    {
+        public int ToProviderCalls { get; private set; }
+        public int FromProviderCalls { get; private set; }
+
+        public override short ToProvider(ShortModelId modelValue, in ScalarConversionContext context)
+        {
+            ToProviderCalls++;
+            return modelValue.Value;
+        }
+
+        public override ShortModelId FromProvider(short providerValue, in ScalarConversionContext context)
+        {
+            FromProviderCalls++;
+            return new ShortModelId(providerValue);
         }
     }
 

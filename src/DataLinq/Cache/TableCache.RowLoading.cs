@@ -255,11 +255,11 @@ public partial class TableCache
         canonicalProviderIndexKey = DataLinqKey.Null;
 
         // F6-B admits only exact, single-column integral canonical provider keys. The
-        // bounded converter-backed extension is Int32-only and requires the caller to have
-        // already supplied that exact canonical value; model wrappers must still fail the
-        // exact-key check below so this boundary never converts or double-converts them.
-        // String/CHAR collation, UUID codecs, other converted integral types, and composite
-        // keys remain on the legacy SQL path.
+        // bounded converter-backed extension admits only Int32 and Int64 and requires the
+        // caller to have already supplied that exact canonical value; model wrappers must
+        // still fail the exact-key check below so this boundary never converts or
+        // double-converts them. String/CHAR collation, UUID codecs, other converted integral
+        // types, and composite keys remain on the legacy SQL path.
         if (dataSource is not IDataLinqIndexRowServices availableServices ||
             index.Table.PrimaryKeyColumns.Count == 0 ||
             index.Columns.Count != 1 ||
@@ -283,8 +283,11 @@ public partial class TableCache
             return true;
 
         var providerType = column.ProviderClrType;
-        return providerType is not null &&
-            (Nullable.GetUnderlyingType(providerType) ?? providerType) == typeof(int);
+        if (providerType is null)
+            return false;
+
+        providerType = Nullable.GetUnderlyingType(providerType) ?? providerType;
+        return providerType == typeof(int) || providerType == typeof(long);
     }
 
     private IEnumerable<IImmutableInstance> LoadOrderedRowsFromDatabaseAndCache<TKey>(IReadOnlyList<TKey> primaryKeys, IDataSourceAccess dataSource, List<OrderBy> orderings)

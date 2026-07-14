@@ -143,7 +143,7 @@ internal sealed class SqlLocalProjectionExecutor
             : null;
     }
 
-    private static object ReadPrimaryKey(
+    internal static object ReadPrimaryKey(
         IDataLinqDataReader reader,
         QueryPlanSourceSlot source,
         IReadOnlyList<int> primaryKeyOrdinals)
@@ -156,12 +156,15 @@ internal sealed class SqlLocalProjectionExecutor
 
             // Joined local projections buffer reader keys before cache hydration. Converted
             // primary keys cannot use the generated/model-valued scalar fast path, so preserve
-            // the already-proven SC-3 dynamic-key boundary for the exact canonical Int32 slice.
-            // Wider converted, UUID, and composite reader keys remain on their existing paths
-            // until their provider and codec contracts are proven independently.
+            // the already-proven SC-3 dynamic-key boundary for the exact canonical Int32 and
+            // Int64 slices. Other converted integral types, UUID, and composite reader keys
+            // remain on their existing paths until their provider and codec contracts are
+            // proven independently.
+            var canonicalProviderType = providerType is null
+                ? null
+                : Nullable.GetUnderlyingType(providerType) ?? providerType;
             if (primaryKeyColumn.HasScalarConverter &&
-                providerType is not null &&
-                (Nullable.GetUnderlyingType(providerType) ?? providerType) == typeof(int))
+                (canonicalProviderType == typeof(int) || canonicalProviderType == typeof(long)))
             {
                 return DataLinqKey.FromValue(
                     ProviderRowDecoder.DecodeCanonicalValue(
