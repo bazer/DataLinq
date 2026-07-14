@@ -9,7 +9,7 @@
 
 **Created:** 2026-07-04.
 
-**Last reviewed:** 2026-07-13.
+**Last reviewed:** 2026-07-14.
 
 ## Purpose
 
@@ -165,13 +165,15 @@ Exit signal:
 
 Progress through 2026-07-13: full-row materialization snapshots primary-key components from the canonical provider row before scalar conversion, including converted and composite components. `DataLinqKey` owns mutable binary components at every ingress and returns defensive copies, preserving its cached hash and dictionary identity across caller mutation. Scalar and generated composite provider keys containing `byte[]` route through an owned structural row store, and index caches snapshot primary-key arrays before publishing forward and reverse mappings. The dynamic `KeyFactory` row and model-instance overloads normalize only converter-backed model components, including mixed composite and binary keys; identity mappings retain the existing path. Its scalar converter-backed reader overload decodes the selected key column to its canonical provider value before constructing `DataLinqKey`. When that canonical type is `Guid`, bounded UUID-3C opts key selection into the exact column-aware reader rather than metadata-free `GetGuid`; the decode invokes neither converter direction, and subsequent full-row materialization still applies `FromProvider`. The neutral source-row route admits direct `Guid` and representative Guid-backed typed IDs only for exactly one canonical `Guid` primary-key component with resolved SQLite, MySQL, or MariaDB storage. This enables cold generated `Get(...)`, batched and ordered non-simple entity queries, transaction authoritative reload, and warm cache identity without enabling converted typed-store fast paths. Current and original invalidation keys use the same canonical boundary. Metadata-free/provider key APIs remain unchanged, and generated provider-key accessors stay disabled for converted components. Composite reader keys, scalar primary-key use from joined or relation callers, reader-sourced index and relation operands, external lookup/query operands, provider-less readers, and memory remain open; SC-3 is not complete.
 
+Bounded relation progress on 2026-07-14 supersedes only the blanket relation-caller exclusion above for one exact `Int32`-backed typed-ID PK/FK shape. Existing generation already routes converted collection and reference properties through the dynamic relation-key fallback instead of passing the model wrapper through a typed fast path; a new generator contract now freezes that behavior. `KeyFactory` therefore produces a canonical integer `DataLinqKey` upstream; `TableCache` accepts converter-backed index metadata only with that exact canonical key and invokes neither `ToProvider` nor `FromProvider` at eligibility. A raw model wrapper supplied directly at this boundary remains ineligible. Active-provider evidence proves cold collection loading, read-only shared-index warming, warm immutable identity, singular parent reuse, canonical cache-key storage, and model-valued IDs. Full generator, unit, and SQLite file/memory gates pass `58/58`, `1138/1138`, and `797/797`; the new relation, unchanged primitive, and rollback-isolation cases each pass `4/4` across SQLite file, SQLite memory, MySQL 8.4, and MariaDB 11.8. Other integral variants, strings, UUID/`Guid`, composites, joined and reader-sourced operands, external/key-only/preload lookups, typed-ID-specific transaction relation behavior, provider-less readers, and memory remain open; SC-3 and W6 are not complete.
+
 Work:
 
 - make the dynamic/fallback key path normalize every key component to its canonical provider value
 - normalize relation and cache-index keys through the same path
 - support converted primary and foreign keys before adding generated fast paths
 - document canonical provider equality and hashing requirements
-- disable generated provider-key and relation fast paths for converted components when they still use the model CLR type; route those cases through the normalized dynamic fallback
+- keep generated provider-key and relation fast paths disabled for converted components while they still use the model CLR type; retain the normalized dynamic fallback as the correctness path
 - add generated optimized provider-key accessors only later, after the fallback path is proven correct and profiling shows value
 
 Exit signal:

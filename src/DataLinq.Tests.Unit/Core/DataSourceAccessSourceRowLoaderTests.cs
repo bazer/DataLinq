@@ -36,11 +36,22 @@ public sealed class DataSourceAccessSourceRowLoaderTests
                 42,
                 useScalarConverter: false,
                 includePrimaryKey: true);
-            var converterFallback = LoadEmptyRelationRows(
+            var convertedCanonical = LoadEmptyRelationRows(
                 "idx_source_rows_id",
                 DataLinqKey.FromValue(42),
                 useScalarConverter: true,
                 includePrimaryKey: true);
+            var convertedModelFallback = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                new ModelId(42),
+                useScalarConverter: true,
+                includePrimaryKey: true);
+            var convertedLongCanonicalFallback = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                DataLinqKey.FromValue(42L),
+                useScalarConverter: true,
+                includePrimaryKey: true,
+                converter: new RecordingLongIdConverter());
             var primaryKeylessFallback = LoadEmptyRelationRows(
                 "idx_source_rows_id",
                 42,
@@ -62,8 +73,23 @@ public sealed class DataSourceAccessSourceRowLoaderTests
             await Assert.That(stringFallback.NeutralEligible).IsFalse();
             await Assert.That(stringFallback.Query.GetType().Name)
                 .Contains("ScalarColumnRowsQuery");
-            await Assert.That(converterFallback.Rows).IsEmpty();
-            await Assert.That(converterFallback.NeutralEligible).IsFalse();
+            await Assert.That(convertedCanonical.Rows).IsEmpty();
+            await Assert.That(convertedCanonical.NeutralEligible).IsTrue();
+            await Assert.That(convertedCanonical.Query).IsTypeOf<Select<object>>();
+            await Assert.That(convertedCanonical.WriterValues.Select(static value => value.Value).ToArray())
+                .IsEquivalentTo(new object?[] { 42 });
+            await Assert.That(convertedCanonical.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedCanonical.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(convertedModelFallback.Rows).IsEmpty();
+            await Assert.That(convertedModelFallback.NeutralEligible).IsFalse();
+            await Assert.That(convertedModelFallback.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedModelFallback.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(convertedLongCanonicalFallback.Rows).IsEmpty();
+            await Assert.That(convertedLongCanonicalFallback.NeutralEligible).IsFalse();
+            await Assert.That(convertedLongCanonicalFallback.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedLongCanonicalFallback.FromProviderCalls).IsEqualTo(0);
             await Assert.That(primaryKeylessFallback.Rows).IsEmpty();
             await Assert.That(primaryKeylessFallback.NeutralEligible).IsFalse();
         }
@@ -404,21 +430,27 @@ public sealed class DataSourceAccessSourceRowLoaderTests
     }
 
     private static TableDefinition CreateTable(
-        RecordingIdConverter converter,
+        IRecordingScalarConverter converter,
         bool useScalarConverter = true,
         bool includePrimaryKey = true)
     {
+        var (modelType, providerType, converterType) = converter switch
+        {
+            RecordingIdConverter => (typeof(ModelId), typeof(int), typeof(RecordingIdConverter)),
+            RecordingLongIdConverter => (typeof(LongModelId), typeof(long), typeof(RecordingLongIdConverter)),
+            _ => throw new ArgumentOutOfRangeException(nameof(converter))
+        };
         var scalarConverter = new MetadataScalarConverterDraft(
-            new CsTypeDeclaration(typeof(ModelId)),
-            new CsTypeDeclaration(typeof(int)),
-            new CsTypeDeclaration(typeof(RecordingIdConverter)),
+            new CsTypeDeclaration(modelType),
+            new CsTypeDeclaration(providerType),
+            new CsTypeDeclaration(converterType),
             () => converter)
         {
             Origin = ScalarConverterOrigin.Property
         };
         var idProperty = new MetadataValuePropertyDraft(
             "Id",
-            new CsTypeDeclaration(useScalarConverter ? typeof(ModelId) : typeof(int)),
+            new CsTypeDeclaration(useScalarConverter ? modelType : providerType),
             new MetadataColumnDraft("id") { PrimaryKey = includePrimaryKey })
         {
             ScalarConverter = useScalarConverter ? scalarConverter : null,
@@ -475,16 +507,20 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         IImmutableInstance[] Rows,
         IQuery Query,
         (ColumnDefinition Column, object? Value)[] WriterValues,
-        bool NeutralEligible)
+        bool NeutralEligible,
+        int ToProviderCalls,
+        int FromProviderCalls)
         LoadEmptyRelationRows<TKey>(
             string indexName,
             TKey key,
             bool useScalarConverter,
-            bool includePrimaryKey)
+            bool includePrimaryKey,
+            IRecordingScalarConverter? converter = null)
         where TKey : notnull
     {
+        converter ??= new RecordingIdConverter();
         var table = CreateTable(
-            new RecordingIdConverter(),
+            converter,
             useScalarConverter,
             includePrimaryKey);
         var reader = new TrackingReader([]);
@@ -529,7 +565,9 @@ public sealed class DataSourceAccessSourceRowLoaderTests
             rows,
             provider.LastQuery ?? throw new InvalidOperationException("No relation-row query was created."),
             writer.Values.ToArray(),
-            neutralEligible);
+            neutralEligible,
+            converter.ToProviderCalls,
+            converter.FromProviderCalls);
     }
 
     private static TException Capture<TException>(Action action)
@@ -547,10 +585,17 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         throw new Exception($"Expected exception of type '{typeof(TException).Name}'.");
     }
 
+    private interface IRecordingScalarConverter : IDataLinqScalarConverter
+    {
+        int ToProviderCalls { get; }
+        int FromProviderCalls { get; }
+    }
+
     private sealed record ModelId(int Value);
+    private sealed record LongModelId(long Value);
     private sealed class SourceRowModel;
 
-    private sealed class RecordingIdConverter : DataLinqScalarConverter<ModelId, int>
+    private sealed class RecordingIdConverter : DataLinqScalarConverter<ModelId, int>, IRecordingScalarConverter
     {
         public int ToProviderCalls { get; private set; }
         public int FromProviderCalls { get; private set; }
@@ -565,6 +610,24 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         {
             FromProviderCalls++;
             return new ModelId(providerValue);
+        }
+    }
+
+    private sealed class RecordingLongIdConverter : DataLinqScalarConverter<LongModelId, long>, IRecordingScalarConverter
+    {
+        public int ToProviderCalls { get; private set; }
+        public int FromProviderCalls { get; private set; }
+
+        public override long ToProvider(LongModelId modelValue, in ScalarConversionContext context)
+        {
+            ToProviderCalls++;
+            return modelValue.Value;
+        }
+
+        public override LongModelId FromProvider(long providerValue, in ScalarConversionContext context)
+        {
+            FromProviderCalls++;
+            return new LongModelId(providerValue);
         }
     }
 

@@ -74,6 +74,75 @@ public sealed class ScalarConverterGeneratorTests : GeneratorTestBase
     }
 
     [Test]
+    public async Task ConvertedRelationKeys_UseCanonicalDynamicRelationPaths()
+    {
+        var source = Parse(
+            """
+            using DataLinq;
+            using DataLinq.Attributes;
+            using DataLinq.Instances;
+            using DataLinq.Interfaces;
+            using DataLinq.Mutation;
+
+            namespace ScalarGenerator;
+
+            public readonly record struct CustomerId(int Value);
+
+            public sealed class CustomerIdConverter : DataLinqScalarConverter<CustomerId, int>
+            {
+                public override int ToProvider(CustomerId value, in ScalarConversionContext context) => value.Value;
+                public override CustomerId FromProvider(int value, in ScalarConversionContext context) => new(value);
+            }
+
+            [Database("scalar")]
+            public partial class ScalarDb(DataSourceAccess dataSource) : IDatabaseModel<ScalarDb>
+            {
+                public DbRead<Parent> Parents { get; } = new(dataSource);
+                public DbRead<Child> Children { get; } = new(dataSource);
+            }
+
+            [Table("parents")]
+            public abstract partial class Parent(IRowData rowData, IDataSourceAccess dataSource)
+                : Immutable<Parent, ScalarDb>(rowData, dataSource), ITableModel<ScalarDb>
+            {
+                [PrimaryKey]
+                [Column("id")]
+                [ScalarConverter(typeof(CustomerIdConverter))]
+                public abstract CustomerId Id { get; }
+
+                [Relation("children", "parent_id", "FK_child_parent")]
+                public abstract IImmutableRelation<Child> Children { get; }
+            }
+
+            [Table("children")]
+            public abstract partial class Child(IRowData rowData, IDataSourceAccess dataSource)
+                : Immutable<Child, ScalarDb>(rowData, dataSource), ITableModel<ScalarDb>
+            {
+                [PrimaryKey]
+                [Column("id")]
+                public abstract int Id { get; }
+
+                [ForeignKey("parents", "id", "FK_child_parent")]
+                [Column("parent_id")]
+                [ScalarConverter(typeof(CustomerIdConverter))]
+                public abstract CustomerId ParentId { get; }
+
+                [Relation("parents", "id", "FK_child_parent")]
+                public abstract Parent Parent { get; }
+            }
+            """);
+
+        var (outputCompilation, diagnostics, generatedTrees) = RunGeneratorAgainstRuntimeWithDiagnostics([source]);
+        var code = string.Join(Environment.NewLine, generatedTrees.Select(static tree => tree.ToString()));
+
+        await AssertNoErrors(outputCompilation, diagnostics);
+        await Assert.That(code).Contains("GetImmutableRelation<Child>(DataLinqRelation_Children)");
+        await Assert.That(code).Contains("GetImmutableForeignKey<Parent>(DataLinqRelation_Parent)");
+        await Assert.That(code).DoesNotContain("GetImmutableRelation<Child, CustomerId>");
+        await Assert.That(code).DoesNotContain("GetImmutableForeignKey<Parent, CustomerId>");
+    }
+
+    [Test]
     public async Task AssemblyRegistration_ResolvesWithoutSynthesizingAPropertyAttribute()
     {
         var source = Parse(

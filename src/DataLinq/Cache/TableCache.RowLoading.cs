@@ -254,13 +254,16 @@ public partial class TableCache
         sourceServices = null!;
         canonicalProviderIndexKey = DataLinqKey.Null;
 
-        // F6-B deliberately admits only exact, single-column integral provider keys.
-        // String/CHAR collation, UUID codecs, composite keys, and converter-backed model
-        // values remain on the legacy SQL path until their normalization contracts land.
+        // F6-B admits only exact, single-column integral canonical provider keys. The
+        // bounded converter-backed extension is Int32-only and requires the caller to have
+        // already supplied that exact canonical value; model wrappers must still fail the
+        // exact-key check below so this boundary never converts or double-converts them.
+        // String/CHAR collation, UUID codecs, other converted integral types, and composite
+        // keys remain on the legacy SQL path.
         if (dataSource is not IDataLinqIndexRowServices availableServices ||
             index.Table.PrimaryKeyColumns.Count == 0 ||
             index.Columns.Count != 1 ||
-            index.Columns[0].HasScalarConverter ||
+            !SupportsCanonicalIndexSourceColumn(index.Columns[0]) ||
             !ProviderKeyComponents.HasOnlyIntegralCanonicalComponents(index.Columns) ||
             !ProviderKeyComponents.TryCreateExactCanonicalKey(
                 foreignKey,
@@ -272,6 +275,16 @@ public partial class TableCache
 
         sourceServices = availableServices;
         return true;
+    }
+
+    private static bool SupportsCanonicalIndexSourceColumn(ColumnDefinition column)
+    {
+        if (!column.HasScalarConverter)
+            return true;
+
+        var providerType = column.ProviderClrType;
+        return providerType is not null &&
+            (Nullable.GetUnderlyingType(providerType) ?? providerType) == typeof(int);
     }
 
     private IEnumerable<IImmutableInstance> LoadOrderedRowsFromDatabaseAndCache<TKey>(IReadOnlyList<TKey> primaryKeys, IDataSourceAccess dataSource, List<OrderBy> orderings)
