@@ -133,6 +133,17 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
                 ? defaultSql.Expression
                 : null;
 
+        if (column.IsGuidColumn)
+        {
+            if (column.HasScalarConverter || defaultAttr.Value is not Guid guid)
+                throw CreateUnsupportedGuidDefaultException(column);
+
+            return FormatGuidDefaultValue(column, guid);
+        }
+
+        if (defaultAttr.Value is Guid)
+            throw CreateUnsupportedGuidDefaultException(column);
+
         if (column.ValueProperty.EnumProperty.HasValue)
             return Convert.ToInt32(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);
 
@@ -149,10 +160,28 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
             "DateTime" => QuoteSqlString(((DateTime)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
             "DateTimeOffset" => QuoteSqlString(((DateTimeOffset)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture)),
             "TimeSpan" => QuoteSqlString(((TimeSpan)defaultAttr.Value).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture)),
-            "Guid" or "System.Guid" => QuoteSqlString(((Guid)defaultAttr.Value).ToString()),
             _ => Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture)
         };
     }
+
+    private static string FormatGuidDefaultValue(ColumnDefinition column, Guid value)
+    {
+        var physicalValue = SQLiteGuidStorageCodec.ToPhysicalValue(column, value);
+
+        return physicalValue switch
+        {
+            string text => QuoteSqlString(text),
+            byte[] bytes => $"X'{Convert.ToHexString(bytes)}'",
+            _ => throw new InvalidOperationException(
+                $"UUID storage for column '{column.Table.DbName}.{column.DbName}' produced unsupported physical default type '{physicalValue.GetType().FullName}'.")
+        };
+    }
+
+    private static InvalidOperationException CreateUnsupportedGuidDefaultException(
+        ColumnDefinition column) =>
+        new(
+            $"Guid SQL default for column '{column.Table.DbName}.{column.DbName}' can be rendered only from a finalized Guid value on a direct canonical Guid mapping. " +
+            "Converter-backed mappings, noncanonical default values, and dynamic/generated UUID defaults require separate conversion or generation semantics and are not supported by this literal path.");
 
     protected virtual DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
     {

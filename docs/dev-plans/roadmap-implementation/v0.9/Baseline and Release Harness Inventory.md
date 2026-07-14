@@ -196,11 +196,11 @@ The W1-V tests approve independent values and current seams without pretending t
 | Canonical provider keys preserve CLR type, value equality, hash, and composite boundaries | `CanonicalProviderKeys_*` |
 | Canonical `Guid` is distinct from text and byte-array physical representations | `CanonicalGuidKey_IsDistinctFromPhysicalRepresentations` |
 | Native `Guid`, text36, text32, legacy little-endian binary, and RFC-order binary use fixed known vectors | `GuidKnownVector_*` |
-| Current MariaDB text and MySQL binary default generation matches independent vectors | `MetadataFromSqlFactoryDefaultParsingTests` |
+| Finalized direct-`Guid` defaults use the resolved codec for all 13 SQLite/MySQL/MariaDB text, native, and binary representations | `GuidStorageStaticDefaultTests`; `MetadataFromSqlFactoryDefaultParsingTests` |
 
 The approved vector is `00112233-4455-6677-8899-aabbccddeeff`. Its current DataLinq/MySQL compatibility bytes are `33221100554477668899AABBCCDDEEFF`; its RFC-order bytes are `00112233445566778899AABBCCDDEEFF`.
 
-At W1, format-aware schema validation and diffing could not be characterized honestly before `GuidStorageDefinition`; that was a baseline limitation. UUID-1B introduced the metadata, and bounded UUID-4 now covers physical-type-gated format matching, unobservable-layout diagnostics, and trusted same-type manual-migration differences. Source-only typed-ID converter resolution, independent canonical compatibility, static/default UUID encoding, and version diagnostics remain later work.
+At W1, format-aware schema validation and diffing could not be characterized honestly before `GuidStorageDefinition`; that was a baseline limitation. UUID-1B introduced the metadata, and bounded UUID-4 now covers physical-type-gated format matching, unobservable-layout diagnostics, trusted same-type manual-migration differences, and resolved-metadata direct-`Guid` DDL encoding through the exact provider codec. Source-only typed-ID converter resolution, independent canonical compatibility, legal source representation/regeneration for fixed `Guid` defaults, converter-backed defaults, dynamic UUID generation, and version/provider-target diagnostics remain later work.
 
 ## Baseline Evidence Manifest
 

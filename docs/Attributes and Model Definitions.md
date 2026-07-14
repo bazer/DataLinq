@@ -211,6 +211,9 @@ This attribute supports a `UUIDVersion` argument, including `Version4` and `Vers
 
 Use it on `Guid` properties. Anything else is a model error, not a meaningful configuration.
 
+> [!WARNING]
+> UUID version selection is not yet a portable database-generation contract. MySQL/MariaDB provider DDL and import do not currently preserve Version4 versus Version7 semantics, SQLite has no equivalent built-in generator, and Version7 client code requires a target-framework-aware implementation because `Guid.CreateVersion7()` is unavailable on .NET 8. Use an explicit provider-scoped `[DefaultSql]` only when you intentionally accept that provider expression's real semantics; do not assume it is equivalent to `[DefaultNewUUID]`.
+
 ## Index Attributes
 
 ### `[Index(...)]`
