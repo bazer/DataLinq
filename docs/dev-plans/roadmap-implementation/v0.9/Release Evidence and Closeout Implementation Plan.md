@@ -3,13 +3,13 @@
 
 # 0.9 Release Evidence And Closeout Implementation Plan
 
-**Status:** Accepted.
+**Status:** Accepted. The bounded W8 project-reference memory constrained-runtime graph is implemented and green; W10 catalog/package integration and the final release-candidate reruns remain open.
 
 **Target release:** DataLinq 0.9.
 
 **Created:** 2026-07-10.
 
-**Last reviewed:** 2026-07-12.
+**Last reviewed:** 2026-07-15.
 
 **Depends on:** The required workstreams in the [DataLinq 0.9 Implementation Roadmap](README.md). The final closeout begins only after their baseline evidence is green and the release has selected zero or one optional stretch.
 
@@ -62,7 +62,7 @@ The repository has good 0.8 release tooling, but it does not yet prove the 0.9 r
 | --- | --- | --- |
 | Test suites | `DataLinq.Testing.CLI` currently knows `generators`, `unit`, `compliance`, `mysql`, and `all`. There is no distinct DataLinq memory suite. | Add one TUnit-backed `memory` lane that runs once per invocation and is included deliberately in `all`. Do not label it `sqlite-memory`; that name already means an in-memory SQLite connection. |
 | Provider matrix | The active matrix already defines `sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mariadb-10.11`, `mariadb-11.4`, and `mariadb-11.8`. | Make the final 0.9 SQL gate run this exact matrix. Keep DataLinq.Memory outside the SQL server-target multiplication and run its capability suite separately. |
-| Constrained-runtime smoke | `DataLinq.PlatformCompatibility.Smoke` references `DataLinq`, the generator, and `DataLinq.SQLite`. `DataLinq.AotSmoke`, `DataLinq.TrimSmoke`, and `DataLinq.BlazorWasm` all consume that SQLite-shaped smoke graph. | Add a memory-only graph that references `DataLinq.Memory` and `DataLinq` but not `DataLinq.SQLite`, `Microsoft.Data.Sqlite`, or SQLitePCLRaw. The existing SQLite graph remains a regression gate. |
+| Constrained-runtime smoke | The historical `DataLinq.PlatformCompatibility.Smoke` graph still carries SQLite. W8 now also has a separate non-packable `DataLinq.Memory.PlatformCompatibility.Smoke` graph consumed by Native AOT, full-trim, and Blazor WebAssembly hosts; its four project-reference modes execute successfully and their outputs scan clean for SQL-provider/native-database payload. | Register both backend graphs in the accepted 0.9 compatibility/reporting surface, retain SQLite as a regression gate, and rerun the promoted/package surface during W10 and final closeout. The W8 project-reference checkpoint is not packaged release evidence. |
 | Compatibility reporting | `CompatibilityTargetCatalog` exposes the historical `phase8c` target set, and the documented release thresholds are still described as 0.8 thresholds. | Add a deliberate 0.9 target set/profile containing both existing SQLite regression targets and direct-memory targets, with independently named results and reviewed thresholds. |
 | Packing | `publish-nuget.ps1` currently packs `DataLinq`, `DataLinq.SQLite`, `DataLinq.MySql`, `DataLinq.CLI`, and `DataLinq.Tools`. | After the vertical memory spike passes its promotion gate, add the separate preview `DataLinq.Memory` package to the public pack set. Do not put the memory backend into the core package merely to avoid updating release tooling. |
 | Package inspection | `package-report` expects the same five packages and treats only the three existing runtime packages as runtime packages. | Add `DataLinq.Memory` to the expected public and runtime package sets and add checks for accidental SQL/native-provider dependencies or assets. |
@@ -120,7 +120,7 @@ The vertical memory spike should not force a public package shape before the arc
 2. Pass the spike requirements in the [Query Backend And Execution Foundation Implementation Plan](Query%20Backend%20and%20Execution%20Foundation%20Implementation%20Plan.md).
 3. Review the public construction, seed, capability, isolation, and diagnostics surface.
 4. Promote the implementation to a separate, packable `DataLinq.Memory` preview package.
-5. Add that package to all `RE-1` package, smoke, API, and documentation gates.
+5. Add that package to the `RE-1` package, API, and documentation gates, then rerun the already-proven memory smoke graph through the accepted release/package harness rather than recreating it after promotion.
 
 After the promotion gate, the release shape is not ambiguous: the read-only preview ships as `DataLinq.Memory`, separate from `DataLinq`, `DataLinq.SQLite`, and `DataLinq.MySql`.
 
@@ -247,7 +247,7 @@ flowchart LR
     P --> S["DataLinq.SQLite"]
 ```
 
-Add an independent graph after memory promotion:
+Add the independent graph during W8 before memory promotion so the architecture and dependency boundary are tested before a public API/package shape is frozen:
 
 ```mermaid
 flowchart LR
@@ -260,6 +260,8 @@ flowchart LR
 ```
 
 The exact project names may follow existing naming conventions. The dependency separation is not optional.
+
+Bounded W8 step-10 implementation uses `DataLinq.Memory.PlatformCompatibility.Smoke`, `DataLinq.Memory.AotSmoke`, `DataLinq.Memory.TrimSmoke`, and `DataLinq.Memory.BlazorWasm`. The shared runner exercises the unchanged 31-token memory profile, including canonical/model-valued seed, primary-key hit/miss, captured equality, ordering plus `Take`, entity and direct scalar materialization, `Any`/`Count`, deterministic unsupported self-join rejection before work, pre-cancellation, and canonical Guid-backed/direct-`Guid` storage. Native AOT and full-trim executables publish and exit successfully. Isolated WebAssembly no-AOT and AOT publishes execute successfully in a real browser with zero warning/error entries. Recursive scans of all four outputs find no `DataLinq.SQLite`, `DataLinq.MySql`, `Microsoft.Data.Sqlite`, `MySqlConnector`, `SQLitePCLRaw`, or `e_sqlite3`. This is bounded project-reference evidence only: W10 still owns compatibility-catalog registration, accepted thresholds/report schemas, package/promotion reruns, the retained SQLite graph, and final manifest integration.
 
 The direct memory smoke must execute, rather than merely publish:
 
@@ -658,6 +660,8 @@ Required outcomes:
 - thresholds use reviewed 0.9 baselines and report symbol-excluded/native and compressed-browser sizes honestly
 
 If WebAssembly build behavior differs inside the native Windows sandbox, rerun the same release command outside the sandbox before classifying it as a product failure. The authoritative report must say where and how it ran.
+
+When switching the same WebAssembly project between AOT and no-AOT, use clean or isolated intermediate paths. Reusing one `obj` graph can retain mode-specific stripped IL and produce interpreter failures that do not reproduce from an isolated build.
 
 ### RE-4 acceptance criteria
 

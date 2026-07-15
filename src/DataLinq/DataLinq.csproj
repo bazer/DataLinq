@@ -16,6 +16,7 @@
 	<ItemGroup>
 		<InternalsVisibleTo Include="DataLinq.Benchmark" />
 		<InternalsVisibleTo Include="DataLinq.Memory" />
+		<InternalsVisibleTo Include="DataLinq.Memory.PlatformCompatibility.Smoke" />
 		<InternalsVisibleTo Include="DataLinq.Tools" />
 		<InternalsVisibleTo Include="DataLinq.PlatformCompatibility.Smoke" />
 		<InternalsVisibleTo Include="DataLinq.Tests.Unit" />

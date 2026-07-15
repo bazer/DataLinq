@@ -177,11 +177,17 @@ internal sealed class MemoryDatabase<TDatabase>
         where TModel : class, ITableModel<TDatabase> =>
         Metadata.GetTableModel(typeof(TModel)).Table;
 
-    private static DatabaseDefinition ResolveMetadata()
-        => DatabaseDefinition.ResolveLoadedDatabase(
+    private static DatabaseDefinition ResolveMetadata() =>
+        DatabaseDefinition.ResolveLoadedDatabase(
             typeof(TDatabase),
-            () => MetadataFromTypeFactory
-                .ParseDatabaseFromDatabaseModel<TDatabase>()
-                .ValueOrException(),
-            TDatabase.SetDataLinqGeneratedMetadata);
+            CreateMetadata,
+            BindMetadata);
+
+    private static DatabaseDefinition CreateMetadata() =>
+        MetadataFromTypeFactory
+            .ParseDatabaseFromDatabaseModel<TDatabase>()
+            .ValueOrException();
+
+    private static void BindMetadata(DatabaseDefinition metadata) =>
+        TDatabase.SetDataLinqGeneratedMetadata(metadata);
 }

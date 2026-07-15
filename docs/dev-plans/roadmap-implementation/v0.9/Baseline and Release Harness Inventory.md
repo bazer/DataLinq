@@ -3,11 +3,13 @@
 
 # 0.9 Baseline And Release Harness Inventory
 
-**Status:** W0-W2 complete. W3 and W4 implementation are active against this 2026-07-10 characterization baseline; bounded managed-wrapper `TX-3` rollback/open-disposal finalization is recorded below.
+**Status:** W0-W2 complete. This remains the 2026-07-10 before-state; later bounded implementation checkpoints, including the W8 step-10 provider-free memory constrained-runtime graph, are recorded separately below and do not rewrite the baseline.
 
 **Baseline branch:** `v0.9`.
 
 **Baseline source commit:** `8bcfc770246f960e27a91e3046f19a76c3736217`.
+
+**Last reviewed:** 2026-07-15.
 
 **Starting worktree:** Clean, on `v0.9`, before characterization-only test and documentation changes.
 
@@ -24,7 +26,7 @@ It did four things:
 3. added focused query, parsed-plan binding, primary-key, reader-lifetime, transaction-cache, relation, mutable-reuse, provider-lifecycle fault, file-backed SQLite/WAL, scalar-value, typed-ID-fixture, canonical-key, and UUID-vector characterization
 4. captured reproducible build, provider, package, compatibility, and benchmark evidence, including real baseline failures instead of laundering them into green claims
 
-The production baseline is healthy across the complete SQL provider matrix. Native AOT and trimming are green. Both WebAssembly publish lanes are currently red under SDK 10.0.301 because the Blazor SDK requests a missing `ResolveWasmOutputs` target. That failure reproduced outside the sandbox and is therefore a real release-harness gap, not sandbox noise.
+At W0 the production baseline was healthy across the complete SQL provider matrix. Native AOT and trimming were green. Both historical SQLite-shaped WebAssembly publish lanes were red under SDK 10.0.301 because the Blazor SDK requested a missing `ResolveWasmOutputs` target. That failure reproduced outside the sandbox and was therefore a real W0 release-harness gap, not sandbox noise. It remains baseline evidence; it does not describe the later, separate W8 memory-only browser graph.
 
 ## Reproduction Environment
 
@@ -214,7 +216,9 @@ The subsequent exact-`Int64` checkpoint requires SQLite `INTEGER` or signed MySQ
 
 The next exact joined Guid-backed typed-ID checkpoint narrows only one explicit-inner `JoinedRowLocal` path. On concrete SQLite, MySQL, and MariaDB sources, any resolved active-provider `GuidStorage` makes the selected alias ordinal column-aware; the runtime gate is format-agnostic. This checkpoint's provider evidence and support claim use one representative binary mapping, where physical bytes decode to canonical `Guid`, become a dynamic `DataLinqKey`, and hydrate both joined sources through the existing cache. Non-symmetric raw vectors, repeated-parent identity, warm same-instance reuse, canonical cache keys, and model-valued public results prove that no `byte[]` leaks across the boundary. The reader seam passes `5/5` with neither converter direction invoked. Cold end-to-end immutable construction records the expected three `ToProvider` and five `FromProvider` calls; warm execution adds zero. Focused compliance passes `2/2` on SQLite file/memory and `4/4` across the four server targets. Current integrated gates pass `60/60` generator, `1214/1214` unit, `809/809` SQLite file/memory, `817/817` in each paired server batch (`1634/1634` total), and `189/189` plus `191/191` provider-specific executions (`380/380` total). Joined-key evidence for text/native UUID storage, other typed mappings/formats, composites, outer/missing-source joins, UUID relation/index/foreign-key routing, external/key-only/preload/manual/provider-less readers, source-only resolution, converter-backed defaults, memory/AOT, and aggregate W6/UUID completion remain open.
 
-The bounded W8 step-9 memory seed/read checkpoint adds a separate generated fixture with a Guid-backed typed-ID primary key, a direct `Guid`, another non-null typed field, and a nullable typed field. The internal dense model seed path invokes the shared `ModelValueConverter`, publishes only fully validated canonical rows, and indexes the primary key as `Guid`; deliberately different SQL-provider `GuidStorage` definitions remain unapplied metadata. Seed normalization calls `ToProvider` twice, and nullable null bypasses conversion. Cold materialization adds two `FromProvider` calls plus one `ToProvider` for existing generated immutable primary-key capture (cumulative three and two). Warm lookup and root enumeration reuse the exact immutable instance with no new calls. Test cache eviction and rematerialization add two `FromProvider` plus one key-capture `ToProvider` call (cumulative four and four). A differential canonical-seed case sends canonical `Guid` cells through `SeedCanonical` with zero seed-time `ToProvider`; cold materialization invokes `FromProvider` for all three converted fields plus one `ToProvider` for immutable primary-key capture. A full model type/nullability preflight runs before each row's first converter, completed reseeds and concurrent same-table attempts reject before their converter execution, and invalid or duplicate rows leave the table unpublished; invalid-cell top-level diagnostics carry value-redacted row/column context. Converter code runs outside the seed monitor. Focused tests pass `7/7`, all `DataLinq.Tests.Memory` tests pass `40/40`, and `DataLinq.Memory` builds cleanly for net8/net9/net10. The public seed/package shape, Guid-backed typed-ID predicates/projections/membership/relations, AOT/browser execution, `M0`, F7, W8, and aggregate UUID completion remain open.
+The bounded W8 step-9 memory seed/read checkpoint adds a separate generated fixture with a Guid-backed typed-ID primary key, a direct `Guid`, another non-null typed field, and a nullable typed field. The internal dense model seed path invokes the shared `ModelValueConverter`, publishes only fully validated canonical rows, and indexes the primary key as `Guid`; deliberately different SQL-provider `GuidStorage` definitions remain unapplied metadata. Seed normalization calls `ToProvider` twice, and nullable null bypasses conversion. Cold materialization adds two `FromProvider` calls plus one `ToProvider` for existing generated immutable primary-key capture (cumulative three and two). Warm lookup and root enumeration reuse the exact immutable instance with no new calls. Test cache eviction and rematerialization add two `FromProvider` plus one key-capture `ToProvider` call (cumulative four and four). A differential canonical-seed case sends canonical `Guid` cells through `SeedCanonical` with zero seed-time `ToProvider`; cold materialization invokes `FromProvider` for all three converted fields plus one `ToProvider` for immutable primary-key capture. A full model type/nullability preflight runs before each row's first converter, completed reseeds and concurrent same-table attempts reject before their converter execution, and invalid or duplicate rows leave the table unpublished; invalid-cell top-level diagnostics carry value-redacted row/column context. Converter code runs outside the seed monitor. At that checkpoint focused tests passed `7/7`, all `DataLinq.Tests.Memory` tests passed `40/40`, and `DataLinq.Memory` built cleanly for net8/net9/net10. The public seed/package shape, Guid-backed typed-ID predicates/projections/membership/relations, `M0`, and aggregate UUID completion remain open. The following step-10 checkpoint supersedes the AOT/browser, bounded `F7`, and ordered W8-step status only.
+
+The bounded W8 step-10 memory constrained-runtime checkpoint adds a non-packable provider-free generated runner plus non-packable Native AOT, full-trim, and Blazor WebAssembly hosts. The unchanged 31-token profile executes canonical/model-valued seed, primary-key hit/miss, captured equality, ordering plus `Take`, entity and scalar materialization, `Any`/`Count`, deterministic unsupported self-join rejection before work, pre-cancellation, and canonical Guid-backed/direct-`Guid` storage. Native AOT and full-trim executables publish and exit successfully; isolated WebAssembly no-AOT and AOT publishes complete in a real browser with zero warning/error entries. Recursive scans of all four outputs find no SQL-provider or native-database payload names. The full memory suite passes `42/42`. This completes bounded `F7` and W8 step 10, but does not promote a package, register a Testing CLI/compatibility target, complete D5/SC-6/M0-M2, or replace the historical SQLite graph.
 
 The later exact resolved-canonical-`Guid` `F6-B` relation/index checkpoint supersedes only the UUID relation exclusion above. Neutral relation dispatch admits exactly one index column whose canonical provider CLR type is `Guid`, and only on a concrete SQLite, MySQL, or MariaDB source with resolved active-provider `GuidStorage`. Direct-`Guid` and converter-backed metadata are eligible only when the caller already supplies canonical `Guid`; the admission and exact-key seams invoke neither converter direction. Model wrappers, raw bytes, UUID text, composite indices, missing or unresolved active-provider storage, and `DatabaseType.Unknown` retain legacy routing. Provider end-to-end evidence is narrower than the format-agnostic gate: one representative converter-backed binary mapping uses RFC-order bytes on SQLite and MariaDB and little-endian bytes on MySQL. A rolled-back transaction-local delete leaves the committed relation index cold; the next committed collection load issues one reader, rematerializes both children, and warms one canonical index. Warm index access returns the same child instances, and reverse references resolve to the same parent. Cold counters are `ToProvider=3` and `FromProvider=4`; warm index access adds nothing, and two reverse references finish at `ToProvider=5`, `FromProvider=4`. Current integrated gates pass `60/60` generator, `1214/1214` unit, `811/811` SQLite file/memory compliance, `819/819` in each paired server batch (`1638/1638` total), and `189/189` plus `191/191` provider-specific executions (`380/380` total). Direct-`Guid` relation end-to-end evidence, text/native relation formats, composites, custom-provider/provider-less/external/key-only/preload/manual routes, memory relations, and aggregate `F6`/W6/UUID completion remain open.
 
@@ -284,7 +288,7 @@ Pack-only produced version `0.8.1-alpha.0.9` for:
 
 Core/provider libraries contain `net8.0`, `net9.0`, and `net10.0` assets. The package report found the expected provider dependencies and no unexpected runtime folders. This is a before-state inspection, not a 0.9 package promotion.
 
-### Compatibility baseline
+### Historical W0 compatibility baseline
 
 | Target | Publish | Smoke | Symbol-excluded size | Banned payload |
 | --- | --- | --- | ---: | ---: |
@@ -299,7 +303,7 @@ Both WebAssembly logs end with:
 error MSB4057: The target "ResolveWasmOutputs" does not exist in the project.
 ```
 
-The failing project is `DataLinq.BlazorWasm.csproj::TargetFramework=net10.0`, reached through `Microsoft.NET.Sdk.BlazorWebAssembly.6_0.targets`. RE-1D owns repairing or replacing this harness before W10/W11. A green SQLite AOT executable is not memory-backend evidence.
+At W0 the failing project was `DataLinq.BlazorWasm.csproj::TargetFramework=net10.0`, reached through `Microsoft.NET.Sdk.BlazorWebAssembly.6_0.targets`. W10 still owns the accepted release-catalog disposition and final rerun of the existing SQLite graph. The separate W8 memory browser graph is now green, but it does not retroactively turn this historical SQLite baseline green; conversely, a green SQLite AOT executable is not memory-backend evidence.
 
 ### Performance baseline and D7 policy
 
@@ -335,21 +339,21 @@ Timing noise ranges from 6.9% to 28.4%, with a multimodal-distribution warning. 
 - test summary JSON omits schema identity, commit, command, and timestamps; the tracked manifest supplies that context for W0.
 - compatibility and package report schemas still carry `phase8c.*.v1` identities.
 - no isolated template/invocation benchmark exists; RE-1G owns it.
-- the WebAssembly publish graph is red under SDK 10.0.301 and must be repaired before memory-specific browser evidence can be credible.
+- the historical SQLite-shaped WebAssembly baseline was red under SDK 10.0.301; W10 still needs an accepted disposition and final rerun, while the separate W8 memory browser graph now provides credible bounded memory-specific evidence.
 
-### Assumptions that later must learn about `DataLinq.Memory`
+### Remaining release-harness assumptions after W8 step 10
 
-Do not change these before the W8 spike promotion gate:
+W8 deliberately changed only the non-packable project-reference graph. The following release-tool assumptions remain until D5 promotion and W10 integration:
 
 - `publish-nuget.ps1` hardcodes the current five public packages.
 - `PackageReportCommand` hardcodes five public and three runtime packages.
 - package inspection has no memory-specific ban on SQLite, MySQL, SQLitePCLRaw, or native payload.
 - Testing CLI has no `memory` suite and currently knows only generators, unit, compliance, and MySQL.
-- compatibility accepts only `phase8c` and points all targets at the SQLite-shaped smoke dependency graph.
-- the shared smoke references `DataLinq.SQLite`; AOT and trim root SQLite explicitly.
+- compatibility accepts only `phase8c` and still registers only the historical SQLite-shaped target graph; the new memory hosts are not yet release-catalog targets.
+- the historical shared smoke references `DataLinq.SQLite`; the separate provider-free memory shared runner and Native AOT/full-trim/browser hosts now coexist outside that catalog.
 - compatibility identity models platform kind, not backend by platform.
 - current release thresholds explicitly describe 0.8.
-- the solution has no memory product, test, or smoke projects.
+- the solution now contains non-packable memory runtime, test, shared-runner, Native AOT, full-trim, and browser projects; none is a promoted public package or final release target yet.
 - benchmarks currently support only SQLite file and SQLite memory modes.
 
 ## Decision Register
@@ -361,7 +365,7 @@ Do not change these before the W8 spike promotion gate:
 | D2 scalar conversion contract | Accepted release decision; SC-1 implementation gate remains | W2 |
 | D3 UUID public/metadata shape | Accepted release decision; known-vector evidence is tracked in the W1 value lane | W2/W7 |
 | D4 transaction/cache contract | Current pending/committed overlay characterized; provenance/failure gaps assigned | W3 |
-| D5 memory project/package boundary | Fixed: separate non-packable projects until promotion | W8 |
+| D5 memory project/package boundary | Separate non-packable project graph proven; public construction/seed and package review still gates promotion | W8/W9 |
 | D6 memory semantic matrix | Deferred until the spike establishes an honest executable subset | W9 |
 | D7 performance policy | Resolved above; noisy single-run timing is not a release claim | W5/W10 |
 

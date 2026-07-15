@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "DataLinq.Memory.BlazorWasm": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "https://localhost:7197;http://localhost:5197",
+      "inspectUri": "{wsProtocol}://{url.hostname}:{url.port}/_framework/debug/ws-proxy?browser={browserInspectUri}"
+    }
+  }
+}

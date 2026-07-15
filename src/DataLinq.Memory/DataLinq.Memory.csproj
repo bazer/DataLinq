@@ -8,6 +8,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<InternalsVisibleTo Include="DataLinq.Memory.PlatformCompatibility.Smoke" />
 		<InternalsVisibleTo Include="DataLinq.Tests.Memory" />
 	</ItemGroup>
 

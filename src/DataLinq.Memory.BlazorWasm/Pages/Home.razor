@@ -1,0 +1,80 @@
+@page "/"
+@using DataLinq.Memory.PlatformCompatibility.Smoke
+
+<PageTitle>DataLinq Memory WASM Smoke</PageTitle>
+
+<main class="shell"
+      data-datalinq-memory-smoke-status="@StatusText"
+      data-datalinq-memory-smoke-stage="@stage">
+    <section class="summary">
+        <div>
+            <p class="eyebrow">0.9 memory platform probe</p>
+            <h1>DataLinq Memory on WebAssembly</h1>
+        </div>
+        <span id="datalinq-memory-smoke-status" class="status @StatusClass">@StatusText</span>
+    </section>
+
+    @if (passed is null && error is null)
+    {
+        <p id="datalinq-memory-smoke-stage">Running provider-free memory smoke: @stage</p>
+    }
+    else if (error is not null)
+    {
+        <pre id="datalinq-memory-smoke-error" class="error">@error</pre>
+    }
+    else
+    {
+        <pre id="datalinq-memory-smoke-result" class="result">@displayResult</pre>
+        <section class="details" aria-label="Memory smoke details">
+            <h2>Provider-free memory runtime</h2>
+            <p>
+                This browser probe runs the shared DataLinq Memory smoke without loading a SQL provider
+                or native database package.
+            </p>
+        </section>
+    }
+</main>
+
+@code {
+    private bool? passed;
+    private string? displayResult;
+    private string? error;
+    private string stage = "starting";
+
+    private string StatusText => error is not null
+        ? "failed"
+        : passed is null
+            ? "running"
+            : passed.Value
+                ? "passed"
+                : "failed";
+
+    private string StatusClass => StatusText;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Yield();
+
+        try
+        {
+            stage = "running-memory-smoke";
+            await InvokeAsync(StateHasChanged);
+
+            var smokeResult = await MemoryPlatformSmokeRunner.RunAsync(nextStage =>
+            {
+                stage = nextStage;
+                Console.WriteLine($"DataLinq memory smoke stage: {nextStage}");
+                StateHasChanged();
+                return ValueTask.CompletedTask;
+            });
+            passed = smokeResult.Passed;
+            displayResult = smokeResult.ToDisplayString();
+            stage = "completed";
+        }
+        catch (Exception exception)
+        {
+            error = exception.ToString();
+            stage = "failed";
+        }
+    }
+}
