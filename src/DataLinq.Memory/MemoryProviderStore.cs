@@ -45,6 +45,19 @@ internal sealed class MemoryProviderStore
             () => MemoryTableState.CreateModelValues(table, modelRows));
     }
 
+    internal void SeedModels<TModel>(
+        TableDefinition table,
+        IEnumerable<Mutable<TModel>> models)
+        where TModel : class, IImmutableInstance
+    {
+        ValidateOwnedTable(table);
+        ArgumentNullException.ThrowIfNull(models);
+
+        Publish(
+            table,
+            () => MemoryTableState.CreateModels(table, models));
+    }
+
     private void Publish(
         TableDefinition table,
         Func<MemoryTableState> createState)
@@ -55,7 +68,7 @@ internal sealed class MemoryProviderStore
                 throw AlreadySeeded(table);
             if (!seedingTables.Add(table))
                 throw new MemorySeedException(
-                    $"Memory table '{table.DbName}' is already being seeded. The read-only spike permits only one seed publication attempt per table at a time.");
+                    $"Memory table '{table.DbName}' is already being seeded. The read-only memory backend permits only one seed publication attempt per table at a time.");
         }
 
         try
@@ -78,7 +91,7 @@ internal sealed class MemoryProviderStore
     }
 
     private static MemorySeedException AlreadySeeded(TableDefinition table) =>
-        new($"Memory table '{table.DbName}' has already been seeded. The read-only spike publishes each table exactly once.");
+        new($"Memory table '{table.DbName}' has already been seeded. The read-only memory backend publishes each table exactly once.");
 
     internal bool TryGet(
         TableDefinition table,
@@ -153,6 +166,134 @@ internal sealed class MemoryTableState
             valuesAreModelValues: true,
             nameof(modelRows));
 
+    internal static MemoryTableState CreateModels<TModel>(
+        TableDefinition table,
+        IEnumerable<Mutable<TModel>> models)
+        where TModel : class, IImmutableInstance
+    {
+        var modelRows = SnapshotModels(table, models);
+        return CreateCore(
+            table,
+            modelRows,
+            valuesAreModelValues: true,
+            nameof(models));
+    }
+
+    private static IReadOnlyList<object?[]> SnapshotModels<TModel>(
+        TableDefinition table,
+        IEnumerable<Mutable<TModel>> models)
+        where TModel : class, IImmutableInstance
+    {
+        var rows = new List<object?[]>();
+        var rowOrdinal = 0;
+
+        var enumerator = GetModelEnumerator(table, models);
+        Exception? primaryFailure = null;
+        try
+        {
+            while (true)
+            {
+                bool hasNext;
+                try
+                {
+                    hasNext = enumerator.MoveNext();
+                }
+                catch (Exception exception) when (ShouldWrapSeedFailure(exception))
+                {
+                    throw new MemorySeedException(
+                        $"Generated mutable memory seed enumeration for table '{table.DbName}' failed before row {rowOrdinal}.");
+                }
+
+                if (!hasNext)
+                    return rows;
+
+                Mutable<TModel> model;
+                try
+                {
+                    model = enumerator.Current;
+                }
+                catch (Exception exception) when (ShouldWrapSeedFailure(exception))
+                {
+                    throw new MemorySeedException(
+                        $"Generated mutable memory seed enumeration for table '{table.DbName}' could not read row {rowOrdinal}.");
+                }
+
+                if (model is null)
+                {
+                    throw new MemorySeedException(
+                        $"Generated mutable memory seed row {rowOrdinal} for table '{table.DbName}' cannot be null.");
+                }
+
+                if (model.IsDeleted())
+                {
+                    throw new MemorySeedException(
+                        $"Generated mutable memory seed row {rowOrdinal} for table '{table.DbName}' cannot be marked as deleted.");
+                }
+
+                var rowData = model.GetRowData();
+                if (!ReferenceEquals(rowData.Table, table))
+                {
+                    throw new MemorySeedException(
+                        $"Generated mutable memory seed row {rowOrdinal} belongs to table '{rowData.Table.DbName}', not memory table '{table.DbName}'.");
+                }
+
+                try
+                {
+                    var values = new object?[table.ColumnCount];
+                    for (var ordinal = 0; ordinal < values.Length; ordinal++)
+                        values[ordinal] = rowData.GetValue(ordinal);
+
+                    rows.Add(values);
+                    rowOrdinal++;
+                }
+                catch (Exception exception) when (ShouldWrapSeedFailure(exception))
+                {
+                    throw new MemorySeedException(
+                        $"Generated mutable memory seed row {rowOrdinal} for table '{table.DbName}' could not be read through its model-value accessors.");
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            primaryFailure = exception;
+            throw;
+        }
+        finally
+        {
+            try
+            {
+                enumerator.Dispose();
+            }
+            catch (Exception exception)
+            {
+                if (!ShouldWrapSeedFailure(exception))
+                    throw;
+
+                if (primaryFailure is null)
+                {
+                    throw new MemorySeedException(
+                        $"Generated mutable memory seed enumeration for table '{table.DbName}' failed during cleanup.");
+                }
+            }
+        }
+    }
+
+    private static IEnumerator<Mutable<TModel>> GetModelEnumerator<TModel>(
+        TableDefinition table,
+        IEnumerable<Mutable<TModel>> models)
+        where TModel : class, IImmutableInstance
+    {
+        try
+        {
+            return models.GetEnumerator();
+        }
+        catch (Exception exception) when (ShouldWrapSeedFailure(exception))
+        {
+            throw new MemorySeedException(
+                $"Generated mutable memory seed for table '{table.DbName}' could not be enumerated.");
+        }
+    }
+
     private static MemoryTableState CreateCore(
         TableDefinition table,
         IEnumerable<object?[]> rowsToSeed,
@@ -168,7 +309,7 @@ internal sealed class MemoryTableState
         if (table.PrimaryKeyColumns.Count == 0)
         {
             throw new MemorySeedException(
-                $"Memory table '{table.DbName}' has no primary key. The vertical spike requires keyed table state.");
+                $"Memory table '{table.DbName}' has no primary key. The read-only memory backend requires keyed table state.");
         }
 
         var rows = new List<CanonicalProviderValueRow>();
@@ -200,15 +341,10 @@ internal sealed class MemoryTableState
                         $"Canonical memory seed row for table '{table.DbName}' has no primary-key identity.");
                 }
             }
-            catch (Exception exception) when (
-                exception is not MemorySeedException and
-                not OperationCanceledException and
-                not OutOfMemoryException and
-                not AccessViolationException)
+            catch (Exception exception) when (ShouldWrapSeedFailure(exception))
             {
                 throw new MemorySeedException(
-                    $"{(valuesAreModelValues ? "Model-valued" : "Canonical")} memory seed row {rowOrdinal} for table '{table.DbName}' is invalid. {exception.Message}",
-                    exception);
+                    $"{(valuesAreModelValues ? "Model-valued" : "Canonical")} memory seed row {rowOrdinal} for table '{table.DbName}' is invalid. {exception.Message}");
             }
 
             if (!primaryKeyOrdinals.TryAdd(primaryKey, rowOrdinal))
@@ -257,6 +393,12 @@ internal sealed class MemoryTableState
         return canonicalValues;
     }
 
+    private static bool ShouldWrapSeedFailure(Exception exception) =>
+        exception is not MemorySeedException and
+        not OperationCanceledException and
+        not OutOfMemoryException and
+        not AccessViolationException;
+
     internal bool TryGet(
         DataLinqKey canonicalProviderKey,
         out CanonicalProviderValueRow? row)
@@ -272,15 +414,17 @@ internal sealed class MemoryTableState
     }
 }
 
-internal sealed class MemorySeedException : InvalidOperationException
+/// <summary>
+/// Reports an invalid or conflicting memory seed without exposing captured row values.
+/// </summary>
+public sealed class MemorySeedException : InvalidOperationException
 {
+    /// <summary>
+    /// Creates a memory seed failure with a value-redacted diagnostic.
+    /// </summary>
+    /// <param name="message">The value-redacted failure description.</param>
     internal MemorySeedException(string message)
         : base(message)
-    {
-    }
-
-    internal MemorySeedException(string message, Exception innerException)
-        : base(message, innerException)
     {
     }
 }

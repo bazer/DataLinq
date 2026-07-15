@@ -133,15 +133,31 @@ Expected preview shape:
 ```csharp
 var db = new MemoryDatabase<AppDb>();
 
-db.Seed(seed => seed
-    .Table(x => x.Users)
-    .Rows(users));
+db.Seed<User>(
+[
+    new MutableUser
+    {
+        UserId = new UserId(17),
+        Name = "Ada",
+        IsActive = true
+    }
+]);
 
 var rows = db.Query().Users
     .Where(x => x.IsActive)
     .OrderBy(x => x.UserId)
     .ToList();
 ```
+
+The bounded D5-A surface is deliberately smaller than a fixture-mapping DSL:
+
+- direct construction owns one isolated store and materialization cache
+- `Query()` returns the generated read-only database model
+- `Seed<TModel>(IEnumerable<Mutable<TModel>>)` accepts generated mutable rows, snapshots table-ordinal model values during the call, and publishes that table exactly once
+- invalid input rejects the whole table publication through public `MemorySeedException`; an unseeded table remains retryable
+- canonical rows, provider-domain seed values, metadata, read-source plumbing, diagnostics counters, cache hooks, explicit-token execution, and canonical-key lookup remain internal
+
+Construct the memory database before constructing generated mutable seed rows so generated metadata is bound before their runtime-owned accessors initialize. Seed/query overlap and concurrent mutation of a seed row are not preview contracts. Mutation after `Seed` returns cannot alter published state.
 
 Seed processing should:
 
@@ -396,7 +412,6 @@ Avoid:
 
 - What is the smallest backend-neutral provider/source interface that avoids SQL-shaped throwing stubs?
 - Which projection forms can become fully self-contained in the normalized execution request for 0.9?
-- Should direct construction use `MemoryDatabase<TDatabase>` or a smaller preview factory?
 - Which string comparison is the least surprising documented memory default?
 - Should direct scalar comparisons operate on canonical provider values exclusively, or use column-specific comparers supplied by metadata?
 - Which query shapes beyond primary-key lookup, filter, ordering, paging, and basic result operators earn 0.9 scope?

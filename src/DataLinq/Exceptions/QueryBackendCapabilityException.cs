@@ -2,9 +2,12 @@ using System;
 
 namespace DataLinq.Exceptions;
 
-internal sealed class QueryBackendCapabilityException : QueryTranslationException
+/// <summary>
+/// Reports that a normalized query uses a feature unsupported by the selected backend.
+/// </summary>
+public sealed class QueryBackendCapabilityException : QueryTranslationException
 {
-    public QueryBackendCapabilityException(
+    internal QueryBackendCapabilityException(
         string backendName,
         string feature,
         string location,
@@ -19,14 +22,19 @@ internal sealed class QueryBackendCapabilityException : QueryTranslationExceptio
         ColumnName = columnName;
     }
 
+    /// <summary>Gets the backend that rejected the query plan.</summary>
     public string BackendName { get; }
 
+    /// <summary>Gets the unsupported normalized plan feature.</summary>
     public string Feature { get; }
 
+    /// <summary>Gets the normalized plan location that required the feature.</summary>
     public string Location { get; }
 
+    /// <summary>Gets the source identifier when the failure is source-specific.</summary>
     public string? SourceId { get; }
 
+    /// <summary>Gets the column name when the failure is column-specific.</summary>
     public string? ColumnName { get; }
 
     private static string BuildMessage(

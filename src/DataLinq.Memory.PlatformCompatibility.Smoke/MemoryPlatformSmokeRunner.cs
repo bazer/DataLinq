@@ -87,19 +87,41 @@ public static class MemoryPlatformSmokeRunner
         await ReportStage(reportStage, "constructing-memory-database");
         var database = new MemoryDatabase<MemoryPlatformSmokeDatabase>();
 
-        await ReportStage(reportStage, "seeding-canonical-primitive-rows");
-        database.SeedCanonical<MemoryPlatformPrimitiveRow>(
-            CreatePrimitiveCanonicalRow(database, id: 17, groupId: 7, name: "seventeen"),
-            CreatePrimitiveCanonicalRow(database, id: -5, groupId: 7, name: "minus-five"),
-            CreatePrimitiveCanonicalRow(database, id: 42, groupId: 3, name: "forty-two"));
+        await ReportStage(reportStage, "seeding-generated-primitive-rows");
+        database.Seed<MemoryPlatformPrimitiveRow>(
+        [
+            new MutableMemoryPlatformPrimitiveRow
+            {
+                Id = 17,
+                GroupId = 7,
+                Name = "seventeen"
+            },
+            new MutableMemoryPlatformPrimitiveRow
+            {
+                Id = -5,
+                GroupId = 7,
+                Name = "minus-five"
+            },
+            new MutableMemoryPlatformPrimitiveRow
+            {
+                Id = 42,
+                GroupId = 3,
+                Name = "forty-two"
+            }
+        ]);
 
-        await ReportStage(reportStage, "seeding-model-valued-guid-row");
-        database.SeedModelValues<MemoryPlatformGuidRow>(
-            CreateGuidModelRow(
-                database,
-                new MemoryPlatformGuidId(KnownGuidId),
-                KnownDirectGuid,
-                "canonical-guid"));
+        await ReportStage(reportStage, "seeding-generated-guid-row");
+        database.Seed<MemoryPlatformGuidRow>(
+        [
+            new MutableMemoryPlatformGuidRow
+            {
+                Id = new MemoryPlatformGuidId(KnownGuidId),
+                DirectGuid = KnownDirectGuid,
+                Name = "canonical-guid"
+            }
+        ]);
+
+        var query = database.Query();
 
         await ReportStage(reportStage, "probing-primary-keys");
         var primitiveHit = database.Find<MemoryPlatformPrimitiveRow>(DataLinqKey.FromValue(17));
@@ -115,7 +137,7 @@ public static class MemoryPlatformSmokeRunner
 
         await ReportStage(reportStage, "querying-captured-equality");
         var selectedGroupId = 7;
-        var filteredIds = database.Model.PrimitiveRows
+        var filteredIds = query.PrimitiveRows
             .Where(row => row.GroupId == selectedGroupId)
             .ToArray()
             .Select(static row => row.Id)
@@ -123,7 +145,7 @@ public static class MemoryPlatformSmokeRunner
             .ToArray();
 
         await ReportStage(reportStage, "querying-order-and-take");
-        var orderedIds = database.Model.PrimitiveRows
+        var orderedIds = query.PrimitiveRows
             .OrderBy(static row => row.Id)
             .Take(2)
             .ToArray()
@@ -131,21 +153,21 @@ public static class MemoryPlatformSmokeRunner
             .ToArray();
 
         await ReportStage(reportStage, "querying-direct-scalar-projection");
-        var projectedGroupIds = database.Model.PrimitiveRows
+        var projectedGroupIds = query.PrimitiveRows
             .OrderBy(static row => row.Id)
             .Select(static row => row.GroupId)
             .ToArray();
 
         await ReportStage(reportStage, "querying-any-and-count");
-        var hasRows = database.Model.PrimitiveRows.Any();
-        var rowCount = database.Model.PrimitiveRows.Count();
+        var hasRows = query.PrimitiveRows.Any();
+        var rowCount = query.PrimitiveRows.Count();
 
         await ReportStage(reportStage, "verifying-unsupported-self-join");
         var beforeUnsupported = database.Diagnostics;
         var unsupported = Capture<QueryTranslationException>(() =>
-            database.Model.PrimitiveRows
+            query.PrimitiveRows
                 .Join(
-                    database.Model.PrimitiveRows,
+                    query.PrimitiveRows,
                     static left => left.Id,
                     static right => right.Id,
                     static (left, _) => left)
@@ -157,7 +179,7 @@ public static class MemoryPlatformSmokeRunner
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         var cancelled = Capture<OperationCanceledException>(() =>
-            database.Execute(database.Model.PrimitiveRows, cancellation.Token).ToArray());
+            database.Execute(query.PrimitiveRows, cancellation.Token).ToArray());
         var preCancellationRejectedBeforeWork = database.Diagnostics == beforeCancellation;
 
         return new MemoryPlatformSmokeResult(
@@ -187,34 +209,6 @@ public static class MemoryPlatformSmokeRunner
             PreCancellationPreserved: cancelled.CancellationToken == cancellation.Token,
             PreCancellationRejectedBeforeWork: preCancellationRejectedBeforeWork,
             SupportedCapabilityTokenCount: database.SupportedCapabilityTokens.Count);
-    }
-
-    private static object?[] CreatePrimitiveCanonicalRow(
-        MemoryDatabase<MemoryPlatformSmokeDatabase> database,
-        int id,
-        int groupId,
-        string name)
-    {
-        var table = database.Metadata.GetTableModel(typeof(MemoryPlatformPrimitiveRow)).Table;
-        var values = new object?[table.ColumnCount];
-        values[table.GetColumnByDbName("id").Index] = id;
-        values[table.GetColumnByDbName("group_id").Index] = groupId;
-        values[table.GetColumnByDbName("name").Index] = name;
-        return values;
-    }
-
-    private static object?[] CreateGuidModelRow(
-        MemoryDatabase<MemoryPlatformSmokeDatabase> database,
-        MemoryPlatformGuidId id,
-        Guid directGuid,
-        string name)
-    {
-        var table = database.Metadata.GetTableModel(typeof(MemoryPlatformGuidRow)).Table;
-        var values = new object?[table.ColumnCount];
-        values[table.GetColumnByDbName("id").Index] = id;
-        values[table.GetColumnByDbName("direct_guid").Index] = directGuid;
-        values[table.GetColumnByDbName("name").Index] = name;
-        return values;
     }
 
     private static async ValueTask ReportStage(

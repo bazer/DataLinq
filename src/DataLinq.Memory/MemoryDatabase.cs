@@ -13,16 +13,24 @@ using ThrowAway.Extensions;
 namespace DataLinq.Memory;
 
 /// <summary>
-/// Internal vertical-spike host for one generated database over the memory read source.
-/// The public preview API remains deliberately unfrozen while the backend contract is proven.
+/// Hosts one isolated, read-only generated database over an explicitly seeded memory store.
 /// </summary>
-internal sealed class MemoryDatabase<TDatabase>
+/// <typeparam name="TDatabase">The generated database-model type.</typeparam>
+public sealed class MemoryDatabase<TDatabase>
     where TDatabase : class, IDatabaseModel<TDatabase>
 {
     private readonly MemoryProviderStore store;
     private readonly MemoryReadSource readSource;
 
-    internal MemoryDatabase()
+    /// <summary>
+    /// Creates an empty memory database. Each instance owns an independent store and
+    /// materialization cache.
+    /// </summary>
+    /// <remarks>
+    /// Construct the database before creating generated mutable seed rows. Construction binds the
+    /// generated metadata used by their runtime-owned accessors.
+    /// </remarks>
+    public MemoryDatabase()
     {
         var metadata = ResolveMetadata();
 
@@ -32,6 +40,11 @@ internal sealed class MemoryDatabase<TDatabase>
     }
 
     internal TDatabase Model { get; }
+
+    /// <summary>
+    /// Gets the generated read-only query model for this memory database.
+    /// </summary>
+    public TDatabase Query() => Model;
 
     internal DatabaseDefinition Metadata => readSource.Metadata;
 
@@ -67,6 +80,29 @@ internal sealed class MemoryDatabase<TDatabase>
     {
         var table = GetTable<TModel>();
         store.SeedModelValues(table, modelRows);
+        return this;
+    }
+
+    /// <summary>
+    /// Seeds one table exactly once from generated mutable model values.
+    /// The rows are snapshotted during this call, normalized through the shared scalar-conversion
+    /// boundary, and published atomically as read-only table state.
+    /// </summary>
+    /// <typeparam name="TModel">The generated immutable table-model type.</typeparam>
+    /// <param name="rows">Generated mutable rows for the table.</param>
+    /// <returns>This database, so multiple table seeds can be chained.</returns>
+    /// <remarks>
+    /// Mutating a source row concurrently with this call is unsupported. Mutations made after the
+    /// call returns cannot affect the published memory state. Construct this database before the
+    /// generated mutable rows so their metadata accessors are initialized.
+    /// </remarks>
+    public MemoryDatabase<TDatabase> Seed<TModel>(
+        IEnumerable<Mutable<TModel>> rows)
+        where TModel : class, IImmutableInstance, ITableModel<TDatabase>
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        var table = GetTable<TModel>();
+        store.SeedModels(table, rows);
         return this;
     }
 
