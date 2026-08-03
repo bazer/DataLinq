@@ -132,6 +132,7 @@ Run only a specific suite:
 ```bash
 dotnet run --project DataLinq.Testing.CLI -- run --suite generators
 dotnet run --project DataLinq.Testing.CLI -- run --suite unit
+dotnet run --project DataLinq.Testing.CLI -- run --suite memory --output failures
 dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --alias latest --batch-size 4
 dotnet run --project DataLinq.Testing.CLI -- run --suite mysql --alias latest --batch-size 4
 ```

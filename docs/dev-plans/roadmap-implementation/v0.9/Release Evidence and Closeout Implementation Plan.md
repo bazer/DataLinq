@@ -3,7 +3,7 @@
 
 # 0.9 Release Evidence And Closeout Implementation Plan
 
-**Status:** Accepted. The bounded W8 project-reference memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, and M0-A public exact single-column lookup are implemented and green; aggregate M0, W10 catalog/package integration, and the final release-candidate reruns remain open.
+**Status:** Accepted. The bounded W8 project-reference memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, M0-A public exact single-column lookup, and W10 step-3 / RE-1A Testing CLI registration are implemented and green; the raw-SQL boundary required for aggregate M0, the remaining RE-1 and W10 compatibility/package work, and the final release-candidate reruns remain open.
 
 **Target release:** DataLinq 0.9.
 
@@ -60,7 +60,7 @@ The repository has good 0.8 release tooling, but it does not yet prove the 0.9 r
 
 | Area | Current repository state | Required 0.9 change |
 | --- | --- | --- |
-| Test suites | `DataLinq.Testing.CLI` currently knows `generators`, `unit`, `compliance`, `mysql`, and `all`. There is no distinct DataLinq memory suite. | Add one TUnit-backed `memory` lane that runs once per invocation and is included deliberately in `all`. Do not label it `sqlite-memory`; that name already means an in-memory SQLite connection. |
+| Test suites | `DataLinq.Testing.CLI` now knows `generators`, `unit`, `memory`, `compliance`, `mysql`, and `all`. The targetless `memory` project lane runs once and is included exactly once in `all`; `sqlite-memory` retains its in-memory SQLite target meaning. | **Complete for W10 step 3 / RE-1A registration.** Keep this project-based lane distinct from provider-free compatibility and package-consumer evidence. |
 | Provider matrix | The active matrix already defines `sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mariadb-10.11`, `mariadb-11.4`, and `mariadb-11.8`. | Make the final 0.9 SQL gate run this exact matrix. Keep DataLinq.Memory outside the SQL server-target multiplication and run its capability suite separately. |
 | Constrained-runtime smoke | The historical `DataLinq.PlatformCompatibility.Smoke` graph still carries SQLite. W8 now also has a separate non-packable `DataLinq.Memory.PlatformCompatibility.Smoke` graph consumed by Native AOT, full-trim, and Blazor WebAssembly hosts; its four project-reference modes execute successfully and their outputs scan clean for SQL-provider/native-database payload. | Register both backend graphs in the accepted 0.9 compatibility/reporting surface, retain SQLite as a regression gate, and rerun the promoted/package surface during W10 and final closeout. The W8 project-reference checkpoint is not packaged release evidence. |
 | Compatibility reporting | `CompatibilityTargetCatalog` exposes the historical `phase8c` target set, and the documented release thresholds are still described as 0.8 thresholds. | Add a deliberate 0.9 target set/profile containing both existing SQLite regression targets and direct-memory targets, with independently named results and reviewed thresholds. |
@@ -213,9 +213,11 @@ This workstream runs alongside foundation characterization, scalar metadata work
 
 ### RE-1A: Add a distinct memory TUnit and Testing CLI lane
 
-Add a TUnit-based memory test project or an equally isolated TUnit lane. The recommended shape is a dedicated project and a Testing CLI suite named `memory`.
+**Registration status:** Complete as W10 step 3 on 2026-08-03.
 
-The lane must:
+The dedicated TUnit `DataLinq.Tests.Memory` project is registered as the Testing CLI suite named `memory`.
+
+The lane contract remains:
 
 - run once, not once per SQL provider target
 - use generated models and the real memory package/project
@@ -230,11 +232,15 @@ The lane must:
 
 Do not add DataLinq.Memory as another target inside every SQL compliance test. SQL providers and the memory backend share selected behavior contracts, not implementation or semantic identity.
 
-Representative command after the lane exists:
+Canonical direct command:
 
 ```powershell
-.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite memory --output failures --summary-json artifacts\release\v0.9\<candidate>\tests\memory.json
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite memory --build --output failures --summary-json artifacts\release\v0.9\tests\memory.json
 ```
+
+Verified registration evidence is exact. The direct built summary run passes `77/77`, emits one `memory` result with `Targets` `-`, and preserves both the hash and timestamp of `artifacts/testdata/testinfra-state.json`. Supplying `--alias all` explicitly still passes `77/77` in one result with `Targets` `-`, proving that SQL target aliases do not multiply this suite. The composite `--suite all --alias quick --build` gate passes `2162/2162`: generators `60`, unit `1214`, memory `77` exactly once with `Targets` `-`, and compliance `811` across `sqlite-file` and `sqlite-memory`. The `list` surface identifies the Memory project and its non-target-batched behavior.
+
+This is intentionally project-based evidence. `DataLinq.Tests.Memory` references `DataLinq.SQLite` for bounded differential-parity fixtures, so the CLI lane must not be described as provider-free and does not substitute for the separate provider-free constrained-runtime graph or a package-consumer rerun. RE-1 remains open because its compatibility, package, API, benchmark, and manifest workstreams remain open.
 
 ### RE-1B: Add a memory-only constrained-runtime graph
 
@@ -412,7 +418,7 @@ Where a tool currently emits only human-readable output, add or preserve JSON su
 
 ### RE-1 acceptance criteria
 
-- `memory` is a first-class TUnit/Testing CLI lane with separate summary output
+- **Complete (RE-1A / W10 step 3):** `memory` is a first-class TUnit/Testing CLI lane with separate summary output and exactly-once composite execution
 - a memory-only constrained-runtime graph exists and has no SQLite/provider dependency
 - the compatibility reporter can select and distinguish legacy SQLite and direct-memory targets
 - pack and package-report defaults include `DataLinq.Memory` after promotion
@@ -489,7 +495,7 @@ Bring up the complete server matrix where needed:
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- up --alias all
 ```
 
-Run the complete suite after the memory lane joins `all`:
+Run the complete suite; the registered memory lane is included exactly once in `all`:
 
 ```powershell
 $env:DATALINQ_TEST_DB_HOST='127.0.0.1'
@@ -498,7 +504,7 @@ $env:DATALINQ_TEST_DB_HOST='127.0.0.1'
 
 The loopback environment override is needed for server-backed commands inside the native Windows sandbox. A host-side release run may use the normal resolved server endpoints when they are proven healthy.
 
-Until the memory lane is part of `all`, run it explicitly as shown in `RE-1A`; do not omit it.
+For focused Memory verification, run it explicitly as shown in `RE-1A`. Provider aliases affect the SQL-target-batched suites but do not multiply `memory`.
 
 ### RE-2 acceptance criteria
 
@@ -780,7 +786,7 @@ At minimum, review and update:
 - `docs/Caching and Mutation.md`
 - `docs/Platform Compatibility.md`
 - `docs/Benchmark Results.md`
-- `docs/support-matrices/Test Provider Matrix.md` and contributor CLI docs for the new memory suite/compatibility targets
+- `docs/support-matrices/Test Provider Matrix.md` and contributor CLI docs for the registered memory suite and the still-pending compatibility targets
 - `docs/Roadmap.md`
 
 The public memory page must say:
@@ -809,7 +815,7 @@ Platform compatibility must distinguish:
 
 Update:
 
-- `docs/contributing/DataLinq.Testing.CLI.md` for the `memory` suite
+- **Complete for W10 step 3:** `docs/contributing/DataLinq.Testing.CLI.md` documents the `memory` suite
 - `docs/contributing/DataLinq.Dev.CLI.md` for the implemented 0.9 compatibility target set and package-report package lists
 - `docs/contributing/DataLinq.Benchmark.CLI.md` for the new focused lanes
 - the 0.9 roadmap and each completed implementation plan with final status/evidence links

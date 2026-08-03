@@ -27,6 +27,8 @@ The D5-B package checkpoint promotes `DataLinq.Memory` to a packable experimenta
 
 The bounded M0-A public lookup checkpoint adds `MemoryDatabase<TDatabase>.Find<TModel>(object)` for the non-null model-side value of exactly one generated primary-key column. Converter-backed keys normalize through the shared `ModelValueConverter` boundary and probe the existing canonical primary-key index without scanning; hits materialize the generated immutable model, misses and unseeded-table probes return `null`, warm probes preserve exact identity, and separate database instances retain separate stores, read sources, and identities. Wrong model values, raw canonical or numeric surrogates, composite metadata, and ordinary failures during initial `ToProvider` normalization, canonical-to-model `FromProvider` materialization, or generated immutable primary-key `ToProvider` identity capture produce value-redacted public `MemoryLookupException` diagnostics without arbitrary inner exception graphs; literal null remains `ArgumentNullException`, fatal and cancellation exceptions at all three conversion points preserve identity, and failed materialization or identity capture does not poison the cache. Focused lookup evidence passes `15/15`, the full Memory suite passes `77/77`, net8/net9/net10 builds remain clean with zero warnings and zero errors, Native AOT and full-trim executables pass, isolated WebAssembly no-AOT and AOT browser runs reach `passed`/`completed` with only expected logs, and banned-provider/native-payload scans remain clean. The LINQ capability profile remains 32 tokens. This completes the exact single-column public-lookup slice only: there is no generated `Get(...)`, composite lookup remains unsupported, aggregate M0 remains open for Testing CLI registration and the raw-SQL-rejection boundary, and W10 remains open.
 
+The later W10 step-3 / RE-1A registration checkpoint makes `DataLinq.Tests.Memory` the distinct Testing CLI `memory` suite. The suite is non-target-batched and runs once even when `--alias all` is supplied. Direct built execution with summary JSON passes `77/77`, emits one result with `Targets` `-`, and leaves the test-infrastructure state file's hash and timestamp unchanged. The composite `--suite all --alias quick --build` gate passes `2162/2162`, including generators `60`, unit `1214`, memory `77` exactly once, and compliance `811` across the two SQLite targets. The CLI list surface is correct. The test project intentionally references `DataLinq.SQLite` for bounded differential parity, so this is project-based suite-registration evidence rather than provider-free or package-consumer evidence. W10 step 3 and RE-1A registration are complete; compatibility-catalog, release-package, aggregate RE-1/W10, and final release-candidate work remain open.
+
 ## Decision
 
 DataLinq 0.9 should keep the memory backend, but only as a read-only experimental preview.
@@ -109,12 +111,12 @@ The preview does not include:
 
 ## M0: Generated Store And Seed Foundation
 
-**Progress:** Bounded M0-A now proves generated startup, public model-valued exact single-column lookup, canonical-index hit/miss, converter-backed typed-ID normalization, materialization, warm identity, store isolation, and constrained-runtime execution. It does not close aggregate M0.
+**Progress:** Bounded M0-A now proves generated startup, public model-valued exact single-column lookup, canonical-index hit/miss, converter-backed typed-ID normalization, materialization, warm identity, store isolation, and constrained-runtime execution. W10 step 3 now registers the distinct targetless `memory` suite. Aggregate M0 remains open on the raw-SQL-rejection boundary.
 
 Work:
 
 - continue from the separate, initially non-packable `DataLinq.Memory` project created by the `F7` vertical spike
-- continue using the separate TUnit `DataLinq.Tests.Memory` project and register it as a distinct local Testing CLI suite during W10 before aggregate M0/release closeout
+- **Complete (W10 step 3 / RE-1A registration):** continue using the separate TUnit `DataLinq.Tests.Memory` project as the distinct non-target-batched Testing CLI `memory` suite; keep `sqlite-memory` as the separate SQLite provider target
 - after the spike passes, promote `DataLinq.Memory` to a preview NuGet package; if the spike fails, stop and re-scope rather than moving the backend into the core package
 - start the store exclusively from generated/frozen DataLinq metadata
 - store memory rows in the shared compact canonical-provider-value buffer defined by foundation workstream `F3`

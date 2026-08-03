@@ -70,18 +70,19 @@ dotnet run --project DataLinq.Testing.CLI -- reset --targets mysql-8.4
 
 ### `run`
 
-Runs the selected suite or suites against the selected targets.
+Runs the selected suite or suites. Provider-backed suites use the selected targets; targetless suites run once.
 
 ```bash
 dotnet run --project DataLinq.Testing.CLI -- run --suite all --alias quick
 dotnet run --project DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
 dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --targets mysql-8.4,mariadb-11.8
+dotnet run --project DataLinq.Testing.CLI -- run --suite memory --output failures --summary-json artifacts/test-results/memory.json
 dotnet run --project DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
 ```
 
 ## Target Selection
 
-Target selection is controlled by either `--alias` or `--targets`.
+Target selection for provider-backed suites is controlled by either `--alias` or `--targets`. Aliases select SQL test targets; they do not select the DataLinq.Memory backend.
 
 Supported aliases:
 
@@ -94,12 +95,15 @@ Supported aliases:
 
 If you do not specify a target selection for `up`, `wait`, `reset`, or `run`, the default alias is `latest`.
 
+The `generators`, `unit`, and `memory` suites are targetless. They run once even when an alias contains several SQL targets. In summary JSON their target is reported as `-`.
+
 ## Suites
 
 Supported suites:
 
 - `generators`
 - `unit`
+- `memory`
 - `compliance`
 - `mysql`
 - `all`
@@ -108,8 +112,11 @@ Supported suites:
 
 - run `generators` once
 - run `unit` once
+- run `memory` once
 - run `compliance` against target batches
 - run `mysql` against the selected server-backed target batches
+
+`memory` maps to `src/DataLinq.Tests.Memory/DataLinq.Tests.Memory.csproj`; it is a suite, not a target alias. Do not call it `sqlite-memory`: that existing target means the compliance project running against an in-memory SQLite connection. The Memory test project intentionally references `DataLinq.SQLite` for bounded differential-parity fixtures, so a green CLI `memory` run is project-based test evidence, not provider-free constrained-runtime or package-consumer evidence.
 
 ## Important `run` Options
 

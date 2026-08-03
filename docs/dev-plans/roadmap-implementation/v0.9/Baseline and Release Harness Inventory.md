@@ -3,7 +3,7 @@
 
 # 0.9 Baseline And Release Harness Inventory
 
-**Status:** W0-W2 complete. This remains the 2026-07-10 before-state; later bounded implementation checkpoints, including the W8 step-10 provider-free memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, and M0-A public exact single-column lookup, are recorded separately below and do not rewrite the baseline.
+**Status:** W0-W2 complete. This remains the 2026-07-10 before-state; later bounded implementation checkpoints, including the W8 step-10 provider-free memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, M0-A public exact single-column lookup, and W10 step-3 Testing CLI registration, are recorded separately below and do not rewrite the baseline.
 
 **Baseline branch:** `v0.9`.
 
@@ -230,6 +230,8 @@ The D5-B package checkpoint promotes `DataLinq.Memory` as a packable experimenta
 
 The later bounded M0-A checkpoint exposes `MemoryDatabase<TDatabase>.Find<TModel>(object)` for one non-null model-side value when generated metadata declares exactly one primary-key column. Converter-backed keys normalize through the shared canonical-value boundary and probe the existing index without scanning. Direct and Guid-backed typed-ID hits/misses, unseeded miss, warm same-instance reuse, model-valued rows, and separate store/read-source/identity ownership are proven. Wrong model values, raw canonical or numeric surrogates, composite metadata, and ordinary failures during initial `ToProvider` normalization, canonical-to-model `FromProvider` materialization, or generated immutable primary-key `ToProvider` identity capture produce value-redacted public `MemoryLookupException` diagnostics with no arbitrary inner exception graph; literal null produces `ArgumentNullException`, cancellation/fatal exceptions at all three conversion points preserve identity, and failed materialization or identity capture leaves the cache recoverable. Focused lookup evidence passes `15/15`, the full Memory suite passes `77/77`, `DataLinq.Memory` builds for net8/net9/net10 with zero warnings and zero errors, Native AOT and full-trim executables pass, isolated WebAssembly no-AOT and AOT browser runs reach `passed`/`completed` with only expected logs, and all four output roots remain free of SQL-provider/native-database payloads. The Memory LINQ profile stays at 32 tokens. This completes only bounded public exact single-column lookup, not generated `Get(...)`, composite lookup, aggregate M0, Testing CLI/raw-SQL closeout, compatibility-catalog/package reruns, or W10.
 
+The later W10 step-3 / RE-1A registration checkpoint adds `DataLinq.Tests.Memory` to `DataLinq.Testing.CLI` as the targetless `memory` suite and includes it exactly once in the composite `all` suite. Direct `--suite memory --build --summary-json` and explicit `--suite memory --alias all` executions each pass `77/77` with one summary result and `Targets` `-`; the direct run preserves the test-infrastructure state file's hash and timestamp. `--suite all --alias quick --build` passes `2162/2162`, comprising generators `60`, unit `1214`, memory `77` exactly once, and compliance `811` across `sqlite-file` and `sqlite-memory`; the `list` output is correct. The CLI test project deliberately references `DataLinq.SQLite` for bounded differential parity, so this checkpoint proves project-based, non-target-batched suite orchestration rather than provider-free or package-based execution. It completes W10 step 3 and RE-1A registration only. Raw-SQL rejection, aggregate M0, compatibility/report catalogs, package-consumer and packaged constrained-runtime evidence, aggregate RE-1/W10, and publication remain open.
+
 The UUID-version snapshot fingerprint intentionally advances newly written schema migration snapshots to format version 2. Existing format-version-1 JSON remains readable because deserialization does not enforce a version gate. `DefaultGuid` normalization represents the existing fixed-`Guid` meaning and therefore does not bump the snapshot format again. This fingerprint evidence is not a source/database merge claim: `MetadataTransformer` precedence for source defaults remains open.
 
 ## Baseline Evidence Manifest
@@ -349,14 +351,13 @@ Timing noise ranges from 6.9% to 28.4%, with a multimodal-distribution warning. 
 - no isolated template/invocation benchmark exists; RE-1G owns it.
 - the historical SQLite-shaped WebAssembly baseline was red under SDK 10.0.301; W10 still needs an accepted disposition and final rerun, while the separate W8 memory browser graph now provides credible bounded memory-specific evidence.
 
-### Remaining release-harness assumptions after D5-B
+### Remaining release-harness assumptions after W10 step 3
 
-D5-B deliberately changes only Memory's package metadata and locally inspects an explicit candidate. The following release-tool assumptions remain for W10 integration:
+D5-B deliberately changed only Memory's package metadata and locally inspected an explicit candidate. W10 step 3 later resolved the Testing CLI registration gap without changing package or compatibility tooling. The following release-tool assumptions remain for W10 integration:
 
 - `publish-nuget.ps1` hardcodes the current five public packages.
 - `PackageReportCommand` hardcodes five public and three runtime packages.
 - package inspection has no memory-specific ban on SQLite, MySQL, SQLitePCLRaw, or native payload.
-- Testing CLI has no `memory` suite and currently knows only generators, unit, compliance, and MySQL.
 - compatibility accepts only `phase8c` and still registers only the historical SQLite-shaped target graph; the new memory hosts are not yet release-catalog targets.
 - the historical shared smoke references `DataLinq.SQLite`; the separate provider-free memory shared runner and Native AOT/full-trim/browser hosts now coexist outside that catalog.
 - compatibility identity models platform kind, not backend by platform.

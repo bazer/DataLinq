@@ -327,7 +327,7 @@ public sealed class MemoryPublicApiTests
     }
 
     [Test]
-    public async Task PublicSurface_ExposesOnlyConstructionSeedQueryAndCatchableDiagnostics()
+    public async Task PublicSurface_ExposesOnlyConstructionSeedLookupQueryAndCatchableDiagnostics()
     {
         var databaseType = typeof(MemoryDatabase<>);
         var declaredMethods = databaseType

@@ -149,6 +149,8 @@ The test CLI has three useful aliases:
 
 The central target inventory is the [Test Provider Matrix](../support-matrices/Test%20Provider%20Matrix.md).
 
+These aliases select SQL provider targets. The targetless Testing CLI `memory` suite is separate and runs once regardless of whether `quick`, `latest`, or `all` is selected; `sqlite-memory` remains the SQLite provider target.
+
 List the suites, aliases, targets, and current runtime state:
 
 ```powershell
@@ -223,9 +225,12 @@ Run specific suites:
 ```powershell
 dotnet run --project DataLinq.Testing.CLI -- run --suite generators
 dotnet run --project DataLinq.Testing.CLI -- run --suite unit
+dotnet run --project DataLinq.Testing.CLI -- run --suite memory --output failures
 dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --alias latest --batch-size 4
 dotnet run --project DataLinq.Testing.CLI -- run --suite mysql --alias latest --batch-size 4
 ```
+
+The Memory suite does not start or multiply across provider targets. Its test project intentionally references SQLite for focused differential parity, so use the separate constrained-runtime and package-consumer lanes for provider-free and packaged evidence.
 
 Run a focused subset inside a suite with a TUnit tree-node filter:
 
