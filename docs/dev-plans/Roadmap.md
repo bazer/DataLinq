@@ -37,7 +37,7 @@ The important current limitations are equally real:
 - model values, canonical provider values, and provider physical/wire values are not separate first-class contracts
 - DataLinq has no native async database I/O surface
 - managed mutable baselines now have explicit rollback/cross-transaction provenance, but raw-handle and full-concurrency boundaries remain unresolved
-- `DataLinq.Memory` now has a public, packable experimental read-only preview surface with generated-mutable seed, capability-gated query, model-valued exact single-column `Find<TModel>(object)` lookup, and a first-class targetless Testing CLI `memory` suite, but composite/generated lookup, the raw-SQL boundary required for aggregate M0, remaining W10 compatibility/package integration, and publication remain open; there is still no JSON memory persistence package or migration execution engine
+- `DataLinq.Memory` now has a public, packable experimental read-only preview surface with generated-mutable seed, capability-gated query, model-valued exact single-column `Find<TModel>(object)` lookup, and a first-class targetless Testing CLI `memory` suite; aggregate M0 is complete with raw SQL structurally absent from Memory-owned services and inherited legacy row access rejecting before backend work, while composite lookup, aggregate M1/M2, remaining W10 compatibility/package integration, and publication remain open; there is still no JSON memory persistence package or migration execution engine
 
 ## Roadmap Principles
 

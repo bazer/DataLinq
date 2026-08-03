@@ -219,7 +219,7 @@ Diagnostics should identify at least:
 - unsupported value or method kind where relevant
 - the nearest supported alternative when one is unambiguous
 
-Raw SQL is categorically unsupported. The memory provider should fail immediately with a provider-capability diagnostic. It must not expose a fake `IDbConnection`, attempt SQL parsing, or route the command through a SQL provider.
+Raw SQL is categorically unavailable through the Memory route. `MemoryDatabase<TDatabase>` and the complete public neutral `IDataLinqReadSource` contract expose no raw-SQL, command, connection, provider, or transaction service, and the Memory query route supplies no `IDataSourceAccess`. Existing shared generated SQL APIs remain SQL-only and require that SQL-capable contract; Memory must not mirror them with throwing stubs. Consumer-authored partial types can add their own members or interfaces, but those are not Memory capabilities. The legacy inherited `IImmutableInstance.GetDataSource()` member and parameterless `Delete()` extension reject a Memory-backed row with a DataLinq-owned diagnostic before returning `IDataSourceAccess` or performing additional backend work. Memory must not expose a fake `IDbConnection`, attempt SQL parsing, or route a command through a SQL provider.
 
 ## Query Semantics
 

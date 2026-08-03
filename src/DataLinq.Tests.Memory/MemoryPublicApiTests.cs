@@ -327,6 +327,52 @@ public sealed class MemoryPublicApiTests
     }
 
     [Test]
+    public async Task NeutralRows_BlockLegacyProviderAndImplicitMutationAccessWithoutAdditionalBackendWork()
+    {
+        var database = new MemoryDatabase<MemoryPrimitiveDatabase>();
+        database.Seed<MemoryPrimitiveRow>(
+        [
+            new MutableMemoryPrimitiveRow { Id = 1, GroupId = 2, Name = "one" }
+        ]);
+
+        var queryModel = database.Query();
+        var row = queryModel.Rows.ToArray().Single();
+        var before = database.Diagnostics;
+        object readSource = row.GetReadSource();
+        object materializedRow = row;
+        object queryRoot = queryModel;
+        object queryProvider = queryModel.Rows.Provider;
+
+        await Assert.That(readSource).IsSameReferenceAs(database.ReadSource);
+        await Assert.That(((IDataLinqReadSource)readSource).Metadata)
+            .IsSameReferenceAs(database.Metadata);
+        await Assert.That(readSource is IDataSourceAccess).IsFalse();
+        await Assert.That(readSource is IDatabaseProvider).IsFalse();
+        await Assert.That(readSource is IDatabaseAccess).IsFalse();
+        await Assert.That(materializedRow is IDataSourceAccess).IsFalse();
+        await Assert.That(materializedRow is IDatabaseProvider).IsFalse();
+        await Assert.That(materializedRow is IDatabaseAccess).IsFalse();
+        await Assert.That(queryRoot is IDataSourceAccess).IsFalse();
+        await Assert.That(queryRoot is IDatabaseProvider).IsFalse();
+        await Assert.That(queryRoot is IDatabaseAccess).IsFalse();
+        await Assert.That(queryProvider is IDataSourceAccess).IsFalse();
+        await Assert.That(queryProvider is IDatabaseProvider).IsFalse();
+        await Assert.That(queryProvider is IDatabaseAccess).IsFalse();
+
+        var getDataSourceException = Capture<InvalidOperationException>(() => row.GetDataSource());
+        var deleteException = Capture<InvalidOperationException>(() => row.Delete());
+
+        await Assert.That(getDataSourceException.Message).Contains("backend-neutral read source");
+        await Assert.That(getDataSourceException.Message).Contains(nameof(IDataSourceAccess));
+        await Assert.That(getDataSourceException.Message).Contains(nameof(row.GetReadSource));
+        await Assert.That(getDataSourceException.InnerException).IsNull();
+        await Assert.That(deleteException.Message).IsEqualTo(getDataSourceException.Message);
+        await Assert.That(deleteException.InnerException).IsNull();
+        await Assert.That(database.Diagnostics).IsEqualTo(before);
+        await Assert.That(database.Find<MemoryPrimitiveRow>(1)).IsSameReferenceAs(row);
+    }
+
+    [Test]
     public async Task PublicSurface_ExposesOnlyConstructionSeedLookupQueryAndCatchableDiagnostics()
     {
         var databaseType = typeof(MemoryDatabase<>);
@@ -345,6 +391,29 @@ public sealed class MemoryPublicApiTests
             constraint.IsGenericType &&
             constraint.GetGenericTypeDefinition() == typeof(ITableModel<>));
         var findParameter = findMethod.GetParameters().Single();
+        var readSourceProperties = typeof(IDataLinqReadSource)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public);
+        var readSourceOperations = typeof(IDataLinqReadSource)
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+            .Where(static method => !method.IsSpecialName)
+            .ToArray();
+        var readSourceEvents = typeof(IDataLinqReadSource)
+            .GetEvents(BindingFlags.Instance | BindingFlags.Public);
+        var readSourceInterfaces = typeof(IDataLinqReadSource).GetInterfaces();
+        var primitiveGeneratedGetMethods = typeof(MemoryPrimitiveRow)
+            .GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy)
+            .Where(static method => method.Name == "Get")
+            .ToArray();
+        var convertedGeneratedGetMethods = typeof(MemoryConvertedRow)
+            .GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy)
+            .Where(static method => method.Name == "Get")
+            .ToArray();
+        var primitiveGeneratedGetSourceTypes = primitiveGeneratedGetMethods
+            .Select(static method => method.GetParameters()[1].ParameterType)
+            .ToArray();
+        var convertedGeneratedGetSourceTypes = convertedGeneratedGetMethods
+            .Select(static method => method.GetParameters()[1].ParameterType)
+            .ToArray();
 
         await Assert.That(databaseType.IsPublic).IsTrue();
         await Assert.That(databaseType.GetConstructors().Length).IsEqualTo(1);
@@ -367,6 +436,35 @@ public sealed class MemoryPublicApiTests
         await Assert.That(typeof(IDataSourceAccess).IsAssignableFrom(databaseType)).IsFalse();
         await Assert.That(typeof(IDatabaseProvider).IsAssignableFrom(databaseType)).IsFalse();
         await Assert.That(typeof(IDatabaseAccess).IsAssignableFrom(databaseType)).IsFalse();
+        await Assert.That(readSourceProperties.Select(static property => property.Name).ToArray())
+            .IsEquivalentTo(["Metadata"]);
+        await Assert.That(readSourceProperties.Single().PropertyType)
+            .IsEqualTo(typeof(DatabaseDefinition));
+        await Assert.That(readSourceOperations).IsEmpty();
+        await Assert.That(readSourceEvents).IsEmpty();
+        await Assert.That(readSourceInterfaces).IsEmpty();
+        await Assert.That(primitiveGeneratedGetMethods).IsNotEmpty();
+        await Assert.That(primitiveGeneratedGetMethods.All(static method =>
+            method.GetParameters() is [{ ParameterType: var keyType }, _] &&
+            keyType == typeof(int)))
+            .IsTrue();
+        await Assert.That(primitiveGeneratedGetSourceTypes).IsEquivalentTo(
+        [
+            typeof(IDataSourceAccess),
+            typeof(global::DataLinq.Database<MemoryPrimitiveDatabase>),
+            typeof(global::DataLinq.Mutation.Transaction<MemoryPrimitiveDatabase>)
+        ]);
+        await Assert.That(convertedGeneratedGetMethods).IsNotEmpty();
+        await Assert.That(convertedGeneratedGetMethods.All(static method =>
+            method.GetParameters() is [{ ParameterType: var keyType }, _] &&
+            keyType == typeof(MemoryGuidId)))
+            .IsTrue();
+        await Assert.That(convertedGeneratedGetSourceTypes).IsEquivalentTo(
+        [
+            typeof(IDataSourceAccess),
+            typeof(global::DataLinq.Database<MemoryConvertedDatabase>),
+            typeof(global::DataLinq.Mutation.Transaction<MemoryConvertedDatabase>)
+        ]);
         await Assert.That(typeof(MemorySeedException).IsPublic).IsTrue();
         await Assert.That(typeof(MemoryLookupException).IsPublic).IsTrue();
         await Assert.That(typeof(MemoryLookupException).IsSealed).IsTrue();
