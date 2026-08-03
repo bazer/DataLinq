@@ -10,6 +10,7 @@ using DataLinq.Interfaces;
 using DataLinq.Linq.Planning;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Metadata;
+using DataLinq.Tests.Models.Allround;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Tests.Unit.Core;
 using ThrowAway.Extensions;
@@ -38,7 +39,7 @@ public class QueryPlanCapabilityValidationTests
             [QueryPlanFeatureCategory.RelationPart] = 2,
             [QueryPlanFeatureCategory.ComparisonOperator] = 6,
             [QueryPlanFeatureCategory.NullSemantics] = 2,
-            [QueryPlanFeatureCategory.ComparisonShape] = 5,
+            [QueryPlanFeatureCategory.ComparisonShape] = 6,
             [QueryPlanFeatureCategory.Value] = 104,
             [QueryPlanFeatureCategory.Intrinsic] = 39,
             [QueryPlanFeatureCategory.Function] = 247,
@@ -75,15 +76,15 @@ public class QueryPlanCapabilityValidationTests
                 $"{feature.Token}={QueryBackendCapabilities.Sql.GetDisposition(feature)}"));
         var sqlMatrixFingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sqlMatrix)));
 
-        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(609);
+        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(610);
         await Assert.That(tokens.Distinct(StringComparer.Ordinal).Count()).IsEqualTo(tokens.Length);
         await Assert.That(actualCategoryCounts.Count).IsEqualTo(expectedCategoryCounts.Count);
         foreach (var expected in expectedCategoryCounts)
             await Assert.That(actualCategoryCounts[expected.Key]).IsEqualTo(expected.Value);
 
-        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(351);
+        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(352);
         await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Unsupported)).IsEqualTo(258);
-        await Assert.That(sqlMatrixFingerprint).IsEqualTo("7BEF16B9F6B98AE4DBC5F7A27ACBD8370737C37697AAF5CBEADCA15AD83D29C3");
+        await Assert.That(sqlMatrixFingerprint).IsEqualTo("F186F1FF4EE9D7C0594C9C1773335C097E41B18E8FF9A49456B7886410ADE3D1");
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.Projection(QueryPlanProjectionKind.TransparentIdentifier)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
@@ -104,6 +105,10 @@ public class QueryPlanCapabilityValidationTests
             .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.OrderingShape(QueryPlanOrderingShape.Other)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.ComparisonShape(
+                QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering)))
@@ -1213,7 +1218,7 @@ public class QueryPlanCapabilityValidationTests
     }
 
     [Test]
-    public async Task Requirements_ClassifyOnlyExactInt32ColumnScalarComparisonShape()
+    public async Task Requirements_ClassifyOnlyExactInt32AndCanonicalGuidColumnScalarComparisonShapes()
     {
         var table = GetGeneratedNeutralTable();
         var source = Source("s0", "t0", table, QueryPlanSourceKind.RootTable);
@@ -1301,6 +1306,32 @@ public class QueryPlanCapabilityValidationTests
                 employeeNumber),
             new QueryPlanBindingCapture()));
 
+        var allround = MetadataFromTypeFactory
+            .ParseDatabaseFromDatabaseModel(typeof(AllroundBenchmark))
+            .ValueOrException();
+        var userTable = allround.TableModels.Single(
+            model => model.Model.CsType.Type == typeof(User)).Table;
+        var userSource = Source("s0", "t0", userTable, QueryPlanSourceKind.RootTable);
+        var userId = new QueryPlanColumnValue(
+            userSource,
+            userTable.GetColumnByPropertyName(nameof(User.UserId)));
+        var guidCapture = new QueryPlanBindingCapture();
+        var guidScalar = guidCapture.CaptureScalar(Guid.Empty, typeof(Guid));
+        var directGuid = ExtractShape(CreatePredicateInvocation(
+            userSource,
+            new QueryPlanPredicate.Compare(
+                userId,
+                QueryPlanComparisonOperator.Equal,
+                guidScalar),
+            guidCapture));
+        var reversedGuid = ExtractShape(CreatePredicateInvocation(
+            userSource,
+            new QueryPlanPredicate.Compare(
+                guidScalar,
+                QueryPlanComparisonOperator.Equal,
+                userId),
+            guidCapture));
+
         await Assert.That(direct).IsEqualTo(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar);
         await Assert.That(reversed).IsEqualTo(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar);
         await Assert.That(text).IsEqualTo(QueryPlanComparisonShape.DefaultNullSemantics);
@@ -1309,6 +1340,10 @@ public class QueryPlanCapabilityValidationTests
         await Assert.That(promotedScalarShape).IsEqualTo(QueryPlanComparisonShape.DefaultNullSemantics);
         await Assert.That(promotedColumnShape).IsEqualTo(QueryPlanComparisonShape.DefaultNullSemantics);
         await Assert.That(columnToColumn).IsEqualTo(QueryPlanComparisonShape.DefaultNullSemantics);
+        await Assert.That(directGuid)
+            .IsEqualTo(QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar);
+        await Assert.That(reversedGuid)
+            .IsEqualTo(QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar);
 
         static QueryPlanComparisonShape ExtractShape(QueryPlanInvocation invocation) =>
             (QueryPlanComparisonShape)QueryPlanRequirements.Extract(invocation).Structural.Single(

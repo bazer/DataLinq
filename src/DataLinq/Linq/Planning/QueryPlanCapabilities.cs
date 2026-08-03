@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using DataLinq.Metadata;
 
 namespace DataLinq.Linq.Planning;
 
@@ -77,7 +78,8 @@ internal enum QueryPlanComparisonShape
     NullableNotEqualColumnAndNullValue,
     NullableNotEqualColumnAndNonNullValue,
     UnsupportedNullableNotEqual,
-    DirectNonNullableInt32ColumnAndScalar
+    DirectNonNullableInt32ColumnAndScalar,
+    NonNullableCanonicalGuidColumnAndScalar
 }
 
 internal static class QueryPlanExactInt32ValueShapeFacts
@@ -115,6 +117,53 @@ internal static class QueryPlanExactInt32ValueShapeFacts
     }
 }
 
+internal static class QueryPlanCanonicalGuidValueShapeFacts
+{
+    internal static bool IsNonNullableCanonicalGuidColumn(QueryPlanValue value)
+    {
+        if (value is not QueryPlanColumnValue column)
+            return false;
+
+        var definition = column.Column;
+        var modelType = definition.ModelClrType;
+        var converter = definition.ScalarConverter;
+        var hasExactCanonicalGuidMapping = !definition.HasScalarConverter
+            ? modelType == typeof(Guid)
+            : modelType != typeof(Guid) &&
+              converter is not null &&
+              converter.ModelType == modelType &&
+              converter.ProviderType == typeof(Guid);
+        return modelType is not null &&
+            column.ClrType == modelType &&
+            !definition.Nullable &&
+            !definition.ValueProperty.CsNullable &&
+            definition.ProviderClrType == typeof(Guid) &&
+            hasExactCanonicalGuidMapping;
+    }
+
+    internal static bool IsNonNullableCanonicalGuidScalarBinding(
+        QueryPlanValue value,
+        ColumnDefinition column,
+        QueryPlanBindingDeclarations declarations)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        ArgumentNullException.ThrowIfNull(declarations);
+        var modelType = column.ModelClrType;
+        if (modelType is null ||
+            value is not QueryPlanScalarBindingReference { ClrType: var scalarType } scalar ||
+            scalarType != modelType ||
+            !declarations.TryGet(scalar.BindingId, out var declaration))
+        {
+            return false;
+        }
+
+        return declaration.Kind == QueryPlanBindingKind.Scalar &&
+            declaration.ModelType == modelType &&
+            (declaration.ProviderType == modelType || declaration.ProviderType == typeof(Guid)) &&
+            !declaration.AllowsNull;
+    }
+}
+
 internal static class QueryPlanComparisonShapeFacts
 {
     internal static bool IsDirectNonNullableInt32ColumnAndScalar(
@@ -124,6 +173,13 @@ internal static class QueryPlanComparisonShapeFacts
         IsDirectNonNullableInt32ColumnWithScalar(left, right, declarations) ||
         IsDirectNonNullableInt32ColumnWithScalar(right, left, declarations);
 
+    internal static bool IsNonNullableCanonicalGuidColumnAndScalar(
+        QueryPlanValue left,
+        QueryPlanValue right,
+        QueryPlanBindingDeclarations declarations) =>
+        IsNonNullableCanonicalGuidColumnWithScalar(left, right, declarations) ||
+        IsNonNullableCanonicalGuidColumnWithScalar(right, left, declarations);
+
     private static bool IsDirectNonNullableInt32ColumnWithScalar(
         QueryPlanValue columnValue,
         QueryPlanValue scalarValue,
@@ -131,6 +187,19 @@ internal static class QueryPlanComparisonShapeFacts
     {
         return QueryPlanExactInt32ValueShapeFacts.IsDirectNonNullableInt32Column(columnValue) &&
             QueryPlanExactInt32ValueShapeFacts.IsDirectNonNullableInt32ScalarBinding(scalarValue, declarations);
+    }
+
+    private static bool IsNonNullableCanonicalGuidColumnWithScalar(
+        QueryPlanValue columnValue,
+        QueryPlanValue scalarValue,
+        QueryPlanBindingDeclarations declarations)
+    {
+        return columnValue is QueryPlanColumnValue column &&
+            QueryPlanCanonicalGuidValueShapeFacts.IsNonNullableCanonicalGuidColumn(column) &&
+            QueryPlanCanonicalGuidValueShapeFacts.IsNonNullableCanonicalGuidScalarBinding(
+                scalarValue,
+                column.Column,
+                declarations);
     }
 }
 

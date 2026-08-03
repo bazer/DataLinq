@@ -20,13 +20,16 @@ public sealed class MemoryPlatformCompatibilitySmokeTests
     ];
 
     [Test]
-    public async Task SharedRunner_ExecutesCurrentMemoryProfileWithoutWideningIt()
+    public async Task SharedRunner_ExecutesCurrentBoundedMemoryProfile()
     {
         var result = MemoryPlatformSmokeRunner.Run();
 
         await Assert.That(result.Passed).IsTrue();
-        await Assert.That(result.SupportedCapabilityTokenCount).IsEqualTo(31);
+        await Assert.That(result.SupportedCapabilityTokenCount).IsEqualTo(32);
         await Assert.That(result.CanonicalGuidCellsStoredAsGuid).IsTrue();
+        await Assert.That(result.TypedGuidEqualityHit).IsTrue();
+        await Assert.That(result.DirectGuidEqualityHit).IsTrue();
+        await Assert.That(result.GuidEqualityMiss).IsTrue();
         await Assert.That(result.UnsupportedRejectedBeforeWork).IsTrue();
         await Assert.That(result.PreCancellationRejectedBeforeWork).IsTrue();
         await Assert.That(result.UnsupportedDiagnostic).Contains("SourceCount:Multiple");

@@ -14,6 +14,9 @@ public sealed record MemoryPlatformSmokeResult(
     bool CanonicalGuidPrimaryKeyHit,
     bool CanonicalGuidCellsStoredAsGuid,
     bool DirectGuidRoundTrip,
+    bool TypedGuidEqualityHit,
+    bool DirectGuidEqualityHit,
+    bool GuidEqualityMiss,
     bool EntityMaterializedFromMemory,
     int[] FilteredIds,
     int[] OrderedIds,
@@ -34,6 +37,9 @@ public sealed record MemoryPlatformSmokeResult(
         CanonicalGuidPrimaryKeyHit &&
         CanonicalGuidCellsStoredAsGuid &&
         DirectGuidRoundTrip &&
+        TypedGuidEqualityHit &&
+        DirectGuidEqualityHit &&
+        GuidEqualityMiss &&
         EntityMaterializedFromMemory &&
         FilteredIds.SequenceEqual([-5, 17]) &&
         OrderedIds.SequenceEqual([-5, 17]) &&
@@ -46,7 +52,7 @@ public sealed record MemoryPlatformSmokeResult(
         UnsupportedRejectedBeforeWork &&
         PreCancellationPreserved &&
         PreCancellationRejectedBeforeWork &&
-        SupportedCapabilityTokenCount == 31;
+        SupportedCapabilityTokenCount == 32;
 
     public string ToDisplayString()
     {
@@ -55,6 +61,7 @@ public sealed record MemoryPlatformSmokeResult(
             $"DataLinq memory platform smoke {status}",
             $"primitive-rows={PrimitiveStoredRowCount}, guid-rows={GuidStoredRowCount}",
             $"pk-hit={PrimitivePrimaryKeyHit}, pk-miss={PrimitivePrimaryKeyMiss}, canonical-guid-cells={CanonicalGuidCellsStoredAsGuid}",
+            $"typed-guid-equality={TypedGuidEqualityHit}, direct-guid-equality={DirectGuidEqualityHit}, guid-miss={GuidEqualityMiss}",
             $"filtered=[{string.Join(',', FilteredIds)}], ordered=[{string.Join(',', OrderedIds)}], projected=[{string.Join(',', ProjectedGroupIds)}]",
             $"any={HasRows}, count={RowCount}, capabilities={SupportedCapabilityTokenCount}",
             $"unsupported-before-work={UnsupportedRejectedBeforeWork}, pre-cancelled-before-work={PreCancellationRejectedBeforeWork}",
@@ -144,6 +151,14 @@ public static class MemoryPlatformSmokeRunner
             .Order()
             .ToArray();
 
+        await ReportStage(reportStage, "querying-canonical-guid-equality");
+        var typedGuidProbe = new MemoryPlatformGuidId(KnownGuidId);
+        var directGuidProbe = KnownDirectGuid;
+        var missingGuidProbe = Guid.Empty;
+        var typedGuidEqualityHit = query.GuidRows.Any(row => row.Id == typedGuidProbe);
+        var directGuidEqualityHit = query.GuidRows.Any(row => directGuidProbe == row.DirectGuid);
+        var guidEqualityMiss = !query.GuidRows.Any(row => row.DirectGuid == missingGuidProbe);
+
         await ReportStage(reportStage, "querying-order-and-take");
         var orderedIds = query.PrimitiveRows
             .OrderBy(static row => row.Id)
@@ -197,6 +212,9 @@ public static class MemoryPlatformSmokeRunner
                 storedGuidId is Guid canonicalId && canonicalId == KnownGuidId &&
                 storedDirectGuid is Guid canonicalDirectGuid && canonicalDirectGuid == KnownDirectGuid,
             DirectGuidRoundTrip: guidHit?.DirectGuid == KnownDirectGuid,
+            TypedGuidEqualityHit: typedGuidEqualityHit,
+            DirectGuidEqualityHit: directGuidEqualityHit,
+            GuidEqualityMiss: guidEqualityMiss,
             EntityMaterializedFromMemory:
                 primitiveHit is not null && ReferenceEquals(primitiveHit.GetReadSource(), database.ReadSource),
             FilteredIds: filteredIds,

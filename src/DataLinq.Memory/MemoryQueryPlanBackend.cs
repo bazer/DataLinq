@@ -30,6 +30,7 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.Equal),
             QueryPlanFeature.NullSemantics(QueryPlanNullSemantics.Default),
             QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar),
+            QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar),
             QueryPlanFeature.ValueKind(QueryPlanValueKind.Column, QueryPlanValueUse.PredicateOperand),
             QueryPlanFeature.ValueKind(QueryPlanValueKind.ScalarBinding, QueryPlanValueUse.PredicateOperand),
             QueryPlanFeature.ValueKind(QueryPlanValueKind.Column, QueryPlanValueUse.Ordering),

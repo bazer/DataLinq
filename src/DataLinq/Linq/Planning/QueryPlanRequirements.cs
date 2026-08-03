@@ -619,12 +619,23 @@ internal sealed class QueryPlanRequirements
         {
             if (comparison.NullSemantics == QueryPlanNullSemantics.Default)
             {
-                return QueryPlanComparisonShapeFacts.IsDirectNonNullableInt32ColumnAndScalar(
-                    comparison.Left,
-                    comparison.Right,
-                    invocation.Template.BindingDeclarations)
-                    ? QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar
-                    : QueryPlanComparisonShape.DefaultNullSemantics;
+                if (QueryPlanComparisonShapeFacts.IsDirectNonNullableInt32ColumnAndScalar(
+                        comparison.Left,
+                        comparison.Right,
+                        invocation.Template.BindingDeclarations))
+                {
+                    return QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar;
+                }
+
+                if (QueryPlanComparisonShapeFacts.IsNonNullableCanonicalGuidColumnAndScalar(
+                        comparison.Left,
+                        comparison.Right,
+                        invocation.Template.BindingDeclarations))
+                {
+                    return QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar;
+                }
+
+                return QueryPlanComparisonShape.DefaultNullSemantics;
             }
 
             if (comparison.NullSemantics == QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull &&

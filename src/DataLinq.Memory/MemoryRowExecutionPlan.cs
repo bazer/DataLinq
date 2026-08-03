@@ -14,12 +14,12 @@ namespace DataLinq.Memory;
 internal sealed class MemoryRowExecutionPlan
 {
     private const string ComparisonSourceName = "memory-query:equality";
-    private readonly MemoryInt32EqualityPredicate[] predicates;
+    private readonly IMemoryEqualityPredicate[] predicates;
     private readonly MemoryInt32PrimaryKeyOrdering? ordering;
     private readonly int? takeCount;
 
     private MemoryRowExecutionPlan(
-        MemoryInt32EqualityPredicate[] predicates,
+        IMemoryEqualityPredicate[] predicates,
         MemoryInt32PrimaryKeyOrdering? ordering,
         int? takeCount)
     {
@@ -40,7 +40,7 @@ internal sealed class MemoryRowExecutionPlan
             throw CapabilityInvariant("the selected row source is not a root table.");
 
         var operations = request.Invocation.Template.Operations;
-        var predicates = new List<MemoryInt32EqualityPredicate>(operations.Count);
+        var predicates = new List<IMemoryEqualityPredicate>(operations.Count);
         MemoryInt32PrimaryKeyOrdering? ordering = null;
         int? takeCount = null;
         var hasSeenTake = false;
@@ -150,7 +150,7 @@ internal sealed class MemoryRowExecutionPlan
         return true;
     }
 
-    private static MemoryInt32EqualityPredicate CompileEquality(
+    private static IMemoryEqualityPredicate CompileEquality(
         QueryPlanInvocation invocation,
         QueryPlanSourceSlot rootSource,
         QueryPlanPredicate.Compare comparison,
@@ -163,14 +163,22 @@ internal sealed class MemoryRowExecutionPlan
                 $"operation {operationIndex} uses comparison '{comparison.Operator}' with null semantics '{comparison.NullSemantics}'.");
         }
 
-        if (!QueryPlanComparisonShapeFacts.IsDirectNonNullableInt32ColumnAndScalar(
-                comparison.Left,
-                comparison.Right,
-                invocation.Template.BindingDeclarations))
+        var comparisonShape = QueryPlanComparisonShapeFacts.IsDirectNonNullableInt32ColumnAndScalar(
+            comparison.Left,
+            comparison.Right,
+            invocation.Template.BindingDeclarations)
+                ? QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar
+                : QueryPlanComparisonShapeFacts.IsNonNullableCanonicalGuidColumnAndScalar(
+                    comparison.Left,
+                    comparison.Right,
+                    invocation.Template.BindingDeclarations)
+                    ? QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar
+                    : QueryPlanComparisonShape.DefaultNullSemantics;
+        if (comparisonShape == QueryPlanComparisonShape.DefaultNullSemantics)
         {
             throw CapabilityInvariant(
-                $"operation {operationIndex} is not the direct non-nullable Int32 column-to-scalar " +
-                "shape admitted by the validated capability token.");
+                $"operation {operationIndex} is not an exact non-nullable Int32 or canonical Guid " +
+                "column-to-scalar shape admitted by a validated capability token.");
         }
 
         var (column, scalar) = (comparison.Left, comparison.Right) switch
@@ -184,8 +192,19 @@ internal sealed class MemoryRowExecutionPlan
         };
 
         ValidateColumn(rootSource, column, operationIndex);
-        var canonicalValue = ResolveCanonicalValue(invocation, column.Column, scalar, operationIndex);
-        return new MemoryInt32EqualityPredicate(column.Column, canonicalValue);
+        return comparisonShape switch
+        {
+            QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar =>
+                new MemoryInt32EqualityPredicate(
+                    column.Column,
+                    ResolveCanonicalValue<int>(invocation, column.Column, scalar, operationIndex)),
+            QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar =>
+                new MemoryGuidEqualityPredicate(
+                    column.Column,
+                    ResolveCanonicalValue<Guid>(invocation, column.Column, scalar, operationIndex)),
+            _ => throw CapabilityInvariant(
+                $"operation {operationIndex} has unsupported validated comparison shape '{comparisonShape}'.")
+        };
     }
 
     private static MemoryInt32PrimaryKeyOrdering CompileOrdering(
@@ -262,7 +281,7 @@ internal sealed class MemoryRowExecutionPlan
         }
     }
 
-    private static int ResolveCanonicalValue(
+    private static TCanonical ResolveCanonicalValue<TCanonical>(
         QueryPlanInvocation invocation,
         ColumnDefinition column,
         QueryPlanScalarBindingReference scalar,
@@ -282,20 +301,19 @@ internal sealed class MemoryRowExecutionPlan
                     modelValue,
                     ComparisonSourceName)
                 ?? throw CapabilityInvariant(
-                    $"operation {operationIndex} normalized a non-null Int32 binding to null.");
+                    $"operation {operationIndex} normalized a non-null binding to null.");
 
-            return canonicalValue is int value
+            return canonicalValue is TCanonical value
                 ? value
                 : throw CapabilityInvariant(
-                    $"operation {operationIndex} normalized an Int32 binding to canonical type " +
-                    $"'{canonicalValue.GetType().FullName}'.");
+                    $"operation {operationIndex} normalized a binding to canonical type " +
+                    $"'{canonicalValue.GetType().FullName}', expected '{typeof(TCanonical).FullName}'.");
         }
-        catch (ModelValueConversionException exception)
+        catch (ModelValueConversionException)
         {
             throw new QueryTranslationException(
                 $"Backend 'memory' could not normalize scalar binding '{scalar.BindingId}' for " +
-                $"column '{column.Table.DbName}.{column.DbName}' without exposing its value.",
-                exception);
+                $"column '{column.Table.DbName}.{column.DbName}' without exposing its value.");
         }
     }
 
@@ -303,7 +321,12 @@ internal sealed class MemoryRowExecutionPlan
         new($"The memory capability profile admitted an invalid row-selection shape: {detail}");
 }
 
-internal sealed class MemoryInt32EqualityPredicate
+internal interface IMemoryEqualityPredicate
+{
+    bool Matches(CanonicalProviderValueRow row);
+}
+
+internal sealed class MemoryInt32EqualityPredicate : IMemoryEqualityPredicate
 {
     private readonly ColumnDefinition column;
     private readonly int canonicalValue;
@@ -316,7 +339,7 @@ internal sealed class MemoryInt32EqualityPredicate
         this.canonicalValue = canonicalValue;
     }
 
-    internal bool Matches(CanonicalProviderValueRow row)
+    public bool Matches(CanonicalProviderValueRow row)
     {
         ArgumentNullException.ThrowIfNull(row);
         var rowValue = row[column];
@@ -325,6 +348,31 @@ internal sealed class MemoryInt32EqualityPredicate
             : throw new InvalidOperationException(
                 $"Canonical memory row column '{column.Table.DbName}.{column.DbName}' contained " +
                 $"'{rowValue?.GetType().FullName ?? "null"}' after Int32 capability validation.");
+    }
+}
+
+internal sealed class MemoryGuidEqualityPredicate : IMemoryEqualityPredicate
+{
+    private readonly ColumnDefinition column;
+    private readonly Guid canonicalValue;
+
+    internal MemoryGuidEqualityPredicate(
+        ColumnDefinition column,
+        Guid canonicalValue)
+    {
+        this.column = column ?? throw new ArgumentNullException(nameof(column));
+        this.canonicalValue = canonicalValue;
+    }
+
+    public bool Matches(CanonicalProviderValueRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        var rowValue = row[column];
+        return rowValue is Guid value
+            ? value == canonicalValue
+            : throw new InvalidOperationException(
+                $"Canonical memory row column '{column.Table.DbName}.{column.DbName}' contained " +
+                $"'{rowValue?.GetType().FullName ?? "null"}' after Guid capability validation.");
     }
 }
 

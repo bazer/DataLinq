@@ -3,13 +3,13 @@
 
 # 0.9 Release Evidence And Closeout Implementation Plan
 
-**Status:** Accepted. The bounded W8 project-reference memory constrained-runtime graph is implemented and green; W10 catalog/package integration and the final release-candidate reruns remain open.
+**Status:** Accepted. The bounded W8 project-reference memory constrained-runtime graph and later SC-6A canonical-`Guid` equality island are implemented and green; D5-B package promotion, W10 catalog/package integration, and the final release-candidate reruns remain open.
 
 **Target release:** DataLinq 0.9.
 
 **Created:** 2026-07-10.
 
-**Last reviewed:** 2026-07-15.
+**Last reviewed:** 2026-08-03.
 
 **Depends on:** The required workstreams in the [DataLinq 0.9 Implementation Roadmap](README.md). The final closeout begins only after their baseline evidence is green and the release has selected zero or one optional stretch.
 
@@ -264,6 +264,8 @@ The exact project names may follow existing naming conventions. The dependency s
 Bounded W8 step-10 implementation uses `DataLinq.Memory.PlatformCompatibility.Smoke`, `DataLinq.Memory.AotSmoke`, `DataLinq.Memory.TrimSmoke`, and `DataLinq.Memory.BlazorWasm`. The shared runner exercises the unchanged 31-token memory profile, including canonical/model-valued seed, primary-key hit/miss, captured equality, ordering plus `Take`, entity and direct scalar materialization, `Any`/`Count`, deterministic unsupported self-join rejection before work, pre-cancellation, and canonical Guid-backed/direct-`Guid` storage. Native AOT and full-trim executables publish and exit successfully. Isolated WebAssembly no-AOT and AOT publishes execute successfully in a real browser with zero warning/error entries. Recursive scans of all four outputs find no `DataLinq.SQLite`, `DataLinq.MySql`, `Microsoft.Data.Sqlite`, `MySqlConnector`, `SQLitePCLRaw`, or `e_sqlite3`. This is bounded project-reference evidence only: W10 still owns compatibility-catalog registration, accepted thresholds/report schemas, package/promotion reruns, the retained SQLite graph, and final manifest integration.
 
 D5-A reruns the same four hosts after the shared runner switches its construction, generated-mutable seeding, and query work to the minimal public `MemoryDatabase<TDatabase>` surface. Native AOT and full-trim executables still exit successfully; isolated browser no-AOT and AOT runs reach `passed` with no warning/error logs; each browser output contains one fingerprinted copy of each DataLinq assembly; and recursive scans of all four outputs remain clear of the banned SQL-provider/native-database tokens above. The full memory suite passes `55/55`, including cleanup failure precedence and cancellation propagation, and independent surface review is green. Canonical storage assertions, direct-key probes, internal cancellation, and the exact capability-count assertion remain privileged smoke checks and are not claimed as public API. `DataLinq.Memory` remains non-packable until D5-B inspects an actual package's dependencies and assets and records the promotion decision; this rerun does not substitute for W10 package evidence.
+
+The later bounded SC-6A checkpoint adds one deliberately narrow Memory query capability: exact non-null canonical-`Guid` column/scalar equality, in either operand order, for direct `Guid` columns and resolved Guid-backed typed-ID columns. It covers typed primary-key and non-key hit/miss behavior, scalar rebinding, repeated mixed equality, and `Any`/`Count`; nullable typed-`Guid` equality, `NotEqual`, membership, ordering, scalar projection, and typed-ID member unwrapping remain unsupported or translation-rejected before store work. Same-invocation parity parses each query once and executes the exact `QueryPlanInvocation` against both providers. Memory uses the public model-valued seed surface; SQLite is independently raw-seeded with a little-endian BLOB typed primary key, Text36 direct `Guid`, and RFC-order BLOB typed non-key value, using cross-wired non-byte-symmetric values to prove selective parity rather than accidental byte-layout agreement. The catalog is `610` features, of which SQL supports `352` and rejects `258`; the Memory profile admits `32` tokens. Bounded verification passes `62/62` Memory, `1214/1214` Unit, and `60/60` Generator tests; `DataLinq.Memory` builds for `net8.0`, `net9.0`, and `net10.0` with zero warnings and zero errors. Native AOT and full-trim hosts publish and execute successfully, isolated real-browser WebAssembly no-AOT and AOT runs reach `passed` with zero browser warning/error entries, and banned-token scans remain clean across all four outputs. This remains project-reference, non-packaged evidence. D5-B package inspection/promotion, W10 compatibility/package integration, aggregate SC-6, and aggregate W6 are still open.
 
 The direct memory smoke must execute, rather than merely publish:
 
