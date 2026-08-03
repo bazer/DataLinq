@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using DataLinq.Instances;
 using DataLinq.Metadata;
 
@@ -349,8 +350,13 @@ internal sealed class MemoryTableState
 
             if (!primaryKeyOrdinals.TryAdd(primaryKey, rowOrdinal))
             {
+                var primaryKeyColumns = table.PrimaryKeyColumns.Count == 1
+                    ? $"column '{table.PrimaryKeyColumns[0].DbName}'"
+                    : "columns " + string.Join(
+                        ", ",
+                        table.PrimaryKeyColumns.Select(static column => $"'{column.DbName}'"));
                 throw new MemorySeedException(
-                    $"{(valuesAreModelValues ? "Model-valued" : "Canonical")} memory seed for table '{table.DbName}' contains a duplicate primary key at row {rowOrdinal}; the first row is {primaryKeyOrdinals[primaryKey]}.");
+                    $"{(valuesAreModelValues ? "Model-valued" : "Canonical")} memory seed for table '{table.DbName}' contains a duplicate primary key at row {rowOrdinal} over {primaryKeyColumns}; the first row is {primaryKeyOrdinals[primaryKey]}.");
             }
 
             rows.Add(row);

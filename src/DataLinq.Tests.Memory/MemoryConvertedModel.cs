@@ -16,6 +16,7 @@ public sealed class MemoryGuidIdConverter
     private static readonly List<string> ToProviderColumnNames = [];
     private static readonly List<string> FromProviderColumnNames = [];
     private static Action<string>? toProviderProbe;
+    private static Action<string>? fromProviderProbe;
 
     public static IReadOnlyList<string> ToProviderColumns
     {
@@ -42,6 +43,7 @@ public sealed class MemoryGuidIdConverter
             ToProviderColumnNames.Clear();
             FromProviderColumnNames.Clear();
             toProviderProbe = null;
+            fromProviderProbe = null;
         }
     }
 
@@ -49,6 +51,12 @@ public sealed class MemoryGuidIdConverter
     {
         lock (Gate)
             toProviderProbe = probe;
+    }
+
+    public static void SetFromProviderProbe(Action<string>? probe)
+    {
+        lock (Gate)
+            fromProviderProbe = probe;
     }
 
     public override Guid ToProvider(
@@ -71,8 +79,14 @@ public sealed class MemoryGuidIdConverter
         Guid providerValue,
         in ScalarConversionContext context)
     {
+        Action<string>? probe;
         lock (Gate)
+        {
             FromProviderColumnNames.Add(context.Column.DbName);
+            probe = fromProviderProbe;
+        }
+
+        probe?.Invoke(context.Column.DbName);
 
         return new MemoryGuidId(providerValue);
     }

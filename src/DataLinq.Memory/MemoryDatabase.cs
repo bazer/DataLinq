@@ -19,6 +19,7 @@ namespace DataLinq.Memory;
 public sealed class MemoryDatabase<TDatabase>
     where TDatabase : class, IDatabaseModel<TDatabase>
 {
+    private const string LookupSourceName = "memory.lookup";
     private readonly MemoryProviderStore store;
     private readonly MemoryReadSource readSource;
 
@@ -106,10 +107,97 @@ public sealed class MemoryDatabase<TDatabase>
         return this;
     }
 
-    internal TModel? Find<TModel>(
+    /// <summary>
+    /// Finds one generated immutable model by its public model-side primary-key value.
+    /// </summary>
+    /// <typeparam name="TModel">The generated immutable table-model type.</typeparam>
+    /// <param name="modelPrimaryKey">
+    /// The non-null model-side value for the table's single primary-key column.
+    /// </param>
+    /// <returns>The materialized model, or <see langword="null"/> when the key is absent.</returns>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="modelPrimaryKey"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="MemoryLookupException">
+    /// The table does not have exactly one primary-key column, the model-side key cannot be
+    /// normalized, or scalar conversion fails while materializing a matching canonical row.
+    /// </exception>
+    /// <remarks>
+    /// The experimental preview supports exactly one primary-key column. Converter-backed keys are
+    /// normalized once through the shared model-to-canonical conversion boundary before the memory
+    /// index is probed. Composite primary keys are not supported by this public preview method.
+    /// </remarks>
+    public TModel? Find<TModel>(object modelPrimaryKey)
+        where TModel : class, IImmutableInstance, ITableModel<TDatabase>
+    {
+        ArgumentNullException.ThrowIfNull(modelPrimaryKey);
+        var table = GetTable<TModel>();
+        if (table.PrimaryKeyColumns.Count != 1)
+        {
+            throw new MemoryLookupException(
+                $"Memory primary-key lookup for table '{table.DbName}' requires exactly one " +
+                $"primary-key column, but generated metadata declares {table.PrimaryKeyColumns.Count}.");
+        }
+
+        var column = table.PrimaryKeyColumns[0];
+        object? canonicalProviderValue;
+        try
+        {
+            canonicalProviderValue = ModelValueConverter.ToCanonicalProviderValue(
+                column,
+                modelPrimaryKey,
+                LookupSourceName);
+        }
+        catch (ModelValueConversionException)
+        {
+            var expectedType = column.ModelClrType?.FullName ?? column.ModelCsType.Name;
+            throw new MemoryLookupException(
+                $"Memory primary-key lookup could not normalize the supplied model value for " +
+                $"column '{table.DbName}.{column.DbName}'. Expected model CLR type " +
+                $"'{expectedType}'. The supplied value is not included in this diagnostic.");
+        }
+
+        if (canonicalProviderValue is null)
+        {
+            throw new MemoryLookupException(
+                $"Memory primary-key lookup normalized the supplied model value to null for " +
+                $"column '{table.DbName}.{column.DbName}', which is not a valid primary key.");
+        }
+
+        try
+        {
+            return FindCanonical<TModel>(DataLinqKey.FromValue(canonicalProviderValue));
+        }
+        catch (ModelValueConversionException exception)
+        {
+            var convertedColumn = exception.Column;
+            var expectedType =
+                convertedColumn.ModelClrType?.FullName ?? convertedColumn.ModelCsType.Name;
+            throw new MemoryLookupException(
+                $"Memory primary-key lookup found a row for key column " +
+                $"'{table.DbName}.{column.DbName}', but could not capture canonical identity from " +
+                $"model column '{convertedColumn.Table.DbName}.{convertedColumn.DbName}'. Expected " +
+                $"model CLR type '{expectedType}'. Supplied key and row values are not included in " +
+                $"this diagnostic.");
+        }
+        catch (ProviderValueMaterializationException exception)
+        {
+            var materializedColumn = exception.Column;
+            var expectedType =
+                materializedColumn.ModelClrType?.FullName ?? materializedColumn.ModelCsType.Name;
+            throw new MemoryLookupException(
+                $"Memory primary-key lookup found a row for key column " +
+                $"'{table.DbName}.{column.DbName}', but could not materialize column " +
+                $"'{materializedColumn.Table.DbName}.{materializedColumn.DbName}'. Expected model " +
+                $"CLR type '{expectedType}'. Supplied key and row values are not included in this " +
+                $"diagnostic.");
+        }
+    }
+
+    internal TModel? FindCanonical<TModel>(
         DataLinqKey canonicalProviderKey,
         CancellationToken cancellationToken = default)
-        where TModel : class, ITableModel<TDatabase>
+        where TModel : class, IImmutableInstance, ITableModel<TDatabase>
     {
         var table = GetTable<TModel>();
         var request = new SourcePrimaryKeyRowRequest(
@@ -226,4 +314,15 @@ public sealed class MemoryDatabase<TDatabase>
 
     private static void BindMetadata(DatabaseDefinition metadata) =>
         TDatabase.SetDataLinqGeneratedMetadata(metadata);
+}
+
+/// <summary>
+/// Reports a primary-key lookup request that the experimental memory preview cannot perform.
+/// </summary>
+public sealed class MemoryLookupException : InvalidOperationException
+{
+    internal MemoryLookupException(string message)
+        : base(message)
+    {
+    }
 }

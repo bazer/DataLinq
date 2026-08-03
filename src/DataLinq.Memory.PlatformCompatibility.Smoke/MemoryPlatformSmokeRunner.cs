@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using System.Threading;
 using DataLinq.Exceptions;
-using DataLinq.Instances;
 
 namespace DataLinq.Memory.PlatformCompatibility.Smoke;
 
@@ -131,9 +130,9 @@ public static class MemoryPlatformSmokeRunner
         var query = database.Query();
 
         await ReportStage(reportStage, "probing-primary-keys");
-        var primitiveHit = database.Find<MemoryPlatformPrimitiveRow>(DataLinqKey.FromValue(17));
-        var primitiveMiss = database.Find<MemoryPlatformPrimitiveRow>(DataLinqKey.FromValue(999));
-        var guidHit = database.Find<MemoryPlatformGuidRow>(DataLinqKey.FromValue(KnownGuidId));
+        var primitiveHit = database.Find<MemoryPlatformPrimitiveRow>(17);
+        var primitiveMiss = database.Find<MemoryPlatformPrimitiveRow>(999);
+        var guidHit = database.Find<MemoryPlatformGuidRow>(new MemoryPlatformGuidId(KnownGuidId));
 
         var guidTable = database.Metadata.GetTableModel(typeof(MemoryPlatformGuidRow)).Table;
         var storedGuidRow = database

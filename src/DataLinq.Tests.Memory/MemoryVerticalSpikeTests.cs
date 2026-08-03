@@ -17,9 +17,9 @@ public sealed class MemoryVerticalSpikeTests
     {
         var database = CreateSeededDatabase();
 
-        var first = database.Find<MemoryPrimitiveRow>(DataLinqKey.FromValue(42));
-        var second = database.Find<MemoryPrimitiveRow>(DataLinqKey.FromValue(42));
-        var missing = database.Find<MemoryPrimitiveRow>(DataLinqKey.FromValue(999));
+        var first = database.FindCanonical<MemoryPrimitiveRow>(DataLinqKey.FromValue(42));
+        var second = database.FindCanonical<MemoryPrimitiveRow>(DataLinqKey.FromValue(42));
+        var missing = database.FindCanonical<MemoryPrimitiveRow>(DataLinqKey.FromValue(999));
 
         await Assert.That(first).IsNotNull();
         await Assert.That(first!.Id).IsEqualTo(42);
@@ -46,7 +46,7 @@ public sealed class MemoryVerticalSpikeTests
         await Assert.That(beforeEviction.CacheInsertions).IsEqualTo(1);
 
         database.ClearMaterializedRowsForTest<MemoryPrimitiveRow>();
-        var afterEviction = database.Find<MemoryPrimitiveRow>(DataLinqKey.FromValue(42));
+        var afterEviction = database.FindCanonical<MemoryPrimitiveRow>(DataLinqKey.FromValue(42));
 
         await Assert.That(database.GetStoredRowCount<MemoryPrimitiveRow>()).IsEqualTo(2);
         await Assert.That(database.GetMaterializedRowCount<MemoryPrimitiveRow>()).IsEqualTo(1);
@@ -73,7 +73,7 @@ public sealed class MemoryVerticalSpikeTests
         await Assert.That(database.GetStoredRowCount<MemoryPrimitiveRow>()).IsEqualTo(2);
         await Assert.That(database.GetMaterializedRowCount<MemoryPrimitiveRow>()).IsEqualTo(2);
 
-        var direct = database.Find<MemoryPrimitiveRow>(DataLinqKey.FromValue(42));
+        var direct = database.FindCanonical<MemoryPrimitiveRow>(DataLinqKey.FromValue(42));
         await Assert.That(direct).IsSameReferenceAs(rows[0]);
         await Assert.That(database.Diagnostics.CacheHits).IsEqualTo(1);
         await Assert.That(database.Diagnostics.Materializations).IsEqualTo(2);
@@ -87,7 +87,7 @@ public sealed class MemoryVerticalSpikeTests
         preCancelled.Cancel();
 
         var preCancelledLookupException = Capture<OperationCanceledException>(() =>
-            database.Find<MemoryPrimitiveRow>(
+            database.FindCanonical<MemoryPrimitiveRow>(
                 DataLinqKey.FromValue(42),
                 preCancelled.Token));
         var preCancelledException = Capture<OperationCanceledException>(() =>
@@ -118,7 +118,7 @@ public sealed class MemoryVerticalSpikeTests
     public async Task CapturedInt32Equality_FiltersCanonicalRowsBeforeMaterializationAndReusesIdentity()
     {
         var database = CreateSeededDatabase();
-        var direct = database.Find<MemoryPrimitiveRow>(DataLinqKey.FromValue(42));
+        var direct = database.FindCanonical<MemoryPrimitiveRow>(DataLinqKey.FromValue(42));
         var groupId = 7;
 
         var rows = database.Model.Rows
@@ -323,6 +323,7 @@ public sealed class MemoryVerticalSpikeTests
 
         await Assert.That(exception.Message).Contains("memory_primitive_rows");
         await Assert.That(exception.Message).Contains("duplicate primary key at row 1");
+        await Assert.That(exception.Message).Contains("column 'id'");
         await Assert.That(exception.Message).Contains("first row is 0");
         await Assert.That(rejected.GetStoredRowCount<MemoryPrimitiveRow>()).IsEqualTo(0);
 
@@ -337,8 +338,8 @@ public sealed class MemoryVerticalSpikeTests
         await Assert.That(rejected.GetStoredRowCount<MemoryPrimitiveRow>()).IsEqualTo(1);
         await Assert.That(independent.GetStoredRowCount<MemoryPrimitiveRow>()).IsEqualTo(1);
 
-        var recovered = rejected.Find<MemoryPrimitiveRow>(DataLinqKey.FromValue(7));
-        var separate = independent.Find<MemoryPrimitiveRow>(DataLinqKey.FromValue(7));
+        var recovered = rejected.FindCanonical<MemoryPrimitiveRow>(DataLinqKey.FromValue(7));
+        var separate = independent.FindCanonical<MemoryPrimitiveRow>(DataLinqKey.FromValue(7));
         await Assert.That(recovered!.Name).IsEqualTo("recovered");
         await Assert.That(separate!.Name).IsEqualTo("independent");
         await Assert.That(separate).IsNotSameReferenceAs(recovered);
@@ -374,7 +375,7 @@ public sealed class MemoryVerticalSpikeTests
                     id: index + 1,
                     groupId: index % 3,
                     name: $"row-{index + 1}"));
-            var row = database.Find<MemoryPrimitiveRow>(DataLinqKey.FromValue(index + 1));
+            var row = database.FindCanonical<MemoryPrimitiveRow>(DataLinqKey.FromValue(index + 1));
 
             await Assert.That(row).IsNotNull();
             await Assert.That(row!.Name).IsEqualTo($"row-{index + 1}");

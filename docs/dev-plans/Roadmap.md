@@ -5,7 +5,7 @@
 
 **Status:** Active.
 
-**Last reviewed:** 2026-07-13.
+**Last reviewed:** 2026-08-03.
 
 ## Purpose
 
@@ -33,11 +33,11 @@ The 0.8 release established the foundation that 0.9 consumes:
 The important current limitations are equally real:
 
 - retained expression-query result families execute behind the selected SQL backend, and bounded neutral routes now cover integral/scalar-UUID primary keys, exact single-column integral relation indices, and one exact resolved canonical-`Guid` relation/index family with representative converter-backed binary evidence across SQLite, MySQL, and MariaDB; broader primary/joined keys, cache/relation families, direct-`Guid` relation execution, text/native UUID relation evidence, and legacy reader routes are not yet backend-neutral
-- projection recipes are self-contained after parsing, and the SQL adapter still owns the complete retained recipe family; the separate non-packable memory preview executes only its exhaustively gated exact-`Int32` root/scalar subset rather than general local or joined recipes
+- projection recipes are self-contained after parsing, and the SQL adapter still owns the complete retained recipe family; the separate packable experimental memory preview retains an exhaustive 32-token island for exact direct-`Int32`, direct-`Guid`, and resolved Guid-backed typed-ID behavior rather than general local or joined recipes
 - model values, canonical provider values, and provider physical/wire values are not separate first-class contracts
 - DataLinq has no native async database I/O surface
 - managed mutable baselines now have explicit rollback/cross-transaction provenance, but raw-handle and full-concurrency boundaries remain unresolved
-- there is no public/packaged memory backend, JSON memory persistence package, or migration execution engine; the existing private read-only preview remains deliberately bounded
+- `DataLinq.Memory` now has a public, packable experimental read-only preview surface with generated-mutable seed, capability-gated query, and model-valued exact single-column `Find<TModel>(object)` lookup, but composite/generated lookup, aggregate M0, W10 release-tool/package integration, and publication remain open; there is still no JSON memory persistence package or migration execution engine
 
 ## Roadmap Principles
 

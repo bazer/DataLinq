@@ -64,8 +64,8 @@ public sealed class MemoryModelSeedTests
         await Assert.That(stored[relatedIdColumn]).IsEqualTo(KnownRelatedId);
         await Assert.That(stored[optionalRelatedIdColumn]).IsNull();
 
-        var cold = database.Find<MemoryConvertedRow>(DataLinqKey.FromValue(KnownId));
-        var warm = database.Find<MemoryConvertedRow>(DataLinqKey.FromValue(KnownId));
+        var cold = database.FindCanonical<MemoryConvertedRow>(DataLinqKey.FromValue(KnownId));
+        var warm = database.FindCanonical<MemoryConvertedRow>(DataLinqKey.FromValue(KnownId));
         var scanned = database.Model.Rows.ToArray().Single();
 
         await Assert.That(cold).IsNotNull();
@@ -81,7 +81,7 @@ public sealed class MemoryModelSeedTests
             .IsEquivalentTo(["id", "related_id", "id"], CollectionOrdering.Matching);
 
         database.ClearMaterializedRowsForTest<MemoryConvertedRow>();
-        var rematerialized = database.Find<MemoryConvertedRow>(DataLinqKey.FromValue(KnownId));
+        var rematerialized = database.FindCanonical<MemoryConvertedRow>(DataLinqKey.FromValue(KnownId));
 
         await Assert.That(rematerialized).IsNotNull();
         await Assert.That(rematerialized).IsNotSameReferenceAs(cold);
@@ -121,8 +121,8 @@ public sealed class MemoryModelSeedTests
         await Assert.That(stored[table.GetColumnByDbName("optional_related_id")])
             .IsEqualTo(KnownOptionalRelatedId);
 
-        var cold = database.Find<MemoryConvertedRow>(DataLinqKey.FromValue(KnownId));
-        var warm = database.Find<MemoryConvertedRow>(DataLinqKey.FromValue(KnownId));
+        var cold = database.FindCanonical<MemoryConvertedRow>(DataLinqKey.FromValue(KnownId));
+        var warm = database.FindCanonical<MemoryConvertedRow>(DataLinqKey.FromValue(KnownId));
 
         await Assert.That(cold).IsNotNull();
         await Assert.That(cold!.Id).IsEqualTo(new MemoryGuidId(KnownId));
@@ -307,7 +307,7 @@ public sealed class MemoryModelSeedTests
             new MemoryGuidId(KnownRelatedId),
             optionalRelatedId: null));
 
-        var recovered = database.Find<MemoryConvertedRow>(DataLinqKey.FromValue(KnownId));
+        var recovered = database.FindCanonical<MemoryConvertedRow>(DataLinqKey.FromValue(KnownId));
         await Assert.That(recovered).IsNotNull();
         await Assert.That(recovered!.Id).IsEqualTo(new MemoryGuidId(KnownId));
         await Assert.That(MemoryGuidIdConverter.ToProviderColumns)
@@ -340,6 +340,7 @@ public sealed class MemoryModelSeedTests
 
         await Assert.That(exception.Message).Contains("Model-valued memory seed");
         await Assert.That(exception.Message).Contains("duplicate primary key at row 1");
+        await Assert.That(exception.Message).Contains("column 'id'");
         await Assert.That(exception.Message).Contains("first row is 0");
         await Assert.That(exception.Message).DoesNotContain(KnownId.ToString());
         await Assert.That(database.GetStoredRowCount<MemoryConvertedRow>()).IsEqualTo(0);

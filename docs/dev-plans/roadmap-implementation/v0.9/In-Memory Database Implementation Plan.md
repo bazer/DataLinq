@@ -25,6 +25,8 @@ The later bounded SC-6A canonical-`Guid` equality checkpoint supersedes only the
 
 The D5-B package checkpoint promotes `DataLinq.Memory` to a packable experimental preview after inspecting real local core and Memory candidates at `0.9.0-preview.d5b.5`. Private MinVer aligns ordinary packing with core, SourceLink supplies repository provenance, and shared explicit overrides align the inspected candidate pair. The package embeds a dedicated Memory preview README with the bounded supported surface and explicit unsupported mutation, transaction, durability, persistence, raw SQL, relation, join/grouping, projection, and general-LINQ boundaries. Each Memory dependency group for net8, net9, and net10 contains only `DataLinq` at the candidate minimum with build/analyzer assets excluded. The runtime archive has exactly one managed Memory assembly per TFM and no analyzer, runtime, native, build, build-transitive, or tool folder; the symbol archive has exactly one PDB per TFM. Direct metadata, archive, and binary-token checks find no SQL-provider, native-database, Roslyn, Remotion, or generator payload, while the explicit two-package report has zero findings. D5 and W9 step 1 are complete. `DataLinq.Tests.Memory` remains non-packable, and M0/M1/M2, D6, W10 integration, packaged constrained-runtime reruns, final public support wording, and publication remain open.
 
+The bounded M0-A public lookup checkpoint adds `MemoryDatabase<TDatabase>.Find<TModel>(object)` for the non-null model-side value of exactly one generated primary-key column. Converter-backed keys normalize through the shared `ModelValueConverter` boundary and probe the existing canonical primary-key index without scanning; hits materialize the generated immutable model, misses and unseeded-table probes return `null`, warm probes preserve exact identity, and separate database instances retain separate stores, read sources, and identities. Wrong model values, raw canonical or numeric surrogates, composite metadata, and ordinary failures during initial `ToProvider` normalization, canonical-to-model `FromProvider` materialization, or generated immutable primary-key `ToProvider` identity capture produce value-redacted public `MemoryLookupException` diagnostics without arbitrary inner exception graphs; literal null remains `ArgumentNullException`, fatal and cancellation exceptions at all three conversion points preserve identity, and failed materialization or identity capture does not poison the cache. Focused lookup evidence passes `15/15`, the full Memory suite passes `77/77`, net8/net9/net10 builds remain clean with zero warnings and zero errors, Native AOT and full-trim executables pass, isolated WebAssembly no-AOT and AOT browser runs reach `passed`/`completed` with only expected logs, and banned-provider/native-payload scans remain clean. The LINQ capability profile remains 32 tokens. This completes the exact single-column public-lookup slice only: there is no generated `Get(...)`, composite lookup remains unsupported, aggregate M0 remains open for Testing CLI registration and the raw-SQL-rejection boundary, and W10 remains open.
+
 ## Decision
 
 DataLinq 0.9 should keep the memory backend, but only as a read-only experimental preview.
@@ -107,10 +109,12 @@ The preview does not include:
 
 ## M0: Generated Store And Seed Foundation
 
+**Progress:** Bounded M0-A now proves generated startup, public model-valued exact single-column lookup, canonical-index hit/miss, converter-backed typed-ID normalization, materialization, warm identity, store isolation, and constrained-runtime execution. It does not close aggregate M0.
+
 Work:
 
 - continue from the separate, initially non-packable `DataLinq.Memory` project created by the `F7` vertical spike
-- continue using a separate TUnit `DataLinq.Tests.Memory` project and add it as a distinct local Testing CLI suite before the preview gate
+- continue using the separate TUnit `DataLinq.Tests.Memory` project and register it as a distinct local Testing CLI suite during W10 before aggregate M0/release closeout
 - after the spike passes, promote `DataLinq.Memory` to a preview NuGet package; if the spike fails, stop and re-scope rather than moving the backend into the core package
 - start the store exclusively from generated/frozen DataLinq metadata
 - store memory rows in the shared compact canonical-provider-value buffer defined by foundation workstream `F3`
@@ -139,7 +143,7 @@ Exit signal:
 - a generated database starts without a SQL provider or live database
 - representative rows, typed IDs, and canonical `Guid` values seed successfully through shared conversion
 - configured UUID physical formats do not change the canonical value stored by memory
-- primary-key lookup returns a correctly materialized generated model
+- **Bounded M0-A complete:** public exact single-column primary-key lookup returns a correctly materialized generated model or `null` for a miss without exposing canonical provider values
 - cache/materialization integration does not expose provider values through `RowData`
 - raw SQL fails before any parsing or accidental SQL-provider access
 

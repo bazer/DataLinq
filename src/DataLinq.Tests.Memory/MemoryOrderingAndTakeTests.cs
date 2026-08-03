@@ -33,7 +33,7 @@ public sealed class MemoryOrderingAndTakeTests
     public async Task PrimaryKeyOrdering_UsesCanonicalOrderAndFinalPrimaryOrderingResetsEarlierKeys()
     {
         var ascendingDatabase = CreateAdversarialDatabase();
-        var cachedMinimum = ascendingDatabase.Find<MemoryPrimitiveRow>(DataLinqKey.FromValue(int.MinValue));
+        var cachedMinimum = ascendingDatabase.FindCanonical<MemoryPrimitiveRow>(DataLinqKey.FromValue(int.MinValue));
 
         var ascending = ascendingDatabase.Model.Rows
             .OrderBy(static row => row.Id)
@@ -73,7 +73,7 @@ public sealed class MemoryOrderingAndTakeTests
     public async Task OrderedTake_AppliesWhereBeforeOrderingAndBetweenOrderingAndTake()
     {
         var beforeDatabase = CreateAdversarialDatabase();
-        var cached = beforeDatabase.Find<MemoryPrimitiveRow>(DataLinqKey.FromValue(-11));
+        var cached = beforeDatabase.FindCanonical<MemoryPrimitiveRow>(DataLinqKey.FromValue(-11));
         var groupId = 7;
 
         var before = beforeDatabase.Model.Rows

@@ -3,7 +3,7 @@
 
 # 0.9 Release Evidence And Closeout Implementation Plan
 
-**Status:** Accepted. The bounded W8 project-reference memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, and D5-B local package promotion are implemented and green; W10 catalog/package integration and the final release-candidate reruns remain open.
+**Status:** Accepted. The bounded W8 project-reference memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, and M0-A public exact single-column lookup are implemented and green; aggregate M0, W10 catalog/package integration, and the final release-candidate reruns remain open.
 
 **Target release:** DataLinq 0.9.
 
@@ -271,12 +271,14 @@ The later bounded SC-6A checkpoint adds one deliberately narrow Memory query cap
 
 D5-B subsequently adds package-boundary evidence without rerunning the constrained hosts through packages. It promotes the runtime after aligned nuspec/dependency, archive-layout, symbols, metadata/provenance, and banned-payload inspection of the local `0.9.0-preview.d5b.5` core/Memory pair. W10 compatibility/package integration, aggregate SC-6, and aggregate W6 remain open.
 
+The later bounded M0-A checkpoint changes the shared runner's primary-key probes to the public `MemoryDatabase<TDatabase>.Find<TModel>(object)` surface. One non-null model-side value is accepted only for exactly one generated key column; converter-backed keys normalize through `ModelValueConverter`, the canonical index is probed without scanning, and a hit returns the generated immutable model while a miss or unseeded-table probe returns `null`. Focused evidence also proves warm same-instance reuse, model-valued `RowData`, separate store/read-source/identity ownership, value-redacted `MemoryLookupException` handling for invalid model/canonical/numeric values, composite metadata, and ordinary failures during initial `ToProvider` normalization, canonical-to-model `FromProvider` materialization, or generated immutable primary-key `ToProvider` identity capture, plus literal-null `ArgumentNullException`, exact fatal/cancellation exception identity at all three conversion points, and cache recovery after failed materialization or identity capture. Focused lookup coverage passes `15/15`, the complete Memory suite passes `77/77`, net8/net9/net10 builds have zero warnings and zero errors, Native AOT and full-trim executables publish and pass, isolated WebAssembly no-AOT and AOT browser runs reach `passed`/`completed` with only expected runtime and stage logs, and banned-provider/native-payload scans remain clean. The query capability profile stays at 32 tokens. This remains project-reference M0-A evidence, not generated `Get(...)`, composite lookup, aggregate M0, Testing CLI/raw-SQL closeout, packaged constrained-runtime evidence, compatibility-catalog integration, or W10 completion.
+
 The direct memory smoke must execute, rather than merely publish:
 
 - generated metadata startup
 - isolated store construction
 - deterministic seed loading containing ordinary scalars, a typed ID, and canonical `Guid`
-- primary-key hit and miss
+- public model-valued exact single-column `Find<TModel>(object)` hit, miss, unseeded miss, and warm identity
 - captured scalar equality
 - ordering plus `Take`
 - entity materialization

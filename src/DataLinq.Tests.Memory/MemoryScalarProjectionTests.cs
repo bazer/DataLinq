@@ -13,7 +13,7 @@ public sealed class MemoryScalarProjectionTests
     public async Task DirectInt32Projection_ReadsCanonicalColumnsWithoutMaterializingEntities()
     {
         var database = CreateAdversarialDatabase();
-        _ = database.Find<MemoryPrimitiveRow>(DataLinq.Instances.DataLinqKey.FromValue(17));
+        _ = database.FindCanonical<MemoryPrimitiveRow>(DataLinq.Instances.DataLinqKey.FromValue(17));
         var before = database.Diagnostics;
 
         var ids = database.Model.Rows.Select(static row => row.Id).ToArray();

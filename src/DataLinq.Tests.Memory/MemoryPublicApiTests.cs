@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
+using DataLinq.Interfaces;
 using DataLinq.Memory;
 using DataLinq.Metadata;
 
@@ -334,15 +335,45 @@ public sealed class MemoryPublicApiTests
             .Select(static method => method.Name)
             .Order()
             .ToArray();
+        var findMethod = databaseType
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+            .Single(static method => method.Name == "Find");
+        var databaseTypeParameter = databaseType.GetGenericArguments().Single();
+        var findModelTypeParameter = findMethod.GetGenericArguments().Single();
+        var findModelConstraints = findModelTypeParameter.GetGenericParameterConstraints();
+        var tableModelConstraint = findModelConstraints.Single(static constraint =>
+            constraint.IsGenericType &&
+            constraint.GetGenericTypeDefinition() == typeof(ITableModel<>));
+        var findParameter = findMethod.GetParameters().Single();
 
         await Assert.That(databaseType.IsPublic).IsTrue();
         await Assert.That(databaseType.GetConstructors().Length).IsEqualTo(1);
-        await Assert.That(declaredMethods).IsEquivalentTo(["Query", "Seed"]);
+        await Assert.That(declaredMethods).IsEquivalentTo(["Find", "Query", "Seed"]);
+        await Assert.That(findMethod.IsGenericMethodDefinition).IsTrue();
+        await Assert.That(findMethod.GetGenericArguments().Length).IsEqualTo(1);
+        await Assert.That(findMethod.ReturnType).IsSameReferenceAs(findModelTypeParameter);
+        await Assert.That(
+                findModelTypeParameter.GenericParameterAttributes &
+                GenericParameterAttributes.ReferenceTypeConstraint)
+            .IsEqualTo(GenericParameterAttributes.ReferenceTypeConstraint);
+        await Assert.That(findModelConstraints.Contains(typeof(IImmutableInstance))).IsTrue();
+        await Assert.That(tableModelConstraint.GetGenericArguments().Single())
+            .IsSameReferenceAs(databaseTypeParameter);
+        await Assert.That(findParameter.Name).IsEqualTo("modelPrimaryKey");
+        await Assert.That(findParameter.ParameterType).IsEqualTo(typeof(object));
         await Assert.That(databaseType.GetProperties(BindingFlags.Instance | BindingFlags.Public))
             .IsEmpty();
+        await Assert.That(typeof(IDataLinqReadSource).IsAssignableFrom(databaseType)).IsFalse();
+        await Assert.That(typeof(IDataSourceAccess).IsAssignableFrom(databaseType)).IsFalse();
+        await Assert.That(typeof(IDatabaseProvider).IsAssignableFrom(databaseType)).IsFalse();
+        await Assert.That(typeof(IDatabaseAccess).IsAssignableFrom(databaseType)).IsFalse();
         await Assert.That(typeof(MemorySeedException).IsPublic).IsTrue();
+        await Assert.That(typeof(MemoryLookupException).IsPublic).IsTrue();
+        await Assert.That(typeof(MemoryLookupException).IsSealed).IsTrue();
         await Assert.That(typeof(QueryBackendCapabilityException).IsPublic).IsTrue();
         await Assert.That(typeof(MemorySeedException)
+            .GetConstructors(BindingFlags.Instance | BindingFlags.Public)).IsEmpty();
+        await Assert.That(typeof(MemoryLookupException)
             .GetConstructors(BindingFlags.Instance | BindingFlags.Public)).IsEmpty();
         await Assert.That(typeof(QueryBackendCapabilityException)
             .GetConstructors(BindingFlags.Instance | BindingFlags.Public)).IsEmpty();
