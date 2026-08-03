@@ -219,6 +219,151 @@ public sealed class MemorySQLiteParityTests
         }
     }
 
+    [Test]
+    public async Task AdmittedPrimitiveInequalityIsland_MatchesSQLiteForTheSameInvocations()
+    {
+        var memory = CreateMemoryDatabase();
+        using var sqlite = new SQLiteDatabase<MemoryPrimitiveDatabase>("Data Source=:memory:");
+        await InitializeSQLite(sqlite);
+
+        var rows = memory.Model.Rows;
+        var excludedGroupId = 7;
+        var reboundQuery = rows
+            .Where(row => row.GroupId != excludedGroupId)
+            .OrderBy(static row => row.Id)
+            .Select(static row => row.Id);
+
+        var firstBinding = ExecuteSequence(memory, sqlite, reboundQuery);
+        excludedGroupId = 3;
+        var reboundBinding = ExecuteSequence(memory, sqlite, reboundQuery);
+        var reversed = ExecuteSequence(
+            memory,
+            sqlite,
+            rows
+                .Where(row => excludedGroupId != row.GroupId)
+                .OrderBy(static row => row.Id)
+                .Select(static row => row.Id));
+        var mixed = ExecuteSequence(
+            memory,
+            sqlite,
+            rows
+                .Where(row => row.GroupId != excludedGroupId)
+                .Where(static row => row.Id != int.MaxValue)
+                .OrderBy(static row => row.Id)
+                .Take(2)
+                .Select(static row => row.Id));
+        var any = ExecuteScalar(
+            memory,
+            sqlite,
+            () => rows.Any(static row => row.Id != int.MinValue));
+        var count = ExecuteScalar(
+            memory,
+            sqlite,
+            () => rows.Count(static row => row.GroupId != 7));
+
+        await Assert.That(string.Join(",", firstBinding.Memory))
+            .IsEqualTo("-2147483648,17");
+        await Assert.That(string.Join(",", firstBinding.SQLite))
+            .IsEqualTo(string.Join(",", firstBinding.Memory));
+        await Assert.That(string.Join(",", reboundBinding.Memory))
+            .IsEqualTo("-11,0,2147483647");
+        await Assert.That(string.Join(",", reboundBinding.SQLite))
+            .IsEqualTo(string.Join(",", reboundBinding.Memory));
+        await Assert.That(string.Join(",", reversed.Memory))
+            .IsEqualTo(string.Join(",", reboundBinding.Memory));
+        await Assert.That(string.Join(",", reversed.SQLite))
+            .IsEqualTo(string.Join(",", reversed.Memory));
+        await Assert.That(string.Join(",", mixed.Memory)).IsEqualTo("-11,0");
+        await Assert.That(string.Join(",", mixed.SQLite))
+            .IsEqualTo(string.Join(",", mixed.Memory));
+        await Assert.That(any.Memory).IsTrue();
+        await Assert.That(any.SQLite).IsEqualTo(any.Memory);
+        await Assert.That(count.Memory).IsEqualTo(2);
+        await Assert.That(count.SQLite).IsEqualTo(count.Memory);
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task AdmittedCanonicalGuidInequalityIsland_MatchesSQLiteForTheSameInvocations()
+    {
+        MemoryGuidIdConverter.Reset();
+        try
+        {
+            var memory = CreateConvertedMemoryDatabase();
+            using var sqlite = new SQLiteDatabase<MemoryConvertedDatabase>("Data Source=:memory:");
+            await InitializeConvertedSQLite(sqlite);
+
+            var rows = memory.Query().Rows;
+            var excludedId = FirstGuidId;
+            var reboundQuery = rows.Where(row => row.Id != excludedId);
+
+            var firstBinding = ExecuteSequence(memory, sqlite, reboundQuery);
+            excludedId = SecondGuidId;
+            var reboundBinding = ExecuteSequence(memory, sqlite, reboundQuery);
+            var reversed = ExecuteSequence(
+                memory,
+                sqlite,
+                rows.Where(row => excludedId != row.Id));
+            var direct = ExecuteSequence(
+                memory,
+                sqlite,
+                rows.Where(row => row.DirectGuid != SharedDirectGuid));
+            var typedRelated = ExecuteSequence(
+                memory,
+                sqlite,
+                rows.Where(row => row.RelatedId != SharedRelatedId));
+            var mixed = ExecuteSequence(
+                memory,
+                sqlite,
+                rows
+                    .Where(row => row.DirectGuid == SharedDirectGuid)
+                    .Where(row => row.Id != FirstGuidId));
+            var any = ExecuteScalar(
+                memory,
+                sqlite,
+                () => rows.Any(row => row.DirectGuid != MissingDirectGuid));
+            var count = ExecuteScalar(
+                memory,
+                sqlite,
+                () => rows.Count(row => row.RelatedId != SharedRelatedId));
+
+            await Assert.That(SnapshotConvertedIds(firstBinding.Memory)).IsEqualTo(
+                "10213243-5465-7687-98a9-bacbdcedfe0f," +
+                "20314253-6475-8697-a8b9-cadbecfd0e1f");
+            await Assert.That(SnapshotConvertedIds(firstBinding.SQLite))
+                .IsEqualTo(SnapshotConvertedIds(firstBinding.Memory));
+            await Assert.That(SnapshotConvertedIds(reboundBinding.Memory)).IsEqualTo(
+                "00112233-4455-6677-8899-aabbccddeeff," +
+                "20314253-6475-8697-a8b9-cadbecfd0e1f");
+            await Assert.That(SnapshotConvertedIds(reboundBinding.SQLite))
+                .IsEqualTo(SnapshotConvertedIds(reboundBinding.Memory));
+            await Assert.That(SnapshotConvertedIds(reversed.Memory))
+                .IsEqualTo(SnapshotConvertedIds(reboundBinding.Memory));
+            await Assert.That(SnapshotConvertedIds(reversed.SQLite))
+                .IsEqualTo(SnapshotConvertedIds(reversed.Memory));
+            await Assert.That(SnapshotConvertedIds(direct.Memory))
+                .IsEqualTo("10213243-5465-7687-98a9-bacbdcedfe0f");
+            await Assert.That(SnapshotConvertedIds(direct.SQLite))
+                .IsEqualTo(SnapshotConvertedIds(direct.Memory));
+            await Assert.That(SnapshotConvertedIds(typedRelated.Memory))
+                .IsEqualTo("20314253-6475-8697-a8b9-cadbecfd0e1f");
+            await Assert.That(SnapshotConvertedIds(typedRelated.SQLite))
+                .IsEqualTo(SnapshotConvertedIds(typedRelated.Memory));
+            await Assert.That(SnapshotConvertedIds(mixed.Memory))
+                .IsEqualTo("20314253-6475-8697-a8b9-cadbecfd0e1f");
+            await Assert.That(SnapshotConvertedIds(mixed.SQLite))
+                .IsEqualTo(SnapshotConvertedIds(mixed.Memory));
+            await Assert.That(any.Memory).IsTrue();
+            await Assert.That(any.SQLite).IsEqualTo(any.Memory);
+            await Assert.That(count.Memory).IsEqualTo(1);
+            await Assert.That(count.SQLite).IsEqualTo(count.Memory);
+        }
+        finally
+        {
+            MemoryGuidIdConverter.Reset();
+        }
+    }
+
     private static ProviderPair<ParityObservation> Observe(
         MemoryDatabase<MemoryPrimitiveDatabase> memory,
         SQLiteDatabase<MemoryPrimitiveDatabase> sqlite,

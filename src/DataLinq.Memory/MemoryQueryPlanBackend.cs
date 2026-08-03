@@ -28,6 +28,7 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering),
             QueryPlanFeature.Predicate(QueryPlanPredicateKind.Compare),
             QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.Equal),
+            QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.NotEqual),
             QueryPlanFeature.NullSemantics(QueryPlanNullSemantics.Default),
             QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar),
             QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar),

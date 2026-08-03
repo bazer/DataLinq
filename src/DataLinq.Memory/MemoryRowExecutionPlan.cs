@@ -13,13 +13,13 @@ namespace DataLinq.Memory;
 /// </summary>
 internal sealed class MemoryRowExecutionPlan
 {
-    private const string ComparisonSourceName = "memory-query:equality";
-    private readonly IMemoryEqualityPredicate[] predicates;
+    private const string ComparisonSourceName = "memory-query:comparison";
+    private readonly IMemoryComparisonPredicate[] predicates;
     private readonly MemoryInt32PrimaryKeyOrdering? ordering;
     private readonly int? takeCount;
 
     private MemoryRowExecutionPlan(
-        IMemoryEqualityPredicate[] predicates,
+        IMemoryComparisonPredicate[] predicates,
         MemoryInt32PrimaryKeyOrdering? ordering,
         int? takeCount)
     {
@@ -40,7 +40,7 @@ internal sealed class MemoryRowExecutionPlan
             throw CapabilityInvariant("the selected row source is not a root table.");
 
         var operations = request.Invocation.Template.Operations;
-        var predicates = new List<IMemoryEqualityPredicate>(operations.Count);
+        var predicates = new List<IMemoryComparisonPredicate>(operations.Count);
         MemoryInt32PrimaryKeyOrdering? ordering = null;
         int? takeCount = null;
         var hasSeenTake = false;
@@ -55,7 +55,7 @@ internal sealed class MemoryRowExecutionPlan
                             $"operation {index} applies a filter after Take.");
                     }
 
-                    predicates.Add(CompileEquality(request.Invocation, rootSource, comparison, index));
+                    predicates.Add(CompileComparison(request.Invocation, rootSource, comparison, index));
                     break;
 
                 case QueryPlanOperation.OrderBy orderBy:
@@ -150,13 +150,15 @@ internal sealed class MemoryRowExecutionPlan
         return true;
     }
 
-    private static IMemoryEqualityPredicate CompileEquality(
+    private static IMemoryComparisonPredicate CompileComparison(
         QueryPlanInvocation invocation,
         QueryPlanSourceSlot rootSource,
         QueryPlanPredicate.Compare comparison,
         int operationIndex)
     {
-        if (comparison.Operator != QueryPlanComparisonOperator.Equal ||
+        if (comparison.Operator is not (
+                QueryPlanComparisonOperator.Equal or
+                QueryPlanComparisonOperator.NotEqual) ||
             comparison.NullSemantics != QueryPlanNullSemantics.Default)
         {
             throw CapabilityInvariant(
@@ -195,13 +197,15 @@ internal sealed class MemoryRowExecutionPlan
         return comparisonShape switch
         {
             QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar =>
-                new MemoryInt32EqualityPredicate(
+                new MemoryInt32ComparisonPredicate(
                     column.Column,
-                    ResolveCanonicalValue<int>(invocation, column.Column, scalar, operationIndex)),
+                    ResolveCanonicalValue<int>(invocation, column.Column, scalar, operationIndex),
+                    comparison.Operator),
             QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar =>
-                new MemoryGuidEqualityPredicate(
+                new MemoryGuidComparisonPredicate(
                     column.Column,
-                    ResolveCanonicalValue<Guid>(invocation, column.Column, scalar, operationIndex)),
+                    ResolveCanonicalValue<Guid>(invocation, column.Column, scalar, operationIndex),
+                    comparison.Operator),
             _ => throw CapabilityInvariant(
                 $"operation {operationIndex} has unsupported validated comparison shape '{comparisonShape}'.")
         };
@@ -321,22 +325,33 @@ internal sealed class MemoryRowExecutionPlan
         new($"The memory capability profile admitted an invalid row-selection shape: {detail}");
 }
 
-internal interface IMemoryEqualityPredicate
+internal interface IMemoryComparisonPredicate
 {
     bool Matches(CanonicalProviderValueRow row);
 }
 
-internal sealed class MemoryInt32EqualityPredicate : IMemoryEqualityPredicate
+internal sealed class MemoryInt32ComparisonPredicate : IMemoryComparisonPredicate
 {
     private readonly ColumnDefinition column;
     private readonly int canonicalValue;
+    private readonly bool expectEquality;
 
-    internal MemoryInt32EqualityPredicate(
+    internal MemoryInt32ComparisonPredicate(
         ColumnDefinition column,
-        int canonicalValue)
+        int canonicalValue,
+        QueryPlanComparisonOperator comparisonOperator)
     {
         this.column = column ?? throw new ArgumentNullException(nameof(column));
         this.canonicalValue = canonicalValue;
+        expectEquality = comparisonOperator switch
+        {
+            QueryPlanComparisonOperator.Equal => true,
+            QueryPlanComparisonOperator.NotEqual => false,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(comparisonOperator),
+                comparisonOperator,
+                "Memory Int32 comparison supports only equality and inequality.")
+        };
     }
 
     public bool Matches(CanonicalProviderValueRow row)
@@ -344,24 +359,35 @@ internal sealed class MemoryInt32EqualityPredicate : IMemoryEqualityPredicate
         ArgumentNullException.ThrowIfNull(row);
         var rowValue = row[column];
         return rowValue is int value
-            ? value == canonicalValue
+            ? (value == canonicalValue) == expectEquality
             : throw new InvalidOperationException(
                 $"Canonical memory row column '{column.Table.DbName}.{column.DbName}' contained " +
                 $"'{rowValue?.GetType().FullName ?? "null"}' after Int32 capability validation.");
     }
 }
 
-internal sealed class MemoryGuidEqualityPredicate : IMemoryEqualityPredicate
+internal sealed class MemoryGuidComparisonPredicate : IMemoryComparisonPredicate
 {
     private readonly ColumnDefinition column;
     private readonly Guid canonicalValue;
+    private readonly bool expectEquality;
 
-    internal MemoryGuidEqualityPredicate(
+    internal MemoryGuidComparisonPredicate(
         ColumnDefinition column,
-        Guid canonicalValue)
+        Guid canonicalValue,
+        QueryPlanComparisonOperator comparisonOperator)
     {
         this.column = column ?? throw new ArgumentNullException(nameof(column));
         this.canonicalValue = canonicalValue;
+        expectEquality = comparisonOperator switch
+        {
+            QueryPlanComparisonOperator.Equal => true,
+            QueryPlanComparisonOperator.NotEqual => false,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(comparisonOperator),
+                comparisonOperator,
+                "Memory Guid comparison supports only equality and inequality.")
+        };
     }
 
     public bool Matches(CanonicalProviderValueRow row)
@@ -369,7 +395,7 @@ internal sealed class MemoryGuidEqualityPredicate : IMemoryEqualityPredicate
         ArgumentNullException.ThrowIfNull(row);
         var rowValue = row[column];
         return rowValue is Guid value
-            ? value == canonicalValue
+            ? (value == canonicalValue) == expectEquality
             : throw new InvalidOperationException(
                 $"Canonical memory row column '{column.Table.DbName}.{column.DbName}' contained " +
                 $"'{rowValue?.GetType().FullName ?? "null"}' after Guid capability validation.");

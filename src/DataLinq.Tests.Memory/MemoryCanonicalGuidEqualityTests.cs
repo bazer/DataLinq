@@ -115,8 +115,6 @@ public sealed class MemoryCanonicalGuidEqualityTests
 
         var unwrappedMember = Capture<QueryTranslationException>(() =>
             rows.Where(row => row.Id.Value == guidProbe).ToArray());
-        var notEqual = Capture<QueryBackendCapabilityException>(() =>
-            rows.Where(row => row.Id != FirstId).ToArray());
         var membership = Capture<QueryBackendCapabilityException>(() =>
             rows.Where(row => selectedIds.Contains(row.Id)).ToArray());
         var ordering = Capture<QueryBackendCapabilityException>(() =>
@@ -125,7 +123,6 @@ public sealed class MemoryCanonicalGuidEqualityTests
             rows.Select(static row => row.Id).ToArray());
 
         await Assert.That(unwrappedMember.ToString()).DoesNotContain(guidProbe.ToString());
-        await Assert.That(notEqual.Feature).IsEqualTo("ComparisonOperator:NotEqual");
         await Assert.That(membership.Feature).IsEqualTo("Predicate:In");
         await Assert.That(ordering.Feature).IsEqualTo("OrderingShape:Other");
         await Assert.That(projection.Feature).IsEqualTo("ScalarProjectionShape:Other");

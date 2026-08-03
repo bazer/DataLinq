@@ -242,6 +242,7 @@ public sealed class MemoryVerticalSpikeTests
         [
             "BindingKind:Scalar",
             "ComparisonOperator:Equal",
+            "ComparisonOperator:NotEqual",
             "ComparisonShape:DirectNonNullableInt32ColumnAndScalar",
             "ComparisonShape:NonNullableCanonicalGuidColumnAndScalar",
             "NullSemantics:Default",
@@ -274,8 +275,6 @@ public sealed class MemoryVerticalSpikeTests
             "Value:ScalarBinding@PredicateOperand"
         ]);
 
-        var notEqual = Capture<QueryTranslationException>(() =>
-            database.Model.Rows.Where(static row => row.GroupId != 7).ToArray());
         var bareTake = Capture<QueryTranslationException>(() =>
             database.Model.Rows.Take(1).ToArray());
         var nonPrimaryKeyOrderBy = Capture<QueryTranslationException>(() =>
@@ -289,9 +288,6 @@ public sealed class MemoryVerticalSpikeTests
         var promotedEquality = Capture<QueryTranslationException>(() =>
             database.Model.Rows.Where(row => row.GroupId == promotedGroupId).ToArray());
 
-        await Assert.That(notEqual.Message).Contains(
-            "Backend 'memory' cannot execute query plan feature 'ComparisonOperator:NotEqual'");
-        await Assert.That(notEqual.Message).Contains("Location: operations[0].predicate.operator");
         await Assert.That(bareTake.Message).Contains(
             "Backend 'memory' cannot execute query plan feature 'PagingCompositionShape:Other'");
         await Assert.That(nonPrimaryKeyOrderBy.Message).Contains(

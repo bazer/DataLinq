@@ -183,7 +183,18 @@ The 0.9 executor should run a query in these stages:
 7. compute the supported result operator or projection
 8. materialize model-valued rows through the shared runtime
 
-The intended first subset is:
+### Implemented 0.9 checkpoint
+
+The currently implemented Memory profile is deliberately narrower than the intended subset below. It contains exactly 33 capability tokens and admits `Equal` and `NotEqual` only for these exact non-null predicate shapes, in either operand order:
+
+- a direct, non-nullable, converter-free model/provider `Int32` root column and an exact `Int32` scalar
+- a direct, non-nullable, canonical-`Guid` root column and an exact model scalar that is either `Guid` or a resolved scalar-converter-backed type
+
+A converter-backed scalar is canonicalized once per predicate through `ModelValueConverter`, after which execution compares canonical values. Memory never applies a provider `GuidStorage` codec or SQL wire representation to these comparisons. The existing root-entity and direct-`Int32` scalar projections, selectorless `Any` and `Count`, direct primary-key `Int32` ordering, and one final `Take` remain the only admitted compositions around these predicates.
+
+Nullable operands and null bindings, strings, widened or boxed numerics, column-to-column comparisons, typed-ID member unwrapping, ordered predicates, compound boolean predicates, membership, `Skip`, `ThenBy`, element terminals, anonymous projections, joins, relation navigation, and grouping remain unsupported and reject before memory row work. This checkpoint advances only the bounded M1 comparison family and its D6 canonical-comparison semantics. It does not complete M1; M1 as a whole and M2 remain open.
+
+The intended broader subset is:
 
 - direct table enumeration
 - primary-key lookup
