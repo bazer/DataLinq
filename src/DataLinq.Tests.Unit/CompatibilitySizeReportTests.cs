@@ -368,11 +368,17 @@ public class CompatibilitySizeReportTests
                 <id>{{id}}</id>
                 <version>{{version}}</version>
                 <authors>DataLinq</authors>
+                <license type="file">LICENSE.md</license>
+                <readme>README.md</readme>
                 <description>Test package.</description>
+                <repository type="git" url="https://github.com/bazer/DataLinq" branch="refs/heads/test" commit="0123456789abcdef0123456789abcdef01234567" />
                 {{dependencyXml}}
               </metadata>
             </package>
             """);
+
+        WriteZipEntry(archive, "LICENSE.md", "license");
+        WriteZipEntry(archive, "README.md", "readme");
 
         foreach (var entry in entries)
             WriteZipEntry(archive, entry, "");

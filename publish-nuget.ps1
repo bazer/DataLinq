@@ -58,6 +58,7 @@ try {
         [pscustomobject]@{ Name = "DataLinq"; Project = "src\DataLinq\DataLinq.csproj"; Public = $true },
         [pscustomobject]@{ Name = "DataLinq.SQLite"; Project = "src\DataLinq.SQLite\DataLinq.SQLite.csproj"; Public = $true },
         [pscustomobject]@{ Name = "DataLinq.MySql"; Project = "src\DataLinq.MySql\DataLinq.MySql.csproj"; Public = $true },
+        [pscustomobject]@{ Name = "DataLinq.Memory"; Project = "src\DataLinq.Memory\DataLinq.Memory.csproj"; Public = $true },
         [pscustomobject]@{ Name = "DataLinq.CLI"; Project = "src\DataLinq.CLI\DataLinq.CLI.csproj"; Public = $true },
         [pscustomobject]@{ Name = "DataLinq.Tools"; Project = "src\DataLinq.Tools\DataLinq.Tools.csproj"; Public = $true }
     )
@@ -68,6 +69,13 @@ try {
 
     if (-not $packageProjects -or $packageProjects.Count -eq 0) {
         throw "No package projects selected."
+    }
+
+    if (-not $SkipPack -and (Test-Path -LiteralPath $PackageOutputPath)) {
+        $existingOutput = Get-ChildItem -LiteralPath $PackageOutputPath -Force | Select-Object -First 1
+        if ($null -ne $existingOutput) {
+            throw "Package output path is not empty: $PackageOutputPath. Use a fresh directory so stale packages cannot contaminate release evidence."
+        }
     }
 
     if (-not (Test-Path -LiteralPath $PackageOutputPath)) {

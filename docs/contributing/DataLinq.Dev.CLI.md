@@ -150,13 +150,14 @@ dotnet run --project DataLinq.Dev.CLI -- package-report --package-dir artifacts/
 dotnet run --project DataLinq.Dev.CLI -- package-report --package-dir artifacts/nuget-release/<timestamp> --format markdown
 ```
 
-Use this after `publish-nuget.ps1 -PackOnly` or another fresh pack output directory. Do not point it at a long-lived package cache if you want release evidence; stale packages make the report noisy on purpose.
+Use this after `publish-nuget.ps1 -PackOnly` or another fresh pack output directory. Use a new, empty output directory for each pack: `publish-nuget.ps1` rejects a non-empty output directory when it is packing so stale candidates cannot contaminate release evidence. `-SkipPack` is the explicit reuse path. Do not point `package-report` at a long-lived package cache; duplicate, unexpected, or version-skewed packages are findings on purpose.
 
 The default expected package set is:
 
 - `DataLinq`
 - `DataLinq.SQLite`
 - `DataLinq.MySql`
+- `DataLinq.Memory`
 - `DataLinq.CLI`
 - `DataLinq.Tools`
 
@@ -165,18 +166,42 @@ The default runtime package set is narrower:
 - `DataLinq`
 - `DataLinq.SQLite`
 - `DataLinq.MySql`
+- `DataLinq.Memory`
 
-The report checks:
+For every package, the report checks:
 
 - every expected public package is present
+- expected public packages all use the same version
 - no unexpected package ids are present
+- duplicate package ids are rejected
 - every `.nupkg` has a matching `.snupkg`
+- `.snupkg` files are inventoried independently, and orphan or duplicate symbol-package ids are rejected
+- package filenames match the nuspec id and version, and symbol-package id/version match the runtime package
+- nuspec id, version, description, repository type/URL/commit, license type/file, and readme are present
+- repository metadata identifies the DataLinq GitHub repository, the license is the root `LICENSE.md`, and the package readme is the root `README.md`
+- both `LICENSE.md` and `README.md` are present as root package assets
 - runtime package dependency groups do not reference `Microsoft.CodeAnalysis.*`
 - runtime package dependency groups do not reference `Remotion.Linq`
 - runtime package `lib/` and `runtimes/` assets do not contain Roslyn payloads
 - runtime package `lib/` and `runtimes/` assets do not contain Remotion payloads
 - the `DataLinq` source generator lives under `analyzers/dotnet/cs`
 - analyzer payloads are not placed under runtime assets
+
+`DataLinq.Memory` has an additional fail-closed package policy:
+
+- its description must be exactly `Experimental read-only in-memory backend for generated DataLinq models.`
+- its runtime archive must contain exactly `lib/net8.0/DataLinq.Memory.dll`, `lib/net9.0/DataLinq.Memory.dll`, and `lib/net10.0/DataLinq.Memory.dll`
+- its symbol archive must contain exactly the corresponding three `DataLinq.Memory.pdb` files
+- its runtime and symbol archives use explicit allowlists: the required assemblies or PDBs, their matching nuspec, the runtime license/readme, and standard NuGet structural or signature metadata are allowed; every other entry is rejected
+- each expected runtime DLL must contain valid CLI assembly metadata and have the assembly definition name `DataLinq.Memory`
+- it must have exactly one dependency group for each of `net8.0`, `net9.0`, and `net10.0`, with no other groups
+- each dependency group must contain only one `DataLinq` dependency at the exact Memory package version, with exactly `Build,Analyzers` excluded
+- analyzer, runtime, build, build-transitive, tool, and native assets are forbidden
+- all non-empty runtime and symbol entries are checked for PE, ELF, Mach-O, WebAssembly, and static-archive signatures; only the validated managed DLLs at the three expected runtime paths are permitted executable images
+- dependency ids, asset paths, and managed library contents are checked for `DataLinq.SQLite`, `DataLinq.MySql`, `Microsoft.Data.Sqlite`, `MySqlConnector`, `SQLitePCLRaw`, `e_sqlite3`, `Microsoft.CodeAnalysis`, `Remotion.Linq`, and `DataLinq.Generators`
+- generator assets remain owned by the core `DataLinq` package; `DataLinq.Memory` must not duplicate them
+
+The Memory-specific identity, metadata, framework, dependency, exclusion, asset, and banned-payload findings are always hard failures. The `--allow-*` switches below relax only their named general package-report policy; they do not weaken the `DataLinq.Memory` package contract.
 
 Useful options:
 
@@ -197,7 +222,7 @@ Useful options:
 - `--format summary|markdown|json`
   Controls console output. The JSON and Markdown artifacts are always written.
 
-Reports are written under `artifacts/dev/package-report/<timestamp>/` as `report.json` and `report.md`.
+Reports use schema `v0.9.package-inspection-report.v3` and are written under `artifacts/dev/package-report/<timestamp>/` as `report.json` and `report.md`.
 
 ### `exec`
 

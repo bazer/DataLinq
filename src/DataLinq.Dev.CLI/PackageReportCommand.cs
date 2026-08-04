@@ -11,22 +11,6 @@ namespace DataLinq.Dev.CLI;
 
 internal static class PackageReportCommand
 {
-    private static readonly string[] PublicPackageIds =
-    [
-        "DataLinq",
-        "DataLinq.SQLite",
-        "DataLinq.MySql",
-        "DataLinq.CLI",
-        "DataLinq.Tools"
-    ];
-
-    private static readonly string[] RuntimePackageIds =
-    [
-        "DataLinq",
-        "DataLinq.SQLite",
-        "DataLinq.MySql"
-    ];
-
     public static Command Create(DevCliSettings settings)
     {
         var packageDirOption = new Option<string>("--package-dir")
@@ -89,8 +73,8 @@ internal static class PackageReportCommand
             var options = new PackageInspectionOptions(
                 settings.RepositoryRoot,
                 packageDirectory,
-                ParsePackageIds(parseResult.GetValue(expectedPackagesOption), PublicPackageIds, "public"),
-                ParsePackageIds(parseResult.GetValue(runtimePackagesOption), RuntimePackageIds, "runtime"),
+                ParsePackageIds(parseResult.GetValue(expectedPackagesOption), PackageInspectionPolicy.PublicPackageIds, "public"),
+                ParsePackageIds(parseResult.GetValue(runtimePackagesOption), PackageInspectionPolicy.RuntimePackageIds, "runtime"),
                 !parseResult.GetValue(allowUnexpectedPackagesOption),
                 !parseResult.GetValue(allowMissingSymbolsOption),
                 !parseResult.GetValue(allowRuntimeRoslynOption),

@@ -14,7 +14,26 @@ public enum PackageInspectionFindingKind
     RuntimeRemotionDependency,
     RuntimeRemotionAsset,
     AnalyzerAssetLeak,
-    MissingAnalyzerAsset
+    MissingAnalyzerAsset,
+    PackageVersionMismatch,
+    PackageIdentityMismatch,
+    MissingPackageMetadata,
+    InvalidPackageMetadata,
+    MissingRequiredPackageAsset,
+    UnexpectedPackageAsset,
+    MissingDependencyGroup,
+    UnexpectedDependencyGroup,
+    MissingRequiredPackageDependency,
+    UnexpectedPackageDependency,
+    PackageDependencyVersionMismatch,
+    PackageDependencyExclusionMismatch,
+    BannedRuntimeDependency,
+    BannedRuntimeAsset,
+    OrphanSymbolPackage,
+    DuplicateSymbolPackage,
+    UnexpectedSymbolPackageAsset,
+    BannedSymbolPackageAsset,
+    InvalidManagedAssembly
 }
 
 public sealed record PackageInspectionOptions(
@@ -35,6 +54,7 @@ public sealed record PackageInspectionReport(
     string PackageDirectory,
     string ReportDirectory,
     IReadOnlyList<PackageInspectionPackageReport> Packages,
+    IReadOnlyList<PackageInspectionSymbolPackageReport> SymbolPackages,
     IReadOnlyList<PackageInspectionFinding> Findings,
     PackageInspectionSummary Summary);
 
@@ -46,6 +66,15 @@ public sealed record PackageInspectionSummary(
     int HardFailureCount,
     bool HasHardFailures);
 
+public sealed record PackageInspectionSymbolPackageReport(
+    string Id,
+    string Version,
+    string PackagePath,
+    PackageMetadata Metadata,
+    IReadOnlyList<string> PdbFiles,
+    IReadOnlyList<string> AllFiles,
+    IReadOnlyList<PackageBinaryPayloadMatch> BinaryPayloadMatches);
+
 public sealed record PackageInspectionPackageReport(
     string Id,
     string Version,
@@ -54,8 +83,26 @@ public sealed record PackageInspectionPackageReport(
     bool IsRuntimePackage,
     bool IsExpectedPackage,
     bool IsDotnetTool,
+    PackageMetadata Metadata,
+    string? SymbolPackageId,
+    string? SymbolPackageVersion,
     IReadOnlyList<PackageDependencyGroup> DependencyGroups,
-    PackageAssetSummary Assets);
+    PackageAssetSummary Assets,
+    IReadOnlyList<PackagePayloadTokenMatch> PayloadTokenMatches,
+    IReadOnlyList<PackageBinaryPayloadMatch> BinaryPayloadMatches,
+    IReadOnlyList<PackageManagedAssemblyInspection> ManagedAssemblies);
+
+public sealed record PackageMetadata(
+    string? Id,
+    string? Version,
+    string? Description,
+    string? LicenseType,
+    string? License,
+    string? Readme,
+    string? RepositoryType,
+    string? RepositoryUrl,
+    string? RepositoryBranch,
+    string? RepositoryCommit);
 
 public sealed record PackageDependencyGroup(
     string TargetFramework,
@@ -75,7 +122,21 @@ public sealed record PackageAssetSummary(
     IReadOnlyList<string> AnalyzerFiles,
     IReadOnlyList<string> ToolFiles,
     IReadOnlyList<string> RuntimeFiles,
-    IReadOnlyList<string> SymbolFiles);
+    IReadOnlyList<string> SymbolFiles,
+    IReadOnlyList<string> AllFiles);
+
+public sealed record PackagePayloadTokenMatch(
+    string Asset,
+    string Token);
+
+public sealed record PackageBinaryPayloadMatch(
+    string Asset,
+    string Signature);
+
+public sealed record PackageManagedAssemblyInspection(
+    string Asset,
+    string? AssemblyName,
+    string? Error);
 
 public sealed record PackageInspectionFinding(
     PackageInspectionFindingKind Kind,
