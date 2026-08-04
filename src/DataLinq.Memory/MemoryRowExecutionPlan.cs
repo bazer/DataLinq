@@ -14,12 +14,12 @@ namespace DataLinq.Memory;
 internal sealed class MemoryRowExecutionPlan
 {
     private const string ComparisonSourceName = "memory-query:comparison";
-    private readonly IMemoryComparisonPredicate[] predicates;
+    private readonly IMemoryRowPredicate[] predicates;
     private readonly MemoryInt32PrimaryKeyOrdering? ordering;
     private readonly int? takeCount;
 
     private MemoryRowExecutionPlan(
-        IMemoryComparisonPredicate[] predicates,
+        IMemoryRowPredicate[] predicates,
         MemoryInt32PrimaryKeyOrdering? ordering,
         int? takeCount)
     {
@@ -40,7 +40,7 @@ internal sealed class MemoryRowExecutionPlan
             throw CapabilityInvariant("the selected row source is not a root table.");
 
         var operations = request.Invocation.Template.Operations;
-        var predicates = new List<IMemoryComparisonPredicate>(operations.Count);
+        var predicates = new List<IMemoryRowPredicate>(operations.Count);
         MemoryInt32PrimaryKeyOrdering? ordering = null;
         int? takeCount = null;
         var hasSeenTake = false;
@@ -48,14 +48,14 @@ internal sealed class MemoryRowExecutionPlan
         {
             switch (operations[index])
             {
-                case QueryPlanOperation.Where { Predicate: QueryPlanPredicate.Compare comparison }:
+                case QueryPlanOperation.Where where:
                     if (hasSeenTake)
                     {
                         throw CapabilityInvariant(
                             $"operation {index} applies a filter after Take.");
                     }
 
-                    predicates.Add(CompileComparison(request.Invocation, rootSource, comparison, index));
+                    predicates.Add(CompilePredicate(request.Invocation, rootSource, where.Predicate, index));
                     break;
 
                 case QueryPlanOperation.OrderBy orderBy:
@@ -150,7 +150,50 @@ internal sealed class MemoryRowExecutionPlan
         return true;
     }
 
-    private static IMemoryComparisonPredicate CompileComparison(
+    private static IMemoryRowPredicate CompilePredicate(
+        QueryPlanInvocation invocation,
+        QueryPlanSourceSlot rootSource,
+        QueryPlanPredicate predicate,
+        int operationIndex)
+    {
+        return predicate switch
+        {
+            QueryPlanPredicate.Compare comparison =>
+                CompileComparison(invocation, rootSource, comparison, operationIndex),
+            QueryPlanPredicate.And and =>
+                new MemoryAndPredicate(
+                    CompilePredicateTerms(invocation, rootSource, and.Terms, operationIndex)),
+            QueryPlanPredicate.Or or =>
+                new MemoryOrPredicate(
+                    CompilePredicateTerms(invocation, rootSource, or.Terms, operationIndex)),
+            QueryPlanPredicate.Not not =>
+                new MemoryNotPredicate(
+                    CompilePredicate(invocation, rootSource, not.Predicate, operationIndex)),
+            _ => throw CapabilityInvariant(
+                $"operation {operationIndex} contains unsupported validated predicate '{predicate.Kind}'.")
+        };
+    }
+
+    private static IMemoryRowPredicate[] CompilePredicateTerms(
+        QueryPlanInvocation invocation,
+        QueryPlanSourceSlot rootSource,
+        IReadOnlyList<QueryPlanPredicate> terms,
+        int operationIndex)
+    {
+        var compiled = new IMemoryRowPredicate[terms.Count];
+        for (var index = 0; index < terms.Count; index++)
+        {
+            compiled[index] = CompilePredicate(
+                invocation,
+                rootSource,
+                terms[index],
+                operationIndex);
+        }
+
+        return compiled;
+    }
+
+    private static IMemoryRowPredicate CompileComparison(
         QueryPlanInvocation invocation,
         QueryPlanSourceSlot rootSource,
         QueryPlanPredicate.Compare comparison,
@@ -325,12 +368,74 @@ internal sealed class MemoryRowExecutionPlan
         new($"The memory capability profile admitted an invalid row-selection shape: {detail}");
 }
 
-internal interface IMemoryComparisonPredicate
+internal interface IMemoryRowPredicate
 {
     bool Matches(CanonicalProviderValueRow row);
 }
 
-internal sealed class MemoryInt32ComparisonPredicate : IMemoryComparisonPredicate
+internal sealed class MemoryAndPredicate : IMemoryRowPredicate
+{
+    private readonly IMemoryRowPredicate[] terms;
+
+    internal MemoryAndPredicate(IMemoryRowPredicate[] terms)
+    {
+        ArgumentNullException.ThrowIfNull(terms);
+        this.terms = terms;
+    }
+
+    public bool Matches(CanonicalProviderValueRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        for (var index = 0; index < terms.Length; index++)
+        {
+            if (!terms[index].Matches(row))
+                return false;
+        }
+
+        return true;
+    }
+}
+
+internal sealed class MemoryOrPredicate : IMemoryRowPredicate
+{
+    private readonly IMemoryRowPredicate[] terms;
+
+    internal MemoryOrPredicate(IMemoryRowPredicate[] terms)
+    {
+        ArgumentNullException.ThrowIfNull(terms);
+        this.terms = terms;
+    }
+
+    public bool Matches(CanonicalProviderValueRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        for (var index = 0; index < terms.Length; index++)
+        {
+            if (terms[index].Matches(row))
+                return true;
+        }
+
+        return false;
+    }
+}
+
+internal sealed class MemoryNotPredicate : IMemoryRowPredicate
+{
+    private readonly IMemoryRowPredicate predicate;
+
+    internal MemoryNotPredicate(IMemoryRowPredicate predicate)
+    {
+        this.predicate = predicate ?? throw new ArgumentNullException(nameof(predicate));
+    }
+
+    public bool Matches(CanonicalProviderValueRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        return !predicate.Matches(row);
+    }
+}
+
+internal sealed class MemoryInt32ComparisonPredicate : IMemoryRowPredicate
 {
     private readonly ColumnDefinition column;
     private readonly int canonicalValue;
@@ -366,7 +471,7 @@ internal sealed class MemoryInt32ComparisonPredicate : IMemoryComparisonPredicat
     }
 }
 
-internal sealed class MemoryGuidComparisonPredicate : IMemoryComparisonPredicate
+internal sealed class MemoryGuidComparisonPredicate : IMemoryRowPredicate
 {
     private readonly ColumnDefinition column;
     private readonly Guid canonicalValue;

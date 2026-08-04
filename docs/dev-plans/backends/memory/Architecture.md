@@ -185,14 +185,14 @@ The 0.9 executor should run a query in these stages:
 
 ### Implemented 0.9 checkpoint
 
-The currently implemented Memory profile is deliberately narrower than the intended subset below. It contains exactly 33 capability tokens and admits `Equal` and `NotEqual` only for these exact non-null predicate shapes, in either operand order:
+The currently implemented Memory profile is deliberately narrower than the intended subset below. It contains exactly 36 capability tokens and adds `Predicate:And`, `Predicate:Or`, and `Predicate:Not` as nested Boolean composition over `Equal` and `NotEqual` leaves only for these exact non-null predicate shapes, in either operand order:
 
 - a direct, non-nullable, converter-free model/provider `Int32` root column and an exact `Int32` scalar
 - a direct, non-nullable, canonical-`Guid` root column and an exact model scalar that is either `Guid` or a resolved scalar-converter-backed type
 
-A converter-backed scalar is canonicalized once per predicate through `ModelValueConverter`, after which execution compares canonical values. Memory never applies a provider `GuidStorage` codec or SQL wire representation to these comparisons. The existing root-entity and direct-`Int32` scalar projections, selectorless `Any` and `Count`, direct primary-key `Int32` ordering, and one final `Take` remain the only admitted compositions around these predicates.
+A converter-backed scalar is canonicalized once per comparison leaf through `ModelValueConverter` while the invocation-local row plan is compiled, after which execution compares canonical values. `And` and `Or` evaluate their terms left-to-right and short-circuit during row evaluation; `Not` negates its child. That row-time short circuit does not defer or suppress eager per-leaf binding conversion. Memory never applies a provider `GuidStorage` codec or SQL wire representation to these comparisons. The existing root-entity and direct-`Int32` scalar projections, selectorless `Any` and `Count`, direct primary-key `Int32` ordering, and one final `Take` remain the only admitted compositions around these predicates.
 
-Nullable operands and null bindings, strings, widened or boxed numerics, column-to-column comparisons, typed-ID member unwrapping, ordered predicates, compound boolean predicates, membership, `Skip`, `ThenBy`, element terminals, anonymous projections, joins, relation navigation, and grouping remain unsupported and reject before memory row work. This checkpoint advances only the bounded M1 comparison family and its D6 canonical-comparison semantics. It does not complete M1; M1 as a whole and M2 remain open.
+Nullable operands and null bindings, strings, widened or boxed numerics, column-to-column comparisons, typed-ID member unwrapping, ordered comparisons, standalone Boolean constants, Boolean columns or functions, Boolean trees containing any unsupported leaf, membership, `Skip`, `ThenBy`, element terminals, anonymous projections, joins, relation navigation, and grouping remain unsupported and reject before memory row work. This checkpoint advances only bounded M1 Boolean composition over the existing comparison family and its D6 canonical-comparison semantics. It does not complete M1; M1 as a whole and M2 remain open.
 
 The intended broader subset is:
 
