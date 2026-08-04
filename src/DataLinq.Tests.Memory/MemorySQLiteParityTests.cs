@@ -507,6 +507,89 @@ public sealed class MemorySQLiteParityTests
             .IsEqualTo(string.Join(",", reversedOperands.Memory));
     }
 
+    [Test]
+    public async Task AdmittedPrimitiveInt32MembershipIsland_MatchesSQLiteForTheSameInvocations()
+    {
+        var memory = CreateMemoryDatabase();
+        using var sqlite = new SQLiteDatabase<MemoryPrimitiveDatabase>("Data Source=:memory:");
+        await InitializeSQLite(sqlite);
+
+        var rows = memory.Model.Rows;
+        int[] selectedIds = [int.MinValue, 17, int.MaxValue, 17];
+        var membershipQuery = rows
+            .Where(row => selectedIds.Contains(row.Id))
+            .OrderBy(static row => row.Id)
+            .Select(static row => row.Id);
+
+        var firstBinding = ExecuteSequence(memory, sqlite, membershipQuery);
+        selectedIds = [-11, 0];
+        var reboundBinding = ExecuteSequence(memory, sqlite, membershipQuery);
+        var negated = ExecuteSequence(
+            memory,
+            sqlite,
+            rows
+                .Where(row => !Enumerable.Contains(selectedIds, row.Id))
+                .OrderBy(static row => row.Id)
+                .Select(static row => row.Id));
+
+        selectedIds = [];
+        var emptyPositive = ExecuteSequence(memory, sqlite, membershipQuery);
+        var emptyNegated = ExecuteSequence(
+            memory,
+            sqlite,
+            rows
+                .Where(row => !selectedIds.Contains(row.Id))
+                .OrderBy(static row => row.Id)
+                .Select(static row => row.Id));
+
+        selectedIds = null!;
+        var nullPositive = ExecuteSequence(memory, sqlite, membershipQuery);
+        var nullNegated = ExecuteSequence(
+            memory,
+            sqlite,
+            rows
+                .Where(row => !Enumerable.Contains(selectedIds, row.Id))
+                .OrderBy(static row => row.Id)
+                .Select(static row => row.Id));
+
+        selectedIds = [int.MinValue, 0, int.MaxValue];
+        var composed = ExecuteSequence(
+            memory,
+            sqlite,
+            rows
+                .Where(row => selectedIds.Contains(row.Id) && row.GroupId >= 7)
+                .OrderBy(static row => row.Id)
+                .Take(2)
+                .Select(static row => row.GroupId));
+
+        await Assert.That(string.Join(",", firstBinding.Memory))
+            .IsEqualTo("-2147483648,17,2147483647");
+        await Assert.That(string.Join(",", firstBinding.SQLite))
+            .IsEqualTo(string.Join(",", firstBinding.Memory));
+        await Assert.That(string.Join(",", reboundBinding.Memory)).IsEqualTo("-11,0");
+        await Assert.That(string.Join(",", reboundBinding.SQLite))
+            .IsEqualTo(string.Join(",", reboundBinding.Memory));
+        await Assert.That(string.Join(",", negated.Memory))
+            .IsEqualTo("-2147483648,17,2147483647");
+        await Assert.That(string.Join(",", negated.SQLite))
+            .IsEqualTo(string.Join(",", negated.Memory));
+        await Assert.That(emptyPositive.Memory).IsEmpty();
+        await Assert.That(emptyPositive.SQLite).IsEmpty();
+        await Assert.That(string.Join(",", emptyNegated.Memory))
+            .IsEqualTo("-2147483648,-11,0,17,2147483647");
+        await Assert.That(string.Join(",", emptyNegated.SQLite))
+            .IsEqualTo(string.Join(",", emptyNegated.Memory));
+        await Assert.That(nullPositive.Memory).IsEmpty();
+        await Assert.That(nullPositive.SQLite).IsEmpty();
+        await Assert.That(string.Join(",", nullNegated.Memory))
+            .IsEqualTo(string.Join(",", emptyNegated.Memory));
+        await Assert.That(string.Join(",", nullNegated.SQLite))
+            .IsEqualTo(string.Join(",", nullNegated.Memory));
+        await Assert.That(string.Join(",", composed.Memory)).IsEqualTo("7,7");
+        await Assert.That(string.Join(",", composed.SQLite))
+            .IsEqualTo(string.Join(",", composed.Memory));
+    }
+
     private static ProviderPair<ParityObservation> Observe(
         MemoryDatabase<MemoryPrimitiveDatabase> memory,
         SQLiteDatabase<MemoryPrimitiveDatabase> sqlite,

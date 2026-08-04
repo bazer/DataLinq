@@ -238,9 +238,9 @@ public sealed class MemoryBooleanPredicateTests
                 .Where(row => row.Id == FirstId && selectedIds.Contains(row.Id))
                 .ToArray());
 
-        await Assert.That(membershipChild.Feature).IsEqualTo("Predicate:In");
+        await Assert.That(membershipChild.Feature).IsEqualTo("MembershipShape:Other");
         await Assert.That(membershipChild.Location)
-            .IsEqualTo("operations[0].predicate.terms[1]");
+            .IsEqualTo("operations[0].predicate.terms[1].shape");
         await Assert.That(membershipChild.ToString())
             .DoesNotContain(FirstId.Value.ToString());
         await Assert.That(converted.Diagnostics).IsEqualTo(convertedBefore);

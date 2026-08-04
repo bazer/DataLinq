@@ -40,6 +40,7 @@ public class QueryPlanCapabilityValidationTests
             [QueryPlanFeatureCategory.ComparisonOperator] = 6,
             [QueryPlanFeatureCategory.NullSemantics] = 2,
             [QueryPlanFeatureCategory.ComparisonShape] = 6,
+            [QueryPlanFeatureCategory.MembershipShape] = 2,
             [QueryPlanFeatureCategory.Value] = 104,
             [QueryPlanFeatureCategory.Intrinsic] = 39,
             [QueryPlanFeatureCategory.Function] = 247,
@@ -76,15 +77,15 @@ public class QueryPlanCapabilityValidationTests
                 $"{feature.Token}={QueryBackendCapabilities.Sql.GetDisposition(feature)}"));
         var sqlMatrixFingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sqlMatrix)));
 
-        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(610);
+        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(612);
         await Assert.That(tokens.Distinct(StringComparer.Ordinal).Count()).IsEqualTo(tokens.Length);
         await Assert.That(actualCategoryCounts.Count).IsEqualTo(expectedCategoryCounts.Count);
         foreach (var expected in expectedCategoryCounts)
             await Assert.That(actualCategoryCounts[expected.Key]).IsEqualTo(expected.Value);
 
-        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(352);
+        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(354);
         await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Unsupported)).IsEqualTo(258);
-        await Assert.That(sqlMatrixFingerprint).IsEqualTo("F186F1FF4EE9D7C0594C9C1773335C097E41B18E8FF9A49456B7886410ADE3D1");
+        await Assert.That(sqlMatrixFingerprint).IsEqualTo("41E8FFC6FECDAB00B56A6FF2A5625672680BE041182954E7D9E160624B652307");
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.Projection(QueryPlanProjectionKind.TransparentIdentifier)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
@@ -109,6 +110,13 @@ public class QueryPlanCapabilityValidationTests
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.ComparisonShape(
                 QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.MembershipShape(
+                QueryPlanMembershipShape.DirectNonNullableInt32ColumnAndLocalSequence)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.MembershipShape(QueryPlanMembershipShape.Other)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering)))
@@ -679,6 +687,12 @@ public class QueryPlanCapabilityValidationTests
             QueryPlanFeature.PredicatePolarity(QueryPlanPredicatePolarity.Negated),
             "operations[1].operations[0].predicate.terms[1].predicate.polarity",
             sourceId: "s0");
+        await AssertRequirement(
+            requirements.Structural,
+            QueryPlanFeature.MembershipShape(QueryPlanMembershipShape.Other),
+            "operations[1].operations[0].predicate.terms[1].predicate.shape",
+            sourceId: "s0",
+            columnName: "first_name");
         await AssertRequirement(
             requirements.Structural,
             QueryPlanFeature.Function(QueryPlanFunctionKind.StringTrim, QueryPlanValueUse.PredicateOperand),
@@ -1392,6 +1406,127 @@ public class QueryPlanCapabilityValidationTests
         static QueryPlanComparisonShape ExtractShape(QueryPlanInvocation invocation) =>
             (QueryPlanComparisonShape)QueryPlanRequirements.Extract(invocation).Structural.Single(
                 static requirement => requirement.Feature.Category == QueryPlanFeatureCategory.ComparisonShape).Feature.Value;
+    }
+
+    [Test]
+    public async Task Requirements_ClassifyOnlyExactInt32ColumnLocalSequenceMembershipShapes()
+    {
+        var table = GetGeneratedNeutralTable();
+        var source = Source("s0", "t0", table, QueryPlanSourceKind.RootTable);
+        var employeeNumber = new QueryPlanColumnValue(
+            source,
+            table.GetColumnByPropertyName(nameof(GeneratedNeutralMaterializationRow.Id)));
+
+        var exactCapture = new QueryPlanBindingCapture();
+        var exactSequence = exactCapture.CaptureLocalSequence([1, 2], typeof(int));
+        var exactInvocation = CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.In(employeeNumber, exactSequence, IsNegated: false),
+            exactCapture);
+        var exact = ExtractShape(exactInvocation);
+        var negated = ExtractShape(CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.In(employeeNumber, exactSequence, IsNegated: true),
+            exactCapture));
+
+        var mismatchedProviderCapture = new QueryPlanBindingCapture();
+        var mismatchedProviderSequence = mismatchedProviderCapture.CaptureLocalSequence(
+            [1, 2],
+            typeof(int),
+            typeof(long));
+        var mismatchedProvider = ExtractShape(CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.In(
+                employeeNumber,
+                mismatchedProviderSequence,
+                IsNegated: false),
+            mismatchedProviderCapture));
+
+        var nullableCapture = new QueryPlanBindingCapture();
+        var nullableSequence = nullableCapture.CaptureLocalSequence(
+            [1, null],
+            typeof(int?));
+        var nullable = ExtractShape(CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.In(employeeNumber, nullableSequence, IsNegated: false),
+            nullableCapture));
+
+        var promotedCapture = new QueryPlanBindingCapture();
+        var promotedSequence = promotedCapture.CaptureLocalSequence([1L, 2L], typeof(long));
+        var promoted = ExtractShape(CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.In(employeeNumber, promotedSequence, IsNegated: false),
+            promotedCapture));
+        var promotedItem = ExtractShape(CreatePredicateInvocation(
+            source,
+            new QueryPlanPredicate.In(
+                new QueryPlanColumnValue(source, employeeNumber.Column, typeof(long)),
+                exactSequence,
+                IsNegated: false),
+            exactCapture));
+
+        var employeeTable = GetTable<Employee>();
+        var employeeSource = Source("s0", "t0", employeeTable, QueryPlanSourceKind.RootTable);
+        var firstName = new QueryPlanColumnValue(
+            employeeSource,
+            employeeTable.GetColumnByPropertyName(nameof(Employee.first_name)));
+        var textCapture = new QueryPlanBindingCapture();
+        var textSequence = textCapture.CaptureLocalSequence(["one", "two"], typeof(string));
+        var text = ExtractShape(CreatePredicateInvocation(
+            employeeSource,
+            new QueryPlanPredicate.In(firstName, textSequence, IsNegated: false),
+            textCapture));
+
+        var allround = MetadataFromTypeFactory
+            .ParseDatabaseFromDatabaseModel(typeof(AllroundBenchmark))
+            .ValueOrException();
+        var userTable = allround.TableModels.Single(
+            model => model.Model.CsType.Type == typeof(User)).Table;
+        var userSource = Source("s0", "t0", userTable, QueryPlanSourceKind.RootTable);
+        var userId = new QueryPlanColumnValue(
+            userSource,
+            userTable.GetColumnByPropertyName(nameof(User.UserId)));
+        var guidCapture = new QueryPlanBindingCapture();
+        var guidSequence = guidCapture.CaptureLocalSequence([Guid.Empty], typeof(Guid));
+        var guid = ExtractShape(CreatePredicateInvocation(
+            userSource,
+            new QueryPlanPredicate.In(userId, guidSequence, IsNegated: false),
+            guidCapture));
+
+        await Assert.That(exact).IsEqualTo(
+            QueryPlanMembershipShape.DirectNonNullableInt32ColumnAndLocalSequence);
+        await Assert.That(negated).IsEqualTo(exact);
+        foreach (var other in new[]
+                 {
+                     mismatchedProvider,
+                     nullable,
+                     promoted,
+                     promotedItem,
+                     text,
+                     guid
+                 })
+        {
+            await Assert.That(other).IsEqualTo(QueryPlanMembershipShape.Other);
+        }
+
+        var unsupported = Capture<QueryBackendCapabilityException>(() =>
+            QueryPlanCapabilityValidator.Validate(
+                exactInvocation,
+                WithUnsupported(
+                    "without-exact-int-membership",
+                    QueryPlanFeature.MembershipShape(
+                        QueryPlanMembershipShape.DirectNonNullableInt32ColumnAndLocalSequence))));
+
+        await Assert.That(unsupported.Feature).IsEqualTo(
+            "MembershipShape:DirectNonNullableInt32ColumnAndLocalSequence");
+        await Assert.That(unsupported.Location).IsEqualTo("operations[0].predicate.shape");
+        await Assert.That(unsupported.SourceId).IsEqualTo("s0");
+        await Assert.That(unsupported.ColumnName).IsEqualTo(employeeNumber.Column.DbName);
+
+        static QueryPlanMembershipShape ExtractShape(QueryPlanInvocation invocation) =>
+            (QueryPlanMembershipShape)QueryPlanRequirements.Extract(invocation).Structural.Single(
+                static requirement => requirement.Feature.Category ==
+                    QueryPlanFeatureCategory.MembershipShape).Feature.Value;
     }
 
     [Test]

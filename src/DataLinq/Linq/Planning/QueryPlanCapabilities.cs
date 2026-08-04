@@ -24,6 +24,7 @@ internal enum QueryPlanFeatureCategory
     ComparisonOperator,
     NullSemantics,
     ComparisonShape,
+    MembershipShape,
     Value,
     Intrinsic,
     Function,
@@ -200,6 +201,34 @@ internal static class QueryPlanComparisonShapeFacts
                 scalarValue,
                 column.Column,
                 declarations);
+    }
+}
+
+internal enum QueryPlanMembershipShape
+{
+    DirectNonNullableInt32ColumnAndLocalSequence,
+    Other
+}
+
+internal static class QueryPlanMembershipShapeFacts
+{
+    internal static bool IsDirectNonNullableInt32ColumnAndLocalSequence(
+        QueryPlanValue item,
+        QueryPlanLocalSequenceBindingReference sequence,
+        QueryPlanBindingDeclarations declarations)
+    {
+        ArgumentNullException.ThrowIfNull(declarations);
+        if (!QueryPlanExactInt32ValueShapeFacts.IsDirectNonNullableInt32Column(item) ||
+            sequence.ElementType != typeof(int) ||
+            !declarations.TryGet(sequence.BindingId, out var declaration))
+        {
+            return false;
+        }
+
+        return declaration.Kind == QueryPlanBindingKind.LocalSequence &&
+            declaration.ModelType == typeof(int) &&
+            declaration.ProviderType == typeof(int) &&
+            !declaration.AllowsNull;
     }
 }
 
@@ -431,6 +460,9 @@ internal readonly record struct QueryPlanFeature(
     public static QueryPlanFeature ComparisonShape(QueryPlanComparisonShape value) =>
         new(QueryPlanFeatureCategory.ComparisonShape, (int)value);
 
+    public static QueryPlanFeature MembershipShape(QueryPlanMembershipShape value) =>
+        new(QueryPlanFeatureCategory.MembershipShape, (int)value);
+
     public static QueryPlanFeature ValueKind(QueryPlanValueKind value, QueryPlanValueUse use) =>
         new(QueryPlanFeatureCategory.Value, (int)value, use);
 
@@ -516,6 +548,7 @@ internal readonly record struct QueryPlanFeature(
         QueryPlanFeatureCategory.ComparisonOperator => Name<QueryPlanComparisonOperator>(),
         QueryPlanFeatureCategory.NullSemantics => Name<QueryPlanNullSemantics>(),
         QueryPlanFeatureCategory.ComparisonShape => Name<QueryPlanComparisonShape>(),
+        QueryPlanFeatureCategory.MembershipShape => Name<QueryPlanMembershipShape>(),
         QueryPlanFeatureCategory.Value => Name<QueryPlanValueKind>(),
         QueryPlanFeatureCategory.Intrinsic => Name<QueryPlanIntrinsicKind>(),
         QueryPlanFeatureCategory.Function => Name<QueryPlanFunctionKind>(),
@@ -568,6 +601,7 @@ internal static class QueryPlanFeatureCatalog
         Add(features, Enum.GetValues<QueryPlanComparisonOperator>(), QueryPlanFeature.ComparisonOperator);
         Add(features, Enum.GetValues<QueryPlanNullSemantics>(), QueryPlanFeature.NullSemantics);
         Add(features, Enum.GetValues<QueryPlanComparisonShape>(), QueryPlanFeature.ComparisonShape);
+        Add(features, Enum.GetValues<QueryPlanMembershipShape>(), QueryPlanFeature.MembershipShape);
 
         foreach (var use in Enum.GetValues<QueryPlanValueUse>())
         {
@@ -720,6 +754,7 @@ internal sealed class QueryBackendCapabilities
                 (QueryPlanComparisonShape)feature.Value != QueryPlanComparisonShape.UnsupportedNullableNotEqual
                     ? QueryBackendCapabilityDisposition.Supported
                     : QueryBackendCapabilityDisposition.Unsupported,
+            QueryPlanFeatureCategory.MembershipShape => QueryBackendCapabilityDisposition.Supported,
             QueryPlanFeatureCategory.AggregateSelectorShape =>
                 (QueryPlanAggregateSelectorShape)feature.Value == QueryPlanAggregateSelectorShape.DirectNumericColumn
                     ? QueryBackendCapabilityDisposition.Supported

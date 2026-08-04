@@ -123,7 +123,8 @@ public sealed class MemoryCanonicalGuidEqualityTests
             rows.Select(static row => row.Id).ToArray());
 
         await Assert.That(unwrappedMember.ToString()).DoesNotContain(guidProbe.ToString());
-        await Assert.That(membership.Feature).IsEqualTo("Predicate:In");
+        await Assert.That(membership.Feature).IsEqualTo("MembershipShape:Other");
+        await Assert.That(membership.Location).IsEqualTo("operations[0].predicate.shape");
         await Assert.That(ordering.Feature).IsEqualTo("OrderingShape:Other");
         await Assert.That(projection.Feature).IsEqualTo("ScalarProjectionShape:Other");
         await Assert.That(database.Diagnostics).IsEqualTo(before);

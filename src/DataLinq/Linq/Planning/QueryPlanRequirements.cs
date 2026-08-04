@@ -284,6 +284,19 @@ internal sealed class QueryPlanRequirements
                             : QueryPlanPredicatePolarity.Positive),
                         $"{location}.polarity",
                         sourceId);
+                    AddStructural(
+                        QueryPlanFeature.MembershipShape(
+                            QueryPlanMembershipShapeFacts.IsDirectNonNullableInt32ColumnAndLocalSequence(
+                                inPredicate.Item,
+                                inPredicate.Sequence,
+                                invocation.Template.BindingDeclarations)
+                                ? QueryPlanMembershipShape.DirectNonNullableInt32ColumnAndLocalSequence
+                                : QueryPlanMembershipShape.Other),
+                        $"{location}.shape",
+                        sourceId,
+                        inPredicate.Item is QueryPlanColumnValue membershipColumn
+                            ? membershipColumn.Column.DbName
+                            : null);
                     VisitValue(inPredicate.Item, QueryPlanValueUse.MembershipItem, $"{location}.item", sourceId);
                     VisitValue(inPredicate.Sequence, QueryPlanValueUse.MembershipSequence, $"{location}.sequence", sourceId);
                     break;

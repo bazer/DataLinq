@@ -55,7 +55,12 @@ internal sealed class MemoryRowExecutionPlan
                             $"operation {index} applies a filter after Take.");
                     }
 
-                    predicates.Add(CompilePredicate(request.Invocation, rootSource, where.Predicate, index));
+                    predicates.Add(CompilePredicate(
+                        request.Invocation,
+                        rootSource,
+                        where.Predicate,
+                        index,
+                        request.Context.CancellationToken));
                     break;
 
                 case QueryPlanOperation.OrderBy orderBy:
@@ -154,21 +159,44 @@ internal sealed class MemoryRowExecutionPlan
         QueryPlanInvocation invocation,
         QueryPlanSourceSlot rootSource,
         QueryPlanPredicate predicate,
-        int operationIndex)
+        int operationIndex,
+        CancellationToken cancellationToken)
     {
         return predicate switch
         {
             QueryPlanPredicate.Compare comparison =>
                 CompileComparison(invocation, rootSource, comparison, operationIndex),
+            QueryPlanPredicate.In membership =>
+                CompileMembership(
+                    invocation,
+                    rootSource,
+                    membership,
+                    operationIndex,
+                    cancellationToken),
             QueryPlanPredicate.And and =>
                 new MemoryAndPredicate(
-                    CompilePredicateTerms(invocation, rootSource, and.Terms, operationIndex)),
+                    CompilePredicateTerms(
+                        invocation,
+                        rootSource,
+                        and.Terms,
+                        operationIndex,
+                        cancellationToken)),
             QueryPlanPredicate.Or or =>
                 new MemoryOrPredicate(
-                    CompilePredicateTerms(invocation, rootSource, or.Terms, operationIndex)),
+                    CompilePredicateTerms(
+                        invocation,
+                        rootSource,
+                        or.Terms,
+                        operationIndex,
+                        cancellationToken)),
             QueryPlanPredicate.Not not =>
                 new MemoryNotPredicate(
-                    CompilePredicate(invocation, rootSource, not.Predicate, operationIndex)),
+                    CompilePredicate(
+                        invocation,
+                        rootSource,
+                        not.Predicate,
+                        operationIndex,
+                        cancellationToken)),
             _ => throw CapabilityInvariant(
                 $"operation {operationIndex} contains unsupported validated predicate '{predicate.Kind}'.")
         };
@@ -178,7 +206,8 @@ internal sealed class MemoryRowExecutionPlan
         QueryPlanInvocation invocation,
         QueryPlanSourceSlot rootSource,
         IReadOnlyList<QueryPlanPredicate> terms,
-        int operationIndex)
+        int operationIndex,
+        CancellationToken cancellationToken)
     {
         var compiled = new IMemoryRowPredicate[terms.Count];
         for (var index = 0; index < terms.Count; index++)
@@ -187,7 +216,8 @@ internal sealed class MemoryRowExecutionPlan
                 invocation,
                 rootSource,
                 terms[index],
-                operationIndex);
+                operationIndex,
+                cancellationToken);
         }
 
         return compiled;
@@ -281,6 +311,52 @@ internal sealed class MemoryRowExecutionPlan
                 comparisonOperator,
                 "Memory Int32 comparison received an unknown operator.")
         };
+    }
+
+    private static IMemoryRowPredicate CompileMembership(
+        QueryPlanInvocation invocation,
+        QueryPlanSourceSlot rootSource,
+        QueryPlanPredicate.In membership,
+        int operationIndex,
+        CancellationToken cancellationToken)
+    {
+        if (!QueryPlanMembershipShapeFacts.IsDirectNonNullableInt32ColumnAndLocalSequence(
+                membership.Item,
+                membership.Sequence,
+                invocation.Template.BindingDeclarations) ||
+            membership.Item is not QueryPlanColumnValue column)
+        {
+            throw CapabilityInvariant(
+                $"operation {operationIndex} is not an exact non-nullable Int32 column/local-sequence membership shape.");
+        }
+
+        ValidateColumn(rootSource, column, operationIndex);
+        if (!invocation.Values.TryGet(membership.Sequence.BindingId, out var binding) ||
+            binding is not QueryPlanInvocationValue.LocalSequence sequence)
+        {
+            throw CapabilityInvariant(
+                $"operation {operationIndex} has no local sequence value for binding '{membership.Sequence.BindingId}'.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var canonicalValues = new HashSet<int>();
+        for (var index = 0; index < sequence.Values.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (sequence.Values[index] is not int value)
+            {
+                throw CapabilityInvariant(
+                    $"operation {operationIndex} local sequence binding '{membership.Sequence.BindingId}' " +
+                    $"contains '{sequence.Values[index]?.GetType().FullName ?? "null"}' at index {index} after Int32 capability validation.");
+            }
+
+            canonicalValues.Add(value);
+        }
+
+        return new MemoryInt32MembershipPredicate(
+            column.Column,
+            canonicalValues,
+            membership.IsNegated);
     }
 
     private static MemoryInt32PrimaryKeyOrdering CompileOrdering(
@@ -547,6 +623,34 @@ internal sealed class MemoryGuidComparisonPredicate : IMemoryRowPredicate
             : throw new InvalidOperationException(
                 $"Canonical memory row column '{column.Table.DbName}.{column.DbName}' contained " +
                 $"'{rowValue?.GetType().FullName ?? "null"}' after Guid capability validation.");
+    }
+}
+
+internal sealed class MemoryInt32MembershipPredicate : IMemoryRowPredicate
+{
+    private readonly ColumnDefinition column;
+    private readonly HashSet<int> canonicalValues;
+    private readonly bool isNegated;
+
+    internal MemoryInt32MembershipPredicate(
+        ColumnDefinition column,
+        HashSet<int> canonicalValues,
+        bool isNegated)
+    {
+        this.column = column ?? throw new ArgumentNullException(nameof(column));
+        this.canonicalValues = canonicalValues ?? throw new ArgumentNullException(nameof(canonicalValues));
+        this.isNegated = isNegated;
+    }
+
+    public bool Matches(CanonicalProviderValueRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        var rowValue = row[column];
+        return rowValue is int value
+            ? canonicalValues.Contains(value) != isNegated
+            : throw new InvalidOperationException(
+                $"Canonical memory row column '{column.Table.DbName}.{column.DbName}' contained " +
+                $"'{rowValue?.GetType().FullName ?? "null"}' after Int32 membership capability validation.");
     }
 }
 

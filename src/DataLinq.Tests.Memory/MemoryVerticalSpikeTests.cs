@@ -240,6 +240,7 @@ public sealed class MemoryVerticalSpikeTests
 
         await Assert.That(database.SupportedCapabilityTokens).IsEquivalentTo(
         [
+            "BindingKind:LocalSequence",
             "BindingKind:Scalar",
             "ComparisonOperator:Equal",
             "ComparisonOperator:GreaterThan",
@@ -249,6 +250,9 @@ public sealed class MemoryVerticalSpikeTests
             "ComparisonOperator:NotEqual",
             "ComparisonShape:DirectNonNullableInt32ColumnAndScalar",
             "ComparisonShape:NonNullableCanonicalGuidColumnAndScalar",
+            "LocalSequenceShape:Empty",
+            "LocalSequenceShape:NonEmptyWithoutNulls",
+            "MembershipShape:DirectNonNullableInt32ColumnAndLocalSequence",
             "NullSemantics:Default",
             "Operation:OrderBy",
             "Operation:Take",
@@ -259,8 +263,11 @@ public sealed class MemoryVerticalSpikeTests
             "PagingCountShape:NonNegativeInt32ScalarBinding",
             "Predicate:And",
             "Predicate:Compare",
+            "Predicate:In",
             "Predicate:Not",
             "Predicate:Or",
+            "PredicatePolarity:Negated",
+            "PredicatePolarity:Positive",
             "Projection:Entity",
             "Projection:ScalarMember",
             "ProjectionDisposition:Direct",
@@ -276,8 +283,10 @@ public sealed class MemoryVerticalSpikeTests
             "SourceTopology:ExactlyOneRoot",
             "PagingCompositionShape:SingleTakeAfterSingleOrdering",
             "Value:Column@Ordering",
+            "Value:Column@MembershipItem",
             "Value:Column@PredicateOperand",
             "Value:Column@ProjectionMember",
+            "Value:LocalSequenceBinding@MembershipSequence",
             "Value:ScalarBinding@PagingCount",
             "Value:ScalarBinding@PredicateOperand"
         ]);

@@ -30,6 +30,9 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             QueryPlanFeature.Predicate(QueryPlanPredicateKind.Or),
             QueryPlanFeature.Predicate(QueryPlanPredicateKind.Not),
             QueryPlanFeature.Predicate(QueryPlanPredicateKind.Compare),
+            QueryPlanFeature.Predicate(QueryPlanPredicateKind.In),
+            QueryPlanFeature.PredicatePolarity(QueryPlanPredicatePolarity.Positive),
+            QueryPlanFeature.PredicatePolarity(QueryPlanPredicatePolarity.Negated),
             QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.Equal),
             QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.NotEqual),
             QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.GreaterThan),
@@ -39,8 +42,14 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             QueryPlanFeature.NullSemantics(QueryPlanNullSemantics.Default),
             QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar),
             QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar),
+            QueryPlanFeature.MembershipShape(
+                QueryPlanMembershipShape.DirectNonNullableInt32ColumnAndLocalSequence),
             QueryPlanFeature.ValueKind(QueryPlanValueKind.Column, QueryPlanValueUse.PredicateOperand),
             QueryPlanFeature.ValueKind(QueryPlanValueKind.ScalarBinding, QueryPlanValueUse.PredicateOperand),
+            QueryPlanFeature.ValueKind(QueryPlanValueKind.Column, QueryPlanValueUse.MembershipItem),
+            QueryPlanFeature.ValueKind(
+                QueryPlanValueKind.LocalSequenceBinding,
+                QueryPlanValueUse.MembershipSequence),
             QueryPlanFeature.ValueKind(QueryPlanValueKind.Column, QueryPlanValueUse.Ordering),
             QueryPlanFeature.ValueKind(QueryPlanValueKind.ScalarBinding, QueryPlanValueUse.PagingCount),
             QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegativeInt32ScalarBinding),
@@ -53,7 +62,10 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             QueryPlanFeature.Result(QueryPlanResultKind.Any),
             QueryPlanFeature.Result(QueryPlanResultKind.Count),
             QueryPlanFeature.BindingKind(QueryPlanBindingKind.Scalar),
+            QueryPlanFeature.BindingKind(QueryPlanBindingKind.LocalSequence),
             QueryPlanFeature.ScalarNullness(QueryPlanBindingNullness.NonNull),
+            QueryPlanFeature.LocalSequenceShape(QueryPlanLocalSequenceShapeKind.Empty),
+            QueryPlanFeature.LocalSequenceShape(QueryPlanLocalSequenceShapeKind.NonEmptyWithoutNulls),
             QueryPlanFeature.ValueKind(
                 QueryPlanValueKind.Column,
                 QueryPlanValueUse.ProjectionMember)
