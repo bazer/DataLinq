@@ -16,15 +16,18 @@ internal sealed class MemoryRowExecutionPlan
     private const string ComparisonSourceName = "memory-query:comparison";
     private readonly IMemoryRowPredicate[] predicates;
     private readonly MemoryInt32PrimaryKeyOrdering? ordering;
+    private readonly int? skipCount;
     private readonly int? takeCount;
 
     private MemoryRowExecutionPlan(
         IMemoryRowPredicate[] predicates,
         MemoryInt32PrimaryKeyOrdering? ordering,
+        int? skipCount,
         int? takeCount)
     {
         this.predicates = predicates;
         this.ordering = ordering;
+        this.skipCount = skipCount;
         this.takeCount = takeCount;
     }
 
@@ -42,17 +45,19 @@ internal sealed class MemoryRowExecutionPlan
         var operations = request.Invocation.Template.Operations;
         var predicates = new List<IMemoryRowPredicate>(operations.Count);
         MemoryInt32PrimaryKeyOrdering? ordering = null;
+        int? skipCount = null;
         int? takeCount = null;
+        var hasSeenSkip = false;
         var hasSeenTake = false;
         for (var index = 0; index < operations.Count; index++)
         {
             switch (operations[index])
             {
                 case QueryPlanOperation.Where where:
-                    if (hasSeenTake)
+                    if (hasSeenSkip || hasSeenTake)
                     {
                         throw CapabilityInvariant(
-                            $"operation {index} applies a filter after Take.");
+                            $"operation {index} applies a filter after paging.");
                     }
 
                     predicates.Add(CompilePredicate(
@@ -64,23 +69,42 @@ internal sealed class MemoryRowExecutionPlan
                     break;
 
                 case QueryPlanOperation.OrderBy orderBy:
-                    if (ordering is not null || hasSeenTake)
+                    if (ordering is not null || hasSeenSkip || hasSeenTake)
                     {
                         throw CapabilityInvariant(
-                            $"operation {index} introduces a repeated or post-Take ordering.");
+                            $"operation {index} introduces a repeated or post-paging ordering.");
                     }
 
                     ordering = CompileOrdering(rootSource, orderBy, index);
                     break;
 
+                case QueryPlanOperation.Skip skip:
+                    if (ordering is null || hasSeenSkip || hasSeenTake)
+                    {
+                        throw CapabilityInvariant(
+                            $"operation {index} is not the single final Skip following one ordering admitted by this checkpoint.");
+                    }
+
+                    skipCount = ResolvePagingCount(
+                        request.Invocation,
+                        skip.Count,
+                        QueryPlanOperationKind.Skip,
+                        index);
+                    hasSeenSkip = true;
+                    break;
+
                 case QueryPlanOperation.Take take:
-                    if (ordering is null || hasSeenTake)
+                    if (ordering is null || hasSeenSkip || hasSeenTake)
                     {
                         throw CapabilityInvariant(
                             $"operation {index} is not the single Take following one ordering admitted by this checkpoint.");
                     }
 
-                    takeCount = ResolveTakeCount(request.Invocation, take.Count, index);
+                    takeCount = ResolvePagingCount(
+                        request.Invocation,
+                        take.Count,
+                        QueryPlanOperationKind.Take,
+                        index);
                     hasSeenTake = true;
                     break;
 
@@ -90,7 +114,7 @@ internal sealed class MemoryRowExecutionPlan
             }
         }
 
-        return new MemoryRowExecutionPlan(predicates.ToArray(), ordering, takeCount);
+        return new MemoryRowExecutionPlan(predicates.ToArray(), ordering, skipCount, takeCount);
     }
 
     internal IReadOnlyList<CanonicalProviderValueRow> PrepareOrderedRows(
@@ -122,17 +146,22 @@ internal sealed class MemoryRowExecutionPlan
         var ordered = currentOrdering.Sort(matches, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var startIndex = skipCount ?? 0;
+        if (startIndex >= ordered.Length)
+            return Array.Empty<CanonicalProviderValueRow>();
+
+        var availableCount = ordered.Length - startIndex;
         var resultCount = takeCount is { } limit
-            ? Math.Min(limit, ordered.Length)
-            : ordered.Length;
-        if (resultCount == ordered.Length)
+            ? Math.Min(limit, availableCount)
+            : availableCount;
+        if (startIndex == 0 && resultCount == ordered.Length)
             return ordered;
 
         var selected = new CanonicalProviderValueRow[resultCount];
         for (var index = 0; index < resultCount; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            selected[index] = ordered[index];
+            selected[index] = ordered[startIndex + index];
         }
 
         return selected;
@@ -396,9 +425,10 @@ internal sealed class MemoryRowExecutionPlan
         return new MemoryInt32PrimaryKeyOrdering(definition, ordering.Direction);
     }
 
-    private static int ResolveTakeCount(
+    private static int ResolvePagingCount(
         QueryPlanInvocation invocation,
         QueryPlanValue count,
+        QueryPlanOperationKind operationKind,
         int operationIndex)
     {
         if (count is not QueryPlanScalarBindingReference { ClrType: var countType } scalar ||
@@ -413,7 +443,7 @@ internal sealed class MemoryRowExecutionPlan
             value < 0)
         {
             throw CapabilityInvariant(
-                $"operation {operationIndex} is not a direct non-negative Int32 scalar-binding Take.");
+                $"operation {operationIndex} is not a direct non-negative Int32 scalar-binding {operationKind}.");
         }
 
         return value;

@@ -23,6 +23,7 @@ public sealed record MemoryPlatformSmokeResult(
     int[] RangeFilteredIds,
     int[] MembershipFilteredIds,
     int[] OrderedIds,
+    int[] SkippedIds,
     int[] ProjectedGroupIds,
     bool HasRows,
     int RowCount,
@@ -50,6 +51,7 @@ public sealed record MemoryPlatformSmokeResult(
         RangeFilteredIds.SequenceEqual([-5, 17]) &&
         MembershipFilteredIds.SequenceEqual([-5, 42]) &&
         OrderedIds.SequenceEqual([-5, 17]) &&
+        SkippedIds.SequenceEqual([17, 42]) &&
         ProjectedGroupIds.SequenceEqual([7, 7, 3]) &&
         HasRows &&
         RowCount == 3 &&
@@ -59,7 +61,7 @@ public sealed record MemoryPlatformSmokeResult(
         UnsupportedRejectedBeforeWork &&
         PreCancellationPreserved &&
         PreCancellationRejectedBeforeWork &&
-        SupportedCapabilityTokenCount == 49;
+        SupportedCapabilityTokenCount == 51;
 
     public string ToDisplayString()
     {
@@ -69,7 +71,7 @@ public sealed record MemoryPlatformSmokeResult(
             $"primitive-rows={PrimitiveStoredRowCount}, guid-rows={GuidStoredRowCount}",
             $"pk-hit={PrimitivePrimaryKeyHit}, pk-miss={PrimitivePrimaryKeyMiss}, canonical-guid-cells={CanonicalGuidCellsStoredAsGuid}",
             $"typed-guid-equality={TypedGuidEqualityHit}, direct-guid-equality={DirectGuidEqualityHit}, guid-miss={GuidEqualityMiss}",
-            $"filtered=[{string.Join(',', FilteredIds)}], not-equal-filtered=[{string.Join(',', NotEqualFilteredIds)}], compound-filtered=[{string.Join(',', CompoundFilteredIds)}], range-filtered=[{string.Join(',', RangeFilteredIds)}], membership-filtered=[{string.Join(',', MembershipFilteredIds)}], ordered=[{string.Join(',', OrderedIds)}], projected=[{string.Join(',', ProjectedGroupIds)}]",
+            $"filtered=[{string.Join(',', FilteredIds)}], not-equal-filtered=[{string.Join(',', NotEqualFilteredIds)}], compound-filtered=[{string.Join(',', CompoundFilteredIds)}], range-filtered=[{string.Join(',', RangeFilteredIds)}], membership-filtered=[{string.Join(',', MembershipFilteredIds)}], ordered=[{string.Join(',', OrderedIds)}], skipped=[{string.Join(',', SkippedIds)}], projected=[{string.Join(',', ProjectedGroupIds)}]",
             $"any={HasRows}, count={RowCount}, capabilities={SupportedCapabilityTokenCount}",
             $"unsupported-before-work={UnsupportedRejectedBeforeWork}, pre-cancelled-before-work={PreCancellationRejectedBeforeWork}",
             $"unsupported-diagnostic=\"{UnsupportedDiagnostic}\""
@@ -213,6 +215,13 @@ public static class MemoryPlatformSmokeRunner
             .Select(static row => row.Id)
             .ToArray();
 
+        await ReportStage(reportStage, "querying-ordered-skip");
+        var skippedIds = query.PrimitiveRows
+            .OrderBy(static row => row.Id)
+            .Skip(1)
+            .Select(static row => row.Id)
+            .ToArray();
+
         await ReportStage(reportStage, "querying-direct-scalar-projection");
         var projectedGroupIds = query.PrimitiveRows
             .OrderBy(static row => row.Id)
@@ -269,6 +278,7 @@ public static class MemoryPlatformSmokeRunner
             RangeFilteredIds: rangeFilteredIds,
             MembershipFilteredIds: membershipFilteredIds,
             OrderedIds: orderedIds,
+            SkippedIds: skippedIds,
             ProjectedGroupIds: projectedGroupIds,
             HasRows: hasRows,
             RowCount: rowCount,

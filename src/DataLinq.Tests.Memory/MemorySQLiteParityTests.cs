@@ -590,6 +590,92 @@ public sealed class MemorySQLiteParityTests
             .IsEqualTo(string.Join(",", composed.Memory));
     }
 
+    [Test]
+    public async Task AdmittedOrderedSkipIsland_MatchesSQLiteForTheSameInvocations()
+    {
+        var memory = CreateMemoryDatabase();
+        using var sqlite = new SQLiteDatabase<MemoryPrimitiveDatabase>("Data Source=:memory:");
+        await InitializeSQLite(sqlite);
+
+        var rows = memory.Model.Rows;
+        var ascending = ExecuteSequence(
+            memory,
+            sqlite,
+            rows
+                .OrderBy(static row => row.Id)
+                .Skip(2)
+                .Select(static row => row.Id));
+        var descendingFiltered = ExecuteSequence(
+            memory,
+            sqlite,
+            rows
+                .Where(static row => row.GroupId == 7)
+                .OrderByDescending(static row => row.Id)
+                .Skip(1)
+                .Select(static row => row.Id));
+        var zero = ExecuteSequence(
+            memory,
+            sqlite,
+            rows
+                .OrderBy(static row => row.Id)
+                .Skip(0)
+                .Select(static row => row.Id));
+        var exact = ExecuteSequence(
+            memory,
+            sqlite,
+            rows
+                .OrderBy(static row => row.Id)
+                .Skip(SeedRows.Length)
+                .Select(static row => row.Id));
+        var over = ExecuteSequence(
+            memory,
+            sqlite,
+            rows
+                .OrderBy(static row => row.Id)
+                .Skip(99)
+                .Select(static row => row.Id));
+        var projectedGroups = ExecuteSequence(
+            memory,
+            sqlite,
+            rows
+                .OrderBy(static row => row.Id)
+                .Skip(2)
+                .Select(static row => row.GroupId));
+
+        var count = 1;
+        var snapshottedQuery = rows
+            .OrderBy(static row => row.Id)
+            .Skip(count)
+            .Select(static row => row.Id);
+        count = 3;
+        var snapshotted = ExecuteSequence(memory, sqlite, snapshottedQuery);
+        var rebuilt = ExecuteSequence(
+            memory,
+            sqlite,
+            rows
+                .OrderBy(static row => row.Id)
+                .Skip(count)
+                .Select(static row => row.Id));
+
+        await AssertPair(ascending, "0,17,2147483647");
+        await AssertPair(descendingFiltered, "0,-11");
+        await AssertPair(zero, "-2147483648,-11,0,17,2147483647");
+        await Assert.That(exact.Memory).IsEmpty();
+        await Assert.That(exact.SQLite).IsEmpty();
+        await Assert.That(over.Memory).IsEmpty();
+        await Assert.That(over.SQLite).IsEmpty();
+        await AssertPair(projectedGroups, "7,3,7");
+        await AssertPair(snapshotted, "-11,0,17,2147483647");
+        await AssertPair(rebuilt, "17,2147483647");
+
+        static async Task AssertPair(ProviderPair<int[]> pair, string expected)
+        {
+            await Assert.That(string.Join(",", pair.Memory)).IsEqualTo(expected);
+            await Assert.That(string.Join(",", pair.SQLite))
+                .IsEqualTo(string.Join(",", pair.Memory));
+        }
+    }
+
     private static ProviderPair<ParityObservation> Observe(
         MemoryDatabase<MemoryPrimitiveDatabase> memory,
         SQLiteDatabase<MemoryPrimitiveDatabase> sqlite,
