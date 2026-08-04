@@ -48,6 +48,13 @@ public static class CompatibilityWarningClassifier
             warning.Message,
             string.Join(" ", warning.Projects));
 
+        if (string.Equals(warning.Code, "WASM0001", StringComparison.OrdinalIgnoreCase) &&
+            ContainsAny(warning.Message, "with varargs in e_sqlite3") &&
+            ContainsAny(warning.Message, "sqlite3_config", "sqlite3_db_config"))
+        {
+            return CompatibilityWarningOwner.ThirdPartyDependency;
+        }
+
         if (ContainsAny(
             combined,
             ".nuget",

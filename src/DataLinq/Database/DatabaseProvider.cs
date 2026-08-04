@@ -43,7 +43,7 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
             databaseName: null,
             metadataFactory: MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>,
             createReadOnlyAccess: false,
-            metadataBinder: T.SetDataLinqGeneratedMetadata)
+            metadataBinder: BindGeneratedMetadata)
     {
         ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
@@ -63,10 +63,15 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
             databaseName: databaseName,
             metadataFactory: MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>,
             createReadOnlyAccess: false,
-            metadataBinder: T.SetDataLinqGeneratedMetadata)
+            metadataBinder: BindGeneratedMetadata)
     {
         ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
+
+    // Keep the delegate target as an ordinary static method. Mono WebAssembly AOT cannot
+    // reliably invoke a delegate that targets this generic static-interface hook directly.
+    private static void BindGeneratedMetadata(DatabaseDefinition metadata) =>
+        T.SetDataLinqGeneratedMetadata(metadata);
 
 }
 

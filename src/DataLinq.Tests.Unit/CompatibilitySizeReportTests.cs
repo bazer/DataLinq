@@ -519,6 +519,24 @@ public class CompatibilitySizeReportTests
             "WebAssembly native varargs are unsupported.",
             [],
             3);
+        var sqlitePclHeaderWarning = new DotnetDiagnostic(
+            DotnetDiagnosticKind.Warning,
+            "WASM0001",
+            "Found a native function (sqlite3_config) with varargs in e_sqlite3. Calling such functions is not supported.",
+            [@"repo\src\DataLinq.BlazorWasm\DataLinq.BlazorWasm.csproj::TargetFramework=net10.0"],
+            1);
+        var sqlitePclDatabaseHeaderWarning = new DotnetDiagnostic(
+            DotnetDiagnosticKind.Warning,
+            "WASM0001",
+            "Found a native function (sqlite3_db_config) with varargs in e_sqlite3. Calling such functions is not supported.",
+            [@"repo\src\DataLinq.BlazorWasm\DataLinq.BlazorWasm.csproj::TargetFramework=net10.0"],
+            1);
+        var dataLinqWasmWarning = new DotnetDiagnostic(
+            DotnetDiagnosticKind.Warning,
+            "WASM0001",
+            "Found a native function (datalinq_callback) with varargs in datalinq_native.",
+            [@"repo\src\DataLinq.BlazorWasm\DataLinq.BlazorWasm.csproj::TargetFramework=net10.0"],
+            1);
 
         await Assert.That(CompatibilityWarningClassifier.Classify(nativeTarget, datalinqWarning))
             .IsEqualTo(CompatibilityWarningOwner.DataLinqOwned);
@@ -526,6 +544,12 @@ public class CompatibilitySizeReportTests
             .IsEqualTo(CompatibilityWarningOwner.ThirdPartyDependency);
         await Assert.That(CompatibilityWarningClassifier.Classify(wasmTarget, wasmWarning))
             .IsEqualTo(CompatibilityWarningOwner.SdkOrWebAssembly);
+        await Assert.That(CompatibilityWarningClassifier.Classify(wasmTarget, sqlitePclHeaderWarning))
+            .IsEqualTo(CompatibilityWarningOwner.ThirdPartyDependency);
+        await Assert.That(CompatibilityWarningClassifier.Classify(wasmTarget, sqlitePclDatabaseHeaderWarning))
+            .IsEqualTo(CompatibilityWarningOwner.ThirdPartyDependency);
+        await Assert.That(CompatibilityWarningClassifier.Classify(wasmTarget, dataLinqWasmWarning))
+            .IsEqualTo(CompatibilityWarningOwner.DataLinqOwned);
         await Assert.That(CompatibilityWarningClassifier.Classify(wasmTarget, datalinqWarning))
             .IsEqualTo(CompatibilityWarningOwner.DataLinqOwned);
         await Assert.That(CompatibilityWarningClassifier.Classify(wasmTarget, thirdPartyWarning))
