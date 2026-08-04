@@ -201,7 +201,11 @@ internal sealed class MemoryRowExecutionPlan
     {
         if (comparison.Operator is not (
                 QueryPlanComparisonOperator.Equal or
-                QueryPlanComparisonOperator.NotEqual) ||
+                QueryPlanComparisonOperator.NotEqual or
+                QueryPlanComparisonOperator.GreaterThan or
+                QueryPlanComparisonOperator.GreaterThanOrEqual or
+                QueryPlanComparisonOperator.LessThan or
+                QueryPlanComparisonOperator.LessThanOrEqual) ||
             comparison.NullSemantics != QueryPlanNullSemantics.Default)
         {
             throw CapabilityInvariant(
@@ -213,10 +217,13 @@ internal sealed class MemoryRowExecutionPlan
             comparison.Right,
             invocation.Template.BindingDeclarations)
                 ? QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar
-                : QueryPlanComparisonShapeFacts.IsNonNullableCanonicalGuidColumnAndScalar(
-                    comparison.Left,
-                    comparison.Right,
-                    invocation.Template.BindingDeclarations)
+                : comparison.Operator is (
+                    QueryPlanComparisonOperator.Equal or
+                    QueryPlanComparisonOperator.NotEqual) &&
+                    QueryPlanComparisonShapeFacts.IsNonNullableCanonicalGuidColumnAndScalar(
+                        comparison.Left,
+                        comparison.Right,
+                        invocation.Template.BindingDeclarations)
                     ? QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar
                     : QueryPlanComparisonShape.DefaultNullSemantics;
         if (comparisonShape == QueryPlanComparisonShape.DefaultNullSemantics)
@@ -226,12 +233,12 @@ internal sealed class MemoryRowExecutionPlan
                 "column-to-scalar shape admitted by a validated capability token.");
         }
 
-        var (column, scalar) = (comparison.Left, comparison.Right) switch
+        var (column, scalar, columnIsLeft) = (comparison.Left, comparison.Right) switch
         {
             (QueryPlanColumnValue leftColumn, QueryPlanScalarBindingReference rightScalar) =>
-                (leftColumn, rightScalar),
+                (leftColumn, rightScalar, true),
             (QueryPlanScalarBindingReference leftScalar, QueryPlanColumnValue rightColumn) =>
-                (rightColumn, leftScalar),
+                (rightColumn, leftScalar, false),
             _ => throw CapabilityInvariant(
                 $"operation {operationIndex} has operands inconsistent with its validated comparison shape.")
         };
@@ -243,7 +250,7 @@ internal sealed class MemoryRowExecutionPlan
                 new MemoryInt32ComparisonPredicate(
                     column.Column,
                     ResolveCanonicalValue<int>(invocation, column.Column, scalar, operationIndex),
-                    comparison.Operator),
+                    NormalizeColumnComparisonOperator(comparison.Operator, columnIsLeft)),
             QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar =>
                 new MemoryGuidComparisonPredicate(
                     column.Column,
@@ -251,6 +258,28 @@ internal sealed class MemoryRowExecutionPlan
                     comparison.Operator),
             _ => throw CapabilityInvariant(
                 $"operation {operationIndex} has unsupported validated comparison shape '{comparisonShape}'.")
+        };
+    }
+
+    private static QueryPlanComparisonOperator NormalizeColumnComparisonOperator(
+        QueryPlanComparisonOperator comparisonOperator,
+        bool columnIsLeft)
+    {
+        if (columnIsLeft)
+            return comparisonOperator;
+
+        return comparisonOperator switch
+        {
+            QueryPlanComparisonOperator.Equal => QueryPlanComparisonOperator.Equal,
+            QueryPlanComparisonOperator.NotEqual => QueryPlanComparisonOperator.NotEqual,
+            QueryPlanComparisonOperator.GreaterThan => QueryPlanComparisonOperator.LessThan,
+            QueryPlanComparisonOperator.GreaterThanOrEqual => QueryPlanComparisonOperator.LessThanOrEqual,
+            QueryPlanComparisonOperator.LessThan => QueryPlanComparisonOperator.GreaterThan,
+            QueryPlanComparisonOperator.LessThanOrEqual => QueryPlanComparisonOperator.GreaterThanOrEqual,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(comparisonOperator),
+                comparisonOperator,
+                "Memory Int32 comparison received an unknown operator.")
         };
     }
 
@@ -439,7 +468,7 @@ internal sealed class MemoryInt32ComparisonPredicate : IMemoryRowPredicate
 {
     private readonly ColumnDefinition column;
     private readonly int canonicalValue;
-    private readonly bool expectEquality;
+    private readonly QueryPlanComparisonOperator comparisonOperator;
 
     internal MemoryInt32ComparisonPredicate(
         ColumnDefinition column,
@@ -448,14 +477,18 @@ internal sealed class MemoryInt32ComparisonPredicate : IMemoryRowPredicate
     {
         this.column = column ?? throw new ArgumentNullException(nameof(column));
         this.canonicalValue = canonicalValue;
-        expectEquality = comparisonOperator switch
+        this.comparisonOperator = comparisonOperator switch
         {
-            QueryPlanComparisonOperator.Equal => true,
-            QueryPlanComparisonOperator.NotEqual => false,
+            QueryPlanComparisonOperator.Equal or
+            QueryPlanComparisonOperator.NotEqual or
+            QueryPlanComparisonOperator.GreaterThan or
+            QueryPlanComparisonOperator.GreaterThanOrEqual or
+            QueryPlanComparisonOperator.LessThan or
+            QueryPlanComparisonOperator.LessThanOrEqual => comparisonOperator,
             _ => throw new ArgumentOutOfRangeException(
                 nameof(comparisonOperator),
                 comparisonOperator,
-                "Memory Int32 comparison supports only equality and inequality.")
+                "Memory Int32 comparison received an unknown operator.")
         };
     }
 
@@ -464,7 +497,17 @@ internal sealed class MemoryInt32ComparisonPredicate : IMemoryRowPredicate
         ArgumentNullException.ThrowIfNull(row);
         var rowValue = row[column];
         return rowValue is int value
-            ? (value == canonicalValue) == expectEquality
+            ? comparisonOperator switch
+            {
+                QueryPlanComparisonOperator.Equal => value == canonicalValue,
+                QueryPlanComparisonOperator.NotEqual => value != canonicalValue,
+                QueryPlanComparisonOperator.GreaterThan => value > canonicalValue,
+                QueryPlanComparisonOperator.GreaterThanOrEqual => value >= canonicalValue,
+                QueryPlanComparisonOperator.LessThan => value < canonicalValue,
+                QueryPlanComparisonOperator.LessThanOrEqual => value <= canonicalValue,
+                _ => throw new InvalidOperationException(
+                    $"Memory Int32 comparison retained unknown operator '{comparisonOperator}'.")
+            }
             : throw new InvalidOperationException(
                 $"Canonical memory row column '{column.Table.DbName}.{column.DbName}' contained " +
                 $"'{rowValue?.GetType().FullName ?? "null"}' after Int32 capability validation.");

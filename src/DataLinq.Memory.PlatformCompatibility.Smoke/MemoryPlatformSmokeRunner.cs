@@ -20,6 +20,7 @@ public sealed record MemoryPlatformSmokeResult(
     int[] FilteredIds,
     int[] NotEqualFilteredIds,
     int[] CompoundFilteredIds,
+    int[] RangeFilteredIds,
     int[] OrderedIds,
     int[] ProjectedGroupIds,
     bool HasRows,
@@ -45,6 +46,7 @@ public sealed record MemoryPlatformSmokeResult(
         FilteredIds.SequenceEqual([-5, 17]) &&
         NotEqualFilteredIds.SequenceEqual([42]) &&
         CompoundFilteredIds.SequenceEqual([-5, 42]) &&
+        RangeFilteredIds.SequenceEqual([-5, 17]) &&
         OrderedIds.SequenceEqual([-5, 17]) &&
         ProjectedGroupIds.SequenceEqual([7, 7, 3]) &&
         HasRows &&
@@ -55,7 +57,7 @@ public sealed record MemoryPlatformSmokeResult(
         UnsupportedRejectedBeforeWork &&
         PreCancellationPreserved &&
         PreCancellationRejectedBeforeWork &&
-        SupportedCapabilityTokenCount == 36;
+        SupportedCapabilityTokenCount == 40;
 
     public string ToDisplayString()
     {
@@ -65,7 +67,7 @@ public sealed record MemoryPlatformSmokeResult(
             $"primitive-rows={PrimitiveStoredRowCount}, guid-rows={GuidStoredRowCount}",
             $"pk-hit={PrimitivePrimaryKeyHit}, pk-miss={PrimitivePrimaryKeyMiss}, canonical-guid-cells={CanonicalGuidCellsStoredAsGuid}",
             $"typed-guid-equality={TypedGuidEqualityHit}, direct-guid-equality={DirectGuidEqualityHit}, guid-miss={GuidEqualityMiss}",
-            $"filtered=[{string.Join(',', FilteredIds)}], not-equal-filtered=[{string.Join(',', NotEqualFilteredIds)}], compound-filtered=[{string.Join(',', CompoundFilteredIds)}], ordered=[{string.Join(',', OrderedIds)}], projected=[{string.Join(',', ProjectedGroupIds)}]",
+            $"filtered=[{string.Join(',', FilteredIds)}], not-equal-filtered=[{string.Join(',', NotEqualFilteredIds)}], compound-filtered=[{string.Join(',', CompoundFilteredIds)}], range-filtered=[{string.Join(',', RangeFilteredIds)}], ordered=[{string.Join(',', OrderedIds)}], projected=[{string.Join(',', ProjectedGroupIds)}]",
             $"any={HasRows}, count={RowCount}, capabilities={SupportedCapabilityTokenCount}",
             $"unsupported-before-work={UnsupportedRejectedBeforeWork}, pre-cancelled-before-work={PreCancellationRejectedBeforeWork}",
             $"unsupported-diagnostic=\"{UnsupportedDiagnostic}\""
@@ -172,6 +174,16 @@ public static class MemoryPlatformSmokeRunner
             .Order()
             .ToArray();
 
+        await ReportStage(reportStage, "querying-relational-range");
+        var lowerInclusive = -5;
+        var upperExclusive = 42;
+        var rangeFilteredIds = query.PrimitiveRows
+            .Where(row => row.Id >= lowerInclusive && row.Id < upperExclusive)
+            .ToArray()
+            .Select(static row => row.Id)
+            .Order()
+            .ToArray();
+
         await ReportStage(reportStage, "querying-canonical-guid-equality");
         var typedGuidProbe = new MemoryPlatformGuidId(KnownGuidId);
         var directGuidProbe = KnownDirectGuid;
@@ -241,6 +253,7 @@ public static class MemoryPlatformSmokeRunner
             FilteredIds: filteredIds,
             NotEqualFilteredIds: notEqualFilteredIds,
             CompoundFilteredIds: compoundFilteredIds,
+            RangeFilteredIds: rangeFilteredIds,
             OrderedIds: orderedIds,
             ProjectedGroupIds: projectedGroupIds,
             HasRows: hasRows,

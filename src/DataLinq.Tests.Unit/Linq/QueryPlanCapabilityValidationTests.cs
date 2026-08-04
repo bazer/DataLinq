@@ -1331,6 +1331,35 @@ public class QueryPlanCapabilityValidationTests
                 QueryPlanComparisonOperator.Equal,
                 userId),
             guidCapture));
+        QueryPlanComparisonOperator[] relationalOperators =
+        [
+            QueryPlanComparisonOperator.GreaterThan,
+            QueryPlanComparisonOperator.GreaterThanOrEqual,
+            QueryPlanComparisonOperator.LessThan,
+            QueryPlanComparisonOperator.LessThanOrEqual
+        ];
+        var relationalInt32Shapes = relationalOperators
+            .Select(@operator => (
+                Direct: ExtractShape(CreatePredicateInvocation(
+                    source,
+                    new QueryPlanPredicate.Compare(employeeNumber, @operator, directScalar),
+                    directCapture)),
+                Reversed: ExtractShape(CreatePredicateInvocation(
+                    source,
+                    new QueryPlanPredicate.Compare(directScalar, @operator, employeeNumber),
+                    directCapture))))
+            .ToArray();
+        var relationalGuidShapes = relationalOperators
+            .Select(@operator => (
+                Direct: ExtractShape(CreatePredicateInvocation(
+                    userSource,
+                    new QueryPlanPredicate.Compare(userId, @operator, guidScalar),
+                    guidCapture)),
+                Reversed: ExtractShape(CreatePredicateInvocation(
+                    userSource,
+                    new QueryPlanPredicate.Compare(guidScalar, @operator, userId),
+                    guidCapture))))
+            .ToArray();
 
         await Assert.That(direct).IsEqualTo(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar);
         await Assert.That(reversed).IsEqualTo(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar);
@@ -1344,6 +1373,21 @@ public class QueryPlanCapabilityValidationTests
             .IsEqualTo(QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar);
         await Assert.That(reversedGuid)
             .IsEqualTo(QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar);
+        foreach (var shape in relationalInt32Shapes)
+        {
+            await Assert.That(shape.Direct)
+                .IsEqualTo(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar);
+            await Assert.That(shape.Reversed)
+                .IsEqualTo(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar);
+        }
+
+        foreach (var shape in relationalGuidShapes)
+        {
+            await Assert.That(shape.Direct)
+                .IsEqualTo(QueryPlanComparisonShape.DefaultNullSemantics);
+            await Assert.That(shape.Reversed)
+                .IsEqualTo(QueryPlanComparisonShape.DefaultNullSemantics);
+        }
 
         static QueryPlanComparisonShape ExtractShape(QueryPlanInvocation invocation) =>
             (QueryPlanComparisonShape)QueryPlanRequirements.Extract(invocation).Structural.Single(

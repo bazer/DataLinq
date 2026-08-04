@@ -627,7 +627,10 @@ internal sealed class QueryPlanRequirements
                     return QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar;
                 }
 
-                if (QueryPlanComparisonShapeFacts.IsNonNullableCanonicalGuidColumnAndScalar(
+                if (comparison.Operator is (
+                        QueryPlanComparisonOperator.Equal or
+                        QueryPlanComparisonOperator.NotEqual) &&
+                    QueryPlanComparisonShapeFacts.IsNonNullableCanonicalGuidColumnAndScalar(
                         comparison.Left,
                         comparison.Right,
                         invocation.Template.BindingDeclarations))

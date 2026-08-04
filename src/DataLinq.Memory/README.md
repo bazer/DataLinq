@@ -14,18 +14,18 @@
 
 ## Current query subset
 
-The preview intentionally supports only its capability-gated subset. The current profile contains exactly 36 capability tokens:
+The preview intentionally supports only its capability-gated subset. The current profile contains exactly 40 capability tokens:
 
 - root entity scans;
-- exact non-null direct `Int32` column/scalar equality and inequality (`==` and `!=`) in either operand order;
+- exact direct non-nullable converter-free model/provider `Int32` column/scalar equality, inequality, and relational comparison (`==`, `!=`, `<`, `<=`, `>`, and `>=`) in either operand order;
 - exact non-null direct `Guid` and resolved Guid-backed typed-ID column/scalar equality and inequality (`==` and `!=`) in either operand order;
 - nested Boolean composition with `&&`, `||`, and `!` over only those admitted comparison leaves, with left-to-right row-time short-circuiting;
 - one ascending or descending ordering over a direct, non-null, converter-free `Int32` single-column primary key, optionally followed by one final `Take`;
 - a final direct, non-null, converter-free `Int32` scalar projection; and
 - selectorless `Any` and `Count` over admitted entity or scalar sequences.
 
-Unsupported query shapes fail before memory row work. Nearby unsupported shapes include nullable operands or null bindings, strings, widened or boxed numerics, column-to-column comparisons, typed-ID member unwrapping, ordered comparisons, standalone Boolean constants, Boolean columns or functions, any Boolean tree containing an unsupported leaf, membership, `Skip`, `ThenBy`, element terminals, anonymous projections, joins, relation navigation, and grouping. Public lookup is limited to an exact single-column primary key; composite lookup is not supported. `MemoryDatabase<TDatabase>` and the public neutral read-source contract expose no post-seed insert/update/delete, transaction, connection, provider, command, or raw-SQL service, and the preview does not support durability, persistence, arbitrary projections, or general LINQ parity. Generated model types remain eligible for shared core SQL-only APIs: `Get(...)` is static, and transaction-taking mutation uses shared extensions; neither is a Memory operation. The legacy inherited `GetDataSource()` member and parameterless `Delete()` extension reject before provider or backend work. No generated lookup overload has a source parameter typed as `MemoryDatabase<TDatabase>` or `IDataLinqReadSource` alone; the existing overloads require the SQL-capable `IDataSourceAccess` contract.
+Unsupported query shapes fail before memory row work. Nearby unsupported shapes include nullable operands or null bindings, strings, widened or boxed numerics, column-to-column comparisons, typed-ID member unwrapping, relational comparisons outside the exact direct `Int32` fence, standalone Boolean constants, Boolean columns or functions, any Boolean tree containing an unsupported leaf, membership, `Skip`, `ThenBy`, element terminals, anonymous projections, joins, relation navigation, and grouping. Public lookup is limited to an exact single-column primary key; composite lookup is not supported. `MemoryDatabase<TDatabase>` and the public neutral read-source contract expose no post-seed insert/update/delete, transaction, connection, provider, command, or raw-SQL service, and the preview does not support durability, persistence, arbitrary projections, or general LINQ parity. Generated model types remain eligible for shared core SQL-only APIs: `Get(...)` is static, and transaction-taking mutation uses shared extensions; neither is a Memory operation. The legacy inherited `GetDataSource()` member and parameterless `Delete()` extension reject before provider or backend work. No generated lookup overload has a source parameter typed as `MemoryDatabase<TDatabase>` or `IDataLinqReadSource` alone; the existing overloads require the SQL-capable `IDataSourceAccess` contract.
 
-This checkpoint advances only bounded M1 Boolean composition over the existing comparison leaves. It does not complete M1; M1 as a whole and M2 remain open.
+This checkpoint advances only bounded M1 exact non-null `Int32` relational comparison over the existing Boolean-composed query island. It does not complete M1; M1 as a whole and M2 remain open.
 
 The memory store keeps canonical provider values but never applies SQL wire/storage codecs. Comparisons against SQL providers are development evidence only and are not part of this package's supported contract.

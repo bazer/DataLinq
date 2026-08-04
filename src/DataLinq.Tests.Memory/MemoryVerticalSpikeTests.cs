@@ -242,6 +242,10 @@ public sealed class MemoryVerticalSpikeTests
         [
             "BindingKind:Scalar",
             "ComparisonOperator:Equal",
+            "ComparisonOperator:GreaterThan",
+            "ComparisonOperator:GreaterThanOrEqual",
+            "ComparisonOperator:LessThan",
+            "ComparisonOperator:LessThanOrEqual",
             "ComparisonOperator:NotEqual",
             "ComparisonShape:DirectNonNullableInt32ColumnAndScalar",
             "ComparisonShape:NonNullableCanonicalGuidColumnAndScalar",

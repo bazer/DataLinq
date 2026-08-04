@@ -470,6 +470,43 @@ public sealed class MemorySQLiteParityTests
         }
     }
 
+    [Test]
+    public async Task AdmittedPrimitiveRelationalRangeIsland_MatchesSQLiteForTheSameInvocations()
+    {
+        var memory = CreateMemoryDatabase();
+        using var sqlite = new SQLiteDatabase<MemoryPrimitiveDatabase>("Data Source=:memory:");
+        await InitializeSQLite(sqlite);
+
+        var rows = memory.Model.Rows;
+        var lowerExclusive = -11;
+        var upperInclusive = 17;
+        var columnFirstQuery = rows
+            .Where(row => row.Id > lowerExclusive && row.Id <= upperInclusive)
+            .OrderBy(static row => row.Id)
+            .Select(static row => row.Id);
+
+        var firstBinding = ExecuteSequence(memory, sqlite, columnFirstQuery);
+        lowerExclusive = int.MinValue;
+        upperInclusive = 0;
+        var reboundBinding = ExecuteSequence(memory, sqlite, columnFirstQuery);
+        var scalarFirstQuery = rows
+            .Where(row => lowerExclusive < row.Id && upperInclusive >= row.Id)
+            .OrderBy(static row => row.Id)
+            .Select(static row => row.Id);
+        var reversedOperands = ExecuteSequence(memory, sqlite, scalarFirstQuery);
+
+        await Assert.That(string.Join(",", firstBinding.Memory)).IsEqualTo("0,17");
+        await Assert.That(string.Join(",", firstBinding.SQLite))
+            .IsEqualTo(string.Join(",", firstBinding.Memory));
+        await Assert.That(string.Join(",", reboundBinding.Memory)).IsEqualTo("-11,0");
+        await Assert.That(string.Join(",", reboundBinding.SQLite))
+            .IsEqualTo(string.Join(",", reboundBinding.Memory));
+        await Assert.That(string.Join(",", reversedOperands.Memory))
+            .IsEqualTo(string.Join(",", reboundBinding.Memory));
+        await Assert.That(string.Join(",", reversedOperands.SQLite))
+            .IsEqualTo(string.Join(",", reversedOperands.Memory));
+    }
+
     private static ProviderPair<ParityObservation> Observe(
         MemoryDatabase<MemoryPrimitiveDatabase> memory,
         SQLiteDatabase<MemoryPrimitiveDatabase> sqlite,

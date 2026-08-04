@@ -25,9 +25,10 @@ public sealed class MemoryPlatformCompatibilitySmokeTests
         var result = MemoryPlatformSmokeRunner.Run();
 
         await Assert.That(result.Passed).IsTrue();
-        await Assert.That(result.SupportedCapabilityTokenCount).IsEqualTo(36);
+        await Assert.That(result.SupportedCapabilityTokenCount).IsEqualTo(40);
         await Assert.That(result.NotEqualFilteredIds).IsEquivalentTo([42]);
         await Assert.That(result.CompoundFilteredIds).IsEquivalentTo([-5, 42]);
+        await Assert.That(result.RangeFilteredIds).IsEquivalentTo([-5, 17]);
         await Assert.That(result.CanonicalGuidCellsStoredAsGuid).IsTrue();
         await Assert.That(result.TypedGuidEqualityHit).IsTrue();
         await Assert.That(result.DirectGuidEqualityHit).IsTrue();
