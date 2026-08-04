@@ -666,6 +666,99 @@ public sealed class MemorySQLiteParityTests
     }
 
     [Test]
+    public async Task AdmittedOrderedFirstResultIsland_MatchesSQLiteForTheSameInvocations()
+    {
+        var memory = CreateMemoryDatabase();
+        using var sqlite = new SQLiteDatabase<MemoryPrimitiveDatabase>("Data Source=:memory:");
+        await InitializeSQLite(sqlite);
+
+        var rows = memory.Model.Rows;
+        var matchingGroupId = 7;
+        var missingId = 99;
+        var ascendingEntity = ExecuteScalar(
+            memory,
+            sqlite,
+            () => rows
+                .OrderBy(static row => row.Id)
+                .First());
+        var descendingEntity = ExecuteScalar(
+            memory,
+            sqlite,
+            () => rows
+                .OrderByDescending(static row => row.Id)
+                .FirstOrDefault()!);
+        var predicateEntity = ExecuteScalar(
+            memory,
+            sqlite,
+            () => rows
+                .OrderBy(static row => row.Id)
+                .First(row => row.GroupId == matchingGroupId));
+        var missingEntity = ExecuteScalar(
+            memory,
+            sqlite,
+            () => rows
+                .Where(row => row.Id == missingId)
+                .OrderBy(static row => row.Id)
+                .FirstOrDefault()!);
+        var ascendingScalar = ExecuteScalar(
+            memory,
+            sqlite,
+            () => rows
+                .OrderBy(static row => row.Id)
+                .Select(static row => row.GroupId)
+                .First());
+        var descendingPredicateScalar = ExecuteScalar(
+            memory,
+            sqlite,
+            () => rows
+                .Where(row => row.GroupId == matchingGroupId)
+                .OrderByDescending(static row => row.Id)
+                .Select(static row => row.Id)
+                .FirstOrDefault());
+        var missingScalar = ExecuteScalar(
+            memory,
+            sqlite,
+            () => rows
+                .Where(row => row.Id == missingId)
+                .OrderBy(static row => row.Id)
+                .Select(static row => row.GroupId)
+                .FirstOrDefault());
+
+        await Assert.That(ascendingEntity.Memory.Id).IsEqualTo(int.MinValue);
+        await Assert.That(ascendingEntity.SQLite.Id).IsEqualTo(ascendingEntity.Memory.Id);
+        await Assert.That(descendingEntity.Memory.Id).IsEqualTo(int.MaxValue);
+        await Assert.That(descendingEntity.SQLite.Id).IsEqualTo(descendingEntity.Memory.Id);
+        await Assert.That(predicateEntity.Memory.Id).IsEqualTo(-11);
+        await Assert.That(predicateEntity.SQLite.Id).IsEqualTo(predicateEntity.Memory.Id);
+        await Assert.That(missingEntity.Memory).IsNull();
+        await Assert.That(missingEntity.SQLite).IsNull();
+        await Assert.That(ascendingScalar.Memory).IsEqualTo(3);
+        await Assert.That(ascendingScalar.SQLite).IsEqualTo(ascendingScalar.Memory);
+        await Assert.That(descendingPredicateScalar.Memory).IsEqualTo(int.MaxValue);
+        await Assert.That(descendingPredicateScalar.SQLite)
+            .IsEqualTo(descendingPredicateScalar.Memory);
+        await Assert.That(missingScalar.Memory).IsEqualTo(0);
+        await Assert.That(missingScalar.SQLite).IsEqualTo(missingScalar.Memory);
+
+        Expression<Func<MemoryPrimitiveRow>> emptyFirst = () =>
+            rows
+                .OrderBy(static row => row.Id)
+                .First(row => row.Id == missingId);
+        var emptyInvocation = ExpressionQueryPlanParser.Convert(
+            memory.Metadata,
+            emptyFirst.Body,
+            typeof(MemoryPrimitiveRow));
+        var expectedEmpty = Capture<InvalidOperationException>(() => Array.Empty<int>().First());
+        var memoryEmpty = Capture<InvalidOperationException>(() =>
+            ExpressionQueryPlanExecutor.Execute<MemoryPrimitiveRow>(memory.ReadSource, emptyInvocation));
+        var sqliteEmpty = Capture<InvalidOperationException>(() =>
+            ExpressionQueryPlanExecutor.Execute<MemoryPrimitiveRow>(sqlite.Provider.ReadOnlyAccess, emptyInvocation));
+
+        await Assert.That(memoryEmpty.Message).IsEqualTo(expectedEmpty.Message);
+        await Assert.That(sqliteEmpty.Message).IsEqualTo(memoryEmpty.Message);
+    }
+
+    [Test]
     public async Task AdmittedOrderedSkipIsland_MatchesSQLiteForTheSameInvocations()
     {
         var memory = CreateMemoryDatabase();

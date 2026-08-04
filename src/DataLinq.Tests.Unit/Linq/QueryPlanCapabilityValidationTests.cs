@@ -61,7 +61,8 @@ public class QueryPlanCapabilityValidationTests
             [QueryPlanFeatureCategory.LocalSequenceShape] = 3,
             [QueryPlanFeatureCategory.OrderingShape] = 2,
             [QueryPlanFeatureCategory.PagingCompositionShape] = 7,
-            [QueryPlanFeatureCategory.ScalarProjectionShape] = 2
+            [QueryPlanFeatureCategory.ScalarProjectionShape] = 2,
+            [QueryPlanFeatureCategory.ResultCompositionShape] = 2
         };
 
         var actualCategoryCounts = QueryPlanFeatureCatalog.All
@@ -77,15 +78,15 @@ public class QueryPlanCapabilityValidationTests
                 $"{feature.Token}={QueryBackendCapabilities.Sql.GetDisposition(feature)}"));
         var sqlMatrixFingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sqlMatrix)));
 
-        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(614);
+        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(616);
         await Assert.That(tokens.Distinct(StringComparer.Ordinal).Count()).IsEqualTo(tokens.Length);
         await Assert.That(actualCategoryCounts.Count).IsEqualTo(expectedCategoryCounts.Count);
         foreach (var expected in expectedCategoryCounts)
             await Assert.That(actualCategoryCounts[expected.Key]).IsEqualTo(expected.Value);
 
-        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(356);
+        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(358);
         await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Unsupported)).IsEqualTo(258);
-        await Assert.That(sqlMatrixFingerprint).IsEqualTo("28EFE588DD1A55F406F8AAB9EE7477458ED6ADB8FE0C163C9B56EE7E92644292");
+        await Assert.That(sqlMatrixFingerprint).IsEqualTo("58EFC3317462A864AF44233C00943AB75FB2119C18E1F16EE2A0578480EAEF60");
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.Projection(QueryPlanProjectionKind.TransparentIdentifier)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
@@ -147,6 +148,13 @@ public class QueryPlanCapabilityValidationTests
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.RepeatedSkipInScope)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.ResultCompositionShape(
+                QueryPlanResultCompositionShape.FirstAfterSingleOrdering)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.ResultCompositionShape(QueryPlanResultCompositionShape.Other)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
     }
 
     [Test]
@@ -464,6 +472,101 @@ public class QueryPlanCapabilityValidationTests
         static QueryPlanOrderingShape ExtractOrderingShape(QueryPlanInvocation invocation) =>
             (QueryPlanOrderingShape)QueryPlanRequirements.Extract(invocation).Structural.Single(
                 static requirement => requirement.Feature.Category == QueryPlanFeatureCategory.OrderingShape).Feature.Value;
+    }
+
+    [Test]
+    public async Task Requirements_ClassifyOnlyFirstAfterOneOrderingAndWhereOperations()
+    {
+        var table = GetGeneratedNeutralTable();
+        var source = Source("s0", "t0", table, QueryPlanSourceKind.RootTable);
+        var id = new QueryPlanColumnValue(
+            source,
+            table.GetColumnByPropertyName(nameof(GeneratedNeutralMaterializationRow.Id)));
+        var ascending = new QueryPlanOperation.OrderBy([
+            new QueryPlanOrdering(id, QueryPlanOrderingDirection.Ascending)
+        ]);
+        var descending = new QueryPlanOperation.OrderBy([
+            new QueryPlanOrdering(id, QueryPlanOrderingDirection.Descending)
+        ]);
+        var where = new QueryPlanOperation.Where(new QueryPlanPredicate.Fixed(true));
+        var capture = new QueryPlanBindingCapture();
+        var take = new QueryPlanOperation.Take(capture.CaptureScalar(1, typeof(int)));
+
+        var exactAscending = CreateFirstInvocation(source, [ascending], QueryPlanResultKind.First);
+        var exactDescending = CreateFirstInvocation(source, [descending], QueryPlanResultKind.FirstOrDefault);
+        var exactWhereComposition = CreateFirstInvocation(
+            source,
+            [where, ascending, where],
+            QueryPlanResultKind.FirstOrDefault);
+        var bare = CreateFirstInvocation(source, [], QueryPlanResultKind.First);
+        var repeatedOrdering = CreateFirstInvocation(
+            source,
+            [ascending, descending],
+            QueryPlanResultKind.First);
+        var thenBy = CreateFirstInvocation(
+            source,
+            [new QueryPlanOperation.OrderBy([
+                new QueryPlanOrdering(id, QueryPlanOrderingDirection.Ascending),
+                new QueryPlanOrdering(id, QueryPlanOrderingDirection.Descending)
+            ])],
+            QueryPlanResultKind.First);
+        var paged = CreateFirstInvocation(
+            source,
+            [ascending, take],
+            QueryPlanResultKind.First,
+            capture);
+
+        await Assert.That(ExtractResultCompositionShape(exactAscending))
+            .IsEqualTo(QueryPlanResultCompositionShape.FirstAfterSingleOrdering);
+        await Assert.That(ExtractResultCompositionShape(exactDescending))
+            .IsEqualTo(QueryPlanResultCompositionShape.FirstAfterSingleOrdering);
+        await Assert.That(ExtractResultCompositionShape(exactWhereComposition))
+            .IsEqualTo(QueryPlanResultCompositionShape.FirstAfterSingleOrdering);
+        await Assert.That(ExtractResultCompositionShape(bare))
+            .IsEqualTo(QueryPlanResultCompositionShape.Other);
+        await Assert.That(ExtractResultCompositionShape(repeatedOrdering))
+            .IsEqualTo(QueryPlanResultCompositionShape.Other);
+        await Assert.That(ExtractResultCompositionShape(thenBy))
+            .IsEqualTo(QueryPlanResultCompositionShape.Other);
+        await Assert.That(ExtractResultCompositionShape(paged))
+            .IsEqualTo(QueryPlanResultCompositionShape.Other);
+
+        var unsupported = Capture<QueryBackendCapabilityException>(() =>
+            QueryPlanCapabilityValidator.Validate(
+                exactAscending,
+                WithUnsupported(
+                    "without-ordered-first",
+                    QueryPlanFeature.ResultCompositionShape(
+                        QueryPlanResultCompositionShape.FirstAfterSingleOrdering))));
+
+        await Assert.That(unsupported.Feature)
+            .IsEqualTo("ResultCompositionShape:FirstAfterSingleOrdering");
+        await Assert.That(unsupported.Location).IsEqualTo("result.composition.shape");
+        await Assert.That(unsupported.SourceId).IsEqualTo("s0");
+
+        static QueryPlanResultCompositionShape ExtractResultCompositionShape(
+            QueryPlanInvocation invocation) =>
+            (QueryPlanResultCompositionShape)QueryPlanRequirements.Extract(invocation).Structural.Single(
+                static requirement => requirement.Feature.Category ==
+                    QueryPlanFeatureCategory.ResultCompositionShape).Feature.Value;
+
+        static QueryPlanInvocation CreateFirstInvocation(
+            QueryPlanSourceSlot source,
+            IEnumerable<QueryPlanOperation> operations,
+            QueryPlanResultKind resultKind,
+            QueryPlanBindingCapture? capture = null)
+        {
+            capture ??= new QueryPlanBindingCapture();
+            var template = new QueryPlanTemplate(
+                [source],
+                operations,
+                new QueryPlanProjection.Entity(source),
+                new QueryPlanResult(resultKind, source.ElementType),
+                capture.CreateDeclarations(),
+                capture.CreateSpecialization());
+
+            return QueryPlanInvocation.Bind(template, capture.InvocationValues);
+        }
     }
 
     [Test]

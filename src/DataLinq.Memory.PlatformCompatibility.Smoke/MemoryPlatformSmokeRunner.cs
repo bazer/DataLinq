@@ -31,6 +31,10 @@ public sealed record MemoryPlatformSmokeResult(
     int SingleScalarValue,
     int SingleScalarDefaultValue,
     bool MultipleSingleRejectedBeforeMaterialization,
+    int FirstEntityId,
+    bool FirstEntityDefaultIsNull,
+    int FirstScalarValue,
+    int FirstScalarDefaultValue,
     bool HasRows,
     int RowCount,
     string UnsupportedDiagnostic,
@@ -65,6 +69,10 @@ public sealed record MemoryPlatformSmokeResult(
         SingleScalarValue == 3 &&
         SingleScalarDefaultValue == 0 &&
         MultipleSingleRejectedBeforeMaterialization &&
+        FirstEntityId == 17 &&
+        FirstEntityDefaultIsNull &&
+        FirstScalarValue == 7 &&
+        FirstScalarDefaultValue == 0 &&
         HasRows &&
         RowCount == 3 &&
         UnsupportedDiagnostic.Contains(
@@ -73,7 +81,7 @@ public sealed record MemoryPlatformSmokeResult(
         UnsupportedRejectedBeforeWork &&
         PreCancellationPreserved &&
         PreCancellationRejectedBeforeWork &&
-        SupportedCapabilityTokenCount == 54;
+        SupportedCapabilityTokenCount == 57;
 
     public string ToDisplayString()
     {
@@ -85,6 +93,7 @@ public sealed record MemoryPlatformSmokeResult(
             $"typed-guid-equality={TypedGuidEqualityHit}, direct-guid-equality={DirectGuidEqualityHit}, guid-miss={GuidEqualityMiss}",
             $"filtered=[{string.Join(',', FilteredIds)}], not-equal-filtered=[{string.Join(',', NotEqualFilteredIds)}], compound-filtered=[{string.Join(',', CompoundFilteredIds)}], range-filtered=[{string.Join(',', RangeFilteredIds)}], membership-filtered=[{string.Join(',', MembershipFilteredIds)}], ordered=[{string.Join(',', OrderedIds)}], skipped=[{string.Join(',', SkippedIds)}], windowed=[{string.Join(',', WindowedIds)}], projected=[{string.Join(',', ProjectedGroupIds)}]",
             $"single-entity={SingleEntityId}, single-entity-default-null={SingleEntityDefaultIsNull}, single-scalar={SingleScalarValue}, single-scalar-default={SingleScalarDefaultValue}, single-multiple-before-materialization={MultipleSingleRejectedBeforeMaterialization}",
+            $"first-entity={FirstEntityId}, first-entity-default-null={FirstEntityDefaultIsNull}, first-scalar={FirstScalarValue}, first-scalar-default={FirstScalarDefaultValue}",
             $"any={HasRows}, count={RowCount}, capabilities={SupportedCapabilityTokenCount}",
             $"unsupported-before-work={UnsupportedRejectedBeforeWork}, pre-cancelled-before-work={PreCancellationRejectedBeforeWork}",
             $"unsupported-diagnostic=\"{UnsupportedDiagnostic}\""
@@ -269,6 +278,24 @@ public static class MemoryPlatformSmokeRunner
             afterMultipleSingle.CacheLookups == beforeMultipleSingle.CacheLookups &&
             afterMultipleSingle.Materializations == beforeMultipleSingle.Materializations;
 
+        await ReportStage(reportStage, "querying-ordered-first-results");
+        var firstEntity = query.PrimitiveRows
+            .OrderByDescending(static row => row.Id)
+            .First(static row => row.GroupId == 7);
+        var firstEntityDefault = query.PrimitiveRows
+            .Where(static row => row.Id == 999)
+            .OrderBy(static row => row.Id)
+            .FirstOrDefault();
+        var firstScalar = query.PrimitiveRows
+            .OrderBy(static row => row.Id)
+            .Select(static row => row.GroupId)
+            .First();
+        var firstScalarDefault = query.PrimitiveRows
+            .Where(static row => row.Id == 999)
+            .OrderBy(static row => row.Id)
+            .Select(static row => row.GroupId)
+            .FirstOrDefault();
+
         await ReportStage(reportStage, "querying-any-and-count");
         var hasRows = query.PrimitiveRows.Any();
         var rowCount = query.PrimitiveRows.Count();
@@ -327,6 +354,10 @@ public static class MemoryPlatformSmokeRunner
             SingleScalarValue: singleScalar,
             SingleScalarDefaultValue: singleScalarDefault,
             MultipleSingleRejectedBeforeMaterialization: multipleSingleRejectedBeforeMaterialization,
+            FirstEntityId: firstEntity.Id,
+            FirstEntityDefaultIsNull: firstEntityDefault is null,
+            FirstScalarValue: firstScalar,
+            FirstScalarDefaultValue: firstScalarDefault,
             HasRows: hasRows,
             RowCount: rowCount,
             UnsupportedDiagnostic: unsupported.Message,

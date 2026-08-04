@@ -45,7 +45,8 @@ internal enum QueryPlanFeatureCategory
     LocalSequenceShape,
     OrderingShape,
     PagingCompositionShape,
-    ScalarProjectionShape
+    ScalarProjectionShape,
+    ResultCompositionShape
 }
 
 internal enum QueryPlanSourceCountKind
@@ -345,6 +346,31 @@ internal static class QueryPlanPagingCompositionShapeFacts
     }
 }
 
+internal enum QueryPlanResultCompositionShape
+{
+    FirstAfterSingleOrdering,
+    Other
+}
+
+internal static class QueryPlanResultCompositionShapeFacts
+{
+    internal static QueryPlanResultCompositionShape Classify(
+        IReadOnlyList<QueryPlanOperation> operations)
+    {
+        ArgumentNullException.ThrowIfNull(operations);
+        var orderByOperations = operations.OfType<QueryPlanOperation.OrderBy>().ToArray();
+        if (orderByOperations.Length != 1 ||
+            orderByOperations[0].Orderings.Count != 1 ||
+            operations.Any(static operation =>
+                operation is not QueryPlanOperation.OrderBy and not QueryPlanOperation.Where))
+        {
+            return QueryPlanResultCompositionShape.Other;
+        }
+
+        return QueryPlanResultCompositionShape.FirstAfterSingleOrdering;
+    }
+}
+
 internal enum QueryPlanScalarProjectionShape
 {
     DirectNonNullableInt32RootColumn,
@@ -551,6 +577,9 @@ internal readonly record struct QueryPlanFeature(
     public static QueryPlanFeature PagingCompositionShape(QueryPlanPagingCompositionShape value) =>
         new(QueryPlanFeatureCategory.PagingCompositionShape, (int)value);
 
+    public static QueryPlanFeature ResultCompositionShape(QueryPlanResultCompositionShape value) =>
+        new(QueryPlanFeatureCategory.ResultCompositionShape, (int)value);
+
     public static QueryPlanFeature ScalarProjectionShape(QueryPlanScalarProjectionShape value) =>
         new(QueryPlanFeatureCategory.ScalarProjectionShape, (int)value);
 
@@ -597,6 +626,7 @@ internal readonly record struct QueryPlanFeature(
         QueryPlanFeatureCategory.LocalSequenceShape => Name<QueryPlanLocalSequenceShapeKind>(),
         QueryPlanFeatureCategory.OrderingShape => Name<QueryPlanOrderingShape>(),
         QueryPlanFeatureCategory.PagingCompositionShape => Name<QueryPlanPagingCompositionShape>(),
+        QueryPlanFeatureCategory.ResultCompositionShape => Name<QueryPlanResultCompositionShape>(),
         QueryPlanFeatureCategory.ScalarProjectionShape => Name<QueryPlanScalarProjectionShape>(),
         _ => Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
     };
@@ -651,6 +681,7 @@ internal static class QueryPlanFeatureCatalog
         Add(features, Enum.GetValues<QueryPlanProjectionSupportedMemberKind>(), QueryPlanFeature.ProjectionSupportedMember);
         Add(features, Enum.GetValues<QueryPlanProjectionFunctionKind>(), QueryPlanFeature.ProjectionFunction);
         Add(features, Enum.GetValues<QueryPlanResultKind>(), QueryPlanFeature.Result);
+        Add(features, Enum.GetValues<QueryPlanResultCompositionShape>(), QueryPlanFeature.ResultCompositionShape);
         Add(features, Enum.GetValues<QueryPlanBindingKind>(), QueryPlanFeature.BindingKind);
         Add(features, Enum.GetValues<QueryPlanBindingNullness>(), QueryPlanFeature.ScalarNullness);
         Add(features, Enum.GetValues<QueryPlanLocalSequenceShapeKind>(), QueryPlanFeature.LocalSequenceShape);
@@ -809,6 +840,7 @@ internal sealed class QueryBackendCapabilities
                     QueryPlanPagingCompositionShape.Other
                     ? QueryBackendCapabilityDisposition.Supported
                     : QueryBackendCapabilityDisposition.Unsupported,
+            QueryPlanFeatureCategory.ResultCompositionShape => QueryBackendCapabilityDisposition.Supported,
             QueryPlanFeatureCategory.ScalarProjectionShape => QueryBackendCapabilityDisposition.Supported,
             QueryPlanFeatureCategory.SourceCount or
             QueryPlanFeatureCategory.SourceKind or

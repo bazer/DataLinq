@@ -78,7 +78,11 @@ internal sealed class QueryPlanRequirements
                 template.Sources[0].Id);
 
             VisitProjection(template.Projection, template.Sources, "projection");
-            VisitResult(template.Result, "result", template.Sources[0].Id);
+            VisitResult(
+                template.Result,
+                template.Operations,
+                "result",
+                template.Sources[0].Id);
 
             for (var index = 0; index < template.BindingDeclarations.Count; index++)
             {
@@ -558,8 +562,21 @@ internal sealed class QueryPlanRequirements
                 VisitRecipe(recipes[index], $"{location}[{index}]");
         }
 
-        private void VisitResult(QueryPlanResult result, string location, string defaultSourceId)
+        private void VisitResult(
+            QueryPlanResult result,
+            IReadOnlyList<QueryPlanOperation> operations,
+            string location,
+            string defaultSourceId)
         {
+            if (result.Kind is QueryPlanResultKind.First or QueryPlanResultKind.FirstOrDefault)
+            {
+                AddStructural(
+                    QueryPlanFeature.ResultCompositionShape(
+                        QueryPlanResultCompositionShapeFacts.Classify(operations)),
+                    $"{location}.composition.shape",
+                    defaultSourceId);
+            }
+
             AddStructural(
                 QueryPlanFeature.Result(result.Kind),
                 location,

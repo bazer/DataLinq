@@ -127,7 +127,8 @@ public sealed class MemoryScalarProjectionTests
         }
 
         await Assert.That(terminalProjection.Message).Contains(
-            "Backend 'memory' cannot execute query plan feature 'Result:First'");
+            "Backend 'memory' cannot execute query plan feature 'ResultCompositionShape:Other'");
+        await Assert.That(terminalProjection.Message).Contains("Location: result.composition.shape");
         await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(before.ScanRowsVisited);
         await Assert.That(database.Diagnostics.PredicateEvaluations).IsEqualTo(before.PredicateEvaluations);
         await Assert.That(database.Diagnostics.CacheLookups).IsEqualTo(before.CacheLookups);
