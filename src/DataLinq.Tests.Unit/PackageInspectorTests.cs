@@ -41,6 +41,23 @@ public class PackageInspectorTests
     }
 
     [Test]
+    public async Task PublishScript_UsesMemoryProjectAndMinVerVersionOverride()
+    {
+        var scriptPath = Path.Combine(RepositoryRootLocator.Find(), "publish-nuget.ps1");
+        var script = File.ReadAllText(scriptPath);
+
+        await Assert.That(script.Contains(
+            "src\\DataLinq.Memory\\DataLinq.Memory.csproj",
+            StringComparison.Ordinal)).IsTrue();
+        await Assert.That(script.Contains(
+            "-p:MinVerVersionOverride=$Version",
+            StringComparison.Ordinal)).IsTrue();
+        await Assert.That(script.Contains(
+            "-p:PackageVersion=$Version",
+            StringComparison.Ordinal)).IsFalse();
+    }
+
+    [Test]
     public async Task Inspector_AcceptsCleanAlignedCoreAndMemoryPackages()
     {
         using var fixture = new PackageFixture();

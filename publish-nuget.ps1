@@ -143,7 +143,7 @@ try {
             )
 
             if (-not [string]::IsNullOrWhiteSpace($Version)) {
-                $arguments += "-p:PackageVersion=$Version"
+                $arguments += "-p:MinVerVersionOverride=$Version"
             }
 
             if ($PSCmdlet.ShouldProcess($packageProject.Name, "dotnet pack")) {
