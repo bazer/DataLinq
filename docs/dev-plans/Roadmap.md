@@ -5,7 +5,7 @@
 
 **Status:** Active.
 
-**Last reviewed:** 2026-08-03.
+**Last reviewed:** 2026-08-04.
 
 ## Purpose
 
@@ -37,7 +37,7 @@ The important current limitations are equally real:
 - model values, canonical provider values, and provider physical/wire values are not separate first-class contracts
 - DataLinq has no native async database I/O surface
 - managed mutable baselines now have explicit rollback/cross-transaction provenance, but raw-handle and full-concurrency boundaries remain unresolved
-- `DataLinq.Memory` now has a public, packable experimental read-only preview surface with generated-mutable seed, capability-gated query, model-valued exact single-column `Find<TModel>(object)` lookup, and a first-class targetless Testing CLI `memory` suite; aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, and bounded M1-C exact non-null `Int32` relational comparison are complete, with raw SQL structurally absent from Memory-owned services and inherited legacy row access rejecting before backend work, while composite lookup, aggregate M1/M2, remaining W10 compatibility/package integration, and publication remain open; there is still no JSON memory persistence package or migration execution engine
+- `DataLinq.Memory` now has a public, packable experimental read-only preview surface with generated-mutable seed, capability-gated query, model-valued exact single-column `Find<TModel>(object)` lookup, and a first-class targetless Testing CLI `memory` suite; aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, W10 steps 1-2 / RE-1D package-tool integration, and W10 step 3 / RE-1A suite registration are complete, with raw SQL structurally absent from Memory-owned services and inherited legacy row access rejecting before backend work, while composite lookup, aggregate M1/M2, RE-1C, RE-1E/F/G/H, W10 steps 4-9, aggregate RE-1/RE-4/W10/W11, packaged constrained-runtime evidence, consumer smoke, final release-candidate closeout, and publication remain open; there is still no JSON memory persistence package or migration execution engine
 
 ## Roadmap Principles
 
