@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 
@@ -34,6 +35,7 @@ public static class CompatibilityTargetCatalog
         string targetSet,
         string? targetSelectors = null)
     {
+        targetSet = NormalizeTargetSet(targetSet);
         var targets = GetTargetSet(targetSet);
         if (string.IsNullOrWhiteSpace(targetSelectors))
             return targets;
@@ -110,16 +112,27 @@ public static class CompatibilityTargetCatalog
         return $"linux-{architecture}";
     }
 
-    private static CompatibilityTargetDefinition[] GetTargetSet(string targetSet)
+    public static string NormalizeTargetSet(string targetSet)
     {
         if (string.Equals(targetSet, HistoricalTargetSet, StringComparison.OrdinalIgnoreCase))
-            return Phase8CTargets;
+            return HistoricalTargetSet;
 
         if (string.Equals(targetSet, CurrentTargetSet, StringComparison.OrdinalIgnoreCase))
-            return Version09Targets;
+            return CurrentTargetSet;
 
         throw new InvalidOperationException(
             $"Unsupported compatibility report target set '{targetSet}'. Use {HistoricalTargetSet} or {CurrentTargetSet}.");
+    }
+
+    private static CompatibilityTargetDefinition[] GetTargetSet(string targetSet)
+    {
+        if (targetSet == HistoricalTargetSet)
+            return Phase8CTargets;
+
+        if (targetSet == CurrentTargetSet)
+            return Version09Targets;
+
+        throw new UnreachableException($"Target set '{targetSet}' was not normalized.");
     }
 
     private static bool IsAllSelector(string selector, string targetSet) =>

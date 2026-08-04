@@ -38,7 +38,7 @@ internal static class SizeReportCommand
         };
         var noRestoreOption = new Option<bool>("--no-restore")
         {
-            Description = "Passes --no-restore to each publish."
+            Description = "Reuses an already populated target-owned artifacts root; incompatible with --clean-output."
         };
         var skipSmokeOption = new Option<bool>("--skip-smoke")
         {
@@ -46,7 +46,7 @@ internal static class SizeReportCommand
         };
         var cleanOutputOption = new Option<bool>("--clean-output")
         {
-            Description = "Deletes the selected projects' bin/obj output before publishing. Use this for fresh WebAssembly warning evidence."
+            Description = "Deletes each selected target's isolated build-artifacts root before publishing."
         };
         var releaseThresholdsOption = new Option<bool>("--release-thresholds")
         {

@@ -121,6 +121,7 @@ public sealed record CompatibilityTargetReport(
     string DisplayName,
     string ProjectPath,
     string PublishDirectory,
+    string BuildScratchDirectory,
     CompatibilityCommandReport Publish,
     CompatibilityCommandReport Smoke,
     CompatibilityCommandReport Inspection,

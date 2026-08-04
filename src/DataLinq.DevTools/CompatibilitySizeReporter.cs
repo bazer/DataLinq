@@ -19,11 +19,20 @@ public sealed class CompatibilitySizeReporter
     public CompatibilitySizeReporter(DevToolPaths paths, CompatibilityReportOptions options)
     {
         this.paths = paths;
-        this.options = options;
+        this.options = options with
+        {
+            TargetSet = CompatibilityTargetCatalog.NormalizeTargetSet(options.TargetSet)
+        };
     }
 
     public CompatibilitySizeReport CreateReport()
     {
+        if (options.CleanIntermediateOutputs && options.NoRestore)
+        {
+            throw new InvalidOperationException(
+                "--clean-output cannot be combined with --no-restore because cleaning removes the target-owned restore assets.");
+        }
+
         paths.EnsureCreated();
 
         var reportDirectory = CreateReportDirectory(paths.ArtifactRoot);
@@ -129,6 +138,7 @@ public sealed class CompatibilitySizeReporter
             builder.AppendLine($"## {target.DisplayName}");
             builder.AppendLine();
             builder.AppendLine($"Publish directory: `{target.PublishDirectory}`");
+            builder.AppendLine($"Mutable build scratch directory: `{target.BuildScratchDirectory}`");
             builder.AppendLine($"Runtime graph: `{target.RuntimeGraph}`");
             builder.AppendLine($"Publish log: `{target.Publish.RawLogPath ?? "-"}`");
             builder.AppendLine($"Smoke log: `{target.Smoke.RawLogPath ?? "-"}`");
@@ -237,19 +247,39 @@ public sealed class CompatibilitySizeReporter
     {
         var targetRoot = Path.Combine(reportDirectory, target.Name);
         var publishDirectory = Path.Combine(targetRoot, "publish");
-        ResetDirectory(targetRoot, reportDirectory);
+        var buildScratchDirectory = CreateBuildScratchDirectory(
+            paths.ArtifactRoot,
+            options.TargetSet,
+            target.Name);
+        ResetDirectory(targetRoot, reportDirectory, paths.ArtifactRoot);
         Directory.CreateDirectory(publishDirectory);
 
         var projectPath = ResolveRepositoryPath(target.ProjectRelativePath);
-        if (options.CleanIntermediateOutputs)
-            ResetProjectOutputDirectories(projectPath);
+        DotnetCommandResult publishResult;
+        using (AcquireBuildArtifactsLock(paths.ArtifactRoot, options.TargetSet, target.Name))
+        {
+            if (options.CleanIntermediateOutputs)
+            {
+                ResetDirectory(
+                    buildScratchDirectory,
+                    Path.Combine(paths.ArtifactRoot, "compat-size-build", options.TargetSet),
+                    paths.ArtifactRoot);
+            }
 
-        var publishResult = runner.Execute(
-            DotnetCommandType.Publish,
-            CreatePublishArguments(target, projectPath, publishDirectory),
-            artifactPrefix: $"compat-size-report-{target.Name}-publish",
-            displayTarget: projectPath,
-            generateBinaryLog: true);
+            publishResult = runner.Execute(
+                DotnetCommandType.Publish,
+                CreatePublishArguments(
+                    target,
+                    projectPath,
+                    publishDirectory,
+                    buildScratchDirectory,
+                    options.Configuration,
+                    options.RuntimeIdentifier,
+                    options.NoRestore),
+                artifactPrefix: $"compat-size-report-{target.Name}-publish",
+                displayTarget: projectPath,
+                generateBinaryLog: true);
+        }
 
         var publishReport = new CompatibilityCommandReport(
             publishResult.ProcessResult.ExitCode == 0 ? CompatibilityCommandStatus.Succeeded : CompatibilityCommandStatus.Failed,
@@ -349,6 +379,7 @@ public sealed class CompatibilitySizeReporter
             target.DisplayName,
             projectPath,
             publishDirectory,
+            buildScratchDirectory,
             publishReport,
             smokeReport,
             inspectionReport,
@@ -403,6 +434,7 @@ public sealed class CompatibilitySizeReporter
             target.DisplayName,
             ResolveRepositoryPath(target.ProjectRelativePath),
             Path.Combine(reportDirectory, target.Name, "publish"),
+            CreateBuildScratchDirectory(paths.ArtifactRoot, options.TargetSet, target.Name),
             publish,
             smoke,
             inspection,
@@ -485,10 +517,14 @@ public sealed class CompatibilitySizeReporter
         }
     }
 
-    private IReadOnlyList<string> CreatePublishArguments(
+    internal static IReadOnlyList<string> CreatePublishArguments(
         CompatibilityTargetDefinition target,
         string projectPath,
-        string publishDirectory)
+        string publishDirectory,
+        string buildScratchDirectory,
+        string configuration,
+        string runtimeIdentifier,
+        bool noRestore)
     {
         var arguments = new List<string>
         {
@@ -497,21 +533,23 @@ public sealed class CompatibilitySizeReporter
             "-f",
             target.TargetFramework,
             "-c",
-            options.Configuration,
+            configuration,
             "-v",
             "minimal",
+            "--artifacts-path",
+            buildScratchDirectory,
             $"-p:PublishDir={EnsureTrailingDirectorySeparator(publishDirectory)}"
         };
 
         if (target.RequiresRuntimeIdentifier)
         {
             arguments.Add("-r");
-            arguments.Add(options.RuntimeIdentifier);
+            arguments.Add(runtimeIdentifier);
             arguments.Add("--self-contained");
             arguments.Add("true");
         }
 
-        if (options.NoRestore)
+        if (noRestore)
             arguments.Add("--no-restore");
 
         foreach (var property in target.PublishProperties)
@@ -738,51 +776,98 @@ public sealed class CompatibilitySizeReporter
             ? 1
             : 0;
 
-    private static string CreateReportDirectory(string artifactRoot)
+    internal static string CreateReportDirectory(string artifactRoot)
     {
         var reportDirectory = Path.Combine(
             artifactRoot,
             "compat-size-report",
-            DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff"));
+            $"{DateTime.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N}");
         Directory.CreateDirectory(reportDirectory);
         return reportDirectory;
     }
 
-    private static void ResetDirectory(string targetDirectory, string allowedRoot)
+    internal static string CreateBuildScratchDirectory(
+        string artifactRoot,
+        string targetSet,
+        string targetName)
+    {
+        targetSet = CompatibilityTargetCatalog.NormalizeTargetSet(targetSet);
+        return Path.GetFullPath(Path.Combine(artifactRoot, "compat-size-build", targetSet, targetName));
+    }
+
+    internal static FileStream AcquireBuildArtifactsLock(
+        string artifactRoot,
+        string targetSet,
+        string targetName)
+    {
+        targetSet = CompatibilityTargetCatalog.NormalizeTargetSet(targetSet);
+        var lockDirectory = Path.Combine(artifactRoot, "compat-size-build", ".locks", targetSet);
+        Directory.CreateDirectory(lockDirectory);
+        var lockPath = Path.Combine(lockDirectory, $"{targetName}.lock");
+
+        try
+        {
+            return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        }
+        catch (IOException exception)
+        {
+            throw new IOException(
+                $"Compatibility target '{targetSet}/{targetName}' is already being published by another process.",
+                exception);
+        }
+    }
+
+    internal static void ResetDirectory(string targetDirectory, string allowedRoot, string trustedRoot)
     {
         var fullTarget = Path.GetFullPath(targetDirectory);
         var fullRoot = Path.GetFullPath(allowedRoot);
+        var fullTrustedRoot = Path.GetFullPath(trustedRoot);
 
-        if (!IsPathInsideOrEqual(fullRoot, fullTarget))
-            throw new InvalidOperationException($"Refusing to clean '{fullTarget}' outside report root '{fullRoot}'.");
+        if (!IsPathStrictlyInside(fullTrustedRoot, fullRoot))
+        {
+            throw new InvalidOperationException(
+                $"Refusing to trust allowed root '{fullRoot}' outside '{fullTrustedRoot}'.");
+        }
+
+        if (!IsPathStrictlyInside(fullRoot, fullTarget))
+            throw new InvalidOperationException($"Refusing to clean '{fullTarget}' outside allowed root '{fullRoot}'.");
+
+        RefuseReparsePoints(fullTrustedRoot, fullTarget);
 
         if (Directory.Exists(fullTarget))
             Directory.Delete(fullTarget, recursive: true);
 
         Directory.CreateDirectory(fullTarget);
+        RefuseReparsePoints(fullTrustedRoot, fullTarget);
     }
 
-    private void ResetProjectOutputDirectories(string projectPath)
+    private static void RefuseReparsePoints(string trustedRoot, string targetPath)
     {
-        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(projectPath))
-            ?? throw new InvalidOperationException($"Could not resolve project directory for '{projectPath}'.");
-        var repositoryRoot = Path.GetFullPath(paths.RepositoryRoot);
+        var relativePath = Path.GetRelativePath(trustedRoot, targetPath);
+        var currentPath = trustedRoot;
 
-        if (!IsPathInsideOrEqual(repositoryRoot, projectDirectory))
-            throw new InvalidOperationException($"Refusing to clean project outputs outside repository root: '{projectDirectory}'.");
-
-        foreach (var outputDirectory in new[]
+        foreach (var segment in relativePath.Split(
+                     [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                     StringSplitOptions.RemoveEmptyEntries))
         {
-            Path.Combine(projectDirectory, "bin"),
-            Path.Combine(projectDirectory, "obj")
-        })
-        {
-            var fullOutputDirectory = Path.GetFullPath(outputDirectory);
-            if (!IsPathInsideOrEqual(repositoryRoot, fullOutputDirectory))
-                throw new InvalidOperationException($"Refusing to clean output directory outside repository root: '{fullOutputDirectory}'.");
+            currentPath = Path.Combine(currentPath, segment);
 
-            if (Directory.Exists(fullOutputDirectory))
-                Directory.Delete(fullOutputDirectory, recursive: true);
+            try
+            {
+                if ((File.GetAttributes(currentPath) & FileAttributes.ReparsePoint) != 0)
+                {
+                    throw new IOException(
+                        $"Refusing to clean '{targetPath}' through reparse point '{currentPath}'.");
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                return;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return;
+            }
         }
     }
 
@@ -799,6 +884,9 @@ public sealed class CompatibilitySizeReporter
                 !relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) &&
                 !Path.IsPathRooted(relativePath));
     }
+
+    private static bool IsPathStrictlyInside(string root, string path) =>
+        IsPathInsideOrEqual(root, path) && Path.GetRelativePath(root, path) != ".";
 
     private static string CreateSmokeSummary(ExternalCommandResult result)
     {

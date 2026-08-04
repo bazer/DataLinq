@@ -95,7 +95,7 @@ Publishes the constrained-platform smoke targets and writes a repeatable compati
 ```bash
 dotnet run --project src/DataLinq.Dev.CLI -- size-report --target phase8c
 dotnet run --project src/DataLinq.Dev.CLI -- size-report --target v0.9 --targets memory --format markdown
-dotnet run --project src/DataLinq.Dev.CLI -- size-report --target v0.9 --targets aot,trim --no-restore
+dotnet run --project src/DataLinq.Dev.CLI -- size-report --target v0.9 --targets aot,trim
 dotnet run --project src/DataLinq.Dev.CLI -- size-report --target v0.9 --clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload --format markdown
 ```
 
@@ -123,7 +123,9 @@ The `v0.9` target set adds backend identity and uses these exact ids:
 
 `--targets` accepts any exact id from the selected set. The `aot`, `trim`, `wasm`, and `wasm-aot` mode aliases select matching targets in that set; `sqlite` and `memory` select a runtime graph when that graph exists in the set; and `all` or the selected set name selects the complete set. Selections are deduplicated and emitted in catalog order. Alias spellings keep their alias meaning even when they overlap a historical id, while an exact id that is neither present nor a recognized alias is rejected.
 
-Each newly generated report uses schema `v0.9.compatibility-size-report.v2` and records runtime-graph identity, total payload size, symbol-excluded size, file count, `.br` and `.gz` asset totals, largest files, publish warnings grouped by owner, warning diagnostics, smoke status, an explicit payload-inspection status, and target-specific banned-runtime findings. `SelectedTargetIds` records the resolved request, `ExpectedTargetCount` records the complete selected-set cardinality, and `IsFullTargetSet` is true only when the reports actually produced exactly match that complete set; a selector subset or early stop is therefore never labeled full evidence. Summary failures are partitioned into product publish failures, product smoke failures, product inspection failures, environment failures, and unsupported observations. Every failed or unsupported required target remains a hard report failure; environment classification explains the failure and does not turn incomplete release evidence green. A failed inspection preserves any publish, smoke, payload, threshold, or warning result that completed before the fault instead of relabeling it as a publish failure.
+Each newly generated report uses schema `v0.9.compatibility-size-report.v2` and records runtime-graph identity, total payload size, symbol-excluded size, file count, `.br` and `.gz` asset totals, largest files, publish warnings grouped by owner, warning diagnostics, smoke status, an explicit payload-inspection status, and target-specific banned-runtime findings. `TargetSet` records the canonical catalog id even when the CLI input uses different casing. `SelectedTargetIds` records the resolved request, `ExpectedTargetCount` records the complete selected-set cardinality, and `IsFullTargetSet` is true only when the reports actually produced exactly match that complete set; a selector subset or early stop is therefore never labeled full evidence. Summary failures are partitioned into product publish failures, product smoke failures, product inspection failures, environment failures, and unsupported observations. Every failed or unsupported required target remains a hard report failure; environment classification explains the failure and does not turn incomplete release evidence green. A failed inspection preserves any publish, smoke, payload, threshold, or warning result that completed before the fault instead of relabeling it as a publish failure.
+
+Every catalog target publishes through a stable, canonical-target-set-qualified `--artifacts-path` under `artifacts/dev/compat-size-build/<target-set>/<target-id>`. This keeps Native AOT, trimming, WebAssembly no-AOT, and WebAssembly AOT intermediates separate even when two targets share one project. The report records that location as `BuildScratchDirectory`: it is mutable build cache, not timestamped release evidence. Same-target clean/publish operations take an exclusive cross-process lock; different targets remain independent. Each invocation receives a collision-resistant timestamp-and-GUID report root so concurrent processes cannot share or overwrite evidence.
 
 Native executable targets run their published executable as the smoke. WebAssembly targets are served over local HTTP and opened in a headless Chromium-compatible browser through Playwright. Both SQLite and Memory browser hosts expose the same neutral smoke contract. The JSON and Markdown reports retain whether that contract was present, final status and stage, window-console entries, Playwright-console entries, and page errors. A no-AOT failure is a required-target failure rather than an automatic unsupported downgrade. Set `DATALINQ_BROWSER_PATH` when Edge, Chrome, or Chromium is not discoverable from the standard install paths or `PATH`.
 
@@ -147,14 +149,16 @@ Useful options:
   Stops the report after a publish failure instead of continuing to later targets.
 - `--skip-smoke`
   Skips executable and browser smoke runs after publish.
+- `--no-restore`
+  Reuses restore assets already present in the selected targets' isolated scratch roots. Run those targets once without this option first. It cannot be combined with `--clean-output`.
 - `--clean-output`
-  Deletes `bin` and `obj` for the selected target projects before publishing. Use this for fresh WebAssembly warning evidence because incremental publishes can hide `WASM0001`.
+  Deletes each selected target's isolated scratch root before publishing, then restores and rebuilds its complete transitive graph. Cleanup refuses a target reached through a symlink, junction, or other reparse point below the artifact root. Source-project `bin` and `obj` directories are not the release-evidence boundary.
 - `--release-thresholds`
   Applies the shared, version-neutral compatibility guardrails by publish mode: Native AOT executable, Native AOT symbol-excluded folder, trimmed symbol-excluded folder, no-AOT Brotli assets, and WASM AOT Brotli assets.
 - `--format summary|markdown|json`
   Controls console output. The JSON and Markdown artifacts are always written.
 
-Reports are written under `artifacts/dev/compat-size-report/<timestamp>/` as `report.json` and `report.md`. Raw publish logs are written under `artifacts/dev/`; target-specific browser smoke logs are written under the target folder inside the report directory. Catalog registration and focused tooling tests do not by themselves prove that all eight `v0.9` targets publish or execute; only a recorded fresh report can make that evidence claim.
+Reports are written under `artifacts/dev/compat-size-report/<timestamp>-<guid>/` as `report.json` and `report.md`. Raw publish logs are written under `artifacts/dev/`; target-specific browser smoke logs are written under the target folder inside the report directory. Catalog registration and focused tooling tests do not by themselves prove that all eight `v0.9` targets publish or execute; only a recorded fresh report can make that evidence claim.
 
 ### `package-report`
 

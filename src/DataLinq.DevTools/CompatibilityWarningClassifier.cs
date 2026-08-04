@@ -169,6 +169,8 @@ public static class CompatibilityWarningClassifier
                 "ResolveWasmOutputs",
                 "MSB4216",
                 "MSB4027",
+                "NETSDK1004",
+                "Run a NuGet package restore to generate this file",
                 "Unable to load the service index",
                 "Name or service not known",
                 "No such host is known",

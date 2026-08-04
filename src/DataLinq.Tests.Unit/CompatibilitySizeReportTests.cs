@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -57,12 +58,15 @@ public class CompatibilitySizeReportTests
     public async Task TargetCatalog_SelectorsResolveWithinChosenSetInCatalogOrder()
     {
         var exact = CompatibilityTargetCatalog.GetTargets("v0.9", "memory-native-aot");
+        var exactWithCasedSet = CompatibilityTargetCatalog.GetTargets("V0.9", "memory-native-aot");
         var modes = CompatibilityTargetCatalog.GetTargets("v0.9", "wasm-aot,aot,memory-native-aot");
         var memory = CompatibilityTargetCatalog.GetTargets("v0.9", "memory");
         var all = CompatibilityTargetCatalog.GetTargets("v0.9", "all");
 
         await Assert.That(string.Join(",", exact.Select(static target => target.Name)))
             .IsEqualTo("memory-native-aot");
+        await Assert.That(exactWithCasedSet).IsEquivalentTo(exact);
+        await Assert.That(CompatibilityTargetCatalog.NormalizeTargetSet("V0.9")).IsEqualTo("v0.9");
         await Assert.That(string.Join(",", modes.Select(static target => target.Name)))
             .IsEqualTo("sqlite-native-aot,sqlite-wasm-aot,memory-native-aot,memory-wasm-aot");
         await Assert.That(string.Join(",", memory.Select(static target => target.Name)))
@@ -101,6 +105,265 @@ public class CompatibilitySizeReportTests
     {
         await Assert.That(CompatibilitySizeReporter.SchemaVersion)
             .IsEqualTo("v0.9.compatibility-size-report.v2");
+    }
+
+    [Test]
+    public async Task ReportDirectories_AreUniqueAcrossImmediateAllocations()
+    {
+        var artifactRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "CompatibilitySizeReportTests",
+            Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            var first = CompatibilitySizeReporter.CreateReportDirectory(artifactRoot);
+            var second = CompatibilitySizeReporter.CreateReportDirectory(artifactRoot);
+
+            await Assert.That(first).IsNotEqualTo(second);
+            await Assert.That(Directory.Exists(first)).IsTrue();
+            await Assert.That(Directory.Exists(second)).IsTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(artifactRoot))
+                Directory.Delete(artifactRoot, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task PublishArguments_IsolateTargetsThatShareOneProject()
+    {
+        var noAot = CompatibilityTargetCatalog.GetTargets("v0.9", "memory-wasm-no-aot")[0];
+        var aot = CompatibilityTargetCatalog.GetTargets("v0.9", "memory-wasm-aot")[0];
+        var nativeAot = CompatibilityTargetCatalog.GetTargets("v0.9", "memory-native-aot")[0];
+        var artifactRoot = Path.Combine("repo", "artifacts", "dev");
+        var noAotBuild = CompatibilitySizeReporter.CreateBuildScratchDirectory(
+            artifactRoot,
+            "v0.9",
+            noAot.Name);
+        var aotBuild = CompatibilitySizeReporter.CreateBuildScratchDirectory(
+            artifactRoot,
+            "v0.9",
+            aot.Name);
+        var historicalBuild = CompatibilitySizeReporter.CreateBuildScratchDirectory(
+            artifactRoot,
+            "phase8c",
+            "wasm");
+        var differentlyCasedBuild = CompatibilitySizeReporter.CreateBuildScratchDirectory(
+            artifactRoot,
+            "V0.9",
+            noAot.Name);
+
+        var noAotArguments = CompatibilitySizeReporter.CreatePublishArguments(
+            noAot,
+            "memory-wasm.csproj",
+            "publish-no-aot",
+            noAotBuild,
+            "Release",
+            "win-x64",
+            noRestore: true);
+        var aotArguments = CompatibilitySizeReporter.CreatePublishArguments(
+            aot,
+            "memory-wasm.csproj",
+            "publish-aot",
+            aotBuild,
+            "Release",
+            "win-x64",
+            noRestore: false);
+        var nativeArguments = CompatibilitySizeReporter.CreatePublishArguments(
+            nativeAot,
+            "memory-native-aot.csproj",
+            "publish-native-aot",
+            CompatibilitySizeReporter.CreateBuildScratchDirectory(artifactRoot, "v0.9", nativeAot.Name),
+            "Release",
+            "linux-x64",
+            noRestore: false);
+        var noAotText = string.Join("\n", noAotArguments);
+        var aotText = string.Join("\n", aotArguments);
+        var nativeText = string.Join("\n", nativeArguments);
+
+        await Assert.That(noAot.ProjectRelativePath).IsEqualTo(aot.ProjectRelativePath);
+        await Assert.That(Path.IsPathFullyQualified(noAotBuild)).IsTrue();
+        await Assert.That(differentlyCasedBuild).IsEqualTo(noAotBuild);
+        await Assert.That(noAotBuild).IsNotEqualTo(aotBuild);
+        await Assert.That(noAotBuild).IsNotEqualTo(historicalBuild);
+        await Assert.That(noAotText).Contains("--artifacts-path").And.Contains(noAotBuild);
+        await Assert.That(noAotText).Contains("publish-no-aot").And.Contains("RunAOTCompilation=false");
+        await Assert.That(noAotText).Contains("--no-restore");
+        await Assert.That(aotText).Contains("--artifacts-path").And.Contains(aotBuild);
+        await Assert.That(aotText).Contains("publish-aot").And.Contains("RunAOTCompilation=true");
+        await Assert.That(aotText).DoesNotContain("--no-restore");
+        await Assert.That(nativeText).Contains("linux-x64").And.Contains("--self-contained");
+    }
+
+    [Test]
+    public async Task BuildScratchLock_RejectsSameTargetButAllowsDifferentTargets()
+    {
+        var artifactRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "CompatibilitySizeReportTests",
+            Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            using var first = CompatibilitySizeReporter.AcquireBuildArtifactsLock(
+                artifactRoot,
+                "V0.9",
+                "memory-wasm-aot");
+            using var different = CompatibilitySizeReporter.AcquireBuildArtifactsLock(
+                artifactRoot,
+                "v0.9",
+                "memory-wasm-no-aot");
+            IOException? exception = null;
+
+            try
+            {
+                using var duplicate = CompatibilitySizeReporter.AcquireBuildArtifactsLock(
+                    artifactRoot,
+                    "v0.9",
+                    "memory-wasm-aot");
+            }
+            catch (IOException caught)
+            {
+                exception = caught;
+            }
+
+            await Assert.That(exception).IsNotNull();
+            await Assert.That(exception!.Message)
+                .Contains("v0.9/memory-wasm-aot")
+                .And.Contains("already being published");
+        }
+        finally
+        {
+            if (Directory.Exists(artifactRoot))
+                Directory.Delete(artifactRoot, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task ResetDirectory_RejectsReparseAncestorsWithoutDeletingExternalContent()
+    {
+        var root = Path.Combine(
+            AppContext.BaseDirectory,
+            "CompatibilitySizeReportTests",
+            Guid.NewGuid().ToString("N"));
+        var artifactRoot = Path.Combine(root, "artifacts", "dev");
+        var buildRoot = Path.Combine(artifactRoot, "compat-size-build");
+        var externalRoot = Path.Combine(root, "external");
+        var targetSetLink = Path.Combine(buildRoot, "v0.9");
+        var redirectedTarget = Path.Combine(externalRoot, "memory-wasm-aot");
+        var sentinel = Path.Combine(redirectedTarget, "sentinel.txt");
+
+        try
+        {
+            Directory.CreateDirectory(buildRoot);
+            Directory.CreateDirectory(redirectedTarget);
+            File.WriteAllText(sentinel, "preserve");
+
+            CreateDirectoryLink(targetSetLink, externalRoot);
+
+            IOException? caught = null;
+            try
+            {
+                CompatibilitySizeReporter.ResetDirectory(
+                    Path.Combine(targetSetLink, "memory-wasm-aot"),
+                    targetSetLink,
+                    artifactRoot);
+            }
+            catch (IOException exception)
+            {
+                caught = exception;
+            }
+
+            await Assert.That(caught).IsNotNull();
+            await Assert.That(caught!.Message).Contains("reparse point");
+            await Assert.That(File.Exists(sentinel)).IsTrue();
+
+            var paths = DevToolPaths.Create(root);
+            var options = new CompatibilityReportOptions(
+                RepositoryRoot: root,
+                Profile: ToolingProfile.Sandbox,
+                TargetSet: "V0.9",
+                TargetSelectors: "memory-wasm-aot",
+                Configuration: "Release",
+                RuntimeIdentifier: "win-x64",
+                LargestFileCount: 0,
+                NoRestore: false,
+                SkipSmoke: true,
+                TotalSizeWarningBytes: null,
+                SymbolExcludedSizeWarningBytes: null,
+                FileCountWarning: null,
+                FailOnBannedPayload: false,
+                FailOnThresholdWarnings: false,
+                ContinueOnPublishFailure: true,
+                CleanIntermediateOutputs: true,
+                UseReleaseThresholds: false);
+
+            var report = new CompatibilitySizeReporter(paths, options).CreateReport();
+
+            await Assert.That(report.TargetSet).IsEqualTo("v0.9");
+            await Assert.That(report.Targets).HasSingleItem();
+            await Assert.That(report.Targets[0].Publish.FailureDisposition)
+                .IsEqualTo(CompatibilityFailureDisposition.Environment);
+            await Assert.That(report.Summary.EnvironmentFailureCount).IsEqualTo(1);
+            await Assert.That(report.Summary.ProductPublishFailureCount).IsEqualTo(0);
+            await Assert.That(report.Summary.HasHardFailures).IsTrue();
+            await Assert.That(File.Exists(sentinel)).IsTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(targetSetLink) &&
+                (File.GetAttributes(targetSetLink) & FileAttributes.ReparsePoint) != 0)
+            {
+                Directory.Delete(targetSetLink);
+            }
+
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task Reporter_RejectsCleanOutputWithNoRestoreBeforeCreatingArtifacts()
+    {
+        var repositoryRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "CompatibilitySizeReportTests",
+            Guid.NewGuid().ToString("N"));
+        var paths = DevToolPaths.Create(repositoryRoot);
+        var options = new CompatibilityReportOptions(
+            RepositoryRoot: repositoryRoot,
+            Profile: ToolingProfile.Sandbox,
+            TargetSet: "v0.9",
+            TargetSelectors: "memory-native-aot",
+            Configuration: "Release",
+            RuntimeIdentifier: "win-x64",
+            LargestFileCount: 0,
+            NoRestore: true,
+            SkipSmoke: true,
+            TotalSizeWarningBytes: null,
+            SymbolExcludedSizeWarningBytes: null,
+            FileCountWarning: null,
+            FailOnBannedPayload: false,
+            FailOnThresholdWarnings: false,
+            ContinueOnPublishFailure: true,
+            CleanIntermediateOutputs: true,
+            UseReleaseThresholds: false);
+        InvalidOperationException? exception = null;
+
+        try
+        {
+            _ = new CompatibilitySizeReporter(paths, options).CreateReport();
+        }
+        catch (InvalidOperationException caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("--clean-output").And.Contains("--no-restore");
+        await Assert.That(Directory.Exists(repositoryRoot)).IsFalse();
     }
 
     [Test]
@@ -351,6 +614,27 @@ public class CompatibilitySizeReportTests
     }
 
     [Test]
+    public async Task FailureClassifier_TreatsMissingIsolatedRestoreAssetsAsEnvironment()
+    {
+        var target = CompatibilityTargetCatalog.GetTargets("v0.9", "memory-wasm-no-aot")[0];
+        var processResult = new ExternalCommandResult(
+            1,
+            "error NETSDK1004: Assets file 'artifacts/dev/compat-size-build/v0.9/memory-wasm-no-aot/obj/project.assets.json' not found. Run a NuGet package restore to generate this file.",
+            "");
+        var commandResult = new DotnetCommandResult(
+            DotnetCommandType.Publish,
+            target.Name,
+            [],
+            processResult,
+            "publish.log",
+            BinaryLogPath: null,
+            DotnetOutputAnalyzer.Analyze(DotnetCommandType.Publish, processResult));
+
+        await Assert.That(CompatibilityWarningClassifier.ClassifyFailureDisposition(commandResult))
+            .IsEqualTo(CompatibilityFailureDisposition.Environment);
+    }
+
+    [Test]
     public async Task ReleaseThresholds_FlagMissingWebAssemblyBrotliAssets()
     {
         var wasmTarget = CompatibilityTargetCatalog
@@ -461,6 +745,7 @@ public class CompatibilitySizeReportTests
         var markdown = CompatibilitySizeReporter.ToMarkdown(report);
 
         await Assert.That(json).Contains("\"RuntimeGraph\":\"Memory\"");
+        await Assert.That(json).Contains("\"BuildScratchDirectory\":");
         await Assert.That(json).Contains("\"IsFullTargetSet\":false");
         await Assert.That(json).Contains("\"FinalStage\":\"completed\"");
         await Assert.That(markdown).Contains("Browser Smoke Telemetry");
@@ -652,6 +937,7 @@ public class CompatibilitySizeReportTests
             target.DisplayName,
             target.ProjectRelativePath,
             target.Name,
+            target.Name + "-build",
             publish,
             smoke,
             inspection ?? Command(CompatibilityCommandStatus.Succeeded, CompatibilityFailureDisposition.None),
@@ -693,6 +979,42 @@ public class CompatibilitySizeReportTests
             : new BrotliStream(file, CompressionMode.Compress);
         using var writer = new StreamWriter(compression, Encoding.UTF8);
         writer.Write(content);
+    }
+
+    private static void CreateDirectoryLink(string linkPath, string targetPath)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Directory.CreateSymbolicLink(linkPath, targetPath);
+            return;
+        }
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+        startInfo.ArgumentList.Add("/d");
+        startInfo.ArgumentList.Add("/c");
+        startInfo.ArgumentList.Add("mklink");
+        startInfo.ArgumentList.Add("/J");
+        startInfo.ArgumentList.Add(linkPath);
+        startInfo.ArgumentList.Add(targetPath);
+
+        using var process = Process.Start(startInfo) ??
+                            throw new InvalidOperationException("Could not start cmd.exe to create a test junction.");
+        var standardOutput = process.StandardOutput.ReadToEnd();
+        var standardError = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        if (process.ExitCode != 0)
+        {
+            throw new IOException(
+                $"Could not create test junction (exit {process.ExitCode}): {standardOutput}{standardError}");
+        }
     }
 
     private static PackageInspectionReport CreatePackageReport(
