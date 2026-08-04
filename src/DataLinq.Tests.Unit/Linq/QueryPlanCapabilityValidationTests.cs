@@ -60,7 +60,7 @@ public class QueryPlanCapabilityValidationTests
             [QueryPlanFeatureCategory.ScalarNullness] = 2,
             [QueryPlanFeatureCategory.LocalSequenceShape] = 3,
             [QueryPlanFeatureCategory.OrderingShape] = 2,
-            [QueryPlanFeatureCategory.PagingCompositionShape] = 6,
+            [QueryPlanFeatureCategory.PagingCompositionShape] = 7,
             [QueryPlanFeatureCategory.ScalarProjectionShape] = 2
         };
 
@@ -77,15 +77,15 @@ public class QueryPlanCapabilityValidationTests
                 $"{feature.Token}={QueryBackendCapabilities.Sql.GetDisposition(feature)}"));
         var sqlMatrixFingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sqlMatrix)));
 
-        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(613);
+        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(614);
         await Assert.That(tokens.Distinct(StringComparer.Ordinal).Count()).IsEqualTo(tokens.Length);
         await Assert.That(actualCategoryCounts.Count).IsEqualTo(expectedCategoryCounts.Count);
         foreach (var expected in expectedCategoryCounts)
             await Assert.That(actualCategoryCounts[expected.Key]).IsEqualTo(expected.Value);
 
-        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(355);
+        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(356);
         await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Unsupported)).IsEqualTo(258);
-        await Assert.That(sqlMatrixFingerprint).IsEqualTo("8C5936E118C0A52B568494FB3A40FFF53AE1DCF0ABD19445C59D91EF2703687E");
+        await Assert.That(sqlMatrixFingerprint).IsEqualTo("28EFE588DD1A55F406F8AAB9EE7477458ED6ADB8FE0C163C9B56EE7E92644292");
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.Projection(QueryPlanProjectionKind.TransparentIdentifier)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
@@ -123,6 +123,10 @@ public class QueryPlanCapabilityValidationTests
             .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.SingleSkipAfterSingleOrdering)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.PagingCompositionShape(
+                QueryPlanPagingCompositionShape.SingleTakeAfterSingleSkipAfterSingleOrdering)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.Other)))
@@ -563,6 +567,14 @@ public class QueryPlanCapabilityValidationTests
             source,
             [where, ordering, where, skip],
             capture));
+        var whereBetweenOrderingAndWindow = ExtractPagingCompositionShape(CreateEntityInvocation(
+            source,
+            [ordering, where, skip, take],
+            capture));
+        var whereBetweenSkipAndTake = ExtractPagingCompositionShape(CreateEntityInvocation(
+            source,
+            [ordering, skip, where, take],
+            capture));
         var bareTake = ExtractPagingCompositionShape(CreateEntityInvocation(
             source,
             [take],
@@ -586,11 +598,15 @@ public class QueryPlanCapabilityValidationTests
 
         await Assert.That(generated).IsEqualTo(QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering);
         await Assert.That(generatedSkip).IsEqualTo(QueryPlanPagingCompositionShape.SingleSkipAfterSingleOrdering);
+        await Assert.That(skipThenTake)
+            .IsEqualTo(QueryPlanPagingCompositionShape.SingleTakeAfterSingleSkipAfterSingleOrdering);
         await Assert.That(whereBeforeAndBetween).IsEqualTo(QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering);
         await Assert.That(whereBeforeAndBetweenSkip).IsEqualTo(QueryPlanPagingCompositionShape.SingleSkipAfterSingleOrdering);
+        await Assert.That(whereBetweenOrderingAndWindow)
+            .IsEqualTo(QueryPlanPagingCompositionShape.SingleTakeAfterSingleSkipAfterSingleOrdering);
+        await Assert.That(whereBetweenSkipAndTake).IsEqualTo(QueryPlanPagingCompositionShape.Other);
         await Assert.That(bareTake).IsEqualTo(QueryPlanPagingCompositionShape.Other);
         await Assert.That(bareSkip).IsEqualTo(QueryPlanPagingCompositionShape.Other);
-        await Assert.That(skipThenTake).IsEqualTo(QueryPlanPagingCompositionShape.Other);
         await Assert.That(takeBeforeSkip).IsEqualTo(QueryPlanPagingCompositionShape.TakeBeforeSkipInScope);
         await Assert.That(repeatedTake).IsEqualTo(QueryPlanPagingCompositionShape.RepeatedTakeInScope);
         await Assert.That(repeatedSkip).IsEqualTo(QueryPlanPagingCompositionShape.RepeatedSkipInScope);
@@ -638,16 +654,29 @@ public class QueryPlanCapabilityValidationTests
     public async Task CapabilityValidation_ReportsPagingCompositionLocationWithoutLeakingTheCount()
     {
         const int count = 197531;
+        const int secondCount = 864209;
+        var windowInvocation = ParseEmployeeQuery(rows =>
+            rows
+                .OrderBy(static row => row.emp_no)
+                .Where(static _ => true)
+                .Skip(count)
+                .Take(secondCount));
         var cases = new[]
         {
             (
                 Invocation: ParseEmployeeQuery(rows =>
                     rows.OrderBy(static row => row.emp_no).Take(count)),
-                Shape: QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering),
+                Shape: QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering,
+                SensitiveCounts: new[] { count }),
             (
                 Invocation: ParseEmployeeQuery(rows =>
                     rows.OrderBy(static row => row.emp_no).Skip(count)),
-                Shape: QueryPlanPagingCompositionShape.SingleSkipAfterSingleOrdering)
+                Shape: QueryPlanPagingCompositionShape.SingleSkipAfterSingleOrdering,
+                SensitiveCounts: new[] { count }),
+            (
+                Invocation: windowInvocation,
+                Shape: QueryPlanPagingCompositionShape.SingleTakeAfterSingleSkipAfterSingleOrdering,
+                SensitiveCounts: new[] { count, secondCount })
         };
 
         foreach (var item in cases)
@@ -662,8 +691,36 @@ public class QueryPlanCapabilityValidationTests
             await Assert.That(unsupported.Feature).IsEqualTo($"PagingCompositionShape:{item.Shape}");
             await Assert.That(unsupported.Location).IsEqualTo("operations.pagingComposition.shape");
             await Assert.That(unsupported.SourceId).IsEqualTo("s0");
-            await Assert.That(unsupported.Message).DoesNotContain(count.ToString());
+            foreach (var sensitiveCount in item.SensitiveCounts)
+                await Assert.That(unsupported.Message).DoesNotContain(sensitiveCount.ToString());
         }
+
+        var windowRequirements = QueryPlanRequirements.Extract(windowInvocation);
+        await Assert.That(windowInvocation.Template.BindingDeclarations.Count).IsEqualTo(2);
+        await Assert.That(windowInvocation.Values.Count).IsEqualTo(2);
+        await AssertRequirement(
+            windowRequirements.Invocation,
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegativeInt32ScalarBinding),
+            "operations[2].count.shape",
+            sourceId: "s0");
+        await AssertRequirement(
+            windowRequirements.Invocation,
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegativeInt32ScalarBinding),
+            "operations[3].count.shape",
+            sourceId: "s0");
+        await AssertRequirement(
+            windowRequirements.Invocation,
+            QueryPlanFeature.ScalarNullness(QueryPlanBindingNullness.NonNull),
+            "invocation.bindings[0]");
+        await AssertRequirement(
+            windowRequirements.Invocation,
+            QueryPlanFeature.ScalarNullness(QueryPlanBindingNullness.NonNull),
+            "invocation.bindings[1]");
+
+        var skipBinding = (QueryPlanInvocationValue.Scalar)windowInvocation.Values[0];
+        var takeBinding = (QueryPlanInvocationValue.Scalar)windowInvocation.Values[1];
+        await Assert.That(skipBinding.Value).IsEqualTo(count);
+        await Assert.That(takeBinding.Value).IsEqualTo(secondCount);
     }
 
     [Test]

@@ -28,6 +28,8 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             QueryPlanFeature.OrderingShape(QueryPlanOrderingShape.SingleDirectNonNullableInt32PrimaryKeyColumn),
             QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering),
             QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.SingleSkipAfterSingleOrdering),
+            QueryPlanFeature.PagingCompositionShape(
+                QueryPlanPagingCompositionShape.SingleTakeAfterSingleSkipAfterSingleOrdering),
             QueryPlanFeature.Predicate(QueryPlanPredicateKind.And),
             QueryPlanFeature.Predicate(QueryPlanPredicateKind.Or),
             QueryPlanFeature.Predicate(QueryPlanPredicateKind.Not),

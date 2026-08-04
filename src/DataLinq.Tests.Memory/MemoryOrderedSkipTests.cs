@@ -199,8 +199,6 @@ public sealed class MemoryOrderedSkipTests
             database.Query().Rows.Skip(1).ToArray());
         var beforeOrdering = Capture<QueryBackendCapabilityException>(() =>
             database.Query().Rows.Skip(1).OrderBy(static row => row.Id).ToArray());
-        var skipThenTake = Capture<QueryBackendCapabilityException>(() =>
-            database.Query().Rows.OrderBy(static row => row.Id).Skip(1).Take(1).ToArray());
         var takeThenSkip = Capture<QueryBackendCapabilityException>(() =>
             database.Query().Rows.OrderBy(static row => row.Id).Take(1).Skip(1).ToArray());
         var repeated = Capture<QueryBackendCapabilityException>(() =>
@@ -218,7 +216,6 @@ public sealed class MemoryOrderedSkipTests
 
         await Assert.That(bare.Feature).IsEqualTo("PagingCompositionShape:Other");
         await Assert.That(beforeOrdering.Feature).IsEqualTo("Operation:Pushdown");
-        await Assert.That(skipThenTake.Feature).IsEqualTo("PagingCompositionShape:Other");
         await Assert.That(takeThenSkip.Feature).IsEqualTo("PagingCompositionShape:TakeBeforeSkipInScope");
         await Assert.That(repeated.Feature).IsEqualTo("PagingCompositionShape:RepeatedSkipInScope");
         await Assert.That(negative.Feature).IsEqualTo("PagingCountShape:Negative");
@@ -226,7 +223,7 @@ public sealed class MemoryOrderedSkipTests
         await Assert.That(postSkipFilter.Feature).IsEqualTo("Operation:Pushdown");
         await Assert.That(terminal.Feature).IsEqualTo("Operation:Pushdown");
 
-        foreach (var exception in new[] { bare, skipThenTake, takeThenSkip, repeated })
+        foreach (var exception in new[] { bare, takeThenSkip, repeated })
             await Assert.That(exception.Location).IsEqualTo("operations.pagingComposition.shape");
         await Assert.That(negative.Location).IsEqualTo("operations[1].count.shape");
         await Assert.That(nonPrimaryKey.Location).IsEqualTo("operations.ordering.shape");

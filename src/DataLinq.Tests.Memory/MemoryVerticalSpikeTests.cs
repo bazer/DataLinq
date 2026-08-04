@@ -286,6 +286,7 @@ public sealed class MemoryVerticalSpikeTests
             "SourceTopology:ExactlyOneRoot",
             "PagingCompositionShape:SingleTakeAfterSingleOrdering",
             "PagingCompositionShape:SingleSkipAfterSingleOrdering",
+            "PagingCompositionShape:SingleTakeAfterSingleSkipAfterSingleOrdering",
             "Value:Column@Ordering",
             "Value:Column@MembershipItem",
             "Value:Column@PredicateOperand",

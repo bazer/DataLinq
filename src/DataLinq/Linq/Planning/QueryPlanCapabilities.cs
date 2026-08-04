@@ -268,6 +268,7 @@ internal enum QueryPlanPagingCompositionShape
 {
     SingleTakeAfterSingleOrdering,
     SingleSkipAfterSingleOrdering,
+    SingleTakeAfterSingleSkipAfterSingleOrdering,
     Other,
     RepeatedTakeInScope,
     TakeBeforeSkipInScope,
@@ -303,6 +304,21 @@ internal static class QueryPlanPagingCompositionShapeFacts
 
         if (skipIndices.Length > 1)
             return QueryPlanPagingCompositionShape.RepeatedSkipInScope;
+
+        if (orderByIndices.Length == 1 &&
+            takeIndices.Length == 1 &&
+            skipIndices.Length == 1 &&
+            orderByIndices[0] < skipIndices[0] &&
+            skipIndices[0] == takeIndices[0] - 1 &&
+            takeIndices[0] == operations.Count - 1 &&
+            operations.Where(static operation =>
+                    operation is not QueryPlanOperation.OrderBy and
+                        not QueryPlanOperation.Skip and
+                        not QueryPlanOperation.Take)
+                .All(static operation => operation is QueryPlanOperation.Where))
+        {
+            return QueryPlanPagingCompositionShape.SingleTakeAfterSingleSkipAfterSingleOrdering;
+        }
 
         if (orderByIndices.Length == 1 &&
             takeIndices.Length == 0 &&
@@ -789,6 +805,7 @@ internal sealed class QueryBackendCapabilities
                 (QueryPlanPagingCompositionShape)feature.Value is
                     QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering or
                     QueryPlanPagingCompositionShape.SingleSkipAfterSingleOrdering or
+                    QueryPlanPagingCompositionShape.SingleTakeAfterSingleSkipAfterSingleOrdering or
                     QueryPlanPagingCompositionShape.Other
                     ? QueryBackendCapabilityDisposition.Supported
                     : QueryBackendCapabilityDisposition.Unsupported,

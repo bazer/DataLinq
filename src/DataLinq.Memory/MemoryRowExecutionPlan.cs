@@ -82,7 +82,7 @@ internal sealed class MemoryRowExecutionPlan
                     if (ordering is null || hasSeenSkip || hasSeenTake)
                     {
                         throw CapabilityInvariant(
-                            $"operation {index} is not the single final Skip following one ordering admitted by this checkpoint.");
+                            $"operation {index} is not the single Skip following one ordering admitted by this checkpoint.");
                     }
 
                     skipCount = ResolvePagingCount(
@@ -94,10 +94,10 @@ internal sealed class MemoryRowExecutionPlan
                     break;
 
                 case QueryPlanOperation.Take take:
-                    if (ordering is null || hasSeenSkip || hasSeenTake)
+                    if (ordering is null || hasSeenTake)
                     {
                         throw CapabilityInvariant(
-                            $"operation {index} is not the single Take following one ordering admitted by this checkpoint.");
+                            $"operation {index} is not the single final Take following one ordering and an optional single Skip admitted by this checkpoint.");
                     }
 
                     takeCount = ResolvePagingCount(
