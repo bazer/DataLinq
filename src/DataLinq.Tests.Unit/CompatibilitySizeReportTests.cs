@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using DataLinq.DevTools;
 
@@ -11,14 +14,93 @@ namespace DataLinq.Tests.Unit;
 public class CompatibilitySizeReportTests
 {
     [Test]
-    public async Task TargetParser_Phase8CSelectsAllTargets()
+    public async Task TargetCatalog_Phase8CPreservesHistoricalFourTargetSet()
     {
-        var targets = CompatibilityTargetCatalog.ParseTargetKinds("phase8c");
+        var targets = CompatibilityTargetCatalog.GetTargets("phase8c");
 
-        await Assert.That(targets).Contains(CompatibilityTargetKind.NativeAot);
-        await Assert.That(targets).Contains(CompatibilityTargetKind.Trimmed);
-        await Assert.That(targets).Contains(CompatibilityTargetKind.Wasm);
-        await Assert.That(targets).Contains(CompatibilityTargetKind.WasmAot);
+        await Assert.That(TargetSnapshot(targets)).IsEqualTo(
+            "native-aot|NativeAot|SQLite|Native AOT smoke|src\\DataLinq.AotSmoke\\DataLinq.AotSmoke.csproj|net10.0|True|False|DataLinq.AotSmoke|\n" +
+            "trimmed|Trimmed|SQLite|Trimmed smoke|src\\DataLinq.TrimSmoke\\DataLinq.TrimSmoke.csproj|net10.0|True|False|DataLinq.TrimSmoke|\n" +
+            "wasm|Wasm|SQLite|Blazor WebAssembly no-AOT smoke|src\\DataLinq.BlazorWasm\\DataLinq.BlazorWasm.csproj|net10.0|False|True|DataLinq.BlazorWasm|RunAOTCompilation=false\n" +
+            "wasm-aot|WasmAot|SQLite|Blazor WebAssembly AOT smoke|src\\DataLinq.BlazorWasm\\DataLinq.BlazorWasm.csproj|net10.0|False|True|DataLinq.BlazorWasm|RunAOTCompilation=true");
+    }
+
+    [Test]
+    public async Task TargetCatalog_Version09HasEightUniqueGraphPlatformTargets()
+    {
+        var targets = CompatibilityTargetCatalog.GetTargets("v0.9");
+
+        await Assert.That(targets.Count).IsEqualTo(8);
+        await Assert.That(targets.Select(static target => target.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count())
+            .IsEqualTo(8);
+        await Assert.That(targets
+                .GroupBy(static target => (target.RuntimeGraph, target.Kind))
+                .All(static group => group.Count() == 1))
+            .IsTrue();
+        await Assert.That(string.Join(",", targets.Select(static target => target.Name))).IsEqualTo(
+            "sqlite-native-aot,sqlite-trimmed,sqlite-wasm-no-aot,sqlite-wasm-aot," +
+            "memory-native-aot,memory-trimmed,memory-wasm-no-aot,memory-wasm-aot");
+        await Assert.That(TargetSnapshot(targets)).IsEqualTo(
+            "sqlite-native-aot|NativeAot|SQLite|SQLite Native AOT smoke|src\\DataLinq.AotSmoke\\DataLinq.AotSmoke.csproj|net10.0|True|False|DataLinq.AotSmoke|\n" +
+            "sqlite-trimmed|Trimmed|SQLite|SQLite trimmed smoke|src\\DataLinq.TrimSmoke\\DataLinq.TrimSmoke.csproj|net10.0|True|False|DataLinq.TrimSmoke|\n" +
+            "sqlite-wasm-no-aot|Wasm|SQLite|SQLite WebAssembly no-AOT smoke|src\\DataLinq.BlazorWasm\\DataLinq.BlazorWasm.csproj|net10.0|False|True|DataLinq.BlazorWasm|RunAOTCompilation=false\n" +
+            "sqlite-wasm-aot|WasmAot|SQLite|SQLite WebAssembly AOT smoke|src\\DataLinq.BlazorWasm\\DataLinq.BlazorWasm.csproj|net10.0|False|True|DataLinq.BlazorWasm|RunAOTCompilation=true\n" +
+            "memory-native-aot|NativeAot|Memory|Memory Native AOT smoke|src\\DataLinq.Memory.AotSmoke\\DataLinq.Memory.AotSmoke.csproj|net10.0|True|False|DataLinq.Memory.AotSmoke|\n" +
+            "memory-trimmed|Trimmed|Memory|Memory trimmed smoke|src\\DataLinq.Memory.TrimSmoke\\DataLinq.Memory.TrimSmoke.csproj|net10.0|True|False|DataLinq.Memory.TrimSmoke|\n" +
+            "memory-wasm-no-aot|Wasm|Memory|Memory WebAssembly no-AOT smoke|src\\DataLinq.Memory.BlazorWasm\\DataLinq.Memory.BlazorWasm.csproj|net10.0|False|True|DataLinq.Memory.BlazorWasm|RunAOTCompilation=false\n" +
+            "memory-wasm-aot|WasmAot|Memory|Memory WebAssembly AOT smoke|src\\DataLinq.Memory.BlazorWasm\\DataLinq.Memory.BlazorWasm.csproj|net10.0|False|True|DataLinq.Memory.BlazorWasm|RunAOTCompilation=true");
+        await Assert.That(targets.Count(static target => target.ProjectRelativePath.EndsWith("BlazorWasm.csproj", StringComparison.Ordinal)))
+            .IsEqualTo(4);
+    }
+
+    [Test]
+    public async Task TargetCatalog_SelectorsResolveWithinChosenSetInCatalogOrder()
+    {
+        var exact = CompatibilityTargetCatalog.GetTargets("v0.9", "memory-native-aot");
+        var modes = CompatibilityTargetCatalog.GetTargets("v0.9", "wasm-aot,aot,memory-native-aot");
+        var memory = CompatibilityTargetCatalog.GetTargets("v0.9", "memory");
+        var all = CompatibilityTargetCatalog.GetTargets("v0.9", "all");
+
+        await Assert.That(string.Join(",", exact.Select(static target => target.Name)))
+            .IsEqualTo("memory-native-aot");
+        await Assert.That(string.Join(",", modes.Select(static target => target.Name)))
+            .IsEqualTo("sqlite-native-aot,sqlite-wasm-aot,memory-native-aot,memory-wasm-aot");
+        await Assert.That(string.Join(",", memory.Select(static target => target.Name)))
+            .IsEqualTo("memory-native-aot,memory-trimmed,memory-wasm-no-aot,memory-wasm-aot");
+        await Assert.That(all.Count).IsEqualTo(8);
+    }
+
+    [Test]
+    public async Task TargetCatalog_RejectsCrossSetTargetIds()
+    {
+        foreach (var selectors in new[]
+                 {
+                     "memory-native-aot",
+                     "all,memory-native-aot",
+                     "memory-native-aot,all",
+                     "all,memory"
+                 })
+        {
+            InvalidOperationException? exception = null;
+            try
+            {
+                _ = CompatibilityTargetCatalog.GetTargets("phase8c", selectors);
+            }
+            catch (InvalidOperationException caught)
+            {
+                exception = caught;
+            }
+
+            await Assert.That(exception).IsNotNull();
+            await Assert.That(exception!.Message).Contains("Unsupported compatibility report selector");
+        }
+    }
+
+    [Test]
+    public async Task CompatibilityReport_UsesVersion09StructuralSchema()
+    {
+        await Assert.That(CompatibilitySizeReporter.SchemaVersion)
+            .IsEqualTo("v0.9.compatibility-size-report.v2");
     }
 
     [Test]
@@ -36,11 +118,15 @@ public class CompatibilitySizeReportTests
             WriteFile(Path.Combine(publishDirectory, "Microsoft.CodeAnalysis.CSharp.dll"), 30);
             WriteFile(Path.Combine(publishDirectory, "fr", "Microsoft.CodeAnalysis.resources.dll"), 40);
             WriteFile(Path.Combine(publishDirectory, "_framework", "Microsoft.CodeAnalysis.CSharp.wasm"), 50);
+            WriteFile(Path.Combine(publishDirectory, "compressed", "Microsoft.CodeAnalysis.dll.br"), 0);
+            WriteFile(Path.Combine(publishDirectory, "compressed", "Microsoft.CodeAnalysis.CSharp.wasm.gz"), 0);
             WriteFile(Path.Combine(publishDirectory, "_framework", "dotnet.native.wasm.br"), 60);
             WriteFile(Path.Combine(publishDirectory, "_framework", "dotnet.native.wasm.gz"), 70);
             WriteFile(Path.Combine(publishDirectory, "DataLinq.pdb"), 80);
 
+            var target = CompatibilityTargetCatalog.GetTargets("phase8c", "native-aot")[0];
             var inspection = CompatibilityPayloadInspector.Inspect(
+                target,
                 publishDirectory,
                 largestFileCount: 3,
                 totalSizeWarningBytes: 100,
@@ -49,7 +135,7 @@ public class CompatibilitySizeReportTests
 
             await Assert.That(inspection.Payload.TotalBytes).IsEqualTo(360);
             await Assert.That(inspection.Payload.SymbolExcludedBytes).IsEqualTo(280);
-            await Assert.That(inspection.BannedPayloads.Count).IsEqualTo(4);
+            await Assert.That(inspection.BannedPayloads.Count).IsEqualTo(6);
             await Assert.That(inspection.BrotliAssets.TotalBytes).IsEqualTo(60);
             await Assert.That(inspection.GzipAssets.TotalBytes).IsEqualTo(70);
             await Assert.That(inspection.ThresholdWarnings.Count).IsEqualTo(3);
@@ -63,12 +149,94 @@ public class CompatibilitySizeReportTests
     }
 
     [Test]
+    public async Task PayloadInspector_MemoryGraphFindsProviderPathsAndEncodedContentOnly()
+    {
+        var publishDirectory = Path.Combine(
+            AppContext.BaseDirectory,
+            "CompatibilitySizeReportTests",
+            Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            WriteFile(Path.Combine(publishDirectory, "DataLinq.SQLite.dll"), 1);
+            WriteTextFile(Path.Combine(publishDirectory, "renamed-mysql.bin"), "DataLinq.MySql", Encoding.UTF8);
+            WriteTextFile(Path.Combine(publishDirectory, "renamed-ms-sqlite.bin"), "Microsoft.Data.Sqlite", Encoding.Unicode);
+            WriteBoundaryTokenFile(Path.Combine(publishDirectory, "renamed-connector.bin"), "MySqlConnector");
+            WriteCompressedTextFile(Path.Combine(publishDirectory, "renamed-pcl.gz"), "SQLitePCLRaw", gzip: true);
+            WriteCompressedTextFile(Path.Combine(publishDirectory, "renamed-native.br"), "e_sqlite3", gzip: false);
+            WriteFile(Path.Combine(publishDirectory, "renamed-sibling.bin"), 0);
+            WriteCompressedTextFile(
+                Path.Combine(publishDirectory, "renamed-sibling.bin.br"),
+                "SQLitePCLRaw",
+                gzip: false);
+
+            var memoryTarget = CompatibilityTargetCatalog.GetTargets("v0.9", "memory-native-aot")[0];
+            var sqliteTarget = CompatibilityTargetCatalog.GetTargets("v0.9", "sqlite-native-aot")[0];
+            var memoryInspection = CompatibilityPayloadInspector.Inspect(
+                memoryTarget,
+                publishDirectory,
+                largestFileCount: 0,
+                totalSizeWarningBytes: null,
+                symbolExcludedSizeWarningBytes: null,
+                fileCountWarning: null);
+            var sqliteInspection = CompatibilityPayloadInspector.Inspect(
+                sqliteTarget,
+                publishDirectory,
+                largestFileCount: 0,
+                totalSizeWarningBytes: null,
+                symbolExcludedSizeWarningBytes: null,
+                fileCountWarning: null);
+
+            await Assert.That(memoryInspection.BannedPayloads.Count).IsEqualTo(7);
+            await Assert.That(memoryInspection.BannedPayloads.Any(static finding =>
+                    finding.RelativePath.EndsWith("renamed-sibling.bin.br", StringComparison.Ordinal)))
+                .IsTrue();
+            await Assert.That(string.Join("\n", memoryInspection.BannedPayloads.Select(static finding => finding.Rule)))
+                .Contains("DataLinq.SQLite")
+                .And.Contains("DataLinq.MySql")
+                .And.Contains("Microsoft.Data.Sqlite")
+                .And.Contains("MySqlConnector")
+                .And.Contains("SQLitePCLRaw")
+                .And.Contains("e_sqlite3");
+            await Assert.That(sqliteInspection.BannedPayloads.Count).IsEqualTo(0);
+        }
+        finally
+        {
+            if (Directory.Exists(publishDirectory))
+                Directory.Delete(publishDirectory, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task BrowserHosts_ExposeOneNeutralTelemetryContract()
+    {
+        var repositoryRoot = RepositoryRootLocator.Find();
+        var sqliteIndex = File.ReadAllText(Path.Combine(repositoryRoot, "src", "DataLinq.BlazorWasm", "wwwroot", "index.html"));
+        var memoryIndex = File.ReadAllText(Path.Combine(repositoryRoot, "src", "DataLinq.Memory.BlazorWasm", "wwwroot", "index.html"));
+        var memoryHome = File.ReadAllText(Path.Combine(repositoryRoot, "src", "DataLinq.Memory.BlazorWasm", "Pages", "Home.razor"));
+
+        foreach (var index in new[] { sqliteIndex, memoryIndex })
+        {
+            await Assert.That(index).Contains("id=\"boot-status\"");
+            await Assert.That(index).Contains("data-status=\"running\"");
+            await Assert.That(index).Contains("window.datalinqLog");
+            await Assert.That(index).Contains(
+                "currentStatus === \"passed\" && status !== \"failed\"");
+        }
+
+        await Assert.That(memoryHome).Contains("data-datalinq-smoke-status");
+        await Assert.That(memoryHome).Contains("data-datalinq-smoke-stage");
+        await Assert.That(memoryHome).Contains("id=\"datalinq-smoke-result\"");
+        await Assert.That(memoryIndex).DoesNotContain("datalinqMemory");
+    }
+
+    [Test]
     public async Task WarningClassifier_SplitsDataLinqThirdPartyAndWasmWarnings()
     {
         var nativeTarget = CompatibilityTargetCatalog
-            .GetTargets("phase8c", [CompatibilityTargetKind.NativeAot])[0];
+            .GetTargets("phase8c", "native-aot")[0];
         var wasmTarget = CompatibilityTargetCatalog
-            .GetTargets("phase8c", [CompatibilityTargetKind.WasmAot])[0];
+            .GetTargets("phase8c", "wasm-aot")[0];
 
         var datalinqWarning = new DotnetDiagnostic(
             DotnetDiagnosticKind.Warning,
@@ -105,7 +273,7 @@ public class CompatibilitySizeReportTests
     public async Task FailureClassifier_ReportsRemotionTrimAnalysisFailures()
     {
         var trimmedTarget = CompatibilityTargetCatalog
-            .GetTargets("phase8c", [CompatibilityTargetKind.Trimmed])[0];
+            .GetTargets("phase8c", "trimmed")[0];
         var processResult = new ExternalCommandResult(
             1,
             """
@@ -127,13 +295,15 @@ public class CompatibilitySizeReportTests
         await Assert.That(analysis.FailureCategory).IsEqualTo(DotnetFailureCategory.TrimAnalysis);
         await Assert.That(CompatibilityWarningClassifier.ClassifyFailure(trimmedTarget, commandResult))
             .IsEqualTo(CompatibilityFailureClassification.RemotionDependency);
+        await Assert.That(CompatibilityWarningClassifier.ClassifyFailureDisposition(commandResult))
+            .IsEqualTo(CompatibilityFailureDisposition.Product);
     }
 
     [Test]
     public async Task FailureClassifier_ReportsNativeAotToolchainFailures()
     {
         var nativeAotTarget = CompatibilityTargetCatalog
-            .GetTargets("phase8c", [CompatibilityTargetKind.NativeAot])[0];
+            .GetTargets("phase8c", "native-aot")[0];
         var processResult = new ExternalCommandResult(
             1,
             """
@@ -152,13 +322,39 @@ public class CompatibilitySizeReportTests
 
         await Assert.That(CompatibilityWarningClassifier.ClassifyFailure(nativeAotTarget, commandResult))
             .IsEqualTo(CompatibilityFailureClassification.SdkOrWebAssemblyToolchain);
+        await Assert.That(CompatibilityWarningClassifier.ClassifyFailureDisposition(commandResult))
+            .IsEqualTo(CompatibilityFailureDisposition.Environment);
+    }
+
+    [Test]
+    public async Task FailureClassifier_DoesNotDowngradeNoAotProductFailures()
+    {
+        var target = CompatibilityTargetCatalog.GetTargets("v0.9", "memory-wasm-no-aot")[0];
+        var processResult = new ExternalCommandResult(
+            1,
+            "Program.cs(4,9): error CS1002: ; expected",
+            "");
+        var analysis = DotnetOutputAnalyzer.Analyze(DotnetCommandType.Publish, processResult);
+        var commandResult = new DotnetCommandResult(
+            DotnetCommandType.Publish,
+            target.Name,
+            [],
+            processResult,
+            "publish.log",
+            BinaryLogPath: null,
+            analysis);
+
+        await Assert.That(CompatibilityWarningClassifier.ClassifyFailure(target, commandResult))
+            .IsNotEqualTo(CompatibilityFailureClassification.UnsupportedNoAot);
+        await Assert.That(CompatibilityWarningClassifier.ClassifyFailureDisposition(commandResult))
+            .IsEqualTo(CompatibilityFailureDisposition.Product);
     }
 
     [Test]
     public async Task ReleaseThresholds_FlagMissingWebAssemblyBrotliAssets()
     {
         var wasmTarget = CompatibilityTargetCatalog
-            .GetTargets("phase8c", [CompatibilityTargetKind.WasmAot])[0];
+            .GetTargets("phase8c", "wasm-aot")[0];
 
         var warnings = CompatibilityReleaseThresholds.FindWarnings(
             wasmTarget,
@@ -168,6 +364,108 @@ public class CompatibilitySizeReportTests
 
         await Assert.That(warnings.Select(static warning => warning.Metric))
             .Contains("release-wasm-aot-brotli-assets");
+
+        var sizedWarnings = CompatibilityReleaseThresholds.FindWarnings(
+            wasmTarget,
+            publishDirectory: AppContext.BaseDirectory,
+            new CompatibilityPayloadSizeSummary(0, 0, 0),
+            new CompatibilityCompressedAssetSummary(".br", 1, 13 * 1024L * 1024L));
+        await Assert.That(sizedWarnings.Single().Message).Contains("compatibility guardrail");
+        await Assert.That(sizedWarnings.Single().Message).DoesNotContain("0.8");
+    }
+
+    [Test]
+    public async Task ReportSummary_PartitionsProductAndEnvironmentFailures()
+    {
+        var targets = CompatibilityTargetCatalog.GetTargets("v0.9");
+        var succeeded = Command(CompatibilityCommandStatus.Succeeded, CompatibilityFailureDisposition.None);
+        var skipped = Command(CompatibilityCommandStatus.Skipped, CompatibilityFailureDisposition.None);
+        var productFailure = Command(
+            CompatibilityCommandStatus.Failed,
+            CompatibilityFailureDisposition.Product,
+            CompatibilityFailureClassification.ProductRegression);
+        var environmentFailure = Command(
+            CompatibilityCommandStatus.Failed,
+            CompatibilityFailureDisposition.Environment,
+            CompatibilityFailureClassification.SdkOrWebAssemblyToolchain);
+        var unsupported = Command(
+            CompatibilityCommandStatus.Unsupported,
+            CompatibilityFailureDisposition.Unsupported,
+            CompatibilityFailureClassification.UnsupportedNoAot);
+        var productInspectionFailure = Command(
+            CompatibilityCommandStatus.Failed,
+            CompatibilityFailureDisposition.Product,
+            CompatibilityFailureClassification.PayloadInspection);
+        var environmentInspectionFailure = Command(
+            CompatibilityCommandStatus.Failed,
+            CompatibilityFailureDisposition.Environment,
+            CompatibilityFailureClassification.PayloadInspection);
+        var reports = new[]
+        {
+            TargetReport(targets[0], productFailure, skipped),
+            TargetReport(targets[1], succeeded, productFailure),
+            TargetReport(targets[2], environmentFailure, skipped),
+            TargetReport(targets[3], succeeded, unsupported),
+            TargetReport(targets[4], succeeded, succeeded, productInspectionFailure),
+            TargetReport(targets[5], succeeded, succeeded, environmentInspectionFailure)
+        };
+
+        var summary = CompatibilitySizeReporter.CreateSummary(
+            reports,
+            failOnBannedPayload: false,
+            failOnThresholdWarnings: false);
+
+        await Assert.That(summary.ProductPublishFailureCount).IsEqualTo(1);
+        await Assert.That(summary.ProductSmokeFailureCount).IsEqualTo(1);
+        await Assert.That(summary.ProductInspectionFailureCount).IsEqualTo(1);
+        await Assert.That(summary.EnvironmentFailureCount).IsEqualTo(2);
+        await Assert.That(summary.UnsupportedCount).IsEqualTo(1);
+        await Assert.That(summary.HasHardFailures).IsTrue();
+    }
+
+    [Test]
+    public async Task BrowserTelemetry_IsStructuredInJsonAndMarkdown()
+    {
+        var target = CompatibilityTargetCatalog.GetTargets("v0.9", "memory-wasm-no-aot")[0];
+        var publish = Command(CompatibilityCommandStatus.Succeeded, CompatibilityFailureDisposition.None);
+        var smoke = Command(CompatibilityCommandStatus.Succeeded, CompatibilityFailureDisposition.None) with
+        {
+            Browser = new CompatibilityBrowserSmokeDetails(
+                true,
+                "passed",
+                "completed",
+                ["log: memory complete"],
+                ["log: browser complete"],
+                [])
+        };
+        var targetReport = TargetReport(target, publish, smoke);
+        var report = new CompatibilitySizeReport(
+            CompatibilitySizeReporter.SchemaVersion,
+            DateTimeOffset.UnixEpoch,
+            "repo",
+            "v0.9",
+            [target.Name],
+            8,
+            false,
+            "Release",
+            "win-x64",
+            "10.0.100",
+            "report",
+            [targetReport],
+            CompatibilitySizeReporter.CreateSummary([targetReport], false, false));
+        var jsonOptions = new JsonSerializerOptions
+        {
+            Converters = { new JsonStringEnumConverter() }
+        };
+        var json = JsonSerializer.Serialize(report, jsonOptions);
+        var markdown = CompatibilitySizeReporter.ToMarkdown(report);
+
+        await Assert.That(json).Contains("\"RuntimeGraph\":\"Memory\"");
+        await Assert.That(json).Contains("\"IsFullTargetSet\":false");
+        await Assert.That(json).Contains("\"FinalStage\":\"completed\"");
+        await Assert.That(markdown).Contains("Browser Smoke Telemetry");
+        await Assert.That(markdown).Contains("Target coverage: `1/8` (`subset`)");
+        await Assert.That(markdown).Contains("Final stage: `completed`");
     }
 
     [Test]
@@ -320,10 +618,81 @@ public class CompatibilitySizeReportTests
         }
     }
 
+    private static string TargetSnapshot(IReadOnlyList<CompatibilityTargetDefinition> targets) =>
+        string.Join(
+            "\n",
+            targets.Select(static target => string.Join(
+                "|",
+                target.Name,
+                target.Kind,
+                target.RuntimeGraph,
+                target.DisplayName,
+                target.ProjectRelativePath,
+                target.TargetFramework,
+                target.RequiresRuntimeIdentifier,
+                target.IsWebAssembly,
+                target.ExecutableName,
+                string.Join(",", target.PublishProperties))));
+
+    private static CompatibilityCommandReport Command(
+        CompatibilityCommandStatus status,
+        CompatibilityFailureDisposition disposition,
+        CompatibilityFailureClassification classification = CompatibilityFailureClassification.None) =>
+        new(status, null, null, null, disposition, classification, null);
+
+    private static CompatibilityTargetReport TargetReport(
+        CompatibilityTargetDefinition target,
+        CompatibilityCommandReport publish,
+        CompatibilityCommandReport smoke,
+        CompatibilityCommandReport? inspection = null) =>
+        new(
+            target.Name,
+            target.Kind,
+            target.RuntimeGraph,
+            target.DisplayName,
+            target.ProjectRelativePath,
+            target.Name,
+            publish,
+            smoke,
+            inspection ?? Command(CompatibilityCommandStatus.Succeeded, CompatibilityFailureDisposition.None),
+            new CompatibilityPayloadSizeSummary(0, 0, 0),
+            [],
+            [],
+            new CompatibilityWarningSummary(0, 0, [], []),
+            [],
+            new CompatibilityCompressedAssetSummary(".br", 0, 0),
+            new CompatibilityCompressedAssetSummary(".gz", 0, 0));
+
     private static void WriteFile(string path, int byteCount)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, new byte[byteCount]);
+    }
+
+    private static void WriteTextFile(string path, string content, Encoding encoding)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, content, encoding);
+    }
+
+    private static void WriteBoundaryTokenFile(string path, string token)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var tokenBytes = Encoding.UTF8.GetBytes(token);
+        var bytes = new byte[64 * 1024 - 5 + tokenBytes.Length];
+        tokenBytes.CopyTo(bytes, 64 * 1024 - 5);
+        File.WriteAllBytes(path, bytes);
+    }
+
+    private static void WriteCompressedTextFile(string path, string content, bool gzip)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using var file = File.Create(path);
+        using Stream compression = gzip
+            ? new GZipStream(file, CompressionMode.Compress)
+            : new BrotliStream(file, CompressionMode.Compress);
+        using var writer = new StreamWriter(compression, Encoding.UTF8);
+        writer.Write(content);
     }
 
     private static PackageInspectionReport CreatePackageReport(

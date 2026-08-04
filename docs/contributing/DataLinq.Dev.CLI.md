@@ -90,34 +90,49 @@ The optional target defaults to `src/DataLinq.sln`.
 
 ### `size-report`
 
-Publishes the constrained-platform smoke targets and writes a repeatable compatibility payload report. The default target set is still named `phase8c` for compatibility with the original report schema, but the current 0.8 release gate uses that target set for Native AOT, trimmed publish, WebAssembly no-AOT, and WebAssembly AOT evidence.
+Publishes the constrained-platform smoke targets and writes a repeatable compatibility payload report. `--target` selects a target set and still defaults to the historical `phase8c` set so existing commands keep their four-target SQLite behavior. Use `--target v0.9` for the explicit eight-target SQLite/Memory release catalog.
 
 ```bash
-dotnet run --project DataLinq.Dev.CLI -- size-report --target phase8c
-dotnet run --project DataLinq.Dev.CLI -- size-report --targets aot,trim --no-restore
-dotnet run --project DataLinq.Dev.CLI -- size-report --targets wasm,wasm-aot --format markdown
-dotnet run --project DataLinq.Dev.CLI -- size-report --targets wasm-aot --clean-output --release-thresholds
+dotnet run --project src/DataLinq.Dev.CLI -- size-report --target phase8c
+dotnet run --project src/DataLinq.Dev.CLI -- size-report --target v0.9 --targets memory --format markdown
+dotnet run --project src/DataLinq.Dev.CLI -- size-report --target v0.9 --targets aot,trim --no-restore
+dotnet run --project src/DataLinq.Dev.CLI -- size-report --target v0.9 --clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload --format markdown
 ```
 
-The default `phase8c` target set includes:
+The default `phase8c` target set preserves these original target ids and project graphs:
 
-- `aot`
+- `native-aot`
   Native AOT publish of `src/DataLinq.AotSmoke`.
-- `trim`
+- `trimmed`
   trimmed self-contained publish of `src/DataLinq.TrimSmoke`.
 - `wasm`
   no-AOT Blazor WebAssembly publish of `src/DataLinq.BlazorWasm`.
 - `wasm-aot`
   Blazor WebAssembly AOT publish of `src/DataLinq.BlazorWasm`.
 
-Each report includes total payload size, symbol-excluded size, file count, `.br` and `.gz` asset totals, largest files, publish warnings grouped by owner, warning diagnostics, smoke status, and banned runtime payload findings.
+The `v0.9` target set adds backend identity and uses these exact ids:
 
-Native executable targets run their published executable as the smoke. WebAssembly targets are served over local HTTP and opened in a headless Chromium-compatible browser through Playwright. Set `DATALINQ_BROWSER_PATH` when Edge, Chrome, or Chromium is not discoverable from the standard install paths or `PATH`.
+- `sqlite-native-aot`
+- `sqlite-trimmed`
+- `sqlite-wasm-no-aot`
+- `sqlite-wasm-aot`
+- `memory-native-aot`
+- `memory-trimmed`
+- `memory-wasm-no-aot`
+- `memory-wasm-aot`
+
+`--targets` accepts any exact id from the selected set. The `aot`, `trim`, `wasm`, and `wasm-aot` mode aliases select matching targets in that set; `sqlite` and `memory` select a runtime graph when that graph exists in the set; and `all` or the selected set name selects the complete set. Selections are deduplicated and emitted in catalog order. Alias spellings keep their alias meaning even when they overlap a historical id, while an exact id that is neither present nor a recognized alias is rejected.
+
+Each newly generated report uses schema `v0.9.compatibility-size-report.v2` and records runtime-graph identity, total payload size, symbol-excluded size, file count, `.br` and `.gz` asset totals, largest files, publish warnings grouped by owner, warning diagnostics, smoke status, an explicit payload-inspection status, and target-specific banned-runtime findings. `SelectedTargetIds` records the resolved request, `ExpectedTargetCount` records the complete selected-set cardinality, and `IsFullTargetSet` is true only when the reports actually produced exactly match that complete set; a selector subset or early stop is therefore never labeled full evidence. Summary failures are partitioned into product publish failures, product smoke failures, product inspection failures, environment failures, and unsupported observations. Every failed or unsupported required target remains a hard report failure; environment classification explains the failure and does not turn incomplete release evidence green. A failed inspection preserves any publish, smoke, payload, threshold, or warning result that completed before the fault instead of relabeling it as a publish failure.
+
+Native executable targets run their published executable as the smoke. WebAssembly targets are served over local HTTP and opened in a headless Chromium-compatible browser through Playwright. Both SQLite and Memory browser hosts expose the same neutral smoke contract. The JSON and Markdown reports retain whether that contract was present, final status and stage, window-console entries, Playwright-console entries, and page errors. A no-AOT failure is a required-target failure rather than an automatic unsupported downgrade. Set `DATALINQ_BROWSER_PATH` when Edge, Chrome, or Chromium is not discoverable from the standard install paths or `PATH`.
+
+Roslyn payload rules apply to every graph. Memory targets additionally scan both relative paths and binary/text content for `DataLinq.SQLite`, `DataLinq.MySql`, `Microsoft.Data.Sqlite`, `MySqlConnector`, `SQLitePCLRaw`, and `e_sqlite3`; the same provider tokens are legitimate in the SQLite graph and are not globally banned.
 
 Useful options:
 
 - `--targets`
-  Limits the run to `aot`, `trim`, `wasm`, `wasm-aot`, or a comma-separated subset.
+  Limits the chosen set by exact target id or the `aot`, `trim`, `wasm`, `wasm-aot`, `sqlite`, `memory`, or `all` aliases. Comma-separated selectors may be combined.
 - `--runtime`
   Runtime identifier for native publish targets. Defaults to the current OS and architecture.
 - `--top`
@@ -127,7 +142,7 @@ Useful options:
 - `--fail-on-threshold`
   Makes advisory threshold findings fail the command.
 - `--fail-on-banned-payload`
-  Makes banned runtime payload findings fail the command. Use this for release payload gates after the package graph has been refreshed.
+  Makes target-specific banned runtime payload findings fail the command. Use this for release payload gates after the package graph has been refreshed.
 - `--stop-on-publish-failure`
   Stops the report after a publish failure instead of continuing to later targets.
 - `--skip-smoke`
@@ -135,11 +150,11 @@ Useful options:
 - `--clean-output`
   Deletes `bin` and `obj` for the selected target projects before publishing. Use this for fresh WebAssembly warning evidence because incremental publishes can hide `WASM0001`.
 - `--release-thresholds`
-  Applies the 0.8 target-specific payload thresholds: Native AOT executable, Native AOT symbol-excluded folder, trimmed symbol-excluded folder, no-AOT Brotli assets, and WASM AOT Brotli assets.
+  Applies the shared, version-neutral compatibility guardrails by publish mode: Native AOT executable, Native AOT symbol-excluded folder, trimmed symbol-excluded folder, no-AOT Brotli assets, and WASM AOT Brotli assets.
 - `--format summary|markdown|json`
   Controls console output. The JSON and Markdown artifacts are always written.
 
-Reports are written under `artifacts/dev/compat-size-report/<timestamp>/` as `report.json` and `report.md`. Raw publish logs are written under `artifacts/dev/`; target-specific browser smoke logs are written under the target folder inside the report directory.
+Reports are written under `artifacts/dev/compat-size-report/<timestamp>/` as `report.json` and `report.md`. Raw publish logs are written under `artifacts/dev/`; target-specific browser smoke logs are written under the target folder inside the report directory. Catalog registration and focused tooling tests do not by themselves prove that all eight `v0.9` targets publish or execute; only a recorded fresh report can make that evidence claim.
 
 ### `package-report`
 

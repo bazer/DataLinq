@@ -2,7 +2,7 @@
 > This document is roadmap and engineering planning material. It is not normative product documentation and should not be treated as a support claim.
 # Practical AOT and Size Plan
 
-**Status:** Active compatibility follow-up. Phase 8C completed the package graph, size reporting, generated startup, and packaging work. The 0.8 roadmap then completed the Remotion/query-parser work through Phase 7. Playwright-backed browser automation, broader constrained query coverage, clean-output publishing, and release-threshold warnings are implemented in the local tooling. Phase 23 fixed the WebAssembly AOT browser runtime blocker, and the Phase 24 final clean-output report passes generated SQLite Native AOT, trimmed publish, WebAssembly no-AOT, and WebAssembly AOT smokes. Provider breadth and SQLitePCLRaw warning disposition remain future compatibility work.
+**Status:** Active compatibility follow-up. Phase 8C completed the package graph, size reporting, generated startup, and packaging work. The 0.8 roadmap then completed the Remotion/query-parser work through Phase 7. Playwright-backed browser automation, broader constrained query coverage, clean-output publishing, and release-threshold warnings are implemented in the local tooling. Phase 23 fixed the WebAssembly AOT browser runtime blocker, and the Phase 24 final clean-output report passes generated SQLite Native AOT, trimmed publish, WebAssembly no-AOT, and WebAssembly AOT smokes. The 0.9 roadmap now registers a separate eight-target SQLite/Memory compatibility catalog with graph-aware reporting, while its fresh execution and package reruns remain open. Provider breadth beyond those registered graphs and SQLitePCLRaw warning disposition remain future compatibility work.
 
 **Created:** 2026-05-05.
 
@@ -19,6 +19,8 @@
 **Update 2026-06-29 Phase 23 browser evidence:** The `MONO_WASM` failure was narrowed to generic generated metadata startup: the runtime path wrapped static abstract generated metadata hooks in delegates before building runtime metadata. Calling `TDatabase.GetDataLinqGeneratedMetadata()` and `TDatabase.SetDataLinqGeneratedMetadata(...)` directly fixes the browser AOT startup failure. The fixed host-side `wasm-aot` report at `artifacts/dev/compat-size-report/20260629-210510424/` publishes successfully and passes the browser smoke at `verifying-strict-parser-projection`. The current host-side `wasm` report at `artifacts/dev/compat-size-report/20260629-205114951/` also passes the same generated SQLite smoke boundary. Clean-output `wasm-aot` and `wasm` reports still fail before browser execution with the Blazor SDK `ResolveWasmOutputs` issue.
 
 **Update 2026-06-30 Phase 24 release evidence:** The final clean-output release report at `artifacts/dev/compat-size-report/20260630-131026977/report.md` passes all four `phase8c` targets with release thresholds and banned-payload failure enabled. Native AOT and trimmed publishes/smokes pass with zero warnings and zero banned payloads. WebAssembly no-AOT and WebAssembly AOT publish, browser-smoke, and stay under the 0.8 Brotli thresholds with zero banned payloads and the expected 13 `WASM0001` diagnostics each. The clean-output blocker is not a current release caveat on this machine; SQLitePCLRaw varargs warning disposition and provider/query breadth remain separate caveats.
+
+**Update 2026-08-04 W10 step 4 / RE-1C:** The historical/default `phase8c` selector retains its original four SQLite ids. A separate `v0.9` set registers independently named Native AOT, trimmed, WebAssembly no-AOT, and WebAssembly AOT targets for both SQLite and Memory. The `v0.9.compatibility-size-report.v2` DTO records graph identity, separates product from environment failures, treats every no-AOT target as required, carries neutral browser status/stage and console/page-error telemetry from both hosts, applies version-neutral shared size guardrails, and scans Memory paths plus content for SQL-provider/native-database tokens. Focused compatibility-report tests pass `18/18`. This is catalog/reporting evidence only: no new eight-target publish, browser execution, package-consumer, or packaged constrained-runtime report is claimed.
 
 ## Purpose
 
@@ -342,7 +344,7 @@ Exit criteria:
 
 Manual size notes are useful once. After that they rot.
 
-Status: implemented for the current `phase8c` target set. The report publishes Native AOT, trimmed, WASM no-AOT, and WASM AOT outputs, captures payload sizes, groups warnings, checks banned Roslyn payload, applies optional 0.8 release thresholds, and runs browser smoke for WebAssembly targets through Playwright.
+Status: implemented for the historical/default `phase8c` target set and registered for the separate `v0.9` SQLite/Memory set. The report can publish Native AOT, trimmed, WASM no-AOT, and WASM AOT outputs; captures graph identity and payload sizes; groups warnings; separates product and environment failures; checks global Roslyn plus Memory-specific provider/native payload bans; applies optional version-neutral compatibility guardrails; and records neutral Playwright browser telemetry. W10 step 4 registers and tests that surface, but W10 step 5 still owns its first fresh eight-target execution and any package-based rerun.
 
 Add a repeatable size report command that publishes the constrained targets and emits:
 

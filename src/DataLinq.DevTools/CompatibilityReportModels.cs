@@ -11,6 +11,12 @@ public enum CompatibilityTargetKind
     WasmAot
 }
 
+public enum CompatibilityRuntimeGraph
+{
+    SQLite,
+    Memory
+}
+
 public enum CompatibilityCommandStatus
 {
     Succeeded,
@@ -25,9 +31,20 @@ public enum CompatibilityFailureClassification
     None,
     UnsupportedNoAot,
     SdkOrWebAssemblyToolchain,
+    BrowserTelemetryContract,
+    PayloadInspection,
+    ProductRegression,
     RemotionDependency,
     Dotnet,
     Unknown
+}
+
+public enum CompatibilityFailureDisposition
+{
+    None,
+    Product,
+    Environment,
+    Unsupported
 }
 
 public enum CompatibilityWarningOwner
@@ -42,6 +59,7 @@ public enum CompatibilityWarningOwner
 public sealed record CompatibilityTargetDefinition(
     string Name,
     CompatibilityTargetKind Kind,
+    CompatibilityRuntimeGraph RuntimeGraph,
     string DisplayName,
     string ProjectRelativePath,
     string TargetFramework,
@@ -54,7 +72,7 @@ public sealed record CompatibilityReportOptions(
     string RepositoryRoot,
     ToolingProfile Profile,
     string TargetSet,
-    IReadOnlyList<CompatibilityTargetKind> Targets,
+    string? TargetSelectors,
     string Configuration,
     string RuntimeIdentifier,
     int LargestFileCount,
@@ -74,6 +92,9 @@ public sealed record CompatibilitySizeReport(
     DateTimeOffset GeneratedAtUtc,
     string RepositoryRoot,
     string TargetSet,
+    IReadOnlyList<string> SelectedTargetIds,
+    int ExpectedTargetCount,
+    bool IsFullTargetSet,
     string Configuration,
     string RuntimeIdentifier,
     string DotnetSdkVersion,
@@ -83,8 +104,11 @@ public sealed record CompatibilitySizeReport(
 
 public sealed record CompatibilityReportSummary(
     int TargetCount,
-    int PublishFailureCount,
-    int SmokeFailureCount,
+    int ProductPublishFailureCount,
+    int ProductSmokeFailureCount,
+    int ProductInspectionFailureCount,
+    int EnvironmentFailureCount,
+    int UnsupportedCount,
     int BannedPayloadCount,
     int ThresholdWarningCount,
     int DistinctWarningCount,
@@ -93,11 +117,13 @@ public sealed record CompatibilityReportSummary(
 public sealed record CompatibilityTargetReport(
     string Name,
     CompatibilityTargetKind Kind,
+    CompatibilityRuntimeGraph RuntimeGraph,
     string DisplayName,
     string ProjectPath,
     string PublishDirectory,
     CompatibilityCommandReport Publish,
     CompatibilityCommandReport Smoke,
+    CompatibilityCommandReport Inspection,
     CompatibilityPayloadSizeSummary Payload,
     IReadOnlyList<CompatibilityBannedPayloadFinding> BannedPayloads,
     IReadOnlyList<CompatibilityThresholdFinding> ThresholdWarnings,
@@ -111,8 +137,20 @@ public sealed record CompatibilityCommandReport(
     int? ExitCode,
     double? DurationSeconds,
     string? RawLogPath,
+    CompatibilityFailureDisposition FailureDisposition,
     CompatibilityFailureClassification FailureClassification,
-    string? Summary);
+    string? Summary)
+{
+    public CompatibilityBrowserSmokeDetails? Browser { get; init; }
+}
+
+public sealed record CompatibilityBrowserSmokeDetails(
+    bool ContractPresent,
+    string FinalStatus,
+    string FinalStage,
+    IReadOnlyList<string> WindowConsole,
+    IReadOnlyList<string> PlaywrightConsole,
+    IReadOnlyList<string> PageErrors);
 
 public sealed record CompatibilityPayloadSizeSummary(
     long TotalBytes,

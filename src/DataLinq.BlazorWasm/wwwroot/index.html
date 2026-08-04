@@ -32,6 +32,11 @@
                     return;
                 }
 
+                const currentStatus = element.dataset.status;
+                if (currentStatus === "failed" || (currentStatus === "passed" && status !== "failed")) {
+                    return;
+                }
+
                 element.dataset.status = status || "running";
                 element.textContent = stage || "running";
             }

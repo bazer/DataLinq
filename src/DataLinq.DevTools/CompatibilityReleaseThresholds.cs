@@ -136,6 +136,6 @@ public static class CompatibilityReleaseThresholds
             actual,
             limit,
             "warning",
-            $"{label} {CompatibilityPayloadInspector.FormatBytes(actual)} exceeds 0.8 release threshold {CompatibilityPayloadInspector.FormatBytes(limit)}."));
+            $"{label} {CompatibilityPayloadInspector.FormatBytes(actual)} exceeds compatibility guardrail {CompatibilityPayloadInspector.FormatBytes(limit)}."));
     }
 }

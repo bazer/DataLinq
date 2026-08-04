@@ -48,12 +48,6 @@ public static class CompatibilityWarningClassifier
             warning.Message,
             string.Join(" ", warning.Projects));
 
-        if (target.Kind == CompatibilityTargetKind.Wasm &&
-            ContainsAny(combined, "no-aot", "interpreter", "RunAOTCompilation=false"))
-        {
-            return CompatibilityWarningOwner.UnsupportedNoAot;
-        }
-
         if (ContainsAny(
             combined,
             ".nuget",
@@ -128,9 +122,6 @@ public static class CompatibilityWarningClassifier
             return CompatibilityFailureClassification.SdkOrWebAssemblyToolchain;
         }
 
-        if (target.Kind == CompatibilityTargetKind.Wasm)
-            return CompatibilityFailureClassification.UnsupportedNoAot;
-
         if (result.Analysis.FailureCategory == DotnetFailureCategory.TrimAnalysis &&
             ContainsAny(combined, "Remotion.Linq", @"remotion.linq\"))
         {
@@ -149,6 +140,44 @@ public static class CompatibilityWarningClassifier
         }
 
         return CompatibilityFailureClassification.Unknown;
+    }
+
+    public static CompatibilityFailureDisposition ClassifyFailureDisposition(DotnetCommandResult result)
+    {
+        if (result.ProcessResult.ExitCode == 0)
+            return CompatibilityFailureDisposition.None;
+
+        var combined = string.Join(
+            Environment.NewLine,
+            result.ProcessResult.StandardOutput,
+            result.ProcessResult.StandardError,
+            result.Analysis.FailureSummary ?? string.Empty);
+
+        if (result.Analysis.FailureCategory is
+                DotnetFailureCategory.NugetSourceAccess or
+                DotnetFailureCategory.NugetConfigAccess or
+                DotnetFailureCategory.SdkResolver ||
+            ContainsAny(
+                combined,
+                "workload is not installed",
+                "WebAssembly workload",
+                "wasm-tools",
+                "Platform linker not found",
+                "nativeaot-prerequisites",
+                "Desktop Development for C++",
+                "MarshalingPInvokeScanner",
+                "ResolveWasmOutputs",
+                "MSB4216",
+                "MSB4027",
+                "Unable to load the service index",
+                "Name or service not known",
+                "No such host is known",
+                "could not resolve SDK"))
+        {
+            return CompatibilityFailureDisposition.Environment;
+        }
+
+        return CompatibilityFailureDisposition.Product;
     }
 
     private static bool ContainsAny(string value, params string[] needles) =>

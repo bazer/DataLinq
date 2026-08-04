@@ -4,27 +4,27 @@
 <PageTitle>DataLinq Memory WASM Smoke</PageTitle>
 
 <main class="shell"
-      data-datalinq-memory-smoke-status="@StatusText"
-      data-datalinq-memory-smoke-stage="@stage">
+      data-datalinq-smoke-status="@StatusText"
+      data-datalinq-smoke-stage="@stage">
     <section class="summary">
         <div>
             <p class="eyebrow">0.9 memory platform probe</p>
             <h1>DataLinq Memory on WebAssembly</h1>
         </div>
-        <span id="datalinq-memory-smoke-status" class="status @StatusClass">@StatusText</span>
+        <span id="datalinq-smoke-status" class="status @StatusClass">@StatusText</span>
     </section>
 
     @if (passed is null && error is null)
     {
-        <p id="datalinq-memory-smoke-stage">Running provider-free memory smoke: @stage</p>
+        <p id="datalinq-smoke-stage">Running provider-free memory smoke: @stage</p>
     }
     else if (error is not null)
     {
-        <pre id="datalinq-memory-smoke-error" class="error">@error</pre>
+        <pre id="datalinq-smoke-error" class="error">@error</pre>
     }
     else
     {
-        <pre id="datalinq-memory-smoke-result" class="result">@displayResult</pre>
+        <pre id="datalinq-smoke-result" class="result">@displayResult</pre>
         <section class="details" aria-label="Memory smoke details">
             <h2>Provider-free memory runtime</h2>
             <p>

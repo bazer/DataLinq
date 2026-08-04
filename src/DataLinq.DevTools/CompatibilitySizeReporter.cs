@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,7 +11,7 @@ namespace DataLinq.DevTools;
 
 public sealed class CompatibilitySizeReporter
 {
-    private const string SchemaVersion = "phase8c.compatibility-size-report.v1";
+    public const string SchemaVersion = "v0.9.compatibility-size-report.v2";
 
     private readonly DevToolPaths paths;
     private readonly CompatibilityReportOptions options;
@@ -26,18 +27,37 @@ public sealed class CompatibilitySizeReporter
         paths.EnsureCreated();
 
         var reportDirectory = CreateReportDirectory(paths.ArtifactRoot);
-        var targets = CompatibilityTargetCatalog.GetTargets(options.TargetSet, options.Targets);
+        var expectedTargets = CompatibilityTargetCatalog.GetTargets(options.TargetSet);
+        var targets = CompatibilityTargetCatalog.GetTargets(options.TargetSet, options.TargetSelectors);
+        var selectedTargetIds = targets.Select(static target => target.Name).ToArray();
         var runner = new DotnetCommandRunner(paths, options.Profile);
         var targetReports = new List<CompatibilityTargetReport>();
 
         foreach (var target in targets)
         {
-            var targetReport = CreateTargetReport(reportDirectory, runner, target);
+            CompatibilityTargetReport targetReport;
+            try
+            {
+                targetReport = CreateTargetReport(reportDirectory, runner, target);
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException and
+                                              not AccessViolationException and
+                                              not OperationCanceledException)
+            {
+                targetReport = CreateInfrastructureFailureTargetReport(reportDirectory, target, exception);
+            }
+
             targetReports.Add(targetReport);
 
             if (targetReport.Publish.Status == CompatibilityCommandStatus.Failed && !options.ContinueOnPublishFailure)
                 break;
         }
+
+        var isFullTargetSet = targetReports
+            .Select(static target => target.Name)
+            .SequenceEqual(
+                expectedTargets.Select(static target => target.Name),
+                StringComparer.OrdinalIgnoreCase);
 
         var sdkVersion = ReadDotnetSdkVersion();
         var report = new CompatibilitySizeReport(
@@ -45,12 +65,18 @@ public sealed class CompatibilitySizeReporter
             DateTimeOffset.UtcNow,
             options.RepositoryRoot,
             options.TargetSet,
+            selectedTargetIds,
+            expectedTargets.Count,
+            isFullTargetSet,
             options.Configuration,
             options.RuntimeIdentifier,
             sdkVersion,
             reportDirectory,
             targetReports,
-            CreateSummary(targetReports));
+            CreateSummary(
+                targetReports,
+                options.FailOnBannedPayload,
+                options.FailOnThresholdWarnings));
 
         WriteReportArtifacts(report);
         return report;
@@ -63,19 +89,30 @@ public sealed class CompatibilitySizeReporter
         builder.AppendLine();
         builder.AppendLine($"Generated UTC: {report.GeneratedAtUtc:O}");
         builder.AppendLine($"Target set: `{report.TargetSet}`");
+        builder.AppendLine(
+            $"Target coverage: `{report.Targets.Count}/{report.ExpectedTargetCount}` " +
+            $"(`{(report.IsFullTargetSet ? "full" : "subset")}`)");
+        builder.AppendLine($"Selected target ids: `{string.Join(", ", report.SelectedTargetIds)}`");
         builder.AppendLine($"Configuration: `{report.Configuration}`");
         builder.AppendLine($"Runtime identifier: `{report.RuntimeIdentifier}`");
         builder.AppendLine($"SDK: `{report.DotnetSdkVersion}`");
+        builder.AppendLine($"Product publish failures: `{report.Summary.ProductPublishFailureCount}`");
+        builder.AppendLine($"Product smoke failures: `{report.Summary.ProductSmokeFailureCount}`");
+        builder.AppendLine($"Product inspection failures: `{report.Summary.ProductInspectionFailureCount}`");
+        builder.AppendLine($"Environment failures: `{report.Summary.EnvironmentFailureCount}`");
+        builder.AppendLine($"Unsupported observations: `{report.Summary.UnsupportedCount}`");
         builder.AppendLine();
-        builder.AppendLine("| Target | Publish | Smoke | Files | Total | Symbol-excluded | .br | .gz | Banned | Warnings |");
-        builder.AppendLine("| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |");
+        builder.AppendLine("| Target | Graph | Publish | Smoke | Inspection | Files | Total | Symbol-excluded | .br | .gz | Banned | Warnings |");
+        builder.AppendLine("| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |");
 
         foreach (var target in report.Targets)
         {
             builder.AppendLine(string.Join(" | ", [
                 $"| {EscapeTable(target.Name)}",
+                target.RuntimeGraph.ToString(),
                 FormatCommandStatus(target.Publish),
                 FormatCommandStatus(target.Smoke),
+                FormatCommandStatus(target.Inspection),
                 target.Payload.FileCount.ToString(),
                 CompatibilityPayloadInspector.FormatBytes(target.Payload.TotalBytes),
                 CompatibilityPayloadInspector.FormatBytes(target.Payload.SymbolExcludedBytes),
@@ -92,11 +129,44 @@ public sealed class CompatibilitySizeReporter
             builder.AppendLine($"## {target.DisplayName}");
             builder.AppendLine();
             builder.AppendLine($"Publish directory: `{target.PublishDirectory}`");
+            builder.AppendLine($"Runtime graph: `{target.RuntimeGraph}`");
             builder.AppendLine($"Publish log: `{target.Publish.RawLogPath ?? "-"}`");
             builder.AppendLine($"Smoke log: `{target.Smoke.RawLogPath ?? "-"}`");
+            builder.AppendLine($"Inspection log: `{target.Inspection.RawLogPath ?? "-"}`");
 
             if (target.Publish.FailureClassification != CompatibilityFailureClassification.None)
+            {
+                builder.AppendLine($"Publish failure disposition: `{target.Publish.FailureDisposition}`");
                 builder.AppendLine($"Publish failure classification: `{target.Publish.FailureClassification}`");
+            }
+
+            if (target.Smoke.FailureClassification != CompatibilityFailureClassification.None)
+            {
+                builder.AppendLine($"Smoke failure disposition: `{target.Smoke.FailureDisposition}`");
+                builder.AppendLine($"Smoke failure classification: `{target.Smoke.FailureClassification}`");
+            }
+
+            if (target.Inspection.FailureClassification != CompatibilityFailureClassification.None)
+            {
+                builder.AppendLine($"Inspection failure disposition: `{target.Inspection.FailureDisposition}`");
+                builder.AppendLine($"Inspection failure classification: `{target.Inspection.FailureClassification}`");
+            }
+
+            if (target.Smoke.Browser is { } browser)
+            {
+                builder.AppendLine();
+                builder.AppendLine("### Browser Smoke Telemetry");
+                builder.AppendLine();
+                builder.AppendLine($"- Contract present: `{browser.ContractPresent}`");
+                builder.AppendLine($"- Final status: `{browser.FinalStatus}`");
+                builder.AppendLine($"- Final stage: `{browser.FinalStage}`");
+                builder.AppendLine($"- Window console entries: `{browser.WindowConsole.Count}`");
+                builder.AppendLine($"- Playwright console entries: `{browser.PlaywrightConsole.Count}`");
+                builder.AppendLine($"- Page errors: `{browser.PageErrors.Count}`");
+                AppendTelemetryEntries(builder, "Window console", browser.WindowConsole);
+                AppendTelemetryEntries(builder, "Playwright console", browser.PlaywrightConsole);
+                AppendTelemetryEntries(builder, "Page errors", browser.PageErrors);
+            }
 
             if (target.BannedPayloads.Count > 0)
             {
@@ -186,35 +256,102 @@ public sealed class CompatibilitySizeReporter
             publishResult.ProcessResult.ExitCode,
             publishResult.ProcessResult.Duration.TotalSeconds,
             publishResult.RawLogPath,
+            CompatibilityWarningClassifier.ClassifyFailureDisposition(publishResult),
             CompatibilityWarningClassifier.ClassifyFailure(target, publishResult),
             publishResult.Analysis.FailureSummary);
 
-        var smokeReport = CreateSmokeReport(target, publishDirectory, publishReport.Status, targetRoot);
-        var inspection = CompatibilityPayloadInspector.Inspect(
-            publishDirectory,
-            options.LargestFileCount,
-            options.TotalSizeWarningBytes,
-            options.SymbolExcludedSizeWarningBytes,
-            options.FileCountWarning);
-        var thresholdWarnings = options.UseReleaseThresholds
-            ? inspection.ThresholdWarnings
-                .Concat(CompatibilityReleaseThresholds.FindWarnings(
-                    target,
-                    publishDirectory,
-                    inspection.Payload,
-                    inspection.BrotliAssets))
-                .ToArray()
-            : inspection.ThresholdWarnings;
-        var warningSummary = CompatibilityWarningClassifier.Summarize(target, publishResult.Analysis.Warnings);
+        CompatibilityCommandReport smokeReport;
+        try
+        {
+            smokeReport = CreateSmokeReport(target, publishDirectory, publishReport.Status, targetRoot);
+        }
+        catch (Exception exception) when (IsReportableException(exception))
+        {
+            smokeReport = CreatePhaseExceptionReport(targetRoot, "smoke", exception);
+        }
+
+        var inspection = EmptyPayloadInspection();
+        IReadOnlyList<CompatibilityThresholdFinding> thresholdWarnings = [];
+        var warningSummary = new CompatibilityWarningSummary(0, 0, [], []);
+        CompatibilityCommandReport inspectionReport;
+        var inspectionCompleted = false;
+        var phaseExceptions = new List<Exception>();
+        var inspectionStopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            inspection = CompatibilityPayloadInspector.Inspect(
+                target,
+                publishDirectory,
+                options.LargestFileCount,
+                options.TotalSizeWarningBytes,
+                options.SymbolExcludedSizeWarningBytes,
+                options.FileCountWarning);
+            inspectionCompleted = true;
+            thresholdWarnings = inspection.ThresholdWarnings;
+        }
+        catch (Exception exception) when (IsReportableException(exception))
+        {
+            phaseExceptions.Add(exception);
+        }
+
+        try
+        {
+            warningSummary = CompatibilityWarningClassifier.Summarize(target, publishResult.Analysis.Warnings);
+        }
+        catch (Exception exception) when (IsReportableException(exception))
+        {
+            phaseExceptions.Add(exception);
+        }
+
+        if (inspectionCompleted && options.UseReleaseThresholds)
+        {
+            try
+            {
+                thresholdWarnings = inspection.ThresholdWarnings
+                    .Concat(CompatibilityReleaseThresholds.FindWarnings(
+                        target,
+                        publishDirectory,
+                        inspection.Payload,
+                        inspection.BrotliAssets))
+                    .ToArray();
+            }
+            catch (Exception exception) when (IsReportableException(exception))
+            {
+                phaseExceptions.Add(exception);
+            }
+        }
+
+        inspectionStopwatch.Stop();
+        if (phaseExceptions.Count == 0)
+        {
+            inspectionReport = new CompatibilityCommandReport(
+                CompatibilityCommandStatus.Succeeded,
+                0,
+                inspectionStopwatch.Elapsed.TotalSeconds,
+                null,
+                CompatibilityFailureDisposition.None,
+                CompatibilityFailureClassification.None,
+                "Payload inspection and report analysis completed.");
+        }
+        else
+        {
+            var exception = phaseExceptions.Count == 1
+                ? phaseExceptions[0]
+                : new AggregateException("Multiple payload inspection or report-analysis failures occurred.", phaseExceptions);
+            inspectionReport = CreatePhaseExceptionReport(targetRoot, "inspection", exception);
+        }
 
         return new CompatibilityTargetReport(
             target.Name,
             target.Kind,
+            target.RuntimeGraph,
             target.DisplayName,
             projectPath,
             publishDirectory,
             publishReport,
             smokeReport,
+            inspectionReport,
             inspection.Payload,
             inspection.BannedPayloads,
             thresholdWarnings,
@@ -222,6 +359,130 @@ public sealed class CompatibilitySizeReporter
             inspection.LargestFiles,
             inspection.BrotliAssets,
             inspection.GzipAssets);
+    }
+
+    private CompatibilityTargetReport CreateInfrastructureFailureTargetReport(
+        string reportDirectory,
+        CompatibilityTargetDefinition target,
+        Exception exception)
+    {
+        var disposition = ClassifyExceptionDisposition(exception);
+        var rawLogPath = WriteFailureLog(
+            reportDirectory,
+            $"{target.Name}-preparation-or-publish-failure.log",
+            exception);
+        var publish = new CompatibilityCommandReport(
+            CompatibilityCommandStatus.Failed,
+            null,
+            null,
+            rawLogPath,
+            disposition,
+            CompatibilityFailureClassification.Unknown,
+            $"{exception.GetType().Name} while preparing or publishing target: {exception.Message}");
+        var smoke = new CompatibilityCommandReport(
+            CompatibilityCommandStatus.Skipped,
+            null,
+            null,
+            null,
+            CompatibilityFailureDisposition.None,
+            CompatibilityFailureClassification.None,
+            "Smoke skipped because target preparation or publish failed.");
+        var inspection = new CompatibilityCommandReport(
+            CompatibilityCommandStatus.Skipped,
+            null,
+            null,
+            null,
+            CompatibilityFailureDisposition.None,
+            CompatibilityFailureClassification.None,
+            "Inspection skipped because target preparation or publish failed.");
+
+        return new CompatibilityTargetReport(
+            target.Name,
+            target.Kind,
+            target.RuntimeGraph,
+            target.DisplayName,
+            ResolveRepositoryPath(target.ProjectRelativePath),
+            Path.Combine(reportDirectory, target.Name, "publish"),
+            publish,
+            smoke,
+            inspection,
+            new CompatibilityPayloadSizeSummary(0, 0, 0),
+            [],
+            [],
+            new CompatibilityWarningSummary(0, 0, [], []),
+            [],
+            new CompatibilityCompressedAssetSummary(".br", 0, 0),
+            new CompatibilityCompressedAssetSummary(".gz", 0, 0));
+    }
+
+    private static CompatibilityCommandReport CreatePhaseExceptionReport(
+        string targetRoot,
+        string phase,
+        Exception exception)
+    {
+        var disposition = ClassifyExceptionDisposition(exception);
+        return new CompatibilityCommandReport(
+            CompatibilityCommandStatus.Failed,
+            null,
+            null,
+            WriteFailureLog(targetRoot, $"{phase}-failure.log", exception),
+            disposition,
+            phase == "inspection"
+                ? CompatibilityFailureClassification.PayloadInspection
+                : disposition == CompatibilityFailureDisposition.Environment
+                    ? CompatibilityFailureClassification.SdkOrWebAssemblyToolchain
+                    : CompatibilityFailureClassification.ProductRegression,
+            $"{exception.GetType().Name} during {phase}: {exception.Message}");
+    }
+
+    private static CompatibilityFailureDisposition ClassifyExceptionDisposition(Exception exception)
+    {
+        if (exception is AggregateException aggregateException)
+        {
+            return aggregateException.Flatten().InnerExceptions.All(IsEnvironmentException)
+                ? CompatibilityFailureDisposition.Environment
+                : CompatibilityFailureDisposition.Product;
+        }
+
+        return IsEnvironmentException(exception)
+            ? CompatibilityFailureDisposition.Environment
+            : CompatibilityFailureDisposition.Product;
+    }
+
+    private static bool IsEnvironmentException(Exception exception) =>
+        exception is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception;
+
+    private static bool IsReportableException(Exception exception) =>
+        exception is not OutOfMemoryException and
+        not AccessViolationException and
+        not OperationCanceledException;
+
+    private static CompatibilityPayloadInspectionResult EmptyPayloadInspection() =>
+        new(
+            new CompatibilityPayloadSizeSummary(0, 0, 0),
+            [],
+            [],
+            new CompatibilityCompressedAssetSummary(".br", 0, 0),
+            new CompatibilityCompressedAssetSummary(".gz", 0, 0),
+            []);
+
+    private static string? WriteFailureLog(
+        string directory,
+        string fileName,
+        Exception exception)
+    {
+        try
+        {
+            var path = Path.Combine(directory, fileName);
+            File.WriteAllText(path, exception.ToString(), Encoding.UTF8);
+            return path;
+        }
+        catch (Exception writeException) when (writeException is not OutOfMemoryException and
+                                               not AccessViolationException and
+                                               not OperationCanceledException)
+        {
+            return null;
+        }
     }
 
     private IReadOnlyList<string> CreatePublishArguments(
@@ -272,6 +533,7 @@ public sealed class CompatibilitySizeReporter
                 null,
                 null,
                 null,
+                CompatibilityFailureDisposition.None,
                 CompatibilityFailureClassification.None,
                 "Smoke skipped because publish failed.");
         }
@@ -283,6 +545,7 @@ public sealed class CompatibilitySizeReporter
                 null,
                 null,
                 null,
+                CompatibilityFailureDisposition.None,
                 CompatibilityFailureClassification.None,
                 "Smoke skipped by command option.");
         }
@@ -298,15 +561,31 @@ public sealed class CompatibilitySizeReporter
                 null,
                 null,
                 null,
+                CompatibilityFailureDisposition.Product,
                 CompatibilityFailureClassification.Unknown,
                 $"Could not find published executable '{target.ExecutableName}' in '{publishDirectory}'.");
         }
 
-        var result = ExternalProcessRunner.Execute(
-            executablePath,
-            [],
-            publishDirectory,
-            paths.CreateEnvironment(options.Profile));
+        ExternalCommandResult result;
+        try
+        {
+            result = ExternalProcessRunner.Execute(
+                executablePath,
+                [],
+                publishDirectory,
+                paths.CreateEnvironment(options.Profile));
+        }
+        catch (Exception exception)
+        {
+            return new CompatibilityCommandReport(
+                CompatibilityCommandStatus.Failed,
+                null,
+                null,
+                null,
+                CompatibilityFailureDisposition.Environment,
+                CompatibilityFailureClassification.Unknown,
+                $"Could not start published smoke executable: {exception.Message}");
+        }
         var rawLogPath = WriteSmokeLog(target.Name, result);
 
         return new CompatibilityCommandReport(
@@ -314,6 +593,9 @@ public sealed class CompatibilitySizeReporter
             result.ExitCode,
             result.Duration.TotalSeconds,
             rawLogPath,
+            result.ExitCode == 0
+                ? CompatibilityFailureDisposition.None
+                : CompatibilityFailureDisposition.Product,
             result.ExitCode == 0 ? CompatibilityFailureClassification.None : CompatibilityFailureClassification.Unknown,
             CreateSmokeSummary(result));
     }
@@ -394,28 +676,67 @@ public sealed class CompatibilitySizeReporter
         return Path.Combine(paths.RepositoryRoot, normalized);
     }
 
-    private CompatibilityReportSummary CreateSummary(IReadOnlyList<CompatibilityTargetReport> targets)
+    public static CompatibilityReportSummary CreateSummary(
+        IReadOnlyList<CompatibilityTargetReport> targets,
+        bool failOnBannedPayload,
+        bool failOnThresholdWarnings)
     {
-        var publishFailureCount = targets.Count(static target => target.Publish.Status == CompatibilityCommandStatus.Failed);
-        var smokeFailureCount = targets.Count(static target => target.Smoke.Status == CompatibilityCommandStatus.Failed);
+        var productPublishFailureCount = targets.Count(static target =>
+            IsProductFailure(target.Publish));
+        var productSmokeFailureCount = targets.Count(static target =>
+            IsProductFailure(target.Smoke));
+        var productInspectionFailureCount = targets.Count(static target =>
+            IsProductFailure(target.Inspection));
+        var environmentFailureCount = targets.Sum(static target =>
+            CountEnvironmentFailure(target.Publish) +
+            CountEnvironmentFailure(target.Smoke) +
+            CountEnvironmentFailure(target.Inspection));
+        var unsupportedCount = targets.Sum(static target =>
+            CountUnsupported(target.Publish) +
+            CountUnsupported(target.Smoke) +
+            CountUnsupported(target.Inspection));
         var bannedPayloadCount = targets.Sum(static target => target.BannedPayloads.Count);
         var thresholdWarningCount = targets.Sum(static target => target.ThresholdWarnings.Count);
         var distinctWarningCount = targets.Sum(static target => target.WarningSummary.DistinctWarningCount);
         var hasHardFailures =
-            publishFailureCount > 0 ||
-            smokeFailureCount > 0 ||
-            options.FailOnBannedPayload && bannedPayloadCount > 0 ||
-            options.FailOnThresholdWarnings && thresholdWarningCount > 0;
+            productPublishFailureCount > 0 ||
+            productSmokeFailureCount > 0 ||
+            productInspectionFailureCount > 0 ||
+            environmentFailureCount > 0 ||
+            unsupportedCount > 0 ||
+            failOnBannedPayload && bannedPayloadCount > 0 ||
+            failOnThresholdWarnings && thresholdWarningCount > 0;
 
         return new CompatibilityReportSummary(
             targets.Count,
-            publishFailureCount,
-            smokeFailureCount,
+            productPublishFailureCount,
+            productSmokeFailureCount,
+            productInspectionFailureCount,
+            environmentFailureCount,
+            unsupportedCount,
             bannedPayloadCount,
             thresholdWarningCount,
             distinctWarningCount,
             hasHardFailures);
     }
+
+    private static int CountEnvironmentFailure(CompatibilityCommandReport command) =>
+        command.Status == CompatibilityCommandStatus.Failed &&
+        command.FailureDisposition == CompatibilityFailureDisposition.Environment
+            ? 1
+            : 0;
+
+    private static bool IsProductFailure(CompatibilityCommandReport command) =>
+        command.Status == CompatibilityCommandStatus.Failed &&
+        command.FailureDisposition is
+            CompatibilityFailureDisposition.Product or
+            CompatibilityFailureDisposition.None;
+
+    private static int CountUnsupported(CompatibilityCommandReport command) =>
+        command.Status == CompatibilityCommandStatus.Unsupported ||
+        command.FailureDisposition == CompatibilityFailureDisposition.Unsupported
+            ? 1
+            : 0;
 
     private static string CreateReportDirectory(string artifactRoot)
     {
@@ -492,7 +813,8 @@ public sealed class CompatibilitySizeReporter
         command.Status switch
         {
             CompatibilityCommandStatus.Succeeded => "ok",
-            CompatibilityCommandStatus.Failed => $"failed ({command.FailureClassification})",
+            CompatibilityCommandStatus.Failed =>
+                $"failed ({command.FailureDisposition}/{command.FailureClassification})",
             CompatibilityCommandStatus.Skipped => "skipped",
             CompatibilityCommandStatus.NotApplicable => "n/a",
             CompatibilityCommandStatus.Unsupported => $"unsupported ({command.FailureClassification})",
@@ -501,4 +823,23 @@ public sealed class CompatibilitySizeReporter
 
     private static string EscapeTable(string value) =>
         value.Replace("|", "\\|", StringComparison.Ordinal);
+
+    private static void AppendTelemetryEntries(
+        StringBuilder builder,
+        string label,
+        IReadOnlyList<string> entries)
+    {
+        if (entries.Count == 0)
+            return;
+
+        builder.AppendLine($"- {label}:");
+        foreach (var entry in entries)
+        {
+            var singleLine = entry
+                .Replace('`', '\'')
+                .Replace('\r', ' ')
+                .Replace('\n', ' ');
+            builder.AppendLine($"  - `{singleLine}`");
+        }
+    }
 }

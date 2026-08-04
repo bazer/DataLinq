@@ -14,12 +14,12 @@ internal static class SizeReportCommand
         var profileOption = CommandHelpers.ProfileOption();
         var targetOption = new Option<string>("--target")
         {
-            Description = "Compatibility report target set. Currently only phase8c is supported.",
-            DefaultValueFactory = _ => "phase8c"
+            Description = "Compatibility report target set: phase8c or v0.9.",
+            DefaultValueFactory = _ => CompatibilityTargetCatalog.HistoricalTargetSet
         };
         var targetsOption = new Option<string?>("--targets")
         {
-            Description = "Comma-separated publish target override: aot, trim, wasm, wasm-aot, all, or phase8c."
+            Description = "Comma-separated exact target ids or mode/graph aliases: aot, trim, wasm, wasm-aot, sqlite, memory, or all."
         };
         var configurationOption = new Option<string>("--configuration")
         {
@@ -50,7 +50,7 @@ internal static class SizeReportCommand
         };
         var releaseThresholdsOption = new Option<bool>("--release-thresholds")
         {
-            Description = "Applies the 0.8 release payload thresholds for each compatibility target."
+            Description = "Applies compatibility payload guardrails where the selected runtime graph defines them."
         };
         var maxTotalSizeOption = new Option<double?>("--max-total-size-mb")
         {
@@ -66,7 +66,7 @@ internal static class SizeReportCommand
         };
         var failOnBannedPayloadOption = new Option<bool>("--fail-on-banned-payload")
         {
-            Description = "Returns a non-zero exit code when banned Roslyn payloads are present."
+            Description = "Returns a non-zero exit code when target-specific banned runtime payloads are present."
         };
         var failOnThresholdsOption = new Option<bool>("--fail-on-threshold")
         {
@@ -104,8 +104,8 @@ internal static class SizeReportCommand
         command.SetAction(parseResult =>
         {
             var profile = CommandHelpers.ParseProfile(parseResult.GetValue(profileOption));
-            var targetSet = parseResult.GetValue(targetOption) ?? "phase8c";
-            var targets = CompatibilityTargetCatalog.ParseTargetKinds(parseResult.GetValue(targetsOption));
+            var targetSet = parseResult.GetValue(targetOption) ?? CompatibilityTargetCatalog.HistoricalTargetSet;
+            var targetSelectors = parseResult.GetValue(targetsOption);
             var configuration = parseResult.GetValue(configurationOption) ?? "Release";
             var runtimeIdentifier = parseResult.GetValue(runtimeOption) ?? CompatibilityTargetCatalog.DefaultRuntimeIdentifier();
             var largestFileCount = parseResult.GetValue(topOption);
@@ -116,7 +116,7 @@ internal static class SizeReportCommand
                 settings.RepositoryRoot,
                 profile,
                 targetSet,
-                targets,
+                targetSelectors,
                 configuration,
                 runtimeIdentifier,
                 largestFileCount,
@@ -168,8 +168,10 @@ internal static class SizeReportCommand
         var table = new Table()
             .Border(TableBorder.Rounded)
             .AddColumn("Target")
+            .AddColumn("Graph")
             .AddColumn("Publish")
             .AddColumn("Smoke")
+            .AddColumn("Inspection")
             .AddColumn(new TableColumn("Files").RightAligned())
             .AddColumn(new TableColumn("Total").RightAligned())
             .AddColumn(new TableColumn("No Symbols").RightAligned())
@@ -182,8 +184,10 @@ internal static class SizeReportCommand
         {
             table.AddRow(
                 Markup.Escape(target.Name),
+                Markup.Escape(target.RuntimeGraph.ToString()),
                 FormatStatus(target.Publish),
                 FormatStatus(target.Smoke),
+                FormatStatus(target.Inspection),
                 target.Payload.FileCount.ToString(CultureInfo.InvariantCulture),
                 CompatibilityPayloadInspector.FormatBytes(target.Payload.TotalBytes),
                 CompatibilityPayloadInspector.FormatBytes(target.Payload.SymbolExcludedBytes),
@@ -196,6 +200,14 @@ internal static class SizeReportCommand
         AnsiConsole.Write(table);
         AnsiConsole.MarkupLine($"[grey]Report JSON:[/] {Markup.Escape(Path.Combine(report.ReportDirectory, "report.json"))}");
         AnsiConsole.MarkupLine($"[grey]Report Markdown:[/] {Markup.Escape(Path.Combine(report.ReportDirectory, "report.md"))}");
+        AnsiConsole.MarkupLine(
+            $"[grey]Target coverage:[/] {report.Targets.Count}/{report.ExpectedTargetCount} " +
+            $"({(report.IsFullTargetSet ? "full" : "subset")})");
+        AnsiConsole.MarkupLine(
+            $"[grey]Failures:[/] product publish={report.Summary.ProductPublishFailureCount}, " +
+            $"product smoke={report.Summary.ProductSmokeFailureCount}, " +
+            $"product inspection={report.Summary.ProductInspectionFailureCount}, " +
+            $"environment={report.Summary.EnvironmentFailureCount}, unsupported={report.Summary.UnsupportedCount}");
 
         if (report.Summary.BannedPayloadCount > 0)
         {
@@ -216,7 +228,8 @@ internal static class SizeReportCommand
         command.Status switch
         {
             CompatibilityCommandStatus.Succeeded => "[green]ok[/]",
-            CompatibilityCommandStatus.Failed => $"[red]failed[/] ({Markup.Escape(command.FailureClassification.ToString())})",
+            CompatibilityCommandStatus.Failed =>
+                $"[red]failed[/] ({Markup.Escape(command.FailureDisposition.ToString())}/{Markup.Escape(command.FailureClassification.ToString())})",
             CompatibilityCommandStatus.Skipped => "[yellow]skipped[/]",
             CompatibilityCommandStatus.NotApplicable => "[grey]n/a[/]",
             CompatibilityCommandStatus.Unsupported => $"[yellow]unsupported[/] ({Markup.Escape(command.FailureClassification.ToString())})",

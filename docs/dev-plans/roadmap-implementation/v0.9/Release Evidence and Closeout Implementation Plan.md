@@ -3,7 +3,7 @@
 
 # 0.9 Release Evidence And Closeout Implementation Plan
 
-**Status:** Accepted. The bounded W8 project-reference Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, and W10 step 3 / RE-1A Testing CLI registration are implemented and green. Aggregate M1/M2 remain open; the current profiles are Memory `57`, catalog `616`, and SQL `358` supported / `258` unsupported. RE-1C, RE-1E/F/G/H, W10 steps 4-9, aggregate RE-1/RE-4/W10/W11, packaged constrained-runtime evidence, consumer smoke, final release-candidate closeout, and publication remain open.
+**Status:** Accepted. The bounded W8 project-reference Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A Testing CLI registration, and W10 step 4 / RE-1C compatibility reporting are implemented and green. Aggregate M1/M2 remain open; the current profiles are Memory `57`, catalog `616`, and SQL `358` supported / `258` unsupported. RE-1E/F/G/H, W10 steps 5-9, aggregate RE-1/RE-4/W10/W11, fresh eight-target execution, packaged constrained-runtime evidence, consumer smoke, final release-candidate closeout, and publication remain open.
 
 **Target release:** DataLinq 0.9.
 
@@ -322,30 +322,32 @@ It must not:
 
 The existing generated SQLite smokes remain in the 0.9 target set. A green memory smoke cannot conceal a regression in the product that already shipped.
 
-### RE-1C: Generalize compatibility reporting
+### RE-1C: Generalize compatibility reporting — Complete
 
-Extend the compatibility target catalog with a 0.9 target set or equivalent repeatable selection. Keep target results independently named so reports distinguish:
+The historical/default `phase8c` selector retains its original four target ids. The implemented `--target v0.9` set keeps target results independently named so reports distinguish:
 
-- SQLite Native AOT
-- SQLite trimmed
-- SQLite WebAssembly no-AOT
-- SQLite WebAssembly AOT
-- Memory Native AOT
-- Memory trimmed
-- Memory WebAssembly no-AOT
-- Memory WebAssembly AOT
+- `sqlite-native-aot`
+- `sqlite-trimmed`
+- `sqlite-wasm-no-aot`
+- `sqlite-wasm-aot`
+- `memory-native-aot`
+- `memory-trimmed`
+- `memory-wasm-no-aot`
+- `memory-wasm-aot`
 
-The current `phase8c` alias may remain for historical compatibility. New release docs should not pretend that a target set named after an old phase proves memory merely because both use .NET publish.
+`--targets` accepts exact ids plus `aot`, `trim`, `wasm`, `wasm-aot`, `sqlite`, `memory`, and `all`; aliases resolve to matching entries within the chosen target set, deduplicate, and retain catalog order. The default remains `phase8c`, whose four original ids and SQLite graph are unchanged. Alias spellings keep their alias meaning even when they overlap a historical id; an exact id that is neither present nor a recognized alias rejects.
 
-Representative command after the new target set exists:
+The accepted release-style command is:
 
 ```powershell
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- size-report --target v0.9 --clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload --format markdown
 ```
 
-`v0.9` is a placeholder until the tooling change chooses the exact accepted alias. The final plan must replace placeholders with the implemented command.
+The changed report DTO uses schema `v0.9.compatibility-size-report.v2` and records explicit SQLite/Memory graph identity plus separate publish, smoke, and payload-inspection phase status. `SelectedTargetIds` records the resolved request, `ExpectedTargetCount` records the complete chosen-set cardinality, and `IsFullTargetSet` becomes true only when the produced target reports exactly match that complete set; selector subsets and early termination remain visibly incomplete. Its summary separates product publish failures, product smoke failures, product inspection failures, environment failures, unsupported observations, warning totals, threshold findings, and banned payloads. A later inspection/report-analysis fault preserves earlier completed phase and payload evidence. Product, environment, and unsupported outcomes all keep required evidence hard-failed; in particular, no-AOT failures are not blanket-downgraded to unsupported.
 
-The report must classify publish, executable/browser smoke, warning, payload, and environment failures separately.
+Both WebAssembly hosts now publish the same neutral browser contract, and JSON/Markdown retain contract presence, final status and stage, window-console entries, Playwright-console entries, and page errors. Roslyn bans remain global. Memory targets additionally scan both paths and binary/text content for `DataLinq.SQLite`, `DataLinq.MySql`, `Microsoft.Data.Sqlite`, `MySqlConnector`, `SQLitePCLRaw`, and `e_sqlite3`. Release-threshold messages describe shared version-neutral compatibility guardrails rather than stale 0.8 policy. Focused `CompatibilitySizeReportTests` pass `18/18`.
+
+This completes RE-1C and W10 step 4 only. No new eight-target publish, executable/browser smoke, package-consumer, or packaged constrained-runtime report is claimed here; W10 step 5 remains open.
 
 ### RE-1D: Integrate the preview package into pack and inspection tooling — Complete
 
@@ -674,13 +676,11 @@ Run the package-consumer smoke from `RE-1E` against that same directory and vers
 
 ### Run clean compatibility evidence
 
-After the 0.9 target set exists:
+Using the registered 0.9 target set in W10 step 5:
 
 ```powershell
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- size-report --target v0.9 --clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload --format markdown
 ```
-
-Replace `v0.9` with the implemented alias if it differs.
 
 Required outcomes:
 
@@ -808,7 +808,7 @@ At minimum, review and update:
 - `docs/Caching and Mutation.md`
 - `docs/Platform Compatibility.md`
 - `docs/Benchmark Results.md`
-- `docs/support-matrices/Test Provider Matrix.md` and contributor CLI docs for the registered memory suite and the still-pending compatibility targets
+- `docs/support-matrices/Test Provider Matrix.md` and contributor CLI docs for the registered memory suite and the still-pending compatibility execution evidence
 - `docs/Roadmap.md`
 
 The public memory page must say:
@@ -839,7 +839,7 @@ Update:
 
 - **Complete for W10 step 3:** `docs/contributing/DataLinq.Testing.CLI.md` documents the `memory` suite
 - **Complete for RE-1D / W10 steps 1-2:** `docs/contributing/DataLinq.Dev.CLI.md` documents the implemented six-package/four-runtime package-report defaults and Memory inspection policy
-- `docs/contributing/DataLinq.Dev.CLI.md` still needs the implemented 0.9 compatibility target set when RE-1C lands
+- **Complete for RE-1C / W10 step 4:** `docs/contributing/DataLinq.Dev.CLI.md` documents the historical/default `phase8c` set, the eight-target `v0.9` catalog, selectors, schema, failure dispositions, browser telemetry, payload policy, and guardrails
 - `docs/contributing/DataLinq.Benchmark.CLI.md` for the new focused lanes
 - the 0.9 roadmap and each completed implementation plan with final status/evidence links
 
