@@ -591,6 +591,81 @@ public sealed class MemorySQLiteParityTests
     }
 
     [Test]
+    public async Task AdmittedSingleResultIsland_MatchesSQLiteForTheSameInvocations()
+    {
+        var memory = CreateMemoryDatabase();
+        using var sqlite = new SQLiteDatabase<MemoryPrimitiveDatabase>("Data Source=:memory:");
+        await InitializeSQLite(sqlite);
+
+        var rows = memory.Model.Rows;
+        var matchingId = 0;
+        var missingId = 99;
+        var matchingGroupId = 7;
+        var entity = ExecuteScalar(
+            memory,
+            sqlite,
+            () => rows.Single(row => row.Id == matchingId));
+        var missingEntity = ExecuteScalar(
+            memory,
+            sqlite,
+            () => rows.SingleOrDefault(row => row.Id == missingId)!);
+        var scalar = ExecuteScalar(
+            memory,
+            sqlite,
+            () => rows
+                .Where(row => row.Id == matchingId)
+                .Select(static row => row.GroupId)
+                .Single());
+        var missingScalar = ExecuteScalar(
+            memory,
+            sqlite,
+            () => rows
+                .Where(row => row.Id == missingId)
+                .Select(static row => row.GroupId)
+                .SingleOrDefault());
+
+        await Assert.That(entity.Memory.Id).IsEqualTo(matchingId);
+        await Assert.That(entity.SQLite.Id).IsEqualTo(entity.Memory.Id);
+        await Assert.That(missingEntity.Memory).IsNull();
+        await Assert.That(missingEntity.SQLite).IsNull();
+        await Assert.That(scalar.Memory).IsEqualTo(matchingGroupId);
+        await Assert.That(scalar.SQLite).IsEqualTo(scalar.Memory);
+        await Assert.That(missingScalar.Memory).IsEqualTo(0);
+        await Assert.That(missingScalar.SQLite).IsEqualTo(missingScalar.Memory);
+
+        Expression<Func<MemoryPrimitiveRow>> emptySingle = () =>
+            rows.Single(row => row.Id == missingId);
+        var emptyInvocation = ExpressionQueryPlanParser.Convert(
+            memory.Metadata,
+            emptySingle.Body,
+            typeof(MemoryPrimitiveRow));
+        var expectedEmpty = Capture<InvalidOperationException>(() => Array.Empty<int>().Single());
+        var memoryEmpty = Capture<InvalidOperationException>(() =>
+            ExpressionQueryPlanExecutor.Execute<MemoryPrimitiveRow>(memory.ReadSource, emptyInvocation));
+        var sqliteEmpty = Capture<InvalidOperationException>(() =>
+            ExpressionQueryPlanExecutor.Execute<MemoryPrimitiveRow>(sqlite.Provider.ReadOnlyAccess, emptyInvocation));
+
+        await Assert.That(memoryEmpty.Message).IsEqualTo(expectedEmpty.Message);
+        await Assert.That(sqliteEmpty.Message).IsEqualTo(memoryEmpty.Message);
+
+        Expression<Func<MemoryPrimitiveRow>> multipleSingle = () =>
+            rows.SingleOrDefault(row => row.GroupId == matchingGroupId)!;
+        var multipleInvocation = ExpressionQueryPlanParser.Convert(
+            memory.Metadata,
+            multipleSingle.Body,
+            typeof(MemoryPrimitiveRow));
+        var expectedMultiple = Capture<InvalidOperationException>(() => new[] { 1, 2 }.Single());
+        var memoryMultiple = Capture<InvalidOperationException>(() =>
+            ExpressionQueryPlanExecutor.Execute<MemoryPrimitiveRow>(memory.ReadSource, multipleInvocation));
+        var sqliteMultiple = Capture<InvalidOperationException>(() =>
+            ExpressionQueryPlanExecutor.Execute<MemoryPrimitiveRow>(sqlite.Provider.ReadOnlyAccess, multipleInvocation));
+
+        await Assert.That(memoryMultiple.Message).IsEqualTo(expectedMultiple.Message);
+        await Assert.That(sqliteMultiple.Message).IsEqualTo(memoryMultiple.Message);
+        await Assert.That(memory.GetMaterializedRowCount<MemoryPrimitiveRow>()).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task AdmittedOrderedSkipIsland_MatchesSQLiteForTheSameInvocations()
     {
         var memory = CreateMemoryDatabase();

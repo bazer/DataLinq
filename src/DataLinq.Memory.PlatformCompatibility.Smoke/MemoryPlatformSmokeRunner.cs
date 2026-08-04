@@ -25,6 +25,11 @@ public sealed record MemoryPlatformSmokeResult(
     int[] OrderedIds,
     int[] SkippedIds,
     int[] ProjectedGroupIds,
+    int SingleEntityId,
+    bool SingleEntityDefaultIsNull,
+    int SingleScalarValue,
+    int SingleScalarDefaultValue,
+    bool MultipleSingleRejectedBeforeMaterialization,
     bool HasRows,
     int RowCount,
     string UnsupportedDiagnostic,
@@ -53,6 +58,11 @@ public sealed record MemoryPlatformSmokeResult(
         OrderedIds.SequenceEqual([-5, 17]) &&
         SkippedIds.SequenceEqual([17, 42]) &&
         ProjectedGroupIds.SequenceEqual([7, 7, 3]) &&
+        SingleEntityId == 17 &&
+        SingleEntityDefaultIsNull &&
+        SingleScalarValue == 3 &&
+        SingleScalarDefaultValue == 0 &&
+        MultipleSingleRejectedBeforeMaterialization &&
         HasRows &&
         RowCount == 3 &&
         UnsupportedDiagnostic.Contains(
@@ -61,7 +71,7 @@ public sealed record MemoryPlatformSmokeResult(
         UnsupportedRejectedBeforeWork &&
         PreCancellationPreserved &&
         PreCancellationRejectedBeforeWork &&
-        SupportedCapabilityTokenCount == 51;
+        SupportedCapabilityTokenCount == 53;
 
     public string ToDisplayString()
     {
@@ -72,6 +82,7 @@ public sealed record MemoryPlatformSmokeResult(
             $"pk-hit={PrimitivePrimaryKeyHit}, pk-miss={PrimitivePrimaryKeyMiss}, canonical-guid-cells={CanonicalGuidCellsStoredAsGuid}",
             $"typed-guid-equality={TypedGuidEqualityHit}, direct-guid-equality={DirectGuidEqualityHit}, guid-miss={GuidEqualityMiss}",
             $"filtered=[{string.Join(',', FilteredIds)}], not-equal-filtered=[{string.Join(',', NotEqualFilteredIds)}], compound-filtered=[{string.Join(',', CompoundFilteredIds)}], range-filtered=[{string.Join(',', RangeFilteredIds)}], membership-filtered=[{string.Join(',', MembershipFilteredIds)}], ordered=[{string.Join(',', OrderedIds)}], skipped=[{string.Join(',', SkippedIds)}], projected=[{string.Join(',', ProjectedGroupIds)}]",
+            $"single-entity={SingleEntityId}, single-entity-default-null={SingleEntityDefaultIsNull}, single-scalar={SingleScalarValue}, single-scalar-default={SingleScalarDefaultValue}, single-multiple-before-materialization={MultipleSingleRejectedBeforeMaterialization}",
             $"any={HasRows}, count={RowCount}, capabilities={SupportedCapabilityTokenCount}",
             $"unsupported-before-work={UnsupportedRejectedBeforeWork}, pre-cancelled-before-work={PreCancellationRejectedBeforeWork}",
             $"unsupported-diagnostic=\"{UnsupportedDiagnostic}\""
@@ -228,6 +239,26 @@ public static class MemoryPlatformSmokeRunner
             .Select(static row => row.GroupId)
             .ToArray();
 
+        await ReportStage(reportStage, "querying-single-results");
+        var singleEntity = query.PrimitiveRows.Single(static row => row.Id == 17);
+        var singleEntityDefault = query.PrimitiveRows.SingleOrDefault(static row => row.Id == 999);
+        var singleScalar = query.PrimitiveRows
+            .Where(static row => row.Id == 42)
+            .Select(static row => row.GroupId)
+            .Single();
+        var singleScalarDefault = query.PrimitiveRows
+            .Where(static row => row.Id == 999)
+            .Select(static row => row.GroupId)
+            .SingleOrDefault();
+        var beforeMultipleSingle = database.Diagnostics;
+        var multipleSingle = Capture<InvalidOperationException>(() =>
+            query.PrimitiveRows.Single(static row => row.GroupId == 7));
+        var afterMultipleSingle = database.Diagnostics;
+        var multipleSingleRejectedBeforeMaterialization =
+            multipleSingle.Message.Contains("Sequence contains more than one element", StringComparison.Ordinal) &&
+            afterMultipleSingle.CacheLookups == beforeMultipleSingle.CacheLookups &&
+            afterMultipleSingle.Materializations == beforeMultipleSingle.Materializations;
+
         await ReportStage(reportStage, "querying-any-and-count");
         var hasRows = query.PrimitiveRows.Any();
         var rowCount = query.PrimitiveRows.Count();
@@ -280,6 +311,11 @@ public static class MemoryPlatformSmokeRunner
             OrderedIds: orderedIds,
             SkippedIds: skippedIds,
             ProjectedGroupIds: projectedGroupIds,
+            SingleEntityId: singleEntity.Id,
+            SingleEntityDefaultIsNull: singleEntityDefault is null,
+            SingleScalarValue: singleScalar,
+            SingleScalarDefaultValue: singleScalarDefault,
+            MultipleSingleRejectedBeforeMaterialization: multipleSingleRejectedBeforeMaterialization,
             HasRows: hasRows,
             RowCount: rowCount,
             UnsupportedDiagnostic: unsupported.Message,

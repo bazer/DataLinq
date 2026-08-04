@@ -61,6 +61,8 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             QueryPlanFeature.ScalarProjectionShape(
                 QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn),
             QueryPlanFeature.Result(QueryPlanResultKind.Sequence),
+            QueryPlanFeature.Result(QueryPlanResultKind.Single),
+            QueryPlanFeature.Result(QueryPlanResultKind.SingleOrDefault),
             QueryPlanFeature.Result(QueryPlanResultKind.Any),
             QueryPlanFeature.Result(QueryPlanResultKind.Count),
             QueryPlanFeature.BindingKind(QueryPlanBindingKind.Scalar),
@@ -112,7 +114,7 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
                 Source.Kind: QueryPlanSourceKind.RootTable
             } entity ||
             !ReferenceEquals(entity.Source, template.Sources[0]) ||
-            template.Result.Kind != QueryPlanResultKind.Sequence)
+            !IsCursorResult(template.Result.Kind))
         {
             throw CreateCapabilityInvariantException(request);
         }
@@ -121,6 +123,7 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
         return new MemoryEntityCursor(
             source,
             OpenCanonicalRowCursor(entity.Source, executionPlan, request.Context.CancellationToken),
+            MemorySingleResult.IsSupported(template.Result.Kind),
             request.Context.CancellationToken);
     }
 
@@ -138,7 +141,7 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
                 Source.Kind: QueryPlanSourceKind.RootTable
             } projection ||
             !ReferenceEquals(projection.Source, template.Sources[0]) ||
-            template.Result.Kind != QueryPlanResultKind.Sequence ||
+            !IsCursorResult(template.Result.Kind) ||
             template.Result.ResultType != typeof(TResult) ||
             projection.ResultType != typeof(TResult) ||
             QueryPlanScalarProjectionShapeFacts.Classify(projection, template.Sources) !=
@@ -154,6 +157,7 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
                 executionPlan,
                 request.Context.CancellationToken),
             projection.Column,
+            MemorySingleResult.IsSupported(template.Result.Kind),
             request.Context.CancellationToken);
     }
 
@@ -214,9 +218,27 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
     {
         ArgumentNullException.ThrowIfNull(request);
         request.EnsureBackend(this);
+        request.Context.CancellationToken.ThrowIfCancellationRequested();
+
+        var template = request.Invocation.Template;
+        if (template.Sources.Count != 1 ||
+            template.Projection is not QueryPlanProjection.Entity
+            {
+                Source.Kind: QueryPlanSourceKind.RootTable
+            } entity ||
+            !ReferenceEquals(entity.Source, template.Sources[0]) ||
+            !MemorySingleResult.IsSupported(template.Result.Kind))
+        {
+            throw CreateCapabilityInvariantException(request);
+        }
+
         result = null;
-        throw CreateCapabilityInvariantException(request);
+        return false;
     }
+
+    private static bool IsCursorResult(QueryPlanResultKind resultKind) =>
+        resultKind == QueryPlanResultKind.Sequence ||
+        MemorySingleResult.IsSupported(resultKind);
 
     private MemoryCanonicalRowCursor OpenCanonicalRowCursor(
         QueryPlanSourceSlot rootSource,
@@ -259,6 +281,15 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             "The memory capability profile validated a request outside its implemented " +
             $"query shape. Projection: '{request.Invocation.Template.Projection.Kind}'; " +
             $"result: '{request.Invocation.Template.Result.Kind}'; operations: {request.Invocation.Template.Operations.Count}.");
+}
+
+internal static class MemorySingleResult
+{
+    internal static bool IsSupported(QueryPlanResultKind resultKind) =>
+        resultKind is QueryPlanResultKind.Single or QueryPlanResultKind.SingleOrDefault;
+
+    internal static InvalidOperationException MoreThanOneElement() =>
+        new("Sequence contains more than one element");
 }
 
 internal sealed class MemoryCanonicalRowCursor : IDisposable
@@ -356,6 +387,7 @@ internal sealed class MemoryCanonicalRowCursor : IDisposable
 internal sealed class MemoryEntityCursor : IQueryEntityCursor
 {
     private readonly MemoryReadSource source;
+    private readonly bool requiresSingleCardinality;
     private readonly CancellationToken cancellationToken;
     private MemoryCanonicalRowCursor? rows;
     private IImmutableInstance? current;
@@ -363,10 +395,12 @@ internal sealed class MemoryEntityCursor : IQueryEntityCursor
     internal MemoryEntityCursor(
         MemoryReadSource source,
         MemoryCanonicalRowCursor rows,
+        bool requiresSingleCardinality,
         CancellationToken cancellationToken)
     {
         this.source = source ?? throw new ArgumentNullException(nameof(source));
         this.rows = rows ?? throw new ArgumentNullException(nameof(rows));
+        this.requiresSingleCardinality = requiresSingleCardinality;
         this.cancellationToken = cancellationToken;
     }
 
@@ -390,7 +424,12 @@ internal sealed class MemoryEntityCursor : IQueryEntityCursor
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            var next = source.Materialize(currentRows.Current);
+            var canonicalRow = currentRows.Current;
+            if (requiresSingleCardinality && currentRows.MoveNext())
+                throw MemorySingleResult.MoreThanOneElement();
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var next = source.Materialize(canonicalRow);
             cancellationToken.ThrowIfCancellationRequested();
             current = next;
             return true;
@@ -415,6 +454,7 @@ internal sealed class MemoryScalarProjectionCursor<TResult> : IQueryProjectionCu
 {
     private const string ProjectionSourceName = "memory:scalar-projection";
     private readonly ColumnDefinition column;
+    private readonly bool requiresSingleCardinality;
     private readonly CancellationToken cancellationToken;
     private MemoryCanonicalRowCursor? rows;
     private TResult? current;
@@ -423,10 +463,12 @@ internal sealed class MemoryScalarProjectionCursor<TResult> : IQueryProjectionCu
     internal MemoryScalarProjectionCursor(
         MemoryCanonicalRowCursor rows,
         ColumnDefinition column,
+        bool requiresSingleCardinality,
         CancellationToken cancellationToken)
     {
         this.rows = rows ?? throw new ArgumentNullException(nameof(rows));
         this.column = column ?? throw new ArgumentNullException(nameof(column));
+        this.requiresSingleCardinality = requiresSingleCardinality;
         this.cancellationToken = cancellationToken;
     }
 
@@ -453,7 +495,12 @@ internal sealed class MemoryScalarProjectionCursor<TResult> : IQueryProjectionCu
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            var canonicalValue = currentRows.Current[column];
+            var canonicalRow = currentRows.Current;
+            if (requiresSingleCardinality && currentRows.MoveNext())
+                throw MemorySingleResult.MoreThanOneElement();
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var canonicalValue = canonicalRow[column];
             cancellationToken.ThrowIfCancellationRequested();
             var modelValue = ProviderRowMaterializer.MaterializeValue(
                 column,

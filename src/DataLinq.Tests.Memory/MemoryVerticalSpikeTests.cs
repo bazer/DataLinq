@@ -275,6 +275,8 @@ public sealed class MemoryVerticalSpikeTests
             "Result:Any",
             "Result:Count",
             "Result:Sequence",
+            "Result:Single",
+            "Result:SingleOrDefault",
             "ScalarProjectionShape:DirectNonNullableInt32RootColumn",
             "ScalarNullness:NonNull",
             "SourceCardinality:Many",
