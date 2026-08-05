@@ -107,6 +107,12 @@ public sealed record CompatibilityReportInvocation(
     long? SymbolExcludedSizeWarningBytes,
     int? FileCountWarning);
 
+public sealed record CompatibilityRunnerAssemblyIdentity(
+    string Name,
+    string InformationalVersion,
+    string RepositoryCommit,
+    bool RepositoryCommitCaptured);
+
 public sealed record CompatibilitySizeReport(
     string SchemaVersion,
     DateTimeOffset GeneratedAtUtc,
@@ -133,6 +139,10 @@ public sealed record CompatibilitySizeReport(
 
     public string? PackageCacheDirectory { get; init; }
 
+    public CompatibilityRunnerAssemblyIdentity? RunnerEntryAssembly { get; init; }
+
+    public CompatibilityRunnerAssemblyIdentity? RunnerDevToolsAssembly { get; init; }
+
     public string RunnerStartRepositoryCommit { get; init; } = "unknown";
 
     public bool RunnerStartWorkingTreeDirty { get; init; }
@@ -146,6 +156,8 @@ public sealed record CompatibilitySizeReport(
     public string RunnerStatusSha256 { get; init; } = "unknown";
 
     public bool RunnerStateChangedDuringRun { get; init; }
+
+    public bool RunnerAssemblyRevisionsMatchRepositoryCommit { get; init; }
 
     public bool RunnerStateValidForEvidence { get; init; }
 }

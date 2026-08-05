@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -12,7 +13,10 @@ namespace DataLinq.DevTools;
 
 public sealed class CompatibilitySizeReporter
 {
-    public const string SchemaVersion = "v0.9.compatibility-size-report.v3";
+    public const string SchemaVersion = "v0.9.compatibility-size-report.v4";
+
+    private const string ExpectedEntryAssemblyName = "DataLinq.Dev.CLI";
+    private const string ExpectedDevToolsAssemblyName = "DataLinq.DevTools";
 
     private readonly DevToolPaths paths;
     private readonly CompatibilityReportOptions options;
@@ -39,6 +43,7 @@ public sealed class CompatibilitySizeReporter
                 "--clean-output cannot be combined with --no-restore because cleaning removes the target-owned restore assets.");
         }
 
+        var runnerAssemblies = ReadRunnerAssemblyState();
         var runnerStartState = ReadRunnerRepositoryState();
 
         CompatibilityPackageInput? packageInput = null;
@@ -119,9 +124,11 @@ public sealed class CompatibilitySizeReporter
 
         var sdkVersion = ReadDotnetSdkVersion();
         var runnerEndState = ReadRunnerRepositoryState();
-        var (runnerStateChanged, runnerStateValidForEvidence) = EvaluateRunnerRepositoryStates(
+        var runnerEvidence = EvaluateRunnerEvidence(
             runnerStartState,
-            runnerEndState);
+            runnerEndState,
+            runnerAssemblies.EntryAssembly,
+            runnerAssemblies.DevToolsAssembly);
         var report = new CompatibilitySizeReport(
             SchemaVersion,
             DateTimeOffset.UtcNow,
@@ -139,7 +146,7 @@ public sealed class CompatibilitySizeReporter
                 targetReports,
                 options.FailOnBannedPayload,
                 options.FailOnThresholdWarnings,
-                !runnerStateValidForEvidence))
+                !runnerEvidence.ValidForEvidence))
         {
             DependencySource = dependencySource,
             Invocation = new CompatibilityReportInvocation(
@@ -158,14 +165,18 @@ public sealed class CompatibilitySizeReporter
             PackageInput = packageInput,
             PackageNugetConfigPath = packageBuildContext?.NugetConfigPath,
             PackageCacheDirectory = packageBuildContext?.PackagesCacheDirectory,
+            RunnerEntryAssembly = runnerAssemblies.EntryAssembly,
+            RunnerDevToolsAssembly = runnerAssemblies.DevToolsAssembly,
             RunnerStartRepositoryCommit = runnerStartState.Commit,
             RunnerStartWorkingTreeDirty = runnerStartState.Dirty,
             RunnerStartStatusSha256 = runnerStartState.StatusSha256,
             RunnerRepositoryCommit = runnerEndState.Commit,
             RunnerWorkingTreeDirty = runnerEndState.Dirty,
             RunnerStatusSha256 = runnerEndState.StatusSha256,
-            RunnerStateChangedDuringRun = runnerStateChanged,
-            RunnerStateValidForEvidence = runnerStateValidForEvidence
+            RunnerStateChangedDuringRun = runnerEvidence.ChangedDuringRun,
+            RunnerAssemblyRevisionsMatchRepositoryCommit =
+                runnerEvidence.AssemblyRevisionsMatchRepositoryCommit,
+            RunnerStateValidForEvidence = runnerEvidence.ValidForEvidence
         };
 
         WriteReportArtifacts(report);
@@ -202,6 +213,8 @@ public sealed class CompatibilitySizeReporter
         builder.AppendLine($"Configuration: `{report.Configuration}`");
         builder.AppendLine($"Runtime identifier: `{report.RuntimeIdentifier}`");
         builder.AppendLine($"SDK: `{report.DotnetSdkVersion}`");
+        AppendRunnerAssemblyIdentity(builder, "Runner entry assembly", report.RunnerEntryAssembly);
+        AppendRunnerAssemblyIdentity(builder, "Runner DevTools assembly", report.RunnerDevToolsAssembly);
         builder.AppendLine($"Runner start repository commit: `{report.RunnerStartRepositoryCommit}`");
         builder.AppendLine($"Runner start working tree dirty: `{report.RunnerStartWorkingTreeDirty}`");
         builder.AppendLine($"Runner start status SHA-256: `{report.RunnerStartStatusSha256}`");
@@ -209,6 +222,9 @@ public sealed class CompatibilitySizeReporter
         builder.AppendLine($"Runner end working tree dirty: `{report.RunnerWorkingTreeDirty}`");
         builder.AppendLine($"Runner end status SHA-256: `{report.RunnerStatusSha256}`");
         builder.AppendLine($"Runner state changed during run: `{report.RunnerStateChangedDuringRun}`");
+        builder.AppendLine(
+            $"Runner assembly revisions match repository commit: " +
+            $"`{report.RunnerAssemblyRevisionsMatchRepositoryCommit}`");
         builder.AppendLine($"Runner state valid for evidence: `{report.RunnerStateValidForEvidence}`");
         if (report.PackageInput is { } packageInput)
         {
@@ -1110,22 +1126,93 @@ public sealed class CompatibilitySizeReporter
         }
     }
 
-    internal static (bool ChangedDuringRun, bool ValidForEvidence) EvaluateRunnerRepositoryStates(
+    internal static RunnerEvidenceEvaluation EvaluateRunnerEvidence(
         RunnerRepositoryState start,
-        RunnerRepositoryState end)
+        RunnerRepositoryState end,
+        CompatibilityRunnerAssemblyIdentity entryAssembly,
+        CompatibilityRunnerAssemblyIdentity devToolsAssembly)
     {
         var changed = !start.Captured ||
                       !end.Captured ||
-                      !start.Commit.Equals(end.Commit, StringComparison.Ordinal) ||
+                      !start.Commit.Equals(end.Commit, StringComparison.OrdinalIgnoreCase) ||
                       start.Dirty != end.Dirty ||
                       !start.StatusSha256.Equals(end.StatusSha256, StringComparison.Ordinal);
+        var assemblyRevisionsMatchRepositoryCommit =
+            start.Captured &&
+            end.Captured &&
+            AssemblyRevisionMatchesRepositoryCommit(
+                entryAssembly,
+                ExpectedEntryAssemblyName,
+                start.Commit) &&
+            AssemblyRevisionMatchesRepositoryCommit(
+                devToolsAssembly,
+                ExpectedDevToolsAssemblyName,
+                start.Commit) &&
+            entryAssembly.RepositoryCommit.Equals(
+                end.Commit,
+                StringComparison.OrdinalIgnoreCase) &&
+            devToolsAssembly.RepositoryCommit.Equals(
+                end.Commit,
+                StringComparison.OrdinalIgnoreCase);
         var valid = start.Captured &&
                     end.Captured &&
                     !start.Dirty &&
                     !end.Dirty &&
-                    !changed;
-        return (changed, valid);
+                    !changed &&
+                    assemblyRevisionsMatchRepositoryCommit;
+        return new RunnerEvidenceEvaluation(
+            changed,
+            assemblyRevisionsMatchRepositoryCommit,
+            valid);
     }
+
+    internal static string? ExtractRepositoryCommitFromInformationalVersion(
+        string? informationalVersion)
+    {
+        if (string.IsNullOrWhiteSpace(informationalVersion))
+            return null;
+
+        var metadataSeparator = informationalVersion.IndexOf('+');
+        if (metadataSeparator < 0 || metadataSeparator == informationalVersion.Length - 1)
+            return null;
+
+        var metadata = informationalVersion[(metadataSeparator + 1)..];
+        var finalSeparator = metadata.LastIndexOf('.');
+        var candidate = finalSeparator < 0 ? metadata : metadata[(finalSeparator + 1)..];
+        return candidate.Length is 40 or 64 && candidate.All(Uri.IsHexDigit)
+            ? candidate.ToLowerInvariant()
+            : null;
+    }
+
+    private static RunnerAssemblyState ReadRunnerAssemblyState() =>
+        new(
+            ReadRunnerAssemblyIdentity(Assembly.GetEntryAssembly()),
+            ReadRunnerAssemblyIdentity(typeof(CompatibilitySizeReporter).Assembly));
+
+    private static CompatibilityRunnerAssemblyIdentity ReadRunnerAssemblyIdentity(Assembly? assembly)
+    {
+        if (assembly is null)
+            return UnknownRunnerAssemblyIdentity;
+
+        var name = assembly.GetName().Name ?? "unknown";
+        var informationalVersion = assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+        var repositoryCommit = ExtractRepositoryCommitFromInformationalVersion(informationalVersion);
+        return new CompatibilityRunnerAssemblyIdentity(
+            name,
+            string.IsNullOrWhiteSpace(informationalVersion) ? "unknown" : informationalVersion,
+            repositoryCommit ?? "unknown",
+            repositoryCommit is not null);
+    }
+
+    private static bool AssemblyRevisionMatchesRepositoryCommit(
+        CompatibilityRunnerAssemblyIdentity assembly,
+        string expectedName,
+        string repositoryCommit) =>
+        assembly.RepositoryCommitCaptured &&
+        assembly.Name.Equals(expectedName, StringComparison.Ordinal) &&
+        assembly.RepositoryCommit.Equals(repositoryCommit, StringComparison.OrdinalIgnoreCase);
 
     private void WriteReportArtifacts(CompatibilitySizeReport report)
     {
@@ -1469,6 +1556,23 @@ public sealed class CompatibilitySizeReporter
             _ => command.Status.ToString()
         };
 
+    private static void AppendRunnerAssemblyIdentity(
+        StringBuilder builder,
+        string label,
+        CompatibilityRunnerAssemblyIdentity? assembly)
+    {
+        if (assembly is null)
+        {
+            builder.AppendLine($"{label}: `missing`");
+            return;
+        }
+
+        builder.AppendLine($"{label}: `{assembly.Name}`");
+        builder.AppendLine($"{label} informational version: `{assembly.InformationalVersion}`");
+        builder.AppendLine($"{label} repository commit: `{assembly.RepositoryCommit}`");
+        builder.AppendLine($"{label} repository commit captured: `{assembly.RepositoryCommitCaptured}`");
+    }
+
     private static string EscapeTable(string value) =>
         value.Replace("|", "\\|", StringComparison.Ordinal);
 
@@ -1499,6 +1603,18 @@ public sealed class CompatibilitySizeReporter
     {
         public static RunnerRepositoryState Unknown { get; } = new("unknown", true, "unknown", false);
     }
+
+    internal sealed record RunnerEvidenceEvaluation(
+        bool ChangedDuringRun,
+        bool AssemblyRevisionsMatchRepositoryCommit,
+        bool ValidForEvidence);
+
+    private sealed record RunnerAssemblyState(
+        CompatibilityRunnerAssemblyIdentity EntryAssembly,
+        CompatibilityRunnerAssemblyIdentity DevToolsAssembly);
+
+    private static CompatibilityRunnerAssemblyIdentity UnknownRunnerAssemblyIdentity { get; } =
+        new("unknown", "unknown", "unknown", false);
 
     private sealed record CompatibilityPackageBuildContext(
         string BuildIdentity,
