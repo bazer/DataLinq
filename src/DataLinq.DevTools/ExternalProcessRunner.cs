@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace DataLinq.DevTools;
@@ -30,10 +31,7 @@ public static class ExternalProcessRunner
             startInfo.ArgumentList.Add(argument);
 
         if (environmentVariables is not null)
-        {
-            foreach (var pair in environmentVariables)
-                startInfo.Environment[pair.Key] = pair.Value;
-        }
+            ApplyEnvironmentOverrides(startInfo.Environment, environmentVariables);
 
         var stopwatch = Stopwatch.StartNew();
 
@@ -54,6 +52,24 @@ public static class ExternalProcessRunner
         catch (Win32Exception exception)
         {
             throw new InvalidOperationException($"Could not start '{fileName}'.", exception);
+        }
+    }
+
+    internal static void ApplyEnvironmentOverrides(
+        IDictionary<string, string?> environment,
+        IReadOnlyDictionary<string, string?> overrides)
+    {
+        foreach (var pair in overrides)
+        {
+            foreach (var inheritedKey in environment.Keys
+                         .Where(key => key.Equals(pair.Key, StringComparison.OrdinalIgnoreCase))
+                         .ToArray())
+            {
+                environment.Remove(inheritedKey);
+            }
+
+            if (pair.Value is not null)
+                environment[pair.Key] = pair.Value;
         }
     }
 

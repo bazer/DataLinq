@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <IsPackable>false</IsPackable>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DataLinq" Version="[$(DataLinqCandidateVersion)]" />
+    <PackageReference Include="DataLinq.Memory" Version="[$(DataLinqCandidateVersion)]" />
+    <PackageReference Include="DataLinq.SQLite" Version="[$(DataLinqCandidateVersion)]" />
+    <PackageReference Include="DataLinq.MySql" Version="[$(DataLinqCandidateVersion)]" />
+  </ItemGroup>
+
+  <Target Name="RequireDataLinqCandidateVersion"
+          BeforeTargets="CollectPackageReferences;PrepareForBuild">
+    <Error Condition="'$(DataLinqCandidateVersion)' == ''"
+           Text="DataLinqCandidateVersion must be supplied explicitly." />
+  </Target>
+
+</Project>

@@ -66,7 +66,7 @@ The repository has good 0.8 release tooling, but it does not yet prove the 0.9 r
 | Compatibility reporting | `CompatibilityTargetCatalog` exposes the historical `phase8c` target set, and the documented release thresholds are still described as 0.8 thresholds. | Add a deliberate 0.9 target set/profile containing both existing SQLite regression targets and direct-memory targets, with independently named results and reviewed thresholds. |
 | Packing | `publish-nuget.ps1` now packs six public packages, including the separate preview `DataLinq.Memory`, rejects non-empty output, and honors an explicit candidate through `MinVerVersionOverride`. | **Complete for W10 step 1 / RE-1D.** Keep Memory separate from core and retain the exact fresh-directory/version checks. |
 | Package inspection | Default schema `v0.9.package-inspection-report.v3` now expects six public packages and four runtime packages, independently inventories six symbol packages, and applies Memory-specific dependency, asset, assembly-identity, metadata, and banned-payload checks. | **Complete for W10 step 2 / RE-1D.** Keep the fail-closed six-package/four-runtime policy in final release evidence. |
-| Package consumption | Package reports inspect archive contents, but there is no 0.9 consumer proof for the new package graph. | Restore a clean sample against the freshly packed local feed, build generated models, seed/query memory, and exercise an existing SQL provider without project references. |
+| Package consumption | `package-smoke` now drives a tracked project-reference-free consumer through an isolated exact-version local restore, net8/net9/net10 builds, generated-source proof, public Memory and SQLite execution, and a MySQL public-surface compilation probe. Schema `v0.9.package-consumer-smoke-report.v1` records candidate hashes, restore provenance, commands, and findings. | Run it against the same new package candidate used by the package report. The historical `w10.2` tooling verification proves the harness, not the current M1-H package contents or RE-1E completion. |
 | Public API compatibility | No repeatable ApiCompat or equivalent package-baseline report is part of the current release gate. | Add a repeatable comparison against the latest 0.8 packages and record every additive change and every intentional or accidental break. A 0.x version is not permission to surprise users casually. |
 | Benchmarks | Existing benchmark lanes cover the current query hot path and provider watchpoints. They do not isolate template/invocation work, SQL-adapter overhead, or the memory backend. | Capture the existing baseline before the query foundation changes, then add focused 0.9 scenarios and compare final results. |
 | Documentation closeout | The previous public-documentation audit is implemented/closed and mainly describes the 0.8 surface. | Give 0.9 its own documentation target list and final verification gate. |
@@ -371,7 +371,7 @@ Commits `bdae5f5b` and follow-up version fix `39522ce376a2dddb4faa7dcaded80d4708
 
 The `40`/`610`/`352`/`258` counts in the package-tooling paragraph above describe the historical `w10.2` candidate's source checkpoint. The current project-reference M1-H state is Memory `57`, catalog `616`, and SQL `358` supported / `258` unsupported; no fresh package candidate contains the later M1-D, M1-E, M1-F, M1-G, or M1-H changes.
 
-### RE-1E: Add a packed-package consumer smoke
+### RE-1E: Add a packed-package consumer smoke — Harness implemented, fresh candidate run open
 
 Project-reference success is insufficient. Add a repeatable smoke that consumes only packages from the fresh local pack directory.
 
@@ -385,12 +385,15 @@ The smoke must:
 - include a representative existing SQL consumer build so the new package graph does not hide core/provider packaging regressions
 - fail if NuGet resolves any package from a stale candidate directory
 
-Representative command after the smoke tooling exists:
+Implemented command:
 
 ```powershell
-# Placeholder: replace with the implemented package-smoke command or project.
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- package-smoke --package-dir artifacts\nuget-release\v0.9-rc.N --version 0.9.0-rc.N --output artifacts\release\v0.9\<candidate>\packages\consumer-smoke
 ```
+
+The command copies only the strict four-file manifest from `test-infra/package-consumer` into a fresh non-overlapping output root and rejects unexpected source/build files, project-shape additions, and reparse-point traversal. It removes inherited MSBuild/NuGet redirect hooks, disables automatic response and directory imports, pins the assets/extensions/package/config/output roots, and verifies those exact cache/config/no-fallback postconditions in `project.assets.json`. It then applies source mapping, rejects any project library, wrong version, wrong local source, or cached package whose SHA-256 differs from the selected candidate, builds the exact net8/net9/net10 package graph, verifies emitted generated types, and executes the net10 public Memory and real shared-cache in-memory SQLite paths plus a MySQL public-surface compilation probe. The summary trusts only the runner-validated exit/schema/framework/exact payload contract. Red reports return process exit code `1`; JSON and Markdown are always retained when execution reaches reporting.
+
+Focused `PackageConsumerSmokeTests` pass `32/32`, the Dev CLI Release build has zero warnings and errors, and the historical `0.9.0-preview.w10.2` acceptance run stays green under deliberately poisoned inherited `ProjectAssetsFile`, `RestoreSources`, and `CustomAfterMicrosoftCommonTargets` values. The deliberate wrong-version run remains red. That candidate predates M1-D through M1-H, so this implements and hardens the RE-1E harness only. A fresh aligned candidate, package report, and consumer report remain required before RE-1E or W10 step 5 can close.
 
 ### RE-1F: Establish public API comparison
 

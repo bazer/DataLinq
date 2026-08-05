@@ -371,9 +371,9 @@ Timing noise ranges from 6.9% to 28.4%, with a multimodal-distribution warning. 
 ### Missing harness capabilities
 
 - `api-report` is plan syntax, not an implemented command; RE-1F owns the API baseline.
-- `package-smoke` is also a placeholder; RE-1E owns a real consumer smoke.
+- `package-smoke` is implemented with a tracked package-only fixture, isolated exact-version restore, assets/source/hash provenance, three-framework builds, generated-source proof, and public Memory/SQLite execution plus a MySQL compilation probe; RE-1E still owns the first fresh aligned candidate run.
 - test summary JSON omits schema identity, commit, command, and timestamps; the tracked manifest supplies that context for W0.
-- historical compatibility artifacts retain their `phase8c.compatibility-size-report.v1` identity; newly generated reports use `v0.9.compatibility-size-report.v2`, while the package report uses `v0.9.package-inspection-report.v3`.
+- historical compatibility artifacts retain their `phase8c.compatibility-size-report.v1` identity; newly generated reports use `v0.9.compatibility-size-report.v2`, the package report uses `v0.9.package-inspection-report.v3`, and the package consumer uses `v0.9.package-consumer-smoke-report.v1`.
 - no isolated template/invocation benchmark exists; RE-1G owns it.
 - the historical SQLite-shaped WebAssembly baseline was red under SDK 10.0.301; W10 still needs an accepted disposition and final rerun, while the separate W8 memory browser graph now provides credible bounded memory-specific evidence.
 
@@ -382,11 +382,11 @@ Timing noise ranges from 6.9% to 28.4%, with a multimodal-distribution warning. 
 D5-B deliberately changed only Memory's package metadata and locally inspected an explicit candidate. W10 step 3 later resolved the Testing CLI registration gap. W10 steps 1-2 / RE-1D resolve the default pack and package-report gaps on the fresh `0.9.0-preview.w10.2` candidate. W10 step 4 / RE-1C now resolves catalog and report-contract integration without executing the new eight-target set or rerunning packages. The following release-harness assumptions remain:
 
 - the historical/default `phase8c` set still selects only its original SQLite graph; the separate `v0.9` set now registers four independently named SQLite targets and four independently named Memory targets.
-- the historical shared smoke still references `DataLinq.SQLite`; the provider-free Memory shared runner and Native AOT/full-trim/browser hosts are catalogued separately, but their first fresh catalog-driven run remains W10 step 5.
+- the historical shared smoke still references `DataLinq.SQLite`; the provider-free Memory shared runner and Native AOT/full-trim/browser hosts are catalogued separately, and their fresh source-project eight-target run is green, while packaged constrained-runtime execution remains W10 step 5.
 - compatibility identity now records both platform kind and SQLite/Memory runtime graph.
 - shared release thresholds are version-neutral compatibility guardrails; fresh 0.9 evidence must still record the actual measured values and disposition.
 - the solution contains a packable Memory runtime plus non-packable test, shared-runner, Native AOT, full-trim, and browser projects; Memory is now a release-script/report and compatibility-catalog target but not yet packaged constrained-runtime evidence.
-- no clean package-consumer smoke proves the six-package graph without project references.
+- the package-consumer harness now rejects project libraries and stale package provenance, but its green historical `w10.2` tooling probe is not the required fresh M1-H-aligned package-consumer evidence.
 - final RC evidence and publication remain deliberately separate from the completed preview tooling probe.
 - benchmarks currently support only SQLite file and SQLite memory modes.
 

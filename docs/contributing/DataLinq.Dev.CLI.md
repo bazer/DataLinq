@@ -243,6 +243,32 @@ Useful options:
 
 Reports use schema `v0.9.package-inspection-report.v3` and are written under `artifacts/dev/package-report/<timestamp>/` as `report.json` and `report.md`.
 
+### `package-smoke`
+
+Restores, builds, and executes the tracked external consumer using only an exact local package candidate:
+
+```bash
+dotnet run --project DataLinq.Dev.CLI -- package-smoke --package-dir artifacts/nuget-release/0.9.0-preview.N --version 0.9.0-preview.N
+dotnet run --project DataLinq.Dev.CLI -- package-smoke --package-dir artifacts/nuget-release/0.9.0-preview.N --version 0.9.0-preview.N --output artifacts/release/v0.9/0.9.0-preview.N/packages/consumer-smoke --format markdown
+```
+
+`--package-dir` and `--version` are required. `--output` must name a missing or empty directory; when omitted, the command creates a unique directory under `artifacts/dev/package-smoke/`. Candidate, fixture, and output paths must not traverse reparse points, and output cannot equal or sit below either source directory. Once those path preconditions pass, the command retains `report.json` and `report.md` using schema `v0.9.package-consumer-smoke-report.v1`; a hard finding returns exit code `1`.
+
+The tracked fixture lives under `test-infra/package-consumer`, outside `src`, and has no project references. It directly references exact bracketed versions of `DataLinq`, `DataLinq.Memory`, `DataLinq.SQLite`, and `DataLinq.MySql`. The direct core reference is deliberate: the provider packages exclude transitive build/analyzer assets, while the core package owns `DataLinq.Generators` and its analyzer dependencies.
+
+The smoke fails closed unless all of these hold:
+
+- the selected directory contains exactly one package for each consumed id at the requested version
+- only the fixed four-file fixture manifest is copied, and the project must match the approved SDK/property/package/version-guard shape exactly; imports, direct references, analyzers, linked compile items, extra targets, extra packages, and extra source/build files are rejected before restore
+- inherited MSBuild/NuGet redirect and import-hook variables are removed, automatic response and directory build/package imports are disabled, and restore/build explicitly pin the assets, project-extensions, package-cache, configuration, output, HTTP-cache, scratch, and temporary roots
+- NuGet source mapping restricts `DataLinq*` to the selected candidate directory while external dependencies use NuGet.org
+- the one pinned `project.assets.json` records only the generated configuration and isolated package cache, has no fallback folder or project library, covers `net8.0`, `net9.0`, and `net10.0`, and resolves all four DataLinq packages as packages at the exact version
+- each restored DataLinq package records the selected local source and its cached `.nupkg` SHA-256 matches the selected candidate
+- all three supported target frameworks build and emitted compiler-generated source contains the expected generated database and mutable row
+- the net10 executable passes generated-model Memory seed/find/query, real shared-cache in-memory SQLite create/insert/query, and the MySQL public-surface compilation probe; the summary reports success only after the runner validates the exit code, schema, framework, and exact payload rather than trusting the fixture's aggregate bit
+
+This is package-consumer evidence, not packaged Native AOT, trimming, or browser evidence. Run `package-report` against the same fresh candidate first, and keep the separate package-backed constrained-runtime gate.
+
 ### `exec`
 
 Runs an arbitrary `dotnet` command through the same repo-local execution profile.

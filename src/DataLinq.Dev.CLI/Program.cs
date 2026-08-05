@@ -18,6 +18,7 @@ internal static class Program
         rootCommand.Subcommands.Add(ExecCommand.Create(settings));
         rootCommand.Subcommands.Add(SizeReportCommand.Create(settings));
         rootCommand.Subcommands.Add(PackageReportCommand.Create(settings));
+        rootCommand.Subcommands.Add(PackageSmokeCommand.Create(settings));
 
         var exitCode = await rootCommand.Parse(args).InvokeAsync();
         return Environment.ExitCode != 0 ? Environment.ExitCode : exitCode;
