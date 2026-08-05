@@ -313,7 +313,7 @@ public class EmployeesBenchmarks : IDisposable
     }
 
     [BenchmarkCategory(V09QueryBackendCategory)]
-    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "SQL adapter scalar Any")]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.V09SqlAdapterOperationCount, Description = "SQL adapter scalar Any")]
     public int SqlAdapterScalarAny()
     {
         executedScenario = BenchmarkScenario.SqlAdapterScalarAny;

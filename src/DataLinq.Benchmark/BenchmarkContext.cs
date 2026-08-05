@@ -18,6 +18,7 @@ internal sealed class BenchmarkContext : IDisposable
 {
     private const int SeedEmployeeCount = 1000;
     internal const int BatchOperationCount = 1000;
+    internal const int V09SqlAdapterOperationCount = 3000;
     internal const int MutationBatchOperationCount = 1000;
     internal const int CrudWorkflowSmallOperationCount = 50;
     internal const int CrudWorkflowOperationCount = 300;
@@ -331,7 +332,7 @@ internal sealed class BenchmarkContext : IDisposable
     {
         var checksum = 0;
 
-        for (var i = 0; i < BatchOperationCount; i++)
+        for (var i = 0; i < V09SqlAdapterOperationCount; i++)
         {
             if (ExpressionQueryPlanExecutor.Execute<bool>(
                     Database.Provider.ReadOnlyAccess,
@@ -852,7 +853,7 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.TemplateFreezeValidation => BatchOperationCount,
             BenchmarkScenario.InvocationBindScalarLocalSequence => BatchOperationCount,
             BenchmarkScenario.SqlRequestCapabilityPreparation => BatchOperationCount,
-            BenchmarkScenario.SqlAdapterScalarAny => BatchOperationCount,
+            BenchmarkScenario.SqlAdapterScalarAny => V09SqlAdapterOperationCount,
             BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => BatchOperationCount,
             BenchmarkScenario.WarmRelationTraversalWithCacheEstimate => BatchOperationCount,
             BenchmarkScenario.LargeRelationIndexPreload => 1,
