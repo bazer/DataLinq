@@ -16,6 +16,7 @@ dotnet run --project ./src/DataLinq.Benchmark.CLI -- list
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --filter "*WarmPrimaryKeyFetch*"
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --phase2-watch
+dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --v09-query-backend --profile smoke
 ```
 
 Benchmark artifacts are written under `artifacts/benchmarks/`.

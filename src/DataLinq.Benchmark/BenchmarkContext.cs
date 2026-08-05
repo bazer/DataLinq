@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Threading;
 using DataLinq.Cache;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
+using DataLinq.Linq.Planning;
+using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Metadata;
 using DataLinq.Testing;
 using DataLinq.Tests.Models.Employees;
@@ -30,6 +34,10 @@ internal sealed class BenchmarkContext : IDisposable
     private readonly string[] sampleEmployeeLastNames;
     private readonly Employee.Employeegender[] sampleEmployeeGenders;
     private readonly int[][] sampleInPredicateEmployeeNumbers;
+    private readonly Expression<Func<bool>> v09QueryExpression;
+    private readonly QueryPlanInvocation v09QueryInvocation;
+    private readonly QueryPlanInvocationValue[] v09QueryBindingValues;
+    private readonly QueryExecutionRequest v09QueryExecutionRequest;
     private readonly InsertEmployeeTemplate[] insertEmployeeTemplates;
     private readonly Dictionary<int, string> originalMutationLastNames;
     private readonly int startupEmployeeNumber;
@@ -74,6 +82,19 @@ internal sealed class BenchmarkContext : IDisposable
                 sampleEmployeeNumbers[(index + 2) % BatchOperationCount]
             })
             .ToArray();
+
+        var v09LastName = sampleEmployees[0].last_name;
+        var v09EmployeeNumbers = sampleEmployeeNumbers.Take(3).ToArray();
+        v09QueryExpression = () => Database.Query().Employees.Any(employee =>
+            employee.last_name == v09LastName &&
+            v09EmployeeNumbers.Contains(employee.emp_no!.Value));
+        v09QueryInvocation = ExpressionQueryPlanParser.Convert(Database, v09QueryExpression);
+        v09QueryBindingValues = v09QueryInvocation.Values.Items.ToArray();
+        v09QueryExecutionRequest = new QueryExecutionRequest(
+            v09QueryInvocation,
+            new QueryExecutionContext(Database.Provider.ReadOnlyAccess, CancellationToken.None));
+
+        ValidateV09QueryScenario();
         sampleEmployeeWithDepartmentNumbers = Database.Query().DepartmentEmployees
             .OrderBy(x => x.emp_no)
             .Select(x => x.emp_no)
@@ -227,6 +248,112 @@ internal sealed class BenchmarkContext : IDisposable
         }
 
         return checksum;
+    }
+
+    public int ParseExpressionTemplateAndInitialBindBatch()
+    {
+        var checksum = 0;
+
+        for (var i = 0; i < BatchOperationCount; i++)
+        {
+            var invocation = ExpressionQueryPlanParser.Convert(Database, v09QueryExpression);
+            checksum += invocation.Template.Operations.Count + invocation.Values.Count;
+        }
+
+        return checksum;
+    }
+
+    public int ParseExpressionStructuralTemplateBatch()
+    {
+        var checksum = 0;
+
+        for (var i = 0; i < BatchOperationCount; i++)
+        {
+            var parsed = ExpressionQueryPlanParser.ParseUnbound(
+                Database.Provider.Metadata,
+                v09QueryExpression.Body,
+                typeof(bool));
+            checksum += parsed.Template.Operations.Count + parsed.InvocationValues.Count;
+        }
+
+        return checksum;
+    }
+
+    public int FreezeAndValidateTemplateBatch()
+    {
+        var source = v09QueryInvocation.Template;
+        var checksum = 0;
+
+        for (var i = 0; i < BatchOperationCount; i++)
+        {
+            var template = new QueryPlanTemplate(
+                source.Sources,
+                source.Operations,
+                source.Projection,
+                source.Result,
+                source.BindingDeclarations,
+                source.Specialization);
+            checksum += template.Operations.Count + template.BindingDeclarations.Count;
+        }
+
+        return checksum;
+    }
+
+    public int BindScalarAndLocalSequenceBatch()
+    {
+        var checksum = 0;
+
+        for (var i = 0; i < BatchOperationCount; i++)
+        {
+            var invocation = QueryPlanInvocation.Bind(
+                v09QueryInvocation.Template,
+                v09QueryBindingValues);
+            checksum += invocation.Values.Count;
+        }
+
+        return checksum;
+    }
+
+    public int PrepareSqlRequestAndCapabilitiesBatch()
+    {
+        var checksum = 0;
+
+        for (var i = 0; i < BatchOperationCount; i++)
+        {
+            var request = ValidatedQueryExecutionRequest.Prepare(v09QueryExecutionRequest);
+            checksum += request.Requirements.Structural.Count + request.Requirements.Invocation.Count;
+        }
+
+        return checksum;
+    }
+
+    public int ExecutePreparsedSqlAdapterScalarAnyBatch()
+    {
+        var checksum = 0;
+
+        for (var i = 0; i < BatchOperationCount; i++)
+        {
+            if (ExpressionQueryPlanExecutor.Execute<bool>(
+                    Database.Provider.ReadOnlyAccess,
+                    v09QueryInvocation))
+            {
+                checksum++;
+            }
+        }
+
+        return checksum;
+    }
+
+    public void WarmV09SqlAdapter()
+    {
+        if (!ExpressionQueryPlanExecutor.Execute<bool>(
+                Database.Provider.ReadOnlyAccess,
+                v09QueryInvocation))
+        {
+            throw new InvalidOperationException("The v0.9 SQL adapter benchmark query did not match its deterministic employee row.");
+        }
+
+        DataLinqMetrics.Reset();
     }
 
     public int TraverseDepartmentNamesBatch()
@@ -578,6 +705,9 @@ internal sealed class BenchmarkContext : IDisposable
                 case BenchmarkScenario.UpdateEmployeesBatch:
                     CleanupUpdatedEmployees();
                     break;
+                case BenchmarkScenario.SqlAdapterScalarAny:
+                    WarmV09SqlAdapter();
+                    break;
             }
         }
         else
@@ -607,6 +737,12 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => LoadEmployeesByNonPrimaryKeyEqualityBatch(),
             BenchmarkScenario.RepeatedInPredicateFetch => LoadEmployeesByInPredicateBatch(),
             BenchmarkScenario.RepeatedScalarAny => ExecuteScalarAnyBatch(),
+            BenchmarkScenario.ExpressionParseStructuralTemplate => ParseExpressionStructuralTemplateBatch(),
+            BenchmarkScenario.ExpressionParseTemplateInitialBind => ParseExpressionTemplateAndInitialBindBatch(),
+            BenchmarkScenario.TemplateFreezeValidation => FreezeAndValidateTemplateBatch(),
+            BenchmarkScenario.InvocationBindScalarLocalSequence => BindScalarAndLocalSequenceBatch(),
+            BenchmarkScenario.SqlRequestCapabilityPreparation => PrepareSqlRequestAndCapabilitiesBatch(),
+            BenchmarkScenario.SqlAdapterScalarAny => ExecutePreparsedSqlAdapterScalarAnyBatch(),
             BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => LoadEmployeesByPrimaryKeyBatchWithCacheEstimate(),
             BenchmarkScenario.WarmRelationTraversalWithCacheEstimate => TraverseWarmDepartmentNamesBatchWithCacheEstimate(),
             BenchmarkScenario.LargeRelationIndexPreload => PreloadLargeRelationIndex(),
@@ -711,6 +847,12 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => BatchOperationCount,
             BenchmarkScenario.RepeatedInPredicateFetch => BatchOperationCount,
             BenchmarkScenario.RepeatedScalarAny => BatchOperationCount,
+            BenchmarkScenario.ExpressionParseStructuralTemplate => BatchOperationCount,
+            BenchmarkScenario.ExpressionParseTemplateInitialBind => BatchOperationCount,
+            BenchmarkScenario.TemplateFreezeValidation => BatchOperationCount,
+            BenchmarkScenario.InvocationBindScalarLocalSequence => BatchOperationCount,
+            BenchmarkScenario.SqlRequestCapabilityPreparation => BatchOperationCount,
+            BenchmarkScenario.SqlAdapterScalarAny => BatchOperationCount,
             BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => BatchOperationCount,
             BenchmarkScenario.WarmRelationTraversalWithCacheEstimate => BatchOperationCount,
             BenchmarkScenario.LargeRelationIndexPreload => 1,
@@ -766,12 +908,35 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => "Repeated non-PK equality fetch",
             BenchmarkScenario.RepeatedInPredicateFetch => "Repeated IN predicate fetch",
             BenchmarkScenario.RepeatedScalarAny => "Repeated scalar Any",
+            BenchmarkScenario.ExpressionParseStructuralTemplate => "Expression parse/structural template",
+            BenchmarkScenario.ExpressionParseTemplateInitialBind => "Expression parse/template/initial bind",
+            BenchmarkScenario.TemplateFreezeValidation => "Template freeze/validation",
+            BenchmarkScenario.InvocationBindScalarLocalSequence => "Invocation bind scalar/local sequence",
+            BenchmarkScenario.SqlRequestCapabilityPreparation => "SQL request/capability preparation",
+            BenchmarkScenario.SqlAdapterScalarAny => "SQL adapter scalar Any",
             BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => "Warm PK with cache estimate",
             BenchmarkScenario.WarmRelationTraversalWithCacheEstimate => "Warm relation with cache estimate",
             BenchmarkScenario.LargeRelationIndexPreload => "Large relation index preload",
             BenchmarkScenario.CompositeDynamicKeyWorkload => "Composite dynamic key workload",
             _ => throw new InvalidOperationException($"Unsupported benchmark scenario '{scenario}'.")
         };
+
+    private void ValidateV09QueryScenario()
+    {
+        var scalarCount = v09QueryBindingValues.Count(static value =>
+            value is QueryPlanInvocationValue.Scalar);
+        var sequence = v09QueryBindingValues
+            .OfType<QueryPlanInvocationValue.LocalSequence>()
+            .SingleOrDefault();
+
+        if (scalarCount != 1 || sequence?.Values.Count != 3)
+        {
+            throw new InvalidOperationException(
+                "The v0.9 query benchmark must capture exactly one scalar and one three-item local sequence.");
+        }
+
+        WarmV09SqlAdapter();
+    }
 
     private static int AddEstimatedCacheBytesChecksum(int checksum)
     {

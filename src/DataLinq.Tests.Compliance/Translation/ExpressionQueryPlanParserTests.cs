@@ -56,6 +56,44 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
+    public async Task ExpressionParser_UnboundResultPreservesConvertContractForScalarAndSequenceCaptures()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_UnboundResultPreservesConvertContractForScalarAndSequenceCaptures),
+            EmployeesSeedMode.Bogus);
+
+        var employees = databaseScope.Database.Query().Employees
+            .OrderBy(employee => employee.emp_no)
+            .Take(3)
+            .ToArray();
+        var lastName = employees[0].last_name;
+        var employeeNumbers = employees.Select(employee => employee.emp_no!.Value).ToArray();
+        Expression<Func<bool>> query = () => databaseScope.Database.Query().Employees.Any(employee =>
+            employee.last_name == lastName &&
+            employeeNumbers.Contains(employee.emp_no!.Value));
+
+        var unbound = ExpressionQueryPlanParser.ParseUnbound(
+            databaseScope.Database.Provider.Metadata,
+            query.Body,
+            typeof(bool));
+        var rebound = unbound.Bind();
+        var converted = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+        var reboundScalar = rebound.Values.Items.OfType<QueryPlanInvocationValue.Scalar>().Single();
+        var convertedScalar = converted.Values.Items.OfType<QueryPlanInvocationValue.Scalar>().Single();
+        var reboundSequence = rebound.Values.Items.OfType<QueryPlanInvocationValue.LocalSequence>().Single();
+        var convertedSequence = converted.Values.Items.OfType<QueryPlanInvocationValue.LocalSequence>().Single();
+
+        await Assert.That(rebound.Template).IsSameReferenceAs(unbound.Template);
+        await Assert.That(QueryPlanDebugWriter.WriteTemplate(rebound.Template))
+            .IsEqualTo(QueryPlanDebugWriter.WriteTemplate(converted.Template));
+        await Assert.That(QueryPlanDebugWriter.WriteInvocation(rebound))
+            .IsEqualTo(QueryPlanDebugWriter.WriteInvocation(converted));
+        await Assert.That(reboundScalar.Value).IsEqualTo(convertedScalar.Value);
+        await Assert.That(reboundSequence.Values).IsEquivalentTo(convertedSequence.Values);
+    }
+
+    [Test]
     public async Task ExpressionParser_PrimaryOrderingRemovesPriorTopLevelOrderings()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

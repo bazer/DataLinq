@@ -44,6 +44,7 @@ dotnet run --project DataLinq.Benchmark.CLI -- run --phase2-watch
 dotnet run --project DataLinq.Benchmark.CLI -- run --phase3-query-hotpath
 dotnet run --project DataLinq.Benchmark.CLI -- run --phase10-key-foundation
 dotnet run --project DataLinq.Benchmark.CLI -- run --phase11-cache-invalidation
+dotnet run --project DataLinq.Benchmark.CLI -- run --v09-query-backend
 ```
 
 Important options:
@@ -66,6 +67,8 @@ Important options:
   Runs only the Phase 10 key/cache attribution lane.
 - `--phase11-cache-invalidation`
   Runs only the Phase 11 explicit cache invalidation lane.
+- `--v09-query-backend`
+  Runs only the v0.9 query-planning, invocation-binding, and SQL-adapter evidence lane.
 - `--history-json`
   Writes a stable benchmark history entry JSON artifact.
 - `--baseline`
@@ -136,6 +139,35 @@ dotnet run --project DataLinq.Benchmark.CLI -- run --phase3-query-hotpath --prof
 ```
 
 Use the smoke profile only to prove the lane is wired correctly. Use the default or heavy profile before interpreting performance.
+
+## v0.9 Query Backend Evidence
+
+The `v0.9-query-backend` category isolates the query-foundation seams required by the v0.9 release-evidence plan. It complements the broader Phase 3 end-to-end query lane; it does not replace it.
+
+The category contains six deliberately narrow cases:
+
+- `Expression parse/structural template`
+  Parses one prebuilt scalar-`Any` expression into the structural template plus an unbound captured-value snapshot. It deliberately stops before `QueryPlanInvocation.Bind`, isolating structural parsing/template creation from binding validation, binding-order normalization, and the binder's second defensive freeze/copy. Capture itself snapshots the local sequence once, and that real parse cost remains in this case.
+- `Expression parse/template/initial bind`
+  Parses one prebuilt scalar-`Any` expression containing one non-null scalar and one three-item local sequence. The current production parser creates the structural template and immediately binds the first invocation, so this case names that combined contract exactly rather than pretending to measure template creation alone.
+- `Template freeze/validation`
+  Reconstructs a template from prebuilt structural nodes and measures collection freezing plus structural validation. It excludes expression parsing and invocation binding.
+- `Invocation bind scalar/local sequence`
+  Rebinds the prebuilt template with the same specialization. The measured work includes validation, ordering, and the defensive copy of the three-item local sequence; that copy is part of the real invocation contract.
+- `SQL request/capability preparation`
+  Prepares a prebuilt execution request, including source ownership, backend selection, requirement extraction, and capability validation. It performs no database command.
+- `SQL adapter scalar Any`
+  Repeatedly executes the same pre-parsed invocation through the production SQL adapter against warmed SQLite. The scalar result avoids entity materialization and row-cache shortcuts, but the measurement still includes real database execution and should not be described as a pure adapter microbenchmark.
+
+Run a wiring smoke from the repo root with:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --v09-query-backend --profile smoke --history-json artifacts\benchmarks\history\v0.9-query-backend-smoke.json
+```
+
+The smoke profile proves selection, execution, telemetry, and history serialization only. Use a default or heavy run before interpreting timings or allocations.
+
+This lane establishes the first post-foundation baseline for these exact cases. It is not a retroactive pre-foundation comparison, and it does not by itself close W10/RE-1G: the separate `DataLinq.Memory` read lane and final release-evidence run remain required.
 
 ## Phase 10 Key Foundation
 

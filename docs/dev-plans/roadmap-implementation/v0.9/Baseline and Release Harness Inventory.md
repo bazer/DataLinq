@@ -3,7 +3,7 @@
 
 # 0.9 Baseline And Release Harness Inventory
 
-**Status:** W0-W2 complete. This remains the 2026-07-10 before-state; later implementation checkpoints, including the W8 step-10 provider-free Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A Testing CLI registration, W10 step 4 / RE-1C compatibility reporting, both W10 step-5 source-project and aligned-preview package-backed eight-target matrices, and RE-1E aligned package-consumer evidence, are recorded separately below and do not rewrite the baseline.
+**Status:** W0-W2 complete. This remains the 2026-07-10 before-state; later implementation checkpoints, including the W8 step-10 provider-free Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A Testing CLI registration, W10 step 4 / RE-1C compatibility reporting, both W10 step-5 source-project and aligned-preview package-backed eight-target matrices, RE-1E aligned package-consumer evidence, and the partial W10 step-6 query-backend benchmark infrastructure, are recorded separately below and do not rewrite the baseline.
 
 **Baseline branch:** `v0.9`.
 
@@ -368,7 +368,7 @@ Timing noise ranges from 6.9% to 28.4%, with a multimodal-distribution warning. 
 - exact telemetry deltas must not regress
 - an allocation increase must exceed both 10% and 1 KB/op in two repeat runs before it is treated as material
 - a latency increase must exceed 15%, exceed the combined reported error/noise, and reproduce in two independent runs before it blocks the adapter
-- isolated template/invocation measurements must be added before any plan-cache or invocation-allocation claim
+- the later `v0.9-query-backend` lane now isolates unbound structural parsing/template creation, template freeze/validation, and invocation binding; it still supports no production plan-cache claim, and only clean-commit default/heavy artifacts may support allocation interpretation
 
 ## Release Harness Inventory
 
@@ -378,7 +378,7 @@ Timing noise ranges from 6.9% to 28.4%, with a multimodal-distribution warning. 
 - `package-smoke` is implemented with a tracked package-only fixture, isolated exact-version restore, assets/source/hash provenance, three-framework builds, generated-source proof, and public Memory/SQLite execution plus a MySQL compilation probe; the aligned `w10.3` run completes RE-1E, while final-RC repetition remains required.
 - test summary JSON omits schema identity, commit, command, and timestamps; the tracked manifest supplies that context for W0.
 - historical compatibility artifacts retain their `phase8c.compatibility-size-report.v1` identity; newly generated reports use `v0.9.compatibility-size-report.v5`, the package report uses `v0.9.package-inspection-report.v3`, and the package consumer uses `v0.9.package-consumer-smoke-report.v1`.
-- no isolated template/invocation benchmark exists; RE-1G owns it.
+- the partial RE-1G query lane now isolates structural parse/template capture, template freeze/validation, scalar-plus-local-sequence binding, request/capability preparation, and pre-parsed SQL-adapter execution; its initial two-provider smoke is wiring-only because it ran before the implementing commit, while the Memory lane and clean-commit default/heavy evidence remain missing.
 - the historical SQLite-shaped WebAssembly baseline was red under SDK 10.0.301; both the clean source-project and exact package-backed eight-target matrices now pass after the SQLite WebAssembly AOT binder repair, while final-RC repetition remains open.
 
 ### Remaining release-harness assumptions after W10 steps 1-5 / RE-1A / RE-1C / RE-1D / RE-1E
@@ -392,7 +392,7 @@ D5-B deliberately changed only Memory's package metadata and locally inspected a
 - the solution contains a packable Memory runtime plus non-packable test, shared-runner, Native AOT, full-trim, and browser projects; Memory is now a release-script/report and compatibility-catalog target with aligned-preview package-backed constrained-runtime evidence.
 - the package-consumer harness rejects project libraries and stale package provenance, and its aligned `w10.3` evidence is green; it remains distinct from the independently green package-backed Native AOT, trim, and browser report.
 - final RC evidence and publication remain deliberately separate from the completed aligned preview checkpoint.
-- benchmarks currently support only SQLite file and SQLite memory modes.
+- the focused query benchmarks currently support only SQLite file and SQLite memory modes; the required provider-free `DataLinq.Memory` benchmark lane remains open.
 
 ## Decision Register
 

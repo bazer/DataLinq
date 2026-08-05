@@ -27,6 +27,7 @@ internal sealed class BenchmarkHarnessRunner
     internal const string Phase10KeyFoundationCategory = "phase10-key-foundation";
     internal const string Phase11CacheInvalidationCategory = "phase11-cache-invalidation";
     internal const string Phase12CacheMemoryCategory = "phase12-cache-memory";
+    internal const string V09QueryBackendCategory = "v0.9-query-backend";
     internal const string MacroReadWriteCategory = "macro-readwrite";
     internal const string MacroBulkCategory = "macro-bulk";
     private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
@@ -84,6 +85,7 @@ internal sealed class BenchmarkHarnessRunner
         bool phase10KeyFoundation,
         bool phase11CacheInvalidation,
         bool phase12CacheMemory,
+        bool v09QueryBackend,
         string? historyJsonPath,
         string? baselinePath,
         string? comparisonJsonPath,
@@ -92,11 +94,13 @@ internal sealed class BenchmarkHarnessRunner
     {
         settings.EnsureDirectories();
 
-        if (new[] { phase2Watch, phase3QueryHotPath, phase10KeyFoundation, phase11CacheInvalidation, phase12CacheMemory }.Count(static selected => selected) > 1)
-        {
-            throw new InvalidOperationException(
-                "Benchmark category options '--phase2-watch', '--phase3-query-hotpath', '--phase10-key-foundation', '--phase11-cache-invalidation', and '--phase12-cache-memory' cannot be combined.");
-        }
+        var selectedCategory = ResolveSelectedCategory(
+            phase2Watch,
+            phase3QueryHotPath,
+            phase10KeyFoundation,
+            phase11CacheInvalidation,
+            phase12CacheMemory,
+            v09QueryBackend);
 
         if (!noBuild)
             RestoreAndBuild(verbose);
@@ -120,20 +124,8 @@ internal sealed class BenchmarkHarnessRunner
         if (keepFiles)
             arguments.Add("--keepFiles");
 
-        if (phase2Watch)
-            arguments.AddRange(["--anyCategories", Phase2WatchCategory]);
-
-        if (phase3QueryHotPath)
-            arguments.AddRange(["--anyCategories", Phase3QueryHotPathCategory]);
-
-        if (phase10KeyFoundation)
-            arguments.AddRange(["--anyCategories", Phase10KeyFoundationCategory]);
-
-        if (phase11CacheInvalidation)
-            arguments.AddRange(["--anyCategories", Phase11CacheInvalidationCategory]);
-
-        if (phase12CacheMemory)
-            arguments.AddRange(["--anyCategories", Phase12CacheMemoryCategory]);
+        if (selectedCategory is not null)
+            arguments.AddRange(["--anyCategories", selectedCategory]);
 
         arguments.AddRange(additionalArgs);
 
@@ -929,6 +921,36 @@ internal sealed class BenchmarkHarnessRunner
     private static string NormalizeBenchmarkProfile(string? profile) =>
         string.IsNullOrWhiteSpace(profile) ? "default" : profile.Trim();
 
+    internal static string? ResolveSelectedCategory(
+        bool phase2Watch,
+        bool phase3QueryHotPath,
+        bool phase10KeyFoundation,
+        bool phase11CacheInvalidation,
+        bool phase12CacheMemory,
+        bool v09QueryBackend)
+    {
+        var selectedCategories = new[]
+        {
+            (Selected: phase2Watch, Category: Phase2WatchCategory),
+            (Selected: phase3QueryHotPath, Category: Phase3QueryHotPathCategory),
+            (Selected: phase10KeyFoundation, Category: Phase10KeyFoundationCategory),
+            (Selected: phase11CacheInvalidation, Category: Phase11CacheInvalidationCategory),
+            (Selected: phase12CacheMemory, Category: Phase12CacheMemoryCategory),
+            (Selected: v09QueryBackend, Category: V09QueryBackendCategory)
+        }
+        .Where(static selection => selection.Selected)
+        .Select(static selection => selection.Category)
+        .ToArray();
+
+        if (selectedCategories.Length > 1)
+        {
+            throw new InvalidOperationException(
+                "Benchmark category options '--phase2-watch', '--phase3-query-hotpath', '--phase10-key-foundation', '--phase11-cache-invalidation', '--phase12-cache-memory', and '--v09-query-backend' cannot be combined.");
+        }
+
+        return selectedCategories.SingleOrDefault();
+    }
+
     private static string? ResolveTrackingGroup(
         BenchmarkHistoryArtifactRow? baselineRow,
         BenchmarkHistoryArtifactRow? candidateRow)
@@ -940,7 +962,7 @@ internal sealed class BenchmarkHarnessRunner
         string method)
         => candidateRow?.Category ?? baselineRow?.Category ?? GetScenarioCategory(method);
 
-    private static string? GetTrackingGroup(string? method)
+    internal static string? GetTrackingGroup(string? method)
         => method switch
         {
             "Provider initialization" => Phase2WatchCategory,
@@ -964,10 +986,16 @@ internal sealed class BenchmarkHarnessRunner
             "High-cardinality strings bounded pool" => Phase12CacheMemoryCategory,
             "Low-cardinality strings baseline" => Phase12CacheMemoryCategory,
             "Low-cardinality strings bounded pool" => Phase12CacheMemoryCategory,
+            "Expression parse/structural template" => V09QueryBackendCategory,
+            "Expression parse/template/initial bind" => V09QueryBackendCategory,
+            "Template freeze/validation" => V09QueryBackendCategory,
+            "Invocation bind scalar/local sequence" => V09QueryBackendCategory,
+            "SQL request/capability preparation" => V09QueryBackendCategory,
+            "SQL adapter scalar Any" => V09QueryBackendCategory,
             _ => null
         };
 
-    private static string GetScenarioCategory(string method)
+    internal static string GetScenarioCategory(string method)
         => method switch
         {
             "Provider initialization" => "startup",
@@ -989,6 +1017,12 @@ internal sealed class BenchmarkHarnessRunner
             "High-cardinality strings bounded pool" => "cache-memory",
             "Low-cardinality strings baseline" => "cache-memory",
             "Low-cardinality strings bounded pool" => "cache-memory",
+            "Expression parse/structural template" => "query-planning",
+            "Expression parse/template/initial bind" => "query-planning",
+            "Template freeze/validation" => "query-planning",
+            "Invocation bind scalar/local sequence" => "query-binding",
+            "SQL request/capability preparation" => "sql-adapter",
+            "SQL adapter scalar Any" => "sql-adapter",
             "Invalidate one employee row" => "cache-invalidation",
             "Invalidate many employee rows" => "cache-invalidation",
             "Invalidate employee table" => "cache-invalidation",

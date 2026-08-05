@@ -20,6 +20,26 @@ internal readonly record struct ExpressionQueryPlanParserOptions(
         ExpressionLocalValueEvaluationOptions.AotStrict);
 }
 
+internal readonly struct ExpressionQueryPlanParseResult
+{
+    public ExpressionQueryPlanParseResult(
+        QueryPlanTemplate template,
+        IReadOnlyList<QueryPlanInvocationValue> invocationValues)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        ArgumentNullException.ThrowIfNull(invocationValues);
+        Template = template;
+        InvocationValues = invocationValues;
+    }
+
+    public QueryPlanTemplate Template { get; }
+
+    public IReadOnlyList<QueryPlanInvocationValue> InvocationValues { get; }
+
+    public QueryPlanInvocation Bind()
+        => QueryPlanInvocation.Bind(Template, InvocationValues);
+}
+
 internal sealed class ExpressionQueryPlanParser
 {
     private readonly DatabaseDefinition metadata;
@@ -66,7 +86,7 @@ internal sealed class ExpressionQueryPlanParser
         ArgumentNullException.ThrowIfNull(resultType);
 
         var parser = new ExpressionQueryPlanParser(metadata, ExpressionQueryPlanParserOptions.Default);
-        return parser.Parse(expression, resultType);
+        return parser.ParseUnbound(expression, resultType).Bind();
     }
 
     internal static QueryPlanInvocation Convert(
@@ -80,10 +100,23 @@ internal sealed class ExpressionQueryPlanParser
         ArgumentNullException.ThrowIfNull(resultType);
 
         var parser = new ExpressionQueryPlanParser(metadata, options);
-        return parser.Parse(expression, resultType);
+        return parser.ParseUnbound(expression, resultType).Bind();
     }
 
-    private QueryPlanInvocation Parse(Expression expression, Type resultType)
+    internal static ExpressionQueryPlanParseResult ParseUnbound(
+        DatabaseDefinition metadata,
+        Expression expression,
+        Type resultType)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(expression);
+        ArgumentNullException.ThrowIfNull(resultType);
+
+        var parser = new ExpressionQueryPlanParser(metadata, ExpressionQueryPlanParserOptions.Default);
+        return parser.ParseUnbound(expression, resultType);
+    }
+
+    private ExpressionQueryPlanParseResult ParseUnbound(Expression expression, Type resultType)
     {
         var parsed = IsQueryableSequence(expression.Type)
             ? ParseSequence(expression)
@@ -107,7 +140,7 @@ internal sealed class ExpressionQueryPlanParser
             bindings.CreateDeclarations(),
             bindings.CreateSpecialization());
 
-        return QueryPlanInvocation.Bind(template, bindings.InvocationValues);
+        return new ExpressionQueryPlanParseResult(template, bindings.InvocationValues);
     }
 
     private ParsedQuery ParseSequence(Expression expression)

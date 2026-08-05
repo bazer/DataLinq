@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using DataLinq.Benchmark.CLI;
 
@@ -38,5 +39,87 @@ public class BenchmarkCliParsingTests
         var result = BenchmarkHarnessRunner.AreBenchmarkProfilesCompatible("default", "heavy");
 
         await Assert.That(result).IsFalse();
+    }
+
+    [Test]
+    public async Task CategorySelection_SelectsV09QueryBackend()
+    {
+        var result = BenchmarkHarnessRunner.ResolveSelectedCategory(
+            phase2Watch: false,
+            phase3QueryHotPath: false,
+            phase10KeyFoundation: false,
+            phase11CacheInvalidation: false,
+            phase12CacheMemory: false,
+            v09QueryBackend: true);
+
+        await Assert.That(result).IsEqualTo(BenchmarkHarnessRunner.V09QueryBackendCategory);
+    }
+
+    [Test]
+    public async Task CategorySelection_LeavesCategoryUnsetWhenNoSelectorIsEnabled()
+    {
+        var result = BenchmarkHarnessRunner.ResolveSelectedCategory(
+            phase2Watch: false,
+            phase3QueryHotPath: false,
+            phase10KeyFoundation: false,
+            phase11CacheInvalidation: false,
+            phase12CacheMemory: false,
+            v09QueryBackend: false);
+
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task CategorySelection_RejectsCombinedSelectors()
+    {
+        InvalidOperationException? exception = null;
+
+        try
+        {
+            _ = BenchmarkHarnessRunner.ResolveSelectedCategory(
+                phase2Watch: true,
+                phase3QueryHotPath: false,
+                phase10KeyFoundation: false,
+                phase11CacheInvalidation: false,
+                phase12CacheMemory: false,
+                v09QueryBackend: true);
+        }
+        catch (InvalidOperationException caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message)
+            .Contains("--phase2-watch")
+            .And.Contains("--v09-query-backend");
+    }
+
+    [Test]
+    [Arguments("Expression parse/structural template")]
+    [Arguments("Expression parse/template/initial bind")]
+    [Arguments("Template freeze/validation")]
+    [Arguments("Invocation bind scalar/local sequence")]
+    [Arguments("SQL request/capability preparation")]
+    [Arguments("SQL adapter scalar Any")]
+    public async Task TrackingGroup_MapsV09QueryBackendScenarios(string method)
+    {
+        var result = BenchmarkHarnessRunner.GetTrackingGroup(method);
+
+        await Assert.That(result).IsEqualTo(BenchmarkHarnessRunner.V09QueryBackendCategory);
+    }
+
+    [Test]
+    [Arguments("Expression parse/structural template", "query-planning")]
+    [Arguments("Expression parse/template/initial bind", "query-planning")]
+    [Arguments("Template freeze/validation", "query-planning")]
+    [Arguments("Invocation bind scalar/local sequence", "query-binding")]
+    [Arguments("SQL request/capability preparation", "sql-adapter")]
+    [Arguments("SQL adapter scalar Any", "sql-adapter")]
+    public async Task ScenarioCategory_MapsV09QueryBackendScenarios(string method, string expectedCategory)
+    {
+        var result = BenchmarkHarnessRunner.GetScenarioCategory(method);
+
+        await Assert.That(result).IsEqualTo(expectedCategory);
     }
 }
