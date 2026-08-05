@@ -111,7 +111,8 @@ public sealed record CompatibilityRunnerAssemblyIdentity(
     string Name,
     string InformationalVersion,
     string RepositoryCommit,
-    bool RepositoryCommitCaptured);
+    bool RepositoryCommitCaptured,
+    string RepositoryBuildState);
 
 public sealed record CompatibilitySizeReport(
     string SchemaVersion,
@@ -158,6 +159,8 @@ public sealed record CompatibilitySizeReport(
     public bool RunnerStateChangedDuringRun { get; init; }
 
     public bool RunnerAssemblyRevisionsMatchRepositoryCommit { get; init; }
+
+    public bool RunnerAssembliesBuiltFromCleanRepositoryState { get; init; }
 
     public bool RunnerStateValidForEvidence { get; init; }
 }

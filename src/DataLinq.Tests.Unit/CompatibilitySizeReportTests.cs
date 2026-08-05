@@ -104,7 +104,7 @@ public class CompatibilitySizeReportTests
     public async Task CompatibilityReport_UsesVersion09StructuralSchema()
     {
         await Assert.That(CompatibilitySizeReporter.SchemaVersion)
-            .IsEqualTo("v0.9.compatibility-size-report.v4");
+            .IsEqualTo("v0.9.compatibility-size-report.v5");
     }
 
     [Test]
@@ -1043,7 +1043,11 @@ public class CompatibilitySizeReportTests
             "DataLinq.Dev.CLI",
             "1.0.0",
             "unknown",
-            false);
+            false,
+            "clean");
+        var dirtyEntryBuild = entryAssembly with { RepositoryBuildState = "dirty" };
+        var dirtyDevToolsBuild = devToolsAssembly with { RepositoryBuildState = "dirty" };
+        var missingBuildState = entryAssembly with { RepositoryBuildState = "missing" };
         var unexpectedEntryAssembly = entryAssembly with { Name = "DataLinq.Tests.Unit" };
 
         var stableResult = CompatibilitySizeReporter.EvaluateRunnerEvidence(
@@ -1081,6 +1085,21 @@ public class CompatibilitySizeReportTests
             clean,
             entryAssembly,
             staleDevToolsAssembly);
+        var dirtyEntryBuildResult = CompatibilitySizeReporter.EvaluateRunnerEvidence(
+            clean,
+            clean,
+            dirtyEntryBuild,
+            devToolsAssembly);
+        var dirtyDevToolsBuildResult = CompatibilitySizeReporter.EvaluateRunnerEvidence(
+            clean,
+            clean,
+            entryAssembly,
+            dirtyDevToolsBuild);
+        var missingBuildStateResult = CompatibilitySizeReporter.EvaluateRunnerEvidence(
+            clean,
+            clean,
+            missingBuildState,
+            devToolsAssembly);
         var unexpectedEntryResult = CompatibilitySizeReporter.EvaluateRunnerEvidence(
             clean,
             clean,
@@ -1089,24 +1108,41 @@ public class CompatibilitySizeReportTests
 
         await Assert.That(stableResult.ChangedDuringRun).IsFalse();
         await Assert.That(stableResult.AssemblyRevisionsMatchRepositoryCommit).IsTrue();
+        await Assert.That(stableResult.AssembliesBuiltFromCleanRepositoryState).IsTrue();
         await Assert.That(stableResult.ValidForEvidence).IsTrue();
         await Assert.That(dirtyResult.ChangedDuringRun).IsFalse();
         await Assert.That(dirtyResult.AssemblyRevisionsMatchRepositoryCommit).IsTrue();
+        await Assert.That(dirtyResult.AssembliesBuiltFromCleanRepositoryState).IsTrue();
         await Assert.That(dirtyResult.ValidForEvidence).IsFalse();
         await Assert.That(changedResult.ChangedDuringRun).IsTrue();
         await Assert.That(changedResult.AssemblyRevisionsMatchRepositoryCommit).IsFalse();
+        await Assert.That(changedResult.AssembliesBuiltFromCleanRepositoryState).IsTrue();
         await Assert.That(changedResult.ValidForEvidence).IsFalse();
         await Assert.That(missingStateResult.ChangedDuringRun).IsTrue();
         await Assert.That(missingStateResult.AssemblyRevisionsMatchRepositoryCommit).IsFalse();
+        await Assert.That(missingStateResult.AssembliesBuiltFromCleanRepositoryState).IsTrue();
         await Assert.That(missingStateResult.ValidForEvidence).IsFalse();
         await Assert.That(staleBinaryResult.ChangedDuringRun).IsFalse();
         await Assert.That(staleBinaryResult.AssemblyRevisionsMatchRepositoryCommit).IsFalse();
+        await Assert.That(staleBinaryResult.AssembliesBuiltFromCleanRepositoryState).IsTrue();
         await Assert.That(staleBinaryResult.ValidForEvidence).IsFalse();
         await Assert.That(missingRevisionResult.AssemblyRevisionsMatchRepositoryCommit).IsFalse();
+        await Assert.That(missingRevisionResult.AssembliesBuiltFromCleanRepositoryState).IsTrue();
         await Assert.That(missingRevisionResult.ValidForEvidence).IsFalse();
         await Assert.That(staleDevToolsResult.AssemblyRevisionsMatchRepositoryCommit).IsFalse();
+        await Assert.That(staleDevToolsResult.AssembliesBuiltFromCleanRepositoryState).IsTrue();
         await Assert.That(staleDevToolsResult.ValidForEvidence).IsFalse();
+        await Assert.That(dirtyEntryBuildResult.AssemblyRevisionsMatchRepositoryCommit).IsTrue();
+        await Assert.That(dirtyEntryBuildResult.AssembliesBuiltFromCleanRepositoryState).IsFalse();
+        await Assert.That(dirtyEntryBuildResult.ValidForEvidence).IsFalse();
+        await Assert.That(dirtyDevToolsBuildResult.AssemblyRevisionsMatchRepositoryCommit).IsTrue();
+        await Assert.That(dirtyDevToolsBuildResult.AssembliesBuiltFromCleanRepositoryState).IsFalse();
+        await Assert.That(dirtyDevToolsBuildResult.ValidForEvidence).IsFalse();
+        await Assert.That(missingBuildStateResult.AssemblyRevisionsMatchRepositoryCommit).IsTrue();
+        await Assert.That(missingBuildStateResult.AssembliesBuiltFromCleanRepositoryState).IsFalse();
+        await Assert.That(missingBuildStateResult.ValidForEvidence).IsFalse();
         await Assert.That(unexpectedEntryResult.AssemblyRevisionsMatchRepositoryCommit).IsFalse();
+        await Assert.That(unexpectedEntryResult.AssembliesBuiltFromCleanRepositoryState).IsTrue();
         await Assert.That(unexpectedEntryResult.ValidForEvidence).IsFalse();
     }
 
@@ -1147,6 +1183,41 @@ public class CompatibilitySizeReportTests
                     CompatibilitySizeReporter.ExtractRepositoryCommitFromInformationalVersion(
                         informationalVersion))
                 .IsNull();
+        }
+    }
+
+    [Test]
+    public async Task RunnerEvidence_RejectsEveryNonCleanAssemblyBuildState()
+    {
+        const string commit = "0123456789abcdef0123456789abcdef01234567";
+        const string sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        var repository = new CompatibilitySizeReporter.RunnerRepositoryState(
+            commit,
+            false,
+            sha,
+            true);
+        var cleanEntry = RunnerAssembly("DataLinq.Dev.CLI", commit);
+        var cleanDevTools = RunnerAssembly("DataLinq.DevTools", commit);
+
+        foreach (var invalidState in new[] { "dirty", "unknown", "missing", "invalid", "Clean", "" })
+        {
+            var invalidEntry = CompatibilitySizeReporter.EvaluateRunnerEvidence(
+                repository,
+                repository,
+                cleanEntry with { RepositoryBuildState = invalidState },
+                cleanDevTools);
+            var invalidDevTools = CompatibilitySizeReporter.EvaluateRunnerEvidence(
+                repository,
+                repository,
+                cleanEntry,
+                cleanDevTools with { RepositoryBuildState = invalidState });
+
+            await Assert.That(invalidEntry.AssemblyRevisionsMatchRepositoryCommit).IsTrue();
+            await Assert.That(invalidEntry.AssembliesBuiltFromCleanRepositoryState).IsFalse();
+            await Assert.That(invalidEntry.ValidForEvidence).IsFalse();
+            await Assert.That(invalidDevTools.AssemblyRevisionsMatchRepositoryCommit).IsTrue();
+            await Assert.That(invalidDevTools.AssembliesBuiltFromCleanRepositoryState).IsFalse();
+            await Assert.That(invalidDevTools.ValidForEvidence).IsFalse();
         }
     }
 
@@ -1325,6 +1396,7 @@ public class CompatibilitySizeReportTests
             RunnerStatusSha256 = sha,
             RunnerStateChangedDuringRun = false,
             RunnerAssemblyRevisionsMatchRepositoryCommit = true,
+            RunnerAssembliesBuiltFromCleanRepositoryState = true,
             RunnerStateValidForEvidence = true
         };
         var jsonOptions = new JsonSerializerOptions
@@ -1345,19 +1417,23 @@ public class CompatibilitySizeReportTests
             .And.Contains("\"CleanIntermediateOutputs\":true")
             .And.Contains("\"RunnerEntryAssembly\":")
             .And.Contains("\"Name\":\"DataLinq.Dev.CLI\"")
+            .And.Contains("\"RepositoryBuildState\":\"clean\"")
             .And.Contains("\"RunnerDevToolsAssembly\":")
             .And.Contains($"\"RunnerStartRepositoryCommit\":\"{runnerCommit}\"")
             .And.Contains($"\"RunnerRepositoryCommit\":\"{runnerCommit}\"")
             .And.Contains("\"RunnerStateChangedDuringRun\":false")
             .And.Contains("\"RunnerAssemblyRevisionsMatchRepositoryCommit\":true")
+            .And.Contains("\"RunnerAssembliesBuiltFromCleanRepositoryState\":true")
             .And.Contains("\"RunnerStateValidForEvidence\":true");
         await Assert.That(markdown)
             .Contains("Dependency source: `PackedPackages`")
             .And.Contains("Invocation tooling profile: `Sandbox`")
             .And.Contains("Invocation clean intermediate outputs: `True`")
             .And.Contains("Runner entry assembly: `DataLinq.Dev.CLI`")
+            .And.Contains("Runner entry assembly repository build state: `clean`")
             .And.Contains("Runner DevTools assembly: `DataLinq.DevTools`")
             .And.Contains("Runner assembly revisions match repository commit: `True`")
+            .And.Contains("Runner assemblies built from clean repository state: `True`")
             .And.Contains("## Package Inputs")
             .And.Contains("Package provenance passed: `True`")
             .And.Contains("source match `True`, hash match `True`, extracted files match `True` (1 verified)");
@@ -1537,8 +1613,9 @@ public class CompatibilitySizeReportTests
 
     private static CompatibilityRunnerAssemblyIdentity RunnerAssembly(
         string name,
-        string repositoryCommit) =>
-        new(name, $"1.0.0+{repositoryCommit}", repositoryCommit, true);
+        string repositoryCommit,
+        string repositoryBuildState = "clean") =>
+        new(name, $"1.0.0+{repositoryCommit}", repositoryCommit, true, repositoryBuildState);
 
     private static CompatibilityTargetReport TargetReport(
         CompatibilityTargetDefinition target,

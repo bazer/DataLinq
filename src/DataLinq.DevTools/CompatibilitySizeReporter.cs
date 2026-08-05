@@ -13,10 +13,12 @@ namespace DataLinq.DevTools;
 
 public sealed class CompatibilitySizeReporter
 {
-    public const string SchemaVersion = "v0.9.compatibility-size-report.v4";
+    public const string SchemaVersion = "v0.9.compatibility-size-report.v5";
 
     private const string ExpectedEntryAssemblyName = "DataLinq.Dev.CLI";
     private const string ExpectedDevToolsAssemblyName = "DataLinq.DevTools";
+    private const string RepositoryBuildStateMetadataName = "DataLinqRepositoryBuildState";
+    private const string CleanRepositoryBuildState = "clean";
 
     private readonly DevToolPaths paths;
     private readonly CompatibilityReportOptions options;
@@ -176,6 +178,8 @@ public sealed class CompatibilitySizeReporter
             RunnerStateChangedDuringRun = runnerEvidence.ChangedDuringRun,
             RunnerAssemblyRevisionsMatchRepositoryCommit =
                 runnerEvidence.AssemblyRevisionsMatchRepositoryCommit,
+            RunnerAssembliesBuiltFromCleanRepositoryState =
+                runnerEvidence.AssembliesBuiltFromCleanRepositoryState,
             RunnerStateValidForEvidence = runnerEvidence.ValidForEvidence
         };
 
@@ -225,6 +229,9 @@ public sealed class CompatibilitySizeReporter
         builder.AppendLine(
             $"Runner assembly revisions match repository commit: " +
             $"`{report.RunnerAssemblyRevisionsMatchRepositoryCommit}`");
+        builder.AppendLine(
+            $"Runner assemblies built from clean repository state: " +
+            $"`{report.RunnerAssembliesBuiltFromCleanRepositoryState}`");
         builder.AppendLine($"Runner state valid for evidence: `{report.RunnerStateValidForEvidence}`");
         if (report.PackageInput is { } packageInput)
         {
@@ -1154,15 +1161,24 @@ public sealed class CompatibilitySizeReporter
             devToolsAssembly.RepositoryCommit.Equals(
                 end.Commit,
                 StringComparison.OrdinalIgnoreCase);
+        var assembliesBuiltFromCleanRepositoryState =
+            entryAssembly.RepositoryBuildState.Equals(
+                CleanRepositoryBuildState,
+                StringComparison.Ordinal) &&
+            devToolsAssembly.RepositoryBuildState.Equals(
+                CleanRepositoryBuildState,
+                StringComparison.Ordinal);
         var valid = start.Captured &&
                     end.Captured &&
                     !start.Dirty &&
                     !end.Dirty &&
                     !changed &&
-                    assemblyRevisionsMatchRepositoryCommit;
+                    assemblyRevisionsMatchRepositoryCommit &&
+                    assembliesBuiltFromCleanRepositoryState;
         return new RunnerEvidenceEvaluation(
             changed,
             assemblyRevisionsMatchRepositoryCommit,
+            assembliesBuiltFromCleanRepositoryState,
             valid);
     }
 
@@ -1199,11 +1215,30 @@ public sealed class CompatibilitySizeReporter
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion;
         var repositoryCommit = ExtractRepositoryCommitFromInformationalVersion(informationalVersion);
+        var repositoryBuildState = ReadRunnerRepositoryBuildState(assembly);
         return new CompatibilityRunnerAssemblyIdentity(
             name,
             string.IsNullOrWhiteSpace(informationalVersion) ? "unknown" : informationalVersion,
             repositoryCommit ?? "unknown",
-            repositoryCommit is not null);
+            repositoryCommit is not null,
+            repositoryBuildState);
+    }
+
+    private static string ReadRunnerRepositoryBuildState(Assembly assembly)
+    {
+        var values = assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Where(static attribute =>
+                attribute.Key.Equals(RepositoryBuildStateMetadataName, StringComparison.Ordinal))
+            .Select(static attribute => attribute.Value)
+            .ToArray();
+        return values.Length switch
+        {
+            0 => "missing",
+            1 when string.IsNullOrWhiteSpace(values[0]) => "invalid",
+            1 => values[0] ?? "invalid",
+            _ => "ambiguous"
+        };
     }
 
     private static bool AssemblyRevisionMatchesRepositoryCommit(
@@ -1571,6 +1606,7 @@ public sealed class CompatibilitySizeReporter
         builder.AppendLine($"{label} informational version: `{assembly.InformationalVersion}`");
         builder.AppendLine($"{label} repository commit: `{assembly.RepositoryCommit}`");
         builder.AppendLine($"{label} repository commit captured: `{assembly.RepositoryCommitCaptured}`");
+        builder.AppendLine($"{label} repository build state: `{assembly.RepositoryBuildState}`");
     }
 
     private static string EscapeTable(string value) =>
@@ -1607,6 +1643,7 @@ public sealed class CompatibilitySizeReporter
     internal sealed record RunnerEvidenceEvaluation(
         bool ChangedDuringRun,
         bool AssemblyRevisionsMatchRepositoryCommit,
+        bool AssembliesBuiltFromCleanRepositoryState,
         bool ValidForEvidence);
 
     private sealed record RunnerAssemblyState(
@@ -1614,7 +1651,7 @@ public sealed class CompatibilitySizeReporter
         CompatibilityRunnerAssemblyIdentity DevToolsAssembly);
 
     private static CompatibilityRunnerAssemblyIdentity UnknownRunnerAssemblyIdentity { get; } =
-        new("unknown", "unknown", "unknown", false);
+        new("unknown", "unknown", "unknown", false, "missing");
 
     private sealed record CompatibilityPackageBuildContext(
         string BuildIdentity,
