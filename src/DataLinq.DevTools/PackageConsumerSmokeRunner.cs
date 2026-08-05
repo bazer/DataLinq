@@ -1031,7 +1031,7 @@ public sealed class PackageConsumerSmokeRunner
         return environment;
     }
 
-    private static void WriteNugetConfig(string path, string candidateDirectory)
+    internal static void WriteNugetConfig(string path, string candidateDirectory)
     {
         var document = new XDocument(
             new XDeclaration("1.0", "utf-8", null),

@@ -33,6 +33,7 @@ public enum CompatibilityFailureClassification
     SdkOrWebAssemblyToolchain,
     BrowserTelemetryContract,
     PayloadInspection,
+    PackageProvenance,
     ProductRegression,
     RemotionDependency,
     Dotnet,
@@ -85,7 +86,26 @@ public sealed record CompatibilityReportOptions(
     bool FailOnThresholdWarnings,
     bool ContinueOnPublishFailure,
     bool CleanIntermediateOutputs,
-    bool UseReleaseThresholds);
+    bool UseReleaseThresholds)
+{
+    public string? PackageDirectory { get; init; }
+
+    public string? PackageVersion { get; init; }
+}
+
+public sealed record CompatibilityReportInvocation(
+    ToolingProfile Profile,
+    bool NoRestore,
+    bool SkipSmoke,
+    bool CleanIntermediateOutputs,
+    bool UseReleaseThresholds,
+    bool FailOnBannedPayload,
+    bool FailOnThresholdWarnings,
+    bool ContinueOnPublishFailure,
+    int LargestFileCount,
+    long? TotalSizeWarningBytes,
+    long? SymbolExcludedSizeWarningBytes,
+    int? FileCountWarning);
 
 public sealed record CompatibilitySizeReport(
     string SchemaVersion,
@@ -100,7 +120,35 @@ public sealed record CompatibilitySizeReport(
     string DotnetSdkVersion,
     string ReportDirectory,
     IReadOnlyList<CompatibilityTargetReport> Targets,
-    CompatibilityReportSummary Summary);
+    CompatibilityReportSummary Summary)
+{
+    public CompatibilityDependencySource DependencySource { get; init; } =
+        CompatibilityDependencySource.ProjectReferences;
+
+    public CompatibilityReportInvocation? Invocation { get; init; }
+
+    public CompatibilityPackageInput? PackageInput { get; init; }
+
+    public string? PackageNugetConfigPath { get; init; }
+
+    public string? PackageCacheDirectory { get; init; }
+
+    public string RunnerStartRepositoryCommit { get; init; } = "unknown";
+
+    public bool RunnerStartWorkingTreeDirty { get; init; }
+
+    public string RunnerStartStatusSha256 { get; init; } = "unknown";
+
+    public string RunnerRepositoryCommit { get; init; } = "unknown";
+
+    public bool RunnerWorkingTreeDirty { get; init; }
+
+    public string RunnerStatusSha256 { get; init; } = "unknown";
+
+    public bool RunnerStateChangedDuringRun { get; init; }
+
+    public bool RunnerStateValidForEvidence { get; init; }
+}
 
 public sealed record CompatibilityReportSummary(
     int TargetCount,
@@ -112,7 +160,10 @@ public sealed record CompatibilityReportSummary(
     int BannedPayloadCount,
     int ThresholdWarningCount,
     int DistinctWarningCount,
-    bool HasHardFailures);
+    bool HasHardFailures)
+{
+    public int RunnerStateFailureCount { get; init; }
+}
 
 public sealed record CompatibilityTargetReport(
     string Name,
@@ -131,7 +182,10 @@ public sealed record CompatibilityTargetReport(
     CompatibilityWarningSummary WarningSummary,
     IReadOnlyList<CompatibilityLargestFile> LargestFiles,
     CompatibilityCompressedAssetSummary BrotliAssets,
-    CompatibilityCompressedAssetSummary GzipAssets);
+    CompatibilityCompressedAssetSummary GzipAssets)
+{
+    public CompatibilityPackageResolutionReport? PackageResolution { get; init; }
+}
 
 public sealed record CompatibilityCommandReport(
     CompatibilityCommandStatus Status,

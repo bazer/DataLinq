@@ -104,7 +104,41 @@ public class CompatibilitySizeReportTests
     public async Task CompatibilityReport_UsesVersion09StructuralSchema()
     {
         await Assert.That(CompatibilitySizeReporter.SchemaVersion)
-            .IsEqualTo("v0.9.compatibility-size-report.v2");
+            .IsEqualTo("v0.9.compatibility-size-report.v3");
+    }
+
+    [Test]
+    public async Task PackageModeOptions_RequireExactPairAndCurrentTargetSet()
+    {
+        await Assert.That(CompatibilitySizeReporter.ValidatePackageModeOptions("v0.9", null, null))
+            .IsEqualTo(CompatibilityDependencySource.ProjectReferences);
+        await Assert.That(CompatibilitySizeReporter.ValidatePackageModeOptions("V0.9", "packages", "0.9.0-preview.1"))
+            .IsEqualTo(CompatibilityDependencySource.PackedPackages);
+
+        foreach (var input in new[]
+                 {
+                     (TargetSet: "v0.9", PackageDirectory: (string?)"packages", Version: (string?)null),
+                     (TargetSet: "v0.9", PackageDirectory: (string?)null, Version: (string?)"0.9.0-preview.1"),
+                     (TargetSet: "phase8c", PackageDirectory: (string?)"packages", Version: (string?)"0.9.0-preview.1"),
+                     (TargetSet: "v0.9", PackageDirectory: (string?)" ", Version: (string?)"0.9.0-preview.1"),
+                     (TargetSet: "v0.9", PackageDirectory: (string?)"packages", Version: (string?)" ")
+                 })
+        {
+            InvalidOperationException? exception = null;
+            try
+            {
+                _ = CompatibilitySizeReporter.ValidatePackageModeOptions(
+                    input.TargetSet,
+                    input.PackageDirectory,
+                    input.Version);
+            }
+            catch (InvalidOperationException caught)
+            {
+                exception = caught;
+            }
+
+            await Assert.That(exception).IsNotNull();
+        }
     }
 
     [Test]
@@ -189,12 +223,220 @@ public class CompatibilitySizeReportTests
         await Assert.That(noAotBuild).IsNotEqualTo(aotBuild);
         await Assert.That(noAotBuild).IsNotEqualTo(historicalBuild);
         await Assert.That(noAotText).Contains("--artifacts-path").And.Contains(noAotBuild);
+        await Assert.That(noAotText)
+            .Contains("-p:DataLinqCompatibilityDependencySource=ProjectReferences")
+            .And.Contains("-p:DataLinqCandidateVersion=");
         await Assert.That(noAotText).Contains("publish-no-aot").And.Contains("RunAOTCompilation=false");
         await Assert.That(noAotText).Contains("--no-restore");
         await Assert.That(aotText).Contains("--artifacts-path").And.Contains(aotBuild);
         await Assert.That(aotText).Contains("publish-aot").And.Contains("RunAOTCompilation=true");
         await Assert.That(aotText).DoesNotContain("--no-restore");
         await Assert.That(nativeText).Contains("linux-x64").And.Contains("--self-contained");
+    }
+
+    [Test]
+    public async Task PackagePublishArguments_PinExactCandidateAndIsolatedRestoreState()
+    {
+        var target = CompatibilityTargetCatalog.GetTargets("v0.9", "memory-native-aot")[0];
+        var arguments = CompatibilitySizeReporter.CreatePublishArguments(
+            target,
+            "memory-native-aot.csproj",
+            "publish",
+            "build",
+            "Release",
+            "win-x64",
+            noRestore: false,
+            CompatibilityDependencySource.PackedPackages,
+            "0.9.0-preview.w10.3",
+            "control/NuGet.Config",
+            "control/.nuget/packages");
+        var text = string.Join("\n", arguments);
+
+        await Assert.That(text)
+            .Contains("-noAutoResponse")
+            .And.Contains("-p:DataLinqCompatibilityDependencySource=PackedPackages")
+            .And.Contains("-p:DataLinqCandidateVersion=0.9.0-preview.w10.3")
+            .And.Contains("-p:RestoreConfigFile=control/NuGet.Config")
+            .And.Contains("-p:RestorePackagesPath=control/.nuget/packages")
+            .And.Contains("-p:NuGetPackageRoot=control/.nuget/packages")
+            .And.Contains("-p:NuGetPackageFolders=control/.nuget/packages")
+            .And.Contains("-p:RestoreDisablePackageSourceMapping=false");
+        await Assert.That(text).DoesNotContain("ProjectReferences");
+    }
+
+    [Test]
+    public async Task PackageBuildIdentity_SeparatesScratchAndLocksFromProjectGraph()
+    {
+        var artifactRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "CompatibilitySizeReportTests",
+            Guid.NewGuid().ToString("N"));
+        const string targetName = "memory-native-aot";
+        const string packageIdentity = "packed-pkg-0123456789abcdef";
+
+        try
+        {
+            var source = CompatibilitySizeReporter.CreateBuildScratchDirectory(
+                artifactRoot,
+                "v0.9",
+                targetName);
+            var package = CompatibilitySizeReporter.CreateBuildScratchDirectory(
+                artifactRoot,
+                "v0.9",
+                targetName,
+                packageIdentity);
+            var otherPackage = CompatibilitySizeReporter.CreateBuildScratchDirectory(
+                artifactRoot,
+                "v0.9",
+                targetName,
+                "packed-pkg-fedcba9876543210");
+
+            await Assert.That(source).IsNotEqualTo(package);
+            await Assert.That(package).IsNotEqualTo(otherPackage);
+            await Assert.That(package).Contains(packageIdentity);
+
+            using var sourceLock = CompatibilitySizeReporter.AcquireBuildArtifactsLock(
+                artifactRoot,
+                "v0.9",
+                targetName);
+            using var packageLock = CompatibilitySizeReporter.AcquireBuildArtifactsLock(
+                artifactRoot,
+                "v0.9",
+                targetName,
+                packageIdentity);
+            IOException? duplicateFailure = null;
+            try
+            {
+                using var duplicate = CompatibilitySizeReporter.AcquireBuildArtifactsLock(
+                    artifactRoot,
+                    "v0.9",
+                    targetName,
+                    packageIdentity);
+            }
+            catch (IOException exception)
+            {
+                duplicateFailure = exception;
+            }
+
+            await Assert.That(duplicateFailure).IsNotNull();
+            await Assert.That(duplicateFailure!.Message).Contains(packageIdentity);
+        }
+        finally
+        {
+            if (Directory.Exists(artifactRoot))
+                Directory.Delete(artifactRoot, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task PackageDirectoryResolution_AnchorsRelativePathsToRepositoryRoot()
+    {
+        var repositoryRoot = Path.GetFullPath(Path.Combine(
+            Path.GetTempPath(),
+            $"datalinq-package-root-{Guid.NewGuid():N}"));
+        var relative = Path.Combine("artifacts", "nuget-release", "candidate");
+        var absolute = Path.Combine(repositoryRoot, "outside", "candidate");
+
+        await Assert.That(CompatibilitySizeReporter.ResolvePackageDirectory(repositoryRoot, relative))
+            .IsEqualTo(Path.GetFullPath(Path.Combine(repositoryRoot, relative)));
+        await Assert.That(CompatibilitySizeReporter.ResolvePackageDirectory(repositoryRoot, absolute))
+            .IsEqualTo(Path.GetFullPath(absolute));
+    }
+
+    [Test]
+    public async Task CleanPackageEvidence_EmptiesTheCandidateScopedRestoreContext()
+    {
+        var artifactRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "CompatibilitySizeReportTests",
+            Guid.NewGuid().ToString("N"));
+        const string packageIdentity = "packed-pkg-0123456789abcdef";
+        var packageRoot = CompatibilitySizeReporter.CreatePackageBuildRootDirectory(
+            artifactRoot,
+            "v0.9",
+            packageIdentity);
+
+        try
+        {
+            var staleFile = Path.Combine(
+                packageRoot,
+                ".nuget",
+                "packages",
+                "datalinq",
+                "stale-extracted.dll");
+            Directory.CreateDirectory(Path.GetDirectoryName(staleFile)!);
+            await File.WriteAllTextAsync(staleFile, "stale");
+
+            CompatibilitySizeReporter.ResetPackageBuildRootForCleanEvidence(
+                artifactRoot,
+                "v0.9",
+                packageIdentity);
+
+            await Assert.That(Directory.Exists(packageRoot)).IsTrue();
+            await Assert.That(Directory.EnumerateFileSystemEntries(packageRoot)).IsEmpty();
+        }
+        finally
+        {
+            if (Directory.Exists(artifactRoot))
+                Directory.Delete(artifactRoot, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task PackageCacheValidationRejectsReparseWhileCleanResetRemovesLinkWithoutFollowingIt()
+    {
+        var artifactRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "CompatibilitySizeReportTests",
+            Guid.NewGuid().ToString("N"));
+        const string packageIdentity = "packed-pkg-0123456789abcdef";
+        var packageRoot = CompatibilitySizeReporter.CreatePackageBuildRootDirectory(
+            artifactRoot,
+            "v0.9",
+            packageIdentity);
+        var cacheParent = Path.Combine(packageRoot, ".nuget");
+        var cacheLink = Path.Combine(cacheParent, "packages");
+        var linkTarget = Path.Combine(artifactRoot, "ambient-cache");
+
+        try
+        {
+            Directory.CreateDirectory(cacheParent);
+            Directory.CreateDirectory(linkTarget);
+            CreateDirectoryLink(cacheLink, linkTarget);
+
+            IOException? validationException = null;
+            try
+            {
+                CompatibilitySizeReporter.RefuseReparsePointsRecursively(cacheParent);
+            }
+            catch (IOException caught)
+            {
+                validationException = caught;
+            }
+
+            await Assert.That(validationException).IsNotNull();
+            await Assert.That(validationException!.Message).Contains("reparse point");
+
+            CompatibilitySizeReporter.ResetPackageBuildRootForCleanEvidence(
+                artifactRoot,
+                "v0.9",
+                packageIdentity);
+
+            await Assert.That(Directory.Exists(linkTarget)).IsTrue();
+            await Assert.That(Directory.Exists(cacheLink)).IsFalse();
+            await Assert.That(Directory.EnumerateFileSystemEntries(packageRoot)).IsEmpty();
+        }
+        finally
+        {
+            if (Directory.Exists(cacheLink) &&
+                (File.GetAttributes(cacheLink) & FileAttributes.ReparsePoint) != 0)
+            {
+                Directory.Delete(cacheLink);
+            }
+
+            if (Directory.Exists(artifactRoot))
+                Directory.Delete(artifactRoot, recursive: true);
+        }
     }
 
     [Test]
@@ -363,6 +605,51 @@ public class CompatibilitySizeReportTests
 
         await Assert.That(exception).IsNotNull();
         await Assert.That(exception!.Message).Contains("--clean-output").And.Contains("--no-restore");
+        await Assert.That(Directory.Exists(repositoryRoot)).IsFalse();
+    }
+
+    [Test]
+    public async Task Reporter_RejectsIncompletePackageModeBeforeCreatingArtifacts()
+    {
+        var repositoryRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "CompatibilitySizeReportTests",
+            Guid.NewGuid().ToString("N"));
+        var paths = DevToolPaths.Create(repositoryRoot);
+        var options = new CompatibilityReportOptions(
+            RepositoryRoot: repositoryRoot,
+            Profile: ToolingProfile.Sandbox,
+            TargetSet: "v0.9",
+            TargetSelectors: "memory-native-aot",
+            Configuration: "Release",
+            RuntimeIdentifier: "win-x64",
+            LargestFileCount: 0,
+            NoRestore: false,
+            SkipSmoke: true,
+            TotalSizeWarningBytes: null,
+            SymbolExcludedSizeWarningBytes: null,
+            FileCountWarning: null,
+            FailOnBannedPayload: false,
+            FailOnThresholdWarnings: false,
+            ContinueOnPublishFailure: true,
+            CleanIntermediateOutputs: false,
+            UseReleaseThresholds: false)
+        {
+            PackageDirectory = "packages"
+        };
+        InvalidOperationException? exception = null;
+
+        try
+        {
+            _ = new CompatibilitySizeReporter(paths, options).CreateReport();
+        }
+        catch (InvalidOperationException caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("--package-dir").And.Contains("--version");
         await Assert.That(Directory.Exists(repositoryRoot)).IsFalse();
     }
 
@@ -729,6 +1016,78 @@ public class CompatibilitySizeReportTests
         await Assert.That(summary.EnvironmentFailureCount).IsEqualTo(2);
         await Assert.That(summary.UnsupportedCount).IsEqualTo(1);
         await Assert.That(summary.HasHardFailures).IsTrue();
+
+        var runnerDrift = CompatibilitySizeReporter.CreateSummary(
+            [],
+            failOnBannedPayload: false,
+            failOnThresholdWarnings: false,
+            runnerStateFailure: true);
+        await Assert.That(runnerDrift.RunnerStateFailureCount).IsEqualTo(1);
+        await Assert.That(runnerDrift.HasHardFailures).IsTrue();
+    }
+
+    [Test]
+    public async Task RunnerStateEvaluation_RequiresCapturedCleanStableState()
+    {
+        const string sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        var clean = new CompatibilitySizeReporter.RunnerRepositoryState("commit-a", false, sha, true);
+        var dirty = clean with { Dirty = true };
+        var changedCommit = clean with { Commit = "commit-b" };
+
+        var stableResult = CompatibilitySizeReporter.EvaluateRunnerRepositoryStates(clean, clean);
+        var dirtyResult = CompatibilitySizeReporter.EvaluateRunnerRepositoryStates(dirty, dirty);
+        var changedResult = CompatibilitySizeReporter.EvaluateRunnerRepositoryStates(clean, changedCommit);
+        var missingResult = CompatibilitySizeReporter.EvaluateRunnerRepositoryStates(
+            CompatibilitySizeReporter.RunnerRepositoryState.Unknown,
+            clean);
+
+        await Assert.That(stableResult.ChangedDuringRun).IsFalse();
+        await Assert.That(stableResult.ValidForEvidence).IsTrue();
+        await Assert.That(dirtyResult.ChangedDuringRun).IsFalse();
+        await Assert.That(dirtyResult.ValidForEvidence).IsFalse();
+        await Assert.That(changedResult.ChangedDuringRun).IsTrue();
+        await Assert.That(changedResult.ValidForEvidence).IsFalse();
+        await Assert.That(missingResult.ChangedDuringRun).IsTrue();
+        await Assert.That(missingResult.ValidForEvidence).IsFalse();
+    }
+
+    [Test]
+    public async Task PackageProvenanceFailure_SkipsSmokeAndHardFailsProductInspection()
+    {
+        var root = Path.Combine(
+            AppContext.BaseDirectory,
+            "CompatibilitySizeReportTests",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+
+        try
+        {
+            var publish = Command(CompatibilityCommandStatus.Succeeded, CompatibilityFailureDisposition.None);
+            var smoke = CompatibilitySizeReporter.CreatePackageProvenanceSkippedSmokeReport();
+            var inspection = CompatibilitySizeReporter.CreatePhaseExceptionReport(
+                root,
+                "inspection",
+                new CompatibilitySizeReporter.CompatibilityPackageProvenanceException(
+                    "candidate package hash mismatch"));
+            var target = CompatibilityTargetCatalog.GetTargets("v0.9", "memory-native-aot")[0];
+            var report = TargetReport(target, publish, smoke, inspection);
+            var summary = CompatibilitySizeReporter.CreateSummary([report], false, false);
+
+            await Assert.That(smoke.Status).IsEqualTo(CompatibilityCommandStatus.Skipped);
+            await Assert.That(smoke.Summary).Contains("provenance validation failed");
+            await Assert.That(inspection.Status).IsEqualTo(CompatibilityCommandStatus.Failed);
+            await Assert.That(inspection.FailureDisposition)
+                .IsEqualTo(CompatibilityFailureDisposition.Product);
+            await Assert.That(inspection.FailureClassification)
+                .IsEqualTo(CompatibilityFailureClassification.PackageProvenance);
+            await Assert.That(summary.ProductInspectionFailureCount).IsEqualTo(1);
+            await Assert.That(summary.HasHardFailures).IsTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
     }
 
     [Test]
@@ -775,6 +1134,123 @@ public class CompatibilitySizeReportTests
         await Assert.That(markdown).Contains("Browser Smoke Telemetry");
         await Assert.That(markdown).Contains("Target coverage: `1/8` (`subset`)");
         await Assert.That(markdown).Contains("Final stage: `completed`");
+    }
+
+    [Test]
+    public async Task PackageProvenance_IsStructuredInJsonAndMarkdown()
+    {
+        const string version = "0.9.0-preview.w10.3";
+        const string sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        var target = CompatibilityTargetCatalog.GetTargets("v0.9", "memory-native-aot")[0];
+        var succeeded = Command(CompatibilityCommandStatus.Succeeded, CompatibilityFailureDisposition.None);
+        var package = new CompatibilityCandidatePackage(
+            "DataLinq",
+            version,
+            "packages/DataLinq.nupkg",
+            123,
+            sha,
+            "af48e8df4d3303202de0ccf687868c1a36f877d0");
+        var input = new CompatibilityPackageInput(
+            "packages",
+            version,
+            sha,
+            "pkg-0123456789abcdef",
+            [package]);
+        var resolution = new CompatibilityPackageResolutionReport(
+            "build/obj/DataLinq.Memory.AotSmoke/project.assets.json",
+            ["DataLinq.Memory.PlatformCompatibility.Smoke/1.0.0"],
+            [
+                new CompatibilityResolvedPackage(
+                    "DataLinq",
+                    version,
+                    $"DataLinq/{version}",
+                    "cache/datalinq/version",
+                    "cache/datalinq/version/.nupkg.metadata",
+                    "packages",
+                    "cache/datalinq/version/datalinq.version.nupkg",
+                    package.PackagePath,
+                    sha,
+                    sha,
+                    true,
+                    true,
+                    true,
+                    true,
+                    1)
+            ],
+            [],
+            true);
+        var targetReport = TargetReport(target, succeeded, succeeded) with
+        {
+            PackageResolution = resolution
+        };
+        var report = new CompatibilitySizeReport(
+            CompatibilitySizeReporter.SchemaVersion,
+            DateTimeOffset.UnixEpoch,
+            "repo",
+            "v0.9",
+            [target.Name],
+            8,
+            false,
+            "Release",
+            "win-x64",
+            "10.0.100",
+            "report",
+            [targetReport],
+            CompatibilitySizeReporter.CreateSummary([targetReport], false, false))
+        {
+            DependencySource = CompatibilityDependencySource.PackedPackages,
+            Invocation = new CompatibilityReportInvocation(
+                Profile: ToolingProfile.Sandbox,
+                NoRestore: false,
+                SkipSmoke: false,
+                CleanIntermediateOutputs: true,
+                UseReleaseThresholds: true,
+                FailOnBannedPayload: true,
+                FailOnThresholdWarnings: true,
+                ContinueOnPublishFailure: true,
+                LargestFileCount: 20,
+                TotalSizeWarningBytes: null,
+                SymbolExcludedSizeWarningBytes: null,
+                FileCountWarning: null),
+            PackageInput = input,
+            PackageNugetConfigPath = "control/NuGet.Config",
+            PackageCacheDirectory = "control/.nuget/packages",
+            RunnerStartRepositoryCommit = "runner-commit",
+            RunnerStartWorkingTreeDirty = false,
+            RunnerStartStatusSha256 = sha,
+            RunnerRepositoryCommit = "runner-commit",
+            RunnerWorkingTreeDirty = false,
+            RunnerStatusSha256 = sha,
+            RunnerStateChangedDuringRun = false,
+            RunnerStateValidForEvidence = true
+        };
+        var jsonOptions = new JsonSerializerOptions
+        {
+            Converters = { new JsonStringEnumConverter() }
+        };
+        var json = JsonSerializer.Serialize(report, jsonOptions);
+        var markdown = CompatibilitySizeReporter.ToMarkdown(report);
+
+        await Assert.That(json)
+            .Contains("\"DependencySource\":\"PackedPackages\"")
+            .And.Contains("\"AggregateIdentity\":")
+            .And.Contains("\"RepositoryCommit\":\"af48e8df4d3303202de0ccf687868c1a36f877d0\"")
+            .And.Contains("\"PackageResolution\":")
+            .And.Contains("\"SourceMatchesPackageDirectory\":true")
+            .And.Contains("\"ExtractedFilesMatchArchive\":true")
+            .And.Contains("\"Profile\":\"Sandbox\"")
+            .And.Contains("\"CleanIntermediateOutputs\":true")
+            .And.Contains("\"RunnerStartRepositoryCommit\":\"runner-commit\"")
+            .And.Contains("\"RunnerRepositoryCommit\":\"runner-commit\"")
+            .And.Contains("\"RunnerStateChangedDuringRun\":false")
+            .And.Contains("\"RunnerStateValidForEvidence\":true");
+        await Assert.That(markdown)
+            .Contains("Dependency source: `PackedPackages`")
+            .And.Contains("Invocation tooling profile: `Sandbox`")
+            .And.Contains("Invocation clean intermediate outputs: `True`")
+            .And.Contains("## Package Inputs")
+            .And.Contains("Package provenance passed: `True`")
+            .And.Contains("source match `True`, hash match `True`, extracted files match `True` (1 verified)");
     }
 
     [Test]

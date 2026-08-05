@@ -5,13 +5,30 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <DataLinqCompatibilityDependencySource Condition="'$(DataLinqCompatibilityDependencySource)' == ''">ProjectReferences</DataLinqCompatibilityDependencySource>
+    <ManagePackageVersionsCentrally Condition="'$(DataLinqCompatibilityDependencySource)' == 'PackedPackages'">false</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(DataLinqCompatibilityDependencySource)' == 'ProjectReferences'">
     <ProjectReference Include="..\DataLinq\DataLinq.csproj" />
     <ProjectReference Include="..\DataLinq.Memory\DataLinq.Memory.csproj" />
     <ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;RuntimeIdentifier;SelfContained;PublishSingleFile;PublishReadyToRun" />
     <Analyzer Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)\throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(DataLinqCompatibilityDependencySource)' == 'PackedPackages'">
+    <PackageReference Include="DataLinq" Version="[$(DataLinqCandidateVersion)]" />
+    <PackageReference Include="DataLinq.Memory" Version="[$(DataLinqCandidateVersion)]" />
+  </ItemGroup>
+
+  <Target Name="ValidateDataLinqCompatibilityDependencySource"
+          BeforeTargets="CollectPackageReferences;PrepareForBuild">
+    <Error Condition="'$(DataLinqCompatibilityDependencySource)' != 'ProjectReferences' and '$(DataLinqCompatibilityDependencySource)' != 'PackedPackages'"
+           Text="DataLinqCompatibilityDependencySource must be ProjectReferences or PackedPackages." />
+    <Error Condition="'$(DataLinqCompatibilityDependencySource)' == 'PackedPackages' and '$(DataLinqCandidateVersion)' == ''"
+           Text="DataLinqCandidateVersion must be supplied explicitly for PackedPackages." />
+    <Error Condition="'$(DataLinqCompatibilityDependencySource)' == 'ProjectReferences' and '$(DataLinqCandidateVersion)' != ''"
+           Text="DataLinqCandidateVersion is only valid with PackedPackages." />
+  </Target>
 
 </Project>

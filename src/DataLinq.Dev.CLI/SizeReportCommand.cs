@@ -31,6 +31,14 @@ internal static class SizeReportCommand
             Description = "Runtime identifier for native publish targets.",
             DefaultValueFactory = _ => CompatibilityTargetCatalog.DefaultRuntimeIdentifier()
         };
+        var packageDirectoryOption = new Option<string?>("--package-dir")
+        {
+            Description = "Fresh local package candidate directory. Must be paired with --version and is supported only for --target v0.9."
+        };
+        var packageVersionOption = new Option<string?>("--version")
+        {
+            Description = "Exact package candidate version. Must be paired with --package-dir."
+        };
         var topOption = new Option<int>("--top")
         {
             Description = "Number of largest files to include for each target.",
@@ -88,6 +96,8 @@ internal static class SizeReportCommand
         command.Options.Add(targetsOption);
         command.Options.Add(configurationOption);
         command.Options.Add(runtimeOption);
+        command.Options.Add(packageDirectoryOption);
+        command.Options.Add(packageVersionOption);
         command.Options.Add(topOption);
         command.Options.Add(noRestoreOption);
         command.Options.Add(skipSmokeOption);
@@ -129,7 +139,11 @@ internal static class SizeReportCommand
                 parseResult.GetValue(failOnThresholdsOption),
                 !parseResult.GetValue(stopOnPublishFailureOption),
                 parseResult.GetValue(cleanOutputOption),
-                parseResult.GetValue(releaseThresholdsOption));
+                parseResult.GetValue(releaseThresholdsOption))
+            {
+                PackageDirectory = parseResult.GetValue(packageDirectoryOption),
+                PackageVersion = parseResult.GetValue(packageVersionOption)
+            };
 
             var reporter = new CompatibilitySizeReporter(settings.Paths, options);
             var report = reporter.CreateReport();
@@ -198,6 +212,13 @@ internal static class SizeReportCommand
         }
 
         AnsiConsole.Write(table);
+        AnsiConsole.MarkupLine($"[grey]Dependency source:[/] {Markup.Escape(report.DependencySource.ToString())}");
+        if (report.PackageInput is { } packageInput)
+        {
+            AnsiConsole.MarkupLine(
+                $"[grey]Package candidate:[/] {Markup.Escape(packageInput.PackageDirectory)} " +
+                $"at {Markup.Escape(packageInput.Version)} ({Markup.Escape(packageInput.ScratchIdentity)})");
+        }
         AnsiConsole.MarkupLine($"[grey]Report JSON:[/] {Markup.Escape(Path.Combine(report.ReportDirectory, "report.json"))}");
         AnsiConsole.MarkupLine($"[grey]Report Markdown:[/] {Markup.Escape(Path.Combine(report.ReportDirectory, "report.md"))}");
         AnsiConsole.MarkupLine(
@@ -207,7 +228,8 @@ internal static class SizeReportCommand
             $"[grey]Failures:[/] product publish={report.Summary.ProductPublishFailureCount}, " +
             $"product smoke={report.Summary.ProductSmokeFailureCount}, " +
             $"product inspection={report.Summary.ProductInspectionFailureCount}, " +
-            $"environment={report.Summary.EnvironmentFailureCount}, unsupported={report.Summary.UnsupportedCount}");
+            $"environment={report.Summary.EnvironmentFailureCount}, unsupported={report.Summary.UnsupportedCount}, " +
+            $"runner state={report.Summary.RunnerStateFailureCount}");
 
         if (report.Summary.BannedPayloadCount > 0)
         {
