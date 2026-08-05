@@ -3,13 +3,13 @@
 
 # 0.9 Release Evidence And Closeout Implementation Plan
 
-**Status:** Accepted. The bounded W8 project-reference Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A Testing CLI registration, W10 step 4 / RE-1C compatibility reporting, and RE-1E aligned package-consumer evidence are implemented and green; the W10 step-5 source-project eight-target matrix is also green. Aggregate M1/M2 remain open; the current profiles are Memory `57`, catalog `616`, and SQL `358` supported / `258` unsupported. RE-1F/G/H, the packaged constrained-runtime portion of W10 step 5, W10 steps 6-9, aggregate RE-1/RE-4/W10/W11, final release-candidate closeout, and publication remain open.
+**Status:** Accepted. The bounded W8 project-reference Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A Testing CLI registration, W10 step 4 / RE-1C compatibility reporting, RE-1E aligned package-consumer evidence, and W10 step 5—the source-project and exact-package eight-target matrices—are implemented and green at the aligned-preview checkpoint. Aggregate M1/M2 remain open; the current profiles are Memory `57`, catalog `616`, and SQL `358` supported / `258` unsupported. RE-1F/G/H, W10 steps 6-9, aggregate RE-1/RE-4/W10/W11, final-RC repetition of the package, consumer, and constrained-runtime gates, final release-candidate closeout, and publication remain open.
 
 **Target release:** DataLinq 0.9.
 
 **Created:** 2026-07-10.
 
-**Last reviewed:** 2026-08-05.
+**Last reviewed:** 2026-08-06.
 
 **Depends on:** The required workstreams in the [DataLinq 0.9 Implementation Roadmap](README.md). The final closeout begins only after their baseline evidence is green and the release has selected zero or one optional stretch.
 
@@ -62,8 +62,8 @@ The repository has good 0.8 release tooling, but it does not yet prove the 0.9 r
 | --- | --- | --- |
 | Test suites | `DataLinq.Testing.CLI` now knows `generators`, `unit`, `memory`, `compliance`, `mysql`, and `all`. The targetless `memory` project lane runs once and is included exactly once in `all`; `sqlite-memory` retains its in-memory SQLite target meaning. | **Complete for W10 step 3 / RE-1A registration.** Keep this project-based lane distinct from provider-free compatibility and package-consumer evidence. |
 | Provider matrix | The active matrix already defines `sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mariadb-10.11`, `mariadb-11.4`, and `mariadb-11.8`. | Make the final 0.9 SQL gate run this exact matrix. Keep DataLinq.Memory outside the SQL server-target multiplication and run its capability suite separately. |
-| Constrained-runtime smoke | The historical SQLite graph and separate Memory graph are registered as eight independently named targets in the accepted `v0.9` compatibility surface. The complete clean source-project matrix publishes, executes, and inspects all eight successfully; Memory outputs scan clean for SQL-provider/native-database payload. | **Complete for the source-project portion of W10 step 5.** Add exact local-package inputs, rerun the constrained hosts from the aligned package graph, and repeat both package-backed and source regression evidence for final closeout. The green source matrix is not packaged release evidence. |
-| Compatibility reporting | `CompatibilityTargetCatalog` exposes both the historical/default `phase8c` set and the eight-target `v0.9` set. Schema `v0.9.compatibility-size-report.v2` records runtime-graph identity, browser telemetry, failure ownership, payload policy, and version-neutral guardrails. | **Complete for RE-1C / W10 step 4.** Preserve the historical set and report contract while adding package provenance for the packaged constrained-runtime rerun. |
+| Constrained-runtime smoke | The historical SQLite graph and separate Memory graph are registered as eight independently named targets in the accepted `v0.9` compatibility surface. The complete clean source-project matrix and the exact `0.9.0-preview.w10.3` package-backed matrix both publish, execute, and inspect all eight targets successfully; the package-backed matrix additionally proves per-target package provenance, and Memory outputs scan clean for SQL-provider/native-database payload. | **Complete for W10 step 5 at the aligned-preview checkpoint.** Repeat the exact package-backed matrix against the final RC; this preview checkpoint is not final release evidence. |
+| Compatibility reporting | `CompatibilityTargetCatalog` exposes both the historical/default `phase8c` set and the eight-target `v0.9` set. Newly generated reports use schema `v0.9.compatibility-size-report.v5` and record dependency source, invocation policy, exact package inputs and aggregate identity, per-target archive/cache/extracted-file provenance, isolated candidate scratch/cache, checkout start/end state, and entry/DevTools assembly revision plus clean-build attestation. | **Complete for RE-1C / W10 steps 4-5 infrastructure.** Preserve the historical v2 artifacts and dated checkpoint description without relabeling them; repeat the current v5 exact-package contract against the final RC. |
 | Packing | `publish-nuget.ps1` now packs six public packages, including the separate preview `DataLinq.Memory`, rejects non-empty output, and honors an explicit candidate through `MinVerVersionOverride`. | **Complete for W10 step 1 / RE-1D.** Keep Memory separate from core and retain the exact fresh-directory/version checks. |
 | Package inspection | Default schema `v0.9.package-inspection-report.v3` now expects six public packages and four runtime packages, independently inventories six symbol packages, and applies Memory-specific dependency, asset, assembly-identity, metadata, and banned-payload checks. | **Complete for W10 step 2 / RE-1D.** Keep the fail-closed six-package/four-runtime policy in final release evidence. |
 | Package consumption | `package-smoke` drives a tracked project-reference-free consumer through an isolated exact-version local restore, net8/net9/net10 builds, generated-source proof, public Memory and SQLite execution, and a MySQL public-surface compilation probe. Schema `v0.9.package-consumer-smoke-report.v1` records candidate hashes, restore provenance, commands, and findings. The aligned `0.9.0-preview.w10.3` package report and consumer report are green. | **Complete for RE-1E at the aligned preview checkpoint.** Repeat against the final RC; do not confuse this with the separate packaged constrained-runtime gate. |
@@ -183,16 +183,18 @@ artifacts/release/v0.9/<candidate-or-commit>/
 
 The manifest must record:
 
-- exact commit SHA and branch
-- whether the worktree was clean when the authoritative run began
+- exact candidate/package commit SHA and branch
+- exact runner/tool commit SHA, entry and DevTools assembly informational versions, and their embedded repository commits and build states
+- whether candidate/package and runner/tool commits match; implementation checkpoints may record a transparent difference, but final release evidence remains subject to the single-commit rule below
+- whether the worktree was clean when the authoritative run began and ended, and whether its commit or status changed during the run
 - OS, architecture, .NET SDK, installed workloads, browser, and container-engine versions
 - selected release version and selected stretch, if any
 - every command, exit code, start/end time, and report path
 - test totals per suite and provider target
 - warnings, skipped tests, environment caveats, and their disposition
-- package ids, versions, SHA-256 hashes, target frameworks, and symbol-package presence
+- package ids, versions, SHA-256 hashes, aggregate candidate identity, repository commit, target frameworks, and symbol-package presence
 - API comparison baseline and reviewed differences
-- constrained-runtime sizes, warnings, banned-payload findings, and smoke status
+- constrained-runtime dependency source, per-target package provenance, sizes, warnings, banned-payload findings, and smoke status
 - benchmark baseline/final artifact pairs and written interpretation
 - documentation build/link-check result
 - unresolved blockers; the valid final count is zero
@@ -355,6 +357,8 @@ This completes RE-1C and W10 step 4 only. No new eight-target publish, executabl
 
 **RE-1E / W10 step-5 fresh package-consumer checkpoint (2026-08-05):** Commit `af48e8df` implements the fail-closed harness. Pack-only candidate `0.9.0-preview.w10.3` at `artifacts/nuget-release/0.9.0-preview.w10.3` contains six `.nupkg` and six `.snupkg` files, all at the exact version and stamped with full repository commit `af48e8df4d3303202de0ccf687868c1a36f877d0`. Default package report `artifacts/dev/package-report/20260805-184359713` records six expected packages, four runtime packages, six symbol packages, and zero findings or hard failures. Package-consumer report `artifacts/release/v0.9/0.9.0-preview.w10.3/packages/consumer-smoke` proves exact local source and cached-package SHA for all four consumed packages, no project libraries, all three supported target frameworks, 3/3 builds, generated types, exact net10 Memory ids `[-5,17]`, exact SQLite ids `[-5,17,42]`, a successful MySQL surface probe, and zero findings. Focused harness tests pass `32/32`; full Unit passes `1280/1280`; CLI Release build and DocFX complete with zero errors. No package was published. This closes RE-1E and the package-consumer portion of W10 step 5 for the aligned preview. Packaged Native AOT, trim, and WebAssembly evidence still remains open, so W10 step 5 and aggregate RE-4 are not complete.
 
+**W10 step-5 package-backed constrained-runtime checkpoint (2026-08-06):** The authoritative aligned-preview report at `artifacts/dev/compat-size-report/20260805-222206252-dcd508472b764d838066c37508d26c06` uses schema `v0.9.compatibility-size-report.v5`, dependency source `PackedPackages`, and the exact `0.9.0-preview.w10.3` six-package candidate with aggregate identity `f024c4d85010208ea98ca1c4af6d66daad403ac847e21490ef3fc1836ad602b3`. Every package is stamped with repository commit `af48e8df4d3303202de0ccf687868c1a36f877d0`; the constrained graphs resolve `DataLinq` SHA-256 `c1c330e99e37a04955f815bd18df27a6bf22ec3b140534fe148f6991feae18dd`, `DataLinq.SQLite` SHA-256 `bb0d0fde4eca6cbd846a60807c17562d2a14474e345f05d2ffd5c14d583744f5`, and `DataLinq.Memory` SHA-256 `ec86d5f11cd80afbf2e36301583f9eadcbe14a62aabaccc13a71e82f48d46c74`, with source, archive hash, and extracted files verified for every target. Publish, executable/browser smoke, inspection, and package provenance pass for all eight targets; product, environment, unsupported, runner-state, banned-payload, threshold, and hard-failure counts are zero. Each SQLite WebAssembly target retains 13 expected `ThirdPartyDependency`-owned `WASM0001` diagnostics; the other six targets, including every Memory target, are warning-free. The CLI and DevTools assemblies both report informational version `1.0.0+49e5f78fe4b96b33baf08ba63dc4d5458236f9fa`, embedded commit `49e5f78fe4b96b33baf08ba63dc4d5458236f9fa`, and clean build state; checkout start/end commits match, both worktree samples are clean, no drift occurred, and runner state is valid for evidence. This completes W10 step 5 at the aligned-preview checkpoint only. The final-RC rerun and aggregate RE-4/W10 remain open, and no package was published.
+
 ### RE-1D: Integrate the preview package into pack and inspection tooling — Complete
 
 Completed after the memory promotion gate:
@@ -395,7 +399,7 @@ Implemented command:
 
 The command copies only the strict four-file manifest from `test-infra/package-consumer` into a fresh non-overlapping output root and rejects unexpected source/build files, project-shape additions, and reparse-point traversal. It removes inherited MSBuild/NuGet redirect hooks, disables automatic response and directory imports, pins the assets/extensions/package/config/output roots, and verifies those exact cache/config/no-fallback postconditions in `project.assets.json`. It then applies source mapping, rejects any project library, wrong version, wrong local source, or cached package whose SHA-256 differs from the selected candidate, builds the exact net8/net9/net10 package graph, verifies emitted generated types, and executes the net10 public Memory and real shared-cache in-memory SQLite paths plus a MySQL public-surface compilation probe. The summary trusts only the runner-validated exit/schema/framework/exact payload contract. Red reports return process exit code `1`; JSON and Markdown are always retained when execution reaches reporting.
 
-Focused `PackageConsumerSmokeTests` pass `32/32`, the Dev CLI Release build has zero warnings and errors, and the historical `0.9.0-preview.w10.2` acceptance run stays green under deliberately poisoned inherited `ProjectAssetsFile`, `RestoreSources`, and `CustomAfterMicrosoftCommonTargets` values. The deliberate wrong-version run remains red. The aligned `0.9.0-preview.w10.3` candidate, package report at `artifacts/dev/package-report/20260805-184359713`, and consumer report at `artifacts/release/v0.9/0.9.0-preview.w10.3/packages/consumer-smoke` then pass with the exact package/source/hash/TFM/generated/runtime contracts and zero findings. This completes RE-1E for the aligned preview; repeat it for the final RC. W10 step 5 remains open only on its packaged constrained-runtime portion.
+Focused `PackageConsumerSmokeTests` pass `32/32`, the Dev CLI Release build has zero warnings and errors, and the historical `0.9.0-preview.w10.2` acceptance run stays green under deliberately poisoned inherited `ProjectAssetsFile`, `RestoreSources`, and `CustomAfterMicrosoftCommonTargets` values. The deliberate wrong-version run remains red. The aligned `0.9.0-preview.w10.3` candidate, package report at `artifacts/dev/package-report/20260805-184359713`, and consumer report at `artifacts/release/v0.9/0.9.0-preview.w10.3/packages/consumer-smoke` then pass with the exact package/source/hash/TFM/generated/runtime contracts and zero findings. This completes RE-1E for the aligned preview; repeat it for the final RC. Together with the package-backed constrained-runtime checkpoint above, W10 step 5 is complete at the aligned preview, while aggregate RE-4 and final-RC repetition remain open.
 
 ### RE-1F: Establish public API comparison
 
@@ -452,10 +456,10 @@ Where a tool currently emits only human-readable output, add or preserve JSON su
 ### RE-1 acceptance criteria
 
 - **Complete (RE-1A / W10 step 3):** `memory` is a first-class TUnit/Testing CLI lane with separate summary output and exactly-once composite execution
-- a memory-only constrained-runtime graph exists and has no SQLite/provider dependency
-- the compatibility reporter can select and distinguish legacy SQLite and direct-memory targets
+- **Complete (RE-1B / W10 step 5 at aligned preview):** the memory-only constrained-runtime graph executes from both project references and exact packages and has no SQLite/provider dependency or payload
+- **Complete (RE-1C / W10 steps 4-5 infrastructure):** the compatibility reporter selects and distinguishes legacy SQLite and direct-memory targets and records exact package provenance plus clean runner checkout/build attestation
 - **Complete (RE-1D / W10 steps 1-2):** pack and package-report defaults include `DataLinq.Memory`, and the fresh exact-version candidate/report pass the dependency, asset, metadata, symbol, assembly-identity, and banned-payload gates
-- a fresh local package-consumer smoke exists
+- **Complete (RE-1E at aligned preview):** a fresh exact-version local package-consumer smoke exists and has passed against the candidate used by the package-backed constrained-runtime matrix
 - a repeatable 0.8-to-0.9 public API comparison exists
 - benchmark baselines were captured before the architecture change, or the absence of a true baseline is explicitly recorded before implementation proceeds
 - every final tool can write a report path suitable for the evidence manifest
@@ -668,7 +672,7 @@ Inspect that exact fresh directory:
 
 The updated default expected/runtime package sets make extra override flags unnecessary. The final RC must preserve that default and record any deliberate override lists in the manifest so a report cannot silently omit Memory. The completed W10 tooling probe remains the historical `0.9.0-preview.w10.2` directory and report at `artifacts/dev/package-report/20260804-075329094`. The aligned package-acceptance checkpoint is `0.9.0-preview.w10.3` with report `artifacts/dev/package-report/20260805-184359713`; neither is final RC or publication evidence.
 
-The `RE-1E` consumer smoke has run against the same aligned `w10.3` directory and version; repeat this exact pairing for the final RC.
+The `RE-1E` consumer smoke and package-backed compatibility report have run against the same aligned `w10.3` directory and version; repeat this exact pairing for the final RC.
 
 ### Package acceptance checks
 
@@ -691,7 +695,13 @@ The already-green source-project regression uses the registered 0.9 target set:
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- size-report --target v0.9 --clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload --format markdown
 ```
 
-That invocation is deliberately not package evidence. Before RE-4 or W10 step 5 can close, the accepted surface must take a paired exact package directory and version, record package provenance, isolate its scratch identity from the project-reference graph, and rerun the constrained targets from that package graph. Record the exact package-backed invocation here once the implementation exists; do not retroactively relabel the source-project report.
+That invocation remains project-reference regression evidence and must not be retroactively relabeled as package evidence. The implemented package-backed form is:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- size-report --target v0.9 --package-dir artifacts\nuget-release\v0.9-rc.N --version 0.9.0-rc.N --clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload --format markdown
+```
+
+`--package-dir` and `--version` are paired exact inputs. Package-backed runs isolate their candidate scratch/cache identity from the project-reference graph, verify package source, archive hash, and extracted files per target before smoke execution, and retain package-content provenance separately from runner/tool provenance. The aligned `0.9.0-preview.w10.3` checkpoint has passed this command shape; rerun it against the final RC before aggregate RE-4 closes.
 
 Required outcomes:
 
@@ -819,7 +829,7 @@ At minimum, review and update:
 - `docs/Caching and Mutation.md`
 - `docs/Platform Compatibility.md`
 - `docs/Benchmark Results.md`
-- `docs/support-matrices/Test Provider Matrix.md` and contributor CLI docs for the registered memory suite and the still-pending compatibility execution evidence
+- `docs/support-matrices/Test Provider Matrix.md` and contributor CLI docs for the registered memory suite, implemented source/package-backed compatibility evidence, and final-RC repetition boundary
 - `docs/Roadmap.md`
 
 The public memory page must say:
@@ -850,7 +860,7 @@ Update:
 
 - **Complete for W10 step 3:** `docs/contributing/DataLinq.Testing.CLI.md` documents the `memory` suite
 - **Complete for RE-1D / W10 steps 1-2:** `docs/contributing/DataLinq.Dev.CLI.md` documents the implemented six-package/four-runtime package-report defaults and Memory inspection policy
-- **Complete for RE-1C / W10 step 4:** `docs/contributing/DataLinq.Dev.CLI.md` documents the historical/default `phase8c` set, the eight-target `v0.9` catalog, selectors, schema, failure dispositions, browser telemetry, payload policy, and guardrails
+- **Complete for RE-1C / W10 steps 4-5 infrastructure:** `docs/contributing/DataLinq.Dev.CLI.md` documents the historical/default `phase8c` set, the eight-target `v0.9` catalog, selectors, current schema v5 dependency source and invocation contract, exact package input/provenance and candidate-isolated scratch/cache, failure dispositions, runner checkout/assembly clean-build attestation, browser telemetry, payload policy, and guardrails
 - `docs/contributing/DataLinq.Benchmark.CLI.md` for the new focused lanes
 - the 0.9 roadmap and each completed implementation plan with final status/evidence links
 
@@ -952,23 +962,23 @@ The order matters. Documentation and release notes should describe the package a
 
 The final `manifest.md` should contain a compact table like:
 
-| Gate | Result | Command/report | Commit | Notes |
-| --- | --- | --- | --- | --- |
-| Build | Pass/Fail | path | SHA | SDK/host |
-| Tests: generators | Pass/Fail | path | SHA | totals |
-| Tests: unit | Pass/Fail | path | SHA | totals |
-| Tests: memory | Pass/Fail | path | SHA | totals |
-| Tests: SQL matrix | Pass/Fail | path | SHA | every target |
-| API compatibility | Pass/Fail | path | SHA | accepted differences |
-| Pack/package report | Pass/Fail | path | SHA | package hashes |
-| Package consumer | Pass/Fail | path | SHA | TFMs |
-| SQLite compatibility | Pass/Fail | path | SHA | target results |
-| Memory compatibility | Pass/Fail | path | SHA | target results/no native provider |
-| Benchmarks | Pass/Fail/Informational | path | SHA | disposition |
-| Docs | Pass/Fail | path | SHA | DocFX/link check/site inspection |
-| Release notes | Ready/Not ready | path | SHA | upgrade notes |
+| Gate | Result | Command/report | Candidate/package commit | Runner/tool commit | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Build | Pass/Fail | path | SHA | SHA | SDK/host |
+| Tests: generators | Pass/Fail | path | SHA | SHA | totals |
+| Tests: unit | Pass/Fail | path | SHA | SHA | totals |
+| Tests: memory | Pass/Fail | path | SHA | SHA | totals |
+| Tests: SQL matrix | Pass/Fail | path | SHA | SHA | every target |
+| API compatibility | Pass/Fail | path | SHA | SHA | accepted differences |
+| Pack/package report | Pass/Fail | path | SHA | SHA | package hashes |
+| Package consumer | Pass/Fail | path | SHA | SHA | TFMs |
+| SQLite compatibility | Pass/Fail | path | SHA | SHA | target results |
+| Memory compatibility | Pass/Fail | path | SHA | SHA | target results/no native provider |
+| Benchmarks | Pass/Fail/Informational | path | SHA | SHA | disposition |
+| Docs | Pass/Fail | path | SHA | SHA | DocFX/link check/site inspection |
+| Release notes | Ready/Not ready | path | SHA | SHA | upgrade notes |
 
-All required rows must refer to the same commit. If an evidence-only harness or documentation fix changes the commit, rerun the affected gates and update the manifest honestly.
+The candidate/package and runner/tool identities are recorded separately even when they match. Every required final row must resolve both identities to the same release commit. If an evidence-only harness or documentation fix changes the commit, rerun the affected gates and update the manifest honestly.
 
 ### Blocker policy
 

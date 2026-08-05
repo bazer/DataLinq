@@ -3,13 +3,13 @@
 
 # 0.9 Baseline And Release Harness Inventory
 
-**Status:** W0-W2 complete. This remains the 2026-07-10 before-state; later implementation checkpoints, including the W8 step-10 provider-free Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A Testing CLI registration, W10 step 4 / RE-1C compatibility reporting, the W10 step-5 source-project eight-target matrix, and RE-1E aligned package-consumer evidence, are recorded separately below and do not rewrite the baseline.
+**Status:** W0-W2 complete. This remains the 2026-07-10 before-state; later implementation checkpoints, including the W8 step-10 provider-free Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A Testing CLI registration, W10 step 4 / RE-1C compatibility reporting, both W10 step-5 source-project and aligned-preview package-backed eight-target matrices, and RE-1E aligned package-consumer evidence, are recorded separately below and do not rewrite the baseline.
 
 **Baseline branch:** `v0.9`.
 
 **Baseline source commit:** `8bcfc770246f960e27a91e3046f19a76c3736217`.
 
-**Last reviewed:** 2026-08-05.
+**Last reviewed:** 2026-08-06.
 
 **Starting worktree:** Clean, on `v0.9`, before characterization-only test and documentation changes.
 
@@ -262,6 +262,8 @@ The UUID-version snapshot fingerprint intentionally advances newly written schem
 
 **RE-1E / W10 step-5 fresh package-consumer checkpoint (2026-08-05):** Commit `af48e8df` adds and hardens the exact package-consumer command. The fresh aligned `0.9.0-preview.w10.3` directory at `artifacts/nuget-release/0.9.0-preview.w10.3` contains six `.nupkg` and six `.snupkg` files whose repository metadata resolves to full commit `af48e8df4d3303202de0ccf687868c1a36f877d0`. Default package report `artifacts/dev/package-report/20260805-184359713` uses schema `v0.9.package-inspection-report.v3` and records six expected packages, four runtime packages, six matching symbol packages, one exact version, zero findings, and zero hard failures. Package-consumer report `artifacts/release/v0.9/0.9.0-preview.w10.3/packages/consumer-smoke` uses schema `v0.9.package-consumer-smoke-report.v1`, restores all four consumed packages from that exact local directory with source/hash matches, contains no project library, covers net8/net9/net10, passes all three builds and generated-source proof, and validates the net10 Memory ids `[-5,17]`, SQLite ids `[-5,17,42]`, and MySQL public-surface probe with zero findings. Focused harness tests pass `32/32`, full Unit passes `1280/1280`, the Dev CLI Release build has zero warnings/errors, and DocFX has zero errors plus only the two known duplicate analyzer-release warnings. No package was published. This completes RE-1E for the aligned preview checkpoint and the package-consumer portion of W10 step 5. Package-backed constrained-runtime execution, aggregate RE-4/W10, final-RC repetition, and publication remain open.
 
+**W10 step-5 packaged constrained-runtime checkpoint (2026-08-06):** The authoritative clean package-backed report at `artifacts/dev/compat-size-report/20260805-222206252-dcd508472b764d838066c37508d26c06` uses schema `v0.9.compatibility-size-report.v5` and dependency source `PackedPackages` against exact candidate `0.9.0-preview.w10.3`. All eight targets pass publish, executable/browser smoke, inspection, and package provenance with zero product, environment, unsupported, runner-state, banned-payload, or threshold failures. Package aggregate identity is `f024c4d85010208ea98ca1c4af6d66daad403ac847e21490ef3fc1836ad602b3`; all six package inputs carry package commit `af48e8df4d3303202de0ccf687868c1a36f877d0`. The checkout and both runner assemblies attest clean commit `49e5f78fe4b96b33baf08ba63dc4d5458236f9fa`, match at start and end, and show no drift. Each SQLite WebAssembly target retains 13 expected `ThirdPartyDependency` `WASM0001` warnings; every Memory target is warning-free. This completes W10 step 5 for the aligned preview; final-RC repetition, aggregate RE-4/W10, and publication remain open. No package was published.
+
 ## Baseline Evidence Manifest
 
 ### Commands and results
@@ -375,20 +377,20 @@ Timing noise ranges from 6.9% to 28.4%, with a multimodal-distribution warning. 
 - `api-report` is plan syntax, not an implemented command; RE-1F owns the API baseline.
 - `package-smoke` is implemented with a tracked package-only fixture, isolated exact-version restore, assets/source/hash provenance, three-framework builds, generated-source proof, and public Memory/SQLite execution plus a MySQL compilation probe; the aligned `w10.3` run completes RE-1E, while final-RC repetition remains required.
 - test summary JSON omits schema identity, commit, command, and timestamps; the tracked manifest supplies that context for W0.
-- historical compatibility artifacts retain their `phase8c.compatibility-size-report.v1` identity; newly generated reports use `v0.9.compatibility-size-report.v2`, the package report uses `v0.9.package-inspection-report.v3`, and the package consumer uses `v0.9.package-consumer-smoke-report.v1`.
+- historical compatibility artifacts retain their `phase8c.compatibility-size-report.v1` identity; newly generated reports use `v0.9.compatibility-size-report.v5`, the package report uses `v0.9.package-inspection-report.v3`, and the package consumer uses `v0.9.package-consumer-smoke-report.v1`.
 - no isolated template/invocation benchmark exists; RE-1G owns it.
-- the historical SQLite-shaped WebAssembly baseline was red under SDK 10.0.301; the clean eight-target source matrix now passes after the SQLite WebAssembly AOT binder repair, while package-backed constrained-runtime execution and final-RC repetition remain open.
+- the historical SQLite-shaped WebAssembly baseline was red under SDK 10.0.301; both the clean source-project and exact package-backed eight-target matrices now pass after the SQLite WebAssembly AOT binder repair, while final-RC repetition remains open.
 
-### Remaining release-harness assumptions after W10 steps 1-4 / RE-1A / RE-1C / RE-1D / RE-1E
+### Remaining release-harness assumptions after W10 steps 1-5 / RE-1A / RE-1C / RE-1D / RE-1E
 
-D5-B deliberately changed only Memory's package metadata and locally inspected an explicit candidate. W10 steps 1-4 later resolved default pack/report policy, Testing CLI registration, and the accepted compatibility catalog/report contract. The clean eight-target source matrix and aligned `0.9.0-preview.w10.3` package inspection/consumer run are now green. The following release-harness assumptions remain:
+D5-B deliberately changed only Memory's package metadata and locally inspected an explicit candidate. W10 steps 1-4 later resolved default pack/report policy, Testing CLI registration, and the accepted compatibility catalog/report contract. The clean eight-target source matrix, aligned `0.9.0-preview.w10.3` package inspection/consumer run, and exact package-backed eight-target matrix are now green. The following release-harness assumptions remain:
 
 - the historical/default `phase8c` set still selects only its original SQLite graph; the separate `v0.9` set now registers four independently named SQLite targets and four independently named Memory targets.
-- the historical shared smoke still references `DataLinq.SQLite`; the provider-free Memory shared runner and Native AOT/full-trim/browser hosts are catalogued separately, and their fresh source-project eight-target run is green, while packaged constrained-runtime execution remains W10 step 5.
+- the historical shared smoke still references `DataLinq.SQLite`; the provider-free Memory shared runner and Native AOT/full-trim/browser hosts are catalogued separately, and both their fresh source-project run and exact package-backed run are green for all eight targets.
 - compatibility identity now records both platform kind and SQLite/Memory runtime graph.
 - shared release thresholds are version-neutral compatibility guardrails; fresh 0.9 evidence must still record the actual measured values and disposition.
-- the solution contains a packable Memory runtime plus non-packable test, shared-runner, Native AOT, full-trim, and browser projects; Memory is now a release-script/report and compatibility-catalog target but not yet packaged constrained-runtime evidence.
-- the package-consumer harness rejects project libraries and stale package provenance, and its aligned `w10.3` evidence is green; it does not substitute for packaged Native AOT, trim, or browser runs.
+- the solution contains a packable Memory runtime plus non-packable test, shared-runner, Native AOT, full-trim, and browser projects; Memory is now a release-script/report and compatibility-catalog target with aligned-preview package-backed constrained-runtime evidence.
+- the package-consumer harness rejects project libraries and stale package provenance, and its aligned `w10.3` evidence is green; it remains distinct from the independently green package-backed Native AOT, trim, and browser report.
 - final RC evidence and publication remain deliberately separate from the completed aligned preview checkpoint.
 - benchmarks currently support only SQLite file and SQLite memory modes.
 
