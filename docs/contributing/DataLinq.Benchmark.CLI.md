@@ -170,7 +170,7 @@ Run a wiring smoke from the repo root with:
 
 The smoke profile proves selection, execution, telemetry, and history serialization only. Use a default or heavy run before interpreting timings or allocations.
 
-This lane establishes the first post-foundation baseline for these exact cases. It is not a retroactive pre-foundation comparison, and it does not by itself close W10/RE-1G: the separate `DataLinq.Memory` read lane and final release-evidence run remain required.
+The accepted clean query-heavy checkpoint establishes the first post-foundation baseline for these exact cases. It is not a retroactive pre-foundation comparison. At that query-only checkpoint the separate `DataLinq.Memory` lane remained open; that lane is now implemented and has its own accepted checkpoint below, while RE-5 still owns both selectors' final-RC comparison.
 
 ## v0.9 Memory Read Evidence
 
@@ -210,6 +210,8 @@ Run a wiring smoke from the repo root with:
 ```
 
 The smoke profile proves selection, execution, telemetry, and history serialization only. Use a clean-commit default or heavy run before interpreting timings or allocations. Because these cases were introduced after the Memory foundation, their first accepted result is a post-foundation baseline rather than a retroactive before-state.
+
+The first accepted clean heavy checkpoint is commit `24374aa9990b97c85a7a8bb8e7619c7ddfbc8207`, history artifact `artifacts/benchmarks/history/v0.9-memory-read-24374aa9-heavy.json`, run `20260806-000816787-5c9bb4f575e04d5c81002c0f5e2dcbf3`. All nine rows are complete; relative error is `1.36%` to `3.71%` and standard deviation is `1.90%` to `5.32%`. BenchmarkDotNet reports three minimum-iteration warnings—typed ID `83.258` ms, direct `Guid` `87.555` ms, and filter/order/page `80.319` ms—so RE-5 must repeat the exact lane at final RC and preserve or supersede those caveats.
 
 ## Phase 10 Key Foundation
 

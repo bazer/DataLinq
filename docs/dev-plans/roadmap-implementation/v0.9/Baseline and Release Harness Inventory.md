@@ -3,7 +3,7 @@
 
 # 0.9 Baseline And Release Harness Inventory
 
-**Status:** W0-W2 complete. This remains the 2026-07-10 before-state; later implementation checkpoints, including the W8 step-10 provider-free Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A Testing CLI registration, W10 step 4 / RE-1C compatibility reporting, both W10 step-5 source-project and aligned-preview package-backed eight-target matrices, RE-1E aligned package-consumer evidence, and the partial W10 step-6 query-backend benchmark infrastructure plus clean heavy checkpoint, are recorded separately below and do not rewrite the baseline.
+**Status:** W0-W2 complete. This remains the 2026-07-10 before-state; later implementation checkpoints, including the W8 step-10 provider-free Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A Testing CLI registration, W10 step 4 / RE-1C compatibility reporting, both W10 step-5 source-project and aligned-preview package-backed eight-target matrices, RE-1E aligned package-consumer evidence, and the complete current-development W10 step-6 / RE-1G query-backend and provider-free Memory benchmark checkpoints, are recorded separately below and do not rewrite the baseline.
 
 **Baseline branch:** `v0.9`.
 
@@ -372,16 +372,16 @@ Timing noise ranges from 6.9% to 28.4%, with a multimodal-distribution warning. 
 
 ## Release Harness Inventory
 
-### Missing harness capabilities
+### Harness capability status
 
 - `api-report` is plan syntax, not an implemented command; RE-1F owns the API baseline.
 - `package-smoke` is implemented with a tracked package-only fixture, isolated exact-version restore, assets/source/hash provenance, three-framework builds, generated-source proof, and public Memory/SQLite execution plus a MySQL compilation probe; the aligned `w10.3` run completes RE-1E, while final-RC repetition remains required.
 - test summary JSON omits schema identity, commit, command, and timestamps; the tracked manifest supplies that context for W0.
 - historical compatibility artifacts retain their `phase8c.compatibility-size-report.v1` identity; newly generated reports use `v0.9.compatibility-size-report.v5`, the package report uses `v0.9.package-inspection-report.v3`, and the package consumer uses `v0.9.package-consumer-smoke-report.v1`.
-- the partial RE-1G query lane now isolates structural parse/template capture, template freeze/validation, scalar-plus-local-sequence binding, request/capability preparation, and pre-parsed SQL-adapter execution; its initial two-provider smoke remains wiring-only, while clean commit `1cb725d4` now has a complete heavy artifact with the residual minimum-iteration and SQLite-memory adapter-noise caveats recorded. The separate Memory lane remains missing.
+- the current-development RE-1G benchmark harness now includes both focused selectors. Clean query commit `1cb725d4` isolates structural parse/template capture, template freeze/validation, scalar-plus-local-sequence binding, request/capability preparation, and pre-parsed SQL-adapter execution; clean Memory commit `24374aa9` adds provider-free construction, seed, primary-key hit/miss, scalar scan, bounded filter/order/page, repeated identity, and direct-`Guid`/typed-ID binding cases with backend-specific telemetry. Both have accepted heavy checkpoints with their minimum-iteration/noise caveats recorded. A true pre-foundation Memory artifact does not exist; RE-5 owns repetition of both selectors against the final RC.
 - the historical SQLite-shaped WebAssembly baseline was red under SDK 10.0.301; both the clean source-project and exact package-backed eight-target matrices now pass after the SQLite WebAssembly AOT binder repair, while final-RC repetition remains open.
 
-### Remaining release-harness assumptions after W10 steps 1-5 / RE-1A / RE-1C / RE-1D / RE-1E
+### Remaining release-harness assumptions after W10 steps 1-6 / RE-1A / RE-1C / RE-1D / RE-1E / RE-1G
 
 D5-B deliberately changed only Memory's package metadata and locally inspected an explicit candidate. W10 steps 1-4 later resolved default pack/report policy, Testing CLI registration, and the accepted compatibility catalog/report contract. The clean eight-target source matrix, aligned `0.9.0-preview.w10.3` package inspection/consumer run, and exact package-backed eight-target matrix are now green. The following release-harness assumptions remain:
 
@@ -392,7 +392,7 @@ D5-B deliberately changed only Memory's package metadata and locally inspected a
 - the solution contains a packable Memory runtime plus non-packable test, shared-runner, Native AOT, full-trim, and browser projects; Memory is now a release-script/report and compatibility-catalog target with aligned-preview package-backed constrained-runtime evidence.
 - the package-consumer harness rejects project libraries and stale package provenance, and its aligned `w10.3` evidence is green; it remains distinct from the independently green package-backed Native AOT, trim, and browser report.
 - final RC evidence and publication remain deliberately separate from the completed aligned preview checkpoint.
-- the focused query benchmarks currently support only SQLite file and SQLite memory modes; the required provider-free `DataLinq.Memory` benchmark lane remains open.
+- the focused query selector intentionally covers SQLite file and SQLite memory modes, while the separate provider-free `DataLinq.Memory` selector has one `memory` parameter value; neither selector should be multiplied across the other's provider semantics. Their clean heavy checkpoints complete the current-development W10 step-6 baseline, while RE-5 final-RC comparison remains open.
 
 ## Decision Register
 
