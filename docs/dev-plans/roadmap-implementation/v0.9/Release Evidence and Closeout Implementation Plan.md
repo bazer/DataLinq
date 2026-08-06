@@ -410,7 +410,8 @@ Compare freshly packed 0.9 candidates with the chosen 0.8 baseline for:
 - `DataLinq`
 - `DataLinq.SQLite`
 - `DataLinq.MySql`
-- `DataLinq.CLI` where its public assembly surface matters
+- `DataLinq.Tools`
+- the exact per-TFM `DataLinq.CLI` tool assemblies, even when the current exported surface is empty
 
 `DataLinq.Memory` is new and has no 0.8 binary baseline. Generate and archive its first public API surface so later releases do.
 
@@ -423,12 +424,14 @@ The comparison must distinguish:
 - intentionally internal implementation changes
 - changes to attributes, enums, constructors, exceptions, or interfaces that affect user code
 
-Representative command after the mechanism exists:
+Implemented command:
 
 ```powershell
-# Placeholder: replace with the accepted ApiCompat/package-validation command.
-.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- api-report --baseline-version 0.8.0 --package-dir artifacts\nuget-release\v0.9-rc.N --output artifacts\release\v0.9\<candidate>\api
+dotnet tool restore --tool-manifest .config\dotnet-tools.json
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- api-report --baseline-dir artifacts\api-baseline\nuget-org-0.8.0 --baseline-version 0.8.0 --candidate-dir artifacts\nuget-release\v0.9-rc.N --candidate-version 0.9.0-rc.N --output artifacts\release\v0.9\<candidate>\api
 ```
+
+The command pins `Microsoft.DotNet.ApiCompat.Tool`, validates both exact package sets and their repository provenance, retains normal and strict raw comparisons, records one semantic metadata snapshot for every selected compile asset, and makes dirty/stale/drifting runner evidence fail closed. Normal baseline diagnostics are hard compatibility or source-sensitive breaks, current-package cross-TFM diagnostics are hard failures, and strict-baseline-only additions remain visible review findings. The custom snapshots are supplemental audit evidence; ApiCompat remains authoritative. Generated-source, behavioral, wire-format, exception-behavior, and data compatibility are explicitly not relabeled as binary proof and remain part of `RE-3`.
 
 ### RE-1G: Add benchmark scenarios and capture the pre-change baseline
 

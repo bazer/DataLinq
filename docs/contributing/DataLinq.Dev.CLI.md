@@ -274,6 +274,33 @@ The smoke fails closed unless all of these hold:
 
 This is package-consumer evidence, not packaged Native AOT, trimming, or browser evidence. Run `package-report` against the same fresh candidate first, then run package-backed `size-report --target v0.9 --package-dir ... --version ...` for the separate constrained-runtime gate.
 
+### `api-report`
+
+Compares an exact freshly packed candidate with the locked published `0.8.0` package baseline by using the repo-local `Microsoft.DotNet.ApiCompat.Tool` manifest:
+
+```bash
+dotnet tool restore --tool-manifest ../.config/dotnet-tools.json
+dotnet run --project DataLinq.Dev.CLI -- api-report --baseline-dir artifacts/api-baseline/nuget-org-0.8.0 --candidate-dir artifacts/nuget-release/0.9.0-preview.N --candidate-version 0.9.0-preview.N
+dotnet run --project DataLinq.Dev.CLI -- api-report --baseline-dir artifacts/api-baseline/nuget-org-0.8.0 --candidate-dir artifacts/nuget-release/0.9.0-preview.N --candidate-version 0.9.0-preview.N --output artifacts/release/v0.9/0.9.0-preview.N/api --format markdown
+```
+
+`--baseline-dir`, `--candidate-dir`, and `--candidate-version` are required. `--baseline-version` defaults to `0.8.0`, and `--baseline-lock` defaults to `test-infra/api-compatibility/v0.8.0-packages.json`. That lock binds the baseline to the exact NuGet.org package-byte SHA-256 values, package repository URL and commit, and the local Git tag/commit identity. The baseline directory is explicit: the command never discovers a convenient copy in a global NuGet cache or silently downloads a replacement. `--output` must name a missing, non-overlapping path; omitting it creates a collision-resistant directory under `artifacts/dev/api-report/`.
+
+The comparison set is `DataLinq`, `DataLinq.SQLite`, `DataLinq.MySql`, `DataLinq.Tools`, and the exact `tools/<tfm>/any/DataLinq.CLI.dll` assets for `net8.0`, `net9.0`, and `net10.0`. CLI assets are compared baseline-to-candidate per TFM and candidate net8 is compared bidirectionally with net9 and net10 so a framework-only addition is not mislabeled as a harmless baseline addition. `DataLinq.Memory` is new in 0.9, so the command validates its current package consistency and records its first three public surfaces instead of inventing a 0.8 baseline.
+
+After source inspection, the command copies every exact nupkg into its fresh evidence root, verifies that the aggregate identities did not change during copying, holds the copied inputs against concurrent writes, and re-inspects them after all comparisons. Snapshots and ApiCompat consume those evidence-owned bytes rather than reopening mutable ignored source directories throughout the run.
+
+Each run retains schema `v0.9.api-compatibility-report.v1` as `report.json` and `report.md`, raw standard output/error for every pinned ApiCompat invocation, generated suppression XML when ApiCompat emits it, and a human-readable metadata snapshot for every selected compile asset. A successful zero-diagnostic invocation is represented by its exit code and logs with a null suppression path because ApiCompat 10.0.302 intentionally creates no empty XML file. ApiCompat is authoritative for compatibility classification. The snapshots are supplemental review/provenance evidence: their semantic API hash excludes MVID and whole-file hash, and they are not presented as a home-grown replacement for ApiCompat.
+
+Findings are deliberately separated:
+
+- baseline diagnostics from the normal comparison are binary/API breaks; `CP0017` parameter-name changes are called out as source-sensitive breaks
+- non-baseline diagnostics are inconsistent API across the candidate's current target frameworks and are hard failures
+- strict-baseline-only diagnostics are compatible or additive changes that remain visible for release review without automatically failing the command
+- each first `DataLinq.Memory` surface is a review item, while an inconsistent Memory package remains a hard failure
+
+The report also binds evidence to the start/end Git state, the Dev CLI and DevTools embedded commits and clean-build attestations, the candidate nuspec commit, and the locked baseline tag. A dirty or drifting checkout, stale runner binary, dirty-built runner, candidate/checkout mismatch, baseline/tag mismatch, package-set fault, snapshot fault, tool-version mismatch, or ApiCompat execution fault is a hard failure and returns exit code `1`. This command does not prove generated-source, behavioral, wire-format, exception-behavior, or consumer-execution compatibility; those remain separate release gates.
+
 ### `exec`
 
 Runs an arbitrary `dotnet` command through the same repo-local execution profile.

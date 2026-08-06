@@ -8,7 +8,7 @@ If you are setting up a machine for the first time, start with [Dev and Test Env
 
 | Tool | Use it for | Do not use it for |
 | --- | --- | --- |
-| `DataLinq.Dev.CLI` | repo-local `dotnet` execution, environment diagnosis, restore, build, direct test wrapping | provider-matrix orchestration or benchmarks |
+| `DataLinq.Dev.CLI` | repo-local `dotnet` execution, environment diagnosis, restore/build/test wrapping, and release-evidence reports | provider-matrix orchestration or benchmarks |
 | `DataLinq.Testing.CLI` | test infrastructure lifecycle, target aliases, batched provider runs, suite orchestration | normal restore/build workflows |
 | `DataLinq.Benchmark.CLI` | benchmark discovery, benchmark runs, history artifacts, regression comparison | ordinary tests or direct build workflows |
 
@@ -32,6 +32,7 @@ Use this decision table:
 | check whether the local `dotnet` environment is sane | [`DataLinq.Dev.CLI`](DataLinq.Dev.CLI.md) |
 | restore or build the repo with repo-local caches and concise output | [`DataLinq.Dev.CLI`](DataLinq.Dev.CLI.md) |
 | run a single project or solution through `dotnet test` | [`DataLinq.Dev.CLI`](DataLinq.Dev.CLI.md) |
+| inspect a package candidate, smoke it as a consumer, compare its public API, or produce constrained-runtime evidence | [`DataLinq.Dev.CLI`](DataLinq.Dev.CLI.md) |
 | bring test containers up or down | [`DataLinq.Testing.CLI`](DataLinq.Testing.CLI.md) |
 | run `quick`, `latest`, or `all` target aliases | [`DataLinq.Testing.CLI`](DataLinq.Testing.CLI.md) |
 | run or compare benchmarks | [`DataLinq.Benchmark.CLI`](DataLinq.Benchmark.CLI.md) |
@@ -86,7 +87,9 @@ The `WASM0001` warnings emitted by the successful outside-sandbox build are diff
 The tools deliberately write artifacts into predictable repo-local locations:
 
 - `artifacts/dev/`
-  restore/build/test wrapper artifacts and binary logs
+  restore/build/test wrapper artifacts, binary logs, and default release-evidence report roots
+- `artifacts/release/`
+  explicitly retained candidate evidence, including package, consumer, API, and constrained-runtime reports
 - `artifacts/testdata/`
   test runtime state and test CLI logs
 - `artifacts/benchmarks/`

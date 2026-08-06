@@ -150,11 +150,8 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
     private ImmutableArray<T> relationValues;
     private volatile bool relationValuesLoaded;
 
-#if NET9_0_OR_GREATER
-    protected readonly Lock loadLock = new();
-#else
+    // Protected for historical subclass compatibility; keep the metadata type stable across TFMs.
     protected readonly object loadLock = new();
-#endif
 
     /// <summary>
     /// Indexer to get an instance by its primary key.

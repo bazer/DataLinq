@@ -29,10 +29,16 @@ public class PackageInspectorTests
             "DataLinq|DataLinq.SQLite|DataLinq.MySql|DataLinq.Memory|DataLinq.CLI|DataLinq.Tools");
         await Assert.That(string.Join("|", PackageInspectionPolicy.RuntimePackageIds)).IsEqualTo(
             "DataLinq|DataLinq.SQLite|DataLinq.MySql|DataLinq.Memory");
+        await Assert.That(string.Join("|", PackageInspectionPolicy.PublicTargetFrameworks)).IsEqualTo(
+            "net8.0|net9.0|net10.0");
         await Assert.That(string.Join("|", PackageInspectionPolicy.MemoryTargetFrameworks)).IsEqualTo(
             "net8.0|net9.0|net10.0");
         await Assert.That(PackageInspectionPolicy.CorePackageId).IsEqualTo("DataLinq");
+        await Assert.That(PackageInspectionPolicy.SQLitePackageId).IsEqualTo("DataLinq.SQLite");
+        await Assert.That(PackageInspectionPolicy.MySqlPackageId).IsEqualTo("DataLinq.MySql");
         await Assert.That(PackageInspectionPolicy.MemoryPackageId).IsEqualTo("DataLinq.Memory");
+        await Assert.That(PackageInspectionPolicy.CliPackageId).IsEqualTo("DataLinq.CLI");
+        await Assert.That(PackageInspectionPolicy.ToolsPackageId).IsEqualTo("DataLinq.Tools");
         await Assert.That(PackageInspectionPolicy.MemoryDescription).IsEqualTo(
             "Experimental read-only in-memory backend for generated DataLinq models.");
         await Assert.That(PackageInspectionPolicy.RepositoryUrl).IsEqualTo("https://github.com/bazer/DataLinq");
