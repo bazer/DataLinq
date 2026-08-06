@@ -28,6 +28,7 @@ internal sealed class BenchmarkHarnessRunner
     internal const string Phase11CacheInvalidationCategory = "phase11-cache-invalidation";
     internal const string Phase12CacheMemoryCategory = "phase12-cache-memory";
     internal const string V09QueryBackendCategory = "v0.9-query-backend";
+    internal const string V09MemoryReadCategory = "v0.9-memory-read";
     internal const string MacroReadWriteCategory = "macro-readwrite";
     internal const string MacroBulkCategory = "macro-bulk";
     private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
@@ -86,6 +87,7 @@ internal sealed class BenchmarkHarnessRunner
         bool phase11CacheInvalidation,
         bool phase12CacheMemory,
         bool v09QueryBackend,
+        bool v09MemoryRead,
         string? historyJsonPath,
         string? baselinePath,
         string? comparisonJsonPath,
@@ -100,7 +102,8 @@ internal sealed class BenchmarkHarnessRunner
             phase10KeyFoundation,
             phase11CacheInvalidation,
             phase12CacheMemory,
-            v09QueryBackend);
+            v09QueryBackend,
+            v09MemoryRead);
 
         if (!noBuild)
             RestoreAndBuild(verbose);
@@ -365,7 +368,7 @@ internal sealed class BenchmarkHarnessRunner
 
         AnsiConsole.Write(table);
         AnsiConsole.MarkupLine("[grey]Mean: green = fastest, red = slowest. Error/Noise: yellow > 10% of mean, red > 20%.[/]");
-        AnsiConsole.MarkupLine("[grey]Telemetry deltas are per operation: Q=entity/scalar, Tx=starts/commits/rollbacks, Mut=inserts/updates/deletes with affected rows, Row=hits/misses/stores, Rel=hits/loads, Inv=ops rows/tables work precise/fallback.[/]");
+        AnsiConsole.MarkupLine("[grey]Telemetry deltas are per operation: Q=entity/scalar, Tx=starts/commits/rollbacks, Mut=inserts/updates/deletes with affected rows, Row=hits/misses/stores, Rel=hits/loads, Inv=ops rows/tables work precise/fallback, Mem=Memory construction/seed/read/cache work.[/]");
         var artifact = CreateSummaryArtifact(runId, profile, filter, mergedRows);
         var jsonPath = WriteSummaryArtifact(resultsDirectory, artifact);
         return new SummaryResult(jsonPath, artifact);
@@ -927,7 +930,8 @@ internal sealed class BenchmarkHarnessRunner
         bool phase10KeyFoundation,
         bool phase11CacheInvalidation,
         bool phase12CacheMemory,
-        bool v09QueryBackend)
+        bool v09QueryBackend,
+        bool v09MemoryRead)
     {
         var selectedCategories = new[]
         {
@@ -936,7 +940,8 @@ internal sealed class BenchmarkHarnessRunner
             (Selected: phase10KeyFoundation, Category: Phase10KeyFoundationCategory),
             (Selected: phase11CacheInvalidation, Category: Phase11CacheInvalidationCategory),
             (Selected: phase12CacheMemory, Category: Phase12CacheMemoryCategory),
-            (Selected: v09QueryBackend, Category: V09QueryBackendCategory)
+            (Selected: v09QueryBackend, Category: V09QueryBackendCategory),
+            (Selected: v09MemoryRead, Category: V09MemoryReadCategory)
         }
         .Where(static selection => selection.Selected)
         .Select(static selection => selection.Category)
@@ -945,7 +950,7 @@ internal sealed class BenchmarkHarnessRunner
         if (selectedCategories.Length > 1)
         {
             throw new InvalidOperationException(
-                "Benchmark category options '--phase2-watch', '--phase3-query-hotpath', '--phase10-key-foundation', '--phase11-cache-invalidation', '--phase12-cache-memory', and '--v09-query-backend' cannot be combined.");
+                "Benchmark category options '--phase2-watch', '--phase3-query-hotpath', '--phase10-key-foundation', '--phase11-cache-invalidation', '--phase12-cache-memory', '--v09-query-backend', and '--v09-memory-read' cannot be combined.");
         }
 
         return selectedCategories.SingleOrDefault();
@@ -992,6 +997,15 @@ internal sealed class BenchmarkHarnessRunner
             "Invocation bind scalar/local sequence" => V09QueryBackendCategory,
             "SQL request/capability preparation" => V09QueryBackendCategory,
             "SQL adapter scalar Any" => V09QueryBackendCategory,
+            "Memory database construction" => V09MemoryReadCategory,
+            "Memory construct and seed" => V09MemoryReadCategory,
+            "Memory primary-key hit" => V09MemoryReadCategory,
+            "Memory primary-key miss" => V09MemoryReadCategory,
+            "Memory scalar scan" => V09MemoryReadCategory,
+            "Memory filter order page" => V09MemoryReadCategory,
+            "Memory repeated entity identity" => V09MemoryReadCategory,
+            "Memory direct-Guid equality count" => V09MemoryReadCategory,
+            "Memory typed-ID equality count" => V09MemoryReadCategory,
             _ => null
         };
 
@@ -1023,6 +1037,15 @@ internal sealed class BenchmarkHarnessRunner
             "Invocation bind scalar/local sequence" => "query-binding",
             "SQL request/capability preparation" => "sql-adapter",
             "SQL adapter scalar Any" => "sql-adapter",
+            "Memory database construction" => "memory-startup",
+            "Memory construct and seed" => "memory-seed",
+            "Memory primary-key hit" => "memory-primary-key",
+            "Memory primary-key miss" => "memory-primary-key",
+            "Memory scalar scan" => "memory-query",
+            "Memory filter order page" => "memory-query",
+            "Memory repeated entity identity" => "memory-identity",
+            "Memory direct-Guid equality count" => "memory-conversion",
+            "Memory typed-ID equality count" => "memory-conversion",
             "Invalidate one employee row" => "cache-invalidation",
             "Invalidate many employee rows" => "cache-invalidation",
             "Invalidate employee table" => "cache-invalidation",
@@ -1239,7 +1262,74 @@ internal sealed class BenchmarkHarnessRunner
                 $"path {FormatMetric(artifact.CacheInvalidationPreciseOperationsPerOperation)}/{FormatMetric(artifact.CacheInvalidationConservativeFallbackOperationsPerOperation)}"));
         }
 
+        if (HasMemorySignal(artifact))
+            parts.Add(FormatMemoryTelemetry(artifact));
+
         return parts.Count == 0 ? "-" : string.Join("  ", parts);
+    }
+
+    private static bool HasMemorySignal(BenchmarkTelemetryDeltaArtifact artifact)
+        => HasSignal(
+            artifact.MemoryDatabasesConstructedPerOperation,
+            artifact.MemoryRowsSeededPerOperation,
+            artifact.MemoryPrimaryKeyRequestsPerOperation,
+            artifact.MemoryPrimaryKeyProbesPerOperation,
+            artifact.MemoryScanRowsVisitedPerOperation,
+            artifact.MemoryPredicateEvaluationsPerOperation,
+            artifact.MemoryPredicateRejectionsPerOperation,
+            artifact.MemoryCacheLookupsPerOperation,
+            artifact.MemoryCacheHitsPerOperation,
+            artifact.MemoryCacheMissesPerOperation,
+            artifact.MemoryMaterializationsPerOperation,
+            artifact.MemoryCacheInsertionsPerOperation);
+
+    private static string FormatMemoryTelemetry(BenchmarkTelemetryDeltaArtifact artifact)
+    {
+        var metrics = new List<string>();
+
+        if (HasSignal(
+            artifact.MemoryDatabasesConstructedPerOperation,
+            artifact.MemoryRowsSeededPerOperation))
+        {
+            metrics.Add(
+                $"db/seed {FormatMetric(artifact.MemoryDatabasesConstructedPerOperation)}/{FormatMetric(artifact.MemoryRowsSeededPerOperation)}");
+        }
+
+        if (HasSignal(
+            artifact.MemoryPrimaryKeyRequestsPerOperation,
+            artifact.MemoryPrimaryKeyProbesPerOperation))
+        {
+            metrics.Add(
+                $"pk {FormatMetric(artifact.MemoryPrimaryKeyRequestsPerOperation)}/{FormatMetric(artifact.MemoryPrimaryKeyProbesPerOperation)}");
+        }
+
+        if (HasSignal(
+            artifact.MemoryScanRowsVisitedPerOperation,
+            artifact.MemoryPredicateEvaluationsPerOperation,
+            artifact.MemoryPredicateRejectionsPerOperation))
+        {
+            metrics.Add(
+                $"scan/pred/rej {FormatMetric(artifact.MemoryScanRowsVisitedPerOperation)}/{FormatMetric(artifact.MemoryPredicateEvaluationsPerOperation)}/{FormatMetric(artifact.MemoryPredicateRejectionsPerOperation)}");
+        }
+
+        if (HasSignal(
+            artifact.MemoryCacheLookupsPerOperation,
+            artifact.MemoryCacheHitsPerOperation,
+            artifact.MemoryCacheMissesPerOperation))
+        {
+            metrics.Add(
+                $"cache {FormatMetric(artifact.MemoryCacheLookupsPerOperation)}/{FormatMetric(artifact.MemoryCacheHitsPerOperation)}/{FormatMetric(artifact.MemoryCacheMissesPerOperation)}");
+        }
+
+        if (HasSignal(
+            artifact.MemoryMaterializationsPerOperation,
+            artifact.MemoryCacheInsertionsPerOperation))
+        {
+            metrics.Add(
+                $"mat/ins {FormatMetric(artifact.MemoryMaterializationsPerOperation)}/{FormatMetric(artifact.MemoryCacheInsertionsPerOperation)}");
+        }
+
+        return $"Mem {string.Join(" ", metrics)}";
     }
 
     private static string FormatMetric(double? value)
@@ -1431,7 +1521,19 @@ internal sealed class BenchmarkHarnessRunner
         double CacheInvalidationProviderKeysPerOperation,
         double CacheInvalidationApproximateWorkPerOperation,
         double CacheInvalidationPreciseOperationsPerOperation,
-        double CacheInvalidationConservativeFallbackOperationsPerOperation);
+        double CacheInvalidationConservativeFallbackOperationsPerOperation,
+        double MemoryDatabasesConstructedPerOperation = 0d,
+        double MemoryRowsSeededPerOperation = 0d,
+        double MemoryPrimaryKeyRequestsPerOperation = 0d,
+        double MemoryPrimaryKeyProbesPerOperation = 0d,
+        double MemoryScanRowsVisitedPerOperation = 0d,
+        double MemoryPredicateEvaluationsPerOperation = 0d,
+        double MemoryPredicateRejectionsPerOperation = 0d,
+        double MemoryCacheLookupsPerOperation = 0d,
+        double MemoryCacheHitsPerOperation = 0d,
+        double MemoryCacheMissesPerOperation = 0d,
+        double MemoryMaterializationsPerOperation = 0d,
+        double MemoryCacheInsertionsPerOperation = 0d);
 
     private sealed record BenchmarkRunMetadata(
         string? Repository,

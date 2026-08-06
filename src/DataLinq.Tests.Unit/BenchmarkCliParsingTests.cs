@@ -1,4 +1,6 @@
 using System;
+using System.Reflection;
+using System.Text.Json;
 using System.Threading.Tasks;
 using DataLinq.Benchmark.CLI;
 
@@ -50,7 +52,8 @@ public class BenchmarkCliParsingTests
             phase10KeyFoundation: false,
             phase11CacheInvalidation: false,
             phase12CacheMemory: false,
-            v09QueryBackend: true);
+            v09QueryBackend: true,
+            v09MemoryRead: false);
 
         await Assert.That(result).IsEqualTo(BenchmarkHarnessRunner.V09QueryBackendCategory);
     }
@@ -64,7 +67,8 @@ public class BenchmarkCliParsingTests
             phase10KeyFoundation: false,
             phase11CacheInvalidation: false,
             phase12CacheMemory: false,
-            v09QueryBackend: false);
+            v09QueryBackend: false,
+            v09MemoryRead: false);
 
         await Assert.That(result).IsNull();
     }
@@ -82,7 +86,8 @@ public class BenchmarkCliParsingTests
                 phase10KeyFoundation: false,
                 phase11CacheInvalidation: false,
                 phase12CacheMemory: false,
-                v09QueryBackend: true);
+                v09QueryBackend: true,
+                v09MemoryRead: false);
         }
         catch (InvalidOperationException caught)
         {
@@ -93,6 +98,48 @@ public class BenchmarkCliParsingTests
         await Assert.That(exception!.Message)
             .Contains("--phase2-watch")
             .And.Contains("--v09-query-backend");
+    }
+
+    [Test]
+    public async Task CategorySelection_SelectsV09MemoryRead()
+    {
+        var result = BenchmarkHarnessRunner.ResolveSelectedCategory(
+            phase2Watch: false,
+            phase3QueryHotPath: false,
+            phase10KeyFoundation: false,
+            phase11CacheInvalidation: false,
+            phase12CacheMemory: false,
+            v09QueryBackend: false,
+            v09MemoryRead: true);
+
+        await Assert.That(result).IsEqualTo(BenchmarkHarnessRunner.V09MemoryReadCategory);
+    }
+
+    [Test]
+    public async Task CategorySelection_RejectsCombinedV09Selectors()
+    {
+        InvalidOperationException? exception = null;
+
+        try
+        {
+            _ = BenchmarkHarnessRunner.ResolveSelectedCategory(
+                phase2Watch: false,
+                phase3QueryHotPath: false,
+                phase10KeyFoundation: false,
+                phase11CacheInvalidation: false,
+                phase12CacheMemory: false,
+                v09QueryBackend: true,
+                v09MemoryRead: true);
+        }
+        catch (InvalidOperationException caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message)
+            .Contains("--v09-query-backend")
+            .And.Contains("--v09-memory-read");
     }
 
     [Test]
@@ -121,5 +168,79 @@ public class BenchmarkCliParsingTests
         var result = BenchmarkHarnessRunner.GetScenarioCategory(method);
 
         await Assert.That(result).IsEqualTo(expectedCategory);
+    }
+
+    [Test]
+    [Arguments("Memory database construction")]
+    [Arguments("Memory construct and seed")]
+    [Arguments("Memory primary-key hit")]
+    [Arguments("Memory primary-key miss")]
+    [Arguments("Memory scalar scan")]
+    [Arguments("Memory filter order page")]
+    [Arguments("Memory repeated entity identity")]
+    [Arguments("Memory direct-Guid equality count")]
+    [Arguments("Memory typed-ID equality count")]
+    public async Task TrackingGroup_MapsV09MemoryReadScenarios(string method)
+    {
+        var result = BenchmarkHarnessRunner.GetTrackingGroup(method);
+
+        await Assert.That(result).IsEqualTo(BenchmarkHarnessRunner.V09MemoryReadCategory);
+    }
+
+    [Test]
+    [Arguments("Memory database construction", "memory-startup")]
+    [Arguments("Memory construct and seed", "memory-seed")]
+    [Arguments("Memory primary-key hit", "memory-primary-key")]
+    [Arguments("Memory primary-key miss", "memory-primary-key")]
+    [Arguments("Memory scalar scan", "memory-query")]
+    [Arguments("Memory filter order page", "memory-query")]
+    [Arguments("Memory repeated entity identity", "memory-identity")]
+    [Arguments("Memory direct-Guid equality count", "memory-conversion")]
+    [Arguments("Memory typed-ID equality count", "memory-conversion")]
+    public async Task ScenarioCategory_MapsV09MemoryReadScenarios(string method, string expectedCategory)
+    {
+        var result = BenchmarkHarnessRunner.GetScenarioCategory(method);
+
+        await Assert.That(result).IsEqualTo(expectedCategory);
+    }
+
+    [Test]
+    public async Task TelemetryDelta_LegacyJsonDefaultsMemoryMetricsToZero()
+    {
+        const string legacyJson = """
+            {
+              "Method": "Legacy SQL benchmark",
+              "ProviderName": "sqlite-file",
+              "OperationsPerInvoke": 1000,
+              "EntityQueriesPerOperation": 1
+            }
+            """;
+
+        var artifactType = typeof(BenchmarkHarnessRunner).GetNestedType(
+            "BenchmarkTelemetryDeltaArtifact",
+            BindingFlags.NonPublic)!;
+        var artifact = JsonSerializer.Deserialize(legacyJson, artifactType)!;
+
+        var memoryMetricNames = new[]
+        {
+            "MemoryDatabasesConstructedPerOperation",
+            "MemoryRowsSeededPerOperation",
+            "MemoryPrimaryKeyRequestsPerOperation",
+            "MemoryPrimaryKeyProbesPerOperation",
+            "MemoryScanRowsVisitedPerOperation",
+            "MemoryPredicateEvaluationsPerOperation",
+            "MemoryPredicateRejectionsPerOperation",
+            "MemoryCacheLookupsPerOperation",
+            "MemoryCacheHitsPerOperation",
+            "MemoryCacheMissesPerOperation",
+            "MemoryMaterializationsPerOperation",
+            "MemoryCacheInsertionsPerOperation"
+        };
+
+        foreach (var metricName in memoryMetricNames)
+        {
+            var value = (double)artifactType.GetProperty(metricName)!.GetValue(artifact)!;
+            await Assert.That(value).IsEqualTo(0d);
+        }
     }
 }

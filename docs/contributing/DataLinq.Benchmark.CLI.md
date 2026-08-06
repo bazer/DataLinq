@@ -45,6 +45,7 @@ dotnet run --project DataLinq.Benchmark.CLI -- run --phase3-query-hotpath
 dotnet run --project DataLinq.Benchmark.CLI -- run --phase10-key-foundation
 dotnet run --project DataLinq.Benchmark.CLI -- run --phase11-cache-invalidation
 dotnet run --project DataLinq.Benchmark.CLI -- run --v09-query-backend
+dotnet run --project DataLinq.Benchmark.CLI -- run --v09-memory-read
 ```
 
 Important options:
@@ -69,6 +70,8 @@ Important options:
   Runs only the Phase 11 explicit cache invalidation lane.
 - `--v09-query-backend`
   Runs only the v0.9 query-planning, invocation-binding, and SQL-adapter evidence lane.
+- `--v09-memory-read`
+  Runs only the provider-free v0.9 `DataLinq.Memory` read evidence lane.
 - `--history-json`
   Writes a stable benchmark history entry JSON artifact.
 - `--baseline`
@@ -168,6 +171,45 @@ Run a wiring smoke from the repo root with:
 The smoke profile proves selection, execution, telemetry, and history serialization only. Use a default or heavy run before interpreting timings or allocations.
 
 This lane establishes the first post-foundation baseline for these exact cases. It is not a retroactive pre-foundation comparison, and it does not by itself close W10/RE-1G: the separate `DataLinq.Memory` read lane and final release-evidence run remain required.
+
+## v0.9 Memory Read Evidence
+
+The `v0.9-memory-read` category measures the bounded public `DataLinq.Memory` preview without multiplying the cases across SQL providers. Its single `ProviderName` value is `memory`, which means the provider-free backend—not SQLite's `sqlite-memory` mode.
+
+The category contains nine cases over deterministic generated benchmark models:
+
+- `Memory database construction`
+  Constructs an empty database after generated metadata has been bound during global setup. This is a warm-metadata construction measurement; it is not presented as cold process startup.
+- `Memory construct and seed`
+  Constructs a new database and snapshots, converts, indexes, and publishes `1,024` primitive rows plus `256` canonical-`Guid` rows through the public one-shot seed surface.
+- `Memory primary-key hit`
+  Performs one warmed public `Find<TModel>` hit against the existing primary-key index and materialization cache.
+- `Memory primary-key miss`
+  Performs one stable absent-key `Find<TModel>` probe.
+- `Memory scalar scan`
+  Enumerates a prebuilt direct-`Int32` projection over `1,024` rows and computes a checksum without entity materialization.
+- `Memory filter order page`
+  Executes the exact supported filter, primary-key order, `Skip(8)`, `Take(16)`, direct-`Int32` projection shape against descending seed input.
+- `Memory repeated entity identity`
+  Re-executes a prebuilt exact entity query after priming identity and verifies that the cached instance is reused.
+- `Memory direct-Guid equality count`
+  Counts one direct canonical-`Guid` equality match without entity materialization.
+- `Memory typed-ID equality count`
+  Counts the corresponding Guid-backed typed-ID equality match, including model-to-canonical binding conversion but no entity materialization.
+
+The reusable source, filter, order, paging, and projection query chains are prebuilt. Scalar-scan and page enumeration therefore add no terminal expression, while the identity and Guid cases intentionally call the public `Single`/`Count` terminals and include construction of those terminal method-call expressions. Every query case still performs the shipped parse, bind, capability-validation, and Memory execution path; these are not production plan-cache benchmarks.
+
+Memory telemetry is recorded separately from SQL telemetry. History rows include explicit database-construction and seed-row counts plus backend diagnostic deltas for primary-key requests/probes, visited scan rows, predicate evaluations/rejections, cache lookups/hits/misses, materializations, and cache insertions. The SQL query fields remain zero because a Memory operation is not a SQL command.
+
+The direct-`Guid`/typed-ID pair is an end-to-end canonical query-binding comparison with equal row count, match cardinality, and query shape; it is not presented as an isolated converter-only delta. `DataLinq.Memory` does not encode provider wire values, so SQLite/MySQL/MariaDB UUID codecs are deliberately not attributed to this lane.
+
+Run a wiring smoke from the repo root with:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --v09-memory-read --profile smoke --history-json artifacts\benchmarks\history\v0.9-memory-read-smoke.json
+```
+
+The smoke profile proves selection, execution, telemetry, and history serialization only. Use a clean-commit default or heavy run before interpreting timings or allocations. Because these cases were introduced after the Memory foundation, their first accepted result is a post-foundation baseline rather than a retroactive before-state.
 
 ## Phase 10 Key Foundation
 

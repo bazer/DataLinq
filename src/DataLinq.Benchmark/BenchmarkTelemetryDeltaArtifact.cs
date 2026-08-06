@@ -26,4 +26,16 @@ internal sealed record BenchmarkTelemetryDeltaArtifact(
     double CacheInvalidationProviderKeysPerOperation,
     double CacheInvalidationApproximateWorkPerOperation,
     double CacheInvalidationPreciseOperationsPerOperation,
-    double CacheInvalidationConservativeFallbackOperationsPerOperation);
+    double CacheInvalidationConservativeFallbackOperationsPerOperation,
+    double MemoryDatabasesConstructedPerOperation = 0d,
+    double MemoryRowsSeededPerOperation = 0d,
+    double MemoryPrimaryKeyRequestsPerOperation = 0d,
+    double MemoryPrimaryKeyProbesPerOperation = 0d,
+    double MemoryScanRowsVisitedPerOperation = 0d,
+    double MemoryPredicateEvaluationsPerOperation = 0d,
+    double MemoryPredicateRejectionsPerOperation = 0d,
+    double MemoryCacheLookupsPerOperation = 0d,
+    double MemoryCacheHitsPerOperation = 0d,
+    double MemoryCacheMissesPerOperation = 0d,
+    double MemoryMaterializationsPerOperation = 0d,
+    double MemoryCacheInsertionsPerOperation = 0d);
