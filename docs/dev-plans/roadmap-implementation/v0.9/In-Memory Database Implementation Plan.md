@@ -3,13 +3,13 @@
 
 # 0.9 Read-Only Memory Backend Implementation Plan
 
-**Status:** Accepted. Aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A suite registration, W10 step 4 / RE-1C compatibility reporting, RE-1E aligned package-consumer evidence, and the current-development W10 step-6 / RE-1G query and provider-free Memory heavy checkpoints are complete; both the source-project and aligned-preview package-backed W10 step-5 eight-target matrices are green. Aggregate M1-M3, membership outside the exact direct non-nullable `Int32` fence, paging outside the exact ordered final-`Skip`/`Take` fence, bare or unordered `First`/`FirstOrDefault`, broader ordered-first projections, `Last`/`LastOrDefault`, element terminals after paging, RE-1F/H, W10 steps 7-9, RE-5 final benchmark comparison, aggregate RE-1/RE-4/W10/W11, final release-candidate closeout, and publication remain open.
+**Status:** Accepted. Aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A suite registration, W10 step 4 / RE-1C compatibility reporting, RE-1E aligned package-consumer evidence, the current-development RE-1F public-API checkpoint, and the current-development W10 step-6 / RE-1G query and provider-free Memory heavy checkpoints are complete; both the source-project and aligned-preview package-backed W10 step-5 eight-target matrices are green. Aggregate M1-M3, membership outside the exact direct non-nullable `Int32` fence, paging outside the exact ordered final-`Skip`/`Take` fence, bare or unordered `First`/`FirstOrDefault`, broader ordered-first projections, `Last`/`LastOrDefault`, element terminals after paging, RE-1H, W10 steps 7-9, RE-5 final benchmark comparison, aggregate RE-1/RE-4/W10/W11, final release-candidate closeout, and publication remain open.
 
 **Created:** 2026-07-03.
 
 **Reframed:** 2026-07-10.
 
-**Last reviewed:** 2026-08-06.
+**Last reviewed:** 2026-08-07.
 
 **Target:** DataLinq 0.9 experimental preview.
 

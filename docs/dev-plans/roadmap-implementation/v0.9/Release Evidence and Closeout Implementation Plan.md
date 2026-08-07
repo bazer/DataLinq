@@ -3,13 +3,13 @@
 
 # 0.9 Release Evidence And Closeout Implementation Plan
 
-**Status:** Accepted. The bounded W8 project-reference Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A Testing CLI registration, W10 step 4 / RE-1C compatibility reporting, RE-1E aligned package-consumer evidence, W10 step 5—the source-project and exact-package eight-target matrices—and the current-development W10 step 6 / RE-1G focused benchmark lanes are implemented and green. The query selector has six isolated planning/binding/adapter cases and a clean heavy checkpoint; the provider-free Memory selector has nine construction/seed/read/identity/Guid-binding cases, Memory-specific telemetry, and its own clean heavy checkpoint. Neither focused lane has a true pre-foundation equivalent; that limitation is explicit. Aggregate M1/M2 remain open; the current profiles are Memory `57`, catalog `616`, and SQL `358` supported / `258` unsupported. RE-1F/H, W10 steps 7-9, RE-5 final benchmark comparison, aggregate RE-1/RE-4/W10/W11, final-RC repetition of the package, consumer, and constrained-runtime gates, final release-candidate closeout, and publication remain open.
+**Status:** Accepted. The bounded W8 project-reference Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A Testing CLI registration, W10 step 4 / RE-1C compatibility reporting, RE-1E aligned package-consumer evidence, the current-development RE-1F public-API checkpoint, W10 step 5—the source-project and exact-package eight-target matrices—and the current-development W10 step 6 / RE-1G focused benchmark lanes are implemented and green. The query selector has six isolated planning/binding/adapter cases and a clean heavy checkpoint; the provider-free Memory selector has nine construction/seed/read/identity/Guid-binding cases, Memory-specific telemetry, and its own clean heavy checkpoint. Neither focused lane has a true pre-foundation equivalent; that limitation is explicit. Aggregate M1/M2 remain open; the current profiles are Memory `57`, catalog `616`, and SQL `358` supported / `258` unsupported. RE-1H, W10 steps 7-9, RE-5 final benchmark comparison, aggregate RE-1/RE-4/W10/W11, final-RC repetition of the package, consumer, API, and constrained-runtime gates, final release-candidate closeout, and publication remain open.
 
 **Target release:** DataLinq 0.9.
 
 **Created:** 2026-07-10.
 
-**Last reviewed:** 2026-08-06.
+**Last reviewed:** 2026-08-07.
 
 **Depends on:** The required workstreams in the [DataLinq 0.9 Implementation Roadmap](README.md). The final closeout begins only after their baseline evidence is green and the release has selected zero or one optional stretch.
 
@@ -67,7 +67,7 @@ The repository has good 0.8 release tooling, but it does not yet prove the 0.9 r
 | Packing | `publish-nuget.ps1` now packs six public packages, including the separate preview `DataLinq.Memory`, rejects non-empty output, and honors an explicit candidate through `MinVerVersionOverride`. | **Complete for W10 step 1 / RE-1D.** Keep Memory separate from core and retain the exact fresh-directory/version checks. |
 | Package inspection | Default schema `v0.9.package-inspection-report.v3` now expects six public packages and four runtime packages, independently inventories six symbol packages, and applies Memory-specific dependency, asset, assembly-identity, metadata, and banned-payload checks. | **Complete for W10 step 2 / RE-1D.** Keep the fail-closed six-package/four-runtime policy in final release evidence. |
 | Package consumption | `package-smoke` drives a tracked project-reference-free consumer through an isolated exact-version local restore, net8/net9/net10 builds, generated-source proof, public Memory and SQLite execution, and a MySQL public-surface compilation probe. Schema `v0.9.package-consumer-smoke-report.v1` records candidate hashes, restore provenance, commands, and findings. The aligned `0.9.0-preview.w10.3` package report and consumer report are green. | **Complete for RE-1E at the aligned preview checkpoint.** Repeat against the final RC; do not confuse this with the separate packaged constrained-runtime gate. |
-| Public API compatibility | No repeatable ApiCompat or equivalent package-baseline report is part of the current release gate. | Add a repeatable comparison against the latest 0.8 packages and record every additive change and every intentional or accidental break. A 0.x version is not permission to surprise users casually. |
+| Public API compatibility | `api-report` now pins ApiCompat 10.0.302, locks exact published 0.8 package bytes and repository provenance, snapshots 33 package surfaces, compares four library packages plus all three CLI tool assets, self-validates inherited package-framework divergences, and records JSON/Markdown/raw evidence. Clean candidate `0.9.0-preview.re1f.2` has zero hard findings after review of 216 compatible diagnostics, three first Memory surfaces, and two exact tracked inherited divergences. | **Complete for RE-1F at the current-development preview checkpoint.** Repeat the exact gate and review against the final RC; generated-source and behavioral compatibility remain separate RE-3 work. |
 | Benchmarks | Existing lanes cover the broad query hot path and provider watchpoints. The `v0.9-query-backend` selector has six focused planning/binding/adapter cases; clean commit `1cb725d4` has a complete two-provider heavy artifact with exact allocations, latency/error, operation counts, telemetry, two marginal minimum-iteration warnings, and retained SQLite-memory adapter noise. The separate `v0.9-memory-read` selector has nine provider-free construction/seed/read/identity/Guid-binding cases; clean commit `24374aa9` has a complete one-provider heavy artifact with exact Memory telemetry, low measured uncertainty, and three minimum-iteration warnings. | **Complete for the current-development W10 step 6 / RE-1G checkpoint.** Repeat both selectors against the final RC, compare retained SQL lanes only where genuinely comparable, and preserve the explicit absence of a true pre-foundation focused query or Memory artifact. |
 | Documentation closeout | The previous public-documentation audit is implemented/closed and mainly describes the 0.8 surface. | Give 0.9 its own documentation target list and final verification gate. |
 | Release notes | `CHANGELOG.md` is generated from published GitHub releases by `generate-changelog.ps1`. | Prepare release-note text before publishing. Do not hand-author `CHANGELOG.md` as the pre-release source; regenerate it only after a release exists. |
@@ -242,7 +242,7 @@ Canonical direct command:
 
 Verified registration evidence is exact. The direct built summary run passes `77/77`, emits one `memory` result with `Targets` `-`, and preserves both the hash and timestamp of `artifacts/testdata/testinfra-state.json`. Supplying `--alias all` explicitly still passes `77/77` in one result with `Targets` `-`, proving that SQL target aliases do not multiply this suite. The composite `--suite all --alias quick --build` gate passes `2162/2162`: generators `60`, unit `1214`, memory `77` exactly once with `Targets` `-`, and compliance `811` across `sqlite-file` and `sqlite-memory`. The `list` surface identifies the Memory project and its non-target-batched behavior.
 
-This is intentionally project-based evidence. `DataLinq.Tests.Memory` references `DataLinq.SQLite` for bounded differential-parity fixtures, so the CLI lane must not be described as provider-free and does not substitute for the separate provider-free constrained-runtime graph or a package-consumer rerun. This checkpoint closes RE-1A registration only. Later sections now record green compatibility, package, consumer, and current-development benchmark checkpoints; aggregate RE-1 remains open for API comparison, manifest work, and final release evidence.
+This is intentionally project-based evidence. `DataLinq.Tests.Memory` references `DataLinq.SQLite` for bounded differential-parity fixtures, so the CLI lane must not be described as provider-free and does not substitute for the separate provider-free constrained-runtime graph or a package-consumer rerun. This checkpoint closes RE-1A registration only. Later sections now record green compatibility, package, consumer, public-API, and current-development benchmark checkpoints; aggregate RE-1 remains open for manifest work, final-RC repetition, and final release evidence.
 
 ### RE-1B: Add a memory-only constrained-runtime graph
 
@@ -415,14 +415,15 @@ Compare freshly packed 0.9 candidates with the chosen 0.8 baseline for:
 
 `DataLinq.Memory` is new and has no 0.8 binary baseline. Generate and archive its first public API surface so later releases do.
 
-The comparison must distinguish:
+The binary/API lane must distinguish:
 
-- additive public APIs
-- source breaks
-- binary breaks
-- generated-code contract changes
-- intentionally internal implementation changes
-- changes to attributes, enums, constructors, exceptions, or interfaces that affect user code
+- additive public APIs and first-package surfaces
+- source-sensitive and binary breaks
+- candidate-only cross-target-framework mismatches
+- exact cross-target-framework divergences inherited from the locked baseline
+- public shape changes involving attributes, enum members, constructors, parameter names, interfaces, and exception types
+
+Purely internal implementation changes should produce no public-API finding. Generated-source, runtime-behavior, wire-format, exception-behavior, and data compatibility are not ApiCompat claims; `RE-3` owns those reviews.
 
 Implemented command:
 
@@ -432,6 +433,14 @@ dotnet tool restore --tool-manifest .config\dotnet-tools.json
 ```
 
 The command pins `Microsoft.DotNet.ApiCompat.Tool`, validates both exact package sets and their repository provenance, retains normal and strict raw comparisons, self-validates each locked baseline library package, records one semantic metadata snapshot for every selected compile asset, and makes dirty/stale/drifting runner evidence fail closed. Normal baseline diagnostics are hard compatibility or source-sensitive breaks. A candidate cross-TFM diagnostic is a hard failure unless its exact ApiCompat identity matches both the locked baseline's own current-framework validation and a tracked disposition with rationale; an inherited divergence remains a visible review finding rather than being silently forgiven. Strict-baseline-only additions likewise remain visible for review. The custom snapshots are supplemental audit evidence; ApiCompat remains authoritative. Generated-source, behavioral, wire-format, exception-behavior, and data compatibility are explicitly not relabeled as binary proof and remain part of `RE-3`.
+
+**Current-development acceptance checkpoint (2026-08-07):** clean pushed commit `a62f331688aa1cbdc120f9c716369d4b18c68831` produced exact candidate `0.9.0-preview.re1f.2` and schema `v0.9.api-compatibility-report.v2` at `artifacts/release/v0.9/0.9.0-preview.re1f.2/api/report.json`. The report SHA-256 is `caa2750a4d97b46c5720e27cc81fa2f7b805e4a115e89765e49516cd24a20651`; its baseline aggregate is `6522e4ef5ea4775c51940fddde6ee22a79e70507f9d80cc68421eac7437735d8`, candidate aggregate is `9bdb6327012dbcc8a040fdfd1600912acab83045a23b46ba250958a3e4ed1692`, and tracked baseline-lock SHA-256 is `22048467a35b1374ccb3cdc605935628bb76c8cb6813741bc74ab40cecfad3d5`. All `24` pinned-tool executions succeeded. The report binds a clean unchanged start/end checkout, clean matching Dev CLI and DevTools assemblies, the candidate packages, and the locked 0.8 tag; it captures five baseline packages, six candidate packages, `33` public surfaces, and `10` comparison groups with zero hard failures.
+
+All `221` required-review findings were manually reviewed. The `216` compatible findings reduce to `72` unique TFM-symmetric additions: `20` scalar-converter/canonical-mapping changes, `17` UUID-storage/default/schema changes, `23` neutral read-source/generated bridges, `8` mutation/transaction-safety additions, one structured query-capability diagnostic, and three provider-correct default-only insert members. They contain `19` new types, `45` new members, and `8` added interface relationships, each repeated once across net8, net9, and net10; no asymmetric or accidental surface was found. The three first `DataLinq.Memory` snapshots each contain the same seven-line bounded surface—`MemoryDatabase<TDatabase>`, its constructor, `Query`, `Seed`, nullable `Find`, and the two catchable exception identities—with no SQL/provider/transaction surface leakage. CLI baseline and bidirectional current-TFM comparisons remain zero-diagnostic.
+
+The remaining two review items are exact inherited `CP0002` divergences for the protected `loadLock` fields. Published 0.8 exposes `object` on net8 and `System.Threading.Lock` on net9/net10; preserving those per-TFM signatures avoids breaking subclasses compiled for any published target. The v2 lock records both exact diagnostic identities and the rationale, baseline self-validation reproduces them, and any missing, new, changed, stale, or unused disposition is a hard failure. The rejected `.re1f.1` attempt is deliberately not acceptance evidence: its retained schema-v1 report correctly captured four real net9/net10 baseline breaks, which prompted restoration of the published signatures. A separate non-authoritative schema-v2 stale-candidate probe against the same `.re1f.1` bytes also emitted two unused-disposition hard failures, proving that the replacement policy fails closed.
+
+This completes RE-1F for the current-development preview checkpoint. Repeat the same exact package/API gate and review against the final RC; aggregate RE-1, RE-3 behavioral/generated/data review, and final release closeout remain open.
 
 ### RE-1G: Add benchmark scenarios and capture the pre-change baseline
 
@@ -473,7 +482,7 @@ Where a tool currently emits only human-readable output, add or preserve JSON su
 - **Complete (RE-1C / W10 steps 4-5 infrastructure):** the compatibility reporter selects and distinguishes legacy SQLite and direct-memory targets and records exact package provenance plus clean runner checkout/build attestation
 - **Complete (RE-1D / W10 steps 1-2):** pack and package-report defaults include `DataLinq.Memory`, and the fresh exact-version candidate/report pass the dependency, asset, metadata, symbol, assembly-identity, and banned-payload gates
 - **Complete (RE-1E at aligned preview):** a fresh exact-version local package-consumer smoke exists and has passed against the candidate used by the package-backed constrained-runtime matrix
-- a repeatable 0.8-to-0.9 public API comparison exists
+- **Complete (RE-1F at current-development preview):** a clean exact-package 0.8-to-0.9 public API report exists with zero hard failures, every additive/new-package finding reviewed, and both inherited per-TFM divergences proven and dispositioned; repeat it against the final RC
 - **Complete with explicit limitation (RE-1G / current-development W10 step 6):** retained broad SQL before-state artifacts and clean focused post-foundation query/Memory heavy checkpoints exist; no true pre-foundation focused query or Memory artifact exists, and RE-5 owns both focused selectors' final-RC repetition
 - every final tool can write a report path suitable for the evidence manifest
 
@@ -874,6 +883,7 @@ Update:
 - **Complete for RE-1D / W10 steps 1-2:** `docs/contributing/DataLinq.Dev.CLI.md` documents the implemented six-package/four-runtime package-report defaults and Memory inspection policy
 - **Complete for RE-1C / W10 steps 4-5 infrastructure:** `docs/contributing/DataLinq.Dev.CLI.md` documents the historical/default `phase8c` set, the eight-target `v0.9` catalog, selectors, current schema v5 dependency source and invocation contract, exact package input/provenance and candidate-isolated scratch/cache, failure dispositions, runner checkout/assembly clean-build attestation, browser telemetry, payload policy, and guardrails
 - **Complete for W10 step 6 / RE-1G:** `docs/contributing/DataLinq.Benchmark.CLI.md` documents both focused selectors, exact scenario boundaries, Memory telemetry, smoke commands, accepted clean heavy checkpoints, missing true pre-foundation focused evidence, and RE-5 final-RC repetition
+- **Complete for RE-1F tooling and the current-development checkpoint:** `docs/contributing/DataLinq.Dev.CLI.md` documents pinned tool restoration, exact baseline/candidate and lock inputs, package/CLI/Memory scope, schema-v2 retained evidence, hard-versus-review classification, clean runner attestation, and the explicit non-binary RE-3 boundary; final-RC rerun and review remain required
 - the 0.9 roadmap and each completed implementation plan with final status/evidence links
 
 Do not leave commands containing placeholders in final contributor docs.
@@ -958,9 +968,9 @@ Run the final gates in this order:
 1. environment/toolchain inventory
 2. clean restore and build
 3. complete Testing CLI/provider matrix
-4. API compatibility report and review
-5. fresh pack without publishing
-6. package report and package-consumer smoke
+4. fresh pack without publishing
+5. package report and package-consumer smoke
+6. API compatibility report and review
 7. clean SQLite and memory constrained-runtime report
 8. final benchmark refresh and interpretation
 9. public/maintainer documentation update
