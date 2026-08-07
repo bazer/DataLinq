@@ -457,12 +457,13 @@ public sealed class ApiPackageSetInspectorTests
                 StringComparer.OrdinalIgnoreCase);
 
         await Assert.That(root.GetProperty("schemaVersion").GetString())
-            .IsEqualTo("v0.9.api-package-baseline-lock.v1");
+            .IsEqualTo("v0.9.api-package-baseline-lock.v2");
         await Assert.That(root.GetProperty("baselineVersion").GetString()).IsEqualTo(BaselineVersion);
         await Assert.That(root.GetProperty("repositoryUrl").GetString()).IsEqualTo(RepositoryUrl);
         await Assert.That(root.GetProperty("repositoryCommit").GetString()).IsEqualTo(RepositoryCommit);
         await Assert.That(root.GetProperty("repositoryTag").GetString()).IsEqualTo("0.8.0");
         await Assert.That(root.GetProperty("repositoryTagObjectType").GetString()).IsEqualTo("commit");
+        await Assert.That(root.GetProperty("inheritedFrameworkDivergences").GetArrayLength()).IsEqualTo(2);
         await Assert.That(packages.Count).IsEqualTo(5);
         await Assert.That(packages["DataLinq"])
             .IsEqualTo("6af51acf9c45cbd0682ce91a660afe669e26ac383c889bb4375370e526f318d1");

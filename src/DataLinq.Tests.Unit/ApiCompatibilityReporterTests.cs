@@ -96,6 +96,122 @@ public sealed class ApiCompatibilityReporterTests
     }
 
     [Test]
+    public async Task Classifier_ReviewsExactFrameworkDivergenceInheritedFromBaseline()
+    {
+        var inherited = Parse(
+            """
+            <Suppression>
+              <DiagnosticId>CP0002</DiagnosticId>
+              <Target>F:DataLinq.Instances.ImmutableForeignKey`2.loadLock</Target>
+              <Left>lib/net8.0/DataLinq.dll</Left>
+              <Right>lib/net9.0/DataLinq.dll</Right>
+            </Suppression>
+            """);
+
+        var finding = ApiCompatibilityReporter.ClassifyDiagnostics(
+            "DataLinq",
+            null,
+            ApiCompatibilityComparisonKind.PackageBaseline,
+            inherited,
+            inherited,
+            inherited,
+            [Disposition("F:DataLinq.Instances.ImmutableForeignKey`2.loadLock")]).Single();
+
+        await Assert.That(finding.Code).IsEqualTo("inherited-framework-divergence");
+        await Assert.That(finding.Severity).IsEqualTo(ApiCompatibilityFindingSeverity.Review);
+        await Assert.That(finding.ChangeKind)
+            .IsEqualTo(ApiCompatibilityChangeKind.InheritedFrameworkDivergence);
+    }
+
+    [Test]
+    public async Task Classifier_RejectsFrameworkDivergenceNotPresentInBaseline()
+    {
+        var baseline = Parse(SuppressionWithSides(
+            "CP0002",
+            "F:DataLinq.Instances.ImmutableForeignKey`2.loadLock",
+            "lib/net8.0/DataLinq.dll",
+            "lib/net9.0/DataLinq.dll"));
+        var candidate = Parse(SuppressionWithSides(
+            "CP0002",
+            "F:DataLinq.Instances.ImmutableForeignKey`2.loadLock",
+            "lib/net8.0/DataLinq.dll",
+            "lib/net10.0/DataLinq.dll"));
+
+        var finding = ApiCompatibilityReporter.ClassifyDiagnostics(
+            "DataLinq",
+            null,
+            ApiCompatibilityComparisonKind.PackageBaseline,
+            candidate,
+            candidate,
+            baseline,
+            [Disposition("F:DataLinq.Instances.ImmutableForeignKey`2.loadLock")]).Single();
+
+        await Assert.That(finding.Code).IsEqualTo("current-framework-mismatch");
+        await Assert.That(finding.Severity).IsEqualTo(ApiCompatibilityFindingSeverity.Error);
+        await Assert.That(finding.ChangeKind)
+            .IsEqualTo(ApiCompatibilityChangeKind.CurrentPackageFrameworkMismatch);
+    }
+
+    [Test]
+    public async Task Classifier_DoesNotTrustDispositionWithoutBaselineSelfProof()
+    {
+        var candidate = Parse(SuppressionWithSides(
+            "CP0002",
+            "F:DataLinq.Instances.ImmutableForeignKey`2.loadLock",
+            "lib/net8.0/DataLinq.dll",
+            "lib/net9.0/DataLinq.dll"));
+
+        var finding = ApiCompatibilityReporter.ClassifyDiagnostics(
+            "DataLinq",
+            null,
+            ApiCompatibilityComparisonKind.PackageBaseline,
+            candidate,
+            candidate,
+            [],
+            [Disposition("F:DataLinq.Instances.ImmutableForeignKey`2.loadLock")]).Single();
+
+        await Assert.That(finding.Code).IsEqualTo("current-framework-mismatch");
+        await Assert.That(finding.Severity).IsEqualTo(ApiCompatibilityFindingSeverity.Error);
+    }
+
+    [Test]
+    public async Task DispositionValidation_FailsClosedForUnprovenAndUnusedEntries()
+    {
+        var target = "F:DataLinq.Instances.ImmutableForeignKey`2.loadLock";
+        var diagnostic = Parse(SuppressionWithSides(
+            "CP0002",
+            target,
+            "lib/net8.0/DataLinq.dll",
+            "lib/net9.0/DataLinq.dll"));
+        var dispositions = new[] { Disposition(target) };
+
+        var unproven = ApiCompatibilityReporter.ValidateInheritedFrameworkDispositions(
+            "DataLinq",
+            [],
+            diagnostic,
+            dispositions);
+        var unused = ApiCompatibilityReporter.ValidateInheritedFrameworkDispositions(
+            "DataLinq",
+            diagnostic,
+            [],
+            dispositions);
+        var matched = ApiCompatibilityReporter.ValidateInheritedFrameworkDispositions(
+            "DataLinq",
+            diagnostic,
+            diagnostic,
+            dispositions);
+
+        await Assert.That(unproven).HasSingleItem();
+        await Assert.That(unproven[0].Code)
+            .IsEqualTo("inherited-divergence-disposition-not-in-baseline");
+        await Assert.That(unproven[0].Severity).IsEqualTo(ApiCompatibilityFindingSeverity.Error);
+        await Assert.That(unused).HasSingleItem();
+        await Assert.That(unused[0].Code).IsEqualTo("inherited-divergence-disposition-unused");
+        await Assert.That(unused[0].Severity).IsEqualTo(ApiCompatibilityFindingSeverity.Error);
+        await Assert.That(matched).IsEmpty();
+    }
+
+    [Test]
     public async Task Classifier_UsesDirectAssemblyDirectionWhenBaselineMarkerIsAbsent()
     {
         var normal = Parse(
@@ -204,7 +320,7 @@ public sealed class ApiCompatibilityReporterTests
             true,
             true,
             true);
-        var summary = new ApiCompatibilityReportSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, false);
+        var summary = new ApiCompatibilityReportSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, false);
         var report = new ApiCompatibilityReport(
             ApiCompatibilityReporter.SchemaVersion,
             DateTimeOffset.UnixEpoch,
@@ -278,7 +394,7 @@ public sealed class ApiCompatibilityReporterTests
             [],
             [],
             [finding],
-            new ApiCompatibilityReportSummary(0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, false, true));
+            new ApiCompatibilityReportSummary(0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, false, true));
 
         var markdown = ApiCompatibilityReporter.ToMarkdown(report);
 
@@ -315,4 +431,13 @@ public sealed class ApiCompatibilityReporterTests
           <Right>{{right}}</Right>
         </Suppression>
         """;
+
+    private static ApiCompatibilityInheritedFrameworkDisposition Disposition(string target) =>
+        new(
+            "DataLinq",
+            "CP0002",
+            target,
+            "lib/net8.0/DataLinq.dll",
+            "lib/net9.0/DataLinq.dll",
+            "Preserve the published per-TFM field signature.");
 }

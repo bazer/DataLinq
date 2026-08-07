@@ -15,6 +15,7 @@ public enum ApiCompatibilityChangeKind
     CompatibilityBreak,
     SourceSensitiveBreak,
     CurrentPackageFrameworkMismatch,
+    InheritedFrameworkDivergence,
     CompatibleApiChange,
     NewPackageSurface
 }
@@ -76,9 +77,18 @@ public sealed record ApiCompatibilityBaselineLockReport(
     string RepositoryTagObjectType,
     string ProvenanceNote,
     IReadOnlyDictionary<string, string> PackageSha256,
+    IReadOnlyList<ApiCompatibilityInheritedFrameworkDisposition> InheritedFrameworkDivergences,
     string LockPath,
     string LockSha256,
     bool CanonicalTrackedPolicy);
+
+public sealed record ApiCompatibilityInheritedFrameworkDisposition(
+    string PackageId,
+    string DiagnosticId,
+    string Target,
+    string Left,
+    string Right,
+    string Rationale);
 
 public sealed record ApiCompatibilityRunnerEvidence(
     ApiCompatibilityRepositoryState Start,
@@ -167,6 +177,7 @@ public sealed record ApiCompatibilityReportSummary(
     int HardFailureCount,
     int CompatibilityBreakCount,
     int FrameworkMismatchCount,
+    int InheritedFrameworkDivergenceCount,
     int CompatibleChangeCount,
     int NewPackageSurfaceCount,
     bool HasHardFailures,

@@ -18,13 +18,21 @@ public sealed class ApiCompatibilityBaselineLockTests
         "DataLinq.CLI"
     ];
 
+    private static readonly string[] DispositionPackageIds =
+    [
+        "DataLinq",
+        "DataLinq.SQLite",
+        "DataLinq.MySql",
+        "DataLinq.Tools"
+    ];
+
     [Test]
     public async Task Load_RequiresAndReturnsExactLockedIdentity()
     {
         using var fixture = new LockFixture();
         fixture.Write(ValidDocument());
 
-        var baseline = ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds);
+        var baseline = ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds, DispositionPackageIds);
 
         await Assert.That(baseline.SchemaVersion).IsEqualTo(ApiCompatibilityBaselineLock.SchemaVersion);
         await Assert.That(baseline.RepositoryCommit)
@@ -32,6 +40,9 @@ public sealed class ApiCompatibilityBaselineLockTests
         await Assert.That(baseline.PackageSha256.Count).IsEqualTo(5);
         await Assert.That(baseline.PackageSha256["DataLinq"])
             .IsEqualTo(new string('a', 64));
+        await Assert.That(baseline.InheritedFrameworkDivergences).HasSingleItem();
+        await Assert.That(baseline.InheritedFrameworkDivergences[0].Target)
+            .IsEqualTo("F:DataLinq.Instances.ImmutableForeignKey`2.loadLock");
         await Assert.That(baseline.LockPath).IsEqualTo(System.IO.Path.GetFullPath(fixture.Path));
         await Assert.That(baseline.LockSha256.Length).IsEqualTo(64);
         await Assert.That(baseline.CanonicalTrackedPolicy).IsFalse();
@@ -46,11 +57,11 @@ public sealed class ApiCompatibilityBaselineLockTests
             "\"baselineVersion\": \"0.8.0\", \"unknown\": true,",
             StringComparison.Ordinal));
         var unknown = Capture<InvalidDataException>(() =>
-            ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds));
+            ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds, DispositionPackageIds));
 
         fixture.Write(ValidDocument().Replace("\"DataLinq.CLI\"", "\"Unexpected\"", StringComparison.Ordinal));
         var packageSet = Capture<InvalidDataException>(() =>
-            ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds));
+            ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds, DispositionPackageIds));
 
         await Assert.That(unknown).IsNotNull();
         await Assert.That(unknown!.Message).Contains("unknown");
@@ -70,7 +81,7 @@ public sealed class ApiCompatibilityBaselineLockTests
             .Replace(new string('a', 64), "not-a-hash", StringComparison.Ordinal));
 
         var exception = Capture<InvalidDataException>(() =>
-            ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds));
+            ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds, DispositionPackageIds));
 
         await Assert.That(exception).IsNotNull();
         await Assert.That(exception!.Message)
@@ -89,19 +100,56 @@ public sealed class ApiCompatibilityBaselineLockTests
             "\"repositoryCommit\": \"ffffffffffffffffffffffffffffffffffffffff\",",
             StringComparison.Ordinal));
         var topLevel = Capture<InvalidDataException>(() =>
-            ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds));
+            ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds, DispositionPackageIds));
 
         fixture.Write(ValidDocument().Replace(
             $"\"sha256\": \"{new string('a', 64)}\"",
             $"\"sha256\": \"{new string('a', 64)}\", \"sha256\": \"{new string('f', 64)}\"",
             StringComparison.Ordinal));
         var nested = Capture<InvalidDataException>(() =>
-            ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds));
+            ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds, DispositionPackageIds));
 
         await Assert.That(topLevel).IsNotNull();
         await Assert.That(topLevel!.Message).Contains("duplicate JSON property 'repositoryCommit'");
         await Assert.That(nested).IsNotNull();
         await Assert.That(nested!.Message).Contains("duplicate JSON property 'sha256'");
+    }
+
+    [Test]
+    public async Task Load_RejectsMalformedAndDuplicateInheritedDivergenceDispositions()
+    {
+        using var fixture = new LockFixture();
+        fixture.Write(ValidDocument().Replace(
+            "\"diagnosticId\": \"CP0002\"",
+            "\"diagnosticId\": \"bad\"",
+            StringComparison.Ordinal));
+        var malformed = Capture<InvalidDataException>(() =>
+            ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds, DispositionPackageIds));
+
+        var duplicateEntry =
+            """
+            { "packageId": "DataLinq", "diagnosticId": "CP0002", "target": "F:DataLinq.Instances.ImmutableForeignKey`2.loadLock", "left": "lib/net8.0/DataLinq.dll", "right": "lib/net9.0/DataLinq.dll", "rationale": "Duplicate." },
+            """;
+        fixture.Write(ValidDocument().Replace(
+            "\"inheritedFrameworkDivergences\": [",
+            $"\"inheritedFrameworkDivergences\": [{Environment.NewLine}    {duplicateEntry}",
+            StringComparison.Ordinal));
+        var duplicate = Capture<InvalidDataException>(() =>
+            ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds, DispositionPackageIds));
+
+        fixture.Write(ValidDocument().Replace(
+            "\"packageId\": \"DataLinq\"",
+            "\"packageId\": \"DataLinq.CLI\"",
+            StringComparison.Ordinal));
+        var ineligible = Capture<InvalidDataException>(() =>
+            ApiCompatibilityBaselineLock.Load(fixture.Path, "0.8.0", PackageIds, DispositionPackageIds));
+
+        await Assert.That(malformed).IsNotNull();
+        await Assert.That(malformed!.Message).Contains("CP####");
+        await Assert.That(duplicate).IsNotNull();
+        await Assert.That(duplicate!.Message).Contains("is duplicated");
+        await Assert.That(ineligible).IsNotNull();
+        await Assert.That(ineligible!.Message).Contains("not eligible");
     }
 
     private static TException? Capture<TException>(Action action)
@@ -121,7 +169,7 @@ public sealed class ApiCompatibilityBaselineLockTests
     private static string ValidDocument() =>
         $$"""
         {
-          "schemaVersion": "v0.9.api-package-baseline-lock.v1",
+          "schemaVersion": "v0.9.api-package-baseline-lock.v2",
           "baselineVersion": "0.8.0",
           "packageSource": "https://api.nuget.org/v3/index.json",
           "repositoryUrl": "https://github.com/bazer/DataLinq",
@@ -135,6 +183,16 @@ public sealed class ApiCompatibilityBaselineLockTests
             { "id": "DataLinq.MySql", "sha256": "{{new string('c', 64)}}" },
             { "id": "DataLinq.Tools", "sha256": "{{new string('d', 64)}}" },
             { "id": "DataLinq.CLI", "sha256": "{{new string('e', 64)}}" }
+          ],
+          "inheritedFrameworkDivergences": [
+            {
+              "packageId": "DataLinq",
+              "diagnosticId": "CP0002",
+              "target": "F:DataLinq.Instances.ImmutableForeignKey`2.loadLock",
+              "left": "lib/net8.0/DataLinq.dll",
+              "right": "lib/net9.0/DataLinq.dll",
+              "rationale": "Preserve the published per-TFM field signature."
+            }
           ]
         }
         """;

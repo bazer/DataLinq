@@ -290,12 +290,13 @@ The comparison set is `DataLinq`, `DataLinq.SQLite`, `DataLinq.MySql`, `DataLinq
 
 After source inspection, the command copies every exact nupkg into its fresh evidence root, verifies that the aggregate identities did not change during copying, holds the copied inputs against concurrent writes, and re-inspects them after all comparisons. Snapshots and ApiCompat consume those evidence-owned bytes rather than reopening mutable ignored source directories throughout the run.
 
-Each run retains schema `v0.9.api-compatibility-report.v1` as `report.json` and `report.md`, raw standard output/error for every pinned ApiCompat invocation, generated suppression XML when ApiCompat emits it, and a human-readable metadata snapshot for every selected compile asset. A successful zero-diagnostic invocation is represented by its exit code and logs with a null suppression path because ApiCompat 10.0.302 intentionally creates no empty XML file. ApiCompat is authoritative for compatibility classification. The snapshots are supplemental review/provenance evidence: their semantic API hash excludes MVID and whole-file hash, and they are not presented as a home-grown replacement for ApiCompat.
+Each run retains schema `v0.9.api-compatibility-report.v2` as `report.json` and `report.md`, raw standard output/error for every pinned ApiCompat invocation, generated suppression XML when ApiCompat emits it, and a human-readable metadata snapshot for every selected compile asset. A successful zero-diagnostic invocation is represented by its exit code and logs with a null suppression path because ApiCompat 10.0.302 intentionally creates no empty XML file. ApiCompat is authoritative for compatibility classification. The snapshots are supplemental review/provenance evidence: their semantic API hash excludes MVID and whole-file hash, and they are not presented as a home-grown replacement for ApiCompat.
 
 Findings are deliberately separated:
 
 - baseline diagnostics from the normal comparison are binary/API breaks; `CP0017` parameter-name changes are called out as source-sensitive breaks
-- non-baseline diagnostics are inconsistent API across the candidate's current target frameworks and are hard failures
+- each locked baseline library package is self-validated under the same current-framework rules; an exact candidate divergence already present in that baseline is retained as an explicit inherited-divergence review item
+- a new or changed non-baseline diagnostic is inconsistent API across the candidate's current target frameworks and remains a hard failure
 - strict-baseline-only diagnostics are compatible or additive changes that remain visible for release review without automatically failing the command
 - each first `DataLinq.Memory` surface is a review item, while an inconsistent Memory package remains a hard failure
 

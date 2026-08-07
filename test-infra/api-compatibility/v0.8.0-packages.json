@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "v0.9.api-package-baseline-lock.v1",
+  "schemaVersion": "v0.9.api-package-baseline-lock.v2",
   "baselineVersion": "0.8.0",
   "packageSource": "https://api.nuget.org/v3/index.json",
   "repositoryUrl": "https://github.com/bazer/DataLinq",
@@ -27,6 +27,24 @@
     {
       "id": "DataLinq.Tools",
       "sha256": "bcfbed905fbddb793fb9eaf4f9a6e601c1b0745644f6dfdd36cb97f03236bddf"
+    }
+  ],
+  "inheritedFrameworkDivergences": [
+    {
+      "packageId": "DataLinq",
+      "diagnosticId": "CP0002",
+      "target": "F:DataLinq.Instances.ImmutableForeignKey`2.loadLock",
+      "left": "lib/net8.0/DataLinq.dll",
+      "right": "lib/net9.0/DataLinq.dll",
+      "rationale": "Preserve the published 0.8 protected-field signatures: net8 uses object because System.Threading.Lock is unavailable, while net9 and net10 use Lock. Changing either side would break subclasses compiled for that target framework."
+    },
+    {
+      "packageId": "DataLinq",
+      "diagnosticId": "CP0002",
+      "target": "F:DataLinq.Instances.ImmutableRelation`2.loadLock",
+      "left": "lib/net8.0/DataLinq.dll",
+      "right": "lib/net9.0/DataLinq.dll",
+      "rationale": "Preserve the published 0.8 protected-field signatures: net8 uses object because System.Threading.Lock is unavailable, while net9 and net10 use Lock. Changing either side would break subclasses compiled for that target framework."
     }
   ]
 }

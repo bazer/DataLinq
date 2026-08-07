@@ -10,12 +10,13 @@ namespace DataLinq.DevTools;
 
 internal static class ApiCompatibilityBaselineLock
 {
-    public const string SchemaVersion = "v0.9.api-package-baseline-lock.v1";
+    public const string SchemaVersion = "v0.9.api-package-baseline-lock.v2";
 
     public static ApiCompatibilityBaselineLockReport Load(
         string path,
         string expectedVersion,
-        IReadOnlyCollection<string> expectedPackageIds)
+        IReadOnlyCollection<string> expectedPackageIds,
+        IReadOnlyCollection<string>? expectedDispositionPackageIds = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedVersion);
@@ -58,6 +59,11 @@ internal static class ApiCompatibilityBaselineLock
         RequireExact(document.RepositoryTagObjectType, "commit", "repositoryTagObjectType", issues);
         RequireNonblank(document.ProvenanceNote, "provenanceNote", issues);
 
+        var expectedIds = expectedPackageIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var dispositionPackageIds = (expectedDispositionPackageIds ?? expectedPackageIds)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in dispositionPackageIds.Where(id => !expectedIds.Contains(id)))
+            throw new ArgumentException($"Disposition package '{id}' is not in the expected baseline package set.", nameof(expectedDispositionPackageIds));
         var hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (document.Packages is null)
         {
@@ -86,11 +92,60 @@ internal static class ApiCompatibilityBaselineLock
             }
         }
 
-        var expectedIds = expectedPackageIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var id in expectedIds.Where(id => !hashes.ContainsKey(id)))
             issues.Add($"Locked package set is missing '{id}'.");
         foreach (var id in hashes.Keys.Where(id => !expectedIds.Contains(id)))
             issues.Add($"Locked package set contains unexpected package '{id}'.");
+
+        var dispositions = new List<ApiCompatibilityInheritedFrameworkDisposition>();
+        var dispositionIdentities = new HashSet<DispositionIdentity>();
+        if (document.InheritedFrameworkDivergences is null)
+        {
+            issues.Add("inheritedFrameworkDivergences is required; use an empty array when none are approved.");
+        }
+        else
+        {
+            foreach (var disposition in document.InheritedFrameworkDivergences)
+            {
+                if (disposition is null)
+                {
+                    issues.Add("Every inheritedFrameworkDivergences entry must be an object.");
+                    continue;
+                }
+
+                var entryIssues = new List<string>();
+                RequireNonblank(disposition.PackageId, "inheritedFrameworkDivergences.packageId", entryIssues);
+                RequireDiagnosticId(disposition.DiagnosticId, "inheritedFrameworkDivergences.diagnosticId", entryIssues);
+                RequireNonblank(disposition.Target, "inheritedFrameworkDivergences.target", entryIssues);
+                RequirePackageAssetPath(disposition.Left, "inheritedFrameworkDivergences.left", entryIssues);
+                RequirePackageAssetPath(disposition.Right, "inheritedFrameworkDivergences.right", entryIssues);
+                RequireNonblank(disposition.Rationale, "inheritedFrameworkDivergences.rationale", entryIssues);
+                if (disposition.PackageId is not null && !dispositionPackageIds.Contains(disposition.PackageId))
+                    entryIssues.Add($"Disposition package '{disposition.PackageId}' is not eligible for inherited package-framework dispositions.");
+                if (entryIssues.Count > 0)
+                {
+                    foreach (var issue in entryIssues)
+                        issues.Add(issue);
+                    continue;
+                }
+
+                var normalized = new ApiCompatibilityInheritedFrameworkDisposition(
+                    disposition.PackageId!,
+                    disposition.DiagnosticId!,
+                    disposition.Target!,
+                    disposition.Left!,
+                    disposition.Right!,
+                    disposition.Rationale!);
+                if (!dispositionIdentities.Add(DispositionIdentity.From(normalized)))
+                {
+                    issues.Add(
+                        $"Inherited framework disposition '{normalized.PackageId}' / '{normalized.DiagnosticId}' / '{normalized.Target}' / '{normalized.Left}' / '{normalized.Right}' is duplicated.");
+                    continue;
+                }
+
+                dispositions.Add(normalized);
+            }
+        }
 
         if (issues.Count > 0)
         {
@@ -109,6 +164,7 @@ internal static class ApiCompatibilityBaselineLock
             document.RepositoryTagObjectType!,
             document.ProvenanceNote!,
             hashes,
+            Array.AsReadOnly(dispositions.ToArray()),
             canonicalPath,
             Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),
             CanonicalTrackedPolicy: false);
@@ -128,6 +184,8 @@ internal static class ApiCompatibilityBaselineLock
     {
         if (string.IsNullOrWhiteSpace(value) || value != value.Trim())
             issues.Add($"{field} must be nonblank and have no surrounding whitespace.");
+        else if (value.Any(char.IsControl))
+            issues.Add($"{field} must not contain control characters.");
     }
 
     private static void RequireGitCommit(string? value, string field, ICollection<string> issues)
@@ -138,6 +196,30 @@ internal static class ApiCompatibilityBaselineLock
 
     private static bool IsSha256(string? value) =>
         value is not null && value.Length == 64 && value.All(Uri.IsHexDigit);
+
+    private static void RequireDiagnosticId(string? value, string field, ICollection<string> issues)
+    {
+        if (value is null || value.Length != 6 ||
+            value[0] != 'C' || value[1] != 'P' ||
+            !value.Skip(2).All(char.IsAsciiDigit))
+        {
+            issues.Add($"{field} must be an exact ApiCompat CP#### diagnostic id.");
+        }
+    }
+
+    private static void RequirePackageAssetPath(string? value, string field, ICollection<string> issues)
+    {
+        RequireNonblank(value, field, issues);
+        if (value is null)
+            return;
+        if (value.Contains('\\') ||
+            value.StartsWith("/", StringComparison.Ordinal) ||
+            !value.StartsWith("lib/", StringComparison.Ordinal) ||
+            value.Split('/').Any(static segment => segment is "" or "." or ".."))
+        {
+            issues.Add($"{field} must be a safe forward-slash lib package asset path.");
+        }
+    }
 
     private static void RejectDuplicateProperties(JsonElement element, string path, string sourcePath)
     {
@@ -175,7 +257,32 @@ internal static class ApiCompatibilityBaselineLock
         string? RepositoryTag,
         string? RepositoryTagObjectType,
         string? ProvenanceNote,
-        IReadOnlyList<BaselineLockPackage?>? Packages);
+        IReadOnlyList<BaselineLockPackage?>? Packages,
+        IReadOnlyList<BaselineLockDisposition?>? InheritedFrameworkDivergences);
 
     private sealed record BaselineLockPackage(string? Id, string? Sha256);
+
+    private sealed record BaselineLockDisposition(
+        string? PackageId,
+        string? DiagnosticId,
+        string? Target,
+        string? Left,
+        string? Right,
+        string? Rationale);
+
+    private readonly record struct DispositionIdentity(
+        string PackageId,
+        string DiagnosticId,
+        string Target,
+        string Left,
+        string Right)
+    {
+        public static DispositionIdentity From(ApiCompatibilityInheritedFrameworkDisposition disposition) =>
+            new(
+                disposition.PackageId.ToUpperInvariant(),
+                disposition.DiagnosticId,
+                disposition.Target,
+                disposition.Left,
+                disposition.Right);
+    }
 }

@@ -1,6 +1,8 @@
 # API Compatibility Baseline
 
-`v0.8.0-packages.json` is the tracked byte and repository-provenance lock for the published DataLinq `0.8.0` API baseline. `api-report` accepts package bytes from an explicit directory, but authoritative evidence is valid only when this canonical tracked lock is unchanged from the checkout.
+`v0.8.0-packages.json` is the tracked byte, repository-provenance, and inherited-divergence disposition lock for the published DataLinq `0.8.0` API baseline. `api-report` accepts package bytes from an explicit directory, but authoritative evidence is valid only when this canonical tracked lock is unchanged from the checkout.
+
+The two `loadLock` dispositions bind exact ApiCompat diagnostic identities to an explicit rationale. The 0.8 package already exposes `object` on net8 and `System.Threading.Lock` on net9/net10 because `Lock` does not exist on net8. Preserving those per-TFM field signatures avoids breaking subclasses compiled against the published package. The reporter self-validates the locked baseline and downgrades a candidate diagnostic only when both that proof and the exact tracked disposition match; a new, changed, missing, or stale divergence remains a hard failure.
 
 ## NuGet.org acquisition record
 

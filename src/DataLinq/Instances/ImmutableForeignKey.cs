@@ -34,8 +34,11 @@ public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dat
 
     private volatile ValueHolder? valueHolder;
 
-    // Protected for historical subclass compatibility; keep the metadata type stable across TFMs.
+#if NET9_0_OR_GREATER
+    protected readonly Lock loadLock = new();
+#else
     protected readonly object loadLock = new();
+#endif
 
     protected TableCache GetTableCache() => GetTableCache(GetDataSource());
     protected TableCache GetTableCache(IDataSourceAccess source) => source.Provider.GetTableCache(property.RelationPart.GetOtherSide().ColumnIndex.Table);

@@ -14,7 +14,7 @@ namespace DataLinq.DevTools;
 
 public sealed class ApiCompatibilityReporter
 {
-    public const string SchemaVersion = "v0.9.api-compatibility-report.v1";
+    public const string SchemaVersion = "v0.9.api-compatibility-report.v2";
 
     private const string ExpectedEntryAssemblyName = "DataLinq.Dev.CLI";
     private const string ExpectedDevToolsAssemblyName = "DataLinq.DevTools";
@@ -97,7 +97,8 @@ public sealed class ApiCompatibilityReporter
             baselineLock = ApiCompatibilityBaselineLock.Load(
                 normalized.BaselineLockPath,
                 normalized.BaselineVersion,
-                BaselinePackageIds);
+                BaselinePackageIds,
+                LibraryComparisonPackageIds);
             baselineLockMatchesCheckout = VerifyBaselineLockPolicy(
                 normalized.RepositoryRoot,
                 normalized.Profile,
@@ -205,6 +206,7 @@ public sealed class ApiCompatibilityReporter
                         packageId,
                         baselinePackages,
                         candidatePackages,
+                        baselineLock?.InheritedFrameworkDivergences ?? [],
                         executions,
                         findings));
                 }
@@ -351,6 +353,7 @@ public sealed class ApiCompatibilityReporter
         builder.AppendLine($"- comparisons: {report.Summary.ComparisonCount.ToString(CultureInfo.InvariantCulture)}");
         builder.AppendLine($"- compatibility/source-sensitive breaks: {report.Summary.CompatibilityBreakCount.ToString(CultureInfo.InvariantCulture)}");
         builder.AppendLine($"- current-package framework mismatches: {report.Summary.FrameworkMismatchCount.ToString(CultureInfo.InvariantCulture)}");
+        builder.AppendLine($"- inherited framework divergences for review: {report.Summary.InheritedFrameworkDivergenceCount.ToString(CultureInfo.InvariantCulture)}");
         builder.AppendLine($"- compatible/additive changes for review: {report.Summary.CompatibleChangeCount.ToString(CultureInfo.InvariantCulture)}");
         builder.AppendLine($"- new-package surfaces for review: {report.Summary.NewPackageSurfaceCount.ToString(CultureInfo.InvariantCulture)}");
         builder.AppendLine($"- hard failures: {report.Summary.HardFailureCount.ToString(CultureInfo.InvariantCulture)}");
@@ -362,6 +365,7 @@ public sealed class ApiCompatibilityReporter
         builder.AppendLine($"- candidate aggregate: {Code(report.CandidateAggregateIdentity ?? "unavailable")}");
         builder.AppendLine($"- baseline source: {Code(report.BaselineLock?.PackageSource ?? "unavailable")}");
         builder.AppendLine($"- baseline lock SHA-256: {Code(report.BaselineLock?.LockSha256 ?? "unavailable")}");
+        builder.AppendLine($"- locked inherited-divergence dispositions: {(report.BaselineLock?.InheritedFrameworkDivergences.Count ?? 0).ToString(CultureInfo.InvariantCulture)}");
         builder.AppendLine($"- canonical tracked baseline policy: `{report.BaselineLock?.CanonicalTrackedPolicy.ToString() ?? "unavailable"}`");
         builder.AppendLine($"- baseline provenance: {Text(report.BaselineLock?.ProvenanceNote ?? "unavailable")}");
         builder.AppendLine($"- runner start: {Code(report.Runner.Start.Commit)} on {Code(report.Runner.Start.Branch)}, dirty `{report.Runner.Start.Dirty}`");
@@ -442,13 +446,26 @@ public sealed class ApiCompatibilityReporter
         string? targetFramework,
         ApiCompatibilityComparisonKind comparisonKind,
         IReadOnlyList<ApiCompatSuppressionDiagnostic> normalDiagnostics,
-        IReadOnlyList<ApiCompatSuppressionDiagnostic> strictDiagnostics)
+        IReadOnlyList<ApiCompatSuppressionDiagnostic> strictDiagnostics,
+        IReadOnlyList<ApiCompatSuppressionDiagnostic>? baselinePackageDiagnostics = null,
+        IReadOnlyList<ApiCompatibilityInheritedFrameworkDisposition>? inheritedDispositions = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
         ArgumentNullException.ThrowIfNull(normalDiagnostics);
         ArgumentNullException.ThrowIfNull(strictDiagnostics);
 
         var findings = new List<ApiCompatibilityFinding>();
+        var baselineIdentities = (baselinePackageDiagnostics ?? [])
+            .Select(static diagnostic => DiagnosticIdentity.From(diagnostic))
+            .ToHashSet();
+        var inheritedDispositionByIdentity = (inheritedDispositions ?? [])
+            .Select(static disposition => new
+            {
+                Identity = DiagnosticIdentity.From(disposition),
+                Disposition = disposition
+            })
+            .Where(item => baselineIdentities.Contains(item.Identity))
+            .ToDictionary(static item => item.Identity, static item => item.Disposition);
         var normalIdentities = normalDiagnostics
             .Select(static diagnostic => DiagnosticIdentity.From(diagnostic))
             .ToHashSet();
@@ -476,15 +493,12 @@ public sealed class ApiCompatibilityReporter
             }
             else
             {
-                findings.Add(ToDiagnosticFinding(
-                    ApiCompatibilityFindingSeverity.Error,
-                    "current-framework-mismatch",
+                findings.Add(CreateFrameworkDivergenceFinding(
                     packageId,
                     targetFramework,
                     comparisonKind,
-                    ApiCompatibilityChangeKind.CurrentPackageFrameworkMismatch,
                     diagnostic,
-                    "The candidate package exposes inconsistent API across its current target-framework assets."));
+                    inheritedDispositionByIdentity));
             }
         }
 
@@ -509,15 +523,12 @@ public sealed class ApiCompatibilityReporter
             }
             else
             {
-                findings.Add(ToDiagnosticFinding(
-                    ApiCompatibilityFindingSeverity.Error,
-                    "current-framework-mismatch",
+                findings.Add(CreateFrameworkDivergenceFinding(
                     packageId,
                     targetFramework,
                     comparisonKind,
-                    ApiCompatibilityChangeKind.CurrentPackageFrameworkMismatch,
                     diagnostic,
-                    "Strict comparison found an inconsistent API across current target-framework assets."));
+                    inheritedDispositionByIdentity));
             }
         }
 
@@ -529,12 +540,20 @@ public sealed class ApiCompatibilityReporter
         string packageId,
         ApiPackageSetInspection baseline,
         ApiPackageSetInspection candidate,
+        IReadOnlyList<ApiCompatibilityInheritedFrameworkDisposition> inheritedDispositions,
         ICollection<ApiCompatibilityToolExecutionReport> executions,
         ICollection<ApiCompatibilityFinding> findings)
     {
         var baselinePackage = FindPackage(baseline, packageId);
         var candidatePackage = FindPackage(candidate, packageId);
         var stem = ToEvidenceName(packageId);
+        var packageDispositions = inheritedDispositions
+            .Where(disposition => disposition.PackageId.Equals(packageId, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var baselineSelf = runner.ValidatePackage(
+            $"{stem}-baseline-self",
+            baselinePackage.PackagePath);
+        executions.Add(ToExecutionReport(baselineSelf));
         var normal = runner.ComparePackages(
             $"{stem}-baseline",
             baselinePackage.PackagePath,
@@ -549,15 +568,24 @@ public sealed class ApiCompatibilityReporter
         executions.Add(ToExecutionReport(strict));
 
         var local = new List<ApiCompatibilityFinding>();
+        AddExecutionFailure(baselineSelf, packageId, null, local);
         AddExecutionFailure(normal, packageId, null, local);
         AddExecutionFailure(strict, packageId, null, local);
+        if (baselineSelf.Succeeded && normal.Succeeded && strict.Succeeded)
+            local.AddRange(ValidateInheritedFrameworkDispositions(
+                packageId,
+                baselineSelf.Diagnostics,
+                normal.Diagnostics.Concat(strict.Diagnostics).ToArray(),
+                packageDispositions));
         if (normal.Succeeded && strict.Succeeded)
             local.AddRange(ClassifyDiagnostics(
                 packageId,
                 null,
                 ApiCompatibilityComparisonKind.PackageBaseline,
                 normal.Diagnostics,
-                strict.Diagnostics));
+                strict.Diagnostics,
+                baselineSelf.Succeeded ? baselineSelf.Diagnostics : [],
+                packageDispositions));
         foreach (var finding in local)
             findings.Add(finding);
 
@@ -570,6 +598,56 @@ public sealed class ApiCompatibilityReporter
             normal.Diagnostics,
             strict.Diagnostics,
             local);
+    }
+
+    internal static IReadOnlyList<ApiCompatibilityFinding> ValidateInheritedFrameworkDispositions(
+        string packageId,
+        IReadOnlyList<ApiCompatSuppressionDiagnostic> baselinePackageDiagnostics,
+        IReadOnlyList<ApiCompatSuppressionDiagnostic> candidateDiagnostics,
+        IReadOnlyList<ApiCompatibilityInheritedFrameworkDisposition> dispositions)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
+        ArgumentNullException.ThrowIfNull(baselinePackageDiagnostics);
+        ArgumentNullException.ThrowIfNull(candidateDiagnostics);
+        ArgumentNullException.ThrowIfNull(dispositions);
+        if (dispositions.Any(disposition =>
+                !disposition.PackageId.Equals(packageId, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ArgumentException(
+                $"Every inherited framework disposition must target package '{packageId}'.",
+                nameof(dispositions));
+        }
+
+        var findings = new List<ApiCompatibilityFinding>();
+        var baselineIdentities = baselinePackageDiagnostics
+            .Select(static diagnostic => DiagnosticIdentity.From(diagnostic))
+            .ToHashSet();
+        var candidateCurrentIdentities = candidateDiagnostics
+            .Where(static diagnostic => diagnostic.IsBaselineSuppression != true)
+            .Select(static diagnostic => DiagnosticIdentity.From(diagnostic))
+            .ToHashSet();
+        foreach (var disposition in dispositions)
+        {
+            var identity = DiagnosticIdentity.From(disposition);
+            if (!baselineIdentities.Contains(identity))
+            {
+                AddError(
+                    findings,
+                    "inherited-divergence-disposition-not-in-baseline",
+                    packageId,
+                    $"The locked disposition for '{disposition.DiagnosticId}' / '{disposition.Target}' / '{disposition.Left}' / '{disposition.Right}' is not emitted by self-validation of the locked baseline package.");
+            }
+            if (!candidateCurrentIdentities.Contains(identity))
+            {
+                AddError(
+                    findings,
+                    "inherited-divergence-disposition-unused",
+                    packageId,
+                    $"The locked disposition for '{disposition.DiagnosticId}' / '{disposition.Target}' / '{disposition.Left}' / '{disposition.Right}' does not match a current candidate diagnostic.");
+            }
+        }
+
+        return Array.AsReadOnly(findings.ToArray());
     }
 
     private IReadOnlyList<ApiCompatibilityComparisonReport> CompareCliAssemblies(
@@ -942,6 +1020,36 @@ public sealed class ApiCompatibilityReporter
             $"ApiCompat execution '{execution.Name}' failed: {execution.Failure ?? "unknown failure"}"));
     }
 
+    private static ApiCompatibilityFinding CreateFrameworkDivergenceFinding(
+        string packageId,
+        string? targetFramework,
+        ApiCompatibilityComparisonKind comparisonKind,
+        ApiCompatSuppressionDiagnostic diagnostic,
+        IReadOnlyDictionary<DiagnosticIdentity, ApiCompatibilityInheritedFrameworkDisposition> inheritedDispositions)
+    {
+        ApiCompatibilityInheritedFrameworkDisposition? disposition = null;
+        if (comparisonKind == ApiCompatibilityComparisonKind.PackageBaseline)
+        {
+            inheritedDispositions.TryGetValue(
+                DiagnosticIdentity.From(diagnostic),
+                out disposition);
+        }
+        var inherited = disposition is not null;
+        return ToDiagnosticFinding(
+            inherited ? ApiCompatibilityFindingSeverity.Review : ApiCompatibilityFindingSeverity.Error,
+            inherited ? "inherited-framework-divergence" : "current-framework-mismatch",
+            packageId,
+            targetFramework,
+            comparisonKind,
+            inherited
+                ? ApiCompatibilityChangeKind.InheritedFrameworkDivergence
+                : ApiCompatibilityChangeKind.CurrentPackageFrameworkMismatch,
+            diagnostic,
+            inherited
+                ? $"The candidate preserves an exact target-framework API divergence already present in the locked baseline. Locked rationale: {disposition!.Rationale}"
+                : "The candidate package exposes an API divergence across target-framework assets that is not present in the locked baseline.");
+    }
+
     private static ApiCompatibilityFinding ToDiagnosticFinding(
         ApiCompatibilityFindingSeverity severity,
         string code,
@@ -1311,6 +1419,7 @@ public sealed class ApiCompatibilityReporter
             findings.Count(static finding => finding.ChangeKind is
                 ApiCompatibilityChangeKind.CompatibilityBreak or ApiCompatibilityChangeKind.SourceSensitiveBreak),
             findings.Count(static finding => finding.ChangeKind == ApiCompatibilityChangeKind.CurrentPackageFrameworkMismatch),
+            findings.Count(static finding => finding.ChangeKind == ApiCompatibilityChangeKind.InheritedFrameworkDivergence),
             findings.Count(static finding => finding.ChangeKind == ApiCompatibilityChangeKind.CompatibleApiChange),
             findings.Count(static finding => finding.ChangeKind == ApiCompatibilityChangeKind.NewPackageSurface),
             hardFailures > 0,
@@ -1525,5 +1634,13 @@ public sealed class ApiCompatibilityReporter
                 diagnostic.Left,
                 diagnostic.Right,
                 diagnostic.IsBaselineSuppression == true);
+
+        public static DiagnosticIdentity From(ApiCompatibilityInheritedFrameworkDisposition disposition) =>
+            new(
+                disposition.DiagnosticId,
+                disposition.Target,
+                disposition.Left,
+                disposition.Right,
+                IsBaselineSuppression: false);
     }
 }
