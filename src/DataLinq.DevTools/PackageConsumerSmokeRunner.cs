@@ -14,7 +14,7 @@ namespace DataLinq.DevTools;
 
 public sealed class PackageConsumerSmokeRunner
 {
-    private const string SchemaVersion = "v0.9.package-consumer-smoke-report.v1";
+    public const string SchemaVersion = "v0.9.package-consumer-smoke-report.v2";
     private const string ExecutionSchemaVersion = "v0.9.package-consumer-execution.v1";
     private const string FixtureRelativePath = "test-infra/package-consumer";
     private const string ProjectName = "DataLinq.PackageConsumer";
@@ -118,12 +118,18 @@ public sealed class PackageConsumerSmokeRunner
 
     public PackageConsumerSmokeRunner(DevToolPaths paths, PackageConsumerSmokeOptions options)
     {
+        ArgumentNullException.ThrowIfNull(paths);
+        ArgumentNullException.ThrowIfNull(options);
+        if (!CompatibilityPackageInputInspector.IsValidPackageVersion(options.Version))
+            throw new ArgumentException($"Package-consumer version '{options.Version}' is not a valid exact package version.", nameof(options));
+
         this.paths = paths;
         this.options = options;
     }
 
     public PackageConsumerSmokeReport CreateReport()
     {
+        var startedAtUtc = DateTimeOffset.UtcNow;
         var repositoryRoot = Path.GetFullPath(options.RepositoryRoot);
         var packageDirectory = Path.GetFullPath(options.PackageDirectory);
         var reportDirectory = Path.GetFullPath(options.OutputDirectory);
@@ -261,7 +267,7 @@ public sealed class PackageConsumerSmokeRunner
                         AddError(
                             findings,
                             "generated-source-missing",
-                            "Generated C# output did not contain both MutablePackageConsumerRow and PackageConsumerDatabase.");
+                            "Generated C# output did not contain both MutablePackageConsumerRow and PackageConsumerDatabase for every required target framework.");
                     }
 
                     if (successfulBuilds.Contains("net10.0"))
@@ -309,7 +315,8 @@ public sealed class PackageConsumerSmokeRunner
             resolvedPackages,
             execution,
             generatedSource,
-            findings);
+            findings,
+            startedAtUtc);
         WriteReportArtifacts(report);
         return report;
     }
@@ -319,9 +326,10 @@ public sealed class PackageConsumerSmokeRunner
         var builder = new StringBuilder();
         builder.AppendLine("# Package Consumer Smoke Report");
         builder.AppendLine();
-        builder.AppendLine($"Generated UTC: {report.GeneratedAtUtc:O}");
+        builder.AppendLine($"Started UTC: {report.StartedAtUtc:O}");
+        builder.AppendLine($"Completed UTC: {report.CompletedAtUtc:O}");
         builder.AppendLine($"Candidate: `{report.PackageDirectory}` at `{report.Version}`");
-        builder.AppendLine($"Outcome: **{(report.Summary.HasHardFailures ? "failed" : "passed")}**");
+        builder.AppendLine($"Outcome: **{report.Outcome.ToString().ToLowerInvariant()}**");
         builder.AppendLine();
         builder.AppendLine("## Summary");
         builder.AppendLine();
@@ -332,6 +340,7 @@ public sealed class PackageConsumerSmokeRunner
         builder.AppendLine($"- builds: {report.Summary.SuccessfulBuildCount}/{report.Summary.BuildCount} passed");
         builder.AppendLine($"- generated source: {(report.Summary.GeneratedSourceVerified ? "verified" : "not verified")}");
         builder.AppendLine($"- net10 execution: {(report.Summary.ExecutionSucceeded ? "passed" : "failed")}");
+        builder.AppendLine($"- complete invocation: {(report.IsCompleteForInvocation ? "yes" : "no")}");
         builder.AppendLine($"- hard failures: {report.Summary.HardFailureCount}");
         builder.AppendLine();
         builder.AppendLine("## Candidate Packages");
@@ -390,7 +399,8 @@ public sealed class PackageConsumerSmokeRunner
         IReadOnlyList<PackageConsumerResolvedPackage> resolvedPackages,
         PackageConsumerExecutionReport? execution,
         PackageConsumerGeneratedSourceReport generatedSource,
-        IReadOnlyList<PackageConsumerSmokeFinding> findings)
+        IReadOnlyList<PackageConsumerSmokeFinding> findings,
+        DateTimeOffset startedAtUtc)
     {
         var buildCommands = commands.Where(static command => command.Name.StartsWith("build-", StringComparison.Ordinal)).ToArray();
         var hardFailureCount = findings.Count(static finding => finding.Severity == PackageConsumerSmokeFindingSeverity.Error);
@@ -407,9 +417,48 @@ public sealed class PackageConsumerSmokeRunner
             hardFailureCount,
             hardFailureCount > 0);
 
+        var expectedCommands = new[]
+        {
+            "restore",
+            "build-net8.0",
+            "build-net9.0",
+            "build-net10.0",
+            "run-net10.0"
+        };
+        var candidateSetComplete = RequiredPackageIds.All(id =>
+            candidates.Count(package =>
+                package.Id.Equals(id, StringComparison.OrdinalIgnoreCase) &&
+                package.Version.Equals(options.Version, StringComparison.OrdinalIgnoreCase) &&
+                package.NuspecIdentityMatches) == 1);
+        var resolvedSetComplete = RequiredPackageIds.All(id =>
+            resolvedPackages.Count(package =>
+                package.Id.Equals(id, StringComparison.OrdinalIgnoreCase) &&
+                package.Version.Equals(options.Version, StringComparison.OrdinalIgnoreCase) &&
+                package.ExactVersion &&
+                package.SourceMatchesCandidateDirectory &&
+                package.HashMatchesCandidate) == 1);
+        var complete = hardFailureCount == 0 &&
+                       candidateSetComplete &&
+                       resolvedSetComplete &&
+                       commands.Select(static command => command.Name).SequenceEqual(expectedCommands) &&
+                       commands.All(static command => command.Succeeded) &&
+                       commands.All(static command =>
+                           !string.IsNullOrWhiteSpace(command.RawLogPath) && File.Exists(command.RawLogPath)) &&
+                       generatedSource.Passed &&
+                       execution?.ContractValidated == true;
+        var completedAtUtc = DateTimeOffset.UtcNow;
+        var outcome = complete ? PackageConsumerSmokeOutcome.Passed : PackageConsumerSmokeOutcome.Failed;
+        var artifactPaths = commands
+            .Select(static command => command.RawLogPath)
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Select(static path => Path.GetFullPath(path!))
+            .Append(Path.Combine(reportDirectory, "report.md"))
+            .Append(Path.Combine(reportDirectory, "report.json"))
+            .ToArray();
+
         return new PackageConsumerSmokeReport(
             SchemaVersion,
-            DateTimeOffset.UtcNow,
+            completedAtUtc,
             repositoryRoot,
             packageDirectory,
             options.Version,
@@ -425,7 +474,16 @@ public sealed class PackageConsumerSmokeRunner
             execution,
             generatedSource,
             findings,
-            summary);
+            summary)
+        {
+            StartedAtUtc = startedAtUtc,
+            CompletedAtUtc = completedAtUtc,
+            DurationSeconds = Math.Max(0, (completedAtUtc - startedAtUtc).TotalSeconds),
+            Outcome = outcome,
+            IsCompleteForInvocation = complete,
+            OverallExitCode = complete ? 0 : 1,
+            ArtifactPaths = artifactPaths
+        };
     }
 
     private static IReadOnlyList<PackageConsumerCandidatePackage> InspectCandidates(
@@ -909,10 +967,30 @@ public sealed class PackageConsumerSmokeRunner
         }
     }
 
-    private static PackageConsumerGeneratedSourceReport InspectGeneratedSource(string generatedDirectory)
+    internal static PackageConsumerGeneratedSourceReport InspectGeneratedSource(string generatedDirectory)
+    {
+        var targets = RequiredTargetFrameworks
+            .Select(targetFramework => InspectGeneratedSourceTarget(
+                targetFramework,
+                Path.Combine(generatedDirectory, targetFramework)))
+            .ToArray();
+        return new PackageConsumerGeneratedSourceReport(
+            targets.All(static target => target.MutableModelFound),
+            targets.All(static target => target.DatabaseFound),
+            targets.SelectMany(static target => target.MatchingFiles)
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .ToArray())
+        {
+            TargetFrameworks = targets
+        };
+    }
+
+    private static PackageConsumerGeneratedSourceTargetReport InspectGeneratedSourceTarget(
+        string targetFramework,
+        string generatedDirectory)
     {
         if (!Directory.Exists(generatedDirectory))
-            return new PackageConsumerGeneratedSourceReport(false, false, []);
+            return new PackageConsumerGeneratedSourceTargetReport(targetFramework, false, false, []);
 
         var mutableFound = false;
         var databaseFound = false;
@@ -929,7 +1007,8 @@ public sealed class PackageConsumerSmokeRunner
             matches.Add(Path.GetFullPath(path));
         }
 
-        return new PackageConsumerGeneratedSourceReport(
+        return new PackageConsumerGeneratedSourceTargetReport(
+            targetFramework,
             mutableFound,
             databaseFound,
             matches.Order(StringComparer.OrdinalIgnoreCase).ToArray());
@@ -1230,8 +1309,25 @@ public sealed class PackageConsumerSmokeRunner
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             Converters = { new JsonStringEnumConverter() }
         };
-        File.WriteAllText(Path.Combine(report.ReportDirectory, "report.json"), JsonSerializer.Serialize(report, jsonOptions), Encoding.UTF8);
-        File.WriteAllText(Path.Combine(report.ReportDirectory, "report.md"), ToMarkdown(report), Encoding.UTF8);
+        var jsonPath = Path.Combine(report.ReportDirectory, "report.json");
+        var markdownPath = Path.Combine(report.ReportDirectory, "report.md");
+        var suffix = Guid.NewGuid().ToString("N");
+        var jsonTempPath = Path.Combine(report.ReportDirectory, $".report-{suffix}.json.tmp");
+        var markdownTempPath = Path.Combine(report.ReportDirectory, $".report-{suffix}.md.tmp");
+        try
+        {
+            File.WriteAllText(markdownTempPath, ToMarkdown(report), new UTF8Encoding(false));
+            File.WriteAllText(jsonTempPath, JsonSerializer.Serialize(report, jsonOptions), new UTF8Encoding(false));
+            File.Move(markdownTempPath, markdownPath);
+            File.Move(jsonTempPath, jsonPath);
+        }
+        finally
+        {
+            if (File.Exists(markdownTempPath))
+                File.Delete(markdownTempPath);
+            if (File.Exists(jsonTempPath))
+                File.Delete(jsonTempPath);
+        }
     }
 
     private static void TryWriteExceptionLog(string logsDirectory, Exception exception)

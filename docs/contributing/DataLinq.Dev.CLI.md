@@ -274,7 +274,11 @@ dotnet run --project DataLinq.Dev.CLI -- package-smoke --package-dir artifacts/n
 dotnet run --project DataLinq.Dev.CLI -- package-smoke --package-dir artifacts/nuget-release/0.9.0-preview.N --version 0.9.0-preview.N --output artifacts/release/v0.9/0.9.0-preview.N/packages/consumer-smoke --format markdown
 ```
 
-`--package-dir` and `--version` are required. `--output` must name a missing or empty directory; when omitted, the command creates a unique directory under `artifacts/dev/package-smoke/`. Candidate, fixture, and output paths must not traverse reparse points, and output cannot equal or sit below either source directory. Once those path preconditions pass, the command retains `report.json` and `report.md` using schema `v0.9.package-consumer-smoke-report.v1`; a hard finding returns exit code `1`.
+`--package-dir` and `--version` are required. The version must be one valid exact package version. `--output` must name a missing or empty directory; when omitted, the command creates a unique directory under `artifacts/dev/package-smoke/`. Candidate, fixture, and output paths must not traverse reparse points, and output cannot equal or sit below either source directory.
+
+New reports use outer schema `v0.9.package-consumer-smoke-report.v2`; the fixture's deliberately small execution payload remains `v0.9.package-consumer-execution.v1`. The report records start/completion time, outcome, process exit, whether the complete five-command invocation ran, candidate and restored-package SHA-256 identities, one generated-source result for each of net8/net9/net10, command logs, and report paths. Markdown is promoted before JSON, making `report.json` the completion marker. A failed or incomplete invocation returns exit code `1`.
+
+This command assumes a trusted developer-controlled release machine. Its purpose is to catch wrong versions, stale or mixed package candidates, restore drift, build failures, missing generated output, and consumer regressions. It is not intended to defend against a malicious local process changing the SDK, environment, filesystem, or artifacts during execution. Stronger supply-chain guarantees belong in a controlled signed CI release workflow, not in this local smoke runner.
 
 The tracked fixture lives under `test-infra/package-consumer`, outside `src`, and has no project references. It directly references exact bracketed versions of `DataLinq`, `DataLinq.Memory`, `DataLinq.SQLite`, and `DataLinq.MySql`. The direct core reference is deliberate: the provider packages exclude transitive build/analyzer assets, while the core package owns `DataLinq.Generators` and its analyzer dependencies.
 
@@ -286,7 +290,7 @@ The smoke fails closed unless all of these hold:
 - NuGet source mapping restricts `DataLinq*` to the selected candidate directory while external dependencies use NuGet.org
 - the one pinned `project.assets.json` records only the generated configuration and isolated package cache, has no fallback folder or project library, covers `net8.0`, `net9.0`, and `net10.0`, and resolves all four DataLinq packages as packages at the exact version
 - each restored DataLinq package records the selected local source and its cached `.nupkg` SHA-256 matches the selected candidate
-- all three supported target frameworks build and emitted compiler-generated source contains the expected generated database and mutable row
+- all three supported target frameworks build and each TFM's emitted compiler-generated source contains the expected generated database and mutable row
 - the net10 executable passes generated-model Memory seed/find/query, real shared-cache in-memory SQLite create/insert/query, and the MySQL public-surface compilation probe; the summary reports success only after the runner validates the exit code, schema, framework, and exact payload rather than trusting the fixture's aggregate bit
 
 This is package-consumer evidence, not packaged Native AOT, trimming, or browser evidence. Run `package-report` against the same fresh candidate first, then run package-backed `size-report --target v0.9 --package-dir ... --version ...` for the separate constrained-runtime gate.

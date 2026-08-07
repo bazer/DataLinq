@@ -49,6 +49,7 @@ The important current limitations are equally real:
 6. Keep memory semantics explicit; memory is not SQL emulation.
 7. Measure before adding caches or claiming performance wins.
 8. Select at most one optional stretch after required release evidence is green.
+9. Treat release evidence as protection against ordinary candidate mix-ups and incomplete runs; do not turn local tooling into a hostile-machine attestation system.
 
 ## 0.9 Decision
 

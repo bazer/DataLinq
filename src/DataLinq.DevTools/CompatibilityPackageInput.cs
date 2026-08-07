@@ -283,7 +283,7 @@ public static class CompatibilityPackageInputInspector
                !fileName.EndsWith(".symbols.nupkg", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsValidPackageVersion(string version)
+    public static bool IsValidPackageVersion(string version)
     {
         if (string.IsNullOrWhiteSpace(version) || !version.Equals(version.Trim(), StringComparison.Ordinal))
             return false;

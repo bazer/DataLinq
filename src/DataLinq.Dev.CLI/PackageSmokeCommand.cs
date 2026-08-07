@@ -42,12 +42,16 @@ internal static class PackageSmokeCommand
 
         command.SetAction(parseResult =>
         {
+            var format = NormalizeFormat(parseResult.GetValue(formatOption));
             var packageDirectory = ResolvePath(
                 settings.RepositoryRoot,
                 parseResult.GetValue(packageDirOption));
             var version = parseResult.GetValue(versionOption);
-            if (string.IsNullOrWhiteSpace(version))
-                throw new InvalidOperationException("--version must specify an exact package candidate version.");
+            if (string.IsNullOrWhiteSpace(version) ||
+                !CompatibilityPackageInputInspector.IsValidPackageVersion(version))
+            {
+                throw new InvalidOperationException("--version must specify a valid exact package candidate version.");
+            }
 
             var outputValue = parseResult.GetValue(outputOption);
             var outputDirectory = string.IsNullOrWhiteSpace(outputValue)
@@ -63,19 +67,17 @@ internal static class PackageSmokeCommand
             var runner = new PackageConsumerSmokeRunner(settings.Paths, options);
             var report = runner.CreateReport();
 
-            Render(report, parseResult.GetValue(formatOption));
-            return report.Summary.HasHardFailures ? 1 : 0;
+            Render(report, format);
+            return report.OverallExitCode;
         });
 
         return command;
     }
 
-    private static void Render(PackageConsumerSmokeReport report, string? format)
+    private static void Render(PackageConsumerSmokeReport report, string format)
     {
-        switch (format?.Trim().ToLowerInvariant())
+        switch (format)
         {
-            case null:
-            case "":
             case "summary":
                 RenderSummary(report);
                 break;
@@ -93,7 +95,7 @@ internal static class PackageSmokeCommand
 
     private static void RenderSummary(PackageConsumerSmokeReport report)
     {
-        if (report.Summary.HasHardFailures)
+        if (report.OverallExitCode != 0)
         {
             AnsiConsole.MarkupLine("[red]FAIL[/] package smoke");
         }
@@ -106,6 +108,8 @@ internal static class PackageSmokeCommand
             $"[grey]Report JSON:[/] {Markup.Escape(Path.Combine(report.ReportDirectory, "report.json"))}");
         AnsiConsole.MarkupLine(
             $"[grey]Report Markdown:[/] {Markup.Escape(Path.Combine(report.ReportDirectory, "report.md"))}");
+        AnsiConsole.MarkupLine($"[grey]Outcome:[/] {Markup.Escape(report.Outcome.ToString())}");
+        AnsiConsole.MarkupLine($"[grey]Complete invocation:[/] {report.IsCompleteForInvocation}");
     }
 
     private static string ResolvePath(string repositoryRoot, string? path)
@@ -123,4 +127,15 @@ internal static class PackageSmokeCommand
             artifactRoot,
             "package-smoke",
             $"{DateTime.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N}");
+
+    private static string NormalizeFormat(string? format)
+    {
+        var normalized = string.IsNullOrWhiteSpace(format)
+            ? "summary"
+            : format.Trim().ToLowerInvariant();
+        return normalized is "summary" or "markdown" or "json"
+            ? normalized
+            : throw new InvalidOperationException(
+                $"Unsupported package smoke format '{format}'. Use summary, markdown, or json.");
+    }
 }

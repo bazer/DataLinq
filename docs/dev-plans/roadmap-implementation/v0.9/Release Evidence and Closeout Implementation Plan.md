@@ -66,7 +66,7 @@ The repository has good 0.8 release tooling, but it does not yet prove the 0.9 r
 | Compatibility reporting | `CompatibilityTargetCatalog` exposes both the historical/default `phase8c` set and the eight-target `v0.9` set. Newly generated reports use schema `v0.9.compatibility-size-report.v6` and record resolved invocation/strict intent, timing, outcome/completeness/review/validity, guarded artifact paths and hashes, exact package inputs/aggregate and end-of-run stability, per-target archive/cache/extracted-file provenance, isolated candidate scratch/cache, checkout start/end state, and entry/DevTools assembly revision plus clean-build attestation. | **Complete for RE-1C / W10 steps 4-5 infrastructure and the RE-1H-D tooling checkpoint.** Preserve historical v2 and v5 artifacts and dated checkpoint descriptions without relabeling them; repeat the new strict exact-package contract against the final RC. |
 | Packing | `publish-nuget.ps1` now packs six public packages, including the separate preview `DataLinq.Memory`, rejects non-empty output, and honors an explicit candidate through `MinVerVersionOverride`. | **Complete for W10 step 1 / RE-1D.** Keep Memory separate from core and retain the exact fresh-directory/version checks. |
 | Package inspection | `package-report` preserves the fail-closed six-public/four-runtime package policy and now emits schema `v0.9.package-inspection-report.v4` with resolved invocation, timing, outcome/completeness, artifact paths, per-package-and-symbol archive hashes, path-independent candidate identity, exact version/commit/stability, structured failures, and clean checkout/runner/candidate attestation. | **Complete for W10 step 2 / RE-1D policy and the RE-1H-B tooling checkpoint.** Run the strict v4 contract against the final RC; this implementation checkpoint is not aggregate RE-4 evidence. |
-| Package consumption | `package-smoke` drives a tracked project-reference-free consumer through an isolated exact-version local restore, net8/net9/net10 builds, generated-source proof, public Memory and SQLite execution, and a MySQL public-surface compilation probe. Schema `v0.9.package-consumer-smoke-report.v1` records candidate hashes, restore provenance, commands, and findings. The aligned `0.9.0-preview.w10.3` package report and consumer report are green. | **Complete for RE-1E at the aligned preview checkpoint.** Repeat against the final RC; do not confuse this with the separate packaged constrained-runtime gate. |
+| Package consumption | `package-smoke` drives a tracked project-reference-free consumer through an isolated exact-version local restore, net8/net9/net10 builds with per-TFM generated-source proof, public Memory and SQLite execution, and a MySQL public-surface compilation probe. Outer schema `v0.9.package-consumer-smoke-report.v2` records timing, outcome/completeness, candidate and restored-package hashes, commands/logs, and report paths; the bounded execution payload remains v1. | **Complete for RE-1E at the aligned preview and RE-1H-E tooling.** Repeat against the final RC; do not confuse this with the separate packaged constrained-runtime gate. |
 | Public API compatibility | `api-report` now pins ApiCompat 10.0.302, locks exact published 0.8 package bytes and repository provenance, snapshots 33 package surfaces, compares four library packages plus all three CLI tool assets, self-validates inherited package-framework divergences, and records JSON/Markdown/raw evidence. Clean candidate `0.9.0-preview.re1f.2` has zero hard findings after review of 216 compatible diagnostics, three first Memory surfaces, and two exact tracked inherited divergences. | **Complete for RE-1F at the current-development preview checkpoint.** Repeat the exact gate and review against the final RC; generated-source and behavioral compatibility remain separate RE-3 work. |
 | Benchmarks | Existing lanes cover the broad query hot path and provider watchpoints. The `v0.9-query-backend` selector has six focused planning/binding/adapter cases; clean commit `1cb725d4` has a complete two-provider heavy artifact with exact allocations, latency/error, operation counts, telemetry, two marginal minimum-iteration warnings, and retained SQLite-memory adapter noise. The separate `v0.9-memory-read` selector has nine provider-free construction/seed/read/identity/Guid-binding cases; clean commit `24374aa9` has a complete one-provider heavy artifact with exact Memory telemetry, low measured uncertainty, and three minimum-iteration warnings. New numeric/named v3 history/comparison reports record exact scope, raw artifacts/hashes, row identity, review semantics, and runner provenance; strict validity accepts only exact canonical heavy lanes. | **Complete for the current-development W10 step 6 / RE-1G checkpoint and RE-1H-C reporting tooling only.** Repeat both selectors against the final RC, compare retained SQL lanes only where genuinely comparable, disposition legacy-v2 comparisons explicitly, and keep RE-5 execution plus aggregate manifest consumption open. |
 | Documentation closeout | The previous public-documentation audit is implemented/closed and mainly describes the 0.8 surface. | Give 0.9 its own documentation target list and final verification gate. |
@@ -171,7 +171,6 @@ Use one release directory per candidate, for example:
 ```text
 artifacts/release/v0.9/<candidate-or-commit>/
   manifest.md
-  manifest.json
   tests/
   api/
   packages/
@@ -181,23 +180,16 @@ artifacts/release/v0.9/<candidate-or-commit>/
   release-notes.md
 ```
 
-The manifest must record:
+The manifest is a maintainer-owned Markdown checklist, not another verification product. It must record:
 
-- exact candidate/package commit SHA and branch
-- exact runner/tool commit SHA, entry and DevTools assembly informational versions, and their embedded repository commits and build states
-- whether candidate/package and runner/tool commits match; implementation checkpoints may record a transparent difference, but final release evidence remains subject to the single-commit rule below
-- whether the worktree was clean when the authoritative run began and ended, and whether its commit or status changed during the run
-- OS, architecture, .NET SDK, installed workloads, browser, and container-engine versions
-- selected release version and selected stretch, if any
-- every command, exit code, start/end time, and report path
-- test totals per suite and provider target
-- warnings, skipped tests, environment caveats, and their disposition
-- package ids, versions, SHA-256 hashes, aggregate candidate identity, repository commit, target frameworks, and symbol-package presence
-- API comparison baseline and reviewed differences
-- constrained-runtime dependency source, per-target package provenance, sizes, warnings, banned-payload findings, and smoke status
-- benchmark baseline/final artifact pairs and written interpretation
-- documentation build/link-check result
-- unresolved blockers; the valid final count is zero
+- the clean release commit, branch, candidate version, and selected stretch, if any
+- the relevant OS, .NET SDK, browser, and container-engine versions
+- each required command or report path, its exit/result, and test totals where applicable
+- package ids, versions, and SHA-256 hashes for the candidate actually tested
+- API differences, benchmark warnings, skips, and other caveats with their human disposition
+- documentation build/link-check result and unresolved blockers; the valid final blocker count is zero
+
+The release machine is trusted. Evidence work protects against accidental candidate mix-ups, stale reports, partial runs, and undocumented failures. It does not need to resist an attacker who can replace binaries, inject environment variables, race filesystem writes, or alter ignored files during the run. If that threat model becomes relevant, move release production to a controlled signed CI workflow rather than extending the local reporters. `manifest.json`, a manifest composer, cross-report deserializers, and additional per-tool attestation schemas are explicitly out of scope for 0.9.
 
 Do not rely on terminal scrollback as release evidence.
 
@@ -397,9 +389,9 @@ Implemented command:
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Dev.CLI -- package-smoke --package-dir artifacts\nuget-release\v0.9-rc.N --version 0.9.0-rc.N --output artifacts\release\v0.9\<candidate>\packages\consumer-smoke
 ```
 
-The command copies only the strict four-file manifest from `test-infra/package-consumer` into a fresh non-overlapping output root and rejects unexpected source/build files, project-shape additions, and reparse-point traversal. It removes inherited MSBuild/NuGet redirect hooks, disables automatic response and directory imports, pins the assets/extensions/package/config/output roots, and verifies those exact cache/config/no-fallback postconditions in `project.assets.json`. It then applies source mapping, rejects any project library, wrong version, wrong local source, or cached package whose SHA-256 differs from the selected candidate, builds the exact net8/net9/net10 package graph, verifies emitted generated types, and executes the net10 public Memory and real shared-cache in-memory SQLite paths plus a MySQL public-surface compilation probe. The summary trusts only the runner-validated exit/schema/framework/exact payload contract. Red reports return process exit code `1`; JSON and Markdown are always retained when execution reaches reporting.
+The command copies the tracked four-file fixture into a fresh isolated output, restores the exact requested versions from the selected candidate directory, verifies the restored package SHA-256 values, builds net8/net9/net10, checks the expected generated types separately for every TFM, and executes the net10 public Memory and real shared-cache in-memory SQLite paths plus a MySQL public-surface compilation probe. The summary trusts the runner-validated exit/schema/framework/payload contract. Failed or incomplete reports return exit code `1`; Markdown is promoted before JSON so `report.json` is the simple completion marker.
 
-Focused `PackageConsumerSmokeTests` pass `32/32`, the Dev CLI Release build has zero warnings and errors, and the historical `0.9.0-preview.w10.2` acceptance run stays green under deliberately poisoned inherited `ProjectAssetsFile`, `RestoreSources`, and `CustomAfterMicrosoftCommonTargets` values. The deliberate wrong-version run remains red. The aligned `0.9.0-preview.w10.3` candidate, package report at `artifacts/dev/package-report/20260805-184359713`, and consumer report at `artifacts/release/v0.9/0.9.0-preview.w10.3/packages/consumer-smoke` then pass with the exact package/source/hash/TFM/generated/runtime contracts and zero findings. This completes RE-1E for the aligned preview; repeat it for the final RC. Together with the package-backed constrained-runtime checkpoint above, W10 step 5 is complete at the aligned preview, while aggregate RE-4 and final-RC repetition remain open.
+Focused `PackageConsumerSmokeTests` pass `34/34`, the Dev CLI Release build has zero warnings and errors, and the retained `0.9.0-preview.w10.3` candidate passes the real v2 restore/build/run probe with six candidate packages inspected, four exact packages restored, five commands, three generated-source target rows, and zero findings. The dated v1 report remains the aligned-preview RE-1E artifact; v2 is a tooling checkpoint rather than a relabeling of that history. Repeat the v2 command for the final RC. Together with the package-backed constrained-runtime checkpoint above, W10 step 5 is complete at the aligned preview, while aggregate RE-4 and final-RC repetition remain open.
 
 ### RE-1F: Establish public API comparison
 
@@ -475,6 +467,8 @@ This is the first post-foundation Memory baseline, not evidence of a regression 
 
 Where a tool currently emits only human-readable output, add or preserve JSON summaries suitable for the release manifest. Every report should include its schema/version, command inputs, target names, outcome, and artifact paths.
 
+**Scope correction (2026-08-08):** this work stops at useful receipts. The already-implemented A-D reports may retain their richer provenance fields, but 0.9 will not add more hostile-workstation hardening, require every intermediate byte to be attested, or build a machine-enforced manifest consumer. For final closeout, maintainers require the requested command to succeed, verify the intended target scope and package hashes, retain the report/log paths, and review warnings manually.
+
 #### RE-1H-A: Testing CLI manifest output
 
 **Complete for the implementation checkpoint, not aggregate RE-1H.** `DataLinq.Testing.CLI run --summary-json` now emits schema `v0.9.testing-run-summary.v1`. It records the resolved invocation and safe non-secret environment inputs, structured selected targets and resolved suites, expected and observed suite/batch rows, build/test command arguments and UTC timestamps, the validated effective database host used by each server-backed command, legacy-compatible totals and `Targets`, explicit outcomes and completeness, report/raw-log artifact paths, and start/end checkout plus Testing CLI/DevTools runner attestations. The report writer and stale-file invalidation accept destinations only beneath the repository `artifacts` tree; artifact completeness accepts referenced logs only when they are existing regular files beneath that same non-reparse path. Failure details are bounded and credential-redacted, completed rows survive a later batch failure, and a requested report cannot silently reuse an older green file.
@@ -507,6 +501,12 @@ History, baseline, comparison, logs, and raw benchmark outputs are guarded benea
 
 This closes only RE-1H-D tooling. It does not execute W10 step 7, repeat the package-backed constrained-runtime gate for the final RC, consume a report in the final manifest, close aggregate RE-1H/RE-4/W10, close the release candidate, or publish packages.
 
+#### RE-1H-E: Practical package-consumer receipt
+
+**Complete for tooling, not the final-RC run.** `DataLinq.Dev.CLI package-smoke` now emits outer schema `v0.9.package-consumer-smoke-report.v2` while retaining the inner execution schema v1. It records timing, outcome and exit, exact candidate/restored-package SHA-256 identities, five command results and logs, separate net8/net9/net10 generated-source proof, the validated net10 Memory/SQLite/MySQL consumer payload, and report paths. A complete invocation must restore, build all three TFMs, run net10, and retain every command log. Markdown is written before JSON so the JSON file remains the simple completion marker.
+
+This is deliberately the end of package-smoke evidence engineering. Final release confidence comes from running this command against the freshly packed RC from a clean commit and recording its successful report in `manifest.md`, not from adding local-machine tamper resistance.
+
 ### RE-1 acceptance criteria
 
 - **Complete (RE-1A / W10 step 3):** `memory` is a first-class TUnit/Testing CLI lane with separate summary output and exactly-once composite execution
@@ -520,7 +520,7 @@ This closes only RE-1H-D tooling. It does not execute W10 step 7, repeat the pac
 - **Complete for the implementation checkpoint (RE-1H-B / package-report only):** schema v4 records exact package-policy inputs, archive and aggregate identity, candidate/runner provenance, outcome/completeness/artifact paths and structured failures, while strict validity keeps diagnostic passes out of release evidence
 - **Complete for the implementation checkpoint (RE-1H-C / benchmark reports only):** numeric/named v3 history and comparison artifacts record exact canonical scope, operation/tracking/telemetry semantics, referenced artifact hashes, row/input identity, review/exit state, safe atomic paths, and clean runner provenance without treating diagnostic or legacy-v2 comparisons as release evidence
 - **Complete for the implementation checkpoint (RE-1H-D / compatibility size-report only):** schema v6 records resolved constrained-runtime invocation, complete hashed artifacts, outcome/completeness/review/validity, candidate stability, and runner/candidate provenance; strict package-backed validity keeps focused or source-project diagnostics out of release evidence
-- **Open (aggregate RE-1H):** every remaining final tool can write a report path suitable for the evidence manifest, and the final manifest consumes each report fail-closed
+- **Complete at the practical tooling boundary (aggregate RE-1H):** the required test, package, consumer, API, compatibility, and benchmark commands now retain usable reports. Final-RC execution and manual `manifest.md` assembly remain release work, but no additional report schemas or manifest-consumer implementation are required.
 
 ## RE-2: Final Test Matrix
 
@@ -1049,7 +1049,7 @@ The final `manifest.md` should contain a compact table like:
 | Docs | Pass/Fail | path | SHA | SHA | DocFX/link check/site inspection |
 | Release notes | Ready/Not ready | path | SHA | SHA | upgrade notes |
 
-The candidate/package and runner/tool identities are recorded separately even when they match. Every required final row must resolve both identities to the same release commit. If an evidence-only harness or documentation fix changes the commit, rerun the affected gates and update the manifest honestly.
+The final candidate should come from one clean release commit. If a later code or packaging fix changes that commit, rerun the affected gates and update the manifest honestly; documentation-only wording fixes need only their relevant documentation checks.
 
 ### Blocker policy
 

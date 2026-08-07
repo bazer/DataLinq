@@ -177,14 +177,22 @@ public sealed class PackageConsumerSmokeTests
         var summary = root.GetProperty("summary");
         var markdown = File.ReadAllText(markdownPath, Encoding.UTF8);
 
-        await Assert.That(report.SchemaVersion).IsEqualTo("v0.9.package-consumer-smoke-report.v1");
+        await Assert.That(report.SchemaVersion).IsEqualTo("v0.9.package-consumer-smoke-report.v2");
+        await Assert.That(report.Outcome).IsEqualTo(PackageConsumerSmokeOutcome.Failed);
+        await Assert.That(report.IsCompleteForInvocation).IsFalse();
+        await Assert.That(report.OverallExitCode).IsEqualTo(1);
+        await Assert.That(report.StartedAtUtc).IsLessThanOrEqualTo(report.CompletedAtUtc);
+        await Assert.That(report.DurationSeconds).IsGreaterThanOrEqualTo(0);
         await Assert.That(report.Summary.BuildCount).IsEqualTo(0);
         await Assert.That(report.Summary.SuccessfulBuildCount).IsEqualTo(0);
         await Assert.That(report.Summary.RestoreSucceeded).IsFalse();
         await Assert.That(report.Summary.ExecutionSucceeded).IsFalse();
         await Assert.That(report.Summary.GeneratedSourceVerified).IsFalse();
         await Assert.That(root.GetProperty("schemaVersion").GetString())
-            .IsEqualTo("v0.9.package-consumer-smoke-report.v1");
+            .IsEqualTo("v0.9.package-consumer-smoke-report.v2");
+        await Assert.That(root.GetProperty("outcome").GetString()).IsEqualTo("Failed");
+        await Assert.That(root.GetProperty("isCompleteForInvocation").GetBoolean()).IsFalse();
+        await Assert.That(root.GetProperty("overallExitCode").GetInt32()).IsEqualTo(1);
         await Assert.That(root.GetProperty("profile").GetString()).IsEqualTo("Sandbox");
         await Assert.That(root.GetProperty("commands").GetArrayLength()).IsEqualTo(0);
         await Assert.That(summary.GetProperty("requiredPackageCount").GetInt32()).IsEqualTo(4);
@@ -197,6 +205,69 @@ public sealed class PackageConsumerSmokeTests
             .And.Contains("| Resolved package | Version | Local source | SHA-256 match |")
             .And.Contains("## Findings")
             .And.Contains("candidate-required-package-missing");
+        await Assert.That(report.ArtifactPaths).Contains(jsonPath).And.Contains(markdownPath);
+        await Assert.That(Directory.EnumerateFiles(fixture.OutputDirectory, "*.tmp", SearchOption.TopDirectoryOnly))
+            .IsEmpty();
+    }
+
+    [Test]
+    public async Task GeneratedSourceInspection_RequiresEveryTargetFramework()
+    {
+        var root = Path.Combine(
+            AppContext.BaseDirectory,
+            nameof(PackageConsumerSmokeTests),
+            Guid.NewGuid().ToString("N"));
+        try
+        {
+            foreach (var targetFramework in new[] { "net8.0", "net9.0", "net10.0" })
+            {
+                var targetDirectory = Path.Combine(root, targetFramework);
+                Directory.CreateDirectory(targetDirectory);
+                File.WriteAllText(
+                    Path.Combine(targetDirectory, "Mutable.g.cs"),
+                    "partial class MutablePackageConsumerRow { }",
+                    Encoding.UTF8);
+                if (targetFramework != "net10.0")
+                {
+                    File.WriteAllText(
+                        Path.Combine(targetDirectory, "Database.g.cs"),
+                        "partial class PackageConsumerDatabase { }",
+                        Encoding.UTF8);
+                }
+            }
+
+            var incomplete = PackageConsumerSmokeRunner.InspectGeneratedSource(root);
+
+            await Assert.That(incomplete.Passed).IsFalse();
+            await Assert.That(incomplete.TargetFrameworks.Count).IsEqualTo(3);
+            await Assert.That(incomplete.TargetFrameworks[0].Passed).IsTrue();
+            await Assert.That(incomplete.TargetFrameworks[1].Passed).IsTrue();
+            await Assert.That(incomplete.TargetFrameworks[2].Passed).IsFalse();
+
+            File.WriteAllText(
+                Path.Combine(root, "net10.0", "Database.g.cs"),
+                "partial class PackageConsumerDatabase { }",
+                Encoding.UTF8);
+            var complete = PackageConsumerSmokeRunner.InspectGeneratedSource(root);
+
+            await Assert.That(complete.Passed).IsTrue();
+            await Assert.That(complete.TargetFrameworks.All(static target => target.Passed)).IsTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task PackageVersionValidation_RejectsWhitespaceAndMsBuildPropertyInjection()
+    {
+        await Assert.That(CompatibilityPackageInputInspector.IsValidPackageVersion("0.9.0-preview.1")).IsTrue();
+        await Assert.That(CompatibilityPackageInputInspector.IsValidPackageVersion(" 0.9.0")).IsFalse();
+        await Assert.That(CompatibilityPackageInputInspector.IsValidPackageVersion(
+                "0.9.0;ImportDirectoryBuildProps=true"))
+            .IsFalse();
     }
 
     [Test]

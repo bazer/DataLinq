@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DataLinq.DevTools;
 
@@ -7,6 +8,12 @@ public enum PackageConsumerSmokeFindingSeverity
 {
     Warning,
     Error
+}
+
+public enum PackageConsumerSmokeOutcome
+{
+    Passed,
+    Failed
 }
 
 public sealed record PackageConsumerSmokeOptions(
@@ -34,7 +41,22 @@ public sealed record PackageConsumerSmokeReport(
     PackageConsumerExecutionReport? Execution,
     PackageConsumerGeneratedSourceReport GeneratedSource,
     IReadOnlyList<PackageConsumerSmokeFinding> Findings,
-    PackageConsumerSmokeSummary Summary);
+    PackageConsumerSmokeSummary Summary)
+{
+    public DateTimeOffset StartedAtUtc { get; init; }
+
+    public DateTimeOffset CompletedAtUtc { get; init; }
+
+    public double DurationSeconds { get; init; }
+
+    public PackageConsumerSmokeOutcome Outcome { get; init; } = PackageConsumerSmokeOutcome.Failed;
+
+    public bool IsCompleteForInvocation { get; init; }
+
+    public int OverallExitCode { get; init; } = 1;
+
+    public IReadOnlyList<string> ArtifactPaths { get; init; } = [];
+}
 
 public sealed record PackageConsumerCandidatePackage(
     string Id,
@@ -91,6 +113,19 @@ public sealed record PackageConsumerSQLiteExecutionReport(
     IReadOnlyList<int> RowIds);
 
 public sealed record PackageConsumerGeneratedSourceReport(
+    bool MutableModelFound,
+    bool DatabaseFound,
+    IReadOnlyList<string> MatchingFiles)
+{
+    public bool Passed => MutableModelFound && DatabaseFound &&
+                          TargetFrameworks.Count == 3 &&
+                          TargetFrameworks.All(static target => target.Passed);
+
+    public IReadOnlyList<PackageConsumerGeneratedSourceTargetReport> TargetFrameworks { get; init; } = [];
+}
+
+public sealed record PackageConsumerGeneratedSourceTargetReport(
+    string TargetFramework,
     bool MutableModelFound,
     bool DatabaseFound,
     IReadOnlyList<string> MatchingFiles)
