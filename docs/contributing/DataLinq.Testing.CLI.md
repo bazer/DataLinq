@@ -95,7 +95,7 @@ Supported aliases:
 
 If you do not specify a target selection for `up`, `wait`, `reset`, or `run`, the default alias is `latest`.
 
-The `generators`, `unit`, and `memory` suites are targetless. They run once even when an alias contains several SQL targets. In summary JSON their target is reported as `-`.
+The `generators`, `unit`, and `memory` suites are targetless. They run once even when an alias contains several SQL targets. In summary JSON the legacy `Targets` field remains `-` for backward compatibility, while `TargetIds` is the authoritative structured field and is empty for targetless runs.
 
 ## Suites
 
@@ -137,13 +137,21 @@ Supported suites:
 - `--tear-down`
   Stops provisioned server targets after the run completes.
 - `--summary-json`
-  Writes a machine-readable run summary JSON file.
+  Writes a machine-readable run summary using schema `v0.9.testing-run-summary.v1`.
 - `--output quiet|summary|failures|raw`
   Controls run output shape.
 - `--profile repo|sandbox|ci`
   Controls the repo-local execution profile used when invoking `dotnet`.
 
-`--project` cannot be combined with `--suite all`. That combination is nonsense, and the CLI rejects it.
+`--project` cannot be combined with `--suite all`. That combination is nonsense, and the CLI rejects it. `--interactive` cannot be combined with `--summary-json`.
+
+### Summary JSON evidence contract
+
+The versioned summary records the resolved invocation, safe non-secret environment inputs, structured selected targets and resolved suites, expected-versus-observed suite/batch rows, build and test command arguments with UTC timestamps, totals and outcomes, report and raw-log artifact paths, and start/end checkout plus Testing CLI/DevTools runner attestations. Each server-backed command row records the normalized effective database host resolved from the child environment or current runtime state; missing capture, disagreement with an explicit override, or inconsistent effective hosts makes the invocation incomplete. The report writer and stale-file invalidation accept destinations only beneath `<repo>/artifacts`. `ArtifactsComplete` likewise accepts referenced build/test raw logs only when they exist there as regular files; reparse-point escapes fail closed. Failure details are bounded and credential-redacted. Once parsing has invoked the run action, semantic run-action validation invalidates an older file at the requested path before new output is written, so an interrupted or rejected rerun cannot leave a stale green report behind. `System.CommandLine` syntax and parser failures occur before that action and therefore neither invalidate the old file nor synthesize JSON; evidence consumers must require a successful command exit together with the expected schema and validity gates, never mere file existence.
+
+`Outcome` and `IsCompleteForInvocation` describe the selected invocation. A focused or filtered run can therefore pass and be complete for what it was asked to execute while still having `ValidForEvidence` set to `false`. `ValidForEvidence` is deliberately stricter: it requires a passed, complete, artifact-complete, unfiltered `all`-suite/`all`-target run over the exact five-suite (`generators`, `unit`, `memory`, `compliance`, `mysql`) and six-target (`sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mariadb-10.11`, `mariadb-11.4`, `mariadb-11.8`) release catalog. The reporter reconstructs the expected suite/batch rows from that resolved invocation and requires an exact expected-versus-observed match, with one target per provider-backed result row; it does not trust the aggregate coverage flags alone. Valid evidence also requires a clean checkout whose commit and status remain stable and matching Testing CLI and DevTools assemblies built from that clean commit. Missing counts, expected rows, build records, or referenced logs make the requested summary incomplete or invalid rather than silently producing release evidence.
+
+Provider totals are aggregate within a target batch. Use `--batch-size 1` for the authoritative release matrix so each provider-backed result row has exactly one `TargetIds` entry and `HasPerTargetProviderTotals` is true. Warnings and skipped tests still require the separate dispositions defined by the release plan; `ValidForEvidence` does not waive that review.
 
 The active suites run on TUnit and Microsoft.Testing.Platform, so this is not the old VSTest `FullyQualifiedName~Foo` filter grammar. Use the TUnit tree-node shape:
 

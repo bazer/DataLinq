@@ -85,7 +85,7 @@ jobs:
         run: dotnet run --project src/DataLinq.Dev.CLI -- build src/DataLinq.sln --profile ci
 
       - name: Run full matrix suite set
-        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll run --suite all --alias all --batch-size 2 --summary-json artifacts/ci/full-matrix-summary.json
+        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll run --suite all --alias all --batch-size 1 --summary-json artifacts/ci/full-matrix-summary.json
 
       - name: Update full matrix test count badge data
         if: success()
@@ -93,19 +93,205 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import ipaddress
           from pathlib import Path
 
           summary_path = Path("artifacts/ci/full-matrix-summary.json")
           badge_path = Path("artifacts/ci/full-matrix-tests.json")
 
           summary = json.loads(summary_path.read_text(encoding="utf-8"))
+          expected = {
+              "SchemaVersion": "v0.9.testing-run-summary.v1",
+              "Outcome": "Passed",
+              "OverallExitCode": 0,
+              "CountsComplete": True,
+              "IsCompleteForInvocation": True,
+              "ArtifactsComplete": True,
+              "IsFullMatrixInvocation": True,
+              "HasPerTargetProviderTotals": True,
+              "ValidForEvidence": True,
+          }
+          mismatches = {
+              key: {"expected": value, "actual": summary.get(key)}
+              for key, value in expected.items()
+              if type(summary.get(key)) is not type(value) or summary.get(key) != value
+          }
+          if mismatches:
+              raise SystemExit(f"full-matrix summary is not valid evidence: {mismatches}")
+
+          invocation = summary.get("Invocation")
+          if not isinstance(invocation, dict):
+              raise SystemExit("full-matrix summary has no structured Invocation")
+          invocation_expected = {
+              "Command": "run",
+              "Alias": "all",
+              "Suite": "all",
+              "ProjectPath": None,
+              "Filter": None,
+              "BatchSize": 1,
+              "IncludesAllSuites": True,
+              "IncludesAllTargets": True,
+              "IsUnfiltered": True,
+          }
+          invocation_mismatches = {
+              key: {"expected": value, "actual": invocation.get(key)}
+              for key, value in invocation_expected.items()
+              if type(invocation.get(key)) is not type(value) or invocation.get(key) != value
+          }
+          if invocation_mismatches:
+              raise SystemExit(f"full-matrix invocation mismatch: {invocation_mismatches}")
+
+          canonical_suites = {
+              "generators": (False, False, "src/DataLinq.Generators.Tests/DataLinq.Generators.Tests.csproj"),
+              "unit": (False, False, "src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj"),
+              "memory": (False, False, "src/DataLinq.Tests.Memory/DataLinq.Tests.Memory.csproj"),
+              "compliance": (True, True, "src/DataLinq.Tests.Compliance/DataLinq.Tests.Compliance.csproj"),
+              "mysql": (True, False, "src/DataLinq.Tests.MySql/DataLinq.Tests.MySql.csproj"),
+          }
+          suites = invocation.get("ResolvedSuites")
+          if not isinstance(suites, list) or len(suites) != len(canonical_suites):
+              raise SystemExit("full-matrix summary has incomplete suite membership")
+          seen_suites = set()
+          for suite in suites:
+              if not isinstance(suite, dict) or not isinstance(suite.get("Name"), str):
+                  raise SystemExit("full-matrix summary has malformed suite metadata")
+              name = suite["Name"]
+              if name in seen_suites or name not in canonical_suites:
+                  raise SystemExit(f"full-matrix summary has unexpected/duplicate suite: {name!r}")
+              seen_suites.add(name)
+              uses_batches, includes_sqlite, relative_project = canonical_suites[name]
+              actual_shape = (suite.get("UsesTargetBatches"), suite.get("IncludeSqliteTargets"))
+              if any(type(value) is not bool for value in actual_shape) or actual_shape != (uses_batches, includes_sqlite):
+                  raise SystemExit(f"full-matrix suite shape mismatch for {name}: {actual_shape!r}")
+              project = suite.get("ProjectPath")
+              if not isinstance(project, str) or not project.replace("\\", "/").endswith(relative_project):
+                  raise SystemExit(f"full-matrix suite project mismatch for {name}: {project!r}")
+
+          canonical_targets = {
+              "sqlite-file": (False, None),
+              "sqlite-memory": (False, None),
+              "mysql-8.4": (True, 13307),
+              "mariadb-10.11": (True, 13310),
+              "mariadb-11.4": (True, 13309),
+              "mariadb-11.8": (True, 13308),
+          }
+          targets = invocation.get("SelectedTargets")
+          if not isinstance(targets, list) or len(targets) != len(canonical_targets):
+              raise SystemExit("full-matrix summary has incomplete target membership")
+          seen_targets = set()
+          for target in targets:
+              if not isinstance(target, dict) or not isinstance(target.get("Id"), str):
+                  raise SystemExit("full-matrix summary has malformed target metadata")
+              target_id = target["Id"]
+              if target_id in seen_targets or target_id not in canonical_targets:
+                  raise SystemExit(f"full-matrix summary has unexpected/duplicate target: {target_id!r}")
+              seen_targets.add(target_id)
+              uses_podman, host_port = canonical_targets[target_id]
+              if type(target.get("UsesPodman")) is not bool or target["UsesPodman"] != uses_podman:
+                  raise SystemExit(f"full-matrix target runtime mismatch for {target_id}")
+              if type(target.get("HostPort")) is not type(host_port) or target.get("HostPort") != host_port:
+                  raise SystemExit(f"full-matrix target port mismatch for {target_id}")
+
+          expected_rows = summary.get("ExpectedResults")
+          result_rows = summary.get("Results")
+          if not isinstance(expected_rows, list) or not isinstance(result_rows, list):
+              raise SystemExit("full-matrix summary has no structured expected/result rows")
+          def row_key(row):
+              if not isinstance(row, dict) or not isinstance(row.get("TargetIds"), list):
+                  raise SystemExit(f"malformed full-matrix row: {row!r}")
+              if any(not isinstance(target_id, str) for target_id in row["TargetIds"]):
+                  raise SystemExit(f"non-string target id in row: {row!r}")
+              suite = row.get("Suite")
+              if not isinstance(suite, str) or suite not in canonical_suites:
+                  raise SystemExit(f"unknown suite in full-matrix row: {row!r}")
+              project = row.get("ProjectPath")
+              relative_project = canonical_suites[suite][2]
+              if not isinstance(project, str) or not project.replace("\\", "/").endswith(relative_project):
+                  raise SystemExit(f"full-matrix row project mismatch for {suite}: {project!r}")
+              batch_index = row.get("BatchIndex")
+              if row["TargetIds"]:
+                  if type(batch_index) is not int or batch_index < 1:
+                      raise SystemExit(f"invalid provider batch index in row: {row!r}")
+              elif batch_index is not None:
+                  raise SystemExit(f"targetless row has a batch index: {row!r}")
+              return suite, batch_index, tuple(row["TargetIds"]), project.replace("\\", "/").casefold()
+          expected_keys = [row_key(row) for row in expected_rows]
+          result_keys = [row_key(row) for row in result_rows]
+          if len(set(expected_keys)) != len(expected_keys) or sorted(expected_keys, key=repr) != sorted(result_keys, key=repr):
+              raise SystemExit("full-matrix expected/result row coverage differs")
+          expected_coverage = {(suite, batch_index, target_ids) for suite, batch_index, target_ids, _ in expected_keys}
+          targetless_keys = {(suite, None, ()) for suite in ("generators", "unit", "memory")}
+          compliance_keys = {("compliance", index + 1, (target_id,)) for index, target_id in enumerate(
+              target["Id"] for target in targets
+          )}
+          server_ids = [target["Id"] for target in targets if target["UsesPodman"]]
+          mysql_keys = {("mysql", index + 1, (target_id,)) for index, target_id in enumerate(server_ids)}
+          canonical_keys = targetless_keys | compliance_keys | mysql_keys
+          if expected_coverage != canonical_keys or len(expected_keys) != len(canonical_keys):
+              raise SystemExit(f"full-matrix rows do not match canonical coverage: {expected_keys!r}")
+
+          resolved_hosts = set()
+          for row in result_rows:
+              environment = row.get("Environment")
+              if not isinstance(environment, dict):
+                  raise SystemExit("full-matrix result has no safe command environment")
+              target_ids = row["TargetIds"]
+              is_target_batch = bool(target_ids)
+              uses_database = any(canonical_targets[target_id][0] for target_id in target_ids)
+              bool_contract = {
+                  "UsesDatabaseHost": uses_database,
+                  "DatabaseHostCaptured": uses_database,
+                  "UsesExplicitTargetSet": is_target_batch,
+                  "TargetAliasCleared": True,
+              }
+              bad_environment = {
+                  key: {"expected": value, "actual": environment.get(key)}
+                  for key, value in bool_contract.items()
+                  if type(environment.get(key)) is not bool or environment.get(key) != value
+              }
+              if bad_environment or environment.get("TargetIds") != target_ids:
+                  raise SystemExit(f"full-matrix command environment mismatch: {bad_environment!r}")
+              host = environment.get("DatabaseHost")
+              if uses_database:
+                  if not isinstance(host, str):
+                      raise SystemExit("server-backed result has no resolved database host")
+                  if host != "localhost":
+                      try:
+                          ipaddress.ip_address(host)
+                      except ValueError as error:
+                          raise SystemExit(f"unsafe database host in report: {host!r}") from error
+                  resolved_hosts.add(host)
+              elif host is not None:
+                  raise SystemExit("non-server result unexpectedly records a database host")
+          if len(resolved_hosts) != 1:
+              raise SystemExit(f"full-matrix server rows disagree on database host: {resolved_hosts!r}")
+
           total = summary.get("Total")
+          if not isinstance(total, int) or isinstance(total, bool) or total <= 0:
+              raise SystemExit(f"full-matrix summary has invalid Total: {total!r}")
+          aggregate_counts = {name: summary.get(name) for name in ("Passed", "Failed", "Skipped")}
+          if any(not isinstance(value, int) or isinstance(value, bool) or value < 0 for value in aggregate_counts.values()):
+              raise SystemExit(f"full-matrix summary has invalid aggregate counts: {aggregate_counts!r}")
+          if total != sum(aggregate_counts.values()) or aggregate_counts["Failed"] != 0:
+              raise SystemExit(f"full-matrix aggregate counts do not reconcile: {aggregate_counts!r}")
+          row_totals = {name: 0 for name in ("Total", "Passed", "Failed", "Skipped")}
+          for row in result_rows:
+              counts = {name: row.get(name) for name in row_totals}
+              if any(not isinstance(value, int) or isinstance(value, bool) or value < 0 for value in counts.values()):
+                  raise SystemExit(f"full-matrix row has invalid counts: {counts!r}")
+              if counts["Total"] <= 0 or counts["Total"] != counts["Passed"] + counts["Failed"] + counts["Skipped"]:
+                  raise SystemExit(f"full-matrix row counts do not reconcile: {counts!r}")
+              for name, value in counts.items():
+                  row_totals[name] += value
+          expected_totals = {"Total": total, **aggregate_counts}
+          if row_totals != expected_totals:
+              raise SystemExit(f"full-matrix row/aggregate counts differ: {row_totals!r} != {expected_totals!r}")
 
           badge = {
               "schemaVersion": 1,
               "label": "full matrix tests",
-              "message": str(total) if total is not None else "unknown",
-              "color": "brightgreen" if total is not None else "lightgrey"
+              "message": str(total),
+              "color": "brightgreen"
           }
 
           badge_path.parent.mkdir(parents=True, exist_ok=True)

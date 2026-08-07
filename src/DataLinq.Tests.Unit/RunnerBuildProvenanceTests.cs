@@ -15,6 +15,7 @@ public sealed class RunnerBuildProvenanceTests
     [Test]
     [Arguments("DataLinq.DevTools", "RunnerBuildProvenance.targets")]
     [Arguments("DataLinq.Dev.CLI", @"..\DataLinq.DevTools\RunnerBuildProvenance.targets")]
+    [Arguments("DataLinq.Testing.CLI", @"..\DataLinq.DevTools\RunnerBuildProvenance.targets")]
     public async Task RunnerProject_ImportsBuildProvenanceTarget(
         string projectName,
         string expectedImport)

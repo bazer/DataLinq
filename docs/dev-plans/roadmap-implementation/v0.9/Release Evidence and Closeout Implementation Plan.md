@@ -3,7 +3,7 @@
 
 # 0.9 Release Evidence And Closeout Implementation Plan
 
-**Status:** Accepted. The bounded W8 project-reference Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A Testing CLI registration, W10 step 4 / RE-1C compatibility reporting, RE-1E aligned package-consumer evidence, the current-development RE-1F public-API checkpoint, W10 step 5—the source-project and exact-package eight-target matrices—and the current-development W10 step 6 / RE-1G focused benchmark lanes are implemented and green. The query selector has six isolated planning/binding/adapter cases and a clean heavy checkpoint; the provider-free Memory selector has nine construction/seed/read/identity/Guid-binding cases, Memory-specific telemetry, and its own clean heavy checkpoint. Neither focused lane has a true pre-foundation equivalent; that limitation is explicit. Aggregate M1/M2 remain open; the current profiles are Memory `57`, catalog `616`, and SQL `358` supported / `258` unsupported. RE-1H, W10 steps 7-9, RE-5 final benchmark comparison, aggregate RE-1/RE-4/W10/W11, final-RC repetition of the package, consumer, API, and constrained-runtime gates, final release-candidate closeout, and publication remain open.
+**Status:** Accepted. The bounded W8 project-reference Memory constrained-runtime graph, SC-6A canonical-`Guid` equality island, D5-B local package promotion, aggregate M0, bounded M1-A exact non-null inequality, bounded M1-B exact Boolean composition, bounded M1-C exact non-null `Int32` relational comparison, bounded M1-D exact local `Int32` membership, bounded M1-E exact ordered final `Skip`, bounded M1-F exact `Single`/`SingleOrDefault`, bounded M1-G exact ordered `Skip`/`Take` window, bounded M1-H exact ordered `First`/`FirstOrDefault`, W10 steps 1-2 / RE-1D package-tool integration, W10 step 3 / RE-1A Testing CLI registration, W10 step 4 / RE-1C compatibility reporting, RE-1E aligned package-consumer evidence, the current-development RE-1F public-API checkpoint, W10 step 5 (the source-project and exact-package eight-target matrices), the current-development W10 step 6 / RE-1G focused benchmark lanes, and the RE-1H-A Testing CLI manifest-output implementation checkpoint are implemented and green. The query selector has six isolated planning/binding/adapter cases and a clean heavy checkpoint; the provider-free Memory selector has nine construction/seed/read/identity/Guid-binding cases, Memory-specific telemetry, and its own clean heavy checkpoint. Neither focused lane has a true pre-foundation equivalent; that limitation is explicit. Aggregate M1/M2 remain open; the current profiles are Memory `57`, catalog `616`, and SQL `358` supported / `258` unsupported. Aggregate RE-1H, W10 steps 7-9, RE-5 final benchmark comparison, aggregate RE-1/RE-4/W10/W11, final-RC repetition of the package, consumer, API, and constrained-runtime gates, final release-candidate closeout, and publication remain open.
 
 **Target release:** DataLinq 0.9.
 
@@ -475,6 +475,14 @@ This is the first post-foundation Memory baseline, not evidence of a regression 
 
 Where a tool currently emits only human-readable output, add or preserve JSON summaries suitable for the release manifest. Every report should include its schema/version, command inputs, target names, outcome, and artifact paths.
 
+#### RE-1H-A: Testing CLI manifest output
+
+**Complete for the implementation checkpoint, not aggregate RE-1H.** `DataLinq.Testing.CLI run --summary-json` now emits schema `v0.9.testing-run-summary.v1`. It records the resolved invocation and safe non-secret environment inputs, structured selected targets and resolved suites, expected and observed suite/batch rows, build/test command arguments and UTC timestamps, the validated effective database host used by each server-backed command, legacy-compatible totals and `Targets`, explicit outcomes and completeness, report/raw-log artifact paths, and start/end checkout plus Testing CLI/DevTools runner attestations. The report writer and stale-file invalidation accept destinations only beneath the repository `artifacts` tree; artifact completeness accepts referenced logs only when they are existing regular files beneath that same non-reparse path. Failure details are bounded and credential-redacted, completed rows survive a later batch failure, and a requested report cannot silently reuse an older green file.
+
+`Outcome` and `IsCompleteForInvocation` describe the selected invocation, so a focused run may pass without becoming release evidence. `ValidForEvidence` is deliberately stricter: it revalidates the exact canonical five-suite/six-target release catalog, reconstructs the expected suite/batch coverage from the resolved invocation, and requires an exact observed match for a passed and complete unfiltered all-suite/all-target run. Complete referenced artifacts, one target per provider-backed result row, a clean checkout whose commit and status remain stable, and matching Testing CLI and DevTools assemblies built from that clean commit are also required. The final recipe therefore uses `--batch-size 1`; larger provider batches expose structured target membership but only aggregate counts and cannot satisfy the manifest's per-provider-total requirement.
+
+This closes only the Testing CLI portion of RE-1H. Remaining final command/report surfaces still require the aggregate audit and manifest integration below, while W10 step 7, the authoritative final-RC matrix, and release closeout remain open.
+
 ### RE-1 acceptance criteria
 
 - **Complete (RE-1A / W10 step 3):** `memory` is a first-class TUnit/Testing CLI lane with separate summary output and exactly-once composite execution
@@ -484,7 +492,8 @@ Where a tool currently emits only human-readable output, add or preserve JSON su
 - **Complete (RE-1E at aligned preview):** a fresh exact-version local package-consumer smoke exists and has passed against the candidate used by the package-backed constrained-runtime matrix
 - **Complete (RE-1F at current-development preview):** a clean exact-package 0.8-to-0.9 public API report exists with zero hard failures, every additive/new-package finding reviewed, and both inherited per-TFM divergences proven and dispositioned; repeat it against the final RC
 - **Complete with explicit limitation (RE-1G / current-development W10 step 6):** retained broad SQL before-state artifacts and clean focused post-foundation query/Memory heavy checkpoints exist; no true pre-foundation focused query or Memory artifact exists, and RE-5 owns both focused selectors' final-RC repetition
-- every final tool can write a report path suitable for the evidence manifest
+- **Complete for the implementation checkpoint (RE-1H-A / Testing CLI only):** the versioned Testing CLI summary records the selected invocation, structured target/suite coverage, per-command timing and artifacts, explicit completeness, and strict full-matrix runner evidence without treating focused runs as release evidence
+- **Open (aggregate RE-1H):** every remaining final tool can write a report path suitable for the evidence manifest, and the final manifest consumes each report fail-closed
 
 ## RE-2: Final Test Matrix
 
@@ -558,7 +567,7 @@ Run the complete suite; the registered memory lane is included exactly once in `
 
 ```powershell
 $env:DATALINQ_TEST_DB_HOST='127.0.0.1'
-.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --alias all --batch-size 4 --output failures --summary-json artifacts\release\v0.9\<candidate>\tests\all.json
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --alias all --batch-size 1 --output failures --summary-json artifacts\release\v0.9\<candidate>\tests\all.json
 ```
 
 The loopback environment override is needed for server-backed commands inside the native Windows sandbox. A host-side release run may use the normal resolved server endpoints when they are proven healthy.
