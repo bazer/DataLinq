@@ -1,5 +1,5 @@
 using System;
-using System.Reflection;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using DataLinq.Benchmark.CLI;
@@ -216,31 +216,23 @@ public class BenchmarkCliParsingTests
             }
             """;
 
-        var artifactType = typeof(BenchmarkHarnessRunner).GetNestedType(
-            "BenchmarkTelemetryDeltaArtifact",
-            BindingFlags.NonPublic)!;
-        var artifact = JsonSerializer.Deserialize(legacyJson, artifactType)!;
-
-        var memoryMetricNames = new[]
+        var artifact = JsonSerializer.Deserialize<BenchmarkTelemetryDeltaArtifact>(legacyJson)!;
+        var memoryMetrics = new[]
         {
-            "MemoryDatabasesConstructedPerOperation",
-            "MemoryRowsSeededPerOperation",
-            "MemoryPrimaryKeyRequestsPerOperation",
-            "MemoryPrimaryKeyProbesPerOperation",
-            "MemoryScanRowsVisitedPerOperation",
-            "MemoryPredicateEvaluationsPerOperation",
-            "MemoryPredicateRejectionsPerOperation",
-            "MemoryCacheLookupsPerOperation",
-            "MemoryCacheHitsPerOperation",
-            "MemoryCacheMissesPerOperation",
-            "MemoryMaterializationsPerOperation",
-            "MemoryCacheInsertionsPerOperation"
+            artifact.MemoryDatabasesConstructedPerOperation,
+            artifact.MemoryRowsSeededPerOperation,
+            artifact.MemoryPrimaryKeyRequestsPerOperation,
+            artifact.MemoryPrimaryKeyProbesPerOperation,
+            artifact.MemoryScanRowsVisitedPerOperation,
+            artifact.MemoryPredicateEvaluationsPerOperation,
+            artifact.MemoryPredicateRejectionsPerOperation,
+            artifact.MemoryCacheLookupsPerOperation,
+            artifact.MemoryCacheHitsPerOperation,
+            artifact.MemoryCacheMissesPerOperation,
+            artifact.MemoryMaterializationsPerOperation,
+            artifact.MemoryCacheInsertionsPerOperation
         };
 
-        foreach (var metricName in memoryMetricNames)
-        {
-            var value = (double)artifactType.GetProperty(metricName)!.GetValue(artifact)!;
-            await Assert.That(value).IsEqualTo(0d);
-        }
+        await Assert.That(memoryMetrics.All(static value => value == 0d)).IsTrue();
     }
 }

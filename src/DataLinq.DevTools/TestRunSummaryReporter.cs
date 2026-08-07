@@ -836,7 +836,7 @@ public static class TestRunSummaryReporter
         string.Equals(assembly.Name, expectedName, StringComparison.Ordinal) &&
         string.Equals(assembly.RepositoryBuildState, CleanRepositoryBuildState, StringComparison.Ordinal);
 
-    private static TestRunSummaryRunnerAssembly CaptureRunnerAssembly(Assembly? assembly)
+    public static TestRunSummaryRunnerAssembly CaptureRunnerAssembly(Assembly? assembly)
     {
         if (assembly is null)
             return UnknownRunnerAssembly;

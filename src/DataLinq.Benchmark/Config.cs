@@ -13,6 +13,7 @@ namespace DataLinq.Benchmark;
 internal sealed class DataLinqBenchmarkConfig : ManualConfig
 {
     private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
+    private const string BenchmarkArtifactsDirectoryEnvironmentVariable = "DATALINQ_BENCHMARK_ARTIFACTS_DIR";
 
     public DataLinqBenchmarkConfig()
     {
@@ -27,7 +28,7 @@ internal sealed class DataLinqBenchmarkConfig : ManualConfig
             Column.Gen2);
 
         WithOptions(ConfigOptions.JoinSummary | ConfigOptions.DisableLogFile | ConfigOptions.DisableParallelBuild);
-        WithArtifactsPath(Path.Combine(GetRepositoryRoot(), "artifacts", "benchmarks"));
+        WithArtifactsPath(GetArtifactsPath());
         WithSummaryStyle(SummaryStyle.Default
             .WithTimeUnit(TimeUnit.Microsecond)
             .WithSizeUnit(SizeUnit.KB)
@@ -49,6 +50,27 @@ internal sealed class DataLinqBenchmarkConfig : ManualConfig
 
         throw new DirectoryNotFoundException(
             $"Unable to locate the DataLinq repository root from '{AppContext.BaseDirectory}'.");
+    }
+
+    private static string GetArtifactsPath()
+    {
+        var repositoryRoot = GetRepositoryRoot();
+        var configured = Environment.GetEnvironmentVariable(BenchmarkArtifactsDirectoryEnvironmentVariable);
+        if (string.IsNullOrWhiteSpace(configured))
+            return Path.Combine(repositoryRoot, "artifacts", "benchmarks");
+
+        var fullPath = Path.GetFullPath(configured);
+        var artifactRoot = Path.GetFullPath(Path.Combine(repositoryRoot, "artifacts"));
+        var relativePath = Path.GetRelativePath(artifactRoot, fullPath);
+        if (Path.IsPathRooted(relativePath) ||
+            relativePath.Equals("..", StringComparison.Ordinal) ||
+            relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
+            relativePath.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Benchmark artifacts path '{fullPath}' must remain beneath repository artifacts.");
+        }
+        return fullPath;
     }
 
     private static Job CreateProfileJob()

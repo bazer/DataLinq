@@ -21,4 +21,6 @@
 		<Analyzer Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)\throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
 	</ItemGroup>
 
+	<Import Project="..\DataLinq.DevTools\RunnerBuildProvenance.targets" />
+
 </Project>

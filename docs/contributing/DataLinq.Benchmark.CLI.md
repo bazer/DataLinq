@@ -73,13 +73,15 @@ Important options:
 - `--v09-memory-read`
   Runs only the provider-free v0.9 `DataLinq.Memory` read evidence lane.
 - `--history-json`
-  Writes a stable benchmark history entry JSON artifact.
+  Writes a schema-v3 benchmark history entry beneath the repository `artifacts` tree.
 - `--baseline`
-  Compares the current run against an earlier history JSON artifact.
+  Compares the current run against an existing history artifact beneath the repository `artifacts` tree. Current v3 and structurally valid legacy v1/v2 inputs are readable, but legacy inputs are diagnostic-only.
 - `--comparison-json`
-  Writes a machine-readable comparison artifact.
+  Writes a schema-v3 machine-readable comparison artifact beneath the repository `artifacts` tree. Requires both `--baseline` and `--history-json`.
 - `--warning-threshold-percent`
   Controls the percent regression threshold for comparison warnings.
+- `--release-evidence`
+  Enables the strict release-evidence gate. It requires `--history-json`, fails unless the new history is valid release evidence, and, when `--baseline` is supplied, also requires `--comparison-json` and a release-valid comparison.
 
 Additional BenchmarkDotNet arguments can be passed after `--`.
 
@@ -288,6 +290,35 @@ dotnet run --project DataLinq.Benchmark.CLI -- run
 
 That is the clean way to narrow provider scope for local trend runs or CI-like validation.
 
+## History And Comparison Evidence
+
+New history artifacts use numeric `SchemaVersion` `3` and named `SchemaId` `v0.9.benchmark-history.v3`. New comparison artifacts use numeric `SchemaVersion` `3` and named `SchemaId` `v0.9.benchmark-comparison.v3`. The numeric and named identities must agree; neither “v3” in a filename nor a successful BenchmarkDotNet process is enough.
+
+Every invocation receives a unique `<timestamp>-<guid>` run id and an exclusive raw-artifact root at `artifacts/benchmarks/runs/<run-id>/`. A pre-existing run root is rejected rather than reused. History records the resolved repository/project/assembly/run paths, profile and expected BenchmarkDotNet job, filter, selected category, normalized providers, build/keep/verbose choices, sanitized pass-through arguments, requested report paths, warning threshold, release intent, command arguments/timing/environment/logs, OS and architecture, runtime and logical-processor count, bounded processor identity, the resolved BenchmarkDotNet version from executed output when available or otherwise from the adjacent dependency assembly, expected and observed targets, row completeness, warnings/failure, and checkout plus runner provenance.
+
+The four canonical release-history matrices are exact:
+
+| Selector | Expected methods | Providers | Expected rows | Required operations per invoke |
+| --- | ---: | --- | ---: | --- |
+| `--phase2-watch` | 3 | `sqlite-file`, `sqlite-memory` | 6 | provider initialization `1`; startup PK `1`; warm PK `1000` |
+| `--phase3-query-hotpath` | 3 | `sqlite-file`, `sqlite-memory` | 6 | `1000` for every method |
+| `--v09-query-backend` | 6 | `sqlite-file`, `sqlite-memory` | 12 | `1000` except SQL-adapter scalar `Any` at `3000` |
+| `--v09-memory-read` | 9 | `memory` | 9 | `1` for every method |
+
+Strict history validity requires exactly one of those selectors, `--profile heavy` (`MediumRun`), the default unfiltered `--filter "*"`, the exact provider set above, no `--no-build`, no pass-through BenchmarkDotNet arguments, one complete unique row per expected category/provider/method target, and the exact operation count and selector tracking group for every row. Each row must also carry its real non-`other` scenario category, runtime/job/toolchain identity, finite measurement/allocation data, and a matching complete nonnegative telemetry delta. A focused, filtered, smoke/default-profile, provider-subset, no-build, or pass-through invocation may still be a successful diagnostic run, but it is not release evidence.
+
+`Outcome` and `IsCompleteForInvocation` describe the requested run. `ArtifactsComplete` describes its persisted raw evidence. `ValidForEvidence` is the stricter conjunction of canonical scope, completeness, artifacts, safe paths, and provenance. A complete run may therefore be `Passed` or `ReviewRequired` while `ValidForEvidence` is `false`. Without `--release-evidence`, a complete diagnostic run and a comparable diagnostic comparison exit successfully; incomplete/error history and non-comparable/error comparison exit unsuccessfully. With `--release-evidence`, any invalid requested history or comparison makes the command fail. `ReviewRequired` remains a review gate rather than an automatic execution failure: warnings and changed telemetry must be dispositioned even when the strict artifact is otherwise valid.
+
+History warnings retain bounded sanitized BenchmarkDotNet warnings and add selector-specific telemetry-shape review when a canonical method lacks its expected workload signal. Comparisons require matching profile/filter/target identity. Current-v3 pairs additionally require matching OS, architecture, runtime, logical-processor count, processor identity, BenchmarkDotNet version, selector, expected job, provider set, expected targets, row category, tracking group, operations per invoke, JIT, platform, and toolchain. Per-row latency, allocation, and telemetry statuses are separate. Timing at or above `20%` recorded noise is labeled `noisy`, but that suppresses only the latency verdict: an allocation regression at the configured threshold is still a `warning`, and exact telemetry changes still require review.
+
+History artifact references cover the summary JSON, BenchmarkDotNet CSV/Markdown, one telemetry JSON per row, and every restore/build/benchmark log. Each reference records absolute and repository-relative path, byte length, and SHA-256; `RowAggregateSha256` gives the normalized row set a path-independent identity. Comparison artifacts retain baseline/candidate path, bytes, SHA-256, schema/run/commit/profile/filter/scope identity, row aggregate, legacy status, and source-validity status. The comparison is artifact-complete only while both referenced input files still match their captured hashes and the comparison destination is safe.
+
+Release validity also requires a clean, unchanged checkout with a full commit and matching `DataLinq.Benchmark.CLI`, `DataLinq.DevTools`, and freshly built `DataLinq.Benchmark` assemblies whose embedded repository commit and clean build-state attestations match that checkout. The benchmark assembly path and SHA-256 are revalidated. This is why `--no-build` is never a strict-evidence shortcut.
+
+All history, baseline, comparison, raw-log, and BenchmarkDotNet artifact paths are confined beneath the repository `artifacts` tree without reparse-point traversal; the three requested history/baseline/comparison paths must be distinct. JSON is serialized to a fresh sibling temporary file and atomically promoted. Once safe explicit output paths have been normalized, old requested history/comparison files are invalidated before action-level dependency, threshold, category, profile, provider, and baseline validation, so stale green output cannot survive a failed request. Parser or unsafe-path failures happen before that boundary; other early semantic failures, report-write failures, or abrupt process termination may leave no replacement JSON. Ordinary failures after a run identity exists attempt bounded `Error` artifacts. Evidence consumers must therefore require successful command exit and then validate the v3 identity, outcome/completeness, artifact, validity, scope, and provenance fields; file existence alone is never a pass.
+
+Structurally valid schema-v1 and schema-v2 histories remain readable so retained baselines are not discarded. Missing category, tracking-group, and operation metadata is normalized where the old contract permits it, but a legacy source is always `SourceValidForEvidence: false`; a comparable legacy comparison is automatically `ReviewRequired` and can never satisfy strict `--release-evidence`. Generate the final candidate history in a separate strict invocation. Treat any comparison against the retained v2 before-state as diagnostic evidence with an explicit human disposition.
+
 ## Artifacts
 
 Artifacts are written under this repo-root path:
@@ -298,11 +329,11 @@ artifacts/benchmarks/
 
 Important outputs include:
 
-- `results/*-report-github.md`
-- `results/*-report.csv`
-- `results/*-telemetry.json`
-- `results/*-summary.json`
-- `benchmark-run-*.log`
+- `runs/<run-id>/results/*-report-github.md`
+- `runs/<run-id>/results/*-report.csv`
+- `runs/<run-id>/results/<run-id>-*-telemetry.json`
+- `runs/<run-id>/results/<run-id>-summary.json`
+- `runs/<run-id>/benchmark-restore-*.log`, `benchmark-build-*.log`, and `benchmark-benchmark-*.log`
 - `benchmark-list-*.log`
 - optional history JSON artifacts
 - optional comparison JSON artifacts
@@ -325,6 +356,8 @@ Current policy:
 - scheduled history runs use the heavier benchmark profile
 - published history keeps all recent runs, then thins older runs by age instead of raw run count
 - broader or noisier scenarios stay available locally until they are stable enough to deserve regression history
+
+This filtered multi-category workflow is intentionally noncanonical. It records schema-v3 diagnostic history with `ReleaseEvidenceIntent: false`, unknown reconstructed release scope, and `ValidForEvidence: false`; its successful exit and publication are trend telemetry, not a final-RC benchmark gate. Automatic comparison selects only a retained schema-v1/v2 baseline with the exact profile and filter, because the hosted runner's full v3 processor/runtime/BenchmarkDotNet identity is known only after the benchmark runs. If no such diagnostic baseline remains, the workflow publishes the history without a comparison. Strict v3-to-v3 comparison is a separate release operation with exact environment matching.
 
 Macro category policy:
 

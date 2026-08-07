@@ -74,6 +74,10 @@ internal static class RunCommand
             Description = "Percent regression threshold used for comparison warnings when noise is acceptable.",
             DefaultValueFactory = _ => 10d
         };
+        var releaseEvidenceOption = new Option<bool>("--release-evidence")
+        {
+            Description = "Fails unless the requested history and comparison outputs satisfy the strict release-evidence contract."
+        };
         var additionalArgsArgument = new Argument<string[]>("additional-args")
         {
             Description = "Optional additional BenchmarkDotNet arguments. Pass them after '--'.",
@@ -97,6 +101,7 @@ internal static class RunCommand
         command.Options.Add(baselineOption);
         command.Options.Add(comparisonJsonOption);
         command.Options.Add(warningThresholdOption);
+        command.Options.Add(releaseEvidenceOption);
         command.Arguments.Add(additionalArgsArgument);
 
         command.SetAction(parseResult =>
@@ -119,10 +124,10 @@ internal static class RunCommand
                 parseResult.GetValue(baselineOption),
                 parseResult.GetValue(comparisonJsonOption),
                 parseResult.GetValue(warningThresholdOption),
+                parseResult.GetValue(releaseEvidenceOption),
                 parseResult.GetValue(additionalArgsArgument) ?? Array.Empty<string>());
 
-            if (exitCode != 0)
-                Environment.ExitCode = exitCode;
+            Environment.ExitCode = exitCode;
         });
 
         return command;

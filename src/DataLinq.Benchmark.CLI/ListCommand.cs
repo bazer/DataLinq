@@ -34,8 +34,7 @@ internal static class ListCommand
                 parseResult.GetValue(verboseOption),
                 parseResult.GetValue(additionalArgsArgument) ?? Array.Empty<string>());
 
-            if (exitCode != 0)
-                Environment.ExitCode = exitCode;
+            Environment.ExitCode = exitCode;
         });
 
         return command;
