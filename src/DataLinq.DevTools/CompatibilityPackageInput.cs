@@ -30,7 +30,12 @@ public sealed record CompatibilityPackageInput(
     string Version,
     string AggregateIdentity,
     string ScratchIdentity,
-    IReadOnlyList<CompatibilityCandidatePackage> Packages);
+    IReadOnlyList<CompatibilityCandidatePackage> Packages)
+{
+    public string ContentAggregateSha256 { get; init; } = "unknown";
+
+    public string? RepositoryCommit { get; init; }
+}
 
 public static class CompatibilityPackageInputInspector
 {
@@ -65,13 +70,22 @@ public static class CompatibilityPackageInputInspector
             .ThenBy(static package => package.Id, StringComparer.Ordinal)
             .ToArray();
         var aggregateIdentity = ComputeAggregateIdentity(canonicalDirectory, version, sortedPackages);
+        var contentAggregateSha256 = ComputeContentAggregateIdentity(version, sortedPackages);
+        var repositoryCommit = sortedPackages
+            .Select(static package => package.RepositoryCommit)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .SingleOrDefault();
 
         return new CompatibilityPackageInput(
             canonicalDirectory,
             version,
             aggregateIdentity,
             $"pkg-{aggregateIdentity[..16]}",
-            Array.AsReadOnly(sortedPackages));
+            Array.AsReadOnly(sortedPackages))
+        {
+            ContentAggregateSha256 = contentAggregateSha256,
+            RepositoryCommit = repositoryCommit
+        };
     }
 
     private static CompatibilityCandidatePackage InspectPackage(string packagePath)
@@ -234,6 +248,25 @@ public static class CompatibilityPackageInputInspector
             AppendIdentityValue(builder, package.Id);
             AppendIdentityValue(builder, package.Version);
             AppendIdentityValue(builder, package.Sha256);
+        }
+
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString()))).ToLowerInvariant();
+    }
+
+    private static string ComputeContentAggregateIdentity(
+        string version,
+        IReadOnlyList<CompatibilityCandidatePackage> packages)
+    {
+        var builder = new StringBuilder();
+        AppendIdentityValue(builder, "DataLinq compatibility package content v1");
+        AppendIdentityValue(builder, version);
+        foreach (var package in packages)
+        {
+            AppendIdentityValue(builder, package.Id);
+            AppendIdentityValue(builder, package.Version);
+            AppendIdentityValue(builder, package.SizeBytes.ToString(CultureInfo.InvariantCulture));
+            AppendIdentityValue(builder, package.Sha256);
+            AppendIdentityValue(builder, package.RepositoryCommit ?? string.Empty);
         }
 
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString()))).ToLowerInvariant();

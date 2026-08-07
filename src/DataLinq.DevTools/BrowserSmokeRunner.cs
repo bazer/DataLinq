@@ -25,6 +25,7 @@ public static class BrowserSmokeRunner
         DevToolPaths paths)
     {
         var logPath = Path.Combine(targetRoot, "browser-smoke.log");
+        var startedAtUtc = DateTimeOffset.UtcNow;
         var stopwatch = Stopwatch.StartNew();
 
         try
@@ -45,7 +46,12 @@ public static class BrowserSmokeRunner
                     CompatibilityFailureClassification.None,
                     result.Summary)
                 {
-                    Browser = result.Details
+                    Browser = result.Details,
+                    Executable = "DataLinq.DevTools.BrowserSmokeRunner",
+                    Arguments = [],
+                    WorkingDirectory = publishDirectory,
+                    StartedAtUtc = startedAtUtc,
+                    CompletedAtUtc = DateTimeOffset.UtcNow
                 };
             }
 
@@ -58,7 +64,12 @@ public static class BrowserSmokeRunner
                 result.FailureClassification,
                 result.Summary)
             {
-                Browser = result.Details
+                Browser = result.Details,
+                Executable = "DataLinq.DevTools.BrowserSmokeRunner",
+                Arguments = [],
+                WorkingDirectory = publishDirectory,
+                StartedAtUtc = startedAtUtc,
+                CompletedAtUtc = DateTimeOffset.UtcNow
             };
         }
         catch (BrowserSmokeEnvironmentException exception)
@@ -73,7 +84,14 @@ public static class BrowserSmokeRunner
                 logPath,
                 CompatibilityFailureDisposition.Environment,
                 exception.FailureClassification,
-                exception.Message);
+                exception.Message)
+            {
+                Executable = "DataLinq.DevTools.BrowserSmokeRunner",
+                Arguments = [],
+                WorkingDirectory = publishDirectory,
+                StartedAtUtc = startedAtUtc,
+                CompletedAtUtc = DateTimeOffset.UtcNow
+            };
         }
         catch (Exception exception)
         {
@@ -92,7 +110,14 @@ public static class BrowserSmokeRunner
                 disposition == CompatibilityFailureDisposition.Environment
                     ? CompatibilityFailureClassification.SdkOrWebAssemblyToolchain
                     : CompatibilityFailureClassification.ProductRegression,
-                exception.Message);
+                exception.Message)
+            {
+                Executable = "DataLinq.DevTools.BrowserSmokeRunner",
+                Arguments = [],
+                WorkingDirectory = publishDirectory,
+                StartedAtUtc = startedAtUtc,
+                CompletedAtUtc = DateTimeOffset.UtcNow
+            };
         }
     }
 

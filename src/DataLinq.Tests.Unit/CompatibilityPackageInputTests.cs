@@ -276,9 +276,31 @@ public sealed class CompatibilityPackageInputTests
         await Assert.That(string.Join(",", first.Packages.Select(static package => package.Sha256)))
             .IsEqualTo(string.Join(",", copied.Packages.Select(static package => package.Sha256)));
         await Assert.That(copied.AggregateIdentity).IsNotEqualTo(first.AggregateIdentity);
+        await Assert.That(copied.ContentAggregateSha256).IsEqualTo(first.ContentAggregateSha256);
         await Assert.That(changedBytes.AggregateIdentity).IsNotEqualTo(copied.AggregateIdentity);
+        await Assert.That(changedBytes.ContentAggregateSha256).IsNotEqualTo(copied.ContentAggregateSha256);
         await Assert.That(changedBytes.Packages.Single(static package => package.Id == "DataLinq.Tools").Sha256)
             .IsNotEqualTo(copied.Packages.Single(static package => package.Id == "DataLinq.Tools").Sha256);
+    }
+
+    [Test]
+    public async Task FinalCandidateStabilityCheck_RejectsChangedPackageBytes()
+    {
+        using var fixture = new CandidateFixture();
+        fixture.WritePublicPackages();
+        var inspected = CompatibilityPackageInputInspector.Inspect(
+            fixture.PackageDirectory,
+            CandidateVersion);
+
+        await Assert.That(CompatibilitySizeReporter.CandidateInputStillMatches(inspected)).IsTrue();
+
+        fixture.WritePackage(
+            "DataLinq.Tools.nupkg",
+            "DataLinq.Tools",
+            CandidateVersion,
+            "changed-after-report-inspection");
+
+        await Assert.That(CompatibilitySizeReporter.CandidateInputStillMatches(inspected)).IsFalse();
     }
 
     private static TException? Capture<TException>(Action action)

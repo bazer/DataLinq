@@ -104,7 +104,235 @@ public class CompatibilitySizeReportTests
     public async Task CompatibilityReport_UsesVersion09StructuralSchema()
     {
         await Assert.That(CompatibilitySizeReporter.SchemaVersion)
-            .IsEqualTo("v0.9.compatibility-size-report.v5");
+            .IsEqualTo("v0.9.compatibility-size-report.v6");
+    }
+
+    [Test]
+    public async Task ReleaseEvidenceInvocation_RequiresTheCompleteCanonicalContract()
+    {
+        var input = CanonicalPackageInput();
+        var invocation = CanonicalInvocation(input);
+        var targetIds = CompatibilityTargetCatalog
+            .GetTargets(CompatibilityTargetCatalog.CurrentTargetSet)
+            .Select(static target => target.Name)
+            .ToArray();
+
+        await Assert.That(CompatibilitySizeReporter.IsCanonicalReleaseInvocation(invocation, targetIds, input))
+            .IsTrue();
+
+        var mutations = new[]
+        {
+            invocation with { Profile = ToolingProfile.Sandbox },
+            invocation with { TargetSet = "phase8c" },
+            invocation with { Configuration = "Debug" },
+            invocation with { RuntimeIdentifier = "invalid-runtime" },
+            invocation with { NoRestore = true },
+            invocation with { SkipSmoke = true },
+            invocation with { CleanIntermediateOutputs = false },
+            invocation with { UseReleaseThresholds = false },
+            invocation with { FailOnBannedPayload = false },
+            invocation with { FailOnThresholdWarnings = false },
+            invocation with { ContinueOnPublishFailure = false },
+            invocation with { LargestFileCount = 14 },
+            invocation with { TotalSizeWarningBytes = 1 },
+            invocation with { UsesExplicitOutput = false },
+            invocation with { PackageVersion = "0.9.0-preview.mismatch" }
+        };
+
+        foreach (var mutation in mutations)
+        {
+            await Assert.That(CompatibilitySizeReporter.IsCanonicalReleaseInvocation(mutation, targetIds, input))
+                .IsFalse();
+        }
+
+        await Assert.That(CompatibilitySizeReporter.IsCanonicalReleaseInvocation(
+                invocation,
+                targetIds.Reverse().ToArray(),
+                input))
+            .IsFalse();
+        await Assert.That(CompatibilitySizeReporter.IsCanonicalReleaseInvocation(
+                invocation,
+                targetIds,
+                input with { ContentAggregateSha256 = "not-a-sha" }))
+            .IsFalse();
+    }
+
+    [Test]
+    public async Task Outcome_SeparatesIncompleteAndFailedEvidence()
+    {
+        var cleanSummary = new CompatibilityReportSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+        var failedSummary = cleanSummary with { HasHardFailures = true };
+
+        await Assert.That(CompatibilitySizeReporter.DetermineOutcome(
+                cleanSummary,
+                isCompleteForInvocation: true,
+                artifactsComplete: true,
+                CompatibilityDependencySource.ProjectReferences,
+                candidateStableDuringRun: false))
+            .IsEqualTo(CompatibilityReportOutcome.Passed);
+        await Assert.That(CompatibilitySizeReporter.DetermineOutcome(
+                failedSummary,
+                isCompleteForInvocation: true,
+                artifactsComplete: true,
+                CompatibilityDependencySource.ProjectReferences,
+                candidateStableDuringRun: false))
+            .IsEqualTo(CompatibilityReportOutcome.Failed);
+        await Assert.That(CompatibilitySizeReporter.DetermineOutcome(
+                failedSummary,
+                isCompleteForInvocation: false,
+                artifactsComplete: true,
+                CompatibilityDependencySource.PackedPackages,
+                candidateStableDuringRun: true))
+            .IsEqualTo(CompatibilityReportOutcome.Incomplete);
+        await Assert.That(CompatibilitySizeReporter.DetermineOutcome(
+                cleanSummary,
+                isCompleteForInvocation: true,
+                artifactsComplete: true,
+                CompatibilityDependencySource.PackedPackages,
+                candidateStableDuringRun: false))
+            .IsEqualTo(CompatibilityReportOutcome.Incomplete);
+        await Assert.That(CompatibilitySizeReporter.ResolveExitCode(
+                CompatibilityReportOutcome.Passed,
+                releaseEvidenceIntent: false,
+                validForEvidence: false))
+            .IsEqualTo(0);
+        await Assert.That(CompatibilitySizeReporter.ResolveExitCode(
+                CompatibilityReportOutcome.Passed,
+                releaseEvidenceIntent: true,
+                validForEvidence: false))
+            .IsEqualTo(1);
+        await Assert.That(CompatibilitySizeReporter.ResolveExitCode(
+                CompatibilityReportOutcome.Passed,
+                releaseEvidenceIntent: true,
+                validForEvidence: true))
+            .IsEqualTo(0);
+        await Assert.That(CompatibilitySizeReporter.ResolveExitCode(
+                CompatibilityReportOutcome.Failed,
+                releaseEvidenceIntent: false,
+                validForEvidence: true))
+            .IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task PackageInputsMatch_RejectsAnyCandidateIdentityMutation()
+    {
+        var input = CanonicalPackageInput();
+        var changedPackage = input.Packages[0] with { Sha256 = new string('f', 64) };
+        var changedPackages = input.Packages.ToArray();
+        changedPackages[0] = changedPackage;
+
+        await Assert.That(CompatibilitySizeReporter.PackageInputsMatch(input, input)).IsTrue();
+        await Assert.That(CompatibilitySizeReporter.PackageInputsMatch(
+                input,
+                input with { ContentAggregateSha256 = new string('e', 64) }))
+            .IsFalse();
+        await Assert.That(CompatibilitySizeReporter.PackageInputsMatch(
+                input,
+                input with { Packages = changedPackages }))
+            .IsFalse();
+    }
+
+    [Test]
+    public async Task FailureDetails_RedactCredentialsAndRemainMarkdownSafe()
+    {
+        var sanitized = TestRunSummaryReporter.SanitizeFailureMessage(
+            "password=correct-horse\r\nmalicious | *markdown*",
+            "correct-horse");
+        var report = new CompatibilitySizeReport(
+            CompatibilitySizeReporter.SchemaVersion,
+            DateTimeOffset.UnixEpoch,
+            "repo",
+            "v0.9",
+            [],
+            8,
+            false,
+            "Release",
+            "win-x64",
+            "10.0.100",
+            "report",
+            [],
+            new CompatibilityReportSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, false))
+        {
+            Failure = new CompatibilityReportFailure("write|report", "test", sanitized)
+        };
+
+        var markdown = CompatibilitySizeReporter.ToMarkdown(report);
+
+        await Assert.That(sanitized).DoesNotContain("correct-horse");
+        await Assert.That(markdown).DoesNotContain("correct-horse");
+        await Assert.That(markdown).Contains("write&#124;report");
+        await Assert.That(markdown).Contains("&#124; &#42;markdown&#42;");
+    }
+
+    [Test]
+    public async Task ExplicitOutput_StaysBelowArtifactsAndInvalidationNeverDeletesSentinels()
+    {
+        var root = Path.Combine(AppContext.BaseDirectory, nameof(CompatibilitySizeReportTests), Guid.NewGuid().ToString("N"));
+        var repositoryRoot = Path.Combine(root, "repository");
+        var artifactRoot = Path.Combine(repositoryRoot, "artifacts");
+        var reportDirectory = Path.Combine(artifactRoot, "release", "size-report");
+        Directory.CreateDirectory(reportDirectory);
+
+        try
+        {
+            File.WriteAllText(Path.Combine(reportDirectory, "report.json"), "stale-json");
+            File.WriteAllText(Path.Combine(reportDirectory, "report.md"), "stale-markdown");
+            CompatibilitySizeReporter.InvalidateExistingReportDirectory(repositoryRoot, reportDirectory);
+
+            await Assert.That(CompatibilitySizeReporter.NormalizeOutputDirectory(
+                    repositoryRoot,
+                    Path.Combine("artifacts", "release", "size-report")))
+                .IsEqualTo(Path.GetFullPath(reportDirectory));
+            await Assert.That(File.Exists(Path.Combine(reportDirectory, "report.json"))).IsFalse();
+            await Assert.That(File.Exists(Path.Combine(reportDirectory, "report.md"))).IsFalse();
+
+            File.WriteAllText(Path.Combine(reportDirectory, "report.json"), "stale-json");
+            File.WriteAllText(Path.Combine(reportDirectory, "sentinel.txt"), "must-survive");
+            var sentinelException = Capture<InvalidDataException>(() =>
+                CompatibilitySizeReporter.InvalidateExistingReportDirectory(repositoryRoot, reportDirectory));
+            await Assert.That(sentinelException).IsNotNull();
+            await Assert.That(File.Exists(Path.Combine(reportDirectory, "sentinel.txt"))).IsTrue();
+            await Assert.That(File.Exists(Path.Combine(reportDirectory, "report.json"))).IsFalse();
+
+            File.Delete(Path.Combine(reportDirectory, "sentinel.txt"));
+            File.WriteAllText(Path.Combine(reportDirectory, "report.json"), "stale-json");
+            Directory.CreateDirectory(Path.Combine(reportDirectory, "report.md"));
+            var invalidMarkdownException = Capture<InvalidDataException>(() =>
+                CompatibilitySizeReporter.InvalidateExistingReportDirectory(repositoryRoot, reportDirectory));
+            await Assert.That(invalidMarkdownException).IsNotNull();
+            await Assert.That(File.Exists(Path.Combine(reportDirectory, "report.json"))).IsFalse();
+            await Assert.That(Directory.Exists(Path.Combine(reportDirectory, "report.md"))).IsTrue();
+
+            Directory.Delete(Path.Combine(reportDirectory, "report.md"));
+            File.WriteAllText(Path.Combine(reportDirectory, "report.json"), "stale-json");
+            using (CompatibilitySizeReporter.AcquireReportDirectoryLock(repositoryRoot, reportDirectory))
+            {
+                var concurrentWriterException = Capture<IOException>(() =>
+                    CompatibilitySizeReporter.InvalidateExistingReportDirectory(repositoryRoot, reportDirectory));
+                await Assert.That(concurrentWriterException).IsNotNull();
+                await Assert.That(File.Exists(Path.Combine(reportDirectory, "report.json"))).IsTrue();
+            }
+
+            var outsideException = Capture<InvalidDataException>(() =>
+                CompatibilitySizeReporter.NormalizeOutputDirectory(repositoryRoot, Path.Combine(root, "outside")));
+            var buildRootException = Capture<InvalidDataException>(() =>
+                CompatibilitySizeReporter.NormalizeOutputDirectory(
+                    repositoryRoot,
+                    Path.Combine("artifacts", "dev", "compat-size-build", "attempt")));
+            var overlapException = Capture<InvalidDataException>(() =>
+                CompatibilitySizeReporter.InvalidateExistingReportDirectory(
+                    repositoryRoot,
+                    reportDirectory,
+                    reportDirectory));
+            await Assert.That(outsideException).IsNotNull();
+            await Assert.That(buildRootException).IsNotNull();
+            await Assert.That(overlapException).IsNotNull();
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
     }
 
     [Test]
@@ -1298,6 +1526,11 @@ public class CompatibilitySizeReportTests
         var markdown = CompatibilitySizeReporter.ToMarkdown(report);
 
         await Assert.That(json).Contains("\"RuntimeGraph\":\"Memory\"");
+        await Assert.That(json)
+            .Contains("\"SchemaRevision\":6")
+            .And.Contains("\"Outcome\":\"Incomplete\"")
+            .And.Contains("\"ValidForEvidence\":false")
+            .And.Contains("\"Artifacts\":null");
         await Assert.That(json).Contains("\"BuildScratchDirectory\":");
         await Assert.That(json).Contains("\"IsFullTargetSet\":false");
         await Assert.That(json).Contains("\"FinalStage\":\"completed\"");
@@ -1604,6 +1837,77 @@ public class CompatibilitySizeReportTests
                 target.IsWebAssembly,
                 target.ExecutableName,
                 string.Join(",", target.PublishProperties))));
+
+    private static CompatibilityReportInvocation CanonicalInvocation(CompatibilityPackageInput input) =>
+        new(
+            Profile: ToolingProfile.Repo,
+            NoRestore: false,
+            SkipSmoke: false,
+            CleanIntermediateOutputs: true,
+            UseReleaseThresholds: true,
+            FailOnBannedPayload: true,
+            FailOnThresholdWarnings: true,
+            ContinueOnPublishFailure: true,
+            LargestFileCount: 15,
+            TotalSizeWarningBytes: null,
+            SymbolExcludedSizeWarningBytes: null,
+            FileCountWarning: null)
+        {
+            Command = "size-report",
+            TargetSet = CompatibilityTargetCatalog.CurrentTargetSet,
+            Configuration = "Release",
+            RuntimeIdentifier = CompatibilityTargetCatalog.DefaultRuntimeIdentifier(),
+            DependencySource = CompatibilityDependencySource.PackedPackages,
+            PackageDirectory = input.PackageDirectory,
+            PackageVersion = input.Version,
+            ReportDirectory = Path.Combine("repository", "artifacts", "release", "size-report"),
+            UsesExplicitOutput = true,
+            OutputFormat = "json",
+            ReleaseEvidenceIntent = true
+        };
+
+    private static CompatibilityPackageInput CanonicalPackageInput()
+    {
+        const string version = "0.9.0-preview.evidence.1";
+        const string contentSha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        const string commit = "0123456789abcdef0123456789abcdef01234567";
+        var packages = PackageInspectionPolicy.PublicPackageIds
+            .OrderBy(static id => id, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static id => id, StringComparer.Ordinal)
+            .Select((id, index) => new CompatibilityCandidatePackage(
+                id,
+                version,
+                Path.Combine("repository", "artifacts", "packages", $"{id}.{version}.nupkg"),
+                100 + index,
+                index == 0 ? contentSha : $"{index:x64}",
+                commit))
+            .ToArray();
+
+        return new CompatibilityPackageInput(
+            Path.Combine("repository", "artifacts", "packages"),
+            version,
+            new string('a', 64),
+            "pkg-0123456789abcdef",
+            packages)
+        {
+            ContentAggregateSha256 = contentSha,
+            RepositoryCommit = commit
+        };
+    }
+
+    private static TException? Capture<TException>(Action action)
+        where TException : Exception
+    {
+        try
+        {
+            action();
+            return null;
+        }
+        catch (TException exception)
+        {
+            return exception;
+        }
+    }
 
     private static CompatibilityCommandReport Command(
         CompatibilityCommandStatus status,

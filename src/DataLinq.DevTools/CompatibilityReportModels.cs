@@ -57,6 +57,14 @@ public enum CompatibilityWarningOwner
     Other
 }
 
+public enum CompatibilityReportOutcome
+{
+    Passed,
+    Failed,
+    Incomplete,
+    Error
+}
+
 public sealed record CompatibilityTargetDefinition(
     string Name,
     CompatibilityTargetKind Kind,
@@ -91,6 +99,12 @@ public sealed record CompatibilityReportOptions(
     public string? PackageDirectory { get; init; }
 
     public string? PackageVersion { get; init; }
+
+    public string? OutputDirectory { get; init; }
+
+    public string OutputFormat { get; init; } = "summary";
+
+    public bool ReleaseEvidenceIntent { get; init; }
 }
 
 public sealed record CompatibilityReportInvocation(
@@ -105,7 +119,49 @@ public sealed record CompatibilityReportInvocation(
     int LargestFileCount,
     long? TotalSizeWarningBytes,
     long? SymbolExcludedSizeWarningBytes,
-    int? FileCountWarning);
+    int? FileCountWarning)
+{
+    public string Command { get; init; } = "size-report";
+
+    public string TargetSet { get; init; } = string.Empty;
+
+    public string? TargetSelectors { get; init; }
+
+    public string Configuration { get; init; } = string.Empty;
+
+    public string RuntimeIdentifier { get; init; } = string.Empty;
+
+    public CompatibilityDependencySource DependencySource { get; init; }
+
+    public string? PackageDirectory { get; init; }
+
+    public string? PackageVersion { get; init; }
+
+    public string ReportDirectory { get; init; } = string.Empty;
+
+    public bool UsesExplicitOutput { get; init; }
+
+    public string OutputFormat { get; init; } = "summary";
+
+    public bool ReleaseEvidenceIntent { get; init; }
+}
+
+public sealed record CompatibilityReportArtifact(
+    string Kind,
+    string Path,
+    string RepositoryRelativePath,
+    long SizeBytes,
+    string Sha256);
+
+public sealed record CompatibilityReportArtifacts(
+    string JsonPath,
+    string MarkdownPath,
+    IReadOnlyList<CompatibilityReportArtifact> Files);
+
+public sealed record CompatibilityReportFailure(
+    string Stage,
+    string ExceptionType,
+    string Message);
 
 public sealed record CompatibilityRunnerAssemblyIdentity(
     string Name,
@@ -129,6 +185,14 @@ public sealed record CompatibilitySizeReport(
     IReadOnlyList<CompatibilityTargetReport> Targets,
     CompatibilityReportSummary Summary)
 {
+    public int SchemaRevision { get; init; } = 6;
+
+    public DateTimeOffset StartedAtUtc { get; init; }
+
+    public DateTimeOffset CompletedAtUtc { get; init; }
+
+    public double DurationSeconds { get; init; }
+
     public CompatibilityDependencySource DependencySource { get; init; } =
         CompatibilityDependencySource.ProjectReferences;
 
@@ -163,6 +227,34 @@ public sealed record CompatibilitySizeReport(
     public bool RunnerAssembliesBuiltFromCleanRepositoryState { get; init; }
 
     public bool RunnerStateValidForEvidence { get; init; }
+
+    public CompatibilityReportOutcome Outcome { get; init; } = CompatibilityReportOutcome.Incomplete;
+
+    public int OverallExitCode { get; init; } = 1;
+
+    public bool IsCompleteForInvocation { get; init; }
+
+    public bool ArtifactsComplete { get; init; }
+
+    public bool IsCanonicalReleaseInvocation { get; init; }
+
+    public bool CandidateStableDuringRun { get; init; }
+
+    public string? CandidateRepositoryCommit { get; init; }
+
+    public bool CandidateMatchesCheckout { get; init; }
+
+    public bool PackageDirectoryIsRepositoryArtifact { get; init; }
+
+    public bool TargetResultsValidForEvidence { get; init; }
+
+    public bool ReviewRequired { get; init; }
+
+    public bool ValidForEvidence { get; init; }
+
+    public CompatibilityReportArtifacts? Artifacts { get; init; }
+
+    public CompatibilityReportFailure? Failure { get; init; }
 }
 
 public sealed record CompatibilityReportSummary(
@@ -211,6 +303,18 @@ public sealed record CompatibilityCommandReport(
     CompatibilityFailureClassification FailureClassification,
     string? Summary)
 {
+    public string? Executable { get; init; }
+
+    public IReadOnlyList<string> Arguments { get; init; } = [];
+
+    public string? WorkingDirectory { get; init; }
+
+    public DateTimeOffset? StartedAtUtc { get; init; }
+
+    public DateTimeOffset? CompletedAtUtc { get; init; }
+
+    public string? BinaryLogPath { get; init; }
+
     public CompatibilityBrowserSmokeDetails? Browser { get; init; }
 }
 

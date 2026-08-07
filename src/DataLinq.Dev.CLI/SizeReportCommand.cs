@@ -39,6 +39,10 @@ internal static class SizeReportCommand
         {
             Description = "Exact package candidate version. Must be paired with --package-dir."
         };
+        var outputOption = new Option<string?>("--output")
+        {
+            Description = "Guarded report directory beneath repository artifacts. A prior report.json/report.md pair is invalidated; defaults to a unique directory under artifacts/dev/compat-size-report."
+        };
         var topOption = new Option<int>("--top")
         {
             Description = "Number of largest files to include for each target.",
@@ -59,6 +63,10 @@ internal static class SizeReportCommand
         var releaseThresholdsOption = new Option<bool>("--release-thresholds")
         {
             Description = "Applies compatibility payload guardrails where the selected runtime graph defines them."
+        };
+        var releaseEvidenceOption = new Option<bool>("--release-evidence")
+        {
+            Description = "Fails unless the completed report satisfies the strict release-evidence contract."
         };
         var maxTotalSizeOption = new Option<double?>("--max-total-size-mb")
         {
@@ -98,11 +106,13 @@ internal static class SizeReportCommand
         command.Options.Add(runtimeOption);
         command.Options.Add(packageDirectoryOption);
         command.Options.Add(packageVersionOption);
+        command.Options.Add(outputOption);
         command.Options.Add(topOption);
         command.Options.Add(noRestoreOption);
         command.Options.Add(skipSmokeOption);
         command.Options.Add(cleanOutputOption);
         command.Options.Add(releaseThresholdsOption);
+        command.Options.Add(releaseEvidenceOption);
         command.Options.Add(maxTotalSizeOption);
         command.Options.Add(maxSymbolExcludedSizeOption);
         command.Options.Add(maxFileCountOption);
@@ -113,14 +123,32 @@ internal static class SizeReportCommand
 
         command.SetAction(parseResult =>
         {
+            var packageDirectory = NullIfWhiteSpace(parseResult.GetValue(packageDirectoryOption));
+            var outputValue = NullIfWhiteSpace(parseResult.GetValue(outputOption));
+            var outputDirectory = outputValue is null
+                ? null
+                : CompatibilitySizeReporter.NormalizeOutputDirectory(
+                    settings.RepositoryRoot,
+                    outputValue);
+            if (outputDirectory is not null)
+            {
+                CompatibilitySizeReporter.InvalidateExistingReportDirectory(
+                    settings.RepositoryRoot,
+                    outputDirectory,
+                    packageDirectory);
+            }
+
+            var format = NormalizeFormat(parseResult.GetValue(formatOption));
             var profile = CommandHelpers.ParseProfile(parseResult.GetValue(profileOption));
-            var targetSet = parseResult.GetValue(targetOption) ?? CompatibilityTargetCatalog.HistoricalTargetSet;
+            var targetSet = CompatibilityTargetCatalog.NormalizeTargetSet(
+                parseResult.GetValue(targetOption) ?? CompatibilityTargetCatalog.HistoricalTargetSet);
             var targetSelectors = parseResult.GetValue(targetsOption);
             var configuration = parseResult.GetValue(configurationOption) ?? "Release";
             var runtimeIdentifier = parseResult.GetValue(runtimeOption) ?? CompatibilityTargetCatalog.DefaultRuntimeIdentifier();
             var largestFileCount = parseResult.GetValue(topOption);
             if (largestFileCount < 0)
                 throw new InvalidOperationException("--top must be zero or greater.");
+            var releaseEvidenceIntent = parseResult.GetValue(releaseEvidenceOption);
 
             var options = new CompatibilityReportOptions(
                 settings.RepositoryRoot,
@@ -141,28 +169,28 @@ internal static class SizeReportCommand
                 parseResult.GetValue(cleanOutputOption),
                 parseResult.GetValue(releaseThresholdsOption))
             {
-                PackageDirectory = parseResult.GetValue(packageDirectoryOption),
-                PackageVersion = parseResult.GetValue(packageVersionOption)
+                PackageDirectory = packageDirectory,
+                PackageVersion = parseResult.GetValue(packageVersionOption),
+                OutputDirectory = outputDirectory,
+                OutputFormat = format,
+                ReleaseEvidenceIntent = releaseEvidenceIntent
             };
 
             var reporter = new CompatibilitySizeReporter(settings.Paths, options);
             var report = reporter.CreateReport();
 
-            Render(report, parseResult.GetValue(formatOption));
+            Render(report, format);
 
-            if (report.Summary.HasHardFailures)
-                Environment.ExitCode = 1;
+            return report.OverallExitCode;
         });
 
         return command;
     }
 
-    private static void Render(CompatibilitySizeReport report, string? format)
+    private static void Render(CompatibilitySizeReport report, string format)
     {
-        switch (format?.Trim().ToLowerInvariant())
+        switch (format)
         {
-            case null:
-            case "":
             case "summary":
                 RenderSummary(report);
                 break;
@@ -173,7 +201,7 @@ internal static class SizeReportCommand
                 Console.WriteLine(File.ReadAllText(Path.Combine(report.ReportDirectory, "report.json")));
                 break;
             default:
-                throw new InvalidOperationException($"Unsupported size report format '{format}'. Use summary, markdown, or json.");
+                throw new InvalidOperationException($"Unsupported normalized size report format '{format}'.");
         }
     }
 
@@ -212,6 +240,8 @@ internal static class SizeReportCommand
         }
 
         AnsiConsole.Write(table);
+        AnsiConsole.MarkupLine($"[grey]Outcome:[/] {Markup.Escape(report.Outcome.ToString())}");
+        AnsiConsole.MarkupLine($"[grey]Valid for release evidence:[/] {report.ValidForEvidence}");
         AnsiConsole.MarkupLine($"[grey]Dependency source:[/] {Markup.Escape(report.DependencySource.ToString())}");
         if (report.PackageInput is { } packageInput)
         {
@@ -257,6 +287,20 @@ internal static class SizeReportCommand
             CompatibilityCommandStatus.Unsupported => $"[yellow]unsupported[/] ({Markup.Escape(command.FailureClassification.ToString())})",
             _ => Markup.Escape(command.Status.ToString())
         };
+
+    private static string NormalizeFormat(string? format)
+    {
+        var normalized = string.IsNullOrWhiteSpace(format)
+            ? "summary"
+            : format.Trim().ToLowerInvariant();
+        return normalized is "summary" or "markdown" or "json"
+            ? normalized
+            : throw new InvalidOperationException(
+                $"Unsupported size report format '{format}'. Use summary, markdown, or json.");
+    }
+
+    private static string? NullIfWhiteSpace(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
 
     private static long? MegabytesToBytes(double? megabytes) =>
         megabytes.HasValue
