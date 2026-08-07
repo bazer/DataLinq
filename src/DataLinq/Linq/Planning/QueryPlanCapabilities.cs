@@ -374,7 +374,8 @@ internal static class QueryPlanResultCompositionShapeFacts
 internal enum QueryPlanScalarProjectionShape
 {
     DirectNonNullableInt32RootColumn,
-    Other
+    Other,
+    DirectModelValueRootColumn
 }
 
 internal static class QueryPlanScalarProjectionShapeFacts
@@ -389,17 +390,25 @@ internal static class QueryPlanScalarProjectionShapeFacts
         if (sources.Count != 1 ||
             !ReferenceEquals(projection.Source, sources[0]) ||
             projection.Source.Kind != QueryPlanSourceKind.RootTable ||
-            !ReferenceEquals(projection.Column.Table, projection.Source.Table) ||
-            !QueryPlanExactInt32ValueShapeFacts.IsDirectNonNullableInt32Column(
-                new QueryPlanColumnValue(
-                    projection.Source,
-                    projection.Column,
-                    projection.ResultType)))
+            !ReferenceEquals(projection.Column.Table, projection.Source.Table))
         {
             return QueryPlanScalarProjectionShape.Other;
         }
 
-        return QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn;
+        var columnValue = new QueryPlanColumnValue(
+            projection.Source,
+            projection.Column,
+            projection.ResultType);
+        if (QueryPlanExactInt32ValueShapeFacts.IsDirectNonNullableInt32Column(columnValue))
+            return QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn;
+
+        var modelType = projection.Column.ModelClrType;
+        return modelType is not null &&
+               (modelType == projection.ResultType ||
+                projection.Column.Nullable &&
+                Nullable.GetUnderlyingType(projection.ResultType) == modelType)
+            ? QueryPlanScalarProjectionShape.DirectModelValueRootColumn
+            : QueryPlanScalarProjectionShape.Other;
     }
 }
 

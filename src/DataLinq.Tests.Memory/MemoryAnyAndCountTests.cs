@@ -112,7 +112,7 @@ public sealed class MemoryAnyAndCountTests
     }
 
     [Test]
-    public async Task PagedAndBroaderScalarReductions_RejectBeforeEnumeration()
+    public async Task PagedAndUnsupportedScalarReductions_RejectBeforeEnumeration()
     {
         var database = CreateDatabase();
         var before = database.Diagnostics;
@@ -127,15 +127,12 @@ public sealed class MemoryAnyAndCountTests
                 .Take(2)
                 .Select(static row => row.Id)
                 .Any());
-        var stringCount = Capture<QueryTranslationException>(() =>
-            database.Model.Rows.Select(static row => row.Name).Count());
         var sum = Capture<QueryTranslationException>(() =>
             database.Model.Rows.Sum(static row => row.Id));
 
         foreach (var exception in new[] { any, count, projectedAny })
             await Assert.That(exception.Message).Contains("Operation:Pushdown");
 
-        await Assert.That(stringCount.Message).Contains("ScalarProjectionShape:Other");
         await Assert.That(sum.Message).Contains("Result:Sum");
         await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(before.ScanRowsVisited);
         await Assert.That(database.Diagnostics.PredicateEvaluations).IsEqualTo(before.PredicateEvaluations);

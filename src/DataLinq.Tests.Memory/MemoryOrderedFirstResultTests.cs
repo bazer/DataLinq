@@ -229,8 +229,6 @@ public sealed class MemoryOrderedFirstResultTests
             rows.OrderBy(static row => row.GroupId).First());
         var thenBy = Capture<QueryBackendCapabilityException>(() =>
             rows.OrderBy(static row => row.Id).ThenBy(static row => row.GroupId).FirstOrDefault());
-        var broaderProjection = Capture<QueryBackendCapabilityException>(() =>
-            rows.OrderBy(static row => row.Id).Select(static row => row.Name).First());
         var paging = Capture<QueryBackendCapabilityException>(() =>
             rows.OrderBy(static row => row.Id).Take(1).First());
 
@@ -240,8 +238,6 @@ public sealed class MemoryOrderedFirstResultTests
         await Assert.That(nonPrimaryOrdering.Location).IsEqualTo("operations.ordering.shape");
         await Assert.That(thenBy.Feature).IsEqualTo("OrderingShape:Other");
         await Assert.That(thenBy.Location).IsEqualTo("operations.ordering.shape");
-        await Assert.That(broaderProjection.Feature).IsEqualTo("ScalarProjectionShape:Other");
-        await Assert.That(broaderProjection.Location).IsEqualTo("projection.scalar.shape");
         await Assert.That(paging.Feature).IsEqualTo("Operation:Pushdown");
         await Assert.That(paging.Location).IsEqualTo("operations[0]");
         await Assert.That(database.Diagnostics).IsEqualTo(before);

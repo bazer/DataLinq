@@ -26,6 +26,8 @@ public sealed record MemoryPlatformSmokeResult(
     int[] SkippedIds,
     int[] WindowedIds,
     int[] ProjectedGroupIds,
+    string[] ProjectedNames,
+    Guid[] ProjectedTypedGuidIds,
     int SingleEntityId,
     bool SingleEntityDefaultIsNull,
     int SingleScalarValue,
@@ -64,6 +66,8 @@ public sealed record MemoryPlatformSmokeResult(
         SkippedIds.SequenceEqual([17, 42]) &&
         WindowedIds.SequenceEqual([17]) &&
         ProjectedGroupIds.SequenceEqual([7, 7, 3]) &&
+        ProjectedNames.SequenceEqual(["minus-five", "seventeen", "forty-two"]) &&
+        ProjectedTypedGuidIds.SequenceEqual([KnownProjectedGuidId]) &&
         SingleEntityId == 17 &&
         SingleEntityDefaultIsNull &&
         SingleScalarValue == 3 &&
@@ -81,7 +85,10 @@ public sealed record MemoryPlatformSmokeResult(
         UnsupportedRejectedBeforeWork &&
         PreCancellationPreserved &&
         PreCancellationRejectedBeforeWork &&
-        SupportedCapabilityTokenCount == 57;
+        SupportedCapabilityTokenCount == 58;
+
+    private static readonly Guid KnownProjectedGuidId =
+        new("00112233-4455-6677-8899-aabbccddeeff");
 
     public string ToDisplayString()
     {
@@ -91,7 +98,7 @@ public sealed record MemoryPlatformSmokeResult(
             $"primitive-rows={PrimitiveStoredRowCount}, guid-rows={GuidStoredRowCount}",
             $"pk-hit={PrimitivePrimaryKeyHit}, pk-miss={PrimitivePrimaryKeyMiss}, canonical-guid-cells={CanonicalGuidCellsStoredAsGuid}",
             $"typed-guid-equality={TypedGuidEqualityHit}, direct-guid-equality={DirectGuidEqualityHit}, guid-miss={GuidEqualityMiss}",
-            $"filtered=[{string.Join(',', FilteredIds)}], not-equal-filtered=[{string.Join(',', NotEqualFilteredIds)}], compound-filtered=[{string.Join(',', CompoundFilteredIds)}], range-filtered=[{string.Join(',', RangeFilteredIds)}], membership-filtered=[{string.Join(',', MembershipFilteredIds)}], ordered=[{string.Join(',', OrderedIds)}], skipped=[{string.Join(',', SkippedIds)}], windowed=[{string.Join(',', WindowedIds)}], projected=[{string.Join(',', ProjectedGroupIds)}]",
+            $"filtered=[{string.Join(',', FilteredIds)}], not-equal-filtered=[{string.Join(',', NotEqualFilteredIds)}], compound-filtered=[{string.Join(',', CompoundFilteredIds)}], range-filtered=[{string.Join(',', RangeFilteredIds)}], membership-filtered=[{string.Join(',', MembershipFilteredIds)}], ordered=[{string.Join(',', OrderedIds)}], skipped=[{string.Join(',', SkippedIds)}], windowed=[{string.Join(',', WindowedIds)}], projected=[{string.Join(',', ProjectedGroupIds)}], projected-names=[{string.Join(',', ProjectedNames)}], projected-typed-guids=[{string.Join(',', ProjectedTypedGuidIds)}]",
             $"single-entity={SingleEntityId}, single-entity-default-null={SingleEntityDefaultIsNull}, single-scalar={SingleScalarValue}, single-scalar-default={SingleScalarDefaultValue}, single-multiple-before-materialization={MultipleSingleRejectedBeforeMaterialization}",
             $"first-entity={FirstEntityId}, first-entity-default-null={FirstEntityDefaultIsNull}, first-scalar={FirstScalarValue}, first-scalar-default={FirstScalarDefaultValue}",
             $"any={HasRows}, count={RowCount}, capabilities={SupportedCapabilityTokenCount}",
@@ -258,6 +265,17 @@ public static class MemoryPlatformSmokeRunner
             .Select(static row => row.GroupId)
             .ToArray();
 
+        await ReportStage(reportStage, "querying-direct-model-value-projection");
+        var projectedNames = query.PrimitiveRows
+            .OrderBy(static row => row.Id)
+            .Select(static row => row.Name)
+            .ToArray();
+        var projectedTypedGuidIds = query.GuidRows
+            .Select(static row => row.Id)
+            .ToArray()
+            .Select(static id => id.Value)
+            .ToArray();
+
         await ReportStage(reportStage, "querying-single-results");
         var singleEntity = query.PrimitiveRows.Single(static row => row.Id == 17);
         var singleEntityDefault = query.PrimitiveRows.SingleOrDefault(static row => row.Id == 999);
@@ -349,6 +367,8 @@ public static class MemoryPlatformSmokeRunner
             SkippedIds: skippedIds,
             WindowedIds: windowedIds,
             ProjectedGroupIds: projectedGroupIds,
+            ProjectedNames: projectedNames,
+            ProjectedTypedGuidIds: projectedTypedGuidIds,
             SingleEntityId: singleEntity.Id,
             SingleEntityDefaultIsNull: singleEntityDefault is null,
             SingleScalarValue: singleScalar,

@@ -9,6 +9,9 @@ namespace DataLinq.Tests.Memory;
 
 public sealed class MemoryScalarProjectionTests
 {
+    private static readonly Guid FirstGuid = new("00112233-4455-6677-8899-aabbccddeeff");
+    private static readonly Guid SecondGuid = new("ffeeddcc-bbaa-9988-7766-554433221100");
+
     [Test]
     public async Task DirectInt32Projection_ReadsCanonicalColumnsWithoutMaterializingEntities()
     {
@@ -73,6 +76,65 @@ public sealed class MemoryScalarProjectionTests
     }
 
     [Test]
+    public async Task DirectModelValueProjection_MaterializesStringsGuidsTypedIdsAndNullables()
+    {
+        var primitives = CreateAdversarialDatabase();
+        var names = primitives.Model.Rows
+            .OrderBy(static row => row.Id)
+            .Select(static row => row.Name)
+            .ToArray();
+
+        var converted = CreateConvertedDatabase();
+        var typedIds = converted.Model.Rows.Select(static row => row.Id).ToArray();
+        var directGuids = converted.Model.Rows.Select(static row => row.DirectGuid).ToArray();
+        var optionalIds = converted.Model.Rows.Select(static row => row.OptionalRelatedId).ToArray();
+
+        await Assert.That(names).IsEquivalentTo([
+            "minimum",
+            "negative-eleven",
+            "zero",
+            "seventeen",
+            "maximum"
+        ]);
+        await Assert.That(typedIds).IsEquivalentTo([
+            new MemoryGuidId(FirstGuid),
+            new MemoryGuidId(SecondGuid)
+        ]);
+        await Assert.That(directGuids).IsEquivalentTo([SecondGuid, FirstGuid]);
+        await Assert.That(optionalIds).IsEquivalentTo(new MemoryGuidId?[]
+        {
+            null,
+            new MemoryGuidId(FirstGuid)
+        });
+        await Assert.That(converted.Diagnostics.Materializations).IsEqualTo(0);
+        await Assert.That(converted.Diagnostics.CacheLookups).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task DirectModelValueProjection_ComposesWithFilteringAndElementResults()
+    {
+        var database = CreateAdversarialDatabase();
+
+        var singleName = database.Model.Rows
+            .Where(static row => row.Id == 17)
+            .Select(static row => row.Name)
+            .Single();
+        var firstName = database.Model.Rows
+            .OrderBy(static row => row.Id)
+            .Select(static row => row.Name)
+            .First();
+        var hasNames = database.Model.Rows.Select(static row => row.Name).Any();
+        var nameCount = database.Model.Rows.Select(static row => row.Name).Count();
+
+        await Assert.That(singleName).IsEqualTo("seventeen");
+        await Assert.That(firstName).IsEqualTo("minimum");
+        await Assert.That(hasNames).IsTrue();
+        await Assert.That(nameCount).IsEqualTo(5);
+        await Assert.That(database.Diagnostics.Materializations).IsEqualTo(0);
+        await Assert.That(database.Diagnostics.CacheLookups).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task ScalarProjection_ObservesPreCancellationAndCancellationBetweenRows()
     {
         var preCancelledDatabase = CreateAdversarialDatabase();
@@ -110,8 +172,6 @@ public sealed class MemoryScalarProjectionTests
         var database = CreateAdversarialDatabase();
         var before = database.Diagnostics;
 
-        var stringProjection = Capture<QueryTranslationException>(() =>
-            database.Model.Rows.Select(static row => row.Name).ToArray());
         var widenedProjection = Capture<QueryTranslationException>(() =>
             database.Model.Rows.Select(static row => (long)row.Id).ToArray());
         var boxedProjection = Capture<QueryTranslationException>(() =>
@@ -119,7 +179,7 @@ public sealed class MemoryScalarProjectionTests
         var terminalProjection = Capture<QueryTranslationException>(() =>
             database.Model.Rows.Select(static row => row.Id).First());
 
-        foreach (var exception in new[] { stringProjection, widenedProjection, boxedProjection })
+        foreach (var exception in new[] { widenedProjection, boxedProjection })
         {
             await Assert.That(exception.Message).Contains(
                 "Backend 'memory' cannot execute query plan feature 'ScalarProjectionShape:Other'");
@@ -144,6 +204,27 @@ public sealed class MemoryScalarProjectionTests
             CreateCanonicalRow(database, id: int.MaxValue, groupId: 7, name: "maximum"),
             CreateCanonicalRow(database, id: -11, groupId: 7, name: "negative-eleven"),
             CreateCanonicalRow(database, id: 0, groupId: 3, name: "zero"));
+    }
+
+    private static MemoryDatabase<MemoryConvertedDatabase> CreateConvertedDatabase()
+    {
+        var database = new MemoryDatabase<MemoryConvertedDatabase>();
+        return database.Seed<MemoryConvertedRow>([
+            new MutableMemoryConvertedRow
+            {
+                Id = new MemoryGuidId(FirstGuid),
+                DirectGuid = SecondGuid,
+                RelatedId = new MemoryGuidId(SecondGuid),
+                OptionalRelatedId = null
+            },
+            new MutableMemoryConvertedRow
+            {
+                Id = new MemoryGuidId(SecondGuid),
+                DirectGuid = FirstGuid,
+                RelatedId = new MemoryGuidId(FirstGuid),
+                OptionalRelatedId = new MemoryGuidId(FirstGuid)
+            }
+        ]);
     }
 
     private static object?[] CreateCanonicalRow(

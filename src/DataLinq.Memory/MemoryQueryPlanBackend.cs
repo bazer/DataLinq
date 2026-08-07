@@ -64,6 +64,8 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             QueryPlanFeature.ProjectionDisposition(QueryPlanProjectionDisposition.Direct),
             QueryPlanFeature.ScalarProjectionShape(
                 QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn),
+            QueryPlanFeature.ScalarProjectionShape(
+                QueryPlanScalarProjectionShape.DirectModelValueRootColumn),
             QueryPlanFeature.Result(QueryPlanResultKind.Sequence),
             QueryPlanFeature.Result(QueryPlanResultKind.Single),
             QueryPlanFeature.Result(QueryPlanResultKind.SingleOrDefault),
@@ -151,8 +153,7 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
             !IsCursorResult(template.Result.Kind) ||
             template.Result.ResultType != typeof(TResult) ||
             projection.ResultType != typeof(TResult) ||
-            QueryPlanScalarProjectionShapeFacts.Classify(projection, template.Sources) !=
-                QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn)
+            !IsSupportedScalarProjection(projection, template.Sources))
         {
             throw CreateCapabilityInvariantException(request);
         }
@@ -189,8 +190,7 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
                 when ReferenceEquals(entity.Source, template.Sources[0]) => entity.Source,
             QueryPlanProjection.ScalarMember projection
                 when ReferenceEquals(projection.Source, template.Sources[0]) &&
-                     QueryPlanScalarProjectionShapeFacts.Classify(projection, template.Sources) ==
-                         QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn => projection.Source,
+                     IsSupportedScalarProjection(projection, template.Sources) => projection.Source,
             _ => null
         };
         var requiredResultType = template.Result.Kind switch
@@ -251,6 +251,13 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
     private static bool IsElementResult(QueryPlanResultKind resultKind) =>
         MemorySingleResult.IsSupported(resultKind) ||
         MemoryFirstResult.IsSupported(resultKind);
+
+    private static bool IsSupportedScalarProjection(
+        QueryPlanProjection.ScalarMember projection,
+        IReadOnlyList<QueryPlanSourceSlot> sources) =>
+        QueryPlanScalarProjectionShapeFacts.Classify(projection, sources) is
+            QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn or
+            QueryPlanScalarProjectionShape.DirectModelValueRootColumn;
 
     private MemoryCanonicalRowCursor OpenCanonicalRowCursor(
         QueryPlanSourceSlot rootSource,

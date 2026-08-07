@@ -61,7 +61,7 @@ public class QueryPlanCapabilityValidationTests
             [QueryPlanFeatureCategory.LocalSequenceShape] = 3,
             [QueryPlanFeatureCategory.OrderingShape] = 2,
             [QueryPlanFeatureCategory.PagingCompositionShape] = 7,
-            [QueryPlanFeatureCategory.ScalarProjectionShape] = 2,
+            [QueryPlanFeatureCategory.ScalarProjectionShape] = 3,
             [QueryPlanFeatureCategory.ResultCompositionShape] = 2
         };
 
@@ -78,15 +78,15 @@ public class QueryPlanCapabilityValidationTests
                 $"{feature.Token}={QueryBackendCapabilities.Sql.GetDisposition(feature)}"));
         var sqlMatrixFingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sqlMatrix)));
 
-        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(616);
+        await Assert.That(QueryPlanFeatureCatalog.All.Count).IsEqualTo(617);
         await Assert.That(tokens.Distinct(StringComparer.Ordinal).Count()).IsEqualTo(tokens.Length);
         await Assert.That(actualCategoryCounts.Count).IsEqualTo(expectedCategoryCounts.Count);
         foreach (var expected in expectedCategoryCounts)
             await Assert.That(actualCategoryCounts[expected.Key]).IsEqualTo(expected.Value);
 
-        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(358);
+        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(359);
         await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Unsupported)).IsEqualTo(258);
-        await Assert.That(sqlMatrixFingerprint).IsEqualTo("58EFC3317462A864AF44233C00943AB75FB2119C18E1F16EE2A0578480EAEF60");
+        await Assert.That(sqlMatrixFingerprint).IsEqualTo("ECBA5493979A4E8CC3FEC4CB8B0B3972DF369074C03ACBB70F7B5F26613CF9E7");
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.Projection(QueryPlanProjectionKind.TransparentIdentifier)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
@@ -144,6 +144,10 @@ public class QueryPlanCapabilityValidationTests
             .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.ScalarProjectionShape(QueryPlanScalarProjectionShape.Other)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.ScalarProjectionShape(
+                QueryPlanScalarProjectionShape.DirectModelValueRootColumn)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.RepeatedSkipInScope)))
@@ -593,8 +597,10 @@ public class QueryPlanCapabilityValidationTests
 
         await Assert.That(exact).IsEqualTo(
             QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn);
-        await Assert.That(stringColumn).IsEqualTo(QueryPlanScalarProjectionShape.Other);
-        await Assert.That(nullableModelColumn).IsEqualTo(QueryPlanScalarProjectionShape.Other);
+        await Assert.That(stringColumn).IsEqualTo(
+            QueryPlanScalarProjectionShape.DirectModelValueRootColumn);
+        await Assert.That(nullableModelColumn).IsEqualTo(
+            QueryPlanScalarProjectionShape.DirectModelValueRootColumn);
         await Assert.That(widened).IsEqualTo(QueryPlanScalarProjectionShape.Other);
         await Assert.That(boxed).IsEqualTo(QueryPlanScalarProjectionShape.Other);
 

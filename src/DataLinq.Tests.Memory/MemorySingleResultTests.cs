@@ -176,8 +176,6 @@ public sealed class MemorySingleResultTests
             rows.OrderBy(static row => row.Id).Take(1).Single());
         var afterSkip = Capture<QueryBackendCapabilityException>(() =>
             rows.OrderBy(static row => row.Id).Skip(1).SingleOrDefault());
-        var stringProjection = Capture<QueryBackendCapabilityException>(() =>
-            rows.Select(static row => row.Name).Single());
         var nonPrimaryOrdering = Capture<QueryBackendCapabilityException>(() =>
             rows.OrderBy(static row => row.GroupId).Single());
 
@@ -186,7 +184,6 @@ public sealed class MemorySingleResultTests
         await Assert.That(last.Feature).IsEqualTo("Result:Last");
         await Assert.That(afterTake.Feature).IsEqualTo("Operation:Pushdown");
         await Assert.That(afterSkip.Feature).IsEqualTo("Operation:Pushdown");
-        await Assert.That(stringProjection.Feature).IsEqualTo("ScalarProjectionShape:Other");
         await Assert.That(nonPrimaryOrdering.Feature).IsEqualTo("OrderingShape:Other");
 
         foreach (var result in new[] { first, firstOrDefault })
@@ -194,7 +191,6 @@ public sealed class MemorySingleResultTests
         await Assert.That(last.Location).IsEqualTo("result");
         await Assert.That(afterTake.Location).IsEqualTo("operations[0]");
         await Assert.That(afterSkip.Location).IsEqualTo("operations[0]");
-        await Assert.That(stringProjection.Location).IsEqualTo("projection.scalar.shape");
         await Assert.That(nonPrimaryOrdering.Location).IsEqualTo("operations.ordering.shape");
         await Assert.That(database.Diagnostics).IsEqualTo(before);
         await Assert.That(database.GetMaterializedRowCount<MemoryPrimitiveRow>()).IsEqualTo(0);

@@ -280,6 +280,7 @@ public sealed class MemoryVerticalSpikeTests
             "Result:Single",
             "Result:SingleOrDefault",
             "ResultCompositionShape:FirstAfterSingleOrdering",
+            "ScalarProjectionShape:DirectModelValueRootColumn",
             "ScalarProjectionShape:DirectNonNullableInt32RootColumn",
             "ScalarNullness:NonNull",
             "SourceCardinality:Many",
