@@ -171,10 +171,10 @@ Inspects packed NuGet output for the public package set.
 
 ```bash
 dotnet run --project DataLinq.Dev.CLI -- package-report --package-dir artifacts/nuget-release/<timestamp>
-dotnet run --project DataLinq.Dev.CLI -- package-report --package-dir artifacts/nuget-release/<timestamp> --format markdown
+dotnet run --project DataLinq.Dev.CLI -- package-report --package-dir artifacts/nuget-release/v0.9-rc.N --version 0.9.0-rc.N --output artifacts/release/v0.9/v0.9-rc.N/packages/inspection --format markdown
 ```
 
-Use this after `publish-nuget.ps1 -PackOnly` or another fresh pack output directory. Use a new, empty output directory for each pack: `publish-nuget.ps1` rejects a non-empty output directory when it is packing so stale candidates cannot contaminate release evidence. `-SkipPack` is the explicit reuse path. Do not point `package-report` at a long-lived package cache; duplicate, unexpected, or version-skewed packages are findings on purpose.
+Use this after `publish-nuget.ps1 -PackOnly` or another fresh pack output directory. Use a new, empty output directory for each pack: `publish-nuget.ps1` rejects a non-empty output directory when it is packing so stale candidates cannot contaminate release evidence. `-SkipPack` is the explicit reuse path. Do not point `package-report` at a long-lived package cache; duplicate, unexpected, or version-skewed packages are findings on purpose. A release-evidence invocation supplies the exact candidate through `--version`, keeps the package directory beneath the repository's `artifacts` tree, and selects a fresh explicit `--output` beneath that same tree.
 
 The default expected package set is:
 
@@ -196,6 +196,7 @@ For every package, the report checks:
 
 - every expected public package is present
 - expected public packages all use the same version
+- when `--version` is supplied, every expected `.nupkg` and `.snupkg` uses that exact candidate version
 - no unexpected package ids are present
 - duplicate package ids are rejected
 - every `.nupkg` has a matching `.snupkg`
@@ -210,6 +211,8 @@ For every package, the report checks:
 - runtime package `lib/` and `runtimes/` assets do not contain Remotion payloads
 - the `DataLinq` source generator lives under `analyzers/dotnet/cs`
 - analyzer payloads are not placed under runtime assets
+- every `.nupkg` and `.snupkg` records its byte length and SHA-256 and is re-read to prove that the archive set and bytes stayed stable during inspection
+- every expected public package archive and symbol archive records the canonical Git repository identity and one coherent full repository commit
 
 `DataLinq.Memory` has an additional fail-closed package policy:
 
@@ -229,6 +232,10 @@ The Memory-specific identity, metadata, framework, dependency, exclusion, asset,
 
 Useful options:
 
+- `--version`
+  Supplies the exact package candidate version and opts into strict release-evidence intent. A versioned invocation exits unsuccessfully unless the completed report is also `ValidForEvidence`.
+- `--output`
+  Selects a guarded report directory strictly beneath the repository's `artifacts` tree. It must not overlap the package input and must be empty or contain only prior regular `report.json` and `report.md` files.
 - `--expected-packages`
   Overrides the public package set with a comma-separated list, or `public`.
 - `--runtime-packages`
@@ -244,9 +251,13 @@ Useful options:
 - `--allow-analyzer-leaks`
   Reports missing or misplaced analyzer assets without failing.
 - `--format summary|markdown|json`
-  Controls console output. The JSON and Markdown artifacts are always written.
+  Controls console output independently of the JSON and Markdown report artifacts.
 
-Reports use schema `v0.9.package-inspection-report.v3` and are written under `artifacts/dev/package-report/<timestamp>/` as `report.json` and `report.md`.
+Reports use schema `v0.9.package-inspection-report.v4`. Without `--output`, they are written under `artifacts/dev/package-report/<timestamp>-<guid>/`; an explicit output remains strictly beneath repository `artifacts`. The schema records the resolved invocation and strict-policy switches, UTC timing, outcome, inspection and artifact completeness, explicit JSON/Markdown paths, per-archive byte length and SHA-256, a path-independent candidate aggregate, exact-version and repository-commit consistency, archive stability, hard-failure classification, bounded structured error details, and start/end checkout plus Dev CLI/DevTools runner provenance.
+
+`Outcome` describes whether the requested inspection passed, failed findings, or encountered an inspection error. A diagnostic invocation without `--version` may therefore be `Passed` while `ValidForEvidence` is `false`. Strict validity additionally requires a completed artifact-backed inspection under the exact six-public/four-runtime package policy with every failure switch enabled, package input beneath repository `artifacts`, the requested version and canonical Git repository identity across every expected `.nupkg`/`.snupkg`, one coherent full commit across those archives, stable archive bytes, and a clean unchanged checkout whose Dev CLI and DevTools assemblies and package candidate all match that commit.
+
+The writer promotes `report.md` first and `report.json` last, so `report.json` is the completion marker for the pair. For a safe explicit `--output`, action-level semantic validation invalidates only prior regular `report.json`/`report.md` files before continuing; unrelated content is rejected rather than deleted. System.CommandLine syntax/parser failures occur before the action, while pre-action setup, cancellation/fatal failures, or report-write failures may emit no JSON. Evidence consumers must require successful command exit plus the v4 schema, both completeness flags, and `ValidForEvidence`; file existence or `Outcome: Passed` alone is insufficient.
 
 ### `package-smoke`
 

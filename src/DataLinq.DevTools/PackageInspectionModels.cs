@@ -33,7 +33,17 @@ public enum PackageInspectionFindingKind
     DuplicateSymbolPackage,
     UnexpectedSymbolPackageAsset,
     BannedSymbolPackageAsset,
-    InvalidManagedAssembly
+    InvalidManagedAssembly,
+    PackageArchiveChanged,
+    InspectionError
+}
+
+public enum PackageInspectionOutcome
+{
+    Passed,
+    Failed,
+    Incomplete,
+    Error
 }
 
 public sealed record PackageInspectionOptions(
@@ -45,7 +55,57 @@ public sealed record PackageInspectionOptions(
     bool FailOnMissingSymbolPackage,
     bool FailOnRuntimeRoslyn,
     bool FailOnRuntimeRemotion,
+    bool FailOnAnalyzerAssetLeak)
+{
+    public string? ExpectedVersion { get; init; }
+
+    public string? OutputDirectory { get; init; }
+
+    public string OutputFormat { get; init; } = "summary";
+}
+
+public sealed record PackageInspectionInvocation(
+    string Command,
+    string RepositoryRoot,
+    string PackageDirectory,
+    string ReportDirectory,
+    string? ExpectedVersion,
+    string OutputFormat,
+    IReadOnlyList<string> ExpectedPackageIds,
+    IReadOnlyList<string> RuntimePackageIds,
+    bool FailOnUnexpectedPackage,
+    bool FailOnMissingSymbolPackage,
+    bool FailOnRuntimeRoslyn,
+    bool FailOnRuntimeRemotion,
     bool FailOnAnalyzerAssetLeak);
+
+public sealed record PackageInspectionArtifacts(
+    string JsonPath,
+    string MarkdownPath);
+
+public sealed record PackageInspectionCandidateIdentity(
+    string AggregateSha256,
+    string? Version,
+    bool VersionConsistent,
+    string? RepositoryCommit,
+    bool RepositoryCommitConsistent,
+    bool ArchivesStable);
+
+public sealed record PackageInspectionRunnerEvidence(
+    TestRunSummaryRepositoryState Start,
+    TestRunSummaryRepositoryState End,
+    TestRunSummaryRunnerAssembly EntryAssembly,
+    TestRunSummaryRunnerAssembly DevToolsAssembly,
+    bool StateChangedDuringRun,
+    bool AssembliesMatchCheckout,
+    bool AssembliesBuiltFromCleanState,
+    bool CandidateMatchesCheckout,
+    bool ValidForEvidence);
+
+public sealed record PackageInspectionFailure(
+    string Stage,
+    string ExceptionType,
+    string Message);
 
 public sealed record PackageInspectionReport(
     string SchemaVersion,
@@ -56,7 +116,36 @@ public sealed record PackageInspectionReport(
     IReadOnlyList<PackageInspectionPackageReport> Packages,
     IReadOnlyList<PackageInspectionSymbolPackageReport> SymbolPackages,
     IReadOnlyList<PackageInspectionFinding> Findings,
-    PackageInspectionSummary Summary);
+    PackageInspectionSummary Summary)
+{
+    public DateTimeOffset StartedAtUtc { get; init; }
+
+    public DateTimeOffset CompletedAtUtc { get; init; }
+
+    public double DurationSeconds { get; init; }
+
+    public PackageInspectionInvocation Invocation { get; init; } = null!;
+
+    public PackageInspectionOutcome Outcome { get; init; } = PackageInspectionOutcome.Incomplete;
+
+    public bool InspectionComplete { get; init; }
+
+    public bool ArtifactsComplete { get; init; }
+
+    public bool IsCanonicalReleasePolicy { get; init; }
+
+    public bool PackageDirectoryIsRepositoryArtifact { get; init; }
+
+    public bool ValidForEvidence { get; init; }
+
+    public PackageInspectionArtifacts Artifacts { get; init; } = null!;
+
+    public PackageInspectionCandidateIdentity Candidate { get; init; } = null!;
+
+    public PackageInspectionRunnerEvidence Runner { get; init; } = null!;
+
+    public PackageInspectionFailure? Failure { get; init; }
+}
 
 public sealed record PackageInspectionSummary(
     int PackageCount,
@@ -73,7 +162,12 @@ public sealed record PackageInspectionSymbolPackageReport(
     PackageMetadata Metadata,
     IReadOnlyList<string> PdbFiles,
     IReadOnlyList<string> AllFiles,
-    IReadOnlyList<PackageBinaryPayloadMatch> BinaryPayloadMatches);
+    IReadOnlyList<PackageBinaryPayloadMatch> BinaryPayloadMatches)
+{
+    public long SizeBytes { get; init; }
+
+    public string Sha256 { get; init; } = "unknown";
+}
 
 public sealed record PackageInspectionPackageReport(
     string Id,
@@ -90,7 +184,12 @@ public sealed record PackageInspectionPackageReport(
     PackageAssetSummary Assets,
     IReadOnlyList<PackagePayloadTokenMatch> PayloadTokenMatches,
     IReadOnlyList<PackageBinaryPayloadMatch> BinaryPayloadMatches,
-    IReadOnlyList<PackageManagedAssemblyInspection> ManagedAssemblies);
+    IReadOnlyList<PackageManagedAssemblyInspection> ManagedAssemblies)
+{
+    public long SizeBytes { get; init; }
+
+    public string Sha256 { get; init; } = "unknown";
+}
 
 public sealed record PackageMetadata(
     string? Id,
@@ -142,4 +241,7 @@ public sealed record PackageInspectionFinding(
     PackageInspectionFindingKind Kind,
     string PackageId,
     string? TargetFramework,
-    string Message);
+    string Message)
+{
+    public bool IsHardFailure { get; init; }
+}

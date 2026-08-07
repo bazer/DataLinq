@@ -9,6 +9,10 @@ public static class PackageInspectionPolicy
     // ceilings so validation cannot approve an input that later requires an unbounded read.
     internal const long MaximumPackageArchiveBytes = 512L * 1024 * 1024;
     internal const int MaximumPrimaryManagedAssetBytes = 16 * 1024 * 1024;
+    internal const long MaximumAggregateUncompressedBytes = 1024L * 1024 * 1024;
+    internal const int MaximumPackageEntryCount = 10_000;
+    internal const int MaximumPackageArchives = 64;
+    internal const int MaximumNuspecBytes = 1024 * 1024;
 
     public const string CorePackageId = "DataLinq";
     public const string SQLitePackageId = "DataLinq.SQLite";
