@@ -91,6 +91,7 @@ If you already know what you need, jump directly to the major sections:
 
 - [MySQL & MariaDB](backends/MySQL-MariaDB.md)
 - [SQLite](backends/SQLite.md)
+- [Memory (experimental)](backends/Memory.md)
 
 ### Internals
 
@@ -104,4 +105,5 @@ If you already know what you need, jump directly to the major sections:
 ### Release and Roadmap
 
 - [Changelog](../CHANGELOG.md)
+- [0.9 Release Notes](releases/0.9.md)
 - [Roadmap](Roadmap.md)

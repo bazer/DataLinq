@@ -9,12 +9,14 @@ This is the recommended path for a new developer:
 
 ## Choose a Provider
 
-DataLinq currently ships with two runtime provider packages:
+DataLinq 0.9 ships with two SQL provider packages and one experimental provider-free read backend:
 
 - `DataLinq.MySql`
   - use this for both MySQL and MariaDB
 - `DataLinq.SQLite`
   - use this for SQLite
+- `DataLinq.Memory`
+  - use this for explicitly seeded, read-only in-process models when SQL behavior is not under test
 
 There is no separate MariaDB runtime package. MariaDB support lives in `DataLinq.MySql`.
 
@@ -31,6 +33,15 @@ For SQLite:
 ```bash
 dotnet add package DataLinq.SQLite
 ```
+
+For the experimental read-only Memory backend:
+
+```bash
+dotnet add package DataLinq
+dotnet add package DataLinq.Memory
+```
+
+Keep DataLinq package versions aligned. Memory is not a replacement for provider-backed tests; see [DataLinq.Memory](../backends/Memory.md) for its exact query and lifecycle boundary.
 
 ## Install the CLI
 
