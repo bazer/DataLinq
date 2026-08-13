@@ -300,6 +300,97 @@ public sealed class SQLiteGuidStorageRoundTripTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.SqliteProviders))]
+    public async Task NonKeyGuidFormats_DirectProjectionsDecodeDeclaredStorageAcrossSQLiteProviders(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<SQLiteGuidStorageDb>.Create(
+            provider,
+            nameof(NonKeyGuidFormats_DirectProjectionsDecodeDeclaredStorageAcrossSQLiteProviders));
+        var database = databaseScope.Database;
+        var inserted = database.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO guid_storage_rows " +
+            "(text36, text32, binary_little_endian, binary_rfc4122, optional_text36, typed_binary_rfc4122, optional_typed_text36) VALUES " +
+            "('00112233-4455-6677-8899-aabbccddeeff', '00112233445566778899aabbccddeeff', " +
+            "X'33221100554477668899AABBCCDDEEFF', X'00112233445566778899AABBCCDDEEFF', " +
+            "'00112233-4455-6677-8899-aabbccddeeff', X'00112233445566778899AABBCCDDEEFF', " +
+            "'00112233-4455-6677-8899-aabbccddeeff'), " +
+            "('fedcba98-7654-3210-89ab-cdef01234567', 'fedcba987654321089abcdef01234567', " +
+            "X'98BADCFE5476103289ABCDEF01234567', X'FEDCBA987654321089ABCDEF01234567', " +
+            "NULL, X'FEDCBA987654321089ABCDEF01234567', NULL)");
+
+        var rows = database.Query().Rows.OrderBy(static row => row.Id);
+        var text36 = rows.Select(static row => row.Text36).ToArray();
+        var text32 = rows.Select(static row => row.Text32).ToArray();
+        var binaryLittleEndian = rows.Select(static row => row.BinaryLittleEndian).ToArray();
+        var binaryRfc4122 = rows.Select(static row => row.BinaryRfc4122).ToArray();
+        var optionalText36 = rows.Select(static row => row.OptionalText36).ToArray();
+        var typedBinaryRfc4122 = rows.Select(static row => row.TypedBinaryRfc4122).ToArray();
+        var optionalTypedText36 = rows.Select(static row => row.OptionalTypedText36).ToArray();
+        var projectedRows = rows.Select(static row => new
+        {
+            row.Text36,
+            row.Text32,
+            row.BinaryLittleEndian,
+            row.BinaryRfc4122,
+            row.OptionalText36,
+            row.TypedBinaryRfc4122,
+            row.OptionalTypedText36
+        }).ToArray();
+        var textGroups = database.Query().Rows
+            .GroupBy(static row => row.Text36)
+            .Select(static group => new { group.Key, Count = group.Count() })
+            .ToArray();
+        var binaryGroups = database.Query().Rows
+            .GroupBy(static row => row.BinaryRfc4122)
+            .Select(static group => new { group.Key, Count = group.Count() })
+            .ToArray();
+
+        await Assert.That(inserted).IsEqualTo(2);
+        await Assert.That(text36).IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(text32).IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(binaryLittleEndian).IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(binaryRfc4122).IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(optionalText36).IsEquivalentTo(new Guid?[] { KnownGuid, null });
+        await Assert.That(typedBinaryRfc4122).IsEquivalentTo(new[]
+        {
+            new SQLiteGuidStorageId(KnownGuid),
+            new SQLiteGuidStorageId(AlternateGuid)
+        });
+        await Assert.That(optionalTypedText36).IsEquivalentTo(new SQLiteGuidStorageId?[]
+        {
+            new(KnownGuid),
+            null
+        });
+
+        await Assert.That(projectedRows.Length).IsEqualTo(2);
+        await Assert.That(projectedRows[0].Text36).IsEqualTo(KnownGuid);
+        await Assert.That(projectedRows[0].Text32).IsEqualTo(KnownGuid);
+        await Assert.That(projectedRows[0].BinaryLittleEndian).IsEqualTo(KnownGuid);
+        await Assert.That(projectedRows[0].BinaryRfc4122).IsEqualTo(KnownGuid);
+        await Assert.That(projectedRows[0].OptionalText36).IsEqualTo(KnownGuid);
+        await Assert.That(projectedRows[0].TypedBinaryRfc4122)
+            .IsEqualTo(new SQLiteGuidStorageId(KnownGuid));
+        await Assert.That(projectedRows[0].OptionalTypedText36)
+            .IsEqualTo(new SQLiteGuidStorageId(KnownGuid));
+        await Assert.That(projectedRows[1].Text36).IsEqualTo(AlternateGuid);
+        await Assert.That(projectedRows[1].Text32).IsEqualTo(AlternateGuid);
+        await Assert.That(projectedRows[1].BinaryLittleEndian).IsEqualTo(AlternateGuid);
+        await Assert.That(projectedRows[1].BinaryRfc4122).IsEqualTo(AlternateGuid);
+        await Assert.That(projectedRows[1].OptionalText36).IsNull();
+        await Assert.That(projectedRows[1].TypedBinaryRfc4122)
+            .IsEqualTo(new SQLiteGuidStorageId(AlternateGuid));
+        await Assert.That(projectedRows[1].OptionalTypedText36).IsNull();
+
+        await Assert.That(textGroups.Select(static group => group.Key).ToArray())
+            .IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(textGroups.All(static group => group.Count == 1)).IsTrue();
+        await Assert.That(binaryGroups.Select(static group => group.Key).ToArray())
+            .IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(binaryGroups.All(static group => group.Count == 1)).IsTrue();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.SqliteProviders))]
     public async Task NonKeyGuidFormats_QueryPredicatesBindExactPhysicalValuesAcrossSQLiteProviders(
         TestProviderDescriptor provider)
     {

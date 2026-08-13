@@ -186,6 +186,62 @@ public sealed class ServerGuidStorageRoundTripTests
     }
 
     [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ServerProviders))]
+    public async Task NonKeyGuidFormats_DirectProjectionsDecodeDeclaredStorageAcrossServerProviders(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<ServerGuidStorageDb>.Create(
+            provider,
+            nameof(NonKeyGuidFormats_DirectProjectionsDecodeDeclaredStorageAcrossServerProviders));
+        var knownProviderHex = GetProviderSpecificHex(
+            provider.DatabaseType,
+            "33221100554477668899AABBCCDDEEFF",
+            "00112233445566778899AABBCCDDEEFF");
+        var alternateProviderHex = GetProviderSpecificHex(
+            provider.DatabaseType,
+            "98BADCFE5476103289ABCDEF01234567",
+            "FEDCBA987654321089ABCDEF01234567");
+        var inserted = databaseScope.Database.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO guid_storage_rows (" +
+            "native_or_text36, text36, text32, binary_little_endian, binary_rfc4122, " +
+            "provider_specific_binary, optional_text36, typed_provider_specific_binary, optional_typed_text36" +
+            ") VALUES (" +
+            "'00112233-4455-6677-8899-aabbccddeeff', " +
+            "'00112233-4455-6677-8899-aabbccddeeff', " +
+            "'00112233445566778899aabbccddeeff', " +
+            "X'33221100554477668899AABBCCDDEEFF', " +
+            "X'00112233445566778899AABBCCDDEEFF', " +
+            $"X'{knownProviderHex}', " +
+            "'00112233-4455-6677-8899-aabbccddeeff', " +
+            $"X'{knownProviderHex}', " +
+            "'00112233-4455-6677-8899-aabbccddeeff'" +
+            "), (" +
+            "'fedcba98-7654-3210-89ab-cdef01234567', " +
+            "'fedcba98-7654-3210-89ab-cdef01234567', " +
+            "'fedcba987654321089abcdef01234567', " +
+            "X'98BADCFE5476103289ABCDEF01234567', " +
+            "X'FEDCBA987654321089ABCDEF01234567', " +
+            $"X'{alternateProviderHex}', " +
+            "NULL, " +
+            $"X'{alternateProviderHex}', " +
+            "NULL" +
+            ")");
+
+        await Assert.That(inserted).IsEqualTo(2);
+
+        foreach (var connectorGuidFormat in ConnectorGuidFormats)
+        {
+            using var database = CreateDatabase(
+                provider,
+                WithGuidFormat(databaseScope.Connection.ConnectionString, connectorGuidFormat),
+                databaseScope.Connection.DataSourceName);
+            database.Provider.State.ClearCache();
+
+            await AssertDirectGuidProjections(database);
+        }
+    }
+
+    [Test]
     [NotInParallel]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ServerProviders))]
     public async Task ScalarGuidPrimaryKeys_PreserveCodecIdentityAcrossConnectorGuidFormats(
@@ -659,6 +715,91 @@ public sealed class ServerGuidStorageRoundTripTests
                 : null);
     }
 
+    private static async Task AssertDirectGuidProjections(
+        Database<ServerGuidStorageDb> database)
+    {
+        var rows = database.Query().Rows.OrderBy(static row => row.Id);
+        var nativeOrText36 = rows.Select(static row => row.NativeOrText36).ToArray();
+        var text36 = rows.Select(static row => row.Text36).ToArray();
+        var text32 = rows.Select(static row => row.Text32).ToArray();
+        var binaryLittleEndian = rows.Select(static row => row.BinaryLittleEndian).ToArray();
+        var binaryRfc4122 = rows.Select(static row => row.BinaryRfc4122).ToArray();
+        var providerSpecificBinary = rows.Select(static row => row.ProviderSpecificBinary).ToArray();
+        var optionalText36 = rows.Select(static row => row.OptionalText36).ToArray();
+        var typedProviderSpecificBinary = rows
+            .Select(static row => row.TypedProviderSpecificBinary)
+            .ToArray();
+        var optionalTypedText36 = rows.Select(static row => row.OptionalTypedText36).ToArray();
+        var projectedRows = rows.Select(static row => new ServerGuidProjection(
+            row.NativeOrText36,
+            row.Text36,
+            row.Text32,
+            row.BinaryLittleEndian,
+            row.BinaryRfc4122,
+            row.ProviderSpecificBinary,
+            row.OptionalText36,
+            row.TypedProviderSpecificBinary,
+            row.OptionalTypedText36
+        )).ToArray();
+        var textGroups = database.Query().Rows
+            .GroupBy(static row => row.Text36)
+            .Select(static group => new { group.Key, Count = group.Count() })
+            .ToArray();
+        var binaryGroups = database.Query().Rows
+            .GroupBy(static row => row.ProviderSpecificBinary)
+            .Select(static group => new { group.Key, Count = group.Count() })
+            .ToArray();
+
+        await Assert.That(nativeOrText36).IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(text36).IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(text32).IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(binaryLittleEndian).IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(binaryRfc4122).IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(providerSpecificBinary).IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(optionalText36).IsEquivalentTo(new Guid?[] { KnownGuid, null });
+        await Assert.That(typedProviderSpecificBinary).IsEquivalentTo(new[]
+        {
+            new ServerGuidStorageId(KnownGuid),
+            new ServerGuidStorageId(AlternateGuid)
+        });
+        await Assert.That(optionalTypedText36).IsEquivalentTo(new ServerGuidStorageId?[]
+        {
+            new(KnownGuid),
+            null
+        });
+
+        await Assert.That(projectedRows.Length).IsEqualTo(2);
+        await AssertModelProjection(projectedRows[0], KnownGuid, KnownGuid);
+        await AssertModelProjection(projectedRows[1], AlternateGuid, optionalText36: null);
+
+        await Assert.That(textGroups.Select(static group => group.Key).ToArray())
+            .IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(textGroups.All(static group => group.Count == 1)).IsTrue();
+        await Assert.That(binaryGroups.Select(static group => group.Key).ToArray())
+            .IsEquivalentTo(new[] { KnownGuid, AlternateGuid });
+        await Assert.That(binaryGroups.All(static group => group.Count == 1)).IsTrue();
+
+        static async Task AssertModelProjection(
+            ServerGuidProjection row,
+            Guid expected,
+            Guid? optionalText36)
+        {
+            await Assert.That(row.NativeOrText36).IsEqualTo(expected);
+            await Assert.That(row.Text36).IsEqualTo(expected);
+            await Assert.That(row.Text32).IsEqualTo(expected);
+            await Assert.That(row.BinaryLittleEndian).IsEqualTo(expected);
+            await Assert.That(row.BinaryRfc4122).IsEqualTo(expected);
+            await Assert.That(row.ProviderSpecificBinary).IsEqualTo(expected);
+            await Assert.That(row.OptionalText36).IsEqualTo(optionalText36);
+            await Assert.That(row.TypedProviderSpecificBinary)
+                .IsEqualTo(new ServerGuidStorageId(expected));
+            await Assert.That(row.OptionalTypedText36).IsEqualTo(
+                optionalText36.HasValue
+                    ? new ServerGuidStorageId(optionalText36.Value)
+                    : null);
+        }
+    }
+
     private static async Task AssertPhysicalStorage(
         Database<ServerGuidStorageDb> database,
         int id,
@@ -807,6 +948,17 @@ public sealed class ServerGuidStorageRoundTripTests
         string littleEndianHex,
         string rfc4122Hex) => Convert.FromHexString(
             GetProviderSpecificHex(databaseType, littleEndianHex, rfc4122Hex));
+
+    private sealed record ServerGuidProjection(
+        Guid NativeOrText36,
+        Guid Text36,
+        Guid Text32,
+        Guid BinaryLittleEndian,
+        Guid BinaryRfc4122,
+        Guid ProviderSpecificBinary,
+        Guid? OptionalText36,
+        ServerGuidStorageId TypedProviderSpecificBinary,
+        ServerGuidStorageId? OptionalTypedText36);
 }
 
 public readonly record struct ServerGuidStorageId(Guid Value);
