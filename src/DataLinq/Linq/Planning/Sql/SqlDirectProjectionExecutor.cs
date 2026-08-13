@@ -4,6 +4,7 @@ using System.Threading;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Metadata;
 using DataLinq.Mutation;
 
 namespace DataLinq.Linq.Planning.Sql;
@@ -55,8 +56,8 @@ internal sealed class SqlDirectProjectionExecutor
                 // Grouped SELECT emits one selector per projection member in this order.
                 // The slot ordinal prevents alias comparison from pairing the value with different column metadata.
                 if (member.Value is QueryPlanGroupKeyValue groupKey &&
-                    IsModelCompatibleConvertedColumnShape(groupKey.Key, groupKey.ClrType) &&
-                    TryReadScalarConvertedColumnValue(
+                    IsModelCompatibleProjectedColumnShape(groupKey.Key, groupKey.ClrType) &&
+                    TryReadProjectedColumnValue(
                         reader,
                         groupKey.Key,
                         index,
@@ -92,24 +93,14 @@ internal sealed class SqlDirectProjectionExecutor
         foreach (var reader in select.ReadReader(cancellationToken))
         {
             var ordinal = reader.GetOrdinal(QueryPlanSqlBuilder.ScalarProjectionAlias);
-            if (projection.Column.HasScalarConverter)
-            {
-                var canonicalValue = ProviderRowDecoder.DecodeCanonicalValue(
-                    reader,
-                    projection.Column,
-                    ordinal,
-                    sourceName);
-                var modelValue = ProviderRowMaterializer.MaterializeValue(
-                    projection.Column,
-                    canonicalValue,
-                    sourceName);
-                yield return QueryProjectionResultMaterializer.ConvertResult<TResult>(modelValue);
-                continue;
-            }
-
-            var rawValue = reader.IsDbNull(ordinal) ? null : reader.GetValue(ordinal);
+            var modelValue = ReadProjectedColumnValue(
+                reader,
+                projection.Column,
+                ordinal,
+                sourceName,
+                projection.ResultType);
             yield return QueryProjectionResultMaterializer.ConvertResult<TResult>(
-                QueryProjectionResultMaterializer.ConvertValue(rawValue, projection.ResultType));
+                modelValue);
         }
     }
 
@@ -127,7 +118,7 @@ internal sealed class SqlDirectProjectionExecutor
             {
                 var member = projection.Members[index];
                 var ordinal = reader.GetOrdinal(member.Name);
-                if (TryReadScalarConvertedColumnValue(
+                if (TryReadProjectedColumnValue(
                         reader,
                         member.Value,
                         ordinal,
@@ -150,7 +141,7 @@ internal sealed class SqlDirectProjectionExecutor
         }
     }
 
-    private static bool TryReadScalarConvertedColumnValue(
+    private static bool TryReadProjectedColumnValue(
         IDataLinqDataReader reader,
         QueryPlanValue value,
         int ordinal,
@@ -159,7 +150,7 @@ internal sealed class SqlDirectProjectionExecutor
     {
         if (value is QueryPlanConvertedValue converted)
         {
-            if (!TryReadScalarConvertedColumnValue(
+            if (!TryReadProjectedColumnValue(
                     reader,
                     converted.Value,
                     ordinal,
@@ -176,28 +167,42 @@ internal sealed class SqlDirectProjectionExecutor
             return true;
         }
 
-        if (value is not QueryPlanColumnValue { Column.HasScalarConverter: true } columnValue)
+        if (value is not QueryPlanColumnValue columnValue)
         {
             modelValue = null;
             return false;
         }
 
-        var canonicalValue = ProviderRowDecoder.DecodeCanonicalValue(
+        modelValue = ReadProjectedColumnValue(
             reader,
             columnValue.Column,
             ordinal,
-            sourceName);
-        modelValue = ProviderRowMaterializer.MaterializeValue(
-            columnValue.Column,
-            canonicalValue,
-            sourceName);
-        modelValue = QueryProjectionResultMaterializer.ConvertValue(
-            modelValue,
+            sourceName,
             columnValue.ClrType);
         return true;
     }
 
-    private static bool IsModelCompatibleConvertedColumnShape(
+    private static object? ReadProjectedColumnValue(
+        IDataLinqDataReader reader,
+        ColumnDefinition column,
+        int ordinal,
+        string sourceName,
+        Type targetType)
+    {
+        var canonicalValue = ProviderRowDecoder.DecodeCanonicalValue(
+            reader,
+            column,
+            ordinal,
+            sourceName,
+            useColumnAwareGuid: true);
+        var modelValue = ProviderRowMaterializer.MaterializeValue(
+            column,
+            canonicalValue,
+            sourceName);
+        return QueryProjectionResultMaterializer.ConvertValue(modelValue, targetType);
+    }
+
+    private static bool IsModelCompatibleProjectedColumnShape(
         QueryPlanValue value,
         Type resultType)
     {
@@ -205,7 +210,7 @@ internal sealed class SqlDirectProjectionExecutor
         while (leaf is QueryPlanConvertedValue converted)
             leaf = converted.Value;
 
-        if (leaf is not QueryPlanColumnValue { Column.HasScalarConverter: true } columnValue)
+        if (leaf is not QueryPlanColumnValue columnValue)
             return false;
 
         var declaredModelType = columnValue.Column.ModelClrType ?? columnValue.ClrType;

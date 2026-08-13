@@ -166,6 +166,65 @@ public sealed class JoinedGuidTypedIdKeyHydrationTests
     [Test]
     [NotInParallel]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ImplicitRelationDirectProjection_DecodesGuidBackedValuesAcrossProviders(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<JoinedGuidTypedIdDb>.Create(
+            provider,
+            nameof(ImplicitRelationDirectProjection_DecodesGuidBackedValuesAcrossProviders));
+        var database = databaseScope.Database;
+        var seed = SeedRawRows(database, provider.DatabaseType);
+        var query = database.Query().Children
+            .OrderBy(static child => child.Name)
+            .Select(static child => new JoinedGuidRelationProjection(
+                child.Id,
+                child.ParentId,
+                child.Parent.Id,
+                child.Name,
+                child.Parent.Name));
+        var invocation = ExpressionQueryPlanParser.Convert(database, query);
+        var projection = invocation.Template.Projection as QueryPlanProjection.SqlRow;
+        var rows = query.ToArray();
+        var implicitSources = invocation.Template.Sources
+            .Where(static source => source.Kind == QueryPlanSourceKind.ImplicitJoin)
+            .ToArray();
+
+        await Assert.That(seed.InsertedParent).IsEqualTo(1);
+        await Assert.That(seed.InsertedChildren).IsEqualTo(2);
+        await Assert.That(projection).IsNotNull();
+        await Assert.That(projection!.Disposition)
+            .IsEqualTo(QueryPlanProjectionDisposition.SqlOnlyCompatibility);
+        await Assert.That(implicitSources.Length).IsEqualTo(1);
+        await Assert.That(implicitSources[0].Table.DbName)
+            .IsEqualTo("joined_guid_typed_id_parents");
+
+        await Assert.That(rows.Length).IsEqualTo(2);
+        await Assert.That(rows.Select(static row => row.ChildId).ToArray())
+            .IsEquivalentTo(new[]
+            {
+                new JoinedGuidTypedId(FirstChildGuid),
+                new JoinedGuidTypedId(SecondChildGuid)
+            });
+        await Assert.That(rows.Select(static row => row.ParentId).ToArray())
+            .IsEquivalentTo(new JoinedGuidTypedId?[]
+            {
+                new(ParentGuid),
+                new(ParentGuid)
+            });
+        await Assert.That(rows.Select(static row => row.RelatedParentId).ToArray())
+            .IsEquivalentTo(new[]
+            {
+                new JoinedGuidTypedId(ParentGuid),
+                new JoinedGuidTypedId(ParentGuid)
+            });
+        await Assert.That(rows.Select(static row => row.ChildName).ToArray())
+            .IsEquivalentTo(new[] { "child-a", "child-b" });
+        await Assert.That(rows.All(static row => row.ParentName == "parent")).IsTrue();
+    }
+
+    [Test]
+    [NotInParallel]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GuidTypedIdRelation_RawRowsRollbackThenColdLoadWarmsCanonicalIndexAcrossProviders(
         TestProviderDescriptor provider)
     {
@@ -357,6 +416,13 @@ public sealed class JoinedGuidTypedIdKeyHydrationTests
         string ParentHex,
         string FirstChildHex,
         string SecondChildHex);
+
+    private sealed record JoinedGuidRelationProjection(
+        JoinedGuidTypedId ChildId,
+        JoinedGuidTypedId? ParentId,
+        JoinedGuidTypedId RelatedParentId,
+        string ChildName,
+        string ParentName);
 }
 
 public readonly record struct JoinedGuidTypedId(Guid Value);
