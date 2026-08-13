@@ -4,8 +4,9 @@ using System.CommandLine;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Runtime.ExceptionServices;
 using System.Text.RegularExpressions;
-using System.Text.Json;
 using System.Threading.Tasks;
 using DataLinq.DevTools;
 using Spectre.Console;
@@ -75,8 +76,14 @@ internal static class RunCommand
 
         command.SetAction(parseResult =>
         {
+            var requestedSummaryPath = parseResult.GetValue(summaryJsonOption);
+            if (!string.IsNullOrWhiteSpace(requestedSummaryPath))
+                TestRunSummaryReporter.InvalidateExistingReport(settings.RepositoryRoot, requestedSummaryPath);
+
             if (parseResult.GetValue(interactiveOption))
             {
+                if (!string.IsNullOrWhiteSpace(requestedSummaryPath))
+                    throw new InvalidOperationException("'--interactive' cannot be combined with '--summary-json'.");
                 InteractiveCliRunner.RunTests(orchestrator, settings);
                 return;
             }
@@ -102,7 +109,7 @@ internal static class RunCommand
                 batchSize,
                 parseResult.GetValue(parallelSuitesOption),
                 parseResult.GetValue(tearDownOption),
-                parseResult.GetValue(summaryJsonOption),
+                requestedSummaryPath,
                 CommandHelpers.ParseOutputMode(parseResult.GetValue(outputOption)),
                 CommandHelpers.ParseProfile(parseResult.GetValue(profileOption))));
 
@@ -142,7 +149,7 @@ internal static class RunCommand
         }
         catch (Exception exception)
         {
-            Console.Error.WriteLine(exception.Message);
+            Console.Error.WriteLine(TestRunSummaryReporter.SanitizeFailureMessage(exception.Message));
             return 1;
         }
     }
@@ -164,26 +171,123 @@ internal static class RunCommand
         ToolingProfile profile)
     {
         var repositoryRoot = settings.RepositoryRoot;
-        var suites = ResolveSuites(suiteName, projectPathOverride);
-
-        if (buildProject)
-        {
-            foreach (var suite in suites)
-                BuildProject(ResolveProjectPath(repositoryRoot, suite.ProjectPath), configuration, settings, outputMode, profile);
-        }
-
+        var summaryRequested = !string.IsNullOrWhiteSpace(summaryJsonPath);
+        if (summaryRequested)
+            TestRunSummaryReporter.InvalidateExistingReport(repositoryRoot, summaryJsonPath!);
+        var startedAtUtc = DateTimeOffset.UtcNow;
+        var repositoryStart = summaryRequested
+            ? TestRunSummaryReporter.CaptureRepositoryState(repositoryRoot)
+            : null;
+        var runnerAssemblies = summaryRequested
+            ? TestRunSummaryReporter.CaptureRunnerAssemblies()
+            : default;
+        var builds = new List<TestRunSummaryBuild>();
         var results = new List<RunResult>();
+        var expectedResults = new List<TestRunSummaryExpectedResult>();
         var overallExitCode = 0;
         var usedTargets = false;
         var resultLock = new object();
+        var failureStage = "resolve-suites";
+        TestRunSummaryFailure? failure = null;
+        TestRunSummaryFailure? teardownFailure = null;
+        TestRunSummaryInvocation? invocation = null;
+        TestRunSummaryReport? summaryReport = null;
+        Exception? executionException = null;
+
         try
         {
-            if (parallelSuites)
+            var suites = ResolveSuites(suiteName, projectPathOverride);
+            invocation = summaryRequested
+                ? CreateSummaryInvocation(
+                    repositoryRoot,
+                    selection,
+                    suites,
+                    suiteName,
+                    projectPathOverride,
+                    filter,
+                    configuration,
+                    buildProject,
+                    batchSize,
+                    parallelSuites,
+                    tearDown,
+                    outputMode,
+                    profile)
+                : null;
+            expectedResults.AddRange(CreateExpectedResults(suites, selection, repositoryRoot, batchSize));
+
+            if (buildProject)
             {
-                var suiteTasks = suites
-                    .Select(suite => Task.Run(() =>
+                foreach (var suite in suites)
+                {
+                    var projectPath = ResolveProjectPath(repositoryRoot, suite.ProjectPath);
+                    failureStage = $"build:{suite.Name}";
+                    var build = BuildProject(projectPath, configuration, settings, outputMode, profile);
+                    builds.Add(CreateSummaryBuild(projectPath, build));
+                    if (build.ProcessResult.ExitCode == 0)
+                        continue;
+
+                    overallExitCode = build.ProcessResult.ExitCode;
+                    throw new InvalidOperationException($"Failed to build '{projectPath}'.");
+                }
+            }
+
+            failureStage = "run-suites";
+            Exception? suiteExecutionException = null;
+            try
+            {
+                if (parallelSuites)
+                {
+                    var suiteTasks = suites
+                        .Select(suite => Task.Run(() =>
+                        {
+                            var exitCode = ExecuteSuiteRun(
+                                suite,
+                                selection,
+                                settings,
+                                repositoryRoot,
+                                configuration,
+                                filter,
+                                buildProject,
+                                batchSize,
+                                orchestrator,
+                                outputMode,
+                                profile,
+                                completedResultRef: completedResult =>
+                                {
+                                    lock (resultLock)
+                                        results.Add(completedResult);
+                                },
+                                usedTargetsRef: value =>
+                                {
+                                    lock (resultLock)
+                                        usedTargets = usedTargets || value;
+                                });
+
+                            lock (resultLock)
+                            {
+                                if (exitCode != 0)
+                                    overallExitCode = exitCode;
+                            }
+                        }))
+                        .ToArray();
+
+                    try
                     {
-                        var result = ExecuteSuiteRun(
+                        Task.WhenAll(suiteTasks).GetAwaiter().GetResult();
+                    }
+                    catch
+                    {
+                        foreach (var task in suiteTasks.Where(static x => x.IsFaulted))
+                            task.GetAwaiter().GetResult();
+
+                        throw;
+                    }
+                }
+                else
+                {
+                    foreach (var suite in suites)
+                    {
+                        var exitCode = ExecuteSuiteRun(
                             suite,
                             selection,
                             settings,
@@ -195,73 +299,114 @@ internal static class RunCommand
                             orchestrator,
                             outputMode,
                             profile,
-                            usedTargetsRef: value =>
-                            {
-                                lock (resultLock)
-                                    usedTargets = usedTargets || value;
-                            });
+                            completedResultRef: results.Add,
+                            usedTargetsRef: value => usedTargets = usedTargets || value);
 
-                        lock (resultLock)
-                        {
-                            results.AddRange(result.Results);
-                            if (result.ExitCode != 0)
-                                overallExitCode = result.ExitCode;
-                        }
-                    }))
-                    .ToArray();
+                        if (exitCode != 0)
+                            overallExitCode = exitCode;
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                suiteExecutionException = exception;
+            }
 
+            if (tearDown && usedTargets)
+            {
                 try
                 {
-                    Task.WhenAll(suiteTasks).GetAwaiter().GetResult();
+                    orchestrator.Down(remove: false, selection: null);
                 }
-                catch
+                catch (Exception exception)
                 {
-                    foreach (var task in suiteTasks.Where(static x => x.IsFaulted))
-                        task.GetAwaiter().GetResult();
+                    if (suiteExecutionException is null)
+                    {
+                        failureStage = "tear-down";
+                        throw;
+                    }
 
-                    throw;
+                    teardownFailure = new TestRunSummaryFailure(
+                        "tear-down",
+                        exception.GetType().FullName ?? exception.GetType().Name,
+                        TestRunSummaryReporter.SanitizeFailureMessage(
+                            exception.Message,
+                            settings.AdminPassword,
+                            settings.ApplicationPassword));
                 }
             }
-            else
-            {
-                foreach (var suite in suites)
-                {
-                    var result = ExecuteSuiteRun(
-                        suite,
-                        selection,
-                        settings,
-                        repositoryRoot,
-                        configuration,
-                        filter,
-                        buildProject,
-                        batchSize,
-                        orchestrator,
-                        outputMode,
-                        profile,
-                        usedTargetsRef: value => usedTargets = usedTargets || value);
 
-                    results.AddRange(result.Results);
-                    if (result.ExitCode != 0)
-                        overallExitCode = result.ExitCode;
-                }
-            }
+            if (suiteExecutionException is not null)
+                ExceptionDispatchInfo.Capture(suiteExecutionException).Throw();
+
+            var orderedResults = OrderResults(results);
+            if (ShouldRenderSummary(outputMode, orderedResults, overallExitCode))
+                RenderSummary(orderedResults);
+            if (ShouldRenderFailedTests(outputMode, orderedResults))
+                RenderFailedTests(orderedResults);
+        }
+        catch (Exception exception)
+        {
+            overallExitCode = 1;
+            failure = new TestRunSummaryFailure(
+                failureStage,
+                exception.GetType().FullName ?? exception.GetType().Name,
+                TestRunSummaryReporter.SanitizeFailureMessage(
+                    exception.Message,
+                    settings.AdminPassword,
+                    settings.ApplicationPassword));
+            executionException = new InvalidOperationException(failure.Message, exception);
         }
         finally
         {
-            if (tearDown && usedTargets)
-                orchestrator.Down(remove: false, selection: null);
+            if (summaryRequested)
+            {
+                var repositoryEnd = TestRunSummaryReporter.CaptureRepositoryState(repositoryRoot);
+                var orderedResults = OrderResults(results);
+                try
+                {
+                    summaryReport = WriteSummaryJson(
+                        summaryJsonPath!,
+                        startedAtUtc,
+                        invocation ?? CreateFallbackSummaryInvocation(
+                            repositoryRoot,
+                            selection,
+                            suiteName,
+                            projectPathOverride,
+                            filter,
+                            configuration,
+                            buildProject,
+                            batchSize,
+                            parallelSuites,
+                            tearDown,
+                            outputMode,
+                            profile),
+                        repositoryStart!,
+                        repositoryEnd,
+                        runnerAssemblies.EntryAssembly,
+                        runnerAssemblies.DevToolsAssembly,
+                        expectedResults,
+                        builds,
+                        orderedResults,
+                        overallExitCode,
+                        failure,
+                        teardownFailure);
+                }
+                catch (Exception reportException) when (executionException is not null)
+                {
+                    Console.Error.WriteLine(
+                        $"Additionally failed to write test summary JSON: {TestRunSummaryReporter.SanitizeFailureMessage(reportException.Message)}");
+                }
+            }
         }
 
-        var orderedResults = OrderResults(results);
-        if (ShouldRenderSummary(outputMode, orderedResults, overallExitCode))
-            RenderSummary(orderedResults);
-        if (ShouldRenderFailedTests(outputMode, orderedResults))
-            RenderFailedTests(orderedResults);
-        WriteSummaryJson(summaryJsonPath, orderedResults, overallExitCode);
-        return overallExitCode;
+        if (executionException is not null)
+            ExceptionDispatchInfo.Capture(executionException).Throw();
+
+        return summaryReport?.OverallExitCode ?? overallExitCode;
     }
 
-    private static SuiteRunResult ExecuteSuiteRun(
+    private static int ExecuteSuiteRun(
         TestCliSuite suite,
         CliTargetSelection selection,
         TestInfraCliSettings settings,
@@ -273,13 +418,13 @@ internal static class RunCommand
         TestInfraOrchestrator orchestrator,
         TestCliOutputMode outputMode,
         ToolingProfile profile,
+        Action<RunResult> completedResultRef,
         Action<bool>? usedTargetsRef)
     {
         var projectPath = ResolveProjectPath(repositoryRoot, suite.ProjectPath);
         if (!File.Exists(projectPath))
             throw new FileNotFoundException($"The requested test project was not found: '{projectPath}'.", projectPath);
 
-        var runResults = new List<RunResult>();
         var exitCode = 0;
 
         if (suite.UsesTargetBatches)
@@ -290,7 +435,7 @@ internal static class RunCommand
                 : selection.Targets.Where(static x => !TestTargetCatalog.IsSQLiteTarget(x.Id)).ToArray();
 
             if (suiteTargets.Length == 0)
-                return new SuiteRunResult(exitCode, runResults);
+                return exitCode;
 
             var batches = CreateBatches(suiteTargets, batchSize)
                 .Select(batchTargets => new CliTargetSelection(selection.AliasName, batchTargets))
@@ -318,12 +463,13 @@ internal static class RunCommand
 
                 var runResult = CreateRunResult(
                     suite.Name,
+                    projectPath,
                     index + 1,
-                    string.Join(", ", batch.Targets.Select(x => x.Id)),
+                    batch.Targets.Select(static target => target.Id).ToArray(),
                     start.Elapsed,
                     result);
+                completedResultRef(runResult);
                 RenderTestRunOutcome(runResult, outputMode);
-                runResults.Add(runResult);
 
                 if (result.ProcessResult.ExitCode != 0)
                     exitCode = result.ProcessResult.ExitCode;
@@ -346,21 +492,22 @@ internal static class RunCommand
 
             var runResult = CreateRunResult(
                 suite.Name,
+                projectPath,
                 batchIndex: null,
-                targets: "-",
+                targetIds: Array.Empty<string>(),
                 start.Elapsed,
                 result);
+            completedResultRef(runResult);
             RenderTestRunOutcome(runResult, outputMode);
-            runResults.Add(runResult);
 
             if (result.ProcessResult.ExitCode != 0)
                 exitCode = result.ProcessResult.ExitCode;
         }
 
-        return new SuiteRunResult(exitCode, runResults);
+        return exitCode;
     }
 
-    private static void BuildProject(string projectPath, string configuration, TestInfraCliSettings settings, TestCliOutputMode outputMode, ToolingProfile profile)
+    private static LoggedCommandResult BuildProject(string projectPath, string configuration, TestInfraCliSettings settings, TestCliOutputMode outputMode, ToolingProfile profile)
     {
         var arguments = new List<string>
         {
@@ -377,9 +524,7 @@ internal static class RunCommand
 
         var result = ExecuteDotnet(arguments, settings, profile, "build-" + Path.GetFileNameWithoutExtension(projectPath));
         RenderBuildOutcome(projectPath, result, outputMode);
-
-        if (result.ProcessResult.ExitCode != 0)
-            throw new InvalidOperationException($"Failed to build '{projectPath}'.");
+        return result;
     }
 
     private static LoggedCommandResult ExecuteTestRun(
@@ -403,6 +548,12 @@ internal static class RunCommand
             environmentVariables[DataLinq.Testing.PodmanTestEnvironmentSettings.TargetIdsEnvironmentVariable] = string.Join(",", selection.Targets.Select(x => x.Id));
             environmentVariables[DataLinq.Testing.PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable] = null;
         }
+        else
+        {
+            environmentVariables[DataLinq.Testing.PodmanTestEnvironmentSettings.ProviderSetEnvironmentVariable] = null;
+            environmentVariables[DataLinq.Testing.PodmanTestEnvironmentSettings.TargetIdsEnvironmentVariable] = null;
+            environmentVariables[DataLinq.Testing.PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable] = null;
+        }
 
         var arguments = new List<string>
         {
@@ -422,7 +573,8 @@ internal static class RunCommand
             settings,
             profile,
             CreateRunArtifactPrefix(suiteName, batchIndex, selection),
-            environmentVariables);
+            environmentVariables,
+            selection);
     }
 
     private static LoggedCommandResult ExecuteDotnet(
@@ -430,7 +582,8 @@ internal static class RunCommand
         TestInfraCliSettings settings,
         ToolingProfile profile,
         string artifactPrefix,
-        IReadOnlyDictionary<string, string?>? environmentVariables = null)
+        IReadOnlyDictionary<string, string?>? environmentVariables = null,
+        CliTargetSelection? targetSelection = null)
     {
         settings.ToolPaths.EnsureCreated();
         var mergedEnvironmentVariables = new Dictionary<string, string?>(
@@ -443,13 +596,96 @@ internal static class RunCommand
                 mergedEnvironmentVariables[pair.Key] = pair.Value;
         }
 
+        var startedAtUtc = DateTimeOffset.UtcNow;
         var processResult = ExternalProcessRunner.Execute(
             "dotnet",
             arguments,
             settings.RepositoryRoot,
             mergedEnvironmentVariables);
+        var completedAtUtc = DateTimeOffset.UtcNow;
         var logPath = WriteRawLog(settings, artifactPrefix, processResult);
-        return new LoggedCommandResult(processResult, logPath);
+        return new LoggedCommandResult(
+            processResult,
+            logPath,
+            "dotnet",
+            arguments.ToArray(),
+            settings.RepositoryRoot,
+            CaptureCommandEnvironment(settings, mergedEnvironmentVariables, targetSelection),
+            startedAtUtc,
+            completedAtUtc);
+    }
+
+    private static TestRunSummaryCommandEnvironment CaptureCommandEnvironment(
+        TestInfraCliSettings settings,
+        IReadOnlyDictionary<string, string?> environmentVariables,
+        CliTargetSelection? targetSelection)
+    {
+        var hostOverride = ResolveEnvironmentValue(
+            environmentVariables,
+            DataLinq.Testing.PodmanTestEnvironmentSettings.HostEnvironmentVariable);
+        var usesDatabaseHost = targetSelection?.ServerTargets.Count > 0;
+        var resolvedHost = usesDatabaseHost
+            ? hostOverride ?? new TestInfraRuntimeStateStore(settings.StatePath).Load()?.Host
+            : null;
+        string? host = null;
+        var hostCaptured = usesDatabaseHost && TryNormalizeDatabaseHost(resolvedHost, out host);
+        var providerSet = ResolveEnvironmentValue(
+            environmentVariables,
+            DataLinq.Testing.PodmanTestEnvironmentSettings.ProviderSetEnvironmentVariable);
+        var targetAlias = ResolveEnvironmentValue(
+            environmentVariables,
+            DataLinq.Testing.PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable);
+        var targetIdsValue = ResolveEnvironmentValue(
+            environmentVariables,
+            DataLinq.Testing.PodmanTestEnvironmentSettings.TargetIdsEnvironmentVariable);
+        var parsedTargetIds = string.IsNullOrWhiteSpace(targetIdsValue)
+            ? Array.Empty<string>()
+            : targetIdsValue
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        var targetIds = parsedTargetIds
+            .Where(id => TestCliCatalog.Targets.Any(target =>
+                string.Equals(target.Id, id, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+        if (targetIds.Length != parsedTargetIds.Length)
+            providerSet = null;
+
+        return new TestRunSummaryCommandEnvironment(
+            usesDatabaseHost,
+            hostCaptured,
+            host,
+            string.Equals(providerSet, "targets", StringComparison.OrdinalIgnoreCase),
+            targetAlias is null,
+            targetIds);
+    }
+
+    private static string? ResolveEnvironmentValue(
+        IReadOnlyDictionary<string, string?> environmentVariables,
+        string key) =>
+        environmentVariables.TryGetValue(key, out var value)
+            ? NormalizeEnvironmentValue(value)
+            : NormalizeEnvironmentValue(Environment.GetEnvironmentVariable(key));
+
+    private static string? NormalizeEnvironmentValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static bool TryNormalizeDatabaseHost(string? value, out string? host)
+    {
+        host = null;
+        var candidate = NormalizeEnvironmentValue(value);
+        if (candidate is null)
+            return false;
+        if (string.Equals(candidate, "localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            host = "localhost";
+            return true;
+        }
+        if (!IPAddress.TryParse(candidate, out var address))
+            return false;
+
+        host = address.ToString();
+        return true;
     }
 
     private static List<TestCliTarget[]> CreateBatches(TestCliTarget[] targets, int batchSize)
@@ -776,11 +1012,18 @@ internal static class RunCommand
             ? projectPath
             : Path.Combine(repositoryRoot, projectPath);
 
-    private static RunResult CreateRunResult(string suite, int? batchIndex, string targets, TimeSpan elapsed, LoggedCommandResult result) =>
+    private static RunResult CreateRunResult(
+        string suite,
+        string projectPath,
+        int? batchIndex,
+        IReadOnlyList<string> targetIds,
+        TimeSpan elapsed,
+        LoggedCommandResult result) =>
         new(
             Suite: suite,
+            ProjectPath: projectPath,
             BatchIndex: batchIndex,
-            Targets: targets,
+            TargetIds: targetIds,
             ExitCode: result.ProcessResult.ExitCode,
             DurationSeconds: Math.Round(elapsed.TotalSeconds, 1),
             Total: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "total"),
@@ -789,7 +1032,13 @@ internal static class RunCommand
             Skipped: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "skipped"),
             FailedTests: ParseFailedTests(SanitizeConsoleOutput(result.ProcessResult.StandardOutput)),
             ProcessResult: result.ProcessResult,
-            LogPath: result.LogPath);
+            LogPath: result.LogPath,
+            Executable: result.Executable,
+            Arguments: result.Arguments,
+            WorkingDirectory: result.WorkingDirectory,
+            Environment: result.Environment,
+            StartedAtUtc: result.StartedAtUtc,
+            CompletedAtUtc: result.CompletedAtUtc);
 
     private static string SanitizeConsoleOutput(string output) =>
         string.IsNullOrEmpty(output)
@@ -930,45 +1179,244 @@ internal static class RunCommand
 
     private static string FormatNullableCount(int? value) => value?.ToString() ?? "-";
 
-    private static void WriteSummaryJson(string? summaryJsonPath, IReadOnlyList<RunResult> results, int overallExitCode)
+    private static TestRunSummaryInvocation CreateSummaryInvocation(
+        string repositoryRoot,
+        CliTargetSelection selection,
+        IReadOnlyList<TestCliSuite> suites,
+        string suiteName,
+        string? projectPathOverride,
+        string? filter,
+        string configuration,
+        bool buildProject,
+        int batchSize,
+        bool parallelSuites,
+        bool tearDown,
+        TestCliOutputMode outputMode,
+        ToolingProfile profile)
     {
-        if (string.IsNullOrWhiteSpace(summaryJsonPath))
-            return;
+        var resolvedSuites = suites
+            .Select(suite => new TestRunSummarySuite(
+                suite.Name,
+                ResolveProjectPath(repositoryRoot, suite.ProjectPath),
+                suite.UsesTargetBatches,
+                suite.IncludeSqliteTargets))
+            .ToArray();
+        var selectedTargets = selection.Targets
+            .Select(static target => new TestRunSummaryTarget(
+                target.Id,
+                target.DisplayName,
+                target.Category,
+                target.UsesPodman,
+                target.ServerTarget?.HostPort))
+            .ToArray();
+        var resolvedSuiteNames = resolvedSuites
+            .Select(static suite => suite.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var allSuiteNames = TestCliSuiteCatalog.Suites
+            .Select(static suite => suite.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var selectedTargetIds = selectedTargets
+            .Select(static target => target.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var allTargetIds = TestCliCatalog.Targets
+            .Select(static target => target.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var resolvedPath = Path.GetFullPath(summaryJsonPath);
-        var directory = Path.GetDirectoryName(resolvedPath);
-        if (!string.IsNullOrWhiteSpace(directory))
-            Directory.CreateDirectory(directory);
+        return new TestRunSummaryInvocation(
+            Command: "run",
+            RepositoryRoot: repositoryRoot,
+            Alias: selection.AliasName,
+            SelectedTargets: selectedTargets,
+            ResolvedSuites: resolvedSuites,
+            SafeEnvironment: CreateSummarySafeEnvironment(),
+            IncludesAllSuites: resolvedSuiteNames.SetEquals(allSuiteNames),
+            IncludesAllTargets: selectedTargetIds.SetEquals(allTargetIds),
+            IsUnfiltered: string.IsNullOrWhiteSpace(filter),
+            Suite: suiteName,
+            ProjectPath: projectPathOverride,
+            Filter: filter,
+            Configuration: configuration,
+            BuildProject: buildProject,
+            BatchSize: batchSize,
+            ParallelSuites: parallelSuites,
+            TearDown: tearDown,
+            OutputMode: outputMode.ToString(),
+            Profile: profile);
+    }
 
-        var payload = new RunSummaryPayload(
-            OverallExitCode: overallExitCode,
-            Total: SumCounts(results.Select(static x => x.Total)),
-            Passed: SumCounts(results.Select(static x => x.Succeeded)),
-            Failed: SumCounts(results.Select(static x => x.Failed)),
-            Skipped: SumCounts(results.Select(static x => x.Skipped)),
-            Results: results.Select(static x => new RunSummaryEntryPayload(
-                x.Suite,
-                x.BatchIndex,
-                x.Targets,
-                x.ExitCode,
-                x.DurationSeconds,
-                x.Total,
-                x.Succeeded,
-                x.Failed,
-                x.Skipped)).ToArray());
+    private static TestRunSummaryInvocation CreateFallbackSummaryInvocation(
+        string repositoryRoot,
+        CliTargetSelection selection,
+        string suiteName,
+        string? projectPathOverride,
+        string? filter,
+        string configuration,
+        bool buildProject,
+        int batchSize,
+        bool parallelSuites,
+        bool tearDown,
+        TestCliOutputMode outputMode,
+        ToolingProfile profile) =>
+        new(
+            Command: "run",
+            RepositoryRoot: repositoryRoot,
+            Alias: selection.AliasName,
+            SelectedTargets: selection.Targets
+                .Select(static target => new TestRunSummaryTarget(
+                    target.Id,
+                    target.DisplayName,
+                    target.Category,
+                    target.UsesPodman,
+                    target.ServerTarget?.HostPort))
+                .ToArray(),
+            ResolvedSuites: Array.Empty<TestRunSummarySuite>(),
+            SafeEnvironment: CreateSummarySafeEnvironment(),
+            IncludesAllSuites: false,
+            IncludesAllTargets: false,
+            IsUnfiltered: string.IsNullOrWhiteSpace(filter),
+            Suite: suiteName,
+            ProjectPath: projectPathOverride,
+            Filter: filter,
+            Configuration: configuration,
+            BuildProject: buildProject,
+            BatchSize: batchSize,
+            ParallelSuites: parallelSuites,
+            TearDown: tearDown,
+            OutputMode: outputMode.ToString(),
+            Profile: profile);
 
-        var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+    private static TestRunSummarySafeEnvironment CreateSummarySafeEnvironment()
+    {
+        var rawHost = NormalizeEnvironmentValue(Environment.GetEnvironmentVariable(
+            DataLinq.Testing.PodmanTestEnvironmentSettings.HostEnvironmentVariable));
+        var present = rawHost is not null;
+        string? host = null;
+        var valid = !present || TryNormalizeDatabaseHost(rawHost, out host);
+        return new TestRunSummarySafeEnvironment(
+            DatabaseHostOverridePresent: present,
+            DatabaseHostOverrideValid: valid,
+            DatabaseHostOverride: valid ? host : null,
+            ProviderSetForTargetBatches: "targets",
+            ClearsTargetAliasForTargetBatches: true);
+    }
+
+    private static IReadOnlyList<TestRunSummaryExpectedResult> CreateExpectedResults(
+        IReadOnlyList<TestCliSuite> suites,
+        CliTargetSelection selection,
+        string repositoryRoot,
+        int batchSize)
+    {
+        var expected = new List<TestRunSummaryExpectedResult>();
+        foreach (var suite in suites)
         {
-            WriteIndented = true
-        });
+            var projectPath = ResolveProjectPath(repositoryRoot, suite.ProjectPath);
+            if (!suite.UsesTargetBatches)
+            {
+                expected.Add(new TestRunSummaryExpectedResult(
+                    suite.Name,
+                    projectPath,
+                    BatchIndex: null,
+                    TargetIds: Array.Empty<string>()));
+                continue;
+            }
 
-        File.WriteAllText(resolvedPath, json);
+            var suiteTargets = suite.IncludeSqliteTargets
+                ? selection.Targets.ToArray()
+                : selection.Targets.Where(static target => !TestTargetCatalog.IsSQLiteTarget(target.Id)).ToArray();
+            var batches = CreateBatches(suiteTargets, batchSize);
+            for (var index = 0; index < batches.Count; index++)
+            {
+                expected.Add(new TestRunSummaryExpectedResult(
+                    suite.Name,
+                    projectPath,
+                    BatchIndex: index + 1,
+                    TargetIds: batches[index].Select(static target => target.Id).ToArray()));
+            }
+        }
+
+        return expected;
+    }
+
+    private static TestRunSummaryBuild CreateSummaryBuild(string projectPath, LoggedCommandResult build) =>
+        new(
+            projectPath,
+            build.Executable,
+            build.Arguments,
+            build.WorkingDirectory,
+            build.StartedAtUtc,
+            build.CompletedAtUtc,
+            Math.Round(build.ProcessResult.Duration.TotalSeconds, 3),
+            build.ProcessResult.ExitCode,
+            build.LogPath);
+
+    private static TestRunSummaryReport WriteSummaryJson(
+        string summaryJsonPath,
+        DateTimeOffset startedAtUtc,
+        TestRunSummaryInvocation invocation,
+        TestRunSummaryRepositoryState repositoryStart,
+        TestRunSummaryRepositoryState repositoryEnd,
+        TestRunSummaryRunnerAssembly entryAssembly,
+        TestRunSummaryRunnerAssembly devToolsAssembly,
+        IReadOnlyList<TestRunSummaryExpectedResult> expectedResults,
+        IReadOnlyList<TestRunSummaryBuild> builds,
+        IReadOnlyList<RunResult> results,
+        int overallExitCode,
+        TestRunSummaryFailure? failure,
+        TestRunSummaryFailure? teardownFailure)
+    {
+        var summaryResults = results.Select(static result => new TestRunSummaryResult(
+            result.Suite,
+            result.ProjectPath,
+            result.BatchIndex,
+            result.Targets,
+            result.TargetIds,
+            TestRunSummaryOutcome.Incomplete,
+            result.Executable,
+            result.Arguments,
+            result.WorkingDirectory,
+            result.Environment,
+            result.StartedAtUtc,
+            result.CompletedAtUtc,
+            result.DurationSeconds,
+            result.ExitCode,
+            result.Total,
+            result.Succeeded,
+            result.Failed,
+            result.Skipped,
+            new[] { result.LogPath },
+            result.LogPath)).ToArray();
+        var report = TestRunSummaryReporter.Create(new TestRunSummaryReportInput(
+            StartedAtUtc: startedAtUtc,
+            CompletedAtUtc: DateTimeOffset.UtcNow,
+            Invocation: invocation,
+            ReportPath: summaryJsonPath,
+            RepositoryStart: repositoryStart,
+            RepositoryEnd: repositoryEnd,
+            EntryAssembly: entryAssembly,
+            DevToolsAssembly: devToolsAssembly,
+            OverallExitCode: overallExitCode,
+            Total: SumCounts(results.Select(static result => result.Total)),
+            Passed: SumCounts(results.Select(static result => result.Succeeded)),
+            Failed: SumCounts(results.Select(static result => result.Failed)),
+            Skipped: SumCounts(results.Select(static result => result.Skipped)),
+            ExpectedResults: expectedResults,
+            Builds: builds,
+            Results: summaryResults,
+            Failure: failure,
+            TeardownFailure: teardownFailure));
+        var resolvedExitCode = TestRunSummaryReporter.ResolveExitCode(report, overallExitCode);
+        if (resolvedExitCode != report.OverallExitCode)
+            report = report with { OverallExitCode = resolvedExitCode };
+        TestRunSummaryReporter.Write(report);
+        return report;
     }
 
     private static int? SumCounts(IEnumerable<int?> values)
     {
-        var knownValues = values.Where(static x => x.HasValue).Select(static x => x!.Value).ToArray();
-        return knownValues.Length == 0 ? null : knownValues.Sum();
+        var counts = values.ToArray();
+        return counts.Length == 0 || counts.Any(static count => count is null)
+            ? null
+            : counts.Sum(static count => count!.Value);
     }
 
     private static IReadOnlyList<RunResult> OrderResults(IEnumerable<RunResult> results) =>
@@ -991,8 +1439,9 @@ internal static class RunCommand
 
     private sealed record RunResult(
         string Suite,
+        string ProjectPath,
         int? BatchIndex,
-        string Targets,
+        IReadOnlyList<string> TargetIds,
         int ExitCode,
         double DurationSeconds,
         int? Total,
@@ -1001,7 +1450,18 @@ internal static class RunCommand
         int? Skipped,
         IReadOnlyList<FailedTestResult> FailedTests,
         ExternalCommandResult ProcessResult,
-        string LogPath);
+        string LogPath,
+        string Executable,
+        IReadOnlyList<string> Arguments,
+        string WorkingDirectory,
+        TestRunSummaryCommandEnvironment Environment,
+        DateTimeOffset StartedAtUtc,
+        DateTimeOffset CompletedAtUtc)
+    {
+        public string Targets => TargetIds.Count == 0
+            ? "-"
+            : string.Join(", ", TargetIds);
+    }
 
     private sealed record FailedTestResult(
         string TestName,
@@ -1014,30 +1474,14 @@ internal static class RunCommand
             : $"{ClassName}.{TestName}";
     }
 
-    private sealed record SuiteRunResult(
-        int ExitCode,
-        IReadOnlyList<RunResult> Results);
-
     private sealed record LoggedCommandResult(
         ExternalCommandResult ProcessResult,
-        string LogPath);
+        string LogPath,
+        string Executable,
+        IReadOnlyList<string> Arguments,
+        string WorkingDirectory,
+        TestRunSummaryCommandEnvironment Environment,
+        DateTimeOffset StartedAtUtc,
+        DateTimeOffset CompletedAtUtc);
 
-    private sealed record RunSummaryPayload(
-        int OverallExitCode,
-        int? Total,
-        int? Passed,
-        int? Failed,
-        int? Skipped,
-        IReadOnlyList<RunSummaryEntryPayload> Results);
-
-    private sealed record RunSummaryEntryPayload(
-        string Suite,
-        int? BatchIndex,
-        string Targets,
-        int ExitCode,
-        double DurationSeconds,
-        int? Total,
-        int? Passed,
-        int? Failed,
-        int? Skipped);
 }

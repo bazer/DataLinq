@@ -179,8 +179,7 @@ public sealed record PodmanTestEnvironmentSettings(
         var filePath = Path.Combine(sqliteDirectory, $"{logicalDatabaseName}.db");
         var builder = new SqliteConnectionStringBuilder
         {
-            DataSource = filePath,
-            Cache = SqliteCacheMode.Shared
+            DataSource = filePath
         };
 
         return new TestConnectionDefinition(

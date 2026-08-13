@@ -1,0 +1,1029 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Data;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
+using DataLinq.Attributes;
+using DataLinq.Cache;
+using DataLinq.Core.Factories;
+using DataLinq.Instances;
+using DataLinq.Interfaces;
+using DataLinq.Logging;
+using DataLinq.Metadata;
+using DataLinq.Mutation;
+using DataLinq.Query;
+using ThrowAway.Extensions;
+
+namespace DataLinq.Tests.Unit.Core;
+
+public sealed class DataSourceAccessSourceRowLoaderTests
+{
+    [Test]
+    [NotInParallel]
+    public async Task TableCache_IndexDispatch_UsesNeutralLoaderOnlyForExactSupportedCanonicalKey()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+
+        try
+        {
+            var integral = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                42,
+                useScalarConverter: false,
+                includePrimaryKey: true);
+            var convertedCanonical = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                DataLinqKey.FromValue(42),
+                useScalarConverter: true,
+                includePrimaryKey: true);
+            var convertedModelFallback = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                new ModelId(42),
+                useScalarConverter: true,
+                includePrimaryKey: true);
+            var convertedLongCanonical = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                DataLinqKey.FromValue(42L),
+                useScalarConverter: true,
+                includePrimaryKey: true,
+                converter: new RecordingLongIdConverter());
+            var convertedLongModelFallback = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                new LongModelId(42L),
+                useScalarConverter: true,
+                includePrimaryKey: true,
+                converter: new RecordingLongIdConverter());
+            var convertedShortCanonicalFallback = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                DataLinqKey.FromValue((short)42),
+                useScalarConverter: true,
+                includePrimaryKey: true,
+                converter: new RecordingShortIdConverter());
+            var guidValue = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
+            var directGuidCanonical = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                guidValue,
+                useScalarConverter: false,
+                includePrimaryKey: true,
+                converter: new RecordingGuidIdConverter());
+            var convertedGuidCanonical = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                DataLinqKey.FromValue(guidValue),
+                useScalarConverter: true,
+                includePrimaryKey: true,
+                converter: new RecordingGuidIdConverter());
+            var convertedGuidModelFallback = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                new GuidModelId(guidValue),
+                useScalarConverter: true,
+                includePrimaryKey: true,
+                converter: new RecordingGuidIdConverter());
+            var unknownProviderGuidFallback = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                DataLinqKey.FromValue(guidValue),
+                useScalarConverter: true,
+                includePrimaryKey: true,
+                converter: new RecordingGuidIdConverter(),
+                databaseType: DatabaseType.Unknown);
+            var missingActiveProviderGuid = CheckNeutralRelationEligibility(
+                DataLinqKey.FromValue(guidValue),
+                new RecordingGuidIdConverter(),
+                databaseType: DatabaseType.MySQL);
+            var rawGuidBytes = CheckNeutralRelationEligibility(
+                guidValue.ToByteArray(),
+                new RecordingGuidIdConverter());
+            var guidText = CheckNeutralRelationEligibility(
+                guidValue.ToString("D"),
+                new RecordingGuidIdConverter());
+            var compositeGuid = CheckNeutralRelationEligibility(
+                DataLinqKey.FromValues([guidValue, guidValue]),
+                new RecordingGuidIdConverter(),
+                includeCompositeGuidIndexColumn: true);
+            var primaryKeylessFallback = LoadEmptyRelationRows(
+                "idx_source_rows_id",
+                42,
+                useScalarConverter: false,
+                includePrimaryKey: false);
+            var stringFallback = LoadEmptyRelationRows(
+                "idx_source_rows_name",
+                "Ada",
+                useScalarConverter: false,
+                includePrimaryKey: true);
+
+            await Assert.That(integral.Rows).IsEmpty();
+            await Assert.That(integral.NeutralEligible).IsTrue();
+            await Assert.That(integral.Query).IsTypeOf<Select<object>>();
+            await Assert.That(integral.WriterValues.Select(static value => value.Value).ToArray())
+                .IsEquivalentTo(new object?[] { 42 });
+
+            await Assert.That(stringFallback.Rows).IsEmpty();
+            await Assert.That(stringFallback.NeutralEligible).IsFalse();
+            await Assert.That(stringFallback.Query.GetType().Name)
+                .Contains("ScalarColumnRowsQuery");
+            await Assert.That(convertedCanonical.Rows).IsEmpty();
+            await Assert.That(convertedCanonical.NeutralEligible).IsTrue();
+            await Assert.That(convertedCanonical.Query).IsTypeOf<Select<object>>();
+            await Assert.That(convertedCanonical.WriterValues.Select(static value => value.Value).ToArray())
+                .IsEquivalentTo(new object?[] { 42 });
+            await Assert.That(convertedCanonical.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedCanonical.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(convertedModelFallback.Rows).IsEmpty();
+            await Assert.That(convertedModelFallback.NeutralEligible).IsFalse();
+            await Assert.That(convertedModelFallback.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedModelFallback.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(convertedLongCanonical.Rows).IsEmpty();
+            await Assert.That(convertedLongCanonical.NeutralEligible).IsTrue();
+            await Assert.That(convertedLongCanonical.Query).IsTypeOf<Select<object>>();
+            await Assert.That(convertedLongCanonical.WriterValues.Select(static value => value.Value).ToArray())
+                .IsEquivalentTo(new object?[] { 42L });
+            await Assert.That(convertedLongCanonical.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedLongCanonical.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(convertedLongModelFallback.Rows).IsEmpty();
+            await Assert.That(convertedLongModelFallback.NeutralEligible).IsFalse();
+            await Assert.That(convertedLongModelFallback.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedLongModelFallback.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(convertedShortCanonicalFallback.Rows).IsEmpty();
+            await Assert.That(convertedShortCanonicalFallback.NeutralEligible).IsFalse();
+            await Assert.That(convertedShortCanonicalFallback.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedShortCanonicalFallback.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(directGuidCanonical.Rows).IsEmpty();
+            await Assert.That(directGuidCanonical.NeutralEligible).IsTrue();
+            await Assert.That(directGuidCanonical.Query).IsTypeOf<Select<object>>();
+            await Assert.That(directGuidCanonical.WriterValues.Select(static value => value.Value).ToArray())
+                .IsEquivalentTo(new object?[] { guidValue });
+            await Assert.That(directGuidCanonical.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(directGuidCanonical.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(convertedGuidCanonical.Rows).IsEmpty();
+            await Assert.That(convertedGuidCanonical.NeutralEligible).IsTrue();
+            await Assert.That(convertedGuidCanonical.Query).IsTypeOf<Select<object>>();
+            await Assert.That(convertedGuidCanonical.WriterValues.Select(static value => value.Value).ToArray())
+                .IsEquivalentTo(new object?[] { guidValue });
+            await Assert.That(convertedGuidCanonical.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedGuidCanonical.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(convertedGuidModelFallback.Rows).IsEmpty();
+            await Assert.That(convertedGuidModelFallback.NeutralEligible).IsFalse();
+            await Assert.That(convertedGuidModelFallback.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(convertedGuidModelFallback.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(unknownProviderGuidFallback.Rows).IsEmpty();
+            await Assert.That(unknownProviderGuidFallback.NeutralEligible).IsFalse();
+            await Assert.That(unknownProviderGuidFallback.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(unknownProviderGuidFallback.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(missingActiveProviderGuid.NeutralEligible).IsFalse();
+            await Assert.That(missingActiveProviderGuid.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(missingActiveProviderGuid.FromProviderCalls).IsEqualTo(0);
+            await Assert.That(rawGuidBytes.NeutralEligible).IsFalse();
+            await Assert.That(rawGuidBytes.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(rawGuidBytes.FromProviderCalls).IsEqualTo(0);
+            await Assert.That(guidText.NeutralEligible).IsFalse();
+            await Assert.That(guidText.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(guidText.FromProviderCalls).IsEqualTo(0);
+            await Assert.That(compositeGuid.NeutralEligible).IsFalse();
+            await Assert.That(compositeGuid.ToProviderCalls).IsEqualTo(0);
+            await Assert.That(compositeGuid.FromProviderCalls).IsEqualTo(0);
+
+            await Assert.That(primaryKeylessFallback.Rows).IsEmpty();
+            await Assert.That(primaryKeylessFallback.NeutralEligible).IsFalse();
+        }
+        finally
+        {
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    public async Task SourceRowCapabilities_ShareOneCachedSqlLoader()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var reader = new TrackingReader([]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+
+        var primaryKeyLoader = ((IDataLinqSourceRowServices)source).RowLoader;
+        var indexLoader = ((IDataLinqIndexRowServices)source).IndexRowLoader;
+
+        await Assert.That(primaryKeyLoader).IsSameReferenceAs(indexLoader);
+        await Assert.That(((IDataLinqSourceRowServices)source).RowLoader)
+            .IsSameReferenceAs(primaryKeyLoader);
+        await Assert.That(((IDataLinqIndexRowServices)source).IndexRowLoader)
+            .IsSameReferenceAs(indexLoader);
+    }
+
+    [Test]
+    public async Task SelectReadReader_CancellationDuringCommandCreationDisposesWithoutProviderExecution()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        using var cancellation = new CancellationTokenSource();
+        var reader = new TrackingReader([[42, "Ada"]]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command,
+            cancellation.Cancel);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        using var rows = new SqlQuery(table, source)
+            .SelectQuery()
+            .ReadReader(cancellation.Token)
+            .GetEnumerator();
+
+        var exception = Capture<OperationCanceledException>(() => rows.MoveNext());
+
+        await Assert.That(exception.CancellationToken).IsEqualTo(cancellation.Token);
+        await Assert.That(provider.CommandCreationCalls).IsEqualTo(1);
+        await Assert.That(databaseAccess.LastCommand).IsNull();
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsFalse();
+    }
+
+    [Test]
+    public async Task SelectReadReader_CancellationAfterYieldedRowDisposesCommandAndReader()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        using var cancellation = new CancellationTokenSource();
+        var reader = new TrackingReader(
+        [
+            [42, "Ada"],
+            [43, "Grace"]
+        ]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        using var rows = new SqlQuery(table, source)
+            .SelectQuery()
+            .ReadReader(cancellation.Token)
+            .GetEnumerator();
+
+        await Assert.That(rows.MoveNext()).IsTrue();
+        await Assert.That(command.Disposed).IsFalse();
+        await Assert.That(reader.Disposed).IsFalse();
+
+        cancellation.Cancel();
+        var exception = Capture<OperationCanceledException>(() => rows.MoveNext());
+
+        await Assert.That(exception.CancellationToken).IsEqualTo(cancellation.Token);
+        await Assert.That(databaseAccess.LastCommand).IsSameReferenceAs(command);
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
+    [Test]
+    public async Task SelectReadReader_EarlyDisposalOwnsCommandAndReaderLifetime()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var reader = new TrackingReader(
+        [
+            [42, "Ada"],
+            [43, "Grace"]
+        ]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var rows = new SqlQuery(table, source).SelectQuery().ReadReader().GetEnumerator();
+
+        try
+        {
+            await Assert.That(rows.MoveNext()).IsTrue();
+            await Assert.That(command.Disposed).IsFalse();
+            await Assert.That(reader.Disposed).IsFalse();
+        }
+        finally
+        {
+            rows.Dispose();
+        }
+
+        await Assert.That(databaseAccess.LastCommand).IsSameReferenceAs(command);
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
+    [Test]
+    public async Task Load_BuffersCanonicalRowsAndOwnsCommandReaderLifetime()
+    {
+        var converter = new RecordingIdConverter();
+        var table = CreateTable(converter);
+        var reader = new TrackingReader(
+        [
+            [42, "Ada"],
+            [43, "Grace"]
+        ]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var writer = new RecordingWriter();
+        var provider = new TrackingProvider(table.Database, databaseAccess, writer, command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var services = (IDataLinqSourceRowServices)source;
+        var request = new SourcePrimaryKeyRowRequest(
+            table,
+            [DataLinqKey.FromValue(42), DataLinqKey.FromValue(43)]);
+
+        var result = services.RowLoader.Load(request);
+
+        await Assert.That(services.RowLoader).IsSameReferenceAs(services.RowLoader);
+        await Assert.That(result.Request).IsSameReferenceAs(request);
+        await Assert.That(result.Rows.Length).IsEqualTo(2);
+        await Assert.That(result.Rows[0][table.GetColumnByDbName("id")]).IsEqualTo(42);
+        await Assert.That(result.Rows[0][table.GetColumnByDbName("id")]).IsTypeOf<int>();
+        await Assert.That(result.Rows[1][table.GetColumnByDbName("name")]).IsEqualTo("Grace");
+        await Assert.That(writer.Values.Select(static value => value.Value).ToArray())
+            .IsEquivalentTo(new object?[] { 42, 43 });
+        await Assert.That(converter.ToProviderCalls).IsEqualTo(0);
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
+        await Assert.That(provider.CommandCreationCalls).IsEqualTo(1);
+        await Assert.That(databaseAccess.LastCommand).IsSameReferenceAs(command);
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
+    [Test]
+    public async Task Load_CancellationDuringReadDisposesCommandAndReader()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        using var cancellation = new CancellationTokenSource();
+        var reader = new TrackingReader([[42, "Ada"]])
+        {
+            BeforeReturningRow = cancellation.Cancel
+        };
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var request = new SourcePrimaryKeyRowRequest(
+            table,
+            [DataLinqKey.FromValue(42)],
+            cancellation.Token);
+
+        var exception = Capture<OperationCanceledException>(() =>
+            ((IDataLinqSourceRowServices)source).RowLoader.Load(request));
+
+        await Assert.That(exception.CancellationToken).IsEqualTo(cancellation.Token);
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
+    [Test]
+    public async Task LoadIndex_UsesEqualityPredicateAndOwnsBufferedResultLifetime()
+    {
+        var converter = new RecordingIdConverter();
+        var table = CreateTable(converter);
+        var nameColumn = table.GetColumnByDbName("name");
+        var index = table.ColumnIndices.Single(candidate => candidate.Name == "idx_source_rows_name");
+        var reader = new TrackingReader(
+        [
+            [42, "Ada"],
+            [43, "Ada"]
+        ]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var writer = new RecordingWriter();
+        var provider = new TrackingProvider(table.Database, databaseAccess, writer, command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var request = new SourceIndexRowRequest(
+            table,
+            index,
+            DataLinqKey.FromValue("Ada"));
+
+        var result = ((IDataLinqIndexRowServices)source).IndexRowLoader.Load(request);
+
+        var select = (Select<object>)provider.LastQuery!;
+        var hasTemplate = select.Query.TryGetTemplateKey(
+            paramPrefix: null,
+            out var templateKey,
+            out var values);
+        await Assert.That(hasTemplate).IsTrue();
+        await Assert.That(templateKey.PredicateCount).IsEqualTo(1);
+        await Assert.That(templateKey.PredicateColumn1).IsEqualTo("name");
+        await Assert.That(templateKey.PredicateOperator1).IsEqualTo(Operator.Equal);
+        await Assert.That(values).IsEquivalentTo(new object?[] { "Ada" });
+        await Assert.That(writer.Values.Count).IsEqualTo(1);
+        await Assert.That(writer.Values[0].Column).IsSameReferenceAs(nameColumn);
+        await Assert.That(writer.Values[0].Value).IsEqualTo("Ada");
+        await Assert.That(result.Request).IsSameReferenceAs(request);
+        await Assert.That(result.Rows.Length).IsEqualTo(2);
+        await Assert.That(result.Rows[0][nameColumn]).IsEqualTo("Ada");
+        await Assert.That(result.Rows[1][table.GetColumnByDbName("id")]).IsEqualTo(43);
+        await Assert.That(converter.ToProviderCalls).IsEqualTo(0);
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
+        await Assert.That(provider.CommandCreationCalls).IsEqualTo(1);
+        await Assert.That(databaseAccess.LastCommand).IsSameReferenceAs(command);
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
+    [Test]
+    public async Task LoadIndex_PreCancelledRequestSkipsProviderWork()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var index = table.ColumnIndices.Single(candidate => candidate.Name == "idx_source_rows_name");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var reader = new TrackingReader([[42, "Ada"]]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var writer = new RecordingWriter();
+        var provider = new TrackingProvider(table.Database, databaseAccess, writer, command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var request = new SourceIndexRowRequest(
+            table,
+            index,
+            DataLinqKey.FromValue("Ada"),
+            cancellation.Token);
+
+        var exception = Capture<OperationCanceledException>(() =>
+            ((IDataLinqIndexRowServices)source).IndexRowLoader.Load(request));
+
+        await Assert.That(exception.CancellationToken).IsEqualTo(cancellation.Token);
+        await Assert.That(writer.Values).IsEmpty();
+        await Assert.That(provider.CommandCreationCalls).IsEqualTo(0);
+        await Assert.That(databaseAccess.LastCommand).IsNull();
+        await Assert.That(command.Disposed).IsFalse();
+        await Assert.That(reader.Disposed).IsFalse();
+    }
+
+    [Test]
+    public async Task LoadIndex_CancellationDuringReadDisposesCommandAndReader()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var index = table.ColumnIndices.Single(candidate => candidate.Name == "idx_source_rows_name");
+        using var cancellation = new CancellationTokenSource();
+        var reader = new TrackingReader([[42, "Ada"]])
+        {
+            BeforeReturningRow = cancellation.Cancel
+        };
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var request = new SourceIndexRowRequest(
+            table,
+            index,
+            DataLinqKey.FromValue("Ada"),
+            cancellation.Token);
+
+        var exception = Capture<OperationCanceledException>(() =>
+            ((IDataLinqIndexRowServices)source).IndexRowLoader.Load(request));
+
+        await Assert.That(exception.CancellationToken).IsEqualTo(cancellation.Token);
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
+    [Test]
+    public async Task Load_SingleScalarPrimaryKeyUsesEqualityPredicate()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var reader = new TrackingReader([[42, "Ada"]]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var request = new SourcePrimaryKeyRowRequest(
+            table,
+            [DataLinqKey.FromValue(42)]);
+
+        _ = ((IDataLinqSourceRowServices)source).RowLoader.Load(request);
+
+        var select = (Select<object>)provider.LastQuery!;
+        var primaryKey = select.Query.TryGetSimplePrimaryKey();
+        await Assert.That(primaryKey).IsNotNull();
+        await Assert.That(primaryKey!.Value.GetValue(0)).IsEqualTo(42);
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
+    private static TableDefinition CreateTable(
+        IRecordingScalarConverter converter,
+        bool useScalarConverter = true,
+        bool includePrimaryKey = true,
+        bool includeCompositeGuidIndexColumn = false)
+    {
+        var (modelType, providerType, converterType) = converter switch
+        {
+            RecordingIdConverter => (typeof(ModelId), typeof(int), typeof(RecordingIdConverter)),
+            RecordingLongIdConverter => (typeof(LongModelId), typeof(long), typeof(RecordingLongIdConverter)),
+            RecordingShortIdConverter => (typeof(ShortModelId), typeof(short), typeof(RecordingShortIdConverter)),
+            RecordingGuidIdConverter => (typeof(GuidModelId), typeof(Guid), typeof(RecordingGuidIdConverter)),
+            _ => throw new ArgumentOutOfRangeException(nameof(converter))
+        };
+        var scalarConverter = new MetadataScalarConverterDraft(
+            new CsTypeDeclaration(modelType),
+            new CsTypeDeclaration(providerType),
+            new CsTypeDeclaration(converterType),
+            () => converter)
+        {
+            Origin = ScalarConverterOrigin.Property
+        };
+        var idColumn = new MetadataColumnDraft("id")
+        {
+            PrimaryKey = includePrimaryKey,
+            DbTypes = providerType == typeof(Guid)
+                ? [new DatabaseColumnType(DatabaseType.SQLite, "BLOB")]
+                : []
+        };
+        var idProperty = new MetadataValuePropertyDraft(
+            "Id",
+            new CsTypeDeclaration(useScalarConverter ? modelType : providerType),
+            idColumn)
+        {
+            ScalarConverter = useScalarConverter ? scalarConverter : null,
+            Attributes = providerType == typeof(Guid)
+                ?
+                [
+                    new IndexAttribute(
+                        "idx_source_rows_id",
+                        IndexCharacteristic.Simple),
+                    new GuidStorageAttribute(
+                        DatabaseType.SQLite,
+                        GuidStorageFormat.Binary16Rfc4122)
+                ]
+                :
+                [
+                    new IndexAttribute(
+                        "idx_source_rows_id",
+                        IndexCharacteristic.Simple)
+                ]
+        };
+        var valueProperties = new List<MetadataValuePropertyDraft>
+        {
+            idProperty,
+            new(
+                "Name",
+                new CsTypeDeclaration(typeof(string)),
+                new MetadataColumnDraft("name"))
+            {
+                Attributes =
+                [
+                    new IndexAttribute(
+                        "idx_source_rows_name",
+                        IndexCharacteristic.Simple)
+                ]
+            }
+        };
+        if (includeCompositeGuidIndexColumn)
+        {
+            valueProperties.Add(new MetadataValuePropertyDraft(
+                "IdPart",
+                new CsTypeDeclaration(useScalarConverter ? modelType : providerType),
+                new MetadataColumnDraft("id_part")
+                {
+                    DbTypes = [new DatabaseColumnType(DatabaseType.SQLite, "BLOB")]
+                })
+            {
+                Attributes =
+                [
+                    new IndexAttribute(
+                        "idx_source_rows_id",
+                        IndexCharacteristic.Simple),
+                    new GuidStorageAttribute(
+                        DatabaseType.SQLite,
+                        GuidStorageFormat.Binary16Rfc4122)
+                ],
+                ScalarConverter = useScalarConverter ? scalarConverter : null
+            });
+        }
+
+        var draft = new MetadataDatabaseDraft(
+            "SourceRowLoaderDb",
+            new CsTypeDeclaration(typeof(DataSourceAccessSourceRowLoaderTests)))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration(typeof(SourceRowModel)))
+                    {
+                        ValueProperties = valueProperties
+                    },
+                    new MetadataTableDraft("source_rows")
+                    {
+                        Type = includePrimaryKey ? TableType.Table : TableType.View,
+                        Definition = includePrimaryKey ? null : "SELECT * FROM source_rows"
+                    })
+            ]
+        };
+
+        return new MetadataDefinitionFactory()
+            .Build(draft)
+            .ValueOrException()
+            .TableModels[0]
+            .Table;
+    }
+
+    private static (
+        bool NeutralEligible,
+        int ToProviderCalls,
+        int FromProviderCalls)
+        CheckNeutralRelationEligibility<TKey>(
+            TKey key,
+            IRecordingScalarConverter converter,
+            DatabaseType databaseType = DatabaseType.SQLite,
+            bool includeCompositeGuidIndexColumn = false)
+        where TKey : notnull
+    {
+        var table = CreateTable(
+            converter,
+            useScalarConverter: true,
+            includePrimaryKey: true,
+            includeCompositeGuidIndexColumn: includeCompositeGuidIndexColumn);
+        using var reader = new TrackingReader([]);
+        using var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        using var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command,
+            databaseType: databaseType);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var index = table.ColumnIndices.Single(candidate => candidate.Name == "idx_source_rows_id");
+        var eligibilityMethod = typeof(TableCache)
+            .GetMethod(
+                "TryGetCanonicalIndexSourceServices",
+                BindingFlags.Static | BindingFlags.NonPublic)!
+            .MakeGenericMethod(typeof(TKey));
+        object?[] eligibilityArguments =
+        [
+            key,
+            index,
+            source,
+            null,
+            DataLinqKey.Null
+        ];
+        var neutralEligible = (bool)eligibilityMethod.Invoke(
+            null,
+            eligibilityArguments)!;
+
+        return (
+            neutralEligible,
+            converter.ToProviderCalls,
+            converter.FromProviderCalls);
+    }
+
+    private static (
+        IImmutableInstance[] Rows,
+        IQuery Query,
+        (ColumnDefinition Column, object? Value)[] WriterValues,
+        bool NeutralEligible,
+        int ToProviderCalls,
+        int FromProviderCalls)
+        LoadEmptyRelationRows<TKey>(
+            string indexName,
+            TKey key,
+            bool useScalarConverter,
+            bool includePrimaryKey,
+            IRecordingScalarConverter? converter = null,
+            DatabaseType databaseType = DatabaseType.SQLite)
+        where TKey : notnull
+    {
+        converter ??= new RecordingIdConverter();
+        var table = CreateTable(
+            converter,
+            useScalarConverter,
+            includePrimaryKey);
+        var reader = new TrackingReader([]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var writer = new RecordingWriter();
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            writer,
+            command,
+            databaseType: databaseType);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+
+        using var databaseCache = new DatabaseCache(
+            provider,
+            DataLinqLoggingConfiguration.NullConfiguration);
+        var tableCache = databaseCache.GetTableCache(table);
+        var index = table.ColumnIndices.Single(candidate => candidate.Name == indexName);
+        var eligibilityMethod = typeof(TableCache)
+            .GetMethod(
+                "TryGetCanonicalIndexSourceServices",
+                BindingFlags.Static | BindingFlags.NonPublic)!
+            .MakeGenericMethod(typeof(TKey));
+        object?[] eligibilityArguments =
+        [
+            key,
+            index,
+            source,
+            null,
+            DataLinqKey.Null
+        ];
+        var neutralEligible = (bool)eligibilityMethod.Invoke(
+            null,
+            eligibilityArguments)!;
+
+        var method = typeof(TableCache)
+            .GetMethod(
+                "LoadRowsFromForeignKeyAndCache",
+                BindingFlags.Instance | BindingFlags.NonPublic)!
+            .MakeGenericMethod(typeof(TKey));
+        var rows = (IImmutableInstance[])method.Invoke(
+            tableCache,
+            [key, index, source])!;
+
+        return (
+            rows,
+            provider.LastQuery ?? throw new InvalidOperationException("No relation-row query was created."),
+            writer.Values.ToArray(),
+            neutralEligible,
+            converter.ToProviderCalls,
+            converter.FromProviderCalls);
+    }
+
+    private static TException Capture<TException>(Action action)
+        where TException : Exception
+    {
+        try
+        {
+            action();
+        }
+        catch (TException exception)
+        {
+            return exception;
+        }
+
+        throw new Exception($"Expected exception of type '{typeof(TException).Name}'.");
+    }
+
+    private interface IRecordingScalarConverter : IDataLinqScalarConverter
+    {
+        int ToProviderCalls { get; }
+        int FromProviderCalls { get; }
+    }
+
+    private sealed record ModelId(int Value);
+    private sealed record LongModelId(long Value);
+    private sealed record ShortModelId(short Value);
+    private readonly record struct GuidModelId(Guid Value);
+    private sealed class SourceRowModel;
+
+    private sealed class RecordingIdConverter : DataLinqScalarConverter<ModelId, int>, IRecordingScalarConverter
+    {
+        public int ToProviderCalls { get; private set; }
+        public int FromProviderCalls { get; private set; }
+
+        public override int ToProvider(ModelId modelValue, in ScalarConversionContext context)
+        {
+            ToProviderCalls++;
+            return modelValue.Value;
+        }
+
+        public override ModelId FromProvider(int providerValue, in ScalarConversionContext context)
+        {
+            FromProviderCalls++;
+            return new ModelId(providerValue);
+        }
+    }
+
+    private sealed class RecordingLongIdConverter : DataLinqScalarConverter<LongModelId, long>, IRecordingScalarConverter
+    {
+        public int ToProviderCalls { get; private set; }
+        public int FromProviderCalls { get; private set; }
+
+        public override long ToProvider(LongModelId modelValue, in ScalarConversionContext context)
+        {
+            ToProviderCalls++;
+            return modelValue.Value;
+        }
+
+        public override LongModelId FromProvider(long providerValue, in ScalarConversionContext context)
+        {
+            FromProviderCalls++;
+            return new LongModelId(providerValue);
+        }
+    }
+
+    private sealed class RecordingShortIdConverter : DataLinqScalarConverter<ShortModelId, short>, IRecordingScalarConverter
+    {
+        public int ToProviderCalls { get; private set; }
+        public int FromProviderCalls { get; private set; }
+
+        public override short ToProvider(ShortModelId modelValue, in ScalarConversionContext context)
+        {
+            ToProviderCalls++;
+            return modelValue.Value;
+        }
+
+        public override ShortModelId FromProvider(short providerValue, in ScalarConversionContext context)
+        {
+            FromProviderCalls++;
+            return new ShortModelId(providerValue);
+        }
+    }
+
+    private sealed class RecordingGuidIdConverter : DataLinqScalarConverter<GuidModelId, Guid>, IRecordingScalarConverter
+    {
+        public int ToProviderCalls { get; private set; }
+        public int FromProviderCalls { get; private set; }
+
+        public override Guid ToProvider(GuidModelId modelValue, in ScalarConversionContext context)
+        {
+            ToProviderCalls++;
+            return modelValue.Value;
+        }
+
+        public override GuidModelId FromProvider(Guid providerValue, in ScalarConversionContext context)
+        {
+            FromProviderCalls++;
+            return new GuidModelId(providerValue);
+        }
+    }
+
+    private sealed class TrackingDataSourceAccess(
+        IDatabaseProvider provider,
+        TrackingDatabaseAccess databaseAccess) : DataSourceAccess(provider)
+    {
+        public override IDatabaseAccess DatabaseAccess => databaseAccess;
+        public override IEnumerable<T> GetFromQuery<T>(string query) => throw new NotSupportedException();
+        public override IEnumerable<T> GetFromCommand<T>(IDbCommand dbCommand) => throw new NotSupportedException();
+    }
+
+    private sealed class TrackingProvider(
+        DatabaseDefinition metadata,
+        TrackingDatabaseAccess databaseAccess,
+        RecordingWriter writer,
+        TrackingCommand command,
+        Action? onCommandCreated = null,
+        DatabaseType databaseType = DatabaseType.SQLite) : IDatabaseProvider
+    {
+        public int CommandCreationCalls { get; private set; }
+        public IQuery? LastQuery { get; private set; }
+        public string TelemetryInstanceId { get; } = Guid.NewGuid().ToString("N");
+        public string DatabaseName => metadata.DbName;
+        public string ConnectionString => "tracking";
+        public DatabaseDefinition Metadata => metadata;
+        public DatabaseAccess DatabaseAccess => databaseAccess;
+        public State State => throw new NotSupportedException();
+        public IDatabaseProviderConstants Constants { get; } = new TrackingConstants();
+        public ReadOnlyAccess ReadOnlyAccess => throw new NotSupportedException();
+        public DatabaseType DatabaseType => databaseType;
+
+        public IDbCommand ToDbCommand(IQuery query)
+        {
+            CommandCreationCalls++;
+            LastQuery = query;
+            onCommandCreated?.Invoke();
+            return command;
+        }
+
+        public IDataLinqDataWriter GetWriter() => writer;
+        public Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite) => throw new NotSupportedException();
+        public DatabaseTransaction GetNewDatabaseTransaction(TransactionType type) => throw new NotSupportedException();
+        public DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) => throw new NotSupportedException();
+        public string GetLastIdQuery() => throw new NotSupportedException();
+        public string GetSqlForFunction(SqlFunctionType functionType, string columnName, object[]? arguments) => throw new NotSupportedException();
+        public TableCache GetTableCache(TableDefinition table) => throw new NotSupportedException();
+        public string GetOperatorSql(Operator @operator) => throw new NotSupportedException();
+        public Sql GetParameter(Sql sql, string key, object? value) => throw new NotSupportedException();
+        public Sql GetParameterValue(Sql sql, string key) => throw new NotSupportedException();
+        public string GetParameterName(Operator relation, string[] key) => throw new NotSupportedException();
+        public Sql GetParameterComparison(Sql sql, string field, Operator @operator, string[] prefix) => throw new NotSupportedException();
+        public Sql GetLimitOffset(Sql sql, int? limit, int? offset) => throw new NotSupportedException();
+        public bool DatabaseExists(string? databaseName = null) => throw new NotSupportedException();
+        public bool FileOrServerExists() => throw new NotSupportedException();
+        public Sql GetTableName(Sql sql, string tableName, string? alias = null) => throw new NotSupportedException();
+        public M Commit<M>(Func<Transaction, M> func) => throw new NotSupportedException();
+        public void Commit(Action<Transaction> action) => throw new NotSupportedException();
+        public bool TableExists(string tableName, string? databaseName = null) => throw new NotSupportedException();
+        public IDbConnection GetDbConnection() => throw new NotSupportedException();
+        public Sql GetCreateSql() => throw new NotSupportedException();
+        public void Dispose() { }
+    }
+
+    private sealed class TrackingConstants : IDatabaseProviderConstants
+    {
+        public string ParameterSign => "@";
+        public string LastInsertCommand => string.Empty;
+        public string EscapeCharacter => "\"";
+        public bool SupportsMultipleDatabases => false;
+    }
+
+    private sealed class RecordingWriter : IDataLinqDataWriter
+    {
+        public List<(ColumnDefinition Column, object? Value)> Values { get; } = [];
+
+        public object? ConvertValue(ColumnDefinition column, object? value)
+        {
+            Values.Add((column, value));
+            return value;
+        }
+    }
+
+    private sealed class TrackingDatabaseAccess(TrackingReader reader) : DatabaseAccess
+    {
+        public IDbCommand? LastCommand { get; private set; }
+
+        public override IDataLinqDataReader ExecuteReader(IDbCommand command)
+        {
+            LastCommand = command;
+            return reader;
+        }
+
+        public override IDataLinqDataReader ExecuteReader(string query) => throw new NotSupportedException();
+        public override object? ExecuteScalar(IDbCommand command) => throw new NotSupportedException();
+        public override T ExecuteScalar<T>(IDbCommand command) => throw new NotSupportedException();
+        public override object? ExecuteScalar(string query) => throw new NotSupportedException();
+        public override T ExecuteScalar<T>(string query) => throw new NotSupportedException();
+        public override int ExecuteNonQuery(IDbCommand command) => throw new NotSupportedException();
+        public override int ExecuteNonQuery(string query) => throw new NotSupportedException();
+    }
+
+    private sealed class TrackingReader(IReadOnlyList<object?[]> rows) : IDataLinqDataReader
+    {
+        private int rowIndex = -1;
+
+        public Action? BeforeReturningRow { get; init; }
+        public bool Disposed { get; private set; }
+        private object?[] Current => rows[rowIndex];
+
+        public bool ReadNextRow()
+        {
+            if (rowIndex + 1 >= rows.Count)
+                return false;
+
+            rowIndex++;
+            BeforeReturningRow?.Invoke();
+            return true;
+        }
+
+        public object GetValue(int ordinal) => Current[ordinal]!;
+        public int GetOrdinal(string name) => throw new NotSupportedException();
+        public string GetString(int ordinal) => (string)Current[ordinal]!;
+        public bool GetBoolean(int ordinal) => (bool)Current[ordinal]!;
+        public int GetInt32(int ordinal) => Convert.ToInt32(Current[ordinal]);
+        public DateOnly GetDateOnly(int ordinal) => (DateOnly)Current[ordinal]!;
+        public Guid GetGuid(int ordinal) => (Guid)Current[ordinal]!;
+        public byte[]? GetBytes(int ordinal) => (byte[]?)Current[ordinal];
+        public long GetBytes(int ordinal, Span<byte> buffer) => throw new NotSupportedException();
+        public T? GetValue<T>(ColumnDefinition column) => (T?)Current[column.Index];
+        public T? GetValue<T>(ColumnDefinition column, int ordinal) => (T?)Current[ordinal];
+        public bool IsDbNull(int ordinal) => Current[ordinal] is null or DBNull;
+        public void Dispose() => Disposed = true;
+    }
+
+    private sealed class TrackingCommand : IDbCommand
+    {
+        public bool Disposed { get; private set; }
+        [AllowNull]
+        public string CommandText { get; set; } = string.Empty;
+        public int CommandTimeout { get; set; }
+        public CommandType CommandType { get; set; }
+        public IDbConnection? Connection { get; set; }
+        public IDataParameterCollection Parameters => throw new NotSupportedException();
+        public IDbTransaction? Transaction { get; set; }
+        public UpdateRowSource UpdatedRowSource { get; set; }
+        public void Cancel() => throw new NotSupportedException();
+        public IDbDataParameter CreateParameter() => throw new NotSupportedException();
+        public int ExecuteNonQuery() => throw new NotSupportedException();
+        public IDataReader ExecuteReader() => throw new NotSupportedException();
+        public IDataReader ExecuteReader(CommandBehavior behavior) => throw new NotSupportedException();
+        public object? ExecuteScalar() => throw new NotSupportedException();
+        public void Prepare() => throw new NotSupportedException();
+        public void Dispose() => Disposed = true;
+    }
+}

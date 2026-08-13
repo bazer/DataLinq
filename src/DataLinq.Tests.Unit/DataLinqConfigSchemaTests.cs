@@ -96,7 +96,7 @@ public class DataLinqConfigSchemaTests
                     {
                       "Type": "SQLite",
                       "DataSourceName": "app.db",
-                      "ConnectionString": "Data Source=app.db;Cache=Shared;"
+                      "ConnectionString": "Data Source=app.db;"
                     }
                   ]
                 }

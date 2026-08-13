@@ -56,6 +56,8 @@
       href: backends/MySQL-MariaDB.md
     - name: SQLite
       href: backends/SQLite.md
+    - name: Memory (experimental)
+      href: backends/Memory.md
     - name: Implementing a new backend
       href: Implementing a new backend.md
 - name: Performance
@@ -103,5 +105,7 @@
   items:
     - name: Changelog
       href: ../CHANGELOG.md
+    - name: 0.9 Release Notes
+      href: releases/0.9.md
     - name: Roadmap
       href: Roadmap.md

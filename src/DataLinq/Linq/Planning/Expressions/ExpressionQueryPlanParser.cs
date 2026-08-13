@@ -20,17 +20,39 @@ internal readonly record struct ExpressionQueryPlanParserOptions(
         ExpressionLocalValueEvaluationOptions.AotStrict);
 }
 
+internal readonly struct ExpressionQueryPlanParseResult
+{
+    public ExpressionQueryPlanParseResult(
+        QueryPlanTemplate template,
+        IReadOnlyList<QueryPlanInvocationValue> invocationValues)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        ArgumentNullException.ThrowIfNull(invocationValues);
+        Template = template;
+        InvocationValues = invocationValues;
+    }
+
+    public QueryPlanTemplate Template { get; }
+
+    public IReadOnlyList<QueryPlanInvocationValue> InvocationValues { get; }
+
+    public QueryPlanInvocation Bind()
+        => QueryPlanInvocation.Bind(Template, InvocationValues);
+}
+
 internal sealed class ExpressionQueryPlanParser
 {
     private readonly DatabaseDefinition metadata;
     private readonly ExpressionQueryPlanParserOptions options;
-    private readonly QueryPlanBindingFrame bindings = new();
+    private readonly QueryPlanBindingCapture bindings = new();
     private readonly List<QueryPlanSourceSlot> sources = [];
     private readonly List<QueryPlanOperation> operations = [];
     private readonly Dictionary<ParameterExpression, QueryPlanSourceSlot> parameterSourceSlots = [];
     private readonly Dictionary<ParameterExpression, QueryPlanProjection> parameterProjections = [];
     private readonly Dictionary<ParameterExpression, IReadOnlyDictionary<string, QueryPlanSourceSlot>> parameterTransparentSources = [];
     private readonly Dictionary<ImplicitRelationJoinKey, QueryPlanSourceSlot> implicitRelationSources = [];
+    private readonly Dictionary<Expression, QueryPlanScalarBindingReference> capturedScalarsByExpression =
+        new(ReferenceEqualityComparer.Instance);
     private int relationSubqueryCounter;
 
     private ExpressionQueryPlanParser(DatabaseDefinition metadata, ExpressionQueryPlanParserOptions options)
@@ -39,7 +61,7 @@ internal sealed class ExpressionQueryPlanParser
         this.options = options;
     }
 
-    public static DataLinqQueryPlan Convert<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
+    public static QueryPlanInvocation Convert<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
         where TDatabase : class, IDatabaseModel<TDatabase>
     {
         ArgumentNullException.ThrowIfNull(database);
@@ -48,7 +70,7 @@ internal sealed class ExpressionQueryPlanParser
         return Convert(database.Provider.Metadata, query.Expression, typeof(TModel));
     }
 
-    public static DataLinqQueryPlan Convert<TDatabase, TResult>(Database<TDatabase> database, Expression<Func<TResult>> query)
+    public static QueryPlanInvocation Convert<TDatabase, TResult>(Database<TDatabase> database, Expression<Func<TResult>> query)
         where TDatabase : class, IDatabaseModel<TDatabase>
     {
         ArgumentNullException.ThrowIfNull(database);
@@ -57,17 +79,17 @@ internal sealed class ExpressionQueryPlanParser
         return Convert(database.Provider.Metadata, query.Body, typeof(TResult));
     }
 
-    internal static DataLinqQueryPlan Convert(DatabaseDefinition metadata, Expression expression, Type resultType)
+    internal static QueryPlanInvocation Convert(DatabaseDefinition metadata, Expression expression, Type resultType)
     {
         ArgumentNullException.ThrowIfNull(metadata);
         ArgumentNullException.ThrowIfNull(expression);
         ArgumentNullException.ThrowIfNull(resultType);
 
         var parser = new ExpressionQueryPlanParser(metadata, ExpressionQueryPlanParserOptions.Default);
-        return parser.Parse(expression, resultType);
+        return parser.ParseUnbound(expression, resultType).Bind();
     }
 
-    internal static DataLinqQueryPlan Convert(
+    internal static QueryPlanInvocation Convert(
         DatabaseDefinition metadata,
         Expression expression,
         Type resultType,
@@ -78,10 +100,23 @@ internal sealed class ExpressionQueryPlanParser
         ArgumentNullException.ThrowIfNull(resultType);
 
         var parser = new ExpressionQueryPlanParser(metadata, options);
-        return parser.Parse(expression, resultType);
+        return parser.ParseUnbound(expression, resultType).Bind();
     }
 
-    private DataLinqQueryPlan Parse(Expression expression, Type resultType)
+    internal static ExpressionQueryPlanParseResult ParseUnbound(
+        DatabaseDefinition metadata,
+        Expression expression,
+        Type resultType)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(expression);
+        ArgumentNullException.ThrowIfNull(resultType);
+
+        var parser = new ExpressionQueryPlanParser(metadata, ExpressionQueryPlanParserOptions.Default);
+        return parser.ParseUnbound(expression, resultType);
+    }
+
+    private ExpressionQueryPlanParseResult ParseUnbound(Expression expression, Type resultType)
     {
         var parsed = IsQueryableSequence(expression.Type)
             ? ParseSequence(expression)
@@ -97,7 +132,15 @@ internal sealed class ExpressionQueryPlanParser
         var projection = parsed.Projection ?? new QueryPlanProjection.Entity(parsed.RootSource);
         var result = parsed.Result ?? QueryPlanResult.Sequence(projection.ResultType);
 
-        return new DataLinqQueryPlan(sources, operations, projection, result, bindings);
+        var template = new QueryPlanTemplate(
+            sources,
+            operations,
+            projection,
+            result,
+            bindings.CreateDeclarations(),
+            bindings.CreateSpecialization());
+
+        return new ExpressionQueryPlanParseResult(template, bindings.InvocationValues);
     }
 
     private ParsedQuery ParseSequence(Expression expression)
@@ -113,10 +156,10 @@ internal sealed class ExpressionQueryPlanParser
         return methodCall.Method.Name switch
         {
             nameof(Queryable.Where) => ParseWhere(methodCall),
-            nameof(Queryable.OrderBy) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Ascending),
-            nameof(Queryable.OrderByDescending) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Descending),
-            nameof(Queryable.ThenBy) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Ascending),
-            nameof(Queryable.ThenByDescending) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Descending),
+            nameof(Queryable.OrderBy) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Ascending, isSecondary: false),
+            nameof(Queryable.OrderByDescending) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Descending, isSecondary: false),
+            nameof(Queryable.ThenBy) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Ascending, isSecondary: true),
+            nameof(Queryable.ThenByDescending) => ParseOrderBy(methodCall, QueryPlanOrderingDirection.Descending, isSecondary: true),
             nameof(Queryable.Skip) => ParsePaging(methodCall, isSkip: true),
             nameof(Queryable.Take) => ParsePaging(methodCall, isSkip: false),
             nameof(Queryable.Select) => ParseSelect(methodCall),
@@ -191,7 +234,10 @@ internal sealed class ExpressionQueryPlanParser
         return parsed;
     }
 
-    private ParsedQuery ParseOrderBy(MethodCallExpression methodCall, QueryPlanOrderingDirection direction)
+    private ParsedQuery ParseOrderBy(
+        MethodCallExpression methodCall,
+        QueryPlanOrderingDirection direction,
+        bool isSecondary)
     {
         EnsureArgumentCount(methodCall, 2);
         var parsed = ParseSequence(methodCall.Arguments[0]);
@@ -200,18 +246,27 @@ internal sealed class ExpressionQueryPlanParser
         RejectUnsupportedPostGroupedPagingComposition(parsed, methodCall.Method.Name);
         PushDownPostPagingOperations(methodCall.Method.Name);
 
+        var precedingOrderBy = operations.LastOrDefault() as QueryPlanOperation.OrderBy;
+        if (isSecondary && precedingOrderBy is null)
+        {
+            throw new QueryTranslationException(
+                $"LINQ operator '{methodCall.Method.Name}' requires an immediately preceding OrderBy or OrderByDescending operation. " +
+                $"Expression: {methodCall}");
+        }
+
         var keySelector = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
         if (keySelector.Parameters.Count != 1)
             throw new QueryTranslationException($"Ordering key selector '{keySelector}' is not supported.");
 
         var ordering = CreateOrdering(parsed, keySelector, direction);
 
-        if (operations.LastOrDefault() is QueryPlanOperation.OrderBy lastOrderBy)
+        if (isSecondary)
         {
-            operations[^1] = new QueryPlanOperation.OrderBy(lastOrderBy.Orderings.Concat([ordering]));
+            operations[^1] = new QueryPlanOperation.OrderBy(precedingOrderBy!.Orderings.Concat([ordering]));
         }
         else
         {
+            operations.RemoveAll(static operation => operation is QueryPlanOperation.OrderBy);
             operations.Add(new QueryPlanOperation.OrderBy([ordering]));
         }
 
@@ -229,17 +284,17 @@ internal sealed class ExpressionQueryPlanParser
         if (CanBindProjectionParameter(parsed))
         {
             return WithProjection(keySelector.Parameters[0], parsed.Projection!, () =>
-                new QueryPlanOrdering(ConvertValue(keySelector.Body), direction));
+                new QueryPlanOrdering(ConvertOrderingValue(keySelector.Body), direction));
         }
 
         if (CanBindGroupedProjectionParameter(parsed))
         {
             return WithProjection(keySelector.Parameters[0], parsed.Projection!, () =>
-                new QueryPlanOrdering(ConvertValue(keySelector.Body), direction));
+                new QueryPlanOrdering(ConvertOrderingValue(keySelector.Body), direction));
         }
 
         return WithSource(keySelector.Parameters[0], parsed.RootSource, () =>
-            new QueryPlanOrdering(ConvertValue(keySelector.Body), direction));
+            new QueryPlanOrdering(ConvertOrderingValue(keySelector.Body), direction));
     }
 
     private static bool TryCreateProjectedOrdering(
@@ -250,15 +305,42 @@ internal sealed class ExpressionQueryPlanParser
     {
         if (projection is QueryPlanProjection.ScalarMember scalarProjection &&
             keySelector.Parameters.Count == 1 &&
-            UnwrapConvert(keySelector.Body) == keySelector.Parameters[0])
+            TryCreateProjectedOrderingValue(
+                scalarProjection,
+                keySelector.Body,
+                keySelector.Parameters[0],
+                out var value))
         {
-            ordering = new QueryPlanOrdering(
-                new QueryPlanColumnValue(scalarProjection.Source, scalarProjection.Column, scalarProjection.ResultType),
-                direction);
+            ordering = new QueryPlanOrdering(value, direction);
             return true;
         }
 
         ordering = null!;
+        return false;
+    }
+
+    private static bool TryCreateProjectedOrderingValue(
+        QueryPlanProjection.ScalarMember projection,
+        Expression expression,
+        ParameterExpression parameter,
+        out QueryPlanValue value)
+    {
+        if (expression == parameter)
+        {
+            value = new QueryPlanColumnValue(projection.Source, projection.Column, projection.ResultType);
+            return true;
+        }
+
+        if (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary &&
+            TryCreateProjectedOrderingValue(projection, unary.Operand, parameter, out var operand))
+        {
+            value = unary.Operand.Type == unary.Type
+                ? operand
+                : new QueryPlanConvertedValue(operand, unary.Type);
+            return true;
+        }
+
+        value = null!;
         return false;
     }
 
@@ -647,8 +729,9 @@ internal sealed class ExpressionQueryPlanParser
 
     private QueryPlanProjection CreateProjection(Expression selector, Type resultType)
     {
+        var recipeSelector = selector;
         selector = UnwrapConvert(selector);
-        ValidateProjectionSupported(selector);
+        ValidateProjectionSupported(recipeSelector);
 
         if (TryGetSource(selector, out var source))
             return new QueryPlanProjection.Entity(source);
@@ -665,21 +748,495 @@ internal sealed class ExpressionQueryPlanParser
             if (CanMaterializeSqlProjection(members))
                 return new QueryPlanProjection.SqlRow(resultType, members, newExpression.Constructor!);
 
+            var recipe = CreateProjectionRecipe(recipeSelector);
             return memberSources.Count > 1
-                ? new QueryPlanProjection.JoinedRowLocal(resultType, members, memberSources)
-                : new QueryPlanProjection.Anonymous(resultType, members, memberSources);
+                ? new QueryPlanProjection.JoinedRowLocal(resultType, members, memberSources, recipe)
+                : new QueryPlanProjection.Anonymous(resultType, members, memberSources, recipe);
         }
 
-        RejectRelationProjectionFallback(selector);
+        RejectRelationProjectionFallback(recipeSelector);
 
-        var referencedSources = GetReferencedSources(selector);
+        var fallbackRecipe = CreateProjectionRecipe(recipeSelector);
+        var referencedSources = GetReferencedSources(recipeSelector).ToList();
+        AddSources(fallbackRecipe, referencedSources);
         return referencedSources.Count > 1
             ? new QueryPlanProjection.JoinedRowLocal(
                 resultType,
-                [new QueryPlanProjectionMember("value", new QueryPlanFunctionValue(QueryPlanFunctionKind.ClientExpression, [], resultType))],
-                referencedSources)
-            : new QueryPlanProjection.ComputedRowLocal(resultType, GetExpressionShape(selector), referencedSources);
+                [],
+                referencedSources,
+                fallbackRecipe)
+            : new QueryPlanProjection.ComputedRowLocal(resultType, fallbackRecipe, referencedSources);
     }
+
+    private QueryPlanProjectionRecipe CreateProjectionRecipe(Expression expression)
+    {
+        while (expression is UnaryExpression { NodeType: ExpressionType.Quote } quote)
+            expression = quote.Operand;
+
+        if (expression is UnaryExpression unary)
+        {
+            if (unary.NodeType == ExpressionType.ConvertChecked)
+            {
+                throw new QueryTranslationException(
+                    $"Checked projection conversions are not supported by normalized recipes. Expression: {unary}");
+            }
+
+            if (!IsSupportedProjectionOperatorMethod(unary.Method, unary.NodeType))
+            {
+                throw new QueryTranslationException(
+                    $"Projection user-defined unary operator '{unary.Method}' is not supported by normalized recipes. Expression: {unary}");
+            }
+
+            if (unary.NodeType == ExpressionType.Convert)
+            {
+                if (!QueryPlanProjectionRecipe.IsSupportedConversion(unary.Operand.Type, unary.Type))
+                {
+                    throw new QueryTranslationException(
+                        $"Projection conversion from '{unary.Operand.Type}' to '{unary.Type}' is not supported by normalized recipes. " +
+                        "Only identity, assignable or boxing conversions, nullable wrapping, and implicit numeric widening are supported.");
+                }
+
+                return new QueryPlanProjectionRecipe.Convert(
+                    CreateProjectionRecipe(unary.Operand),
+                    unary.Type);
+            }
+
+            if (unary.NodeType == ExpressionType.Not)
+            {
+                if (GetNonNullableType(unary.Operand.Type) != typeof(bool))
+                {
+                    throw new QueryTranslationException(
+                        $"Projection unary Not supports only Boolean operands. Expression: {unary}");
+                }
+
+                return new QueryPlanProjectionRecipe.Not(
+                    CreateProjectionRecipe(unary.Operand),
+                    unary.Type);
+            }
+
+            throw UnsupportedProjectionRecipe(expression);
+        }
+
+        if (TryGetSource(expression, out var source))
+            return new QueryPlanProjectionRecipe.Source(source);
+
+        if (expression is ParameterExpression parameter &&
+            parameterProjections.TryGetValue(parameter, out var parameterProjection))
+        {
+            return CreateProjectionRecipe(parameterProjection);
+        }
+
+        if (expression is NewExpression newExpression)
+        {
+            var constructor = newExpression.Constructor
+                ?? throw new QueryTranslationException(
+                    $"Projection object construction for '{newExpression.Type.FullName}' has no constructor. Expression: {newExpression}");
+            return new QueryPlanProjectionRecipe.CompatibilityConstructor(
+                constructor,
+                newExpression.Arguments.Select(CreateProjectionRecipe),
+                newExpression.Type);
+        }
+
+        if (expression is NewArrayExpression newArray)
+        {
+            if (newArray.NodeType != ExpressionType.NewArrayInit)
+            {
+                throw new QueryTranslationException(
+                    $"Projection array bounds expressions are not supported by normalized recipes. Expression: {newArray}");
+            }
+
+            var elementType = newArray.Type.GetElementType()
+                ?? throw UnsupportedProjectionRecipe(newArray);
+            if (!QueryPlanProjectionRecipe.IsSupportedArrayElementType(elementType))
+            {
+                throw new QueryTranslationException(
+                    $"Projection array creation for element type '{elementType.FullName}' is not supported without runtime array activation.");
+            }
+
+            return new QueryPlanProjectionRecipe.NewArray(
+                elementType,
+                newArray.Expressions.Select(CreateProjectionRecipe),
+                newArray.Type);
+        }
+
+        if (expression is ConditionalExpression conditional)
+        {
+            return new QueryPlanProjectionRecipe.Conditional(
+                CreateProjectionRecipe(conditional.Test),
+                CreateProjectionRecipe(conditional.IfTrue),
+                CreateProjectionRecipe(conditional.IfFalse),
+                conditional.Type);
+        }
+
+        if (expression is BinaryExpression binary)
+        {
+            if (!IsSupportedProjectionOperatorMethod(binary.Method, binary.NodeType))
+            {
+                throw new QueryTranslationException(
+                    $"Projection user-defined binary operator '{binary.Method}' is not supported by normalized recipes. Expression: {binary}");
+            }
+
+            if (!TryGetProjectionBinaryOperator(binary.NodeType, out var binaryOperator))
+                throw UnsupportedProjectionRecipe(binary);
+
+            return new QueryPlanProjectionRecipe.Binary(
+                binaryOperator,
+                CreateProjectionRecipe(binary.Left),
+                CreateProjectionRecipe(binary.Right),
+                binary.Type);
+        }
+
+        if (expression is MemberExpression member)
+            return CreateProjectionMemberRecipe(member);
+
+        if (expression is MethodCallExpression methodCall)
+        {
+            if (TryCreateProjectionFunctionRecipe(methodCall, out var functionRecipe))
+                return functionRecipe;
+
+            if (!ContainsQueryReference(methodCall))
+                return CaptureProjectionScalar(methodCall);
+
+            throw new QueryTranslationException(
+                $"Projection method '{methodCall.Method.Name}' is not supported without runtime method invocation. Expression: {methodCall}");
+        }
+
+        if (expression is ConstantExpression { Value: null })
+        {
+            return new QueryPlanProjectionRecipe.Intrinsic(
+                QueryPlanProjectionIntrinsicKind.Null,
+                expression.Type);
+        }
+
+        if (expression is ConstantExpression { Value: bool boolean })
+        {
+            return new QueryPlanProjectionRecipe.Intrinsic(
+                boolean
+                    ? QueryPlanProjectionIntrinsicKind.BooleanTrue
+                    : QueryPlanProjectionIntrinsicKind.BooleanFalse,
+                typeof(bool));
+        }
+
+        if (!ContainsQueryReference(expression))
+            return CaptureProjectionScalar(expression);
+
+        throw UnsupportedProjectionRecipe(expression);
+    }
+
+    private QueryPlanProjectionRecipe CreateProjectionMemberRecipe(MemberExpression member)
+    {
+        if (member.Expression is not null &&
+            Nullable.GetUnderlyingType(member.Expression.Type) is not null)
+        {
+            if (member.Member.Name == nameof(Nullable<int>.HasValue))
+            {
+                return new QueryPlanProjectionRecipe.SupportedMember(
+                    QueryPlanProjectionSupportedMemberKind.NullableHasValue,
+                    CreateProjectionRecipe(member.Expression),
+                    member.Type);
+            }
+
+            if (member.Member.Name == nameof(Nullable<int>.Value))
+            {
+                return new QueryPlanProjectionRecipe.SupportedMember(
+                    QueryPlanProjectionSupportedMemberKind.NullableValue,
+                    CreateProjectionRecipe(member.Expression),
+                    member.Type);
+            }
+        }
+
+        if (member.Member.Name == nameof(string.Length) &&
+            member.Expression is not null &&
+            GetNonNullableType(member.Expression.Type) == typeof(string))
+        {
+            return new QueryPlanProjectionRecipe.SupportedMember(
+                QueryPlanProjectionSupportedMemberKind.StringLength,
+                CreateProjectionRecipe(member.Expression),
+                member.Type);
+        }
+
+        if (TryGetDateTimePart(member, out var dateTimePart))
+        {
+            return new QueryPlanProjectionRecipe.Function(
+                MapProjectionFunction(dateTimePart),
+                [CreateProjectionRecipe(member.Expression!)],
+                member.Type);
+        }
+
+        if (TryGetColumnValue(member, out var column))
+            return new QueryPlanProjectionRecipe.SourceColumn(column.Source, column.Column, member.Type);
+
+        if (TryGetImplicitRelationColumnValue(member, out var implicitColumn))
+        {
+            return new QueryPlanProjectionRecipe.SourceColumn(
+                implicitColumn.Source,
+                implicitColumn.Column,
+                member.Type);
+        }
+
+        if (TryGetProjectedValue(member, out var projectedValue))
+            return CreateProjectionRecipe(projectedValue);
+
+        if (!ContainsQueryReference(member))
+            return CaptureProjectionScalar(member);
+
+        var instance = member.Expression is null
+            ? null
+            : CreateProjectionRecipe(member.Expression);
+        return new QueryPlanProjectionRecipe.CompatibilityMember(member.Member, instance, member.Type);
+    }
+
+    private bool TryCreateProjectionFunctionRecipe(
+        MethodCallExpression methodCall,
+        out QueryPlanProjectionRecipe recipe)
+    {
+        if (methodCall.Object is not null &&
+            GetNonNullableType(methodCall.Object.Type) == typeof(string) &&
+            methodCall.Method.DeclaringType == typeof(string) &&
+            TryGetProjectionStringFunction(methodCall.Method.Name, methodCall.Arguments.Count, out var function))
+        {
+            var arguments = new List<QueryPlanProjectionRecipe>(methodCall.Arguments.Count + 1)
+            {
+                CreateProjectionRecipe(methodCall.Object)
+            };
+            arguments.AddRange(methodCall.Arguments.Select(CreateProjectionRecipe));
+            recipe = new QueryPlanProjectionRecipe.Function(function, arguments, methodCall.Type);
+            return true;
+        }
+
+        recipe = null!;
+        return false;
+    }
+
+    private QueryPlanProjectionRecipe CreateProjectionRecipe(QueryPlanProjection projection)
+    {
+        return projection switch
+        {
+            QueryPlanProjection.Entity entity => new QueryPlanProjectionRecipe.Source(entity.Source),
+            QueryPlanProjection.ScalarMember scalar => new QueryPlanProjectionRecipe.SourceColumn(
+                scalar.Source,
+                scalar.Column,
+                scalar.ResultType),
+            QueryPlanProjection.Anonymous anonymous => anonymous.Recipe,
+            QueryPlanProjection.ComputedRowLocal computed => computed.Recipe,
+            QueryPlanProjection.JoinedRowLocal joined => joined.Recipe,
+            QueryPlanProjection.SqlRow sqlRow => new QueryPlanProjectionRecipe.CompatibilityConstructor(
+                sqlRow.Constructor,
+                sqlRow.Members.Select(member => CreateProjectionRecipe(member.Value)),
+                sqlRow.ResultType),
+            QueryPlanProjection.GroupedAggregate grouped => new QueryPlanProjectionRecipe.CompatibilityConstructor(
+                grouped.Constructor,
+                grouped.Members.Select(member => CreateProjectionRecipe(member.Value)),
+                grouped.ResultType),
+            QueryPlanProjection.TransparentIdentifier => throw new QueryTranslationException(
+                "A transparent identifier cannot be used as a final projection recipe."),
+            _ => throw new QueryTranslationException(
+                $"Projection kind '{projection.Kind}' cannot be normalized into a projection recipe.")
+        };
+    }
+
+    private QueryPlanProjectionRecipe CreateProjectionRecipe(QueryPlanValue value)
+    {
+        return value switch
+        {
+            QueryPlanColumnValue column => new QueryPlanProjectionRecipe.SourceColumn(
+                column.Source,
+                column.Column,
+                column.ClrType),
+            QueryPlanScalarBindingReference scalar => new QueryPlanProjectionRecipe.ScalarBinding(
+                scalar.BindingId,
+                scalar.ClrType),
+            QueryPlanIntrinsicValue intrinsic => new QueryPlanProjectionRecipe.Intrinsic(
+                intrinsic.Intrinsic switch
+                {
+                    QueryPlanIntrinsicKind.Null => QueryPlanProjectionIntrinsicKind.Null,
+                    QueryPlanIntrinsicKind.BooleanTrue => QueryPlanProjectionIntrinsicKind.BooleanTrue,
+                    QueryPlanIntrinsicKind.BooleanFalse => QueryPlanProjectionIntrinsicKind.BooleanFalse,
+                    _ => throw new QueryTranslationException(
+                        $"Query-plan intrinsic '{intrinsic.Intrinsic}' cannot be used in a projection recipe.")
+                },
+                intrinsic.ClrType),
+            QueryPlanConvertedValue converted => new QueryPlanProjectionRecipe.Convert(
+                CreateProjectionRecipe(converted.Value),
+                converted.TargetType),
+            QueryPlanFunctionValue function => CreateProjectionFunctionRecipe(function),
+            _ => throw new QueryTranslationException(
+                $"Query-plan value '{value.Kind}' cannot be used in a normalized projection recipe.")
+        };
+    }
+
+    private QueryPlanProjectionRecipe CreateProjectionFunctionRecipe(QueryPlanFunctionValue function)
+    {
+        var arguments = function.Arguments.Select(CreateProjectionRecipe).ToArray();
+        if (function.Function == QueryPlanFunctionKind.StringLength)
+        {
+            if (arguments.Length != 1)
+                throw new QueryTranslationException("Projection StringLength requires exactly one argument.");
+
+            return new QueryPlanProjectionRecipe.SupportedMember(
+                QueryPlanProjectionSupportedMemberKind.StringLength,
+                arguments[0],
+                function.ClrType);
+        }
+
+        return new QueryPlanProjectionRecipe.Function(
+            MapProjectionFunction(function.Function),
+            arguments,
+            function.ClrType);
+    }
+
+    private QueryPlanProjectionRecipe CaptureProjectionScalar(Expression expression)
+    {
+        var captured = CaptureScalar(
+            expression,
+            () => EvaluateScalar(expression),
+            expression.Type);
+        return new QueryPlanProjectionRecipe.ScalarBinding(captured.BindingId, captured.ClrType);
+    }
+
+    private QueryPlanScalarBindingReference CaptureScalar(
+        Expression expression,
+        Func<object?> valueFactory,
+        Type modelType)
+    {
+        if (capturedScalarsByExpression.TryGetValue(expression, out var existing) &&
+            existing.ClrType == modelType)
+        {
+            return existing;
+        }
+
+        var captured = bindings.CaptureScalar(valueFactory(), modelType);
+        capturedScalarsByExpression[expression] = captured;
+        return captured;
+    }
+
+    private static bool TryGetProjectionBinaryOperator(
+        ExpressionType expressionType,
+        out QueryPlanProjectionBinaryOperator @operator)
+    {
+        switch (expressionType)
+        {
+            case ExpressionType.Add:
+                @operator = QueryPlanProjectionBinaryOperator.Add;
+                return true;
+            case ExpressionType.Equal:
+                @operator = QueryPlanProjectionBinaryOperator.Equal;
+                return true;
+            case ExpressionType.NotEqual:
+                @operator = QueryPlanProjectionBinaryOperator.NotEqual;
+                return true;
+            case ExpressionType.AndAlso:
+                @operator = QueryPlanProjectionBinaryOperator.AndAlso;
+                return true;
+            case ExpressionType.OrElse:
+                @operator = QueryPlanProjectionBinaryOperator.OrElse;
+                return true;
+            case ExpressionType.GreaterThan:
+                @operator = QueryPlanProjectionBinaryOperator.GreaterThan;
+                return true;
+            case ExpressionType.GreaterThanOrEqual:
+                @operator = QueryPlanProjectionBinaryOperator.GreaterThanOrEqual;
+                return true;
+            case ExpressionType.LessThan:
+                @operator = QueryPlanProjectionBinaryOperator.LessThan;
+                return true;
+            case ExpressionType.LessThanOrEqual:
+                @operator = QueryPlanProjectionBinaryOperator.LessThanOrEqual;
+                return true;
+            default:
+                @operator = default;
+                return false;
+        }
+    }
+
+    private static bool IsSupportedProjectionOperatorMethod(
+        MethodInfo? method,
+        ExpressionType expressionType)
+    {
+        if (method is null)
+            return true;
+
+        if (method.DeclaringType == typeof(decimal))
+        {
+            return expressionType is ExpressionType.Convert or
+                ExpressionType.Add or
+                ExpressionType.Equal or
+                ExpressionType.NotEqual or
+                ExpressionType.GreaterThan or
+                ExpressionType.GreaterThanOrEqual or
+                ExpressionType.LessThan or
+                ExpressionType.LessThanOrEqual;
+        }
+
+        if (method.DeclaringType == typeof(string))
+            return expressionType is ExpressionType.Add or ExpressionType.Equal or ExpressionType.NotEqual;
+
+        if (method.DeclaringType is { } declaringType &&
+            (declaringType == typeof(DateTime) ||
+             declaringType == typeof(DateOnly) ||
+             declaringType == typeof(TimeOnly) ||
+             declaringType == typeof(Guid)))
+        {
+            return expressionType is ExpressionType.Equal or
+                ExpressionType.NotEqual or
+                ExpressionType.GreaterThan or
+                ExpressionType.GreaterThanOrEqual or
+                ExpressionType.LessThan or
+                ExpressionType.LessThanOrEqual;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetProjectionStringFunction(
+        string methodName,
+        int argumentCount,
+        out QueryPlanProjectionFunctionKind function)
+    {
+        switch (methodName)
+        {
+            case nameof(string.Trim) when argumentCount == 0:
+                function = QueryPlanProjectionFunctionKind.StringTrim;
+                return true;
+            case nameof(string.ToUpper) when argumentCount == 0:
+                function = QueryPlanProjectionFunctionKind.StringToUpper;
+                return true;
+            case nameof(string.ToLower) when argumentCount == 0:
+                function = QueryPlanProjectionFunctionKind.StringToLower;
+                return true;
+            case nameof(string.Substring) when argumentCount is 1 or 2:
+                function = QueryPlanProjectionFunctionKind.StringSubstring;
+                return true;
+            default:
+                function = default;
+                return false;
+        }
+    }
+
+    private static QueryPlanProjectionFunctionKind MapProjectionFunction(QueryPlanFunctionKind function)
+        => function switch
+        {
+            QueryPlanFunctionKind.StringTrim => QueryPlanProjectionFunctionKind.StringTrim,
+            QueryPlanFunctionKind.StringToUpper => QueryPlanProjectionFunctionKind.StringToUpper,
+            QueryPlanFunctionKind.StringToLower => QueryPlanProjectionFunctionKind.StringToLower,
+            QueryPlanFunctionKind.StringSubstring => QueryPlanProjectionFunctionKind.StringSubstring,
+            QueryPlanFunctionKind.DatePartYear => QueryPlanProjectionFunctionKind.DatePartYear,
+            QueryPlanFunctionKind.DatePartMonth => QueryPlanProjectionFunctionKind.DatePartMonth,
+            QueryPlanFunctionKind.DatePartDay => QueryPlanProjectionFunctionKind.DatePartDay,
+            QueryPlanFunctionKind.DatePartDayOfYear => QueryPlanProjectionFunctionKind.DatePartDayOfYear,
+            QueryPlanFunctionKind.DatePartDayOfWeek => QueryPlanProjectionFunctionKind.DatePartDayOfWeek,
+            QueryPlanFunctionKind.TimePartHour => QueryPlanProjectionFunctionKind.TimePartHour,
+            QueryPlanFunctionKind.TimePartMinute => QueryPlanProjectionFunctionKind.TimePartMinute,
+            QueryPlanFunctionKind.TimePartSecond => QueryPlanProjectionFunctionKind.TimePartSecond,
+            QueryPlanFunctionKind.TimePartMillisecond => QueryPlanProjectionFunctionKind.TimePartMillisecond,
+            _ => throw new QueryTranslationException(
+                $"Query-plan function '{function}' is not supported by normalized row-local projection recipes.")
+        };
+
+    private static QueryTranslationException UnsupportedProjectionRecipe(Expression expression)
+        => new(
+            $"Projection expression '{expression}' is not supported by normalized row-local projection recipes. " +
+            $"Node: {expression.NodeType}.");
 
     private bool TryCreateScalarMemberProjection(
         Expression selector,
@@ -905,7 +1462,7 @@ internal sealed class ExpressionQueryPlanParser
                 ConvertGroupedPredicate(binary.Right, groupParameter, grouping)
             ]),
             BinaryExpression binary when IsComparison(binary.NodeType) => ConvertGroupedComparison(binary, groupParameter, grouping),
-            _ when !ContainsParameterReference(expression, groupParameter) => new QueryPlanPredicate.Fixed(System.Convert.ToBoolean(EvaluateScalar(expression), System.Globalization.CultureInfo.InvariantCulture) ^ isNegated),
+            _ when !ContainsParameterReference(expression, groupParameter) => CaptureLocalBooleanPredicate(expression),
             _ => throw new QueryTranslationException(
                 $"Grouped predicate expression '{expression}' is not supported by the DataLinq expression parser. " +
                 "Only comparisons over group.Key and supported grouped aggregates are supported.")
@@ -925,8 +1482,7 @@ internal sealed class ExpressionQueryPlanParser
         if (!ContainsParameterReference(binary.Left, groupParameter) &&
             !ContainsParameterReference(binary.Right, groupParameter))
         {
-            var result = EvaluateConstantBinary(binary.NodeType, EvaluateScalar(binary.Left), EvaluateScalar(binary.Right));
-            return new QueryPlanPredicate.Fixed(result);
+            return CaptureLocalBooleanPredicate(binary);
         }
 
         var left = ConvertGroupedValue(binary.Left, groupParameter, grouping);
@@ -963,6 +1519,7 @@ internal sealed class ExpressionQueryPlanParser
         if (TryConvertValue(selector, out var value) &&
             UnwrapConvertedValue(value) is QueryPlanColumnValue)
         {
+            QueryPlanAggregateSelectorValidator.RejectConverterBackedColumn(value, operatorName);
             return value;
         }
 
@@ -1039,6 +1596,61 @@ internal sealed class ExpressionQueryPlanParser
         }
     }
 
+    private static void AddSources(
+        QueryPlanProjectionRecipe recipe,
+        List<QueryPlanSourceSlot> sources)
+    {
+        switch (recipe)
+        {
+            case QueryPlanProjectionRecipe.Source source:
+                AddSource(source.SourceSlot, sources);
+                break;
+            case QueryPlanProjectionRecipe.SourceColumn sourceColumn:
+                AddSource(sourceColumn.SourceSlot, sources);
+                break;
+            case QueryPlanProjectionRecipe.Convert convert:
+                AddSources(convert.Operand, sources);
+                break;
+            case QueryPlanProjectionRecipe.Not not:
+                AddSources(not.Operand, sources);
+                break;
+            case QueryPlanProjectionRecipe.Binary binary:
+                AddSources(binary.Left, sources);
+                AddSources(binary.Right, sources);
+                break;
+            case QueryPlanProjectionRecipe.SupportedMember member:
+                AddSources(member.Instance, sources);
+                break;
+            case QueryPlanProjectionRecipe.Function function:
+                foreach (var argument in function.Arguments)
+                    AddSources(argument, sources);
+                break;
+            case QueryPlanProjectionRecipe.Conditional conditional:
+                AddSources(conditional.Test, sources);
+                AddSources(conditional.IfTrue, sources);
+                AddSources(conditional.IfFalse, sources);
+                break;
+            case QueryPlanProjectionRecipe.NewArray newArray:
+                foreach (var element in newArray.Elements)
+                    AddSources(element, sources);
+                break;
+            case QueryPlanProjectionRecipe.CompatibilityConstructor constructor:
+                foreach (var argument in constructor.Arguments)
+                    AddSources(argument, sources);
+                break;
+            case QueryPlanProjectionRecipe.CompatibilityMember { Instance: not null } compatibilityMember:
+                AddSources(compatibilityMember.Instance, sources);
+                break;
+            case QueryPlanProjectionRecipe.ScalarBinding:
+            case QueryPlanProjectionRecipe.Intrinsic:
+            case QueryPlanProjectionRecipe.CompatibilityMember:
+                break;
+            default:
+                throw new InvalidOperationException(
+                    $"Projection recipe kind '{recipe.Kind}' is not supported by source collection.");
+        }
+    }
+
     private static void AddSource(QueryPlanSourceSlot source, List<QueryPlanSourceSlot> sources)
     {
         if (!sources.Contains(source))
@@ -1071,10 +1683,10 @@ internal sealed class ExpressionQueryPlanParser
             MemberExpression member when TryGetColumnValue(member, out var boolColumn) && GetNonNullableType(member.Type) == typeof(bool) => new QueryPlanPredicate.Compare(
                 boolColumn,
                 QueryPlanComparisonOperator.Equal,
-                new QueryPlanConstantValue(true, typeof(bool))),
+                BooleanIntrinsic(value: true)),
             MethodCallExpression methodCall when TryConvertMethodPredicate(methodCall, isNegated, out var methodPredicate) => methodPredicate,
             MethodCallExpression methodCall => throw new QueryTranslationException($"Method '{methodCall.Method.Name}' is not supported in DataLinq expression predicate translation. Expression: {methodCall}"),
-            _ when !ContainsQueryReference(expression) => new QueryPlanPredicate.Fixed(System.Convert.ToBoolean(EvaluateScalar(expression), System.Globalization.CultureInfo.InvariantCulture) ^ isNegated),
+            _ when !ContainsQueryReference(expression) => CaptureLocalBooleanPredicate(expression),
             _ => throw new QueryTranslationException($"Predicate expression '{expression}' is not supported by the DataLinq expression parser.")
         };
 
@@ -1093,8 +1705,7 @@ internal sealed class ExpressionQueryPlanParser
     {
         if (!ContainsQueryReference(binary.Left) && !ContainsQueryReference(binary.Right))
         {
-            var result = EvaluateConstantBinary(binary.NodeType, EvaluateScalar(binary.Left), EvaluateScalar(binary.Right));
-            return new QueryPlanPredicate.Fixed(result);
+            return CaptureLocalBooleanPredicate(binary);
         }
 
         var left = ConvertValue(binary.Left);
@@ -1121,7 +1732,7 @@ internal sealed class ExpressionQueryPlanParser
             predicate = new QueryPlanPredicate.Compare(
                 function,
                 QueryPlanComparisonOperator.Equal,
-                new QueryPlanConstantValue(true, typeof(bool)));
+                BooleanIntrinsic(value: true));
             return true;
         }
 
@@ -1139,7 +1750,7 @@ internal sealed class ExpressionQueryPlanParser
             predicate = new QueryPlanPredicate.Compare(
                 column,
                 QueryPlanComparisonOperator.NotEqual,
-                new QueryPlanConstantValue(null, member.Expression.Type));
+                NullIntrinsic(member.Expression.Type));
             return true;
         }
 
@@ -1153,7 +1764,8 @@ internal sealed class ExpressionQueryPlanParser
         if (IsEnumerableMethod(methodCall, nameof(Enumerable.Contains)) && methodCall.Arguments.Count == 2)
         {
             var values = EvaluateLocalSequence(methodCall.Arguments[0]);
-            return CreateLocalMembershipPredicate(values, methodCall.Arguments[1], isNegated, out predicate);
+            var elementType = methodCall.Method.GetGenericArguments()[0];
+            return CreateLocalMembershipPredicate(values, elementType, methodCall.Arguments[1], isNegated, out predicate);
         }
 
         if (methodCall.Method.Name != nameof(Enumerable.Contains))
@@ -1177,26 +1789,36 @@ internal sealed class ExpressionQueryPlanParser
             GetNonNullableType(sequenceExpression.Type) != typeof(string) &&
             TryEvaluateLocalSequence(sequenceExpression, out var instanceValues))
         {
-            return CreateLocalMembershipPredicate(instanceValues, itemExpression, isNegated, out predicate);
+            var genericArguments = methodCall.Method.GetGenericArguments();
+            var elementType = genericArguments.Length == 1
+                ? genericArguments[0]
+                : itemExpression.Type;
+            return CreateLocalMembershipPredicate(instanceValues, elementType, itemExpression, isNegated, out predicate);
         }
 
         return false;
     }
 
-    private bool CreateLocalMembershipPredicate(object?[] values, Expression itemExpression, bool isNegated, out QueryPlanPredicate predicate)
+    private bool CreateLocalMembershipPredicate(
+        object?[] values,
+        Type elementType,
+        Expression itemExpression,
+        bool isNegated,
+        out QueryPlanPredicate predicate)
     {
         itemExpression = UnwrapQueryColumnAccess(itemExpression);
 
-        if (values.Length == 0)
+        if (TryGetColumnValue(itemExpression, out var item))
         {
-            predicate = new QueryPlanPredicate.Fixed(isNegated);
+            var sequence = bindings.CaptureLocalSequence(values, elementType);
+            predicate = new QueryPlanPredicate.In(item, sequence, isNegated);
             return true;
         }
 
-        if (TryGetColumnValue(itemExpression, out var item))
+        if (values.Length == 0)
         {
-            var sequence = bindings.CaptureLocalSequence(values, item.ClrType);
-            predicate = new QueryPlanPredicate.In(item, sequence, isNegated);
+            _ = bindings.CaptureLocalSequence(values, elementType);
+            predicate = new QueryPlanPredicate.Fixed(isNegated);
             return true;
         }
 
@@ -1204,7 +1826,7 @@ internal sealed class ExpressionQueryPlanParser
         {
             var itemValue = EvaluateScalar(itemExpression);
             var found = values.Any(value => object.Equals(value, itemValue));
-            predicate = new QueryPlanPredicate.Fixed(isNegated ? !found : found);
+            predicate = CaptureBooleanInvocation(found);
             return true;
         }
 
@@ -1223,25 +1845,31 @@ internal sealed class ExpressionQueryPlanParser
         var sourceValues = EvaluateLocalSequence(methodCall.Arguments[0]);
         if (methodCall.Arguments.Count == 1)
         {
+            _ = bindings.CaptureLocalSequence(
+                sourceValues,
+                methodCall.Method.GetGenericArguments()[0]);
             predicate = new QueryPlanPredicate.Fixed(isNegated ? sourceValues.Length == 0 : sourceValues.Length > 0);
+            return true;
+        }
+
+        var lambda = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
+        if (lambda.Parameters.Count == 1 &&
+            lambda.Body is BinaryExpression { NodeType: ExpressionType.Equal } binary &&
+            TryCreateLocalAnyMembership(binary, lambda.Parameters[0], sourceValues, isNegated, out predicate))
+        {
             return true;
         }
 
         if (sourceValues.Length == 0)
         {
+            _ = bindings.CaptureLocalSequence(
+                sourceValues,
+                methodCall.Method.GetGenericArguments()[0]);
             predicate = new QueryPlanPredicate.Fixed(isNegated);
             return true;
         }
 
-        var lambda = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
-        if (lambda.Parameters.Count != 1 ||
-            lambda.Body is not BinaryExpression { NodeType: ExpressionType.Equal } binary ||
-            !TryCreateLocalAnyMembership(binary, lambda.Parameters[0], sourceValues, isNegated, out predicate))
-        {
-            throw new QueryTranslationException($"Any(predicate) over a non-empty local sequence only supports equality membership against a query column. Predicate: {lambda.Body}");
-        }
-
-        return true;
+        throw new QueryTranslationException($"Any(predicate) over a local sequence only supports equality membership against a query column. Predicate: {lambda.Body}");
     }
 
     private bool TryCreateLocalAnyMembership(
@@ -1275,7 +1903,7 @@ internal sealed class ExpressionQueryPlanParser
 
         predicate = new QueryPlanPredicate.In(
             outerColumn,
-            bindings.CaptureLocalSequence(values, outerColumn.ClrType),
+            bindings.CaptureLocalSequence(values, localCandidate.Type),
             isNegated);
         return true;
     }
@@ -1346,15 +1974,19 @@ internal sealed class ExpressionQueryPlanParser
 
     private bool TryConvertRelationCountComparison(BinaryExpression binary, bool isNegated, out QueryPlanPredicate predicate)
     {
-        if (TryGetRelationCount(binary.Left, out var relationProperty, out var parentSource, out var childPredicateFactory) &&
-            TryGetConstantInt(binary.Right, out var constant))
+        if (TryGetRelationCount(binary.Left, out var relationProperty, out var parentSource, out var childPredicateFactory))
         {
+            if (!TryGetStructuralIntLiteral(binary.Right, out var constant))
+                throw CapturedRelationCountThreshold(binary.Right);
+
             return CreateRelationCountPredicate(relationProperty, parentSource, childPredicateFactory, binary.NodeType, constant, isNegated, out predicate);
         }
 
-        if (TryGetRelationCount(binary.Right, out relationProperty, out parentSource, out childPredicateFactory) &&
-            TryGetConstantInt(binary.Left, out constant))
+        if (TryGetRelationCount(binary.Right, out relationProperty, out parentSource, out childPredicateFactory))
         {
+            if (!TryGetStructuralIntLiteral(binary.Left, out var constant))
+                throw CapturedRelationCountThreshold(binary.Left);
+
             return CreateRelationCountPredicate(relationProperty, parentSource, childPredicateFactory, ReverseExpressionType(binary.NodeType), constant, isNegated, out predicate);
         }
 
@@ -1461,37 +2093,37 @@ internal sealed class ExpressionQueryPlanParser
 
         if (TryGetColumnValue(comparison.Left, out var leftColumn) && leftColumn.Source == childSource && !ContainsQueryReference(comparison.Right))
         {
+            var right = ConvertValue(comparison.Right);
+            var comparisonOperator = GetComparisonOperator(comparison.NodeType);
             return new QueryPlanPredicate.Compare(
                 leftColumn,
-                GetComparisonOperator(comparison.NodeType),
-                ConvertValue(comparison.Right),
-                GetRelationNullSemantics(leftColumn, comparison.NodeType, comparison.Right));
+                comparisonOperator,
+                right,
+                QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(
+                    comparisonOperator,
+                    leftColumn,
+                    right,
+                    bindings));
         }
 
         if (TryGetColumnValue(comparison.Right, out var rightColumn) && rightColumn.Source == childSource && !ContainsQueryReference(comparison.Left))
         {
+            var left = ConvertValue(comparison.Left);
+            var comparisonOperator = ReverseComparisonOperator(GetComparisonOperator(comparison.NodeType));
             return new QueryPlanPredicate.Compare(
                 rightColumn,
-                ReverseComparisonOperator(GetComparisonOperator(comparison.NodeType)),
-                ConvertValue(comparison.Left),
-                GetRelationNullSemantics(rightColumn, comparison.NodeType, comparison.Left));
+                comparisonOperator,
+                left,
+                QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(
+                    comparisonOperator,
+                    rightColumn,
+                    left,
+                    bindings));
         }
 
         throw new QueryTranslationException(
             $"Relation predicate '{predicate}' is not supported. " +
             "Expected a direct related-row member compared with a local value.");
-    }
-
-    private QueryPlanNullSemantics GetRelationNullSemantics(QueryPlanColumnValue column, ExpressionType expressionType, Expression valueExpression)
-    {
-        if (GetComparisonOperator(expressionType) != QueryPlanComparisonOperator.NotEqual ||
-            !column.Column.ValueProperty.CsNullable ||
-            EvaluateScalar(valueExpression) is null)
-        {
-            return QueryPlanNullSemantics.Default;
-        }
-
-        return QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull;
     }
 
     private QueryPlanSourceSlot CreateRelationChildSource(RelationProperty relationProperty)
@@ -1544,7 +2176,10 @@ internal sealed class ExpressionQueryPlanParser
         }
 
         if (TryConvertValue(selector, out var value))
+        {
+            QueryPlanAggregateSelectorValidator.RejectConverterBackedColumn(value, operatorName);
             return value;
+        }
 
         throw new QueryTranslationException(
             $"Aggregate selector '{selector}' is not supported for '{operatorName}' by the DataLinq expression parser. " +
@@ -1559,15 +2194,42 @@ internal sealed class ExpressionQueryPlanParser
         throw new QueryTranslationException($"Value expression '{expression}' is not supported by the DataLinq expression parser.");
     }
 
+    private QueryPlanValue ConvertOrderingValue(Expression expression)
+    {
+        if (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary &&
+            ContainsQueryReference(unary.Operand))
+        {
+            var operand = ConvertOrderingValue(unary.Operand);
+            return unary.Operand.Type == unary.Type
+                ? operand
+                : new QueryPlanConvertedValue(operand, unary.Type);
+        }
+
+        return ConvertValue(expression);
+    }
+
     private bool TryConvertValue(Expression expression, out QueryPlanValue value)
     {
         if (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary &&
             !ContainsQueryReference(unary.Operand))
         {
-            var scalar = ExpressionLocalValueEvaluator.Evaluate(unary.Operand, null, null, options.LocalValueEvaluation);
-            value = scalar is null
-                ? new QueryPlanConstantValue(null, expression.Type)
-                : bindings.CaptureScalar(scalar, expression.Type);
+            if (UnwrapConvert(unary.Operand) is ConstantExpression { Value: null })
+            {
+                value = NullIntrinsic(expression.Type);
+                return true;
+            }
+
+            var captured = CaptureScalar(
+                unary.Operand,
+                () => ExpressionLocalValueEvaluator.Evaluate(
+                    unary.Operand,
+                    null,
+                    null,
+                    options.LocalValueEvaluation),
+                unary.Operand.Type);
+            value = unary.Operand.Type == expression.Type
+                ? captured
+                : new QueryPlanConvertedValue(captured, expression.Type);
             return true;
         }
 
@@ -1595,11 +2257,17 @@ internal sealed class ExpressionQueryPlanParser
         {
             if (expression is ConstantExpression { Value: null })
             {
-                value = new QueryPlanConstantValue(null, expression.Type);
+                value = NullIntrinsic(expression.Type);
                 return true;
             }
 
-            value = bindings.CaptureScalar(EvaluateScalar(expression), expression.Type);
+            if (expression is ConstantExpression { Value: bool boolean })
+            {
+                value = BooleanIntrinsic(boolean);
+                return true;
+            }
+
+            value = CaptureScalar(expression, () => EvaluateScalar(expression), expression.Type);
             return true;
         }
 
@@ -1641,15 +2309,7 @@ internal sealed class ExpressionQueryPlanParser
 
             if (matches.Length == 1)
             {
-                var projectedValue = matches[0].Value;
-                if (projectedValue is QueryPlanFunctionValue { Function: QueryPlanFunctionKind.ClientExpression })
-                {
-                    throw new QueryTranslationException(
-                        $"Joined projection member '{memberExpression.Member.Name}' is row-local and cannot be translated to SQL. " +
-                        "Materialize before filtering or ordering over this member.");
-                }
-
-                value = projectedValue;
+                value = matches[0].Value;
                 return true;
             }
         }
@@ -2289,6 +2949,28 @@ internal sealed class ExpressionQueryPlanParser
         return ExpressionLocalValueEvaluator.Evaluate(expression, null, null, options.LocalValueEvaluation);
     }
 
+    private QueryPlanPredicate CaptureLocalBooleanPredicate(Expression expression)
+    {
+        var value = System.Convert.ToBoolean(
+            EvaluateScalar(expression),
+            System.Globalization.CultureInfo.InvariantCulture);
+        return CaptureBooleanInvocation(value);
+    }
+
+    private QueryPlanPredicate CaptureBooleanInvocation(bool value)
+        => new QueryPlanPredicate.Compare(
+            bindings.CaptureScalar(value, typeof(bool)),
+            QueryPlanComparisonOperator.Equal,
+            BooleanIntrinsic(value: true));
+
+    private static QueryPlanIntrinsicValue NullIntrinsic(Type type)
+        => new(QueryPlanIntrinsicKind.Null, type);
+
+    private static QueryPlanIntrinsicValue BooleanIntrinsic(bool value)
+        => new(
+            value ? QueryPlanIntrinsicKind.BooleanTrue : QueryPlanIntrinsicKind.BooleanFalse,
+            typeof(bool));
+
     private object?[] EvaluateLocalSequence(Expression expression)
     {
         if (TryEvaluateLocalSequence(expression, out var values))
@@ -2513,7 +3195,7 @@ internal sealed class ExpressionQueryPlanParser
         }
     }
 
-    private bool TryGetConstantInt(Expression expression, out int value)
+    private static bool TryGetStructuralIntLiteral(Expression expression, out int value)
     {
         expression = UnwrapConvert(expression);
         if (expression is ConstantExpression constantExpression)
@@ -2522,24 +3204,15 @@ internal sealed class ExpressionQueryPlanParser
             return true;
         }
 
-        if (!ContainsParameter(expression))
-        {
-            value = System.Convert.ToInt32(
-                ExpressionLocalValueEvaluator.Evaluate(expression, null, null, options.LocalValueEvaluation),
-                System.Globalization.CultureInfo.InvariantCulture);
-            return true;
-        }
-
         value = 0;
         return false;
     }
 
-    private static bool ContainsParameter(Expression expression)
-    {
-        var visitor = new AnyParameterVisitor();
-        visitor.Visit(expression);
-        return visitor.ContainsParameter;
-    }
+    private static QueryTranslationException CapturedRelationCountThreshold(Expression threshold)
+        => new(
+            $"Relation Count() comparisons require a literal 0 or 1 threshold. " +
+            $"Captured or computed threshold '{threshold}' would change the structural Exists/NotExists template " +
+            "without an exact scalar-value specialization, so this shape is not supported.");
 
     private static bool TryGetCountExistsSemantics(ExpressionType comparisonType, int constant, out bool shouldExist)
     {
@@ -2595,43 +3268,7 @@ internal sealed class ExpressionQueryPlanParser
         _ => expressionType
     };
 
-    private static bool EvaluateConstantBinary(ExpressionType nodeType, object? left, object? right)
-    {
-        return nodeType switch
-        {
-            ExpressionType.Equal => Equals(left, right),
-            ExpressionType.NotEqual => !Equals(left, right),
-            ExpressionType.GreaterThan => Compare(left, right) > 0,
-            ExpressionType.GreaterThanOrEqual => Compare(left, right) >= 0,
-            ExpressionType.LessThan => Compare(left, right) < 0,
-            ExpressionType.LessThanOrEqual => Compare(left, right) <= 0,
-            _ => throw new QueryTranslationException($"Constant binary expression '{nodeType}' is not supported in query plan predicate translation.")
-        };
-    }
-
-    private static int Compare(object? left, object? right)
-    {
-        if (left is null || right is null)
-            throw new QueryTranslationException("Null constant values can only be compared with equality in query plan predicate translation.");
-
-        if (left is IComparable comparable)
-            return comparable.CompareTo(right);
-
-        throw new QueryTranslationException($"Constant value '{left}' does not support comparison in query plan predicate translation.");
-    }
-
     private static Type GetNonNullableType(Type type) => Nullable.GetUnderlyingType(type) ?? type;
-
-    private static string GetExpressionShape(Expression selector)
-        => selector switch
-        {
-            NewExpression => "new",
-            MemberInitExpression => "member-init",
-            BinaryExpression binary => binary.NodeType.ToString(),
-            MethodCallExpression methodCall => methodCall.Method.Name,
-            MemberExpression member => member.Member.Name,
-            _ => selector.NodeType.ToString()
-        };
 
     private sealed record ParsedQuery(
         QueryPlanSourceSlot RootSource,
@@ -2731,6 +3368,26 @@ internal sealed class ExpressionQueryPlanParser
 
     private sealed class ProjectionUnsupportedShapeVisitor(Expression selector) : ExpressionVisitor
     {
+        protected override Expression VisitUnary(UnaryExpression node)
+        {
+            if (node.NodeType == ExpressionType.ConvertChecked)
+            {
+                throw new QueryTranslationException(
+                    $"Checked projection conversions are not supported by normalized recipes. Expression: {selector}");
+            }
+
+            if (node.NodeType == ExpressionType.Convert &&
+                !QueryPlanProjectionRecipe.IsSupportedConversion(node.Operand.Type, node.Type))
+            {
+                throw new QueryTranslationException(
+                    $"Projection conversion from '{node.Operand.Type}' to '{node.Type}' is not supported by normalized recipes. " +
+                    "Only identity, assignable or boxing conversions, nullable wrapping, and implicit numeric widening are supported. " +
+                    $"Expression: {selector}");
+            }
+
+            return base.VisitUnary(node);
+        }
+
         protected override Expression VisitMethodCall(MethodCallExpression node)
         {
             if (node.Method.DeclaringType == typeof(Queryable))
@@ -2751,6 +3408,12 @@ internal sealed class ExpressionQueryPlanParser
     {
         protected override Expression VisitMember(MemberExpression node)
         {
+            // A mapped member reached through a singular relation is normalized
+            // to an implicit source-column recipe. Do not reject the nested
+            // relation property after that mapping has been proven valid.
+            if (parser.TryGetImplicitRelationColumnValue(node, out _))
+                return node;
+
             if (parser.TryGetRelationProjectionProperty(node, out var relationProperty))
             {
                 var relationKind = relationProperty.RelationPart.Type == RelationPartType.ForeignKey
@@ -2767,14 +3430,4 @@ internal sealed class ExpressionQueryPlanParser
         }
     }
 
-    private sealed class AnyParameterVisitor : ExpressionVisitor
-    {
-        public bool ContainsParameter { get; private set; }
-
-        protected override Expression VisitParameter(ParameterExpression node)
-        {
-            ContainsParameter = true;
-            return node;
-        }
-    }
 }

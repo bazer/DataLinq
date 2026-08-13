@@ -119,6 +119,17 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
             length = NormalizeColumnLength(dbColumns.CHARACTER_MAXIMUM_LENGTH);
         }
 
+        // MariaDB exposes native UUID columns through information_schema using
+        // character-length metadata. UUID is not a parameterized SQL type, so
+        // carrying that implementation detail into model metadata would later
+        // regenerate invalid UUID(n) declarations.
+        if (dbTypeName.Equals("uuid", StringComparison.OrdinalIgnoreCase))
+        {
+            length = null;
+            decimals = null;
+            signed = null;
+        }
+
         var dbType = new DatabaseColumnType(databaseType, dbTypeName, length, decimals, signed);
 
         var column = new ProviderColumnDraft(dbColumns.COLUMN_NAME)
@@ -348,8 +359,10 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
             (property.CsType.Type == typeof(TimeOnly) && IsCurrentTimeDefault(normalizedExpression)))
             return new DefaultCurrentTimestampAttribute();
 
-        if (normalizedExpression.StartsWith("UUID()", StringComparison.CurrentCultureIgnoreCase))
-            return new DefaultNewUUIDAttribute();
+        if (string.Equals(normalizedExpression, "UUID()", StringComparison.OrdinalIgnoreCase))
+            return new DefaultSqlAttribute(
+                databaseType,
+                FormatRawDefaultExpression(dbColumns.COLUMN_DEFAULT.Trim(), normalizedExpression));
 
         if (property.CsType.Type == typeof(bool) && normalizedExpression.StartsWith("b'"))
             return new DefaultAttribute(normalizedExpression == "b'1'");
@@ -734,7 +747,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
                 return "int";
 
             case "binary":
-                return "Guid";
+                return dbType.Length == 16 ? "Guid" : "byte[]";
 
             case "varbinary":
             case "blob":

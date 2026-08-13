@@ -1,0 +1,920 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using DataLinq.Metadata;
+
+namespace DataLinq.Linq.Planning;
+
+internal enum QueryPlanFeatureCategory
+{
+    SourceCount,
+    SourceTopology,
+    SourceKind,
+    SourceCardinality,
+    SourceNullability,
+    Operation,
+    PushdownShape,
+    OrderingDirection,
+    JoinKind,
+    JoinRightSourceKind,
+    Predicate,
+    PredicatePolarity,
+    RelationPart,
+    ComparisonOperator,
+    NullSemantics,
+    ComparisonShape,
+    MembershipShape,
+    Value,
+    Intrinsic,
+    Function,
+    FunctionShape,
+    GroupedAggregate,
+    AggregateSelectorShape,
+    PagingCountShape,
+    Projection,
+    ProjectionDisposition,
+    ProjectionRecipe,
+    ProjectionIntrinsic,
+    ProjectionBinaryOperator,
+    ProjectionSupportedMember,
+    ProjectionFunction,
+    Result,
+    BindingKind,
+    ScalarNullness,
+    LocalSequenceShape,
+    OrderingShape,
+    PagingCompositionShape,
+    ScalarProjectionShape,
+    ResultCompositionShape
+}
+
+internal enum QueryPlanSourceCountKind
+{
+    Single,
+    Multiple
+}
+
+internal enum QueryPlanSourceTopology
+{
+    ExactlyOneRoot,
+    NoRoot,
+    MultipleRoots
+}
+
+internal enum QueryPlanSourceNullability
+{
+    NonNullable,
+    Nullable
+}
+
+internal enum QueryPlanPredicatePolarity
+{
+    Positive,
+    Negated
+}
+
+internal enum QueryPlanComparisonShape
+{
+    DefaultNullSemantics,
+    NullableNotEqualColumnAndNullValue,
+    NullableNotEqualColumnAndNonNullValue,
+    UnsupportedNullableNotEqual,
+    DirectNonNullableInt32ColumnAndScalar,
+    NonNullableCanonicalGuidColumnAndScalar
+}
+
+internal static class QueryPlanExactInt32ValueShapeFacts
+{
+    internal static bool IsDirectNonNullableInt32Column(QueryPlanValue value)
+    {
+        if (value is not QueryPlanColumnValue column)
+            return false;
+
+        var definition = column.Column;
+        return column.ClrType == typeof(int) &&
+            !definition.Nullable &&
+            !definition.ValueProperty.CsNullable &&
+            !definition.HasScalarConverter &&
+            definition.ModelClrType == typeof(int) &&
+            definition.ProviderClrType == typeof(int);
+    }
+
+    internal static bool IsDirectNonNullableInt32ScalarBinding(
+        QueryPlanValue value,
+        QueryPlanBindingDeclarations declarations)
+    {
+        ArgumentNullException.ThrowIfNull(declarations);
+        if (value is not QueryPlanScalarBindingReference { ClrType: var scalarType } scalar ||
+            scalarType != typeof(int) ||
+            !declarations.TryGet(scalar.BindingId, out var declaration))
+        {
+            return false;
+        }
+
+        return declaration.Kind == QueryPlanBindingKind.Scalar &&
+            declaration.ModelType == typeof(int) &&
+            declaration.ProviderType == typeof(int) &&
+            !declaration.AllowsNull;
+    }
+}
+
+internal static class QueryPlanCanonicalGuidValueShapeFacts
+{
+    internal static bool IsNonNullableCanonicalGuidColumn(QueryPlanValue value)
+    {
+        if (value is not QueryPlanColumnValue column)
+            return false;
+
+        var definition = column.Column;
+        var modelType = definition.ModelClrType;
+        var converter = definition.ScalarConverter;
+        var hasExactCanonicalGuidMapping = !definition.HasScalarConverter
+            ? modelType == typeof(Guid)
+            : modelType != typeof(Guid) &&
+              converter is not null &&
+              converter.ModelType == modelType &&
+              converter.ProviderType == typeof(Guid);
+        return modelType is not null &&
+            column.ClrType == modelType &&
+            !definition.Nullable &&
+            !definition.ValueProperty.CsNullable &&
+            definition.ProviderClrType == typeof(Guid) &&
+            hasExactCanonicalGuidMapping;
+    }
+
+    internal static bool IsNonNullableCanonicalGuidScalarBinding(
+        QueryPlanValue value,
+        ColumnDefinition column,
+        QueryPlanBindingDeclarations declarations)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        ArgumentNullException.ThrowIfNull(declarations);
+        var modelType = column.ModelClrType;
+        if (modelType is null ||
+            value is not QueryPlanScalarBindingReference { ClrType: var scalarType } scalar ||
+            scalarType != modelType ||
+            !declarations.TryGet(scalar.BindingId, out var declaration))
+        {
+            return false;
+        }
+
+        return declaration.Kind == QueryPlanBindingKind.Scalar &&
+            declaration.ModelType == modelType &&
+            (declaration.ProviderType == modelType || declaration.ProviderType == typeof(Guid)) &&
+            !declaration.AllowsNull;
+    }
+}
+
+internal static class QueryPlanComparisonShapeFacts
+{
+    internal static bool IsDirectNonNullableInt32ColumnAndScalar(
+        QueryPlanValue left,
+        QueryPlanValue right,
+        QueryPlanBindingDeclarations declarations) =>
+        IsDirectNonNullableInt32ColumnWithScalar(left, right, declarations) ||
+        IsDirectNonNullableInt32ColumnWithScalar(right, left, declarations);
+
+    internal static bool IsNonNullableCanonicalGuidColumnAndScalar(
+        QueryPlanValue left,
+        QueryPlanValue right,
+        QueryPlanBindingDeclarations declarations) =>
+        IsNonNullableCanonicalGuidColumnWithScalar(left, right, declarations) ||
+        IsNonNullableCanonicalGuidColumnWithScalar(right, left, declarations);
+
+    private static bool IsDirectNonNullableInt32ColumnWithScalar(
+        QueryPlanValue columnValue,
+        QueryPlanValue scalarValue,
+        QueryPlanBindingDeclarations declarations)
+    {
+        return QueryPlanExactInt32ValueShapeFacts.IsDirectNonNullableInt32Column(columnValue) &&
+            QueryPlanExactInt32ValueShapeFacts.IsDirectNonNullableInt32ScalarBinding(scalarValue, declarations);
+    }
+
+    private static bool IsNonNullableCanonicalGuidColumnWithScalar(
+        QueryPlanValue columnValue,
+        QueryPlanValue scalarValue,
+        QueryPlanBindingDeclarations declarations)
+    {
+        return columnValue is QueryPlanColumnValue column &&
+            QueryPlanCanonicalGuidValueShapeFacts.IsNonNullableCanonicalGuidColumn(column) &&
+            QueryPlanCanonicalGuidValueShapeFacts.IsNonNullableCanonicalGuidScalarBinding(
+                scalarValue,
+                column.Column,
+                declarations);
+    }
+}
+
+internal enum QueryPlanMembershipShape
+{
+    DirectNonNullableInt32ColumnAndLocalSequence,
+    Other
+}
+
+internal static class QueryPlanMembershipShapeFacts
+{
+    internal static bool IsDirectNonNullableInt32ColumnAndLocalSequence(
+        QueryPlanValue item,
+        QueryPlanLocalSequenceBindingReference sequence,
+        QueryPlanBindingDeclarations declarations)
+    {
+        ArgumentNullException.ThrowIfNull(declarations);
+        if (!QueryPlanExactInt32ValueShapeFacts.IsDirectNonNullableInt32Column(item) ||
+            sequence.ElementType != typeof(int) ||
+            !declarations.TryGet(sequence.BindingId, out var declaration))
+        {
+            return false;
+        }
+
+        return declaration.Kind == QueryPlanBindingKind.LocalSequence &&
+            declaration.ModelType == typeof(int) &&
+            declaration.ProviderType == typeof(int) &&
+            !declaration.AllowsNull;
+    }
+}
+
+internal enum QueryPlanOrderingShape
+{
+    SingleDirectNonNullableInt32PrimaryKeyColumn,
+    Other
+}
+
+internal static class QueryPlanOrderingShapeFacts
+{
+    internal static QueryPlanOrderingShape Classify(
+        IReadOnlyList<QueryPlanOperation> operations,
+        string defaultSourceId)
+    {
+        ArgumentNullException.ThrowIfNull(operations);
+        ArgumentException.ThrowIfNullOrWhiteSpace(defaultSourceId);
+        var orderByOperations = operations.OfType<QueryPlanOperation.OrderBy>().ToArray();
+        if (orderByOperations.Length != 1 ||
+            orderByOperations[0].Orderings.Count != 1 ||
+            orderByOperations[0].Orderings[0].Value is not QueryPlanColumnValue column ||
+            !QueryPlanExactInt32ValueShapeFacts.IsDirectNonNullableInt32Column(column) ||
+            column.Source.Kind != QueryPlanSourceKind.RootTable ||
+            !string.Equals(column.Source.Id, defaultSourceId, StringComparison.Ordinal) ||
+            !ReferenceEquals(column.Source.Table, column.Column.Table) ||
+            column.Source.Table.PrimaryKeyColumns.Count != 1 ||
+            !ReferenceEquals(column.Source.Table.PrimaryKeyColumns[0], column.Column))
+        {
+            return QueryPlanOrderingShape.Other;
+        }
+
+        return QueryPlanOrderingShape.SingleDirectNonNullableInt32PrimaryKeyColumn;
+    }
+}
+
+internal enum QueryPlanPagingCompositionShape
+{
+    SingleTakeAfterSingleOrdering,
+    SingleSkipAfterSingleOrdering,
+    SingleTakeAfterSingleSkipAfterSingleOrdering,
+    Other,
+    RepeatedTakeInScope,
+    TakeBeforeSkipInScope,
+    RepeatedSkipInScope
+}
+
+internal static class QueryPlanPagingCompositionShapeFacts
+{
+    internal static QueryPlanPagingCompositionShape Classify(IReadOnlyList<QueryPlanOperation> operations)
+    {
+        ArgumentNullException.ThrowIfNull(operations);
+        var orderByIndices = operations
+            .Select(static (operation, index) => (operation, index))
+            .Where(static item => item.operation is QueryPlanOperation.OrderBy)
+            .Select(static item => item.index)
+            .ToArray();
+        var takeIndices = operations
+            .Select(static (operation, index) => (operation, index))
+            .Where(static item => item.operation is QueryPlanOperation.Take)
+            .Select(static item => item.index)
+            .ToArray();
+        var skipIndices = operations
+            .Select(static (operation, index) => (operation, index))
+            .Where(static item => item.operation is QueryPlanOperation.Skip)
+            .Select(static item => item.index)
+            .ToArray();
+
+        if (takeIndices.Length > 1)
+            return QueryPlanPagingCompositionShape.RepeatedTakeInScope;
+
+        if (takeIndices.Length == 1 && skipIndices.Any(index => index > takeIndices[0]))
+            return QueryPlanPagingCompositionShape.TakeBeforeSkipInScope;
+
+        if (skipIndices.Length > 1)
+            return QueryPlanPagingCompositionShape.RepeatedSkipInScope;
+
+        if (orderByIndices.Length == 1 &&
+            takeIndices.Length == 1 &&
+            skipIndices.Length == 1 &&
+            orderByIndices[0] < skipIndices[0] &&
+            skipIndices[0] == takeIndices[0] - 1 &&
+            takeIndices[0] == operations.Count - 1 &&
+            operations.Where(static operation =>
+                    operation is not QueryPlanOperation.OrderBy and
+                        not QueryPlanOperation.Skip and
+                        not QueryPlanOperation.Take)
+                .All(static operation => operation is QueryPlanOperation.Where))
+        {
+            return QueryPlanPagingCompositionShape.SingleTakeAfterSingleSkipAfterSingleOrdering;
+        }
+
+        if (orderByIndices.Length == 1 &&
+            takeIndices.Length == 0 &&
+            skipIndices.Length == 1 &&
+            orderByIndices[0] < skipIndices[0] &&
+            skipIndices[0] == operations.Count - 1 &&
+            operations.Where(static operation => operation is not QueryPlanOperation.OrderBy and not QueryPlanOperation.Skip)
+                .All(static operation => operation is QueryPlanOperation.Where))
+        {
+            return QueryPlanPagingCompositionShape.SingleSkipAfterSingleOrdering;
+        }
+
+        if (orderByIndices.Length != 1 ||
+            takeIndices.Length != 1 ||
+            orderByIndices[0] >= takeIndices[0] ||
+            takeIndices[0] != operations.Count - 1 ||
+            operations.Where(static operation => operation is not QueryPlanOperation.OrderBy and not QueryPlanOperation.Take)
+                .Any(static operation => operation is not QueryPlanOperation.Where))
+        {
+            return QueryPlanPagingCompositionShape.Other;
+        }
+
+        return QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering;
+    }
+}
+
+internal enum QueryPlanResultCompositionShape
+{
+    FirstAfterSingleOrdering,
+    Other
+}
+
+internal static class QueryPlanResultCompositionShapeFacts
+{
+    internal static QueryPlanResultCompositionShape Classify(
+        IReadOnlyList<QueryPlanOperation> operations)
+    {
+        ArgumentNullException.ThrowIfNull(operations);
+        var orderByOperations = operations.OfType<QueryPlanOperation.OrderBy>().ToArray();
+        if (orderByOperations.Length != 1 ||
+            orderByOperations[0].Orderings.Count != 1 ||
+            operations.Any(static operation =>
+                operation is not QueryPlanOperation.OrderBy and not QueryPlanOperation.Where))
+        {
+            return QueryPlanResultCompositionShape.Other;
+        }
+
+        return QueryPlanResultCompositionShape.FirstAfterSingleOrdering;
+    }
+}
+
+internal enum QueryPlanScalarProjectionShape
+{
+    DirectNonNullableInt32RootColumn,
+    Other,
+    DirectModelValueRootColumn
+}
+
+internal static class QueryPlanScalarProjectionShapeFacts
+{
+    internal static QueryPlanScalarProjectionShape Classify(
+        QueryPlanProjection.ScalarMember projection,
+        IReadOnlyList<QueryPlanSourceSlot> sources)
+    {
+        ArgumentNullException.ThrowIfNull(projection);
+        ArgumentNullException.ThrowIfNull(sources);
+
+        if (sources.Count != 1 ||
+            !ReferenceEquals(projection.Source, sources[0]) ||
+            projection.Source.Kind != QueryPlanSourceKind.RootTable ||
+            !ReferenceEquals(projection.Column.Table, projection.Source.Table))
+        {
+            return QueryPlanScalarProjectionShape.Other;
+        }
+
+        var columnValue = new QueryPlanColumnValue(
+            projection.Source,
+            projection.Column,
+            projection.ResultType);
+        if (QueryPlanExactInt32ValueShapeFacts.IsDirectNonNullableInt32Column(columnValue))
+            return QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn;
+
+        var modelType = projection.Column.ModelClrType;
+        return modelType is not null &&
+               (modelType == projection.ResultType ||
+                projection.Column.Nullable &&
+                Nullable.GetUnderlyingType(projection.ResultType) == modelType)
+            ? QueryPlanScalarProjectionShape.DirectModelValueRootColumn
+            : QueryPlanScalarProjectionShape.Other;
+    }
+}
+
+internal enum QueryPlanFunctionShape
+{
+    Unary,
+    StringPredicateWithPattern,
+    SubstringWithStart,
+    SubstringWithStartAndLength
+}
+
+internal enum QueryPlanAggregateSelectorShape
+{
+    DirectNumericColumn,
+    ConverterBackedColumn,
+    NonNumericColumn,
+    NonColumn
+}
+
+internal enum QueryPlanPagingCountShape
+{
+    NonNegative,
+    Negative,
+    Null,
+    Invalid,
+    NonNegativeInt32ScalarBinding
+}
+
+internal enum QueryPlanPushdownShape
+{
+    Simple,
+    JoinedSqlRowDirectColumns,
+    JoinedSqlRowNonColumn,
+    JoinedNonSqlRow,
+    RepeatedInScope
+}
+
+internal enum QueryPlanValueUse
+{
+    PredicateOperand,
+    BooleanPredicateFunction,
+    MembershipItem,
+    MembershipSequence,
+    Ordering,
+    PagingCount,
+    JoinKey,
+    GroupingKey,
+    ProjectionMember,
+    GroupedProjectionMember,
+    AggregateSelector,
+    FunctionSource,
+    ScalarFunctionArgument
+}
+
+internal enum QueryPlanLocalSequenceShapeKind
+{
+    Empty,
+    NonEmptyWithoutNulls,
+    NonEmptyWithNulls
+}
+
+internal readonly record struct QueryPlanFeature(
+    QueryPlanFeatureCategory Category,
+    int Value,
+    QueryPlanValueUse? ValueUse = null)
+{
+    public static QueryPlanFeature SourceCount(QueryPlanSourceCountKind value) =>
+        new(QueryPlanFeatureCategory.SourceCount, (int)value);
+
+    public static QueryPlanFeature SourceTopology(QueryPlanSourceTopology value) =>
+        new(QueryPlanFeatureCategory.SourceTopology, (int)value);
+
+    public static QueryPlanFeature SourceKind(QueryPlanSourceKind value) =>
+        new(QueryPlanFeatureCategory.SourceKind, (int)value);
+
+    public static QueryPlanFeature SourceCardinality(QueryPlanSourceCardinality value) =>
+        new(QueryPlanFeatureCategory.SourceCardinality, (int)value);
+
+    public static QueryPlanFeature SourceNullability(QueryPlanSourceNullability value) =>
+        new(QueryPlanFeatureCategory.SourceNullability, (int)value);
+
+    public static QueryPlanFeature Operation(QueryPlanOperationKind value) =>
+        new(QueryPlanFeatureCategory.Operation, (int)value);
+
+    public static QueryPlanFeature PushdownShape(QueryPlanPushdownShape value) =>
+        new(QueryPlanFeatureCategory.PushdownShape, (int)value);
+
+    public static QueryPlanFeature OrderingDirection(QueryPlanOrderingDirection value) =>
+        new(QueryPlanFeatureCategory.OrderingDirection, (int)value);
+
+    public static QueryPlanFeature JoinKind(QueryPlanJoinKind value) =>
+        new(QueryPlanFeatureCategory.JoinKind, (int)value);
+
+    public static QueryPlanFeature JoinRightSourceKind(QueryPlanSourceKind value) =>
+        new(QueryPlanFeatureCategory.JoinRightSourceKind, (int)value);
+
+    public static QueryPlanFeature Predicate(QueryPlanPredicateKind value) =>
+        new(QueryPlanFeatureCategory.Predicate, (int)value);
+
+    public static QueryPlanFeature PredicatePolarity(QueryPlanPredicatePolarity value) =>
+        new(QueryPlanFeatureCategory.PredicatePolarity, (int)value);
+
+    public static QueryPlanFeature RelationPart(DataLinq.Metadata.RelationPartType value) =>
+        new(QueryPlanFeatureCategory.RelationPart, (int)value);
+
+    public static QueryPlanFeature ComparisonOperator(QueryPlanComparisonOperator value) =>
+        new(QueryPlanFeatureCategory.ComparisonOperator, (int)value);
+
+    public static QueryPlanFeature NullSemantics(QueryPlanNullSemantics value) =>
+        new(QueryPlanFeatureCategory.NullSemantics, (int)value);
+
+    public static QueryPlanFeature ComparisonShape(QueryPlanComparisonShape value) =>
+        new(QueryPlanFeatureCategory.ComparisonShape, (int)value);
+
+    public static QueryPlanFeature MembershipShape(QueryPlanMembershipShape value) =>
+        new(QueryPlanFeatureCategory.MembershipShape, (int)value);
+
+    public static QueryPlanFeature ValueKind(QueryPlanValueKind value, QueryPlanValueUse use) =>
+        new(QueryPlanFeatureCategory.Value, (int)value, use);
+
+    public static QueryPlanFeature Intrinsic(QueryPlanIntrinsicKind value, QueryPlanValueUse use) =>
+        new(QueryPlanFeatureCategory.Intrinsic, (int)value, use);
+
+    public static QueryPlanFeature Function(QueryPlanFunctionKind value, QueryPlanValueUse use) =>
+        new(QueryPlanFeatureCategory.Function, (int)value, use);
+
+    public static QueryPlanFeature FunctionShape(QueryPlanFunctionShape value) =>
+        new(QueryPlanFeatureCategory.FunctionShape, (int)value);
+
+    public static QueryPlanFeature GroupedAggregate(QueryPlanGroupedAggregateKind value, QueryPlanValueUse use) =>
+        new(QueryPlanFeatureCategory.GroupedAggregate, (int)value, use);
+
+    public static QueryPlanFeature AggregateSelectorShape(QueryPlanAggregateSelectorShape value) =>
+        new(QueryPlanFeatureCategory.AggregateSelectorShape, (int)value);
+
+    public static QueryPlanFeature PagingCountShape(QueryPlanPagingCountShape value) =>
+        new(QueryPlanFeatureCategory.PagingCountShape, (int)value);
+
+    public static QueryPlanFeature Projection(QueryPlanProjectionKind value) =>
+        new(QueryPlanFeatureCategory.Projection, (int)value);
+
+    public static QueryPlanFeature ProjectionDisposition(QueryPlanProjectionDisposition value) =>
+        new(QueryPlanFeatureCategory.ProjectionDisposition, (int)value);
+
+    public static QueryPlanFeature ProjectionRecipe(QueryPlanProjectionRecipeKind value) =>
+        new(QueryPlanFeatureCategory.ProjectionRecipe, (int)value);
+
+    public static QueryPlanFeature ProjectionIntrinsic(QueryPlanProjectionIntrinsicKind value) =>
+        new(QueryPlanFeatureCategory.ProjectionIntrinsic, (int)value);
+
+    public static QueryPlanFeature ProjectionBinaryOperator(QueryPlanProjectionBinaryOperator value) =>
+        new(QueryPlanFeatureCategory.ProjectionBinaryOperator, (int)value);
+
+    public static QueryPlanFeature ProjectionSupportedMember(QueryPlanProjectionSupportedMemberKind value) =>
+        new(QueryPlanFeatureCategory.ProjectionSupportedMember, (int)value);
+
+    public static QueryPlanFeature ProjectionFunction(QueryPlanProjectionFunctionKind value) =>
+        new(QueryPlanFeatureCategory.ProjectionFunction, (int)value);
+
+    public static QueryPlanFeature Result(QueryPlanResultKind value) =>
+        new(QueryPlanFeatureCategory.Result, (int)value);
+
+    public static QueryPlanFeature BindingKind(QueryPlanBindingKind value) =>
+        new(QueryPlanFeatureCategory.BindingKind, (int)value);
+
+    public static QueryPlanFeature ScalarNullness(QueryPlanBindingNullness value) =>
+        new(QueryPlanFeatureCategory.ScalarNullness, (int)value);
+
+    public static QueryPlanFeature LocalSequenceShape(QueryPlanLocalSequenceShapeKind value) =>
+        new(QueryPlanFeatureCategory.LocalSequenceShape, (int)value);
+
+    public static QueryPlanFeature OrderingShape(QueryPlanOrderingShape value) =>
+        new(QueryPlanFeatureCategory.OrderingShape, (int)value);
+
+    public static QueryPlanFeature PagingCompositionShape(QueryPlanPagingCompositionShape value) =>
+        new(QueryPlanFeatureCategory.PagingCompositionShape, (int)value);
+
+    public static QueryPlanFeature ResultCompositionShape(QueryPlanResultCompositionShape value) =>
+        new(QueryPlanFeatureCategory.ResultCompositionShape, (int)value);
+
+    public static QueryPlanFeature ScalarProjectionShape(QueryPlanScalarProjectionShape value) =>
+        new(QueryPlanFeatureCategory.ScalarProjectionShape, (int)value);
+
+    public string Token => ValueUse is null
+        ? $"{Category}:{GetValueName()}"
+        : $"{Category}:{GetValueName()}@{ValueUse}";
+
+    private string GetValueName() => Category switch
+    {
+        QueryPlanFeatureCategory.SourceCount => Name<QueryPlanSourceCountKind>(),
+        QueryPlanFeatureCategory.SourceTopology => Name<QueryPlanSourceTopology>(),
+        QueryPlanFeatureCategory.SourceKind => Name<QueryPlanSourceKind>(),
+        QueryPlanFeatureCategory.SourceCardinality => Name<QueryPlanSourceCardinality>(),
+        QueryPlanFeatureCategory.SourceNullability => Name<QueryPlanSourceNullability>(),
+        QueryPlanFeatureCategory.Operation => Name<QueryPlanOperationKind>(),
+        QueryPlanFeatureCategory.PushdownShape => Name<QueryPlanPushdownShape>(),
+        QueryPlanFeatureCategory.OrderingDirection => Name<QueryPlanOrderingDirection>(),
+        QueryPlanFeatureCategory.JoinKind => Name<QueryPlanJoinKind>(),
+        QueryPlanFeatureCategory.JoinRightSourceKind => Name<QueryPlanSourceKind>(),
+        QueryPlanFeatureCategory.Predicate => Name<QueryPlanPredicateKind>(),
+        QueryPlanFeatureCategory.PredicatePolarity => Name<QueryPlanPredicatePolarity>(),
+        QueryPlanFeatureCategory.RelationPart => Name<DataLinq.Metadata.RelationPartType>(),
+        QueryPlanFeatureCategory.ComparisonOperator => Name<QueryPlanComparisonOperator>(),
+        QueryPlanFeatureCategory.NullSemantics => Name<QueryPlanNullSemantics>(),
+        QueryPlanFeatureCategory.ComparisonShape => Name<QueryPlanComparisonShape>(),
+        QueryPlanFeatureCategory.MembershipShape => Name<QueryPlanMembershipShape>(),
+        QueryPlanFeatureCategory.Value => Name<QueryPlanValueKind>(),
+        QueryPlanFeatureCategory.Intrinsic => Name<QueryPlanIntrinsicKind>(),
+        QueryPlanFeatureCategory.Function => Name<QueryPlanFunctionKind>(),
+        QueryPlanFeatureCategory.FunctionShape => Name<QueryPlanFunctionShape>(),
+        QueryPlanFeatureCategory.GroupedAggregate => Name<QueryPlanGroupedAggregateKind>(),
+        QueryPlanFeatureCategory.AggregateSelectorShape => Name<QueryPlanAggregateSelectorShape>(),
+        QueryPlanFeatureCategory.PagingCountShape => Name<QueryPlanPagingCountShape>(),
+        QueryPlanFeatureCategory.Projection => Name<QueryPlanProjectionKind>(),
+        QueryPlanFeatureCategory.ProjectionDisposition => Name<QueryPlanProjectionDisposition>(),
+        QueryPlanFeatureCategory.ProjectionRecipe => Name<QueryPlanProjectionRecipeKind>(),
+        QueryPlanFeatureCategory.ProjectionIntrinsic => Name<QueryPlanProjectionIntrinsicKind>(),
+        QueryPlanFeatureCategory.ProjectionBinaryOperator => Name<QueryPlanProjectionBinaryOperator>(),
+        QueryPlanFeatureCategory.ProjectionSupportedMember => Name<QueryPlanProjectionSupportedMemberKind>(),
+        QueryPlanFeatureCategory.ProjectionFunction => Name<QueryPlanProjectionFunctionKind>(),
+        QueryPlanFeatureCategory.Result => Name<QueryPlanResultKind>(),
+        QueryPlanFeatureCategory.BindingKind => Name<QueryPlanBindingKind>(),
+        QueryPlanFeatureCategory.ScalarNullness => Name<QueryPlanBindingNullness>(),
+        QueryPlanFeatureCategory.LocalSequenceShape => Name<QueryPlanLocalSequenceShapeKind>(),
+        QueryPlanFeatureCategory.OrderingShape => Name<QueryPlanOrderingShape>(),
+        QueryPlanFeatureCategory.PagingCompositionShape => Name<QueryPlanPagingCompositionShape>(),
+        QueryPlanFeatureCategory.ResultCompositionShape => Name<QueryPlanResultCompositionShape>(),
+        QueryPlanFeatureCategory.ScalarProjectionShape => Name<QueryPlanScalarProjectionShape>(),
+        _ => Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+    };
+
+    private string Name<TEnum>() where TEnum : struct, Enum =>
+        Enum.GetName(typeof(TEnum), Value) ?? Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+}
+
+internal static class QueryPlanFeatureCatalog
+{
+    public static IReadOnlyList<QueryPlanFeature> All { get; } = Create();
+
+    private static IReadOnlyList<QueryPlanFeature> Create()
+    {
+        var features = new List<QueryPlanFeature>();
+
+        Add(features, Enum.GetValues<QueryPlanSourceCountKind>(), QueryPlanFeature.SourceCount);
+        Add(features, Enum.GetValues<QueryPlanSourceTopology>(), QueryPlanFeature.SourceTopology);
+        Add(features, Enum.GetValues<QueryPlanSourceKind>(), QueryPlanFeature.SourceKind);
+        Add(features, Enum.GetValues<QueryPlanSourceCardinality>(), QueryPlanFeature.SourceCardinality);
+        Add(features, Enum.GetValues<QueryPlanSourceNullability>(), QueryPlanFeature.SourceNullability);
+        Add(features, Enum.GetValues<QueryPlanOperationKind>(), QueryPlanFeature.Operation);
+        Add(features, Enum.GetValues<QueryPlanPushdownShape>(), QueryPlanFeature.PushdownShape);
+        Add(features, Enum.GetValues<QueryPlanOrderingDirection>(), QueryPlanFeature.OrderingDirection);
+        Add(features, Enum.GetValues<QueryPlanJoinKind>(), QueryPlanFeature.JoinKind);
+        Add(features, Enum.GetValues<QueryPlanSourceKind>(), QueryPlanFeature.JoinRightSourceKind);
+        Add(features, Enum.GetValues<QueryPlanPredicateKind>(), QueryPlanFeature.Predicate);
+        Add(features, Enum.GetValues<QueryPlanPredicatePolarity>(), QueryPlanFeature.PredicatePolarity);
+        Add(features, Enum.GetValues<DataLinq.Metadata.RelationPartType>(), QueryPlanFeature.RelationPart);
+        Add(features, Enum.GetValues<QueryPlanComparisonOperator>(), QueryPlanFeature.ComparisonOperator);
+        Add(features, Enum.GetValues<QueryPlanNullSemantics>(), QueryPlanFeature.NullSemantics);
+        Add(features, Enum.GetValues<QueryPlanComparisonShape>(), QueryPlanFeature.ComparisonShape);
+        Add(features, Enum.GetValues<QueryPlanMembershipShape>(), QueryPlanFeature.MembershipShape);
+
+        foreach (var use in Enum.GetValues<QueryPlanValueUse>())
+        {
+            Add(features, Enum.GetValues<QueryPlanValueKind>(), value => QueryPlanFeature.ValueKind(value, use));
+            Add(features, Enum.GetValues<QueryPlanIntrinsicKind>(), value => QueryPlanFeature.Intrinsic(value, use));
+            Add(features, Enum.GetValues<QueryPlanFunctionKind>(), value => QueryPlanFeature.Function(value, use));
+            Add(features, Enum.GetValues<QueryPlanGroupedAggregateKind>(), value => QueryPlanFeature.GroupedAggregate(value, use));
+        }
+
+        Add(features, Enum.GetValues<QueryPlanFunctionShape>(), QueryPlanFeature.FunctionShape);
+
+        Add(features, Enum.GetValues<QueryPlanProjectionKind>(), QueryPlanFeature.Projection);
+        Add(features, Enum.GetValues<QueryPlanAggregateSelectorShape>(), QueryPlanFeature.AggregateSelectorShape);
+        Add(features, Enum.GetValues<QueryPlanPagingCountShape>(), QueryPlanFeature.PagingCountShape);
+        Add(features, Enum.GetValues<QueryPlanProjectionDisposition>(), QueryPlanFeature.ProjectionDisposition);
+        Add(features, Enum.GetValues<QueryPlanProjectionRecipeKind>(), QueryPlanFeature.ProjectionRecipe);
+        Add(features, Enum.GetValues<QueryPlanProjectionIntrinsicKind>(), QueryPlanFeature.ProjectionIntrinsic);
+        Add(features, Enum.GetValues<QueryPlanProjectionBinaryOperator>(), QueryPlanFeature.ProjectionBinaryOperator);
+        Add(features, Enum.GetValues<QueryPlanProjectionSupportedMemberKind>(), QueryPlanFeature.ProjectionSupportedMember);
+        Add(features, Enum.GetValues<QueryPlanProjectionFunctionKind>(), QueryPlanFeature.ProjectionFunction);
+        Add(features, Enum.GetValues<QueryPlanResultKind>(), QueryPlanFeature.Result);
+        Add(features, Enum.GetValues<QueryPlanResultCompositionShape>(), QueryPlanFeature.ResultCompositionShape);
+        Add(features, Enum.GetValues<QueryPlanBindingKind>(), QueryPlanFeature.BindingKind);
+        Add(features, Enum.GetValues<QueryPlanBindingNullness>(), QueryPlanFeature.ScalarNullness);
+        Add(features, Enum.GetValues<QueryPlanLocalSequenceShapeKind>(), QueryPlanFeature.LocalSequenceShape);
+        Add(features, Enum.GetValues<QueryPlanOrderingShape>(), QueryPlanFeature.OrderingShape);
+        Add(features, Enum.GetValues<QueryPlanPagingCompositionShape>(), QueryPlanFeature.PagingCompositionShape);
+        Add(features, Enum.GetValues<QueryPlanScalarProjectionShape>(), QueryPlanFeature.ScalarProjectionShape);
+
+        return Array.AsReadOnly(features.ToArray());
+    }
+
+    private static void Add<T>(
+        ICollection<QueryPlanFeature> target,
+        IEnumerable<T> values,
+        Func<T, QueryPlanFeature> factory)
+    {
+        foreach (var value in values)
+            target.Add(factory(value));
+    }
+}
+
+internal enum QueryBackendCapabilityDisposition
+{
+    Supported,
+    Unsupported
+}
+
+internal sealed class QueryBackendCapabilities
+{
+    private static readonly QueryBackendCapabilities sql = CreateSql();
+    private readonly IReadOnlyDictionary<QueryPlanFeature, QueryBackendCapabilityDisposition> dispositions;
+
+    internal QueryBackendCapabilities(
+        string backendName,
+        IEnumerable<KeyValuePair<QueryPlanFeature, QueryBackendCapabilityDisposition>> dispositions)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(backendName);
+        ArgumentNullException.ThrowIfNull(dispositions);
+
+        BackendName = backendName;
+        var source = dispositions.ToArray();
+        var byFeature = new Dictionary<QueryPlanFeature, QueryBackendCapabilityDisposition>(source.Length);
+        foreach (var item in source)
+        {
+            if (!Enum.IsDefined(item.Value))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(dispositions),
+                    item.Value,
+                    $"Capability feature '{item.Key.Token}' has an unknown disposition.");
+            }
+
+            if (!byFeature.TryAdd(item.Key, item.Value))
+                throw new ArgumentException($"Capability feature '{item.Key.Token}' is duplicated.", nameof(dispositions));
+        }
+
+        var knownFeatures = QueryPlanFeatureCatalog.All.ToHashSet();
+        var unknown = byFeature.Keys
+            .Where(feature => !knownFeatures.Contains(feature))
+            .OrderBy(static feature => feature.Token, StringComparer.Ordinal)
+            .ToArray();
+        if (unknown.Length != 0)
+        {
+            throw new ArgumentException(
+                $"Capability profile '{backendName}' contains unknown features: {string.Join(", ", unknown.Select(static feature => feature.Token))}.",
+                nameof(dispositions));
+        }
+
+        var missing = QueryPlanFeatureCatalog.All
+            .Where(feature => !byFeature.ContainsKey(feature))
+            .ToArray();
+        if (missing.Length != 0)
+        {
+            throw new ArgumentException(
+                $"Capability profile '{backendName}' has no disposition for: {string.Join(", ", missing.Select(static feature => feature.Token))}.",
+                nameof(dispositions));
+        }
+
+        this.dispositions = new ReadOnlyDictionary<QueryPlanFeature, QueryBackendCapabilityDisposition>(byFeature);
+    }
+
+    public string BackendName { get; }
+
+    public static QueryBackendCapabilities Sql => sql;
+
+    public QueryBackendCapabilityDisposition GetDisposition(QueryPlanFeature feature) =>
+        dispositions.TryGetValue(feature, out var disposition)
+            ? disposition
+            : QueryBackendCapabilityDisposition.Unsupported;
+
+    private static QueryBackendCapabilities CreateSql() => new(
+        "sql",
+        QueryPlanFeatureCatalog.All.Select(static feature =>
+            new KeyValuePair<QueryPlanFeature, QueryBackendCapabilityDisposition>(
+                feature,
+                GetSqlDisposition(feature))));
+
+    private static QueryBackendCapabilityDisposition GetSqlDisposition(QueryPlanFeature feature) =>
+        feature.Category switch
+        {
+            QueryPlanFeatureCategory.Projection =>
+                (QueryPlanProjectionKind)feature.Value == QueryPlanProjectionKind.TransparentIdentifier
+                ? QueryBackendCapabilityDisposition.Unsupported
+                : QueryBackendCapabilityDisposition.Supported,
+            QueryPlanFeatureCategory.ProjectionDisposition =>
+                (QueryPlanProjectionDisposition)feature.Value == QueryPlanProjectionDisposition.Unsupported
+                ? QueryBackendCapabilityDisposition.Unsupported
+                : QueryBackendCapabilityDisposition.Supported,
+            QueryPlanFeatureCategory.Value =>
+                IsSqlValueSupported((QueryPlanValueKind)feature.Value, feature.ValueUse!.Value)
+                ? QueryBackendCapabilityDisposition.Supported
+                : QueryBackendCapabilityDisposition.Unsupported,
+            QueryPlanFeatureCategory.PushdownShape =>
+                (QueryPlanPushdownShape)feature.Value is QueryPlanPushdownShape.Simple or QueryPlanPushdownShape.JoinedSqlRowDirectColumns
+                    ? QueryBackendCapabilityDisposition.Supported
+                    : QueryBackendCapabilityDisposition.Unsupported,
+            QueryPlanFeatureCategory.SourceTopology =>
+                (QueryPlanSourceTopology)feature.Value == QueryPlanSourceTopology.ExactlyOneRoot
+                    ? QueryBackendCapabilityDisposition.Supported
+                    : QueryBackendCapabilityDisposition.Unsupported,
+            QueryPlanFeatureCategory.RelationPart =>
+                (DataLinq.Metadata.RelationPartType)feature.Value == DataLinq.Metadata.RelationPartType.CandidateKey
+                    ? QueryBackendCapabilityDisposition.Supported
+                    : QueryBackendCapabilityDisposition.Unsupported,
+            QueryPlanFeatureCategory.JoinRightSourceKind =>
+                (QueryPlanSourceKind)feature.Value is QueryPlanSourceKind.ExplicitJoin or QueryPlanSourceKind.ImplicitJoin
+                    ? QueryBackendCapabilityDisposition.Supported
+                    : QueryBackendCapabilityDisposition.Unsupported,
+            QueryPlanFeatureCategory.ComparisonShape =>
+                (QueryPlanComparisonShape)feature.Value != QueryPlanComparisonShape.UnsupportedNullableNotEqual
+                    ? QueryBackendCapabilityDisposition.Supported
+                    : QueryBackendCapabilityDisposition.Unsupported,
+            QueryPlanFeatureCategory.MembershipShape => QueryBackendCapabilityDisposition.Supported,
+            QueryPlanFeatureCategory.AggregateSelectorShape =>
+                (QueryPlanAggregateSelectorShape)feature.Value == QueryPlanAggregateSelectorShape.DirectNumericColumn
+                    ? QueryBackendCapabilityDisposition.Supported
+                    : QueryBackendCapabilityDisposition.Unsupported,
+            QueryPlanFeatureCategory.PagingCountShape =>
+                (QueryPlanPagingCountShape)feature.Value is
+                    QueryPlanPagingCountShape.NonNegative or
+                    QueryPlanPagingCountShape.NonNegativeInt32ScalarBinding
+                    ? QueryBackendCapabilityDisposition.Supported
+                    : QueryBackendCapabilityDisposition.Unsupported,
+            QueryPlanFeatureCategory.Function =>
+                IsSqlFunctionSupported((QueryPlanFunctionKind)feature.Value, feature.ValueUse!.Value)
+                ? QueryBackendCapabilityDisposition.Supported
+                : QueryBackendCapabilityDisposition.Unsupported,
+            QueryPlanFeatureCategory.FunctionShape =>
+                (QueryPlanFunctionShape)feature.Value == QueryPlanFunctionShape.SubstringWithStart
+                    ? QueryBackendCapabilityDisposition.Unsupported
+                    : QueryBackendCapabilityDisposition.Supported,
+            QueryPlanFeatureCategory.PagingCompositionShape =>
+                (QueryPlanPagingCompositionShape)feature.Value is
+                    QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering or
+                    QueryPlanPagingCompositionShape.SingleSkipAfterSingleOrdering or
+                    QueryPlanPagingCompositionShape.SingleTakeAfterSingleSkipAfterSingleOrdering or
+                    QueryPlanPagingCompositionShape.Other
+                    ? QueryBackendCapabilityDisposition.Supported
+                    : QueryBackendCapabilityDisposition.Unsupported,
+            QueryPlanFeatureCategory.ResultCompositionShape => QueryBackendCapabilityDisposition.Supported,
+            QueryPlanFeatureCategory.ScalarProjectionShape => QueryBackendCapabilityDisposition.Supported,
+            QueryPlanFeatureCategory.SourceCount or
+            QueryPlanFeatureCategory.SourceKind or
+            QueryPlanFeatureCategory.SourceCardinality or
+            QueryPlanFeatureCategory.SourceNullability or
+            QueryPlanFeatureCategory.Operation or
+            QueryPlanFeatureCategory.OrderingDirection or
+            QueryPlanFeatureCategory.JoinKind or
+            QueryPlanFeatureCategory.Predicate or
+            QueryPlanFeatureCategory.PredicatePolarity or
+            QueryPlanFeatureCategory.ComparisonOperator or
+            QueryPlanFeatureCategory.NullSemantics or
+            QueryPlanFeatureCategory.Intrinsic or
+            QueryPlanFeatureCategory.GroupedAggregate or
+            QueryPlanFeatureCategory.ProjectionRecipe or
+            QueryPlanFeatureCategory.ProjectionIntrinsic or
+            QueryPlanFeatureCategory.ProjectionBinaryOperator or
+            QueryPlanFeatureCategory.ProjectionSupportedMember or
+            QueryPlanFeatureCategory.ProjectionFunction or
+            QueryPlanFeatureCategory.Result or
+            QueryPlanFeatureCategory.BindingKind or
+            QueryPlanFeatureCategory.ScalarNullness or
+            QueryPlanFeatureCategory.LocalSequenceShape => QueryBackendCapabilityDisposition.Supported,
+            QueryPlanFeatureCategory.OrderingShape => QueryBackendCapabilityDisposition.Supported,
+            _ => throw new InvalidOperationException(
+                $"Query plan feature category '{feature.Category}' has no explicit SQL disposition rule.")
+        };
+
+    private static bool IsSqlValueSupported(QueryPlanValueKind kind, QueryPlanValueUse use) => use switch
+    {
+        QueryPlanValueUse.PredicateOperand or QueryPlanValueUse.MembershipItem =>
+            kind != QueryPlanValueKind.LocalSequenceBinding,
+        QueryPlanValueUse.BooleanPredicateFunction => kind == QueryPlanValueKind.Function,
+        QueryPlanValueUse.MembershipSequence => kind == QueryPlanValueKind.LocalSequenceBinding,
+        QueryPlanValueUse.Ordering => kind is QueryPlanValueKind.Column or
+            QueryPlanValueKind.GroupKey or QueryPlanValueKind.GroupedAggregate,
+        QueryPlanValueUse.PagingCount or QueryPlanValueUse.ScalarFunctionArgument =>
+            kind is QueryPlanValueKind.Intrinsic or QueryPlanValueKind.ScalarBinding or QueryPlanValueKind.Converted,
+        QueryPlanValueUse.JoinKey => kind == QueryPlanValueKind.Column,
+        QueryPlanValueUse.GroupingKey or QueryPlanValueUse.ProjectionMember =>
+            kind is QueryPlanValueKind.Column or QueryPlanValueKind.Function or QueryPlanValueKind.Converted,
+        QueryPlanValueUse.GroupedProjectionMember =>
+            kind is QueryPlanValueKind.GroupKey or QueryPlanValueKind.GroupedAggregate,
+        QueryPlanValueUse.AggregateSelector =>
+            kind is QueryPlanValueKind.Column or QueryPlanValueKind.Converted,
+        QueryPlanValueUse.FunctionSource =>
+            kind is QueryPlanValueKind.Column or QueryPlanValueKind.Function or QueryPlanValueKind.Converted,
+        _ => false
+    };
+
+    private static bool IsSqlFunctionSupported(QueryPlanFunctionKind kind, QueryPlanValueUse use)
+    {
+        var booleanFunction = kind is QueryPlanFunctionKind.StringStartsWith or
+            QueryPlanFunctionKind.StringEndsWith or
+            QueryPlanFunctionKind.StringContains or
+            QueryPlanFunctionKind.StringIsNullOrEmpty or
+            QueryPlanFunctionKind.StringIsNullOrWhiteSpace;
+
+        if (booleanFunction)
+            return use == QueryPlanValueUse.BooleanPredicateFunction;
+
+        return use == QueryPlanValueUse.PredicateOperand ||
+            use is QueryPlanValueUse.MembershipItem or
+                QueryPlanValueUse.GroupingKey or
+                QueryPlanValueUse.ProjectionMember or
+                QueryPlanValueUse.FunctionSource;
+    }
+}

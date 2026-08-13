@@ -78,6 +78,22 @@ public partial class TableCache
 
         RecordSingleRowCacheLookup(hit: false);
 
+        if (GetCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
+        {
+            var canonicalKey = ProviderKeyComponents.ToDataLinqKey(primaryKey);
+            var loadedRows = LoadCanonicalRowsAfterKnownMiss(
+                [canonicalKey],
+                sourceServices);
+            Log.LoadRowsFromDatabase(
+                loggingConfiguration.CacheLogger,
+                Table,
+                1);
+
+            return loadedRows.TryGetValue(canonicalKey, out var loaded)
+                ? loaded
+                : null;
+        }
+
         var rowData = GetRowDataFromPrimaryKeyValue(primaryKey, dataSource);
         if (rowData is not null)
             return RecordDatabaseRowLoaded(addRow(this, rowData, dataSource, primaryKey));
@@ -218,6 +234,10 @@ public partial class TableCache
 
     private void EnsureTransactionRowCache(IDataSourceAccess dataSource)
     {
+        DataSourceAccess.EnsureReadAllowed(
+            dataSource,
+            "read through the transaction cache");
+
         if (dataSource is Transaction transaction && transaction.Type != TransactionType.ReadOnly)
         {
             var rowsByTransaction = GetOrCreateTransactionRows();

@@ -2,9 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using DataLinq.Metadata;
 using DataLinq.Tests.Models.Employees;
-using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
@@ -12,9 +10,7 @@ public class MutableInstanceEqualityTests
 {
     static MutableInstanceEqualityTests()
     {
-        var employeesMetadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
-        EmployeesDb.SetDataLinqGeneratedMetadata(employeesMetadata);
-        DatabaseDefinition.TryAddLoadedDatabase(typeof(EmployeesDb), employeesMetadata);
+        EmployeesGeneratedMetadataFixture.EnsureInitialized();
     }
 
     [Test]

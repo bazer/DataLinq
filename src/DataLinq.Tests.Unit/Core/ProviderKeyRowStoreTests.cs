@@ -82,6 +82,45 @@ public class ProviderKeyRowStoreTests
         await Assert.That(ReferenceEquals(row, cachedRow)).IsTrue();
     }
 
+    [Test]
+    public async Task RowCache_BinaryProviderKey_UsesStructuralSnapshotForLookupAndRemoval()
+    {
+        var cache = new RowCache();
+        var providerKey = new byte[] { 0x01, 0x02, 0x03 };
+        var row = new TestImmutableInstance(DataLinqKey.FromValue(providerKey));
+
+        await Assert.That(cache.TryAddRow(providerKey, 128, row)).IsTrue();
+
+        providerKey[0] = 0xff;
+
+        await Assert.That(cache.TryGetValue(new byte[] { 0x01, 0x02, 0x03 }, out var cachedRow)).IsTrue();
+        await Assert.That(ReferenceEquals(row, cachedRow)).IsTrue();
+        await Assert.That(cache.TryRemoveProviderKey(new byte[] { 0x01, 0x02, 0x03 }, out var rowsRemoved)).IsTrue();
+        await Assert.That(rowsRemoved).IsEqualTo(1);
+        await Assert.That(cache.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task RowCache_CompositeBinaryProviderKey_UsesStructuralSnapshotForLookupAndRemoval()
+    {
+        var cache = new RowCache();
+        var binaryComponent = new byte[] { 0x01, 0x02, 0x03 };
+        var providerKey = new TestBinaryCompositeProviderKey(42, binaryComponent);
+        var row = new TestImmutableInstance(KeyFactory.CreateKeyFromValues([42, binaryComponent]));
+
+        await Assert.That(cache.TryAddRow(providerKey, 128, row)).IsTrue();
+
+        binaryComponent[0] = 0xff;
+
+        var lookupKey = new TestBinaryCompositeProviderKey(42, new byte[] { 0x01, 0x02, 0x03 });
+        await Assert.That(cache.TryGetValue(lookupKey, out var cachedRow)).IsTrue();
+        await Assert.That(ReferenceEquals(row, cachedRow)).IsTrue();
+        var removalKey = new TestBinaryCompositeProviderKey(42, new byte[] { 0x01, 0x02, 0x03 });
+        await Assert.That(cache.TryRemoveProviderKey(removalKey, out var rowsRemoved)).IsTrue();
+        await Assert.That(rowsRemoved).IsEqualTo(1);
+        await Assert.That(cache.Count).IsEqualTo(0);
+    }
+
     private static async Task AssertProviderKeyRoundTrip<TKey>(DataLinqKey key, TKey providerKey)
         where TKey : notnull
     {
@@ -119,6 +158,18 @@ public class ProviderKeyRowStoreTests
             providerKey = default;
             return false;
         }
+    }
+
+    private readonly record struct TestBinaryCompositeProviderKey(int EmployeeNumber, byte[] BinaryComponent) : IProviderKey
+    {
+        public int ValueCount => 2;
+
+        public object? GetValue(int index) => index switch
+        {
+            0 => EmployeeNumber,
+            1 => BinaryComponent,
+            _ => throw new IndexOutOfRangeException()
+        };
     }
 
     private sealed class TestCompositeProviderKeyRowStoreAccessor : IProviderKeyRowStoreAccessor

@@ -7,7 +7,7 @@
 
 **Release scope:** The bounded first implementation targets 0.9; broader converter authoring remains later work.
 
-**Last reviewed:** 2026-07-10.
+**Last reviewed:** 2026-07-14.
 
 **0.9 execution plan:** [Scalar Converters and Typed IDs Implementation Plan](../roadmap-implementation/v0.9/Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md).
 
@@ -34,7 +34,7 @@ UUID byte order and text/native UUID choices therefore belong to [UUID Storage F
 
 ## Why This Exists
 
-DataLinq currently treats a column's model CLR type as the value that provider readers, provider writers, query translation, mutation SQL, cache keys, and generated model properties all share. That works for primitives, enums, `Guid`, `DateOnly`, `TimeOnly`, and similar direct storage types.
+The pre-0.9 baseline treated a column's model CLR type as the value that provider readers, provider writers, query translation, mutation SQL, cache keys, and generated model properties all shared. That worked for primitives, enums, `Guid`, `DateOnly`, `TimeOnly`, and similar direct storage types.
 
 It breaks down when the public model should be stricter than storage:
 
@@ -84,9 +84,7 @@ The database still stores `orders.customer_id` as an integer. The C# API no long
 The runtime API should be small. The generic base type gives authors a clear implementation target while DataLinq consumes a non-generic interface from metadata.
 
 ```csharp
-public readonly record struct ScalarConversionContext(
-    ColumnDefinition Column,
-    DatabaseType DatabaseType);
+public readonly record struct ScalarConversionContext(ColumnDefinition Column);
 
 public interface IDataLinqScalarConverter
 {
@@ -122,6 +120,8 @@ public abstract class DataLinqScalarConverter<TModel, TProvider> : IDataLinqScal
     }
 }
 ```
+
+The runtime conversion context is intentionally column-only. Active SQL provider identity does not belong in model-to-canonical conversion: SQLite, MySQL, MariaDB, and memory must materialize the same model value from the same canonical CLR value. Provider-aware converter discovery may use separate resolution metadata, while physical/wire codecs own database-specific representation.
 
 Attribute-level configuration:
 
@@ -380,6 +380,8 @@ Required changes:
    - `ids.Contains(x.CustomerId)` maps every local model ID to provider values.
    - Unsupported expressions like `x.CustomerId.Value > 10` should be rejected unless value-member unwrapping is explicitly supported.
 
+The 0.9 expression-query SQL path now preserves both required query representations. Column-aware equality/inequality and local-membership operands keep canonical provider values for cache/key identity, retain their `ColumnDefinition`, and lazily memoize detached provider-physical parameter values through the column writer. Manual `SqlQuery` operands remain an already-physical contract and do not acquire a writer through this path. Ordered converter-backed comparisons fail translation because scalar converters do not declare order preservation. A bounded pre-SQL join guard now rejects one-sided conversion, different nominal converter/model/provider mappings, and active-provider UUID-format mismatches. It does not prove that one converter type maps two column contexts equivalently; an explicit behavioral mapping-equivalence contract and structured member diagnostics are still implementation work, and this design note remains non-normative until the release gate is complete.
+
 4. **Primary and foreign keys**
    - `KeyFactory` should create keys from provider values, not model values, so `CustomerId(1)` and raw provider `1` do not become different cache keys for the same row.
    - FK relation indexes should normalize both sides through provider values.
@@ -389,6 +391,16 @@ Required changes:
 
 6. **Schema validation and diff**
    - Schema validation should compare database column type against the provider CLR type mapping and explicit `[Type(...)]`, not against the model CLR type.
+
+The first bounded implementation resolves the model's effective physical type from authoritative canonical-provider metadata before comparing it with an exact active-provider database type. This removes false physical drift for converter-backed primitive columns without `[Type]`, keeps explicit/default physical declarations and real mismatches visible, and never invokes converter code. A second bounded handoff composes UUID-format comparison after exact physical type equality: resolved or raw-declared Guid storage can match schema-observable MySQL/MariaDB text/native layouts, while unhinted binary and SQLite text/blob representations remain unresolved and trusted same-type changes require manual migration. A third bounded checkpoint adds a separate compatibility diagnostic only for finalized converter-backed canonical `Int32`: after normalized physical signatures match, SQLite requires `INTEGER` and MySQL/MariaDB require signed `INT`/`INTEGER`. Matching text, unsigned `INT`, or other integer-width storage reports `ColumnCanonicalTypeMismatch` as `Error/Ambiguous`; genuine physical drift remains the sole primary type mismatch, unresolved canonical metadata is skipped, and no converter runs. MySQL/MariaDB integer aliases, display widths, and ordinary signed metadata are normalized as non-semantic for physical comparison, while explicit unsignedness and non-integer length/precision remain significant. This is not a general scalar-converter compatibility contract; other canonical CLR types remain open. Configured CLI validation/diff also loads deferred syntax-only model metadata: raw `[GuidStorage]` can state direct UUID intent, but bare Guid syntax is unresolved because assembly registrations are invisible, and property/assembly converter semantics do not yet make source-only typed-ID metadata authoritative.
+
+A fourth bounded checkpoint extends the exact finalized integral contract to canonical `Int64`, not to arbitrary numeric conversion. After normalized physical signatures match, SQLite requires `INTEGER` and MySQL/MariaDB require signed `BIGINT`; matching text, signed `INT`/`MEDIUMINT`, or unsigned `BIGINT` reports `ColumnCanonicalTypeMismatch` as `Error/Ambiguous`. Physical drift still takes precedence, unresolved canonical metadata is skipped, display widths and ordinary signed metadata remain non-semantic, and neither converter direction runs. The scalar schema class passes `19/19`, and the live schema class passes `8/8` across the four server targets. The same exact long also composes through the bounded `F6-B` relation admission and `JoinedRowLocal` key decoder: high-range values from `5_000_000_101` through `6_000_000_203` remain canonical longs through index warming and cache hydration. Focused seam and loader evidence passes `2/2`, including the `Int16` legacy-path exclusion, and `11/11`; dedicated relation/joined compliance passes `4/4` on SQLite file/memory plus `8/8` across the four servers. Current integrated gates pass `60/60` generator, `1211/1211` unit, `807/807` SQLite file/memory, `1630/1630` four-server compliance, and `380/380` provider-specific executions. Canonical CLR types beyond exact finalized `Int32` and `Int64`, string/CHAR, UUID/`Guid`, composite/external/manual/memory key routes, authoritative source-only converter resolution, converter-backed defaults, and aggregate SC-5/W6 remain open.
+
+A fifth bounded key-hydration checkpoint composes the two conversion layers for one representative explicit-inner `JoinedRowLocal` Guid-backed typed-ID shape without generalizing UUID keys. A concrete SQLite, MySQL, or MariaDB source must expose resolved active-provider `GuidStorage`; that runtime admission is format-agnostic. This checkpoint's provider evidence and support claim use one representative binary mapping. The joined reader decodes the selected alias ordinal through the resolved column codec to canonical `Guid`, constructs a dynamic `DataLinqKey`, and hydrates both sources through the existing cache. The key seam invokes neither scalar-converter direction. End-to-end cold immutable construction correctly invokes model-to-canonical conversion three times and canonical-to-model conversion five times, while a warm execution adds zero calls. Non-symmetric raw bytes, repeated-parent and warm immutable identity, canonical cache keys, and model-valued public results prove that provider `byte[]` values do not leak. Focused evidence is `5/5` for the reader seam, `2/2` on SQLite file/memory, and `4/4` across the four server targets. Current integrated gates pass `60/60` generator, `1214/1214` unit, `809/809` SQLite file/memory, `1634/1634` four-server compliance, and `380/380` provider-specific executions. Joined-key evidence for text/native UUID variants, other typed mappings/formats, composites, outer/missing-source joins, UUID relation/index/foreign-key routes, external/key-only/preload/manual/provider-less readers, authoritative source-only resolution, converter-backed defaults, memory/AOT, and aggregate W6/UUID completion remain open.
+
+A sixth bounded `F6-B` checkpoint supersedes only that UUID relation/index exclusion for one exact canonical-key shape. Relation dispatch accepts a single `Guid` index column only when the active source is concrete SQLite, MySQL, or MariaDB and the column has resolved active-provider `GuidStorage`. Both direct-`Guid` and converter-backed metadata can pass, but the supplied component must already be canonical `Guid`; admission and exact-key construction never call `ToProvider` or `FromProvider`. A model wrapper is therefore rejected rather than normalized at this seam, as are raw bytes, UUID text, composite keys, missing or unresolved storage, and `DatabaseType.Unknown`. End-to-end evidence is intentionally narrower than the format-agnostic metadata gate: one converter-backed binary relation uses RFC-order bytes on SQLite and MariaDB and little-endian bytes on MySQL. After rollback-isolated transaction access, a committed cold collection load warms one canonical relation index and preserves raw-byte decoding, model-valued children, warm child identity, and reverse-reference parent identity. Cold materialization records `ToProvider=3`, `FromProvider=4`; warm index access adds zero, and two reverse references produce the final `ToProvider=5`, `FromProvider=4`. Current integrated gates pass `60/60` generator, `1214/1214` unit, `811/811` SQLite file/memory compliance, `819/819` in each paired server batch (`1638/1638` total), and `189/189` plus `191/191` provider-specific executions (`380/380` total). Direct-`Guid` relation end-to-end evidence, text/native relation storage, composites, custom-provider/provider-less/external/key-only/preload/manual routes, memory relations, and aggregate `F6`/W6/UUID completion remain open.
+
+The bounded UUID static-literal checkpoint does not change that converter contract. It formats only fixed `Guid` values already present in finalized direct-canonical metadata. A converter-backed UUID default is rejected before SQL without invoking either conversion direction, because `DefaultAttribute.Value` is model-side and converter behavior can depend on the column context. Converter-backed model defaults need an explicit authoritative model-to-canonical default boundary; inferring canonical input from the runtime value type would be unsound.
 
 ## Query Translation Boundary
 
@@ -519,6 +531,7 @@ Minimum coverage:
 - read/write typed `int`, `long`, `Guid`, and `string` IDs
 - nullable typed IDs on auto-increment primary keys
 - FK relation loading where PK and FK both use the same typed ID
+- explicit-inner joined row-local hydration for one resolved Guid-backed typed-ID key, with representative binary-format provider evidence, canonical cache identity, and no physical-byte leakage
 - direct `Where(x => x.Id == id)`
 - local `ids.Contains(x.Id)`
 - explicit join on typed key selectors

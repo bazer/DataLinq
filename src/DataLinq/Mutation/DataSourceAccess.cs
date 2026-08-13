@@ -1,11 +1,19 @@
 ﻿using System.Collections.Generic;
 using System.Data;
+using System.Threading;
+using DataLinq.Cache;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Linq.Planning;
+using DataLinq.Linq.Planning.Sql;
 
 namespace DataLinq.Mutation;
 
-public abstract class DataSourceAccess : IDataSourceAccess
+public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqSourceRowServices, IDataLinqIndexRowServices, IDataLinqQueryPlanServices
 {
+    private IModelMaterializationServices? materializationServices;
+    private IQueryPlanBackend? queryPlanBackend;
+    private DataSourceAccessSourceRowLoader? rowLoader;
 
     /// <summary>
     /// Gets the database provider.
@@ -20,6 +28,71 @@ public abstract class DataSourceAccess : IDataSourceAccess
     protected DataSourceAccess(IDatabaseProvider provider)
     {
         Provider = provider;
+    }
+
+    internal static void EnsureReadAllowed(
+        IDataSourceAccess dataSource,
+        string operation)
+    {
+        if (dataSource is Transaction transaction)
+            transaction.EnsureCanRead(operation);
+    }
+
+    IModelMaterializationServices IDataLinqReadServices.MaterializationServices
+    {
+        get
+        {
+            var services = materializationServices;
+            if (services is not null)
+                return services;
+
+            var runtime = new ReadSourceModelMaterializationRuntime(
+                this,
+                new DataSourceAccessMaterializationCache(this));
+            var created = new ModelMaterializationServices(
+                $"sql:{Provider.DatabaseType}",
+                runtime);
+
+            return Interlocked.CompareExchange(
+                ref materializationServices,
+                created,
+                comparand: null) ?? created;
+        }
+    }
+
+    ISourceRowLoader IDataLinqSourceRowServices.RowLoader
+        => GetOrCreateRowLoader();
+
+    ISourceIndexRowLoader IDataLinqIndexRowServices.IndexRowLoader
+        => GetOrCreateRowLoader();
+
+    private DataSourceAccessSourceRowLoader GetOrCreateRowLoader()
+    {
+        var loader = rowLoader;
+        if (loader is not null)
+            return loader;
+
+        var created = new DataSourceAccessSourceRowLoader(this);
+        return Interlocked.CompareExchange(
+            ref rowLoader,
+            created,
+            comparand: null) ?? created;
+    }
+
+    IQueryPlanBackend IDataLinqQueryPlanServices.QueryPlanBackend
+    {
+        get
+        {
+            var backend = queryPlanBackend;
+            if (backend is not null)
+                return backend;
+
+            IQueryPlanBackend created = new SqlQueryPlanBackend(this);
+            return Interlocked.CompareExchange(
+                ref queryPlanBackend,
+                created,
+                comparand: null) ?? created;
+        }
     }
 
     /// <summary>

@@ -132,6 +132,23 @@ public class ServerTypeMappingTests
     }
 
     [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseColumn_Binary16UuidLayout_RemainsUnresolved(TestProviderDescriptor provider)
+    {
+        var column = ParseSingleColumn(
+            provider,
+            nameof(ParseColumn_Binary16UuidLayout_RemainsUnresolved),
+            "BINARY(16)");
+        var physicalType = column.GetDbTypeFor(provider.DatabaseType)!;
+
+        await Assert.That(column.ValueProperty.CsType.Name).IsEqualTo(nameof(Guid));
+        await Assert.That(physicalType.Name).IsEqualTo("binary");
+        await Assert.That(physicalType.Length).IsEqualTo(16UL);
+        await Assert.That(column.GuidStorageDefinitions).IsEmpty();
+        await Assert.That(column.IsGuidStorageUnresolvedFor(provider.DatabaseType)).IsTrue();
+    }
+
+    [Test]
     [MethodDataSource(nameof(NullableCases))]
     public async Task ParseColumn_MapsNullableTypes(TypeMappingScenario scenario)
     {

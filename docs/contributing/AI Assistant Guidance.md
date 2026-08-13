@@ -82,9 +82,12 @@ For targeted `DataLinq.Testing.CLI` suite runs, use `run --filter` with TUnit tr
 ```powershell
 ./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CacheNotificationManagerTests/*" --output failures
 ./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/*/HandleEvent_NoSubscribers_DoesNotThrow" --output failures
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --suite memory --output failures
 ```
 
 The filter shape is `/<Assembly>/<Namespace>/<Class name>/<Test name>`, and wildcards are supported. Use this when validating a specific class, namespace, or test method through the same suite orchestration path the repo uses for broader runs.
+
+`memory` is a targetless suite and runs once even when a provider alias is supplied. Do not confuse it with the `sqlite-memory` target. The Memory test project carries SQLite fixtures for bounded differential parity, so this CLI lane is not provider-free or package-consumer evidence.
 
 For provider-matrix or server-backed runs:
 

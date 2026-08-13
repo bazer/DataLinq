@@ -9,17 +9,66 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSource) : IImmutable<T>, IImmutableInstance<M>,
-    IEquatable<Immutable<T, M>>, IEquatable<IMutableInstance>
+public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
+    IEquatable<Immutable<T, M>>, IEquatable<IMutableInstance>, IImmutableBaselineOrigin
     where T : IModel
     where M : class, IDatabaseModel
 {
+    private readonly IRowData rowData;
+    private IDataLinqReadSource readSource;
+    private readonly MutableBaselineOrigin baselineOrigin;
+
+    protected Immutable(IRowData rowData, IDataSourceAccess dataSource)
+    {
+        // Preserve the legacy constructor's historical null behavior. Some row-local projection
+        // tests construct immutable shells without a source because they never perform source-bound
+        // operations; the new neutral constructor below is the strict contract.
+        this.rowData = rowData;
+        readSource = dataSource;
+        baselineOrigin = MutableBaselineOrigin.FromReadSource(dataSource);
+        CaptureCanonicalPrimaryKey(rowData, allowUnavailableLegacyRow: true);
+    }
+
+    protected Immutable(IRowData rowData, IDataLinqReadSource readSource)
+    {
+        ArgumentNullException.ThrowIfNull(rowData);
+        ArgumentNullException.ThrowIfNull(readSource);
+
+        this.rowData = rowData;
+        this.readSource = readSource;
+        baselineOrigin = MutableBaselineOrigin.FromReadSource(readSource);
+        CaptureCanonicalPrimaryKey(rowData, allowUnavailableLegacyRow: false);
+    }
+
+    MutableBaselineOrigin IImmutableBaselineOrigin.BaselineOrigin => baselineOrigin;
+
     protected ConcurrentDictionary<RelationProperty, DataLinqKey>? relationKeys;
 
     protected ConcurrentDictionary<string, object?>? lazyValues = null;
 
     // Cache the primary key once calculated for performance
     protected DataLinqKey? _cachedPrimaryKey = null;
+
+    private void CaptureCanonicalPrimaryKey(
+        IRowData? sourceRow,
+        bool allowUnavailableLegacyRow)
+    {
+        if (sourceRow is null)
+            return;
+
+        try
+        {
+            _cachedPrimaryKey = KeyFactory.GetKey(
+                sourceRow,
+                sourceRow.Table.PrimaryKeyColumns);
+        }
+        catch (NotSupportedException) when (allowUnavailableLegacyRow)
+        {
+            // Legacy row-local projection shells can expose metadata without readable values.
+            // Preserve their historical construction behavior; a real key access still fails.
+            // The strict neutral-source constructor does not accept this compatibility escape.
+        }
+    }
 
     public object? this[ColumnDefinition column] => rowData[column];
     public object? this[int columnIndex] => rowData[columnIndex];
@@ -127,10 +176,37 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
 
     public IDataSourceAccess GetDataSource()
     {
-        if (dataSource is Transaction transaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
-            dataSource = dataSource.Provider.ReadOnlyAccess;
+        var source = GetReadSource();
+        if (source is null)
+            return null!;
 
-        return dataSource;
+        if (source is IDataSourceAccess dataSource)
+            return dataSource;
+
+        throw new InvalidOperationException(
+            $"Immutable model '{typeof(T).FullName}' was constructed with a backend-neutral read source " +
+            $"('{source.GetType().FullName}') that does not implement {nameof(IDataSourceAccess)}. " +
+            $"Use {nameof(GetReadSource)}() for backend-neutral access; legacy provider and relation operations require {nameof(IDataSourceAccess)}.");
+    }
+
+    public IDataLinqReadSource GetReadSource()
+    {
+        if (readSource is Transaction transaction)
+        {
+            if (transaction.Status == DatabaseTransactionStatus.Committed ||
+                transaction.Status == DatabaseTransactionStatus.RolledBack)
+            {
+                transaction.EnsureTerminalReadSourceFallbackAllowed(
+                    "switch a transaction-bound immutable row to committed reads");
+                readSource = transaction.Provider.ReadOnlyAccess;
+            }
+            else
+            {
+                transaction.EnsureCanRead("access a transaction-bound immutable row");
+            }
+        }
+
+        return readSource;
     }
 
     // --- Start of Equality Implementation ---

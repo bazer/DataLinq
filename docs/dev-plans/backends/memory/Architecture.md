@@ -96,9 +96,9 @@ The value path is:
 model value
     -> scalar converter
     -> canonical provider CLR value
-    -> MemoryProviderRow values by ordinal
+    -> CanonicalProviderValueRow values by ordinal
 
-MemoryProviderRow
+CanonicalProviderValueRow
     -> reverse scalar converter
     -> model-valued RowData
     -> generated immutable model
@@ -106,20 +106,13 @@ MemoryProviderRow
 
 Provider-specific physical codecs are a separate boundary used by SQL readers, writers, literals, and parameter binding. For example, memory keeps a canonical `Guid`; it does not store MySQL `BINARY(16)` byte order. This distinction matters for typed IDs, enums, UUID formats, dates, and other values whose model type differs from either the canonical or physical representation.
 
-Conceptual 0.9 types:
+The shared runtime now owns `CanonicalProviderValueRow`; memory must store that type directly rather than introducing the older conceptual `MemoryProviderRow` duplicate. The first spike owns an array plus a primary-key-to-row-ordinal dictionary per table and exposes them internally only through read-only views:
 
 ```csharp
-internal sealed class MemoryProviderRow
-{
-    public required TableDefinition Table { get; init; }
-    public required object?[] ProviderValuesByOrdinal { get; init; }
-}
-
 internal sealed class MemoryTableState
 {
-    public required TableDefinition Table { get; init; }
-    public required IReadOnlyList<MemoryProviderRow> Rows { get; init; }
-    public required IReadOnlyDictionary<DataLinqKey, MemoryProviderRow> RowsByPrimaryKey { get; init; }
+    private readonly IReadOnlyList<CanonicalProviderValueRow> rows;
+    private readonly IReadOnlyDictionary<DataLinqKey, int> primaryKeyOrdinals;
 }
 ```
 
@@ -140,9 +133,15 @@ Expected preview shape:
 ```csharp
 var db = new MemoryDatabase<AppDb>();
 
-db.Seed(seed => seed
-    .Table(x => x.Users)
-    .Rows(users));
+db.Seed<User>(
+[
+    new MutableUser
+    {
+        UserId = new UserId(17),
+        Name = "Ada",
+        IsActive = true
+    }
+]);
 
 var rows = db.Query().Users
     .Where(x => x.IsActive)
@@ -150,12 +149,22 @@ var rows = db.Query().Users
     .ToList();
 ```
 
+The bounded D5-A surface is deliberately smaller than a fixture-mapping DSL:
+
+- direct construction owns one isolated store and materialization cache
+- `Query()` returns the generated read-only database model
+- `Seed<TModel>(IEnumerable<Mutable<TModel>>)` accepts generated mutable rows, snapshots table-ordinal model values during the call, and publishes that table exactly once
+- invalid input rejects the whole table publication through public `MemorySeedException`; an unseeded table remains retryable
+- canonical rows, provider-domain seed values, metadata, read-source plumbing, diagnostics counters, cache hooks, explicit-token execution, and canonical-key lookup remain internal
+
+Construct the memory database before constructing generated mutable seed rows so generated metadata is bound before their runtime-owned accessors initialize. Seed/query overlap and concurrent mutation of a seed row are not preview contracts. Mutation after `Seed` returns cannot alter published state.
+
 Seed processing should:
 
 1. resolve the generated table and column metadata
 2. read model values through generated/runtime-owned accessors
 3. convert each value through the shared scalar pipeline to its canonical provider CLR value
-4. build a `MemoryProviderRow`
+4. build a `CanonicalProviderValueRow`
 5. validate and index the primary key
 6. publish a read-only table state
 
@@ -174,7 +183,19 @@ The 0.9 executor should run a query in these stages:
 7. compute the supported result operator or projection
 8. materialize model-valued rows through the shared runtime
 
-The intended first subset is:
+### Implemented 0.9 checkpoint
+
+The currently implemented Memory profile is deliberately narrower than the intended subset below. It contains exactly 57 capability tokens and admits `Predicate:And`, `Predicate:Or`, and `Predicate:Not` as nested Boolean composition over these exact predicate shapes:
+
+- a direct, non-nullable, converter-free model/provider `Int32` root column and an exact `Int32` scalar, with `Equal`, `NotEqual`, `GreaterThan`, `GreaterThanOrEqual`, `LessThan`, or `LessThanOrEqual`
+- a direct, non-nullable, canonical-`Guid` root column and an exact model scalar that is either `Guid` or a resolved scalar-converter-backed type, with `Equal` or `NotEqual` only
+- positive or negated membership of a direct, non-nullable, converter-free model/provider `Int32` root column in an invocation-local exact `Int32` sequence, including empty and duplicate-containing sequences
+
+A converter-backed scalar is canonicalized once per comparison leaf through `ModelValueConverter` while the invocation-local row plan is compiled, after which execution compares canonical values. Scalar-left `Int32` relational forms invert the operator before row-predicate construction; row evaluation uses direct C# `int` comparisons and never subtraction, so the comparison itself has no arithmetic-overflow path. An admitted local sequence is frozen per invocation and compiled into an invocation-local `HashSet<int>` with cancellation checks before store access; row evaluation then performs exact two-valued membership. The shared parser treats a captured null collection reference as an empty local sequence, deliberately differing from LINQ-to-Objects' null-source exception. `And` and `Or` evaluate their terms left-to-right and short-circuit during row evaluation; `Not` negates its child. That row-time short circuit does not defer or suppress eager comparison conversion or membership-set construction. Memory never applies a provider `GuidStorage` codec or SQL wire representation to these predicates. The existing root-entity and direct-`Int32` scalar projections, selectorless unpaged `Any` and `Count`, and direct primary-key `Int32` ordering remain the only admitted compositions around them. That exact total ordering may be followed by one final `Take`, one final nonnegative exact-`Int32` `Skip`, or the exact final window `Skip(...).Take(...)`, where both counts are nonnegative exact `Int32` scalar bindings and `Skip` is immediately followed by final `Take`. A positive window scans, predicate-checks, and sorts all matches, then materializes only selected entities; skipped and truncated rows do no cache or materialization work, and scalar windows never materialize entities. `Take(0)` validates both counts and cancellation but performs no row scan, predicate evaluation, sort, cache access, or materialization. Counts snapshot at query-object construction, rebuilt queries capture changes, and pre/mid-execution cancellation remains preserved. The same unpaged entity and scalar sequences admit exact `Single` and `SingleOrDefault`; predicate overloads normalize through `Where`. Cardinality is established over canonical rows before entity materialization or scalar conversion, so empty and multiple-match results do no partial cache or materialization work, while a cold successful entity result materializes once, a warm result reuses the cached identity, and scalar results never materialize entities. An unordered multiplicity probe stops at the second matching row; ordered execution retains the full buffer/sort boundary. Standard empty/default and multiple-match semantics apply, invocation values rebind per execution, and pre-cancellation retains its existing boundary. Exact `First` and `FirstOrDefault` additionally require one ascending or descending direct-`Int32` single-column-primary-key ordering, with every other top-level operation an admitted `Where`; predicate terminal overloads normalize to that shape. Execution fully scans, filters, buffers, and sorts before selecting the deterministic first canonical row, then performs selected-only entity cache/materialization or direct scalar conversion. Empty/default semantics match standard LINQ. The at-most-one cursor never consumes a second row and preserves cancellation on its synthetic second `MoveNext`.
+
+Nullable comparison operands and null scalar bindings, strings, widened or boxed numerics, column-to-column comparisons, typed-ID member unwrapping, relational comparisons outside the exact direct `Int32` fence, membership with nullable element types or null elements or with string, widened, boxed, converter-backed, `Guid`, or typed-ID values, standalone Boolean constants, Boolean columns or functions, Boolean trees containing any unsupported leaf, bare or unordered paging, `Take` before `Skip`, repeated paging, negative or non-exact paging counts, non-primary-key ordering, `ThenBy`, `Where` after `Skip` including `Skip`-`Where`-`Take`, post-window work or terminals, and `Single`/`SingleOrDefault`/`First`/`FirstOrDefault`/`Any`/`Count` after paging remain unsupported and reject before memory row work; a negative `Skip` still rejects with `Take(0)`. Bare or unordered `First`/`FirstOrDefault`, broader projections for those terminals, `Last`, `LastOrDefault`, anonymous projections, joins, relation navigation, grouping, and all previous unsupported shapes also remain outside the profile. Terminal-after-paging rejection is classified as `Operation:Pushdown`. This checkpoint advances only bounded M1-H exact ordered `First`/`FirstOrDefault`. It does not complete M1; M1 as a whole and M2 remain open.
+
+The intended broader subset is:
 
 - direct table enumeration
 - primary-key lookup
@@ -210,7 +231,7 @@ Diagnostics should identify at least:
 - unsupported value or method kind where relevant
 - the nearest supported alternative when one is unambiguous
 
-Raw SQL is categorically unsupported. The memory provider should fail immediately with a provider-capability diagnostic. It must not expose a fake `IDbConnection`, attempt SQL parsing, or route the command through a SQL provider.
+Raw SQL is categorically unavailable through the Memory route. `MemoryDatabase<TDatabase>` and the complete public neutral `IDataLinqReadSource` contract expose no raw-SQL, command, connection, provider, or transaction service, and the Memory query route supplies no `IDataSourceAccess`. Existing shared generated SQL APIs remain SQL-only and require that SQL-capable contract; Memory must not mirror them with throwing stubs. Consumer-authored partial types can add their own members or interfaces, but those are not Memory capabilities. The legacy inherited `IImmutableInstance.GetDataSource()` member and parameterless `Delete()` extension reject a Memory-backed row with a DataLinq-owned diagnostic before returning `IDataSourceAccess` or performing additional backend work. Memory must not expose a fake `IDbConnection`, attempt SQL parsing, or route a command through a SQL provider.
 
 ## Query Semantics
 
@@ -403,7 +424,6 @@ Avoid:
 
 - What is the smallest backend-neutral provider/source interface that avoids SQL-shaped throwing stubs?
 - Which projection forms can become fully self-contained in the normalized execution request for 0.9?
-- Should direct construction use `MemoryDatabase<TDatabase>` or a smaller preview factory?
 - Which string comparison is the least surprising documented memory default?
 - Should direct scalar comparisons operate on canonical provider values exclusively, or use column-specific comparers supplied by metadata?
 - Which query shapes beyond primary-key lookup, filter, ordering, paging, and basic result operators earn 0.9 scope?

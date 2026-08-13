@@ -1,7 +1,10 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Testing;
+using Microsoft.Data.Sqlite;
 using MySqlConnector;
 
 namespace DataLinq.Tests.Compliance;
@@ -51,6 +54,71 @@ public class ProviderMatrixTests
         await Assert.That(connection.DatabaseType).IsEqualTo(provider.DatabaseType);
         await Assert.That(string.IsNullOrWhiteSpace(connection.ConnectionString)).IsFalse();
         await Assert.That(string.IsNullOrWhiteSpace(connection.DataSourceName)).IsFalse();
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task SqliteConnectionDefinitions_DefaultFilesAndKeepNamedMemoryShared()
+    {
+        var artifactRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"datalinq-sqlite-defaults-{Guid.NewGuid():N}");
+        var settings = new PodmanTestEnvironmentSettings(
+            RepositoryRoot: artifactRoot,
+            ArtifactRoot: artifactRoot,
+            ContainerPrefix: "datalinq-tests",
+            ProfileId: DatabaseServerMatrix.DefaultProfile.Id,
+            Host: "127.0.0.1",
+            AdminUser: "datalinq",
+            AdminPassword: "datalinq",
+            ApplicationUser: "datalinq",
+            ApplicationPassword: "datalinq",
+            TargetPorts: new Dictionary<string, int>(),
+            AvailableTargetIds: []);
+
+        try
+        {
+            var fileDefinition = settings.CreateConnection(
+                TestProviderMatrix.SQLiteFile,
+                "sqlite_defaults");
+            var fileBuilder = new SqliteConnectionStringBuilder(
+                fileDefinition.ConnectionString);
+
+            await Assert.That(fileBuilder.Cache)
+                .IsEqualTo(SqliteCacheMode.Default);
+            await Assert.That(fileDefinition.ConnectionString.Contains(
+                "Cache=",
+                StringComparison.OrdinalIgnoreCase)).IsFalse();
+            await Assert.That(fileBuilder.DataSource).IsEqualTo(
+                Path.Combine(artifactRoot, "sqlite", "sqlite_defaults.db"));
+
+            using (var connection = new SqliteConnection(
+                fileDefinition.ConnectionString))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText = "SELECT 1;";
+                await Assert.That(Convert.ToInt64(command.ExecuteScalar()))
+                    .IsEqualTo(1L);
+            }
+
+            var memoryDefinition = settings.CreateConnection(
+                TestProviderMatrix.SQLiteInMemory,
+                "sqlite_defaults");
+            var memoryBuilder = new SqliteConnectionStringBuilder(
+                memoryDefinition.ConnectionString);
+
+            await Assert.That(memoryBuilder.Mode)
+                .IsEqualTo(SqliteOpenMode.Memory);
+            await Assert.That(memoryBuilder.Cache)
+                .IsEqualTo(SqliteCacheMode.Shared);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (Directory.Exists(artifactRoot))
+                Directory.Delete(artifactRoot, recursive: true);
+        }
     }
 
     [Test]

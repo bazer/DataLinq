@@ -450,6 +450,52 @@ public class EmployeesQueryBehaviorTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Query_CompleteEntityResultFamily_PreservesBehaviorAcrossProviders(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Query_CompleteEntityResultFamily_PreservesBehaviorAcrossProviders),
+            EmployeesSeedMode.Bogus);
+
+        var employees = databaseScope.Database.Query().Employees;
+        var sequence = employees
+            .OrderBy(employee => employee.emp_no)
+            .Take(3)
+            .ToArray();
+
+        await Assert.That(sequence.Length).IsEqualTo(3);
+
+        var middleEmployeeNumber = sequence[1].emp_no!.Value;
+        var lastEmployeeNumber = sequence[2].emp_no!.Value;
+        var first = employees.OrderBy(employee => employee.emp_no).First();
+        var firstOrDefault = employees.OrderBy(employee => employee.emp_no).FirstOrDefault();
+        var last = employees
+            .Where(employee => employee.emp_no <= lastEmployeeNumber)
+            .OrderBy(employee => employee.emp_no)
+            .Last();
+        var lastOrDefault = employees
+            .Where(employee => employee.emp_no <= lastEmployeeNumber)
+            .OrderBy(employee => employee.emp_no)
+            .LastOrDefault();
+        var single = employees.Single(employee => employee.emp_no == middleEmployeeNumber);
+        var singleOrDefault = employees.SingleOrDefault(employee => employee.emp_no == middleEmployeeNumber);
+        var missing = employees.SingleOrDefault(employee => employee.emp_no == int.MaxValue);
+
+        await Assert.That(first.emp_no).IsEqualTo(sequence[0].emp_no);
+        await Assert.That(firstOrDefault).IsNotNull();
+        await Assert.That(firstOrDefault!.emp_no).IsEqualTo(sequence[0].emp_no);
+        await Assert.That(last.emp_no).IsEqualTo(sequence[2].emp_no);
+        await Assert.That(lastOrDefault).IsNotNull();
+        await Assert.That(lastOrDefault!.emp_no).IsEqualTo(sequence[2].emp_no);
+        await Assert.That(single.emp_no).IsEqualTo(middleEmployeeNumber);
+        await Assert.That(singleOrDefault).IsNotNull();
+        await Assert.That(singleOrDefault!.emp_no).IsEqualTo(middleEmployeeNumber);
+        await Assert.That(missing).IsNull();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_OrderedFirstAndLastVariants_WorkAcrossProviders(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

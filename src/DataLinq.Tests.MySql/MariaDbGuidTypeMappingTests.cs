@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.MariaDB;
@@ -33,10 +34,32 @@ public class MariaDbGuidTypeMappingTests
             new MetadataFromDatabaseFactoryOptions { Include = ["uuid_test"] });
 
         var column = database.TableModels.Single().Table.Columns.Single();
+        var dbType = column.GetDbTypeFor(DatabaseType.MariaDB)!;
+        var modelSource = string.Join(
+            Environment.NewLine,
+            new ModelFileFactory(new ModelFileFactoryOptions())
+                .CreateModelFiles(database)
+                .Select(static file => file.contents));
+        var generatedSql = new SqlFromMariaDBFactory()
+            .GetCreateTables(database, foreignKeyRestrict: false)
+            .ValueOrException()
+            .Text;
 
         await Assert.That(column.DbName).IsEqualTo("id");
         await Assert.That(column.ValueProperty.CsType.Name).IsEqualTo("Guid");
-        await Assert.That(column.GetDbTypeFor(DatabaseType.MariaDB)!.Name).IsEqualTo("uuid");
+        await Assert.That(dbType.Name).IsEqualTo("uuid");
+        await Assert.That(dbType.Length).IsNull();
+        await Assert.That(dbType.Decimals).IsNull();
+        await Assert.That(dbType.Signed).IsNull();
+        await Assert.That(column.GetGuidStorageFor(DatabaseType.MariaDB)!.Format)
+            .IsEqualTo(GuidStorageFormat.NativeUuid);
+        await Assert.That(column.GetGuidStorageFor(DatabaseType.MariaDB)!.IsExplicit).IsFalse();
+        await Assert.That(column.IsGuidStorageUnresolvedFor(DatabaseType.MariaDB)).IsFalse();
+        await Assert.That(modelSource)
+            .Contains("[Type(DatabaseType.MariaDB, \"uuid\")]");
+        await Assert.That(modelSource).DoesNotContain("\"uuid\",");
+        await Assert.That(generatedSql).DoesNotContain("UUID(");
+        await Assert.That(generatedSql).DoesNotContain("UNSIGNED");
     }
 
     [Test]
@@ -100,9 +123,9 @@ public class MariaDbGuidTypeMappingTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.MariaDbProviders))]
-    public async Task Runtime_Binary16ContainsQuery_RequiresGuidFormat(TestProviderDescriptor provider)
+    public async Task Runtime_Binary16ContainsQuery_WorksWithoutGuidFormat(TestProviderDescriptor provider)
     {
-        using var schema = ServerSchemaDatabase.Create(provider, nameof(Runtime_Binary16ContainsQuery_RequiresGuidFormat));
+        using var schema = ServerSchemaDatabase.Create(provider, nameof(Runtime_Binary16ContainsQuery_WorksWithoutGuidFormat));
 
         var configuredBuilder = new MySqlConnectionStringBuilder(schema.Connection.ConnectionString)
         {
@@ -132,7 +155,10 @@ public class MariaDbGuidTypeMappingTests
         using var unconfiguredDatabase = CreateMariaDbDatabase<BinaryGuidTestDatabase>(unconfiguredConnectionString, schema.Connection.DataSourceName);
         var unconfiguredResults = unconfiguredDatabase.Query().BinaryGuids.Where(x => idsToFind.Contains(x.Id)).ToList();
 
-        await Assert.That(unconfiguredResults).IsEmpty();
+        await Assert.That(unconfiguredResults.Count).IsEqualTo(2);
+        await Assert.That(unconfiguredResults.Any(x => x.Id == id1)).IsTrue();
+        await Assert.That(unconfiguredResults.Any(x => x.Id == id2)).IsTrue();
+        await Assert.That(unconfiguredResults.Any(x => x.Id == id3)).IsFalse();
     }
 
     private static MariaDBDatabase<TDatabase> CreateMariaDbDatabase<TDatabase>(string connectionString, string databaseName)

@@ -2,22 +2,21 @@ using DataLinq.Attributes;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
-using DataLinq.Mutation;
 
 namespace DataLinq.PlatformCompatibility.Smoke;
 
 [Database("platform_smoke")]
 [UseCache]
-public sealed partial class PlatformSmokeDb(DataSourceAccess dataSource) : IDatabaseModel
+public sealed partial class PlatformSmokeDb(IDataLinqReadSource readSource) : IDatabaseModel
 {
-    public DbRead<PlatformSmokeOwner> Owners { get; } = new(dataSource);
+    public DbRead<PlatformSmokeOwner> Owners { get; } = new(readSource);
 
-    public DbRead<PlatformSmokeTask> Tasks { get; } = new(dataSource);
+    public DbRead<PlatformSmokeTask> Tasks { get; } = new(readSource);
 }
 
 [Table("platform_smoke_owners")]
-public abstract partial class PlatformSmokeOwner(IRowData rowData, IDataSourceAccess dataSource)
-    : Immutable<PlatformSmokeOwner, PlatformSmokeDb>(rowData, dataSource), ITableModel<PlatformSmokeDb>
+public abstract partial class PlatformSmokeOwner(IRowData rowData, IDataLinqReadSource readSource)
+    : Immutable<PlatformSmokeOwner, PlatformSmokeDb>(rowData, readSource), ITableModel<PlatformSmokeDb>
 {
     [PrimaryKey]
     [Type(DatabaseType.SQLite, "INTEGER")]
@@ -33,8 +32,8 @@ public abstract partial class PlatformSmokeOwner(IRowData rowData, IDataSourceAc
 }
 
 [Table("platform_smoke_tasks")]
-public abstract partial class PlatformSmokeTask(IRowData rowData, IDataSourceAccess dataSource)
-    : Immutable<PlatformSmokeTask, PlatformSmokeDb>(rowData, dataSource), ITableModel<PlatformSmokeDb>
+public abstract partial class PlatformSmokeTask(IRowData rowData, IDataLinqReadSource readSource)
+    : Immutable<PlatformSmokeTask, PlatformSmokeDb>(rowData, readSource), ITableModel<PlatformSmokeDb>
 {
     [PrimaryKey]
     [Type(DatabaseType.SQLite, "INTEGER")]

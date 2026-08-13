@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using DataLinq.SourceGenerators;
 using Microsoft.CodeAnalysis;
@@ -15,20 +16,25 @@ public abstract class GeneratorTestBase
         CSharpParseOptions? parseOptions = null,
         NullableContextOptions nullableContextOptions = NullableContextOptions.Enable)
     {
-        var references = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-            .Select(a => MetadataReference.CreateFromFile(a.Location))
+        var referenceLocations = AppDomain.CurrentDomain.GetAssemblies()
+            // The analyzer assembly embeds SharedCore types for generator execution. A consumer
+            // compilation references DataLinq.dll, not the analyzer as a runtime library; including
+            // both produces false CS0433 duplicate-type errors.
+            .Where(a => a != typeof(ModelGenerator).Assembly && !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+            .Select(a => a.Location)
+            .Concat(
+            [
+                typeof(object).Assembly.Location,
+                typeof(Enumerable).Assembly.Location,
+                GetDataLinqRuntimeAssemblyPath()
+            ])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(static location => MetadataReference.CreateFromFile(location))
             .ToList();
-
-        references.AddRange(
-        [
-            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
-        ]);
 
         var compilation = CSharpCompilation.Create("TestAssembly",
             syntaxTrees,
-            references,
+            referenceLocations,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
                 .WithNullableContextOptions(nullableContextOptions));
 
@@ -54,5 +60,31 @@ public abstract class GeneratorTestBase
             throw new InvalidOperationException($"Generator produced errors:{Environment.NewLine}{string.Join(Environment.NewLine, generatorErrors.Select(e => e.ToString()))}");
 
         return generatedTrees;
+    }
+
+    private static string GetDataLinqRuntimeAssemblyPath()
+    {
+        var outputDirectory = new DirectoryInfo(AppContext.BaseDirectory);
+        var projectRoot = outputDirectory.Parent?.Parent?.Parent?.Parent
+            ?? throw new InvalidOperationException("Could not locate the generator test project root.");
+        var configuration = outputDirectory.Parent?.Name
+            ?? throw new InvalidOperationException("Could not determine the generator test configuration.");
+        var targetFramework = outputDirectory.Name;
+        var runtimeAssemblyPath = Path.Combine(
+            projectRoot.FullName,
+            "DataLinq",
+            "bin",
+            configuration,
+            targetFramework,
+            "DataLinq.dll");
+
+        if (!File.Exists(runtimeAssemblyPath))
+        {
+            throw new FileNotFoundException(
+                "The generator consumer-compilation harness requires the built DataLinq runtime assembly.",
+                runtimeAssemblyPath);
+        }
+
+        return runtimeAssemblyPath;
     }
 }

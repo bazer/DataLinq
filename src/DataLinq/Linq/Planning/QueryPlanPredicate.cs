@@ -70,13 +70,13 @@ internal abstract record QueryPlanPredicate(QueryPlanPredicateKind Kind)
 
     public sealed record In : QueryPlanPredicate
     {
-        public In(QueryPlanValue Item, QueryPlanValue Sequence, bool IsNegated) : base(QueryPlanPredicateKind.In)
+        public In(
+            QueryPlanValue Item,
+            QueryPlanLocalSequenceBindingReference Sequence,
+            bool IsNegated) : base(QueryPlanPredicateKind.In)
         {
             ArgumentNullException.ThrowIfNull(Item);
             ArgumentNullException.ThrowIfNull(Sequence);
-
-            if (Sequence is QueryPlanLocalSequenceValue { Count: 0 })
-                throw new ArgumentException("Empty local sequences must be represented as fixed true/false predicates.", nameof(Sequence));
 
             this.Item = Item;
             this.Sequence = Sequence;
@@ -85,7 +85,7 @@ internal abstract record QueryPlanPredicate(QueryPlanPredicateKind Kind)
 
         public QueryPlanValue Item { get; }
 
-        public QueryPlanValue Sequence { get; }
+        public QueryPlanLocalSequenceBindingReference Sequence { get; }
 
         public bool IsNegated { get; }
     }

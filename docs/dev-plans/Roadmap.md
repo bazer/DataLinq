@@ -5,7 +5,7 @@
 
 **Status:** Active.
 
-**Last reviewed:** 2026-07-10.
+**Last reviewed:** 2026-08-07.
 
 ## Purpose
 
@@ -32,13 +32,12 @@ The 0.8 release established the foundation that 0.9 consumes:
 
 The important current limitations are equally real:
 
-- query execution is still coupled to SQL/ADO.NET below the plan renderer
-- some supported local projection execution still depends on the original expression tree
+- retained expression-query result families execute behind the selected SQL backend, and bounded neutral routes now cover integral/scalar-UUID primary keys, exact single-column integral relation indices, and one exact resolved canonical-`Guid` relation/index family with representative converter-backed binary evidence across SQLite, MySQL, and MariaDB; broader primary/joined keys, cache/relation families, direct-`Guid` relation execution, text/native UUID relation evidence, and legacy reader routes are not yet backend-neutral
+- projection recipes are self-contained after parsing, and the SQL adapter still owns the complete retained recipe family; the separate packable experimental memory preview retains an exhaustive 58-token island with direct model-value scalar projection, rather than general local or joined recipes
 - model values, canonical provider values, and provider physical/wire values are not separate first-class contracts
 - DataLinq has no native async database I/O surface
-- SQLite currently exposes a documented dirty-read caveat
-- mutable baselines do not yet have complete rollback/cross-transaction provenance rules
-- there is no memory backend, JSON memory persistence package, or migration execution engine
+- managed mutable baselines now have explicit rollback/cross-transaction provenance, but raw-handle and full-concurrency boundaries remain unresolved
+- `DataLinq.Memory` now has an implementation-complete, packable experimental read-only 0.9 preview: generated-mutable seed, exact single-column lookup, the explicit 58-token query subset, direct model-value scalar projection, predictable unsupported-shape diagnostics, and provider-free AOT/browser execution. Broader LINQ, composite lookup, relations, mutation, and persistence are post-0.9 work. Only final-candidate validation, release notes/checklist, and publication remain for the preview.
 
 ## Roadmap Principles
 
@@ -50,6 +49,7 @@ The important current limitations are equally real:
 6. Keep memory semantics explicit; memory is not SQL emulation.
 7. Measure before adding caches or claiming performance wins.
 8. Select at most one optional stretch after required release evidence is green.
+9. Treat release evidence as protection against ordinary candidate mix-ups and incomplete runs; do not turn local tooling into a hostile-machine attestation system.
 
 ## 0.9 Decision
 
@@ -68,7 +68,7 @@ The condensed order is:
 1. record the clean 0.8 behavior, package, compatibility, and performance baseline
 2. characterize query execution, transaction/cache behavior, mutable lifecycle, and scalar/UUID values in parallel
 3. land scalar metadata plus self-contained template/invocation and projection recipes
-4. finish existing SQL transaction/mutable correctness before neutral cache/relation routing moves
+4. satisfy the applicable per-family SQL transaction/cache fault and terminal-state gate before each neutral cache/relation routing slice moves
 5. land the shared canonical row/source/materializer boundary, scalar runtime conversion, capability validation, and SQL adapter
 6. complete typed-ID query/key/schema behavior; run the granular UUID physical-codec lane and separate-project primitive memory spike where their dependencies allow
 7. promote memory to a read-only preview package only if the spike gate passes, then complete its explicit semantics while UUID remains an independent required release gate

@@ -30,7 +30,7 @@ DataLinq makes a narrower trade:
 - **Honest LINQ support:** documented query shapes are backed by tests; unsupported shapes should fail clearly.
 - **Schema trust tooling:** `validate` and `diff` compare generated model metadata against live provider metadata without pretending to be full migrations.
 
-It is currently focused on SQLite, MySQL, and MariaDB for .NET 8, .NET 9, and .NET 10.
+It is currently focused on SQLite, MySQL, and MariaDB for .NET 8, .NET 9, and .NET 10. DataLinq 0.9 also includes an experimental, read-only `DataLinq.Memory` backend for explicitly seeded generated models.
 
 ### When It Fits
 
@@ -52,6 +52,15 @@ dotnet add package DataLinq.MySql
 # SQLite
 dotnet add package DataLinq.SQLite
 ```
+
+For provider-free, read-only tests and transient state:
+
+```bash
+dotnet add package DataLinq
+dotnet add package DataLinq.Memory
+```
+
+Memory is intentionally not a SQL emulator or a replacement for provider-backed integration tests. See the [Memory backend guide](https://datalinq.org/docs/backends/Memory.html) for its exact query and lifecycle boundary.
 
 The CLI is installed as a dotnet tool named `datalinq`:
 

@@ -202,6 +202,9 @@ public static class MetadataRoundtripComparison
         if (attribute is DefaultSqlAttribute defaultSql)
             return $"{attribute.GetType().Name}|{defaultSql.DatabaseType}|{NormalizeSql(defaultSql.Expression)}";
 
+        if (attribute is DefaultNewUUIDAttribute defaultNewUuid)
+            return $"{attribute.GetType().Name}|{defaultNewUuid.NewUUID}|{defaultNewUuid.Version}";
+
         var value = attribute.Value switch
         {
             null => "",
@@ -209,7 +212,11 @@ public static class MetadataRoundtripComparison
             _ => attribute.Value.ToString()
         };
 
-        return $"{attribute.GetType().Name}|{value}|{attribute.CodeExpression}";
+        var attributeTypeName = attribute is DefaultGuidAttribute
+            ? nameof(DefaultAttribute)
+            : attribute.GetType().Name;
+
+        return $"{attributeTypeName}|{value}|{attribute.CodeExpression}";
     }
 
     private static string? FormatComment(IEnumerable<Attribute> attributes, DatabaseType databaseType)

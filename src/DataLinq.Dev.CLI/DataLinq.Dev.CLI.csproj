@@ -8,6 +8,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<InternalsVisibleTo Include="DataLinq.Tests.Unit" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="Spectre.Console" />
 		<PackageReference Include="System.CommandLine" />
 	</ItemGroup>
@@ -15,5 +19,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\DataLinq.DevTools\DataLinq.DevTools.csproj" />
 	</ItemGroup>
+
+	<Import Project="..\DataLinq.DevTools\RunnerBuildProvenance.targets" />
 
 </Project>

@@ -15,6 +15,7 @@ namespace DataLinq.MySql;
 public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
 {
     protected abstract DatabaseType DatabaseType { get; }
+    internal DatabaseType ProviderDatabaseType => DatabaseType;
 
     public static SqlFromMetadataFactory GetFactoryFromDatabaseType(DatabaseType databaseType)
     {
@@ -26,7 +27,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         throw new NotImplementedException($"No SQL factory for {databaseType}");
     }
 
-    private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum", "float", "double", "blob", "tinyblob", "mediumblob", "longblob" };
+    private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum", "float", "double", "blob", "tinyblob", "mediumblob", "longblob", "uuid" };
 
     public virtual Option<int, IDLOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
     {
@@ -85,7 +86,9 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             if (defaultValue != null)
                 row.DefaultValue(defaultValue);
 
-            sql.Unsigned(dbType.Signed);
+            sql.Unsigned(string.Equals(dbType.Name, "uuid", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : dbType.Signed);
             sql.Nullable(column.Nullable)
                 .Autoincrement(column.AutoIncrement);
 
@@ -124,6 +127,9 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             .Select(x => x as DefaultAttribute)
             .FirstOrDefault();
 
+        if (defaultAttr == null)
+            return null;
+
         if (defaultAttr is DefaultCurrentTimestampAttribute)
         {
             return column.ValueProperty.CsType.Name switch
@@ -134,13 +140,24 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             };
         }
 
-        if (defaultAttr is DefaultNewUUIDAttribute)
-            return "UUID()";
+        if (defaultAttr is DefaultNewUUIDAttribute defaultNewUuid)
+            throw CreateUnsupportedDatabaseGeneratedUuidDefaultException(column, defaultNewUuid);
 
         if (defaultAttr is DefaultSqlAttribute defaultSql)
             return defaultSql.DatabaseType is DatabaseType.Default || defaultSql.DatabaseType == DatabaseType
                 ? defaultSql.Expression
                 : null;
+
+        if (column.IsGuidColumn)
+        {
+            if (column.HasScalarConverter || defaultAttr.Value is not Guid guid)
+                throw CreateUnsupportedGuidDefaultException(column);
+
+            return FormatGuidDefaultValue(column, guid);
+        }
+
+        if (defaultAttr.Value is Guid)
+            throw CreateUnsupportedGuidDefaultException(column);
 
         if (column.ValueProperty.EnumProperty.HasValue)
         {
@@ -148,9 +165,6 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             if (enumDefaultValue != null)
                 return $"'{enumDefaultValue.Replace("'", "''")}'";
         }
-
-        if (defaultAttr == null)
-            return null;
 
         var dbType = GetDbType(column);
 
@@ -175,7 +189,6 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             "DateTime" => QuoteSqlString(((DateTime)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
             "DateTimeOffset" => QuoteSqlString(((DateTimeOffset)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture)),
             "TimeSpan" => QuoteSqlString(((TimeSpan)defaultAttr.Value).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture)),
-            "Guid" or "System.Guid" => FormatGuidDefaultValue((Guid)defaultAttr.Value, dbType),
             _ => Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture)
         };
     }
@@ -212,20 +225,34 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             : (boolValue ? "1" : "0");
     }
 
-    private static string FormatGuidDefaultValue(Guid value, DatabaseColumnType dbType)
+    private string FormatGuidDefaultValue(ColumnDefinition column, Guid value)
     {
-        if (dbType.Name.Equals("uuid", StringComparison.OrdinalIgnoreCase) ||
-            (dbType.Name.Equals("char", StringComparison.OrdinalIgnoreCase) && dbType.Length == 36) ||
-            (dbType.Name.Equals("varchar", StringComparison.OrdinalIgnoreCase) && dbType.Length == 36))
+        var physicalValue = SqlGuidStorageCodec.ToPhysicalValue(column, DatabaseType, value);
+
+        return physicalValue switch
         {
-            return QuoteSqlString(value.ToString());
-        }
-
-        if (dbType.Name.Equals("binary", StringComparison.OrdinalIgnoreCase) && dbType.Length == 16)
-            return $"X'{Convert.ToHexString(value.ToByteArray())}'";
-
-        return QuoteSqlString(value.ToString());
+            string text => QuoteSqlString(text),
+            byte[] bytes => $"X'{Convert.ToHexString(bytes)}'",
+            _ => throw new InvalidOperationException(
+                $"UUID storage for column '{column.Table.DbName}.{column.DbName}' produced unsupported physical default type '{physicalValue.GetType().FullName}'.")
+        };
     }
+
+    private static InvalidOperationException CreateUnsupportedGuidDefaultException(
+        ColumnDefinition column) =>
+        new(
+            $"Guid SQL default for column '{column.Table.DbName}.{column.DbName}' can be rendered only from a finalized Guid value on a direct canonical Guid mapping. " +
+            "Converter-backed mappings, noncanonical default values, and dynamic/generated UUID defaults require separate conversion or generation semantics and are not supported by this literal path.");
+
+    private InvalidOperationException CreateUnsupportedDatabaseGeneratedUuidDefaultException(
+        ColumnDefinition column,
+        DefaultNewUUIDAttribute attribute) =>
+        new(
+            $"Database-generated UUID default for column '{column.Table.DbName}.{column.DbName}' requests '{attribute.Version}' on '{DatabaseType}', " +
+            "but DataLinq has no verified provider-version and storage-format mapping for that contract. " +
+            $"DataLinq will not substitute UUID(), whose UUID version does not match '{attribute.Version}'. " +
+            $"Use a provider-scoped [DefaultSql(DatabaseType.{DatabaseType}, \"...\")] only when the provider expression and resulting physical storage are intentional, " +
+            "or generate the UUID in client code.");
 
     private static string? ResolveEnumDefaultValue(ValueProperty property, DefaultAttribute? defaultAttr)
     {

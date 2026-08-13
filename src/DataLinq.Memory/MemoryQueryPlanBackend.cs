@@ -1,0 +1,578 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using DataLinq.Instances;
+using DataLinq.Interfaces;
+using DataLinq.Linq.Planning;
+using DataLinq.Metadata;
+
+namespace DataLinq.Memory;
+
+internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
+{
+    private static readonly IReadOnlySet<QueryPlanFeature> supportedFeatures =
+        new HashSet<QueryPlanFeature>
+        {
+            QueryPlanFeature.SourceCount(QueryPlanSourceCountKind.Single),
+            QueryPlanFeature.SourceTopology(QueryPlanSourceTopology.ExactlyOneRoot),
+            QueryPlanFeature.SourceKind(QueryPlanSourceKind.RootTable),
+            QueryPlanFeature.SourceCardinality(QueryPlanSourceCardinality.Many),
+            QueryPlanFeature.SourceNullability(QueryPlanSourceNullability.NonNullable),
+            QueryPlanFeature.Operation(QueryPlanOperationKind.Where),
+            QueryPlanFeature.Operation(QueryPlanOperationKind.OrderBy),
+            QueryPlanFeature.Operation(QueryPlanOperationKind.Skip),
+            QueryPlanFeature.Operation(QueryPlanOperationKind.Take),
+            QueryPlanFeature.OrderingDirection(QueryPlanOrderingDirection.Ascending),
+            QueryPlanFeature.OrderingDirection(QueryPlanOrderingDirection.Descending),
+            QueryPlanFeature.OrderingShape(QueryPlanOrderingShape.SingleDirectNonNullableInt32PrimaryKeyColumn),
+            QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.SingleTakeAfterSingleOrdering),
+            QueryPlanFeature.PagingCompositionShape(QueryPlanPagingCompositionShape.SingleSkipAfterSingleOrdering),
+            QueryPlanFeature.PagingCompositionShape(
+                QueryPlanPagingCompositionShape.SingleTakeAfterSingleSkipAfterSingleOrdering),
+            QueryPlanFeature.ResultCompositionShape(
+                QueryPlanResultCompositionShape.FirstAfterSingleOrdering),
+            QueryPlanFeature.Predicate(QueryPlanPredicateKind.And),
+            QueryPlanFeature.Predicate(QueryPlanPredicateKind.Or),
+            QueryPlanFeature.Predicate(QueryPlanPredicateKind.Not),
+            QueryPlanFeature.Predicate(QueryPlanPredicateKind.Compare),
+            QueryPlanFeature.Predicate(QueryPlanPredicateKind.In),
+            QueryPlanFeature.PredicatePolarity(QueryPlanPredicatePolarity.Positive),
+            QueryPlanFeature.PredicatePolarity(QueryPlanPredicatePolarity.Negated),
+            QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.Equal),
+            QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.NotEqual),
+            QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.GreaterThan),
+            QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.GreaterThanOrEqual),
+            QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.LessThan),
+            QueryPlanFeature.ComparisonOperator(QueryPlanComparisonOperator.LessThanOrEqual),
+            QueryPlanFeature.NullSemantics(QueryPlanNullSemantics.Default),
+            QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.DirectNonNullableInt32ColumnAndScalar),
+            QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.NonNullableCanonicalGuidColumnAndScalar),
+            QueryPlanFeature.MembershipShape(
+                QueryPlanMembershipShape.DirectNonNullableInt32ColumnAndLocalSequence),
+            QueryPlanFeature.ValueKind(QueryPlanValueKind.Column, QueryPlanValueUse.PredicateOperand),
+            QueryPlanFeature.ValueKind(QueryPlanValueKind.ScalarBinding, QueryPlanValueUse.PredicateOperand),
+            QueryPlanFeature.ValueKind(QueryPlanValueKind.Column, QueryPlanValueUse.MembershipItem),
+            QueryPlanFeature.ValueKind(
+                QueryPlanValueKind.LocalSequenceBinding,
+                QueryPlanValueUse.MembershipSequence),
+            QueryPlanFeature.ValueKind(QueryPlanValueKind.Column, QueryPlanValueUse.Ordering),
+            QueryPlanFeature.ValueKind(QueryPlanValueKind.ScalarBinding, QueryPlanValueUse.PagingCount),
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegativeInt32ScalarBinding),
+            QueryPlanFeature.Projection(QueryPlanProjectionKind.Entity),
+            QueryPlanFeature.Projection(QueryPlanProjectionKind.ScalarMember),
+            QueryPlanFeature.ProjectionDisposition(QueryPlanProjectionDisposition.Direct),
+            QueryPlanFeature.ScalarProjectionShape(
+                QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn),
+            QueryPlanFeature.ScalarProjectionShape(
+                QueryPlanScalarProjectionShape.DirectModelValueRootColumn),
+            QueryPlanFeature.Result(QueryPlanResultKind.Sequence),
+            QueryPlanFeature.Result(QueryPlanResultKind.Single),
+            QueryPlanFeature.Result(QueryPlanResultKind.SingleOrDefault),
+            QueryPlanFeature.Result(QueryPlanResultKind.First),
+            QueryPlanFeature.Result(QueryPlanResultKind.FirstOrDefault),
+            QueryPlanFeature.Result(QueryPlanResultKind.Any),
+            QueryPlanFeature.Result(QueryPlanResultKind.Count),
+            QueryPlanFeature.BindingKind(QueryPlanBindingKind.Scalar),
+            QueryPlanFeature.BindingKind(QueryPlanBindingKind.LocalSequence),
+            QueryPlanFeature.ScalarNullness(QueryPlanBindingNullness.NonNull),
+            QueryPlanFeature.LocalSequenceShape(QueryPlanLocalSequenceShapeKind.Empty),
+            QueryPlanFeature.LocalSequenceShape(QueryPlanLocalSequenceShapeKind.NonEmptyWithoutNulls),
+            QueryPlanFeature.ValueKind(
+                QueryPlanValueKind.Column,
+                QueryPlanValueUse.ProjectionMember)
+        };
+
+    internal static IReadOnlyList<string> SupportedCapabilityTokens { get; } =
+        supportedFeatures
+            .Select(static feature => feature.Token)
+            .OrderBy(static token => token, StringComparer.Ordinal)
+            .ToArray();
+
+    private static readonly QueryBackendCapabilities capabilities = new(
+        "memory",
+        QueryPlanFeatureCatalog.All.Select(static feature =>
+            new KeyValuePair<QueryPlanFeature, QueryBackendCapabilityDisposition>(
+                feature,
+                supportedFeatures.Contains(feature)
+                    ? QueryBackendCapabilityDisposition.Supported
+                    : QueryBackendCapabilityDisposition.Unsupported)));
+
+    private readonly MemoryReadSource source;
+
+    internal MemoryQueryPlanBackend(MemoryReadSource source)
+    {
+        this.source = source ?? throw new ArgumentNullException(nameof(source));
+    }
+
+    public IDataLinqReadSource Source => source;
+
+    public QueryBackendCapabilities Capabilities => capabilities;
+
+    public IQueryEntityCursor OpenEntityCursor(ValidatedQueryExecutionRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        request.EnsureBackend(this);
+        request.Context.CancellationToken.ThrowIfCancellationRequested();
+
+        var template = request.Invocation.Template;
+        if (template.Sources.Count != 1 ||
+            template.Projection is not QueryPlanProjection.Entity
+            {
+                Source.Kind: QueryPlanSourceKind.RootTable
+            } entity ||
+            !ReferenceEquals(entity.Source, template.Sources[0]) ||
+            !IsCursorResult(template.Result.Kind))
+        {
+            throw CreateCapabilityInvariantException(request);
+        }
+
+        var executionPlan = MemoryRowExecutionPlan.Compile(request, entity.Source);
+        return new MemoryEntityCursor(
+            source,
+            OpenCanonicalRowCursor(entity.Source, executionPlan, request.Context.CancellationToken),
+            MemorySingleResult.IsSupported(template.Result.Kind),
+            MemoryFirstResult.IsSupported(template.Result.Kind),
+            request.Context.CancellationToken);
+    }
+
+    public IQueryProjectionCursor<TResult> OpenProjectionCursor<TResult>(
+        ValidatedQueryExecutionRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        request.EnsureBackend(this);
+        request.Context.CancellationToken.ThrowIfCancellationRequested();
+
+        var template = request.Invocation.Template;
+        if (template.Sources.Count != 1 ||
+            template.Projection is not QueryPlanProjection.ScalarMember
+            {
+                Source.Kind: QueryPlanSourceKind.RootTable
+            } projection ||
+            !ReferenceEquals(projection.Source, template.Sources[0]) ||
+            !IsCursorResult(template.Result.Kind) ||
+            template.Result.ResultType != typeof(TResult) ||
+            projection.ResultType != typeof(TResult) ||
+            !IsSupportedScalarProjection(projection, template.Sources))
+        {
+            throw CreateCapabilityInvariantException(request);
+        }
+
+        var executionPlan = MemoryRowExecutionPlan.Compile(request, projection.Source);
+        return new MemoryScalarProjectionCursor<TResult>(
+            OpenCanonicalRowCursor(
+                projection.Source,
+                executionPlan,
+                request.Context.CancellationToken),
+            projection.Column,
+            MemorySingleResult.IsSupported(template.Result.Kind),
+            MemoryFirstResult.IsSupported(template.Result.Kind),
+            request.Context.CancellationToken);
+    }
+
+    public TResult ExecuteScalar<TResult>(ValidatedQueryExecutionRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        request.EnsureBackend(this);
+        var cancellationToken = request.Context.CancellationToken;
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var template = request.Invocation.Template;
+        if (template.Sources.Count != 1 ||
+            template.Sources[0].Kind != QueryPlanSourceKind.RootTable)
+        {
+            throw CreateCapabilityInvariantException(request);
+        }
+
+        var rootSource = template.Projection switch
+        {
+            QueryPlanProjection.Entity entity
+                when ReferenceEquals(entity.Source, template.Sources[0]) => entity.Source,
+            QueryPlanProjection.ScalarMember projection
+                when ReferenceEquals(projection.Source, template.Sources[0]) &&
+                     IsSupportedScalarProjection(projection, template.Sources) => projection.Source,
+            _ => null
+        };
+        var requiredResultType = template.Result.Kind switch
+        {
+            QueryPlanResultKind.Any => typeof(bool),
+            QueryPlanResultKind.Count => typeof(int),
+            _ => null
+        };
+        if (rootSource is null ||
+            requiredResultType is null ||
+            template.Result.ResultType != requiredResultType ||
+            typeof(TResult) != requiredResultType)
+        {
+            throw CreateCapabilityInvariantException(request);
+        }
+
+        var executionPlan = MemoryRowExecutionPlan.Compile(request, rootSource);
+        using var rows = OpenCanonicalRowCursor(rootSource, executionPlan, cancellationToken);
+        object result = template.Result.Kind switch
+        {
+            QueryPlanResultKind.Any => MoveAny(rows, cancellationToken),
+            QueryPlanResultKind.Count => CountRows(rows, cancellationToken),
+            _ => throw CreateCapabilityInvariantException(request)
+        };
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return (TResult)result;
+    }
+
+    public bool TryExecuteTerminalEntity(
+        ValidatedQueryExecutionRequest request,
+        out IImmutableInstance? result)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        request.EnsureBackend(this);
+        request.Context.CancellationToken.ThrowIfCancellationRequested();
+
+        var template = request.Invocation.Template;
+        if (template.Sources.Count != 1 ||
+            template.Projection is not QueryPlanProjection.Entity
+            {
+                Source.Kind: QueryPlanSourceKind.RootTable
+            } entity ||
+            !ReferenceEquals(entity.Source, template.Sources[0]) ||
+            !IsElementResult(template.Result.Kind))
+        {
+            throw CreateCapabilityInvariantException(request);
+        }
+
+        result = null;
+        return false;
+    }
+
+    private static bool IsCursorResult(QueryPlanResultKind resultKind) =>
+        resultKind == QueryPlanResultKind.Sequence ||
+        IsElementResult(resultKind);
+
+    private static bool IsElementResult(QueryPlanResultKind resultKind) =>
+        MemorySingleResult.IsSupported(resultKind) ||
+        MemoryFirstResult.IsSupported(resultKind);
+
+    private static bool IsSupportedScalarProjection(
+        QueryPlanProjection.ScalarMember projection,
+        IReadOnlyList<QueryPlanSourceSlot> sources) =>
+        QueryPlanScalarProjectionShapeFacts.Classify(projection, sources) is
+            QueryPlanScalarProjectionShape.DirectNonNullableInt32RootColumn or
+            QueryPlanScalarProjectionShape.DirectModelValueRootColumn;
+
+    private MemoryCanonicalRowCursor OpenCanonicalRowCursor(
+        QueryPlanSourceSlot rootSource,
+        MemoryRowExecutionPlan executionPlan,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var rows = source.GetRows(rootSource.Table);
+        cancellationToken.ThrowIfCancellationRequested();
+        return new MemoryCanonicalRowCursor(source, rows, executionPlan, cancellationToken);
+    }
+
+    private static bool MoveAny(
+        MemoryCanonicalRowCursor rows,
+        CancellationToken cancellationToken)
+    {
+        var result = rows.MoveNext();
+        cancellationToken.ThrowIfCancellationRequested();
+        return result;
+    }
+
+    private static int CountRows(
+        MemoryCanonicalRowCursor rows,
+        CancellationToken cancellationToken)
+    {
+        var count = 0;
+        while (rows.MoveNext())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            count = checked(count + 1);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return count;
+    }
+
+    private static InvalidOperationException CreateCapabilityInvariantException(
+        ValidatedQueryExecutionRequest request) =>
+        new(
+            "The memory capability profile validated a request outside its implemented " +
+            $"query shape. Projection: '{request.Invocation.Template.Projection.Kind}'; " +
+            $"result: '{request.Invocation.Template.Result.Kind}'; operations: {request.Invocation.Template.Operations.Count}.");
+}
+
+internal static class MemorySingleResult
+{
+    internal static bool IsSupported(QueryPlanResultKind resultKind) =>
+        resultKind is QueryPlanResultKind.Single or QueryPlanResultKind.SingleOrDefault;
+
+    internal static InvalidOperationException MoreThanOneElement() =>
+        new("Sequence contains more than one element");
+}
+
+internal static class MemoryFirstResult
+{
+    internal static bool IsSupported(QueryPlanResultKind resultKind) =>
+        resultKind is QueryPlanResultKind.First or QueryPlanResultKind.FirstOrDefault;
+}
+
+internal sealed class MemoryCanonicalRowCursor : IDisposable
+{
+    private readonly MemoryReadSource source;
+    private readonly MemoryRowExecutionPlan executionPlan;
+    private readonly CancellationToken cancellationToken;
+    private IReadOnlyList<CanonicalProviderValueRow>? rows;
+    private CanonicalProviderValueRow? current;
+    private int nextRowIndex;
+    private bool orderedRowsPrepared;
+
+    internal MemoryCanonicalRowCursor(
+        MemoryReadSource source,
+        IReadOnlyList<CanonicalProviderValueRow> rows,
+        MemoryRowExecutionPlan executionPlan,
+        CancellationToken cancellationToken)
+    {
+        this.source = source ?? throw new ArgumentNullException(nameof(source));
+        this.rows = rows ?? throw new ArgumentNullException(nameof(rows));
+        this.executionPlan = executionPlan ?? throw new ArgumentNullException(nameof(executionPlan));
+        this.cancellationToken = cancellationToken;
+    }
+
+    internal CanonicalProviderValueRow Current => current ?? throw new InvalidOperationException(
+        "The memory query cursor is not positioned on a row.");
+
+    internal bool MoveNext()
+    {
+        current = null;
+        var currentRows = rows;
+        if (currentRows is null)
+            return false;
+
+        try
+        {
+            if (executionPlan.RequiresBufferedOrdering)
+                return MoveNextOrdered(currentRows);
+
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (nextRowIndex >= currentRows.Count)
+                {
+                    Dispose();
+                    return false;
+                }
+
+                var row = currentRows[nextRowIndex++];
+                source.RecordScanRowVisited();
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!executionPlan.Matches(row, source, cancellationToken))
+                    continue;
+
+                current = row;
+                return true;
+            }
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
+    }
+
+    private bool MoveNextOrdered(IReadOnlyList<CanonicalProviderValueRow> currentRows)
+    {
+        if (!orderedRowsPrepared)
+        {
+            currentRows = executionPlan.PrepareOrderedRows(currentRows, source, cancellationToken);
+            rows = currentRows;
+            orderedRowsPrepared = true;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (nextRowIndex >= currentRows.Count)
+        {
+            Dispose();
+            return false;
+        }
+
+        var row = currentRows[nextRowIndex++];
+        cancellationToken.ThrowIfCancellationRequested();
+        current = row;
+        return true;
+    }
+
+    public void Dispose()
+    {
+        rows = null;
+        current = null;
+    }
+}
+
+internal sealed class MemoryEntityCursor : IQueryEntityCursor
+{
+    private readonly MemoryReadSource source;
+    private readonly bool requiresSingleCardinality;
+    private readonly bool returnsAtMostOne;
+    private readonly CancellationToken cancellationToken;
+    private MemoryCanonicalRowCursor? rows;
+    private IImmutableInstance? current;
+    private bool hasYieldedResult;
+
+    internal MemoryEntityCursor(
+        MemoryReadSource source,
+        MemoryCanonicalRowCursor rows,
+        bool requiresSingleCardinality,
+        bool returnsAtMostOne,
+        CancellationToken cancellationToken)
+    {
+        this.source = source ?? throw new ArgumentNullException(nameof(source));
+        this.rows = rows ?? throw new ArgumentNullException(nameof(rows));
+        this.requiresSingleCardinality = requiresSingleCardinality;
+        this.returnsAtMostOne = returnsAtMostOne;
+        this.cancellationToken = cancellationToken;
+    }
+
+    public IImmutableInstance Current => current ?? throw new InvalidOperationException(
+        "The memory entity cursor is not positioned on a row.");
+
+    public bool MoveNext()
+    {
+        current = null;
+        var currentRows = rows;
+        if (currentRows is null)
+            return false;
+
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (returnsAtMostOne && hasYieldedResult)
+            {
+                Dispose();
+                return false;
+            }
+
+            if (!currentRows.MoveNext())
+            {
+                Dispose();
+                return false;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var canonicalRow = currentRows.Current;
+            if (requiresSingleCardinality && currentRows.MoveNext())
+                throw MemorySingleResult.MoreThanOneElement();
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var next = source.Materialize(canonicalRow);
+            cancellationToken.ThrowIfCancellationRequested();
+            current = next;
+            hasYieldedResult = true;
+            return true;
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
+    }
+
+    public void Dispose()
+    {
+        current = null;
+        var currentRows = rows;
+        rows = null;
+        currentRows?.Dispose();
+    }
+}
+
+internal sealed class MemoryScalarProjectionCursor<TResult> : IQueryProjectionCursor<TResult>
+{
+    private const string ProjectionSourceName = "memory:scalar-projection";
+    private readonly ColumnDefinition column;
+    private readonly bool requiresSingleCardinality;
+    private readonly bool returnsAtMostOne;
+    private readonly CancellationToken cancellationToken;
+    private MemoryCanonicalRowCursor? rows;
+    private TResult? current;
+    private bool hasCurrent;
+    private bool hasYieldedResult;
+
+    internal MemoryScalarProjectionCursor(
+        MemoryCanonicalRowCursor rows,
+        ColumnDefinition column,
+        bool requiresSingleCardinality,
+        bool returnsAtMostOne,
+        CancellationToken cancellationToken)
+    {
+        this.rows = rows ?? throw new ArgumentNullException(nameof(rows));
+        this.column = column ?? throw new ArgumentNullException(nameof(column));
+        this.requiresSingleCardinality = requiresSingleCardinality;
+        this.returnsAtMostOne = returnsAtMostOne;
+        this.cancellationToken = cancellationToken;
+    }
+
+    public TResult Current => hasCurrent && rows is not null
+        ? current!
+        : throw new InvalidOperationException(
+            "The memory scalar-projection cursor is not positioned on a result.");
+
+    public bool MoveNext()
+    {
+        hasCurrent = false;
+        current = default;
+        var currentRows = rows;
+        if (currentRows is null)
+            return false;
+
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (returnsAtMostOne && hasYieldedResult)
+            {
+                Dispose();
+                return false;
+            }
+
+            if (!currentRows.MoveNext())
+            {
+                Dispose();
+                return false;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var canonicalRow = currentRows.Current;
+            if (requiresSingleCardinality && currentRows.MoveNext())
+                throw MemorySingleResult.MoreThanOneElement();
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var canonicalValue = canonicalRow[column];
+            cancellationToken.ThrowIfCancellationRequested();
+            var modelValue = ProviderRowMaterializer.MaterializeValue(
+                column,
+                canonicalValue,
+                ProjectionSourceName);
+            cancellationToken.ThrowIfCancellationRequested();
+            var next = QueryProjectionResultMaterializer.ConvertResult<TResult>(modelValue);
+            cancellationToken.ThrowIfCancellationRequested();
+            current = next;
+            hasCurrent = true;
+            hasYieldedResult = true;
+            return true;
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
+    }
+
+    public void Dispose()
+    {
+        hasCurrent = false;
+        current = default;
+        var currentRows = rows;
+        rows = null;
+        currentRows?.Dispose();
+    }
+}

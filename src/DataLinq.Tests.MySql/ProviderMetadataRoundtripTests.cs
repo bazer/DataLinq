@@ -572,6 +572,59 @@ public class ProviderMetadataRoundtripTests
         await Assert.That(differences).IsEmpty();
     }
 
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseDatabase_UuidFunctionDefault_RemainsProviderSql(TestProviderDescriptor provider)
+    {
+        using var schema = ServerSchemaDatabase.Create(
+            provider,
+            nameof(ParseDatabase_UuidFunctionDefault_RemainsProviderSql),
+            """
+            CREATE TABLE `uuid_default_account` (
+                `id` INT PRIMARY KEY,
+                `public_id` CHAR(36) NOT NULL DEFAULT (UUID())
+            );
+            """);
+
+        var firstRead = schema.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var publicId = firstRead.TableModels
+            .Single(x => x.Table.DbName == "uuid_default_account")
+            .Table.Columns.Single(x => x.DbName == "public_id");
+        var defaultSql = (DefaultSqlAttribute)publicId.ValueProperty.GetDefaultAttribute()!;
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(firstRead)
+            .Single(file => file.path == "UuidDefaultAccount.cs");
+        var generatedSql = SqlFromMetadataFactory
+            .GetFactoryFromDatabaseType(provider.DatabaseType)
+            .GetCreateTables(firstRead, foreignKeyRestrict: false)
+            .ValueOrException();
+
+        using var generated = ServerSchemaDatabase.Create(
+            provider,
+            $"{nameof(ParseDatabase_UuidFunctionDefault_RemainsProviderSql)}_Generated",
+            generatedSql.Text);
+        var secondRead = generated.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var differences = MetadataRoundtripComparison.CompareSupportedSubset(
+            firstRead,
+            secondRead,
+            provider.DatabaseType);
+
+        await Assert.That(defaultSql.DatabaseType).IsEqualTo(provider.DatabaseType);
+        await Assert.That(defaultSql.Expression).Contains("UUID()", StringComparison.OrdinalIgnoreCase);
+        await Assert.That(generatedFile.contents).Contains($"[DefaultSql(DatabaseType.{provider.DatabaseType},");
+        await Assert.That(generatedFile.contents).DoesNotContain("DefaultNewUUID");
+        await Assert.That(generatedSql.Text).Contains("UUID()", StringComparison.OrdinalIgnoreCase);
+        await Assert.That(differences).IsEmpty();
+    }
+
     private static readonly string[] FirstSliceSchemaStatements =
     [
         """

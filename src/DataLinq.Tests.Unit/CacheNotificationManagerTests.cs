@@ -91,6 +91,50 @@ public class CacheNotificationManagerTests
 
     [Test]
     [NotInParallel]
+    public async Task Notify_WhenSubscriberThrows_ContinuesSweepAndRethrowsOriginalFailure()
+    {
+        var expected = new InvalidOperationException("first notification failure");
+        var throwingSubscriber = new ThrowingSubscriber(expected);
+        var laterSubscriber = new MockSubscriber();
+        manager.Subscribe(throwingSubscriber);
+        manager.Subscribe(laterSubscriber);
+        var occupiedNotificationBytes = manager.GetMemoryEstimate().NotificationBytes;
+
+        var observed = Capture<InvalidOperationException>(manager.Notify);
+
+        await Assert.That(observed).IsSameReferenceAs(expected);
+        await Assert.That(throwingSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(laterSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(GetSubscriberCount()).IsEqualTo(0);
+        await Assert.That(manager.GetMemoryEstimate().NotificationBytes).IsLessThan(occupiedNotificationBytes);
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task Notify_WhenMultipleSubscribersThrow_CompletesSweepAndAggregatesFailures()
+    {
+        var firstFailure = new InvalidOperationException("first notification failure");
+        var secondFailure = new NotSupportedException("second notification failure");
+        var firstSubscriber = new ThrowingSubscriber(firstFailure);
+        var secondSubscriber = new ThrowingSubscriber(secondFailure);
+        var laterSubscriber = new MockSubscriber();
+        manager.Subscribe(firstSubscriber);
+        manager.Subscribe(secondSubscriber);
+        manager.Subscribe(laterSubscriber);
+
+        var observed = Capture<AggregateException>(manager.Notify);
+
+        await Assert.That(observed.InnerExceptions.Count).IsEqualTo(2);
+        await Assert.That(observed.InnerExceptions[0]).IsSameReferenceAs(firstFailure);
+        await Assert.That(observed.InnerExceptions[1]).IsSameReferenceAs(secondFailure);
+        await Assert.That(firstSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(secondSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(laterSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(GetSubscriberCount()).IsEqualTo(0);
+    }
+
+    [Test]
+    [NotInParallel]
     public async Task Notify_DoesNotNotifyGarbageCollectedSubscriber()
     {
         var liveSubscriber = new MockSubscriber();
@@ -121,6 +165,78 @@ public class CacheNotificationManagerTests
         manager.Notify();
 
         await Assert.That(subscriber.ClearCacheCallCount).IsEqualTo(1);
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task Discard_DropsSubscribersWithoutInvokingAndRepairsAccounting()
+    {
+        var firstSubscriber = new MockSubscriber();
+        var secondSubscriber = new MockSubscriber();
+        manager.Subscribe(firstSubscriber);
+        manager.Subscribe(secondSubscriber);
+        var occupiedNotificationBytes = manager.GetMemoryEstimate().NotificationBytes;
+
+        manager.Discard();
+
+        await Assert.That(GetSubscriberCount()).IsEqualTo(0);
+        await Assert.That(manager.GetMemoryEstimate().NotificationBytes).IsLessThan(occupiedNotificationBytes);
+        await Assert.That(firstSubscriber.ClearCacheCallCount).IsEqualTo(0);
+        await Assert.That(secondSubscriber.ClearCacheCallCount).IsEqualTo(0);
+
+        manager.Notify();
+
+        await Assert.That(firstSubscriber.ClearCacheCallCount).IsEqualTo(0);
+        await Assert.That(secondSubscriber.ClearCacheCallCount).IsEqualTo(0);
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task DiscardTransaction_DropsOnlyMatchingSubscribersWithoutInvokingAndRepairsAccounting()
+    {
+        var provider = new FakeDatabaseProvider();
+        var firstTransaction = new Transaction(provider, TransactionType.ReadAndWrite);
+        var secondTransaction = new Transaction(provider, TransactionType.ReadAndWrite);
+        var table = CreateNotificationTable();
+        var relationKey = new RelationCacheKey(
+            table.ColumnIndices.Single(x => x.Name == "idx_memory_notification_rows_name"),
+            DataLinqKey.FromValue("dept-1"));
+        var globalSubscriber = new MockSubscriber();
+        var firstTransactionSubscriber = new MockSubscriber();
+        var secondTransactionSubscriber = new MockSubscriber();
+
+        manager.Subscribe(globalSubscriber);
+        manager.Subscribe(
+            firstTransactionSubscriber,
+            firstTransaction,
+            relationKey,
+            [DataLinqKey.FromValue(1)]);
+        manager.Subscribe(
+            secondTransactionSubscriber,
+            secondTransaction,
+            relationKey,
+            [DataLinqKey.FromValue(2)]);
+        var occupiedEstimate = manager.GetMemoryEstimate();
+
+        manager.Discard(firstTransaction);
+
+        var retainedEstimate = manager.GetMemoryEstimate();
+        await Assert.That(GetSubscriberCount()).IsEqualTo(2);
+        await Assert.That(retainedEstimate.NotificationBytes)
+            .IsLessThan(occupiedEstimate.NotificationBytes);
+        await Assert.That(retainedEstimate.RelationObjectBytes)
+            .IsLessThan(occupiedEstimate.RelationObjectBytes);
+        await Assert.That(retainedEstimate.RelationObjectBytes).IsGreaterThan(0);
+        await Assert.That(globalSubscriber.ClearCacheCallCount).IsEqualTo(0);
+        await Assert.That(firstTransactionSubscriber.ClearCacheCallCount).IsEqualTo(0);
+        await Assert.That(secondTransactionSubscriber.ClearCacheCallCount).IsEqualTo(0);
+
+        manager.Notify();
+
+        await Assert.That(globalSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(firstTransactionSubscriber.ClearCacheCallCount).IsEqualTo(0);
+        await Assert.That(secondTransactionSubscriber.ClearCacheCallCount).IsEqualTo(1);
+        await Assert.That(GetSubscriberCount()).IsEqualTo(0);
     }
 
     [Test]
@@ -173,6 +289,21 @@ public class CacheNotificationManagerTests
         var subscribersField = typeof(TableCache.CacheNotificationManager).GetField("_subscribers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         var queue = subscribersField!.GetValue(manager)!;
         return (int)queue.GetType().GetProperty("Count")!.GetValue(queue)!;
+    }
+
+    private static TException Capture<TException>(Action action)
+        where TException : Exception
+    {
+        try
+        {
+            action();
+        }
+        catch (TException exception)
+        {
+            return exception;
+        }
+
+        throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -258,6 +389,19 @@ public class CacheNotificationManagerTests
         }
     }
 
+    private sealed class ThrowingSubscriber(Exception exception) : ICacheNotification
+    {
+        private int clearCacheCallCount;
+
+        public int ClearCacheCallCount => clearCacheCallCount;
+
+        public void Clear()
+        {
+            Interlocked.Increment(ref clearCacheCallCount);
+            throw exception;
+        }
+    }
+
     private sealed class FakeDatabaseProvider : IDatabaseProvider
     {
         public string TelemetryInstanceId { get; } = Guid.NewGuid().ToString("N");
@@ -272,7 +416,8 @@ public class CacheNotificationManagerTests
 
         public IDbCommand ToDbCommand(IQuery query) => throw new NotSupportedException();
         public Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite) => throw new NotSupportedException();
-        public DatabaseTransaction GetNewDatabaseTransaction(TransactionType type) => throw new NotSupportedException();
+        public DatabaseTransaction GetNewDatabaseTransaction(TransactionType type) =>
+            new FakeDatabaseTransaction(type);
         public DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) => throw new NotSupportedException();
         public string GetLastIdQuery() => throw new NotSupportedException();
         public string GetSqlForFunction(SqlFunctionType functionType, string columnName, object[]? arguments) => throw new NotSupportedException();
@@ -293,5 +438,20 @@ public class CacheNotificationManagerTests
         public IDbConnection GetDbConnection() => throw new NotSupportedException();
         public Sql GetCreateSql() => throw new NotSupportedException();
         public void Dispose() { }
+    }
+
+    private sealed class FakeDatabaseTransaction(TransactionType type) : DatabaseTransaction(type)
+    {
+        public override IDataLinqDataReader ExecuteReader(IDbCommand command) => throw new NotSupportedException();
+        public override IDataLinqDataReader ExecuteReader(string query) => throw new NotSupportedException();
+        public override object? ExecuteScalar(IDbCommand command) => throw new NotSupportedException();
+        public override T ExecuteScalar<T>(IDbCommand command) => throw new NotSupportedException();
+        public override object? ExecuteScalar(string query) => throw new NotSupportedException();
+        public override T ExecuteScalar<T>(string query) => throw new NotSupportedException();
+        public override int ExecuteNonQuery(IDbCommand command) => throw new NotSupportedException();
+        public override int ExecuteNonQuery(string query) => throw new NotSupportedException();
+        public override void Rollback() => throw new NotSupportedException();
+        public override void Commit() => throw new NotSupportedException();
+        public override void Dispose() { }
     }
 }

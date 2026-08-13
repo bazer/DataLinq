@@ -180,8 +180,20 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
 
     protected IDataSourceAccess GetDataSource()
     {
-        if (dataSource is Transaction transaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
-            dataSource = dataSource.Provider.ReadOnlyAccess;
+        if (dataSource is Transaction transaction)
+        {
+            if (transaction.Status == DatabaseTransactionStatus.Committed ||
+                transaction.Status == DatabaseTransactionStatus.RolledBack)
+            {
+                transaction.EnsureTerminalReadSourceFallbackAllowed(
+                    "switch a transaction-bound relation to committed reads");
+                dataSource = dataSource.Provider.ReadOnlyAccess;
+            }
+            else
+            {
+                transaction.EnsureCanRead("access a transaction-bound relation");
+            }
+        }
 
         return dataSource;
     }

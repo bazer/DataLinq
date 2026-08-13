@@ -63,6 +63,72 @@ public class DefaultAttribute<T>(T value) : DefaultAttribute(value ?? throw new 
     public new T Value => (T)base.Value;
 }
 
+/// <summary>
+/// Declares a fixed model <see cref="Guid"/> default using a legal,
+/// storage-neutral C# attribute argument.
+/// </summary>
+/// <remarks>
+/// The string is a source carrier only. DataLinq metadata represents the
+/// default as the parsed <see cref="Guid"/> value.
+/// </remarks>
+[AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
+public sealed class DefaultGuidAttribute : DefaultAttribute
+{
+    /// <summary>
+    /// Creates a fixed model <see cref="Guid"/> default from its exact
+    /// 36-character <c>D</c> representation.
+    /// </summary>
+    /// <param name="value">
+    /// The fixed Guid in <c>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</c> form.
+    /// </param>
+    public DefaultGuidAttribute(string value) : base(ParseExactD(value))
+    {
+    }
+
+    internal static bool TryParseExactD(string? value, out Guid guid)
+    {
+        guid = default;
+
+        if (value is null || value.Length != 36)
+            return false;
+
+        for (var index = 0; index < value.Length; index++)
+        {
+            if (index is 8 or 13 or 18 or 23)
+            {
+                if (value[index] != '-')
+                    return false;
+
+                continue;
+            }
+
+            if (!IsHexDigit(value[index]))
+                return false;
+        }
+
+        return Guid.TryParseExact(value, "D", out guid);
+    }
+
+    private static Guid ParseExactD(string value)
+    {
+        if (value is null)
+            throw new ArgumentNullException(nameof(value));
+
+        if (!TryParseExactD(value, out var guid))
+        {
+            throw new ArgumentException(
+                "Default Guid values must use the exact 36-character 'D' format " +
+                "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx. Compact, braced, and parenthesized forms are not accepted.",
+                nameof(value));
+        }
+
+        return guid;
+    }
+
+    private static bool IsHexDigit(char value) =>
+        value is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F';
+}
+
 [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
 public class DefaultSqlAttribute(DatabaseType databaseType, string expression) : DefaultAttribute(expression)
 {

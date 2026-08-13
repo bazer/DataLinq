@@ -10,4 +10,10 @@
 		<PackageReference Include="Microsoft.Playwright" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<InternalsVisibleTo Include="DataLinq.Tests.Unit" />
+	</ItemGroup>
+
+	<Import Project="RunnerBuildProvenance.targets" />
+
 </Project>

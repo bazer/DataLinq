@@ -1,0 +1,48 @@
+<Project>
+	<PropertyGroup>
+		<!-- Ensure Visual Studio invokes MSBuild so repository state is sampled even when
+		     no tracked source timestamp changed. Command-line builds already do this. -->
+		<DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
+		<_DataLinqRunnerRepositoryRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)..\..'))</_DataLinqRunnerRepositoryRoot>
+	</PropertyGroup>
+
+	<Target Name="CaptureDataLinqRunnerRepositoryBuildState"
+			BeforeTargets="GetAssemblyAttributes"
+			Condition="'$(DesignTimeBuild)' != 'true'">
+		<PropertyGroup>
+			<_DataLinqRunnerRepositoryBuildState>unknown</_DataLinqRunnerRepositoryBuildState>
+			<_DataLinqRunnerGitStatusExitCode>-1</_DataLinqRunnerGitStatusExitCode>
+		</PropertyGroup>
+
+		<ItemGroup>
+			<_DataLinqRunnerGitStatusLine Remove="@(_DataLinqRunnerGitStatusLine)" />
+			<AssemblyMetadata Remove="DataLinqRepositoryBuildState" />
+		</ItemGroup>
+
+		<!-- Capture in-memory rather than through a shared probe file so concurrent builds
+		     cannot observe a temporarily truncated status. Any successful output is
+		     conservatively treated as dirty, including an unusual Git warning. -->
+		<Exec Command="git --no-optional-locks status --porcelain=v1 --untracked-files=all --ignore-submodules=none"
+			  WorkingDirectory="$(_DataLinqRunnerRepositoryRoot)"
+			  ConsoleToMSBuild="true"
+			  IgnoreExitCode="true"
+			  StandardOutputImportance="Low"
+			  StandardErrorImportance="Low">
+			<Output TaskParameter="ExitCode" PropertyName="_DataLinqRunnerGitStatusExitCode" />
+			<Output TaskParameter="ConsoleOutput" ItemName="_DataLinqRunnerGitStatusLine" />
+		</Exec>
+
+		<PropertyGroup>
+			<_DataLinqRunnerGitStatusLineCount>@(_DataLinqRunnerGitStatusLine->Count())</_DataLinqRunnerGitStatusLineCount>
+			<_DataLinqRunnerRepositoryBuildState
+				Condition="'$(_DataLinqRunnerGitStatusExitCode)' == '0' and '$(_DataLinqRunnerGitStatusLineCount)' == '0'">clean</_DataLinqRunnerRepositoryBuildState>
+			<_DataLinqRunnerRepositoryBuildState
+				Condition="'$(_DataLinqRunnerGitStatusExitCode)' == '0' and '$(_DataLinqRunnerGitStatusLineCount)' != '0'">dirty</_DataLinqRunnerRepositoryBuildState>
+		</PropertyGroup>
+
+		<ItemGroup>
+			<AssemblyMetadata Include="DataLinqRepositoryBuildState"
+						  Value="$(_DataLinqRunnerRepositoryBuildState)" />
+		</ItemGroup>
+	</Target>
+</Project>

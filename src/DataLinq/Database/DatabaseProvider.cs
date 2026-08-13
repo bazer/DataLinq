@@ -40,10 +40,11 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
             typeof(T),
             databaseType,
             loggingConfiguration,
+            databaseName: null,
             metadataFactory: MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>,
-            createReadOnlyAccess: false)
+            createReadOnlyAccess: false,
+            metadataBinder: BindGeneratedMetadata)
     {
-        T.SetDataLinqGeneratedMetadata(Metadata);
         ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
 
@@ -61,11 +62,16 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
             loggingConfiguration,
             databaseName: databaseName,
             metadataFactory: MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>,
-            createReadOnlyAccess: false)
+            createReadOnlyAccess: false,
+            metadataBinder: BindGeneratedMetadata)
     {
-        T.SetDataLinqGeneratedMetadata(Metadata);
         ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
+
+    // Keep the delegate target as an ordinary static method. Mono WebAssembly AOT cannot
+    // reliably invoke a delegate that targets this generic static-interface hook directly.
+    private static void BindGeneratedMetadata(DatabaseDefinition metadata) =>
+        T.SetDataLinqGeneratedMetadata(metadata);
 
 }
 
@@ -86,8 +92,6 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     public virtual ReadOnlyAccess ReadOnlyAccess { get; protected set; } = null!;
     public DatabaseDefinition Metadata { get; }
     public State State { get; }
-
-    private static readonly object lockObject = new();
 
     /// <summary>
     /// Retrieves the table cache for a given table metadata.
@@ -111,15 +115,31 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
         string? databaseName = null,
         Func<Option<DatabaseDefinition, IDLOptionFailure>>? metadataFactory = null,
         bool createReadOnlyAccess = true)
+        : this(
+            connectionString,
+            type,
+            databaseType,
+            loggingConfiguration,
+            databaseName,
+            metadataFactory,
+            createReadOnlyAccess,
+            metadataBinder: null)
     {
-        DatabaseDefinition resolvedMetadata;
-        lock (lockObject)
-        {
-            if (DatabaseDefinition.TryGetLoadedDatabase(type, out var metadata))
-            {
-                resolvedMetadata = metadata;
-            }
-            else
+    }
+
+    private protected DatabaseProvider(
+        string connectionString,
+        Type type,
+        DatabaseType databaseType,
+        DataLinqLoggingConfiguration loggingConfiguration,
+        string? databaseName,
+        Func<Option<DatabaseDefinition, IDLOptionFailure>>? metadataFactory,
+        bool createReadOnlyAccess,
+        Action<DatabaseDefinition>? metadataBinder)
+    {
+        Metadata = DatabaseDefinition.ResolveLoadedDatabase(
+            type,
+            () =>
             {
                 if (metadataFactory is null)
                 {
@@ -127,12 +147,9 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
                         $"Database provider for '{type.FullName}' requires generated DataLinq metadata. Use a generated generic provider path or pass a metadata factory.");
                 }
 
-                resolvedMetadata = metadataFactory();
-                DatabaseDefinition.TryAddLoadedDatabase(type, resolvedMetadata);
-            }
-        }
-
-        Metadata = resolvedMetadata;
+                return metadataFactory();
+            },
+            metadataBinder);
         CsModelType = type;
         DatabaseType = databaseType;
         LoggingConfiguration = loggingConfiguration;
@@ -178,6 +195,13 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     /// <param name="dbTransaction">The existing database transaction.</param>
     /// <param name="transactionType">The type of the transaction.</param>
     /// <returns>A new Transaction object that wraps the provided IDbTransaction.</returns>
+    /// <remarks>
+    /// The provider transaction must be active on an open, provider-compatible connection.
+    /// After attachment, complete it only through the returned DataLinq wrapper. Completing or
+    /// disposing the original handle directly bypasses managed cache and mutable-lifecycle
+    /// finalization and is unsupported. The wrapper consumes the attached transaction and may
+    /// close or dispose its connection during completion.
+    /// </remarks>
     public Transaction AttachTransaction(IDbTransaction dbTransaction, TransactionType transactionType = TransactionType.ReadAndWrite)
     {
         return new Transaction(this, dbTransaction, transactionType);

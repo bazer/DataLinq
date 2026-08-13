@@ -140,18 +140,23 @@ When you use `AttachTransaction(...)`, you are managing two layers:
 - the underlying `IDbTransaction`
 - the DataLinq transaction wrapper
 
-The raw transaction controls the actual database commit or rollback. The DataLinq wrapper still needs to finish so its own lifecycle and cache state are completed.
+Once attached, finish through the DataLinq wrapper only. Calling `Commit()`, `Rollback()`, or `Dispose()` on the original handle—or completing through `transaction.DatabaseAccess`—bypasses DataLinq's mutable-lifecycle and cache coordination.
+
+If the original handle was already completed, do not call both commits and hope they cancel out. The wrapper will report an unknown external-completion outcome, invalidate transaction-derived state, and clear caches conservatively where the provider exposes the inactive handle. Dispose the wrapper if needed, discard transaction-bound rows and mutables, and query fresh committed rows through the database.
+
+Also remember that raw SQL writes are not reconstructed into DataLinq cache or relation publication. Explicitly invalidate affected cache entries after a lower-level write, or keep the entire mapped write flow inside the wrapper.
+
+See [Attaching an Existing ADO.NET Transaction](Transactions.md#attaching-an-existing-adonet-transaction) for the full ownership contract.
 
 ## SQLite and MySQL/MariaDB Behave Differently in Transaction Visibility Tests
 
-They do.
+They do, but DataLinq-owned SQLite paths no longer opt into dirty reads.
 
-The current providers do not use the same isolation level defaults:
+Owned SQLite connections reset `PRAGMA read_uncommitted = false`, and owned transactions use deferred `Serializable` isolation. MySQL and MariaDB use `ReadCommitted`. Both give DataLinq committed visibility, but SQLite remains snapshot-oriented and single-writer rather than becoming a clone of MySQL transaction semantics.
 
-- SQLite uses `ReadUncommitted`
-- MySQL and MariaDB use `ReadCommitted`
+For file-backed concurrency tests, use WAL with private/default cache. If an explicit SQLite shared-cache connection reports `SQLITE_LOCKED` while another transaction is writing, that is real table-lock behavior—not permission to enable dirty reads. Attached transactions keep the caller's SQLite pragmas, so inspect the supplied connection policy separately.
 
-So cross-connection visibility of uncommitted writes is not identical. Write tests accordingly.
+For `SQLITE_BUSY`/`SQLITE_LOCKED`, inspect the original `SqliteException` (`SqliteErrorCode` 5 or 6) and the failed `datalinq.db.command` activity. DataLinq preserves the provider exception and records `db.operation.name`, `datalinq.command.kind`, `datalinq.transactional`, and `error.type`; it does not retry the command. Configure `Default Timeout` or an explicit `CommandTimeout` for bounded waits. If the application retries sustained writer contention, retry an idempotent whole operation or transaction—not an arbitrary statement whose outcome may be unclear.
 
 ## Relation Reads Look Stale During a Complex Write Flow
 

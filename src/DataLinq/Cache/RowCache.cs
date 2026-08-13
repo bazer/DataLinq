@@ -144,7 +144,33 @@ public class RowCache
         if (key is null)
             return false;
 
+        if (RequiresStructuralKeyStore(key))
+        {
+            var structuralKey = ProviderKeyComponents.ToDataLinqKey(key);
+            return GetOrCreateStore<DataLinqKey>().TryAdd(structuralKey, size, rowContainerBytes, instance);
+        }
+
         return GetOrCreateStore<TKey>().TryAdd(key, size, rowContainerBytes, instance);
+    }
+
+    private static bool RequiresStructuralKeyStore<TKey>(TKey key)
+        where TKey : notnull
+    {
+        // Arrays use mutable reference identity in generic dictionaries and generated record keys.
+        // Keep ordinary provider keys typed, but snapshot binary shapes into DataLinqKey.
+        if (key is byte[])
+            return true;
+
+        if (key is not IProviderKey providerKey || key is DataLinqKey)
+            return false;
+
+        for (var i = 0; i < providerKey.ValueCount; i++)
+        {
+            if (providerKey.GetValue(i) is byte[])
+                return true;
+        }
+
+        return false;
     }
 
     private IRowStore<TKey> GetOrCreateStore<TKey>()

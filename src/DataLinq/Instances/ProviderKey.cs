@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DataLinq.Cache;
 using DataLinq.Interfaces;
+using DataLinq.Metadata;
 
 namespace DataLinq.Instances;
 
@@ -26,6 +27,110 @@ internal static class ProviderKeyComponents
         return key is IProviderKey providerKey
             ? DataLinqKey.FromProviderKey(providerKey)
             : DataLinqKey.FromValue(key);
+    }
+
+    internal static bool HasOnlyIntegralCanonicalComponents(TableDefinition table)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+
+        return HasOnlyIntegralCanonicalComponents(table.PrimaryKeyColumns);
+    }
+
+    internal static bool HasOnlyIntegralCanonicalComponents(
+        IReadOnlyList<ColumnDefinition> columns)
+    {
+        ArgumentNullException.ThrowIfNull(columns);
+
+        if (columns.Count == 0)
+            return false;
+
+        foreach (var column in columns)
+        {
+            var providerType = column.ProviderClrType;
+            if (providerType is null)
+                return false;
+
+            providerType = Nullable.GetUnderlyingType(providerType) ?? providerType;
+            if (providerType != typeof(sbyte) &&
+                providerType != typeof(byte) &&
+                providerType != typeof(short) &&
+                providerType != typeof(ushort) &&
+                providerType != typeof(int) &&
+                providerType != typeof(uint) &&
+                providerType != typeof(long) &&
+                providerType != typeof(ulong))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    internal static bool TryCreateExactCanonicalKey<TKey>(
+        TKey key,
+        IReadOnlyList<ColumnDefinition> columns,
+        out DataLinqKey canonicalKey)
+        where TKey : notnull
+    {
+        ArgumentNullException.ThrowIfNull(columns);
+
+        canonicalKey = ToDataLinqKey(key);
+        if (canonicalKey.ValueCount != columns.Count)
+            return false;
+
+        for (var index = 0; index < columns.Count; index++)
+        {
+            var providerType = columns[index].ProviderClrType;
+            if (providerType is null)
+                return false;
+
+            var expectedType = Nullable.GetUnderlyingType(providerType) ?? providerType;
+            if (expectedType.IsEnum)
+                expectedType = Enum.GetUnderlyingType(expectedType);
+
+            var value = canonicalKey.GetValue(index);
+            if (value is null ||
+                ReferenceEquals(value, DBNull.Value) ||
+                value.GetType() != expectedType)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    internal static bool SupportsNeutralSourceRowLoading(
+        TableDefinition table,
+        DatabaseType databaseType)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+
+        if (HasOnlyIntegralCanonicalComponents(table))
+            return true;
+
+        if (table.PrimaryKeyColumns.Count != 1 ||
+            databaseType is not (DatabaseType.SQLite or DatabaseType.MySQL or DatabaseType.MariaDB))
+        {
+            return false;
+        }
+
+        return SupportsResolvedCanonicalGuidColumn(
+            table.PrimaryKeyColumns[0],
+            databaseType);
+    }
+
+    internal static bool SupportsResolvedCanonicalGuidColumn(
+        ColumnDefinition column,
+        DatabaseType databaseType)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+
+        return databaseType is DatabaseType.SQLite or DatabaseType.MySQL or DatabaseType.MariaDB &&
+            column.IsGuidColumn &&
+            column.GetGuidStorageFor(databaseType) is not null &&
+            !column.IsGuidStorageUnresolvedFor(databaseType);
     }
 
     internal static int GetValueCount<TKey>(TKey key)
@@ -60,6 +165,19 @@ internal static class ProviderKeyComponents
 public interface IProviderKeyRowStoreAccessor
 {
     bool TryAddRow(RowCache cache, RowData rowData, IImmutableInstance row);
+
+    /// <summary>
+    /// Adds a row using primary-key components captured before provider-to-model conversion. Older
+    /// generated accessors retain their legacy row-data behavior; current accessors override this
+    /// method to preserve the exact provider-key store.
+    /// </summary>
+    bool TryAddCanonicalRow(
+        RowCache cache,
+        DataLinqKey canonicalProviderKey,
+        RowData rowData,
+        IImmutableInstance row) =>
+        TryAddRow(cache, rowData, row);
+
     bool TryGetRow(RowCache cache, DataLinqKey key, out IImmutableInstance? row);
     bool TryRemoveRow(RowCache cache, DataLinqKey key, out int numRowsRemoved);
     bool TryCreateKey(IRowData rowData, out DataLinqKey key);

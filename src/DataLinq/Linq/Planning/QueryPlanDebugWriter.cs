@@ -1,5 +1,4 @@
 using System;
-using System.CodeDom.Compiler;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -9,24 +8,65 @@ namespace DataLinq.Linq.Planning;
 
 internal static class QueryPlanDebugWriter
 {
-    public static string Write(DataLinqQueryPlan plan)
+    public static string WriteTemplate(QueryPlanTemplate template)
     {
-        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(template);
 
         var builder = new StringBuilder();
-        builder.AppendLine("query-plan v0");
-        WriteSources(builder, plan);
-        WriteOperations(builder, plan);
-        WriteProjection(builder, plan.Projection);
-        WriteResult(builder, plan.Result);
-        WriteBindings(builder, plan.Bindings);
+        builder.AppendLine("query-template v0");
+        WriteSources(builder, template);
+        WriteOperations(builder, template);
+        WriteProjection(builder, template.Projection);
+        WriteResult(builder, template.Result);
+        WriteBindingDeclarations(builder, template.BindingDeclarations);
+        WriteSpecialization(builder, template.Specialization);
         return builder.ToString().Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();
     }
 
-    private static void WriteSources(StringBuilder builder, DataLinqQueryPlan plan)
+    public static string WriteInvocation(QueryPlanInvocation invocation)
+    {
+        ArgumentNullException.ThrowIfNull(invocation);
+
+        var builder = new StringBuilder();
+        builder.AppendLine("query-invocation v0");
+        builder.AppendLine("binding-values:");
+        if (invocation.Values.Count == 0)
+        {
+            builder.AppendLine("  none");
+        }
+        else
+        {
+            foreach (var value in invocation.Values.Items)
+            {
+                builder
+                    .Append("  ")
+                    .Append(value.Id)
+                    .Append(' ')
+                    .Append(ToToken(value.Kind));
+
+                if (value is QueryPlanInvocationValue.LocalSequence sequence)
+                {
+                    builder
+                        .Append(" count=")
+                        .Append(sequence.Values.Count.ToString(CultureInfo.InvariantCulture))
+                        .Append(" values=<redacted>");
+                }
+                else
+                {
+                    builder.Append(" value=<redacted>");
+                }
+
+                builder.AppendLine();
+            }
+        }
+
+        return builder.ToString().Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();
+    }
+
+    private static void WriteSources(StringBuilder builder, QueryPlanTemplate template)
     {
         builder.AppendLine("sources:");
-        foreach (var source in plan.Sources)
+        foreach (var source in template.Sources)
         {
             builder
                 .Append("  ")
@@ -47,16 +87,16 @@ internal static class QueryPlanDebugWriter
         }
     }
 
-    private static void WriteOperations(StringBuilder builder, DataLinqQueryPlan plan)
+    private static void WriteOperations(StringBuilder builder, QueryPlanTemplate template)
     {
         builder.AppendLine("operations:");
-        if (plan.Operations.Count == 0)
+        if (template.Operations.Count == 0)
         {
             builder.AppendLine("  none");
             return;
         }
 
-        foreach (var operation in plan.Operations)
+        foreach (var operation in template.Operations)
         {
             builder.Append("  ");
             switch (operation)
@@ -144,7 +184,9 @@ internal static class QueryPlanDebugWriter
                     .Append("entity source=")
                     .Append(entity.Source.Id)
                     .Append(" type=")
-                    .AppendLine(TypeName(entity.ResultType));
+                    .Append(TypeName(entity.ResultType))
+                    .Append(" disposition=")
+                    .AppendLine(ToToken(entity.Disposition));
                 break;
 
             case QueryPlanProjection.ScalarMember scalar:
@@ -152,7 +194,9 @@ internal static class QueryPlanDebugWriter
                     .Append("scalar-member ")
                     .Append(FormatColumn(scalar.Source, scalar.Column))
                     .Append(" type=")
-                    .AppendLine(TypeName(scalar.ResultType));
+                    .Append(TypeName(scalar.ResultType))
+                    .Append(" disposition=")
+                    .AppendLine(ToToken(scalar.Disposition));
                 break;
 
             case QueryPlanProjection.Anonymous anonymous:
@@ -162,17 +206,23 @@ internal static class QueryPlanDebugWriter
                     .Append(" sources=")
                     .Append(string.Join(",", anonymous.Sources.Select(static source => source.Id)))
                     .Append(" members=")
-                    .AppendLine(FormatMembers(anonymous.Members));
+                    .Append(FormatMembers(anonymous.Members))
+                    .Append(" disposition=")
+                    .Append(ToToken(anonymous.Disposition))
+                    .Append(" recipe=")
+                    .AppendLine(FormatRecipe(anonymous.Recipe));
                 break;
 
             case QueryPlanProjection.ComputedRowLocal computed:
                 builder
                     .Append("computed-row-local type=")
                     .Append(TypeName(computed.ResultType))
-                    .Append(" shape=")
-                    .Append(computed.ExpressionShape)
                     .Append(" sources=")
-                    .AppendLine(string.Join(",", computed.Sources.Select(static source => source.Id)));
+                    .Append(string.Join(",", computed.Sources.Select(static source => source.Id)))
+                    .Append(" disposition=")
+                    .Append(ToToken(computed.Disposition))
+                    .Append(" recipe=")
+                    .AppendLine(FormatRecipe(computed.Recipe));
                 break;
 
             case QueryPlanProjection.JoinedRowLocal joined:
@@ -182,7 +232,11 @@ internal static class QueryPlanDebugWriter
                     .Append(" sources=")
                     .Append(string.Join(",", joined.Sources.Select(static source => source.Id)))
                     .Append(" members=")
-                    .AppendLine(FormatMembers(joined.Members));
+                    .Append(FormatMembers(joined.Members))
+                    .Append(" disposition=")
+                    .Append(ToToken(joined.Disposition))
+                    .Append(" recipe=")
+                    .AppendLine(FormatRecipe(joined.Recipe));
                 break;
 
             case QueryPlanProjection.SqlRow sqlRow:
@@ -190,7 +244,9 @@ internal static class QueryPlanDebugWriter
                     .Append("sql-row type=")
                     .Append(TypeName(sqlRow.ResultType))
                     .Append(" members=")
-                    .AppendLine(FormatMembers(sqlRow.Members));
+                    .Append(FormatMembers(sqlRow.Members))
+                    .Append(" disposition=")
+                    .AppendLine(ToToken(sqlRow.Disposition));
                 break;
 
             case QueryPlanProjection.TransparentIdentifier transparent:
@@ -198,7 +254,9 @@ internal static class QueryPlanDebugWriter
                     .Append("transparent-identifier type=")
                     .Append(TypeName(transparent.ResultType))
                     .Append(" sources=")
-                    .AppendLine(string.Join(", ", transparent.SourcesByMember.Select(source => $"{source.Key}={source.Value.Id}")));
+                    .Append(string.Join(", ", transparent.SourcesByMember.Select(source => $"{source.Key}={source.Value.Id}")))
+                    .Append(" disposition=")
+                    .AppendLine(ToToken(transparent.Disposition));
                 break;
 
             case QueryPlanProjection.GroupedAggregate grouped:
@@ -208,7 +266,9 @@ internal static class QueryPlanDebugWriter
                     .Append(" source=")
                     .Append(grouped.Source.Id)
                     .Append(" members=")
-                    .AppendLine(FormatMembers(grouped.Members));
+                    .Append(FormatMembers(grouped.Members))
+                    .Append(" disposition=")
+                    .AppendLine(ToToken(grouped.Disposition));
                 break;
 
             default:
@@ -235,31 +295,69 @@ internal static class QueryPlanDebugWriter
         builder.AppendLine();
     }
 
-    private static void WriteBindings(StringBuilder builder, QueryPlanBindings bindings)
+    private static void WriteBindingDeclarations(
+        StringBuilder builder,
+        QueryPlanBindingDeclarations declarations)
     {
-        builder.AppendLine("bindings:");
-        if (bindings.Count == 0)
+        builder.AppendLine("binding-declarations:");
+        if (declarations.Count == 0)
         {
             builder.AppendLine("  none");
             return;
         }
 
-        for (var index = 0; index < bindings.Count; index++)
+        for (var index = 0; index < declarations.Count; index++)
         {
-            var binding = bindings[index];
+            var declaration = declarations[index];
             builder
                 .Append("  ")
-                .Append(binding.Id)
+                .Append(declaration.Id)
                 .Append(' ')
-                .Append(ToToken(binding.Kind))
-                .Append(" type=")
-                .Append(TypeName(binding.Type));
+                .Append(ToToken(declaration.Kind))
+                .Append(" model=")
+                .Append(TypeName(declaration.ModelType))
+                .Append(" provider=")
+                .Append(TypeName(declaration.ProviderType))
+                .Append(" allows-null=")
+                .AppendLine(declaration.AllowsNull.ToString(CultureInfo.InvariantCulture).ToLowerInvariant());
+        }
+    }
 
-            if (binding.Kind == QueryPlanBindingKind.LocalSequence)
+    private static void WriteSpecialization(
+        StringBuilder builder,
+        QueryPlanSpecialization specialization)
+    {
+        builder.AppendLine("specialization:");
+        if (specialization.Count == 0)
+        {
+            builder.AppendLine("  none");
+            return;
+        }
+
+        foreach (var constraint in specialization.Items)
+        {
+            builder
+                .Append("  ")
+                .Append(constraint.BindingId)
+                .Append(' ');
+
+            switch (constraint)
             {
-                builder
-                    .Append(" count=")
-                    .Append(binding.Count!.Value.ToString(CultureInfo.InvariantCulture));
+                case QueryPlanBindingSpecialization.ScalarNullness scalar:
+                    builder
+                        .Append("scalar nullness=")
+                        .Append(ToToken(scalar.Nullness));
+                    break;
+                case QueryPlanBindingSpecialization.LocalSequenceShape sequence:
+                    builder
+                        .Append("local-sequence count=")
+                        .Append(sequence.Count.ToString(CultureInfo.InvariantCulture))
+                        .Append(" null-count=")
+                        .Append(sequence.NullCount.ToString(CultureInfo.InvariantCulture));
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        $"Unknown query plan binding specialization '{constraint.GetType().Name}'.");
             }
 
             builder.AppendLine();
@@ -308,16 +406,54 @@ internal static class QueryPlanDebugWriter
     private static string FormatMembers(System.Collections.Generic.IReadOnlyList<QueryPlanProjectionMember> members)
         => $"[{string.Join(", ", members.Select(static member => $"{member.Name}={FormatValue(member.Value)}"))}]";
 
+    private static string FormatRecipe(QueryPlanProjectionRecipe recipe)
+    {
+        return recipe switch
+        {
+            QueryPlanProjectionRecipe.Source source =>
+                $"source({source.SourceSlot.Id}:{TypeName(source.ResultType)})",
+            QueryPlanProjectionRecipe.SourceColumn column =>
+                $"source-column({FormatColumn(column.SourceSlot, column.Column)}:{TypeName(column.ResultType)})",
+            QueryPlanProjectionRecipe.ScalarBinding scalar =>
+                $"scalar-binding({scalar.BindingId}:{TypeName(scalar.ResultType)})",
+            QueryPlanProjectionRecipe.Intrinsic intrinsic =>
+                $"intrinsic({ToToken(intrinsic.IntrinsicKind)}:{TypeName(intrinsic.ResultType)})",
+            QueryPlanProjectionRecipe.Convert convert =>
+                $"convert({FormatRecipe(convert.Operand)} -> {TypeName(convert.ResultType)})",
+            QueryPlanProjectionRecipe.Not not =>
+                $"not({FormatRecipe(not.Operand)}:{TypeName(not.ResultType)})",
+            QueryPlanProjectionRecipe.Binary binary =>
+                $"binary({ToToken(binary.Operator)} {FormatRecipe(binary.Left)}, {FormatRecipe(binary.Right)}:{TypeName(binary.ResultType)})",
+            QueryPlanProjectionRecipe.SupportedMember member =>
+                $"member({ToToken(member.Member)} {FormatRecipe(member.Instance)}:{TypeName(member.ResultType)})",
+            QueryPlanProjectionRecipe.Function function =>
+                $"function({ToToken(function.FunctionKind)}:{TypeName(function.ResultType)} {string.Join(", ", function.Arguments.Select(FormatRecipe))})",
+            QueryPlanProjectionRecipe.Conditional conditional =>
+                $"conditional(test={FormatRecipe(conditional.Test)}, true={FormatRecipe(conditional.IfTrue)}, false={FormatRecipe(conditional.IfFalse)}:{TypeName(conditional.ResultType)})",
+            QueryPlanProjectionRecipe.NewArray newArray =>
+                $"new-array({TypeName(newArray.ElementType)} [{string.Join(", ", newArray.Elements.Select(FormatRecipe))}])",
+            QueryPlanProjectionRecipe.CompatibilityConstructor constructor =>
+                $"compat-constructor({FormatConstructor(constructor.Constructor)} [{string.Join(", ", constructor.Arguments.Select(FormatRecipe))}])",
+            QueryPlanProjectionRecipe.CompatibilityMember member =>
+                $"compat-member({FormatMember(member.Member)} instance={(member.Instance is null ? "static" : FormatRecipe(member.Instance))}:{TypeName(member.ResultType)})",
+            _ => throw new InvalidOperationException($"Unknown projection recipe '{recipe.GetType().Name}'.")
+        };
+    }
+
+    private static string FormatConstructor(System.Reflection.ConstructorInfo constructor)
+        => $"{TypeName(constructor.DeclaringType ?? typeof(object))}({string.Join(",", constructor.GetParameters().Select(parameter => TypeName(parameter.ParameterType)))})";
+
+    private static string FormatMember(System.Reflection.MemberInfo member)
+        => $"{TypeName(member.DeclaringType ?? typeof(object))}.{member.Name}";
+
     private static string FormatValue(QueryPlanValue value)
     {
         return value switch
         {
             QueryPlanColumnValue column => FormatColumn(column.Source, column.Column),
-            QueryPlanConstantValue constant => constant.Value is null
-                ? $"constant(null:{TypeName(constant.ClrType)})"
-                : $"constant({TypeName(constant.ClrType)})",
-            QueryPlanCapturedValue captured => $"captured({captured.BindingId}:{TypeName(captured.ClrType)})",
-            QueryPlanLocalSequenceValue sequence => $"local-sequence({sequence.BindingId}:{TypeName(sequence.ElementType)} count={sequence.Count.ToString(CultureInfo.InvariantCulture)})",
+            QueryPlanIntrinsicValue intrinsic => $"intrinsic({IntrinsicToken(intrinsic)}:{TypeName(intrinsic.ClrType)})",
+            QueryPlanScalarBindingReference scalar => $"scalar-binding({scalar.BindingId}:{TypeName(scalar.ClrType)})",
+            QueryPlanLocalSequenceBindingReference sequence => $"local-sequence-binding({sequence.BindingId}:{TypeName(sequence.ElementType)})",
             QueryPlanFunctionValue function => $"function({ToToken(function.Function)}:{TypeName(function.ClrType)} {string.Join(", ", function.Arguments.Select(FormatValue))})",
             QueryPlanConvertedValue converted => $"convert({FormatValue(converted.Value)} -> {TypeName(converted.TargetType)})",
             QueryPlanGroupKeyValue groupKey => $"group-key({FormatValue(groupKey.Key)}:{TypeName(groupKey.ClrType)})",
@@ -327,6 +463,14 @@ internal static class QueryPlanDebugWriter
             _ => throw new InvalidOperationException($"Unknown query plan value '{value.GetType().Name}'.")
         };
     }
+
+    private static string IntrinsicToken(QueryPlanIntrinsicValue intrinsic) => intrinsic.Intrinsic switch
+    {
+        QueryPlanIntrinsicKind.Null => "null",
+        QueryPlanIntrinsicKind.BooleanTrue => "true",
+        QueryPlanIntrinsicKind.BooleanFalse => "false",
+        _ => throw new InvalidOperationException($"Unknown query plan intrinsic '{intrinsic.Intrinsic}'.")
+    };
 
     private static string FormatColumn(QueryPlanSourceSlot source, DataLinq.Metadata.ColumnDefinition column)
         => $"column({source.Id}.{column.DbName}:{TypeName(column.ValueProperty?.CsType.Type ?? typeof(object))})";

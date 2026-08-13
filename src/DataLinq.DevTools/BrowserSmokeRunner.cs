@@ -25,6 +25,7 @@ public static class BrowserSmokeRunner
         DevToolPaths paths)
     {
         var logPath = Path.Combine(targetRoot, "browser-smoke.log");
+        var startedAtUtc = DateTimeOffset.UtcNow;
         var stopwatch = Stopwatch.StartNew();
 
         try
@@ -41,24 +42,35 @@ public static class BrowserSmokeRunner
                     0,
                     stopwatch.Elapsed.TotalSeconds,
                     logPath,
+                    CompatibilityFailureDisposition.None,
                     CompatibilityFailureClassification.None,
-                    result.Summary);
+                    result.Summary)
+                {
+                    Browser = result.Details,
+                    Executable = "DataLinq.DevTools.BrowserSmokeRunner",
+                    Arguments = [],
+                    WorkingDirectory = publishDirectory,
+                    StartedAtUtc = startedAtUtc,
+                    CompletedAtUtc = DateTimeOffset.UtcNow
+                };
             }
 
-            var status = target.Kind == CompatibilityTargetKind.Wasm
-                ? CompatibilityCommandStatus.Unsupported
-                : CompatibilityCommandStatus.Failed;
-            var classification = target.Kind == CompatibilityTargetKind.Wasm
-                ? CompatibilityFailureClassification.UnsupportedNoAot
-                : result.FailureClassification;
-
             return new CompatibilityCommandReport(
-                status,
+                CompatibilityCommandStatus.Failed,
                 null,
                 stopwatch.Elapsed.TotalSeconds,
                 logPath,
-                classification,
-                result.Summary);
+                CompatibilityFailureDisposition.Product,
+                result.FailureClassification,
+                result.Summary)
+            {
+                Browser = result.Details,
+                Executable = "DataLinq.DevTools.BrowserSmokeRunner",
+                Arguments = [],
+                WorkingDirectory = publishDirectory,
+                StartedAtUtc = startedAtUtc,
+                CompletedAtUtc = DateTimeOffset.UtcNow
+            };
         }
         catch (BrowserSmokeEnvironmentException exception)
         {
@@ -70,21 +82,42 @@ public static class BrowserSmokeRunner
                 null,
                 stopwatch.Elapsed.TotalSeconds,
                 logPath,
+                CompatibilityFailureDisposition.Environment,
                 exception.FailureClassification,
-                exception.Message);
+                exception.Message)
+            {
+                Executable = "DataLinq.DevTools.BrowserSmokeRunner",
+                Arguments = [],
+                WorkingDirectory = publishDirectory,
+                StartedAtUtc = startedAtUtc,
+                CompletedAtUtc = DateTimeOffset.UtcNow
+            };
         }
         catch (Exception exception)
         {
             stopwatch.Stop();
             File.WriteAllText(logPath, exception.ToString(), Encoding.UTF8);
+            var disposition = exception is PlaywrightException or HttpListenerException or SocketException
+                ? CompatibilityFailureDisposition.Environment
+                : CompatibilityFailureDisposition.Product;
 
             return new CompatibilityCommandReport(
                 CompatibilityCommandStatus.Failed,
                 null,
                 stopwatch.Elapsed.TotalSeconds,
                 logPath,
-                CompatibilityFailureClassification.Unknown,
-                exception.Message);
+                disposition,
+                disposition == CompatibilityFailureDisposition.Environment
+                    ? CompatibilityFailureClassification.SdkOrWebAssemblyToolchain
+                    : CompatibilityFailureClassification.ProductRegression,
+                exception.Message)
+            {
+                Executable = "DataLinq.DevTools.BrowserSmokeRunner",
+                Arguments = [],
+                WorkingDirectory = publishDirectory,
+                StartedAtUtc = startedAtUtc,
+                CompletedAtUtc = DateTimeOffset.UtcNow
+            };
         }
     }
 
@@ -116,16 +149,18 @@ public static class BrowserSmokeRunner
         });
 
         BrowserSmokeSnapshot? lastSnapshot = null;
+        TimeSpan? passedObservedAt = null;
 
         while (stopwatch.Elapsed < SmokeTimeout)
         {
             lastSnapshot = await CaptureSnapshot(page);
             snapshots.Add(lastSnapshot);
 
-            if (string.Equals(lastSnapshot.Status, "passed", StringComparison.OrdinalIgnoreCase))
+            if (!lastSnapshot.ContractPresent)
             {
-                return BrowserSmokeRunResult.Success(
-                    $"Browser smoke passed at '{lastSnapshot.Stage}'.",
+                return BrowserSmokeRunResult.Failed(
+                    CompatibilityFailureClassification.BrowserTelemetryContract,
+                    "Browser smoke page does not expose the required telemetry contract.",
                     BuildLog(
                         target,
                         publishDirectory,
@@ -134,14 +169,14 @@ public static class BrowserSmokeRunner
                         stopwatch.Elapsed,
                         snapshots,
                         consoleMessages,
-                        pageErrors));
+                        pageErrors),
+                    BuildDetails(snapshots, consoleMessages, pageErrors));
             }
 
             if (string.Equals(lastSnapshot.Status, "failed", StringComparison.OrdinalIgnoreCase))
             {
-                var classification = ClassifyBrowserFailure(consoleMessages, pageErrors, lastSnapshot);
                 return BrowserSmokeRunResult.Failed(
-                    classification,
+                    CompatibilityFailureClassification.ProductRegression,
                     $"Browser smoke failed at '{lastSnapshot.Stage}'.",
                     BuildLog(
                         target,
@@ -151,14 +186,14 @@ public static class BrowserSmokeRunner
                         stopwatch.Elapsed,
                         snapshots,
                         consoleMessages,
-                        pageErrors));
+                        pageErrors),
+                    BuildDetails(snapshots, consoleMessages, pageErrors));
             }
 
             if (HasBrowserRuntimeFailure(consoleMessages, pageErrors))
             {
-                var classification = ClassifyBrowserFailure(consoleMessages, pageErrors, lastSnapshot);
                 return BrowserSmokeRunResult.Failed(
-                    classification,
+                    CompatibilityFailureClassification.ProductRegression,
                     $"Browser smoke failed at '{lastSnapshot.Stage}' after browser runtime errors.",
                     BuildLog(
                         target,
@@ -168,7 +203,32 @@ public static class BrowserSmokeRunner
                         stopwatch.Elapsed,
                         snapshots,
                         consoleMessages,
-                        pageErrors));
+                        pageErrors),
+                    BuildDetails(snapshots, consoleMessages, pageErrors));
+            }
+
+            if (string.Equals(lastSnapshot.Status, "passed", StringComparison.OrdinalIgnoreCase))
+            {
+                passedObservedAt ??= stopwatch.Elapsed;
+                if (stopwatch.Elapsed - passedObservedAt.Value >= TimeSpan.FromMilliseconds(250))
+                {
+                    return BrowserSmokeRunResult.Success(
+                        $"Browser smoke passed at '{lastSnapshot.Stage}'.",
+                        BuildLog(
+                            target,
+                            publishDirectory,
+                            server.BaseUrl,
+                            browserPath,
+                            stopwatch.Elapsed,
+                            snapshots,
+                            consoleMessages,
+                            pageErrors),
+                        BuildDetails(snapshots, consoleMessages, pageErrors));
+                }
+            }
+            else
+            {
+                passedObservedAt = null;
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(250));
@@ -176,7 +236,7 @@ public static class BrowserSmokeRunner
 
         var stage = lastSnapshot?.Stage ?? "unknown";
         return BrowserSmokeRunResult.Failed(
-            CompatibilityFailureClassification.SdkOrWebAssemblyToolchain,
+            CompatibilityFailureClassification.ProductRegression,
             $"Browser smoke timed out at '{stage}'.",
             BuildLog(
                 target,
@@ -186,33 +246,8 @@ public static class BrowserSmokeRunner
                 stopwatch.Elapsed,
                 snapshots,
                 consoleMessages,
-                pageErrors));
-    }
-
-    private static CompatibilityFailureClassification ClassifyBrowserFailure(
-        IReadOnlyCollection<string> consoleMessages,
-        IReadOnlyCollection<string> pageErrors,
-        BrowserSmokeSnapshot snapshot)
-    {
-        var combined = string.Join(
-            Environment.NewLine,
-            consoleMessages.Concat(pageErrors).Append(snapshot.Text).Append(snapshot.Stage));
-
-        if (ContainsAny(
-            combined,
-            "MONO_WASM",
-            "WebAssembly",
-            "wasm",
-            "function signature mismatch",
-            "RuntimeError",
-            "SQLitePCLRaw",
-            "sqlite3_config",
-            "sqlite3_db_config"))
-        {
-            return CompatibilityFailureClassification.SdkOrWebAssemblyToolchain;
-        }
-
-        return CompatibilityFailureClassification.Unknown;
+                pageErrors),
+            BuildDetails(snapshots, consoleMessages, pageErrors));
     }
 
     private static async Task<BrowserSmokeSnapshot> CaptureSnapshot(IPage page)
@@ -221,6 +256,7 @@ public static class BrowserSmokeRunner
             """
             () => {
                 const boot = document.getElementById("boot-status");
+                const contractPresent = !!(boot && boot.dataset && ("status" in boot.dataset));
                 const smoke = document.querySelector("[data-datalinq-smoke-status]");
                 const smokeStatus = smoke && smoke.getAttribute("data-datalinq-smoke-status");
                 const bootStatus = boot && boot.dataset && boot.dataset.status;
@@ -233,7 +269,7 @@ public static class BrowserSmokeRunner
                     "running";
                 const smokeStage = smoke && smoke.getAttribute("data-datalinq-smoke-stage");
                 const stage = status === "failed"
-                    ? ((boot && boot.textContent) || smokeStage || document.readyState || "failed")
+                    ? (smokeStage || (boot && boot.textContent) || document.readyState || "failed")
                     : smokeStage ||
                     (boot && boot.textContent) ||
                     document.readyState ||
@@ -242,6 +278,7 @@ public static class BrowserSmokeRunner
                     ? window.datalinqLog.slice(-100).map(entry => `${entry.method}: ${entry.message}`)
                     : [];
                 return JSON.stringify({
+                    contractPresent,
                     status,
                     stage,
                     text: [document.body ? document.body.innerText : "", smokeResultText || ""]
@@ -259,14 +296,16 @@ public static class BrowserSmokeRunner
             var root = document.RootElement;
 
             return new BrowserSmokeSnapshot(
+                GetBoolean(root, "contractPresent"),
                 GetString(root, "status", "running"),
                 GetString(root, "stage", "unknown"),
                 GetString(root, "text", string.Empty),
                 GetStringArray(root, "logs"));
         }
-        catch (Exception exception) when (exception is PlaywrightException or JsonException)
+        catch (JsonException exception)
         {
             return new BrowserSmokeSnapshot(
+                false,
                 "failed",
                 "playwright-evaluate",
                 exception.Message,
@@ -281,6 +320,11 @@ public static class BrowserSmokeRunner
 
         return value.GetString() ?? fallback;
     }
+
+    private static bool GetBoolean(JsonElement root, string propertyName) =>
+        root.TryGetProperty(propertyName, out var value) &&
+        value.ValueKind is JsonValueKind.True or JsonValueKind.False &&
+        value.GetBoolean();
 
     private static IReadOnlyList<string> GetStringArray(JsonElement root, string propertyName)
     {
@@ -337,6 +381,7 @@ public static class BrowserSmokeRunner
         builder.AppendLine($"url={smokeUrl}");
         builder.AppendLine($"browser={browserPath}");
         builder.AppendLine($"durationSeconds={duration.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture)}");
+        builder.AppendLine($"contractPresent={last?.ContractPresent ?? false}");
         builder.AppendLine($"status={last?.Status ?? "unknown"}");
         builder.AppendLine($"stage={last?.Stage ?? "unknown"}");
         builder.AppendLine();
@@ -383,23 +428,44 @@ public static class BrowserSmokeRunner
         return builder.ToString();
     }
 
+    private static CompatibilityBrowserSmokeDetails BuildDetails(
+        IReadOnlyList<BrowserSmokeSnapshot> snapshots,
+        IReadOnlyCollection<string> consoleMessages,
+        IReadOnlyCollection<string> pageErrors)
+    {
+        var last = snapshots.LastOrDefault();
+        return new CompatibilityBrowserSmokeDetails(
+            last?.ContractPresent ?? false,
+            last?.Status ?? "unknown",
+            last?.Stage ?? "unknown",
+            last?.ConsoleLogs ?? [],
+            consoleMessages.ToArray(),
+            pageErrors.ToArray());
+    }
+
     private sealed record BrowserSmokeRunResult(
         bool Passed,
         CompatibilityFailureClassification FailureClassification,
         string Summary,
-        string Log)
+        string Log,
+        CompatibilityBrowserSmokeDetails Details)
     {
-        public static BrowserSmokeRunResult Success(string summary, string log) =>
-            new(true, CompatibilityFailureClassification.None, summary, log);
+        public static BrowserSmokeRunResult Success(
+            string summary,
+            string log,
+            CompatibilityBrowserSmokeDetails details) =>
+            new(true, CompatibilityFailureClassification.None, summary, log, details);
 
         public static BrowserSmokeRunResult Failed(
             CompatibilityFailureClassification classification,
             string summary,
-            string log) =>
-            new(false, classification, summary, log);
+            string log,
+            CompatibilityBrowserSmokeDetails details) =>
+            new(false, classification, summary, log, details);
     }
 
     private sealed record BrowserSmokeSnapshot(
+        bool ContractPresent,
         string Status,
         string Stage,
         string Text,

@@ -11,6 +11,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 [assembly: InternalsVisibleTo("DataLinq.Generators.Tests")]
 
@@ -127,25 +128,46 @@ public sealed class ModelGenerator : IIncrementalGenerator
 
         try
         {
-            var validationContext = new GeneratorValidationContext();
-            foreach (var validator in validators)
-                validator.Validate(db.Value, compilation, context, validationContext);
-
-            var runtimeValuePropertyTypeNames = ResolveRuntimeValuePropertyTypeNames(
+            var scalarMetadataResult = ScalarConverterMetadataResolver.Resolve(
                 db.Value,
                 compilation,
                 context.CancellationToken);
+            if (!scalarMetadataResult.TryUnwrap(out var database, out var scalarMetadataFailure))
+            {
+                ReportFailureDiagnostics(scalarMetadataFailure, compilation, context);
+                return;
+            }
+
+            var validationContext = new GeneratorValidationContext();
+            foreach (var validator in validators)
+                validator.Validate(database, compilation, context, validationContext);
+
+            var runtimeValuePropertyTypeNames = ResolveRuntimeValuePropertyTypeNames(
+                database,
+                compilation,
+                context.CancellationToken);
+            var readSourceConstructorModelTypeNames = ResolveReadSourceConstructorModelTypeNames(
+                database,
+                compilation,
+                context.CancellationToken);
+            var supportsReadSourceDatabaseConstruction =
+                SourceModelSyntaxResolver.HasExactDatabaseReadSourceConstructor(
+                    database,
+                    compilation,
+                    context.CancellationToken);
 
             GeneratorFileFactoryOptions CreateOptions(bool nullableReferenceTypes) => new()
             {
                 UseNullableReferenceTypes = nullableReferenceTypes,
                 RuntimeValuePropertyTypeNames = runtimeValuePropertyTypeNames,
                 SuppressedDefaultValueProperties = validationContext.SuppressedDefaultValueProperties,
+                ReadSourceConstructorModelTypeNames = readSourceConstructorModelTypeNames,
+                SupportsReadSourceDatabaseConstruction = supportsReadSourceDatabaseConstruction,
             };
 
-            var databaseNullableContext = ResolveDatabaseNullableReferenceTypes(db.Value, compilation, useNullableReferenceTypes);
+            var databaseNullableContext = ResolveDatabaseNullableReferenceTypes(database, compilation, useNullableReferenceTypes);
             var emissionResult = EmitGeneratedSources(
-                db.Value,
+                database,
                 table => CreateOptions(ResolveTableNullableReferenceTypes(table, compilation, databaseNullableContext)),
                 () => CreateOptions(databaseNullableContext));
 
@@ -153,7 +175,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
                 context.AddSource(sourceFile.HintName, sourceFile.Contents);
 
             foreach (var failure in emissionResult.Failures)
-                ReportGenerationFailureDiagnostic(failure.Exception, db.Value, compilation, context);
+                ReportGenerationFailureDiagnostic(failure.Exception, database, compilation, context);
         }
         catch (Exception e)
         {
@@ -186,6 +208,33 @@ public sealed class ModelGenerator : IIncrementalGenerator
         }
 
         return runtimeTypeNames;
+    }
+
+    private static IReadOnlyCollection<string> ResolveReadSourceConstructorModelTypeNames(
+        DatabaseDefinition database,
+        Compilation compilation,
+        System.Threading.CancellationToken cancellationToken)
+    {
+        var modelTypeNames = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var model in database.TableModels
+            .Where(static tableModel => !tableModel.IsStub)
+            .Select(static tableModel => tableModel.Model))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (SourceModelSyntaxResolver.HasAccessibleReadSourceConstructor(
+                model,
+                compilation,
+                cancellationToken))
+            {
+                modelTypeNames.Add(string.IsNullOrWhiteSpace(model.CsType.Namespace)
+                    ? model.CsType.Name
+                    : $"{model.CsType.Namespace}.{model.CsType.Name}");
+            }
+        }
+
+        return modelTypeNames;
     }
 
     internal static GeneratedDatabaseEmissionResult EmitGeneratedSources(

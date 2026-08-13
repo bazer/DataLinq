@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
+using DataLinq.Instances;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Testing;
 using ThrowAway;
@@ -36,6 +38,38 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(orderToUser.RelationPart.Type).IsEqualTo(RelationPartType.ForeignKey);
         await Assert.That(userToOrders.RelationPart.Type).IsEqualTo(RelationPartType.CandidateKey);
         await Assert.That(ReferenceEquals(orderToUser.RelationPart.Relation, userToOrders.RelationPart.Relation)).IsTrue();
+    }
+
+    [Test]
+    public async Task Build_TypedDraftAndSnapshot_PreserveParallelImmutableFactories()
+    {
+        var legacyFactory = new Func<IRowData, IDataSourceAccess, IImmutableInstance>((_, _) => null!);
+        var readSourceFactory = new Func<IRowData, IDataLinqReadSource, IImmutableInstance>((_, _) => null!);
+        var draft = CreateSingleTableTypedDraft();
+        var tableModel = draft.TableModels.Single();
+        draft = draft with
+        {
+            TableModels =
+            [
+                tableModel with
+                {
+                    Model = tableModel.Model with
+                    {
+                        ImmutableFactory = legacyFactory,
+                        ReadSourceImmutableFactory = readSourceFactory
+                    }
+                }
+            ]
+        };
+
+        var built = new MetadataDefinitionFactory().Build(draft).ValueOrException();
+        var builtModel = built.TableModels.Single().Model;
+        var copiedModel = MetadataDefinitionSnapshot.Copy(built).TableModels.Single().Model;
+
+        await Assert.That(builtModel.ImmutableFactory).IsSameReferenceAs(legacyFactory);
+        await Assert.That(builtModel.ReadSourceImmutableFactory).IsSameReferenceAs(readSourceFactory);
+        await Assert.That(copiedModel.ImmutableFactory).IsSameReferenceAs(legacyFactory);
+        await Assert.That(copiedModel.ReadSourceImmutableFactory).IsSameReferenceAs(readSourceFactory);
     }
 
     [Test]
@@ -205,6 +239,7 @@ public class MetadataDefinitionFactoryTests
         await AssertFrozenMutation(() => SetModelCsFile(orderModel, changedFile));
         await AssertFrozenMutation(() => SetModelImmutableType(orderModel, changedRecord));
         await AssertFrozenMutation(() => SetModelImmutableFactory(orderModel, new Func<object>(() => new object())));
+        await AssertFrozenMutation(() => SetModelReadSourceImmutableFactoryCore(orderModel, new Func<object>(() => new object())));
         await AssertFrozenMutation(() => SetModelMutableType(orderModel, changedClass));
         await AssertFrozenMutation(() => SetModelInstanceInterface(orderModel, changedInterface));
         await AssertFrozenMutation(() => SetModelInterfaces(orderModel, [changedInterface]));
@@ -2769,6 +2804,92 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_GuidValuedDefaultOnGuidProperty_Succeeds()
+    {
+        var expected = Guid.ParseExact("00112233-4455-6677-8899-aabbccddeeff", "D");
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedIdProperty(),
+                CreateTypedValueProperty(
+                    "PublicId",
+                    typeof(Guid),
+                    "public_id",
+                    attributes: [new ColumnAttribute("public_id"), new DefaultAttribute(expected)])
+            ]);
+
+        var built = new MetadataDefinitionFactory()
+            .Build(database)
+            .ValueOrException();
+        var defaultAttribute = built.TableModels.Single()
+            .Model.ValueProperties["PublicId"]
+            .GetDefaultAttribute();
+
+        await Assert.That(defaultAttribute).IsNotNull();
+        await Assert.That(defaultAttribute!.Value).IsTypeOf<Guid>();
+        await Assert.That((Guid)defaultAttribute.Value).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task Build_GuidValuedDefaultOnStringProperty_ReturnsPropertyTypeDiagnostic()
+    {
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedIdProperty(),
+                CreateTypedValueProperty(
+                    "PublicId",
+                    typeof(string),
+                    "public_id",
+                    attributes:
+                    [
+                        new ColumnAttribute("public_id"),
+                        new DefaultAttribute(Guid.ParseExact("00112233-4455-6677-8899-aabbccddeeff", "D"))
+                    ])
+            ]);
+
+        var result = new MetadataDefinitionFactory().Build(database);
+
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Item.PublicId");
+        await Assert.That(failure.Message).Contains("Guid");
+        await Assert.That(failure.Message).Contains("string");
+    }
+
+    [Test]
+    public async Task Build_GuidValuedDefaultOnConverterBackedTypedProperty_ReturnsPropertyTypeDiagnostic()
+    {
+        var property = CreateTypedValueProperty(
+            "PublicId",
+            typeof(DefaultGuidTypedId),
+            "public_id",
+            attributes:
+            [
+                new ColumnAttribute("public_id"),
+                new DefaultAttribute(Guid.ParseExact("00112233-4455-6677-8899-aabbccddeeff", "D"))
+            ]);
+        property = property with
+        {
+            ScalarConverter = new MetadataScalarConverterDraft(
+                new CsTypeDeclaration(typeof(DefaultGuidTypedId)),
+                new CsTypeDeclaration(typeof(Guid)),
+                new CsTypeDeclaration(typeof(DefaultGuidTypedIdConverter)),
+                static () => new DefaultGuidTypedIdConverter())
+        };
+        var database = CreateSingleTableTypedDraft(
+            valueProperties: [CreateTypedIdProperty(), property]);
+
+        var result = new MetadataDefinitionFactory().Build(database);
+
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Item.PublicId");
+        await Assert.That(failure.Message).Contains("Guid");
+        await Assert.That(failure.Message).Contains(nameof(DefaultGuidTypedId));
+    }
+
+    [Test]
     public async Task Build_DefaultCurrentTimestampOnNonTemporalProperty_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableTypedDraft(
@@ -4680,6 +4801,19 @@ public class MetadataDefinitionFactoryTests
         };
     }
 
+    private readonly record struct DefaultGuidTypedId(Guid Value);
+
+    private sealed class DefaultGuidTypedIdConverter : DataLinqScalarConverter<DefaultGuidTypedId, Guid>
+    {
+        public override Guid ToProvider(
+            DefaultGuidTypedId modelValue,
+            in ScalarConversionContext context) => modelValue.Value;
+
+        public override DefaultGuidTypedId FromProvider(
+            Guid providerValue,
+            in ScalarConversionContext context) => new(providerValue);
+    }
+
     private static TableModel CreateTableModel(
         DatabaseDefinition database,
         string csPropertyName,
@@ -4896,6 +5030,9 @@ public class MetadataDefinitionFactoryTests
 
     private static void SetModelImmutableFactory(ModelDefinition model, Delegate immutableFactory) =>
         model.SetImmutableFactory(immutableFactory);
+
+    private static void SetModelReadSourceImmutableFactoryCore(ModelDefinition model, Delegate readSourceImmutableFactory) =>
+        model.SetReadSourceImmutableFactoryCore(readSourceImmutableFactory);
 
     private static void SetModelMutableType(ModelDefinition model, CsTypeDeclaration mutableType) =>
         model.SetMutableType(mutableType);

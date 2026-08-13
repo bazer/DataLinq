@@ -4,10 +4,12 @@
 # Specification: Mutable Instance Lifecycle
 
 **Status:** Accepted.
-**Last reviewed:** 2026-07-10.
+**Last reviewed:** 2026-07-12.
 **Target:** 0.9 for existing SQL providers; required before memory mutation or shared committed-change batches.
 **Goal:** Define consistent semantics for reusing the same mutable instance across `Insert`, `Update`, and `Save` calls, especially when explicit transactions, rollback, and cache baselines are involved.
 **0.9 execution plan:** [SQL Transaction and Mutable Lifecycle Implementation Plan](../roadmap-implementation/v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md).
+
+**Implementation progress:** The bounded provenance/guard, touched-authority, confirmed-commit, known-committed recovery, mutation-poisoning, managed-wrapper rollback/open-disposal, managed provider-call uncertainty-recovery, and full attached-transaction contract are implemented. A throwing managed `Commit()` becomes permanently `CommitOutcomeUnknown`; transaction-derived state is invalidated, managed reuse is rejected, and provider-wide committed rows/indices are conservatively evicted before recovery notifications. Active attached transactions promote or invalidate through wrapper-only commit/rollback across all providers. If the original attached handle is completed externally, wrapper commit and rollback retain their distinct unknown-outcome diagnostics, while first managed read/write/fallback/dispose records permanent `ExternalCompletionUnknown`; all of those paths invalidate transaction-derived state and recover caches without pretending to know whether the database committed. Shipped transaction/troubleshooting guidance and XML API remarks define the ownership transfer and unsupported raw boundary. Provider-specific outcome evidence after a throwing commit, raw low-level escape prevention, arbitrary local-cleanup fault injection, full provider commit-fault evidence, and full concurrency remain open; this specification does not turn those gaps into shipped support.
 
 ## 1. Design Position
 
@@ -70,7 +72,7 @@ It is real inside that transaction. It is not yet committed truth.
 
 ### Invalid baseline
 
-A baseline that must not be used for later writes. The common causes are rollback, disposal of an open transaction, or a failed mutation path where DataLinq cannot prove that the mutable still represents committed state.
+A baseline that must not be used for later writes. The common causes are confirmed rollback, rollback with an outcome that could not be confirmed, disposal of an open transaction, a failed mutation path, or a known-committed database change whose local state finalization failed.
 
 ## 4. Required Semantics
 
@@ -177,15 +179,18 @@ database.Save(mutable, x => x.hire_date = newHireDate); // allowed
 
 ### 4.8. Same mutable after rollback
 
-After rollback, the mutable must not be reused for writes.
+After a managed rollback attempt, the mutable must not be reused for writes.
 
 This is the dangerous case. A mutable may have been reset to transaction-local values after `Update()` or `Insert()` succeeded, but those values were never committed. If DataLinq then allows `Save()` with no tracked changes, or with only later changes, it can accidentally preserve rolled-back state.
 
 Required behavior:
 
-- mark mutables touched by the rolled-back transaction as invalid
+- mark mutables touched by the transaction as invalid with `RolledBack` only when provider status reached rolled back, otherwise with `RollbackOutcomeUnknown`
 - future `Insert`, `Update`, or `Save` calls on those mutables throw
 - the exception should tell the user to fetch or create a fresh mutable from committed state
+- if provider rollback throws while the provider remains open, block every managed transaction operation except disposal
+- discard exact transaction rows and subscriptions without clearing committed/global cache or relation state
+- defer wrapper `RolledBack` status publication until token/mutable/registry/cache finalization is complete
 
 Suggested exception text:
 
@@ -195,13 +200,15 @@ This mutable instance was written inside transaction 42, but that transaction wa
 
 ### 4.9. Disposal of an open transaction
 
-Disposing an open transaction currently behaves like rollback at the database layer.
+Directly disposing an open or poisoned managed wrapper uses the provider rollback/disposal path but records a distinct lifecycle reason.
 
-Mutable lifecycle should treat this exactly like rollback:
+Mutable lifecycle should apply the same conservative trust boundary as rollback:
 
-- transaction-local cache state is discarded
-- touched mutables become invalid
+- provider disposal is attempted before local finalization
+- exact transaction rows and subscriptions are discarded without clearing committed/global state
+- newly terminalized touched mutables and the ownership token become invalid with `OpenTransactionDisposed`; an earlier `MutationFailed` or other terminal token outcome is preserved
 - later write attempts throw
+- provider cleanup failure remains the primary exception while DataLinq finalization context and secondary failures remain inspectable
 
 ### 4.10. Failed mutation execution
 
@@ -240,17 +247,12 @@ If DataLinq later supports primary-key migration, it should be a dedicated API w
 
 ## 5. State Model
 
-Runtime mutable instances need explicit lifecycle/provenance state.
+Runtime mutable instances need explicit lifecycle/provenance state. The implemented bounded model separates baseline kind, row kind, invalidation reason, and transaction-owner outcome instead of multiplying combined states:
 
-Suggested internal states:
-
-- `New`
-- `CleanCommitted`
-- `DirtyCommitted`
-- `CleanTransactionLocal`
-- `DirtyTransactionLocal`
-- `InvalidRolledBack`
-- `Deleted`
+- baseline kinds: new/no baseline, committed, transaction-local, invalid
+- row kinds: new, existing, or deleted
+- invalidation reasons: `RolledBack`, `RollbackOutcomeUnknown`, `OpenTransactionDisposed`, `MutationFailed`, `CommitOutcomeUnknown`, `ExternalCompletionUnknown`, and `CommittedStateFinalizationFailed`
+- transaction-owner outcomes: unresolved, committed, rolled back, rollback outcome unknown, open transaction disposed, commit outcome unknown, external completion unknown, or committed-state finalization failed
 
 The exact names are not important. The important part is that the mutable knows:
 
@@ -258,7 +260,7 @@ The exact names are not important. The important part is that the mutable knows:
 - whether its baseline is committed or transaction-local
 - which provider owns the baseline
 - which transaction owns a transaction-local baseline
-- whether it has been invalidated by rollback or delete
+- whether it has been invalidated, why it is invalid, and whether deletion is transaction-local or committed
 
 ## 6. Transaction Responsibilities
 
@@ -278,16 +280,25 @@ On commit:
 3. promote touched mutable baselines to committed
 4. remove transaction-local ownership
 
-On rollback or open-transaction disposal:
+On explicit managed rollback:
 
-1. rollback the provider transaction
-2. discard transaction-local cache state
-3. invalidate touched mutable baselines
-4. remove transaction-local ownership
+1. attempt provider rollback
+2. classify the owner as `RolledBack` only if provider status reached rolled back, otherwise `RollbackOutcomeUnknown`
+3. discard exact transaction rows and subscriptions without clearing committed/global state
+4. invalidate touched mutable baselines without overwriting an earlier `MutationFailed`
+5. clear the touched registry and defer wrapper `RolledBack` observation until finalization is complete
+6. if the provider remains open after failure, permit only disposal through the managed wrapper
+
+On direct disposal of an open or poisoned managed wrapper:
+
+1. attempt provider rollback/resource disposal
+2. classify unresolved ownership as `OpenTransactionDisposed`
+3. perform the same exact transaction cleanup, invalidation, and registry clearing even when provider cleanup throws
+4. preserve an earlier terminal token/mutable outcome rather than reclassifying it
 
 Do not promote mutable baselines before the commit completes.
 
-For attached external transactions, once DataLinq writes through the wrapper and binds a mutable to it, completion must also be observed through the DataLinq wrapper. If external completion cannot be observed reliably, the touched mutable baselines are invalid rather than guessed committed.
+For attached external transactions, once DataLinq writes through the wrapper and binds a mutable to it, completion must also be observed through the DataLinq wrapper. If the original handle is instead completed externally, supported providers expose it as inactive. The wrapper then rejects continued managed use, permanently invalidates touched/token-derived baselines, removes scoped state, and evicts provider-wide committed caches because the external action may have committed. Wrapper `Commit()` and `Rollback()` preserve their operation-specific unknown outcomes; first managed read, write, fallback, or disposal records `ExternalCompletionUnknown`. None of those classifications guesses the database result.
 
 ## 7. API Guard Rules
 
@@ -341,8 +352,11 @@ Add compliance tests for SQLite, MySQL, and MariaDB covering:
 - mutable bound to one open transaction cannot be saved through another transaction
 - mutable bound to an open explicit transaction cannot be saved through an implicit transaction
 - mutable touched by a committed transaction can be reused later
-- mutable touched by a rolled-back transaction throws on later write
-- mutable touched by disposal of an open transaction throws on later write
+- mutable touched by a confirmed rolled-back transaction throws on later write with the `RolledBack` reason
+- rollback failure while provider status remains open records `RollbackOutcomeUnknown`, gates managed operations except disposal, and still makes the mutable unusable
+- mutable touched by direct disposal of an open transaction throws on later write with the `OpenTransactionDisposed` reason
+- provider rollback/disposal failure cannot prevent token/mutable/registry/scoped-cache finalization or replace the exact primary provider exception
+- exact transaction notification subscriptions are discarded without invocation while unrelated/committed subscriptions remain
 - mutable passed to committed delete rejects later mutation
 - mutable passed to rolled-back delete rejects later write or is explicitly invalidated
 - ordinary primary-key assignment followed by `Update()` throws
@@ -350,14 +364,18 @@ Add compliance tests for SQLite, MySQL, and MariaDB covering:
 
 ## 10. Implementation Checklist
 
-- [ ] Add lifecycle/provenance state to `Mutable<T>`.
-- [ ] Track provider identity on mutable baselines.
-- [ ] Track transaction ownership for transaction-local baselines.
-- [ ] Track touched mutables in `Transaction`.
-- [ ] Promote touched mutable baselines only after successful commit.
-- [ ] Invalidate touched mutable baselines after rollback or open-transaction disposal.
-- [ ] Guard all row mutation APIs before executing SQL.
-- [ ] Reject ordinary primary-key updates.
-- [ ] Ensure failed writes do not clear tracked changes.
-- [ ] Add provider compliance tests for the required scenarios.
-- [ ] Update public docs after behavior lands.
+- [x] Add the bounded lifecycle/provenance substrate to `Mutable<T>`.
+- [x] Track exact provider identity on mutable baselines.
+- [x] Track exact transaction-token ownership for transaction-local baselines.
+- [x] Track touched lifecycle mutables by reference identity in `Transaction`.
+- [x] Promote touched mutable baselines only after confirmed provider commit and local finalization.
+- [x] Invalidate touched mutable baselines after managed-wrapper rollback or open-transaction disposal, including deterministic provider cleanup failures.
+- [x] Guard supported managed row-mutation routes before executing SQL.
+- [x] Reject ordinary primary-key updates.
+- [x] Keep failed-write assignments inspectable while preventing an untrusted baseline from becoming writable.
+- [x] Recover conservatively from a throwing managed provider `Commit()` with permanent `CommitOutcomeUnknown`, managed-operation rejection, touched/scoped cleanup, provider-wide committed-cache eviction, and exact-cause-preserving recovery-failure context.
+- [x] Prove active attached wrapper-only commit promotion/reuse and rollback invalidation across every provider, and reject wrapper commit after external completion into conservative unknown-outcome cache recovery.
+- [x] Detect an inactive attached original handle before managed read/write/fallback/dispose, classify it as `ExternalCompletionUnknown`, recover provider-wide caches, block later managed work except disposal, and prove actual external commit/rollback rematerialization across every provider.
+- [x] Recover provider-wide caches when wrapper `Rollback()` first observes an externally completed attached handle, while retaining `RollbackOutcomeUnknown` instead of guessing the external result.
+- [ ] Complete the remaining provider/terminal matrix. Owned and active-attached wrapper completion plus bounded managed uncertainty recovery are covered; provider-specific database-outcome evidence after a throwing commit, raw low-level escapes, arbitrary local-cleanup fault injection, full provider commit-fault evidence, and full concurrency remain open.
+- [x] Update public shipped transaction/troubleshooting docs and XML API remarks for the tested attached/external policy without presenting the remaining lifecycle/provider gaps as shipped support.

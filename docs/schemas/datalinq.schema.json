@@ -179,7 +179,7 @@
           "type": "string",
           "description": "Provider connection string. CLI commands support ${env:NAME}, ${secret:name}, and ${prompt:label} references. Prefer local values or secret references in datalinq.user.json.",
           "examples": [
-            "Data Source=app.db;Cache=Shared;",
+            "Data Source=app.db;",
             "Server=localhost;Database=appdb;User ID=app;Password=${env:DATALINQ_APPDB_PASSWORD};",
             "Server=localhost;Database=appdb;User ID=app;Password=${secret:datalinq/AppDb/password};",
             "Server=localhost;Database=appdb;User ID=app;Password=${prompt:AppDb password};",

@@ -52,8 +52,8 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
                 "pod" => ExecutePodCommand(arguments),
                 "exec" => ExecuteExec(arguments),
                 "run" => ExecuteRun(arguments),
-                "machine" => Unsupported(string.Join(" ", arguments)),
-                _ => Unsupported(string.Join(" ", arguments))
+                "machine" => Unsupported(arguments[0]),
+                _ => Unsupported(arguments[0])
             };
         }
         catch (PodmanTransportUnavailableException)
@@ -62,7 +62,9 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
         }
         catch (JsonException exception)
         {
-            throw new InvalidOperationException($"The Podman socket returned an unexpected response for '{string.Join(" ", arguments)}'.", exception);
+            throw new InvalidOperationException(
+                $"The Podman socket returned an unexpected response for the '{arguments[0]}' operation.",
+                exception);
         }
     }
 
@@ -73,7 +75,7 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
     private PodmanCommandResult ExecuteVersion(IReadOnlyList<string> arguments)
     {
         if (arguments.Count is > 1 && arguments[1] == "--format" && arguments.Count > 2 && !string.Equals(arguments[2], "json", StringComparison.OrdinalIgnoreCase))
-            return Unsupported(string.Join(" ", arguments));
+            return Unsupported(arguments[0]);
 
         return Send("GET", "/version");
     }
@@ -84,7 +86,7 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
         Func<string, string> routeBuilder)
     {
         if (arguments.Count != 2)
-            return Unsupported(string.Join(" ", arguments));
+            return Unsupported(arguments[0]);
 
         return Send(method, routeBuilder(arguments[1]));
     }
@@ -92,7 +94,7 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
     private PodmanCommandResult ExecuteRemove(IReadOnlyList<string> arguments)
     {
         if (arguments.Count != 3 || arguments[1] != "-f")
-            return Unsupported(string.Join(" ", arguments));
+            return Unsupported(arguments[0]);
 
         return Send("DELETE", $"/containers/{Uri.EscapeDataString(arguments[2])}?force=true");
     }
@@ -100,7 +102,7 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
     private PodmanCommandResult ExecuteInspect(IReadOnlyList<string> arguments)
     {
         if (arguments.Count != 4 || arguments[1] != "--format" || arguments[2] != "{{.State.Running}}")
-            return Unsupported(string.Join(" ", arguments));
+            return Unsupported(arguments[0]);
 
         var response = SendRequest("GET", $"/containers/{Uri.EscapeDataString(arguments[3])}/json");
         if (response.StatusCode == HttpStatusCode.NotFound)
@@ -116,7 +118,7 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
     private PodmanCommandResult ExecuteContainerCommand(IReadOnlyList<string> arguments)
     {
         if (arguments.Count != 3 || arguments[1] != "exists")
-            return Unsupported(string.Join(" ", arguments));
+            return Unsupported(arguments[0]);
 
         var response = SendRequest("GET", $"/containers/{Uri.EscapeDataString(arguments[2])}/json");
         return response.StatusCode switch
@@ -135,7 +137,7 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
         if (arguments.Count == 4 && arguments[1] == "rm" && arguments[2] == "-f")
             return Send("DELETE", $"/v5.0.0/libpod/pods/{Uri.EscapeDataString(arguments[3])}?force=true");
 
-        return Unsupported(string.Join(" ", arguments));
+        return Unsupported(arguments[0]);
     }
 
     private PodmanCommandResult ExecutePodExists(string podName)
@@ -152,7 +154,7 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
     private PodmanCommandResult ExecuteExec(IReadOnlyList<string> arguments)
     {
         if (arguments.Count < 3)
-            return Unsupported(string.Join(" ", arguments));
+            return Unsupported(arguments[0]);
 
         var containerName = arguments[1];
         var command = arguments.Skip(2).ToArray();
@@ -196,7 +198,7 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
     private PodmanCommandResult ExecuteRun(IReadOnlyList<string> arguments)
     {
         if (arguments.Count < 2 || arguments[1] != "-d")
-            return Unsupported(string.Join(" ", arguments));
+            return Unsupported(arguments[0]);
 
         string? containerName = null;
         var environment = new List<string>();
@@ -226,7 +228,7 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
                     break;
                 default:
                     if (argument.StartsWith("-", StringComparison.Ordinal))
-                        return Unsupported(string.Join(" ", arguments));
+                        return Unsupported(arguments[0]);
 
                     image = argument;
                     break;

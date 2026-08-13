@@ -157,10 +157,18 @@ public class EmployeesCacheInvalidationCharacterizationTests
 
         employeesDatabase.Provider.State.ClearCache();
 
+        var committedEmployee = employeesDatabase.Query().Employees.Single(x => x.emp_no == employeeNumber);
+        var committedEmployeeAgain = employeesDatabase.Query().Employees.Single(x => x.emp_no == employeeNumber);
+        var originalBirthDate = committedEmployee.birth_date;
+
+        await Assert.That(ReferenceEquals(committedEmployee, committedEmployeeAgain)).IsTrue();
+        await Assert.That(employeeCache.RowCount).IsEqualTo(1);
+
         using var transaction = employeesDatabase.Transaction();
         var transactionEmployee = transaction.Query().Employees.Single(x => x.emp_no == employeeNumber);
         var transactionEmployeeAgain = transaction.Query().Employees.Single(x => x.emp_no == employeeNumber);
 
+        await Assert.That(ReferenceEquals(committedEmployee, transactionEmployee)).IsFalse();
         await Assert.That(ReferenceEquals(transactionEmployee, transactionEmployeeAgain)).IsTrue();
         await Assert.That(employeeCache.TransactionRowsCount).IsEqualTo(1);
         await Assert.That(employeeCache.GetTransactionRows(transaction).Count()).IsEqualTo(1);
@@ -176,6 +184,12 @@ public class EmployeesCacheInvalidationCharacterizationTests
         await Assert.That(transactionEmployeeAfterUpdate.birth_date).IsEqualTo(newBirthDate);
         await Assert.That(employeeCache.TransactionRowsCount).IsEqualTo(1);
         await Assert.That(employeeCache.GetTransactionRows(transaction).Count()).IsEqualTo(1);
+
+        var outsideEmployeeBeforeRollback = employeesDatabase.Query().Employees.Single(x => x.emp_no == employeeNumber);
+
+        await Assert.That(ReferenceEquals(committedEmployee, outsideEmployeeBeforeRollback)).IsTrue();
+        await Assert.That(outsideEmployeeBeforeRollback.birth_date).IsEqualTo(originalBirthDate);
+        await Assert.That(employeeCache.RowCount).IsEqualTo(1);
 
         transaction.Rollback();
     }
@@ -209,9 +223,114 @@ public class EmployeesCacheInvalidationCharacterizationTests
 
             await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
             await Assert.That(employeeCache.RowCount).IsEqualTo(1);
+            await Assert.That(employeeCache.IsTransactionInCache(transaction)).IsTrue();
+            await Assert.That(employeeCache.GetTransactionRows(transaction).Count()).IsEqualTo(1);
+
+            transaction.Rollback();
+
+            await Assert.That(employeeCache.IsTransactionInCache(transaction)).IsFalse();
+            await Assert.That(employeeCache.GetTransactionRows(transaction)).IsEmpty();
+        }
+
+        var persistedEmployee = employeesDatabase.Query().Employees.Single(x => x.emp_no == employeeNumber);
+
+        await Assert.That(persistedEmployee.birth_date).IsEqualTo(originalBirthDate);
+        await Assert.That(ReferenceEquals(cachedEmployee, persistedEmployee)).IsTrue();
+        await Assert.That(employeeCache.RowCount).IsEqualTo(1);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Cache_Rollback_DiscardsTransactionRelationIndexView(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Cache_Rollback_DiscardsTransactionRelationIndexView),
+            EmployeesSeedMode.None);
+
+        var employeesDatabase = databaseScope.Database;
+        const int employeeNumber = 999968;
+        var firstFromDate = new DateOnly(2024, 1, 1);
+        var secondFromDate = new DateOnly(2025, 1, 1);
+
+        _ = employeesDatabase.Insert(employees.NewEmployee(employeeNumber));
+        _ = employeesDatabase.Insert(new MutableSalaries
+        {
+            emp_no = employeeNumber,
+            salary = 50000,
+            FromDate = firstFromDate,
+            ToDate = firstFromDate.AddMonths(6)
+        });
+        _ = employeesDatabase.Insert(new MutableSalaries
+        {
+            emp_no = employeeNumber,
+            salary = 60000,
+            FromDate = secondFromDate,
+            ToDate = secondFromDate.AddMonths(6)
+        });
+
+        employeesDatabase.Provider.State.ClearCache();
+
+        using (var transaction = employeesDatabase.Transaction())
+        {
+            var deletedSalary = transaction.Query().salaries.Single(x =>
+                x.emp_no == employeeNumber &&
+                x.FromDate == firstFromDate);
+
+            transaction.Delete(deletedSalary);
+
+            var transactionEmployee = transaction.Query().Employees
+                .Single(x => x.emp_no == employeeNumber);
+
+            await Assert.That(transactionEmployee.salaries.Select(x => x.FromDate).ToArray())
+                .IsEquivalentTo([secondFromDate]);
 
             transaction.Rollback();
         }
+
+        var committedEmployee = employeesDatabase.Query().Employees
+            .Single(x => x.emp_no == employeeNumber);
+
+        await Assert.That(committedEmployee.salaries.Select(x => x.FromDate).ToArray())
+            .IsEquivalentTo([firstFromDate, secondFromDate]);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Cache_OpenTransactionDispose_RemovesTransactionRowsAndPreservesReadOnlyRowCache(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Cache_OpenTransactionDispose_RemovesTransactionRowsAndPreservesReadOnlyRowCache),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var employee = employees.GetOrCreateEmployee(999969, employeesDatabase);
+        var employeeNumber = employee.emp_no;
+        var employeeCache = GetTableCache<Employee, EmployeesDb>(employeesDatabase);
+
+        employeesDatabase.Provider.State.ClearCache();
+
+        var cachedEmployee = employeesDatabase.Query().Employees.Single(x => x.emp_no == employeeNumber);
+        var originalBirthDate = cachedEmployee.birth_date;
+        var mutable = cachedEmployee.Mutate();
+        mutable.birth_date = originalBirthDate.AddDays(1);
+
+        var transaction = employeesDatabase.Transaction();
+        using (transaction)
+        {
+            var updatedEmployee = transaction.Update(mutable);
+
+            await Assert.That(updatedEmployee.birth_date).IsEqualTo(mutable.birth_date);
+            await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
+            await Assert.That(employeeCache.RowCount).IsEqualTo(1);
+            await Assert.That(employeeCache.IsTransactionInCache(transaction)).IsTrue();
+            await Assert.That(employeeCache.GetTransactionRows(transaction).Count()).IsEqualTo(1);
+        }
+
+        await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.RolledBack);
+        await Assert.That(employeeCache.IsTransactionInCache(transaction)).IsFalse();
+        await Assert.That(employeeCache.GetTransactionRows(transaction)).IsEmpty();
 
         var persistedEmployee = employeesDatabase.Query().Employees.Single(x => x.emp_no == employeeNumber);
 

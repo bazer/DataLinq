@@ -97,9 +97,12 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
         if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.SQLite))
             return column.DbTypes.First(x => x.DatabaseType == DatabaseType.SQLite);
 
+        var fallbackType = GetDbTypeFromCsType(
+            column.ValueProperty,
+            DatabaseType.SQLite);
         var type = column.DbTypes
             .Select(x => TryGetColumnType(x))
-            .Concat(GetDbTypeFromCsType(column.ValueProperty, DatabaseType.SQLite).Yield())
+            .Concat(fallbackType.Yield())
             .Where(x => x != null)
             .FirstOrDefault();
 
@@ -125,10 +128,24 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
             };
         }
 
+        if (defaultAttr is DefaultNewUUIDAttribute defaultNewUuid)
+            throw CreateUnsupportedDatabaseGeneratedUuidDefaultException(column, defaultNewUuid);
+
         if (defaultAttr is DefaultSqlAttribute defaultSql)
             return defaultSql.DatabaseType is DatabaseType.Default or DatabaseType.SQLite
                 ? defaultSql.Expression
                 : null;
+
+        if (column.IsGuidColumn)
+        {
+            if (column.HasScalarConverter || defaultAttr.Value is not Guid guid)
+                throw CreateUnsupportedGuidDefaultException(column);
+
+            return FormatGuidDefaultValue(column, guid);
+        }
+
+        if (defaultAttr.Value is Guid)
+            throw CreateUnsupportedGuidDefaultException(column);
 
         if (column.ValueProperty.EnumProperty.HasValue)
             return Convert.ToInt32(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);
@@ -146,10 +163,37 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
             "DateTime" => QuoteSqlString(((DateTime)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
             "DateTimeOffset" => QuoteSqlString(((DateTimeOffset)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture)),
             "TimeSpan" => QuoteSqlString(((TimeSpan)defaultAttr.Value).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture)),
-            "Guid" or "System.Guid" => QuoteSqlString(((Guid)defaultAttr.Value).ToString()),
             _ => Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture)
         };
     }
+
+    private static string FormatGuidDefaultValue(ColumnDefinition column, Guid value)
+    {
+        var physicalValue = SQLiteGuidStorageCodec.ToPhysicalValue(column, value);
+
+        return physicalValue switch
+        {
+            string text => QuoteSqlString(text),
+            byte[] bytes => $"X'{Convert.ToHexString(bytes)}'",
+            _ => throw new InvalidOperationException(
+                $"UUID storage for column '{column.Table.DbName}.{column.DbName}' produced unsupported physical default type '{physicalValue.GetType().FullName}'.")
+        };
+    }
+
+    private static InvalidOperationException CreateUnsupportedGuidDefaultException(
+        ColumnDefinition column) =>
+        new(
+            $"Guid SQL default for column '{column.Table.DbName}.{column.DbName}' can be rendered only from a finalized Guid value on a direct canonical Guid mapping. " +
+            "Converter-backed mappings, noncanonical default values, and dynamic/generated UUID defaults require separate conversion or generation semantics and are not supported by this literal path.");
+
+    private static InvalidOperationException CreateUnsupportedDatabaseGeneratedUuidDefaultException(
+        ColumnDefinition column,
+        DefaultNewUUIDAttribute attribute) =>
+        new(
+            $"Database-generated UUID default for column '{column.Table.DbName}.{column.DbName}' requests '{attribute.Version}' on '{DatabaseType.SQLite}', " +
+            "but DataLinq has no verified SQLite storage-format mapping for that contract. " +
+            $"Use a provider-scoped [DefaultSql(DatabaseType.SQLite, \"...\")] only when the SQLite expression and resulting physical storage are intentional, " +
+            "or generate the UUID in client code.");
 
     protected virtual DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
     {
@@ -202,6 +246,13 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
 
     protected virtual DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property, DatabaseType databaseType)
     {
+        if (property.Column.HasScalarConverter)
+        {
+            return EffectiveColumnTypeResolver.ResolveFromCanonicalProviderType(
+                property.Column,
+                databaseType);
+        }
+
         var csTypeName = property.CsType.Name.ToLower();
 
         return csTypeName switch

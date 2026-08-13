@@ -24,7 +24,7 @@ public sealed record SimpleKeyCase(object Value1, object Value2, object Differen
 public class KeyFactoryAndEqualityTests
 {
     [Test]
-    public async Task DataLinqKey_Bytes_Equality_IsBasedOnContent()
+    public async Task DataLinqKey_Bytes_OwnsItsContentAndRemainsAStableDictionaryKey()
     {
         var data1 = new byte[] { 1, 2, 3, 4, 5 };
         var data2 = new byte[] { 1, 2, 3, 4, 5 };
@@ -33,11 +33,23 @@ public class KeyFactoryAndEqualityTests
         var key1 = KeyFactory.CreateKeyFromValue(data1);
         var key2 = KeyFactory.CreateKeyFromValue(data2);
         var key3 = KeyFactory.CreateKeyFromValue(data3);
+        var originalHashCode = key1.GetHashCode();
+        var dictionary = new Dictionary<DataLinqKey, string> { [key1] = "cached" };
+
+        data1[0] = 99;
+        var exposedValue = (byte[])key1.GetValue(0)!;
+        exposedValue[1] = 99;
+        var rereadValue = (byte[])key1.GetValue(0)!;
 
         await Assert.That(key1.ValueCount).IsEqualTo(1);
-        await Assert.That(key1.GetValue(0)).IsSameReferenceAs(data1);
+        await Assert.That(exposedValue).IsNotSameReferenceAs(data1);
+        await Assert.That(rereadValue).IsNotSameReferenceAs(exposedValue);
+        await Assert.That(rereadValue.SequenceEqual(data2)).IsTrue();
         await Assert.That(key1.Equals(key2)).IsTrue();
+        await Assert.That(key1.GetHashCode()).IsEqualTo(originalHashCode);
         await Assert.That(key1.GetHashCode()).IsEqualTo(key2.GetHashCode());
+        await Assert.That(dictionary.TryGetValue(key2, out var cached)).IsTrue();
+        await Assert.That(cached).IsEqualTo("cached");
         await Assert.That(key1.Equals(key3)).IsFalse();
         await Assert.That(key1.GetHashCode()).IsNotEqualTo(key3.GetHashCode());
     }
@@ -58,15 +70,71 @@ public class KeyFactoryAndEqualityTests
     }
 
     [Test]
-    public async Task DataLinqKey_Composite_WithBytes_Equality()
+    public async Task DataLinqKey_Composite_WithBytes_OwnsItsContentAndRemainsAStableDictionaryKey()
     {
-        var key1 = KeyFactory.CreateKeyFromValues(new object[] { 1, new byte[] { 1, 2, 3 } });
+        var bytes = new byte[] { 1, 2, 3 };
+        var key1 = KeyFactory.CreateKeyFromValues(new object[] { 1, bytes });
         var key2 = KeyFactory.CreateKeyFromValues(new object[] { 1, new byte[] { 1, 2, 3 } });
         var key3 = KeyFactory.CreateKeyFromValues(new object[] { 1, new byte[] { 4, 5, 6 } });
+        var originalHashCode = key1.GetHashCode();
+        var dictionary = new Dictionary<DataLinqKey, string> { [key1] = "cached" };
 
+        bytes[0] = 99;
+        var exposedValue = (byte[])key1.GetValue(1)!;
+        exposedValue[1] = 99;
+        var rereadValue = (byte[])key1.GetValue(1)!;
+
+        await Assert.That(exposedValue).IsNotSameReferenceAs(bytes);
+        await Assert.That(rereadValue).IsNotSameReferenceAs(exposedValue);
+        await Assert.That(rereadValue.SequenceEqual(new byte[] { 1, 2, 3 })).IsTrue();
         await Assert.That(key1.Equals(key2)).IsTrue();
+        await Assert.That(key1.GetHashCode()).IsEqualTo(originalHashCode);
         await Assert.That(key1.GetHashCode()).IsEqualTo(key2.GetHashCode());
+        await Assert.That(dictionary.TryGetValue(key2, out var cached)).IsTrue();
+        await Assert.That(cached).IsEqualTo("cached");
         await Assert.That(key1.Equals(key3)).IsFalse();
+    }
+
+    [Test]
+    public async Task DataLinqKey_FromProviderKey_DeepCopiesByteArrayComponents()
+    {
+        var bytes = new byte[] { 10, 20, 30 };
+        var providerKey = new MutableProviderKey("tenant-1", bytes);
+        var key = DataLinqKey.FromProviderKey(providerKey);
+        var equivalent = DataLinqKey.FromValues(["tenant-1", new byte[] { 10, 20, 30 }]);
+        var originalHashCode = key.GetHashCode();
+        var dictionary = new Dictionary<DataLinqKey, string> { [key] = "cached" };
+
+        bytes[0] = 99;
+        var exposedValue = (byte[])key.GetValue(1)!;
+        exposedValue[1] = 99;
+        var rereadValue = (byte[])key.GetValue(1)!;
+
+        await Assert.That(exposedValue).IsNotSameReferenceAs(bytes);
+        await Assert.That(rereadValue).IsNotSameReferenceAs(exposedValue);
+        await Assert.That(rereadValue.SequenceEqual(new byte[] { 10, 20, 30 })).IsTrue();
+        await Assert.That(key).IsEqualTo(equivalent);
+        await Assert.That(key.GetHashCode()).IsEqualTo(originalHashCode);
+        await Assert.That(dictionary.TryGetValue(equivalent, out var cached)).IsTrue();
+        await Assert.That(cached).IsEqualTo("cached");
+    }
+
+    [Test]
+    public async Task DataLinqKeyComponents_BinaryIndexerReturnsDefensiveCopies()
+    {
+        var bytes = new byte[] { 7, 8, 9 };
+        var components = DataLinqKeyComponents.FromValues("tenant-1", bytes);
+        var equivalent = DataLinqKeyComponents.FromValues("tenant-1", new byte[] { 7, 8, 9 });
+        var dictionary = new Dictionary<DataLinqKeyComponents, string> { [components] = "cached" };
+
+        bytes[0] = 99;
+        var exposedValue = (byte[])components[1]!;
+        exposedValue[1] = 99;
+
+        await Assert.That((byte[])components[1]!).IsEquivalentTo(new byte[] { 7, 8, 9 });
+        await Assert.That(components).IsEqualTo(equivalent);
+        await Assert.That(dictionary.TryGetValue(equivalent, out var cached)).IsTrue();
+        await Assert.That(cached).IsEqualTo("cached");
     }
 
     [Test]
@@ -202,5 +270,12 @@ public class KeyFactoryAndEqualityTests
         }
 
         return GC.GetAllocatedBytesForCurrentThread() - before;
+    }
+
+    private sealed class MutableProviderKey(params object?[] values) : IProviderKey
+    {
+        public int ValueCount => values.Length;
+
+        public object? GetValue(int index) => values[index];
     }
 }

@@ -343,7 +343,7 @@ public class Where<T> : IWhere<T>
 
     private void AppendParameterNames(ValueOperand operand, Sql sql, string prefix, bool addCommandParameter)
     {
-        var values = operand.Values;
+        var values = operand.GetParameterValues(WhereGroup.Query.DataSource.Provider.GetWriter);
         var wrapInParentheses = values.Length > 1 || Operator == Operator.In || Operator == Operator.NotIn;
 
         if (wrapInParentheses)

@@ -11,7 +11,7 @@ namespace DataLinq.Linq.Planning.Sql;
 internal sealed class QueryPlanSqlValueRenderer(
     IDataSourceAccess dataSource,
     QueryPlanSqlSourceMap sourceMap,
-    QueryPlanBindings bindings,
+    QueryPlanBindingValues bindingValues,
     QueryPlanDerivedColumnMap? derivedColumns = null)
 {
     public Operand RenderOperand(QueryPlanValue value)
@@ -21,13 +21,13 @@ internal sealed class QueryPlanSqlValueRenderer(
         return value switch
         {
             QueryPlanColumnValue column => RenderColumnOperand(column),
-            QueryPlanConstantValue constant => Operand.Value(constant.Value),
-            QueryPlanCapturedValue captured => Operand.Value(GetScalarBinding(captured).Value),
+            QueryPlanIntrinsicValue intrinsic => Operand.Value(GetIntrinsicValue(intrinsic)),
+            QueryPlanScalarBindingReference scalar => Operand.Value(GetScalarBinding(scalar).Value),
             QueryPlanFunctionValue function => Operand.RawSql(RenderFunctionSql(function)),
             QueryPlanConvertedValue converted => RenderOperand(converted.Value),
             QueryPlanGroupKeyValue groupKey => Operand.RawSql(RenderSqlExpression(groupKey.Key)),
             QueryPlanGroupedAggregateValue groupedAggregate => Operand.RawSql(RenderGroupedAggregateSql(groupedAggregate)),
-            QueryPlanLocalSequenceValue => throw new QueryTranslationException("Local sequence query plan values can only be rendered in IN predicates."),
+            QueryPlanLocalSequenceBindingReference => throw new QueryTranslationException("Local sequence binding references can only be rendered in IN predicates."),
             _ => throw new QueryTranslationException($"Query plan value '{value.Kind}' is not supported by SQL rendering.")
         };
     }
@@ -68,7 +68,7 @@ internal sealed class QueryPlanSqlValueRenderer(
 
         var selector = aggregate.Selector
             ?? throw new QueryTranslationException($"Grouped aggregate '{aggregate.Aggregate}' requires a selector.");
-        var selectorSql = GetAggregateColumnExpression(selector);
+        var selectorSql = GetAggregateColumnExpression(selector, aggregate.Aggregate.ToString());
 
         return aggregate.Aggregate switch
         {
@@ -102,60 +102,60 @@ internal sealed class QueryPlanSqlValueRenderer(
 
         return value switch
         {
-            QueryPlanConstantValue constant => constant.Value,
-            QueryPlanCapturedValue captured => GetScalarBinding(captured).Value,
+            QueryPlanIntrinsicValue intrinsic => GetIntrinsicValue(intrinsic),
+            QueryPlanScalarBindingReference scalar => GetScalarBinding(scalar).Value,
             QueryPlanConvertedValue converted => ConvertScalarValue(GetScalarValue(converted.Value), converted.TargetType),
             _ => throw new QueryTranslationException($"Query plan value '{value.Kind}' cannot be used as a scalar SQL value.")
         };
     }
 
-    public IReadOnlyList<object?> GetLocalSequenceValues(QueryPlanLocalSequenceValue sequence)
+    public IReadOnlyList<object?> GetLocalSequenceValues(QueryPlanLocalSequenceBindingReference sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
 
         var binding = GetBinding(sequence.BindingId);
-        if (binding.Kind != QueryPlanBindingKind.LocalSequence)
+        if (binding is not QueryPlanInvocationValue.LocalSequence localSequence)
             throw new QueryTranslationException($"Query plan binding '{sequence.BindingId}' is not a local sequence binding.");
 
-        return binding.Values
-            ?? throw new QueryTranslationException($"Query plan local sequence binding '{sequence.BindingId}' has no values.");
+        return localSequence.Values;
     }
 
-    public static (Operand left, Operand right) NormalizeValueOperandsForColumnTypes(Operand left, Operand right)
+    public (Operand Left, Operand Right) NormalizeComparisonOperands(
+        QueryPlanComparisonOperator comparisonOperator,
+        Operand left,
+        Operand right) =>
+        QueryPlanSqlColumnValueNormalizer.NormalizeComparisonOperands(comparisonOperator, left, right);
+
+    public ValueOperand NormalizeLocalSequenceValues(
+        ColumnDefinition column,
+        IReadOnlyList<object?> sourceValues) =>
+        QueryPlanSqlColumnValueNormalizer.NormalizeLocalSequenceValues(column, sourceValues);
+
+    private QueryPlanInvocationValue.Scalar GetScalarBinding(QueryPlanScalarBindingReference scalar)
     {
-        if (left is ColumnOperandWithDefinition leftColumn && right is ValueOperand rightValue)
-            right = NormalizeValueOperandForColumnType(leftColumn.ColumnDefinition, rightValue);
+        var binding = GetBinding(scalar.BindingId);
+        if (binding is not QueryPlanInvocationValue.Scalar scalarValue)
+            throw new QueryTranslationException($"Query plan binding '{scalar.BindingId}' is not a scalar binding.");
 
-        if (right is ColumnOperandWithDefinition rightColumn && left is ValueOperand leftValue)
-            left = NormalizeValueOperandForColumnType(rightColumn.ColumnDefinition, leftValue);
-
-        return (left, right);
+        return scalarValue;
     }
 
-    public static object? NormalizeValueForColumnType(ColumnDefinition column, object? value)
+    private QueryPlanInvocationValue GetBinding(string bindingId)
     {
-        var columnType = GetNonNullableColumnType(column);
-        return columnType == typeof(char)
-            ? NormalizeCharComparisonValue(value)
-            : value;
-    }
-
-    private QueryPlanBinding GetScalarBinding(QueryPlanCapturedValue captured)
-    {
-        var binding = GetBinding(captured.BindingId);
-        if (binding.Kind != QueryPlanBindingKind.Scalar)
-            throw new QueryTranslationException($"Query plan binding '{captured.BindingId}' is not a scalar binding.");
-
-        return binding;
-    }
-
-    private QueryPlanBinding GetBinding(string bindingId)
-    {
-        if (bindings.TryGet(bindingId, out var binding))
+        if (bindingValues.TryGet(bindingId, out var binding))
             return binding;
 
         throw new QueryTranslationException($"Query plan binding '{bindingId}' is not available to SQL rendering.");
     }
+
+    private static object? GetIntrinsicValue(QueryPlanIntrinsicValue intrinsic)
+        => intrinsic.Intrinsic switch
+        {
+            QueryPlanIntrinsicKind.Null => null,
+            QueryPlanIntrinsicKind.BooleanTrue => true,
+            QueryPlanIntrinsicKind.BooleanFalse => false,
+            _ => throw new QueryTranslationException($"Query plan intrinsic '{intrinsic.Intrinsic}' is not supported by SQL rendering.")
+        };
 
     private string RenderFunctionSql(QueryPlanFunctionValue function)
     {
@@ -180,7 +180,6 @@ internal sealed class QueryPlanSqlValueRenderer(
             QueryPlanFunctionKind.StringContains or
             QueryPlanFunctionKind.StringIsNullOrEmpty or
             QueryPlanFunctionKind.StringIsNullOrWhiteSpace => throw new QueryTranslationException($"Boolean query plan function '{function.Function}' must be rendered as a predicate."),
-            QueryPlanFunctionKind.ClientExpression => throw new QueryTranslationException("Client-expression query plan values cannot be rendered to SQL."),
             _ => throw new QueryTranslationException($"Query plan function '{function.Function}' is not supported by SQL rendering.")
         };
     }
@@ -218,76 +217,10 @@ internal sealed class QueryPlanSqlValueRenderer(
         };
     }
 
-    private static ValueOperand NormalizeValueOperandForColumnType(ColumnDefinition column, ValueOperand valueOperand)
+    private string GetAggregateColumnExpression(QueryPlanValue selector, string operatorName)
     {
-        var sourceValues = valueOperand.Values;
-        var values = new object?[sourceValues.Length];
-        for (var index = 0; index < sourceValues.Length; index++)
-            values[index] = NormalizeValueForColumnType(column, sourceValues[index]);
-
-        return Operand.Value(values);
-    }
-
-    private static Type GetNonNullableColumnType(ColumnDefinition column)
-    {
-        var columnType = column.ValueProperty.CsType.Type
-            ?? throw new QueryTranslationException($"Column '{column.DbName}' has no CLR type metadata.");
-
-        return Nullable.GetUnderlyingType(columnType) ?? columnType;
-    }
-
-    private static object? NormalizeCharComparisonValue(object? value) => value switch
-    {
-        int intValue when intValue >= char.MinValue && intValue <= char.MaxValue => (char)intValue,
-        string stringValue when stringValue.Length == 1 => stringValue[0],
-        _ => value
-    };
-
-    private string GetAggregateColumnExpression(QueryPlanValue selector)
-    {
-        var unwrapped = selector is QueryPlanConvertedValue converted
-            ? converted.Value
-            : selector;
-
-        if (unwrapped is not QueryPlanColumnValue column)
-        {
-            throw new QueryTranslationException(
-                $"Query plan aggregate selector '{unwrapped.Kind}' is not supported. " +
-                "Only direct numeric source-slot columns are supported.");
-        }
-
-        if (!IsNumericType(unwrapped.ClrType))
-        {
-            throw new QueryTranslationException(
-                $"Query plan aggregate selector column '{column.Column.DbName}' must be numeric. " +
-                $"Selector type: {unwrapped.ClrType}");
-        }
-
+        var column = QueryPlanAggregateSelectorValidator.RequireDirectNumericColumn(selector, operatorName);
         return RenderColumnSql(column);
-    }
-
-    private static bool IsNumericType(Type type)
-    {
-        type = Nullable.GetUnderlyingType(type) ?? type;
-
-        if (type.IsEnum)
-            return false;
-
-        return Type.GetTypeCode(type) switch
-        {
-            TypeCode.Byte or
-            TypeCode.SByte or
-            TypeCode.Int16 or
-            TypeCode.UInt16 or
-            TypeCode.Int32 or
-            TypeCode.UInt32 or
-            TypeCode.Int64 or
-            TypeCode.UInt64 or
-            TypeCode.Single or
-            TypeCode.Double or
-            TypeCode.Decimal => true,
-            _ => false
-        };
     }
 
     private static object? ConvertScalarValue(object? value, Type targetType)

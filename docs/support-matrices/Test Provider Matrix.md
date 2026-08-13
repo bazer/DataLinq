@@ -10,6 +10,16 @@ test-infra/podman/matrix.json
 
 Local SQLite targets are provided by the test catalog, while MySQL and MariaDB server targets come from the Podman matrix.
 
+## Non-Provider Suites
+
+`DataLinq.Testing.CLI` also registers the following targetless suite:
+
+| Suite | Project | Target behavior | Composite behavior |
+| --- | --- | --- | --- |
+| `memory` | `src/DataLinq.Tests.Memory/DataLinq.Tests.Memory.csproj` | Runs once with `Targets` reported as `-`; provider aliases do not multiply it. | Included exactly once in `--suite all`. |
+
+`memory` is a suite, not a provider target or alias. `sqlite-memory` continues to mean the compliance project using an in-memory SQLite connection. The Memory test project intentionally references `DataLinq.SQLite` for bounded differential-parity fixtures, so this project-based lane is not evidence that its test host is provider-free and is not a packaged-consumer run. Provider-free Memory evidence belongs to the separate constrained-runtime hosts.
+
 ## Target Aliases
 
 | Alias | Targets | Intended use |

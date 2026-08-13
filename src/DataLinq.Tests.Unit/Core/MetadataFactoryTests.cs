@@ -397,7 +397,8 @@ public class MetadataFactoryTests
         var valueProperty = CreateTestValueProperty(model, "ID", typeof(Guid), [new DefaultNewUUIDAttribute()]);
         ParseMetadataColumn(table, valueProperty);
 
-        await Assert.That(valueProperty.GetDefaultValue()).IsEqualTo("Guid.CreateVersion7()");
+        await Assert.That(valueProperty.GetDefaultValue()).IsEqualTo(
+            "global::DataLinq.Instances.GeneratedDefaultValueFactory.CreateVersion7Guid()");
     }
 
     [Test]

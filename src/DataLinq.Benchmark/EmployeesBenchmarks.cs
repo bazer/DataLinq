@@ -18,6 +18,7 @@ public class EmployeesBenchmarks : IDisposable
     private const string Phase10KeyFoundationCategory = "phase10-key-foundation";
     private const string Phase11CacheInvalidationCategory = "phase11-cache-invalidation";
     private const string Phase12CacheMemoryCategory = "phase12-cache-memory";
+    private const string V09QueryBackendCategory = "v0.9-query-backend";
     private const string MacroReadWriteCategory = "macro-readwrite";
     private const string MacroBulkCategory = "macro-bulk";
     private BenchmarkContext? context;
@@ -263,6 +264,60 @@ public class EmployeesBenchmarks : IDisposable
     {
         executedScenario = BenchmarkScenario.RepeatedScalarAny;
         return context!.ExecuteScalarAnyBatch();
+    }
+
+    [BenchmarkCategory(V09QueryBackendCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Expression parse/structural template")]
+    public int ExpressionParseStructuralTemplate()
+    {
+        executedScenario = BenchmarkScenario.ExpressionParseStructuralTemplate;
+        return context!.ParseExpressionStructuralTemplateBatch();
+    }
+
+    [BenchmarkCategory(V09QueryBackendCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Expression parse/template/initial bind")]
+    public int ExpressionParseTemplateInitialBind()
+    {
+        executedScenario = BenchmarkScenario.ExpressionParseTemplateInitialBind;
+        return context!.ParseExpressionTemplateAndInitialBindBatch();
+    }
+
+    [BenchmarkCategory(V09QueryBackendCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Template freeze/validation")]
+    public int TemplateFreezeValidation()
+    {
+        executedScenario = BenchmarkScenario.TemplateFreezeValidation;
+        return context!.FreezeAndValidateTemplateBatch();
+    }
+
+    [BenchmarkCategory(V09QueryBackendCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Invocation bind scalar/local sequence")]
+    public int InvocationBindScalarLocalSequence()
+    {
+        executedScenario = BenchmarkScenario.InvocationBindScalarLocalSequence;
+        return context!.BindScalarAndLocalSequenceBatch();
+    }
+
+    [BenchmarkCategory(V09QueryBackendCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "SQL request/capability preparation")]
+    public int SqlRequestCapabilityPreparation()
+    {
+        executedScenario = BenchmarkScenario.SqlRequestCapabilityPreparation;
+        return context!.PrepareSqlRequestAndCapabilitiesBatch();
+    }
+
+    [IterationSetup(Target = nameof(SqlAdapterScalarAny))]
+    public void SetupSqlAdapterScalarAny()
+    {
+        context!.WarmV09SqlAdapter();
+    }
+
+    [BenchmarkCategory(V09QueryBackendCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.V09SqlAdapterOperationCount, Description = "SQL adapter scalar Any")]
+    public int SqlAdapterScalarAny()
+    {
+        executedScenario = BenchmarkScenario.SqlAdapterScalarAny;
+        return context!.ExecutePreparsedSqlAdapterScalarAnyBatch();
     }
 
     [IterationSetup(Target = nameof(ColdRelationTraversal))]

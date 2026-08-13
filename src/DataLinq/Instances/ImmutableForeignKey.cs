@@ -46,18 +46,31 @@ public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dat
 
     protected IDataSourceAccess GetDataSource()
     {
-        if (dataSource is Transaction transaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
-            dataSource = dataSource.Provider.ReadOnlyAccess;
+        if (dataSource is Transaction transaction)
+        {
+            if (transaction.Status == DatabaseTransactionStatus.Committed ||
+                transaction.Status == DatabaseTransactionStatus.RolledBack)
+            {
+                transaction.EnsureTerminalReadSourceFallbackAllowed(
+                    "switch a transaction-bound foreign key to committed reads");
+                dataSource = dataSource.Provider.ReadOnlyAccess;
+            }
+            else
+            {
+                transaction.EnsureCanRead("access a transaction-bound foreign key");
+            }
+        }
 
         return dataSource;
     }
 
     protected T? GetInstance()
     {
+        var source = GetDataSource();
         var localHolder = valueHolder;
         if (localHolder != null)
         {
-            GetTableCache().MetricsHandle.RecordRelationReferenceCacheHit();
+            GetTableCache(source).MetricsHandle.RecordRelationReferenceCacheHit();
             return localHolder.Value;
         }
 
@@ -71,7 +84,6 @@ public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dat
                 }
                 else
                 {
-                    var source = GetDataSource();
                     var tableCache = GetTableCache(source);
                     var instance = LoadInstance(tableCache, source);
 

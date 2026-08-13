@@ -34,6 +34,9 @@ public class GeneratorFileFactoryTests
         await Assert.That(generatedFile.contents.Contains(
             "public static void SetDataLinqGeneratedMetadata(global::DataLinq.Metadata.DatabaseDefinition metadata)"))
             .IsTrue();
+        await Assert.That(generatedFile.contents).Contains(
+            "new global::TestNamespace.GeneratorDb((global::DataLinq.Mutation.DataSourceAccess)dataSource);");
+        await Assert.That(generatedFile.contents).DoesNotContain("NewDataLinqReadDatabase");
         await Assert.That(generatedFile.contents.Contains(
             "new(\"GeneratorModels\", typeof(global::TestNamespace.GeneratorModel), typeof(global::TestNamespace.ImmutableGeneratorModel), typeof(global::TestNamespace.MutableGeneratorModel), new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataSourceAccess, global::DataLinq.Instances.IImmutableInstance>(global::TestNamespace.ImmutableGeneratorModel.NewDataLinqImmutableInstance), global::DataLinq.Metadata.TableType.Table),"))
             .IsTrue();
@@ -182,6 +185,93 @@ public class GeneratorFileFactoryTests
     }
 
     [Test]
+    public async Task CreateModelFiles_ReadSourceCapableModel_EmitsParallelTypedFactories()
+    {
+        var database = CreateDatabaseWithDefaultValue(
+            propertyName: "Name",
+            propertyType: new CsTypeDeclaration(typeof(string)),
+            defaultValue: "generated");
+
+        var generatedFiles = new GeneratorFileFactory(new GeneratorFileFactoryOptions
+        {
+            ReadSourceConstructorModelTypeNames = ["TestNamespace.GeneratorModel"],
+            SupportsReadSourceDatabaseConstruction = true
+        })
+            .CreateModelFiles(database)
+            .ToList();
+        var modelCode = generatedFiles.Single(file => file.path == "GeneratorModel.cs").contents;
+        var metadataCode = generatedFiles.Single(file => file.path == "GeneratorDb.DataLinqMetadata.cs").contents;
+        var allCode = string.Join(Environment.NewLine, generatedFiles.Select(static file => file.contents));
+
+        await Assert.That(modelCode).Contains(
+            "public ImmutableGeneratorModel(IRowData rowData, IDataSourceAccess dataSource)");
+        await Assert.That(modelCode).Contains(
+            "public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new ImmutableGeneratorModel(rowData, dataSource);");
+        await Assert.That(modelCode).Contains(
+            "public ImmutableGeneratorModel(IRowData rowData, IDataLinqReadSource readSource)");
+        await Assert.That(modelCode).Contains(
+            "public static IImmutableInstance NewDataLinqReadImmutableInstance(IRowData rowData, IDataLinqReadSource readSource) => new ImmutableGeneratorModel(rowData, readSource);");
+        await Assert.That(metadataCode).Contains(
+            "ReadSourceImmutableFactory = new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataLinqReadSource, global::DataLinq.Instances.IImmutableInstance>(global::TestNamespace.ImmutableGeneratorModel.NewDataLinqReadImmutableInstance),");
+        await Assert.That(metadataCode).Contains(
+            "public static GeneratorDb NewDataLinqDatabase(global::DataLinq.Interfaces.IDataSourceAccess dataSource) =>");
+        await Assert.That(metadataCode).Contains(
+            "new global::TestNamespace.GeneratorDb(dataSource);");
+        await Assert.That(metadataCode).Contains(
+            "public static GeneratorDb NewDataLinqReadDatabase(global::DataLinq.Interfaces.IDataLinqReadSource readSource) =>");
+        await Assert.That(metadataCode).Contains(
+            "new global::TestNamespace.GeneratorDb(readSource);");
+        await Assert.That(metadataCode).DoesNotContain("global::DataLinq.Mutation.DataSourceAccess)dataSource");
+        await Assert.That(metadataCode).Contains(
+            "new(\"GeneratorModels\", typeof(global::TestNamespace.GeneratorModel), typeof(global::TestNamespace.ImmutableGeneratorModel), typeof(global::TestNamespace.MutableGeneratorModel), new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataSourceAccess, global::DataLinq.Instances.IImmutableInstance>(global::TestNamespace.ImmutableGeneratorModel.NewDataLinqImmutableInstance), global::DataLinq.Metadata.TableType.Table),");
+        await Assert.That(allCode).DoesNotContain("DynamicInvoke");
+        await Assert.That(allCode).DoesNotContain("(IDataSourceAccess)readSource");
+        await Assert.That(allCode).DoesNotContain("(global::DataLinq.Interfaces.IDataSourceAccess)readSource");
+    }
+
+    [Test]
+    public async Task CreateModelFiles_ModelWithoutReadSourceCapability_OmitsNeutralFactoryEmission()
+    {
+        var database = CreateDatabaseWithDefaultValue(
+            propertyName: "Name",
+            propertyType: new CsTypeDeclaration(typeof(string)),
+            defaultValue: "generated");
+
+        var generatedCode = string.Join(
+            Environment.NewLine,
+            new GeneratorFileFactory(new GeneratorFileFactoryOptions())
+                .CreateModelFiles(database)
+                .Select(static file => file.contents));
+
+        await Assert.That(generatedCode).Contains(
+            "public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new ImmutableGeneratorModel(rowData, dataSource);");
+        await Assert.That(generatedCode).DoesNotContain("NewDataLinqReadImmutableInstance");
+        await Assert.That(generatedCode).DoesNotContain("ReadSourceImmutableFactory");
+    }
+
+    [Test]
+    [Arguments(UUIDVersion.Version4, "global::System.Guid.NewGuid()")]
+    [Arguments(UUIDVersion.Version7, "global::DataLinq.Instances.GeneratedDefaultValueFactory.CreateVersion7Guid()")]
+    public async Task CreateModelFiles_RequiredConstructor_EvaluatesDynamicDefaultExactlyOnce(
+        UUIDVersion version,
+        string expectedExpression)
+    {
+        var database = CreateDatabaseWithUuidDefaultAndRequiredName(version);
+
+        var generatedCode = new GeneratorFileFactory(new GeneratorFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "GeneratorModel.cs")
+            .contents;
+
+        var invocationCount = generatedCode.Split(expectedExpression, StringSplitOptions.None).Length - 1;
+
+        await Assert.That(invocationCount).IsEqualTo(1);
+        await Assert.That(generatedCode).Contains($"this.Id = {expectedExpression};");
+        await Assert.That(generatedCode).Contains("public MutableGeneratorModel(string name) : this()");
+        await Assert.That(generatedCode).Contains("this.Name = name;");
+    }
+
+    [Test]
     public async Task CreateModelFiles_DefaultEnumValue_UsesEnumMember()
     {
         var database = CreateDatabaseWithDefaultValue(
@@ -234,6 +324,40 @@ public class GeneratorFileFactoryTests
         await Assert.That(generatedFile.contents).Contains("/// Generated property &lt;name&gt;");
     }
 
+    [Test]
+    public async Task CreateModelFiles_GuidStorageAttributes_EmitGeneratedMetadata()
+    {
+        var database = CreateDatabaseWithGuidStorage();
+
+        var generatedFile = new GeneratorFileFactory(new GeneratorFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "GeneratorDb.DataLinqMetadata.cs");
+
+        await Assert.That(generatedFile.contents).Contains(
+            "new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.Attributes.GuidStorageFormat.Text36)");
+        await Assert.That(generatedFile.contents).Contains(
+            "new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.DatabaseType.MySQL, global::DataLinq.Attributes.GuidStorageFormat.Binary16Rfc4122)");
+    }
+
+    [Test]
+    public async Task CreateModelFiles_ResolvedGuidStorage_EmitsGeneratedMetadataDraft()
+    {
+        var database = CreateDatabaseWithResolvedGuidStorage();
+
+        var generatedFile = new GeneratorFileFactory(new GeneratorFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "GeneratorDb.DataLinqMetadata.cs");
+
+        await Assert.That(generatedFile.contents).Contains(
+            "GuidStorageDefinitions =");
+        await Assert.That(generatedFile.contents).Contains(
+            "new global::DataLinq.Metadata.GuidStorageDefinition(global::DataLinq.DatabaseType.MySQL, global::DataLinq.Attributes.GuidStorageFormat.Binary16LittleEndian, false)");
+        await Assert.That(generatedFile.contents).Contains(
+            "new global::DataLinq.Metadata.GuidStorageDefinition(global::DataLinq.DatabaseType.MariaDB, global::DataLinq.Attributes.GuidStorageFormat.NativeUuid, false)");
+        await Assert.That(generatedFile.contents).Contains(
+            "new global::DataLinq.Metadata.GuidStorageDefinition(global::DataLinq.DatabaseType.SQLite, global::DataLinq.Attributes.GuidStorageFormat.Text36, false)");
+    }
+
     private static DatabaseDefinition CreateDatabaseWithDefaultValue(
         string propertyName,
         CsTypeDeclaration propertyType,
@@ -273,6 +397,151 @@ public class GeneratorFileFactoryTests
                             {
                                 Attributes = propertyAttributes,
                                 EnumProperty = enumProperty
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("generator_table"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithUuidDefaultAndRequiredName(UUIDVersion version)
+    {
+        var draft = new MetadataDatabaseDraft(
+            "GeneratorDb",
+            new CsTypeDeclaration("GeneratorDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "GeneratorModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("GeneratorModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.SQLite, "TEXT")]
+                                })
+                            {
+                                Attributes =
+                                [
+                                    new ColumnAttribute("id"),
+                                    new GuidStorageAttribute(GuidStorageFormat.Text36),
+                                    new DefaultNewUUIDAttribute(version)
+                                ]
+                            },
+                            new MetadataValuePropertyDraft(
+                                "Name",
+                                new CsTypeDeclaration(typeof(string)),
+                                new MetadataColumnDraft("name")
+                                {
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.SQLite, "TEXT")]
+                                })
+                            {
+                                Attributes = [new ColumnAttribute("name")]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("generator_table"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithGuidStorage()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "GeneratorDb",
+            new CsTypeDeclaration("GeneratorDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "GeneratorModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("GeneratorModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes =
+                                    [
+                                        new DatabaseColumnType(DatabaseType.MySQL, "binary", 16),
+                                        new DatabaseColumnType(DatabaseType.SQLite, "TEXT")
+                                    ]
+                                })
+                            {
+                                Attributes =
+                                [
+                                    new GuidStorageAttribute(GuidStorageFormat.Text36),
+                                    new GuidStorageAttribute(
+                                        DatabaseType.MySQL,
+                                        GuidStorageFormat.Binary16Rfc4122)
+                                ]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("generator_table"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithResolvedGuidStorage()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "GeneratorDb",
+            new CsTypeDeclaration("GeneratorDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "GeneratorModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("GeneratorModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    GuidStorageDefinitions =
+                                    [
+                                        new GuidStorageDefinition(
+                                            DatabaseType.MySQL,
+                                            GuidStorageFormat.Binary16LittleEndian,
+                                            IsExplicit: false),
+                                        new GuidStorageDefinition(
+                                            DatabaseType.MariaDB,
+                                            GuidStorageFormat.NativeUuid,
+                                            IsExplicit: false),
+                                        new GuidStorageDefinition(
+                                            DatabaseType.SQLite,
+                                            GuidStorageFormat.Text36,
+                                            IsExplicit: false)
+                                    ]
+                                })
+                            {
+                                Attributes =
+                                [
+                                    new PrimaryKeyAttribute(),
+                                    new ColumnAttribute("id")
+                                ]
                             }
                         ]
                     },

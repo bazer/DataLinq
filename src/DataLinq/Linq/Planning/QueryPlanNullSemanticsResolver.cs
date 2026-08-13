@@ -8,41 +8,53 @@ internal static class QueryPlanNullSemanticsResolver
         QueryPlanComparisonOperator comparisonOperator,
         QueryPlanValue left,
         QueryPlanValue right,
-        IQueryPlanBindingLookup bindings)
+        IQueryPlanSpecializationLookup specialization)
     {
         ArgumentNullException.ThrowIfNull(left);
         ArgumentNullException.ThrowIfNull(right);
-        ArgumentNullException.ThrowIfNull(bindings);
+        ArgumentNullException.ThrowIfNull(specialization);
 
-        return comparisonOperator == QueryPlanComparisonOperator.NotEqual && IsNullableColumnComparedWithNonNull(left, right, bindings)
+        return comparisonOperator == QueryPlanComparisonOperator.NotEqual && IsNullableColumnComparedWithNonNull(left, right, specialization)
             ? QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull
             : QueryPlanNullSemantics.Default;
     }
 
-    private static bool IsNullableColumnComparedWithNonNull(QueryPlanValue left, QueryPlanValue right, IQueryPlanBindingLookup bindings)
-        => IsNullableColumnAndNonNullValue(left, right, bindings) || IsNullableColumnAndNonNullValue(right, left, bindings);
+    private static bool IsNullableColumnComparedWithNonNull(
+        QueryPlanValue left,
+        QueryPlanValue right,
+        IQueryPlanSpecializationLookup specialization)
+        => IsNullableColumnAndNonNullValue(left, right, specialization) ||
+           IsNullableColumnAndNonNullValue(right, left, specialization);
 
-    private static bool IsNullableColumnAndNonNullValue(QueryPlanValue columnCandidate, QueryPlanValue valueCandidate, IQueryPlanBindingLookup bindings)
+    private static bool IsNullableColumnAndNonNullValue(
+        QueryPlanValue columnCandidate,
+        QueryPlanValue valueCandidate,
+        IQueryPlanSpecializationLookup specialization)
         => columnCandidate is QueryPlanColumnValue column &&
            column.Column.ValueProperty.CsNullable &&
-           !IsNullValue(valueCandidate, bindings);
+           !IsNullValue(valueCandidate, specialization);
 
-    private static bool IsNullValue(QueryPlanValue value, IQueryPlanBindingLookup bindings)
+    private static bool IsNullValue(
+        QueryPlanValue value,
+        IQueryPlanSpecializationLookup specialization)
     {
-        if (value is QueryPlanConstantValue { Value: null })
+        if (value is QueryPlanIntrinsicValue { Intrinsic: QueryPlanIntrinsicKind.Null })
             return true;
 
-        if (value is not QueryPlanCapturedValue captured)
+        if (value is QueryPlanConvertedValue converted)
+            return IsNullValue(converted.Value, specialization);
+
+        if (value is not QueryPlanScalarBindingReference scalar)
             return false;
 
-        if (!bindings.TryGet(captured.BindingId, out var binding))
+        if (!specialization.TryGetSpecialization(scalar.BindingId, out var constraint))
             throw new InvalidOperationException(
-                $"Captured query plan value '{captured.BindingId}' is missing from the binding frame.");
+                $"Scalar query plan binding '{scalar.BindingId}' has no explicit specialization.");
 
-        if (binding.Kind != QueryPlanBindingKind.Scalar)
+        if (constraint is not QueryPlanBindingSpecialization.ScalarNullness nullness)
             throw new InvalidOperationException(
-                $"Captured query plan value '{captured.BindingId}' references a non-scalar binding.");
+                $"Query plan binding '{scalar.BindingId}' does not have scalar nullness specialization.");
 
-        return binding.Value is null;
+        return nullness.Nullness == QueryPlanBindingNullness.Null;
     }
 }

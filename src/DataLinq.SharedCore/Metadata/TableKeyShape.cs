@@ -100,15 +100,23 @@ public sealed class TableKeyShape
 
     internal static CsTypeDeclaration GetProviderCsType(ColumnDefinition column)
     {
-        // Phase 10 records the provider/model split. Phase 15 scalar converter
-        // resolution should replace this with converter-derived provider metadata.
-        return column.ValueProperty.CsType;
+        return column.ProviderCsType;
     }
 
-    internal static TableKeyComponentStoreKind GetProviderStoreKind(ColumnDefinition column) =>
-        GetStoreKind(GetProviderCsType(column));
+    internal static TableKeyComponentStoreKind GetProviderStoreKind(ColumnDefinition column)
+    {
+        // SC-1 records the canonical provider type, but canonical key normalization
+        // does not arrive until SC-3. Keep converted components off every current
+        // model-valued fast path until that normalization boundary exists.
+        return column.HasScalarConverter
+            ? TableKeyComponentStoreKind.Unsupported
+            : GetStoreKind(GetProviderCsType(column));
+    }
 
-    internal static object? GetScalarConverterHandle(ColumnDefinition column) => null;
+    internal static object? GetScalarConverterHandle(ColumnDefinition column) =>
+        column.HasScalarConverter
+            ? (object?)column.ScalarConverter ?? column.ScalarMapping
+            : null;
 }
 
 public sealed class TableKeyComponentDefinition

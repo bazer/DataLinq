@@ -18,7 +18,7 @@ public sealed record SchemaMigrationSnapshot(
     string GeneratedAtUtc,
     IReadOnlyList<SchemaMigrationSnapshotTable> Tables)
 {
-    public const int CurrentFormatVersion = 1;
+    public const int CurrentFormatVersion = 2;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -139,6 +139,9 @@ public sealed record SchemaMigrationSnapshotColumn(
         if (attribute == null)
             return null;
 
+        if (attribute is DefaultNewUUIDAttribute defaultNewUuid)
+            return $"{attribute.GetType().Name}|{defaultNewUuid.NewUUID}|{defaultNewUuid.Version}";
+
         var value = attribute.Value switch
         {
             null => "",
@@ -146,7 +149,11 @@ public sealed record SchemaMigrationSnapshotColumn(
             _ => attribute.Value.ToString()
         };
 
-        return $"{attribute.GetType().Name}|{value}";
+        var attributeTypeName = attribute is DefaultGuidAttribute
+            ? nameof(DefaultAttribute)
+            : attribute.GetType().Name;
+
+        return $"{attributeTypeName}|{value}";
     }
 
     private static string? GetEffectiveComment(IEnumerable<Attribute> attributes, DatabaseType databaseType)

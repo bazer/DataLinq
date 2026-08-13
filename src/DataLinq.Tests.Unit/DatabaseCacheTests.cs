@@ -401,6 +401,84 @@ public class DatabaseCacheTests
         }
     }
 
+    [Test]
+    [NotInParallel]
+    public async Task ClearForRecovery_ClearsEveryTableBeforeNotificationsAndCollectsFailures()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+
+        try
+        {
+            using var cache = new DatabaseCache(
+                new FakeDatabaseProvider(CreateRecoveryMetadata()),
+                DataLinqLoggingConfiguration.NullConfiguration);
+            var tables = cache.TableCaches.Values.ToArray();
+
+            for (var i = 0; i < tables.Length; i++)
+            {
+                var primaryKey = DataLinqKey.FromValue(i + 1);
+                var rows = new RowCache();
+                await Assert.That(rows.TryAddRow(
+                    i + 1,
+                    128,
+                    new TestImmutableInstance(primaryKey))).IsTrue();
+                SetPrivateField(tables[i], "rowCache", rows);
+
+                var index = new TypedIndexCache<int>();
+                await Assert.That(index.TryAdd(i + 1, [primaryKey])).IsTrue();
+                SetPrivateField(
+                    tables[i],
+                    "indexCaches",
+                    new Dictionary<ColumnIndex, IIndexCache>
+                    {
+                        [tables[i].Table.ColumnIndices.Single(x =>
+                            x.Characteristic == IndexCharacteristic.PrimaryKey)] = index
+                    });
+            }
+
+            bool AllStructuresCleared() => tables.All(table =>
+                table.RowCount == 0 &&
+                table.IndicesCount.All(index => index.count == 0));
+
+            await Assert.That(tables.All(table => table.RowCount == 1)).IsTrue();
+            await Assert.That(tables.All(table =>
+                table.IndicesCount.Any(index => index.count > 0))).IsTrue();
+
+            var expectedFailure = new InvalidOperationException("first recovery notification failed");
+            RecoveryNotification? firstNotification = null;
+            firstNotification = new RecoveryNotification(
+                AllStructuresCleared,
+                expectedFailure,
+                () => tables[0].SubscribeToChanges(firstNotification!));
+            var laterNotification = new RecoveryNotification(AllStructuresCleared);
+            tables[0].SubscribeToChanges(firstNotification);
+            tables[1].SubscribeToChanges(laterNotification);
+            var occupiedNotificationBytes = tables.Sum(
+                table => table.GetNotificationMemoryEstimate().NotificationBytes);
+
+            var failures = cache.ClearForRecovery();
+
+            await Assert.That(AllStructuresCleared()).IsTrue();
+            await Assert.That(firstNotification.ClearCalls).IsEqualTo(1);
+            await Assert.That(firstNotification.ObservedFullyClearedStructure).IsTrue();
+            await Assert.That(laterNotification.ClearCalls).IsEqualTo(1);
+            await Assert.That(laterNotification.ObservedFullyClearedStructure).IsTrue();
+            await Assert.That(failures.Count).IsEqualTo(1);
+            await Assert.That(failures[0]).IsSameReferenceAs(expectedFailure);
+            await Assert.That(tables.Sum(table => table.GetNotificationMemoryEstimate().NotificationBytes))
+                .IsLessThan(occupiedNotificationBytes);
+
+            tables[0].ClearRows();
+
+            await Assert.That(firstNotification.ClearCalls).IsEqualTo(1);
+        }
+        finally
+        {
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
     private static DatabaseDefinition CreateMetadata(bool includeExplicitCleanup = true, bool useCache = false)
     {
         var draft = new MetadataDatabaseDraft(
@@ -473,6 +551,43 @@ public class DatabaseCacheTests
         return new MetadataDefinitionFactory().Build(draft).ValueOrException();
     }
 
+    private static DatabaseDefinition CreateRecoveryMetadata()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "cache_recovery_test",
+            new CsTypeDeclaration("CacheRecoveryTestDb", "DataLinq.Tests.Unit", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                CreateRecoveryTableModel("FirstRows", "CacheRecoveryFirstRow", "first_rows"),
+                CreateRecoveryTableModel("SecondRows", "CacheRecoverySecondRow", "second_rows")
+            ]
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static MetadataTableModelDraft CreateRecoveryTableModel(
+        string propertyName,
+        string modelName,
+        string tableName) =>
+        new(
+            propertyName,
+            new MetadataModelDraft(new CsTypeDeclaration(modelName, "DataLinq.Tests.Unit", ModelCsType.Class))
+            {
+                ValueProperties =
+                [
+                    new MetadataValuePropertyDraft(
+                        "Id",
+                        new CsTypeDeclaration(typeof(int)),
+                        new MetadataColumnDraft("id") { PrimaryKey = true })
+                    {
+                        Attributes = [new PrimaryKeyAttribute(), new ColumnAttribute("id")]
+                    }
+                ]
+            },
+            new MetadataTableDraft(tableName));
+
     private static MemoryPressureSnapshot HighPressure() => new(
         IsSupported: true,
         MemoryLoadBytes: 95,
@@ -492,6 +607,25 @@ public class DatabaseCacheTests
     private sealed class FixedMemoryPressureReader(MemoryPressureSnapshot snapshot) : IMemoryPressureReader
     {
         public MemoryPressureSnapshot GetSnapshot() => snapshot;
+    }
+
+    private sealed class RecoveryNotification(
+        Func<bool> structureIsFullyCleared,
+        Exception? failure = null,
+        Action? onClear = null) : ICacheNotification
+    {
+        internal int ClearCalls { get; private set; }
+        internal bool ObservedFullyClearedStructure { get; private set; } = true;
+
+        public void Clear()
+        {
+            ClearCalls++;
+            ObservedFullyClearedStructure &= structureIsFullyCleared();
+            onClear?.Invoke();
+
+            if (failure is not null)
+                throw failure;
+        }
     }
 
     private sealed class TestImmutableInstance(DataLinqKey primaryKeys) : IImmutableInstance

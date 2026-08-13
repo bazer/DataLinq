@@ -13,21 +13,24 @@ internal sealed class QueryPlanSqlBuilder
 {
     public const string ScalarProjectionAlias = "value";
 
-    private readonly DataLinqQueryPlan plan;
+    private readonly QueryPlanInvocation invocation;
+    private readonly QueryPlanTemplate template;
     private readonly DataSourceAccess dataSource;
     private readonly QueryPlanSqlSourceMap sourceMap;
     private QueryPlanSqlValueRenderer valueRenderer;
     private QueryPlanDerivedColumnMap? derivedColumns;
 
-    public QueryPlanSqlBuilder(DataLinqQueryPlan plan, DataSourceAccess dataSource)
+    public QueryPlanSqlBuilder(QueryPlanInvocation invocation, DataSourceAccess dataSource)
     {
-        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(invocation);
         ArgumentNullException.ThrowIfNull(dataSource);
 
-        this.plan = plan;
+        this.invocation = invocation;
+        template = invocation.Template;
         this.dataSource = dataSource;
-        sourceMap = new QueryPlanSqlSourceMap(plan);
-        valueRenderer = new QueryPlanSqlValueRenderer(dataSource, sourceMap, plan.Bindings);
+        QueryPlanSqlJoinCompatibilityValidator.Validate(template, dataSource.Provider.DatabaseType);
+        sourceMap = new QueryPlanSqlSourceMap(template);
+        valueRenderer = new QueryPlanSqlValueRenderer(dataSource, sourceMap, invocation.Values);
     }
 
     public SqlQuery<T> BuildSqlQuery<T>()
@@ -37,13 +40,13 @@ internal sealed class QueryPlanSqlBuilder
         var predicateBuilder = new QueryPlanSqlPredicateBuilder<T>(query, sourceMap, valueRenderer);
         var pushdownIndex = 0;
 
-        foreach (var operation in plan.Operations)
+        foreach (var operation in template.Operations)
         {
             switch (operation)
             {
                 case QueryPlanOperation.Pushdown pushdown:
                     query = PushDown(query, pushdown, pushdownIndex++, out derivedColumns);
-                    valueRenderer = new QueryPlanSqlValueRenderer(dataSource, sourceMap, plan.Bindings, derivedColumns);
+                    valueRenderer = new QueryPlanSqlValueRenderer(dataSource, sourceMap, invocation.Values, derivedColumns);
                     predicateBuilder = new QueryPlanSqlPredicateBuilder<T>(query, sourceMap, valueRenderer);
                     break;
 
@@ -99,13 +102,15 @@ internal sealed class QueryPlanSqlBuilder
             return PushDownJoined<T>(pushdown, pushdownIndex, out pushedDownColumns);
 
         var root = sourceMap.RootSource;
-        var innerPlan = new DataLinqQueryPlan(
-            plan.Sources,
+        var innerTemplate = new QueryPlanTemplate(
+            template.Sources,
             pushdown.Operations,
             new QueryPlanProjection.Entity(root),
             QueryPlanResult.Sequence(root.ElementType),
-            plan.Bindings);
-        var innerSql = new QueryPlanSqlBuilder(innerPlan, dataSource)
+            template.BindingDeclarations,
+            template.Specialization);
+        var innerInvocation = QueryPlanInvocation.Bind(innerTemplate, invocation.Values.Items);
+        var innerSql = new QueryPlanSqlBuilder(innerInvocation, dataSource)
             .BuildSelect<object>()
             .ToSql($"dlp{pushdownIndex}_");
 
@@ -118,7 +123,7 @@ internal sealed class QueryPlanSqlBuilder
         int pushdownIndex,
         out QueryPlanDerivedColumnMap pushedDownColumns)
     {
-        if (plan.Projection is not QueryPlanProjection.SqlRow sqlRow)
+        if (template.Projection is not QueryPlanProjection.SqlRow sqlRow)
         {
             throw new QueryTranslationException(
                 "Joined pushdown is supported only for SQL-backed joined projection rows. " +
@@ -126,13 +131,15 @@ internal sealed class QueryPlanSqlBuilder
         }
 
         var root = sourceMap.RootSource;
-        var innerPlan = new DataLinqQueryPlan(
-            plan.Sources,
+        var innerTemplate = new QueryPlanTemplate(
+            template.Sources,
             pushdown.Operations,
             sqlRow,
             QueryPlanResult.Sequence(sqlRow.ResultType),
-            plan.Bindings);
-        var innerBuilder = new QueryPlanSqlBuilder(innerPlan, dataSource);
+            template.BindingDeclarations,
+            template.Specialization);
+        var innerInvocation = QueryPlanInvocation.Bind(innerTemplate, invocation.Values.Items);
+        var innerBuilder = new QueryPlanSqlBuilder(innerInvocation, dataSource);
         var innerSelect = innerBuilder.BuildSqlQuery<object>().SelectQuery();
         innerSelect.What(GetProjectionRowSelectors(sqlRow.Members)
             .Concat(GetJoinedPrimaryKeySelectors())
@@ -147,8 +154,8 @@ internal sealed class QueryPlanSqlBuilder
 
     public Select<T> BuildSelect<T>()
     {
-        if (plan.Projection is QueryPlanProjection.GroupedAggregate &&
-            plan.Result.Kind is QueryPlanResultKind.Count or QueryPlanResultKind.Any)
+        if (template.Projection is QueryPlanProjection.GroupedAggregate &&
+            template.Result.Kind is QueryPlanResultKind.Count or QueryPlanResultKind.Any)
         {
             return BuildGroupedAggregateScalarSelect<T>();
         }
@@ -156,15 +163,15 @@ internal sealed class QueryPlanSqlBuilder
         var query = BuildSqlQuery<T>();
         var select = query.SelectQuery();
 
-        if (plan.Projection is QueryPlanProjection.GroupedAggregate groupedAggregate)
+        if (template.Projection is QueryPlanProjection.GroupedAggregate groupedAggregate)
         {
             select.What(GetGroupedAggregateSelectors(groupedAggregate).ToArray());
             return select;
         }
 
-        if (IsProjectionRowResult(plan.Result.Kind))
+        if (IsProjectionRowResult(template.Result.Kind))
         {
-            switch (plan.Projection)
+            switch (template.Projection)
             {
                 case QueryPlanProjection.ScalarMember scalar:
                     select.What(GetScalarProjectionSelector(scalar));
@@ -176,7 +183,7 @@ internal sealed class QueryPlanSqlBuilder
             }
         }
 
-        switch (plan.Result.Kind)
+        switch (template.Result.Kind)
         {
             case QueryPlanResultKind.Count:
             case QueryPlanResultKind.Any:
@@ -219,11 +226,14 @@ internal sealed class QueryPlanSqlBuilder
 
     public IReadOnlyList<QueryPlanSourceSlot> GetJoinedSources()
     {
-        if (!plan.Operations.Any(static operation => ContainsJoinOperation(operation)))
+        if (!template.Operations.Any(static operation => ContainsJoinOperation(operation)))
             return [sourceMap.RootSource];
 
-        return plan.Sources
-            .Where(static source => source.Kind is QueryPlanSourceKind.RootTable or QueryPlanSourceKind.ExplicitJoin)
+        return template.Sources
+            .Where(static source => source.Kind is
+                QueryPlanSourceKind.RootTable or
+                QueryPlanSourceKind.ExplicitJoin or
+                QueryPlanSourceKind.ImplicitJoin)
             .OrderBy(static source => source.Id, StringComparer.Ordinal)
             .ToArray();
     }
@@ -302,7 +312,7 @@ internal sealed class QueryPlanSqlBuilder
 
     private void ApplyResultShape<T>(SqlQuery<T> query)
     {
-        switch (plan.Result.Kind)
+        switch (template.Result.Kind)
         {
             case QueryPlanResultKind.Single:
             case QueryPlanResultKind.SingleOrDefault:
@@ -331,17 +341,17 @@ internal sealed class QueryPlanSqlBuilder
 
     private string GetAggregateSelectorSql()
     {
-        var selector = plan.Result.AggregateSelector
-            ?? throw new QueryTranslationException($"Query plan result '{plan.Result.Kind}' requires an aggregate selector.");
-        var selectorSql = GetAggregateColumnExpression(selector);
+        var selector = template.Result.AggregateSelector
+            ?? throw new QueryTranslationException($"Query plan result '{template.Result.Kind}' requires an aggregate selector.");
+        var selectorSql = GetAggregateColumnExpression(selector, template.Result.Kind.ToString());
 
-        return plan.Result.Kind switch
+        return template.Result.Kind switch
         {
             QueryPlanResultKind.Sum => $"COALESCE(SUM({selectorSql}), 0)",
             QueryPlanResultKind.Min => $"MIN({selectorSql})",
             QueryPlanResultKind.Max => $"MAX({selectorSql})",
             QueryPlanResultKind.Average => $"AVG({selectorSql})",
-            _ => throw new QueryTranslationException($"Query plan result '{plan.Result.Kind}' is not an aggregate result.")
+            _ => throw new QueryTranslationException($"Query plan result '{template.Result.Kind}' is not an aggregate result.")
         };
     }
 
@@ -396,13 +406,15 @@ internal sealed class QueryPlanSqlBuilder
     private Select<T> BuildGroupedAggregateScalarSelect<T>()
     {
         var root = sourceMap.RootSource;
-        var innerPlan = new DataLinqQueryPlan(
-            plan.Sources,
-            plan.Operations,
-            plan.Projection,
-            QueryPlanResult.Sequence(plan.Projection.ResultType),
-            plan.Bindings);
-        var innerSql = new QueryPlanSqlBuilder(innerPlan, dataSource)
+        var innerTemplate = new QueryPlanTemplate(
+            template.Sources,
+            template.Operations,
+            template.Projection,
+            QueryPlanResult.Sequence(template.Projection.ResultType),
+            template.BindingDeclarations,
+            template.Specialization);
+        var innerInvocation = QueryPlanInvocation.Bind(innerTemplate, invocation.Values.Items);
+        var innerSql = new QueryPlanSqlBuilder(innerInvocation, dataSource)
             .BuildSelect<object>()
             .ToSql("dlg0_");
 
@@ -412,50 +424,9 @@ internal sealed class QueryPlanSqlBuilder
             .What("COUNT(*)");
     }
 
-    private string GetAggregateColumnExpression(QueryPlanValue selector)
+    private string GetAggregateColumnExpression(QueryPlanValue selector, string operatorName)
     {
-        var unwrapped = selector is QueryPlanConvertedValue converted
-            ? converted.Value
-            : selector;
-
-        if (unwrapped is not QueryPlanColumnValue column)
-        {
-            throw new QueryTranslationException(
-                $"Query plan aggregate selector '{unwrapped.Kind}' is not supported. " +
-                "Only direct numeric source-slot columns are supported.");
-        }
-
-        if (!IsNumericType(unwrapped.ClrType))
-        {
-            throw new QueryTranslationException(
-                $"Query plan aggregate selector column '{column.Column.DbName}' must be numeric. " +
-                $"Selector type: {unwrapped.ClrType}");
-        }
-
+        var column = QueryPlanAggregateSelectorValidator.RequireDirectNumericColumn(selector, operatorName);
         return valueRenderer.RenderColumnSql(column);
-    }
-
-    private static bool IsNumericType(Type type)
-    {
-        type = Nullable.GetUnderlyingType(type) ?? type;
-
-        if (type.IsEnum)
-            return false;
-
-        return Type.GetTypeCode(type) switch
-        {
-            TypeCode.Byte or
-            TypeCode.SByte or
-            TypeCode.Int16 or
-            TypeCode.UInt16 or
-            TypeCode.Int32 or
-            TypeCode.UInt32 or
-            TypeCode.Int64 or
-            TypeCode.UInt64 or
-            TypeCode.Single or
-            TypeCode.Double or
-            TypeCode.Decimal => true,
-            _ => false
-        };
     }
 }

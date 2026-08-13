@@ -131,13 +131,13 @@ public class ModelFileFactory
             yield return $"{namespaceTab}{FormatIndexCacheAttribute(indexCache)}";
 
         yield return $"{namespaceTab}[Database({FormatStringLiteral(database.Name)})]";
-        yield return $"{namespaceTab}public partial class {dbName}(DataSourceAccess dataSource) : IDatabaseModel<{dbName}>";
+        yield return $"{namespaceTab}public partial class {dbName}(IDataLinqReadSource readSource) : IDatabaseModel<{dbName}>";
         //yield return $"{namespaceTab}public interface {dbName} : IDatabaseModel";
         yield return namespaceTab + "{";
 
         foreach (var t in database.TableModels.OrderBy(x => x.Table.DbName))
         {
-            yield return $"{namespaceTab}{tab}public DbRead<{t.Model.CsType.Name}> {t.CsPropertyName} {{ get; }} = new(dataSource);";
+            yield return $"{namespaceTab}{tab}public DbRead<{t.Model.CsType.Name}> {t.CsPropertyName} {{ get; }} = new(readSource);";
             //yield return $"{namespaceTab}{tab}DbRead<I{t.Model.CsTypeName}> {t.CsPropertyName} {{ get; }}";
         }
 
@@ -280,7 +280,7 @@ public class ModelFileFactory
         //if (model.Interfaces?.Length > 0)
         //    interfaces += ", " + model.Interfaces.Select(x => x.Name).ToJoinedString(", ");
 
-        yield return $"{namespaceTab}public abstract partial class {table.Model.CsType.Name}(IRowData rowData, IDataSourceAccess dataSource) : Immutable<{table.Model.CsType.Name}, {model.Database.CsType.Name}>(rowData, dataSource), {interfaces}";
+        yield return $"{namespaceTab}public abstract partial class {table.Model.CsType.Name}(IRowData rowData, IDataLinqReadSource readSource) : Immutable<{table.Model.CsType.Name}, {model.Database.CsType.Name}>(rowData, readSource), {interfaces}";
 
         yield return namespaceTab + "{";
 
@@ -332,9 +332,19 @@ public class ModelFileFactory
     private IEnumerable<string> WriteValueProperty(ValueProperty valueProperty)
     {
         var c = valueProperty.Column;
+        var unresolvedGuidStorageProviders = new HashSet<DatabaseType>(
+            c.UnresolvedGuidStorageProviders);
+        unresolvedGuidStorageProviders.UnionWith(valueProperty.Attributes
+            .OfType<GuidStorageUnresolvedAttribute>()
+            .Select(static attribute => attribute.DatabaseType));
 
         foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(valueProperty.Attributes), $"{namespaceTab}{tab}"))
             yield return row;
+
+        foreach (var provider in unresolvedGuidStorageProviders.OrderBy(static x => x))
+        {
+            yield return $"{namespaceTab}{tab}#error DATALINQ_UUID_STORAGE_UNRESOLVED: UUID byte order for {c.Table.Model.CsType.Name}.{valueProperty.PropertyName} is not encoded by the {provider} schema. Replace the generated GuidStorageUnresolved marker with an explicit GuidStorage attribute selecting Binary16LittleEndian or Binary16Rfc4122, then regenerate the model.";
+        }
 
         foreach (var comment in valueProperty.Attributes.OfType<CommentAttribute>())
             yield return $"{namespaceTab}{tab}{FormatCommentAttribute(comment)}";
@@ -382,29 +392,52 @@ public class ModelFileFactory
 
         foreach (var dbType in c.DbTypes.OrderBy(x => x.DatabaseType))
         {
-            if (dbType.Signed.HasValue && dbType.Decimals.HasValue && dbType.Length.HasValue)
-                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {dbType.Decimals}, {(dbType.Signed.Value ? "true" : "false")})]";
-            else if (dbType.Signed.HasValue && dbType.Length.HasValue)
-                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {(dbType.Signed.Value ? "true" : "false")})]";
-            else if (dbType.Signed.HasValue && !dbType.Length.HasValue)
-                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {(dbType.Signed.Value ? "true" : "false")})]";
-            else if (dbType.Length.HasValue && dbType.Decimals.HasValue)
-                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {dbType.Decimals})]";
-            else if (dbType.Length.HasValue)
-                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length})]";
+            var isNativeMariaDbUuid = dbType.DatabaseType == DatabaseType.MariaDB &&
+                string.Equals(dbType.Name, "uuid", StringComparison.OrdinalIgnoreCase);
+            var length = isNativeMariaDbUuid ? null : dbType.Length;
+            var decimals = isNativeMariaDbUuid ? null : dbType.Decimals;
+            var signed = isNativeMariaDbUuid ? null : dbType.Signed;
+
+            if (signed.HasValue && decimals.HasValue && length.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {length}, {decimals}, {(signed.Value ? "true" : "false")})]";
+            else if (signed.HasValue && length.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {length}, {(signed.Value ? "true" : "false")})]";
+            else if (signed.HasValue && !length.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {(signed.Value ? "true" : "false")})]";
+            else if (length.HasValue && decimals.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {length}, {decimals})]";
+            else if (length.HasValue)
+                yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {length})]";
             else
                 yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)})]";
         }
+
+        foreach (var guidStorage in valueProperty.Attributes
+            .OfType<GuidStorageAttribute>()
+            .OrderBy(x => x.DatabaseType))
+        {
+            yield return guidStorage.DatabaseType == DatabaseType.Default
+                ? $"{namespaceTab}{tab}[GuidStorage(GuidStorageFormat.{guidStorage.Format})]"
+                : $"{namespaceTab}{tab}[GuidStorage(DatabaseType.{guidStorage.DatabaseType}, GuidStorageFormat.{guidStorage.Format})]";
+        }
+
+        foreach (var provider in unresolvedGuidStorageProviders.OrderBy(static x => x))
+            yield return $"{namespaceTab}{tab}[GuidStorageUnresolved(DatabaseType.{provider})]";
 
         if (valueProperty.HasDefaultValue())
         {
             var defaultAttr = valueProperty.GetDefaultAttribute();
             if (defaultAttr is DefaultCurrentTimestampAttribute)
                 yield return $"{namespaceTab}{tab}[DefaultCurrentTimestamp]";
-            else if (defaultAttr is DefaultNewUUIDAttribute)
-                yield return $"{namespaceTab}{tab}[DefaultNewUUID]";
+            else if (defaultAttr is DefaultNewUUIDAttribute defaultNewUuid)
+                yield return $"{namespaceTab}{tab}[DefaultNewUUID(UUIDVersion.{defaultNewUuid.Version})]";
             else if (defaultAttr is DefaultSqlAttribute defaultSql)
                 yield return $"{namespaceTab}{tab}[DefaultSql(DatabaseType.{defaultSql.DatabaseType}, {SymbolDisplay.FormatLiteral(defaultSql.Expression, quote: true)})]";
+            else if (defaultAttr?.Value is Guid guid && IsSupportedFixedGuidDefault(defaultAttr))
+                yield return $"{namespaceTab}{tab}[DefaultGuid({FormatStringLiteral(guid.ToString("D").ToLowerInvariant())})]";
+            else if (defaultAttr?.Value is Guid)
+                throw new NotSupportedException(
+                    $"Model regeneration cannot preserve Guid-valued default attribute '{defaultAttr.GetType().FullName}' on value property '{valueProperty.Model.CsType.Name}.{valueProperty.PropertyName}' when it is a custom subtype or carries a CodeExpression. Use an expression-free DefaultGuidAttribute or exact DefaultAttribute with a Guid value.");
             else if (defaultAttr != null)
                 yield return $"{namespaceTab}{tab}[Default({valueProperty.GetDefaultValueCode()})]";
         }
@@ -416,6 +449,11 @@ public class ModelFileFactory
         yield return $"{namespaceTab}{tab}public abstract {c.ValueProperty.CsType.Name}{GetPropertyNullable(c)} {c.ValueProperty.PropertyName} {{ get; }}";
         yield return "";
     }
+
+    private static bool IsSupportedFixedGuidDefault(DefaultAttribute attribute) =>
+        attribute.CodeExpression is null &&
+        (attribute is DefaultGuidAttribute ||
+         attribute.GetType() == typeof(DefaultAttribute));
 
     private IEnumerable<string> WriteRelationProperty(
         RelationProperty relationProperty,

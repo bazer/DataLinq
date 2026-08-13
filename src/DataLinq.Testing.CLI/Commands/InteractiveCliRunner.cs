@@ -90,12 +90,17 @@ internal static class InteractiveCliRunner
                     TestCliSuiteCatalog.AllSuites,
                     TestCliSuiteCatalog.GeneratorsSuite,
                     TestCliSuiteCatalog.UnitSuite,
+                    TestCliSuiteCatalog.MemorySuite,
                     TestCliSuiteCatalog.ComplianceSuite,
                     TestCliSuiteCatalog.MySqlSuite));
-        var selection = string.Equals(suite, TestCliSuiteCatalog.UnitSuite, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(suite, TestCliSuiteCatalog.GeneratorsSuite, StringComparison.OrdinalIgnoreCase)
-            ? TargetSelectionResolver.ResolveAlias(TestTargetCatalog.LatestAlias)
-            : PromptSelection(defaultAlias: TestTargetCatalog.LatestAlias);
+        var requiresTargetSelection = string.Equals(
+                suite,
+                TestCliSuiteCatalog.AllSuites,
+                StringComparison.OrdinalIgnoreCase) ||
+            TestCliSuiteCatalog.GetSuite(suite).UsesTargetBatches;
+        var selection = requiresTargetSelection
+            ? PromptSelection(defaultAlias: TestTargetCatalog.LatestAlias)
+            : TargetSelectionResolver.ResolveAlias(TestTargetCatalog.LatestAlias);
         var configuration = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("Build configuration")

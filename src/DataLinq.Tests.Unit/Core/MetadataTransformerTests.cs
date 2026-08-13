@@ -282,6 +282,70 @@ public class MetadataTransformerTests
         return new MetadataDefinitionFactory().Build(draft).ValueOrException();
     }
 
+    private static DatabaseDefinition CreateGuidStorageTransformDatabase(bool source)
+    {
+        Attribute[] attributes = source
+            ?
+            [
+                new ColumnAttribute("id"),
+                new PrimaryKeyAttribute(),
+                new GuidStorageAttribute(GuidStorageFormat.Text36),
+                new GuidStorageAttribute(
+                    DatabaseType.MySQL,
+                    GuidStorageFormat.Binary16Rfc4122)
+            ]
+            :
+            [
+                new ColumnAttribute("id"),
+                new PrimaryKeyAttribute(),
+                new GuidStorageAttribute(
+                    DatabaseType.MySQL,
+                    GuidStorageFormat.Binary16LittleEndian),
+                new GuidStorageAttribute(
+                    DatabaseType.SQLite,
+                    GuidStorageFormat.Text36)
+            ];
+
+        return Build(new MetadataDatabaseDraft(
+            "GuidTransformDb",
+            new CsTypeDeclaration(
+                source ? "GuidTransformDb" : "guid_transform_db",
+                source ? "SourceNamespace" : "RawNamespace",
+                ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration(
+                        source ? "GuidTransformRow" : "guid_transform_row",
+                        source ? "SourceNamespace" : "RawNamespace",
+                        ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                source ? "Id" : "id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes =
+                                    [
+                                        new DatabaseColumnType(DatabaseType.MySQL, "binary", 16),
+                                        new DatabaseColumnType(DatabaseType.SQLite, "TEXT")
+                                    ]
+                                })
+                            {
+                                Attributes = attributes
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("guid_transform_rows"))
+            ]
+        });
+    }
+
     [Test]
     public async Task TransformDatabaseSnapshot_AppliesNamesAndAttributes()
     {
@@ -321,6 +385,380 @@ public class MetadataTransformerTests
         await Assert.That(destinationModel.RelationProperties.ContainsKey("RelatedItems")).IsTrue();
         await Assert.That(destinationModel.RelationProperties.ContainsKey("rel_prop_db")).IsFalse();
         await Assert.That(destinationModel.RelationProperties["RelatedItems"].PropertyName).IsEqualTo("RelatedItems");
+    }
+
+    [Test]
+    public async Task TransformDatabaseSnapshot_GuidStorage_SourceWinsPerProviderAndPreservesOthers()
+    {
+        var sourceDatabase = CreateGuidStorageTransformDatabase(source: true);
+        var destinationDatabase = CreateGuidStorageTransformDatabase(source: false);
+        var transformer = new MetadataTransformer(new MetadataTransformerOptions());
+
+        var transformed = transformer.TransformDatabaseSnapshot(
+            sourceDatabase,
+            destinationDatabase);
+        var declarations = transformed.TableModels[0]
+            .Model.ValueProperties["Id"]
+            .Attributes
+            .OfType<GuidStorageAttribute>()
+            .OrderBy(x => x.DatabaseType)
+            .ToArray();
+        var transformedColumn = transformed.TableModels[0].Table.Columns.Single();
+
+        await Assert.That(declarations.Length).IsEqualTo(3);
+        await Assert.That(declarations[0].DatabaseType).IsEqualTo(DatabaseType.Default);
+        await Assert.That(declarations[0].Format).IsEqualTo(GuidStorageFormat.Text36);
+        await Assert.That(declarations[1].DatabaseType).IsEqualTo(DatabaseType.MySQL);
+        await Assert.That(declarations[1].Format)
+            .IsEqualTo(GuidStorageFormat.Binary16Rfc4122);
+        await Assert.That(declarations[2].DatabaseType).IsEqualTo(DatabaseType.SQLite);
+        await Assert.That(declarations[2].Format).IsEqualTo(GuidStorageFormat.Text36);
+        await Assert.That(transformedColumn.GuidStorageDefinitions).IsEmpty();
+        await Assert.That(transformed.IsFrozen).IsFalse();
+    }
+
+    [Test]
+    public async Task TransformDatabaseSnapshot_UnresolvedGuidStorageMarker_SurvivesRegeneration()
+    {
+        var sourceDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: true));
+        var sourceProperty = sourceDatabase.TableModels[0].Model.ValueProperties["Id"];
+        sourceProperty.SetAttributesCore(
+            sourceProperty.Attributes
+                .Where(static x => x is not GuidStorageAttribute)
+                .Append(new GuidStorageUnresolvedAttribute(DatabaseType.MySQL)));
+        sourceProperty.Column.SetGuidStorageDefinitionsCore([]);
+        sourceDatabase.Freeze();
+
+        var destinationDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: false));
+        destinationDatabase.TableModels[0].Table.Columns[0]
+            .SetUnresolvedGuidStorageProvidersCore([DatabaseType.MySQL]);
+        destinationDatabase.Freeze();
+
+        var transformed = new MetadataTransformer(new MetadataTransformerOptions())
+            .TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
+        var transformedProperty = transformed.TableModels[0].Model.ValueProperties["Id"];
+        var transformedColumn = transformedProperty.Column;
+        var modelSource = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(transformed)
+            .Single(file => file.path == "GuidTransformRow.cs")
+            .contents;
+
+        await Assert.That(transformedProperty.Attributes
+            .OfType<GuidStorageUnresolvedAttribute>()
+            .Select(static x => x.DatabaseType)
+            .ToArray()).IsEquivalentTo([DatabaseType.MySQL]);
+        await Assert.That(transformedColumn.UnresolvedGuidStorageProviders.ToArray())
+            .IsEquivalentTo([DatabaseType.MySQL]);
+        await Assert.That(transformedProperty.Attributes
+            .OfType<GuidStorageAttribute>()
+            .Any(x =>
+                x.DatabaseType == DatabaseType.Default ||
+                x.DatabaseType == DatabaseType.MySQL)).IsFalse();
+        await Assert.That(modelSource).Contains("#error DATALINQ_UUID_STORAGE_UNRESOLVED");
+        await Assert.That(modelSource).Contains("[GuidStorageUnresolved(DatabaseType.MySQL)]");
+    }
+
+    [Test]
+    public async Task TransformDatabaseSnapshot_NewProviderAmbiguity_IsUnionedWithExistingMarker()
+    {
+        var sourceDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: true));
+        var sourceProperty = sourceDatabase.TableModels[0].Model.ValueProperties["Id"];
+        sourceProperty.SetAttributesCore(
+            sourceProperty.Attributes
+                .Where(static x =>
+                    x is not GuidStorageAttribute &&
+                    x is not GuidStorageUnresolvedAttribute)
+                .Append(new GuidStorageUnresolvedAttribute(DatabaseType.MySQL)));
+        sourceProperty.Column.SetGuidStorageDefinitionsCore([]);
+        sourceDatabase.Freeze();
+
+        var destinationDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: false));
+        var destinationProperty = destinationDatabase.TableModels[0]
+            .Model.ValueProperties["id"];
+        destinationProperty.SetAttributesCore(
+            destinationProperty.Attributes.Where(
+                static x => x is not GuidStorageAttribute));
+        destinationProperty.Column.SetDbTypesCore(
+            destinationProperty.Column.DbTypes.Concat(
+            [
+                new DatabaseColumnType(DatabaseType.MariaDB, "binary", 16)
+            ]));
+        destinationProperty.Column.SetUnresolvedGuidStorageProvidersCore(
+            [DatabaseType.MySQL, DatabaseType.MariaDB]);
+        destinationDatabase.Freeze();
+
+        var transformed = new MetadataTransformer(new MetadataTransformerOptions())
+            .TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
+        var transformedProperty = transformed.TableModels[0].Model.ValueProperties["Id"];
+        var unresolvedProviders = transformedProperty.Attributes
+            .OfType<GuidStorageUnresolvedAttribute>()
+            .Select(static x => x.DatabaseType)
+            .ToArray();
+
+        await Assert.That(unresolvedProviders)
+            .IsEquivalentTo([DatabaseType.MySQL, DatabaseType.MariaDB]);
+        await Assert.That(transformedProperty.Column
+            .UnresolvedGuidStorageProviders
+            .ToArray())
+            .IsEquivalentTo([DatabaseType.MySQL, DatabaseType.MariaDB]);
+    }
+
+    [Test]
+    public async Task TransformDatabaseSnapshot_ResolvedProviderType_RemovesStaleUnresolvedMarker()
+    {
+        var sourceDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: true));
+        var sourceProperty = sourceDatabase.TableModels[0].Model.ValueProperties["Id"];
+        sourceProperty.SetAttributesCore(
+            sourceProperty.Attributes
+                .Where(static x =>
+                    x is not GuidStorageAttribute &&
+                    x is not GuidStorageUnresolvedAttribute)
+                .Append(new GuidStorageUnresolvedAttribute(DatabaseType.MySQL)));
+        sourceProperty.Column.SetGuidStorageDefinitionsCore([]);
+        sourceDatabase.Freeze();
+
+        var destinationDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: false));
+        var destinationProperty = destinationDatabase.TableModels[0]
+            .Model.ValueProperties["id"];
+        destinationProperty.SetAttributesCore(
+            destinationProperty.Attributes.Where(
+                static x => x is not GuidStorageAttribute));
+        destinationProperty.Column.SetDbTypesCore(
+            [new DatabaseColumnType(DatabaseType.MySQL, "char", 36)]);
+        destinationProperty.Column.SetUnresolvedGuidStorageProvidersCore([]);
+        destinationDatabase.Freeze();
+
+        var transformed = new MetadataTransformer(new MetadataTransformerOptions())
+            .TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
+        var transformedProperty = transformed.TableModels[0].Model.ValueProperties["Id"];
+
+        await Assert.That(transformedProperty.Attributes
+            .OfType<GuidStorageUnresolvedAttribute>()).IsEmpty();
+        await Assert.That(transformedProperty.Column
+            .UnresolvedGuidStorageProviders).IsEmpty();
+    }
+
+    [Test]
+    public async Task TransformDatabaseSnapshot_InternalSnapshotAmbiguity_IsNotReclassifiedAsLegacyPolicy()
+    {
+        var sourceDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: true));
+        var sourceProperty = sourceDatabase.TableModels[0].Model.ValueProperties["Id"];
+        sourceProperty.SetAttributesCore(
+            sourceProperty.Attributes.Where(
+                static x =>
+                    x is not GuidStorageAttribute &&
+                    x is not GuidStorageUnresolvedAttribute));
+        sourceProperty.Column.SetGuidStorageDefinitionsCore([]);
+        sourceProperty.Column.SetUnresolvedGuidStorageProvidersCore(
+            [DatabaseType.MySQL]);
+        sourceDatabase.Freeze();
+
+        var destinationDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: false));
+        var destinationProperty = destinationDatabase.TableModels[0]
+            .Model.ValueProperties["id"];
+        destinationProperty.SetAttributesCore(
+            destinationProperty.Attributes.Where(
+                static x => x is not GuidStorageAttribute));
+        destinationProperty.Column.SetDbTypesCore(
+            [new DatabaseColumnType(DatabaseType.MySQL, "binary", 16)]);
+        destinationProperty.Column.SetUnresolvedGuidStorageProvidersCore(
+            [DatabaseType.MySQL]);
+        destinationDatabase.Freeze();
+
+        var transformed = new MetadataTransformer(new MetadataTransformerOptions())
+            .TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
+        var transformedProperty = transformed.TableModels[0].Model.ValueProperties["Id"];
+
+        await Assert.That(transformedProperty.Attributes
+            .OfType<GuidStorageUnresolvedAttribute>()
+            .Select(static x => x.DatabaseType)
+            .ToArray()).IsEquivalentTo([DatabaseType.MySQL]);
+        await Assert.That(transformedProperty.Column
+            .UnresolvedGuidStorageProviders
+            .ToArray()).IsEquivalentTo([DatabaseType.MySQL]);
+    }
+
+    [Test]
+    public async Task TransformDatabaseSnapshot_TextSourceType_DoesNotResolveNewBinaryAmbiguity()
+    {
+        var sourceDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: true));
+        var sourceProperty = sourceDatabase.TableModels[0].Model.ValueProperties["Id"];
+        sourceProperty.SetAttributesCore(
+            sourceProperty.Attributes.Where(
+                static x =>
+                    x is not GuidStorageAttribute &&
+                    x is not GuidStorageUnresolvedAttribute));
+        sourceProperty.Column.SetDbTypesCore(
+            [new DatabaseColumnType(DatabaseType.MySQL, "char", 36)]);
+        sourceProperty.Column.SetGuidStorageDefinitionsCore([]);
+        sourceDatabase.Freeze();
+
+        var destinationDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: false));
+        var destinationProperty = destinationDatabase.TableModels[0]
+            .Model.ValueProperties["id"];
+        destinationProperty.SetAttributesCore(
+            destinationProperty.Attributes.Where(
+                static x => x is not GuidStorageAttribute));
+        destinationProperty.Column.SetDbTypesCore(
+            [new DatabaseColumnType(DatabaseType.MySQL, "binary", 16)]);
+        destinationProperty.Column.SetUnresolvedGuidStorageProvidersCore(
+            [DatabaseType.MySQL]);
+        destinationDatabase.Freeze();
+
+        var transformed = new MetadataTransformer(new MetadataTransformerOptions())
+            .TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
+
+        await Assert.That(transformed.TableModels[0].Model.ValueProperties["Id"]
+            .Attributes
+            .OfType<GuidStorageUnresolvedAttribute>()
+            .Select(static x => x.DatabaseType)
+            .ToArray()).IsEquivalentTo([DatabaseType.MySQL]);
+    }
+
+    [Test]
+    public async Task TransformDatabaseSnapshot_LegacyBinarySourceType_SuppliesCompatibilityPolicy()
+    {
+        var sourceDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: true));
+        var sourceProperty = sourceDatabase.TableModels[0].Model.ValueProperties["Id"];
+        sourceProperty.SetAttributesCore(
+            sourceProperty.Attributes.Where(
+                static x =>
+                    x is not GuidStorageAttribute &&
+                    x is not GuidStorageUnresolvedAttribute));
+        sourceProperty.Column.SetDbTypesCore(
+            [new DatabaseColumnType(DatabaseType.MySQL, "binary", 16)]);
+        sourceProperty.Column.SetGuidStorageDefinitionsCore([]);
+        sourceDatabase.Freeze();
+
+        var destinationDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: false));
+        var destinationProperty = destinationDatabase.TableModels[0]
+            .Model.ValueProperties["id"];
+        destinationProperty.SetAttributesCore(
+            destinationProperty.Attributes.Where(
+                static x => x is not GuidStorageAttribute));
+        destinationProperty.Column.SetDbTypesCore(
+            [new DatabaseColumnType(DatabaseType.MySQL, "binary", 16)]);
+        destinationProperty.Column.SetUnresolvedGuidStorageProvidersCore(
+            [DatabaseType.MySQL]);
+        destinationDatabase.Freeze();
+
+        var transformed = new MetadataTransformer(new MetadataTransformerOptions())
+            .TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
+        var transformedProperty = transformed.TableModels[0].Model.ValueProperties["Id"];
+
+        await Assert.That(transformedProperty.Attributes
+            .OfType<GuidStorageUnresolvedAttribute>()).IsEmpty();
+        await Assert.That(transformedProperty.Column
+            .UnresolvedGuidStorageProviders).IsEmpty();
+    }
+
+    [Test]
+    public async Task TransformDatabaseSnapshot_ExplicitBinaryPolicy_ReplacesUnresolvedMarker()
+    {
+        var sourceDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: true));
+        var sourceProperty = sourceDatabase.TableModels[0].Model.ValueProperties["Id"];
+        sourceProperty.SetAttributesCore(
+            sourceProperty.Attributes
+                .Where(static x =>
+                    x is not GuidStorageAttribute &&
+                    x is not GuidStorageUnresolvedAttribute)
+                .Append(new GuidStorageAttribute(
+                    DatabaseType.MySQL,
+                    GuidStorageFormat.Binary16Rfc4122)));
+        sourceProperty.Column.SetDbTypesCore(
+            [new DatabaseColumnType(DatabaseType.MySQL, "binary", 16)]);
+        sourceProperty.Column.SetGuidStorageDefinitionsCore([]);
+        sourceDatabase.Freeze();
+
+        var destinationDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: false));
+        var destinationProperty = destinationDatabase.TableModels[0]
+            .Model.ValueProperties["id"];
+        destinationProperty.SetAttributesCore(
+            destinationProperty.Attributes.Where(
+                static x => x is not GuidStorageAttribute));
+        destinationProperty.Column.SetDbTypesCore(
+            [new DatabaseColumnType(DatabaseType.MySQL, "binary", 16)]);
+        destinationProperty.Column.SetUnresolvedGuidStorageProvidersCore(
+            [DatabaseType.MySQL]);
+        destinationDatabase.Freeze();
+
+        var transformed = new MetadataTransformer(new MetadataTransformerOptions())
+            .TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
+        var transformedProperty = transformed.TableModels[0].Model.ValueProperties["Id"];
+
+        await Assert.That(transformedProperty.Attributes
+            .OfType<GuidStorageUnresolvedAttribute>()).IsEmpty();
+        await Assert.That(transformedProperty.Attributes
+            .OfType<GuidStorageAttribute>()
+            .Single(x => x.DatabaseType == DatabaseType.MySQL)
+            .Format).IsEqualTo(GuidStorageFormat.Binary16Rfc4122);
+    }
+
+    [Test]
+    [Arguments(false, false)]
+    [Arguments(true, true)]
+    public async Task TransformDatabaseSnapshot_NonGuidSourceRemap_RespectsOverwritePolicy(
+        bool overwritePropertyTypes,
+        bool expectUnresolved)
+    {
+        var sourceDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: true));
+        var sourceProperty = sourceDatabase.TableModels[0].Model.ValueProperties["Id"];
+        sourceProperty.SetCsTypeCore(new CsTypeDeclaration(typeof(byte[])));
+        sourceProperty.SetAttributesCore(
+            sourceProperty.Attributes.Where(
+                static x =>
+                    x is not GuidStorageAttribute &&
+                    x is not GuidStorageUnresolvedAttribute));
+        sourceProperty.Column.SetScalarMappingCore(
+            ColumnScalarMapping.Identity(new CsTypeDeclaration(typeof(byte[]))));
+        sourceProperty.Column.SetDbTypesCore(
+            [new DatabaseColumnType(DatabaseType.SQLite, "BLOB")]);
+        sourceProperty.Column.SetGuidStorageDefinitionsCore([]);
+        sourceDatabase.Freeze();
+
+        var destinationDatabase = MetadataDefinitionSnapshot.Copy(
+            CreateGuidStorageTransformDatabase(source: false));
+        var destinationProperty = destinationDatabase.TableModels[0]
+            .Model.ValueProperties["id"];
+        destinationProperty.SetAttributesCore(
+            destinationProperty.Attributes.Where(
+                static x => x is not GuidStorageAttribute));
+        destinationProperty.Column.SetDbTypesCore(
+            [new DatabaseColumnType(DatabaseType.SQLite, "BLOB")]);
+        destinationProperty.Column.SetUnresolvedGuidStorageProvidersCore(
+            [DatabaseType.SQLite]);
+        destinationDatabase.Freeze();
+
+        var transformed = new MetadataTransformer(new MetadataTransformerOptions
+            {
+                OverwritePropertyTypes = overwritePropertyTypes
+            })
+            .TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
+        var transformedProperty = transformed.TableModels[0].Model.ValueProperties["Id"];
+        var hasUnresolved = transformedProperty.Attributes
+            .OfType<GuidStorageUnresolvedAttribute>()
+            .Any();
+
+        await Assert.That(hasUnresolved).IsEqualTo(expectUnresolved);
+        await Assert.That(transformedProperty.CsType.Name)
+            .IsEqualTo(overwritePropertyTypes
+                ? new CsTypeDeclaration(typeof(Guid)).Name
+                : new CsTypeDeclaration(typeof(byte[])).Name);
     }
 
     [Test]

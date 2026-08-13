@@ -1,0 +1,11 @@
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" />
+    </Found>
+    <NotFound>
+        <PageTitle>Not found</PageTitle>
+        <main class="shell">
+            <h1>Memory smoke page not found</h1>
+        </main>
+    </NotFound>
+</Router>

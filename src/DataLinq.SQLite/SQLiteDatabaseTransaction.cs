@@ -58,32 +58,21 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
                 SetStatus(DatabaseTransactionStatus.Open);
                 dbConnection = new SqliteConnection(connectionString);
                 dbConnection.Open();
-                SetIsolationLevel((dbConnection as SqliteConnection)!, IsolationLevel.ReadUncommitted);
-                DbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadUncommitted);
+                SQLiteConnectionPolicy.ApplyCommittedVisibility(
+                    (SqliteConnection)dbConnection,
+                    command => ExecuteCommandWithTelemetry(
+                        command,
+                        "non_query",
+                        transactional: false,
+                        transactionType: null,
+                        command.ExecuteNonQuery));
+                DbTransaction = ((SqliteConnection)dbConnection).BeginTransaction(
+                    SQLiteConnectionPolicy.OwnedTransactionIsolationLevel,
+                    deferred: true);
                 BeginTransactionTelemetry();
             }
 
             return dbConnection;
-        }
-    }
-
-    private void SetIsolationLevel(SqliteConnection connection, IsolationLevel isolationLevel)
-    {
-        switch (isolationLevel)
-        {
-            case IsolationLevel.ReadUncommitted:
-                using (var command = new SqliteCommand("PRAGMA read_uncommitted = true;", connection))
-                {
-                    ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
-                }
-                break;
-            case IsolationLevel.Serializable:
-            default:
-                using (var command = new SqliteCommand("PRAGMA read_uncommitted = false;", connection))
-                {
-                    ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
-                }
-                break;
         }
     }
 
@@ -136,14 +125,41 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
         return new SQLiteDataLinqDataReader(reader!);
     }
 
+    private IDbTransaction GetActiveProviderTransaction(string operation)
+    {
+        var dbTransaction = DbTransaction ??
+            throw new InvalidOperationException(
+                $"Cannot {operation} because the provider transaction handle is unavailable. DataLinq cannot infer whether it committed or rolled back.");
+
+        IDbConnection? connection;
+        try
+        {
+            connection = dbTransaction.Connection;
+        }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException(
+                $"Cannot {operation} because the provider transaction handle is no longer readable. DataLinq cannot infer whether it committed or rolled back.",
+                exception);
+        }
+
+        if (connection?.State != ConnectionState.Open)
+        {
+            throw new InvalidOperationException(
+                $"Cannot {operation} because the provider transaction is no longer active on an open connection. DataLinq cannot infer whether it committed or rolled back. " +
+                "Complete attached transactions through the DataLinq wrapper instead of the original transaction handle.");
+        }
+
+        return dbTransaction;
+    }
+
     public override void Commit()
     {
         try
         {
             if (Status == DatabaseTransactionStatus.Open)
             {
-                if (DbTransaction?.Connection?.State == ConnectionState.Open)
-                    DbTransaction.Commit();
+                GetActiveProviderTransaction("commit").Commit();
 
                 CompleteTransactionTelemetry(DatabaseTransactionStatus.Committed);
             }
@@ -164,8 +180,7 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
         {
             if (Status == DatabaseTransactionStatus.Open)
             {
-                if (DbTransaction?.Connection?.State == ConnectionState.Open)
-                    DbTransaction.Rollback();
+                GetActiveProviderTransaction("roll back").Rollback();
 
                 CompleteTransactionTelemetry(DatabaseTransactionStatus.RolledBack);
             }

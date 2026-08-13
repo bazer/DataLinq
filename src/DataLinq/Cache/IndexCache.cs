@@ -92,18 +92,20 @@ internal class TypedIndexCache<TKey> : IIndexCache
 
     private bool TryAddCore(TKey foreignKey, DataLinqKey[] primaryKeys)
     {
+        // Forward and reverse mappings must observe the same cache-owned snapshot.
+        var storedPrimaryKeys = (DataLinqKey[])primaryKeys.Clone();
         var ticksNow = DateTime.Now.Ticks;
 
         lock (ticksQueueLock)
         {
             lock (cacheLock)
             {
-                if (!foreignKeys.TryAdd(foreignKey, primaryKeys))
+                if (!foreignKeys.TryAdd(foreignKey, storedPrimaryKeys))
                     return false;
 
-                Interlocked.Add(ref indexPayloadBytes, EstimatePrimaryKeyArrayBytes(primaryKeys));
+                Interlocked.Add(ref indexPayloadBytes, EstimatePrimaryKeyArrayBytes(storedPrimaryKeys));
 
-                foreach (var primaryKey in primaryKeys)
+                foreach (var primaryKey in storedPrimaryKeys)
                     AddReverseMapping(primaryKey, foreignKey);
             }
 

@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Metadata;
+using DataLinq.Mutation;
 
 namespace DataLinq.Query;
 
@@ -137,10 +139,26 @@ public class Select<T> : IQuery
     }
 
     public IEnumerable<IDataLinqDataReader> ReadReader()
+        => ReadReader(CancellationToken.None);
+
+    internal IEnumerable<IDataLinqDataReader> ReadReader(CancellationToken cancellationToken)
     {
-        return query.DataSource
-            .DatabaseAccess
-            .ReadReader(query.DataSource.Provider.ToDbCommand(this));
+        DataSourceAccess.EnsureReadAllowed(query.DataSource, "read query rows");
+        cancellationToken.ThrowIfCancellationRequested();
+        using var command = ToDbCommand();
+        cancellationToken.ThrowIfCancellationRequested();
+        using var reader = query.DataSource.DatabaseAccess.ExecuteReader(command);
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var hasRow = reader.ReadNextRow();
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!hasRow)
+                yield break;
+
+            yield return reader;
+        }
     }
 
     public IEnumerable<RowData> ReadRows()
@@ -155,6 +173,7 @@ public class Select<T> : IQuery
 
     public RowData? ReadFirstRow()
     {
+        DataSourceAccess.EnsureReadAllowed(query.DataSource, "read the first query row");
         // Resolve the actual columns being fetched to ensure the RowData
         // reader aligns with the DataReader's fields.
         var columnsToRead = GetColumnsToRead();
@@ -355,7 +374,12 @@ public class Select<T> : IQuery
     }
 
     public V ExecuteScalar<V>()
+        => ExecuteScalar<V>(CancellationToken.None);
+
+    internal V ExecuteScalar<V>(CancellationToken cancellationToken)
     {
+        DataSourceAccess.EnsureReadAllowed(query.DataSource, "execute a scalar query");
+        cancellationToken.ThrowIfCancellationRequested();
         var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
         var activity = DataLinqTelemetry.StartQueryActivity(
             telemetryContext,
@@ -369,7 +393,9 @@ public class Select<T> : IQuery
 
         try
         {
-            var result = query.DataSource.DatabaseAccess.ExecuteScalar<V>(query.DataSource.Provider.ToDbCommand(this));
+            using var command = query.DataSource.Provider.ToDbCommand(this);
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = query.DataSource.DatabaseAccess.ExecuteScalar<V>(command);
             succeeded = true;
             return result;
         }
@@ -398,7 +424,12 @@ public class Select<T> : IQuery
     }
 
     public object? ExecuteScalar()
+        => ExecuteScalar(CancellationToken.None);
+
+    internal object? ExecuteScalar(CancellationToken cancellationToken)
     {
+        DataSourceAccess.EnsureReadAllowed(query.DataSource, "execute a scalar query");
+        cancellationToken.ThrowIfCancellationRequested();
         var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
         var activity = DataLinqTelemetry.StartQueryActivity(
             telemetryContext,
@@ -412,7 +443,9 @@ public class Select<T> : IQuery
 
         try
         {
-            var result = query.DataSource.DatabaseAccess.ExecuteScalar(query.DataSource.Provider.ToDbCommand(this));
+            using var command = query.DataSource.Provider.ToDbCommand(this);
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = query.DataSource.DatabaseAccess.ExecuteScalar(command);
             succeeded = true;
             return result;
         }

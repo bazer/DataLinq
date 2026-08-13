@@ -31,4 +31,14 @@ public static class TestProviderDataSources
         foreach (var provider in TestProviderMatrix.SQLiteOnly)
             yield return () => provider with { };
     }
+
+    public static IEnumerable<Func<TestProviderDescriptor>> ServerProviders()
+    {
+        var settings = PodmanTestEnvironmentSettings.FromEnvironment();
+        foreach (var provider in TestProviderMatrix.ForCurrentRun(settings))
+        {
+            if (provider.ServerTarget is not null)
+                yield return () => provider with { };
+        }
+    }
 }

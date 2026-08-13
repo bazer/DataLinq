@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "v0.9.api-package-baseline-lock.v2",
+  "baselineVersion": "0.8.0",
+  "packageSource": "https://api.nuget.org/v3/index.json",
+  "repositoryUrl": "https://github.com/bazer/DataLinq",
+  "repositoryCommit": "1a156819e1567a4db3b8bd43e4e09e8da1a5572c",
+  "repositoryTag": "0.8.0",
+  "repositoryTagObjectType": "commit",
+  "provenanceNote": "SHA-256 values were independently acquired from NuGet.org flat-container package bytes on 2026-08-06. Every published package was repository-signed, and every non-signature archive entry matched artifacts/nuget-release/20260708-232626 exactly.",
+  "packages": [
+    {
+      "id": "DataLinq",
+      "sha256": "6af51acf9c45cbd0682ce91a660afe669e26ac383c889bb4375370e526f318d1"
+    },
+    {
+      "id": "DataLinq.SQLite",
+      "sha256": "9e07120795ca5385a74a9f9c69e7186036c103201f22c934157ff5fd1e639765"
+    },
+    {
+      "id": "DataLinq.MySql",
+      "sha256": "0f7ec8fb89fdc536d6f82bdc15cfeb77c63bb0ed93ef26b874e2d0544ede5422"
+    },
+    {
+      "id": "DataLinq.CLI",
+      "sha256": "f64d5a14c009435ee3c06c3530c7b37050d406df97900608415d31a7be523495"
+    },
+    {
+      "id": "DataLinq.Tools",
+      "sha256": "bcfbed905fbddb793fb9eaf4f9a6e601c1b0745644f6dfdd36cb97f03236bddf"
+    }
+  ],
+  "inheritedFrameworkDivergences": [
+    {
+      "packageId": "DataLinq",
+      "diagnosticId": "CP0002",
+      "target": "F:DataLinq.Instances.ImmutableForeignKey`2.loadLock",
+      "left": "lib/net8.0/DataLinq.dll",
+      "right": "lib/net9.0/DataLinq.dll",
+      "rationale": "Preserve the published 0.8 protected-field signatures: net8 uses object because System.Threading.Lock is unavailable, while net9 and net10 use Lock. Changing either side would break subclasses compiled for that target framework."
+    },
+    {
+      "packageId": "DataLinq",
+      "diagnosticId": "CP0002",
+      "target": "F:DataLinq.Instances.ImmutableRelation`2.loadLock",
+      "left": "lib/net8.0/DataLinq.dll",
+      "right": "lib/net9.0/DataLinq.dll",
+      "rationale": "Preserve the published 0.8 protected-field signatures: net8 uses object because System.Threading.Lock is unavailable, while net9 and net10 use Lock. Changing either side would break subclasses compiled for that target framework."
+    }
+  ]
+}

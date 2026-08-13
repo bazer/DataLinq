@@ -30,6 +30,15 @@ public abstract class DatabaseTransaction : DatabaseAccess, IDisposable
     public DatabaseTransactionStatus Status { get; private set; } = DatabaseTransactionStatus.Closed;
 
     public event EventHandler<DatabaseTransactionStatusChangeEventArgs>? OnStatusChanged;
+
+    /// <summary>
+    /// Gets the underlying provider transaction handle, when one is active.
+    /// </summary>
+    /// <remarks>
+    /// This is a low-level escape hatch. Completing or disposing this handle directly bypasses
+    /// <see cref="Transaction"/> cache publication, transaction-local cleanup, and mutable
+    /// lifecycle finalization. Complete attached transactions through their DataLinq wrapper.
+    /// </remarks>
     public IDbTransaction? DbTransaction { get; protected set; }
     public TransactionType Type { get; protected set; }
 

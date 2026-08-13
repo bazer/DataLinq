@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Runtime.InteropServices;
 using DataLinq.DevTools;
@@ -16,21 +18,27 @@ internal sealed class BenchmarkHarnessRunner
 {
     private static readonly string[] WarningPatterns =
     [
-        "The minimum observed iteration time is very small",
+        "The minimum observed iteration time is",
         "MultimodalDistribution",
         "ZeroMeasurement",
         "EnvironmentVariable",
         "NoWorkloadResult"
     ];
+    private static readonly Regex BenchmarkDotNetVersionPattern = new(
+        @"\bBenchmarkDotNet v(?<version>[0-9]+(?:\.[0-9]+){1,3}(?:[-+][0-9A-Za-z.-]+)?)\b",
+        RegexOptions.CultureInvariant);
     internal const string Phase2WatchCategory = "phase2-watch";
     internal const string Phase3QueryHotPathCategory = "phase3-query-hotpath";
     internal const string Phase10KeyFoundationCategory = "phase10-key-foundation";
     internal const string Phase11CacheInvalidationCategory = "phase11-cache-invalidation";
     internal const string Phase12CacheMemoryCategory = "phase12-cache-memory";
+    internal const string V09QueryBackendCategory = "v0.9-query-backend";
+    internal const string V09MemoryReadCategory = "v0.9-memory-read";
     internal const string MacroReadWriteCategory = "macro-readwrite";
     internal const string MacroBulkCategory = "macro-bulk";
     private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
     private const string BenchmarkRunIdEnvironmentVariable = "DATALINQ_BENCHMARK_RUN_ID";
+    private const string BenchmarkArtifactsDirectoryEnvironmentVariable = "DATALINQ_BENCHMARK_ARTIFACTS_DIR";
     private const string BenchmarkResultsDirectoryEnvironmentVariable = "DATALINQ_BENCHMARK_RESULTS_DIR";
 
     private readonly BenchmarkCliSettings settings;
@@ -84,102 +92,310 @@ internal sealed class BenchmarkHarnessRunner
         bool phase10KeyFoundation,
         bool phase11CacheInvalidation,
         bool phase12CacheMemory,
+        bool v09QueryBackend,
+        bool v09MemoryRead,
         string? historyJsonPath,
         string? baselinePath,
         string? comparisonJsonPath,
         double warningThresholdPercent,
+        bool releaseEvidenceIntent,
         IReadOnlyList<string> additionalArgs)
     {
         settings.EnsureDirectories();
-
-        if (new[] { phase2Watch, phase3QueryHotPath, phase10KeyFoundation, phase11CacheInvalidation, phase12CacheMemory }.Count(static selected => selected) > 1)
-        {
-            throw new InvalidOperationException(
-                "Benchmark category options '--phase2-watch', '--phase3-query-hotpath', '--phase10-key-foundation', '--phase11-cache-invalidation', and '--phase12-cache-memory' cannot be combined.");
-        }
-
-        if (!noBuild)
-            RestoreAndBuild(verbose);
-        else
-            Console.WriteLine("Skipping restore/build.");
-
-        var arguments = new List<string>
-        {
-            settings.BenchmarkAssemblyPath,
-            "--artifacts",
-            settings.ArtifactsRoot,
-            "--filter",
-            filter,
-            "--join",
-            "--disableLogFile"
-        };
-
+        var paths = BenchmarkEvidenceReporter.NormalizePaths(
+            settings.RepositoryRoot,
+            historyJsonPath,
+            baselinePath,
+            comparisonJsonPath,
+            releaseEvidenceIntent);
+        BenchmarkEvidenceReporter.InvalidateRequestedOutputs(settings.RepositoryRoot, paths);
+        BenchmarkEvidenceReporter.ValidatePathDependencies(paths, releaseEvidenceIntent);
+        BenchmarkEvidenceReporter.ValidateThreshold(warningThresholdPercent);
+        var selectedCategory = ResolveSelectedCategory(
+            phase2Watch,
+            phase3QueryHotPath,
+            phase10KeyFoundation,
+            phase11CacheInvalidation,
+            phase12CacheMemory,
+            v09QueryBackend,
+            v09MemoryRead);
         if (!IsSupportedProfile(profile))
             throw new InvalidOperationException("The benchmark profile must be 'default', 'heavy', or 'smoke'.");
-
-        if (keepFiles)
-            arguments.Add("--keepFiles");
-
-        if (phase2Watch)
-            arguments.AddRange(["--anyCategories", Phase2WatchCategory]);
-
-        if (phase3QueryHotPath)
-            arguments.AddRange(["--anyCategories", Phase3QueryHotPathCategory]);
-
-        if (phase10KeyFoundation)
-            arguments.AddRange(["--anyCategories", Phase10KeyFoundationCategory]);
-
-        if (phase11CacheInvalidation)
-            arguments.AddRange(["--anyCategories", Phase11CacheInvalidationCategory]);
-
-        if (phase12CacheMemory)
-            arguments.AddRange(["--anyCategories", Phase12CacheMemoryCategory]);
-
-        arguments.AddRange(additionalArgs);
-
+        var normalizedProfile = profile.Trim().ToLowerInvariant();
+        var normalizedFilter = filter.Trim();
+        if (normalizedFilter.Length is 0 or > 1024 ||
+            !string.Equals(
+                TestRunSummaryReporter.SanitizeFailureMessage(normalizedFilter),
+                normalizedFilter,
+                StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                "The benchmark filter must be nonempty, bounded, and free of credential-shaped values.");
+        }
+        if (paths.BaselinePath is not null)
+            BenchmarkEvidenceReporter.ValidateBaselinePath(settings.RepositoryRoot, paths.BaselinePath);
+        var providerIds = BenchmarkEvidenceReporter.ResolveConfiguredProviderIds(
+            selectedCategory,
+            Environment.GetEnvironmentVariable("DATALINQ_BENCHMARK_PROVIDERS"));
+        var expectedJob = BenchmarkEvidenceReporter.ResolveExpectedJob(normalizedProfile);
+        var safeAdditionalArgs = SanitizeArguments(additionalArgs, out var argumentsRedacted);
+        if (argumentsRedacted)
+        {
+            throw new InvalidDataException(
+                "BenchmarkDotNet pass-through arguments must not contain credential-shaped values.");
+        }
         var runId = string.Create(
             CultureInfo.InvariantCulture,
             $"{DateTime.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N}");
+        var runDirectory = BenchmarkEvidenceReporter.PrepareRunDirectory(settings.RepositoryRoot, runId);
+        var resultsDirectory = Path.Combine(runDirectory, "results");
+        var startedAtUtc = DateTime.UtcNow;
+        var repositoryStart = TestRunSummaryReporter.CaptureRepositoryState(settings.RepositoryRoot);
+        var commands = new List<BenchmarkCommandRecord>();
+        var warnings = new List<BenchmarkWarning>();
+        SummaryResult? summaryResult = null;
+        var processorIdentifier = ResolveProcessorIdentifier();
+        var benchmarkDotNetVersion = ResolveBenchmarkDotNetVersion(result: null);
+        var stage = "restore";
+        var invocation = new BenchmarkInvocation(
+            "run",
+            Path.GetFullPath(settings.RepositoryRoot),
+            Path.GetFullPath(settings.BenchmarkProjectPath),
+            Path.GetFullPath(settings.BenchmarkAssemblyPath),
+            runDirectory,
+            normalizedProfile,
+            expectedJob,
+            normalizedFilter,
+            selectedCategory,
+            providerIds,
+            noBuild,
+            keepFiles,
+            verbose,
+            safeAdditionalArgs,
+            argumentsRedacted,
+            paths.HistoryJsonPath,
+            paths.BaselinePath,
+            paths.ComparisonJsonPath,
+            warningThresholdPercent,
+            releaseEvidenceIntent);
 
-        var benchmarkEnvironment = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        try
         {
-            [BenchmarkProfileEnvironmentVariable] = profile,
-            [BenchmarkRunIdEnvironmentVariable] = runId,
-            [BenchmarkResultsDirectoryEnvironmentVariable] = Path.Combine(settings.ArtifactsRoot, "results"),
-            ["RestoreIgnoreFailedSources"] = "true",
-            ["NuGetAudit"] = "false"
-        };
+            if (!noBuild)
+                RestoreAndBuild(verbose, runDirectory, providerIds, commands);
+            else
+                Console.WriteLine("Skipping restore/build.");
 
-        Console.WriteLine("Running benchmarks...");
-        var result = ExecuteDotnet(arguments, verbose, benchmarkEnvironment);
-        var logPath = WriteLog("benchmark-run", result);
+            stage = "benchmark";
+            var arguments = new List<string>
+            {
+                settings.BenchmarkAssemblyPath,
+                "--artifacts",
+                runDirectory,
+                "--filter",
+                normalizedFilter,
+                "--join",
+                "--disableLogFile"
+            };
+            if (keepFiles)
+                arguments.Add("--keepFiles");
+            if (selectedCategory is not null)
+                arguments.AddRange(["--anyCategories", selectedCategory]);
+            arguments.AddRange(additionalArgs);
 
-        WriteStandardOutput(result, verbose || result.ExitCode != 0);
+            var benchmarkEnvironment = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                [BenchmarkProfileEnvironmentVariable] = normalizedProfile,
+                [BenchmarkRunIdEnvironmentVariable] = runId,
+                [BenchmarkArtifactsDirectoryEnvironmentVariable] = runDirectory,
+                [BenchmarkResultsDirectoryEnvironmentVariable] = resultsDirectory,
+                ["DATALINQ_BENCHMARK_PROVIDERS"] = string.Equals(
+                    selectedCategory,
+                    V09MemoryReadCategory,
+                    StringComparison.Ordinal)
+                    ? null
+                    : string.Join(',', providerIds),
+                ["RestoreIgnoreFailedSources"] = "true",
+                ["NuGetAudit"] = "false"
+            };
+            Console.WriteLine("Running benchmarks...");
+            var executed = ExecuteRecordedDotnet(
+                "benchmark",
+                arguments,
+                runDirectory,
+                verbose,
+                benchmarkEnvironment,
+                normalizedProfile,
+                runId,
+                resultsDirectory,
+                providerIds);
+            commands.Add(executed.Command);
+            benchmarkDotNetVersion = ResolveBenchmarkDotNetVersion(executed.Result) ?? benchmarkDotNetVersion;
+            WriteStandardOutput(executed.Result, verbose || executed.Result.ExitCode != 0);
+            if (executed.Result.ExitCode != 0)
+                throw new InvalidOperationException($"Benchmark run failed. Full log: {executed.Command.LogPath}");
+            EnsureNoKnownConfigurationErrors(executed.Result, executed.Command.LogPath);
 
-        if (result.ExitCode != 0)
-            throw new InvalidOperationException($"Benchmark run failed. Full log: {logPath}");
+            warnings.AddRange(ExtractWarnings(executed.Result));
+            WriteWarnings(warnings);
+            stage = "summary";
+            summaryResult = WriteSummary(
+                runDirectory,
+                runId,
+                executed.Command.LogPath,
+                normalizedProfile,
+                normalizedFilter,
+                processorIdentifier,
+                benchmarkDotNetVersion);
+            var completedAtUtc = DateTime.UtcNow;
+            var runnerEvidence = CaptureRunnerEvidence(repositoryStart);
+            var historyArtifact = BenchmarkEvidenceReporter.CreateHistory(new BenchmarkHistoryCreationInput(
+                runId,
+                startedAtUtc,
+                completedAtUtc,
+                CreateRunMetadata(
+                    normalizedProfile,
+                    normalizedFilter,
+                    repositoryStart,
+                    processorIdentifier,
+                    benchmarkDotNetVersion),
+                invocation,
+                summaryResult.HistoryRows,
+                commands,
+                warnings,
+                null,
+                CreateArtifactPaths(invocation, commands, summaryResult),
+                runnerEvidence));
 
-        EnsureNoKnownConfigurationErrors(result, logPath);
+            if (paths.HistoryJsonPath is not null)
+                BenchmarkEvidenceReporter.WriteHistory(settings.RepositoryRoot, paths.HistoryJsonPath, historyArtifact);
 
-        WriteWarnings(result);
-        var summaryResult = WriteSummary(runId, logPath, profile, filter);
-        var historyArtifact = CreateHistoryArtifact(summaryResult.Artifact);
+            BenchmarkComparisonArtifact? comparisonArtifact = null;
+            if (paths.BaselinePath is not null)
+            {
+                stage = "comparison";
+                BenchmarkHistoryReadResult? baseline = null;
+                BenchmarkHistoryReadResult? candidate = null;
+                try
+                {
+                    baseline = BenchmarkEvidenceReporter.ReadHistory(settings.RepositoryRoot, paths.BaselinePath);
+                    candidate = BenchmarkEvidenceReporter.ReadHistory(settings.RepositoryRoot, paths.HistoryJsonPath!);
+                    comparisonArtifact = BenchmarkEvidenceReporter.CreateComparison(
+                        settings.RepositoryRoot,
+                        baseline,
+                        candidate,
+                        paths.ComparisonJsonPath,
+                        warningThresholdPercent,
+                        releaseEvidenceIntent);
+                }
+                catch (Exception exception)
+                {
+                    comparisonArtifact = BenchmarkEvidenceReporter.CreateErrorComparison(
+                        new BenchmarkComparisonInvocation(
+                            paths.BaselinePath,
+                            paths.HistoryJsonPath!,
+                            paths.ComparisonJsonPath,
+                            warningThresholdPercent,
+                            releaseEvidenceIntent),
+                        baseline,
+                        candidate,
+                        exception);
+                }
 
-        if (!string.IsNullOrWhiteSpace(historyJsonPath))
-            WriteJsonArtifact(historyJsonPath, historyArtifact);
+                RenderComparison(comparisonArtifact);
+                if (paths.ComparisonJsonPath is not null)
+                    BenchmarkEvidenceReporter.WriteComparison(settings.RepositoryRoot, paths.ComparisonJsonPath, comparisonArtifact);
+            }
 
-        if (!string.IsNullOrWhiteSpace(baselinePath))
-            WriteComparison(
-                baselinePath,
-                historyArtifact,
-                comparisonJsonPath,
-                warningThresholdPercent);
-
-        WriteArtifacts(logPath, summaryResult.JsonPath, historyJsonPath, comparisonJsonPath);
-        return 0;
+            WriteArtifacts(summaryResult, paths.HistoryJsonPath, paths.ComparisonJsonPath);
+            if (historyArtifact.OverallExitCode != 0 ||
+                comparisonArtifact?.OverallExitCode != 0 ||
+                releaseEvidenceIntent && !historyArtifact.ValidForEvidence)
+            {
+                return 1;
+            }
+            return 0;
+        }
+        catch (Exception exception)
+        {
+            var completedAtUtc = DateTime.UtcNow;
+            var runnerEvidence = CaptureRunnerEvidence(repositoryStart);
+            var failure = new BenchmarkFailure(
+                stage,
+                exception.GetType().FullName ?? exception.GetType().Name,
+                TestRunSummaryReporter.SanitizeFailureMessage(exception.Message));
+            try
+            {
+                BenchmarkEvidenceReporter.InvalidateRequestedOutputs(settings.RepositoryRoot, paths);
+            }
+            catch
+            {
+                // Never follow an output path that became unsafe. The nonzero process exit
+                // remains authoritative when the safe completion marker cannot be removed.
+            }
+            if (paths.HistoryJsonPath is not null)
+            {
+                try
+                {
+                    var historyArtifact = BenchmarkEvidenceReporter.CreateHistory(new BenchmarkHistoryCreationInput(
+                        runId,
+                        startedAtUtc,
+                        completedAtUtc,
+                        CreateRunMetadata(
+                            normalizedProfile,
+                            normalizedFilter,
+                            repositoryStart,
+                            processorIdentifier,
+                            benchmarkDotNetVersion),
+                        invocation,
+                        summaryResult?.HistoryRows ?? [],
+                        commands,
+                        warnings,
+                        failure,
+                        CreateArtifactPaths(invocation, commands, summaryResult),
+                        runnerEvidence));
+                    BenchmarkEvidenceReporter.WriteHistory(settings.RepositoryRoot, paths.HistoryJsonPath, historyArtifact);
+                }
+                catch
+                {
+                    // The stale completion marker was invalidated before execution. A writer
+                    // failure must not obscure the original benchmark failure.
+                }
+            }
+            if (paths.ComparisonJsonPath is not null)
+            {
+                try
+                {
+                    var errorArtifact = BenchmarkEvidenceReporter.CreateErrorComparison(
+                        new BenchmarkComparisonInvocation(
+                            paths.BaselinePath ?? string.Empty,
+                            paths.HistoryJsonPath ?? string.Empty,
+                            paths.ComparisonJsonPath,
+                            warningThresholdPercent,
+                            releaseEvidenceIntent),
+                        null,
+                        null,
+                        exception);
+                    BenchmarkEvidenceReporter.WriteComparison(settings.RepositoryRoot, paths.ComparisonJsonPath, errorArtifact);
+                }
+                catch
+                {
+                    // No stale comparison survives, and the command remains failed.
+                }
+            }
+            Console.Error.WriteLine(failure.Message);
+            return 1;
+        }
     }
 
-    private void RestoreAndBuild(bool verbose)
+    private void RestoreAndBuild(bool verbose) =>
+        RestoreAndBuild(verbose, settings.ArtifactsRoot, [], new List<BenchmarkCommandRecord>());
+
+    private void RestoreAndBuild(
+        bool verbose,
+        string logDirectory,
+        IReadOnlyList<string> providerIds,
+        ICollection<BenchmarkCommandRecord> commands)
     {
         Console.WriteLine("Restoring benchmark harness...");
         var restoreArguments = new[]
@@ -192,10 +408,20 @@ internal sealed class BenchmarkHarnessRunner
             "-p:NuGetAudit=false"
         };
 
-        var restoreResult = ExecuteDotnet(restoreArguments, verbose);
-        WriteStandardOutput(restoreResult, verbose || restoreResult.ExitCode != 0);
+        var restore = ExecuteRecordedDotnet(
+            "restore",
+            restoreArguments,
+            logDirectory,
+            verbose,
+            null,
+            null,
+            null,
+            null,
+            providerIds);
+        commands.Add(restore.Command);
+        WriteStandardOutput(restore.Result, verbose || restore.Result.ExitCode != 0);
 
-        if (restoreResult.ExitCode != 0)
+        if (restore.Result.ExitCode != 0)
             throw new InvalidOperationException("Benchmark harness restore failed.");
 
         Console.WriteLine("Building benchmark harness...");
@@ -214,10 +440,20 @@ internal sealed class BenchmarkHarnessRunner
             "-p:NuGetAudit=false"
         };
 
-        var buildResult = ExecuteDotnet(buildArguments, verbose);
-        WriteStandardOutput(buildResult, verbose || buildResult.ExitCode != 0);
+        var build = ExecuteRecordedDotnet(
+            "build",
+            buildArguments,
+            logDirectory,
+            verbose,
+            null,
+            null,
+            null,
+            null,
+            providerIds);
+        commands.Add(build.Command);
+        WriteStandardOutput(build.Result, verbose || build.Result.ExitCode != 0);
 
-        if (buildResult.ExitCode != 0)
+        if (build.Result.ExitCode != 0)
             throw new InvalidOperationException("Benchmark harness build failed.");
     }
 
@@ -247,6 +483,46 @@ internal sealed class BenchmarkHarnessRunner
             environmentVariables);
     }
 
+    private RecordedCommandResult ExecuteRecordedDotnet(
+        string stage,
+        IReadOnlyList<string> arguments,
+        string logDirectory,
+        bool verbose,
+        IReadOnlyDictionary<string, string?>? additionalEnvironmentVariables,
+        string? profile,
+        string? runId,
+        string? resultsDirectory,
+        IReadOnlyList<string> providerIds)
+    {
+        var startedAtUtc = DateTime.UtcNow;
+        var result = ExecuteDotnet(arguments, verbose, additionalEnvironmentVariables);
+        var completedAtUtc = DateTime.UtcNow;
+        var logPath = WriteLog(logDirectory, $"benchmark-{stage}", result);
+        var safeArguments = SanitizeArguments(arguments, out _);
+        var command = new BenchmarkCommandRecord(
+            stage,
+            "dotnet",
+            safeArguments,
+            GetDotnetWorkingDirectory(arguments),
+            startedAtUtc,
+            completedAtUtc,
+            Math.Max(0d, result.Duration.TotalSeconds),
+            result.ExitCode,
+            logPath,
+            new BenchmarkCommandEnvironment(
+                profile,
+                runId,
+                runId is null ? null : logDirectory,
+                resultsDirectory,
+                providerIds.ToArray()));
+        return new RecordedCommandResult(result, command);
+    }
+
+    private string GetDotnetWorkingDirectory(IReadOnlyList<string> arguments) =>
+        IsBenchmarkAssemblyInvocation(arguments)
+            ? Path.GetDirectoryName(settings.BenchmarkProjectPath) ?? settings.RepositoryRoot
+            : settings.RepositoryRoot;
+
     private bool IsBenchmarkAssemblyInvocation(IReadOnlyList<string> arguments)
         => arguments.Count > 0 &&
            string.Equals(
@@ -255,9 +531,13 @@ internal sealed class BenchmarkHarnessRunner
                StringComparison.OrdinalIgnoreCase);
 
     private string WriteLog(string prefix, ExternalCommandResult result)
+        => WriteLog(settings.ArtifactsRoot, prefix, result);
+
+    private static string WriteLog(string directory, string prefix, ExternalCommandResult result)
     {
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-        var logPath = Path.Combine(settings.ArtifactsRoot, $"{prefix}-{timestamp}.log");
+        Directory.CreateDirectory(directory);
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff", CultureInfo.InvariantCulture);
+        var logPath = Path.Combine(directory, $"{prefix}-{timestamp}-{Guid.NewGuid():N}.log");
         var content = string.Concat(result.StandardOutput, result.StandardError);
         File.WriteAllText(logPath, content);
         return logPath;
@@ -275,23 +555,34 @@ internal sealed class BenchmarkHarnessRunner
             Console.Error.WriteLine(result.StandardError.TrimEnd());
     }
 
-    private void WriteWarnings(ExternalCommandResult result)
+    private static IReadOnlyList<BenchmarkWarning> ExtractWarnings(ExternalCommandResult result)
     {
         var outputLines = string.Concat(result.StandardOutput, Environment.NewLine, result.StandardError)
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
 
         var warnings = outputLines
-            .Where(line => WarningPatterns.Any(pattern => line.Contains(pattern, StringComparison.OrdinalIgnoreCase)))
+            .Where(line =>
+                !string.Equals(line.Trim(), "// * Warnings *", StringComparison.OrdinalIgnoreCase) &&
+                (WarningPatterns.Any(pattern => line.Contains(pattern, StringComparison.OrdinalIgnoreCase)) ||
+                 line.Contains("warning", StringComparison.OrdinalIgnoreCase)))
+            .Select(static line => TestRunSummaryReporter.SanitizeFailureMessage(line.Trim()))
             .Distinct(StringComparer.Ordinal)
+            .Take(100)
+            .Select(static line => new BenchmarkWarning("BenchmarkDotNet", line))
             .ToArray();
 
-        if (warnings.Length == 0)
+        return warnings;
+    }
+
+    private static void WriteWarnings(IReadOnlyList<BenchmarkWarning> warnings)
+    {
+        if (warnings.Count == 0)
             return;
 
         Console.WriteLine();
         Console.WriteLine("Benchmark warnings:");
         foreach (var warning in warnings)
-            Console.WriteLine($"  {warning}");
+            Console.WriteLine($"  {warning.Message}");
     }
 
     private static void EnsureNoKnownConfigurationErrors(ExternalCommandResult result, string logPath)
@@ -306,26 +597,52 @@ internal sealed class BenchmarkHarnessRunner
         }
     }
 
-    private SummaryResult WriteSummary(string runId, string logPath, string profile, string filter)
+    private SummaryResult WriteSummary(
+        string runDirectory,
+        string runId,
+        string logPath,
+        string profile,
+        string filter,
+        string? processorIdentifier,
+        string? benchmarkDotNetVersion)
     {
-        var resultsDirectory = Path.Combine(settings.ArtifactsRoot, "results");
+        var resultsDirectory = Path.Combine(runDirectory, "results");
         if (!Directory.Exists(resultsDirectory))
             throw new InvalidOperationException($"Benchmark run did not produce a results directory. Full log: {logPath}");
 
-        var summaryPath = Directory.GetFiles(resultsDirectory, "*-report.csv")
-            .Select(path => new FileInfo(path))
-            .OrderByDescending(file => file.LastWriteTimeUtc)
-            .Select(file => file.FullName)
-            .FirstOrDefault();
-
-        if (summaryPath is null)
+        var csvPaths = Directory.GetFiles(resultsDirectory, "*-report.csv")
+            .Select(Path.GetFullPath)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        if (csvPaths.Length == 0)
             throw new InvalidOperationException($"Benchmark run did not produce a CSV summary. Full log: {logPath}");
-
-        var rows = FilterRowsForProfile(ParseSummaryRows(summaryPath), profile);
+        var markdownPaths = Directory.GetFiles(resultsDirectory, "*-report-github.md")
+            .Select(Path.GetFullPath)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        if (markdownPaths.Length != csvPaths.Length)
+        {
+            throw new InvalidOperationException(
+                $"Benchmark run produced {csvPaths.Length} CSV report(s) but {markdownPaths.Length} Markdown report(s). Full log: {logPath}");
+        }
+        var telemetryPaths = Directory.GetFiles(resultsDirectory, $"{runId}-*-telemetry.json")
+            .Select(Path.GetFullPath)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        var rowsByReport = csvPaths
+            .Select(path => FilterRowsForProfile(ParseSummaryRows(path), profile))
+            .ToArray();
+        if (rowsByReport.Any(static rows => rows.Length == 0))
+        {
+            throw new InvalidOperationException(
+                $"At least one current benchmark CSV did not contain rows for the requested '{profile}' job. Full log: {logPath}");
+        }
+        var rows = rowsByReport.SelectMany(static reportRows => reportRows).ToArray();
         var telemetryDeltas = LoadTelemetryDeltas(resultsDirectory, runId);
 
         if (rows.Length == 0)
-            throw new InvalidOperationException($"Benchmark summary '{summaryPath}' did not contain any parseable rows. Full log: {logPath}");
+            throw new InvalidOperationException(
+                $"Benchmark summaries in '{resultsDirectory}' did not contain rows for the requested '{profile}' job. Full log: {logPath}");
 
         var mergedRows = BuildMergedSummaryRows(rows, telemetryDeltas);
         var measuredRows = mergedRows
@@ -335,7 +652,7 @@ internal sealed class BenchmarkHarnessRunner
         if (measuredRows.Length == 0)
         {
             throw new InvalidOperationException(
-                $"Benchmark summary '{summaryPath}' only contains invalid measurements. " +
+                $"Benchmark summary set '{resultsDirectory}' only contains invalid measurements. " +
                 $"Raw measurements: {FormatInvalidMeasurements(mergedRows)}. Full log: {logPath}");
         }
 
@@ -373,43 +690,62 @@ internal sealed class BenchmarkHarnessRunner
 
         AnsiConsole.Write(table);
         AnsiConsole.MarkupLine("[grey]Mean: green = fastest, red = slowest. Error/Noise: yellow > 10% of mean, red > 20%.[/]");
-        AnsiConsole.MarkupLine("[grey]Telemetry deltas are per operation: Q=entity/scalar, Tx=starts/commits/rollbacks, Mut=inserts/updates/deletes with affected rows, Row=hits/misses/stores, Rel=hits/loads, Inv=ops rows/tables work precise/fallback.[/]");
-        var artifact = CreateSummaryArtifact(runId, profile, filter, mergedRows);
+        AnsiConsole.MarkupLine("[grey]Telemetry deltas are per operation: Q=entity/scalar, Tx=starts/commits/rollbacks, Mut=inserts/updates/deletes with affected rows, Row=hits/misses/stores, Rel=hits/loads, Inv=ops rows/tables work precise/fallback, Mem=Memory construction/seed/read/cache work.[/]");
+        var artifact = CreateSummaryArtifact(
+            runId,
+            profile,
+            filter,
+            mergedRows,
+            processorIdentifier,
+            benchmarkDotNetVersion);
         var jsonPath = WriteSummaryArtifact(resultsDirectory, artifact);
-        return new SummaryResult(jsonPath, artifact);
+        var historyRows = artifact.Rows.Select(static row => new BenchmarkHistoryArtifactRow(
+            row.Method,
+            row.ProviderName,
+            row.Category,
+            row.MeanMicroseconds,
+            row.ErrorMicroseconds,
+            row.MedianMicroseconds,
+            row.StdDevMicroseconds,
+            row.MinMicroseconds,
+            row.MaxMicroseconds,
+            row.AllocatedBytes,
+            row.NoisePercent,
+            row.UncertaintyPercent,
+            row.StdDevPercent,
+            row.OperationsPerInvoke,
+            row.TrackingGroup,
+            row.TelemetryDelta)
+        {
+            Job = row.Job,
+            Runtime = row.Runtime,
+            Jit = row.Jit,
+            Platform = row.Platform,
+            Toolchain = row.Toolchain
+        }).ToArray();
+        return new SummaryResult(
+            jsonPath,
+            artifact,
+            csvPaths,
+            markdownPaths,
+            telemetryPaths,
+            historyRows);
     }
 
-    private void WriteArtifacts(string logPath, string? mergedSummaryPath, string? historyJsonPath, string? comparisonJsonPath)
+    private static void WriteArtifacts(
+        SummaryResult summary,
+        string? historyJsonPath,
+        string? comparisonJsonPath)
     {
-        var resultsDirectory = Path.Combine(settings.ArtifactsRoot, "results");
-        var markdownPath = Directory.Exists(resultsDirectory)
-            ? Directory.GetFiles(resultsDirectory, "*-report-github.md")
-                .Select(path => new FileInfo(path))
-                .OrderByDescending(file => file.LastWriteTimeUtc)
-                .Select(file => file.FullName)
-                .FirstOrDefault()
-            : null;
-
-        var csvPath = Directory.Exists(resultsDirectory)
-            ? Directory.GetFiles(resultsDirectory, "*-report.csv")
-                .Select(path => new FileInfo(path))
-                .OrderByDescending(file => file.LastWriteTimeUtc)
-                .Select(file => file.FullName)
-                .FirstOrDefault()
-            : null;
-
         Console.WriteLine();
         Console.WriteLine("Artifacts:");
-        Console.WriteLine($"  Log: {logPath}");
-
-        if (markdownPath is not null)
+        foreach (var markdownPath in summary.MarkdownPaths)
             Console.WriteLine($"  Markdown: {markdownPath}");
-
-        if (csvPath is not null)
+        foreach (var csvPath in summary.CsvPaths)
             Console.WriteLine($"  CSV: {csvPath}");
-
-        if (mergedSummaryPath is not null)
-            Console.WriteLine($"  Summary JSON: {mergedSummaryPath}");
+        foreach (var telemetryPath in summary.TelemetryPaths)
+            Console.WriteLine($"  Telemetry: {telemetryPath}");
+        Console.WriteLine($"  Summary JSON: {summary.JsonPath}");
 
         if (!string.IsNullOrWhiteSpace(historyJsonPath))
             Console.WriteLine($"  History JSON: {historyJsonPath}");
@@ -422,12 +758,16 @@ internal sealed class BenchmarkHarnessRunner
     {
         var lines = File.ReadAllLines(csvPath);
         if (lines.Length < 2)
-            return [];
+            throw new InvalidDataException($"Benchmark CSV '{csvPath}' does not contain a header and measurement row.");
 
         var delimiter = DetectCsvDelimiter(lines[0]);
         var headers = SplitCsvLine(lines[0], delimiter);
         var methodIndex = Array.IndexOf(headers, "Method");
         var jobIndex = Array.IndexOf(headers, "Job");
+        var runtimeIndex = Array.IndexOf(headers, "Runtime");
+        var jitIndex = Array.IndexOf(headers, "Jit");
+        var platformIndex = Array.IndexOf(headers, "Platform");
+        var toolchainIndex = Array.IndexOf(headers, "Toolchain");
         var providerIndex = Array.IndexOf(headers, "ProviderName");
         var meanIndex = Array.IndexOf(headers, "Mean");
         var errorIndex = Array.IndexOf(headers, "Error");
@@ -437,8 +777,36 @@ internal sealed class BenchmarkHarnessRunner
         var maxIndex = Array.IndexOf(headers, "Max");
         var allocatedIndex = Array.IndexOf(headers, "Allocated");
 
-        if (methodIndex < 0 || providerIndex < 0 || meanIndex < 0 || errorIndex < 0)
-            return [];
+        var requiredIndexes = new[]
+        {
+            methodIndex,
+            jobIndex,
+            runtimeIndex,
+            jitIndex,
+            platformIndex,
+            toolchainIndex,
+            providerIndex,
+            meanIndex,
+            errorIndex,
+            allocatedIndex
+        };
+        if (requiredIndexes.Any(static index => index < 0))
+        {
+            throw new InvalidDataException(
+                $"Benchmark CSV '{csvPath}' is missing one or more required identity or measurement columns.");
+        }
+        var maximumRequiredIndex = requiredIndexes.Max();
+        var requiredHeaders = new[]
+        {
+            "Method", "Job", "Runtime", "Jit", "Platform", "Toolchain",
+            "ProviderName", "Mean", "Error", "Allocated"
+        };
+        if (requiredHeaders.Any(name => headers.Count(header =>
+                string.Equals(header, name, StringComparison.Ordinal)) != 1))
+        {
+            throw new InvalidDataException(
+                $"Benchmark CSV '{csvPath}' contains duplicate required columns.");
+        }
 
         var rows = new List<BenchmarkSummaryRow>();
         foreach (var line in lines.Skip(1))
@@ -447,91 +815,49 @@ internal sealed class BenchmarkHarnessRunner
                 continue;
 
             var columns = SplitCsvLine(line, delimiter);
-            if (columns.Length <= errorIndex)
-                continue;
+            if (columns.Length <= maximumRequiredIndex)
+            {
+                throw new InvalidDataException(
+                    $"Benchmark CSV '{csvPath}' contains a truncated measurement row.");
+            }
 
             rows.Add(new BenchmarkSummaryRow(
                 Method: NormalizeCell(columns[methodIndex]),
-                Job: jobIndex >= 0 && columns.Length > jobIndex
-                    ? NormalizeCell(columns[jobIndex])
-                    : string.Empty,
+                Job: NormalizeCell(columns[jobIndex]),
+                Runtime: NormalizeCell(columns[runtimeIndex]),
+                Jit: NormalizeCell(columns[jitIndex]),
+                Platform: NormalizeCell(columns[platformIndex]),
+                Toolchain: NormalizeCell(columns[toolchainIndex]),
                 ProviderName: NormalizeCell(columns[providerIndex]),
                 Mean: NormalizeCell(columns[meanIndex]),
                 Error: NormalizeCell(columns[errorIndex]),
-                Allocated: allocatedIndex >= 0 && columns.Length > allocatedIndex
-                    ? NormalizeCell(columns[allocatedIndex])
-                    : "-",
+                Allocated: NormalizeCell(columns[allocatedIndex]),
                 MeanMicroseconds: TryParseDurationInMicroseconds(columns[meanIndex]),
                 ErrorMicroseconds: TryParseDurationInMicroseconds(columns[errorIndex]),
                 MedianMicroseconds: TryParseOptionalDuration(columns, medianIndex),
                 StdDevMicroseconds: TryParseOptionalDuration(columns, stdDevIndex),
                 MinMicroseconds: TryParseOptionalDuration(columns, minIndex),
                 MaxMicroseconds: TryParseOptionalDuration(columns, maxIndex),
-                AllocatedBytes: allocatedIndex >= 0 && columns.Length > allocatedIndex
-                    ? TryParseAllocatedBytes(columns[allocatedIndex])
-                    : null));
+                AllocatedBytes: TryParseAllocatedBytes(columns[allocatedIndex])));
         }
 
+        if (rows.Count == 0)
+            throw new InvalidDataException($"Benchmark CSV '{csvPath}' contains no measurement rows.");
         return rows.ToArray();
     }
 
     private static BenchmarkSummaryRow[] FilterRowsForProfile(BenchmarkSummaryRow[] rows, string profile)
     {
-        if (string.Equals(profile, "smoke", StringComparison.OrdinalIgnoreCase))
-        {
-            var dryRows = rows
-                .Where(static row => IsSmokeJob(row.Job))
-                .ToArray();
-
-            var measuredDryRows = dryRows
-                .Where(static row => row.MeanMicroseconds.HasValue)
-                .ToArray();
-
-            if (measuredDryRows.Length > 0)
-                return measuredDryRows;
-
-            var measuredNonDryRows = rows
-                .Where(static row => !IsSmokeJob(row.Job) && row.MeanMicroseconds.HasValue)
-                .ToArray();
-
-            return measuredNonDryRows.Length > 0 ? measuredNonDryRows : rows;
-        }
-
-        if (string.Equals(profile, "heavy", StringComparison.OrdinalIgnoreCase))
-        {
-            var heavyRows = rows
-                .Where(static row =>
-                    string.Equals(row.Job, "MediumRun", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(row.Job, "Medium", StringComparison.OrdinalIgnoreCase))
-                .ToArray();
-
-            var measuredHeavyRows = heavyRows
-                .Where(static row => row.MeanMicroseconds.HasValue)
-                .ToArray();
-
-            if (measuredHeavyRows.Length > 0)
-                return measuredHeavyRows;
-
-            return heavyRows.Length > 0 ? heavyRows : rows;
-        }
-
-        var nonDryRows = rows
-            .Where(static row =>
-                !IsSmokeJob(row.Job) &&
-                !string.Equals(row.Job, "Heavy", StringComparison.OrdinalIgnoreCase))
+        var expectedJob = BenchmarkEvidenceReporter.ResolveExpectedJob(profile);
+        return rows
+            .Where(row => string.Equals(row.Job, expectedJob, StringComparison.Ordinal))
             .ToArray();
-
-        return nonDryRows.Length > 0 ? nonDryRows : rows;
     }
 
     private static bool IsSupportedProfile(string profile)
         => string.Equals(profile, "default", StringComparison.OrdinalIgnoreCase) ||
            string.Equals(profile, "heavy", StringComparison.OrdinalIgnoreCase) ||
            string.Equals(profile, "smoke", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsSmokeJob(string job)
-        => string.Equals(job, "Smoke", StringComparison.OrdinalIgnoreCase) ||
-           string.Equals(job, "Dry", StringComparison.OrdinalIgnoreCase);
 
     private static char DetectCsvDelimiter(string headerLine)
     {
@@ -593,6 +919,8 @@ internal sealed class BenchmarkHarnessRunner
             current.Append(character);
         }
 
+        if (insideQuotes)
+            throw new InvalidDataException("Benchmark CSV contains an unterminated quoted field.");
         columns.Add(current.ToString());
         return columns.ToArray();
     }
@@ -612,10 +940,19 @@ internal sealed class BenchmarkHarnessRunner
         foreach (var filePath in Directory.GetFiles(resultsDirectory, $"{runId}-*-telemetry.json"))
         {
             var artifact = JsonSerializer.Deserialize<BenchmarkTelemetryDeltaArtifact>(File.ReadAllText(filePath));
-            if (artifact is null)
-                continue;
+            if (artifact is null ||
+                string.IsNullOrWhiteSpace(artifact.Method) ||
+                string.IsNullOrWhiteSpace(artifact.ProviderName) ||
+                artifact.OperationsPerInvoke <= 0)
+            {
+                throw new InvalidDataException($"Benchmark telemetry '{filePath}' is incomplete.");
+            }
 
-            deltas[(artifact.Method, artifact.ProviderName)] = artifact;
+            if (!deltas.TryAdd((artifact.Method, artifact.ProviderName), artifact))
+            {
+                throw new InvalidDataException(
+                    $"Benchmark telemetry contains a duplicate row for '{artifact.Method}/{artifact.ProviderName}'.");
+            }
         }
 
         return deltas;
@@ -636,16 +973,27 @@ internal sealed class BenchmarkHarnessRunner
         string runId,
         string profile,
         string filter,
-        IReadOnlyList<MergedBenchmarkSummaryRow> rows)
+        IReadOnlyList<MergedBenchmarkSummaryRow> rows,
+        string? processorIdentifier,
+        string? benchmarkDotNetVersion)
     {
         return new BenchmarkSummaryArtifact(
             RunId: runId,
             GeneratedAtUtc: DateTime.UtcNow,
-            Metadata: CreateRunMetadata(profile, filter),
+            Metadata: CreateRunMetadata(
+                profile,
+                filter,
+                processorIdentifier,
+                benchmarkDotNetVersion),
             Rows: rows.Select(static row => new BenchmarkSummaryArtifactRow(
                 Method: row.Method,
                 ProviderName: row.ProviderName,
                 Category: GetScenarioCategory(row.Method),
+                Job: row.Job,
+                Runtime: row.Runtime,
+                Jit: row.Jit,
+                Platform: row.Platform,
+                Toolchain: row.Toolchain,
                 Mean: row.Mean,
                 Error: row.Error,
                 Allocated: row.Allocated,
@@ -676,45 +1024,134 @@ internal sealed class BenchmarkHarnessRunner
         return jsonPath;
     }
 
-    private static BenchmarkHistoryArtifact CreateHistoryArtifact(BenchmarkSummaryArtifact summaryArtifact)
-        => new(
-            SchemaVersion: 2,
-            RunId: summaryArtifact.RunId,
-            GeneratedAtUtc: summaryArtifact.GeneratedAtUtc,
-            Metadata: summaryArtifact.Metadata,
-            Rows: summaryArtifact.Rows.Select(static row => new BenchmarkHistoryArtifactRow(
-                Method: row.Method,
-                ProviderName: row.ProviderName,
-                Category: row.Category,
-                MeanMicroseconds: row.MeanMicroseconds,
-                ErrorMicroseconds: row.ErrorMicroseconds,
-                MedianMicroseconds: row.MedianMicroseconds,
-                StdDevMicroseconds: row.StdDevMicroseconds,
-                MinMicroseconds: row.MinMicroseconds,
-                MaxMicroseconds: row.MaxMicroseconds,
-                AllocatedBytes: row.AllocatedBytes,
-                NoisePercent: row.NoisePercent,
-                UncertaintyPercent: row.UncertaintyPercent,
-                StdDevPercent: row.StdDevPercent,
-                OperationsPerInvoke: row.OperationsPerInvoke,
-                TrackingGroup: row.TrackingGroup,
-                TelemetryDelta: row.TelemetryDelta)).ToArray());
-
-    private BenchmarkRunMetadata CreateRunMetadata(string profile, string filter)
+    private BenchmarkRunMetadata CreateRunMetadata(
+        string profile,
+        string filter,
+        string? processorIdentifier,
+        string? benchmarkDotNetVersion)
     {
         var gitContext = ResolveGitContext();
+        return CreateRunMetadata(
+            profile,
+            filter,
+            new TestRunSummaryRepositoryState(
+                !string.IsNullOrWhiteSpace(gitContext.Commit),
+                gitContext.Commit ?? "unknown",
+                gitContext.Branch ?? "unknown",
+                true,
+                "unknown"),
+            processorIdentifier,
+            benchmarkDotNetVersion);
+    }
+
+    private static BenchmarkRunMetadata CreateRunMetadata(
+        string profile,
+        string filter,
+        TestRunSummaryRepositoryState repositoryState,
+        string? processorIdentifier,
+        string? benchmarkDotNetVersion)
+    {
         return new BenchmarkRunMetadata(
-            Repository: Environment.GetEnvironmentVariable("GITHUB_REPOSITORY"),
-            Branch: Environment.GetEnvironmentVariable("GITHUB_REF_NAME") ?? gitContext.Branch,
-            Commit: Environment.GetEnvironmentVariable("GITHUB_SHA") ?? gitContext.Commit,
-            Workflow: Environment.GetEnvironmentVariable("GITHUB_WORKFLOW"),
-            RunId: Environment.GetEnvironmentVariable("GITHUB_RUN_ID"),
-            RunNumber: Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER"),
-            EventName: Environment.GetEnvironmentVariable("GITHUB_EVENT_NAME"),
-            RunnerOs: Environment.GetEnvironmentVariable("RUNNER_OS") ?? RuntimeInformation.OSDescription,
-            RunnerArchitecture: Environment.GetEnvironmentVariable("RUNNER_ARCH") ?? RuntimeInformation.ProcessArchitecture.ToString(),
+            Repository: SafeMetadataValue(Environment.GetEnvironmentVariable("GITHUB_REPOSITORY")),
+            Branch: SafeMetadataValue(repositoryState.Branch),
+            Commit: SafeMetadataValue(repositoryState.Commit),
+            Workflow: SafeMetadataValue(Environment.GetEnvironmentVariable("GITHUB_WORKFLOW")),
+            RunId: SafeMetadataValue(Environment.GetEnvironmentVariable("GITHUB_RUN_ID")),
+            RunNumber: SafeMetadataValue(Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER")),
+            EventName: SafeMetadataValue(Environment.GetEnvironmentVariable("GITHUB_EVENT_NAME")),
+            RunnerOs: SafeIdentityValue(PreferNonblank(
+                Environment.GetEnvironmentVariable("RUNNER_OS"),
+                RuntimeInformation.OSDescription)),
+            RunnerArchitecture: SafeIdentityValue(PreferNonblank(
+                Environment.GetEnvironmentVariable("RUNNER_ARCH"),
+                RuntimeInformation.ProcessArchitecture.ToString())),
             Profile: profile,
-            Filter: filter);
+            Filter: filter)
+        {
+            RuntimeDescription = SafeIdentityValue(RuntimeInformation.FrameworkDescription),
+            ProcessorCount = Environment.ProcessorCount,
+            ProcessorIdentifier = SafeIdentityValue(processorIdentifier),
+            BenchmarkDotNetVersion = SafeIdentityValue(benchmarkDotNetVersion)
+        };
+    }
+
+    private static string? SafeMetadataValue(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? null
+            : TestRunSummaryReporter.SanitizeFailureMessage(value.Trim());
+
+    private static string PreferNonblank(string? value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+    private static string? SafeIdentityValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        if (trimmed.Length > 512)
+            return null;
+        var sanitized = TestRunSummaryReporter.SanitizeFailureMessage(trimmed);
+        return string.Equals(trimmed, sanitized, StringComparison.Ordinal) ? trimmed : null;
+    }
+
+    private static string? ResolveProcessorIdentifier()
+    {
+        var configured = SafeIdentityValue(Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER"));
+        if (configured is not null)
+            return configured;
+
+        if (!OperatingSystem.IsLinux() || !File.Exists("/proc/cpuinfo"))
+            return null;
+        try
+        {
+            foreach (var line in File.ReadLines("/proc/cpuinfo"))
+            {
+                var separator = line.IndexOf(':');
+                if (separator <= 0)
+                    continue;
+                var key = line[..separator].Trim();
+                if (key is not ("model name" or "Hardware" or "cpu model"))
+                    continue;
+                var value = SafeIdentityValue(line[(separator + 1)..]);
+                if (value is not null)
+                    return value;
+            }
+        }
+        catch
+        {
+            return null;
+        }
+        return null;
+    }
+
+    private string? ResolveBenchmarkDotNetVersion(ExternalCommandResult? result)
+    {
+        if (result is not null)
+        {
+            var output = string.Concat(result.StandardOutput, Environment.NewLine, result.StandardError);
+            var match = BenchmarkDotNetVersionPattern.Match(output);
+            if (match.Success)
+            {
+                var reported = SafeIdentityValue(match.Groups["version"].Value);
+                if (reported is not null)
+                    return reported;
+            }
+        }
+
+        try
+        {
+            var dependencyPath = Path.Combine(
+                Path.GetDirectoryName(settings.BenchmarkAssemblyPath)!,
+                "BenchmarkDotNet.dll");
+            return File.Exists(dependencyPath)
+                ? SafeIdentityValue(AssemblyName.GetAssemblyName(dependencyPath).Version?.ToString())
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private GitContext ResolveGitContext()
@@ -760,29 +1197,8 @@ internal sealed class BenchmarkHarnessRunner
         }
     }
 
-    private static void WriteJsonArtifact<T>(string path, T artifact)
+    private static void RenderComparison(BenchmarkComparisonArtifact comparisonArtifact)
     {
-        var fullPath = Path.GetFullPath(path);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        File.WriteAllText(
-            fullPath,
-            JsonSerializer.Serialize(artifact, new JsonSerializerOptions
-            {
-                WriteIndented = true
-            }));
-    }
-
-    private BenchmarkComparisonArtifact WriteComparison(
-        string baselinePath,
-        BenchmarkHistoryArtifact candidateArtifact,
-        string? comparisonJsonPath,
-        double warningThresholdPercent)
-    {
-        var baselineArtifact = JsonSerializer.Deserialize<BenchmarkHistoryArtifact>(File.ReadAllText(baselinePath))
-            ?? throw new InvalidOperationException($"Unable to read benchmark baseline artifact '{baselinePath}'.");
-
-        var comparisonArtifact = BuildComparisonArtifact(baselineArtifact, candidateArtifact, warningThresholdPercent);
-
         Console.WriteLine();
         AnsiConsole.Write(new Rule("[yellow]Comparison[/]"));
 
@@ -807,117 +1223,7 @@ internal sealed class BenchmarkHarnessRunner
         AnsiConsole.Write(table);
         AnsiConsole.MarkupLine(string.Create(
             CultureInfo.InvariantCulture,
-            $"[grey]Warnings only trigger for non-noisy rows at >= {warningThresholdPercent:0.#}% regression. Rows above 20% noise are marked noisy.[/]"));
-
-        if (!string.IsNullOrWhiteSpace(comparisonJsonPath))
-            WriteJsonArtifact(comparisonJsonPath, comparisonArtifact);
-
-        return comparisonArtifact;
-    }
-
-    private static BenchmarkComparisonArtifact BuildComparisonArtifact(
-        BenchmarkHistoryArtifact baselineArtifact,
-        BenchmarkHistoryArtifact candidateArtifact,
-        double warningThresholdPercent)
-    {
-        var baselineRows = baselineArtifact.Rows.ToDictionary(
-            static row => (row.Method, row.ProviderName),
-            static row => row);
-        var candidateRows = candidateArtifact.Rows.ToDictionary(
-            static row => (row.Method, row.ProviderName),
-            static row => row);
-
-        var allKeys = baselineRows.Keys
-            .Union(candidateRows.Keys)
-            .OrderBy(static key => key.Method, StringComparer.Ordinal)
-            .ThenBy(static key => key.ProviderName, StringComparer.Ordinal)
-            .ToArray();
-
-        var rows = new List<BenchmarkComparisonArtifactRow>(allKeys.Length);
-        var warningCount = 0;
-        var profilesCompatible = AreBenchmarkProfilesCompatible(
-            baselineArtifact.Metadata.Profile,
-            candidateArtifact.Metadata.Profile);
-
-        foreach (var key in allKeys)
-        {
-            baselineRows.TryGetValue(key, out var baselineRow);
-            candidateRows.TryGetValue(key, out var candidateRow);
-
-            var meanDeltaPercent = profilesCompatible
-                ? GetDeltaPercent(baselineRow?.MeanMicroseconds, candidateRow?.MeanMicroseconds)
-                : null;
-            var allocatedDeltaPercent = profilesCompatible
-                ? GetDeltaPercent(baselineRow?.AllocatedBytes, candidateRow?.AllocatedBytes)
-                : null;
-            var maxNoisePercent = new[] { baselineRow?.NoisePercent, candidateRow?.NoisePercent }
-                .Where(static value => value.HasValue)
-                .Select(static value => value!.Value)
-                .DefaultIfEmpty(0d)
-                .Max();
-
-            var status = GetComparisonStatus(
-                baselineRow,
-                candidateRow,
-                meanDeltaPercent,
-                allocatedDeltaPercent,
-                maxNoisePercent,
-                warningThresholdPercent,
-                profilesCompatible);
-
-            if (status == "warning")
-                warningCount++;
-
-            rows.Add(new BenchmarkComparisonArtifactRow(
-                Method: key.Method,
-                ProviderName: key.ProviderName,
-                Category: ResolveCategory(baselineRow, candidateRow, key.Method),
-                BaselineMeanMicroseconds: baselineRow?.MeanMicroseconds,
-                CandidateMeanMicroseconds: candidateRow?.MeanMicroseconds,
-                MeanDeltaPercent: meanDeltaPercent,
-                BaselineAllocatedBytes: baselineRow?.AllocatedBytes,
-                CandidateAllocatedBytes: candidateRow?.AllocatedBytes,
-                AllocatedDeltaPercent: allocatedDeltaPercent,
-                MaxNoisePercent: maxNoisePercent,
-                TrackingGroup: ResolveTrackingGroup(baselineRow, candidateRow),
-                Status: status));
-        }
-
-        return new BenchmarkComparisonArtifact(
-            SchemaVersion: 2,
-            GeneratedAtUtc: DateTime.UtcNow,
-            WarningThresholdPercent: warningThresholdPercent,
-            WarningCount: warningCount,
-            Baseline: baselineArtifact.Metadata,
-            Candidate: candidateArtifact.Metadata,
-            Rows: rows);
-    }
-
-    private static string GetComparisonStatus(
-        BenchmarkHistoryArtifactRow? baselineRow,
-        BenchmarkHistoryArtifactRow? candidateRow,
-        double? meanDeltaPercent,
-        double? allocatedDeltaPercent,
-        double maxNoisePercent,
-        double warningThresholdPercent,
-        bool profilesCompatible)
-    {
-        if (!profilesCompatible)
-            return "profile-mismatch";
-
-        if (baselineRow is null || candidateRow is null)
-            return "missing";
-
-        if (maxNoisePercent >= 20d)
-            return "noisy";
-
-        if ((meanDeltaPercent ?? 0d) >= warningThresholdPercent || (allocatedDeltaPercent ?? 0d) >= warningThresholdPercent)
-            return "warning";
-
-        if ((meanDeltaPercent ?? 0d) <= -warningThresholdPercent || (allocatedDeltaPercent ?? 0d) <= -warningThresholdPercent)
-            return "improved";
-
-        return "stable";
+            $"[grey]Latency warnings require non-noisy >= {comparisonArtifact.WarningThresholdPercent:0.#}% regression; allocation warnings are never suppressed by timing noise. Outcome: {comparisonArtifact.Outcome}.[/]"));
     }
 
     internal static bool AreBenchmarkProfilesCompatible(string? baselineProfile, string? candidateProfile) =>
@@ -929,18 +1235,97 @@ internal sealed class BenchmarkHarnessRunner
     private static string NormalizeBenchmarkProfile(string? profile) =>
         string.IsNullOrWhiteSpace(profile) ? "default" : profile.Trim();
 
-    private static string? ResolveTrackingGroup(
-        BenchmarkHistoryArtifactRow? baselineRow,
-        BenchmarkHistoryArtifactRow? candidateRow)
-        => candidateRow?.TrackingGroup ?? baselineRow?.TrackingGroup ?? GetTrackingGroup(candidateRow?.Method ?? baselineRow?.Method);
+    private BenchmarkRunnerEvidence CaptureRunnerEvidence(TestRunSummaryRepositoryState start)
+    {
+        var end = TestRunSummaryReporter.CaptureRepositoryState(settings.RepositoryRoot);
+        var assemblies = TestRunSummaryReporter.CaptureRunnerAssemblies();
+        var benchmarkAssembly = BenchmarkEvidenceReporter.CaptureAssemblyEvidence(settings.BenchmarkAssemblyPath);
+        return BenchmarkEvidenceReporter.EvaluateRunnerEvidence(
+            start,
+            end,
+            assemblies.EntryAssembly,
+            assemblies.DevToolsAssembly,
+            benchmarkAssembly);
+    }
 
-    private static string ResolveCategory(
-        BenchmarkHistoryArtifactRow? baselineRow,
-        BenchmarkHistoryArtifactRow? candidateRow,
-        string method)
-        => candidateRow?.Category ?? baselineRow?.Category ?? GetScenarioCategory(method);
+    private BenchmarkArtifactPaths CreateArtifactPaths(
+        BenchmarkInvocation invocation,
+        IReadOnlyList<BenchmarkCommandRecord> commands,
+        SummaryResult? summary)
+    {
+        var candidates = new List<(string Kind, string Path)>();
+        candidates.AddRange(commands.Select(static command => ($"{command.Stage}-log", command.LogPath)));
+        if (summary is not null)
+        {
+            candidates.Add(("summary-json", summary.JsonPath));
+            candidates.AddRange(summary.CsvPaths.Select(static path => ("benchmarkdotnet-csv", path)));
+            candidates.AddRange(summary.MarkdownPaths.Select(static path => ("benchmarkdotnet-markdown", path)));
+            candidates.AddRange(summary.TelemetryPaths.Select(static path => ("telemetry-json", path)));
+        }
 
-    private static string? GetTrackingGroup(string? method)
+        var files = candidates
+            .Where(static candidate => File.Exists(candidate.Path))
+            .GroupBy(static candidate => Path.GetFullPath(candidate.Path), StringComparer.OrdinalIgnoreCase)
+            .Select(group => BenchmarkEvidenceReporter.CreateArtifactReference(
+                settings.RepositoryRoot,
+                group.First().Kind,
+                group.Key))
+            .OrderBy(static artifact => artifact.RepositoryRelativePath, StringComparer.Ordinal)
+            .ToArray();
+        return new BenchmarkArtifactPaths(
+            invocation.HistoryJsonPath,
+            invocation.ComparisonJsonPath,
+            files);
+    }
+
+    private static IReadOnlyList<string> SanitizeArguments(
+        IReadOnlyList<string> arguments,
+        out bool redacted)
+    {
+        var safe = new string[arguments.Count];
+        redacted = false;
+        for (var index = 0; index < arguments.Count; index++)
+        {
+            safe[index] = TestRunSummaryReporter.SanitizeFailureMessage(arguments[index]);
+            if (!string.Equals(safe[index], arguments[index], StringComparison.Ordinal))
+                redacted = true;
+        }
+        return safe;
+    }
+
+    internal static string? ResolveSelectedCategory(
+        bool phase2Watch,
+        bool phase3QueryHotPath,
+        bool phase10KeyFoundation,
+        bool phase11CacheInvalidation,
+        bool phase12CacheMemory,
+        bool v09QueryBackend,
+        bool v09MemoryRead)
+    {
+        var selectedCategories = new[]
+        {
+            (Selected: phase2Watch, Category: Phase2WatchCategory),
+            (Selected: phase3QueryHotPath, Category: Phase3QueryHotPathCategory),
+            (Selected: phase10KeyFoundation, Category: Phase10KeyFoundationCategory),
+            (Selected: phase11CacheInvalidation, Category: Phase11CacheInvalidationCategory),
+            (Selected: phase12CacheMemory, Category: Phase12CacheMemoryCategory),
+            (Selected: v09QueryBackend, Category: V09QueryBackendCategory),
+            (Selected: v09MemoryRead, Category: V09MemoryReadCategory)
+        }
+        .Where(static selection => selection.Selected)
+        .Select(static selection => selection.Category)
+        .ToArray();
+
+        if (selectedCategories.Length > 1)
+        {
+            throw new InvalidOperationException(
+                "Benchmark category options '--phase2-watch', '--phase3-query-hotpath', '--phase10-key-foundation', '--phase11-cache-invalidation', '--phase12-cache-memory', '--v09-query-backend', and '--v09-memory-read' cannot be combined.");
+        }
+
+        return selectedCategories.SingleOrDefault();
+    }
+
+    internal static string? GetTrackingGroup(string? method)
         => method switch
         {
             "Provider initialization" => Phase2WatchCategory,
@@ -964,10 +1349,25 @@ internal sealed class BenchmarkHarnessRunner
             "High-cardinality strings bounded pool" => Phase12CacheMemoryCategory,
             "Low-cardinality strings baseline" => Phase12CacheMemoryCategory,
             "Low-cardinality strings bounded pool" => Phase12CacheMemoryCategory,
+            "Expression parse/structural template" => V09QueryBackendCategory,
+            "Expression parse/template/initial bind" => V09QueryBackendCategory,
+            "Template freeze/validation" => V09QueryBackendCategory,
+            "Invocation bind scalar/local sequence" => V09QueryBackendCategory,
+            "SQL request/capability preparation" => V09QueryBackendCategory,
+            "SQL adapter scalar Any" => V09QueryBackendCategory,
+            "Memory database construction" => V09MemoryReadCategory,
+            "Memory construct and seed" => V09MemoryReadCategory,
+            "Memory primary-key hit" => V09MemoryReadCategory,
+            "Memory primary-key miss" => V09MemoryReadCategory,
+            "Memory scalar scan" => V09MemoryReadCategory,
+            "Memory filter order page" => V09MemoryReadCategory,
+            "Memory repeated entity identity" => V09MemoryReadCategory,
+            "Memory direct-Guid equality count" => V09MemoryReadCategory,
+            "Memory typed-ID equality count" => V09MemoryReadCategory,
             _ => null
         };
 
-    private static string GetScenarioCategory(string method)
+    internal static string GetScenarioCategory(string method)
         => method switch
         {
             "Provider initialization" => "startup",
@@ -989,6 +1389,21 @@ internal sealed class BenchmarkHarnessRunner
             "High-cardinality strings bounded pool" => "cache-memory",
             "Low-cardinality strings baseline" => "cache-memory",
             "Low-cardinality strings bounded pool" => "cache-memory",
+            "Expression parse/structural template" => "query-planning",
+            "Expression parse/template/initial bind" => "query-planning",
+            "Template freeze/validation" => "query-planning",
+            "Invocation bind scalar/local sequence" => "query-binding",
+            "SQL request/capability preparation" => "sql-adapter",
+            "SQL adapter scalar Any" => "sql-adapter",
+            "Memory database construction" => "memory-startup",
+            "Memory construct and seed" => "memory-seed",
+            "Memory primary-key hit" => "memory-primary-key",
+            "Memory primary-key miss" => "memory-primary-key",
+            "Memory scalar scan" => "memory-query",
+            "Memory filter order page" => "memory-query",
+            "Memory repeated entity identity" => "memory-identity",
+            "Memory direct-Guid equality count" => "memory-conversion",
+            "Memory typed-ID equality count" => "memory-conversion",
             "Invalidate one employee row" => "cache-invalidation",
             "Invalidate many employee rows" => "cache-invalidation",
             "Invalidate employee table" => "cache-invalidation",
@@ -1001,14 +1416,6 @@ internal sealed class BenchmarkHarnessRunner
             "CRUD workflow batch" => MacroBulkCategory,
             _ => "other"
         };
-
-    private static double? GetDeltaPercent(double? baselineValue, double? candidateValue)
-    {
-        if (!baselineValue.HasValue || !candidateValue.HasValue || baselineValue.Value == 0d)
-            return null;
-
-        return ((candidateValue.Value - baselineValue.Value) / baselineValue.Value) * 100d;
-    }
 
     private static IRenderable CreateMeanCell(MergedBenchmarkSummaryRow row, double? fastestMean, double? slowestMean)
     {
@@ -1076,8 +1483,11 @@ internal sealed class BenchmarkHarnessRunner
             "warning" => CreateMarkupCell("warning", "red"),
             "noisy" => CreateMarkupCell("noisy", "yellow"),
             "improved" => CreateMarkupCell("improved", "green"),
-            "missing" => CreateMarkupCell("missing", "grey"),
+            "missing-baseline" => CreateMarkupCell("missing baseline", "grey"),
+            "missing-candidate" => CreateMarkupCell("missing candidate", "grey"),
             "profile-mismatch" => CreateMarkupCell("profile", "grey"),
+            "scope-mismatch" => CreateMarkupCell("scope", "grey"),
+            "invalid" => CreateMarkupCell("invalid", "red"),
             _ => new Text(status)
         };
 
@@ -1205,7 +1615,74 @@ internal sealed class BenchmarkHarnessRunner
                 $"path {FormatMetric(artifact.CacheInvalidationPreciseOperationsPerOperation)}/{FormatMetric(artifact.CacheInvalidationConservativeFallbackOperationsPerOperation)}"));
         }
 
+        if (HasMemorySignal(artifact))
+            parts.Add(FormatMemoryTelemetry(artifact));
+
         return parts.Count == 0 ? "-" : string.Join("  ", parts);
+    }
+
+    private static bool HasMemorySignal(BenchmarkTelemetryDeltaArtifact artifact)
+        => HasSignal(
+            artifact.MemoryDatabasesConstructedPerOperation,
+            artifact.MemoryRowsSeededPerOperation,
+            artifact.MemoryPrimaryKeyRequestsPerOperation,
+            artifact.MemoryPrimaryKeyProbesPerOperation,
+            artifact.MemoryScanRowsVisitedPerOperation,
+            artifact.MemoryPredicateEvaluationsPerOperation,
+            artifact.MemoryPredicateRejectionsPerOperation,
+            artifact.MemoryCacheLookupsPerOperation,
+            artifact.MemoryCacheHitsPerOperation,
+            artifact.MemoryCacheMissesPerOperation,
+            artifact.MemoryMaterializationsPerOperation,
+            artifact.MemoryCacheInsertionsPerOperation);
+
+    private static string FormatMemoryTelemetry(BenchmarkTelemetryDeltaArtifact artifact)
+    {
+        var metrics = new List<string>();
+
+        if (HasSignal(
+            artifact.MemoryDatabasesConstructedPerOperation,
+            artifact.MemoryRowsSeededPerOperation))
+        {
+            metrics.Add(
+                $"db/seed {FormatMetric(artifact.MemoryDatabasesConstructedPerOperation)}/{FormatMetric(artifact.MemoryRowsSeededPerOperation)}");
+        }
+
+        if (HasSignal(
+            artifact.MemoryPrimaryKeyRequestsPerOperation,
+            artifact.MemoryPrimaryKeyProbesPerOperation))
+        {
+            metrics.Add(
+                $"pk {FormatMetric(artifact.MemoryPrimaryKeyRequestsPerOperation)}/{FormatMetric(artifact.MemoryPrimaryKeyProbesPerOperation)}");
+        }
+
+        if (HasSignal(
+            artifact.MemoryScanRowsVisitedPerOperation,
+            artifact.MemoryPredicateEvaluationsPerOperation,
+            artifact.MemoryPredicateRejectionsPerOperation))
+        {
+            metrics.Add(
+                $"scan/pred/rej {FormatMetric(artifact.MemoryScanRowsVisitedPerOperation)}/{FormatMetric(artifact.MemoryPredicateEvaluationsPerOperation)}/{FormatMetric(artifact.MemoryPredicateRejectionsPerOperation)}");
+        }
+
+        if (HasSignal(
+            artifact.MemoryCacheLookupsPerOperation,
+            artifact.MemoryCacheHitsPerOperation,
+            artifact.MemoryCacheMissesPerOperation))
+        {
+            metrics.Add(
+                $"cache {FormatMetric(artifact.MemoryCacheLookupsPerOperation)}/{FormatMetric(artifact.MemoryCacheHitsPerOperation)}/{FormatMetric(artifact.MemoryCacheMissesPerOperation)}");
+        }
+
+        if (HasSignal(
+            artifact.MemoryMaterializationsPerOperation,
+            artifact.MemoryCacheInsertionsPerOperation))
+        {
+            metrics.Add(
+                $"mat/ins {FormatMetric(artifact.MemoryMaterializationsPerOperation)}/{FormatMetric(artifact.MemoryCacheInsertionsPerOperation)}");
+        }
+
+        return $"Mem {string.Join(" ", metrics)}";
     }
 
     private static string FormatMetric(double? value)
@@ -1298,6 +1775,10 @@ internal sealed class BenchmarkHarnessRunner
     private sealed record BenchmarkSummaryRow(
         string Method,
         string Job,
+        string Runtime,
+        string Jit,
+        string Platform,
+        string Toolchain,
         string ProviderName,
         string Mean,
         string Error,
@@ -1312,6 +1793,11 @@ internal sealed class BenchmarkHarnessRunner
 
     private sealed record MergedBenchmarkSummaryRow(
         string Method,
+        string Job,
+        string Runtime,
+        string Jit,
+        string Platform,
+        string Toolchain,
         string ProviderName,
         string Mean,
         string Error,
@@ -1328,6 +1814,11 @@ internal sealed class BenchmarkHarnessRunner
         public MergedBenchmarkSummaryRow(BenchmarkSummaryRow row, BenchmarkTelemetryDeltaArtifact? telemetryDelta)
             : this(
                 row.Method,
+                row.Job,
+                row.Runtime,
+                row.Jit,
+                row.Platform,
+                row.Toolchain,
                 row.ProviderName,
                 row.Mean,
                 row.Error,
@@ -1354,6 +1845,11 @@ internal sealed class BenchmarkHarnessRunner
         string Method,
         string ProviderName,
         string Category,
+        string Job,
+        string Runtime,
+        string Jit,
+        string Platform,
+        string Toolchain,
         string Mean,
         string Error,
         string Allocated,
@@ -1371,96 +1867,17 @@ internal sealed class BenchmarkHarnessRunner
         string? TrackingGroup,
         BenchmarkTelemetryDeltaArtifact? TelemetryDelta);
 
-    private sealed record BenchmarkTelemetryDeltaArtifact(
-        string Method,
-        string ProviderName,
-        int OperationsPerInvoke,
-        double EntityQueriesPerOperation,
-        double ScalarQueriesPerOperation,
-        double TransactionStartsPerOperation,
-        double TransactionCommitsPerOperation,
-        double TransactionRollbacksPerOperation,
-        double MutationInsertsPerOperation,
-        double MutationUpdatesPerOperation,
-        double MutationDeletesPerOperation,
-        double MutationAffectedRowsPerOperation,
-        double RowCacheHitsPerOperation,
-        double RowCacheMissesPerOperation,
-        double RowCacheStoresPerOperation,
-        double DatabaseRowsPerOperation,
-        double MaterializationsPerOperation,
-        double RelationHitsPerOperation,
-        double RelationLoadsPerOperation,
-        double CacheInvalidationOperationsPerOperation,
-        double CacheInvalidationRowsRemovedPerOperation,
-        double CacheInvalidationTablesClearedPerOperation,
-        double CacheInvalidationProviderKeysPerOperation,
-        double CacheInvalidationApproximateWorkPerOperation,
-        double CacheInvalidationPreciseOperationsPerOperation,
-        double CacheInvalidationConservativeFallbackOperationsPerOperation);
+    private sealed record SummaryResult(
+        string JsonPath,
+        BenchmarkSummaryArtifact Artifact,
+        IReadOnlyList<string> CsvPaths,
+        IReadOnlyList<string> MarkdownPaths,
+        IReadOnlyList<string> TelemetryPaths,
+        IReadOnlyList<BenchmarkHistoryArtifactRow> HistoryRows);
 
-    private sealed record BenchmarkRunMetadata(
-        string? Repository,
-        string? Branch,
-        string? Commit,
-        string? Workflow,
-        string? RunId,
-        string? RunNumber,
-        string? EventName,
-        string? RunnerOs,
-        string? RunnerArchitecture,
-        string Profile,
-        string Filter);
-
-    private sealed record BenchmarkHistoryArtifact(
-        int SchemaVersion,
-        string RunId,
-        DateTime GeneratedAtUtc,
-        BenchmarkRunMetadata Metadata,
-        IReadOnlyList<BenchmarkHistoryArtifactRow> Rows);
-
-    private sealed record BenchmarkHistoryArtifactRow(
-        string Method,
-        string ProviderName,
-        string Category,
-        double? MeanMicroseconds,
-        double? ErrorMicroseconds,
-        double? MedianMicroseconds,
-        double? StdDevMicroseconds,
-        double? MinMicroseconds,
-        double? MaxMicroseconds,
-        double? AllocatedBytes,
-        double? NoisePercent,
-        double? UncertaintyPercent,
-        double? StdDevPercent,
-        int? OperationsPerInvoke,
-        string? TrackingGroup,
-        BenchmarkTelemetryDeltaArtifact? TelemetryDelta);
-
-    private sealed record BenchmarkComparisonArtifact(
-        int SchemaVersion,
-        DateTime GeneratedAtUtc,
-        double WarningThresholdPercent,
-        int WarningCount,
-        BenchmarkRunMetadata Baseline,
-        BenchmarkRunMetadata Candidate,
-        IReadOnlyList<BenchmarkComparisonArtifactRow> Rows);
-
-    private sealed record BenchmarkComparisonArtifactRow(
-        string Method,
-        string ProviderName,
-        string Category,
-        double? BaselineMeanMicroseconds,
-        double? CandidateMeanMicroseconds,
-        double? MeanDeltaPercent,
-        double? BaselineAllocatedBytes,
-        double? CandidateAllocatedBytes,
-        double? AllocatedDeltaPercent,
-        double MaxNoisePercent,
-        string? TrackingGroup,
-        string Status);
-
-    private sealed record SummaryResult(string JsonPath, BenchmarkSummaryArtifact Artifact);
+    private sealed record RecordedCommandResult(
+        ExternalCommandResult Result,
+        BenchmarkCommandRecord Command);
 
     private sealed record GitContext(string? Branch, string? Commit);
 

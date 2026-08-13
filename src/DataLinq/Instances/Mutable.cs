@@ -8,11 +8,12 @@ namespace DataLinq.Instances;
 
 // Add IEquatable interfaces
 public class Mutable<T> : IMutableInstance,
-    IEquatable<Mutable<T>>, IEquatable<T> // T is the Immutable type
+    IEquatable<Mutable<T>>, IEquatable<T>, IMutableLifecycle, IMutableChangeTracking // T is the Immutable type
     where T : class, IImmutableInstance
 {
     // Transient ID for distinguishing new instances
     private readonly Guid TransientId;
+    private readonly object rowDataMutationOwner = new();
 
     private readonly ModelDefinition metadata;
     public ModelDefinition Metadata() => metadata;
@@ -21,10 +22,17 @@ public class Mutable<T> : IMutableInstance,
     private T? immutableInstance; // Original immutable state if created from one
     public T? GetImmutableInstance() => immutableInstance;
 
-    private bool isNew;
-    public bool IsNew() => isNew;
-    private bool isDeleted;
-    public bool IsDeleted() => isDeleted;
+    private readonly MutableLifecycle lifecycle;
+    internal MutableLifecycleSnapshot Lifecycle => lifecycle.Snapshot;
+    internal bool HasStoredCommittedBaseline => lifecycle.HasStoredCommittedBaseline;
+    MutableLifecycleSnapshot IMutableLifecycle.Lifecycle => Lifecycle;
+    private DataLinqKey baselineCanonicalPrimaryKey;
+    DataLinqKey IMutableLifecycle.BaselineCanonicalPrimaryKey =>
+        baselineCanonicalPrimaryKey;
+    long IMutableChangeTracking.MutationVersion => mutableRowData.MutationVersion;
+
+    public bool IsNew() => lifecycle.IsNew;
+    public bool IsDeleted() => lifecycle.IsDeleted;
     public bool HasChanges() => mutableRowData.HasChanges();
 
     private MutableRowData mutableRowData;
@@ -85,15 +93,34 @@ public class Mutable<T> : IMutableInstance,
 
     public object? this[ColumnDefinition column]
     {
-        get => mutableRowData[column];
+        get
+        {
+            ValidateMappedColumn(column);
+            return mutableRowData[column];
+        }
         set
         {
+            ValidateMappedColumn(column);
             if (metadata.Table.PrimaryKeyColumns.Contains(column))
             {
                 _isPkCached = false;
                 _cachedPrimaryKey = null;
             }
-            mutableRowData.SetValue(column, value);
+            mutableRowData.SetValue(column, value, rowDataMutationOwner);
+        }
+    }
+
+    private void ValidateMappedColumn(ColumnDefinition column)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+
+        if (column.Index < 0 ||
+            column.Index >= metadata.Table.ColumnCount ||
+            !ReferenceEquals(metadata.Table.Columns[column.Index], column))
+        {
+            throw new ArgumentException(
+                "The column must be the exact mapped column definition for this mutable model.",
+                nameof(column));
         }
     }
 
@@ -108,7 +135,7 @@ public class Mutable<T> : IMutableInstance,
                 _isPkCached = false;
                 _cachedPrimaryKey = null;
             }
-            mutableRowData.SetValue(column, value);
+            mutableRowData.SetValue(column, value, rowDataMutationOwner);
         }
     }
 
@@ -120,8 +147,9 @@ public class Mutable<T> : IMutableInstance,
     protected Mutable(ModelDefinition metadata)
     {
         this.metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-        this.mutableRowData = new MutableRowData(metadata.Table);
-        isNew = true;
+        this.mutableRowData = new MutableRowData(metadata.Table, rowDataMutationOwner);
+        lifecycle = MutableLifecycle.New();
+        baselineCanonicalPrimaryKey = DataLinqKey.Null;
         _isPkCached = false;
         _cachedPrimaryKey = null;
         TransientId = Guid.NewGuid();
@@ -131,10 +159,11 @@ public class Mutable<T> : IMutableInstance,
     public Mutable(T model)
     {
         this.immutableInstance = model;
-        this.mutableRowData = new MutableRowData(model.GetRowData());
         this.metadata = model.Metadata();
-        this.isNew = false; // It's not new, it represents an existing entity
+        this.mutableRowData = new MutableRowData(model.GetRowData(), rowDataMutationOwner);
+        lifecycle = MutableLifecycle.FromImmutable(model);
         _cachedPrimaryKey = model.PrimaryKeys();
+        baselineCanonicalPrimaryKey = _cachedPrimaryKey.Value;
         _isPkCached = true;
         // Initialize TransientId (though less critical here) ---
         TransientId = Guid.NewGuid();
@@ -143,26 +172,92 @@ public class Mutable<T> : IMutableInstance,
     // Reset: Clears changes, reverts to original state if available
     public void Reset()
     {
-        mutableRowData.Reset(); // Clears MutatedData
-                                // If it was created from an immutable, isNew remains false.
-                                // If it was created with new(), isNew remains true.
-                                // Re-cache PK based on reset state
-        _cachedPrimaryKey = immutableInstance?.PrimaryKeys() // Use original PK if possible
-            ?? (isNew ? null : KeyFactory.GetKey(mutableRowData, metadata.Table.PrimaryKeyColumns)); // Recalc only if not new
-        _isPkCached = _cachedPrimaryKey != null;
+        lifecycle.ValidateAssignmentReset();
+        var resetPrimaryKey = immutableInstance is not null
+            ? immutableInstance.PrimaryKeys()
+            : IsNew()
+                ? (DataLinqKey?)null
+                : throw new InvalidOperationException(
+                    $"Existing mutable model '{typeof(T).FullName}' has no immutable baseline to reset.");
+
+        mutableRowData.Reset(rowDataMutationOwner); // Clears MutatedData
+        _cachedPrimaryKey = resetPrimaryKey;
+        _isPkCached = resetPrimaryKey is not null;
     }
 
     // Reset based on a specific immutable instance
     public void Reset(T model)
     {
-        this.immutableInstance = model;
-        mutableRowData.Reset(model.GetRowData());
-        isNew = false; // Definitely not new now
-        _cachedPrimaryKey = model.PrimaryKeys();
+        ArgumentNullException.ThrowIfNull(model);
+
+        var replacement = MutableBaselineOrigin.FromImmutable(model);
+        lifecycle.ValidatePublicBaselineReset(replacement);
+        ReplaceBaseline(model);
+        lifecycle.ApplyPublicBaselineReset(replacement);
+    }
+
+    internal void AdvanceBaseline(
+        T model,
+        MutableTransactionOwnership owner)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(owner);
+
+        lifecycle.ValidateHydratedAdvance();
+        ReplaceBaseline(model);
+        lifecycle.AdvanceHydrated(owner);
+    }
+
+    internal void Invalidate(MutableInvalidationReason reason) =>
+        lifecycle.Invalidate(reason);
+
+    internal bool TryPromoteCommitted(MutableTransactionOwnership owner) =>
+        lifecycle.TryPromoteCommitted(owner);
+
+    void IMutableLifecycle.AdvanceBaseline(
+        IImmutableInstance immutable,
+        MutableTransactionOwnership owner)
+    {
+        if (immutable is not T typedImmutable)
+        {
+            throw new ArgumentException(
+                $"Cannot advance mutable model '{typeof(T).FullName}' from immutable model '{immutable.GetType().FullName}'.",
+                nameof(immutable));
+        }
+
+        AdvanceBaseline(typedImmutable, owner);
+    }
+
+    void IMutableLifecycle.MarkDeleted(MutableTransactionOwnership owner) =>
+        lifecycle.MarkDeleted(owner);
+
+    bool IMutableLifecycle.TryPromoteCommitted(MutableTransactionOwnership owner) =>
+        lifecycle.TryPromoteCommitted(owner);
+
+    void IMutableLifecycle.Invalidate(MutableInvalidationReason reason) =>
+        lifecycle.Invalidate(reason);
+
+    private void ReplaceBaseline(T model)
+    {
+        var replacementRowData = model.GetRowData()
+            ?? throw new InvalidOperationException(
+                $"Immutable model '{model.GetType().FullName}' returned no row data.");
+        if (!ReferenceEquals(replacementRowData.Table, mutableRowData.Table))
+        {
+            throw new InvalidOperationException(
+                $"Cannot reset mutable model '{typeof(T).FullName}' from a different table definition.");
+        }
+
+        var replacementPrimaryKey = model.PrimaryKeys();
+
+        immutableInstance = model;
+        mutableRowData.Reset(replacementRowData, rowDataMutationOwner);
+        _cachedPrimaryKey = replacementPrimaryKey;
+        baselineCanonicalPrimaryKey = replacementPrimaryKey;
         _isPkCached = true;
     }
 
-    public void SetDeleted() => isDeleted = true;
+    public void SetDeleted() => lifecycle.MarkDeletedWithoutTransaction();
 
     public object? GetValue(string propertyName) => mutableRowData.GetValue(metadata.ValueProperties[propertyName].Column);
     public void SetValue<V>(string propertyName, V value) => this[propertyName] = value; // Use indexer to handle PK invalidation

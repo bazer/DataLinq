@@ -392,7 +392,7 @@ public class EmployeesGroupedAggregateTranslationTests
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
 
-        var readOnly = employeesDatabase.Query().DepartmentEmployees
+        var readOnlyQuery = employeesDatabase.Query().DepartmentEmployees
             .GroupBy(x => x.dept_no)
             .Select(group => new
             {
@@ -403,11 +403,9 @@ public class EmployeesGroupedAggregateTranslationTests
             .Where(row => row.Count > 0)
             .OrderByDescending(row => row.SumEmployeeNumbers)
             .ThenBy(row => row.DeptNo)
-            .Take(4)
-            .ToList()
-            .ToArray();
+            .Take(4);
 
-        var transactionRows = transaction.Query().DepartmentEmployees
+        var transactionQuery = transaction.Query().DepartmentEmployees
             .GroupBy(x => x.dept_no)
             .Select(group => new
             {
@@ -418,9 +416,13 @@ public class EmployeesGroupedAggregateTranslationTests
             .Where(row => row.Count > 0)
             .OrderByDescending(row => row.SumEmployeeNumbers)
             .ThenBy(row => row.DeptNo)
-            .Take(4)
-            .ToList()
-            .ToArray();
+            .Take(4);
+
+        await Assert.That(transactionQuery.Count()).IsEqualTo(readOnlyQuery.Count());
+        await Assert.That(transactionQuery.Any()).IsEqualTo(readOnlyQuery.Any());
+
+        var readOnly = readOnlyQuery.ToList().ToArray();
+        var transactionRows = transactionQuery.ToList().ToArray();
 
         await Assert.That(FormatComposedGroups(transactionRows)).IsEqualTo(FormatComposedGroups(readOnly));
     }

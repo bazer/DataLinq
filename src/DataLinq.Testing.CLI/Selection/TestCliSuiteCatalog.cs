@@ -9,6 +9,7 @@ internal static class TestCliSuiteCatalog
 {
     public const string GeneratorsSuite = "generators";
     public const string UnitSuite = "unit";
+    public const string MemorySuite = "memory";
     public const string ComplianceSuite = "compliance";
     public const string MySqlSuite = "mysql";
     public const string AllSuites = "all";
@@ -24,6 +25,11 @@ internal static class TestCliSuiteCatalog
             Name: UnitSuite,
             Description: "Runs the pure in-process unit lane once.",
             ProjectPath: Path.Combine("src", "DataLinq.Tests.Unit", "DataLinq.Tests.Unit.csproj"),
+            UsesTargetBatches: false),
+        new(
+            Name: MemorySuite,
+            Description: "Runs the in-process Memory backend lane once without SQL target batching.",
+            ProjectPath: Path.Combine("src", "DataLinq.Tests.Memory", "DataLinq.Tests.Memory.csproj"),
             UsesTargetBatches: false),
         new(
             Name: ComplianceSuite,

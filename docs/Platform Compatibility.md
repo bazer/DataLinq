@@ -4,18 +4,19 @@ DataLinq has a useful constrained-platform proof now, but the honest public clai
 
 ## Public Support Claim
 
-The ordinary supported runtime path is .NET on server, desktop, or test hosts using generated DataLinq models with the SQLite, MySQL, or MariaDB providers.
+The ordinary supported runtime path is .NET on server, desktop, or test hosts using generated DataLinq models with the SQLite, MySQL, or MariaDB providers. The experimental `DataLinq.Memory` package is a separate provider-free, read-only path.
 
 Current package and repo builds target .NET 8, .NET 9, and .NET 10. Provider behavior is documented separately:
 
 - [SQLite](backends/SQLite.md)
 - [MySQL & MariaDB](backends/MySQL-MariaDB.md)
+- [Memory (experimental)](backends/Memory.md)
 - [Provider Metadata Support Matrix](support-matrices/Provider%20Metadata%20Support%20Matrix.md)
 - [LINQ Translation Support Matrix](support-matrices/LINQ%20Translation%20Support%20Matrix.md)
 
 For constrained platforms, the accurate claim is narrower:
 
-> DataLinq has a proven generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary for the documented query subset, keeps Roslyn and Remotion out of runtime package dependency groups, and records SQLitePCLRaw `WASM0001` warnings as a separate release-evidence caveat.
+> DataLinq has proven generated SQLite and provider-free Memory Native AOT, trimmed publish, and Blazor WebAssembly smoke boundaries for their documented query subsets. Runtime package dependency groups exclude Roslyn and Remotion, and SQLitePCLRaw `WASM0001` warnings remain a separate visible caveat on the SQLite browser graph.
 
 Not accurate yet:
 
@@ -25,9 +26,9 @@ The broad claim has to wait until provider coverage, query coverage, browser sto
 
 ## Constrained-Platform Boundary
 
-DataLinq has constrained-platform smoke projects for generated SQLite Native AOT, trimmed publish, Blazor WebAssembly AOT, and Blazor WebAssembly no-AOT.
+DataLinq has constrained-platform smoke projects for generated SQLite and Memory Native AOT, trimmed publish, Blazor WebAssembly AOT, and Blazor WebAssembly no-AOT.
 
-The runtime package graph has also been cleaned up for the public runtime packages: Roslyn/compiler assemblies and `Remotion.Linq` are not runtime dependencies of `DataLinq`, `DataLinq.SQLite`, or `DataLinq.MySql`. The source generator is packaged under `DataLinq` analyzer assets, which is the right place for build-time code generation and the wrong place for runtime payload.
+The runtime package graph has also been cleaned up for the public runtime packages: Roslyn/compiler assemblies and `Remotion.Linq` are not runtime dependencies of `DataLinq`, `DataLinq.SQLite`, `DataLinq.MySql`, or `DataLinq.Memory`. The Memory package also has no SQL-provider or native-database dependency. The source generator is packaged under `DataLinq` analyzer assets, which is the right place for build-time code generation and the wrong place for runtime payload.
 
 The 0.8 parser-removal work is no longer the compatibility blocker. The constrained smoke path executes the documented query subset through DataLinq's expression parser and query-plan SQL renderer instead of relying on a Remotion parser boundary.
 
@@ -42,6 +43,7 @@ That means the tested and packaged boundary is:
 - runtime package dependency groups without `Microsoft.CodeAnalysis.*`
 - runtime package dependency groups without `Remotion.Linq`
 - generator assets under `analyzers/dotnet/cs`
+- provider-free Memory construction, seeding, typed primary-key lookup, supported filtering/ordering/paging/projection, and deterministic unsupported-query diagnostics
 
 ## Non-Claims
 
@@ -50,6 +52,7 @@ The smoke boundary does not mean every DataLinq scenario is AOT-compatible. Thes
 - reflection-discovered model metadata on constrained platforms
 - arbitrary client projection expressions
 - MySQL or MariaDB browser/WebAssembly support
+- Memory mutation, transactions, persistence, or arbitrary LINQ on constrained platforms
 - OPFS or file-backed browser storage
 - every possible LINQ expression shape
 - small production browser payload size
@@ -71,6 +74,8 @@ Current `size-report` tooling can publish WebAssembly targets, serve the publish
 The current generated SQLite AOT browser evidence is positive for the narrow smoke boundary. The smoke covers generated metadata draft/definition construction, raw SQLite open/version/PRAGMAs, the keep-alive plus second-connection pattern, generated database construction, schema creation, insert, relation/projection queries, documented subset coverage, unsupported diagnostics, and parser route evidence. Publish success alone is still not browser proof; this claim depends on the browser smoke log.
 
 The current no-AOT browser WebAssembly path also passes the same generated SQLite in-memory smoke boundary. Treat this as a narrow smoke result, not as a promise that every no-AOT browser configuration, storage mode, or query shape is supported.
+
+The provider-free Memory browser paths execute their own generated-model smoke without SQLitePCLRaw or a native database payload. They cover explicit seed, typed and direct `Guid` values, primary-key lookup, the documented predicate/order/page/projection/result subset, and one deterministic unsupported-query diagnostic. They do not add browser persistence or general LINQ support.
 
 The intended browser proof is intentionally narrow when it passes:
 

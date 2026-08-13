@@ -19,6 +19,8 @@ public class GeneratorFileFactoryOptions
     public bool SeparateTablesAndViews { get; set; } = false;
     public IReadOnlyDictionary<ValueProperty, string> RuntimeValuePropertyTypeNames { get; set; } = new Dictionary<ValueProperty, string>();
     public IReadOnlyCollection<ValueProperty> SuppressedDefaultValueProperties { get; set; } = [];
+    public IReadOnlyCollection<string> ReadSourceConstructorModelTypeNames { get; set; } = [];
+    public bool SupportsReadSourceDatabaseConstruction { get; set; }
     public List<string> Usings { get; set; } = new List<string> { "System", "System.Diagnostics.CodeAnalysis", "DataLinq", "DataLinq.Interfaces", "DataLinq.Instances", "DataLinq.Attributes", "DataLinq.Mutation" };
 }
 
@@ -182,7 +184,16 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}public partial class {database.CsType.Name} : global::DataLinq.Interfaces.IDatabaseModel<{database.CsType.Name}>";
         yield return namespaceTab + "{";
         yield return $"{namespaceTab}{tab}public static {database.CsType.Name} NewDataLinqDatabase(global::DataLinq.Interfaces.IDataSourceAccess dataSource) =>";
-        yield return $"{namespaceTab}{tab}{tab}new {GetGlobalTypeName(database.CsType)}((global::DataLinq.Mutation.DataSourceAccess)dataSource);";
+        if (Options.SupportsReadSourceDatabaseConstruction)
+            yield return $"{namespaceTab}{tab}{tab}new {GetGlobalTypeName(database.CsType)}(dataSource);";
+        else
+            yield return $"{namespaceTab}{tab}{tab}new {GetGlobalTypeName(database.CsType)}((global::DataLinq.Mutation.DataSourceAccess)dataSource);";
+        if (Options.SupportsReadSourceDatabaseConstruction)
+        {
+            yield return "";
+            yield return $"{namespaceTab}{tab}public static {database.CsType.Name} NewDataLinqReadDatabase(global::DataLinq.Interfaces.IDataLinqReadSource readSource) =>";
+            yield return $"{namespaceTab}{tab}{tab}new {GetGlobalTypeName(database.CsType)}(readSource);";
+        }
         yield return "";
         yield return $"{namespaceTab}{tab}public static global::DataLinq.Metadata.GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>";
         yield return $"{namespaceTab}{tab}{tab}new(";
@@ -291,6 +302,8 @@ public class GeneratorFileFactory
         yield return $"{indent}{{";
         yield return $"{childIndent}ImmutableType = {FormatRuntimeCsTypeDeclaration(immutableType)},";
         yield return $"{childIndent}ImmutableFactory = new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataSourceAccess, global::DataLinq.Instances.IImmutableInstance>({immutableType}.NewDataLinqImmutableInstance),";
+        if (SupportsReadSourceConstruction(model))
+            yield return $"{childIndent}ReadSourceImmutableFactory = new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataLinqReadSource, global::DataLinq.Instances.IImmutableInstance>({immutableType}.NewDataLinqReadImmutableInstance),";
         var providerKeyAccessor = GetProviderKeyRowStoreAccessorExpression(model);
         if (providerKeyAccessor is not null)
             yield return $"{childIndent}ProviderKeyRowStoreAccessor = {providerKeyAccessor},";
@@ -358,11 +371,13 @@ public class GeneratorFileFactory
             yield return row;
         yield return $"{indent})";
         yield return $"{indent}{{";
-        foreach (var row in AttributeCollection("Attributes", property.Attributes, childIndent))
+        foreach (var row in ValuePropertyAttributeCollection(property, childIndent))
             yield return row;
         yield return $"{childIndent}CsNullable = {FormatBool(property.CsNullable)},";
         yield return $"{childIndent}CsSize = {FormatNullableInt(property.CsSize)},";
         yield return $"{childIndent}EnumProperty = {FormatNullableEnumProperty(property.EnumProperty)},";
+        if (property.Column.HasScalarConverter)
+            yield return $"{childIndent}ScalarConverter = {FormatScalarConverterDraft(property.Column)},";
         yield return $"{indent}}},";
     }
 
@@ -376,6 +391,16 @@ public class GeneratorFileFactory
             yield return row;
         if (column.DbTypes.Count > 0)
             yield return $"{childIndent}OwnsDbTypes = true,";
+        if (column.GuidStorageDefinitions.Count > 0)
+        {
+            foreach (var row in GuidStorageDefinitionCollection(
+                "GuidStorageDefinitions",
+                column.GuidStorageDefinitions,
+                childIndent))
+            {
+                yield return row;
+            }
+        }
         yield return $"{childIndent}PrimaryKey = {FormatBool(column.PrimaryKey)},";
         yield return $"{childIndent}ForeignKey = {FormatBool(column.ForeignKey)},";
         yield return $"{childIndent}AutoIncrement = {FormatBool(column.AutoIncrement)},";
@@ -423,6 +448,34 @@ public class GeneratorFileFactory
         yield return $"{indent}],";
     }
 
+    private IEnumerable<string> ValuePropertyAttributeCollection(ValueProperty property, string indent)
+    {
+        yield return $"{indent}Attributes =";
+        yield return $"{indent}[";
+
+        foreach (var attribute in property.Attributes.Where(static attribute => attribute is not ScalarConverterSourceAttribute))
+            yield return $"{indent}{tab}{FormatAttribute(attribute)},";
+
+        var declaredUnresolvedProviders = new HashSet<DatabaseType>(property.Attributes
+            .OfType<GuidStorageUnresolvedAttribute>()
+            .Select(static attribute => attribute.DatabaseType));
+        foreach (var provider in property.Column.UnresolvedGuidStorageProviders)
+        {
+            if (declaredUnresolvedProviders.Add(provider))
+            {
+                yield return $"{indent}{tab}new global::DataLinq.Attributes.GuidStorageUnresolvedAttribute(global::DataLinq.DatabaseType.{provider}),";
+            }
+        }
+
+        if (property.Column.ScalarMapping.Origin == ScalarConverterOrigin.Property &&
+            property.Column.ScalarMapping.ConverterCsType is { } converterCsType)
+        {
+            yield return $"{indent}{tab}new global::DataLinq.Attributes.ScalarConverterAttribute(typeof({GetGlobalTypeName(converterCsType)})),";
+        }
+
+        yield return $"{indent}],";
+    }
+
     private IEnumerable<string> CsTypeCollection(string propertyName, IEnumerable<CsTypeDeclaration> csTypes, string indent)
     {
         yield return $"{indent}{propertyName} =";
@@ -442,6 +495,22 @@ public class GeneratorFileFactory
         foreach (var dbType in dbTypes)
         {
             yield return $"{indent}{tab}new global::DataLinq.Metadata.DatabaseColumnType(global::DataLinq.DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {FormatNullableULong(dbType.Length)}, {FormatNullableUInt(dbType.Decimals)}, {FormatNullableBool(dbType.Signed)}),";
+        }
+
+        yield return $"{indent}],";
+    }
+
+    private IEnumerable<string> GuidStorageDefinitionCollection(
+        string propertyName,
+        IEnumerable<GuidStorageDefinition> definitions,
+        string indent)
+    {
+        yield return $"{indent}{propertyName} =";
+        yield return $"{indent}[";
+
+        foreach (var definition in definitions)
+        {
+            yield return $"{indent}{tab}new global::DataLinq.Metadata.GuidStorageDefinition(global::DataLinq.DatabaseType.{definition.DatabaseType}, global::DataLinq.Attributes.GuidStorageFormat.{definition.Format}, {FormatBool(definition.IsExplicit)}),";
         }
 
         yield return $"{indent}],";
@@ -488,6 +557,22 @@ public class GeneratorFileFactory
 
     private static string FormatRuntimeCsTypeDeclaration(string runtimeTypeName) =>
         $"new global::DataLinq.Metadata.CsTypeDeclaration(typeof({runtimeTypeName}))";
+
+    private static string FormatScalarConverterDraft(ColumnDefinition column)
+    {
+        var mapping = column.ScalarMapping;
+        if (mapping.ConverterCsType is not { } converterCsType)
+            throw new InvalidOperationException($"Column '{column}' is marked as converted but has no converter type metadata.");
+
+        var converterTypeName = GetGlobalTypeName(converterCsType);
+        var sourceLocation = mapping.SourceLocation is { } location
+            ? $", SourceLocation = new global::DataLinq.Metadata.SourceLocation(new global::DataLinq.Metadata.CsFileDeclaration({FormatStringLiteral(location.File.Name)}), new global::DataLinq.Metadata.SourceTextSpan({location.Span?.Start.ToString(CultureInfo.InvariantCulture) ?? "0"}, {location.Span?.Length.ToString(CultureInfo.InvariantCulture) ?? "0"}))"
+            : string.Empty;
+
+        // Preserve a deterministic file-name/span diagnostic anchor without
+        // serializing machine-specific absolute source paths into the assembly.
+        return $"new global::DataLinq.Core.Factories.MetadataScalarConverterDraft({FormatRuntimeCsTypeDeclaration(mapping.ModelCsType)}, {FormatRuntimeCsTypeDeclaration(mapping.ProviderCsType)}, {FormatRuntimeCsTypeDeclaration(converterCsType)}, new global::System.Func<global::DataLinq.IDataLinqScalarConverter>(static () => new {converterTypeName}())) {{ Origin = global::DataLinq.Metadata.ScalarConverterOrigin.{mapping.Origin}{sourceLocation} }}";
+    }
 
     private static string FormatNullableRuntimeCsTypeDeclaration(string? runtimeTypeName) =>
         runtimeTypeName is not null
@@ -546,6 +631,12 @@ public class GeneratorFileFactory
         CommentAttribute value => value.DatabaseType == DatabaseType.Default
             ? $"new global::DataLinq.Attributes.CommentAttribute({FormatStringLiteral(value.Text)})"
             : $"new global::DataLinq.Attributes.CommentAttribute(global::DataLinq.DatabaseType.{value.DatabaseType}, {FormatStringLiteral(value.Text)})",
+        GuidStorageAttribute value when value.DatabaseType == DatabaseType.Default =>
+            $"new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.Attributes.GuidStorageFormat.{value.Format})",
+        GuidStorageAttribute value =>
+            $"new global::DataLinq.Attributes.GuidStorageAttribute(global::DataLinq.DatabaseType.{value.DatabaseType}, global::DataLinq.Attributes.GuidStorageFormat.{value.Format})",
+        GuidStorageUnresolvedAttribute value =>
+            $"new global::DataLinq.Attributes.GuidStorageUnresolvedAttribute(global::DataLinq.DatabaseType.{value.DatabaseType})",
         EnumAttribute value => $"new global::DataLinq.Attributes.EnumAttribute({FormatStringArguments(value.Values)})",
         PrimaryKeyAttribute => "new global::DataLinq.Attributes.PrimaryKeyAttribute()",
         NullableAttribute => "new global::DataLinq.Attributes.NullableAttribute()",
@@ -563,6 +654,7 @@ public class GeneratorFileFactory
         DefaultAttribute value => value.CodeExpression is null
             ? $"new global::DataLinq.Attributes.DefaultAttribute({FormatValueLiteral(value.Value)})"
             : $"new global::DataLinq.Attributes.DefaultAttribute({FormatValueLiteral(value.Value)}, {FormatStringLiteral(value.CodeExpression)})",
+        ScalarConverterSourceAttribute value => $"new global::DataLinq.Attributes.ScalarConverterAttribute(typeof({value.ConverterTypeSyntax}))",
         _ => throw new NotSupportedException($"Generated metadata does not support attribute type '{attribute.GetType().FullName}'.")
     };
 
@@ -685,7 +777,9 @@ public class GeneratorFileFactory
 
     private static string? GetProviderKeyRowStoreAccessorExpression(ModelDefinition model)
     {
-        if (model.Table.Type != TableType.Table || model.Table.PrimaryKeyColumns.Length == 0)
+        if (model.Table.Type != TableType.Table ||
+            model.Table.PrimaryKeyColumns.Length == 0 ||
+            model.Table.PrimaryKeyShape.HasScalarConverter)
             return null;
 
         return $"new {GetGlobalTypeName(model.CsType)}.DataLinqProviderKeyRowStoreAccessor()";
@@ -823,7 +917,8 @@ public class GeneratorFileFactory
 
         if (model.Table.Type == TableType.Table)
         {
-            if (model.Table.PrimaryKeyColumns.Length > 0)
+            if (model.Table.PrimaryKeyColumns.Length > 0 &&
+                !model.Table.PrimaryKeyShape.HasScalarConverter)
             {
                 var primaryKeys = model.Table.PrimaryKeyColumns
                     .Select(c => c.ValueProperty)
@@ -952,6 +1047,14 @@ public class GeneratorFileFactory
                 yield return $"{namespaceTab}{tab}{tab}{tab}return cache.TryAddRow(providerKey, rowData.Size, row);";
                 yield return $"{namespaceTab}{tab}{tab}" + "}";
                 yield return "";
+                yield return $"{namespaceTab}{tab}{tab}public bool TryAddCanonicalRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.DataLinqKey canonicalProviderKey, global::DataLinq.Instances.RowData rowData, global::DataLinq.Instances.IImmutableInstance row)";
+                yield return $"{namespaceTab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}if (!TryCreateDataLinqPrimaryKey(canonicalProviderKey, out var providerKey))";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}return false;";
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}{tab}return cache.TryAddRow(providerKey, rowData.Size, row);";
+                yield return $"{namespaceTab}{tab}{tab}" + "}";
+                yield return "";
                 yield return $"{namespaceTab}{tab}{tab}public bool TryGetRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.DataLinqKey key, out global::DataLinq.Instances.IImmutableInstance{GetUseNullableReferenceTypes()} row)";
                 yield return $"{namespaceTab}{tab}{tab}" + "{";
                 yield return $"{namespaceTab}{tab}{tab}{tab}if (!TryCreateDataLinqPrimaryKey(key, out var providerKey))";
@@ -1032,6 +1135,31 @@ public class GeneratorFileFactory
                 yield return $"";
             }
 
+            if (model.Table.PrimaryKeyColumns.Length > 0 &&
+                model.Table.PrimaryKeyShape.HasScalarConverter)
+            {
+                var primaryKeys = model.Table.PrimaryKeyColumns
+                    .Select(c => c.ValueProperty)
+                    .ToList();
+                var keyString = primaryKeys
+                    .Select(x => $"{x.CsType.Name} {x.PropertyName.ToCamelCase()}")
+                    .ToJoinedString(", ");
+                var keyValues = primaryKeys
+                    .Select(x => x.PropertyName.ToCamelCase())
+                    .ToJoinedString(", ");
+                var keyColumns = primaryKeys
+                    .Select(GetGeneratedColumnHandleName)
+                    .ToJoinedString(", ");
+                var normalizedKeyExpression = primaryKeys.Count == 1
+                    ? $"global::DataLinq.Instances.KeyFactory.CreateKeyFromModelValue({keyValues}, {keyColumns})"
+                    : $"global::DataLinq.Instances.KeyFactory.CreateKeyFromModelValues([{keyValues}], [{keyColumns}])";
+
+                yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, IDataSourceAccess dataSource) => IImmutable<{model.CsType.Name}>.GetByProviderKey({normalizedKeyExpression}, dataSource);";
+                yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Database<{model.Database.CsType.Name}> database) => IImmutable<{model.CsType.Name}>.GetByProviderKey({normalizedKeyExpression}, database.Provider.ReadOnlyAccess);";
+                yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Transaction<{model.Database.CsType.Name}> transaction) => IImmutable<{model.CsType.Name}>.GetByProviderKey({normalizedKeyExpression}, transaction);";
+                yield return "";
+            }
+
 
             var requiredProps = GetRequiredValueProperties(model);
 
@@ -1068,10 +1196,26 @@ public class GeneratorFileFactory
         foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(model.Attributes), namespaceTab))
             yield return row;
 
-        yield return $"{namespaceTab}public partial class Immutable{model.CsType.Name}(IRowData rowData, IDataSourceAccess dataSource) : {model.CsType.Name}(rowData, dataSource)";
+        yield return $"{namespaceTab}public partial class Immutable{model.CsType.Name} : {model.CsType.Name}";
         yield return namespaceTab + "{";
+        yield return $"{namespaceTab}{tab}public Immutable{model.CsType.Name}(IRowData rowData, IDataSourceAccess dataSource)";
+        yield return $"{namespaceTab}{tab}{tab}: base(rowData, dataSource)";
+        yield return $"{namespaceTab}{tab}" + "{";
+        yield return $"{namespaceTab}{tab}" + "}";
+        yield return "";
         yield return $"{namespaceTab}{tab}public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new Immutable{model.CsType.Name}(rowData, dataSource);";
         yield return "";
+
+        if (SupportsReadSourceConstruction(model))
+        {
+            yield return $"{namespaceTab}{tab}public Immutable{model.CsType.Name}(IRowData rowData, IDataLinqReadSource readSource)";
+            yield return $"{namespaceTab}{tab}{tab}: base(rowData, readSource)";
+            yield return $"{namespaceTab}{tab}" + "{";
+            yield return $"{namespaceTab}{tab}" + "}";
+            yield return "";
+            yield return $"{namespaceTab}{tab}public static IImmutableInstance NewDataLinqReadImmutableInstance(IRowData rowData, IDataLinqReadSource readSource) => new Immutable{model.CsType.Name}(rowData, readSource);";
+            yield return "";
+        }
 
         foreach (var valueProperty in valueProps)
         {
@@ -1113,6 +1257,15 @@ public class GeneratorFileFactory
         //    yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name} Mutate() => new(this);";
 
         yield return namespaceTab + "}";
+    }
+
+    private bool SupportsReadSourceConstruction(ModelDefinition model)
+    {
+        var fullModelTypeName = string.IsNullOrWhiteSpace(model.CsType.Namespace)
+            ? model.CsType.Name
+            : $"{model.CsType.Namespace}.{model.CsType.Name}";
+
+        return Options.ReadSourceConstructorModelTypeNames.Contains(fullModelTypeName, StringComparer.Ordinal);
     }
 
     private string GetImmutableRelationExpression(RelationProperty relationProperty, string relatedModelName)
@@ -1204,9 +1357,6 @@ public class GeneratorFileFactory
             yield return $"{namespaceTab}{tab}[SetsRequiredMembers]";
             yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}({paramList}) : this()";
             yield return $"{namespaceTab}{tab}" + "{";
-
-            foreach (var v in defaultProps)
-                yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.GetDefaultValueCode()};";
 
             // For each required property, assign the passed parameter to the property.
             foreach (var v in requiredProps)
@@ -1300,7 +1450,7 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Insert(transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
-        yield return $"{namespaceTab}{tab}{tab}transaction.Insert(model.Mutate(changes));";
+        yield return $"{namespaceTab}{tab}{tab}transaction.Insert<{model.CsType.Name}, Mutable{model.CsType.Name}>(model, changes);";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert<T>(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Insert(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert(this Transaction transaction, Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
@@ -1310,7 +1460,7 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.GetDataSource().Provider.Commit(transaction => model.Update(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
-        yield return $"{namespaceTab}{tab}{tab}transaction.Update(model.Mutate(changes));";
+        yield return $"{namespaceTab}{tab}{tab}transaction.Update<{model.CsType.Name}, Mutable{model.CsType.Name}>(model.Mutate(), changes);";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update<T>(this Database<T> database, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) where T : class, IDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Update(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update(this Transaction transaction, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
@@ -1333,7 +1483,7 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Save(transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
-        yield return $"{namespaceTab}{tab}{tab}transaction.Save(model.Mutate(changes));";
+        yield return $"{namespaceTab}{tab}{tab}transaction.Save<{model.CsType.Name}, Mutable{model.CsType.Name}>(model, changes);";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Save(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Mutable{model.CsType.Name} model, Transaction transaction) =>";

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
@@ -9,6 +10,7 @@ using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
@@ -30,6 +32,75 @@ public class ModelFileFactoryTests
         var syntaxErrors = syntaxTree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
 
         await Assert.That(syntaxErrors).IsEmpty();
+    }
+
+    [Test]
+    public async Task CreateModelFiles_GuidDefault_EmitsCanonicalDefaultGuidAndReparsesToBaseMetadata()
+    {
+        const string uppercaseText = "00112233-4455-6677-8899-AABBCCDDEEFF";
+        const string canonicalText = "00112233-4455-6677-8899-aabbccddeeff";
+        var expected = Guid.ParseExact(uppercaseText, "D");
+        var database = CreateDatabaseWithGuidDefault(new DefaultAttribute(expected));
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "QuoteModel.cs");
+
+        await Assert.That(generatedFile.contents)
+            .Contains($"[DefaultGuid(\"{canonicalText}\")]");
+        await Assert.That(generatedFile.contents).DoesNotContain("Guid.Parse");
+        await Assert.That(generatedFile.contents).DoesNotContain("new Guid");
+
+        var root = CSharpSyntaxTree.ParseText(generatedFile.contents)
+            .GetCompilationUnitRoot();
+        var attributeSyntax = root.DescendantNodes()
+            .OfType<AttributeSyntax>()
+            .Single(attribute => attribute.Name.ToString().Contains("DefaultGuid", StringComparison.Ordinal));
+        var parser = new SyntaxParser(
+            root.DescendantNodes().OfType<TypeDeclarationSyntax>().ToImmutableArray());
+        var parsedAttribute = parser.ParseAttribute(attributeSyntax).ValueOrException();
+
+        await Assert.That(parsedAttribute).IsTypeOf<DefaultAttribute>();
+        var defaultAttribute = (DefaultAttribute)parsedAttribute;
+        await Assert.That(defaultAttribute.Value).IsTypeOf<Guid>();
+        await Assert.That((Guid)defaultAttribute.Value).IsEqualTo(expected);
+        await Assert.That(defaultAttribute.CodeExpression).IsNull();
+
+        var customDatabase = CreateDatabaseWithGuidDefault(
+            new CustomGuidDefaultAttribute(uppercaseText));
+        NotSupportedException? customException = null;
+        try
+        {
+            _ = new ModelFileFactory(new ModelFileFactoryOptions())
+                .CreateModelFiles(customDatabase)
+                .ToList();
+        }
+        catch (NotSupportedException exception)
+        {
+            customException = exception;
+        }
+
+        await Assert.That(customException).IsNotNull();
+        await Assert.That(customException!.Message).Contains(nameof(CustomGuidDefaultAttribute));
+        await Assert.That(customException.Message).Contains("QuoteModel.QuoteText");
+
+        var expressionDatabase = CreateDatabaseWithGuidDefault(
+            new DefaultAttribute(expected, "CustomGuidFactory.Create()"));
+        NotSupportedException? expressionException = null;
+        try
+        {
+            _ = new ModelFileFactory(new ModelFileFactoryOptions())
+                .CreateModelFiles(expressionDatabase)
+                .ToList();
+        }
+        catch (NotSupportedException exception)
+        {
+            expressionException = exception;
+        }
+
+        await Assert.That(expressionException).IsNotNull();
+        await Assert.That(expressionException!.Message).Contains("CodeExpression");
+        await Assert.That(expressionException.Message).Contains("QuoteModel.QuoteText");
     }
 
     [Test]
@@ -113,8 +184,30 @@ public class ModelFileFactoryTests
             .CreateModelFiles(database)
             .Single(file => file.path == "QuoteDb.cs");
 
-        await Assert.That(generatedFile.contents).Contains("public DbRead<QuoteModel> QuoteModels { get; } = new(dataSource);");
+        await Assert.That(generatedFile.contents).Contains("public DbRead<QuoteModel> QuoteModels { get; } = new(readSource);");
         await Assert.That(generatedFile.contents).DoesNotContain("new DbRead<QuoteModel>(dataSource)");
+    }
+
+    [Test]
+    public async Task CreateModelFiles_ModelsAndDatabaseRootUseNeutralReadSource()
+    {
+        var database = CreateDatabaseWithDefaultValue(new CsTypeDeclaration(typeof(string)), "generated");
+
+        var generatedFiles = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .ToList();
+
+        var modelFile = generatedFiles.Single(file => file.path == "QuoteModel.cs");
+        await Assert.That(modelFile.contents).Contains(
+            "public abstract partial class QuoteModel(IRowData rowData, IDataLinqReadSource readSource) : Immutable<QuoteModel, QuoteDb>(rowData, readSource), ITableModel<QuoteDb>");
+        await Assert.That(modelFile.contents).DoesNotContain("IDataSourceAccess dataSource");
+
+        var databaseFile = generatedFiles.Single(file => file.path == "QuoteDb.cs");
+        await Assert.That(databaseFile.contents).Contains(
+            "public partial class QuoteDb(IDataLinqReadSource readSource) : IDatabaseModel<QuoteDb>");
+        await Assert.That(databaseFile.contents).Contains(
+            "public DbRead<QuoteModel> QuoteModels { get; } = new(readSource);");
+        await Assert.That(databaseFile.contents).DoesNotContain("DataSourceAccess dataSource");
     }
 
     [Test]
@@ -172,6 +265,47 @@ public class ModelFileFactoryTests
         var syntaxTree = CSharpSyntaxTree.ParseText(generatedFile.contents);
         var syntaxErrors = syntaxTree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
 
+        await Assert.That(syntaxErrors).IsEmpty();
+    }
+
+    [Test]
+    public async Task CreateModelFiles_GuidStorageAttributes_EmitStableDeclarations()
+    {
+        var database = CreateDatabaseWithGuidStorage();
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "GuidStorageModel.cs");
+
+        await Assert.That(generatedFile.contents).Contains(
+            "[GuidStorage(GuidStorageFormat.Text36)]");
+        await Assert.That(generatedFile.contents).Contains(
+            "[GuidStorage(DatabaseType.MySQL, GuidStorageFormat.Binary16Rfc4122)]");
+
+        var syntaxTree = CSharpSyntaxTree.ParseText(generatedFile.contents);
+        var syntaxErrors = syntaxTree.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        await Assert.That(syntaxErrors).IsEmpty();
+    }
+
+    [Test]
+    public async Task CreateModelFiles_DefaultNewUuid_PreservesExplicitVersions()
+    {
+        var database = CreateDatabaseWithUuidGenerationDefaults();
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "UuidDefaultModel.cs");
+
+        await Assert.That(generatedFile.contents).Contains(
+            "[DefaultNewUUID(UUIDVersion.Version4)]");
+        await Assert.That(generatedFile.contents).Contains(
+            "[DefaultNewUUID(UUIDVersion.Version7)]");
+        await Assert.That(generatedFile.contents).DoesNotContain("[DefaultNewUUID]");
+
+        var syntaxTree = CSharpSyntaxTree.ParseText(generatedFile.contents);
+        var syntaxErrors = syntaxTree.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         await Assert.That(syntaxErrors).IsEmpty();
     }
 
@@ -431,6 +565,48 @@ public class ModelFileFactoryTests
         return Build(draft);
     }
 
+    private static DatabaseDefinition CreateDatabaseWithGuidDefault(DefaultAttribute defaultAttribute)
+    {
+        var draft = new MetadataDatabaseDraft(
+            "QuoteDb",
+            new CsTypeDeclaration("QuoteDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "QuoteModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("QuoteModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ModelInstanceInterface = new CsTypeDeclaration("IQuoteModel", "TestNamespace", ModelCsType.Interface),
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "QuoteText",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("quote_text")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.MySQL, "char", 36)]
+                                })
+                            {
+                                Attributes =
+                                [
+                                    new GuidStorageAttribute(DatabaseType.MySQL, GuidStorageFormat.Text36),
+                                    defaultAttribute
+                                ]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("quote_table"))
+            ]
+        };
+
+        return Build(draft);
+    }
+
+    private sealed class CustomGuidDefaultAttribute(string value)
+        : DefaultAttribute(Guid.ParseExact(value, "D"));
+
     private static DatabaseDefinition CreateDatabaseWithLayoutProperties()
     {
         var draft = new MetadataDatabaseDraft(
@@ -654,6 +830,94 @@ public class ModelFileFactoryTests
                         ]
                     },
                     new MetadataTableDraft("comment_model"))
+            ]
+        };
+
+        return Build(draft);
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithGuidStorage()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "GuidStorageDb",
+            new CsTypeDeclaration("GuidStorageDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "GuidStorageModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("GuidStorageModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes =
+                                    [
+                                        new DatabaseColumnType(DatabaseType.MySQL, "binary", 16),
+                                        new DatabaseColumnType(DatabaseType.SQLite, "TEXT")
+                                    ]
+                                })
+                            {
+                                Attributes =
+                                [
+                                    new GuidStorageAttribute(GuidStorageFormat.Text36),
+                                    new GuidStorageAttribute(
+                                        DatabaseType.MySQL,
+                                        GuidStorageFormat.Binary16Rfc4122)
+                                ]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("guid_storage_models"))
+            ]
+        };
+
+        return Build(draft);
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithUuidGenerationDefaults()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "UuidDefaultDb",
+            new CsTypeDeclaration("UuidDefaultDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "UuidDefaultModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("UuidDefaultModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true
+                                }),
+                            new MetadataValuePropertyDraft(
+                                "Version4Id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("version4_id"))
+                            {
+                                Attributes = [new DefaultNewUUIDAttribute(UUIDVersion.Version4)]
+                            },
+                            new MetadataValuePropertyDraft(
+                                "Version7Id",
+                                new CsTypeDeclaration(typeof(Guid)),
+                                new MetadataColumnDraft("version7_id"))
+                            {
+                                Attributes = [new DefaultNewUUIDAttribute(UUIDVersion.Version7)]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("uuid_default_models"))
             ]
         };
 

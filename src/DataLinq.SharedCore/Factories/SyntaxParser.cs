@@ -704,6 +704,20 @@ public class SyntaxParser
             return new ColumnAttribute(arguments[0]);
         }
 
+        if (name == "ScalarConverter")
+        {
+            if (arguments.Count != 1 ||
+                attributeSyntax.ArgumentList?.Arguments[0].Expression is not TypeOfExpressionSyntax typeOfExpression)
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidArgument,
+                    "Attribute 'ScalarConverter' requires exactly one typeof(converter) argument.");
+            }
+
+            return new ScalarConverterSourceAttribute(typeOfExpression.Type.ToString());
+        }
+
         if (name == "Comment")
         {
             if (arguments.Count == 1)
@@ -718,6 +732,73 @@ public class SyntaxParser
             }
 
             return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 1 or 2 arguments");
+        }
+
+        if (name == "GuidStorage")
+        {
+            if (arguments.Count is < 1 or > 2)
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidArgument,
+                    $"Attribute '{name}' must have 1 or 2 arguments");
+            }
+
+            var formatArgument = arguments[arguments.Count - 1];
+            if (!Enum.TryParse(
+                    formatArgument.Split('.').Last(),
+                    out GuidStorageFormat format) ||
+                !Enum.IsDefined(typeof(GuidStorageFormat), format))
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidType,
+                    $"Invalid GuidStorageFormat value '{formatArgument}'");
+            }
+
+            if (arguments.Count == 1)
+                return new GuidStorageAttribute(format);
+
+            var databaseTypeArgument = arguments[0];
+            if (!Enum.TryParse(
+                    databaseTypeArgument.Split('.').Last(),
+                    out DatabaseType databaseType) ||
+                databaseType == DatabaseType.Unknown ||
+                !Enum.IsDefined(typeof(DatabaseType), databaseType))
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidType,
+                    $"Invalid DatabaseType value '{databaseTypeArgument}'");
+            }
+
+            return new GuidStorageAttribute(databaseType, format);
+        }
+
+        if (name == "GuidStorageUnresolved")
+        {
+            if (arguments.Count != 1)
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidArgument,
+                    $"Attribute '{name}' must have exactly 1 argument");
+            }
+
+            var databaseTypeArgument = arguments[0];
+            if (!Enum.TryParse(
+                    databaseTypeArgument.Split('.').Last(),
+                    out DatabaseType databaseType) ||
+                databaseType is DatabaseType.Unknown or DatabaseType.Default ||
+                !Enum.IsDefined(typeof(DatabaseType), databaseType))
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidType,
+                    $"Invalid concrete DatabaseType value '{databaseTypeArgument}'");
+            }
+
+            return new GuidStorageUnresolvedAttribute(databaseType);
         }
 
         if (name == "Check")
@@ -897,6 +978,37 @@ public class SyntaxParser
             return new DefaultAttribute(ParseDefaultAttributeValue(argument), codeExpression);
         }
 
+        if (name == "DefaultGuid")
+        {
+            var rawArguments = attributeSyntax.ArgumentList?.Arguments;
+            if (rawArguments is null || rawArguments.Value.Count != 1)
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidArgument,
+                    $"Attribute '{name}' requires exactly one string literal in Guid 'D' format");
+            }
+
+            if (rawArguments.Value[0].Expression is not LiteralExpressionSyntax literal ||
+                literal.Token.Value is not string stringValue)
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidArgument,
+                    $"Attribute '{name}' requires an actual string literal; constants and expressions are not accepted");
+            }
+
+            if (!DefaultGuidAttribute.TryParseExactD(stringValue, out var guid))
+            {
+                return FailAttribute(
+                    attributeSyntax,
+                    DLFailureType.InvalidArgument,
+                    $"Attribute '{name}' value must use the exact 36-character Guid 'D' format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
+            }
+
+            return new DefaultAttribute(guid);
+        }
+
         if (name == "DefaultSql")
         {
             if (arguments.Count != 2)
@@ -923,7 +1035,8 @@ public class SyntaxParser
 
             if (arguments.Count == 1)
             {
-                if (!UUIDVersion.TryParse(arguments[0], out UUIDVersion version))
+                var versionName = arguments[0].Split('.').Last();
+                if (!UUIDVersion.TryParse(versionName, out UUIDVersion version))
                     return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid UUIDVersion value '{arguments[0]}'");
 
                 return new DefaultNewUUIDAttribute(version);

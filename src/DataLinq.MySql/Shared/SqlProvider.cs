@@ -17,6 +17,7 @@ public class SqlProviderConstants : IDatabaseProviderConstants
     public string LastInsertCommand { get; } = "last_insert_id()";
     public string EscapeCharacter { get; } = "`";
     public bool SupportsMultipleDatabases { get; } = true;
+    public string DefaultValuesInsertClause { get; } = "() VALUES ()";
 }
 
 public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable

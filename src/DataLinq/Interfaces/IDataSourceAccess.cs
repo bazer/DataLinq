@@ -1,9 +1,13 @@
+using DataLinq.Metadata;
+
 namespace DataLinq.Interfaces;
 
-public interface IDataSourceAccess
+public interface IDataSourceAccess : IDataLinqReadSource
 {
     IDatabaseProvider Provider { get; }
     IDatabaseAccess DatabaseAccess { get; }
+
+    DatabaseDefinition IDataLinqReadSource.Metadata => Provider.Metadata;
 }
 
 public interface IDataSourceAccess<T> : IDataSourceAccess

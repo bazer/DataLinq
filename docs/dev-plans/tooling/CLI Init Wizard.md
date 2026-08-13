@@ -165,7 +165,7 @@ Example generated user config:
         {
           "Type": "SQLite",
           "DataSourceName": "app.local.db",
-          "ConnectionString": "Data Source=app.local.db;Cache=Shared;"
+          "ConnectionString": "Data Source=app.local.db;"
         }
       ]
     }
@@ -267,15 +267,15 @@ If password-specific prompts are added, hide password input. If the wizard asks 
 Ask for:
 
 - database file path
-- optional cache mode, default `Cache=Shared`
+- optional advanced cache mode, with no cache key in the default file-backed configuration
 
 Generate:
 
 ```text
-Data Source=<path>;Cache=Shared;
+Data Source=<path>;
 ```
 
-Default `DataSourceName` can match the file path.
+Default `DataSourceName` can match the file path. Omitting `Cache` uses the provider's private/default cache; preserve an explicit caller choice, and reserve shared cache for named in-memory databases or deliberate opt-in.
 
 ### MySQL and MariaDB
 

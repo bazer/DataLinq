@@ -91,6 +91,9 @@ internal static class MetadataDefinitionSnapshot
         if (source.ImmutableFactory is not null)
             model.SetImmutableFactoryCore(source.ImmutableFactory);
 
+        if (source.ReadSourceImmutableFactory is not null)
+            model.SetReadSourceImmutableFactoryCore(source.ReadSourceImmutableFactory);
+
         if (source.ProviderKeyRowStoreAccessor is not null)
             model.SetProviderKeyRowStoreAccessorCore(source.ProviderKeyRowStoreAccessor);
 
@@ -156,6 +159,17 @@ internal static class MetadataDefinitionSnapshot
                 valuePropertyMap.TryGetValue(sourceColumn.ValueProperty, out var destinationProperty))
             {
                 destinationColumn.SetValuePropertyCore(destinationProperty);
+
+                if (sourceColumn.HasScalarConverter && sourceColumn.ScalarMapping.ConverterCsType is { } converterCsType)
+                {
+                    destinationColumn.SetScalarMappingCore(ColumnScalarMapping.Converted(
+                        sourceColumn.ScalarMapping.ModelCsType,
+                        sourceColumn.ScalarMapping.ProviderCsType,
+                        converterCsType,
+                        sourceColumn.ScalarMapping.Converter,
+                        sourceColumn.ScalarMapping.Origin,
+                        sourceColumn.ScalarMapping.SourceLocation));
+                }
             }
         }
 
@@ -199,6 +213,9 @@ internal static class MetadataDefinitionSnapshot
 
         foreach (var dbType in source.DbTypes)
             column.AddDbTypeCore(dbType.Clone());
+
+        column.SetGuidStorageDefinitionsCore(source.GuidStorageDefinitions);
+        column.SetUnresolvedGuidStorageProvidersCore(source.UnresolvedGuidStorageProviders);
 
         return column;
     }

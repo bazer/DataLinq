@@ -71,13 +71,15 @@ Minimal SQLite example:
         {
           "Type": "SQLite",
           "DataSourceName": "app.db",
-          "ConnectionString": "Data Source=app.db;Cache=Shared;"
+          "ConnectionString": "Data Source=app.db;"
         }
       ]
     }
   ]
 }
 ```
+
+File-backed SQLite should normally omit `Cache`, which uses the provider's private/default cache and works with WAL reader/writer concurrency. Named in-memory SQLite is the exception: DataLinq normalizes it to shared cache so multiple connections can reach the same in-memory database.
 
 ## Keep Secrets Out of the Shared File
 

@@ -32,6 +32,56 @@ public class ProviderMetadataFailureTests
     }
 
     [Test]
+    [Arguments(DatabaseType.MySQL, 8)]
+    [Arguments(DatabaseType.MySQL, 32)]
+    [Arguments(DatabaseType.MariaDB, 8)]
+    [Arguments(DatabaseType.MariaDB, 32)]
+    public async Task ParseCsType_NonUuidBinaryWidths_MapToByteArray(
+        DatabaseType databaseType,
+        int length)
+    {
+        var result = new ExposedMetadataFromSqlFactory(databaseType)
+            .TryParseCsTypeForTest(new DatabaseColumnType(
+                databaseType,
+                "binary",
+                (ulong)length));
+
+        await Assert.That(result.ValueOrException()).IsEqualTo("byte[]");
+    }
+
+    [Test]
+    [Arguments(DatabaseType.MySQL)]
+    [Arguments(DatabaseType.MariaDB)]
+    public async Task ParseCsType_Binary16_MapsToGuid(DatabaseType databaseType)
+    {
+        var result = new ExposedMetadataFromSqlFactory(databaseType)
+            .TryParseCsTypeForTest(new DatabaseColumnType(databaseType, "binary", 16));
+
+        await Assert.That(result.ValueOrException()).IsEqualTo("Guid");
+    }
+
+    [Test]
+    public async Task ParseColumn_MariaDbNativeUuid_DiscardsInformationSchemaModifiers()
+    {
+        var result = new ExposedMetadataFromSqlFactory(
+                DatabaseType.MariaDB,
+                csTypeOverride: "Guid")
+            .TryImportColumnTypeForTest(CreateTable(), new TestColumns
+            {
+                DATA_TYPE = "uuid",
+                COLUMN_TYPE = "uuid unsigned",
+                COLUMN_NAME = "public_id",
+                CHARACTER_MAXIMUM_LENGTH = 36
+            });
+        var dbType = result.ValueOrException();
+
+        await Assert.That(dbType.Name).IsEqualTo("uuid");
+        await Assert.That(dbType.Length).IsNull();
+        await Assert.That(dbType.Decimals).IsNull();
+        await Assert.That(dbType.Signed).IsNull();
+    }
+
+    [Test]
     [Arguments(DatabaseType.MySQL)]
     [Arguments(DatabaseType.MariaDB)]
     public async Task ParseColumn_GeneratedSqlColumn_ReturnsSuccessWithoutImport(DatabaseType databaseType)
@@ -120,6 +170,29 @@ public class ProviderMetadataFailureTests
 
             return columnImport.Property is not null;
         }
+
+        public Option<DatabaseColumnType, IDLOptionFailure> TryImportColumnTypeForTest(
+            TableDefinition table,
+            ICOLUMNS columns)
+        {
+            if (!ParseColumn(new ProviderTableDraft(table.DbName, table.Type), columns)
+                .TryUnwrap(out var columnImport, out var failure))
+            {
+                return failure;
+            }
+
+            if (columnImport.Property is null)
+            {
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    "Expected the test column to be imported.");
+            }
+
+            return columnImport.Property.Column.DbTypes[0];
+        }
+
+        public Option<string, IDLOptionFailure> TryParseCsTypeForTest(DatabaseColumnType dbType) =>
+            ParseCsType(dbType, "items", "payload");
 
         public Option<bool, IDLOptionFailure> TryParseIndexTypeForTest(string indexType)
         {

@@ -20,4 +20,6 @@
 		<ProjectReference Include="..\DataLinq.DevTools\DataLinq.DevTools.csproj" />
 	</ItemGroup>
 
+	<Import Project="..\DataLinq.DevTools\RunnerBuildProvenance.targets" />
+
 </Project>

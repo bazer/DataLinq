@@ -8,9 +8,9 @@ For the detailed maintainer evidence behind these claims, see the [LINQ Translat
 
 ## Parser Boundary
 
-In 0.8 and later, `Database.Query()` runs through DataLinq's expression parser and query-plan SQL renderer. The production path is `ExpressionQueryPlanProvider` -> `ExpressionQueryPlanParser` -> `DataLinqQueryPlan` -> `QueryPlanSqlBuilder`.
+In 0.8 and later, `Database.Query()` runs through DataLinq's expression parser and query-plan SQL renderer. In the current 0.9 implementation, the production path is `ExpressionQueryPlanProvider` -> `ExpressionQueryPlanParser` -> `QueryPlanTemplate` + `QueryPlanInvocation` -> `QueryExecutionRequest` -> backend selection and capability validation -> `SqlQueryPlanBackend` -> `QueryPlanSqlBuilder`. Entity sequences, the six entity terminals (`Single`, `SingleOrDefault`, `First`, `FirstOrDefault`, `Last`, and `LastOrDefault`), the six scalar reductions (`Count`, `Any`, `Sum`, `Min`, `Max`, and `Average`), and the currently supported direct SQL projection family execute through the SQL backend. That direct family comprises `ScalarMember` and `SqlRow` sequences plus their parser-supported row terminals, and `GroupedAggregate` sequences; grouped row terminals and explicit-join row terminals remain parser-rejected. Retained local projection recipes are still selected and validated through the same production gate but temporarily use their SQL compatibility executor while the local-recipe backend adapter remains roadmap work.
 
-That implementation detail does not expand the public LINQ contract. The supported surface is still the test-backed subset below. Unsupported provider-query shapes should fail with DataLinq-owned `QueryTranslationException` diagnostics instead of using silent client-side predicate fallback.
+That implementation detail does not expand the public LINQ contract. The supported surface is still the test-backed subset below. Structurally valid plans that exceed the selected backend's capabilities fail before command execution with a redacted DataLinq-owned capability diagnostic; parser-unsupported provider-query shapes still fail with DataLinq-owned `QueryTranslationException` diagnostics. Neither case uses silent client-side predicate fallback.
 
 ## Core Query Operations
 
@@ -84,6 +84,8 @@ The test suite covers `Contains(...)` against in-memory collections used as an `
 
 Empty local `Contains(...)` predicates are also covered in direct, negated, `AND`, and `OR` compositions. The translator treats those as fixed true/false conditions instead of emitting invalid `IN ()` SQL.
 
+Nullable local membership preserves C# null semantics rather than exposing SQL's raw three-valued `IN` behavior. For a nullable column, a non-null-only membership check also guards `IS NOT NULL`, so it remains false for null even when nested under an outer negation. A mixed sequence such as `[value, null]` matches either the non-null value or `NULL`; negating it excludes both. Negating a non-null-only sequence still includes a `NULL` column value, a null-only sequence becomes `IS NULL`/`IS NOT NULL`, and an empty sequence remains fixed false/true. Only non-null sequence members become SQL parameters.
+
 Local `Any(predicate)` over in-memory collections is covered for equality-membership shapes that can safely become `IN (...)` or `NOT IN (...)`:
 
 - `ids.Any(id => id == row.Id)`
@@ -141,6 +143,8 @@ It also covers nullable value predicates such as:
 
 For `nullable != nonNullable`, null rows are included, matching C# lifted nullable semantics.
 
+Captured nullable scalars are specialized by nullness. Equality or inequality against a captured null value renders `IS NULL` or `IS NOT NULL` directly instead of binding a null comparison parameter.
+
 ## Supported Relation Predicates
 
 Generated one-to-many relation properties can be used in a narrow set of SQL-backed predicates. The translator emits a correlated `EXISTS` subquery instead of lazy-loading the relation for every candidate row.
@@ -170,12 +174,13 @@ This first slice is intentionally not a collection relation traversal engine. Th
 - predicates that traverse another relation from the related row, such as `child.Parent.Name == value`
 - collection relation traversal outside the documented one-to-many `Any(...)`/existence pattern
 
-Generated singular relation properties have a separate SQL-backed implicit inner-join slice. The test suite covers singular relation traversal in root-row predicates, ordering, and direct projection:
+Generated singular relation properties have a separate SQL-backed implicit inner-join slice. The test suite covers singular relation traversal in root-row predicates, ordering, direct projection, and supported row-local projection recipes:
 
 - `row.SingularRelation.Member` inside `Where(...)`
 - `row.SingularRelation.Member` inside `OrderBy(...)` and `ThenBy(...)`
 - `Select(row => row.SingularRelation.Member)`
 - `Select(row => new { row.Id, RelatedName = row.SingularRelation.Name })` when every projected member binds to a source-slot column
+- supported computed projection such as `Select(row => row.SingularRelation.Name.Trim())`
 - repeated access to the same relation in one query reuses one implicit join source
 
 Example:
@@ -193,7 +198,7 @@ var rows = db.Query().DepartmentEmployees
     .ToList();
 ```
 
-This is an inner join. Rows whose singular relation does not resolve are not preserved. Left-join/null-preserving traversal is not supported yet.
+This is an inner join. Rows whose singular relation does not resolve are not preserved. Left-join/null-preserving traversal is not supported yet. A computed related-member projection is not translated as a SQL expression: SQL selects the joined source keys, DataLinq materializes the rows, and the retained projection recipe performs the supported local computation.
 
 Multi-hop relation traversal, relation object projection, and collection relation projection are not supported in provider `Select(...)`.
 
@@ -202,7 +207,7 @@ Multi-hop relation traversal, relation object projection, and collection relatio
 `Select(...)` has two deliberately separate paths:
 
 - SQL-backed projection rows for direct source-slot values.
-- Row-local projection after materialization for computed .NET expressions.
+- Row-local projection after materialization from a self-contained recipe for supported computed .NET expressions.
 
 The SQL-backed path reads projected aliases directly from `IDataLinqDataReader`. The test suite covers:
 
@@ -217,6 +222,9 @@ Computed projections remain row-local after SQL filtering, ordering, paging, and
 
 - computed scalar projections such as `Select(x => x.first_name + ":" + x.emp_no.Value)`
 - computed anonymous projections using materialized member chains such as `Trim()`, `ToUpper()`, and `Length`
+- computed singular-relation member projections such as `Select(x => x.SingularRelation.Name.Trim())`
+
+The retained plan stores the normalized recipe and captured binding references; execution does not recover or compile the original `Select(...)` expression. Single-source computed recipes form the AOT-safe local path. Recipes that require joined-row materialization remain SQL-only compatibility paths in 0.9.
 
 Example:
 
@@ -242,9 +250,14 @@ The test suite covers one narrow explicit inner join shape, both as fluent `Join
 - direct member equality keys such as `outer.DepartmentId` and `inner.Id`
 - nullable `.Value` key selectors such as `employee.emp_no.Value`
 - a result selector that projects direct source-slot values from both sides
+- a result selector with supported row-local computation over joined members, such as `department.Name.Trim()` or a scalar string concatenation
 - composed `Where(...)`, `OrderBy(...)`, `ThenBy(...)`, `Skip(...)`, `Take(...)`, `Any()`, and `Count()` over projected joined members that map back to source columns
 - post-paging `Where(...)`, ordering, `Any()`, and `Count()` over SQL-backed joined projection rows, rendered through a derived-source boundary so C# operator order is preserved
 - query-syntax transparent identifiers for a single inner join, when every referenced member can bind back to a source slot
+
+Joined row-local recipes are self-contained, but they remain SQL-only in 0.9 because SQL owns joined-row selection and primary-key buffering. Post-paging composition over a row-local joined result is still unsupported; materialize before applying further LINQ-to-Objects operators.
+
+For scalar-converter-backed join keys, both columns must declare the same resolved model type, canonical provider type, and converter type. Canonical `Guid` keys must also use the same resolved storage format for the active provider. DataLinq rejects a known mismatch before issuing SQL. This is a nominal safety check, not a proof of converter behavior: a converter used on join keys must encode equal model values identically for both columns and must not change that equality mapping based on `ScalarConversionContext.Column`.
 
 Fluent example:
 

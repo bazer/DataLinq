@@ -11,22 +11,6 @@ namespace DataLinq.Dev.CLI;
 
 internal static class PackageReportCommand
 {
-    private static readonly string[] PublicPackageIds =
-    [
-        "DataLinq",
-        "DataLinq.SQLite",
-        "DataLinq.MySql",
-        "DataLinq.CLI",
-        "DataLinq.Tools"
-    ];
-
-    private static readonly string[] RuntimePackageIds =
-    [
-        "DataLinq",
-        "DataLinq.SQLite",
-        "DataLinq.MySql"
-    ];
-
     public static Command Create(DevCliSettings settings)
     {
         var packageDirOption = new Option<string>("--package-dir")
@@ -43,6 +27,14 @@ internal static class PackageReportCommand
         {
             Description = "Comma-separated runtime package ids, or 'runtime'.",
             DefaultValueFactory = _ => "runtime"
+        };
+        var versionOption = new Option<string?>("--version")
+        {
+            Description = "Exact package candidate version. Omit for diagnostic inspections that are not release evidence."
+        };
+        var outputOption = new Option<string?>("--output")
+        {
+            Description = "Guarded report directory beneath repository artifacts. A prior report.json/report.md pair is invalidated; defaults to a unique directory under artifacts/dev/package-report."
         };
         var allowUnexpectedPackagesOption = new Option<bool>("--allow-unexpected-packages")
         {
@@ -74,6 +66,8 @@ internal static class PackageReportCommand
         command.Options.Add(packageDirOption);
         command.Options.Add(expectedPackagesOption);
         command.Options.Add(runtimePackagesOption);
+        command.Options.Add(versionOption);
+        command.Options.Add(outputOption);
         command.Options.Add(allowUnexpectedPackagesOption);
         command.Options.Add(allowMissingSymbolsOption);
         command.Options.Add(allowRuntimeRoslynOption);
@@ -86,35 +80,55 @@ internal static class PackageReportCommand
             var packageDirectory = ResolvePackageDirectory(
                 settings.RepositoryRoot,
                 parseResult.GetValue(packageDirOption));
+            var outputValue = NullIfWhiteSpace(parseResult.GetValue(outputOption));
+            var outputDirectory = outputValue is null
+                ? null
+                : ResolvePath(settings.RepositoryRoot, outputValue);
+            if (outputDirectory is not null)
+            {
+                PackageInspector.InvalidateExistingReportDirectory(
+                    settings.RepositoryRoot,
+                    packageDirectory,
+                    outputDirectory);
+            }
+
+            var format = NormalizeFormat(parseResult.GetValue(formatOption));
+            var expectedVersion = NormalizeOptionalVersion(parseResult.GetValue(versionOption));
             var options = new PackageInspectionOptions(
                 settings.RepositoryRoot,
                 packageDirectory,
-                ParsePackageIds(parseResult.GetValue(expectedPackagesOption), PublicPackageIds, "public"),
-                ParsePackageIds(parseResult.GetValue(runtimePackagesOption), RuntimePackageIds, "runtime"),
+                ParsePackageIds(parseResult.GetValue(expectedPackagesOption), PackageInspectionPolicy.PublicPackageIds, "public"),
+                ParsePackageIds(parseResult.GetValue(runtimePackagesOption), PackageInspectionPolicy.RuntimePackageIds, "runtime"),
                 !parseResult.GetValue(allowUnexpectedPackagesOption),
                 !parseResult.GetValue(allowMissingSymbolsOption),
                 !parseResult.GetValue(allowRuntimeRoslynOption),
                 !parseResult.GetValue(allowRuntimeRemotionOption),
-                !parseResult.GetValue(allowAnalyzerLeaksOption));
+                !parseResult.GetValue(allowAnalyzerLeaksOption))
+            {
+                ExpectedVersion = expectedVersion,
+                OutputDirectory = outputDirectory,
+                OutputFormat = format
+            };
 
             var inspector = new PackageInspector(settings.Paths, options);
             var report = inspector.CreateReport();
 
-            Render(report, parseResult.GetValue(formatOption));
+            Render(report, format);
 
-            if (report.Summary.HasHardFailures)
-                Environment.ExitCode = 1;
+            var passed = report.Outcome == PackageInspectionOutcome.Passed &&
+                         !report.Summary.HasHardFailures;
+            return passed && (expectedVersion is null || report.ValidForEvidence)
+                ? 0
+                : 1;
         });
 
         return command;
     }
 
-    private static void Render(PackageInspectionReport report, string? format)
+    private static void Render(PackageInspectionReport report, string format)
     {
-        switch (format?.Trim().ToLowerInvariant())
+        switch (format)
         {
-            case null:
-            case "":
             case "summary":
                 RenderSummary(report);
                 break;
@@ -122,10 +136,10 @@ internal static class PackageReportCommand
                 Console.WriteLine(PackageInspector.ToMarkdown(report));
                 break;
             case "json":
-                Console.WriteLine(File.ReadAllText(Path.Combine(report.ReportDirectory, "report.json")));
+                Console.WriteLine(File.ReadAllText(report.Artifacts.JsonPath));
                 break;
             default:
-                throw new InvalidOperationException($"Unsupported package report format '{format}'. Use summary, markdown, or json.");
+                throw new InvalidOperationException($"Unsupported normalized package report format '{format}'.");
         }
     }
 
@@ -158,6 +172,12 @@ internal static class PackageReportCommand
         }
 
         AnsiConsole.Write(table);
+        AnsiConsole.MarkupLine($"[grey]Outcome:[/] {Markup.Escape(report.Outcome.ToString())}");
+        AnsiConsole.MarkupLine($"[grey]Canonical release policy:[/] {report.IsCanonicalReleasePolicy}");
+        AnsiConsole.MarkupLine($"[grey]Candidate aggregate SHA-256:[/] {Markup.Escape(report.Candidate.AggregateSha256)}");
+        AnsiConsole.MarkupLine($"[grey]Candidate commit:[/] {Markup.Escape(report.Candidate.RepositoryCommit ?? "unavailable")}");
+        AnsiConsole.MarkupLine($"[grey]Runner evidence valid:[/] {report.Runner.ValidForEvidence}");
+        AnsiConsole.MarkupLine($"[grey]Valid for release evidence:[/] {report.ValidForEvidence}");
         AnsiConsole.MarkupLine($"[grey]Report JSON:[/] {Markup.Escape(Path.Combine(report.ReportDirectory, "report.json"))}");
         AnsiConsole.MarkupLine($"[grey]Report Markdown:[/] {Markup.Escape(Path.Combine(report.ReportDirectory, "report.md"))}");
 
@@ -180,9 +200,39 @@ internal static class PackageReportCommand
         if (string.IsNullOrWhiteSpace(packageDirectory))
             packageDirectory = "nupkg";
 
-        return Path.IsPathRooted(packageDirectory)
-            ? Path.GetFullPath(packageDirectory)
-            : Path.GetFullPath(Path.Combine(repositoryRoot, packageDirectory));
+        return ResolvePath(repositoryRoot, packageDirectory);
+    }
+
+    private static string ResolvePath(string repositoryRoot, string path) =>
+        Path.IsPathRooted(path)
+            ? Path.GetFullPath(path)
+            : Path.GetFullPath(Path.Combine(repositoryRoot, path));
+
+    private static string NormalizeFormat(string? format)
+    {
+        var normalized = string.IsNullOrWhiteSpace(format)
+            ? "summary"
+            : format.Trim().ToLowerInvariant();
+        return normalized is "summary" or "markdown" or "json"
+            ? normalized
+            : throw new InvalidOperationException(
+                $"Unsupported package report format '{format}'. Use summary, markdown, or json.");
+    }
+
+    private static string? NullIfWhiteSpace(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private static string? NormalizeOptionalVersion(string? value)
+    {
+        if (value is null)
+            return null;
+        if (string.IsNullOrWhiteSpace(value) || !value.Equals(value.Trim(), StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "--version must be a nonblank exact package version without surrounding whitespace.");
+        }
+
+        return value;
     }
 
     private static IReadOnlySet<string> ParsePackageIds(string? value, IReadOnlyList<string> preset, string presetName)

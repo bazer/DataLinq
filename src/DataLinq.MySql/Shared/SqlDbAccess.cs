@@ -9,6 +9,7 @@ public class SqlDbAccess : DatabaseAccess
 {
     private readonly MySqlDataSource dataSource;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
+    private readonly DatabaseType? databaseType;
 
     public SqlDbAccess(MySqlDataSource dataSource, DataLinqLoggingConfiguration loggingConfiguration)
         : this(null, dataSource, loggingConfiguration)
@@ -20,6 +21,7 @@ public class SqlDbAccess : DatabaseAccess
     {
         this.dataSource = dataSource;
         this.loggingConfiguration = loggingConfiguration;
+        this.databaseType = databaseProvider?.DatabaseType;
     }
 
     public override int ExecuteNonQuery(IDbCommand command)
@@ -68,7 +70,7 @@ public class SqlDbAccess : DatabaseAccess
             transactionType: null,
             () => command.ExecuteReader(CommandBehavior.CloseConnection) as MySqlDataReader);
 
-        return new SqlDataLinqDataReader(reader!);
+        return new SqlDataLinqDataReader(reader!, databaseType);
     }
 
     public override IDataLinqDataReader ExecuteReader(string query) =>

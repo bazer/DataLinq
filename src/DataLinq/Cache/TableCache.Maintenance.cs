@@ -18,6 +18,12 @@ public partial class TableCache
 
     public void ClearRows()
     {
+        ClearRowsWithoutNotification();
+        OnRowChanged();
+    }
+
+    internal void ClearRowsWithoutNotification()
+    {
         var rowsRemoved = RowCount;
         var startedAt = Stopwatch.GetTimestamp();
         rowCache?.ClearRows();
@@ -25,8 +31,9 @@ public partial class TableCache
         RefreshOccupancyMetrics();
         DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.Clear, rowsRemoved, duration);
         MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
-        OnRowChanged();
     }
+
+    internal void NotifyRecoveryClear() => OnRowChanged();
 
     public int RemoveRowsByLimit(CacheLimitType limitType, long amount, string cleanupTrigger = CacheMaintenanceTriggers.Manual)
     {

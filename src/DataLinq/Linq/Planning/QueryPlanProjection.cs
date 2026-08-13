@@ -9,23 +9,35 @@ namespace DataLinq.Linq.Planning;
 
 internal abstract record QueryPlanProjection
 {
-    protected QueryPlanProjection(QueryPlanProjectionKind kind, Type resultType)
+    protected QueryPlanProjection(
+        QueryPlanProjectionKind kind,
+        Type resultType,
+        QueryPlanProjectionDisposition disposition)
     {
         ArgumentNullException.ThrowIfNull(resultType);
         Kind = kind;
         ResultType = resultType;
+        Disposition = disposition;
     }
 
     public QueryPlanProjectionKind Kind { get; }
 
     public Type ResultType { get; }
 
+    public QueryPlanProjectionDisposition Disposition { get; }
+
     public sealed record Entity(QueryPlanSourceSlot Source)
-        : QueryPlanProjection(QueryPlanProjectionKind.Entity, Source.ElementType)
+        : QueryPlanProjection(
+            QueryPlanProjectionKind.Entity,
+            Source.ElementType,
+            QueryPlanProjectionDisposition.Direct)
     ;
 
     public sealed record ScalarMember(QueryPlanSourceSlot Source, ColumnDefinition Column, Type ResultType)
-        : QueryPlanProjection(QueryPlanProjectionKind.ScalarMember, ResultType)
+        : QueryPlanProjection(
+            QueryPlanProjectionKind.ScalarMember,
+            ResultType,
+            QueryPlanProjectionDisposition.Direct)
     {
         public ScalarMember(QueryPlanSourceSlot source, ColumnDefinition column)
             : this(source, column, column.ValueProperty?.CsType.Type ?? typeof(object))
@@ -33,73 +45,151 @@ internal abstract record QueryPlanProjection
         }
     }
 
-    public sealed record Anonymous(Type AnonymousType, IReadOnlyList<QueryPlanProjectionMember> Members, IReadOnlyList<QueryPlanSourceSlot> Sources)
-        : QueryPlanProjection(QueryPlanProjectionKind.Anonymous, AnonymousType)
+    public sealed record Anonymous : QueryPlanProjection
     {
-        public Anonymous(Type anonymousType, IEnumerable<QueryPlanProjectionMember> members, IEnumerable<QueryPlanSourceSlot> sources)
-            : this(anonymousType, Freeze(members, nameof(members)), Freeze(sources, nameof(sources)))
+        public Anonymous(
+            Type anonymousType,
+            IEnumerable<QueryPlanProjectionMember> members,
+            IEnumerable<QueryPlanSourceSlot> sources,
+            QueryPlanProjectionRecipe recipe)
+            : base(
+                QueryPlanProjectionKind.Anonymous,
+                anonymousType,
+                QueryPlanProjectionDisposition.SqlOnlyCompatibility)
         {
+            ArgumentNullException.ThrowIfNull(recipe);
+            AnonymousType = anonymousType;
+            Members = Freeze(members, nameof(members));
+            Sources = Freeze(sources, nameof(sources));
+            Recipe = recipe;
+            ValidateMembers(Members);
         }
+
+        public Type AnonymousType { get; }
+
+        public IReadOnlyList<QueryPlanProjectionMember> Members { get; }
+
+        public IReadOnlyList<QueryPlanSourceSlot> Sources { get; }
+
+        public QueryPlanProjectionRecipe Recipe { get; }
     }
 
-    public sealed record ComputedRowLocal(Type ComputedType, string ExpressionShape, IReadOnlyList<QueryPlanSourceSlot> Sources)
-        : QueryPlanProjection(QueryPlanProjectionKind.ComputedRowLocalExpression, ComputedType)
+    public sealed record ComputedRowLocal : QueryPlanProjection
     {
-        public ComputedRowLocal(Type computedType, string expressionShape, IEnumerable<QueryPlanSourceSlot> sources)
-            : this(computedType, expressionShape, Freeze(sources, nameof(sources)))
+        public ComputedRowLocal(
+            Type computedType,
+            QueryPlanProjectionRecipe recipe,
+            IEnumerable<QueryPlanSourceSlot> sources)
+            : base(
+                QueryPlanProjectionKind.ComputedRowLocalExpression,
+                computedType,
+                RecipeDisposition(recipe))
         {
+            ComputedType = computedType;
+            Recipe = recipe;
+            Sources = Freeze(sources, nameof(sources));
         }
+
+        public Type ComputedType { get; }
+
+        public QueryPlanProjectionRecipe Recipe { get; }
+
+        public IReadOnlyList<QueryPlanSourceSlot> Sources { get; }
     }
 
-    public sealed record JoinedRowLocal(Type JoinedType, IReadOnlyList<QueryPlanProjectionMember> Members, IReadOnlyList<QueryPlanSourceSlot> Sources)
-        : QueryPlanProjection(QueryPlanProjectionKind.JoinedRowLocal, JoinedType)
+    public sealed record JoinedRowLocal : QueryPlanProjection
     {
-        public JoinedRowLocal(Type joinedType, IEnumerable<QueryPlanProjectionMember> members, IEnumerable<QueryPlanSourceSlot> sources)
-            : this(joinedType, Freeze(members, nameof(members)), Freeze(sources, nameof(sources)))
+        public JoinedRowLocal(
+            Type joinedType,
+            IEnumerable<QueryPlanProjectionMember> members,
+            IEnumerable<QueryPlanSourceSlot> sources,
+            QueryPlanProjectionRecipe recipe)
+            : base(
+                QueryPlanProjectionKind.JoinedRowLocal,
+                joinedType,
+                QueryPlanProjectionDisposition.SqlOnlyCompatibility)
         {
+            ArgumentNullException.ThrowIfNull(recipe);
+            JoinedType = joinedType;
+            Members = Freeze(members, nameof(members));
+            Sources = Freeze(sources, nameof(sources));
+            Recipe = recipe;
         }
+
+        public Type JoinedType { get; }
+
+        public IReadOnlyList<QueryPlanProjectionMember> Members { get; }
+
+        public IReadOnlyList<QueryPlanSourceSlot> Sources { get; }
+
+        public QueryPlanProjectionRecipe Recipe { get; }
     }
 
-    public sealed record SqlRow(
-        Type RowType,
-        IReadOnlyList<QueryPlanProjectionMember> Members,
-        ConstructorInfo Constructor)
-        : QueryPlanProjection(QueryPlanProjectionKind.SqlRow, RowType)
+    public sealed record SqlRow : QueryPlanProjection
     {
         public SqlRow(Type rowType, IEnumerable<QueryPlanProjectionMember> members, ConstructorInfo constructor)
-            : this(rowType, Freeze(members, nameof(members)), constructor)
+            : base(
+                QueryPlanProjectionKind.SqlRow,
+                rowType,
+                QueryPlanProjectionDisposition.SqlOnlyCompatibility)
         {
             ArgumentNullException.ThrowIfNull(constructor);
+            RowType = rowType;
+            Members = Freeze(members, nameof(members));
+            Constructor = constructor;
         }
+
+        public Type RowType { get; }
+
+        public IReadOnlyList<QueryPlanProjectionMember> Members { get; }
+
+        public ConstructorInfo Constructor { get; }
     }
 
-    public sealed record TransparentIdentifier(
-        Type TransparentType,
-        IReadOnlyDictionary<string, QueryPlanSourceSlot> SourcesByMember)
-        : QueryPlanProjection(QueryPlanProjectionKind.TransparentIdentifier, TransparentType)
+    public sealed record TransparentIdentifier : QueryPlanProjection
     {
         public TransparentIdentifier(Type transparentType, IEnumerable<KeyValuePair<string, QueryPlanSourceSlot>> sourcesByMember)
-            : this(transparentType, FreezeDictionary(sourcesByMember, nameof(sourcesByMember)))
+            : base(
+                QueryPlanProjectionKind.TransparentIdentifier,
+                transparentType,
+                QueryPlanProjectionDisposition.Unsupported)
         {
+            TransparentType = transparentType;
+            SourcesByMember = FreezeDictionary(sourcesByMember, nameof(sourcesByMember));
         }
+
+        public Type TransparentType { get; }
+
+        public IReadOnlyDictionary<string, QueryPlanSourceSlot> SourcesByMember { get; }
     }
 
-    public sealed record GroupedAggregate(
-        Type AggregateRowType,
-        IReadOnlyList<QueryPlanProjectionMember> Members,
-        QueryPlanSourceSlot Source,
-        ConstructorInfo Constructor)
-        : QueryPlanProjection(QueryPlanProjectionKind.GroupedAggregate, AggregateRowType)
+    public sealed record GroupedAggregate : QueryPlanProjection
     {
         public GroupedAggregate(
             Type aggregateRowType,
             IEnumerable<QueryPlanProjectionMember> members,
             QueryPlanSourceSlot source,
             ConstructorInfo constructor)
-            : this(aggregateRowType, Freeze(members, nameof(members)), source, constructor)
+            : base(
+                QueryPlanProjectionKind.GroupedAggregate,
+                aggregateRowType,
+                QueryPlanProjectionDisposition.SqlOnlyCompatibility)
         {
+            ArgumentNullException.ThrowIfNull(source);
             ArgumentNullException.ThrowIfNull(constructor);
+            AggregateRowType = aggregateRowType;
+            Members = Freeze(members, nameof(members));
+            Source = source;
+            Constructor = constructor;
         }
+
+        public Type AggregateRowType { get; }
+
+        public IReadOnlyList<QueryPlanProjectionMember> Members { get; }
+
+        public QueryPlanSourceSlot Source { get; }
+
+        public ConstructorInfo Constructor { get; }
     }
 
     private static ReadOnlyCollection<T> Freeze<T>(IEnumerable<T> values, string parameterName)
@@ -145,6 +235,12 @@ internal abstract record QueryPlanProjection
         if (sources.Count == 0)
             throw new ArgumentException("Projections must reference at least one source slot.", nameof(sources));
     }
+
+    private static QueryPlanProjectionDisposition RecipeDisposition(QueryPlanProjectionRecipe recipe)
+    {
+        ArgumentNullException.ThrowIfNull(recipe);
+        return recipe.Disposition;
+    }
 }
 
 internal sealed record QueryPlanProjectionMember(string Name, QueryPlanValue Value)
@@ -160,4 +256,12 @@ internal enum QueryPlanProjectionKind
     SqlRow,
     TransparentIdentifier,
     GroupedAggregate
+}
+
+internal enum QueryPlanProjectionDisposition
+{
+    Direct,
+    AotSafe,
+    SqlOnlyCompatibility,
+    Unsupported
 }

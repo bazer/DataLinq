@@ -222,7 +222,7 @@ internal static class CacheMemoryEstimator
         var total = DataLinqKeyComponentArrayBytes(key);
 
         for (var i = 0; i < key.ValueCount; i++)
-            total = SaturatingAdd(total, EstimateKeyPayloadBytes(key.GetValue(i)));
+            total = SaturatingAdd(total, EstimateKeyPayloadBytes(key.GetValueUnsafe(i)));
 
         return total;
     }

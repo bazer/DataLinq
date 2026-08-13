@@ -9,6 +9,72 @@ namespace DataLinq.Cache;
 
 public partial class TableCache
 {
+    internal bool TryGetMaterializedRow(
+        DataLinqKey canonicalProviderKey,
+        IDataSourceAccess dataSource,
+        out IImmutableInstance? row)
+    {
+        ArgumentNullException.ThrowIfNull(dataSource);
+        EnsureTransactionRowCache(dataSource);
+        return GetRowFromCache(canonicalProviderKey, dataSource, out row);
+    }
+
+    internal ModelCachePublicationResult PublishMaterializedRow(
+        DataLinqKey canonicalProviderKey,
+        RowData rowData,
+        IImmutableInstance row,
+        IDataSourceAccess dataSource)
+    {
+        ArgumentNullException.ThrowIfNull(rowData);
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentNullException.ThrowIfNull(dataSource);
+
+        if (!ReferenceEquals(rowData.Table, Table))
+        {
+            throw new InvalidOperationException(
+                $"Cannot publish model row for table '{rowData.Table.DbName}' into cache for '{Table.DbName}'.");
+        }
+
+        EnsureTransactionRowCache(dataSource);
+        var targetCache = GetMaterializationRowCache(dataSource);
+        if (targetCache is null)
+            return ModelCachePublicationResult.NotCached();
+
+        if (TryAddCanonicalRowToCache(
+                targetCache,
+                canonicalProviderKey,
+                rowData,
+                row))
+        {
+            return ModelCachePublicationResult.Inserted();
+        }
+
+        if (TryGetRowFromCache(
+                targetCache,
+                canonicalProviderKey,
+                out var existing) &&
+            existing is not null)
+        {
+            return ModelCachePublicationResult.Existing(existing);
+        }
+
+        throw new InvalidOperationException(
+            $"Provider-key row-store accessor could not publish the canonical key for table '{Table.DbName}'. " +
+            "Regenerate the model with the current DataLinq source generator.");
+    }
+
+    internal void RecordMaterializationCacheLookup(bool hit) =>
+        RecordSingleRowCacheLookup(hit);
+
+    internal void RecordMaterializedRow() =>
+        MetricsHandle.RecordRowMaterialization();
+
+    internal void RecordMaterializationCacheInsertion()
+    {
+        MetricsHandle.RecordRowCacheStore();
+        RefreshOccupancyMetrics();
+    }
+
     private bool GetRowFromCache(DataLinqKey key, IDataSourceAccess dataSource, out IImmutableInstance? row)
     {
         if (dataSource is ReadOnlyAccess && rowCache is not null && TryGetRowFromCache(rowCache, key, out row))
@@ -157,5 +223,39 @@ public partial class TableCache
 
         var keys = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
         return cache.TryAddRow(keys, rowData, row);
+    }
+
+    private bool TryAddCanonicalRowToCache(
+        RowCache cache,
+        DataLinqKey canonicalProviderKey,
+        RowData rowData,
+        IImmutableInstance row)
+    {
+        if (Table.Model.ProviderKeyRowStoreAccessor is IProviderKeyRowStoreAccessor providerKeyAccessor)
+        {
+            return providerKeyAccessor.TryAddCanonicalRow(
+                cache,
+                canonicalProviderKey,
+                rowData,
+                row);
+        }
+
+        return cache.TryAddRow(canonicalProviderKey, rowData, row);
+    }
+
+    private RowCache? GetMaterializationRowCache(IDataSourceAccess dataSource)
+    {
+        if (dataSource is ReadOnlyAccess)
+            return Table.UseCache ? GetOrCreateRowCache() : null;
+
+        if (dataSource is Transaction transaction &&
+            transaction.Type != TransactionType.ReadOnly &&
+            transactionRows is not null &&
+            transactionRows.TryGetValue(transaction, out var transactionRowCache))
+        {
+            return transactionRowCache;
+        }
+
+        return null;
     }
 }

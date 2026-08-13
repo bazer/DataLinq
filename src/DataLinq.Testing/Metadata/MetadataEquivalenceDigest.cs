@@ -43,7 +43,7 @@ public static class MetadataEquivalenceDigest
         foreach (var column in table.Columns.OrderBy(x => x.Index).ThenBy(x => x.DbName, StringComparer.Ordinal))
         {
             var property = column.ValueProperty;
-            yield return $"column|{table.DbName}.{column.Index}.{column.DbName}|property={property.PropertyName}|type={property.CsType.Name}|nullable={property.CsNullable}|dbNullable={column.Nullable}|pk={column.PrimaryKey}|fk={column.ForeignKey}|auto={column.AutoIncrement}|dbTypes={FormatDbTypes(column)}|enum={FormatEnum(property)}|default={FormatDefault(property.GetDefaultAttribute())}|attributes={FormatValueAttributes(property)}";
+            yield return $"column|{table.DbName}.{column.Index}.{column.DbName}|property={property.PropertyName}|type={property.CsType.Name}|nullable={property.CsNullable}|dbNullable={column.Nullable}|pk={column.PrimaryKey}|fk={column.ForeignKey}|auto={column.AutoIncrement}|dbTypes={FormatDbTypes(column)}|guidStorage={FormatGuidStorage(column)}|enum={FormatEnum(property)}|default={FormatDefault(property.GetDefaultAttribute())}|attributes={FormatValueAttributes(property)}";
         }
 
         foreach (var index in table.ColumnIndices.OrderBy(x => x.Name, StringComparer.Ordinal).ThenBy(x => x.Characteristic).ThenBy(x => x.Type))
@@ -71,6 +71,30 @@ public static class MetadataEquivalenceDigest
                 .ThenBy(x => x.Name, StringComparer.Ordinal)
                 .Select(x => $"{x.DatabaseType}:{x.Name}:{x.Length}:{x.Decimals}:{x.Signed}"));
 
+    private static string FormatGuidStorage(ColumnDefinition column)
+    {
+        var definitions = column.GuidStorageDefinitions
+            .OrderBy(x => x.DatabaseType)
+            .ThenBy(x => x.Format)
+            .ThenBy(x => x.IsExplicit)
+            .Select(x => $"{x.DatabaseType}:{x.Format}:{x.IsExplicit}");
+        var unresolvedProviders = new[]
+            {
+                DatabaseType.MySQL,
+                DatabaseType.MariaDB,
+                DatabaseType.SQLite
+            }
+            .Where(column.IsGuidStorageUnresolvedFor)
+            .Concat(column.ValueProperty.Attributes
+                .OfType<GuidStorageUnresolvedAttribute>()
+                .Select(static x => x.DatabaseType))
+            .Distinct()
+            .OrderBy(static x => x)
+            .Select(static x => $"{x}:Unresolved");
+
+        return string.Join(",", definitions.Concat(unresolvedProviders));
+    }
+
     private static string FormatEnum(ValueProperty property) =>
         property.EnumProperty.HasValue
             ? string.Join(",", property.EnumProperty.Value.CsEnumValues.Select(x => $"{x.name}:{x.value}"))
@@ -84,6 +108,9 @@ public static class MetadataEquivalenceDigest
         if (attribute is DefaultSqlAttribute defaultSql)
             return $"{nameof(DefaultSqlAttribute)}:{defaultSql.DatabaseType}:{NormalizeSql(defaultSql.Expression)}";
 
+        if (attribute is DefaultNewUUIDAttribute defaultNewUuid)
+            return $"{nameof(DefaultNewUUIDAttribute)}:{defaultNewUuid.NewUUID}:{defaultNewUuid.Version}";
+
         var value = attribute.Value switch
         {
             null => "",
@@ -91,7 +118,11 @@ public static class MetadataEquivalenceDigest
             _ => attribute.Value.ToString()
         };
 
-        return $"{attribute.GetType().Name}:{value}";
+        var attributeTypeName = attribute is DefaultGuidAttribute
+            ? nameof(DefaultAttribute)
+            : attribute.GetType().Name;
+
+        return $"{attributeTypeName}:{value}";
     }
 
     private static string FormatModelAttributes(ModelDefinition model)
@@ -114,8 +145,13 @@ public static class MetadataEquivalenceDigest
         var foreignKeys = property.Attributes
             .OfType<ForeignKeyAttribute>()
             .Select(x => $"fk:{x.Name}:{x.Table}:{x.Column}:{x.OnUpdate}:{x.OnDelete}");
-
-        return string.Join(",", comments.Concat(foreignKeys).OrderBy(x => x, StringComparer.Ordinal));
+        var guidStorage = property.Attributes
+            .OfType<GuidStorageAttribute>()
+            .Select(x => $"guid:{x.DatabaseType}:{x.Format}");
+        return string.Join(",", comments
+            .Concat(foreignKeys)
+            .Concat(guidStorage)
+            .OrderBy(x => x, StringComparer.Ordinal));
     }
 
     private static string FormatViewDefinition(TableDefinition table) =>

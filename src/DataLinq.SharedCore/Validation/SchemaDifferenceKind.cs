@@ -20,5 +20,8 @@ public enum SchemaDifferenceKind
     MissingCheck,
     ExtraCheck,
     TableCommentMismatch,
-    ColumnCommentMismatch
+    ColumnCommentMismatch,
+    ColumnGuidStorageFormatUnresolved,
+    ColumnGuidStorageFormatMismatch,
+    ColumnCanonicalTypeMismatch
 }

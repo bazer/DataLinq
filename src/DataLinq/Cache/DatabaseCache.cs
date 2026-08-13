@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using DataLinq.Attributes;
 using DataLinq.Diagnostics;
 using DataLinq.Interfaces;
@@ -135,10 +136,123 @@ public class DatabaseCache : IDisposable
 
     public void RemoveTransaction(Transaction transaction)
     {
+        var failures = RemoveTransactionBestEffort(transaction);
+        if (failures.Count == 1)
+            ExceptionDispatchInfo.Capture(failures[0]).Throw();
+
+        if (failures.Count > 1)
+        {
+            throw new AggregateException(
+                $"Multiple failures occurred while removing transaction {transaction.TransactionID} from provider cache state.",
+                failures);
+        }
+    }
+
+    internal IReadOnlyList<Exception> RemoveTransactionBestEffort(Transaction transaction)
+    {
+        List<Exception>? failures = null;
+
         foreach (var table in TableCaches.Values)
         {
-            table.TryRemoveTransaction(transaction);
+            try
+            {
+                if (!table.TryRemoveTransaction(transaction) &&
+                    table.IsTransactionInCache(transaction))
+                {
+                    (failures ??= []).Add(new InvalidOperationException(
+                        $"Transaction {transaction.TransactionID} remained in cache for table '{table.Table.DbName}' after best-effort removal."));
+                }
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+
+            try
+            {
+                table.DiscardTransactionNotifications(transaction);
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
         }
+
+        return failures is null ? Array.Empty<Exception>() : failures;
+    }
+
+    internal IReadOnlyList<Exception> ClearForRecovery()
+    {
+        List<Exception>? failures = null;
+        var tables = TableCaches.Values.ToArray();
+
+        // Finish structural cleanup for every table before notifying any subscribers.
+        // Recovery callers cannot safely expose a mixture of cleared and stale tables
+        // to relation callbacks after a commit succeeded or may have reached the database.
+        foreach (var table in tables)
+        {
+            try
+            {
+                table.ClearRowsWithoutNotification();
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+
+            try
+            {
+                table.ClearIndex();
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+        }
+
+        foreach (var table in tables)
+        {
+            try
+            {
+                table.NotifyRecoveryClear();
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+
+            // A recovery notification may itself subscribe more relation objects.
+            // Once recovery requires fresh materialization, none of those callbacks
+            // are safe to retain for a later clear or provider disposal.
+            try
+            {
+                table.DiscardRecoveryNotifications();
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+        }
+
+        return failures is null ? Array.Empty<Exception>() : failures;
+    }
+
+    internal IReadOnlyList<Exception> DiscardRecoveryNotifications()
+    {
+        List<Exception>? failures = null;
+        foreach (var table in TableCaches.Values)
+        {
+            try
+            {
+                table.DiscardRecoveryNotifications();
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+        }
+
+        return failures is null ? Array.Empty<Exception>() : failures;
     }
 
     public void CleanRelationNotifications()

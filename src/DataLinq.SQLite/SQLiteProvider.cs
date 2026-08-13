@@ -46,6 +46,7 @@ public class SQLiteProviderConstants : IDatabaseProviderConstants
     public string LastInsertCommand { get; } = "last_insert_rowid()";
     public string EscapeCharacter { get; } = "\"";
     public bool SupportsMultipleDatabases { get; } = false;
+    public string DefaultValuesInsertClause { get; } = "DEFAULT VALUES";
 }
 
 public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
