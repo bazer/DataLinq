@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Core.Factories;
+using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Metadata;
 using ThrowAway.Extensions;
@@ -24,6 +25,27 @@ public class RowDataTests
         await Assert.That(rowData.GetValue(nameColumn.Index)).IsEqualTo("Ada");
         await Assert.That(rowData[nameColumn.Index]).IsEqualTo("Ada");
         await Assert.That(rowData.GetValue(idColumn.Index)).IsNull();
+        await Assert.That(rowData.IsColumnPresent(nameColumn.Index)).IsTrue();
+        await Assert.That(rowData.IsColumnPresent(idColumn.Index)).IsFalse();
+    }
+
+    [Test]
+    public async Task RowData_RejectsSqlNullBeforeCustomReaderCanStoreIt()
+    {
+        var table = CreateRowDataTestTable();
+        var nameColumn = table.GetColumnByDbName("name");
+        using var reader = new FakeDataLinqDataReader([null]);
+
+        var exception = Capture<DataLinqNullabilityMismatchException>(() =>
+            new RowData(reader, table, [nameColumn], hasIndexedColumns: true));
+
+        await Assert.That(exception.MismatchKind)
+            .IsEqualTo(DataLinqNullabilityMismatchKind.DatabaseColumn);
+        await Assert.That(exception.TableName).IsEqualTo("row_data_test_rows");
+        await Assert.That(exception.ColumnName).IsEqualTo("name");
+        await Assert.That(exception.PropertyName).IsEqualTo("Name");
+        await Assert.That(exception.SourceName).IsEqualTo("reader:row-data");
+        await Assert.That(exception.Message).DoesNotContain("columnIndex");
     }
 
     [Test]

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Core.Factories;
+using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Metadata;
 using ThrowAway.Extensions;
@@ -56,6 +57,24 @@ public sealed class ProviderRowDecoderTests
         await Assert.That(exception.Message).Contains("Decoded value context: not decoded");
         await Assert.That(exception.Message).DoesNotContain("secret physical payload");
         await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task DecodeFullRow_ReportsDatabaseNullabilityMismatchWithoutWrapping()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var reader = new RecordingReader([null, "Ada"]);
+
+        var exception = Capture<DataLinqNullabilityMismatchException>(() =>
+            ProviderRowDecoder.DecodeFullRow(reader, table, "sql:test"));
+
+        await Assert.That(exception.MismatchKind)
+            .IsEqualTo(DataLinqNullabilityMismatchKind.DatabaseColumn);
+        await Assert.That(exception.ColumnName).IsEqualTo("id");
+        await Assert.That(exception.PropertyName).IsEqualTo("Id");
+        await Assert.That(exception.SourceName).IsEqualTo("sql:test");
+        await Assert.That(exception.InnerException).IsNull();
+        await Assert.That(reader.Int32Reads).IsEqualTo(0);
     }
 
     [Test]
@@ -171,6 +190,39 @@ public sealed class ProviderRowDecoderTests
         await Assert.That(reader.GenericColumnReads).IsEqualTo(0);
         await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
         await Assert.That(table.PrimaryKeyColumns[0].Index).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task KeyFactory_IntegerFastPathRejectsSqlNullWithKeySelectionContext()
+    {
+        var table = CreateSimplePrimaryKeyTable(typeof(int), "id");
+        var reader = new RecordingReader([null]);
+
+        var exception = Capture<DataLinqNullabilityMismatchException>(() =>
+            KeyFactory.GetKey(reader, table.PrimaryKeyColumns));
+
+        await Assert.That(exception.MismatchKind)
+            .IsEqualTo(DataLinqNullabilityMismatchKind.DatabaseColumn);
+        await Assert.That(exception.ColumnName).IsEqualTo("id");
+        await Assert.That(exception.SourceName).IsEqualTo("reader.key-selection");
+        await Assert.That(reader.Int32Reads).IsEqualTo(0);
+        await Assert.That(reader.GenericColumnReads).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task KeyFactory_StringFastPathRejectsSqlNullWithKeySelectionContext()
+    {
+        var table = CreateSimplePrimaryKeyTable(typeof(string), "key");
+        var reader = new RecordingReader([null]);
+
+        var exception = Capture<DataLinqNullabilityMismatchException>(() =>
+            KeyFactory.GetKey(reader, table.PrimaryKeyColumns));
+
+        await Assert.That(exception.MismatchKind)
+            .IsEqualTo(DataLinqNullabilityMismatchKind.DatabaseColumn);
+        await Assert.That(exception.ColumnName).IsEqualTo("key");
+        await Assert.That(exception.SourceName).IsEqualTo("reader.key-selection");
+        await Assert.That(reader.GenericColumnReads).IsEqualTo(0);
     }
 
     [Test]
@@ -306,6 +358,37 @@ public sealed class ProviderRowDecoderTests
                             : [idProperty, guidProperty]
                     },
                     new MetadataTableDraft("guid_materialization_rows"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory()
+            .Build(draft)
+            .ValueOrException()
+            .TableModels[0]
+            .Table;
+    }
+
+    private static TableDefinition CreateSimplePrimaryKeyTable(Type keyType, string columnName)
+    {
+        var draft = new MetadataDatabaseDraft(
+            "ProviderRowDecoderSimpleKeyDb",
+            new CsTypeDeclaration(typeof(ProviderRowDecoderTests)))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration(typeof(DecoderRowModel)))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Key",
+                                new CsTypeDeclaration(keyType),
+                                new MetadataColumnDraft(columnName) { PrimaryKey = true })
+                        ]
+                    },
+                    new MetadataTableDraft("simple_key_rows"))
             ]
         };
 

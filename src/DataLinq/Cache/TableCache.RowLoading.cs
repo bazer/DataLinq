@@ -121,7 +121,12 @@ public partial class TableCache
 
             while (reader.ReadNextRow())
             {
-                var rowData = new RowData(reader, Table, Table.Columns, true);
+                var rowData = new RowData(
+                    reader,
+                    Table,
+                    Table.Columns,
+                    true,
+                    $"sql:{dataSource.Provider.DatabaseType}:relation-cache-row");
                 AddRowData(rowData);
             }
         }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Core.Factories;
+using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Metadata;
 using ThrowAway.Extensions;
@@ -83,6 +84,26 @@ public sealed class ProviderRowMaterializerTests
         await Assert.That(exception.InnerException).IsTypeOf<ArgumentException>();
         await Assert.That(exception.Message).Contains("Produced model value context: null");
         await Assert.That(exception.Message).Contains("required_model_rows.value");
+    }
+
+    [Test]
+    public async Task Materialize_ReportsModelNullabilityMismatchWithoutWrapping()
+    {
+        var table = CreateProviderNullableModelRequiredTable();
+        var providerRow = CanonicalProviderValueRow.Create(
+            table,
+            new object?[] { 42, null });
+
+        var exception = Capture<DataLinqNullabilityMismatchException>(() =>
+            ProviderRowMaterializer.Materialize(providerRow, "sql:test"));
+
+        await Assert.That(exception.MismatchKind)
+            .IsEqualTo(DataLinqNullabilityMismatchKind.ModelProperty);
+        await Assert.That(exception.ColumnName).IsEqualTo("required_value");
+        await Assert.That(exception.PropertyName).IsEqualTo("RequiredValue");
+        await Assert.That(exception.SourceName).IsEqualTo("sql:test");
+        await Assert.That(exception.ExpectedClrType).IsEqualTo(typeof(string));
+        await Assert.That(exception.InnerException).IsNull();
     }
 
     [Test]
@@ -237,6 +258,25 @@ public sealed class ProviderRowMaterializerTests
                 new MetadataColumnDraft("value") { PrimaryKey = true })
             {
                 CsSize = sizeof(int)
+            });
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException().TableModels.Single().Table;
+    }
+
+    private static TableDefinition CreateProviderNullableModelRequiredTable()
+    {
+        var draft = CreateDatabaseDraft(
+            "provider_nullable_model_required_rows",
+            new MetadataValuePropertyDraft(
+                "Id",
+                new CsTypeDeclaration(typeof(int)),
+                new MetadataColumnDraft("id") { PrimaryKey = true }),
+            new MetadataValuePropertyDraft(
+                "RequiredValue",
+                new CsTypeDeclaration(typeof(string)),
+                new MetadataColumnDraft("required_value") { Nullable = true })
+            {
+                CsNullable = false
             });
 
         return new MetadataDefinitionFactory().Build(draft).ValueOrException().TableModels.Single().Table;

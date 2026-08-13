@@ -65,13 +65,19 @@ internal static class ProviderRowDecoder
 
         try
         {
-            canonicalValue = reader.IsDbNull(ordinal)
-                ? null
-                : DecodeNonNullValue(
+            if (reader.IsDbNull(ordinal))
+            {
+                DataLinqNullabilityContract.EnsureDatabaseAllowsSqlNull(column, sourceName);
+                canonicalValue = null;
+            }
+            else
+            {
+                canonicalValue = DecodeNonNullValue(
                     reader,
                     column,
                     ordinal,
                     useColumnAwareGuid);
+            }
             valueProduced = true;
             CanonicalProviderValueRow.ValidateCanonicalValue(
                 column,
@@ -81,6 +87,7 @@ internal static class ProviderRowDecoder
         }
         catch (Exception exception) when (
             exception is not ProviderValueDecodingException and
+            not DataLinq.Exceptions.DataLinqNullabilityMismatchException and
             not OperationCanceledException and
             not OutOfMemoryException and
             not AccessViolationException)

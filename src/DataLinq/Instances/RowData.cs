@@ -25,25 +25,50 @@ public interface IRowData
 public sealed class RowData : IRowData, IEquatable<RowData>
 {
     private readonly object?[] data;
+    private readonly bool[]? populatedColumns;
 
     private RowData(TableDefinition table, object?[] data, int size)
     {
         Table = table;
         this.data = data;
+        populatedColumns = null;
         Size = size;
     }
 
     public RowData(IDataLinqDataReader reader, TableDefinition table, IReadOnlyList<ColumnDefinition> columns, bool hasIndexedColumns)
+        : this(reader, table, columns, hasIndexedColumns, "reader:row-data")
     {
+    }
+
+    internal RowData(
+        IDataLinqDataReader reader,
+        TableDefinition table,
+        IReadOnlyList<ColumnDefinition> columns,
+        bool hasIndexedColumns,
+        string sourceName)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentNullException.ThrowIfNull(columns);
+        ProviderRowMaterializer.ValidateSourceName(sourceName);
+
         Table = table;
 
         // Initialize array sized to the total number of columns in the table definition
         // This allows O(1) access by Column.Index
         data = new object?[table.ColumnCount];
+        if (columns.Count < table.ColumnCount)
+        {
+            populatedColumns = new bool[table.ColumnCount];
+            for (var index = 0; index < columns.Count; index++)
+                populatedColumns[columns[index].Index] = true;
+        }
 
         // Read values based on the *requested* columns (which match the reader's ordinal order)
         // and place them into their correct slots in the dense array.
-        Size = hasIndexedColumns ? ReadOrderedIndexReader(reader, columns, data) : ReadUnorderedReader(reader, columns, data);
+        Size = hasIndexedColumns
+            ? ReadOrderedIndexReader(reader, columns, data, sourceName)
+            : ReadUnorderedReader(reader, columns, data, sourceName);
     }
 
     /// <summary>
@@ -85,6 +110,9 @@ public sealed class RowData : IRowData, IEquatable<RowData>
 
     public int Size { get; }
 
+    internal bool IsColumnPresent(int columnIndex) =>
+        populatedColumns is null || populatedColumns[columnIndex];
+
     public object? this[ColumnDefinition column] => GetValue(column);
     public object? this[int columnIndex] => GetValue(columnIndex);
 
@@ -120,7 +148,11 @@ public sealed class RowData : IRowData, IEquatable<RowData>
             yield return GetValue(column);
     }
 
-    private static int ReadOrderedIndexReader(IDataLinqDataReader reader, IReadOnlyList<ColumnDefinition> columns, object?[] data)
+    private static int ReadOrderedIndexReader(
+        IDataLinqDataReader reader,
+        IReadOnlyList<ColumnDefinition> columns,
+        object?[] data,
+        string sourceName)
     {
         var size = 0;
 
@@ -128,26 +160,46 @@ public sealed class RowData : IRowData, IEquatable<RowData>
         for (int i = 0; i < columns.Count; i++)
         {
             var column = columns[i];
-            var value = reader.GetValue<object>(column, i); // Pass 'i' directly as ordinal!
+            var value = ReadModelValue(reader, column, i, sourceName);
             size += GetSize(column, value); // Keep existing size calc logic
             data[column.Index] = value;
         }
         return size;
     }
 
-    private static int ReadUnorderedReader(IDataLinqDataReader reader, IReadOnlyList<ColumnDefinition> columns, object?[] data)
+    private static int ReadUnorderedReader(
+        IDataLinqDataReader reader,
+        IReadOnlyList<ColumnDefinition> columns,
+        object?[] data,
+        string sourceName)
     {
         var size = 0;
 
         for (var i = 0; i < columns.Count; i++)
         {
             var column = columns[i];
-            var value = reader.GetValue<object>(column);
+            var ordinal = reader.GetOrdinal(column.DbName);
+            var value = ReadModelValue(reader, column, ordinal, sourceName);
             size += GetSize(column, value);
 
             data[column.Index] = value;
         }
         return size;
+    }
+
+    private static object? ReadModelValue(
+        IDataLinqDataReader reader,
+        ColumnDefinition column,
+        int ordinal,
+        string sourceName)
+    {
+        if (!reader.IsDbNull(ordinal))
+            return reader.GetValue<object>(column, ordinal);
+
+        // RowData is model-valued state, so validate both the database and model contracts here.
+        // This protects the boundary even when a custom IDataLinqDataReader implementation does not.
+        DataLinqNullabilityContract.EnsureModelAllowsSqlNull(column, sourceName);
+        return null;
     }
 
     private static int GetSize(ColumnDefinition column, object? value, int? canonicalProviderSizeFallback = null)

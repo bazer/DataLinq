@@ -168,7 +168,12 @@ public class Select<T> : IQuery
         var columnsToRead = GetColumnsToRead();
 
         foreach (var reader in ReadReader())
-            yield return new RowData(reader, query.Table, columnsToRead, true);
+            yield return new RowData(
+                reader,
+                query.Table,
+                columnsToRead,
+                true,
+                $"sql:{query.DataSource.Provider.DatabaseType}:select-rows");
     }
 
     public RowData? ReadFirstRow()
@@ -182,7 +187,12 @@ public class Select<T> : IQuery
         using var reader = query.DataSource.DatabaseAccess.ExecuteReader(command);
 
         return reader.ReadNextRow()
-            ? new RowData(reader, query.Table, columnsToRead, true)
+            ? new RowData(
+                reader,
+                query.Table,
+                columnsToRead,
+                true,
+                $"sql:{query.DataSource.Provider.DatabaseType}:select-first-row")
             : null;
     }
 
@@ -256,7 +266,12 @@ public class Select<T> : IQuery
 
         foreach (var reader in ReadReader())
         {
-            var row = new RowData(reader, query.Table, columnsToRead, false);
+            var row = new RowData(
+                reader,
+                query.Table,
+                columnsToRead,
+                false,
+                $"sql:{query.DataSource.Provider.DatabaseType}:key-pairs");
             var foreignKey = KeyFactory.GetKey(row, foreignKeyIndex.Columns);
             var primaryKey = KeyFactory.GetKey(row, query.Table.PrimaryKeyColumns);
 

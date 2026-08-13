@@ -417,7 +417,12 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         foreach (var reader in DatabaseAccess.ReadReader(query))
         {
-            var rowData = new RowData(reader, table, table.Columns, false);
+            var rowData = new RowData(
+                reader,
+                table,
+                table.Columns,
+                false,
+                $"sql:{Provider.DatabaseType}:transaction-query");
             yield return InstanceFactory.NewImmutableRow<T>(rowData, this);
         }
     }
@@ -435,7 +440,12 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         foreach (var reader in DatabaseAccess.ReadReader(dbCommand))
         {
-            var rowData = new RowData(reader, table, table.Columns, false);
+            var rowData = new RowData(
+                reader,
+                table,
+                table.Columns,
+                false,
+                $"sql:{Provider.DatabaseType}:transaction-command");
             yield return InstanceFactory.NewImmutableRow<T>(rowData, this);
         }
     }
