@@ -72,6 +72,8 @@ public class SQLiteDataLinqDataReaderTests
         await Assert.That(exception.MismatchKind)
             .IsEqualTo(DataLinqNullabilityMismatchKind.RequestedClrType);
         await Assert.That(exception.ExpectedClrType).IsEqualTo(typeof(int));
+        await Assert.That(exception.Message).Contains("Request a nullable CLR type");
+        await Assert.That(exception.Message).DoesNotContain("mark the model property nullable");
     }
 
     private static SQLiteDataLinqDataReader CreateReader(string sql)

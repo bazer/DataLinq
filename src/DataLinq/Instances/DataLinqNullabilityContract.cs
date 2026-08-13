@@ -65,11 +65,21 @@ public static class DataLinqNullabilityContract
         }
     }
 
-    internal static DataLinqNullabilityMismatchException CreateModelMismatch(
+    internal static DataLinqNullabilityMismatchException CreateModelValueNullMismatch(
         ColumnDefinition column,
         string sourceName)
     {
         Validate(column, sourceName);
+
+        if (!column.Nullable)
+        {
+            return CreateException(
+                column,
+                sourceName,
+                DataLinqNullabilityMismatchKind.DatabaseColumn,
+                column.ProviderClrType);
+        }
+
         return CreateException(
             column,
             sourceName,

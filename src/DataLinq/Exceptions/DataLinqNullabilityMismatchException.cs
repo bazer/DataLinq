@@ -93,9 +93,12 @@ public sealed class DataLinqNullabilityMismatchException : InvalidOperationExcep
                 $"requested CLR type '{expectedClrType?.FullName ?? "<unresolved>"}' cannot represent null",
             _ => throw new ArgumentOutOfRangeException(nameof(mismatchKind), mismatchKind, null)
         };
+        var remediation = mismatchKind == DataLinqNullabilityMismatchKind.RequestedClrType
+            ? "Request a nullable CLR type or another CLR type capable of representing SQL NULL."
+            : "Check for schema drift or mark the model property nullable and regenerate the DataLinq model.";
 
         return
             $"SQL returned NULL for {location} from source '{sourceName}', but {contract}. " +
-            "Check for schema drift or mark the model property nullable and regenerate the DataLinq model.";
+            remediation;
     }
 }

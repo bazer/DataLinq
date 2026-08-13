@@ -153,7 +153,7 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
         var property = rowData.Table.Model.ValueProperties[propertyName];
         ThrowIfColumnWasNotSelected(property.Column);
         return rowData.GetValue(property.Column)
-            ?? throw DataLinqNullabilityContract.CreateModelMismatch(
+            ?? throw DataLinqNullabilityContract.CreateModelValueNullMismatch(
                 property.Column,
                 "model:getter");
     }
@@ -175,7 +175,7 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
         if (value is not null)
             return value;
 
-        throw DataLinqNullabilityContract.CreateModelMismatch(
+        throw DataLinqNullabilityContract.CreateModelValueNullMismatch(
             column,
             "model:getter");
     }

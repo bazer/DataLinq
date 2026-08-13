@@ -239,6 +239,7 @@ public sealed class RowData : IRowData, IEquatable<RowData>
 
         for (int i = 0; i < data.Length; i++)
         {
+            if (IsColumnPresent(i) != other.IsColumnPresent(i)) return false;
             if (!object.Equals(data[i], other.data[i])) return false;
         }
 
@@ -254,9 +255,12 @@ public sealed class RowData : IRowData, IEquatable<RowData>
     {
         var hash = new HashCode();
 
-        // Hash based on content
-        foreach (var item in data)
-            hash.Add(item);
+        // Missing partial-row cells and selected SQL NULL values are observably different state.
+        for (var index = 0; index < data.Length; index++)
+        {
+            hash.Add(IsColumnPresent(index));
+            hash.Add(data[index]);
+        }
 
         return hash.ToHashCode();
     }
