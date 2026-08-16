@@ -109,6 +109,62 @@ public class QueryPlanSqlParityTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task ExpressionExecutionProvider_PreservesNonPositivePagingSemantics(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(ExpressionExecutionProvider_PreservesNonPositivePagingSemantics),
+            EmployeesSeedMode.Bogus);
+
+        var expressionProvider = ExpressionQueryPlanProvider.ForExecution(databaseScope.Database.Provider.ReadOnlyAccess);
+        var employees = expressionProvider.CreateRoot<Employee>()
+            .OrderBy(employee => employee.emp_no);
+        var expected = databaseScope.Database.Query().Employees
+            .ToList()
+            .OrderBy(employee => employee.emp_no)
+            .ToArray();
+        var expectedPostPaging = expected
+            .Where(employee => employee.emp_no < 990000)
+            .OrderByDescending(employee => employee.emp_no)
+            .ToArray();
+
+        foreach (var count in new[] { -3, 0 })
+        {
+            var skipped = employees.Skip(count);
+            var taken = employees.Take(count);
+
+            await AssertEmployeeSequenceEqual(expected, skipped.ToArray());
+            await Assert.That(skipped.Count()).IsEqualTo(expected.Length);
+            await Assert.That(skipped.Any()).IsEqualTo(expected.Length != 0);
+            await Assert.That(skipped.FirstOrDefault()?.emp_no).IsEqualTo(expected.FirstOrDefault()?.emp_no);
+
+            await Assert.That(taken.ToArray()).IsEmpty();
+            await Assert.That(taken.Count()).IsEqualTo(0);
+            await Assert.That(taken.Any()).IsFalse();
+            await Assert.That(taken.FirstOrDefault()).IsNull();
+            await Assert.That(taken
+                .Where(employee => employee.emp_no < 990000)
+                .OrderByDescending(employee => employee.emp_no)
+                .ToArray()).IsEmpty();
+
+            var postSkip = skipped
+                .Where(employee => employee.emp_no < 990000)
+                .OrderByDescending(employee => employee.emp_no)
+                .ToArray();
+            await AssertEmployeeSequenceEqual(expectedPostPaging, postSkip);
+        }
+
+        var rebuiltCount = 2;
+        var positiveWindow = employees.Take(rebuiltCount).ToArray();
+        rebuiltCount = -2;
+        var rebuiltEmptyWindow = employees.Take(rebuiltCount).ToArray();
+
+        await Assert.That(positiveWindow.Length).IsEqualTo(2);
+        await Assert.That(rebuiltEmptyWindow).IsEmpty();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionPlanSql_RendersSupportedSequenceShapes(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -233,6 +289,53 @@ public class QueryPlanSqlParityTests
         await Assert.That(parameterValues).Contains(excludedName);
         await Assert.That(sql.Text).DoesNotContain(threshold.ToString());
         await Assert.That(sql.Text).DoesNotContain(excludedName);
+    }
+
+    [Test]
+    public async Task ExpressionPlanSql_NormalizesNonPositivePagingCounts()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionPlanSql_NormalizesNonPositivePagingCounts),
+            EmployeesSeedMode.Bogus);
+
+        var negativeCount = -3;
+        var zeroCount = 0;
+        var positiveCount = 3;
+        var rows = databaseScope.Database.Query().Employees
+            .OrderBy(employee => employee.emp_no);
+
+        var negativeSkipSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
+            databaseScope.Database,
+            rows.Skip(negativeCount));
+        var zeroSkipSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
+            databaseScope.Database,
+            rows.Skip(zeroCount));
+        var negativeTakeSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
+            databaseScope.Database,
+            rows.Take(negativeCount));
+        var zeroTakeSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
+            databaseScope.Database,
+            rows.Take(zeroCount));
+        var positiveSkipSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
+            databaseScope.Database,
+            rows.Skip(positiveCount));
+        var positiveTakeSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
+            databaseScope.Database,
+            rows.Take(positiveCount));
+
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(negativeSkipSql.Text))
+            .Contains("OFFSET 0");
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(zeroSkipSql.Text))
+            .Contains("OFFSET 0");
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(negativeTakeSql.Text))
+            .Contains("LIMIT 0");
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(zeroTakeSql.Text))
+            .Contains("LIMIT 0");
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(positiveSkipSql.Text))
+            .Contains("OFFSET 3");
+        await Assert.That(CurrentQueryTranslationInspection.NormalizeSqlWhitespace(positiveTakeSql.Text))
+            .Contains("LIMIT 3");
     }
 
     [Test]
