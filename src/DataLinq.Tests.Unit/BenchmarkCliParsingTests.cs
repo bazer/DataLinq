@@ -168,6 +168,25 @@ public class BenchmarkCliParsingTests
     }
 
     [Test]
+    public async Task RunExitDecision_AllowsValidHistoryWithoutComparison()
+    {
+        var history = new BenchmarkHistoryArtifact
+        {
+            OverallExitCode = 0,
+            ValidForEvidence = true
+        };
+
+        await Assert.That(BenchmarkHarnessRunner.ShouldFailRun(
+            history,
+            comparison: null,
+            releaseEvidenceIntent: true)).IsFalse();
+        await Assert.That(BenchmarkHarnessRunner.ShouldFailRun(
+            history with { ValidForEvidence = false },
+            comparison: null,
+            releaseEvidenceIntent: true)).IsTrue();
+    }
+
+    [Test]
     public async Task CategorySelection_RejectsCombinedV09Selectors()
     {
         InvalidOperationException? exception = null;

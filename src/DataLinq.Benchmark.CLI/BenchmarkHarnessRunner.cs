@@ -323,9 +323,7 @@ internal sealed class BenchmarkHarnessRunner
             }
 
             WriteArtifacts(summaryResult, paths.HistoryJsonPath, paths.ComparisonJsonPath);
-            if (historyArtifact.OverallExitCode != 0 ||
-                comparisonArtifact?.OverallExitCode != 0 ||
-                releaseEvidenceIntent && !historyArtifact.ValidForEvidence)
+            if (ShouldFailRun(historyArtifact, comparisonArtifact, releaseEvidenceIntent))
             {
                 return 1;
             }
@@ -1443,6 +1441,14 @@ internal sealed class BenchmarkHarnessRunner
             : selectedCategory is null
                 ? []
                 : ["--anyCategories", selectedCategory];
+
+    internal static bool ShouldFailRun(
+        BenchmarkHistoryArtifact history,
+        BenchmarkComparisonArtifact? comparison,
+        bool releaseEvidenceIntent) =>
+        history.OverallExitCode != 0 ||
+        comparison is not null && comparison.OverallExitCode != 0 ||
+        releaseEvidenceIntent && !history.ValidForEvidence;
 
     internal static string GetScenarioCategory(string method)
         => method switch
