@@ -759,6 +759,42 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
+    public async Task ExpressionParser_LocalMethodEvaluationEvaluatesReceiverFactoryExactlyOnce()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_LocalMethodEvaluationEvaluatesReceiverFactoryExactlyOnce),
+            EmployeesSeedMode.Bogus);
+
+        var probe = new LocalMethodProbe();
+        var query = databaseScope.Database.Query().Employees
+            .Where(x => x.emp_no == probe.GetReceiver().GetEmployeeNumber());
+
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, query);
+        await Assert.That(probe.ReceiverFactoryInvocationCount).IsEqualTo(1);
+        await Assert.That(probe.ReceiverEmployeeNumberInvocationCount).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task ExpressionParser_LocalMethodEvaluationSupportsUnaryNegationArguments()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_LocalMethodEvaluationSupportsUnaryNegationArguments),
+            EmployeesSeedMode.Bogus);
+
+        var days = 10;
+        var origin = new DateOnly(2000, 1, 20);
+        var query = databaseScope.Database.Query().Employees
+            .Where(employee => employee.birth_date > origin.AddDays(-days));
+
+        var invocation = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+        var scalar = invocation.Values.Items.OfType<QueryPlanInvocationValue.Scalar>().Single();
+
+        await Assert.That(scalar.Value).IsEqualTo(origin.AddDays(-days));
+    }
+
+    [Test]
     public async Task ExpressionParser_LocalMethodEvaluationStillRejectsQueryDependentMethods()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -1134,11 +1170,17 @@ public class ExpressionQueryPlanParserTests
 
     private sealed class LocalMethodProbe
     {
+        private readonly LocalMethodReceiver receiver = new();
+
         public int EmployeeNumberInvocationCount { get; private set; }
 
         public int EmployeeNumbersInvocationCount { get; private set; }
 
         public int IsEmployeeNumberInvocationCount { get; private set; }
+
+        public int ReceiverFactoryInvocationCount { get; private set; }
+
+        public int ReceiverEmployeeNumberInvocationCount => receiver.EmployeeNumberInvocationCount;
 
         public int GetEmployeeNumber()
         {
@@ -1152,10 +1194,27 @@ public class ExpressionQueryPlanParserTests
             return [10001, 10002];
         }
 
+        public LocalMethodReceiver GetReceiver()
+        {
+            ReceiverFactoryInvocationCount++;
+            return receiver;
+        }
+
         public bool IsEmployeeNumber(int employeeNumber)
         {
             IsEmployeeNumberInvocationCount++;
             return employeeNumber == 10001;
+        }
+    }
+
+    private sealed class LocalMethodReceiver
+    {
+        public int EmployeeNumberInvocationCount { get; private set; }
+
+        public int GetEmployeeNumber()
+        {
+            EmployeeNumberInvocationCount++;
+            return 10001;
         }
     }
 }
