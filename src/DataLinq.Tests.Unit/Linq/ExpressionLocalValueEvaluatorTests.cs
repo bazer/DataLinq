@@ -76,6 +76,20 @@ public class ExpressionLocalValueEvaluatorTests
     }
 
     [Test]
+    public async Task LocalValueEvaluation_EvaluatesSupportedStringArgumentsBeforeRejectingNullReceiver()
+    {
+        string? text = null;
+        var probe = new ReceiverProbe();
+        Expression<Func<string>> expression = () => text!.Substring(probe.GetStart());
+
+        var exception = Capture<NullReferenceException>(() =>
+            ExpressionLocalValueEvaluator.Evaluate(expression.Body));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(probe.StartInvocationCount).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task LocalValueEvaluation_EvaluatesUnsupportedStringOperandsExactlyOnce()
     {
         var probe = new ReceiverProbe();

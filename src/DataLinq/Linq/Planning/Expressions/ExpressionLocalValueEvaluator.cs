@@ -172,11 +172,12 @@ internal static class ExpressionLocalValueEvaluator
 
         if (TryGetSupportedStringMethod(methodCall, out var stringMethod))
         {
-            var text = Evaluate(methodCall.Object!, parameter, parameterValue, options) as string
-                ?? throw new NullReferenceException("Cannot invoke a string method on a null receiver.");
+            var instance = Evaluate(methodCall.Object!, parameter, parameterValue, options);
             var arguments = methodCall.Arguments
                 .Select(argument => Evaluate(argument, parameter, parameterValue, options))
                 .ToArray();
+            var text = instance as string
+                ?? throw new NullReferenceException("Cannot invoke a string method on a null receiver.");
 
             value = stringMethod switch
             {
