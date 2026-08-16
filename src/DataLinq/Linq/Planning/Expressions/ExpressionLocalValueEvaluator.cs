@@ -222,29 +222,86 @@ internal static class ExpressionLocalValueEvaluator
             return true;
         }
 
-        if (methodCall.Object is not null &&
-            Evaluate(methodCall.Object, parameter, parameterValue, options) is string text)
+        if (TryGetSupportedStringMethod(methodCall, out var stringMethod))
         {
+            var instance = Evaluate(methodCall.Object!, parameter, parameterValue, options);
             var arguments = methodCall.Arguments
                 .Select(argument => Evaluate(argument, parameter, parameterValue, options))
                 .ToArray();
+            var text = instance as string
+                ?? throw new NullReferenceException("Cannot invoke a string method on a null receiver.");
 
-            value = methodCall.Method.Name switch
+            value = stringMethod switch
             {
-                nameof(string.Trim) when arguments.Length == 0 => text.Trim(),
-                nameof(string.ToUpper) when arguments.Length == 0 => text.ToUpper(CultureInfo.CurrentCulture),
-                nameof(string.ToLower) when arguments.Length == 0 => text.ToLower(CultureInfo.CurrentCulture),
-                nameof(string.Substring) when arguments.Length == 1 => text.Substring(Convert.ToInt32(arguments[0], CultureInfo.InvariantCulture)),
-                nameof(string.Substring) when arguments.Length == 2 => text.Substring(
+                SupportedStringMethod.Trim => text.Trim(),
+                SupportedStringMethod.ToUpper => text.ToUpper(CultureInfo.CurrentCulture),
+                SupportedStringMethod.ToLower => text.ToLower(CultureInfo.CurrentCulture),
+                SupportedStringMethod.SubstringFrom => text.Substring(Convert.ToInt32(arguments[0], CultureInfo.InvariantCulture)),
+                SupportedStringMethod.SubstringRange => text.Substring(
                     Convert.ToInt32(arguments[0], CultureInfo.InvariantCulture),
                     Convert.ToInt32(arguments[1], CultureInfo.InvariantCulture)),
-                _ => null
+                _ => throw new QueryTranslationException(
+                    $"Supported string method '{methodCall.Method.Name}' has no local evaluation implementation.")
             };
 
-            return value is not null;
+            return true;
         }
 
         value = null;
+        return false;
+    }
+
+    private static bool TryGetSupportedStringMethod(
+        MethodCallExpression methodCall,
+        out SupportedStringMethod supportedMethod)
+    {
+        supportedMethod = default;
+        if (methodCall.Object is null ||
+            methodCall.Method.IsStatic ||
+            methodCall.Method.DeclaringType != typeof(string) ||
+            methodCall.Method.ReturnType != typeof(string))
+        {
+            return false;
+        }
+
+        if (methodCall.Method.Name == nameof(string.Trim) &&
+            methodCall.Arguments.Count == 0)
+        {
+            supportedMethod = SupportedStringMethod.Trim;
+            return true;
+        }
+
+        if (methodCall.Method.Name == nameof(string.ToUpper) &&
+            methodCall.Arguments.Count == 0)
+        {
+            supportedMethod = SupportedStringMethod.ToUpper;
+            return true;
+        }
+
+        if (methodCall.Method.Name == nameof(string.ToLower) &&
+            methodCall.Arguments.Count == 0)
+        {
+            supportedMethod = SupportedStringMethod.ToLower;
+            return true;
+        }
+
+        if (methodCall.Method.Name == nameof(string.Substring) &&
+            methodCall.Arguments.Count == 1 &&
+            methodCall.Arguments[0].Type == typeof(int))
+        {
+            supportedMethod = SupportedStringMethod.SubstringFrom;
+            return true;
+        }
+
+        if (methodCall.Method.Name == nameof(string.Substring) &&
+            methodCall.Arguments.Count == 2 &&
+            methodCall.Arguments[0].Type == typeof(int) &&
+            methodCall.Arguments[1].Type == typeof(int))
+        {
+            supportedMethod = SupportedStringMethod.SubstringRange;
+            return true;
+        }
+
         return false;
     }
 
@@ -287,6 +344,15 @@ internal static class ExpressionLocalValueEvaluator
     private static readonly MethodInfo EnumerableEmptyMethod = ((Func<IEnumerable<int>>)Enumerable.Empty<int>)
         .Method
         .GetGenericMethodDefinition();
+
+    private enum SupportedStringMethod
+    {
+        Trim,
+        ToUpper,
+        ToLower,
+        SubstringFrom,
+        SubstringRange
+    }
 
     private static Expression UnwrapConvert(Expression expression)
     {
