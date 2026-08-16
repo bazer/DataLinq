@@ -576,7 +576,7 @@ public class QueryPlanSqlParityTests
         await AssertSqlShape(nullOnlySql, " IS NULL", 0);
         await AssertSqlShape(nullOnlyNegatedSql, " IS NOT NULL", 0);
         await AssertSqlShape(loginOnlyNegatedSql, " NOT IN ", 1, " OR ", " IS NULL");
-        await AssertSqlShape(negatedCompoundLoginOnlySql, "NOT (", 2, " IN ", " AND ", " IS NOT NULL");
+        await AssertSqlShape(negatedCompoundLoginOnlySql, " NOT IN ", 2, " AND ", " OR ", " IS NULL");
         await AssertSqlShape(mixedSql, " IN ", 1, " OR ", " IS NULL");
         await AssertSqlShape(mixedNegatedSql, " NOT IN ", 1, " AND ", " IS NOT NULL");
         await AssertSqlShape(mixedLocalFirstAnySql, " IN ", 1, " OR ", " IS NULL");

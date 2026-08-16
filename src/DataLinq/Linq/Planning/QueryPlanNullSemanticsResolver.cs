@@ -8,33 +8,44 @@ internal static class QueryPlanNullSemanticsResolver
         QueryPlanComparisonOperator comparisonOperator,
         QueryPlanValue left,
         QueryPlanValue right,
-        IQueryPlanSpecializationLookup specialization)
+        IQueryPlanSpecializationLookup specialization,
+        bool includeNullsForNegatedRelational = false)
     {
         ArgumentNullException.ThrowIfNull(left);
         ArgumentNullException.ThrowIfNull(right);
         ArgumentNullException.ThrowIfNull(specialization);
 
-        return comparisonOperator == QueryPlanComparisonOperator.NotEqual && IsNullableColumnComparedWithNonNull(left, right, specialization)
-            ? QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull
+        if (IsKnownNullValue(left, specialization) || IsKnownNullValue(right, specialization))
+            return QueryPlanNullSemantics.Default;
+
+        var leftIsNullableColumn = IsNullableColumn(left);
+        var rightIsNullableColumn = IsNullableColumn(right);
+        var requiresCSharpNullSemantics = comparisonOperator switch
+        {
+            QueryPlanComparisonOperator.Equal => leftIsNullableColumn && rightIsNullableColumn,
+            QueryPlanComparisonOperator.NotEqual => leftIsNullableColumn || rightIsNullableColumn,
+            QueryPlanComparisonOperator.GreaterThan or
+            QueryPlanComparisonOperator.GreaterThanOrEqual or
+            QueryPlanComparisonOperator.LessThan or
+            QueryPlanComparisonOperator.LessThanOrEqual =>
+                includeNullsForNegatedRelational && (leftIsNullableColumn || rightIsNullableColumn),
+            _ => false
+        };
+
+        return requiresCSharpNullSemantics
+            ? QueryPlanNullSemantics.CSharpNullableComparison
             : QueryPlanNullSemantics.Default;
     }
 
-    private static bool IsNullableColumnComparedWithNonNull(
-        QueryPlanValue left,
-        QueryPlanValue right,
-        IQueryPlanSpecializationLookup specialization)
-        => IsNullableColumnAndNonNullValue(left, right, specialization) ||
-           IsNullableColumnAndNonNullValue(right, left, specialization);
+    internal static bool IsNullableColumn(QueryPlanValue value) => value switch
+    {
+        QueryPlanColumnValue column => column.Column.ValueProperty.CsNullable,
+        QueryPlanConvertedValue converted => IsNullableColumn(converted.Value),
+        QueryPlanGroupKeyValue groupKey => IsNullableColumn(groupKey.Key),
+        _ => false
+    };
 
-    private static bool IsNullableColumnAndNonNullValue(
-        QueryPlanValue columnCandidate,
-        QueryPlanValue valueCandidate,
-        IQueryPlanSpecializationLookup specialization)
-        => columnCandidate is QueryPlanColumnValue column &&
-           column.Column.ValueProperty.CsNullable &&
-           !IsNullValue(valueCandidate, specialization);
-
-    private static bool IsNullValue(
+    internal static bool IsKnownNullValue(
         QueryPlanValue value,
         IQueryPlanSpecializationLookup specialization)
     {
@@ -42,7 +53,7 @@ internal static class QueryPlanNullSemanticsResolver
             return true;
 
         if (value is QueryPlanConvertedValue converted)
-            return IsNullValue(converted.Value, specialization);
+            return IsKnownNullValue(converted.Value, specialization);
 
         if (value is not QueryPlanScalarBindingReference scalar)
             return false;
