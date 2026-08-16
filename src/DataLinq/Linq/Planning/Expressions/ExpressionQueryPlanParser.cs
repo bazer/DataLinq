@@ -1468,10 +1468,7 @@ internal sealed class ExpressionQueryPlanParser
                 "Only comparisons over group.Key and supported grouped aggregates are supported.")
         };
 
-        if (isNegated && predicate is not QueryPlanPredicate.Fixed)
-            predicate = new QueryPlanPredicate.Not(predicate);
-
-        return predicate;
+        return isNegated ? NegatePredicate(predicate) : predicate;
     }
 
     private QueryPlanPredicate ConvertGroupedComparison(
@@ -1690,15 +1687,11 @@ internal sealed class ExpressionQueryPlanParser
             _ => throw new QueryTranslationException($"Predicate expression '{expression}' is not supported by the DataLinq expression parser.")
         };
 
-        if (isNegated &&
+        return isNegated &&
             predicate is not QueryPlanPredicate.In &&
-            predicate is not QueryPlanPredicate.Exists &&
-            predicate is not QueryPlanPredicate.Fixed)
-        {
-            predicate = new QueryPlanPredicate.Not(predicate);
-        }
-
-        return predicate;
+            predicate is not QueryPlanPredicate.Exists
+                ? NegatePredicate(predicate)
+                : predicate;
     }
 
     private QueryPlanPredicate ConvertComparison(BinaryExpression binary)
@@ -1714,6 +1707,51 @@ internal sealed class ExpressionQueryPlanParser
         var nullSemantics = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(comparisonOperator, left, right, bindings);
 
         return new QueryPlanPredicate.Compare(left, comparisonOperator, right, nullSemantics);
+    }
+
+    private QueryPlanPredicate NegatePredicate(QueryPlanPredicate predicate) => predicate switch
+    {
+        QueryPlanPredicate.Fixed fixedPredicate => new QueryPlanPredicate.Fixed(!fixedPredicate.Value),
+        QueryPlanPredicate.And and => new QueryPlanPredicate.Or(and.Terms.Select(NegatePredicate)),
+        QueryPlanPredicate.Or or => new QueryPlanPredicate.And(or.Terms.Select(NegatePredicate)),
+        QueryPlanPredicate.Not not => not.Predicate,
+        QueryPlanPredicate.Compare compare => NegateComparison(compare),
+        QueryPlanPredicate.In inPredicate => new QueryPlanPredicate.In(
+            inPredicate.Item,
+            inPredicate.Sequence,
+            !inPredicate.IsNegated),
+        QueryPlanPredicate.Exists exists => new QueryPlanPredicate.Exists(
+            exists.Relation,
+            exists.ParentSource,
+            exists.ChildSource,
+            exists.Predicate,
+            !exists.IsNegated),
+        _ => throw new QueryTranslationException(
+            $"Query plan predicate '{predicate.Kind}' cannot be negated during expression translation.")
+    };
+
+    private QueryPlanPredicate NegateComparison(QueryPlanPredicate.Compare comparison)
+    {
+        if (IsRelationalComparison(comparison.Operator) &&
+            (QueryPlanNullSemanticsResolver.IsKnownNullValue(comparison.Left, bindings) ||
+             QueryPlanNullSemanticsResolver.IsKnownNullValue(comparison.Right, bindings)))
+        {
+            return new QueryPlanPredicate.Fixed(true);
+        }
+
+        var comparisonOperator = NegateComparisonOperator(comparison.Operator);
+        var nullSemantics = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(
+            comparisonOperator,
+            comparison.Left,
+            comparison.Right,
+            bindings,
+            includeNullsForNegatedRelational: IsRelationalComparison(comparison.Operator));
+
+        return new QueryPlanPredicate.Compare(
+            comparison.Left,
+            comparisonOperator,
+            comparison.Right,
+            nullSemantics);
     }
 
     private bool TryConvertMethodPredicate(MethodCallExpression methodCall, bool isNegated, out QueryPlanPredicate predicate)
@@ -2069,33 +2107,40 @@ internal sealed class ExpressionQueryPlanParser
         return WithSource(childParameter, childSource, () => ConvertRelationPredicate(relationProperty, childSource, predicate));
     }
 
-    private QueryPlanPredicate ConvertRelationPredicate(RelationProperty relationProperty, QueryPlanSourceSlot childSource, Expression predicate)
+    private QueryPlanPredicate ConvertRelationPredicate(
+        RelationProperty relationProperty,
+        QueryPlanSourceSlot childSource,
+        Expression predicate,
+        bool isNegated = false)
     {
         predicate = UnwrapConvert(predicate);
+        if (predicate is UnaryExpression { NodeType: ExpressionType.Not } not)
+            return ConvertRelationPredicate(relationProperty, childSource, not.Operand, !isNegated);
+
+        QueryPlanPredicate converted;
         if (predicate is BinaryExpression { NodeType: ExpressionType.AndAlso } and)
         {
-            return new QueryPlanPredicate.And([
+            converted = new QueryPlanPredicate.And([
                 ConvertRelationPredicate(relationProperty, childSource, and.Left),
                 ConvertRelationPredicate(relationProperty, childSource, and.Right)
             ]);
         }
-
-        if (predicate is BinaryExpression { NodeType: ExpressionType.OrElse } or)
+        else if (predicate is BinaryExpression { NodeType: ExpressionType.OrElse } or)
         {
-            return new QueryPlanPredicate.Or([
+            converted = new QueryPlanPredicate.Or([
                 ConvertRelationPredicate(relationProperty, childSource, or.Left),
                 ConvertRelationPredicate(relationProperty, childSource, or.Right)
             ]);
         }
-
-        if (predicate is not BinaryExpression comparison || !IsComparison(comparison.NodeType))
+        else if (predicate is not BinaryExpression comparison || !IsComparison(comparison.NodeType))
+        {
             throw new QueryTranslationException($"Relation predicate '{predicate}' is not supported. Only simple comparison predicates are supported.");
-
-        if (TryGetColumnValue(comparison.Left, out var leftColumn) && leftColumn.Source == childSource && !ContainsQueryReference(comparison.Right))
+        }
+        else if (TryGetColumnValue(comparison.Left, out var leftColumn) && leftColumn.Source == childSource && !ContainsQueryReference(comparison.Right))
         {
             var right = ConvertValue(comparison.Right);
             var comparisonOperator = GetComparisonOperator(comparison.NodeType);
-            return new QueryPlanPredicate.Compare(
+            converted = new QueryPlanPredicate.Compare(
                 leftColumn,
                 comparisonOperator,
                 right,
@@ -2105,12 +2150,11 @@ internal sealed class ExpressionQueryPlanParser
                     right,
                     bindings));
         }
-
-        if (TryGetColumnValue(comparison.Right, out var rightColumn) && rightColumn.Source == childSource && !ContainsQueryReference(comparison.Left))
+        else if (TryGetColumnValue(comparison.Right, out var rightColumn) && rightColumn.Source == childSource && !ContainsQueryReference(comparison.Left))
         {
             var left = ConvertValue(comparison.Left);
             var comparisonOperator = ReverseComparisonOperator(GetComparisonOperator(comparison.NodeType));
-            return new QueryPlanPredicate.Compare(
+            converted = new QueryPlanPredicate.Compare(
                 rightColumn,
                 comparisonOperator,
                 left,
@@ -2120,10 +2164,14 @@ internal sealed class ExpressionQueryPlanParser
                     left,
                     bindings));
         }
+        else
+        {
+            throw new QueryTranslationException(
+                $"Relation predicate '{predicate}' is not supported. " +
+                "Expected a direct related-row member compared with a local value.");
+        }
 
-        throw new QueryTranslationException(
-            $"Relation predicate '{predicate}' is not supported. " +
-            "Expected a direct related-row member compared with a local value.");
+        return isNegated ? NegatePredicate(converted) : converted;
     }
 
     private QueryPlanSourceSlot CreateRelationChildSource(RelationProperty relationProperty)
@@ -2210,26 +2258,13 @@ internal sealed class ExpressionQueryPlanParser
 
     private bool TryConvertValue(Expression expression, out QueryPlanValue value)
     {
-        if (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary &&
-            !ContainsQueryReference(unary.Operand))
+        if (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } &&
+            !ContainsQueryReference(expression))
         {
-            if (UnwrapConvert(unary.Operand) is ConstantExpression { Value: null })
-            {
-                value = NullIntrinsic(expression.Type);
-                return true;
-            }
-
-            var captured = CaptureScalar(
-                unary.Operand,
-                () => ExpressionLocalValueEvaluator.Evaluate(
-                    unary.Operand,
-                    null,
-                    null,
-                    options.LocalValueEvaluation),
-                unary.Operand.Type);
-            value = unary.Operand.Type == expression.Type
-                ? captured
-                : new QueryPlanConvertedValue(captured, expression.Type);
+            value = CaptureScalar(
+                expression,
+                () => EvaluateScalar(expression),
+                expression.Type);
             return true;
         }
 
@@ -3258,6 +3293,25 @@ internal sealed class ExpressionQueryPlanParser
         QueryPlanComparisonOperator.LessThanOrEqual => QueryPlanComparisonOperator.GreaterThanOrEqual,
         _ => comparisonOperator
     };
+
+    private static QueryPlanComparisonOperator NegateComparisonOperator(QueryPlanComparisonOperator comparisonOperator) => comparisonOperator switch
+    {
+        QueryPlanComparisonOperator.Equal => QueryPlanComparisonOperator.NotEqual,
+        QueryPlanComparisonOperator.NotEqual => QueryPlanComparisonOperator.Equal,
+        QueryPlanComparisonOperator.GreaterThan => QueryPlanComparisonOperator.LessThanOrEqual,
+        QueryPlanComparisonOperator.GreaterThanOrEqual => QueryPlanComparisonOperator.LessThan,
+        QueryPlanComparisonOperator.LessThan => QueryPlanComparisonOperator.GreaterThanOrEqual,
+        QueryPlanComparisonOperator.LessThanOrEqual => QueryPlanComparisonOperator.GreaterThan,
+        _ => throw new QueryTranslationException(
+            $"Comparison operator '{comparisonOperator}' cannot be negated during query plan translation.")
+    };
+
+    private static bool IsRelationalComparison(QueryPlanComparisonOperator comparisonOperator)
+        => comparisonOperator is
+            QueryPlanComparisonOperator.GreaterThan or
+            QueryPlanComparisonOperator.GreaterThanOrEqual or
+            QueryPlanComparisonOperator.LessThan or
+            QueryPlanComparisonOperator.LessThanOrEqual;
 
     private static ExpressionType ReverseExpressionType(ExpressionType expressionType) => expressionType switch
     {

@@ -86,7 +86,7 @@ public class QueryPlanCapabilityValidationTests
 
         await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(359);
         await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Unsupported)).IsEqualTo(258);
-        await Assert.That(sqlMatrixFingerprint).IsEqualTo("ECBA5493979A4E8CC3FEC4CB8B0B3972DF369074C03ACBB70F7B5F26613CF9E7");
+        await Assert.That(sqlMatrixFingerprint).IsEqualTo("135C50032122327EC9D78742B0334ABACE0E78445663905CE4DECEB03228EA9E");
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.Projection(QueryPlanProjectionKind.TransparentIdentifier)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
@@ -1767,7 +1767,7 @@ public class QueryPlanCapabilityValidationTests
                 lastLogin,
                 QueryPlanComparisonOperator.NotEqual,
                 value,
-                QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull),
+                QueryPlanNullSemantics.CSharpNullableComparison),
             capture);
         var nullCapture = new QueryPlanBindingCapture();
         var nullValue = nullCapture.CaptureScalar(null, typeof(TimeOnly?));
@@ -1777,7 +1777,7 @@ public class QueryPlanCapabilityValidationTests
                 lastLogin,
                 QueryPlanComparisonOperator.NotEqual,
                 nullValue,
-                QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull),
+                QueryPlanNullSemantics.CSharpNullableComparison),
             nullCapture);
         var unsupportedInvocation = CreatePredicateInvocation(
             source,
@@ -1785,7 +1785,7 @@ public class QueryPlanCapabilityValidationTests
                 lastLogin,
                 QueryPlanComparisonOperator.Equal,
                 value,
-                QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull),
+                QueryPlanNullSemantics.CSharpNullableComparison),
             capture);
 
         var supported = QueryPlanCapabilityValidator.Validate(
@@ -1801,15 +1801,15 @@ public class QueryPlanCapabilityValidationTests
 
         await AssertRequirement(
             supported.Structural,
-            QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.NullableNotEqualColumnAndNonNullValue),
+            QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.CSharpNullableColumnAndScalar),
             "operations[0].predicate.shape",
             sourceId: "s0");
         await AssertRequirement(
             supportedNull.Structural,
-            QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.NullableNotEqualColumnAndNullValue),
+            QueryPlanFeature.ComparisonShape(QueryPlanComparisonShape.CSharpNullableColumnAndScalar),
             "operations[0].predicate.shape",
             sourceId: "s0");
-        await Assert.That(unsupported.Feature).IsEqualTo("ComparisonShape:UnsupportedNullableNotEqual");
+        await Assert.That(unsupported.Feature).IsEqualTo("ComparisonShape:UnsupportedCSharpNullableComparison");
         await Assert.That(unsupported.Location).IsEqualTo("operations[0].predicate.shape");
         await Assert.That(unsupported.SourceId).IsEqualTo("s0");
     }

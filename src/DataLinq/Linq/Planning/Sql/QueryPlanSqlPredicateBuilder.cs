@@ -10,6 +10,8 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
     QueryPlanSqlSourceMap sourceMap,
     QueryPlanSqlValueRenderer valueRenderer)
 {
+    private const char LikeEscapeCharacter = '!';
+
     public void Apply(QueryPlanPredicate predicate)
     {
         ArgumentNullException.ThrowIfNull(predicate);
@@ -90,20 +92,96 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
 
         var sqlOperator = ToSqlOperator(compare.Operator);
 
-        if (compare.NullSemantics == QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull &&
-            TryGetNullableColumnAndNonNullValue(left, right, out var nullableColumn, out var value) ||
-            compare.NullSemantics == QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull &&
-            TryGetNullableColumnAndNonNullValue(right, left, out nullableColumn, out value))
+        if (compare.NullSemantics == QueryPlanNullSemantics.CSharpNullableComparison)
         {
-            var orGroup = new WhereGroup<T>(query, BooleanType.Or);
-            group.AddSubGroup(orGroup, connectionType);
-            orGroup.AddWhere(new Comparison(nullableColumn, Operator.NotEqual, value), BooleanType.And);
-            AddNullComparison(orGroup, nullableColumn, isNotNull: false, BooleanType.Or);
+            ApplyCSharpNullableComparison(compare, left, right, sqlOperator, group, connectionType);
             return;
         }
 
         group.AddWhere(new Comparison(left, sqlOperator, right), connectionType);
     }
+
+    private void ApplyCSharpNullableComparison(
+        QueryPlanPredicate.Compare compare,
+        Operand left,
+        Operand right,
+        Operator sqlOperator,
+        WhereGroup<T> group,
+        BooleanType connectionType)
+    {
+        var leftAllowsNull = AllowsSqlNull(compare.Left, left);
+        var rightAllowsNull = AllowsSqlNull(compare.Right, right);
+        if (!leftAllowsNull && !rightAllowsNull)
+        {
+            throw new QueryTranslationException(
+                $"C# nullable comparison semantics were requested for non-nullable operands in '{compare.Operator}'.");
+        }
+
+        var orGroup = new WhereGroup<T>(query, BooleanType.Or);
+        group.AddSubGroup(orGroup, connectionType);
+        orGroup.AddWhere(new Comparison(left, sqlOperator, right), BooleanType.And);
+
+        switch (compare.Operator)
+        {
+            case QueryPlanComparisonOperator.Equal:
+                if (!leftAllowsNull || !rightAllowsNull)
+                {
+                    throw new QueryTranslationException(
+                        "C# nullable equality semantics require two nullable SQL operands.");
+                }
+
+                AddNullPair(orGroup, left, true, right, true, BooleanType.Or);
+                break;
+
+            case QueryPlanComparisonOperator.NotEqual:
+                if (leftAllowsNull && rightAllowsNull)
+                {
+                    AddNullPair(orGroup, left, true, right, false, BooleanType.Or);
+                    AddNullPair(orGroup, left, false, right, true, BooleanType.Or);
+                }
+                else
+                {
+                    AddNullComparison(
+                        orGroup,
+                        leftAllowsNull ? left : right,
+                        isNotNull: false,
+                        BooleanType.Or);
+                }
+                break;
+
+            case QueryPlanComparisonOperator.GreaterThan:
+            case QueryPlanComparisonOperator.GreaterThanOrEqual:
+            case QueryPlanComparisonOperator.LessThan:
+            case QueryPlanComparisonOperator.LessThanOrEqual:
+                if (leftAllowsNull)
+                    AddNullComparison(orGroup, left, isNotNull: false, BooleanType.Or);
+                if (rightAllowsNull)
+                    AddNullComparison(orGroup, right, isNotNull: false, BooleanType.Or);
+                break;
+
+            default:
+                throw new QueryTranslationException(
+                    $"Comparison operator '{compare.Operator}' does not define C# nullable SQL semantics.");
+        }
+    }
+
+    private void AddNullPair(
+        WhereGroup<T> group,
+        Operand left,
+        bool isLeftNull,
+        Operand right,
+        bool isRightNull,
+        BooleanType connectionType)
+    {
+        var andGroup = new WhereGroup<T>(query, BooleanType.And);
+        group.AddSubGroup(andGroup, connectionType);
+        AddNullComparison(andGroup, left, isNotNull: !isLeftNull, BooleanType.And);
+        AddNullComparison(andGroup, right, isNotNull: !isRightNull, BooleanType.And);
+    }
+
+    private static bool AllowsSqlNull(QueryPlanValue value, Operand operand)
+        => operand is ColumnOperandWithDefinition { ColumnDefinition.ValueProperty.CsNullable: true } ||
+           QueryPlanNullSemanticsResolver.IsNullableColumn(value);
 
     private static bool TryApplyNullComparison(
         QueryPlanComparisonOperator comparisonOperator,
@@ -349,15 +427,35 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
 
         var source = valueRenderer.RenderOperand(function.Arguments[0]);
         var value = valueRenderer.GetScalarValue(function.Arguments[1]);
+        var literal = value switch
+        {
+            string stringValue => stringValue,
+            char character => character.ToString(),
+            _ => throw new QueryTranslationException(
+                $"Query plan function '{function.Function}' requires a non-null string or char search value.")
+        };
+
+        var escapedLiteral = EscapeLikeLiteral(literal);
         var pattern = function.Function switch
         {
-            QueryPlanFunctionKind.StringStartsWith => string.Concat(value, "%"),
-            QueryPlanFunctionKind.StringEndsWith => string.Concat("%", value),
-            QueryPlanFunctionKind.StringContains => string.Concat("%", value, "%"),
+            QueryPlanFunctionKind.StringStartsWith => string.Concat(escapedLiteral, "%"),
+            QueryPlanFunctionKind.StringEndsWith => string.Concat("%", escapedLiteral),
+            QueryPlanFunctionKind.StringContains => string.Concat("%", escapedLiteral, "%"),
             _ => throw new QueryTranslationException($"Query plan function '{function.Function}' is not a LIKE predicate.")
         };
 
-        group.AddWhere(new Comparison(source, Operator.Like, Operand.Value(pattern)), connectionType);
+        group.AddWhere(
+            new Comparison(source, Operator.Like, Operand.EscapedLikePattern(pattern, LikeEscapeCharacter)),
+            connectionType);
+    }
+
+    private static string EscapeLikeLiteral(string literal)
+    {
+        var escape = LikeEscapeCharacter.ToString();
+        return literal
+            .Replace(escape, escape + escape, StringComparison.Ordinal)
+            .Replace("%", escape + "%", StringComparison.Ordinal)
+            .Replace("_", escape + "_", StringComparison.Ordinal);
     }
 
     private void ApplyStringNullOrEmptyFunction(QueryPlanFunctionValue function, WhereGroup<T> group, BooleanType connectionType)
@@ -378,26 +476,6 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
         group.AddSubGroup(orGroup, connectionType);
         orGroup.AddWhere(new Comparison(source, Operator.Equal, Operand.Value((object?)null)), BooleanType.And);
         orGroup.AddWhere(new Comparison(functionOperand, Operator.Equal, Operand.Value(checkValue)), BooleanType.Or);
-    }
-
-    private static bool TryGetNullableColumnAndNonNullValue(
-        Operand left,
-        Operand right,
-        out ColumnOperandWithDefinition columnOperand,
-        out ValueOperand valueOperand)
-    {
-        if (left is ColumnOperandWithDefinition column &&
-            column.ColumnDefinition.ValueProperty.CsNullable &&
-            right is ValueOperand { HasOneValue: true, IsNull: false } value)
-        {
-            columnOperand = column;
-            valueOperand = value;
-            return true;
-        }
-
-        columnOperand = null!;
-        valueOperand = null!;
-        return false;
     }
 
     private static Operator ToSqlOperator(QueryPlanComparisonOperator comparisonOperator) => comparisonOperator switch

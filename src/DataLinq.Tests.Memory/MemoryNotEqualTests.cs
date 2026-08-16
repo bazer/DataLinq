@@ -273,7 +273,7 @@ public sealed class MemoryNotEqualTests
                 .ToArray());
 
         await Assert.That(nullableComparison.Feature)
-            .IsEqualTo("NullSemantics:CSharpNullableNotEqualIncludesNull");
+            .IsEqualTo("NullSemantics:CSharpNullableComparison");
         await Assert.That(nullableComparison.Location)
             .IsEqualTo("operations[0].predicate.nullSemantics");
         await Assert.That(converted.Diagnostics).IsEqualTo(convertedBefore);

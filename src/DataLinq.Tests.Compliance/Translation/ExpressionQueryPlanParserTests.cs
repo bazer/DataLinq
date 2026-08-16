@@ -759,6 +759,99 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
+    public async Task ExpressionParser_LocalMethodEvaluationConvertsArgumentsBeforeInvocation()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_LocalMethodEvaluationConvertsArgumentsBeforeInvocation),
+            EmployeesSeedMode.Bogus);
+
+        var source = 257;
+        var probe = new LocalMethodProbe();
+        var query = databaseScope.Database.Query().Employees
+            .Where(x => x.emp_no == probe.GetEmployeeNumberFromOffset(unchecked((byte)source)));
+
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, query);
+        await Assert.That(probe.EmployeeNumberFromOffsetInvocationCount).IsEqualTo(1);
+        await Assert.That(probe.LastEmployeeNumberOffset).IsEqualTo((byte)1);
+    }
+
+    [Test]
+    public async Task ExpressionParser_LocalTopLevelUncheckedConversionExecutesWithConvertedValue()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_LocalTopLevelUncheckedConversionExecutesWithConvertedValue),
+            EmployeesSeedMode.Bogus);
+
+        var source = 17.9d;
+        var baseline = databaseScope.Database.Query().Managers
+            .Where(manager => manager.emp_no == 17)
+            .Select(manager => manager.emp_no)
+            .ToArray();
+        var actual = databaseScope.Database.Query().Managers
+            .Where(manager => manager.emp_no == unchecked((int)source))
+            .Select(manager => manager.emp_no)
+            .ToArray();
+
+        await Assert.That(baseline).IsEquivalentTo(new[] { 17 });
+        await Assert.That(actual).IsEquivalentTo(baseline);
+    }
+
+    [Test]
+    public async Task ExpressionParser_LocalTopLevelCheckedConversionThrowsBeforeExecution()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_LocalTopLevelCheckedConversionThrowsBeforeExecution),
+            EmployeesSeedMode.Bogus);
+
+        var source = long.MaxValue;
+        var query = databaseScope.Database.Query().Managers
+            .Where(manager => manager.emp_no == checked((int)source));
+
+        var exception = Capture<OverflowException>(() => query.ToArray());
+
+        await Assert.That(exception).IsNotNull();
+    }
+
+    [Test]
+    public async Task ExpressionParser_LocalMethodEvaluationEvaluatesReceiverFactoryExactlyOnce()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_LocalMethodEvaluationEvaluatesReceiverFactoryExactlyOnce),
+            EmployeesSeedMode.Bogus);
+
+        var probe = new LocalMethodProbe();
+        var query = databaseScope.Database.Query().Employees
+            .Where(x => x.emp_no == probe.GetReceiver().GetEmployeeNumber());
+
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, query);
+        await Assert.That(probe.ReceiverFactoryInvocationCount).IsEqualTo(1);
+        await Assert.That(probe.ReceiverEmployeeNumberInvocationCount).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task ExpressionParser_LocalMethodEvaluationSupportsUnaryNegationArguments()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_LocalMethodEvaluationSupportsUnaryNegationArguments),
+            EmployeesSeedMode.Bogus);
+
+        var days = 10;
+        var origin = new DateOnly(2000, 1, 20);
+        var query = databaseScope.Database.Query().Employees
+            .Where(employee => employee.birth_date > origin.AddDays(-days));
+
+        var invocation = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+        var scalar = invocation.Values.Items.OfType<QueryPlanInvocationValue.Scalar>().Single();
+
+        await Assert.That(scalar.Value).IsEqualTo(origin.AddDays(-days));
+    }
+
+    [Test]
     public async Task ExpressionParser_LocalMethodEvaluationStillRejectsQueryDependentMethods()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -1134,11 +1227,21 @@ public class ExpressionQueryPlanParserTests
 
     private sealed class LocalMethodProbe
     {
+        private readonly LocalMethodReceiver receiver = new();
+
         public int EmployeeNumberInvocationCount { get; private set; }
 
         public int EmployeeNumbersInvocationCount { get; private set; }
 
+        public int EmployeeNumberFromOffsetInvocationCount { get; private set; }
+
+        public byte LastEmployeeNumberOffset { get; private set; }
+
         public int IsEmployeeNumberInvocationCount { get; private set; }
+
+        public int ReceiverFactoryInvocationCount { get; private set; }
+
+        public int ReceiverEmployeeNumberInvocationCount => receiver.EmployeeNumberInvocationCount;
 
         public int GetEmployeeNumber()
         {
@@ -1152,10 +1255,34 @@ public class ExpressionQueryPlanParserTests
             return [10001, 10002];
         }
 
+        public int GetEmployeeNumberFromOffset(byte offset)
+        {
+            EmployeeNumberFromOffsetInvocationCount++;
+            LastEmployeeNumberOffset = offset;
+            return 10000 + offset;
+        }
+
+        public LocalMethodReceiver GetReceiver()
+        {
+            ReceiverFactoryInvocationCount++;
+            return receiver;
+        }
+
         public bool IsEmployeeNumber(int employeeNumber)
         {
             IsEmployeeNumberInvocationCount++;
             return employeeNumber == 10001;
+        }
+    }
+
+    private sealed class LocalMethodReceiver
+    {
+        public int EmployeeNumberInvocationCount { get; private set; }
+
+        public int GetEmployeeNumber()
+        {
+            EmployeeNumberInvocationCount++;
+            return 10001;
         }
     }
 }

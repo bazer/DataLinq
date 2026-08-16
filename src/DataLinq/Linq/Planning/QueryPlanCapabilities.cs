@@ -77,9 +77,9 @@ internal enum QueryPlanPredicatePolarity
 internal enum QueryPlanComparisonShape
 {
     DefaultNullSemantics,
-    NullableNotEqualColumnAndNullValue,
-    NullableNotEqualColumnAndNonNullValue,
-    UnsupportedNullableNotEqual,
+    CSharpNullableColumnAndScalar,
+    CSharpNullableColumnToColumn,
+    UnsupportedCSharpNullableComparison,
     DirectNonNullableInt32ColumnAndScalar,
     NonNullableCanonicalGuidColumnAndScalar
 }
@@ -819,7 +819,7 @@ internal sealed class QueryBackendCapabilities
                     ? QueryBackendCapabilityDisposition.Supported
                     : QueryBackendCapabilityDisposition.Unsupported,
             QueryPlanFeatureCategory.ComparisonShape =>
-                (QueryPlanComparisonShape)feature.Value != QueryPlanComparisonShape.UnsupportedNullableNotEqual
+                (QueryPlanComparisonShape)feature.Value != QueryPlanComparisonShape.UnsupportedCSharpNullableComparison
                     ? QueryBackendCapabilityDisposition.Supported
                     : QueryBackendCapabilityDisposition.Unsupported,
             QueryPlanFeatureCategory.MembershipShape => QueryBackendCapabilityDisposition.Supported,
