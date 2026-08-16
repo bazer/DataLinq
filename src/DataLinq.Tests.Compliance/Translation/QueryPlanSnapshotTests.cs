@@ -44,7 +44,7 @@ query-template v0
 sources:
   s0 root-table alias=t0 table=employees element=Employee cardinality=many nullable=false
 operations:
-  where and(compare(column(s0.emp_no:Int32) != convert(scalar-binding(p0:Int32) -> Int32?) nulls=c-sharp-nullable-comparison), not-in(column(s0.emp_no:Int32), local-sequence-binding(p1:Int32)))
+  where and(compare(column(s0.emp_no:Int32) != scalar-binding(p0:Int32?) nulls=c-sharp-nullable-comparison), not-in(column(s0.emp_no:Int32), local-sequence-binding(p1:Int32)))
   order-by column(s0.last_name:String) ascending, column(s0.emp_no:Int32) descending
   skip scalar-binding(p2:Int32)
   take scalar-binding(p3:Int32)
@@ -53,7 +53,7 @@ projection:
 result:
   sequence type=anonymous
 binding-declarations:
-  p0 scalar model=Int32 provider=Int32 allows-null=false
+  p0 scalar model=Int32? provider=Int32? allows-null=true
   p1 local-sequence model=Int32 provider=Int32 allows-null=false
   p2 scalar model=Int32 provider=Int32 allows-null=false
   p3 scalar model=Int32 provider=Int32 allows-null=false
@@ -758,7 +758,7 @@ specialization:
         await Assert.That(firstSnapshot).Contains("result:\n  first-or-default type=Employee");
         await Assert.That(lastSnapshot).Contains("result:\n  last type=Employee");
         await Assert.That(singleSnapshot).Contains("result:\n  single-or-default type=Employee");
-        await Assert.That(singleSnapshot).Contains("where compare(column(s0.emp_no:Int32) == convert(scalar-binding(p0:Int32) -> Int32?))");
+        await Assert.That(singleSnapshot).Contains("where compare(column(s0.emp_no:Int32) == scalar-binding(p0:Int32?))");
 
         await AssertNoLegacyParserTerms(countSnapshot);
         await AssertNoLegacyParserTerms(anySnapshot);

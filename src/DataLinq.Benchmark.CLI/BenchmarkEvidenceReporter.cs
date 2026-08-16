@@ -62,6 +62,25 @@ internal static class BenchmarkEvidenceReporter
                 "Memory repeated entity identity",
                 "Memory direct-Guid equality count",
                 "Memory typed-ID equality count"
+            ],
+            [BenchmarkHarnessRunner.AllocationRegressionCategory] =
+            [
+                "Provider initialization",
+                "Startup primary-key fetch",
+                "CRUD workflow small",
+                "CRUD workflow batch",
+                "Update employees",
+                "Cold primary-key fetch",
+                "Warm primary-key fetch",
+                "Cold relation traversal",
+                "Warm relation traversal"
+            ],
+            [BenchmarkHarnessRunner.AllocationStagesCategory] =
+            [
+                "Canonical provider-row decoding",
+                "Provider-row model materialization",
+                "Mutation state-change capture",
+                "Mutation execution preflight"
             ]
         };
 
@@ -71,6 +90,12 @@ internal static class BenchmarkEvidenceReporter
             ["Provider initialization"] = 1,
             ["Startup primary-key fetch"] = 1,
             ["Warm primary-key fetch"] = 1000,
+            ["CRUD workflow small"] = 50,
+            ["CRUD workflow batch"] = 300,
+            ["Update employees"] = 1000,
+            ["Cold primary-key fetch"] = 1000,
+            ["Cold relation traversal"] = 1000,
+            ["Warm relation traversal"] = 1000,
             ["Repeated non-PK equality fetch"] = 1000,
             ["Repeated IN predicate fetch"] = 1000,
             ["Repeated scalar Any"] = 1000,
@@ -88,7 +113,11 @@ internal static class BenchmarkEvidenceReporter
             ["Memory filter order page"] = 1,
             ["Memory repeated entity identity"] = 1,
             ["Memory direct-Guid equality count"] = 1,
-            ["Memory typed-ID equality count"] = 1
+            ["Memory typed-ID equality count"] = 1,
+            ["Canonical provider-row decoding"] = 1000,
+            ["Provider-row model materialization"] = 1000,
+            ["Mutation state-change capture"] = 1000,
+            ["Mutation execution preflight"] = 1000
         };
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -187,6 +216,9 @@ internal static class BenchmarkEvidenceReporter
     {
         if (string.Equals(selectedCategory, BenchmarkHarnessRunner.V09MemoryReadCategory, StringComparison.Ordinal))
             return ["memory"];
+
+        if (string.Equals(selectedCategory, BenchmarkHarnessRunner.AllocationRegressionCategory, StringComparison.Ordinal))
+            return ["sqlite-memory"];
 
         var providers = string.IsNullOrWhiteSpace(configured)
             ? new[] { "sqlite-file", "sqlite-memory" }
@@ -310,7 +342,9 @@ internal static class BenchmarkEvidenceReporter
             input.RunnerEvidence.End,
             input.RunnerEvidence.EntryAssembly,
             input.RunnerEvidence.DevToolsAssembly,
-            input.RunnerEvidence.BenchmarkAssembly);
+            input.RunnerEvidence.BenchmarkAssembly,
+            input.RunnerEvidence.BenchmarkTargetStart,
+            input.RunnerEvidence.BenchmarkTargetEnd);
         var validForEvidence = complete && artifactsComplete && exactTargetSet &&
                                canonicalInvocation &&
                                MetadataIsComplete(input.Metadata, input.Invocation, runnerRecomputed) &&
@@ -381,22 +415,30 @@ internal static class BenchmarkEvidenceReporter
         TestRunSummaryRepositoryState end,
         TestRunSummaryRunnerAssembly entryAssembly,
         TestRunSummaryRunnerAssembly devToolsAssembly,
-        BenchmarkAssemblyEvidence benchmarkAssembly)
+        BenchmarkAssemblyEvidence benchmarkAssembly,
+        TestRunSummaryRepositoryState? benchmarkTargetStart = null,
+        TestRunSummaryRepositoryState? benchmarkTargetEnd = null)
     {
-        var changed = !start.Captured || !end.Captured ||
-                      !string.Equals(start.Commit, end.Commit, StringComparison.Ordinal) ||
-                      !string.Equals(start.Branch, end.Branch, StringComparison.Ordinal) ||
-                      start.Dirty != end.Dirty ||
-                      !string.Equals(start.StatusSha256, end.StatusSha256, StringComparison.Ordinal);
-        var commit = start.Commit;
-        var assembliesMatch = IsCleanAssemblyIdentity(entryAssembly, "DataLinq.Benchmark.CLI", commit) &&
-                              IsCleanAssemblyIdentity(devToolsAssembly, "DataLinq.DevTools", commit) &&
-                              IsCleanAssemblyIdentity(benchmarkAssembly.Identity, "DataLinq.Benchmark", commit);
+        var toolingChanged = RepositoryStateChanged(start, end);
+        var targetStart = benchmarkTargetStart ?? start;
+        var targetEnd = benchmarkTargetEnd ?? end;
+        var targetChanged = RepositoryStateChanged(targetStart, targetEnd);
+        var changed = toolingChanged || targetChanged;
+        var toolingCommit = start.Commit;
+        var targetCommit = targetStart.Commit;
+        var toolingAssembliesMatch = IsCleanAssemblyIdentity(entryAssembly, "DataLinq.Benchmark.CLI", toolingCommit) &&
+                                     IsCleanAssemblyIdentity(devToolsAssembly, "DataLinq.DevTools", toolingCommit);
+        var benchmarkAssemblyMatchesTarget = IsCleanAssemblyIdentity(
+            benchmarkAssembly.Identity,
+            "DataLinq.Benchmark",
+            targetCommit);
+        var assembliesMatch = toolingAssembliesMatch && benchmarkAssemblyMatchesTarget;
         var builtClean = string.Equals(entryAssembly.RepositoryBuildState, "clean", StringComparison.Ordinal) &&
                          string.Equals(devToolsAssembly.RepositoryBuildState, "clean", StringComparison.Ordinal) &&
                          string.Equals(benchmarkAssembly.Identity.RepositoryBuildState, "clean", StringComparison.Ordinal);
-        var valid = start.Captured && end.Captured && !start.Dirty && !end.Dirty && !changed &&
-                    assembliesMatch && builtClean && IsFullCommit(commit) &&
+        var valid = start.Captured && end.Captured && targetStart.Captured && targetEnd.Captured &&
+                    !start.Dirty && !end.Dirty && !targetStart.Dirty && !targetEnd.Dirty && !changed &&
+                    assembliesMatch && builtClean && IsFullCommit(toolingCommit) && IsFullCommit(targetCommit) &&
                     benchmarkAssembly.Sha256.Length == 64;
         return new BenchmarkRunnerEvidence(
             start,
@@ -407,8 +449,23 @@ internal static class BenchmarkEvidenceReporter
             changed,
             assembliesMatch,
             builtClean,
-            valid);
+            valid)
+        {
+            BenchmarkTargetStart = benchmarkTargetStart,
+            BenchmarkTargetEnd = benchmarkTargetEnd,
+            BenchmarkTargetStateChangedDuringRun = targetChanged,
+            BenchmarkAssemblyMatchesTarget = benchmarkAssemblyMatchesTarget
+        };
     }
+
+    private static bool RepositoryStateChanged(
+        TestRunSummaryRepositoryState start,
+        TestRunSummaryRepositoryState end) =>
+        !start.Captured || !end.Captured ||
+                      !string.Equals(start.Commit, end.Commit, StringComparison.Ordinal) ||
+                      !string.Equals(start.Branch, end.Branch, StringComparison.Ordinal) ||
+                      start.Dirty != end.Dirty ||
+                      !string.Equals(start.StatusSha256, end.StatusSha256, StringComparison.Ordinal);
 
     public static BenchmarkAssemblyEvidence CaptureAssemblyEvidence(string assemblyPath)
     {
@@ -848,7 +905,9 @@ internal static class BenchmarkEvidenceReporter
             runner.End,
             runner.EntryAssembly,
             runner.DevToolsAssembly,
-            runner.BenchmarkAssembly);
+            runner.BenchmarkAssembly,
+            runner.BenchmarkTargetStart,
+            runner.BenchmarkTargetEnd);
         return artifact.ValidForEvidence &&
                artifact.IsCompleteForInvocation &&
                artifact.ArtifactsComplete &&
@@ -1055,17 +1114,20 @@ internal static class BenchmarkEvidenceReporter
     private static bool MetadataIsComplete(
         BenchmarkRunMetadata metadata,
         BenchmarkInvocation invocation,
-        BenchmarkRunnerEvidence runner) =>
-        string.Equals(metadata.Profile, invocation.Profile, StringComparison.Ordinal) &&
-        string.Equals(metadata.Filter, invocation.Filter, StringComparison.Ordinal) &&
-        string.Equals(metadata.Commit, runner.Start.Commit, StringComparison.Ordinal) &&
-        string.Equals(metadata.Branch, runner.Start.Branch, StringComparison.Ordinal) &&
-        IsBoundedIdentity(metadata.RunnerOs) &&
-        IsBoundedIdentity(metadata.RunnerArchitecture) &&
-        IsBoundedIdentity(metadata.RuntimeDescription) &&
-        IsBoundedIdentity(metadata.ProcessorIdentifier) &&
-        IsBoundedIdentity(metadata.BenchmarkDotNetVersion) &&
-        metadata.ProcessorCount > 0;
+        BenchmarkRunnerEvidence runner)
+    {
+        var target = runner.BenchmarkTargetStart ?? runner.Start;
+        return string.Equals(metadata.Profile, invocation.Profile, StringComparison.Ordinal) &&
+               string.Equals(metadata.Filter, invocation.Filter, StringComparison.Ordinal) &&
+               string.Equals(metadata.Commit, target.Commit, StringComparison.Ordinal) &&
+               string.Equals(metadata.Branch, target.Branch, StringComparison.Ordinal) &&
+               IsBoundedIdentity(metadata.RunnerOs) &&
+               IsBoundedIdentity(metadata.RunnerArchitecture) &&
+               IsBoundedIdentity(metadata.RuntimeDescription) &&
+               IsBoundedIdentity(metadata.ProcessorIdentifier) &&
+               IsBoundedIdentity(metadata.BenchmarkDotNetVersion) &&
+               metadata.ProcessorCount > 0;
+    }
 
     private static bool RowsHaveCompatibleScope(
         BenchmarkHistoryArtifactRow baseline,
@@ -1179,6 +1241,9 @@ internal static class BenchmarkEvidenceReporter
         if (string.Equals(invocation.SelectedCategory, BenchmarkHarnessRunner.V09MemoryReadCategory, StringComparison.Ordinal))
             return invocation.ConfiguredProviderIds.SequenceEqual(["memory"], StringComparer.Ordinal);
 
+        if (string.Equals(invocation.SelectedCategory, BenchmarkHarnessRunner.AllocationRegressionCategory, StringComparison.Ordinal))
+            return invocation.ConfiguredProviderIds.SequenceEqual(["sqlite-memory"], StringComparer.Ordinal);
+
         return invocation.ConfiguredProviderIds.SequenceEqual(
             new[] { "sqlite-file", "sqlite-memory" },
             StringComparer.Ordinal);
@@ -1224,9 +1289,24 @@ internal static class BenchmarkEvidenceReporter
         {
             var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repositoryRoot));
             var artifactRoot = GetArtifactRoot(root);
-            var expectedProject = Path.Combine(root, "src", "DataLinq.Benchmark", "DataLinq.Benchmark.csproj");
+            var benchmarkTargetRoot = invocation.BenchmarkTargetRepositoryRoot is null
+                ? root
+                : Path.TrimEndingDirectorySeparator(Path.GetFullPath(invocation.BenchmarkTargetRepositoryRoot));
+            var targetRootIsValid = invocation.BenchmarkTargetRepositoryRoot is null ||
+                                    Path.IsPathFullyQualified(invocation.BenchmarkTargetRepositoryRoot) &&
+                                    IsSafeDirectory(
+                                        benchmarkTargetRoot,
+                                        Path.Combine(artifactRoot, "benchmarks", "targets"));
+            var compatibilityFilesAreValid = invocation.BenchmarkTargetRepositoryRoot is null ||
+                IsRepositoryFile(
+                    Path.Combine(root, "src", "DataLinq.Benchmark.CLI", "BenchmarkTargetProvenance.targets"),
+                    root) &&
+                IsRepositoryFile(
+                    Path.Combine(root, "src", "DataLinq.Benchmark.CLI", "HistoricalBenchmarkConfig.cs.txt"),
+                    root);
+            var expectedProject = Path.Combine(benchmarkTargetRoot, "src", "DataLinq.Benchmark", "DataLinq.Benchmark.csproj");
             var expectedAssembly = Path.Combine(
-                root,
+                benchmarkTargetRoot,
                 "src",
                 "DataLinq.Benchmark",
                 "bin",
@@ -1239,12 +1319,14 @@ internal static class BenchmarkEvidenceReporter
                 !Path.IsPathFullyQualified(invocation.BenchmarkAssemblyPath) ||
                 !Path.IsPathFullyQualified(invocation.RunArtifactsDirectory) ||
                 !PathsEqual(invocation.RepositoryRoot, root) ||
+                !targetRootIsValid ||
+                !compatibilityFilesAreValid ||
                 !PathsEqual(invocation.BenchmarkProjectPath, expectedProject) ||
                 !PathsEqual(invocation.BenchmarkAssemblyPath, expectedAssembly) ||
                 !PathsEqual(invocation.RunArtifactsDirectory, expectedRunDirectory) ||
                 !PathsEqual(benchmarkAssembly.Path, invocation.BenchmarkAssemblyPath) ||
-                !IsRepositoryFile(expectedProject, root) ||
-                requireCurrentBenchmarkAssembly && !IsRepositoryFile(expectedAssembly, root) ||
+                !IsRepositoryFile(expectedProject, benchmarkTargetRoot) ||
+                requireCurrentBenchmarkAssembly && !IsRepositoryFile(expectedAssembly, benchmarkTargetRoot) ||
                 !IsSafeDirectory(expectedRunDirectory, artifactRoot) ||
                 invocation.HistoryJsonPath is null ||
                 !IsArtifactOutputPath(invocation.HistoryJsonPath, artifactRoot) ||
@@ -1307,6 +1389,9 @@ internal static class BenchmarkEvidenceReporter
         recorded.StateChangedDuringRun == recomputed.StateChangedDuringRun &&
         recorded.AssembliesMatchCheckout == recomputed.AssembliesMatchCheckout &&
         recorded.AssembliesBuiltFromCleanState == recomputed.AssembliesBuiltFromCleanState &&
+        (recorded.BenchmarkTargetStart is null ||
+         recorded.BenchmarkTargetStateChangedDuringRun == recomputed.BenchmarkTargetStateChangedDuringRun &&
+         recorded.BenchmarkAssemblyMatchesTarget == recomputed.BenchmarkAssemblyMatchesTarget) &&
         recorded.ValidForEvidence == recomputed.ValidForEvidence;
 
     private static IReadOnlyList<BenchmarkWarning> BuildHistoryWarnings(
@@ -1421,8 +1506,7 @@ internal static class BenchmarkEvidenceReporter
         };
         if (invocation.KeepFiles)
             benchmarkArguments.Add("--keepFiles");
-        if (invocation.SelectedCategory is not null)
-            benchmarkArguments.AddRange(["--anyCategories", invocation.SelectedCategory]);
+        benchmarkArguments.AddRange(BenchmarkHarnessRunner.GetBenchmarkCategoryArguments(invocation.SelectedCategory));
         benchmarkArguments.AddRange(invocation.AdditionalArguments);
 
         var benchmark = commands[^1];
@@ -1453,7 +1537,7 @@ internal static class BenchmarkEvidenceReporter
             verbosity,
             "-p:NuGetAudit=false"
         };
-        var expectedBuildArguments = new[]
+        var expectedBuildArguments = new List<string>
         {
             "build",
             invocation.BenchmarkProjectPath,
@@ -1467,6 +1551,20 @@ internal static class BenchmarkEvidenceReporter
             verbosity,
             "-p:NuGetAudit=false"
         };
+        if (invocation.BenchmarkTargetRepositoryRoot is not null)
+        {
+            expectedBuildArguments.Add($"-p:CustomAfterMicrosoftCommonTargets={Path.Combine(
+                invocation.RepositoryRoot,
+                "src",
+                "DataLinq.Benchmark.CLI",
+                "BenchmarkTargetProvenance.targets")}");
+            expectedBuildArguments.Add($"-p:DataLinqBenchmarkTargetRepositoryRoot={invocation.BenchmarkTargetRepositoryRoot}");
+            expectedBuildArguments.Add($"-p:DataLinqBenchmarkCompatibilitySource={Path.Combine(
+                invocation.RepositoryRoot,
+                "src",
+                "DataLinq.Benchmark.CLI",
+                "HistoricalBenchmarkConfig.cs.txt")}");
+        }
         return string.Equals(commands[0].Stage, "restore", StringComparison.Ordinal) &&
                commands[0].Arguments.SequenceEqual(expectedRestoreArguments, StringComparer.Ordinal) &&
                PathsEqual(commands[0].WorkingDirectory, invocation.RepositoryRoot) &&

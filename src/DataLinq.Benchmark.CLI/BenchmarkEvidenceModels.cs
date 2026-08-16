@@ -60,7 +60,10 @@ internal sealed record BenchmarkInvocation(
     string? BaselinePath,
     string? ComparisonJsonPath,
     double WarningThresholdPercent,
-    bool ReleaseEvidenceIntent);
+    bool ReleaseEvidenceIntent)
+{
+    public string? BenchmarkTargetRepositoryRoot { get; init; }
+}
 
 internal sealed record BenchmarkCommandEnvironment(
     string? Profile,
@@ -135,7 +138,13 @@ internal sealed record BenchmarkRunnerEvidence(
     bool StateChangedDuringRun,
     bool AssembliesMatchCheckout,
     bool AssembliesBuiltFromCleanState,
-    bool ValidForEvidence);
+    bool ValidForEvidence)
+{
+    public TestRunSummaryRepositoryState? BenchmarkTargetStart { get; init; }
+    public TestRunSummaryRepositoryState? BenchmarkTargetEnd { get; init; }
+    public bool BenchmarkTargetStateChangedDuringRun { get; init; }
+    public bool BenchmarkAssemblyMatchesTarget { get; init; }
+}
 
 internal sealed record BenchmarkTelemetryDeltaArtifact(
     string Method,

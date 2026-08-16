@@ -1,4 +1,3 @@
-using System;
 using System.CommandLine;
 using System.Threading.Tasks;
 
@@ -17,7 +16,6 @@ internal static class Program
         if (args.Length == 0)
             args = ["run"];
 
-        var exitCode = await rootCommand.Parse(args).InvokeAsync();
-        return Environment.ExitCode != 0 ? Environment.ExitCode : exitCode;
+        return await rootCommand.Parse(args).InvokeAsync();
     }
 }

@@ -34,6 +34,8 @@ internal sealed class BenchmarkHarnessRunner
     internal const string Phase12CacheMemoryCategory = "phase12-cache-memory";
     internal const string V09QueryBackendCategory = "v0.9-query-backend";
     internal const string V09MemoryReadCategory = "v0.9-memory-read";
+    internal const string AllocationRegressionCategory = "allocation-regression";
+    internal const string AllocationStagesCategory = "allocation-stages";
     internal const string MacroReadWriteCategory = "macro-readwrite";
     internal const string MacroBulkCategory = "macro-bulk";
     private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
@@ -94,6 +96,8 @@ internal sealed class BenchmarkHarnessRunner
         bool phase12CacheMemory,
         bool v09QueryBackend,
         bool v09MemoryRead,
+        bool allocationRegression,
+        bool allocationStages,
         string? historyJsonPath,
         string? baselinePath,
         string? comparisonJsonPath,
@@ -118,7 +122,9 @@ internal sealed class BenchmarkHarnessRunner
             phase11CacheInvalidation,
             phase12CacheMemory,
             v09QueryBackend,
-            v09MemoryRead);
+            v09MemoryRead,
+            allocationRegression,
+            allocationStages);
         if (!IsSupportedProfile(profile))
             throw new InvalidOperationException("The benchmark profile must be 'default', 'heavy', or 'smoke'.");
         var normalizedProfile = profile.Trim().ToLowerInvariant();
@@ -151,6 +157,9 @@ internal sealed class BenchmarkHarnessRunner
         var resultsDirectory = Path.Combine(runDirectory, "results");
         var startedAtUtc = DateTime.UtcNow;
         var repositoryStart = TestRunSummaryReporter.CaptureRepositoryState(settings.RepositoryRoot);
+        var benchmarkTargetStart = settings.UsesExternalBenchmarkTarget
+            ? TestRunSummaryReporter.CaptureRepositoryState(settings.BenchmarkTargetRepositoryRoot)
+            : repositoryStart;
         var commands = new List<BenchmarkCommandRecord>();
         var warnings = new List<BenchmarkWarning>();
         SummaryResult? summaryResult = null;
@@ -177,7 +186,12 @@ internal sealed class BenchmarkHarnessRunner
             paths.BaselinePath,
             paths.ComparisonJsonPath,
             warningThresholdPercent,
-            releaseEvidenceIntent);
+            releaseEvidenceIntent)
+        {
+            BenchmarkTargetRepositoryRoot = settings.UsesExternalBenchmarkTarget
+                ? Path.GetFullPath(settings.BenchmarkTargetRepositoryRoot)
+                : null
+        };
 
         try
         {
@@ -199,8 +213,7 @@ internal sealed class BenchmarkHarnessRunner
             };
             if (keepFiles)
                 arguments.Add("--keepFiles");
-            if (selectedCategory is not null)
-                arguments.AddRange(["--anyCategories", selectedCategory]);
+            arguments.AddRange(GetBenchmarkCategoryArguments(selectedCategory));
             arguments.AddRange(additionalArgs);
 
             var benchmarkEnvironment = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
@@ -246,9 +259,11 @@ internal sealed class BenchmarkHarnessRunner
                 normalizedProfile,
                 normalizedFilter,
                 processorIdentifier,
-                benchmarkDotNetVersion);
+                benchmarkDotNetVersion,
+                selectedCategory,
+                benchmarkTargetStart);
             var completedAtUtc = DateTime.UtcNow;
-            var runnerEvidence = CaptureRunnerEvidence(repositoryStart);
+            var runnerEvidence = CaptureRunnerEvidence(repositoryStart, benchmarkTargetStart);
             var historyArtifact = BenchmarkEvidenceReporter.CreateHistory(new BenchmarkHistoryCreationInput(
                 runId,
                 startedAtUtc,
@@ -256,7 +271,7 @@ internal sealed class BenchmarkHarnessRunner
                 CreateRunMetadata(
                     normalizedProfile,
                     normalizedFilter,
-                    repositoryStart,
+                    benchmarkTargetStart,
                     processorIdentifier,
                     benchmarkDotNetVersion),
                 invocation,
@@ -308,9 +323,7 @@ internal sealed class BenchmarkHarnessRunner
             }
 
             WriteArtifacts(summaryResult, paths.HistoryJsonPath, paths.ComparisonJsonPath);
-            if (historyArtifact.OverallExitCode != 0 ||
-                comparisonArtifact?.OverallExitCode != 0 ||
-                releaseEvidenceIntent && !historyArtifact.ValidForEvidence)
+            if (ShouldFailRun(historyArtifact, comparisonArtifact, releaseEvidenceIntent))
             {
                 return 1;
             }
@@ -319,7 +332,7 @@ internal sealed class BenchmarkHarnessRunner
         catch (Exception exception)
         {
             var completedAtUtc = DateTime.UtcNow;
-            var runnerEvidence = CaptureRunnerEvidence(repositoryStart);
+            var runnerEvidence = CaptureRunnerEvidence(repositoryStart, benchmarkTargetStart);
             var failure = new BenchmarkFailure(
                 stage,
                 exception.GetType().FullName ?? exception.GetType().Name,
@@ -344,7 +357,7 @@ internal sealed class BenchmarkHarnessRunner
                         CreateRunMetadata(
                             normalizedProfile,
                             normalizedFilter,
-                            repositoryStart,
+                            benchmarkTargetStart,
                             processorIdentifier,
                             benchmarkDotNetVersion),
                         invocation,
@@ -425,7 +438,7 @@ internal sealed class BenchmarkHarnessRunner
             throw new InvalidOperationException("Benchmark harness restore failed.");
 
         Console.WriteLine("Building benchmark harness...");
-        var buildArguments = new[]
+        var buildArguments = new List<string>
         {
             "build",
             settings.BenchmarkProjectPath,
@@ -439,6 +452,20 @@ internal sealed class BenchmarkHarnessRunner
             verbose ? "minimal" : "q",
             "-p:NuGetAudit=false"
         };
+        if (settings.UsesExternalBenchmarkTarget)
+        {
+            buildArguments.Add($"-p:CustomAfterMicrosoftCommonTargets={Path.Combine(
+                settings.RepositoryRoot,
+                "src",
+                "DataLinq.Benchmark.CLI",
+                "BenchmarkTargetProvenance.targets")}");
+            buildArguments.Add($"-p:DataLinqBenchmarkTargetRepositoryRoot={settings.BenchmarkTargetRepositoryRoot}");
+            buildArguments.Add($"-p:DataLinqBenchmarkCompatibilitySource={Path.Combine(
+                settings.RepositoryRoot,
+                "src",
+                "DataLinq.Benchmark.CLI",
+                "HistoricalBenchmarkConfig.cs.txt")}");
+        }
 
         var build = ExecuteRecordedDotnet(
             "build",
@@ -604,7 +631,9 @@ internal sealed class BenchmarkHarnessRunner
         string profile,
         string filter,
         string? processorIdentifier,
-        string? benchmarkDotNetVersion)
+        string? benchmarkDotNetVersion,
+        string? selectedCategory,
+        TestRunSummaryRepositoryState benchmarkTargetState)
     {
         var resultsDirectory = Path.Combine(runDirectory, "results");
         if (!Directory.Exists(resultsDirectory))
@@ -697,7 +726,9 @@ internal sealed class BenchmarkHarnessRunner
             filter,
             mergedRows,
             processorIdentifier,
-            benchmarkDotNetVersion);
+            benchmarkDotNetVersion,
+            selectedCategory,
+            benchmarkTargetState);
         var jsonPath = WriteSummaryArtifact(resultsDirectory, artifact);
         var historyRows = artifact.Rows.Select(static row => new BenchmarkHistoryArtifactRow(
             row.Method,
@@ -975,7 +1006,9 @@ internal sealed class BenchmarkHarnessRunner
         string filter,
         IReadOnlyList<MergedBenchmarkSummaryRow> rows,
         string? processorIdentifier,
-        string? benchmarkDotNetVersion)
+        string? benchmarkDotNetVersion,
+        string? selectedCategory,
+        TestRunSummaryRepositoryState benchmarkTargetState)
     {
         return new BenchmarkSummaryArtifact(
             RunId: runId,
@@ -983,9 +1016,10 @@ internal sealed class BenchmarkHarnessRunner
             Metadata: CreateRunMetadata(
                 profile,
                 filter,
+                benchmarkTargetState,
                 processorIdentifier,
                 benchmarkDotNetVersion),
-            Rows: rows.Select(static row => new BenchmarkSummaryArtifactRow(
+            Rows: rows.Select(row => new BenchmarkSummaryArtifactRow(
                 Method: row.Method,
                 ProviderName: row.ProviderName,
                 Category: GetScenarioCategory(row.Method),
@@ -1008,7 +1042,7 @@ internal sealed class BenchmarkHarnessRunner
                 UncertaintyPercent: GetRelativeError(row.MeanMicroseconds, row.ErrorMicroseconds) is double uncertainty ? uncertainty * 100d : null,
                 StdDevPercent: GetRelativeError(row.MeanMicroseconds, row.StdDevMicroseconds) is double stdDevRelative ? stdDevRelative * 100d : null,
                 OperationsPerInvoke: row.TelemetryDelta?.OperationsPerInvoke,
-                TrackingGroup: GetTrackingGroup(row.Method),
+                TrackingGroup: GetTrackingGroup(row.Method, selectedCategory),
                 TelemetryDelta: row.TelemetryDelta)).ToArray());
     }
 
@@ -1235,9 +1269,14 @@ internal sealed class BenchmarkHarnessRunner
     private static string NormalizeBenchmarkProfile(string? profile) =>
         string.IsNullOrWhiteSpace(profile) ? "default" : profile.Trim();
 
-    private BenchmarkRunnerEvidence CaptureRunnerEvidence(TestRunSummaryRepositoryState start)
+    private BenchmarkRunnerEvidence CaptureRunnerEvidence(
+        TestRunSummaryRepositoryState start,
+        TestRunSummaryRepositoryState benchmarkTargetStart)
     {
         var end = TestRunSummaryReporter.CaptureRepositoryState(settings.RepositoryRoot);
+        var benchmarkTargetEnd = settings.UsesExternalBenchmarkTarget
+            ? TestRunSummaryReporter.CaptureRepositoryState(settings.BenchmarkTargetRepositoryRoot)
+            : end;
         var assemblies = TestRunSummaryReporter.CaptureRunnerAssemblies();
         var benchmarkAssembly = BenchmarkEvidenceReporter.CaptureAssemblyEvidence(settings.BenchmarkAssemblyPath);
         return BenchmarkEvidenceReporter.EvaluateRunnerEvidence(
@@ -1245,7 +1284,9 @@ internal sealed class BenchmarkHarnessRunner
             end,
             assemblies.EntryAssembly,
             assemblies.DevToolsAssembly,
-            benchmarkAssembly);
+            benchmarkAssembly,
+            benchmarkTargetStart,
+            benchmarkTargetEnd);
     }
 
     private BenchmarkArtifactPaths CreateArtifactPaths(
@@ -1300,7 +1341,9 @@ internal sealed class BenchmarkHarnessRunner
         bool phase11CacheInvalidation,
         bool phase12CacheMemory,
         bool v09QueryBackend,
-        bool v09MemoryRead)
+        bool v09MemoryRead,
+        bool allocationRegression,
+        bool allocationStages)
     {
         var selectedCategories = new[]
         {
@@ -1310,7 +1353,9 @@ internal sealed class BenchmarkHarnessRunner
             (Selected: phase11CacheInvalidation, Category: Phase11CacheInvalidationCategory),
             (Selected: phase12CacheMemory, Category: Phase12CacheMemoryCategory),
             (Selected: v09QueryBackend, Category: V09QueryBackendCategory),
-            (Selected: v09MemoryRead, Category: V09MemoryReadCategory)
+            (Selected: v09MemoryRead, Category: V09MemoryReadCategory),
+            (Selected: allocationRegression, Category: AllocationRegressionCategory),
+            (Selected: allocationStages, Category: AllocationStagesCategory)
         }
         .Where(static selection => selection.Selected)
         .Select(static selection => selection.Category)
@@ -1319,7 +1364,7 @@ internal sealed class BenchmarkHarnessRunner
         if (selectedCategories.Length > 1)
         {
             throw new InvalidOperationException(
-                "Benchmark category options '--phase2-watch', '--phase3-query-hotpath', '--phase10-key-foundation', '--phase11-cache-invalidation', '--phase12-cache-memory', '--v09-query-backend', and '--v09-memory-read' cannot be combined.");
+                "Benchmark category options '--phase2-watch', '--phase3-query-hotpath', '--phase10-key-foundation', '--phase11-cache-invalidation', '--phase12-cache-memory', '--v09-query-backend', '--v09-memory-read', '--allocation-regression', and '--allocation-stages' cannot be combined.");
         }
 
         return selectedCategories.SingleOrDefault();
@@ -1355,6 +1400,10 @@ internal sealed class BenchmarkHarnessRunner
             "Invocation bind scalar/local sequence" => V09QueryBackendCategory,
             "SQL request/capability preparation" => V09QueryBackendCategory,
             "SQL adapter scalar Any" => V09QueryBackendCategory,
+            "Canonical provider-row decoding" => AllocationStagesCategory,
+            "Provider-row model materialization" => AllocationStagesCategory,
+            "Mutation state-change capture" => AllocationStagesCategory,
+            "Mutation execution preflight" => AllocationStagesCategory,
             "Memory database construction" => V09MemoryReadCategory,
             "Memory construct and seed" => V09MemoryReadCategory,
             "Memory primary-key hit" => V09MemoryReadCategory,
@@ -1366,6 +1415,40 @@ internal sealed class BenchmarkHarnessRunner
             "Memory typed-ID equality count" => V09MemoryReadCategory,
             _ => null
         };
+
+    internal static string? GetTrackingGroup(string? method, string? selectedCategory)
+    {
+        if (string.Equals(selectedCategory, AllocationRegressionCategory, StringComparison.Ordinal) &&
+            method is "Provider initialization" or
+                "Startup primary-key fetch" or
+                "CRUD workflow small" or
+                "CRUD workflow batch" or
+                "Update employees" or
+                "Cold primary-key fetch" or
+                "Warm primary-key fetch" or
+                "Cold relation traversal" or
+                "Warm relation traversal")
+        {
+            return AllocationRegressionCategory;
+        }
+
+        return GetTrackingGroup(method);
+    }
+
+    internal static IReadOnlyList<string> GetBenchmarkCategoryArguments(string? selectedCategory) =>
+        string.Equals(selectedCategory, AllocationRegressionCategory, StringComparison.Ordinal)
+            ? ["--anyCategories", "stable", MacroReadWriteCategory, MacroBulkCategory]
+            : selectedCategory is null
+                ? []
+                : ["--anyCategories", selectedCategory];
+
+    internal static bool ShouldFailRun(
+        BenchmarkHistoryArtifact history,
+        BenchmarkComparisonArtifact? comparison,
+        bool releaseEvidenceIntent) =>
+        history.OverallExitCode != 0 ||
+        comparison is not null && comparison.OverallExitCode != 0 ||
+        releaseEvidenceIntent && !history.ValidForEvidence;
 
     internal static string GetScenarioCategory(string method)
         => method switch
@@ -1395,6 +1478,10 @@ internal sealed class BenchmarkHarnessRunner
             "Invocation bind scalar/local sequence" => "query-binding",
             "SQL request/capability preparation" => "sql-adapter",
             "SQL adapter scalar Any" => "sql-adapter",
+            "Canonical provider-row decoding" => "row-decoding",
+            "Provider-row model materialization" => "row-materialization",
+            "Mutation state-change capture" => "mutation-capture",
+            "Mutation execution preflight" => "mutation-preflight",
             "Memory database construction" => "memory-startup",
             "Memory construct and seed" => "memory-seed",
             "Memory primary-key hit" => "memory-primary-key",

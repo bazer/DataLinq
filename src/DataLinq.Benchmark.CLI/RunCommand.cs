@@ -21,6 +21,10 @@ internal static class RunCommand
         {
             Description = "Skips restore/build and uses the existing benchmark assembly."
         };
+        var benchmarkTargetRootOption = new Option<string?>("--benchmark-target-root")
+        {
+            Description = "Optional clean historical DataLinq worktree beneath artifacts/benchmarks/targets whose benchmark runtime should be built and measured."
+        };
         var keepFilesOption = new Option<bool>("--keep-files")
         {
             Description = "Preserves BenchmarkDotNet-generated temporary files."
@@ -57,6 +61,14 @@ internal static class RunCommand
         {
             Description = $"Runs only the {BenchmarkHarnessRunner.V09MemoryReadCategory} benchmark category."
         };
+        var allocationRegressionOption = new Option<bool>("--allocation-regression")
+        {
+            Description = $"Runs the {BenchmarkHarnessRunner.AllocationRegressionCategory} stable allocation comparison lane."
+        };
+        var allocationStagesOption = new Option<bool>("--allocation-stages")
+        {
+            Description = $"Runs the {BenchmarkHarnessRunner.AllocationStagesCategory} attribution microbenchmarks."
+        };
         var historyJsonOption = new Option<string?>("--history-json")
         {
             Description = "Optional output path for a stable benchmark history entry JSON artifact."
@@ -88,6 +100,7 @@ internal static class RunCommand
         command.Options.Add(filterOption);
         command.Options.Add(profileOption);
         command.Options.Add(noBuildOption);
+        command.Options.Add(benchmarkTargetRootOption);
         command.Options.Add(keepFilesOption);
         command.Options.Add(verboseOption);
         command.Options.Add(phase2WatchOption);
@@ -97,6 +110,8 @@ internal static class RunCommand
         command.Options.Add(phase12CacheMemoryOption);
         command.Options.Add(v09QueryBackendOption);
         command.Options.Add(v09MemoryReadOption);
+        command.Options.Add(allocationRegressionOption);
+        command.Options.Add(allocationStagesOption);
         command.Options.Add(historyJsonOption);
         command.Options.Add(baselineOption);
         command.Options.Add(comparisonJsonOption);
@@ -106,8 +121,9 @@ internal static class RunCommand
 
         command.SetAction(parseResult =>
         {
-            var runner = new BenchmarkHarnessRunner(settings);
-            var exitCode = runner.Run(
+            var runner = new BenchmarkHarnessRunner(settings.WithBenchmarkTargetRoot(
+                parseResult.GetValue(benchmarkTargetRootOption)));
+            return runner.Run(
                 parseResult.GetValue(filterOption) ?? "*",
                 parseResult.GetValue(profileOption) ?? "default",
                 parseResult.GetValue(noBuildOption),
@@ -120,14 +136,14 @@ internal static class RunCommand
                 parseResult.GetValue(phase12CacheMemoryOption),
                 parseResult.GetValue(v09QueryBackendOption),
                 parseResult.GetValue(v09MemoryReadOption),
+                parseResult.GetValue(allocationRegressionOption),
+                parseResult.GetValue(allocationStagesOption),
                 parseResult.GetValue(historyJsonOption),
                 parseResult.GetValue(baselineOption),
                 parseResult.GetValue(comparisonJsonOption),
                 parseResult.GetValue(warningThresholdOption),
                 parseResult.GetValue(releaseEvidenceOption),
                 parseResult.GetValue(additionalArgsArgument) ?? Array.Empty<string>());
-
-            Environment.ExitCode = exitCode;
         });
 
         return command;

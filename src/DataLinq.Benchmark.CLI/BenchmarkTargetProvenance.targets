@@ -1,0 +1,43 @@
+<Project>
+	<ItemGroup Condition="'$(MSBuildProjectName)' == 'DataLinq.Benchmark' and '$(DataLinqBenchmarkCompatibilitySource)' != ''">
+		<Compile Remove="$(MSBuildProjectDirectory)/Config.cs" />
+		<Compile Include="$(DataLinqBenchmarkCompatibilitySource)" Link="Config.cs" />
+	</ItemGroup>
+
+	<Target Name="CaptureDataLinqExternalBenchmarkRepositoryBuildState"
+			BeforeTargets="GetAssemblyAttributes"
+			Condition="'$(DesignTimeBuild)' != 'true' and '$(DataLinqBenchmarkTargetRepositoryRoot)' != ''">
+		<PropertyGroup>
+			<_DataLinqExternalRepositoryBuildState>unknown</_DataLinqExternalRepositoryBuildState>
+			<_DataLinqExternalGitStatusExitCode>-1</_DataLinqExternalGitStatusExitCode>
+		</PropertyGroup>
+
+		<ItemGroup>
+			<_DataLinqExternalGitStatusLine Remove="@(_DataLinqExternalGitStatusLine)" />
+			<AssemblyMetadata Remove="DataLinqRepositoryBuildState" />
+		</ItemGroup>
+
+		<Exec Command="git --no-optional-locks status --porcelain=v1 --untracked-files=all --ignore-submodules=none"
+			  WorkingDirectory="$(DataLinqBenchmarkTargetRepositoryRoot)"
+			  ConsoleToMSBuild="true"
+			  IgnoreExitCode="true"
+			  StandardOutputImportance="Low"
+			  StandardErrorImportance="Low">
+			<Output TaskParameter="ExitCode" PropertyName="_DataLinqExternalGitStatusExitCode" />
+			<Output TaskParameter="ConsoleOutput" ItemName="_DataLinqExternalGitStatusLine" />
+		</Exec>
+
+		<PropertyGroup>
+			<_DataLinqExternalGitStatusLineCount>@(_DataLinqExternalGitStatusLine->Count())</_DataLinqExternalGitStatusLineCount>
+			<_DataLinqExternalRepositoryBuildState
+				Condition="'$(_DataLinqExternalGitStatusExitCode)' == '0' and '$(_DataLinqExternalGitStatusLineCount)' == '0'">clean</_DataLinqExternalRepositoryBuildState>
+			<_DataLinqExternalRepositoryBuildState
+				Condition="'$(_DataLinqExternalGitStatusExitCode)' == '0' and '$(_DataLinqExternalGitStatusLineCount)' != '0'">dirty</_DataLinqExternalRepositoryBuildState>
+		</PropertyGroup>
+
+		<ItemGroup>
+			<AssemblyMetadata Include="DataLinqRepositoryBuildState"
+						  Value="$(_DataLinqExternalRepositoryBuildState)" />
+		</ItemGroup>
+	</Target>
+</Project>

@@ -228,7 +228,8 @@ public class QueryPlanProjectionRecipeEvaluatorTests
         {
             Path.Combine(root, "src", "DataLinq", "Linq", "Planning", "QueryPlanProjectionRecipeEvaluator.cs"),
             Path.Combine(root, "src", "DataLinq", "Linq", "Planning", "Expressions", "ExpressionQueryPlanParser.cs"),
-            Path.Combine(root, "src", "DataLinq", "Linq", "Planning", "Expressions", "ExpressionLocalValueEvaluator.cs")
+            Path.Combine(root, "src", "DataLinq", "Linq", "Planning", "Expressions", "ExpressionLocalValueEvaluator.cs"),
+            Path.Combine(root, "src", "DataLinq", "Linq", "Planning", "Expressions", "ExpressionLocalConversionEvaluator.cs")
         };
         var bannedPatterns = new[]
         {
@@ -280,7 +281,7 @@ public class QueryPlanProjectionRecipeEvaluatorTests
                 "ExpressionLocalValueEvaluator compatibility method invocation must stay explicit and guarded by AllowCompatibilityMethodReflection.");
         }
 
-        await Assert.That(sourceFiles.Length).IsEqualTo(3);
+        await Assert.That(sourceFiles.Length).IsEqualTo(4);
     }
 
     private static QueryPlanSourceSlot CreateSource(TableDefinition table, Type elementType)
