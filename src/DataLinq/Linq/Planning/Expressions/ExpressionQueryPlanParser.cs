@@ -3162,24 +3162,33 @@ internal sealed class ExpressionQueryPlanParser
         return false;
     }
 
-    private static bool TryEvaluateCapturedValue(Expression? expression, out object? value)
+    private bool TryEvaluateCapturedValue(Expression? expression, out object? value)
     {
         expression = UnwrapConvert(expression);
-        switch (expression)
+        if (!IsCapturedFieldValueExpression(expression))
         {
-            case ConstantExpression constantExpression:
-                value = constantExpression.Value;
-                return true;
-
-            case MemberExpression { Member: FieldInfo field } memberExpression
-                when TryEvaluateCapturedValue(memberExpression.Expression, out var instance):
-                value = field.GetValue(instance);
-                return true;
-
-            default:
-                value = null;
-                return false;
+            value = null;
+            return false;
         }
+
+        value = ExpressionLocalValueEvaluator.Evaluate(
+            expression,
+            null,
+            null,
+            options.LocalValueEvaluation);
+        return true;
+    }
+
+    private static bool IsCapturedFieldValueExpression(Expression? expression)
+    {
+        expression = UnwrapConvert(expression);
+        return expression switch
+        {
+            ConstantExpression => true,
+            MemberExpression { Member: FieldInfo, Expression: not null } memberExpression =>
+                IsCapturedFieldValueExpression(memberExpression.Expression),
+            _ => false
+        };
     }
 
     private static bool TryGetStructuralIntLiteral(Expression expression, out int value)
