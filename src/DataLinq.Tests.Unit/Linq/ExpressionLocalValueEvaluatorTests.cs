@@ -78,6 +78,53 @@ public class ExpressionLocalValueEvaluatorTests
     }
 
     [Test]
+    public async Task LocalValueEvaluation_PreservesFrameworkNativeIntegerOverflow()
+    {
+        Expression<Func<nint, int>> signedConversion = value => unchecked((int)value);
+        Expression<Func<nuint, uint>> unsignedConversion = value => unchecked((uint)value);
+
+        var signedMaximumException = Capture<OverflowException>(() =>
+            ExpressionLocalValueEvaluator.Evaluate(
+                signedConversion.Body,
+                signedConversion.Parameters[0],
+                nint.MaxValue));
+        var signedMinimumException = Capture<OverflowException>(() =>
+            ExpressionLocalValueEvaluator.Evaluate(
+                signedConversion.Body,
+                signedConversion.Parameters[0],
+                nint.MinValue));
+        var unsignedMaximumException = Capture<OverflowException>(() =>
+            ExpressionLocalValueEvaluator.Evaluate(
+                unsignedConversion.Body,
+                unsignedConversion.Parameters[0],
+                nuint.MaxValue));
+        var signedValue = ExpressionLocalValueEvaluator.Evaluate(
+            signedConversion.Body,
+            signedConversion.Parameters[0],
+            (nint)42);
+        var unsignedValue = ExpressionLocalValueEvaluator.Evaluate(
+            unsignedConversion.Body,
+            unsignedConversion.Parameters[0],
+            (nuint)42);
+
+        if (Environment.Is64BitProcess)
+        {
+            await Assert.That(signedMaximumException).IsNotNull();
+            await Assert.That(signedMinimumException).IsNotNull();
+            await Assert.That(unsignedMaximumException).IsNotNull();
+        }
+        else
+        {
+            await Assert.That(signedMaximumException).IsNull();
+            await Assert.That(signedMinimumException).IsNull();
+            await Assert.That(unsignedMaximumException).IsNull();
+        }
+
+        await Assert.That(signedValue).IsEqualTo(42);
+        await Assert.That(unsignedValue).IsEqualTo(42u);
+    }
+
+    [Test]
     public async Task LocalValueEvaluation_PreservesLiftedNullableConversions()
     {
         var value = Expression.Parameter(typeof(int?), "value");
@@ -146,6 +193,27 @@ public class ExpressionLocalValueEvaluatorTests
     }
 
     [Test]
+    public async Task CompatibilityLocalValueEvaluation_UsesLiftedToNullForUserDefinedReferenceConversions()
+    {
+        var probe = new UserDefinedConversionProbe();
+        Expression<Func<UserDefinedReferenceValue?, string>> conversion = value => (string)value!;
+
+        var convertedValue = ExpressionLocalValueEvaluator.Evaluate(
+            conversion.Body,
+            conversion.Parameters[0],
+            new UserDefinedReferenceValue(probe, 7));
+        var nullException = Capture<InvalidOperationException>(() =>
+            ExpressionLocalValueEvaluator.Evaluate(
+                conversion.Body,
+                conversion.Parameters[0],
+                null));
+
+        await Assert.That(convertedValue).IsEqualTo("7");
+        await Assert.That(nullException).IsNotNull();
+        await Assert.That(probe.InvocationCount).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task AotStrictLocalValueEvaluation_RejectsCompatibilityMethodsWithoutInvokingThem()
     {
         Expression<Func<int>> expression = () => ThrowIfInvokedEmployeeNumber();
@@ -203,12 +271,24 @@ public class ExpressionLocalValueEvaluatorTests
             InvocationCount++;
             return value;
         }
+
+        public string ConvertToString(int value)
+        {
+            InvocationCount++;
+            return value.ToString();
+        }
     }
 
     private readonly record struct UserDefinedValue(UserDefinedConversionProbe Probe, int Value)
     {
         public static explicit operator int(UserDefinedValue value)
             => value.Probe.Convert(value.Value);
+    }
+
+    private readonly record struct UserDefinedReferenceValue(UserDefinedConversionProbe Probe, int Value)
+    {
+        public static explicit operator string(UserDefinedReferenceValue value)
+            => value.Probe.ConvertToString(value.Value);
     }
 
     private enum LocalConversionKind : byte

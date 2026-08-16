@@ -16,7 +16,8 @@ internal static class ExpressionLocalConversionEvaluator
         object? value,
         Type sourceType,
         Type targetType,
-        bool checkOverflow)
+        bool checkOverflow,
+        MethodInfo? conversionMethod)
     {
         var nullableSourceType = Nullable.GetUnderlyingType(sourceType);
         var nullableTargetType = Nullable.GetUnderlyingType(targetType);
@@ -38,6 +39,15 @@ internal static class ExpressionLocalConversionEvaluator
 
         if (effectiveSourceType == effectiveTargetType)
             return value;
+
+        if (conversionMethod?.DeclaringType == typeof(nint) ||
+            conversionMethod?.DeclaringType == typeof(nuint))
+        {
+            return ConvertFrameworkNativeInteger(
+                value,
+                effectiveSourceType,
+                effectiveTargetType);
+        }
 
         if (!effectiveTargetType.IsValueType)
         {
@@ -70,6 +80,48 @@ internal static class ExpressionLocalConversionEvaluator
 
         if (IsNumericType(effectiveSourceType) && IsNumericType(effectiveTargetType))
             return ConvertNumeric(value, effectiveSourceType, effectiveTargetType, checkOverflow);
+
+        throw InvalidConversion(sourceType, targetType);
+    }
+
+    private static object ConvertFrameworkNativeInteger(
+        object value,
+        Type sourceType,
+        Type targetType)
+    {
+        // IntPtr and UIntPtr expose conversion operators whose overflow behavior is part of
+        // the operator itself, even when the expression node is Convert rather than ConvertChecked.
+        if (sourceType == typeof(nint))
+        {
+            if (targetType == typeof(int))
+                return ((nint)value).ToInt32();
+            if (targetType == typeof(long))
+                return ((nint)value).ToInt64();
+        }
+
+        if (targetType == typeof(nint))
+        {
+            if (sourceType == typeof(int))
+                return new nint((int)value);
+            if (sourceType == typeof(long))
+                return new nint((long)value);
+        }
+
+        if (sourceType == typeof(nuint))
+        {
+            if (targetType == typeof(uint))
+                return ((nuint)value).ToUInt32();
+            if (targetType == typeof(ulong))
+                return ((nuint)value).ToUInt64();
+        }
+
+        if (targetType == typeof(nuint))
+        {
+            if (sourceType == typeof(uint))
+                return new nuint((uint)value);
+            if (sourceType == typeof(ulong))
+                return new nuint((ulong)value);
+        }
 
         throw InvalidConversion(sourceType, targetType);
     }

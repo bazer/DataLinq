@@ -250,17 +250,14 @@ internal static class ExpressionLocalValueEvaluator
                 value,
                 conversion.Operand.Type,
                 conversion.Type,
-                conversion.NodeType == ExpressionType.ConvertChecked);
+                conversion.NodeType == ExpressionType.ConvertChecked,
+                conversionMethod);
         }
 
         if (value is null && conversion.IsLifted)
         {
-            if (conversion.IsLiftedToNull ||
-                Nullable.GetUnderlyingType(conversion.Type) is not null ||
-                !conversion.Type.IsValueType)
-            {
+            if (conversion.IsLiftedToNull)
                 return null;
-            }
 
             throw new InvalidOperationException("Nullable object must have a value.");
         }
