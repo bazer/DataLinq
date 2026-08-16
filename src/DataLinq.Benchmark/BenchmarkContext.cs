@@ -349,7 +349,7 @@ internal sealed class BenchmarkContext : IDisposable
         for (var i = 0; i < BatchOperationCount; i++)
         {
             var request = ValidatedQueryExecutionRequest.Prepare(v09QueryExecutionRequest);
-            checksum += request.Requirements.Structural.Count + request.Requirements.Invocation.Count;
+            checksum += request.Requirements.StructuralCount + request.Requirements.InvocationCount;
         }
 
         return checksum;

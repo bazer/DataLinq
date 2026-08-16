@@ -1026,6 +1026,40 @@ public class QueryPlanCapabilityValidationTests
     }
 
     [Test]
+    public async Task StructuralCapabilityValidation_AllocatesNothingAfterTemplateConstruction()
+    {
+        var template = CreateRepresentativeInvocation().Template;
+        QueryPlanCapabilityValidator.ValidateStructural(template, QueryBackendCapabilities.Sql);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var iteration = 0; iteration < 100; iteration++)
+            QueryPlanCapabilityValidator.ValidateStructural(template, QueryBackendCapabilities.Sql);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(allocated).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Validator_DoesNotReuseSuccessAcrossCapabilityProfiles()
+    {
+        var invocation = CreateRepresentativeInvocation();
+        var unsupportedProfile = WithUnsupported(
+            "without-pushdown",
+            QueryPlanFeature.Operation(QueryPlanOperationKind.Pushdown));
+
+        var supported = QueryPlanCapabilityValidator.Validate(
+            invocation,
+            QueryBackendCapabilities.Sql);
+        var rejected = Capture<QueryBackendCapabilityException>(() =>
+            QueryPlanCapabilityValidator.Validate(invocation, unsupportedProfile));
+
+        await Assert.That(supported.StructuralCount).IsGreaterThan(0);
+        await Assert.That(rejected.BackendName).IsEqualTo("without-pushdown");
+        await Assert.That(rejected.Feature).IsEqualTo("Operation:Pushdown");
+        await Assert.That(rejected.Location).IsEqualTo("operations[1]");
+    }
+
+    [Test]
     public async Task Validator_SeparatesInvocationSensitiveRequirementsFromStructure()
     {
         var invocation = CreateRepresentativeInvocation();
