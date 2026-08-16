@@ -759,6 +759,24 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
+    public async Task ExpressionParser_LocalMethodEvaluationConvertsArgumentsBeforeInvocation()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_LocalMethodEvaluationConvertsArgumentsBeforeInvocation),
+            EmployeesSeedMode.Bogus);
+
+        var source = 257;
+        var probe = new LocalMethodProbe();
+        var query = databaseScope.Database.Query().Employees
+            .Where(x => x.emp_no == probe.GetEmployeeNumberFromOffset(unchecked((byte)source)));
+
+        await AssertParserProducesDataLinqPlan(databaseScope.Database, query);
+        await Assert.That(probe.EmployeeNumberFromOffsetInvocationCount).IsEqualTo(1);
+        await Assert.That(probe.LastEmployeeNumberOffset).IsEqualTo((byte)1);
+    }
+
+    [Test]
     public async Task ExpressionParser_LocalMethodEvaluationStillRejectsQueryDependentMethods()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -1138,6 +1156,10 @@ public class ExpressionQueryPlanParserTests
 
         public int EmployeeNumbersInvocationCount { get; private set; }
 
+        public int EmployeeNumberFromOffsetInvocationCount { get; private set; }
+
+        public byte LastEmployeeNumberOffset { get; private set; }
+
         public int IsEmployeeNumberInvocationCount { get; private set; }
 
         public int GetEmployeeNumber()
@@ -1150,6 +1172,13 @@ public class ExpressionQueryPlanParserTests
         {
             EmployeeNumbersInvocationCount++;
             return [10001, 10002];
+        }
+
+        public int GetEmployeeNumberFromOffset(byte offset)
+        {
+            EmployeeNumberFromOffsetInvocationCount++;
+            LastEmployeeNumberOffset = offset;
+            return 10000 + offset;
         }
 
         public bool IsEmployeeNumber(int employeeNumber)

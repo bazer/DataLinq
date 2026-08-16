@@ -33,7 +33,7 @@ internal static class ExpressionLocalValueEvaluator
         object? parameterValue,
         ExpressionLocalValueEvaluationOptions options)
     {
-        expression = UnwrapConvert(expression);
+        expression = UnwrapQuote(expression);
         switch (expression)
         {
             case ConstantExpression constant:
@@ -43,10 +43,7 @@ internal static class ExpressionLocalValueEvaluator
                 return parameterValue;
 
             case UnaryExpression unary when unary.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked:
-                return Convert.ChangeType(
-                    Evaluate(unary.Operand, parameter, parameterValue, options),
-                    GetNonNullableType(unary.Type),
-                    CultureInfo.InvariantCulture);
+                return EvaluateConversion(unary, parameter, parameterValue, options);
 
             case MemberExpression member:
                 var instance = member.Expression is null
@@ -228,6 +225,58 @@ internal static class ExpressionLocalValueEvaluator
         }
     }
 
+    private static object? EvaluateConversion(
+        UnaryExpression conversion,
+        ParameterExpression? parameter,
+        object? parameterValue,
+        ExpressionLocalValueEvaluationOptions options)
+    {
+        var conversionMethod = conversion.Method;
+        var usesBuiltInConversion = conversionMethod is null ||
+            ExpressionLocalConversionEvaluator.IsFrameworkNumericConversion(conversionMethod);
+
+        if (!usesBuiltInConversion &&
+            !options.AllowCompatibilityMethodReflection)
+        {
+            throw new QueryTranslationException(
+                $"Local user-defined conversion operator '{conversionMethod!.Name}' requires compatibility method reflection in DataLinq expression parsing. " +
+                "Capture the converted value before building the query.");
+        }
+
+        var value = Evaluate(conversion.Operand, parameter, parameterValue, options);
+        if (usesBuiltInConversion)
+        {
+            return ExpressionLocalConversionEvaluator.ConvertBuiltIn(
+                value,
+                conversion.Operand.Type,
+                conversion.Type,
+                conversion.NodeType == ExpressionType.ConvertChecked);
+        }
+
+        if (value is null && conversion.IsLifted)
+        {
+            if (conversion.IsLiftedToNull ||
+                Nullable.GetUnderlyingType(conversion.Type) is not null ||
+                !conversion.Type.IsValueType)
+            {
+                return null;
+            }
+
+            throw new InvalidOperationException("Nullable object must have a value.");
+        }
+
+        try
+        {
+            return conversionMethod!.Invoke(null, [value]);
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is not null)
+        {
+            throw new QueryTranslationException(
+                $"Local user-defined conversion operator '{conversionMethod!.Name}' threw while DataLinq evaluated it as a local value.",
+                exception.InnerException);
+        }
+    }
+
     private static readonly MethodInfo ArrayEmptyMethod = ((Func<int[]>)Array.Empty<int>)
         .Method
         .GetGenericMethodDefinition();
@@ -236,20 +285,16 @@ internal static class ExpressionLocalValueEvaluator
         .Method
         .GetGenericMethodDefinition();
 
-    private static Expression UnwrapConvert(Expression expression)
+    private static Expression UnwrapQuote(Expression expression)
     {
         while (expression is UnaryExpression unary &&
-               (unary.NodeType == ExpressionType.Convert ||
-                unary.NodeType == ExpressionType.ConvertChecked ||
-                unary.NodeType == ExpressionType.Quote))
+               unary.NodeType == ExpressionType.Quote)
         {
             expression = unary.Operand;
         }
 
         return expression;
     }
-
-    private static Type GetNonNullableType(Type type) => Nullable.GetUnderlyingType(type) ?? type;
 
     private static QueryTranslationException UnsupportedMember(MemberExpression member) =>
         new($"Local member '{member.Member.Name}' is not supported in DataLinq expression parsing.");
