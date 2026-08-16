@@ -897,9 +897,9 @@ internal static class QueryPlanTemplateValidator
                     declarations);
                 break;
             case QueryPlanFunctionValue function:
-                ValidateFunction(function);
                 foreach (var argument in function.Arguments)
                     ValidateValue(argument, declarations);
+                ValidateFunction(function);
                 break;
             case QueryPlanConvertedValue converted:
                 ValidateValue(converted.Value, declarations);
@@ -951,6 +951,63 @@ internal static class QueryPlanTemplateValidator
                 $"Query plan function '{function.Function}' has invalid argument count {function.Arguments.Count}.",
                 nameof(function));
         }
+
+        var sourceType = GetNonNullableType(function.Arguments[0].ClrType);
+        var hasValidTypes = function.Function switch
+        {
+            QueryPlanFunctionKind.StringStartsWith or
+            QueryPlanFunctionKind.StringEndsWith or
+            QueryPlanFunctionKind.StringContains =>
+                sourceType == typeof(string) &&
+                IsStringSearchType(function.Arguments[1].ClrType) &&
+                function.ClrType == typeof(bool),
+            QueryPlanFunctionKind.StringIsNullOrEmpty or
+            QueryPlanFunctionKind.StringIsNullOrWhiteSpace =>
+                sourceType == typeof(string) &&
+                function.ClrType == typeof(bool),
+            QueryPlanFunctionKind.StringLength =>
+                sourceType == typeof(string) &&
+                function.ClrType == typeof(int),
+            QueryPlanFunctionKind.StringTrim or
+            QueryPlanFunctionKind.StringToUpper or
+            QueryPlanFunctionKind.StringToLower =>
+                sourceType == typeof(string) &&
+                function.ClrType == typeof(string),
+            QueryPlanFunctionKind.StringSubstring =>
+                sourceType == typeof(string) &&
+                function.Arguments.Skip(1).All(
+                    static argument => GetNonNullableType(argument.ClrType) == typeof(int)) &&
+                function.ClrType == typeof(string),
+            QueryPlanFunctionKind.DatePartYear or
+            QueryPlanFunctionKind.DatePartMonth or
+            QueryPlanFunctionKind.DatePartDay or
+            QueryPlanFunctionKind.DatePartDayOfYear =>
+                (sourceType == typeof(DateTime) || sourceType == typeof(DateOnly)) &&
+                function.ClrType == typeof(int),
+            QueryPlanFunctionKind.DatePartDayOfWeek =>
+                (sourceType == typeof(DateTime) || sourceType == typeof(DateOnly)) &&
+                function.ClrType == typeof(DayOfWeek),
+            QueryPlanFunctionKind.TimePartHour or
+            QueryPlanFunctionKind.TimePartMinute or
+            QueryPlanFunctionKind.TimePartSecond or
+            QueryPlanFunctionKind.TimePartMillisecond =>
+                (sourceType == typeof(DateTime) || sourceType == typeof(TimeOnly)) &&
+                function.ClrType == typeof(int),
+            _ => false
+        };
+
+        if (!hasValidTypes)
+        {
+            throw new ArgumentException(
+                $"Query plan function '{function.Function}' has incompatible argument or result types.",
+                nameof(function));
+        }
+    }
+
+    private static bool IsStringSearchType(Type type)
+    {
+        var nonNullableType = GetNonNullableType(type);
+        return nonNullableType == typeof(string) || nonNullableType == typeof(char);
     }
 
     private static void ValidateIntrinsic(QueryPlanIntrinsicValue intrinsic)

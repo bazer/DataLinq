@@ -196,9 +196,18 @@ public class QueryPlanCapabilityValidationTests
     {
         var table = GetTable<Employee>();
         var source = Source("s0", "t0", table, QueryPlanSourceKind.RootTable);
-        var column = new QueryPlanColumnValue(
+        var text = new QueryPlanColumnValue(
             source,
             table.GetColumnByPropertyName(nameof(Employee.first_name)));
+        var number = new QueryPlanColumnValue(
+            source,
+            table.GetColumnByPropertyName(nameof(Employee.emp_no)));
+        var date = new QueryPlanColumnValue(
+            source,
+            table.GetColumnByPropertyName(nameof(Employee.birth_date)));
+        var time = new QueryPlanColumnValue(
+            source,
+            table.GetColumnByPropertyName(nameof(Employee.last_login)));
         var validArities = new Dictionary<QueryPlanFunctionKind, int[]>
         {
             [QueryPlanFunctionKind.StringStartsWith] = [2],
@@ -250,10 +259,14 @@ public class QueryPlanCapabilityValidationTests
 
         QueryPlanTemplate CreateTemplate(QueryPlanFunctionKind functionKind, int argumentCount)
         {
+            var (validArguments, resultType) = ValidFunctionShape(functionKind);
+            var arguments = validArguments
+                .Concat(Enumerable.Repeat<QueryPlanValue>(number, argumentCount))
+                .Take(argumentCount);
             var function = new QueryPlanFunctionValue(
                 functionKind,
-                Enumerable.Repeat<QueryPlanValue>(column, argumentCount),
-                typeof(object));
+                arguments,
+                resultType);
             return new QueryPlanTemplate(
                 [source],
                 [new QueryPlanOperation.OrderBy([
@@ -263,6 +276,69 @@ public class QueryPlanCapabilityValidationTests
                 QueryPlanResult.Sequence(typeof(Employee)),
                 QueryPlanBindingDeclarations.Empty,
                 QueryPlanSpecialization.Empty);
+        }
+
+        (IReadOnlyList<QueryPlanValue> Arguments, Type ResultType) ValidFunctionShape(
+            QueryPlanFunctionKind functionKind) => functionKind switch
+        {
+            QueryPlanFunctionKind.StringStartsWith or
+            QueryPlanFunctionKind.StringEndsWith or
+            QueryPlanFunctionKind.StringContains => ([text, text], typeof(bool)),
+            QueryPlanFunctionKind.StringIsNullOrEmpty or
+            QueryPlanFunctionKind.StringIsNullOrWhiteSpace => ([text], typeof(bool)),
+            QueryPlanFunctionKind.StringLength => ([text], typeof(int)),
+            QueryPlanFunctionKind.StringTrim or
+            QueryPlanFunctionKind.StringToUpper or
+            QueryPlanFunctionKind.StringToLower => ([text], typeof(string)),
+            QueryPlanFunctionKind.StringSubstring => ([text, number], typeof(string)),
+            QueryPlanFunctionKind.DatePartDayOfWeek => ([date], typeof(DayOfWeek)),
+            QueryPlanFunctionKind.DatePartYear or
+            QueryPlanFunctionKind.DatePartMonth or
+            QueryPlanFunctionKind.DatePartDay or
+            QueryPlanFunctionKind.DatePartDayOfYear => ([date], typeof(int)),
+            QueryPlanFunctionKind.TimePartHour or
+            QueryPlanFunctionKind.TimePartMinute or
+            QueryPlanFunctionKind.TimePartSecond or
+            QueryPlanFunctionKind.TimePartMillisecond => ([time], typeof(int)),
+            _ => throw new ArgumentOutOfRangeException(nameof(functionKind), functionKind, null)
+        };
+    }
+
+    [Test]
+    public async Task TemplateValidator_RequiresFunctionSourceArgumentAndResultTypes()
+    {
+        var table = GetTable<Employee>();
+        var source = Source("s0", "t0", table, QueryPlanSourceKind.RootTable);
+        var text = new QueryPlanColumnValue(
+            source,
+            table.GetColumnByPropertyName(nameof(Employee.first_name)));
+        var number = new QueryPlanColumnValue(
+            source,
+            table.GetColumnByPropertyName(nameof(Employee.emp_no)));
+
+        var invalidFunctions = new[]
+        {
+            new QueryPlanFunctionValue(QueryPlanFunctionKind.StringTrim, [number], typeof(string)),
+            new QueryPlanFunctionValue(QueryPlanFunctionKind.StringTrim, [text], typeof(int)),
+            new QueryPlanFunctionValue(QueryPlanFunctionKind.StringSubstring, [text, text], typeof(string)),
+            new QueryPlanFunctionValue(QueryPlanFunctionKind.StringStartsWith, [text, number], typeof(bool)),
+            new QueryPlanFunctionValue(QueryPlanFunctionKind.StringLength, [text], typeof(string))
+        };
+
+        foreach (var function in invalidFunctions)
+        {
+            var exception = Capture<ArgumentException>(() => new QueryPlanTemplate(
+                [source],
+                [new QueryPlanOperation.OrderBy([
+                    new QueryPlanOrdering(function, QueryPlanOrderingDirection.Ascending)
+                ])],
+                new QueryPlanProjection.Entity(source),
+                QueryPlanResult.Sequence(typeof(Employee)),
+                QueryPlanBindingDeclarations.Empty,
+                QueryPlanSpecialization.Empty));
+
+            await Assert.That(exception.Message).Contains(function.Function.ToString());
+            await Assert.That(exception.Message).Contains("incompatible argument or result types");
         }
     }
 

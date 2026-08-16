@@ -42,6 +42,16 @@ internal readonly struct ExpressionQueryPlanParseResult
 
 internal sealed class ExpressionQueryPlanParser
 {
+    private static readonly IReadOnlyDictionary<MethodInfo, QueryPlanFunctionKind> SupportedStringFunctions =
+        new Dictionary<MethodInfo, QueryPlanFunctionKind>
+        {
+            [GetStringMethod(nameof(string.Trim), Type.EmptyTypes)] = QueryPlanFunctionKind.StringTrim,
+            [GetStringMethod(nameof(string.ToUpper), Type.EmptyTypes)] = QueryPlanFunctionKind.StringToUpper,
+            [GetStringMethod(nameof(string.ToLower), Type.EmptyTypes)] = QueryPlanFunctionKind.StringToLower,
+            [GetStringMethod(nameof(string.Substring), [typeof(int)])] = QueryPlanFunctionKind.StringSubstring,
+            [GetStringMethod(nameof(string.Substring), [typeof(int), typeof(int)])] = QueryPlanFunctionKind.StringSubstring
+        };
+
     private readonly DatabaseDefinition metadata;
     private readonly ExpressionQueryPlanParserOptions options;
     private readonly QueryPlanBindingCapture bindings = new();
@@ -894,6 +904,9 @@ internal sealed class ExpressionQueryPlanParser
             if (TryCreateProjectionFunctionRecipe(methodCall, out var functionRecipe))
                 return functionRecipe;
 
+            if (IsStringFunctionFamily(methodCall.Method))
+                throw UnsupportedStringFunctionOverload(methodCall, "projection");
+
             if (!ContainsQueryReference(methodCall))
                 return CaptureProjectionScalar(methodCall);
 
@@ -991,16 +1004,17 @@ internal sealed class ExpressionQueryPlanParser
         out QueryPlanProjectionRecipe recipe)
     {
         if (methodCall.Object is not null &&
-            GetNonNullableType(methodCall.Object.Type) == typeof(string) &&
-            methodCall.Method.DeclaringType == typeof(string) &&
-            TryGetProjectionStringFunction(methodCall.Method.Name, methodCall.Arguments.Count, out var function))
+            TryGetStringMethodFunction(methodCall.Method, out var function))
         {
             var arguments = new List<QueryPlanProjectionRecipe>(methodCall.Arguments.Count + 1)
             {
                 CreateProjectionRecipe(methodCall.Object)
             };
             arguments.AddRange(methodCall.Arguments.Select(CreateProjectionRecipe));
-            recipe = new QueryPlanProjectionRecipe.Function(function, arguments, methodCall.Type);
+            recipe = new QueryPlanProjectionRecipe.Function(
+                MapProjectionFunction(function),
+                arguments,
+                methodCall.Type);
             return true;
         }
 
@@ -1186,31 +1200,6 @@ internal sealed class ExpressionQueryPlanParser
         }
 
         return false;
-    }
-
-    private static bool TryGetProjectionStringFunction(
-        string methodName,
-        int argumentCount,
-        out QueryPlanProjectionFunctionKind function)
-    {
-        switch (methodName)
-        {
-            case nameof(string.Trim) when argumentCount == 0:
-                function = QueryPlanProjectionFunctionKind.StringTrim;
-                return true;
-            case nameof(string.ToUpper) when argumentCount == 0:
-                function = QueryPlanProjectionFunctionKind.StringToUpper;
-                return true;
-            case nameof(string.ToLower) when argumentCount == 0:
-                function = QueryPlanProjectionFunctionKind.StringToLower;
-                return true;
-            case nameof(string.Substring) when argumentCount is 1 or 2:
-                function = QueryPlanProjectionFunctionKind.StringSubstring;
-                return true;
-            default:
-                function = default;
-                return false;
-        }
     }
 
     private static QueryPlanProjectionFunctionKind MapProjectionFunction(QueryPlanFunctionKind function)
@@ -2399,13 +2388,16 @@ internal sealed class ExpressionQueryPlanParser
             }
 
             if (methodCall.Object is not null &&
-                TryGetStringMethodFunction(methodCall.Method.Name, out var functionKind))
+                TryGetStringMethodFunction(methodCall.Method, out var functionKind))
             {
                 var arguments = new List<QueryPlanValue> { ConvertValue(methodCall.Object) };
                 arguments.AddRange(methodCall.Arguments.Select(ConvertValue));
                 value = new QueryPlanFunctionValue(functionKind, arguments, methodCall.Type);
                 return true;
             }
+
+            if (IsStringFunctionFamily(methodCall.Method))
+                throw UnsupportedStringFunctionOverload(methodCall, "query-plan value");
         }
 
         if (expression is MemberExpression memberExpression)
@@ -2468,27 +2460,36 @@ internal sealed class ExpressionQueryPlanParser
         return false;
     }
 
-    private static bool TryGetStringMethodFunction(string methodName, out QueryPlanFunctionKind functionKind)
-    {
-        switch (methodName)
-        {
-            case nameof(string.Trim):
-                functionKind = QueryPlanFunctionKind.StringTrim;
-                return true;
-            case nameof(string.ToUpper):
-                functionKind = QueryPlanFunctionKind.StringToUpper;
-                return true;
-            case nameof(string.ToLower):
-                functionKind = QueryPlanFunctionKind.StringToLower;
-                return true;
-            case nameof(string.Substring):
-                functionKind = QueryPlanFunctionKind.StringSubstring;
-                return true;
-            default:
-                functionKind = default;
-                return false;
-        }
-    }
+    private static bool TryGetStringMethodFunction(
+        MethodInfo method,
+        out QueryPlanFunctionKind functionKind) =>
+        SupportedStringFunctions.TryGetValue(method, out functionKind);
+
+    private static bool IsStringFunctionFamily(MethodInfo method) =>
+        method.DeclaringType == typeof(string) &&
+        !method.IsStatic &&
+        method.Name is nameof(string.Trim) or
+            nameof(string.ToUpper) or
+            nameof(string.ToLower) or
+            nameof(string.Substring);
+
+    private static MethodInfo GetStringMethod(string methodName, Type[] parameterTypes) =>
+        typeof(string).GetMethod(
+            methodName,
+            BindingFlags.Instance | BindingFlags.Public,
+            binder: null,
+            parameterTypes,
+            modifiers: null)
+        ?? throw new InvalidOperationException(
+            $"Required System.String method '{methodName}' was not found.");
+
+    private static QueryTranslationException UnsupportedStringFunctionOverload(
+        MethodCallExpression methodCall,
+        string location) =>
+        new(
+            $"String method overload '{methodCall.Method}' is not supported in {location} translation. " +
+            "Supported signatures are Trim(), ToUpper(), ToLower(), Substring(int), and Substring(int, int). " +
+            $"Expression: {methodCall}");
 
     private static bool TryGetDateTimePart(MemberExpression memberExpression, out QueryPlanFunctionKind functionKind)
     {

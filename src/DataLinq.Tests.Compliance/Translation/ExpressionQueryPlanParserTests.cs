@@ -944,6 +944,8 @@ public class ExpressionQueryPlanParserTests
             .Select(employee => checked(employee.emp_no!.Value + 1));
         var unsupportedOverload = databaseScope.Database.Query().Employees
             .Select(employee => employee.first_name.Trim('A'));
+        var unsupportedPredicateOverload = databaseScope.Database.Query().Employees
+            .Where(employee => employee.first_name.Trim('A') == "Alice");
 
         await AssertParserFailure(
             databaseScope.Database,
@@ -957,7 +959,14 @@ public class ExpressionQueryPlanParserTests
         await AssertParserFailure(
             databaseScope.Database,
             unsupportedOverload,
-            "Projection method 'Trim' is not supported");
+            "String method overload",
+            "query-plan value",
+            "Trim");
+        await AssertParserFailure(
+            databaseScope.Database,
+            unsupportedPredicateOverload,
+            "String method overload",
+            "Trim");
     }
 
     [Test]
