@@ -145,6 +145,7 @@ public class BenchmarkCliParsingTests
     [Test]
     [Arguments("Canonical provider-row decoding", "row-decoding")]
     [Arguments("Provider-row model materialization", "row-materialization")]
+    [Arguments("Provider-row decode/materialization pipeline", "row-materialization-pipeline")]
     [Arguments("Mutation state-change capture", "mutation-capture")]
     [Arguments("Mutation execution preflight", "mutation-preflight")]
     public async Task AllocationStages_HaveStableTrackingAndScenarioCategories(

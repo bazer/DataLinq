@@ -481,6 +481,26 @@ internal sealed class BenchmarkContext : IDisposable
         return checksum;
     }
 
+    public int DecodeAndMaterializeProviderRows()
+    {
+        var checksum = 0;
+
+        for (var index = 0; index < BatchOperationCount; index++)
+        {
+            var providerRow = ProviderRowDecoder.DecodeFullRow(
+                allocationProviderReader,
+                allocationTable,
+                "benchmark.allocation");
+            var modelRow = ProviderRowMaterializer.Materialize(
+                providerRow,
+                "benchmark.allocation");
+            checksum = unchecked(
+                checksum + providerRow.EstimatedPayloadSize + modelRow.Size);
+        }
+
+        return checksum;
+    }
+
     public int CaptureMutationStateChanges()
     {
         var checksum = 0;
@@ -854,6 +874,7 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.SqlAdapterScalarAny => ExecutePreparsedSqlAdapterScalarAnyBatch(),
             BenchmarkScenario.CanonicalProviderRowDecoding => DecodeCanonicalProviderRows(),
             BenchmarkScenario.ProviderRowModelMaterialization => MaterializeProviderRows(),
+            BenchmarkScenario.ProviderRowDecodeMaterialization => DecodeAndMaterializeProviderRows(),
             BenchmarkScenario.MutationStateChangeCapture => CaptureMutationStateChanges(),
             BenchmarkScenario.MutationExecutionPreflight => ValidateMutationExecutionPreflight(),
             BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => LoadEmployeesByPrimaryKeyBatchWithCacheEstimate(),
@@ -972,6 +993,7 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.SqlAdapterScalarAny => V09SqlAdapterOperationCount,
             BenchmarkScenario.CanonicalProviderRowDecoding => BatchOperationCount,
             BenchmarkScenario.ProviderRowModelMaterialization => BatchOperationCount,
+            BenchmarkScenario.ProviderRowDecodeMaterialization => BatchOperationCount,
             BenchmarkScenario.MutationStateChangeCapture => BatchOperationCount,
             BenchmarkScenario.MutationExecutionPreflight => BatchOperationCount,
             BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => BatchOperationCount,
@@ -1037,6 +1059,7 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.SqlAdapterScalarAny => "SQL adapter scalar Any",
             BenchmarkScenario.CanonicalProviderRowDecoding => "Canonical provider-row decoding",
             BenchmarkScenario.ProviderRowModelMaterialization => "Provider-row model materialization",
+            BenchmarkScenario.ProviderRowDecodeMaterialization => "Provider-row decode/materialization pipeline",
             BenchmarkScenario.MutationStateChangeCapture => "Mutation state-change capture",
             BenchmarkScenario.MutationExecutionPreflight => "Mutation execution preflight",
             BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => "Warm PK with cache estimate",

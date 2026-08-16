@@ -79,6 +79,7 @@ internal static class BenchmarkEvidenceReporter
             [
                 "Canonical provider-row decoding",
                 "Provider-row model materialization",
+                "Provider-row decode/materialization pipeline",
                 "Mutation state-change capture",
                 "Mutation execution preflight"
             ]
@@ -116,6 +117,7 @@ internal static class BenchmarkEvidenceReporter
             ["Memory typed-ID equality count"] = 1,
             ["Canonical provider-row decoding"] = 1000,
             ["Provider-row model materialization"] = 1000,
+            ["Provider-row decode/materialization pipeline"] = 1000,
             ["Mutation state-change capture"] = 1000,
             ["Mutation execution preflight"] = 1000
         };
