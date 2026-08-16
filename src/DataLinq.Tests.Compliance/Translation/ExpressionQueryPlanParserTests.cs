@@ -970,6 +970,31 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
+    public async Task ExpressionParser_CapturesLocalStringOverloadAsOneScalarBinding()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_CapturesLocalStringOverloadAsOneScalarBinding),
+            EmployeesSeedMode.Bogus);
+
+        var local = "AAliceA";
+        var query = databaseScope.Database.Query().Employees
+            .Select(_ => local.Trim('A'));
+
+        var invocation = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+        var projection = invocation.Template.Projection as QueryPlanProjection.ComputedRowLocal;
+        var recipe = projection?.Recipe as QueryPlanProjectionRecipe.ScalarBinding;
+        var scalar = invocation.Values.Items.OfType<QueryPlanInvocationValue.Scalar>().Single();
+
+        await Assert.That(projection).IsNotNull();
+        await Assert.That(recipe).IsNotNull();
+        await Assert.That(invocation.Template.BindingDeclarations.Count).IsEqualTo(1);
+        await Assert.That(invocation.Template.BindingDeclarations[0].Kind).IsEqualTo(QueryPlanBindingKind.Scalar);
+        await Assert.That(scalar.Id).IsEqualTo(recipe!.BindingId);
+        await Assert.That(scalar.Value).IsEqualTo("lice");
+    }
+
+    [Test]
     public async Task ExpressionParser_CapturesProjectionScalarExactlyOnce()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

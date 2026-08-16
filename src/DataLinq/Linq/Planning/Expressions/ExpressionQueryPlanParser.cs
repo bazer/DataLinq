@@ -904,11 +904,11 @@ internal sealed class ExpressionQueryPlanParser
             if (TryCreateProjectionFunctionRecipe(methodCall, out var functionRecipe))
                 return functionRecipe;
 
-            if (IsStringFunctionFamily(methodCall.Method))
-                throw UnsupportedStringFunctionOverload(methodCall, "projection");
-
             if (!ContainsQueryReference(methodCall))
                 return CaptureProjectionScalar(methodCall);
+
+            if (IsStringFunctionFamily(methodCall.Method))
+                throw UnsupportedStringFunctionOverload(methodCall, "projection");
 
             throw new QueryTranslationException(
                 $"Projection method '{methodCall.Method.Name}' is not supported without runtime method invocation. Expression: {methodCall}");
