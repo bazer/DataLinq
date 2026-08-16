@@ -351,11 +351,13 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
 
         var source = valueRenderer.RenderOperand(function.Arguments[0]);
         var value = valueRenderer.GetScalarValue(function.Arguments[1]);
-        if (value is not string literal)
+        var literal = value switch
         {
-            throw new QueryTranslationException(
-                $"Query plan function '{function.Function}' requires a non-null string search value.");
-        }
+            string stringValue => stringValue,
+            char character => character.ToString(),
+            _ => throw new QueryTranslationException(
+                $"Query plan function '{function.Function}' requires a non-null string or char search value.")
+        };
 
         var escapedLiteral = EscapeLikeLiteral(literal);
         var pattern = function.Function switch

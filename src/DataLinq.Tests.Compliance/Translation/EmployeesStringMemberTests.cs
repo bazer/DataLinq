@@ -340,6 +340,62 @@ public class EmployeesStringMemberTests
     }
 
     [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task String_CharLikePredicatesTreatMetacharactersLiterally(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(String_CharLikePredicatesTreatMetacharactersLiterally),
+            EmployeesSeedMode.Bogus);
+
+        SetupStringTestData(databaseScope.Database);
+        var startsWithValue = '%';
+        var containsValue = '_';
+        var endsWithValue = '!';
+        var source = databaseScope.Database.Query().Employees
+            .Where(x => StringTestEmployeeNumbers.Contains(x.emp_no!.Value));
+        var inMemory = source.ToList();
+
+        var expectedStartsWith = inMemory
+            .Where(x => x.first_name.StartsWith(startsWithValue))
+            .Select(x => x.emp_no!.Value)
+            .OrderBy(x => x)
+            .ToArray();
+        var actualStartsWith = source
+            .Where(x => x.first_name.StartsWith(startsWithValue))
+            .Select(x => x.emp_no!.Value)
+            .OrderBy(x => x)
+            .ToArray();
+        var expectedContains = inMemory
+            .Where(x => x.first_name.Contains(containsValue))
+            .Select(x => x.emp_no!.Value)
+            .OrderBy(x => x)
+            .ToArray();
+        var actualContains = source
+            .Where(x => x.first_name.Contains(containsValue))
+            .Select(x => x.emp_no!.Value)
+            .OrderBy(x => x)
+            .ToArray();
+        var expectedEndsWith = inMemory
+            .Where(x => x.first_name.EndsWith(endsWithValue))
+            .Select(x => x.emp_no!.Value)
+            .OrderBy(x => x)
+            .ToArray();
+        var actualEndsWith = source
+            .Where(x => x.first_name.EndsWith(endsWithValue))
+            .Select(x => x.emp_no!.Value)
+            .OrderBy(x => x)
+            .ToArray();
+
+        await Assert.That(actualStartsWith).IsEquivalentTo(expectedStartsWith);
+        await Assert.That(actualStartsWith).IsEquivalentTo(new[] { 2013 });
+        await Assert.That(actualContains).IsEquivalentTo(expectedContains);
+        await Assert.That(actualContains).IsEquivalentTo(new[] { 2013, 2015, 2017 });
+        await Assert.That(actualEndsWith).IsEquivalentTo(expectedEndsWith);
+        await Assert.That(actualEndsWith).IsEquivalentTo(new[] { 2017, 2018 });
+    }
+
+    [Test]
     public async Task String_LikePredicatesEscapeParametersAndRenderEscapeClause()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -381,7 +437,7 @@ public class EmployeesStringMemberTests
             CurrentQueryTranslationInspection.BuildSql(databaseScope.Database, query));
 
         await Assert.That(exception).IsNotNull();
-        await Assert.That(exception!.Message).Contains("requires a non-null string search value");
+        await Assert.That(exception!.Message).Contains("requires a non-null string or char search value");
     }
 
     private static (Employee employee, Department department) SetupStringTestData(Database<EmployeesDb> employeesDatabase)
