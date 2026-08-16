@@ -148,10 +148,56 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
         return new ImmutableRelation<V>(foreignKey, GetDataSource(), property);
     }
 
-    protected object GetValue(string propertyName) => GetNullableValue(propertyName) ?? throw new ArgumentNullException(propertyName);
-    protected object? GetNullableValue(string propertyName) => rowData.GetValue(rowData.Table.Model.ValueProperties[propertyName].Column);
-    protected object GetValue(int columnIndex) => GetNullableValue(columnIndex) ?? throw new ArgumentNullException(nameof(columnIndex));
-    protected object? GetNullableValue(int columnIndex) => rowData.GetValue(columnIndex);
+    protected object GetValue(string propertyName)
+    {
+        var property = rowData.Table.Model.ValueProperties[propertyName];
+        ThrowIfColumnWasNotSelected(property.Column);
+        return rowData.GetValue(property.Column)
+            ?? throw DataLinqNullabilityContract.CreateModelValueNullMismatch(
+                property.Column,
+                "model:getter");
+    }
+    protected object? GetNullableValue(string propertyName)
+    {
+        var property = rowData.Table.Model.ValueProperties[propertyName];
+        ThrowIfColumnWasNotSelected(property.Column);
+        return rowData.GetValue(property.Column);
+    }
+    protected object GetValue(int columnIndex)
+    {
+        if ((uint)columnIndex >= (uint)rowData.Table.ColumnCount)
+            throw new ArgumentOutOfRangeException(nameof(columnIndex));
+
+        var column = rowData.Table.Columns[columnIndex];
+        ThrowIfColumnWasNotSelected(column);
+
+        var value = rowData.GetValue(columnIndex);
+        if (value is not null)
+            return value;
+
+        throw DataLinqNullabilityContract.CreateModelValueNullMismatch(
+            column,
+            "model:getter");
+    }
+    protected object? GetNullableValue(int columnIndex)
+    {
+        if ((uint)columnIndex >= (uint)rowData.Table.ColumnCount)
+            throw new ArgumentOutOfRangeException(nameof(columnIndex));
+
+        ThrowIfColumnWasNotSelected(rowData.Table.Columns[columnIndex]);
+        return rowData.GetValue(columnIndex);
+    }
+
+    private void ThrowIfColumnWasNotSelected(ColumnDefinition column)
+    {
+        if (rowData is RowData concreteRow && !concreteRow.IsColumnPresent(column.Index))
+        {
+            throw new InvalidOperationException(
+                $"Column '{column.Table.DbName}.{column.DbName}' mapped to model property " +
+                $"'{column.ValueProperty.Model.CsType.Name}.{column.ValueProperty.PropertyName}' " +
+                "was not selected into this partial row. A missing row cell is not a SQL NULL value.");
+        }
+    }
     protected V? GetForeignKey<V>(string propertyName) where V : IImmutableInstance => GetRelation<V>(rowData.Table.Model.RelationProperties[propertyName]).SingleOrDefault();
     protected IEnumerable<V> GetRelation<V>(string propertyName) where V : IImmutableInstance => GetRelation<V>(rowData.Table.Model.RelationProperties[propertyName]);
 

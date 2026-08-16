@@ -2,6 +2,7 @@
 using System.Buffers;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Utils;
 using MySqlConnector;
@@ -164,7 +165,13 @@ public struct SqlDataLinqDataReader : IDataLinqDataReader, IDisposable
     public T? GetValue<T>(ColumnDefinition column, int ordinal)
     {
         if (IsDbNull(ordinal))
+        {
+            DataLinqNullabilityContract.EnsureReaderRequestAllowsSqlNull(
+                column,
+                typeof(T),
+                $"reader:{databaseType?.ToString() ?? "MySQL"}");
             return default;
+        }
 
         if (column.IsGuidColumn &&
             databaseType is DatabaseType.MySQL or DatabaseType.MariaDB)

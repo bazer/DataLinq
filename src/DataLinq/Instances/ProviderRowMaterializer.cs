@@ -57,6 +57,9 @@ internal static class ProviderRowMaterializer
 
         try
         {
+            if (providerValue is null)
+                DataLinqNullabilityContract.EnsureModelAllowsSqlNull(column, sourceName);
+
             CanonicalProviderValueRow.ValidateCanonicalValue(
                 column,
                 providerValue,
@@ -81,6 +84,7 @@ internal static class ProviderRowMaterializer
         }
         catch (Exception exception) when (
             exception is not ProviderValueMaterializationException and
+            not DataLinq.Exceptions.DataLinqNullabilityMismatchException and
             not OperationCanceledException and
             not OutOfMemoryException and
             not AccessViolationException)

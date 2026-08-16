@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Linq;
+using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Utils;
 using Microsoft.Data.Sqlite;
@@ -120,7 +121,13 @@ public class SQLiteDataLinqDataReader : IDataLinqDataReader
     public T? GetValue<T>(ColumnDefinition column, int ordinal)
     {
         if (IsDbNull(ordinal))
+        {
+            DataLinqNullabilityContract.EnsureReaderRequestAllowsSqlNull(
+                column,
+                typeof(T),
+                "reader:SQLite");
             return default;
+        }
 
         if (column.IsGuidColumn)
         {

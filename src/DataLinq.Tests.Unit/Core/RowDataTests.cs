@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Core.Factories;
+using DataLinq.Exceptions;
 using DataLinq.Instances;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
+using DataLinq.Mutation;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
@@ -24,6 +27,64 @@ public class RowDataTests
         await Assert.That(rowData.GetValue(nameColumn.Index)).IsEqualTo("Ada");
         await Assert.That(rowData[nameColumn.Index]).IsEqualTo("Ada");
         await Assert.That(rowData.GetValue(idColumn.Index)).IsNull();
+        await Assert.That(rowData.IsColumnPresent(nameColumn.Index)).IsTrue();
+        await Assert.That(rowData.IsColumnPresent(idColumn.Index)).IsFalse();
+    }
+
+    [Test]
+    public async Task RowData_RejectsSqlNullBeforeCustomReaderCanStoreIt()
+    {
+        var table = CreateRowDataTestTable();
+        var nameColumn = table.GetColumnByDbName("name");
+        using var reader = new FakeDataLinqDataReader([null]);
+
+        var exception = Capture<DataLinqNullabilityMismatchException>(() =>
+            new RowData(reader, table, [nameColumn], hasIndexedColumns: true));
+
+        await Assert.That(exception.MismatchKind)
+            .IsEqualTo(DataLinqNullabilityMismatchKind.DatabaseColumn);
+        await Assert.That(exception.TableName).IsEqualTo("row_data_test_rows");
+        await Assert.That(exception.ColumnName).IsEqualTo("name");
+        await Assert.That(exception.PropertyName).IsEqualTo("Name");
+        await Assert.That(exception.SourceName).IsEqualTo("reader:row-data");
+        await Assert.That(exception.Message).DoesNotContain("columnIndex");
+    }
+
+    [Test]
+    public async Task ImmutableGetter_CustomRowPreservesDatabaseFirstMismatchPrecedence()
+    {
+        var table = CreateRowDataTestTable();
+        var nameColumn = table.GetColumnByDbName("name");
+        var rowData = new NullReturningRowData(table, [7, null]);
+        var row = new GetterFallbackRow(rowData);
+
+        var exception = Capture<DataLinqNullabilityMismatchException>(() =>
+            row.ReadRequired(nameColumn.Index));
+
+        await Assert.That(exception.MismatchKind)
+            .IsEqualTo(DataLinqNullabilityMismatchKind.DatabaseColumn);
+        await Assert.That(exception.ColumnName).IsEqualTo("name");
+        await Assert.That(exception.PropertyName).IsEqualTo("Name");
+        await Assert.That(exception.SourceName).IsEqualTo("model:getter");
+    }
+
+    [Test]
+    public async Task RowData_EqualityAndHashCodeDistinguishMissingCellFromSelectedSqlNull()
+    {
+        var table = CreateRowDataEqualityTestTable();
+        var idColumn = table.GetColumnByDbName("id");
+        using var partialReader = new FakeDataLinqDataReader([7]);
+        using var matchingPartialReader = new FakeDataLinqDataReader([7]);
+        using var completeReader = new FakeDataLinqDataReader([7, null]);
+
+        var partial = new RowData(partialReader, table, [idColumn], hasIndexedColumns: true);
+        var matchingPartial = new RowData(matchingPartialReader, table, [idColumn], hasIndexedColumns: true);
+        var completeWithNull = new RowData(completeReader, table, table.Columns, hasIndexedColumns: true);
+
+        await Assert.That(partial.Equals(matchingPartial)).IsTrue();
+        await Assert.That(partial.GetHashCode()).IsEqualTo(matchingPartial.GetHashCode());
+        await Assert.That(partial.Equals(completeWithNull)).IsFalse();
+        await Assert.That(partial.GetHashCode()).IsNotEqualTo(completeWithNull.GetHashCode());
     }
 
     [Test]
@@ -292,6 +353,43 @@ public class RowDataTests
         return new MetadataDefinitionFactory().Build(draft).ValueOrException().TableModels.Single().Table;
     }
 
+    private static TableDefinition CreateRowDataEqualityTestTable()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "RowDataEqualityTestDb",
+            new CsTypeDeclaration("RowDataEqualityTestDb", "DataLinq.Tests.Unit.Core", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration("RowDataEqualityTestRow", "DataLinq.Tests.Unit.Core", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("id") { PrimaryKey = true })
+                            {
+                                CsSize = sizeof(int)
+                            },
+                            new MetadataValuePropertyDraft(
+                                "OptionalName",
+                                new CsTypeDeclaration(typeof(string)),
+                                new MetadataColumnDraft("optional_name") { Nullable = true })
+                            {
+                                CsNullable = true
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("row_data_equality_rows"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException().TableModels.Single().Table;
+    }
+
     private static TableDefinition CreateCanonicalProviderRowTestTable()
     {
         var converter = new MetadataScalarConverterDraft(
@@ -500,6 +598,32 @@ public class RowDataTests
         public bool ReadNextRow() => throw new NotSupportedException();
         public bool IsDbNull(int ordinal) => values[ordinal] is null;
     }
+
+    private sealed class NullReturningRowData(TableDefinition table, object?[] values) : IRowData
+    {
+        public TableDefinition Table { get; } = table;
+
+        public object? this[ColumnDefinition column] => GetValue(column);
+        public object? this[int columnIndex] => GetValue(columnIndex);
+
+        public object? GetValue(ColumnDefinition column) => values[column.Index];
+        public object? GetValue(int columnIndex) => values[columnIndex];
+        public IEnumerable<object?> GetValues(IEnumerable<ColumnDefinition> columns) =>
+            columns.Select(GetValue);
+        public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues() =>
+            GetColumnAndValues(Table.Columns);
+        public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues(
+            IEnumerable<ColumnDefinition> columns) =>
+            columns.Select(column => new KeyValuePair<ColumnDefinition, object?>(column, GetValue(column)));
+    }
+
+    private sealed class GetterFallbackRow(IRowData rowData)
+        : Immutable<GetterFallbackRow, GetterFallbackDatabase>(rowData, (IDataSourceAccess)null!), IModel
+    {
+        internal object ReadRequired(int columnIndex) => GetValue(columnIndex);
+    }
+
+    private sealed class GetterFallbackDatabase : IDatabaseModel;
 
     private enum RowDataNumericStatus : short
     {

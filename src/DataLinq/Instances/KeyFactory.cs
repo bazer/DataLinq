@@ -55,41 +55,27 @@ public static class KeyFactory
     {
         if (columns.Count == 1)
         {
-            // The fast path
             var column = columns[0];
-            if (column.IsGuidColumn)
-            {
-                return CreateKeyFromValue(
-                    ProviderRowDecoder.DecodeCanonicalValue(
-                        reader,
-                        column,
-                        ordinal: 0,
-                        sourceName: "reader.key-selection",
-                        useColumnAwareGuid: true));
-            }
-
-            if (column.HasScalarConverter)
-            {
-                return CreateKeyFromValue(
-                    ProviderRowDecoder.DecodeCanonicalValue(
-                        reader,
-                        column,
-                        ordinal: 0,
-                        sourceName: "reader.key-selection"));
-            }
-
-            var columnType = column.ValueProperty.CsType.Type;
-            if (columnType == typeof(int))
-                return CreateKeyFromValue(reader.GetInt32(0));
-            else if (columnType == typeof(string))
-                return CreateKeyFromValue(reader.GetString(0));
-            else
-                return CreateKeyFromValue(reader.GetValue<object>(column, 0));
+            return CreateKeyFromValue(
+                ProviderRowDecoder.DecodeCanonicalValue(
+                    reader,
+                    column,
+                    ordinal: 0,
+                    sourceName: "reader.key-selection",
+                    useColumnAwareGuid: column.IsGuidColumn));
         }
 
         var values = new object?[columns.Count];
         for (var i = 0; i < values.Length; i++)
-            values[i] = reader.GetValue<object>(columns[i]);
+        {
+            var column = columns[i];
+            values[i] = ProviderRowDecoder.DecodeCanonicalValue(
+                reader,
+                column,
+                reader.GetOrdinal(column.DbName),
+                "reader.key-selection",
+                useColumnAwareGuid: column.IsGuidColumn);
+        }
 
         return CreateKeyFromValues(values);
     }

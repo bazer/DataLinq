@@ -15,7 +15,18 @@ public interface IDataLinqDataReader : IDisposable
     Guid GetGuid(int ordinal);
     byte[]? GetBytes(int ordinal);
     long GetBytes(int ordinal, Span<byte> buffer);
+    /// <summary>
+    /// Reads a column as its model CLR value. SQL NULL is returned only when the generated database
+    /// and model metadata permit null and <typeparamref name="T"/> can represent it; otherwise a
+    /// <see cref="Exceptions.DataLinqNullabilityMismatchException"/> is thrown.
+    /// </summary>
     T? GetValue<T>(ColumnDefinition column);
+
+    /// <summary>
+    /// Reads a column at a known reader ordinal as its model CLR value. SQL NULL is returned only
+    /// when the generated database and model metadata permit null and <typeparamref name="T"/> can
+    /// represent it; otherwise a <see cref="Exceptions.DataLinqNullabilityMismatchException"/> is thrown.
+    /// </summary>
     T? GetValue<T>(ColumnDefinition column, int ordinal);
     bool ReadNextRow();
     bool IsDbNull(int ordinal);

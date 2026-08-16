@@ -242,7 +242,12 @@ public partial class TableCache
             using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
 
             return reader.ReadNextRow()
-                ? new RowData(reader, table, table.Columns, true)
+                ? new RowData(
+                    reader,
+                    table,
+                    table.Columns,
+                    true,
+                    $"sql:{dataSource.Provider.DatabaseType}:cache-scalar-row")
                 : null;
         }
 
