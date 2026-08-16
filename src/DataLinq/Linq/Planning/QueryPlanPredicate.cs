@@ -163,5 +163,5 @@ internal enum QueryPlanComparisonOperator
 internal enum QueryPlanNullSemantics
 {
     Default,
-    CSharpNullableNotEqualIncludesNull
+    CSharpNullableComparison
 }

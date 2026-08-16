@@ -44,7 +44,7 @@ query-template v0
 sources:
   s0 root-table alias=t0 table=employees element=Employee cardinality=many nullable=false
 operations:
-  where and(compare(column(s0.emp_no:Int32) != convert(scalar-binding(p0:Int32) -> Int32?) nulls=c-sharp-nullable-not-equal-includes-null), not-in(column(s0.emp_no:Int32), local-sequence-binding(p1:Int32)))
+  where and(compare(column(s0.emp_no:Int32) != convert(scalar-binding(p0:Int32) -> Int32?) nulls=c-sharp-nullable-comparison), not-in(column(s0.emp_no:Int32), local-sequence-binding(p1:Int32)))
   order-by column(s0.last_name:String) ascending, column(s0.emp_no:Int32) descending
   skip scalar-binding(p2:Int32)
   take scalar-binding(p3:Int32)
@@ -455,18 +455,18 @@ specialization:
     }
 
     [Test]
-    public async Task NegatedFunctionPredicateSnapshot_RecordsNotNode()
+    public async Task NegatedFunctionPredicateSnapshot_RecordsEffectiveComparisonPolarity()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(NegatedFunctionPredicateSnapshot_RecordsNotNode),
+            nameof(NegatedFunctionPredicateSnapshot_RecordsEffectiveComparisonPolarity),
             EmployeesSeedMode.Bogus);
 
         var snapshot = Snapshot(
             databaseScope.Database,
             databaseScope.Database.Query().Departments.Where(x => !x.DeptNo.StartsWith("d00")));
 
-        await Assert.That(snapshot).Contains("where not(compare(function(string-starts-with:Boolean column(s0.dept_no:String), scalar-binding(p0:String)) == intrinsic(true:Boolean)))");
+        await Assert.That(snapshot).Contains("where compare(function(string-starts-with:Boolean column(s0.dept_no:String), scalar-binding(p0:String)) != intrinsic(true:Boolean))");
         await AssertNoLegacyParserTerms(snapshot);
     }
 
@@ -945,10 +945,10 @@ specialization:
             databaseScope.Database.Query().Employees.Where(x => x.last_login != login));
 
         await Assert.That(literalNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != intrinsic(null:TimeOnly?))");
-        await Assert.That(literalNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-not-equal-includes-null");
+        await Assert.That(literalNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-comparison");
         await Assert.That(capturedNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != scalar-binding(p0:TimeOnly?))");
-        await Assert.That(capturedNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-not-equal-includes-null");
-        await Assert.That(capturedNonNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != scalar-binding(p0:TimeOnly?) nulls=c-sharp-nullable-not-equal-includes-null)");
+        await Assert.That(capturedNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-comparison");
+        await Assert.That(capturedNonNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != scalar-binding(p0:TimeOnly?) nulls=c-sharp-nullable-comparison)");
         await Assert.That(capturedNonNullSnapshot).DoesNotContain("09:15");
         await AssertNoLegacyParserTerms(literalNullSnapshot);
         await AssertNoLegacyParserTerms(capturedNullSnapshot);

@@ -225,7 +225,7 @@ public sealed class MemoryBooleanPredicateTests
         await Assert.That(stringChild.Feature)
             .IsEqualTo("ComparisonShape:DefaultNullSemantics");
         await Assert.That(stringChild.Location)
-            .IsEqualTo("operations[0].predicate.terms[1].predicate.terms[1].shape");
+            .IsEqualTo("operations[0].predicate.terms[1].terms[1].shape");
         await Assert.That(stringChild.ToString()).DoesNotContain(sensitiveName);
         await Assert.That(primitive.Diagnostics).IsEqualTo(primitiveBefore);
 

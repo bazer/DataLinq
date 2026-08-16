@@ -671,54 +671,68 @@ internal sealed class QueryPlanRequirements
                 return QueryPlanComparisonShape.DefaultNullSemantics;
             }
 
-            if (comparison.NullSemantics == QueryPlanNullSemantics.CSharpNullableNotEqualIncludesNull &&
-                comparison.Operator == QueryPlanComparisonOperator.NotEqual)
+            if (comparison.NullSemantics == QueryPlanNullSemantics.CSharpNullableComparison)
             {
-                if (TryGetNullableColumnAndScalarNullness(comparison.Left, comparison.Right, out var isNull) ||
-                    TryGetNullableColumnAndScalarNullness(comparison.Right, comparison.Left, out isNull))
+                if (TryGetColumn(comparison.Left, out var leftColumn) &&
+                    TryGetColumn(comparison.Right, out var rightColumn) &&
+                    IsSupportedCSharpNullableOperator(comparison.Operator, leftColumn, rightColumn))
                 {
-                    return isNull
-                        ? QueryPlanComparisonShape.NullableNotEqualColumnAndNullValue
-                        : QueryPlanComparisonShape.NullableNotEqualColumnAndNonNullValue;
+                    return QueryPlanComparisonShape.CSharpNullableColumnToColumn;
+                }
+
+                if ((TryGetColumn(comparison.Left, out var column) && IsScalarValue(comparison.Right) ||
+                     TryGetColumn(comparison.Right, out column) && IsScalarValue(comparison.Left)) &&
+                    IsSupportedCSharpNullableOperator(comparison.Operator, column, rightColumn: null))
+                {
+                    return QueryPlanComparisonShape.CSharpNullableColumnAndScalar;
                 }
             }
 
-            return QueryPlanComparisonShape.UnsupportedNullableNotEqual;
+            return QueryPlanComparisonShape.UnsupportedCSharpNullableComparison;
         }
 
-        private bool TryGetNullableColumnAndScalarNullness(
-            QueryPlanValue columnValue,
-            QueryPlanValue scalarValue,
-            out bool isNull)
-        {
-            if (columnValue is QueryPlanColumnValue { Column.ValueProperty.CsNullable: true } &&
-                TryGetScalarNullness(scalarValue, out isNull))
-            {
-                return true;
-            }
-
-            isNull = false;
-            return false;
-        }
-
-        private bool TryGetScalarNullness(QueryPlanValue value, out bool isNull)
+        private static bool TryGetColumn(QueryPlanValue value, out QueryPlanColumnValue column)
         {
             switch (value)
             {
-                case QueryPlanIntrinsicValue intrinsic:
-                    isNull = intrinsic.Intrinsic == QueryPlanIntrinsicKind.Null;
-                    return true;
-                case QueryPlanScalarBindingReference scalar
-                    when invocation.Template.Specialization.TryGet(scalar.BindingId, out var specialization) &&
-                         specialization is QueryPlanBindingSpecialization.ScalarNullness scalarNullness:
-                    isNull = scalarNullness.Nullness == QueryPlanBindingNullness.Null;
+                case QueryPlanColumnValue direct:
+                    column = direct;
                     return true;
                 case QueryPlanConvertedValue converted:
-                    return TryGetScalarNullness(converted.Value, out isNull);
+                    return TryGetColumn(converted.Value, out column);
+                case QueryPlanGroupKeyValue groupKey:
+                    return TryGetColumn(groupKey.Key, out column);
                 default:
-                    isNull = false;
+                    column = null!;
                     return false;
             }
+        }
+
+        private static bool IsScalarValue(QueryPlanValue value) => value switch
+        {
+            QueryPlanIntrinsicValue => true,
+            QueryPlanScalarBindingReference => true,
+            QueryPlanConvertedValue converted => IsScalarValue(converted.Value),
+            _ => false
+        };
+
+        private static bool IsSupportedCSharpNullableOperator(
+            QueryPlanComparisonOperator comparisonOperator,
+            QueryPlanColumnValue leftColumn,
+            QueryPlanColumnValue? rightColumn)
+        {
+            var leftAllowsNull = leftColumn.Column.ValueProperty.CsNullable;
+            var rightAllowsNull = rightColumn?.Column.ValueProperty.CsNullable == true;
+            return comparisonOperator switch
+            {
+                QueryPlanComparisonOperator.Equal => leftAllowsNull && rightAllowsNull,
+                QueryPlanComparisonOperator.NotEqual or
+                QueryPlanComparisonOperator.GreaterThan or
+                QueryPlanComparisonOperator.GreaterThanOrEqual or
+                QueryPlanComparisonOperator.LessThan or
+                QueryPlanComparisonOperator.LessThanOrEqual => leftAllowsNull || rightAllowsNull,
+                _ => false
+            };
         }
 
         private static QueryPlanAggregateSelectorShape GetAggregateSelectorShape(QueryPlanValue selector)
