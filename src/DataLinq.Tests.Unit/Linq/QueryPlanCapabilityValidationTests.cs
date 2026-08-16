@@ -1129,6 +1129,71 @@ public class QueryPlanCapabilityValidationTests
     }
 
     [Test]
+    public async Task StructuralCapabilityValidation_AllocatesNothingAfterTemplateConstruction()
+    {
+        var template = CreateRepresentativeInvocation().Template;
+        QueryPlanCapabilityValidator.ValidateStructural(template, QueryBackendCapabilities.Sql);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var iteration = 0; iteration < 100; iteration++)
+            QueryPlanCapabilityValidator.ValidateStructural(template, QueryBackendCapabilities.Sql);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(allocated).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Requirements_CompactFeatureSpansAlignWithLazyDiagnosticsForNestedPagingPlan()
+    {
+        var requirements = QueryPlanRequirements.Extract(
+            CreateRepresentativeInvocation(includeNestedPaging: true));
+
+        var structuralFeatures = requirements.StructuralFeatures.ToArray();
+        var invocationFeatures = requirements.InvocationFeatures.ToArray();
+        var structuralDiagnosticFeatures = requirements.Structural
+            .Select(static requirement => requirement.Feature)
+            .ToArray();
+        var invocationDiagnosticFeatures = requirements.Invocation
+            .Select(static requirement => requirement.Feature)
+            .ToArray();
+
+        await Assert.That(structuralFeatures.Length).IsEqualTo(requirements.StructuralCount);
+        await Assert.That(invocationFeatures.Length).IsEqualTo(requirements.InvocationCount);
+        await Assert.That(structuralFeatures.SequenceEqual(structuralDiagnosticFeatures)).IsTrue();
+        await Assert.That(invocationFeatures.SequenceEqual(invocationDiagnosticFeatures)).IsTrue();
+
+        var pagingLocations = requirements.Invocation
+            .Where(static requirement =>
+                requirement.Feature.Category == QueryPlanFeatureCategory.PagingCountShape)
+            .Select(static requirement => requirement.Location)
+            .ToArray();
+        await Assert.That(pagingLocations.SequenceEqual([
+            "operations[1].operations[1].count.shape",
+            "operations[1].operations[2].count.shape"
+        ])).IsTrue();
+    }
+
+    [Test]
+    public async Task Validator_DoesNotReuseSuccessAcrossCapabilityProfiles()
+    {
+        var invocation = CreateRepresentativeInvocation();
+        var unsupportedProfile = WithUnsupported(
+            "without-pushdown",
+            QueryPlanFeature.Operation(QueryPlanOperationKind.Pushdown));
+
+        var supported = QueryPlanCapabilityValidator.Validate(
+            invocation,
+            QueryBackendCapabilities.Sql);
+        var rejected = Capture<QueryBackendCapabilityException>(() =>
+            QueryPlanCapabilityValidator.Validate(invocation, unsupportedProfile));
+
+        await Assert.That(supported.StructuralCount).IsGreaterThan(0);
+        await Assert.That(rejected.BackendName).IsEqualTo("without-pushdown");
+        await Assert.That(rejected.Feature).IsEqualTo("Operation:Pushdown");
+        await Assert.That(rejected.Location).IsEqualTo("operations[1]");
+    }
+
+    [Test]
     public async Task Validator_SeparatesInvocationSensitiveRequirementsFromStructure()
     {
         var invocation = CreateRepresentativeInvocation();
@@ -1993,7 +2058,7 @@ public class QueryPlanCapabilityValidationTests
         return QueryPlanInvocation.Bind(template, capture.InvocationValues);
     }
 
-    private static QueryPlanInvocation CreateRepresentativeInvocation()
+    private static QueryPlanInvocation CreateRepresentativeInvocation(bool includeNestedPaging = false)
     {
         var table = GetTable<Employee>();
         var root = Source("s0", "t0", table, QueryPlanSourceKind.RootTable);
@@ -2025,6 +2090,18 @@ public class QueryPlanCapabilityValidationTests
                 new QueryPlanProjectionRecipe.ScalarBinding(scalar.BindingId, typeof(string))
             ],
             typeof(string[]));
+        var nestedOperations = new List<QueryPlanOperation>
+        {
+            new QueryPlanOperation.Where(predicate)
+        };
+        if (includeNestedPaging)
+        {
+            nestedOperations.Add(new QueryPlanOperation.Skip(
+                capture.CaptureScalar(2, typeof(int))));
+            nestedOperations.Add(new QueryPlanOperation.Take(
+                capture.CaptureScalar(5, typeof(int))));
+        }
+
         var template = new QueryPlanTemplate(
             [root, joined],
             [
@@ -2035,7 +2112,7 @@ public class QueryPlanCapabilityValidationTests
                     joined,
                     employeeNumber)),
                 new QueryPlanOperation.Pushdown(
-                    [new QueryPlanOperation.Where(predicate)],
+                    nestedOperations,
                     [new QueryPlanOrdering(firstNameValue, QueryPlanOrderingDirection.Descending)])
             ],
             new QueryPlanProjection.ComputedRowLocal(typeof(string[]), recipe, [root]),

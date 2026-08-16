@@ -23,25 +23,62 @@ internal static class QueryPlanCapabilityValidator
         ArgumentNullException.ThrowIfNull(requirements);
         ArgumentNullException.ThrowIfNull(capabilities);
 
-        foreach (var requirement in requirements.Structural)
-            Validate(requirement, capabilities);
+        Validate(
+            requirements,
+            requirements.StructuralFeatures,
+            capabilities,
+            structural: true);
+        Validate(
+            requirements,
+            requirements.InvocationFeatures,
+            capabilities,
+            structural: false);
+    }
 
-        foreach (var requirement in requirements.Invocation)
-            Validate(requirement, capabilities);
+    internal static void ValidateStructural(
+        QueryPlanTemplate template,
+        QueryBackendCapabilities capabilities)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        ArgumentNullException.ThrowIfNull(capabilities);
+
+        var features = template.StructuralRequirementFeatures;
+        for (var index = 0; index < features.Length; index++)
+        {
+            if (capabilities.GetDisposition(features[index]) == QueryBackendCapabilityDisposition.Supported)
+                continue;
+
+            var requirement = QueryPlanRequirements.ExtractStructuralDiagnostics(template)[index];
+            throw new QueryBackendCapabilityException(
+                capabilities.BackendName,
+                requirement.Feature.Token,
+                requirement.Location,
+                requirement.SourceId,
+                requirement.ColumnName);
+        }
     }
 
     private static void Validate(
-        QueryPlanRequirement requirement,
-        QueryBackendCapabilities capabilities)
+        QueryPlanRequirements requirements,
+        ReadOnlySpan<QueryPlanFeature> features,
+        QueryBackendCapabilities capabilities,
+        bool structural)
     {
-        if (capabilities.GetDisposition(requirement.Feature) == QueryBackendCapabilityDisposition.Supported)
-            return;
+        for (var index = 0; index < features.Length; index++)
+        {
+            if (capabilities.GetDisposition(features[index]) == QueryBackendCapabilityDisposition.Supported)
+                continue;
 
-        throw new QueryBackendCapabilityException(
-            capabilities.BackendName,
-            requirement.Feature.Token,
-            requirement.Location,
-            requirement.SourceId,
-            requirement.ColumnName);
+            var requirement = structural
+                ? requirements.Structural[index]
+                : requirements.Invocation[index];
+
+            throw new QueryBackendCapabilityException(
+                capabilities.BackendName,
+                requirement.Feature.Token,
+                requirement.Location,
+                requirement.SourceId,
+                requirement.ColumnName);
+        }
     }
 }

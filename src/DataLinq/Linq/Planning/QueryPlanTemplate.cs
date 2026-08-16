@@ -7,6 +7,8 @@ namespace DataLinq.Linq.Planning;
 
 internal sealed class QueryPlanTemplate
 {
+    private readonly QueryPlanFeature[] structuralRequirementFeatures;
+
     public QueryPlanTemplate(
         IEnumerable<QueryPlanSourceSlot> sources,
         IEnumerable<QueryPlanOperation> operations,
@@ -31,6 +33,7 @@ internal sealed class QueryPlanTemplate
 
         ValidateSourceIds(Sources);
         QueryPlanTemplateValidator.Validate(this);
+        structuralRequirementFeatures = QueryPlanRequirements.ExtractStructuralFeatures(this);
     }
 
     public IReadOnlyList<QueryPlanSourceSlot> Sources { get; }
@@ -44,6 +47,9 @@ internal sealed class QueryPlanTemplate
     public QueryPlanBindingDeclarations BindingDeclarations { get; }
 
     public QueryPlanSpecialization Specialization { get; }
+
+    internal ReadOnlySpan<QueryPlanFeature> StructuralRequirementFeatures =>
+        structuralRequirementFeatures;
 
     public QueryPlanSourceSlot GetSource(string id)
     {
