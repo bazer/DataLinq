@@ -1,0 +1,29 @@
+{
+  "SchemaVersion": 1,
+  "Policy": "same-runner-final-0.8-delta",
+  "BaselineCommit": "8bcfc770246f960e27a91e3046f19a76c3736217",
+  "RuntimeSourceTag": "0.8.0",
+  "MaximumAllocatedDeltaPercent": 0.0,
+  "Lanes": {
+    "allocation-regression": [
+      "Provider initialization",
+      "Startup primary-key fetch",
+      "CRUD workflow small",
+      "CRUD workflow batch",
+      "Update employees",
+      "Cold primary-key fetch",
+      "Warm primary-key fetch",
+      "Cold relation traversal",
+      "Warm relation traversal"
+    ],
+    "phase3-query-hotpath": [
+      "Repeated non-PK equality fetch",
+      "Repeated IN predicate fetch",
+      "Repeated scalar Any"
+    ]
+  },
+  "AttributionOnlyLanes": [
+    "v0.9-query-backend",
+    "allocation-stages"
+  ]
+}

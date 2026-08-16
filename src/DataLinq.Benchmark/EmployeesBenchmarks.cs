@@ -19,6 +19,7 @@ public class EmployeesBenchmarks : IDisposable
     private const string Phase11CacheInvalidationCategory = "phase11-cache-invalidation";
     private const string Phase12CacheMemoryCategory = "phase12-cache-memory";
     private const string V09QueryBackendCategory = "v0.9-query-backend";
+    private const string AllocationStagesCategory = "allocation-stages";
     private const string MacroReadWriteCategory = "macro-readwrite";
     private const string MacroBulkCategory = "macro-bulk";
     private BenchmarkContext? context;
@@ -318,6 +319,50 @@ public class EmployeesBenchmarks : IDisposable
     {
         executedScenario = BenchmarkScenario.SqlAdapterScalarAny;
         return context!.ExecutePreparsedSqlAdapterScalarAnyBatch();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Canonical provider-row decoding")]
+    public int CanonicalProviderRowDecoding()
+    {
+        executedScenario = BenchmarkScenario.CanonicalProviderRowDecoding;
+        return context!.DecodeCanonicalProviderRows();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Provider-row model materialization")]
+    public int ProviderRowModelMaterialization()
+    {
+        executedScenario = BenchmarkScenario.ProviderRowModelMaterialization;
+        return context!.MaterializeProviderRows();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Mutation state-change capture")]
+    public int MutationStateChangeCapture()
+    {
+        executedScenario = BenchmarkScenario.MutationStateChangeCapture;
+        return context!.CaptureMutationStateChanges();
+    }
+
+    [IterationSetup(Target = nameof(MutationExecutionPreflight))]
+    public void SetupMutationExecutionPreflight()
+    {
+        context!.PrepareMutationExecutionPreflight();
+    }
+
+    [IterationCleanup(Target = nameof(MutationExecutionPreflight))]
+    public void CleanupMutationExecutionPreflight()
+    {
+        context!.CleanupMutationExecutionPreflight();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Mutation execution preflight")]
+    public int MutationExecutionPreflight()
+    {
+        executedScenario = BenchmarkScenario.MutationExecutionPreflight;
+        return context!.ValidateMutationExecutionPreflight();
     }
 
     [IterationSetup(Target = nameof(ColdRelationTraversal))]

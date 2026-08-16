@@ -9,6 +9,7 @@ using DataLinq.Instances;
 using DataLinq.Linq.Planning;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Metadata;
+using DataLinq.Mutation;
 using DataLinq.Testing;
 using DataLinq.Tests.Models.Employees;
 
@@ -41,10 +42,17 @@ internal sealed class BenchmarkContext : IDisposable
     private readonly QueryExecutionRequest v09QueryExecutionRequest;
     private readonly InsertEmployeeTemplate[] insertEmployeeTemplates;
     private readonly Dictionary<int, string> originalMutationLastNames;
+    private readonly TableDefinition allocationTable;
+    private readonly object?[] allocationCanonicalValues;
+    private readonly PrecomputedProviderDataReader allocationProviderReader;
+    private readonly CanonicalProviderValueRow allocationProviderRow;
+    private readonly MutableEmployee[] allocationMutationModels;
     private readonly int startupEmployeeNumber;
     private readonly TestConnectionDefinition startupConnection;
     private readonly List<Employee> insertedEmployees = [];
     private RowCache scalarRowCacheProbe = new();
+    private Transaction? allocationPreflightTransaction;
+    private StateChange? allocationPreflightStateChange;
 
     public BenchmarkContext(TestProviderDescriptor provider)
     {
@@ -74,6 +82,25 @@ internal sealed class BenchmarkContext : IDisposable
             .ToArray();
         sampleEmployeeRowData = sampleEmployees
             .Select(static x => (RowData)x.GetRowData())
+            .ToArray();
+        allocationTable = sampleEmployees[0].Metadata().Table;
+        allocationCanonicalValues = allocationTable.Columns
+            .Select(column => ModelValueConverter.ToCanonicalProviderValue(
+                column,
+                sampleEmployeeRowData[0][column],
+                "benchmark.allocation"))
+            .ToArray();
+        allocationProviderRow = CanonicalProviderValueRow.Create(
+            allocationTable,
+            allocationCanonicalValues);
+        allocationProviderReader = new PrecomputedProviderDataReader(allocationCanonicalValues);
+        allocationMutationModels = sampleEmployees
+            .Select(employee =>
+            {
+                var mutable = employee.Mutate();
+                mutable.last_name = $"{employee.last_name}-allocation";
+                return mutable;
+            })
             .ToArray();
         sampleInPredicateEmployeeNumbers = Enumerable.Range(0, BatchOperationCount)
             .Select(index => new[]
@@ -423,6 +450,84 @@ internal sealed class BenchmarkContext : IDisposable
         return checksum;
     }
 
+    public int DecodeCanonicalProviderRows()
+    {
+        var checksum = 0;
+
+        for (var index = 0; index < BatchOperationCount; index++)
+        {
+            var row = ProviderRowDecoder.DecodeFullRow(
+                allocationProviderReader,
+                allocationTable,
+                "benchmark.allocation");
+            checksum = unchecked(checksum + row.EstimatedPayloadSize);
+        }
+
+        return checksum;
+    }
+
+    public int MaterializeProviderRows()
+    {
+        var checksum = 0;
+
+        for (var index = 0; index < BatchOperationCount; index++)
+        {
+            var row = ProviderRowMaterializer.Materialize(
+                allocationProviderRow,
+                "benchmark.allocation");
+            checksum = unchecked(checksum + row.Size);
+        }
+
+        return checksum;
+    }
+
+    public int CaptureMutationStateChanges()
+    {
+        var checksum = 0;
+
+        foreach (var mutable in allocationMutationModels)
+        {
+            var change = new StateChange(mutable, allocationTable, TransactionChangeType.Update);
+            checksum = unchecked(checksum + change.PrimaryKeys.GetHashCode());
+        }
+
+        return checksum;
+    }
+
+    public void PrepareMutationExecutionPreflight()
+    {
+        CleanupMutationExecutionPreflight();
+        allocationPreflightTransaction = new Transaction(Database.Provider, TransactionType.ReadAndWrite);
+        allocationPreflightStateChange = new StateChange(
+            allocationMutationModels[0],
+            allocationTable,
+            TransactionChangeType.Update);
+    }
+
+    public int ValidateMutationExecutionPreflight()
+    {
+        var transaction = allocationPreflightTransaction
+            ?? throw new InvalidOperationException("Mutation preflight benchmark transaction was not prepared.");
+        var change = allocationPreflightStateChange
+            ?? throw new InvalidOperationException("Mutation preflight benchmark state change was not prepared.");
+        var checksum = 0;
+
+        for (var index = 0; index < BatchOperationCount; index++)
+        {
+            MutationPreflight.EnsureExecution(transaction, change);
+            checksum = unchecked(checksum + change.PrimaryKeys.GetHashCode());
+        }
+
+        return checksum;
+    }
+
+    public void CleanupMutationExecutionPreflight()
+    {
+        allocationPreflightTransaction?.Dispose();
+        allocationPreflightTransaction = null;
+        allocationPreflightStateChange = null;
+    }
+
     public void ClearWarmRelationTraversalCache()
     {
         foreach (var employee in sampleEmployeesWithDepartments)
@@ -709,6 +814,9 @@ internal sealed class BenchmarkContext : IDisposable
                 case BenchmarkScenario.SqlAdapterScalarAny:
                     WarmV09SqlAdapter();
                     break;
+                case BenchmarkScenario.MutationExecutionPreflight:
+                    PrepareMutationExecutionPreflight();
+                    break;
             }
         }
         else
@@ -744,6 +852,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.InvocationBindScalarLocalSequence => BindScalarAndLocalSequenceBatch(),
             BenchmarkScenario.SqlRequestCapabilityPreparation => PrepareSqlRequestAndCapabilitiesBatch(),
             BenchmarkScenario.SqlAdapterScalarAny => ExecutePreparsedSqlAdapterScalarAnyBatch(),
+            BenchmarkScenario.CanonicalProviderRowDecoding => DecodeCanonicalProviderRows(),
+            BenchmarkScenario.ProviderRowModelMaterialization => MaterializeProviderRows(),
+            BenchmarkScenario.MutationStateChangeCapture => CaptureMutationStateChanges(),
+            BenchmarkScenario.MutationExecutionPreflight => ValidateMutationExecutionPreflight(),
             BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => LoadEmployeesByPrimaryKeyBatchWithCacheEstimate(),
             BenchmarkScenario.WarmRelationTraversalWithCacheEstimate => TraverseWarmDepartmentNamesBatchWithCacheEstimate(),
             BenchmarkScenario.LargeRelationIndexPreload => PreloadLargeRelationIndex(),
@@ -766,6 +878,9 @@ internal sealed class BenchmarkContext : IDisposable
             case BenchmarkScenario.UpdateEmployeesBatch:
                 CleanupUpdatedEmployees();
                 break;
+            case BenchmarkScenario.MutationExecutionPreflight:
+                CleanupMutationExecutionPreflight();
+                break;
         }
 
         return delta;
@@ -775,6 +890,7 @@ internal sealed class BenchmarkContext : IDisposable
 
     public void Dispose()
     {
+        CleanupMutationExecutionPreflight();
         databaseScope.Dispose();
     }
 
@@ -854,6 +970,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.InvocationBindScalarLocalSequence => BatchOperationCount,
             BenchmarkScenario.SqlRequestCapabilityPreparation => BatchOperationCount,
             BenchmarkScenario.SqlAdapterScalarAny => V09SqlAdapterOperationCount,
+            BenchmarkScenario.CanonicalProviderRowDecoding => BatchOperationCount,
+            BenchmarkScenario.ProviderRowModelMaterialization => BatchOperationCount,
+            BenchmarkScenario.MutationStateChangeCapture => BatchOperationCount,
+            BenchmarkScenario.MutationExecutionPreflight => BatchOperationCount,
             BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => BatchOperationCount,
             BenchmarkScenario.WarmRelationTraversalWithCacheEstimate => BatchOperationCount,
             BenchmarkScenario.LargeRelationIndexPreload => 1,
@@ -915,6 +1035,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.InvocationBindScalarLocalSequence => "Invocation bind scalar/local sequence",
             BenchmarkScenario.SqlRequestCapabilityPreparation => "SQL request/capability preparation",
             BenchmarkScenario.SqlAdapterScalarAny => "SQL adapter scalar Any",
+            BenchmarkScenario.CanonicalProviderRowDecoding => "Canonical provider-row decoding",
+            BenchmarkScenario.ProviderRowModelMaterialization => "Provider-row model materialization",
+            BenchmarkScenario.MutationStateChangeCapture => "Mutation state-change capture",
+            BenchmarkScenario.MutationExecutionPreflight => "Mutation execution preflight",
             BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => "Warm PK with cache estimate",
             BenchmarkScenario.WarmRelationTraversalWithCacheEstimate => "Warm relation with cache estimate",
             BenchmarkScenario.LargeRelationIndexPreload => "Large relation index preload",
@@ -951,4 +1075,29 @@ internal sealed class BenchmarkContext : IDisposable
         string LastName,
         Employee.Employeegender Gender,
         DateOnly HireDate);
+
+    private sealed class PrecomputedProviderDataReader(object?[] values) : IDataLinqDataReader
+    {
+        public object GetValue(int ordinal) => values[ordinal]!;
+        public int GetOrdinal(string name) => throw new NotSupportedException();
+        public string GetString(int ordinal) => (string)values[ordinal]!;
+        public bool GetBoolean(int ordinal) => (bool)values[ordinal]!;
+        public int GetInt32(int ordinal) => Convert.ToInt32(values[ordinal]);
+        public DateOnly GetDateOnly(int ordinal) => (DateOnly)values[ordinal]!;
+        public Guid GetGuid(int ordinal) => (Guid)values[ordinal]!;
+        public byte[]? GetBytes(int ordinal) => (byte[]?)values[ordinal];
+
+        public long GetBytes(int ordinal, Span<byte> buffer)
+        {
+            var bytes = (byte[]?)values[ordinal] ?? [];
+            bytes.AsSpan().CopyTo(buffer);
+            return bytes.Length;
+        }
+
+        public T? GetValue<T>(ColumnDefinition column) => (T?)values[column.Index];
+        public T? GetValue<T>(ColumnDefinition column, int ordinal) => (T?)values[ordinal];
+        public bool ReadNextRow() => throw new NotSupportedException();
+        public bool IsDbNull(int ordinal) => values[ordinal] is null or DBNull;
+        public void Dispose() { }
+    }
 }

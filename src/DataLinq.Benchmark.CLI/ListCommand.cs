@@ -29,12 +29,10 @@ internal static class ListCommand
         command.SetAction(parseResult =>
         {
             var runner = new BenchmarkHarnessRunner(settings);
-            var exitCode = runner.List(
+            return runner.List(
                 parseResult.GetValue(noBuildOption),
                 parseResult.GetValue(verboseOption),
                 parseResult.GetValue(additionalArgsArgument) ?? Array.Empty<string>());
-
-            Environment.ExitCode = exitCode;
         });
 
         return command;
