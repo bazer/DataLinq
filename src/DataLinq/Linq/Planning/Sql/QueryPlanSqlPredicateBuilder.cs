@@ -10,6 +10,8 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
     QueryPlanSqlSourceMap sourceMap,
     QueryPlanSqlValueRenderer valueRenderer)
 {
+    private const char LikeEscapeCharacter = '!';
+
     public void Apply(QueryPlanPredicate predicate)
     {
         ArgumentNullException.ThrowIfNull(predicate);
@@ -349,15 +351,35 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
 
         var source = valueRenderer.RenderOperand(function.Arguments[0]);
         var value = valueRenderer.GetScalarValue(function.Arguments[1]);
+        var literal = value switch
+        {
+            string stringValue => stringValue,
+            char character => character.ToString(),
+            _ => throw new QueryTranslationException(
+                $"Query plan function '{function.Function}' requires a non-null string or char search value.")
+        };
+
+        var escapedLiteral = EscapeLikeLiteral(literal);
         var pattern = function.Function switch
         {
-            QueryPlanFunctionKind.StringStartsWith => string.Concat(value, "%"),
-            QueryPlanFunctionKind.StringEndsWith => string.Concat("%", value),
-            QueryPlanFunctionKind.StringContains => string.Concat("%", value, "%"),
+            QueryPlanFunctionKind.StringStartsWith => string.Concat(escapedLiteral, "%"),
+            QueryPlanFunctionKind.StringEndsWith => string.Concat("%", escapedLiteral),
+            QueryPlanFunctionKind.StringContains => string.Concat("%", escapedLiteral, "%"),
             _ => throw new QueryTranslationException($"Query plan function '{function.Function}' is not a LIKE predicate.")
         };
 
-        group.AddWhere(new Comparison(source, Operator.Like, Operand.Value(pattern)), connectionType);
+        group.AddWhere(
+            new Comparison(source, Operator.Like, Operand.EscapedLikePattern(pattern, LikeEscapeCharacter)),
+            connectionType);
+    }
+
+    private static string EscapeLikeLiteral(string literal)
+    {
+        var escape = LikeEscapeCharacter.ToString();
+        return literal
+            .Replace(escape, escape + escape, StringComparison.Ordinal)
+            .Replace("%", escape + "%", StringComparison.Ordinal)
+            .Replace("_", escape + "_", StringComparison.Ordinal);
     }
 
     private void ApplyStringNullOrEmptyFunction(QueryPlanFunctionValue function, WhereGroup<T> group, BooleanType connectionType)

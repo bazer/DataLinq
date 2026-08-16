@@ -330,6 +330,18 @@ public class Where<T> : IWhere<T>
             {
                 AppendParameterNames(valueOperand, sql, prefix, addCommandParameter);
             }
+
+            if (valueOperand is EscapedLikePatternOperand escapedPattern)
+            {
+                if (!ReferenceEquals(operand, Right) ||
+                    Operator is not (Operator.Like or Operator.NotLike))
+                {
+                    throw new InvalidOperationException(
+                        "An escaped LIKE pattern can only be the right operand of a LIKE comparison.");
+                }
+
+                AppendLikeEscapeClause(sql, escapedPattern.EscapeCharacter);
+            }
         }
         else if (operand is RawSqlOperand rawOperand)
         {
@@ -339,6 +351,16 @@ public class Where<T> : IWhere<T>
             columnOperand.AddName(sql, WhereGroup.Query.EscapeCharacter);
         else
             throw new NotSupportedException($"Unsupported operand type: {operand.GetType().Name}");
+    }
+
+    private static void AppendLikeEscapeClause(Sql sql, char escapeCharacter)
+    {
+        sql.AddText(" ESCAPE '");
+        if (escapeCharacter == '\'')
+            sql.AddText("''");
+        else
+            sql.AddText(escapeCharacter.ToString());
+        sql.AddText("'");
     }
 
     private void AppendParameterNames(ValueOperand operand, Sql sql, string prefix, bool addCommandParameter)
