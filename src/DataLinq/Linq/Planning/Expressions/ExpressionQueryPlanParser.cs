@@ -2210,26 +2210,13 @@ internal sealed class ExpressionQueryPlanParser
 
     private bool TryConvertValue(Expression expression, out QueryPlanValue value)
     {
-        if (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary &&
-            !ContainsQueryReference(unary.Operand))
+        if (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } &&
+            !ContainsQueryReference(expression))
         {
-            if (UnwrapConvert(unary.Operand) is ConstantExpression { Value: null })
-            {
-                value = NullIntrinsic(expression.Type);
-                return true;
-            }
-
-            var captured = CaptureScalar(
-                unary.Operand,
-                () => ExpressionLocalValueEvaluator.Evaluate(
-                    unary.Operand,
-                    null,
-                    null,
-                    options.LocalValueEvaluation),
-                unary.Operand.Type);
-            value = unary.Operand.Type == expression.Type
-                ? captured
-                : new QueryPlanConvertedValue(captured, expression.Type);
+            value = CaptureScalar(
+                expression,
+                () => EvaluateScalar(expression),
+                expression.Type);
             return true;
         }
 
