@@ -48,6 +48,9 @@ internal static class ExpressionLocalValueEvaluator
                     GetNonNullableType(unary.Type),
                     CultureInfo.InvariantCulture);
 
+            case UnaryExpression unary when unary.NodeType is ExpressionType.Negate or ExpressionType.NegateChecked:
+                return EvaluateNegation(unary, parameter, parameterValue, options);
+
             case MemberExpression member:
                 var instance = member.Expression is null
                     ? null
@@ -88,6 +91,55 @@ internal static class ExpressionLocalValueEvaluator
                 throw new QueryTranslationException($"Local expression '{expression}' is not supported in DataLinq expression parsing.");
         }
     }
+
+    private static object? EvaluateNegation(
+        UnaryExpression unary,
+        ParameterExpression? parameter,
+        object? parameterValue,
+        ExpressionLocalValueEvaluationOptions options)
+    {
+        var resultType = GetNonNullableType(unary.Type);
+        if (unary.Method is not null && !IsDecimalNegation(unary.Method, resultType))
+        {
+            throw new QueryTranslationException(
+                $"Local user-defined unary operator '{unary.Method}' is not supported in DataLinq expression parsing. Expression: {unary}");
+        }
+
+        var operand = Evaluate(unary.Operand, parameter, parameterValue, options);
+        if (operand is null)
+        {
+            if (Nullable.GetUnderlyingType(unary.Type) is not null)
+                return null;
+
+            throw new QueryTranslationException(
+                $"Local numeric negation '{unary}' produced a null operand for non-nullable result type '{unary.Type}'.");
+        }
+
+        var isChecked = unary.NodeType == ExpressionType.NegateChecked;
+        return Type.GetTypeCode(resultType) switch
+        {
+            TypeCode.Int16 when isChecked => checked((short)-Convert.ToInt16(operand, CultureInfo.InvariantCulture)),
+            TypeCode.Int16 => unchecked((short)-Convert.ToInt16(operand, CultureInfo.InvariantCulture)),
+            TypeCode.Int32 when isChecked => checked(-Convert.ToInt32(operand, CultureInfo.InvariantCulture)),
+            TypeCode.Int32 => unchecked(-Convert.ToInt32(operand, CultureInfo.InvariantCulture)),
+            TypeCode.Int64 when isChecked => checked(-Convert.ToInt64(operand, CultureInfo.InvariantCulture)),
+            TypeCode.Int64 => unchecked(-Convert.ToInt64(operand, CultureInfo.InvariantCulture)),
+            TypeCode.Single => -Convert.ToSingle(operand, CultureInfo.InvariantCulture),
+            TypeCode.Double => -Convert.ToDouble(operand, CultureInfo.InvariantCulture),
+            TypeCode.Decimal => -Convert.ToDecimal(operand, CultureInfo.InvariantCulture),
+            _ => throw new QueryTranslationException(
+                $"Local numeric negation for result type '{unary.Type}' is not supported in DataLinq expression parsing. Expression: {unary}")
+        };
+    }
+
+    private static bool IsDecimalNegation(MethodInfo method, Type resultType)
+        => resultType == typeof(decimal) &&
+           method.DeclaringType == typeof(decimal) &&
+           method.Name == "op_UnaryNegation" &&
+           method.IsStatic &&
+           method.ReturnType == typeof(decimal) &&
+           method.GetParameters() is [{ ParameterType: { } parameterType }] &&
+           parameterType == typeof(decimal);
 
     private static bool TryEvaluateSupportedMember(MemberExpression member, object? instance, out object? value)
     {

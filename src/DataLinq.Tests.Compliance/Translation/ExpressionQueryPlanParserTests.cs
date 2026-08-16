@@ -776,6 +776,25 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
+    public async Task ExpressionParser_LocalMethodEvaluationSupportsUnaryNegationArguments()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_LocalMethodEvaluationSupportsUnaryNegationArguments),
+            EmployeesSeedMode.Bogus);
+
+        var days = 10;
+        var origin = new DateOnly(2000, 1, 20);
+        var query = databaseScope.Database.Query().Employees
+            .Where(employee => employee.birth_date > origin.AddDays(-days));
+
+        var invocation = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
+        var scalar = invocation.Values.Items.OfType<QueryPlanInvocationValue.Scalar>().Single();
+
+        await Assert.That(scalar.Value).IsEqualTo(origin.AddDays(-days));
+    }
+
+    [Test]
     public async Task ExpressionParser_LocalMethodEvaluationStillRejectsQueryDependentMethods()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
