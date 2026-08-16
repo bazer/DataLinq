@@ -918,6 +918,116 @@ public class ExpressionQueryPlanParserTests
     }
 
     [Test]
+    public async Task ExpressionParser_AotStrictRejectsCapturedQueryableRootBeforeMemberReflection()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_AotStrictRejectsCapturedQueryableRootBeforeMemberReflection),
+            EmployeesSeedMode.Bogus);
+
+        var provider = new ExpressionQueryPlanProvider(databaseScope.Database.Provider.Metadata);
+        var employees = provider.CreateRoot<Employee>();
+        Expression<Func<bool>> query = () => employees.Any(employee => employee.emp_no > 0);
+
+        var compatibilityInvocation = ExpressionQueryPlanParser.Convert(
+            databaseScope.Database.Provider.Metadata,
+            query.Body,
+            typeof(bool));
+        var strictException = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(
+                databaseScope.Database.Provider.Metadata,
+                query.Body,
+                typeof(bool),
+                ExpressionQueryPlanParserOptions.AotStrict));
+
+        await Assert.That(compatibilityInvocation).IsNotNull();
+        await Assert.That(strictException).IsNotNull();
+        await Assert.That(strictException!.Message).Contains("requires compatibility member reflection");
+        await Assert.That(strictException.Message).Contains("employees");
+    }
+
+    [Test]
+    public async Task ExpressionParser_AotStrictRejectsNestedCapturedQueryableRootBeforeMemberReflection()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_AotStrictRejectsNestedCapturedQueryableRootBeforeMemberReflection),
+            EmployeesSeedMode.Bogus);
+
+        var provider = new ExpressionQueryPlanProvider(databaseScope.Database.Provider.Metadata);
+        var holder = new CapturedQueryRootHolder(provider.CreateRoot<Employee>());
+        Expression<Func<bool>> query = () => holder.Root.Any(employee => employee.emp_no > 0);
+
+        var compatibilityInvocation = ExpressionQueryPlanParser.Convert(
+            databaseScope.Database.Provider.Metadata,
+            query.Body,
+            typeof(bool));
+        var strictException = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(
+                databaseScope.Database.Provider.Metadata,
+                query.Body,
+                typeof(bool),
+                ExpressionQueryPlanParserOptions.AotStrict));
+
+        await Assert.That(compatibilityInvocation).IsNotNull();
+        await Assert.That(strictException).IsNotNull();
+        await Assert.That(strictException!.Message).Contains("requires compatibility member reflection");
+        await Assert.That(strictException.Message).Contains("holder");
+    }
+
+    [Test]
+    public async Task ExpressionParser_AotStrictRejectsUnsupportedPropertyRootWithoutInvokingGetter()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_AotStrictRejectsUnsupportedPropertyRootWithoutInvokingGetter),
+            EmployeesSeedMode.Bogus);
+
+        var probe = new CapturedQueryRootPropertyProbe();
+        Expression<Func<bool>> query = () => probe.Root.Any(employee => employee.emp_no > 0);
+
+        var exception = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(
+                databaseScope.Database.Provider.Metadata,
+                query.Body,
+                typeof(bool),
+                ExpressionQueryPlanParserOptions.AotStrict));
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("not supported");
+        await Assert.That(probe.InvocationCount).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task ExpressionParser_AotStrictPreservesDirectDatabaseAndTransactionRoots()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(ExpressionParser_AotStrictPreservesDirectDatabaseAndTransactionRoots),
+            EmployeesSeedMode.Bogus);
+        using var transaction = databaseScope.Database.Transaction();
+
+        Expression<Func<bool>> databaseQuery = () =>
+            databaseScope.Database.Query().Employees.Any(employee => employee.emp_no > 0);
+        Expression<Func<bool>> transactionQuery = () =>
+            transaction.Query().Employees.Any(employee => employee.emp_no > 0);
+
+        var databaseInvocation = ExpressionQueryPlanParser.Convert(
+            databaseScope.Database.Provider.Metadata,
+            databaseQuery.Body,
+            typeof(bool),
+            ExpressionQueryPlanParserOptions.AotStrict);
+        var transactionInvocation = ExpressionQueryPlanParser.Convert(
+            databaseScope.Database.Provider.Metadata,
+            transactionQuery.Body,
+            typeof(bool),
+            ExpressionQueryPlanParserOptions.AotStrict);
+
+        await Assert.That(databaseInvocation).IsNotNull();
+        await Assert.That(transactionInvocation).IsNotNull();
+    }
+
+    [Test]
     public async Task ExpressionParser_NormalizesAotSafeProjectionRecipeWithoutInvocationValues()
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -1204,6 +1314,25 @@ public class ExpressionQueryPlanParserTests
     private sealed record ProjectionDto(string Value);
 
     private sealed record ProjectionCaptureDto(string Value, int Captured);
+
+    private sealed class CapturedQueryRootHolder(IQueryable<Employee> root)
+    {
+        public readonly IQueryable<Employee> Root = root;
+    }
+
+    private sealed class CapturedQueryRootPropertyProbe
+    {
+        public int InvocationCount { get; private set; }
+
+        public IQueryable<Employee> Root
+        {
+            get
+            {
+                InvocationCount++;
+                throw new InvalidOperationException("Captured root property getters must not run during parsing.");
+            }
+        }
+    }
 
     private sealed class ProjectionCaptureProbe
     {
