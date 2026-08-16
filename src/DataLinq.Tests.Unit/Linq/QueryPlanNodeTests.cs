@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using DataLinq.Core.Factories;
 using DataLinq.Linq.Planning;
 using DataLinq.Metadata;
+using DataLinq.Tests.Models.Allround;
 using DataLinq.Tests.Models.Employees;
 using ThrowAway.Extensions;
 
@@ -143,9 +144,9 @@ public class QueryPlanNodeTests
         var capturedNonNullSnapshot = NullableInequalitySnapshot(new TimeOnly(9, 15, 0));
 
         await Assert.That(capturedNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != scalar-binding(p0:TimeOnly?))");
-        await Assert.That(capturedNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-not-equal-includes-null");
+        await Assert.That(capturedNullSnapshot).DoesNotContain("nulls=c-sharp-nullable-comparison");
         await Assert.That(capturedNullSnapshot).Contains("p0 scalar nullness=null");
-        await Assert.That(capturedNonNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != scalar-binding(p0:TimeOnly?) nulls=c-sharp-nullable-not-equal-includes-null)");
+        await Assert.That(capturedNonNullSnapshot).Contains("where compare(column(s0.last_login:TimeOnly) != scalar-binding(p0:TimeOnly?) nulls=c-sharp-nullable-comparison)");
         await Assert.That(capturedNonNullSnapshot).Contains("p0 scalar nullness=non-null");
         await Assert.That(capturedNonNullSnapshot).DoesNotContain("09:15");
     }
@@ -167,6 +168,49 @@ public class QueryPlanNodeTests
 
         await Assert.That(exception).IsNotNull();
         await Assert.That(exception!.Message).Contains("no explicit specialization");
+    }
+
+    [Test]
+    public async Task NullSemanticsResolver_ClassifiesColumnPairsAndNegatedRelationalComparisons()
+    {
+        var metadata = MetadataFromTypeFactory
+            .ParseDatabaseFromDatabaseModel(typeof(AllroundBenchmark))
+            .ValueOrException();
+        var table = metadata.TableModels.Single(x => x.Model.CsType.Type == typeof(Location)).Table;
+        var source = Source("s0", table);
+        var latitude = new QueryPlanColumnValue(
+            source,
+            table.GetColumnByPropertyName(nameof(Location.Latitude)));
+        var longitude = new QueryPlanColumnValue(
+            source,
+            table.GetColumnByPropertyName(nameof(Location.Longitude)));
+
+        var equality = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(
+            QueryPlanComparisonOperator.Equal,
+            latitude,
+            longitude,
+            QueryPlanSpecialization.Empty);
+        var inequality = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(
+            QueryPlanComparisonOperator.NotEqual,
+            latitude,
+            longitude,
+            QueryPlanSpecialization.Empty);
+        var directRelational = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(
+            QueryPlanComparisonOperator.LessThanOrEqual,
+            latitude,
+            longitude,
+            QueryPlanSpecialization.Empty);
+        var negatedRelational = QueryPlanNullSemanticsResolver.GetComparisonNullSemantics(
+            QueryPlanComparisonOperator.LessThanOrEqual,
+            new QueryPlanConvertedValue(latitude, typeof(float?)),
+            longitude,
+            QueryPlanSpecialization.Empty,
+            includeNullsForNegatedRelational: true);
+
+        await Assert.That(equality).IsEqualTo(QueryPlanNullSemantics.CSharpNullableComparison);
+        await Assert.That(inequality).IsEqualTo(QueryPlanNullSemantics.CSharpNullableComparison);
+        await Assert.That(directRelational).IsEqualTo(QueryPlanNullSemantics.Default);
+        await Assert.That(negatedRelational).IsEqualTo(QueryPlanNullSemantics.CSharpNullableComparison);
     }
 
     [Test]
