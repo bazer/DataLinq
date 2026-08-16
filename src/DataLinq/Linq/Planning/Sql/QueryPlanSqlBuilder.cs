@@ -304,10 +304,7 @@ internal sealed class QueryPlanSqlBuilder
             throw new QueryTranslationException($"Query plan {operationKind} count cannot be null.");
 
         var result = Convert.ToInt32(value, CultureInfo.InvariantCulture);
-        if (result < 0)
-            throw new QueryTranslationException($"Query plan {operationKind} count cannot be negative.");
-
-        return result;
+        return Math.Max(result, 0);
     }
 
     private void ApplyResultShape<T>(SqlQuery<T> query)

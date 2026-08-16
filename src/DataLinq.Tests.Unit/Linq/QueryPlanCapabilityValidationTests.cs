@@ -84,9 +84,9 @@ public class QueryPlanCapabilityValidationTests
         foreach (var expected in expectedCategoryCounts)
             await Assert.That(actualCategoryCounts[expected.Key]).IsEqualTo(expected.Value);
 
-        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(359);
-        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Unsupported)).IsEqualTo(258);
-        await Assert.That(sqlMatrixFingerprint).IsEqualTo("135C50032122327EC9D78742B0334ABACE0E78445663905CE4DECEB03228EA9E");
+        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Supported)).IsEqualTo(360);
+        await Assert.That(sqlDispositions.Count(static value => value == QueryBackendCapabilityDisposition.Unsupported)).IsEqualTo(257);
+        await Assert.That(sqlMatrixFingerprint).IsEqualTo("E6BA3E1A2FD63F048313C0DEEE789131E2BFBE78A546C2159E0FFE5F91C80918");
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.Projection(QueryPlanProjectionKind.TransparentIdentifier)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Unsupported);
@@ -101,6 +101,9 @@ public class QueryPlanCapabilityValidationTests
             .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegativeInt32ScalarBinding)))
+            .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
+        await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.Negative)))
             .IsEqualTo(QueryBackendCapabilityDisposition.Supported);
         await Assert.That(QueryBackendCapabilities.Sql.GetDisposition(
             QueryPlanFeature.OrderingShape(QueryPlanOrderingShape.SingleDirectNonNullableInt32PrimaryKeyColumn)))
@@ -343,13 +346,14 @@ public class QueryPlanCapabilityValidationTests
     }
 
     [Test]
-    public async Task SqlProfile_RequiresANonNegativeConvertiblePagingCount()
+    public async Task SqlProfile_RequiresAConvertiblePagingCountAndSupportsNegativeLinqSemantics()
     {
         var supportedSkip = QueryPlanCapabilityValidator.Validate(
             CreateBoundPagingInvocation(0, typeof(int), isSkip: true),
             QueryBackendCapabilities.Sql);
+        var supportedTakeInvocation = CreateBoundPagingInvocation(5, typeof(int), isSkip: false);
         var supportedTake = QueryPlanCapabilityValidator.Validate(
-            CreateBoundPagingInvocation(5, typeof(int), isSkip: false),
+            supportedTakeInvocation,
             QueryBackendCapabilities.Sql);
         var supportedGeneric = QueryPlanCapabilityValidator.Validate(
             CreateBoundPagingInvocation(7L, typeof(long), isSkip: false),
@@ -373,10 +377,21 @@ public class QueryPlanCapabilityValidationTests
         var supportedNullable = QueryPlanCapabilityValidator.Validate(
             CreateBoundPagingInvocation(15, typeof(int?), isSkip: false),
             QueryBackendCapabilities.Sql);
-        var negative = Capture<QueryBackendCapabilityException>(() =>
-            QueryPlanCapabilityValidator.Validate(
-                CreateBoundPagingInvocation(-3, typeof(int), isSkip: true),
-                QueryBackendCapabilities.Sql));
+        var supportedNegativeSkip = QueryPlanCapabilityValidator.Validate(
+            CreateBoundPagingInvocation(-3, typeof(int), isSkip: true),
+            QueryBackendCapabilities.Sql);
+        var supportedNegativeTake = QueryPlanCapabilityValidator.Validate(
+            CreateBoundPagingInvocation(-5, typeof(int), isSkip: false),
+            QueryBackendCapabilities.Sql);
+        var originalTakeCount = supportedTakeInvocation.Values.Items
+            .OfType<QueryPlanInvocationValue.Scalar>()
+            .Single();
+        var reboundNegativeTakeInvocation = QueryPlanInvocation.Bind(
+            supportedTakeInvocation.Template,
+            [new QueryPlanInvocationValue.Scalar(originalTakeCount.Id, -7)]);
+        var reboundNegativeTake = QueryPlanCapabilityValidator.Validate(
+            reboundNegativeTakeInvocation,
+            QueryBackendCapabilities.Sql);
         var nullCount = Capture<QueryBackendCapabilityException>(() =>
             QueryPlanCapabilityValidator.Validate(
                 CreatePagingInvocation(
@@ -419,12 +434,24 @@ public class QueryPlanCapabilityValidationTests
             QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.NonNegative),
             "operations[0].count.shape",
             sourceId: "s0");
-        await Assert.That(negative.Feature).IsEqualTo("PagingCountShape:Negative");
+        await AssertRequirement(
+            supportedNegativeSkip.Invocation,
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.Negative),
+            "operations[0].count.shape",
+            sourceId: "s0");
+        await AssertRequirement(
+            supportedNegativeTake.Invocation,
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.Negative),
+            "operations[0].count.shape",
+            sourceId: "s0");
+        await Assert.That(ReferenceEquals(reboundNegativeTakeInvocation.Template, supportedTakeInvocation.Template)).IsTrue();
+        await AssertRequirement(
+            reboundNegativeTake.Invocation,
+            QueryPlanFeature.PagingCountShape(QueryPlanPagingCountShape.Negative),
+            "operations[0].count.shape",
+            sourceId: "s0");
         await Assert.That(nullCount.Feature).IsEqualTo("PagingCountShape:Null");
         await Assert.That(invalid.Feature).IsEqualTo("PagingCountShape:Invalid");
-        await Assert.That(negative.Location).IsEqualTo("operations[0].count.shape");
-        await Assert.That(negative.SourceId).IsEqualTo("s0");
-        await Assert.That(negative.Message).DoesNotContain("-3");
         await Assert.That(invalid.Message).DoesNotContain(long.MaxValue.ToString());
 
         QueryPlanInvocation CreateBoundPagingInvocation(object? count, Type countType, bool isSkip)

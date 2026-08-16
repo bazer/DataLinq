@@ -830,6 +830,7 @@ internal sealed class QueryBackendCapabilities
             QueryPlanFeatureCategory.PagingCountShape =>
                 (QueryPlanPagingCountShape)feature.Value is
                     QueryPlanPagingCountShape.NonNegative or
+                    QueryPlanPagingCountShape.Negative or
                     QueryPlanPagingCountShape.NonNegativeInt32ScalarBinding
                     ? QueryBackendCapabilityDisposition.Supported
                     : QueryBackendCapabilityDisposition.Unsupported,
