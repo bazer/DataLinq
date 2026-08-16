@@ -18,6 +18,33 @@ namespace DataLinq.Tests.Compliance;
 public sealed class TypedIdPredicateTranslationTests
 {
     [Test]
+    [NotInParallel]
+    public async Task SameNamedConverterBackedStringMethods_AreRejectedWithoutInvocationOrExecution()
+    {
+        using var databaseScope = TemporaryModelTestDatabase<StringMethodIdentityDb>.Create(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(SameNamedConverterBackedStringMethods_AreRejectedWithoutInvocationOrExecution));
+        var database = databaseScope.Database;
+        var target = new QueryCustomerCode("00123");
+        var predicateQuery = database.Query().Rows
+            .Where(row => row.Code.Trim() == target);
+        var projectionQuery = database.Query().Rows
+            .Select(row => row.Code.Trim());
+
+        DataLinqMetrics.Reset();
+        var predicateException = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(database, predicateQuery));
+        var projectionException = Capture<QueryTranslationException>(() =>
+            ExpressionQueryPlanParser.Convert(database, projectionQuery));
+        var snapshot = DataLinqMetrics.Snapshot();
+
+        await Assert.That(predicateException.Message).Contains("Value expression");
+        await Assert.That(predicateException.Message).Contains("Trim");
+        await Assert.That(projectionException.Message).Contains("Projection method 'Trim' is not supported");
+        await Assert.That(snapshot.Commands.ReaderExecutions).IsEqualTo(0);
+    }
+
+    [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TypedIdPredicates_ExecuteEqualityContainsAndLocalAnyAcrossProviders(
         TestProviderDescriptor provider)
@@ -814,4 +841,45 @@ public abstract partial class TypedIdQueryRow(IRowData rowData, IDataSourceAcces
     [Type(DatabaseType.MariaDB, "varchar", 40)]
     [Column("name")]
     public abstract string Name { get; }
+}
+
+public readonly record struct QueryCustomerCode(string Value)
+{
+    public QueryCustomerCode Trim() =>
+        throw new InvalidOperationException("A query-referenced custom method must never be invoked during translation.");
+}
+
+public sealed class QueryCustomerCodeConverter : DataLinqScalarConverter<QueryCustomerCode, string>
+{
+    public override string ToProvider(QueryCustomerCode modelValue, in ScalarConversionContext context) =>
+        modelValue.Value;
+
+    public override QueryCustomerCode FromProvider(string providerValue, in ScalarConversionContext context) =>
+        new(providerValue);
+}
+
+[UseCache]
+[Database("stringmethodidentity")]
+public sealed partial class StringMethodIdentityDb(DataSourceAccess dataSource) : IDatabaseModel
+{
+    public DbRead<StringMethodIdentityRow> Rows { get; } = new(dataSource);
+}
+
+[Table("stringmethodidentityrows")]
+public abstract partial class StringMethodIdentityRow(IRowData rowData, IDataSourceAccess dataSource)
+    : Immutable<StringMethodIdentityRow, StringMethodIdentityDb>(rowData, dataSource), ITableModel<StringMethodIdentityDb>
+{
+    [PrimaryKey]
+    [Type(DatabaseType.SQLite, "INTEGER")]
+    [Type(DatabaseType.MySQL, "int", 11)]
+    [Type(DatabaseType.MariaDB, "int", 11)]
+    [Column("id")]
+    public abstract int Id { get; }
+
+    [Type(DatabaseType.SQLite, "TEXT")]
+    [Type(DatabaseType.MySQL, "varchar", 40)]
+    [Type(DatabaseType.MariaDB, "varchar", 40)]
+    [ScalarConverter(typeof(QueryCustomerCodeConverter))]
+    [Column("code")]
+    public abstract QueryCustomerCode Code { get; }
 }
