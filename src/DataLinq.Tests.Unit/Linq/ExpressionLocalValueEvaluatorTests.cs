@@ -89,6 +89,29 @@ public class ExpressionLocalValueEvaluatorTests
     }
 
     [Test]
+    public async Task LocalValueEvaluation_PreservesInt16NegationTypeAndOverflow()
+    {
+        var uncheckedNegation = Expression.Negate(Expression.Constant((short)7));
+        var checkedNegation = Expression.NegateChecked(Expression.Constant((short)7));
+        var uncheckedOverflow = Expression.Negate(Expression.Constant(short.MinValue));
+        var checkedOverflow = Expression.NegateChecked(Expression.Constant(short.MinValue));
+
+        var uncheckedResult = ExpressionLocalValueEvaluator.Evaluate(uncheckedNegation);
+        var checkedResult = ExpressionLocalValueEvaluator.Evaluate(checkedNegation);
+        var uncheckedOverflowResult = ExpressionLocalValueEvaluator.Evaluate(uncheckedOverflow);
+        var checkedOverflowException = Capture<OverflowException>(() =>
+            ExpressionLocalValueEvaluator.Evaluate(checkedOverflow));
+
+        await Assert.That(uncheckedResult).IsTypeOf<short>();
+        await Assert.That(uncheckedResult).IsEqualTo((short)-7);
+        await Assert.That(checkedResult).IsTypeOf<short>();
+        await Assert.That(checkedResult).IsEqualTo((short)-7);
+        await Assert.That(uncheckedOverflowResult).IsTypeOf<short>();
+        await Assert.That(uncheckedOverflowResult).IsEqualTo(short.MinValue);
+        await Assert.That(checkedOverflowException).IsNotNull();
+    }
+
+    [Test]
     public async Task LocalValueEvaluation_RejectsUserDefinedNegationWithoutInvokingIt()
     {
         var value = new UserDefinedNumber(10);

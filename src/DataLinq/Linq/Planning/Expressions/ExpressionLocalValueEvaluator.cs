@@ -118,6 +118,8 @@ internal static class ExpressionLocalValueEvaluator
         var isChecked = unary.NodeType == ExpressionType.NegateChecked;
         return Type.GetTypeCode(resultType) switch
         {
+            TypeCode.Int16 when isChecked => checked((short)-Convert.ToInt16(operand, CultureInfo.InvariantCulture)),
+            TypeCode.Int16 => unchecked((short)-Convert.ToInt16(operand, CultureInfo.InvariantCulture)),
             TypeCode.Int32 when isChecked => checked(-Convert.ToInt32(operand, CultureInfo.InvariantCulture)),
             TypeCode.Int32 => unchecked(-Convert.ToInt32(operand, CultureInfo.InvariantCulture)),
             TypeCode.Int64 when isChecked => checked(-Convert.ToInt64(operand, CultureInfo.InvariantCulture)),
