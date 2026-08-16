@@ -45,6 +45,9 @@ internal static class ExpressionLocalValueEvaluator
             case UnaryExpression unary when unary.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked:
                 return EvaluateConversion(unary, parameter, parameterValue, options);
 
+            case UnaryExpression unary when unary.NodeType is ExpressionType.Negate or ExpressionType.NegateChecked:
+                return EvaluateNegation(unary, parameter, parameterValue, options);
+
             case MemberExpression member:
                 var instance = member.Expression is null
                     ? null
@@ -85,6 +88,55 @@ internal static class ExpressionLocalValueEvaluator
                 throw new QueryTranslationException($"Local expression '{expression}' is not supported in DataLinq expression parsing.");
         }
     }
+
+    private static object? EvaluateNegation(
+        UnaryExpression unary,
+        ParameterExpression? parameter,
+        object? parameterValue,
+        ExpressionLocalValueEvaluationOptions options)
+    {
+        var resultType = GetNonNullableType(unary.Type);
+        if (unary.Method is not null && !IsDecimalNegation(unary.Method, resultType))
+        {
+            throw new QueryTranslationException(
+                $"Local user-defined unary operator '{unary.Method}' is not supported in DataLinq expression parsing. Expression: {unary}");
+        }
+
+        var operand = Evaluate(unary.Operand, parameter, parameterValue, options);
+        if (operand is null)
+        {
+            if (Nullable.GetUnderlyingType(unary.Type) is not null)
+                return null;
+
+            throw new QueryTranslationException(
+                $"Local numeric negation '{unary}' produced a null operand for non-nullable result type '{unary.Type}'.");
+        }
+
+        var isChecked = unary.NodeType == ExpressionType.NegateChecked;
+        return Type.GetTypeCode(resultType) switch
+        {
+            TypeCode.Int16 when isChecked => checked((short)-Convert.ToInt16(operand, CultureInfo.InvariantCulture)),
+            TypeCode.Int16 => unchecked((short)-Convert.ToInt16(operand, CultureInfo.InvariantCulture)),
+            TypeCode.Int32 when isChecked => checked(-Convert.ToInt32(operand, CultureInfo.InvariantCulture)),
+            TypeCode.Int32 => unchecked(-Convert.ToInt32(operand, CultureInfo.InvariantCulture)),
+            TypeCode.Int64 when isChecked => checked(-Convert.ToInt64(operand, CultureInfo.InvariantCulture)),
+            TypeCode.Int64 => unchecked(-Convert.ToInt64(operand, CultureInfo.InvariantCulture)),
+            TypeCode.Single => -Convert.ToSingle(operand, CultureInfo.InvariantCulture),
+            TypeCode.Double => -Convert.ToDouble(operand, CultureInfo.InvariantCulture),
+            TypeCode.Decimal => -Convert.ToDecimal(operand, CultureInfo.InvariantCulture),
+            _ => throw new QueryTranslationException(
+                $"Local numeric negation for result type '{unary.Type}' is not supported in DataLinq expression parsing. Expression: {unary}")
+        };
+    }
+
+    private static bool IsDecimalNegation(MethodInfo method, Type resultType)
+        => resultType == typeof(decimal) &&
+           method.DeclaringType == typeof(decimal) &&
+           method.Name == "op_UnaryNegation" &&
+           method.IsStatic &&
+           method.ReturnType == typeof(decimal) &&
+           method.GetParameters() is [{ ParameterType: { } parameterType }] &&
+           parameterType == typeof(decimal);
 
     private static bool TryEvaluateSupportedMember(MemberExpression member, object? instance, out object? value)
     {
@@ -167,29 +219,86 @@ internal static class ExpressionLocalValueEvaluator
             return true;
         }
 
-        if (methodCall.Object is not null &&
-            Evaluate(methodCall.Object, parameter, parameterValue, options) is string text)
+        if (TryGetSupportedStringMethod(methodCall, out var stringMethod))
         {
+            var instance = Evaluate(methodCall.Object!, parameter, parameterValue, options);
             var arguments = methodCall.Arguments
                 .Select(argument => Evaluate(argument, parameter, parameterValue, options))
                 .ToArray();
+            var text = instance as string
+                ?? throw new NullReferenceException("Cannot invoke a string method on a null receiver.");
 
-            value = methodCall.Method.Name switch
+            value = stringMethod switch
             {
-                nameof(string.Trim) when arguments.Length == 0 => text.Trim(),
-                nameof(string.ToUpper) when arguments.Length == 0 => text.ToUpper(CultureInfo.CurrentCulture),
-                nameof(string.ToLower) when arguments.Length == 0 => text.ToLower(CultureInfo.CurrentCulture),
-                nameof(string.Substring) when arguments.Length == 1 => text.Substring(Convert.ToInt32(arguments[0], CultureInfo.InvariantCulture)),
-                nameof(string.Substring) when arguments.Length == 2 => text.Substring(
+                SupportedStringMethod.Trim => text.Trim(),
+                SupportedStringMethod.ToUpper => text.ToUpper(CultureInfo.CurrentCulture),
+                SupportedStringMethod.ToLower => text.ToLower(CultureInfo.CurrentCulture),
+                SupportedStringMethod.SubstringFrom => text.Substring(Convert.ToInt32(arguments[0], CultureInfo.InvariantCulture)),
+                SupportedStringMethod.SubstringRange => text.Substring(
                     Convert.ToInt32(arguments[0], CultureInfo.InvariantCulture),
                     Convert.ToInt32(arguments[1], CultureInfo.InvariantCulture)),
-                _ => null
+                _ => throw new QueryTranslationException(
+                    $"Supported string method '{methodCall.Method.Name}' has no local evaluation implementation.")
             };
 
-            return value is not null;
+            return true;
         }
 
         value = null;
+        return false;
+    }
+
+    private static bool TryGetSupportedStringMethod(
+        MethodCallExpression methodCall,
+        out SupportedStringMethod supportedMethod)
+    {
+        supportedMethod = default;
+        if (methodCall.Object is null ||
+            methodCall.Method.IsStatic ||
+            methodCall.Method.DeclaringType != typeof(string) ||
+            methodCall.Method.ReturnType != typeof(string))
+        {
+            return false;
+        }
+
+        if (methodCall.Method.Name == nameof(string.Trim) &&
+            methodCall.Arguments.Count == 0)
+        {
+            supportedMethod = SupportedStringMethod.Trim;
+            return true;
+        }
+
+        if (methodCall.Method.Name == nameof(string.ToUpper) &&
+            methodCall.Arguments.Count == 0)
+        {
+            supportedMethod = SupportedStringMethod.ToUpper;
+            return true;
+        }
+
+        if (methodCall.Method.Name == nameof(string.ToLower) &&
+            methodCall.Arguments.Count == 0)
+        {
+            supportedMethod = SupportedStringMethod.ToLower;
+            return true;
+        }
+
+        if (methodCall.Method.Name == nameof(string.Substring) &&
+            methodCall.Arguments.Count == 1 &&
+            methodCall.Arguments[0].Type == typeof(int))
+        {
+            supportedMethod = SupportedStringMethod.SubstringFrom;
+            return true;
+        }
+
+        if (methodCall.Method.Name == nameof(string.Substring) &&
+            methodCall.Arguments.Count == 2 &&
+            methodCall.Arguments[0].Type == typeof(int) &&
+            methodCall.Arguments[1].Type == typeof(int))
+        {
+            supportedMethod = SupportedStringMethod.SubstringRange;
+            return true;
+        }
+
         return false;
     }
 
@@ -282,6 +391,15 @@ internal static class ExpressionLocalValueEvaluator
         .Method
         .GetGenericMethodDefinition();
 
+    private enum SupportedStringMethod
+    {
+        Trim,
+        ToUpper,
+        ToLower,
+        SubstringFrom,
+        SubstringRange
+    }
+
     private static Expression UnwrapQuote(Expression expression)
     {
         while (expression is UnaryExpression unary &&
@@ -292,6 +410,8 @@ internal static class ExpressionLocalValueEvaluator
 
         return expression;
     }
+
+    private static Type GetNonNullableType(Type type) => Nullable.GetUnderlyingType(type) ?? type;
 
     private static QueryTranslationException UnsupportedMember(MemberExpression member) =>
         new($"Local member '{member.Member.Name}' is not supported in DataLinq expression parsing.");
