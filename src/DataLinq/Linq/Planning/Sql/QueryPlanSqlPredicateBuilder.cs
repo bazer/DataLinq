@@ -412,7 +412,7 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
 
             case QueryPlanFunctionKind.StringIsNullOrEmpty:
             case QueryPlanFunctionKind.StringIsNullOrWhiteSpace:
-                ApplyStringNullOrEmptyFunction(function, group, connectionType);
+                ApplyStringNullFunction(function, group, connectionType);
                 break;
 
             default:
@@ -458,24 +458,23 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
             .Replace("_", escape + "_", StringComparison.Ordinal);
     }
 
-    private void ApplyStringNullOrEmptyFunction(QueryPlanFunctionValue function, WhereGroup<T> group, BooleanType connectionType)
+    private void ApplyStringNullFunction(QueryPlanFunctionValue function, WhereGroup<T> group, BooleanType connectionType)
     {
         if (function.Arguments.Count != 1)
             throw new QueryTranslationException($"Query plan function '{function.Function}' expects one source argument.");
 
         var source = valueRenderer.RenderOperand(function.Arguments[0]);
-        var checkFunction = function.Function == QueryPlanFunctionKind.StringIsNullOrEmpty
-            ? QueryPlanFunctionKind.StringLength
-            : QueryPlanFunctionKind.StringTrim;
-        object checkValue = function.Function == QueryPlanFunctionKind.StringIsNullOrEmpty
-            ? 0
-            : string.Empty;
-
-        var functionOperand = valueRenderer.RenderOperand(new QueryPlanFunctionValue(checkFunction, [function.Arguments[0]], checkValue.GetType()));
+        var isNullOrEmpty = function.Function == QueryPlanFunctionKind.StringIsNullOrEmpty;
+        var functionOperand = isNullOrEmpty
+            ? valueRenderer.RenderOperand(new QueryPlanFunctionValue(
+                QueryPlanFunctionKind.StringLength,
+                [function.Arguments[0]],
+                typeof(int)))
+            : Operand.RawSql(valueRenderer.RenderClrWhitespaceStrippedLengthSql(function.Arguments[0]));
         var orGroup = new WhereGroup<T>(query, BooleanType.Or);
         group.AddSubGroup(orGroup, connectionType);
         orGroup.AddWhere(new Comparison(source, Operator.Equal, Operand.Value((object?)null)), BooleanType.And);
-        orGroup.AddWhere(new Comparison(functionOperand, Operator.Equal, Operand.Value(checkValue)), BooleanType.Or);
+        orGroup.AddWhere(new Comparison(functionOperand, Operator.Equal, Operand.Value(0)), BooleanType.Or);
     }
 
     private static Operator ToSqlOperator(QueryPlanComparisonOperator comparisonOperator) => comparisonOperator switch

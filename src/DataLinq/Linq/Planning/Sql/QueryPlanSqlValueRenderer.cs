@@ -14,6 +14,13 @@ internal sealed class QueryPlanSqlValueRenderer(
     QueryPlanBindingValues bindingValues,
     QueryPlanDerivedColumnMap? derivedColumns = null)
 {
+    // This is the complete char.IsWhiteSpace set for the supported .NET 8-10 targets.
+    // Fixed literals keep SQL generation deterministic and avoid provider TRIM/regex semantics.
+    internal const string ClrWhitespaceCharacters =
+        "\u0009\u000A\u000B\u000C\u000D\u0020\u0085\u00A0\u1680" +
+        "\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A" +
+        "\u2028\u2029\u202F\u205F\u3000";
+
     public Operand RenderOperand(QueryPlanValue value)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -60,6 +67,24 @@ internal sealed class QueryPlanSqlValueRenderer(
             _ => throw new QueryTranslationException($"Query plan value '{value.Kind}' cannot be rendered as a SQL expression.")
         };
     }
+
+    public string RenderClrWhitespaceStrippedSql(QueryPlanValue value)
+    {
+        var sql = RenderSqlExpression(value);
+        foreach (var whitespace in ClrWhitespaceCharacters)
+        {
+            var literal = QuoteSqlStringLiteral(whitespace.ToString());
+            sql = $"REPLACE({sql}, {literal}, '')";
+        }
+
+        return sql;
+    }
+
+    public string RenderClrWhitespaceStrippedLengthSql(QueryPlanValue value) =>
+        dataSource.Provider.GetSqlForFunction(
+            SqlFunctionType.StringLength,
+            RenderClrWhitespaceStrippedSql(value),
+            null);
 
     public string RenderGroupedAggregateSql(QueryPlanGroupedAggregateValue aggregate)
     {
@@ -233,4 +258,7 @@ internal sealed class QueryPlanSqlValueRenderer(
             ? value
             : Convert.ChangeType(value, nonNullableTarget, CultureInfo.InvariantCulture);
     }
+
+    private static string QuoteSqlStringLiteral(string value) =>
+        $"'{value.Replace("'", "''", StringComparison.Ordinal)}'";
 }
