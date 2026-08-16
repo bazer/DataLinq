@@ -17,6 +17,9 @@ public abstract class Operand
     public static ValueOperand Value(object? value) => new([value]);
     public static ValueOperand Value(object?[] values) => new(values);
     public static ValueOperand Value(IEnumerable<object> values) => new([.. values]);
+
+    internal static ValueOperand EscapedLikePattern(string value, char escapeCharacter)
+        => new EscapedLikePatternOperand(value, escapeCharacter);
 }
 
 public class ColumnOperand : Operand
@@ -123,6 +126,20 @@ public class ValueOperand : Operand
     {
         return Values.Select(x => x == null ? "NULL" : x.ToString()).ToJoinedString(", ");
     }
+}
+
+internal sealed class EscapedLikePatternOperand : ValueOperand
+{
+    internal EscapedLikePatternOperand(string value, char escapeCharacter)
+        : base([value])
+    {
+        if (escapeCharacter == '\0')
+            throw new ArgumentException("LIKE escape character cannot be null.", nameof(escapeCharacter));
+
+        EscapeCharacter = escapeCharacter;
+    }
+
+    internal char EscapeCharacter { get; }
 }
 
 /// <summary>
