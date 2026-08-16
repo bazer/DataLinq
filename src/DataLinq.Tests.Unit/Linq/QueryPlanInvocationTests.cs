@@ -473,6 +473,42 @@ public class QueryPlanInvocationTests
     }
 
     [Test]
+    public async Task Invocation_EnumeratesCallerValuesOnceAndOrdersThemByDeclaration()
+    {
+        var table = GetTable<Employee>();
+        var source = Source(table);
+        var template = Template(
+            source,
+            [],
+            [
+                ScalarDeclaration("p0", typeof(int)),
+                SequenceDeclaration("p1", typeof(int))
+            ],
+            [
+                new QueryPlanBindingSpecialization.ScalarNullness("p0", QueryPlanBindingNullness.NonNull),
+                new QueryPlanBindingSpecialization.LocalSequenceShape("p1", 2, 0)
+            ]);
+        var enumerationCount = 0;
+
+        IEnumerable<QueryPlanInvocationValue> CallerValues()
+        {
+            enumerationCount++;
+            if (enumerationCount > 1)
+                throw new InvalidOperationException("Caller values were enumerated more than once.");
+
+            yield return new QueryPlanInvocationValue.LocalSequence("p1", [10, 20]);
+            yield return new QueryPlanInvocationValue.Scalar("p0", 5);
+        }
+
+        var invocation = QueryPlanInvocation.Bind(template, CallerValues());
+
+        await Assert.That(enumerationCount).IsEqualTo(1);
+        await Assert.That(invocation.Values[0].Id).IsEqualTo("p0");
+        await Assert.That(invocation.Values[1].Id).IsEqualTo("p1");
+        await Assert.That(((QueryPlanInvocationValue.Scalar)invocation.Values[0]).Value).IsEqualTo(5);
+    }
+
+    [Test]
     public async Task Invocation_RejectsWrongKindTypeAndNullability()
     {
         var template = ScalarTemplate(allowsNull: false, QueryPlanBindingNullness.NonNull);

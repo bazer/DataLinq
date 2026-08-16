@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace DataLinq.Linq.Planning;
 
@@ -23,54 +22,116 @@ internal sealed class QueryPlanInvocation
         ArgumentNullException.ThrowIfNull(template);
         ArgumentNullException.ThrowIfNull(values);
 
-        var sourceValues = values.ToArray();
-        var valuesById = ValidateIds(template.BindingDeclarations, sourceValues);
-        var orderedValues = template.BindingDeclarations.Items
-            .Select(declaration => valuesById[declaration.Id])
-            .ToArray();
-        var frozenValues = QueryPlanBindingValues.CreateValidated(orderedValues);
-        var frozenValuesById = frozenValues.Items.ToDictionary(
-            static value => value.Id,
-            StringComparer.Ordinal);
+        var orderedValues = template.BindingDeclarations.Count == 0
+            ? Array.Empty<QueryPlanInvocationValue>()
+            : new QueryPlanInvocationValue[template.BindingDeclarations.Count];
+        if (values is IReadOnlyList<QueryPlanInvocationValue> valueList)
+        {
+            for (var index = 0; index < valueList.Count; index++)
+                AddByDeclarationOrdinal(template.BindingDeclarations, orderedValues, valueList[index]);
+        }
+        else
+        {
+            foreach (var value in values)
+                AddByDeclarationOrdinal(template.BindingDeclarations, orderedValues, value);
+        }
 
-        ValidateValues(template, frozenValuesById);
+        EnsureNoMissingValues(template.BindingDeclarations, orderedValues);
+
+        for (var index = 0; index < orderedValues.Length; index++)
+            orderedValues[index] = QueryPlanBindingValues.Freeze(orderedValues[index]);
+
+        ValidateValues(template, orderedValues);
+
+        var frozenValues = QueryPlanBindingValues.CreateDefensive(
+            template.BindingDeclarations,
+            orderedValues);
 
         return new QueryPlanInvocation(template, frozenValues);
     }
 
-    private static Dictionary<string, QueryPlanInvocationValue> ValidateIds(
+    /// <summary>
+    /// Binds values whose defensive snapshots are owned exclusively by the expression parser.
+    /// The parser supplies declaration-ordered, read-only values, so cloning them again would
+    /// add allocations without adding mutation safety.
+    /// </summary>
+    internal static QueryPlanInvocation BindParserOwned(
+        QueryPlanTemplate template,
+        IReadOnlyList<QueryPlanInvocationValue> values)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        ArgumentNullException.ThrowIfNull(values);
+
+        ValidateParserOwnedIds(template.BindingDeclarations, values);
+        ValidateValues(template, values);
+
+        return new QueryPlanInvocation(
+            template,
+            QueryPlanBindingValues.CreateParserOwned(template.BindingDeclarations, values));
+    }
+
+    private static void AddByDeclarationOrdinal(
+        QueryPlanBindingDeclarations declarations,
+        QueryPlanInvocationValue[] orderedValues,
+        QueryPlanInvocationValue value)
+    {
+        if (value is null)
+            throw new ArgumentException("Query plan invocation values cannot contain null entries.", nameof(value));
+
+        if (!declarations.TryGetOrdinal(value.Id, out var ordinal))
+            throw new QueryPlanInvocationException($"Invocation contains undeclared binding '{value.Id}'.");
+
+        if (orderedValues[ordinal] is not null)
+            throw new QueryPlanInvocationException($"Invocation binding '{value.Id}' is duplicated.");
+
+        orderedValues[ordinal] = value;
+    }
+
+    private static void EnsureNoMissingValues(
+        QueryPlanBindingDeclarations declarations,
+        IReadOnlyList<QueryPlanInvocationValue> orderedValues)
+    {
+        for (var index = 0; index < declarations.Count; index++)
+        {
+            if (orderedValues[index] is null)
+            {
+                throw new QueryPlanInvocationException(
+                    $"Invocation is missing binding '{declarations[index].Id}'.");
+            }
+        }
+    }
+
+    private static void ValidateParserOwnedIds(
         QueryPlanBindingDeclarations declarations,
         IReadOnlyList<QueryPlanInvocationValue> values)
     {
-        var valuesById = new Dictionary<string, QueryPlanInvocationValue>(values.Count, StringComparer.Ordinal);
-        for (var index = 0; index < values.Count; index++)
+        if (values.Count != declarations.Count)
+        {
+            throw new QueryPlanInvocationException(
+                $"Parser-owned invocation has {values.Count} bindings, but the template declares {declarations.Count}.");
+        }
+
+        for (var index = 0; index < declarations.Count; index++)
         {
             var value = values[index]
                 ?? throw new ArgumentException("Query plan invocation values cannot contain null entries.", nameof(values));
-
-            if (!declarations.TryGet(value.Id, out _))
-                throw new QueryPlanInvocationException($"Invocation contains undeclared binding '{value.Id}'.");
-
-            if (!valuesById.TryAdd(value.Id, value))
-                throw new QueryPlanInvocationException($"Invocation binding '{value.Id}' is duplicated.");
+            var declaration = declarations[index];
+            if (!StringComparer.Ordinal.Equals(value.Id, declaration.Id))
+            {
+                throw new QueryPlanInvocationException(
+                    $"Parser-owned invocation binding at ordinal {index} is '{value.Id}', expected '{declaration.Id}'.");
+            }
         }
-
-        foreach (var declaration in declarations.Items)
-        {
-            if (!valuesById.ContainsKey(declaration.Id))
-                throw new QueryPlanInvocationException($"Invocation is missing binding '{declaration.Id}'.");
-        }
-
-        return valuesById;
     }
 
     private static void ValidateValues(
         QueryPlanTemplate template,
-        IReadOnlyDictionary<string, QueryPlanInvocationValue> valuesById)
+        IReadOnlyList<QueryPlanInvocationValue> values)
     {
-        foreach (var declaration in template.BindingDeclarations.Items)
+        for (var index = 0; index < template.BindingDeclarations.Count; index++)
         {
-            var value = valuesById[declaration.Id];
+            var declaration = template.BindingDeclarations[index];
+            var value = values[index];
             if (value.Kind != declaration.Kind)
             {
                 throw new QueryPlanInvocationException(
@@ -172,7 +233,7 @@ internal sealed class QueryPlanInvocation
 
                 break;
             case (QueryPlanBindingSpecialization.LocalSequenceShape sequenceConstraint, QueryPlanInvocationValue.LocalSequence sequence):
-                var actualNullCount = sequence.Values.Count(static item => item is null);
+                var actualNullCount = CountNulls(sequence.Values);
                 if (sequence.Values.Count != sequenceConstraint.Count ||
                     actualNullCount != sequenceConstraint.NullCount)
                 {
@@ -187,6 +248,18 @@ internal sealed class QueryPlanInvocation
                 throw new QueryPlanInvocationException(
                     $"Template specialization for binding '{declaration.Id}' is incompatible with invocation kind '{value.Kind}'.");
         }
+    }
+
+    private static int CountNulls(IReadOnlyList<object?> values)
+    {
+        var count = 0;
+        for (var index = 0; index < values.Count; index++)
+        {
+            if (values[index] is null)
+                count++;
+        }
+
+        return count;
     }
 
     private static bool IsCompatibleType(Type expectedType, Type actualType)

@@ -113,7 +113,7 @@ public class QueryPlanProjectionRecipeEvaluatorTests
     [Test]
     public async Task LiftedBuiltInOperators_PreserveNullSemantics()
     {
-        var values = QueryPlanBindingValues.CreateValidated([
+        var values = BindingValues([
             new QueryPlanInvocationValue.Scalar("nullableBool", null),
             new QueryPlanInvocationValue.Scalar("nullableInt", null),
             new QueryPlanInvocationValue.Scalar("one", 1)
@@ -145,7 +145,7 @@ public class QueryPlanProjectionRecipeEvaluatorTests
     [Test]
     public async Task FloatingRelationalRecipe_UsesOperatorNaNSemantics()
     {
-        var values = QueryPlanBindingValues.CreateValidated([
+        var values = BindingValues([
             new QueryPlanInvocationValue.Scalar("nan", double.NaN),
             new QueryPlanInvocationValue.Scalar("one", 1d)
         ]);
@@ -174,7 +174,7 @@ public class QueryPlanProjectionRecipeEvaluatorTests
     {
         var firstReference = new ReferenceEqualityProbe(7);
         var secondReference = new ReferenceEqualityProbe(7);
-        var values = QueryPlanBindingValues.CreateValidated([
+        var values = BindingValues([
             new QueryPlanInvocationValue.Scalar("firstNaN", double.NaN),
             new QueryPlanInvocationValue.Scalar("secondNaN", double.NaN),
             new QueryPlanInvocationValue.Scalar("firstReference", firstReference),
@@ -301,6 +301,19 @@ public class QueryPlanProjectionRecipeEvaluatorTests
             new Dictionary<QueryPlanSourceSlot, object?>(),
             values,
             ProjectionEvaluationOptions.AotStrict);
+
+    private static QueryPlanBindingValues BindingValues(IReadOnlyList<QueryPlanInvocationValue> values)
+    {
+        var declarations = QueryPlanBindingDeclarations.From(values.Select(value =>
+            new QueryPlanBindingDeclaration(
+                value.Id,
+                value.Kind,
+                typeof(object),
+                typeof(object),
+                AllowsNull: true)));
+
+        return QueryPlanBindingValues.CreateParserOwned(declarations, values);
+    }
 
     private static TableDefinition GetTable<TModel>()
     {
