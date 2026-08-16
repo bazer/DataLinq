@@ -22,11 +22,25 @@ public sealed class StringWhitespaceTranslationTests
             nameof(IsNullOrWhiteSpace_MatchesClrForEveryWhitespaceCharacterAcrossProviders));
         var database = databaseScope.Database;
         var values = CreateTestValues();
-        var valueRows = string.Join(
-            ", ",
-            values.Select(static (value, index) => $"({index + 1}, {ToSqlLiteral(value)})"));
-        var inserted = database.Provider.DatabaseAccess.ExecuteNonQuery(
-            $"INSERT INTO string_whitespace_rows (id, text_value) VALUES {valueRows}");
+        var parameterSign = database.Provider.Constants.ParameterSign;
+        using var parameterConnection = database.Provider.GetDbConnection();
+        using var insertCommand = parameterConnection.CreateCommand();
+        insertCommand.CommandText =
+            $"INSERT INTO string_whitespace_rows (id, text_value) VALUES ({parameterSign}id, {parameterSign}textValue)";
+        var idParameter = insertCommand.CreateParameter();
+        idParameter.ParameterName = $"{parameterSign}id";
+        insertCommand.Parameters.Add(idParameter);
+        var textParameter = insertCommand.CreateParameter();
+        textParameter.ParameterName = $"{parameterSign}textValue";
+        insertCommand.Parameters.Add(textParameter);
+        var inserted = 0;
+
+        foreach (var (value, index) in values.Select(static (value, index) => (value, index)))
+        {
+            idParameter.Value = index + 1;
+            textParameter.Value = (object?)value ?? DBNull.Value;
+            inserted += database.Provider.DatabaseAccess.ExecuteNonQuery(insertCommand);
+        }
 
         var materialized = database.Query().Rows.ToList();
         var expectedWhitespace = materialized
@@ -57,11 +71,11 @@ public sealed class StringWhitespaceTranslationTests
     }
 
     [Test]
-    public async Task IsNullOrWhiteSpace_SqlUsesTheCompleteClrSetInsteadOfProviderTrim()
+    public async Task IsNullOrWhiteSpace_SqlUsesTheCompleteClrSetAndNulSafeByteLength()
     {
         using var databaseScope = TemporaryModelTestDatabase<StringWhitespaceDb>.Create(
             TestProviderMatrix.SQLiteInMemory,
-            nameof(IsNullOrWhiteSpace_SqlUsesTheCompleteClrSetInsteadOfProviderTrim));
+            nameof(IsNullOrWhiteSpace_SqlUsesTheCompleteClrSetAndNulSafeByteLength));
         var positive = CurrentQueryTranslationInspection.BuildSql(
             databaseScope.Database,
             databaseScope.Database.Query().Rows.Where(static row => string.IsNullOrWhiteSpace(row.Value)));
@@ -77,8 +91,10 @@ public sealed class StringWhitespaceTranslationTests
         await Assert.That(QueryPlanSqlValueRenderer.ClrWhitespaceCharacters).IsEqualTo(clrWhitespaceCharacters);
         await Assert.That(CountOccurrences(positive.Text, "REPLACE(")).IsEqualTo(clrWhitespaceCharacters.Length);
         await Assert.That(CountOccurrences(negated.Text, "REPLACE(")).IsEqualTo(clrWhitespaceCharacters.Length);
-        await Assert.That(positive.Text).Contains("LENGTH(");
-        await Assert.That(negated.Text).Contains("LENGTH(");
+        await Assert.That(positive.Text).Contains("LENGTH(CAST(");
+        await Assert.That(negated.Text).Contains("LENGTH(CAST(");
+        await Assert.That(positive.Text).Contains("AS BLOB)");
+        await Assert.That(negated.Text).Contains("AS BLOB)");
         await Assert.That(positive.Text).DoesNotContain("TRIM(");
         await Assert.That(negated.Text).DoesNotContain("TRIM(");
     }
@@ -99,15 +115,13 @@ public sealed class StringWhitespaceTranslationTests
             "text",
             " text ",
             "\u2003text\u2003",
+            "\0",
+            "\0text",
             "\u180E",
             "\u200B",
             "\uFEFF"
         ];
     }
-
-    private static string ToSqlLiteral(string? value) => value is null
-        ? "NULL"
-        : $"'{value.Replace("'", "''", StringComparison.Ordinal)}'";
 
     private static int CountOccurrences(string value, string search) =>
         value.Split(search, StringSplitOptions.None).Length - 1;

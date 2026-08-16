@@ -80,11 +80,20 @@ internal sealed class QueryPlanSqlValueRenderer(
         return sql;
     }
 
-    public string RenderClrWhitespaceStrippedLengthSql(QueryPlanValue value) =>
-        dataSource.Provider.GetSqlForFunction(
-            SqlFunctionType.StringLength,
-            RenderClrWhitespaceStrippedSql(value),
-            null);
+    public string RenderClrWhitespaceStrippedByteLengthSql(QueryPlanValue value)
+    {
+        var sql = RenderClrWhitespaceStrippedSql(value);
+
+        // Character-length functions are not safe for this emptiness check: SQLite LENGTH(TEXT)
+        // stops at the first U+0000. Byte length is zero only when the stripped value is empty.
+        return dataSource.Provider.DatabaseType switch
+        {
+            DatabaseType.SQLite => $"LENGTH(CAST({sql} AS BLOB))",
+            DatabaseType.MySQL or DatabaseType.MariaDB => $"OCTET_LENGTH({sql})",
+            _ => throw new QueryTranslationException(
+                $"CLR whitespace translation is not supported for database type '{dataSource.Provider.DatabaseType}'.")
+        };
+    }
 
     public string RenderGroupedAggregateSql(QueryPlanGroupedAggregateValue aggregate)
     {

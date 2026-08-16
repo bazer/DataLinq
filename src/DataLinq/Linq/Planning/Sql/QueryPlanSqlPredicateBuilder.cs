@@ -470,7 +470,7 @@ internal sealed class QueryPlanSqlPredicateBuilder<T>(
                 QueryPlanFunctionKind.StringLength,
                 [function.Arguments[0]],
                 typeof(int)))
-            : Operand.RawSql(valueRenderer.RenderClrWhitespaceStrippedLengthSql(function.Arguments[0]));
+            : Operand.RawSql(valueRenderer.RenderClrWhitespaceStrippedByteLengthSql(function.Arguments[0]));
         var orGroup = new WhereGroup<T>(query, BooleanType.Or);
         group.AddSubGroup(orGroup, connectionType);
         orGroup.AddWhere(new Comparison(source, Operator.Equal, Operand.Value((object?)null)), BooleanType.And);
