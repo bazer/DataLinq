@@ -53,7 +53,9 @@ public class BenchmarkCliParsingTests
             phase11CacheInvalidation: false,
             phase12CacheMemory: false,
             v09QueryBackend: true,
-            v09MemoryRead: false);
+            v09MemoryRead: false,
+            allocationRegression: false,
+            allocationStages: false);
 
         await Assert.That(result).IsEqualTo(BenchmarkHarnessRunner.V09QueryBackendCategory);
     }
@@ -68,7 +70,9 @@ public class BenchmarkCliParsingTests
             phase11CacheInvalidation: false,
             phase12CacheMemory: false,
             v09QueryBackend: false,
-            v09MemoryRead: false);
+            v09MemoryRead: false,
+            allocationRegression: false,
+            allocationStages: false);
 
         await Assert.That(result).IsNull();
     }
@@ -87,7 +91,9 @@ public class BenchmarkCliParsingTests
                 phase11CacheInvalidation: false,
                 phase12CacheMemory: false,
                 v09QueryBackend: true,
-                v09MemoryRead: false);
+                v09MemoryRead: false,
+                allocationRegression: true,
+                allocationStages: false);
         }
         catch (InvalidOperationException caught)
         {
@@ -110,9 +116,74 @@ public class BenchmarkCliParsingTests
             phase11CacheInvalidation: false,
             phase12CacheMemory: false,
             v09QueryBackend: false,
-            v09MemoryRead: true);
+            v09MemoryRead: true,
+            allocationRegression: false,
+            allocationStages: false);
 
         await Assert.That(result).IsEqualTo(BenchmarkHarnessRunner.V09MemoryReadCategory);
+    }
+
+    [Test]
+    public async Task CategorySelection_SelectsAllocationRegression()
+    {
+        var result = BenchmarkHarnessRunner.ResolveSelectedCategory(
+            phase2Watch: false,
+            phase3QueryHotPath: false,
+            phase10KeyFoundation: false,
+            phase11CacheInvalidation: false,
+            phase12CacheMemory: false,
+            v09QueryBackend: false,
+            v09MemoryRead: false,
+            allocationRegression: true,
+            allocationStages: false);
+
+        await Assert.That(result).IsEqualTo(BenchmarkHarnessRunner.AllocationRegressionCategory);
+        await Assert.That(BenchmarkHarnessRunner.GetBenchmarkCategoryArguments(result))
+            .IsEquivalentTo(["--anyCategories", "stable", "macro-readwrite", "macro-bulk"]);
+    }
+
+    [Test]
+    [Arguments("Canonical provider-row decoding", "row-decoding")]
+    [Arguments("Provider-row model materialization", "row-materialization")]
+    [Arguments("Mutation state-change capture", "mutation-capture")]
+    [Arguments("Mutation execution preflight", "mutation-preflight")]
+    public async Task AllocationStages_HaveStableTrackingAndScenarioCategories(
+        string method,
+        string expectedCategory)
+    {
+        await Assert.That(BenchmarkHarnessRunner.GetTrackingGroup(method))
+            .IsEqualTo(BenchmarkHarnessRunner.AllocationStagesCategory);
+        await Assert.That(BenchmarkHarnessRunner.GetScenarioCategory(method))
+            .IsEqualTo(expectedCategory);
+    }
+
+    [Test]
+    public async Task AllocationRegression_OverridesExistingTrackingGroupsForOneComparableLane()
+    {
+        var trackingGroup = BenchmarkHarnessRunner.GetTrackingGroup(
+            "Warm primary-key fetch",
+            BenchmarkHarnessRunner.AllocationRegressionCategory);
+
+        await Assert.That(trackingGroup).IsEqualTo(BenchmarkHarnessRunner.AllocationRegressionCategory);
+    }
+
+    [Test]
+    public async Task RunExitDecision_AllowsValidHistoryWithoutComparison()
+    {
+        var history = new BenchmarkHistoryArtifact
+        {
+            OverallExitCode = 0,
+            ValidForEvidence = true
+        };
+
+        await Assert.That(BenchmarkHarnessRunner.ShouldFailRun(
+            history,
+            comparison: null,
+            releaseEvidenceIntent: true)).IsFalse();
+        await Assert.That(BenchmarkHarnessRunner.ShouldFailRun(
+            history with { ValidForEvidence = false },
+            comparison: null,
+            releaseEvidenceIntent: true)).IsTrue();
     }
 
     [Test]
@@ -129,7 +200,9 @@ public class BenchmarkCliParsingTests
                 phase11CacheInvalidation: false,
                 phase12CacheMemory: false,
                 v09QueryBackend: true,
-                v09MemoryRead: true);
+                v09MemoryRead: true,
+                allocationRegression: false,
+                allocationStages: false);
         }
         catch (InvalidOperationException caught)
         {

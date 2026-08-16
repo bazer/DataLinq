@@ -46,6 +46,8 @@ dotnet run --project DataLinq.Benchmark.CLI -- run --phase10-key-foundation
 dotnet run --project DataLinq.Benchmark.CLI -- run --phase11-cache-invalidation
 dotnet run --project DataLinq.Benchmark.CLI -- run --v09-query-backend
 dotnet run --project DataLinq.Benchmark.CLI -- run --v09-memory-read
+dotnet run --project DataLinq.Benchmark.CLI -- run --allocation-regression
+dotnet run --project DataLinq.Benchmark.CLI -- run --allocation-stages
 ```
 
 Important options:
@@ -56,6 +58,8 @@ Important options:
   `default`, `smoke`, or `heavy`. The wrapper selects one configured BenchmarkDotNet job for the chosen profile.
 - `--no-build`
   Reuses the existing benchmark assembly.
+- `--benchmark-target-root`
+  Builds and runs the benchmark project from a clean historical DataLinq worktree beneath `artifacts/benchmarks/targets`. The current CLI remains the evidence writer.
 - `--keep-files`
   Preserves BenchmarkDotNet-generated temporary files.
 - `--verbose`
@@ -72,6 +76,10 @@ Important options:
   Runs only the v0.9 query-planning, invocation-binding, and SQL-adapter evidence lane.
 - `--v09-memory-read`
   Runs only the provider-free v0.9 `DataLinq.Memory` read evidence lane.
+- `--allocation-regression`
+  Runs the exact nine-row SQLite-memory allocation comparison lane used for the final-0.8 budget.
+- `--allocation-stages`
+  Runs focused provider-row decoding/materialization and mutation capture/preflight allocation benchmarks.
 - `--history-json`
   Writes a schema-v3 benchmark history entry beneath the repository `artifacts` tree.
 - `--baseline`
@@ -90,6 +98,48 @@ Example:
 ```bash
 dotnet run --project DataLinq.Benchmark.CLI -- run -- --anyCategories stable macro-readwrite macro-bulk
 ```
+
+## Final-0.8 allocation baseline
+
+`--benchmark-target-root` separates the tooling checkout from the runtime checkout. The current `DataLinq.Benchmark.CLI` and `DataLinq.DevTools` assemblies must match the clean current checkout; the benchmark assembly must match the clean target worktree. Both repository states are captured before and after the run. A dirty or changing checkout, mismatched assembly commit, or unknown build state invalidates evidence.
+
+The frozen baseline is commit `8bcfc770246f960e27a91e3046f19a76c3736217`. Its runtime and benchmark sources are identical to tag `0.8.0`; the later commit contains documentation changes only. The historical benchmark config did not register CSV or GitHub-Markdown exporters, so current tooling replaces only that benchmark config during the external build with `HistoricalBenchmarkConfig.cs.txt`. The shim preserves the historical jobs, columns, summary style, and ordering and adds only the exporters required by schema v3. The target worktree remains byte-for-byte clean, while the shim is covered by the current tooling commit provenance.
+
+Run the stable allocation baseline and candidate from a clean committed checkout at the repo root:
+
+```powershell
+git worktree add --detach artifacts\benchmarks\targets\final-0.8 8bcfc770246f960e27a91e3046f19a76c3736217
+
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run `
+  --benchmark-target-root artifacts\benchmarks\targets\final-0.8 `
+  --allocation-regression --profile heavy --release-evidence `
+  --history-json artifacts\benchmarks\allocation\final-0.8-stable.json
+
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run `
+  --allocation-regression --profile heavy --release-evidence `
+  --history-json artifacts\benchmarks\allocation\candidate-stable.json `
+  --baseline artifacts\benchmarks\allocation\final-0.8-stable.json `
+  --comparison-json artifacts\benchmarks\allocation\stable-comparison.json
+```
+
+Repeat the same-runtime SQL hot-path comparison separately; combining selectors would destroy the exact scope contract:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run `
+  --benchmark-target-root artifacts\benchmarks\targets\final-0.8 `
+  --phase3-query-hotpath --profile heavy --release-evidence `
+  --history-json artifacts\benchmarks\allocation\final-0.8-sql-hotpath.json
+
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run `
+  --phase3-query-hotpath --profile heavy --release-evidence `
+  --history-json artifacts\benchmarks\allocation\candidate-sql-hotpath.json `
+  --baseline artifacts\benchmarks\allocation\final-0.8-sql-hotpath.json `
+  --comparison-json artifacts\benchmarks\allocation\sql-hotpath-comparison.json
+```
+
+The allocation budget is intentionally uncompromising: every tracked candidate row must allocate no more bytes per operation than the same-runner final-0.8 row (`AllocatedDeltaPercent <= 0`). The comparison warning percentage remains a triage threshold, not permission to rebaseline above 0.8. The machine-readable scope and policy live in `docs/contributing/benchmark-allocation-budgets.json`.
+
+Use `--allocation-stages --profile heavy` to attribute current-runtime work without a macro run. The four cases isolate canonical provider-row ownership/copying, provider-to-model materialization, state-change capture from prebuilt changed mutables, and execution preflight against a prepared transaction/state change. The existing `--v09-query-backend` lane already isolates structural parsing, initial bind/freeze, invocation rebinding, and capability preparation.
 
 ## Phase 2 Watchpoints
 
@@ -296,7 +346,7 @@ New history artifacts use numeric `SchemaVersion` `3` and named `SchemaId` `v0.9
 
 Every invocation receives a unique `<timestamp>-<guid>` run id and an exclusive raw-artifact root at `artifacts/benchmarks/runs/<run-id>/`. A pre-existing run root is rejected rather than reused. History records the resolved repository/project/assembly/run paths, profile and expected BenchmarkDotNet job, filter, selected category, normalized providers, build/keep/verbose choices, sanitized pass-through arguments, requested report paths, warning threshold, release intent, command arguments/timing/environment/logs, OS and architecture, runtime and logical-processor count, bounded processor identity, the resolved BenchmarkDotNet version from executed output when available or otherwise from the adjacent dependency assembly, expected and observed targets, row completeness, warnings/failure, and checkout plus runner provenance.
 
-The four canonical release-history matrices are exact:
+The six canonical release-history matrices are exact:
 
 | Selector | Expected methods | Providers | Expected rows | Required operations per invoke |
 | --- | ---: | --- | ---: | --- |
@@ -304,6 +354,8 @@ The four canonical release-history matrices are exact:
 | `--phase3-query-hotpath` | 3 | `sqlite-file`, `sqlite-memory` | 6 | `1000` for every method |
 | `--v09-query-backend` | 6 | `sqlite-file`, `sqlite-memory` | 12 | `1000` except SQL-adapter scalar `Any` at `3000` |
 | `--v09-memory-read` | 9 | `memory` | 9 | `1` for every method |
+| `--allocation-regression` | 9 | `sqlite-memory` | 9 | provider/startup `1`; CRUD small `50`; CRUD batch `300`; remaining methods `1000` |
+| `--allocation-stages` | 4 | `sqlite-file`, `sqlite-memory` | 8 | `1000` for every method |
 
 Strict history validity requires exactly one of those selectors, `--profile heavy` (`MediumRun`), the default unfiltered `--filter "*"`, the exact provider set above, no `--no-build`, no pass-through BenchmarkDotNet arguments, one complete unique row per expected category/provider/method target, and the exact operation count and selector tracking group for every row. Each row must also carry its real non-`other` scenario category, runtime/job/toolchain identity, finite measurement/allocation data, and a matching complete nonnegative telemetry delta. A focused, filtered, smoke/default-profile, provider-subset, no-build, or pass-through invocation may still be a successful diagnostic run, but it is not release evidence.
 
@@ -313,7 +365,7 @@ History warnings retain bounded sanitized BenchmarkDotNet warnings and add selec
 
 History artifact references cover the summary JSON, BenchmarkDotNet CSV/Markdown, one telemetry JSON per row, and every restore/build/benchmark log. Each reference records absolute and repository-relative path, byte length, and SHA-256; `RowAggregateSha256` gives the normalized row set a path-independent identity. Comparison artifacts retain baseline/candidate path, bytes, SHA-256, schema/run/commit/profile/filter/scope identity, row aggregate, legacy status, and source-validity status. The comparison is artifact-complete only while both referenced input files still match their captured hashes and the comparison destination is safe.
 
-Release validity also requires a clean, unchanged checkout with a full commit and matching `DataLinq.Benchmark.CLI`, `DataLinq.DevTools`, and freshly built `DataLinq.Benchmark` assemblies whose embedded repository commit and clean build-state attestations match that checkout. The benchmark assembly path and SHA-256 are revalidated. This is why `--no-build` is never a strict-evidence shortcut.
+Release validity also requires clean, unchanged tooling and benchmark-target checkouts with full commits. `DataLinq.Benchmark.CLI` and `DataLinq.DevTools` must match the tooling checkout; the freshly built `DataLinq.Benchmark` assembly must match the benchmark-target checkout (the same checkout for an ordinary run). The benchmark assembly path and SHA-256 are revalidated. This is why `--no-build` is never a strict-evidence shortcut.
 
 All history, baseline, comparison, raw-log, and BenchmarkDotNet artifact paths are confined beneath the repository `artifacts` tree without reparse-point traversal; the three requested history/baseline/comparison paths must be distinct. JSON is serialized to a fresh sibling temporary file and atomically promoted. Once safe explicit output paths have been normalized, old requested history/comparison files are invalidated before action-level dependency, threshold, category, profile, provider, and baseline validation, so stale green output cannot survive a failed request. Parser or unsafe-path failures happen before that boundary; other early semantic failures, report-write failures, or abrupt process termination may leave no replacement JSON. Ordinary failures after a run identity exists attempt bounded `Error` artifacts. Evidence consumers must therefore require successful command exit and then validate the v3 identity, outcome/completeness, artifact, validity, scope, and provenance fields; file existence alone is never a pass.
 

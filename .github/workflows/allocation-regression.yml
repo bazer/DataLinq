@@ -1,0 +1,82 @@
+name: Allocation Regression Evidence
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: allocation-regression-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  DOTNET_NOLOGO: 1
+
+jobs:
+  allocation-evidence:
+    name: Final 0.8 versus candidate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Prepare final-0.8 runtime target
+        run: git worktree add --detach artifacts/benchmarks/targets/final-0.8 8bcfc770246f960e27a91e3046f19a76c3736217
+
+      - name: Capture stable allocation baseline
+        run: >-
+          dotnet run --project src/DataLinq.Benchmark.CLI -- run
+          --benchmark-target-root artifacts/benchmarks/targets/final-0.8
+          --allocation-regression --profile heavy --release-evidence
+          --history-json artifacts/benchmarks/allocation/final-0.8-stable.json
+
+      - name: Compare candidate stable allocations
+        run: >-
+          dotnet run --project src/DataLinq.Benchmark.CLI -- run
+          --allocation-regression --profile heavy --release-evidence
+          --history-json artifacts/benchmarks/allocation/candidate-stable.json
+          --baseline artifacts/benchmarks/allocation/final-0.8-stable.json
+          --comparison-json artifacts/benchmarks/allocation/stable-comparison.json
+
+      - name: Capture SQL hot-path baseline
+        run: >-
+          dotnet run --project src/DataLinq.Benchmark.CLI -- run
+          --benchmark-target-root artifacts/benchmarks/targets/final-0.8
+          --phase3-query-hotpath --profile heavy --release-evidence
+          --history-json artifacts/benchmarks/allocation/final-0.8-sql-hotpath.json
+
+      - name: Compare candidate SQL hot-path allocations
+        run: >-
+          dotnet run --project src/DataLinq.Benchmark.CLI -- run
+          --phase3-query-hotpath --profile heavy --release-evidence
+          --history-json artifacts/benchmarks/allocation/candidate-sql-hotpath.json
+          --baseline artifacts/benchmarks/allocation/final-0.8-sql-hotpath.json
+          --comparison-json artifacts/benchmarks/allocation/sql-hotpath-comparison.json
+
+      - name: Capture allocation attribution stages
+        run: >-
+          dotnet run --project src/DataLinq.Benchmark.CLI -- run
+          --allocation-stages --profile heavy --release-evidence
+          --history-json artifacts/benchmarks/allocation/candidate-stages.json
+
+      - name: Upload complete allocation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allocation-regression-${{ github.sha }}
+          path: |
+            artifacts/benchmarks/allocation
+            artifacts/benchmarks/runs
+          if-no-files-found: error
+          retention-days: 90

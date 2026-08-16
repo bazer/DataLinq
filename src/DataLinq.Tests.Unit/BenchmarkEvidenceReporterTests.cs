@@ -73,6 +73,78 @@ public sealed class BenchmarkEvidenceReporterTests
     }
 
     [Test]
+    public async Task ResolveExpectedTargets_AllocationRegressionIsTheExactSQLiteMemoryNineRowScope()
+    {
+        using var fixture = new BenchmarkFixture();
+        var invocation = fixture.CreateInvocation("allocation", fixture.OutputPath("allocation.json")) with
+        {
+            SelectedCategory = BenchmarkHarnessRunner.AllocationRegressionCategory,
+            ConfiguredProviderIds = ["sqlite-memory"]
+        };
+
+        var targets = BenchmarkEvidenceReporter.ResolveExpectedTargets(invocation);
+
+        await Assert.That(targets.Count).IsEqualTo(9);
+        await Assert.That(targets.All(static target => target.ProviderName == "sqlite-memory")).IsTrue();
+        await Assert.That(targets.Select(static target => target.Method)).Contains("CRUD workflow batch");
+        await Assert.That(targets.Select(static target => target.Method)).Contains("Warm relation traversal");
+    }
+
+    [Test]
+    public async Task EvaluateRunnerEvidence_SeparatesToolingCheckoutFromHistoricalRuntimeTarget()
+    {
+        const string targetCommit = "89abcdef0123456789abcdef0123456789abcdef";
+        var tooling = new TestRunSummaryRepositoryState(true, Commit, "feature", false, "tooling-clean");
+        var target = new TestRunSummaryRepositoryState(true, targetCommit, "HEAD", false, "target-clean");
+        var benchmarkAssembly = new BenchmarkAssemblyEvidence(
+            "benchmark.dll",
+            new string('a', 64),
+            BenchmarkFixture.RunnerAssembly("DataLinq.Benchmark", targetCommit));
+
+        var evidence = BenchmarkEvidenceReporter.EvaluateRunnerEvidence(
+            tooling,
+            tooling,
+            BenchmarkFixture.RunnerAssembly("DataLinq.Benchmark.CLI"),
+            BenchmarkFixture.RunnerAssembly("DataLinq.DevTools"),
+            benchmarkAssembly,
+            target,
+            target);
+        var dirtyTarget = BenchmarkEvidenceReporter.EvaluateRunnerEvidence(
+            tooling,
+            tooling,
+            BenchmarkFixture.RunnerAssembly("DataLinq.Benchmark.CLI"),
+            BenchmarkFixture.RunnerAssembly("DataLinq.DevTools"),
+            benchmarkAssembly,
+            target,
+            target with { Dirty = true, StatusSha256 = "target-dirty" });
+
+        await Assert.That(evidence.ValidForEvidence).IsTrue();
+        await Assert.That(evidence.BenchmarkAssemblyMatchesTarget).IsTrue();
+        await Assert.That(evidence.BenchmarkTargetStateChangedDuringRun).IsFalse();
+        await Assert.That(dirtyTarget.ValidForEvidence).IsFalse();
+        await Assert.That(dirtyTarget.BenchmarkTargetStateChangedDuringRun).IsTrue();
+    }
+
+    [Test]
+    public async Task CreateHistory_HistoricalRuntimeTargetProducesRevalidatableV3Evidence()
+    {
+        using var fixture = new BenchmarkFixture();
+        var historyPath = fixture.OutputPath("historical-target.json");
+        var artifact = BenchmarkEvidenceReporter.CreateHistory(
+            fixture.CreateHistoricalTargetInput("historical-target", historyPath));
+
+        BenchmarkEvidenceReporter.WriteHistory(fixture.RepositoryRoot, historyPath, artifact);
+        var persisted = BenchmarkEvidenceReporter.ReadHistory(fixture.RepositoryRoot, historyPath);
+
+        await Assert.That(artifact.ValidForEvidence).IsTrue();
+        await Assert.That(artifact.Metadata.Commit).IsEqualTo(BenchmarkFixture.HistoricalCommit);
+        await Assert.That(artifact.RunnerEvidence!.BenchmarkAssemblyMatchesTarget).IsTrue();
+        await Assert.That(artifact.RunnerEvidence.BenchmarkTargetStart!.Commit)
+            .IsEqualTo(BenchmarkFixture.HistoricalCommit);
+        await Assert.That(persisted.Reference.SourceValidForEvidence).IsTrue();
+    }
+
+    [Test]
     public async Task CreateHistory_MissingExpectedRowFailsExactScope()
     {
         using var fixture = new BenchmarkFixture();
@@ -810,6 +882,7 @@ public sealed class BenchmarkEvidenceReporterTests
 
     private sealed class BenchmarkFixture : IDisposable
     {
+        internal const string HistoricalCommit = "89abcdef0123456789abcdef0123456789abcdef";
         private static readonly string[] MemoryMethods =
         [
             "Memory database construction",
@@ -846,6 +919,10 @@ public sealed class BenchmarkEvidenceReporterTests
                     "DataLinq.Benchmark",
                     "DataLinq.Benchmark.csproj"),
                 "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+            var compatibilityDirectory = Path.Combine(RepositoryRoot, "src", "DataLinq.Benchmark.CLI");
+            Directory.CreateDirectory(compatibilityDirectory);
+            File.WriteAllText(Path.Combine(compatibilityDirectory, "BenchmarkTargetProvenance.targets"), "<Project />");
+            File.WriteAllText(Path.Combine(compatibilityDirectory, "HistoricalBenchmarkConfig.cs.txt"), "// fixture");
         }
 
         public string RepositoryRoot { get; }
@@ -1109,6 +1186,83 @@ public sealed class BenchmarkEvidenceReporterTests
                 RunnerEvidence: CreateRunnerEvidence());
         }
 
+        public BenchmarkHistoryCreationInput CreateHistoricalTargetInput(string runId, string historyPath)
+        {
+            var input = CreateInput(runId, historyPath: historyPath);
+            var targetRoot = Path.Combine(RepositoryRoot, "artifacts", "benchmarks", "targets", "final-0.8");
+            var projectPath = Path.Combine(targetRoot, "src", "DataLinq.Benchmark", "DataLinq.Benchmark.csproj");
+            var assemblyPath = Path.Combine(
+                targetRoot,
+                "src",
+                "DataLinq.Benchmark",
+                "bin",
+                "Release",
+                "net8.0",
+                "DataLinq.Benchmark.dll");
+            Directory.CreateDirectory(Path.GetDirectoryName(assemblyPath)!);
+            File.WriteAllText(projectPath, "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+            File.WriteAllText(assemblyPath, "historical benchmark assembly fixture");
+
+            var invocation = input.Invocation with
+            {
+                BenchmarkProjectPath = projectPath,
+                BenchmarkAssemblyPath = assemblyPath,
+                BenchmarkTargetRepositoryRoot = targetRoot
+            };
+            var commands = input.Commands.Select((command, index) => index switch
+            {
+                0 => command with
+                {
+                    Arguments = command.Arguments.Select((argument, argumentIndex) =>
+                        argumentIndex == 1 ? projectPath : argument).ToArray()
+                },
+                1 => command with
+                {
+                    Arguments = command.Arguments.Select((argument, argumentIndex) =>
+                            argumentIndex == 1 ? projectPath : argument)
+                        .Concat(
+                        [
+                            $"-p:CustomAfterMicrosoftCommonTargets={Path.Combine(RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "BenchmarkTargetProvenance.targets")}",
+                            $"-p:DataLinqBenchmarkTargetRepositoryRoot={targetRoot}",
+                            $"-p:DataLinqBenchmarkCompatibilitySource={Path.Combine(RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "HistoricalBenchmarkConfig.cs.txt")}"
+                        ])
+                        .ToArray()
+                },
+                _ => command with
+                {
+                    Arguments = command.Arguments.Select((argument, argumentIndex) =>
+                        argumentIndex == 0 ? assemblyPath : argument).ToArray(),
+                    WorkingDirectory = Path.GetDirectoryName(projectPath)!
+                }
+            }).ToArray();
+            var toolingState = new TestRunSummaryRepositoryState(true, Commit, "v0.9", false, "clean");
+            var targetState = new TestRunSummaryRepositoryState(true, HistoricalCommit, "HEAD", false, "clean");
+            var benchmarkAssembly = new BenchmarkAssemblyEvidence(
+                assemblyPath,
+                ComputeSha256(assemblyPath),
+                RunnerAssembly("DataLinq.Benchmark", HistoricalCommit));
+            var runnerEvidence = BenchmarkEvidenceReporter.EvaluateRunnerEvidence(
+                toolingState,
+                toolingState,
+                RunnerAssembly("DataLinq.Benchmark.CLI"),
+                RunnerAssembly("DataLinq.DevTools"),
+                benchmarkAssembly,
+                targetState,
+                targetState);
+
+            return input with
+            {
+                Metadata = CreateMetadata("heavy") with
+                {
+                    Branch = targetState.Branch,
+                    Commit = targetState.Commit
+                },
+                Invocation = invocation,
+                Commands = commands,
+                RunnerEvidence = runnerEvidence
+            };
+        }
+
         public BenchmarkHistoryReadResult CreateAndReadHistory(
             string runId,
             IReadOnlyList<BenchmarkHistoryArtifactRow>? rows = null)
@@ -1187,11 +1341,11 @@ public sealed class BenchmarkEvidenceReporterTests
             return path;
         }
 
-        private static TestRunSummaryRunnerAssembly RunnerAssembly(string name) =>
+        internal static TestRunSummaryRunnerAssembly RunnerAssembly(string name, string commit = Commit) =>
             new(
                 name,
-                InformationalVersion: $"0.9.0+{Commit}",
-                RepositoryCommit: Commit,
+                InformationalVersion: $"0.9.0+{commit}",
+                RepositoryCommit: commit,
                 RepositoryCommitCaptured: true,
                 RepositoryBuildState: "clean");
 
