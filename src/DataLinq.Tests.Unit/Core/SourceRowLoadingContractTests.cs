@@ -173,6 +173,38 @@ public sealed class SourceRowLoadingContractTests
     }
 
     [Test]
+    public async Task SingularResultValidation_RejectsCrossTableAndUnrequestedRows()
+    {
+        var metadata = CreateMetadata();
+        var table = metadata.TableModels[0].Table;
+        var otherTable = metadata.TableModels[1].Table;
+        var requestedKey = DataLinqKey.FromValue(42);
+        var validRow = CreateCanonicalRow(table, 42, "Ada");
+
+        SourceRowLoadingValidation.ValidateSingleResult(
+            table,
+            in requestedKey,
+            validRow,
+            "Test loader");
+
+        var crossTableFailure = Capture<InvalidOperationException>(() =>
+            SourceRowLoadingValidation.ValidateSingleResult(
+                table,
+                in requestedKey,
+                CreateCanonicalRow(otherTable, 42, "Wrong table"),
+                "Test loader"));
+        await Assert.That(crossTableFailure.Message).Contains("returned a row from table");
+
+        var unrequestedFailure = Capture<InvalidOperationException>(() =>
+            SourceRowLoadingValidation.ValidateSingleResult(
+                table,
+                in requestedKey,
+                CreateCanonicalRow(table, 43, "Unrequested"),
+                "Test loader"));
+        await Assert.That(unrequestedFailure.Message).Contains("unrequested primary key");
+    }
+
+    [Test]
     public async Task IndexRowLoadResult_OwnsFiniteRowsAndLeavesMatchingEqualityToBackend()
     {
         var metadata = CreateMetadata();
@@ -218,14 +250,22 @@ public sealed class SourceRowLoadingContractTests
     }
 
     [Test]
-    public async Task RowLoaderContract_UsesOwnedRequestResultAndCarriesCancellation()
+    public async Task RowLoaderContract_SeparatesSingularAndBatchLoadingAndCarriesCancellation()
     {
-        var method = typeof(ISourceRowLoader).GetMethods().Single();
-        var parameter = method.GetParameters().Single();
+        var methods = typeof(ISourceRowLoader).GetMethods();
+        var batchMethod = methods.Single(method => method.Name == nameof(ISourceRowLoader.Load));
+        var singularMethod = methods.Single(method => method.Name == nameof(ISourceRowLoader.LoadSingle));
+        var batchParameter = batchMethod.GetParameters().Single();
+        var singularParameters = singularMethod.GetParameters();
 
-        await Assert.That(method.Name).IsEqualTo(nameof(ISourceRowLoader.Load));
-        await Assert.That(method.ReturnType).IsEqualTo(typeof(SourceRowLoadResult));
-        await Assert.That(parameter.ParameterType).IsEqualTo(typeof(SourcePrimaryKeyRowRequest));
+        await Assert.That(batchMethod.ReturnType).IsEqualTo(typeof(SourceRowLoadResult));
+        await Assert.That(batchParameter.ParameterType).IsEqualTo(typeof(SourcePrimaryKeyRowRequest));
+        await Assert.That(singularMethod.ReturnType).IsEqualTo(typeof(CanonicalProviderValueRow));
+        await Assert.That(singularParameters.Length).IsEqualTo(3);
+        await Assert.That(singularParameters[0].ParameterType).IsEqualTo(typeof(TableDefinition));
+        await Assert.That(singularParameters[1].ParameterType).IsEqualTo(typeof(DataLinqKey).MakeByRefType());
+        await Assert.That(singularParameters[1].IsIn).IsTrue();
+        await Assert.That(singularParameters[2].ParameterType).IsEqualTo(typeof(CancellationToken));
         await Assert.That(typeof(IDataLinqSourceRowServices).GetProperty(nameof(IDataLinqSourceRowServices.RowLoader))!.PropertyType)
             .IsEqualTo(typeof(ISourceRowLoader));
 
@@ -237,10 +277,14 @@ public sealed class SourceRowLoadingContractTests
             [DataLinqKey.FromValue(42)],
             cancellation.Token);
         var loader = new RecordingLoader();
+        var key = DataLinqKey.FromValue(42);
 
-        var exception = Capture<OperationCanceledException>(() => loader.Load(request));
+        var singularException = Capture<OperationCanceledException>(() =>
+            loader.LoadSingle(table, in key, cancellation.Token));
+        var batchException = Capture<OperationCanceledException>(() => loader.Load(request));
 
-        await Assert.That(exception.CancellationToken).IsEqualTo(cancellation.Token);
+        await Assert.That(singularException.CancellationToken).IsEqualTo(cancellation.Token);
+        await Assert.That(batchException.CancellationToken).IsEqualTo(cancellation.Token);
         await Assert.That(loader.BackendWorkStarted).IsFalse();
     }
 
@@ -377,6 +421,16 @@ public sealed class SourceRowLoadingContractTests
     private sealed class RecordingLoader : ISourceRowLoader
     {
         public bool BackendWorkStarted { get; private set; }
+
+        public CanonicalProviderValueRow? LoadSingle(
+            TableDefinition table,
+            in DataLinqKey canonicalProviderKey,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            BackendWorkStarted = true;
+            return null;
+        }
 
         public SourceRowLoadResult Load(SourcePrimaryKeyRowRequest request)
         {

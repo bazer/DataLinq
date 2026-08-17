@@ -423,6 +423,28 @@ public partial class TableCache
         return rows;
     }
 
+    private IImmutableInstance? LoadCanonicalRowAfterKnownMiss(
+        DataLinqKey canonicalProviderKey,
+        IDataLinqSourceRowServices sourceServices)
+    {
+        var providerRow = sourceServices.RowLoader.LoadSingle(
+            Table,
+            in canonicalProviderKey);
+        if (providerRow is null)
+            return null;
+
+        SourceRowLoadingValidation.ValidateSingleResult(
+            Table,
+            in canonicalProviderKey,
+            providerRow,
+            "Source row loader");
+
+        var row = sourceServices.MaterializationServices
+            .MaterializeAfterKnownCacheMiss(providerRow);
+        MetricsHandle.RecordDatabaseRowsLoaded(1);
+        return row;
+    }
+
     private IDataLinqSourceRowServices? GetCanonicalPrimaryKeySourceServices(
         IDataSourceAccess dataSource)
     {

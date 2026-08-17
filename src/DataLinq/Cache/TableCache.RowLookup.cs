@@ -81,17 +81,15 @@ public partial class TableCache
         if (GetCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
         {
             var canonicalKey = ProviderKeyComponents.ToDataLinqKey(primaryKey);
-            var loadedRows = LoadCanonicalRowsAfterKnownMiss(
-                [canonicalKey],
+            var loaded = LoadCanonicalRowAfterKnownMiss(
+                canonicalKey,
                 sourceServices);
             Log.LoadRowsFromDatabase(
                 loggingConfiguration.CacheLogger,
                 Table,
                 1);
 
-            return loadedRows.TryGetValue(canonicalKey, out var loaded)
-                ? loaded
-                : null;
+            return loaded;
         }
 
         var rowData = GetRowDataFromPrimaryKeyValue(primaryKey, dataSource);

@@ -25,6 +25,33 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
         ProviderRowMaterializer.ValidateSourceName(sourceName);
     }
 
+    public CanonicalProviderValueRow? LoadSingle(
+        TableDefinition table,
+        in DataLinqKey canonicalProviderKey,
+        CancellationToken cancellationToken = default)
+    {
+        SourceRowLoadingValidation.ValidatePrimaryKeyTable(table);
+        SourceRowLoadingValidation.ValidateCanonicalKey(
+            table,
+            canonicalProviderKey,
+            keyIndex: 0,
+            nameof(canonicalProviderKey));
+        EnsureCanLoad(table, "load one source row");
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var query = CreateSingleQuery(
+            table,
+            in canonicalProviderKey,
+            cancellationToken);
+        var row = ReadSingleCanonicalRow(
+            query,
+            table,
+            in canonicalProviderKey,
+            cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return row;
+    }
+
     public SourceRowLoadResult Load(SourcePrimaryKeyRowRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -91,6 +118,78 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
 
         cancellationToken.ThrowIfCancellationRequested();
         return rows;
+    }
+
+    private CanonicalProviderValueRow? ReadSingleCanonicalRow(
+        IQuery query,
+        TableDefinition table,
+        in DataLinqKey requestedKey,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var command = dataSource.Provider.ToDbCommand(query);
+        cancellationToken.ThrowIfCancellationRequested();
+        using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!reader.ReadNextRow())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var row = ProviderRowDecoder.DecodeFullRow(reader, table, sourceName);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var hasSecondRow = reader.ReadNextRow();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (hasSecondRow)
+        {
+            throw new InvalidOperationException(
+                $"Singular source-row query for table '{table.DbName}' returned more than one row.");
+        }
+
+        SourceRowLoadingValidation.ValidateSingleResult(
+            table,
+            in requestedKey,
+            row,
+            "Singular source-row query");
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return row;
+    }
+
+    private IQuery CreateSingleQuery(
+        TableDefinition table,
+        in DataLinqKey canonicalProviderKey,
+        CancellationToken cancellationToken)
+    {
+        var writer = dataSource.Provider.GetWriter();
+        if (table.PrimaryKeyColumns.Count == 1)
+        {
+            var column = table.PrimaryKeyColumns[0];
+            return new ScalarColumnRowsQuery(
+                table,
+                dataSource,
+                column,
+                writer.ConvertColumnValue(
+                    column,
+                    canonicalProviderKey.GetValue(0)));
+        }
+
+        var query = new SqlQuery(table, dataSource);
+        for (var componentIndex = 0; componentIndex < table.PrimaryKeyColumns.Count; componentIndex++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var column = table.PrimaryKeyColumns[componentIndex];
+            query.Where(column.DbName).EqualTo(
+                writer.ConvertColumnValue(
+                    column,
+                    canonicalProviderKey.GetValue(componentIndex)));
+        }
+
+        return query.SelectQuery();
     }
 
     private Select<object> CreateSelect(SourcePrimaryKeyRowRequest request)

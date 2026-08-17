@@ -198,6 +198,29 @@ public sealed class GeneratedNeutralMaterializationTests
         ISourceRowLoader IDataLinqSourceRowServices.RowLoader => this;
         ISourceIndexRowLoader IDataLinqIndexRowServices.IndexRowLoader => this;
 
+        public CanonicalProviderValueRow? LoadSingle(
+            TableDefinition table,
+            in DataLinqKey canonicalProviderKey,
+            CancellationToken cancellationToken = default)
+        {
+            ValidateOwnedTable(table);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            foreach (var row in rows)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                RowsEnumerated++;
+                if (ReferenceEquals(row.Table, table) &&
+                    row.TryCreateCanonicalPrimaryKey(out var key) &&
+                    key.Equals(canonicalProviderKey))
+                {
+                    return row;
+                }
+            }
+
+            return null;
+        }
+
         public SourceRowLoadResult Load(SourcePrimaryKeyRowRequest request)
         {
             ArgumentNullException.ThrowIfNull(request);

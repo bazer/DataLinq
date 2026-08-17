@@ -534,6 +534,128 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         await Assert.That(reader.Disposed).IsTrue();
     }
 
+    [Test]
+    public async Task LoadSingle_ScalarPrimaryKeyUsesBoundedQueryAndOwnsReaderLifetime()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var reader = new TrackingReader([[42, "Ada"]]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var writer = new RecordingWriter();
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            writer,
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var key = DataLinqKey.FromValue(42);
+
+        var row = ((IDataLinqSourceRowServices)source).RowLoader.LoadSingle(
+            table,
+            in key);
+
+        await Assert.That(row).IsNotNull();
+        await Assert.That(row![table.GetColumnByDbName("id")]).IsEqualTo(42);
+        await Assert.That(provider.LastQuery).IsTypeOf<ScalarColumnRowsQuery>();
+        await Assert.That(writer.Values.Count).IsEqualTo(1);
+        await Assert.That(writer.Values[0].Value).IsEqualTo(42);
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
+    [Test]
+    public async Task LoadSingle_MissingRowReturnsNullAndDisposesProviderState()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var reader = new TrackingReader([]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        var key = DataLinqKey.FromValue(42);
+
+        var row = ((IDataLinqSourceRowServices)source).RowLoader.LoadSingle(
+            table,
+            in key);
+
+        await Assert.That(row).IsNull();
+        await Assert.That(command.Disposed).IsTrue();
+        await Assert.That(reader.Disposed).IsTrue();
+    }
+
+    [Test]
+    public async Task LoadSingle_RejectsUnrequestedAndMultipleRows()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var requestedKey = DataLinqKey.FromValue(42);
+
+        var wrongKeyReader = new TrackingReader([[43, "Grace"]]);
+        var wrongKeyCommand = new TrackingCommand();
+        var wrongKeyAccess = new TrackingDatabaseAccess(wrongKeyReader);
+        var wrongKeyProvider = new TrackingProvider(
+            table.Database,
+            wrongKeyAccess,
+            new RecordingWriter(),
+            wrongKeyCommand);
+        var wrongKeySource = new TrackingDataSourceAccess(wrongKeyProvider, wrongKeyAccess);
+
+        var wrongKeyFailure = Capture<InvalidOperationException>(() =>
+            ((IDataLinqSourceRowServices)wrongKeySource).RowLoader.LoadSingle(
+                table,
+                in requestedKey));
+
+        await Assert.That(wrongKeyFailure.Message).Contains("unrequested primary key");
+        await Assert.That(wrongKeyCommand.Disposed).IsTrue();
+        await Assert.That(wrongKeyReader.Disposed).IsTrue();
+
+        var duplicateReader = new TrackingReader([[42, "Ada"], [42, "Duplicate"]]);
+        var duplicateCommand = new TrackingCommand();
+        var duplicateAccess = new TrackingDatabaseAccess(duplicateReader);
+        var duplicateProvider = new TrackingProvider(
+            table.Database,
+            duplicateAccess,
+            new RecordingWriter(),
+            duplicateCommand);
+        var duplicateSource = new TrackingDataSourceAccess(duplicateProvider, duplicateAccess);
+
+        var duplicateFailure = Capture<InvalidOperationException>(() =>
+            ((IDataLinqSourceRowServices)duplicateSource).RowLoader.LoadSingle(
+                table,
+                in requestedKey));
+
+        await Assert.That(duplicateFailure.Message).Contains("more than one row");
+        await Assert.That(duplicateCommand.Disposed).IsTrue();
+        await Assert.That(duplicateReader.Disposed).IsTrue();
+    }
+
+    [Test]
+    public async Task TableCache_SingularMissUsesSingularSourceQuery()
+    {
+        var table = CreateTable(new RecordingIdConverter());
+        var reader = new TrackingReader([]);
+        var command = new TrackingCommand();
+        var databaseAccess = new TrackingDatabaseAccess(reader);
+        var provider = new TrackingProvider(
+            table.Database,
+            databaseAccess,
+            new RecordingWriter(),
+            command);
+        var source = new TrackingDataSourceAccess(provider, databaseAccess);
+        using var cache = new DatabaseCache(
+            provider,
+            DataLinqLoggingConfiguration.NullConfiguration);
+
+        var row = cache.GetTableCache(table).GetRow(42, source);
+
+        await Assert.That(row).IsNull();
+        await Assert.That(provider.LastQuery).IsTypeOf<ScalarColumnRowsQuery>();
+        await Assert.That(provider.CommandCreationCalls).IsEqualTo(1);
+    }
+
     private static TableDefinition CreateTable(
         IRecordingScalarConverter converter,
         bool useScalarConverter = true,
@@ -918,15 +1040,22 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         public string GetLastIdQuery() => throw new NotSupportedException();
         public string GetSqlForFunction(SqlFunctionType functionType, string columnName, object[]? arguments) => throw new NotSupportedException();
         public TableCache GetTableCache(TableDefinition table) => throw new NotSupportedException();
-        public string GetOperatorSql(Operator @operator) => throw new NotSupportedException();
-        public Sql GetParameter(Sql sql, string key, object? value) => throw new NotSupportedException();
-        public Sql GetParameterValue(Sql sql, string key) => throw new NotSupportedException();
+        public string GetOperatorSql(Operator @operator) => @operator == Operator.Equal
+            ? "="
+            : throw new NotSupportedException();
+        public Sql GetParameter(Sql sql, string key, object? value) =>
+            sql.AddParameter("@" + key, value);
+        public Sql GetParameterValue(Sql sql, string key) =>
+            sql.AddText("@").AddText(key);
         public string GetParameterName(Operator relation, string[] key) => throw new NotSupportedException();
         public Sql GetParameterComparison(Sql sql, string field, Operator @operator, string[] prefix) => throw new NotSupportedException();
         public Sql GetLimitOffset(Sql sql, int? limit, int? offset) => throw new NotSupportedException();
         public bool DatabaseExists(string? databaseName = null) => throw new NotSupportedException();
         public bool FileOrServerExists() => throw new NotSupportedException();
-        public Sql GetTableName(Sql sql, string tableName, string? alias = null) => throw new NotSupportedException();
+        public Sql GetTableName(Sql sql, string tableName, string? alias = null) =>
+            sql.AddText(Constants.EscapeCharacter)
+                .AddText(tableName)
+                .AddText(Constants.EscapeCharacter);
         public M Commit<M>(Func<Transaction, M> func) => throw new NotSupportedException();
         public void Commit(Action<Transaction> action) => throw new NotSupportedException();
         public bool TableExists(string tableName, string? databaseName = null) => throw new NotSupportedException();

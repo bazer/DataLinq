@@ -21,6 +21,41 @@ internal sealed class SourcePrimaryKeyRowRequest
         Table = table ?? throw new ArgumentNullException(nameof(table));
         ArgumentNullException.ThrowIfNull(canonicalProviderKeys);
 
+        SourceRowLoadingValidation.ValidatePrimaryKeyTable(table);
+
+        var keys = ImmutableArray.CreateRange(canonicalProviderKeys);
+        if (keys.IsDefaultOrEmpty)
+        {
+            throw new ArgumentException(
+                "A primary-key row request requires at least one canonical provider key.",
+                nameof(canonicalProviderKeys));
+        }
+
+        for (var keyIndex = 0; keyIndex < keys.Length; keyIndex++)
+            SourceRowLoadingValidation.ValidateCanonicalKey(
+                table,
+                keys[keyIndex],
+                keyIndex,
+                nameof(canonicalProviderKeys));
+
+        CanonicalProviderKeys = keys;
+        CancellationToken = cancellationToken;
+    }
+
+    internal TableDefinition Table { get; }
+    internal ImmutableArray<DataLinqKey> CanonicalProviderKeys { get; }
+    internal CancellationToken CancellationToken { get; }
+
+    internal void ThrowIfCancellationRequested() =>
+        CancellationToken.ThrowIfCancellationRequested();
+}
+
+internal static class SourceRowLoadingValidation
+{
+    internal static void ValidatePrimaryKeyTable(TableDefinition table)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+
         if (!table.IsFrozen)
         {
             throw new InvalidOperationException(
@@ -33,30 +68,9 @@ internal sealed class SourcePrimaryKeyRowRequest
                 $"Table '{table.DbName}' has no primary key and cannot create a primary-key row request.",
                 nameof(table));
         }
-
-        var keys = ImmutableArray.CreateRange(canonicalProviderKeys);
-        if (keys.IsDefaultOrEmpty)
-        {
-            throw new ArgumentException(
-                "A primary-key row request requires at least one canonical provider key.",
-                nameof(canonicalProviderKeys));
-        }
-
-        for (var keyIndex = 0; keyIndex < keys.Length; keyIndex++)
-            ValidateCanonicalKey(table, keys[keyIndex], keyIndex, nameof(canonicalProviderKeys));
-
-        CanonicalProviderKeys = keys;
-        CancellationToken = cancellationToken;
     }
 
-    internal TableDefinition Table { get; }
-    internal ImmutableArray<DataLinqKey> CanonicalProviderKeys { get; }
-    internal CancellationToken CancellationToken { get; }
-
-    internal void ThrowIfCancellationRequested() =>
-        CancellationToken.ThrowIfCancellationRequested();
-
-    private static void ValidateCanonicalKey(
+    internal static void ValidateCanonicalKey(
         TableDefinition table,
         DataLinqKey key,
         int keyIndex,
@@ -94,6 +108,32 @@ internal sealed class SourcePrimaryKeyRowRequest
                     $"Canonical provider key at index {keyIndex} for column '{table.DbName}.{column.DbName}' requires CLR type '{expectedType.FullName}', but received '{value.GetType().FullName}'.",
                     parameterName);
             }
+        }
+    }
+
+    internal static void ValidateSingleResult(
+        TableDefinition table,
+        in DataLinqKey requestedKey,
+        CanonicalProviderValueRow row,
+        string operation)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        if (!ReferenceEquals(row.Table, table))
+        {
+            throw new InvalidOperationException(
+                $"{operation} returned a row from table '{row.Table.DbName}' for table '{table.DbName}'.");
+        }
+
+        if (!row.TryCreateCanonicalPrimaryKey(out var returnedKey))
+        {
+            throw new InvalidOperationException(
+                $"{operation} for table '{table.DbName}' returned a row without a canonical primary key.");
+        }
+
+        if (!returnedKey.Equals(requestedKey))
+        {
+            throw new InvalidOperationException(
+                $"{operation} for table '{table.DbName}' returned an unrequested primary key.");
         }
     }
 }
@@ -338,6 +378,11 @@ internal sealed class SourceIndexRowLoadResult
 /// </summary>
 internal interface ISourceRowLoader
 {
+    CanonicalProviderValueRow? LoadSingle(
+        TableDefinition table,
+        in DataLinqKey canonicalProviderKey,
+        CancellationToken cancellationToken = default);
+
     SourceRowLoadResult Load(SourcePrimaryKeyRowRequest request);
 }
 
