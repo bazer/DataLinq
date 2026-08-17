@@ -11,53 +11,82 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  DOTNET_NOLOGO: 1
+
+concurrency:
+  group: latest-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  latest:
-    name: Latest Lane
+  smoke:
+    name: Smoke (no Podman)
     runs-on: ubuntu-latest
-    env:
-      DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
-      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
-      DOTNET_NOLOGO: 1
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/run-test-shard
         with:
-          dotnet-version: 10.0.x
+          plan: smoke
+          workers: 8
+          evidence-name: smoke
 
-      - name: Restore .NET workloads
-        run: >
-          dotnet run --project src/DataLinq.Dev.CLI --
-          exec --profile ci --
-          workload restore src/DataLinq.sln --skip-manifest-update
+  local:
+    name: Local / ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: generators, suite: generators, workers: 8 }
+          - { name: unit, suite: unit, workers: 16 }
+          - { name: memory, suite: memory, workers: 8 }
+          - { name: sqlite-file, suite: compliance, target: sqlite-file, role: anchor, workers: 8 }
+          - { name: sqlite-memory, suite: compliance, target: sqlite-memory, role: target-specific, workers: 8 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/run-test-shard
+        with:
+          suite: ${{ matrix.suite }}
+          target: ${{ matrix.target || '' }}
+          affinity-role: ${{ matrix.role || '' }}
+          workers: ${{ matrix.workers }}
+          evidence-name: local-${{ matrix.name }}
 
-      - name: Install Podman
+  latest-servers:
+    name: Server / ${{ matrix.suite }} / ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { suite: compliance, target: mysql-8.4, role: target-specific }
+          - { suite: compliance, target: mariadb-11.8, role: target-specific }
+          - { suite: mysql, target: mysql-8.4, role: anchor }
+          - { suite: mysql, target: mariadb-11.8, role: target-specific }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/run-test-shard
+        with:
+          suite: ${{ matrix.suite }}
+          target: ${{ matrix.target }}
+          affinity-role: ${{ matrix.role }}
+          workers: 8
+          install-podman: true
+          evidence-name: latest-${{ matrix.suite }}-${{ matrix.target }}
+
+  required:
+    name: Latest required gate
+    if: always()
+    needs: [smoke, local, latest-servers]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every lane
+        env:
+          SMOKE_RESULT: ${{ needs.smoke.result }}
+          LOCAL_RESULT: ${{ needs.local.result }}
+          SERVER_RESULT: ${{ needs.latest-servers.result }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y podman
-
-      - name: Show Podman version
-        run: podman --version
-
-      - name: Restore solution
-        run: dotnet run --project src/DataLinq.Dev.CLI -- restore src/DataLinq.sln --profile ci
-
-      - name: Build solution
-        run: dotnet run --project src/DataLinq.Dev.CLI -- build src/DataLinq.sln --profile ci
-
-      - name: Run latest suite set
-        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll run --plan latest --batch-size 4 --no-build --summary-json artifacts/ci/latest-summary.json
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: latest-test-results
-          path: |
-            artifacts/test-results
-            artifacts/ci/latest-summary.json
-          if-no-files-found: warn
+          test "$SMOKE_RESULT" = success
+          test "$LOCAL_RESULT" = success
+          test "$SERVER_RESULT" = success

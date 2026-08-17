@@ -1,0 +1,90 @@
+name: Run DataLinq test shard
+description: Builds one test project once, executes its prebuilt host, and uploads collision-free evidence.
+
+inputs:
+  suite:
+    description: Test suite name. Omit only when using a named plan.
+    required: false
+    default: ""
+  plan:
+    description: Named test plan. Mutually exclusive with suite.
+    required: false
+    default: ""
+  target:
+    description: One provider target id for provider-backed shards.
+    required: false
+    default: ""
+  affinity-role:
+    description: Explicit provider affinity role: anchor or target-specific.
+    required: false
+    default: ""
+  workers:
+    description: TUnit worker budget.
+    required: true
+  install-podman:
+    description: Whether this shard needs Podman.
+    required: false
+    default: "false"
+  evidence-name:
+    description: Collision-free logical shard name.
+    required: true
+  configuration:
+    description: Build configuration.
+    required: false
+    default: Release
+
+runs:
+  using: composite
+  steps:
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Install Podman
+      if: inputs['install-podman'] == 'true'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y podman
+        podman --version
+
+    - name: Build test runner
+      shell: bash
+      run: dotnet build src/DataLinq.Testing.CLI/DataLinq.Testing.CLI.csproj --configuration "${{ inputs.configuration }}" --nologo --verbosity minimal -p:NuGetAudit=false
+
+    - name: Run shard
+      shell: bash
+      env:
+        SHARD_SUITE: ${{ inputs.suite }}
+        SHARD_PLAN: ${{ inputs.plan }}
+        SHARD_TARGET: ${{ inputs.target }}
+        SHARD_ROLE: ${{ inputs['affinity-role'] }}
+        SHARD_WORKERS: ${{ inputs.workers }}
+        SHARD_CONFIGURATION: ${{ inputs.configuration }}
+        SHARD_SUMMARY: artifacts/ci/${{ inputs['evidence-name'] }}-summary.json
+      run: |
+        args=(run --configuration "$SHARD_CONFIGURATION" --build --batch-size 1 --maximum-parallel-tests "$SHARD_WORKERS" --profile ci --summary-json "$SHARD_SUMMARY" --output failures)
+        if [ -n "$SHARD_PLAN" ]; then
+          args+=(--plan "$SHARD_PLAN")
+        else
+          args+=(--suite "$SHARD_SUITE")
+        fi
+        if [ -n "$SHARD_TARGET" ]; then
+          args+=(--targets "$SHARD_TARGET")
+        fi
+        if [ -n "$SHARD_ROLE" ]; then
+          args+=(--provider-affinity-role "$SHARD_ROLE")
+        fi
+        dotnet exec "src/DataLinq.Testing.CLI/bin/$SHARD_CONFIGURATION/net10.0/DataLinq.Testing.CLI.dll" "${args[@]}"
+
+    - name: Upload shard evidence
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs['evidence-name'] }}-${{ github.run_id }}-${{ github.run_attempt }}
+        path: |
+          artifacts/test-results
+          artifacts/ci/${{ inputs['evidence-name'] }}-summary.json
+        if-no-files-found: warn
+        retention-days: 14

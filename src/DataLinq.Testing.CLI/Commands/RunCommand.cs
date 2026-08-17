@@ -22,6 +22,8 @@ internal static class RunCommand
     private const string EveryProviderAffinityFilter = "/**[ProviderAffinity=EveryProvider]";
     private const string ServerProviderAffinityFilter =
         "/**[(ProviderAffinity=EveryProvider)|(ProviderAffinity=ServerFamily)]";
+    private const string AnchorWithInvariantRole = "AnchorWithInvariant";
+    private const string TargetSpecificRole = "TargetSpecific";
 
     public static Command Create(TestInfraOrchestrator orchestrator, TestInfraCliSettings settings)
     {
@@ -67,6 +69,10 @@ internal static class RunCommand
         {
             Description = "Maximum concurrent TUnit tests. Overrides the named plan suite limit when supplied."
         };
+        var providerAffinityRoleOption = new Option<string?>("--provider-affinity-role")
+        {
+            Description = "Explicit single-target evidence role: anchor or target-specific."
+        };
         var tearDownOption = new Option<bool>("--tear-down")
         {
             Description = "Stops the provisioned server targets after the run completes."
@@ -92,6 +98,7 @@ internal static class RunCommand
         command.Options.Add(noBuildOption);
         command.Options.Add(batchSizeOption);
         command.Options.Add(maximumParallelTestsOption);
+        command.Options.Add(providerAffinityRoleOption);
         command.Options.Add(tearDownOption);
         command.Options.Add(summaryJsonOption);
 
@@ -128,6 +135,7 @@ internal static class RunCommand
             var suiteName = parseResult.GetValue(suiteOption) ?? TestCliSuiteCatalog.AllSuites;
             var filter = parseResult.GetValue(filterOption);
             var projectPath = parseResult.GetValue(projectOption);
+            var providerAffinityRole = ParseProviderAffinityRole(parseResult.GetValue(providerAffinityRoleOption));
             ValidatePlanOverrides(requestedPlan, suiteName, filter, projectPath);
 
             var selection = ResolveTargetSelection(
@@ -135,6 +143,13 @@ internal static class RunCommand
                 parseResult.GetValue(aliasOption),
                 parseResult.GetValue(targetsOption));
             ValidatePlanSelection(requestedPlan, selection);
+            ValidateProviderAffinityShard(
+                providerAffinityRole,
+                requestedPlan,
+                suiteName,
+                filter,
+                selection,
+                batchSize);
 
             var exitCode = ExecuteSafely(() => RunSelection(
                 orchestrator,
@@ -152,7 +167,8 @@ internal static class RunCommand
                 CommandHelpers.ParseOutputMode(parseResult.GetValue(outputOption)),
                 CommandHelpers.ParseProfile(parseResult.GetValue(profileOption)),
                 requestedPlan,
-                maximumParallelTests));
+                maximumParallelTests,
+                providerAffinityRole));
 
             if (exitCode != 0)
                 Environment.ExitCode = exitCode;
@@ -177,9 +193,10 @@ internal static class RunCommand
         TestCliOutputMode outputMode,
         ToolingProfile profile,
         TestCliRunPlan? plan = null,
-        int? maximumParallelTests = null)
+        int? maximumParallelTests = null,
+        string? providerAffinityRole = null)
     {
-        var exitCode = ExecuteSafely(() => RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, filter, configuration, buildProject, batchSize, parallelSuites, tearDown, summaryJsonPath, outputMode, profile, plan, maximumParallelTests));
+        var exitCode = ExecuteSafely(() => RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, filter, configuration, buildProject, batchSize, parallelSuites, tearDown, summaryJsonPath, outputMode, profile, plan, maximumParallelTests, providerAffinityRole));
         if (exitCode != 0)
             Environment.ExitCode = exitCode;
     }
@@ -250,6 +267,42 @@ internal static class RunCommand
             throw new InvalidOperationException($"The '{plan.Name}' plan is a no-Podman contract and cannot use server targets: {string.Join(", ", serverTargets)}.");
     }
 
+    private static string? ParseProviderAffinityRole(string? value) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            null or "" => null,
+            "anchor" or "anchor-with-invariant" => AnchorWithInvariantRole,
+            "target" or "target-specific" => TargetSpecificRole,
+            _ => throw new InvalidOperationException(
+                $"Unsupported provider affinity role '{value}'. Use anchor or target-specific.")
+        };
+
+    private static void ValidateProviderAffinityShard(
+        string? providerAffinityRole,
+        TestCliRunPlan? plan,
+        string suiteName,
+        string? filter,
+        CliTargetSelection selection,
+        int batchSize)
+    {
+        if (providerAffinityRole is null)
+            return;
+
+        if (plan is not null)
+            throw new InvalidOperationException("'--provider-affinity-role' cannot be combined with '--plan'.");
+        if (!string.IsNullOrWhiteSpace(filter))
+            throw new InvalidOperationException("'--provider-affinity-role' owns the TUnit filter and cannot be combined with '--filter'.");
+        if (suiteName is not (TestCliSuiteCatalog.ComplianceSuite or TestCliSuiteCatalog.MySqlSuite))
+            throw new InvalidOperationException("'--provider-affinity-role' requires '--suite compliance' or '--suite mysql'.");
+        if (selection.Targets.Count != 1 || batchSize != 1)
+            throw new InvalidOperationException("Provider-affinity evidence shards require exactly one target and '--batch-size 1'.");
+        if (suiteName == TestCliSuiteCatalog.MySqlSuite &&
+            TestTargetCatalog.IsSQLiteTarget(selection.Targets[0].Id))
+        {
+            throw new InvalidOperationException("The mysql suite requires a MySQL or MariaDB target.");
+        }
+    }
+
     private static int RunSelection(
         TestInfraOrchestrator orchestrator,
         TestInfraCliSettings settings,
@@ -266,7 +319,8 @@ internal static class RunCommand
         TestCliOutputMode outputMode,
         ToolingProfile profile,
         TestCliRunPlan? plan,
-        int? maximumParallelTests)
+        int? maximumParallelTests,
+        string? providerAffinityRole)
     {
         var repositoryRoot = settings.RepositoryRoot;
         var summaryRequested = !string.IsNullOrWhiteSpace(summaryJsonPath);
@@ -316,9 +370,16 @@ internal static class RunCommand
                     outputMode,
                     profile,
                     plan?.Name,
-                    maximumParallelTests)
+                    maximumParallelTests,
+                    providerAffinityRole)
                 : null;
-            expectedResults.AddRange(CreateExpectedResults(suites, selection, repositoryRoot, batchSize, plan));
+            expectedResults.AddRange(CreateExpectedResults(
+                suites,
+                selection,
+                repositoryRoot,
+                batchSize,
+                plan,
+                providerAffinityRole));
             var projectPaths = suites
                 .Select(suite => ResolveProjectPath(repositoryRoot, suite.ProjectPath))
                 .Distinct(PathComparer)
@@ -372,6 +433,7 @@ internal static class RunCommand
                                 testHostPaths,
                                 maximumParallelTests,
                                 DeduplicatesProviderInvariants(plan, suite),
+                                providerAffinityRole,
                                 completedResultRef: completedResult =>
                                 {
                                     lock (resultLock)
@@ -421,6 +483,7 @@ internal static class RunCommand
                             testHostPaths,
                             maximumParallelTests,
                             DeduplicatesProviderInvariants(plan, suite),
+                            providerAffinityRole,
                             completedResultRef: results.Add,
                             usedTargetsRef: value => usedTargets = usedTargets || value);
 
@@ -511,7 +574,8 @@ internal static class RunCommand
                             outputMode,
                             profile,
                             plan?.Name,
-                            maximumParallelTests),
+                            maximumParallelTests,
+                            providerAffinityRole),
                         repositoryStart!,
                         repositoryEnd,
                         runnerAssemblies.EntryAssembly,
@@ -552,6 +616,7 @@ internal static class RunCommand
         IReadOnlyDictionary<string, string> testHostPaths,
         int? maximumParallelTests,
         bool deduplicateProviderInvariants,
+        string? explicitProviderAffinityRole,
         Action<RunResult> completedResultRef,
         Action<bool>? usedTargetsRef)
     {
@@ -596,12 +661,13 @@ internal static class RunCommand
                 infrastructureStopwatch.Stop();
 
                 var artifacts = CreateRunArtifactPaths(runArtifactRoot, suite.Name, index + 1, batch);
-                var affinityRole = deduplicateProviderInvariants
-                    ? index == 0 ? "AnchorWithInvariant" : "TargetSpecific"
-                    : null;
-                var effectiveFilter = deduplicateProviderInvariants && index > 0
+                var affinityRole = explicitProviderAffinityRole ?? (deduplicateProviderInvariants
+                    ? index == 0 ? AnchorWithInvariantRole : TargetSpecificRole
+                    : null);
+                var effectiveFilter = affinityRole == TargetSpecificRole
                     ? CreateProviderAffinityFilter(batch, filter)
-                    : filter;
+                    : null;
+                effectiveFilter ??= filter;
                 var result = ExecuteTestRun(
                     testHostPath,
                     effectiveFilter,
@@ -1513,7 +1579,8 @@ internal static class RunCommand
         TestCliOutputMode outputMode,
         ToolingProfile profile,
         string? planName,
-        int? maximumParallelTests)
+        int? maximumParallelTests,
+        string? providerAffinityRole)
     {
         var resolvedSuites = suites
             .Select(suite => new TestRunSummarySuite(
@@ -1565,7 +1632,8 @@ internal static class RunCommand
             OutputMode: outputMode.ToString(),
             Profile: profile,
             Plan: planName,
-            MaximumParallelTests: maximumParallelTests);
+            MaximumParallelTests: maximumParallelTests,
+            ProviderAffinityRole: providerAffinityRole);
     }
 
     private static TestRunSummaryInvocation CreateFallbackSummaryInvocation(
@@ -1582,7 +1650,8 @@ internal static class RunCommand
         TestCliOutputMode outputMode,
         ToolingProfile profile,
         string? planName,
-        int? maximumParallelTests) =>
+        int? maximumParallelTests,
+        string? providerAffinityRole) =>
         new(
             Command: "run",
             RepositoryRoot: repositoryRoot,
@@ -1611,7 +1680,8 @@ internal static class RunCommand
             OutputMode: outputMode.ToString(),
             Profile: profile,
             Plan: planName,
-            MaximumParallelTests: maximumParallelTests);
+            MaximumParallelTests: maximumParallelTests,
+            ProviderAffinityRole: providerAffinityRole);
 
     private static TestRunSummarySafeEnvironment CreateSummarySafeEnvironment()
     {
@@ -1633,7 +1703,8 @@ internal static class RunCommand
         CliTargetSelection selection,
         string repositoryRoot,
         int batchSize,
-        TestCliRunPlan? plan)
+        TestCliRunPlan? plan,
+        string? explicitProviderAffinityRole)
     {
         var expected = new List<TestRunSummaryExpectedResult>();
         foreach (var suite in suites)
@@ -1661,9 +1732,10 @@ internal static class RunCommand
                     projectPath,
                     BatchIndex: index + 1,
                     TargetIds: batches[index].Select(static target => target.Id).ToArray(),
-                    ProviderAffinityRole: DeduplicatesProviderInvariants(plan, suite)
-                        ? index == 0 ? "AnchorWithInvariant" : "TargetSpecific"
-                        : null));
+                    ProviderAffinityRole: explicitProviderAffinityRole ??
+                        (DeduplicatesProviderInvariants(plan, suite)
+                            ? index == 0 ? AnchorWithInvariantRole : TargetSpecificRole
+                            : null)));
             }
         }
 

@@ -22,6 +22,7 @@ internal static class Program
         rootCommand.Subcommands.Add(DownCommand.Create(orchestrator));
         rootCommand.Subcommands.Add(ResetCommand.Create(orchestrator));
         rootCommand.Subcommands.Add(RunCommand.Create(orchestrator, settings));
+        rootCommand.Subcommands.Add(AggregateCommand.Create(settings));
 
         var exitCode = await rootCommand.Parse(args).InvokeAsync();
         return Environment.ExitCode != 0 ? Environment.ExitCode : exitCode;

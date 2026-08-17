@@ -53,7 +53,8 @@ public sealed record TestRunSummaryInvocation(
     string OutputMode,
     ToolingProfile Profile,
     string? Plan = null,
-    int? MaximumParallelTests = null);
+    int? MaximumParallelTests = null,
+    string? ProviderAffinityRole = null);
 
 public sealed record TestRunSummaryRepositoryState(
     bool Captured,

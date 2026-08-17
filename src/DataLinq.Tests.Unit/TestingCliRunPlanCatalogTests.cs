@@ -11,6 +11,8 @@ public sealed class TestingCliRunPlanCatalogTests
     {
         var source = ReadCliSource("Selection", "TestCliRunPlanCatalog.cs");
         var command = ReadCliSource("Commands", "RunCommand.cs");
+        var aggregate = ReadCliSource("Commands", "AggregateCommand.cs");
+        var program = ReadCliSource("", "Program.cs");
 
         await Assert.That(source).Contains("FocusedPlan = \"focused\"");
         await Assert.That(source).Contains("SmokePlan = \"smoke\"");
@@ -20,7 +22,10 @@ public sealed class TestingCliRunPlanCatalogTests
         await Assert.That(command).Contains("Provider --alias/--targets remain an independent override");
         await Assert.That(command).Contains("ResolveTargetSelection(");
         await Assert.That(command).Contains("--maximum-parallel-tests");
+        await Assert.That(command).Contains("--provider-affinity-role");
         await Assert.That(source).Contains("MaximumParallelTests: 8");
+        await Assert.That(aggregate).Contains("--commit-sha").And.Contains("--configuration");
+        await Assert.That(program).Contains("AggregateCommand.Create(settings)");
     }
 
     [Test]

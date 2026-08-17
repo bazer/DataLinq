@@ -158,6 +158,8 @@ Supported suites:
   Defaults to `2`. Must be between `1` and `32`.
 - `--maximum-parallel-tests`
   Sets `TUNIT_MAX_PARALLEL_TESTS` for each child test host. Values must be between `1` and `256`. An explicit value overrides the per-suite limit recorded by a named plan.
+- `--provider-affinity-role anchor|target-specific`
+  Creates one auditable provider evidence shard. It requires a single compliance or MySQL-suite target, `--batch-size 1`, and no named plan or caller-supplied filter. `anchor` includes provider-invariant tests; `target-specific` applies the appropriate affinity filter internally. CI uses this option; ordinary local runs should normally use a named plan.
 - `--parallel`
   Runs the selected suites in parallel instead of serially.
 - `--tear-down`
@@ -203,7 +205,7 @@ The `latest` and `full` compliance and MySQL/MariaDB manifests assign each batch
 
 Compliance methods using `ActiveProviders`, `ServerProviders`, `SqliteProviders`, or `AllLtsServerProviders`, and MySQL-suite methods using a server provider source, must declare `ProviderAffinity` beside their data source. Tests without a provider data source are invariant by convention. This makes the full-plan logical pairing explicit: an invariant method appears once, while each required provider-backed method appears once for every applicable target. `--batch-size 1` still produces one explicit result row per target; the anchor role explains why the first row contains the one-time cases.
 
-The current six-target full-plan manifest executes 4,443 tests: 2,323 compliance cases and 315 MySQL-suite cases alongside generators, unit, and Memory. The former per-target rediscovery would execute 5,243 cases for the same logical coverage. Affinity scheduling therefore removes 800 redundant executions: 605 invariant/SQLite/catalog repeats from compliance and 195 invariant repeats from the MySQL-specific suite. Its per-target rows are explicit: compliance runs 484 on the SQLite anchor, 363 on SQLite memory, and 369 on each server; MySQL runs 126 on the MySQL anchor and 63 on each MariaDB target. The measured run passed the then-current 4,439 cases in 244.6 seconds of command wall time, with 202.3 accumulated test-host seconds and 822.6 test-body seconds; the manifest subsequently gained the four server-provider trigger-isolation cases.
+The six-target full-plan manifest currently executes 4,448 tests: 2,323 compliance cases and 315 MySQL-suite cases alongside generators, unit, and Memory. The former per-target rediscovery would execute 5,248 cases for the same logical coverage. Affinity scheduling therefore removes 800 redundant executions: 605 invariant/SQLite/catalog repeats from compliance and 195 invariant repeats from the MySQL-specific suite. Its per-target rows are explicit: compliance runs 484 on the SQLite anchor, 363 on SQLite memory, and 369 on each server; MySQL runs 126 on the MySQL anchor and 63 on each MariaDB target. The last pre-CI-sharding measurement passed the then-current 4,439 cases in 244.6 seconds of command wall time, with 202.3 accumulated test-host seconds and 822.6 test-body seconds; the manifest count subsequently increased by five unit policy tests and four server-provider trigger-isolation cases.
 
 Unkeyed `[NotInParallel]` stops the entire test process and is restricted to a source-enforced allowlist. It remains justified only where unconstrained tests necessarily observe or modify the same process-global resource:
 
@@ -221,6 +223,8 @@ Database-local and fixture-local exclusions use these stable key families instea
 | `process:database-cache` | Static database/cache notification state where every mutating peer participates in the same key |
 
 Tests sharing a key serialize with each other but continue alongside tests that do not touch that resource. A source-policy test rejects any new process-global file outside the reviewed allowlist and verifies that provider data sources carry the matching affinity property.
+
+The `aggregate` command validates downloaded nightly shard artifacts against the canonical 13-row full-matrix manifest. It requires an exact commit SHA and configuration and writes schema `v0.9.testing-shard-aggregate.v1`; missing, duplicate, wrong-count, wrong-role, failed, dirty, schema-incompatible, runtime-incompatible, or artifact-incomplete shards are hard failures. See [CI Test Lanes](CI%20Test%20Lanes.md) for the blocking policy and workflow shape.
 
 ### Compliance fixture profiles and reuse
 
