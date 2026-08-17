@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
@@ -13,11 +12,6 @@ using DataLinq.Query;
 
 namespace DataLinq.Mutation;
 
-internal readonly record struct MutationWriteSlot(
-    ColumnDefinition Column,
-    bool IsAssigned,
-    object? ModelValue);
-
 internal enum StateChangeExecutionPhase
 {
     ProviderStatement,
@@ -30,19 +24,23 @@ internal enum StateChangeExecutionPhase
 /// </summary>
 public class StateChange
 {
-    private readonly IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> changes;
-    private readonly IReadOnlyList<MutationWriteSlot> insertWriteSlots;
-    private readonly Dictionary<ColumnDefinition, object?> originalValues = new();
+    private readonly MutationSnapshot snapshot;
+    private readonly IReadOnlyList<ColumnIndex> affectedIndices;
     private readonly bool hasReloadablePrimaryKey;
     private readonly bool hasIntegralCanonicalPrimaryKeyShape;
-    private readonly long? capturedMutationVersion;
+    private object?[]? originalValues;
+    private ulong originalValueOccupancy;
+    private ulong[]? overflowOriginalValueOccupancy;
     private Dictionary<ColumnIndex, DataLinqKey>? finalizedRelationKeys;
-    private IReadOnlyList<KeyValuePair<ColumnDefinition, object?>>? finalizedModelChanges;
+    private MutationSnapshot? finalizedLegacySnapshot;
     private long? finalizedMutationVersion;
     private StateChangeExecutionPhase executionPhase;
     private int executionState;
     internal StateChangeExecutionPhase ExecutionPhase => executionPhase;
     internal bool HasExecutionAttempted => Volatile.Read(ref executionState) != 0;
+    internal MutationSnapshot Snapshot => snapshot;
+    internal IReadOnlyList<ColumnIndex> AffectedIndices => affectedIndices;
+    internal bool HasCapturedOriginalValues => originalValues is not null;
 
     /// <summary>
     /// Gets the type of change that will be applied to the model.
@@ -77,6 +75,15 @@ public class StateChange
     /// <param name="table">The table metadata for the model.</param>
     /// <param name="type">The type of change to be applied.</param>
     public StateChange(IModelInstance model, TableDefinition table, TransactionChangeType type)
+        : this(model, table, type, snapshot: null)
+    {
+    }
+
+    internal StateChange(
+        IModelInstance model,
+        TableDefinition table,
+        TransactionChangeType type,
+        MutationSnapshot? snapshot)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(table);
@@ -110,15 +117,16 @@ public class StateChange
         Model = model;
         Table = table;
         Type = type;
-        capturedMutationVersion = model is IMutableChangeTracking trackedMutable
-            ? trackedMutable.MutationVersion
-            : null;
 
         PrimaryKeys = KeyFactory.GetKey(model, table.PrimaryKeyColumns);
-        changes = CaptureChanges(model);
-        insertWriteSlots = type == TransactionChangeType.Insert
-            ? CaptureInsertWriteSlots(model, table, changes)
-            : [];
+        this.snapshot = snapshot ?? MutationSnapshot.Capture(
+            model,
+            table,
+            captureInsertValues: type == TransactionChangeType.Insert);
+        if (!ReferenceEquals(this.snapshot.Table, table))
+            throw new ArgumentException("The mutation snapshot must belong to the state-change table.", nameof(snapshot));
+
+        affectedIndices = CaptureAffectedIndices(table, type, this.snapshot);
         hasReloadablePrimaryKey = type == TransactionChangeType.Insert &&
             HasReloadablePrimaryKey(PrimaryKeys, table);
         hasIntegralCanonicalPrimaryKeyShape = type == TransactionChangeType.Insert &&
@@ -129,74 +137,38 @@ public class StateChange
     /// <summary>
     /// Enumerates the captured mutation assignments. Array values are returned as detached copies.
     /// </summary>
-    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges()
+    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges() =>
+        snapshot.GetDetachedChanges();
+
+    internal bool TryGetOriginalValue(ColumnDefinition column, out object? value)
     {
-        for (var index = 0; index < changes.Count; index++)
+        var ordinal = column.Index;
+        if (originalValues is not null &&
+            ordinal >= 0 &&
+            ordinal < Table.ColumnCount &&
+            ReferenceEquals(Table.Columns[ordinal], column) &&
+            MutationSnapshot.IsBitSet(
+                originalValueOccupancy,
+                overflowOriginalValueOccupancy,
+                ordinal))
         {
-            var change = changes[index];
-            yield return new KeyValuePair<ColumnDefinition, object?>(
-                change.Key,
-                SnapshotMutationValue(change.Value));
+            value = originalValues[ordinal];
+            return true;
         }
+
+        value = null;
+        return false;
     }
-
-    internal bool TryGetOriginalValue(ColumnDefinition column, out object? value) =>
-        originalValues.TryGetValue(column, out value);
-
-    internal IReadOnlyList<MutationWriteSlot> GetInsertWriteSlots() =>
-        insertWriteSlots;
 
     internal bool HasSameCanonicalPrimaryKeyIdentity() =>
         PrimaryKeys.Equals(KeyFactory.GetKey(Model, Table.PrimaryKeyColumns));
 
-    internal bool HasSameCapturedMutation()
-        => HasSameMutation(changes, capturedMutationVersion);
+    internal bool HasSameCapturedMutation() => snapshot.MatchesCurrent(Model);
 
     internal bool HasSameFinalizedMutation() =>
-        finalizedModelChanges is not null &&
-        HasSameMutation(finalizedModelChanges, finalizedMutationVersion);
-
-    private bool HasSameMutation(
-        IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> expectedChanges,
-        long? expectedVersion)
-    {
-        if (expectedVersion is long version &&
-            (Model is not IMutableChangeTracking trackedMutable ||
-             trackedMutable.MutationVersion != version))
-        {
-            return false;
-        }
-
-        if (Model is not IMutableInstance mutable)
-            return true;
-
-        var currentChanges = mutable.GetChanges().ToArray();
-        if (currentChanges.Length != expectedChanges.Count)
-            return false;
-
-        for (var capturedIndex = 0; capturedIndex < expectedChanges.Count; capturedIndex++)
-        {
-            var captured = expectedChanges[capturedIndex];
-            var found = false;
-            for (var currentIndex = 0; currentIndex < currentChanges.Length; currentIndex++)
-            {
-                var current = currentChanges[currentIndex];
-                if (!ReferenceEquals(captured.Key, current.Key))
-                    continue;
-
-                if (!MutationValuesEqual(captured.Value, current.Value))
-                    return false;
-
-                found = true;
-                break;
-            }
-
-            if (!found)
-                return false;
-        }
-
-        return true;
-    }
+        finalizedMutationVersion is long version
+            ? snapshot.MatchesCurrent(Model, version)
+            : finalizedLegacySnapshot?.MatchesCurrent(Model) == true;
 
     internal DataLinqKey GetCurrentRelationKey(ColumnIndex index)
     {
@@ -214,28 +186,6 @@ public class StateChange
             return;
 
         finalizedRelationKeys = CaptureRelationKeys(authoritative);
-    }
-
-    private static IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> CaptureChanges(IModelInstance model) =>
-        model is IMutableInstance mutable
-            ? mutable.GetChanges()
-                .Select(static change => new KeyValuePair<ColumnDefinition, object?>(
-                    change.Key,
-                    SnapshotMutationValue(change.Value)))
-                .ToArray()
-            : [];
-
-    private static object? SnapshotMutationValue(object? value) =>
-        value is Array array
-            ? array.Clone()
-            : value;
-
-    private static bool MutationValuesEqual(object? captured, object? current)
-    {
-        if (captured is Array || current is Array)
-            return StructuralComparisons.StructuralEqualityComparer.Equals(captured, current);
-
-        return Equals(captured, current);
     }
 
     private static bool HasReloadablePrimaryKey(
@@ -264,53 +214,89 @@ public class StateChange
             GeneratedValueDecoder.CanDecodeAutoIncrementValue(autoIncrementPrimaryKey);
     }
 
-    private static IReadOnlyList<MutationWriteSlot> CaptureInsertWriteSlots(
-        IModelInstance model,
+    private static IReadOnlyList<ColumnIndex> CaptureAffectedIndices(
         TableDefinition table,
-        IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> changes)
+        TransactionChangeType type,
+        MutationSnapshot snapshot)
     {
-        var assignedValues = new Dictionary<ColumnDefinition, object?>(changes.Count);
-        for (var index = 0; index < changes.Count; index++)
-            assignedValues[changes[index].Key] = changes[index].Value;
+        if (type is TransactionChangeType.Insert or TransactionChangeType.Delete)
+            return table.ColumnIndices;
 
-        var slots = new MutationWriteSlot[table.ColumnCount];
-        for (var index = 0; index < table.ColumnCount; index++)
+        if (type != TransactionChangeType.Update ||
+            snapshot.IsEmpty ||
+            table.ColumnIndices.Count == 0)
         {
-            var column = table.Columns[index];
-            var isAssigned = assignedValues.TryGetValue(column, out var assignedValue);
-            slots[index] = new MutationWriteSlot(
-                column,
-                isAssigned,
-                SnapshotMutationValue(isAssigned ? assignedValue : model[column]));
+            return [];
         }
 
-        return slots;
+        var affectedCount = 0;
+        for (var index = 0; index < table.ColumnIndices.Count; index++)
+        {
+            if (IsAffected(table.ColumnIndices[index], snapshot))
+                affectedCount++;
+        }
+
+        if (affectedCount == 0)
+            return [];
+
+        var affected = new ColumnIndex[affectedCount];
+        var affectedPosition = 0;
+        for (var index = 0; index < table.ColumnIndices.Count; index++)
+        {
+            var columnIndex = table.ColumnIndices[index];
+            if (IsAffected(columnIndex, snapshot))
+                affected[affectedPosition++] = columnIndex;
+        }
+
+        return affected;
+
+        static bool IsAffected(
+            ColumnIndex index,
+            MutationSnapshot capturedSnapshot)
+        {
+            for (var columnIndex = 0; columnIndex < index.Columns.Count; columnIndex++)
+            {
+                if (capturedSnapshot.Contains(index.Columns[columnIndex]))
+                    return true;
+            }
+
+            return false;
+        }
     }
 
     private void CaptureOriginalValues(IModelInstance model)
     {
-        if (model.GetRowData() is not MutableRowData rowData)
+        if (Type == TransactionChangeType.Insert ||
+            affectedIndices.Count == 0 ||
+            model.GetRowData() is not MutableRowData rowData)
+        {
             return;
-
-        var columns = new HashSet<ColumnDefinition>();
-        if (Type == TransactionChangeType.Delete)
-        {
-            foreach (var index in Table.ColumnIndices)
-                columns.UnionWith(index.Columns);
         }
-        else if (Type == TransactionChangeType.Update)
+
+        for (var indexPosition = 0; indexPosition < affectedIndices.Count; indexPosition++)
         {
-            foreach (var change in changes)
+            var index = affectedIndices[indexPosition];
+            for (var columnPosition = 0; columnPosition < index.Columns.Count; columnPosition++)
             {
-                foreach (var index in Table.GetColumnIndices(change.Key))
-                    columns.UnionWith(index.Columns);
-            }
-        }
+                var column = index.Columns[columnPosition];
+                var ordinal = column.Index;
+                if (MutationSnapshot.IsBitSet(
+                        originalValueOccupancy,
+                        overflowOriginalValueOccupancy,
+                        ordinal) ||
+                    !rowData.TryGetOriginalValue(column, out var value))
+                {
+                    continue;
+                }
 
-        foreach (var column in columns)
-        {
-            if (rowData.TryGetOriginalValue(column, out var value))
-                originalValues[column] = SnapshotMutationValue(value);
+                originalValues ??= new object?[Table.ColumnCount];
+                originalValues[ordinal] = MutationSnapshot.SnapshotValue(value);
+                MutationSnapshot.SetBit(
+                    ref originalValueOccupancy,
+                    ref overflowOriginalValueOccupancy,
+                    ordinal,
+                    Table.ColumnCount);
+            }
         }
     }
 
@@ -359,7 +345,7 @@ public class StateChange
 
         try
         {
-            var command = GetDbCommandCore(transaction);
+            var command = PrepareExecutionCommand(transaction);
             EnsureCapturedMutationUnchanged("provider command preparation");
 
             if (Type == TransactionChangeType.Insert && HasAutoIncrement && PrimaryKeys.IsNull)
@@ -464,15 +450,19 @@ public class StateChange
             "The model primary-key identity changed while the provider mutation was executing.");
     }
 
-    private void FinalizeRelationKeysAfterExecution()
-        => finalizedRelationKeys = CaptureRelationKeys(Model);
+    private void FinalizeRelationKeysAfterExecution() =>
+        finalizedRelationKeys = CaptureRelationKeys(Model);
 
-    private Dictionary<ColumnIndex, DataLinqKey> CaptureRelationKeys(
+    private Dictionary<ColumnIndex, DataLinqKey>? CaptureRelationKeys(
         IModelInstance model)
     {
-        var relationKeys = new Dictionary<ColumnIndex, DataLinqKey>(Table.ColumnIndices.Count);
-        foreach (var index in Table.ColumnIndices)
+        if (affectedIndices.Count == 0)
+            return null;
+
+        var relationKeys = new Dictionary<ColumnIndex, DataLinqKey>(affectedIndices.Count);
+        for (var indexPosition = 0; indexPosition < affectedIndices.Count; indexPosition++)
         {
+            var index = affectedIndices[indexPosition];
             DataLinqKey key;
             if (Type == TransactionChangeType.Delete &&
                 TryGetOriginalRelationKey(index, out var originalKey))
@@ -499,7 +489,7 @@ public class StateChange
         var values = new object?[index.Columns.Count];
         for (var columnIndex = 0; columnIndex < index.Columns.Count; columnIndex++)
         {
-            if (!originalValues.TryGetValue(index.Columns[columnIndex], out var value))
+            if (!TryGetOriginalValue(index.Columns[columnIndex], out var value))
             {
                 key = DataLinqKey.Null;
                 return false;
@@ -512,12 +502,17 @@ public class StateChange
         return true;
     }
 
-    private void CaptureFinalizedMutation()
+    internal void CaptureFinalizedMutation()
     {
         finalizedMutationVersion = Model is IMutableChangeTracking trackedMutable
             ? trackedMutable.MutationVersion
             : null;
-        finalizedModelChanges = CaptureChanges(Model);
+        finalizedLegacySnapshot = finalizedMutationVersion is null
+            ? MutationSnapshot.Capture(
+                Model,
+                Table,
+                captureInsertValues: false)
+            : null;
     }
 
     /// <summary>
@@ -530,11 +525,11 @@ public class StateChange
         ArgumentNullException.ThrowIfNull(transaction);
         transaction.EnsureMutationPreflight(this);
 
-        return GetDbCommandCore(transaction);
+        return PrepareExecutionCommand(transaction);
     }
 
-    private IDbCommand GetDbCommandCore(Transaction transaction) =>
-        transaction.Provider.ToDbCommand(GetQueryCore(transaction));
+    internal IDbCommand PrepareExecutionCommand(Transaction transaction) =>
+        transaction.Provider.ToDbCommand(PrepareExecutionQuery(transaction));
 
     /// <summary>
     /// Generates the query for the state change.
@@ -546,10 +541,10 @@ public class StateChange
         ArgumentNullException.ThrowIfNull(transaction);
         transaction.EnsureMutationPreflight(this);
 
-        return GetQueryCore(transaction);
+        return PrepareExecutionQuery(transaction);
     }
 
-    private IQuery GetQueryCore(Transaction transaction)
+    internal IQuery PrepareExecutionQuery(Transaction transaction)
     {
         var query = new SqlQuery(Table, transaction);
         var writer = transaction.Provider.GetWriter();
@@ -568,17 +563,30 @@ public class StateChange
         var supportsDefaultOnlyInsert =
             query.DataSource.Provider.Constants.DefaultValuesInsertClause is not null;
 
-        foreach (var slot in insertWriteSlots)
+        for (var ordinal = 0; ordinal < Table.ColumnCount; ordinal++)
         {
-            if (ShouldOmitUnsetAutoIncrementPrimaryKey(slot, supportsDefaultOnlyInsert) ||
-                ShouldOmitUnsetServerDefault(slot, query.DataSource.Provider.DatabaseType))
+            var column = Table.Columns[ordinal];
+            var isAssigned = snapshot.Contains(column);
+            var modelValue = snapshot.GetInsertModelValue(column);
+            if (ShouldOmitUnsetAutoIncrementPrimaryKey(
+                    column,
+                    isAssigned,
+                    modelValue,
+                    supportsDefaultOnlyInsert) ||
+                ShouldOmitUnsetServerDefault(
+                    column,
+                    isAssigned,
+                    modelValue,
+                    query.DataSource.Provider.DatabaseType))
+            {
                 continue;
+            }
 
             var value = writer.ConvertModelColumnValue(
-                slot.Column,
-                slot.ModelValue,
+                column,
+                modelValue,
                 "mutation.insert");
-            query.Set(slot.Column.DbName, value);
+            query.Set(column.DbName, value);
         }
 
         if (HasAutoIncrement)
@@ -588,30 +596,34 @@ public class StateChange
     }
 
     private bool ShouldOmitUnsetAutoIncrementPrimaryKey(
-        MutationWriteSlot slot,
+        ColumnDefinition column,
+        bool isAssigned,
+        object? modelValue,
         bool supportsDefaultOnlyInsert) =>
         supportsDefaultOnlyInsert &&
-        !slot.IsAssigned &&
-        slot.ModelValue is null &&
+        !isAssigned &&
+        modelValue is null &&
         hasReloadablePrimaryKey &&
-        ReferenceEquals(slot.Column, Table.AutoIncrementPrimaryKeyColumn);
+        ReferenceEquals(column, Table.AutoIncrementPrimaryKeyColumn);
 
     private bool ShouldOmitUnsetServerDefault(
-        MutationWriteSlot slot,
+        ColumnDefinition column,
+        bool isAssigned,
+        object? modelValue,
         DatabaseType databaseType)
     {
-        if (slot.IsAssigned ||
-            slot.ModelValue is not null ||
+        if (isAssigned ||
+            modelValue is not null ||
             !hasReloadablePrimaryKey ||
-            slot.Column.PrimaryKey ||
-            (slot.Column.HasScalarConverter &&
+            column.PrimaryKey ||
+            (column.HasScalarConverter &&
              !hasIntegralCanonicalPrimaryKeyShape) ||
-            slot.Column.ColumnIndices.Any())
+            column.ColumnIndices.Any())
         {
             return false;
         }
 
-        return slot.Column.ValueProperty.GetDefaultAttribute() is DefaultSqlAttribute defaultSql &&
+        return column.ValueProperty.GetDefaultAttribute() is DefaultSqlAttribute defaultSql &&
             (defaultSql.DatabaseType == DatabaseType.Default || defaultSql.DatabaseType == databaseType);
     }
 
@@ -626,10 +638,13 @@ public class StateChange
                     PrimaryKeys.GetValue(index)));
         }
 
-        foreach (var change in changes)
+        foreach (var change in snapshot)
             query.Set(
-                change.Key.DbName,
-                writer.ConvertModelColumnValue(change.Key, change.Value, "mutation.update.value"));
+                change.Column.DbName,
+                writer.ConvertModelColumnValue(
+                    change.Column,
+                    change.Value,
+                    "mutation.update.value"));
 
         return query.UpdateQuery();
     }

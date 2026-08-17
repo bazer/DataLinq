@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -15,6 +14,21 @@ internal static class MutationPreflight
         IModelInstance model,
         TransactionChangeType operation)
     {
+        _ = EnsureCore(transaction, model, operation, snapshot: null);
+    }
+
+    internal static MutationSnapshot CaptureAndEnsure(
+        Transaction transaction,
+        IModelInstance model,
+        TransactionChangeType operation) =>
+        EnsureCore(transaction, model, operation, snapshot: null);
+
+    private static MutationSnapshot EnsureCore(
+        Transaction transaction,
+        IModelInstance model,
+        TransactionChangeType operation,
+        MutationSnapshot? snapshot)
+    {
         ArgumentNullException.ThrowIfNull(transaction);
         ArgumentNullException.ThrowIfNull(model);
         EnsureTransactionAllowsWrite(
@@ -26,22 +40,22 @@ internal static class MutationPreflight
 
         if (model is IMutableLifecycle mutableLifecycle)
         {
-            EnsureMutableLifecycleAllowsWrite(
+            return EnsureMutableLifecycleAllowsWrite(
                 transaction,
                 model,
                 mutableLifecycle.Lifecycle,
                 mutableLifecycle.BaselineCanonicalPrimaryKey,
-                operation);
-            return;
+                operation,
+                snapshot);
         }
 
         if (model is IMutableInstance legacyMutable)
         {
-            EnsureLegacyMutableAllowsWrite(
+            return EnsureLegacyMutableAllowsWrite(
                 transaction,
                 legacyMutable,
-                operation);
-            return;
+                operation,
+                snapshot);
         }
 
         if (operation == TransactionChangeType.Delete &&
@@ -49,6 +63,11 @@ internal static class MutationPreflight
         {
             EnsureImmutableDeleteOrigin(transaction, immutable);
         }
+
+        return snapshot ?? MutationSnapshot.Capture(
+            model,
+            model.Metadata().Table,
+            captureInsertValues: operation == TransactionChangeType.Insert);
     }
 
     internal static void Ensure(
@@ -58,23 +77,7 @@ internal static class MutationPreflight
         ArgumentNullException.ThrowIfNull(transaction);
         ArgumentNullException.ThrowIfNull(change);
 
-        Ensure(transaction, change.Model, change.Type);
-
-        var capturedChanges = change.GetChanges().ToArray();
-        EnsureChangesBelongToMappedTable(
-            transaction,
-            change.Model,
-            capturedChanges,
-            change.Type);
-
-        if (change.Type != TransactionChangeType.Insert)
-        {
-            EnsurePrimaryKeyIsUnchanged(
-                transaction,
-                change.Model,
-                capturedChanges,
-                change.Type);
-        }
+        _ = EnsureCore(transaction, change.Model, change.Type, change.Snapshot);
 
         var hasSameIdentity = change.Type != TransactionChangeType.Insert &&
             change.Model is IMutableLifecycle mutableLifecycle
@@ -190,12 +193,13 @@ internal static class MutationPreflight
         }
     }
 
-    private static void EnsureMutableLifecycleAllowsWrite(
+    private static MutationSnapshot EnsureMutableLifecycleAllowsWrite(
         Transaction transaction,
         IModelInstance model,
         MutableLifecycleSnapshot snapshot,
         DataLinqKey baselineCanonicalPrimaryKey,
-        TransactionChangeType operation)
+        TransactionChangeType operation,
+        MutationSnapshot? changes)
     {
         if (snapshot.BaselineKind == MutableBaselineKind.Invalid)
         {
@@ -242,16 +246,17 @@ internal static class MutationPreflight
                     "Create a fresh mutable before inserting it.");
             }
 
-            if (model is IMutableInstance insertMutable)
-            {
-                EnsureChangesBelongToMappedTable(
-                    transaction,
-                    model,
-                    insertMutable.GetChanges().ToArray(),
-                    operation);
-            }
+            changes ??= MutationSnapshot.Capture(
+                model,
+                model.Metadata().Table,
+                captureInsertValues: true);
+            EnsureChangesBelongToMappedTable(
+                transaction,
+                model,
+                changes,
+                operation);
 
-            return;
+            return changes;
         }
 
         if (snapshot.RowKind == MutableRowKind.New ||
@@ -288,26 +293,28 @@ internal static class MutationPreflight
 
         EnsureExactMutableOwner(transaction, model, snapshot, operation);
 
-        if (model is IMutableInstance mutable)
-        {
-            var mutableChanges = mutable.GetChanges().ToArray();
-            EnsureChangesBelongToMappedTable(
-                transaction,
-                model,
-                mutableChanges,
-                operation);
-            EnsurePrimaryKeyIsUnchanged(
-                transaction,
-                mutable,
-                mutableChanges,
-                operation);
-        }
+        changes ??= MutationSnapshot.Capture(
+            model,
+            model.Metadata().Table,
+            captureInsertValues: false);
+        EnsureChangesBelongToMappedTable(
+            transaction,
+            model,
+            changes,
+            operation);
+        EnsurePrimaryKeyIsUnchanged(
+            transaction,
+            model,
+            changes,
+            operation);
 
         EnsureBaselinePrimaryKeyIdentity(
             transaction,
             model,
             baselineCanonicalPrimaryKey,
             operation);
+
+        return changes;
     }
 
     private static void EnsureExactMutableOwner(
@@ -380,10 +387,11 @@ internal static class MutationPreflight
         }
     }
 
-    private static void EnsureLegacyMutableAllowsWrite(
+    private static MutationSnapshot EnsureLegacyMutableAllowsWrite(
         Transaction transaction,
         IMutableInstance mutable,
-        TransactionChangeType operation)
+        TransactionChangeType operation,
+        MutationSnapshot? changes)
     {
         if (mutable.IsDeleted())
         {
@@ -425,7 +433,10 @@ internal static class MutationPreflight
         // provider ownership can be recovered. Preserve that low-level StateChange compatibility
         // while enforcing its public row-shape contract, terminal deletion, and primary-key
         // safety. Generated DataLinq mutables take the exact-owner lifecycle path above.
-        var changes = mutable.GetChanges().ToArray();
+        changes ??= MutationSnapshot.Capture(
+            mutable,
+            mutable.Metadata().Table,
+            captureInsertValues: operation == TransactionChangeType.Insert);
         EnsureChangesBelongToMappedTable(
             transaction,
             mutable,
@@ -439,6 +450,8 @@ internal static class MutationPreflight
                 changes,
                 operation);
         }
+
+        return changes;
     }
 
     private static void EnsureImmutableDeleteOrigin(
@@ -522,20 +535,26 @@ internal static class MutationPreflight
     private static void EnsurePrimaryKeyIsUnchanged(
         Transaction transaction,
         IModelInstance model,
-        IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> changes,
+        MutationSnapshot changes,
         TransactionChangeType operation)
     {
         var primaryKeyColumns = model.Metadata().Table.PrimaryKeyColumns;
-        var changedPrimaryKeys = changes
-            .Select(static change => change.Key)
-            .Where(primaryKeyColumns.Contains)
-            .Select(static column => column.DbName)
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(static columnName => columnName, StringComparer.Ordinal)
-            .ToArray();
+        List<string>? changedPrimaryKeys = null;
+        for (var index = 0; index < primaryKeyColumns.Count; index++)
+        {
+            var primaryKey = primaryKeyColumns[index];
+            if (!changes.Contains(primaryKey))
+                continue;
 
-        if (changedPrimaryKeys.Length == 0)
+            changedPrimaryKeys ??= [];
+            changedPrimaryKeys.Add(primaryKey.DbName);
+        }
+
+        if (changedPrimaryKeys is null)
             return;
+
+        if (changedPrimaryKeys.Count > 1)
+            changedPrimaryKeys.Sort(StringComparer.Ordinal);
 
         throw MutationRejected(
             transaction,
@@ -549,17 +568,16 @@ internal static class MutationPreflight
     private static void EnsureChangesBelongToMappedTable(
         Transaction transaction,
         IModelInstance model,
-        IReadOnlyList<KeyValuePair<ColumnDefinition, object?>> changes,
+        MutationSnapshot changes,
         TransactionChangeType operation)
     {
         var table = model.Metadata().Table;
-        for (var index = 0; index < changes.Count; index++)
+        foreach (var change in changes)
         {
-            var column = changes[index].Key;
+            var column = change.Column;
             if (column is not null &&
-                column.Index >= 0 &&
-                column.Index < table.ColumnCount &&
-                ReferenceEquals(table.Columns[column.Index], column))
+                change.Ordinal >= 0 &&
+                ReferenceEquals(table.Columns[change.Ordinal], column))
             {
                 continue;
             }

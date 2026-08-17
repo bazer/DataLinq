@@ -13,6 +13,7 @@ public class MutableRowData : IRowData
     internal long MutationVersion => Volatile.Read(ref mutationVersion);
     IRowData? ImmutableRowData { get; set; }
     Dictionary<ColumnDefinition, object?> MutatedData { get; } = new Dictionary<ColumnDefinition, object?>();
+    internal IReadOnlyDictionary<ColumnDefinition, object?> MutationValues => MutatedData;
     public TableDefinition Table { get; }
     public bool HasChanges() => MutatedData.Count > 0;
 

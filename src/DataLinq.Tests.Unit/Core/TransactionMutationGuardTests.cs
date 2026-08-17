@@ -521,7 +521,7 @@ public sealed class TransactionMutationGuardTests
             isNew: false,
             id: 222,
             value: "baseline",
-            read => read == 2
+            read => read == 1
                 ? [new(foreignId, 9222)]
                 : [new(ownValue, "valid")]);
 
@@ -531,7 +531,7 @@ public sealed class TransactionMutationGuardTests
             () => transaction.Delete(model),
             "not an exact mapped column");
 
-        await Assert.That(model.ChangeReads).IsEqualTo(3);
+        await Assert.That(model.ChangeReads).IsEqualTo(1);
         await Assert.That(transaction.Changes).IsEmpty();
     }
 
@@ -772,6 +772,77 @@ public sealed class TransactionMutationGuardTests
             transaction,
             () => stateChange.ExecuteQuery(transaction),
             "not an exact mapped column");
+    }
+
+    [Test]
+    public async Task GeneratedStateChange_ReusesDenseSnapshotAndAllocatesIndexStateOnlyWhenRequired()
+    {
+        using var fixture = new ProbeFixture();
+        using var transaction = fixture.Database.Transaction();
+        var valueColumn = fixture.Table.GetColumnByDbName("value");
+        var mutable = fixture.CreateExistingMutable(282, "baseline");
+        mutable["Value"] = "captured";
+        var update = new StateChange(
+            mutable,
+            fixture.Table,
+            TransactionChangeType.Update);
+        var snapshot = update.Snapshot;
+
+        await Assert.That(snapshot.MutationVersion).IsNotNull();
+        await Assert.That(snapshot.Count).IsEqualTo(1);
+        await Assert.That(snapshot.Contains(valueColumn)).IsTrue();
+        await Assert.That(update.AffectedIndices.Count)
+            .IsEqualTo(fixture.Table.GetColumnIndices(valueColumn).Count);
+        await Assert.That(update.HasCapturedOriginalValues).IsTrue();
+        await Assert.That(update.TryGetOriginalValue(valueColumn, out var originalValue)).IsTrue();
+        await Assert.That(originalValue).IsEqualTo("baseline");
+
+        transaction.EnsureMutationPreflight(update);
+        _ = update.GetQuery(transaction);
+
+        await Assert.That(update.Snapshot).IsSameReferenceAs(snapshot);
+        await Assert.That(update.HasSameCapturedMutation()).IsTrue();
+
+        var insertMutable = fixture.CreateNewMutable(283, "new");
+        var insert = new StateChange(
+            insertMutable,
+            fixture.Table,
+            TransactionChangeType.Insert);
+
+        await Assert.That(insert.HasCapturedOriginalValues).IsFalse();
+        await Assert.That(insert.AffectedIndices.Count)
+            .IsEqualTo(fixture.Table.ColumnIndices.Count);
+    }
+
+    [Test]
+    public async Task MutationSnapshot_OccupancyBits_Cross64And128ColumnBoundaries()
+    {
+        const int columnCount = 130;
+        var occupancy = 0UL;
+        ulong[]? overflowOccupancy = null;
+
+        foreach (var ordinal in new[] { 63, 64, 65, 127, 128, 129 })
+        {
+            MutationSnapshot.SetBit(
+                ref occupancy,
+                ref overflowOccupancy,
+                ordinal,
+                columnCount);
+        }
+
+        await Assert.That(occupancy).IsEqualTo(1UL << 63);
+        await Assert.That(overflowOccupancy).IsNotNull();
+        await Assert.That(overflowOccupancy!.Length).IsEqualTo(2);
+        await Assert.That(overflowOccupancy[0])
+            .IsEqualTo((1UL << 0) | (1UL << 1) | (1UL << 63));
+        await Assert.That(overflowOccupancy[1])
+            .IsEqualTo((1UL << 0) | (1UL << 1));
+
+        foreach (var ordinal in new[] { 63, 64, 65, 127, 128, 129 })
+            await Assert.That(MutationSnapshot.IsBitSet(occupancy, overflowOccupancy, ordinal)).IsTrue();
+
+        foreach (var ordinal in new[] { 0, 62, 66, 126 })
+            await Assert.That(MutationSnapshot.IsBitSet(occupancy, overflowOccupancy, ordinal)).IsFalse();
     }
 
     [Test]

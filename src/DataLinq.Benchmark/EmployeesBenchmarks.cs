@@ -365,6 +365,46 @@ public class EmployeesBenchmarks : IDisposable
         return context!.ValidateMutationExecutionPreflight();
     }
 
+    [IterationSetup(Target = nameof(MutationCommandPreparation))]
+    public void SetupMutationCommandPreparation()
+    {
+        context!.PrepareMutationExecutionPreflight();
+    }
+
+    [IterationCleanup(Target = nameof(MutationCommandPreparation))]
+    public void CleanupMutationCommandPreparation()
+    {
+        context!.CleanupMutationExecutionPreflight();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Mutation command preparation")]
+    public int MutationCommandPreparation()
+    {
+        executedScenario = BenchmarkScenario.MutationCommandPreparation;
+        return context!.PrepareMutationCommands();
+    }
+
+    [IterationSetup(Target = nameof(MutationFinalDriftValidation))]
+    public void SetupMutationFinalDriftValidation()
+    {
+        context!.PrepareMutationFinalDriftValidation();
+    }
+
+    [IterationCleanup(Target = nameof(MutationFinalDriftValidation))]
+    public void CleanupMutationFinalDriftValidation()
+    {
+        context!.CleanupMutationExecutionPreflight();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Mutation final drift validation")]
+    public int MutationFinalDriftValidation()
+    {
+        executedScenario = BenchmarkScenario.MutationFinalDriftValidation;
+        return context!.ValidateFinalMutationDrift();
+    }
+
     [IterationSetup(Target = nameof(ColdRelationTraversal))]
     public void SetupColdRelationTraversal()
     {
