@@ -50,12 +50,14 @@ jobs:
         run: dotnet run --project src/DataLinq.Dev.CLI -- build src/DataLinq.sln --profile ci
 
       - name: Run latest suite set
-        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll run --suite all --alias latest --batch-size 4
+        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll run --suite all --alias latest --batch-size 4 --summary-json artifacts/ci/latest-summary.json
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: latest-test-results
-          path: TestResults
-          if-no-files-found: ignore
+          path: |
+            artifacts/test-results
+            artifacts/ci/latest-summary.json
+          if-no-files-found: warn

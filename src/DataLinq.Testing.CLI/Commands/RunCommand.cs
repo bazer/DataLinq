@@ -175,6 +175,9 @@ internal static class RunCommand
         if (summaryRequested)
             TestRunSummaryReporter.InvalidateExistingReport(repositoryRoot, summaryJsonPath!);
         var startedAtUtc = DateTimeOffset.UtcNow;
+        var runId = CreateRunId(startedAtUtc);
+        var runArtifactRoot = Path.Combine(repositoryRoot, "artifacts", "test-results", runId);
+        Directory.CreateDirectory(runArtifactRoot);
         var repositoryStart = summaryRequested
             ? TestRunSummaryReporter.CaptureRepositoryState(repositoryRoot)
             : null;
@@ -185,6 +188,7 @@ internal static class RunCommand
         var results = new List<RunResult>();
         var expectedResults = new List<TestRunSummaryExpectedResult>();
         var overallExitCode = 0;
+        var teardownDurationSeconds = 0d;
         var usedTargets = false;
         var resultLock = new object();
         var failureStage = "resolve-suites";
@@ -221,7 +225,7 @@ internal static class RunCommand
                 {
                     var projectPath = ResolveProjectPath(repositoryRoot, suite.ProjectPath);
                     failureStage = $"build:{suite.Name}";
-                    var build = BuildProject(projectPath, configuration, settings, outputMode, profile);
+                    var build = BuildProject(projectPath, configuration, settings, outputMode, profile, runArtifactRoot);
                     builds.Add(CreateSummaryBuild(projectPath, build));
                     if (build.ProcessResult.ExitCode == 0)
                         continue;
@@ -252,6 +256,7 @@ internal static class RunCommand
                                 orchestrator,
                                 outputMode,
                                 profile,
+                                runArtifactRoot,
                                 completedResultRef: completedResult =>
                                 {
                                     lock (resultLock)
@@ -299,6 +304,7 @@ internal static class RunCommand
                             orchestrator,
                             outputMode,
                             profile,
+                            runArtifactRoot,
                             completedResultRef: results.Add,
                             usedTargetsRef: value => usedTargets = usedTargets || value);
 
@@ -314,6 +320,7 @@ internal static class RunCommand
 
             if (tearDown && usedTargets)
             {
+                var teardownStopwatch = Stopwatch.StartNew();
                 try
                 {
                     orchestrator.Down(remove: false, selection: null);
@@ -333,6 +340,11 @@ internal static class RunCommand
                             exception.Message,
                             settings.AdminPassword,
                             settings.ApplicationPassword));
+                }
+                finally
+                {
+                    teardownStopwatch.Stop();
+                    teardownDurationSeconds = teardownStopwatch.Elapsed.TotalSeconds;
                 }
             }
 
@@ -367,6 +379,7 @@ internal static class RunCommand
                 {
                     summaryReport = WriteSummaryJson(
                         summaryJsonPath!,
+                        runId,
                         startedAtUtc,
                         invocation ?? CreateFallbackSummaryInvocation(
                             repositoryRoot,
@@ -390,7 +403,8 @@ internal static class RunCommand
                         orderedResults,
                         overallExitCode,
                         failure,
-                        teardownFailure);
+                        teardownFailure,
+                        teardownDurationSeconds);
                 }
                 catch (Exception reportException) when (executionException is not null)
                 {
@@ -418,6 +432,7 @@ internal static class RunCommand
         TestInfraOrchestrator orchestrator,
         TestCliOutputMode outputMode,
         ToolingProfile profile,
+        string runArtifactRoot,
         Action<RunResult> completedResultRef,
         Action<bool>? usedTargetsRef)
     {
@@ -455,18 +470,19 @@ internal static class RunCommand
                 }
 
                 using var mutedScope = suppressInfraOutput ? ConsoleSync.PushMuted() : null;
+                var infrastructureStopwatch = Stopwatch.StartNew();
                 orchestrator.Up(batch, recreate: false);
+                infrastructureStopwatch.Stop();
 
-                var start = Stopwatch.StartNew();
-                var result = ExecuteTestRun(projectPath, configuration, filter, buildProject, settings, batch, suite.Name, batchIndex: index + 1, profile);
-                start.Stop();
+                var artifacts = CreateRunArtifactPaths(runArtifactRoot, suite.Name, index + 1, batch);
+                var result = ExecuteTestRun(projectPath, configuration, filter, buildProject, settings, batch, artifacts, profile);
 
                 var runResult = CreateRunResult(
                     suite.Name,
                     projectPath,
                     index + 1,
                     batch.Targets.Select(static target => target.Id).ToArray(),
-                    start.Elapsed,
+                    infrastructureStopwatch.Elapsed,
                     result);
                 completedResultRef(runResult);
                 RenderTestRunOutcome(runResult, outputMode);
@@ -486,16 +502,15 @@ internal static class RunCommand
                 });
             }
 
-            var start = Stopwatch.StartNew();
-            var result = ExecuteTestRun(projectPath, configuration, filter, buildProject, settings, selection: null, suite.Name, batchIndex: null, profile);
-            start.Stop();
+            var artifacts = CreateRunArtifactPaths(runArtifactRoot, suite.Name, batchIndex: null, selection: null);
+            var result = ExecuteTestRun(projectPath, configuration, filter, buildProject, settings, selection: null, artifacts, profile);
 
             var runResult = CreateRunResult(
                 suite.Name,
                 projectPath,
                 batchIndex: null,
                 targetIds: Array.Empty<string>(),
-                start.Elapsed,
+                infrastructureElapsed: TimeSpan.Zero,
                 result);
             completedResultRef(runResult);
             RenderTestRunOutcome(runResult, outputMode);
@@ -507,7 +522,13 @@ internal static class RunCommand
         return exitCode;
     }
 
-    private static LoggedCommandResult BuildProject(string projectPath, string configuration, TestInfraCliSettings settings, TestCliOutputMode outputMode, ToolingProfile profile)
+    private static LoggedCommandResult BuildProject(
+        string projectPath,
+        string configuration,
+        TestInfraCliSettings settings,
+        TestCliOutputMode outputMode,
+        ToolingProfile profile,
+        string runArtifactRoot)
     {
         var arguments = new List<string>
         {
@@ -522,7 +543,11 @@ internal static class RunCommand
         if (profile.IsOffline())
             arguments.Add("-p:RestoreIgnoreFailedSources=true");
 
-        var result = ExecuteDotnet(arguments, settings, profile, "build-" + Path.GetFileNameWithoutExtension(projectPath));
+        var logPath = Path.Combine(
+            runArtifactRoot,
+            "build",
+            $"{SanitizeArtifactSegment(Path.GetFileNameWithoutExtension(projectPath))}.log");
+        var result = ExecuteDotnet(arguments, settings, profile, logPath);
         RenderBuildOutcome(projectPath, result, outputMode);
         return result;
     }
@@ -534,8 +559,7 @@ internal static class RunCommand
         bool usePrebuiltProject,
         TestInfraCliSettings settings,
         CliTargetSelection? selection,
-        string suiteName,
-        int? batchIndex,
+        RunArtifactPaths artifacts,
         ToolingProfile profile)
     {
         var environmentVariables = new Dictionary<string, string?>(
@@ -565,23 +589,41 @@ internal static class RunCommand
         if (usePrebuiltProject)
             arguments.Add("--no-build");
 
-        if (!string.IsNullOrWhiteSpace(filter))
-            arguments.AddRange(["--", "--treenode-filter", filter]);
+        arguments.Add("--");
+        arguments.AddRange([
+            "--results-directory", artifacts.Directory,
+            "--report-html-filename", artifacts.HtmlReportPath,
+            "--report-trx",
+            "--report-trx-filename", Path.GetFileName(artifacts.TrxReportPath),
+            "--no-progress"
+        ]);
 
-        return ExecuteDotnet(
+        if (!string.IsNullOrWhiteSpace(filter))
+            arguments.AddRange(["--treenode-filter", filter]);
+
+        var result = ExecuteDotnet(
             arguments,
             settings,
             profile,
-            CreateRunArtifactPrefix(suiteName, batchIndex, selection),
+            artifacts.LogPath,
             environmentVariables,
             selection);
+        var configuredMaximumParallelTests = ResolveConfiguredMaximumParallelTests(environmentVariables);
+        return result with
+        {
+            TestArtifacts = artifacts,
+            Performance = TestRunTrxReader.Read(
+                artifacts.TrxReportPath,
+                result.ProcessResult.Duration.TotalSeconds,
+                configuredMaximumParallelTests)
+        };
     }
 
     private static LoggedCommandResult ExecuteDotnet(
         IReadOnlyList<string> arguments,
         TestInfraCliSettings settings,
         ToolingProfile profile,
-        string artifactPrefix,
+        string logPath,
         IReadOnlyDictionary<string, string?>? environmentVariables = null,
         CliTargetSelection? targetSelection = null)
     {
@@ -603,7 +645,7 @@ internal static class RunCommand
             settings.RepositoryRoot,
             mergedEnvironmentVariables);
         var completedAtUtc = DateTimeOffset.UtcNow;
-        var logPath = WriteRawLog(settings, artifactPrefix, processResult);
+        WriteRawLog(logPath, processResult);
         return new LoggedCommandResult(
             processResult,
             logPath,
@@ -712,17 +754,10 @@ internal static class RunCommand
         });
     }
 
-    private static string WriteRawLog(TestInfraCliSettings settings, string artifactPrefix, ExternalCommandResult result)
+    private static void WriteRawLog(string logPath, ExternalCommandResult result)
     {
-        var directory = Path.Combine(settings.ArtifactRoot, "cli-logs");
-        Directory.CreateDirectory(directory);
-
-        var safePrefix = string.Concat(artifactPrefix.Select(static character =>
-            Path.GetInvalidFileNameChars().Contains(character) ? '-' : character));
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff");
-        var path = Path.Combine(directory, $"{safePrefix}-{timestamp}.log");
-        File.WriteAllText(path, string.Concat(result.StandardOutput, result.StandardError));
-        return path;
+        Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+        File.WriteAllText(logPath, string.Concat(result.StandardOutput, result.StandardError));
     }
 
     private static void RenderBuildOutcome(string projectPath, LoggedCommandResult result, TestCliOutputMode outputMode)
@@ -906,15 +941,46 @@ internal static class RunCommand
         return "passed";
     }
 
-    private static string CreateRunArtifactPrefix(string suiteName, int? batchIndex, CliTargetSelection? selection)
-    {
-        var segments = new List<string> { "run", suiteName };
-        if (batchIndex.HasValue)
-            segments.Add($"batch{batchIndex.Value}");
-        if (selection is not null && selection.Targets.Count > 0)
-            segments.Add(string.Join("-", selection.Targets.Select(static target => target.Id)));
+    private static string CreateRunId(DateTimeOffset startedAtUtc) =>
+        $"{startedAtUtc.UtcDateTime:yyyyMMddTHHmmssfffZ}-{Guid.NewGuid():N}";
 
-        return string.Join("-", segments);
+    private static RunArtifactPaths CreateRunArtifactPaths(
+        string runArtifactRoot,
+        string suiteName,
+        int? batchIndex,
+        CliTargetSelection? selection)
+    {
+        var rowName = batchIndex.HasValue
+            ? $"batch-{batchIndex.Value:00}-{string.Join("-", selection!.Targets.Select(static target => target.Id))}"
+            : "targetless";
+        var directory = Path.Combine(
+            runArtifactRoot,
+            SanitizeArtifactSegment(suiteName),
+            SanitizeArtifactSegment(rowName));
+        Directory.CreateDirectory(directory);
+        return new RunArtifactPaths(
+            directory,
+            Path.Combine(directory, "raw.log"),
+            Path.Combine(directory, "report.html"),
+            Path.Combine(directory, "report.trx"));
+    }
+
+    private static string SanitizeArtifactSegment(string value)
+    {
+        var sanitized = new string(value
+            .Select(static character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.'
+                ? character
+                : '-')
+            .ToArray());
+        return string.IsNullOrWhiteSpace(sanitized) ? "unnamed" : sanitized;
+    }
+
+    private static int? ResolveConfiguredMaximumParallelTests(
+        IReadOnlyDictionary<string, string?> environmentVariables)
+    {
+        const string key = "TUNIT_MAX_PARALLEL_TESTS";
+        var value = ResolveEnvironmentValue(environmentVariables, key);
+        return int.TryParse(value, out var parsed) && parsed > 0 ? parsed : null;
     }
 
     private static void RenderSummary(IReadOnlyList<RunResult> results)
@@ -1017,7 +1083,7 @@ internal static class RunCommand
         string projectPath,
         int? batchIndex,
         IReadOnlyList<string> targetIds,
-        TimeSpan elapsed,
+        TimeSpan infrastructureElapsed,
         LoggedCommandResult result) =>
         new(
             Suite: suite,
@@ -1025,12 +1091,15 @@ internal static class RunCommand
             BatchIndex: batchIndex,
             TargetIds: targetIds,
             ExitCode: result.ProcessResult.ExitCode,
-            DurationSeconds: Math.Round(elapsed.TotalSeconds, 1),
+            DurationSeconds: Math.Round(result.ProcessResult.Duration.TotalSeconds, 3),
+            InfrastructureSetupDurationSeconds: Math.Round(infrastructureElapsed.TotalSeconds, 3),
             Total: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "total"),
             Succeeded: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "succeeded"),
             Failed: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "failed"),
             Skipped: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "skipped"),
             FailedTests: ParseFailedTests(SanitizeConsoleOutput(result.ProcessResult.StandardOutput)),
+            TestArtifacts: result.TestArtifacts ?? throw new InvalidOperationException("A test run did not declare its report artifacts."),
+            Performance: result.Performance ?? TestRunTrxReader.Unavailable("Test performance capture was not attempted."),
             ProcessResult: result.ProcessResult,
             LogPath: result.LogPath,
             Executable: result.Executable,
@@ -1351,6 +1420,7 @@ internal static class RunCommand
 
     private static TestRunSummaryReport WriteSummaryJson(
         string summaryJsonPath,
+        string runId,
         DateTimeOffset startedAtUtc,
         TestRunSummaryInvocation invocation,
         TestRunSummaryRepositoryState repositoryStart,
@@ -1362,7 +1432,8 @@ internal static class RunCommand
         IReadOnlyList<RunResult> results,
         int overallExitCode,
         TestRunSummaryFailure? failure,
-        TestRunSummaryFailure? teardownFailure)
+        TestRunSummaryFailure? teardownFailure,
+        double teardownDurationSeconds)
     {
         var summaryResults = results.Select(static result => new TestRunSummaryResult(
             result.Suite,
@@ -1383,9 +1454,19 @@ internal static class RunCommand
             result.Succeeded,
             result.Failed,
             result.Skipped,
-            new[] { result.LogPath },
-            result.LogPath)).ToArray();
+            new[]
+            {
+                result.LogPath,
+                result.TestArtifacts.HtmlReportPath,
+                result.TestArtifacts.TrxReportPath
+            },
+            result.LogPath,
+            result.TestArtifacts.HtmlReportPath,
+            result.TestArtifacts.TrxReportPath,
+            result.InfrastructureSetupDurationSeconds,
+            result.Performance)).ToArray();
         var report = TestRunSummaryReporter.Create(new TestRunSummaryReportInput(
+            RunId: runId,
             StartedAtUtc: startedAtUtc,
             CompletedAtUtc: DateTimeOffset.UtcNow,
             Invocation: invocation,
@@ -1403,7 +1484,8 @@ internal static class RunCommand
             Builds: builds,
             Results: summaryResults,
             Failure: failure,
-            TeardownFailure: teardownFailure));
+            TeardownFailure: teardownFailure,
+            TeardownDurationSeconds: teardownDurationSeconds));
         var resolvedExitCode = TestRunSummaryReporter.ResolveExitCode(report, overallExitCode);
         if (resolvedExitCode != report.OverallExitCode)
             report = report with { OverallExitCode = resolvedExitCode };
@@ -1444,11 +1526,14 @@ internal static class RunCommand
         IReadOnlyList<string> TargetIds,
         int ExitCode,
         double DurationSeconds,
+        double InfrastructureSetupDurationSeconds,
         int? Total,
         int? Succeeded,
         int? Failed,
         int? Skipped,
         IReadOnlyList<FailedTestResult> FailedTests,
+        RunArtifactPaths TestArtifacts,
+        TestRunSummaryPerformance Performance,
         ExternalCommandResult ProcessResult,
         string LogPath,
         string Executable,
@@ -1482,6 +1567,14 @@ internal static class RunCommand
         string WorkingDirectory,
         TestRunSummaryCommandEnvironment Environment,
         DateTimeOffset StartedAtUtc,
-        DateTimeOffset CompletedAtUtc);
+        DateTimeOffset CompletedAtUtc,
+        RunArtifactPaths? TestArtifacts = null,
+        TestRunSummaryPerformance? Performance = null);
+
+    private sealed record RunArtifactPaths(
+        string Directory,
+        string LogPath,
+        string HtmlReportPath,
+        string TrxReportPath);
 
 }

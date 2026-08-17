@@ -13,6 +13,8 @@ public sealed class TestRunSummaryReporterTests
 {
     private const string Commit = "1234567890abcdef1234567890abcdef12345678";
     private static readonly string ExistingLogPath = CreateExistingLog();
+    private static readonly string ExistingHtmlPath = CreateExistingArtifact("test-run-summary-fixture.html", "<html></html>");
+    private static readonly string ExistingTrxPath = CreateExistingArtifact("test-run-summary-fixture.trx", "<TestRun />");
 
     [Test]
     public async Task Create_ProducesCompleteCleanEvidenceAndPreservesLegacyTotals()
@@ -21,7 +23,8 @@ public sealed class TestRunSummaryReporterTests
 
         var report = TestRunSummaryReporter.Create(input);
 
-        await Assert.That(report.SchemaVersion).IsEqualTo("v0.9.testing-run-summary.v1");
+        await Assert.That(report.SchemaVersion).IsEqualTo("v0.9.testing-run-summary.v2");
+        await Assert.That(report.RunId).IsEqualTo("test-run-20260807");
         await Assert.That(report.Outcome).IsEqualTo(TestRunSummaryOutcome.Passed);
         await Assert.That(report.CountsComplete).IsTrue();
         await Assert.That(report.IsCompleteForInvocation).IsTrue();
@@ -36,7 +39,12 @@ public sealed class TestRunSummaryReporterTests
         await Assert.That(unitResult.Targets).IsEqualTo("-");
         await Assert.That(unitResult.TargetIds).IsEmpty();
         await Assert.That(unitResult.Outcome).IsEqualTo(TestRunSummaryOutcome.Passed);
-        await Assert.That(report.ArtifactPaths.Count).IsEqualTo(2);
+        await Assert.That(unitResult.Performance.Captured).IsTrue();
+        await Assert.That(unitResult.Performance.TestCount).IsEqualTo(3);
+        await Assert.That(report.Timings.TestHostProcessSeconds).IsEqualTo(13);
+        await Assert.That(report.Timings.TestBodySeconds).IsEqualTo(19.5);
+        await Assert.That(report.RuntimeEnvironment.ProcessorCount > 0).IsTrue();
+        await Assert.That(report.ArtifactPaths.Count).IsEqualTo(4);
         await Assert.That(report.RunnerEvidence.ValidForEvidence).IsTrue();
         await Assert.That(TestRunSummaryReporter.ResolveExitCode(report, processExitCode: 0)).IsEqualTo(0);
     }
@@ -54,6 +62,27 @@ public sealed class TestRunSummaryReporterTests
         await Assert.That(report.IsCompleteForInvocation).IsFalse();
         await Assert.That(report.ValidForEvidence).IsFalse();
         await Assert.That(report.Results[0].Outcome).IsEqualTo(TestRunSummaryOutcome.Incomplete);
+    }
+
+    [Test]
+    public async Task Create_MissingOrCountMismatchedPerformanceIsIncomplete()
+    {
+        var missing = CreateResult() with
+        {
+            Performance = TestRunTrxReader.Unavailable("missing TRX")
+        };
+        var mismatched = CreateResult() with
+        {
+            Performance = CreateResult().Performance with { TestCount = 2 }
+        };
+
+        var missingReport = TestRunSummaryReporter.Create(CreateInput(results: [missing]));
+        var mismatchedReport = TestRunSummaryReporter.Create(CreateInput(results: [mismatched]));
+
+        await Assert.That(missingReport.IsCompleteForInvocation).IsFalse();
+        await Assert.That(missingReport.Results[0].Outcome).IsEqualTo(TestRunSummaryOutcome.Incomplete);
+        await Assert.That(mismatchedReport.IsCompleteForInvocation).IsFalse();
+        await Assert.That(mismatchedReport.Results[0].Outcome).IsEqualTo(TestRunSummaryOutcome.Incomplete);
     }
 
     [Test]
@@ -267,6 +296,28 @@ public sealed class TestRunSummaryReporterTests
         await Assert.That(report.ArtifactsComplete).IsFalse();
         await Assert.That(report.ValidForEvidence).IsFalse();
         await Assert.That(TestRunSummaryReporter.ResolveExitCode(report, processExitCode: 0)).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Create_RequiredReportPathCannotBeHiddenFromArtifactList()
+    {
+        var missingHtml = Path.Combine(
+            RepositoryRootLocator.Find(),
+            "artifacts",
+            "test-results",
+            $"missing-{Guid.NewGuid():N}.html");
+        var baseline = CreateResult();
+        var result = baseline with
+        {
+            HtmlReportPath = missingHtml,
+            ArtifactPaths = [baseline.LogPath, baseline.TrxReportPath]
+        };
+
+        var report = TestRunSummaryReporter.Create(CreateInput(results: [result]));
+
+        await Assert.That(report.ArtifactsComplete).IsFalse();
+        await Assert.That(report.Outcome).IsEqualTo(TestRunSummaryOutcome.Incomplete);
+        await Assert.That(report.Results[0].ArtifactPaths).Contains(missingHtml);
     }
 
     [Test]
@@ -536,11 +587,15 @@ public sealed class TestRunSummaryReporterTests
             using var document = JsonDocument.Parse(bytes);
             var root = document.RootElement;
             await Assert.That(root.GetProperty("SchemaVersion").GetString())
-                .IsEqualTo("v0.9.testing-run-summary.v1");
+                .IsEqualTo("v0.9.testing-run-summary.v2");
+            await Assert.That(root.GetProperty("RunId").GetString()).IsEqualTo("test-run-20260807");
             await Assert.That(root.GetProperty("Outcome").GetString()).IsEqualTo("Passed");
             await Assert.That(root.GetProperty("Total").GetInt32()).IsEqualTo(3);
             await Assert.That(root.GetProperty("Results")[0].GetProperty("Targets").GetString()).IsEqualTo("-");
             await Assert.That(root.GetProperty("Results")[0].GetProperty("TargetIds").GetArrayLength()).IsEqualTo(0);
+            await Assert.That(root.GetProperty("Results")[0].GetProperty("Performance").GetProperty("Captured").GetBoolean()).IsTrue();
+            await Assert.That(root.GetProperty("Results")[0].GetProperty("HtmlReportPath").GetString()).IsEqualTo(ExistingHtmlPath);
+            await Assert.That(root.GetProperty("Timings").GetProperty("TestBodySeconds").GetDouble()).IsEqualTo(1.5);
             await Assert.That(Directory.GetFiles(directory, ".*.tmp")).IsEmpty();
 
             var replacementReport = TestRunSummaryReporter.Create(CreateInput(
@@ -715,6 +770,7 @@ public sealed class TestRunSummaryReporterTests
         }).ToArray();
 
         return new TestRunSummaryReportInput(
+            RunId: "test-run-20260807",
             StartedAtUtc: new DateTimeOffset(2026, 8, 7, 8, 0, 0, TimeSpan.Zero),
             CompletedAtUtc: new DateTimeOffset(2026, 8, 7, 8, 0, 20, TimeSpan.Zero),
             Invocation: new TestRunSummaryInvocation(
@@ -770,6 +826,7 @@ public sealed class TestRunSummaryReporterTests
         var projectPath = Path.Combine(root, "src", "DataLinq.Tests.Unit", "DataLinq.Tests.Unit.csproj");
         var actualResults = results ?? [CreateResult(projectPath)];
         return new TestRunSummaryReportInput(
+            RunId: "test-run-20260807",
             StartedAtUtc: new DateTimeOffset(2026, 8, 7, 8, 0, 0, TimeSpan.Zero),
             CompletedAtUtc: new DateTimeOffset(2026, 8, 7, 8, 0, 2, TimeSpan.Zero),
             Invocation: new TestRunSummaryInvocation(
@@ -851,8 +908,25 @@ public sealed class TestRunSummaryReporterTests
             Passed: 3,
             Failed: 0,
             Skipped: 0,
-            ArtifactPaths: [logPath],
-            LogPath: logPath);
+            ArtifactPaths: [logPath, ExistingHtmlPath, ExistingTrxPath],
+            LogPath: logPath,
+            HtmlReportPath: ExistingHtmlPath,
+            TrxReportPath: ExistingTrxPath,
+            InfrastructureSetupDurationSeconds: 0,
+            Performance: new TestRunSummaryPerformance(
+                Captured: true,
+                CaptureError: null,
+                TestCount: 3,
+                TotalTestDurationSeconds: 1.5,
+                P50DurationSeconds: 0.5,
+                P95DurationSeconds: 0.75,
+                P99DurationSeconds: 0.75,
+                MaximumDurationSeconds: 0.75,
+                EffectiveConcurrency: 1.5,
+                ConfiguredMaximumParallelTests: null,
+                ConfiguredParallelismSource: "auto",
+                SlowestTests: Array.Empty<TestRunSummarySlowTest>(),
+                SlowestClasses: Array.Empty<TestRunSummarySlowClass>()));
     }
 
     private static string CreateExistingLog()
@@ -862,6 +936,15 @@ public sealed class TestRunSummaryReporterTests
         Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
         File.WriteAllText(logPath, "test summary reporter fixture");
         return logPath;
+    }
+
+    private static string CreateExistingArtifact(string fileName, string content)
+    {
+        var root = RepositoryRootLocator.Find();
+        var path = Path.Combine(root, "artifacts", "test-results", fileName);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, content);
+        return path;
     }
 
     private static TestRunSummaryBuild CreateBuild(string projectPath, int exitCode)

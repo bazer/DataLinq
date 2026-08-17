@@ -137,7 +137,7 @@ Supported suites:
 - `--tear-down`
   Stops provisioned server targets after the run completes.
 - `--summary-json`
-  Writes a machine-readable run summary using schema `v0.9.testing-run-summary.v1`.
+  Writes a machine-readable run summary using schema `v0.9.testing-run-summary.v2`.
 - `--output quiet|summary|failures|raw`
   Controls run output shape.
 - `--profile repo|sandbox|ci`
@@ -147,7 +147,9 @@ Supported suites:
 
 ### Summary JSON evidence contract
 
-The versioned summary records the resolved invocation, safe non-secret environment inputs, structured selected targets and resolved suites, expected-versus-observed suite/batch rows, build and test command arguments with UTC timestamps, totals and outcomes, report and raw-log artifact paths, and start/end checkout plus Testing CLI/DevTools runner attestations. Each server-backed command row records the normalized effective database host resolved from the child environment or current runtime state; missing capture, disagreement with an explicit override, or inconsistent effective hosts makes the invocation incomplete. The report writer and stale-file invalidation accept destinations only beneath `<repo>/artifacts`. `ArtifactsComplete` likewise accepts referenced build/test raw logs only when they exist there as regular files; reparse-point escapes fail closed. Failure details are bounded and credential-redacted. Once parsing has invoked the run action, semantic run-action validation invalidates an older file at the requested path before new output is written, so an interrupted or rejected rerun cannot leave a stale green report behind. `System.CommandLine` syntax and parser failures occur before that action and therefore neither invalidate the old file nor synthesize JSON; evidence consumers must require a successful command exit together with the expected schema and validity gates, never mere file existence.
+The versioned summary records a collision-free run id, the resolved invocation, runtime/OS identity, safe non-secret environment inputs, structured selected targets and resolved suites, expected-versus-observed suite/batch rows, build and test command arguments with UTC timestamps, totals and outcomes, report and raw-log artifact paths, and start/end checkout plus Testing CLI/DevTools runner attestations. Each result row includes accumulated infrastructure setup and test-host time plus TRX-derived test-body totals, nearest-rank p50/p95/p99/max durations, effective concurrency, configured TUnit parallelism when present, and the 20 slowest tests and classes. The aggregate `Timings` object reports accumulated build-process, infrastructure, test-host, test-body, and teardown seconds; these are deliberately labelled as accumulated work because parallel suite execution can overlap them.
+
+Each server-backed command row records the normalized effective database host resolved from the child environment or current runtime state; missing capture, disagreement with an explicit override, or inconsistent effective hosts makes the invocation incomplete. The report writer and stale-file invalidation accept destinations only beneath `<repo>/artifacts`. `ArtifactsComplete` requires every result's raw log, HTML report, and TRX report to exist as regular files beneath that root; malformed or count-mismatched TRX performance data also makes an otherwise passing row incomplete. Reparse-point escapes fail closed. Failure details are bounded and credential-redacted. Once parsing has invoked the run action, semantic run-action validation invalidates an older file at the requested path before new output is written, so an interrupted or rejected rerun cannot leave a stale green report behind. `System.CommandLine` syntax and parser failures occur before that action and therefore neither invalidate the old file nor synthesize JSON; evidence consumers must require a successful command exit together with the expected schema and validity gates, never mere file existence.
 
 `Outcome` and `IsCompleteForInvocation` describe the selected invocation. A focused or filtered run can therefore pass and be complete for what it was asked to execute while still having `ValidForEvidence` set to `false`. `ValidForEvidence` is deliberately stricter: it requires a passed, complete, artifact-complete, unfiltered `all`-suite/`all`-target run over the exact five-suite (`generators`, `unit`, `memory`, `compliance`, `mysql`) and six-target (`sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mariadb-10.11`, `mariadb-11.4`, `mariadb-11.8`) release catalog. The reporter reconstructs the expected suite/batch rows from that resolved invocation and requires an exact expected-versus-observed match, with one target per provider-backed result row; it does not trust the aggregate coverage flags alone. Valid evidence also requires a clean checkout whose commit and status remain stable and matching Testing CLI and DevTools assemblies built from that clean commit. Missing counts, expected rows, build records, or referenced logs make the requested summary incomplete or invalid rather than silently producing release evidence.
 
@@ -187,11 +189,16 @@ The CLI writes runtime state to this repo-root path:
 artifacts/testdata/testinfra-state.json
 ```
 
-Raw CLI logs are written under:
+Every non-interactive `run` gets a unique artifact tree:
 
 ```text
-artifacts/testdata/cli-logs/
+artifacts/test-results/<run-id>/<suite>/<target-row>/
+  raw.log
+  report.html
+  report.trx
 ```
+
+Explicit build logs for that invocation are written under `artifacts/test-results/<run-id>/build/`. The summary's `RunId`, result paths, and aggregate `ArtifactPaths` connect each suite/target row to these files. GitHub Actions uploads this tree with `if: always()` so failed rows retain the reports the test host managed to produce.
 
 That runtime state is how the test harness discovers:
 

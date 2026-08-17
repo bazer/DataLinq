@@ -101,7 +101,7 @@ jobs:
 
           summary = json.loads(summary_path.read_text(encoding="utf-8"))
           expected = {
-              "SchemaVersion": "v0.9.testing-run-summary.v1",
+              "SchemaVersion": "v0.9.testing-run-summary.v2",
               "Outcome": "Passed",
               "OverallExitCode": 0,
               "CountsComplete": True,
@@ -287,6 +287,53 @@ jobs:
           if row_totals != expected_totals:
               raise SystemExit(f"full-matrix row/aggregate counts differ: {row_totals!r} != {expected_totals!r}")
 
+          run_id = summary.get("RunId")
+          if not isinstance(run_id, str) or not run_id.strip():
+              raise SystemExit("full-matrix summary has no run id")
+          timings = summary.get("Timings")
+          timing_keys = (
+              "BuildProcessSeconds",
+              "InfrastructureSetupSeconds",
+              "TestHostProcessSeconds",
+              "TestBodySeconds",
+              "TeardownSeconds",
+          )
+          if not isinstance(timings, dict) or any(
+              not isinstance(timings.get(key), (int, float)) or isinstance(timings.get(key), bool) or timings[key] < 0
+              for key in timing_keys
+          ):
+              raise SystemExit(f"full-matrix summary has invalid timing breakdown: {timings!r}")
+          runtime = summary.get("RuntimeEnvironment")
+          if not isinstance(runtime, dict) or any(
+              not isinstance(runtime.get(key), str) or not runtime[key].strip()
+              for key in ("OperatingSystem", "ProcessArchitecture", "FrameworkDescription")
+          ):
+              raise SystemExit(f"full-matrix summary has invalid runtime identity: {runtime!r}")
+
+          for row in result_rows:
+              for path_key in ("LogPath", "HtmlReportPath", "TrxReportPath"):
+                  artifact_path = row.get(path_key)
+                  if not isinstance(artifact_path, str) or not Path(artifact_path).is_file():
+                      raise SystemExit(f"full-matrix row has missing {path_key}: {artifact_path!r}")
+              performance = row.get("Performance")
+              if not isinstance(performance, dict) or performance.get("Captured") is not True:
+                  raise SystemExit(f"full-matrix row has incomplete performance data: {performance!r}")
+              if performance.get("TestCount") != row["Total"]:
+                  raise SystemExit("full-matrix row TRX count does not match its reported total")
+              for key in (
+                  "TotalTestDurationSeconds",
+                  "P50DurationSeconds",
+                  "P95DurationSeconds",
+                  "P99DurationSeconds",
+                  "MaximumDurationSeconds",
+                  "EffectiveConcurrency",
+              ):
+                  value = performance.get(key)
+                  if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
+                      raise SystemExit(f"full-matrix row has invalid performance {key}: {value!r}")
+              if not isinstance(performance.get("SlowestTests"), list) or not isinstance(performance.get("SlowestClasses"), list):
+                  raise SystemExit("full-matrix row has no slow-test/class lists")
+
           badge = {
               "schemaVersion": 1,
               "label": "full matrix tests",
@@ -338,5 +385,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: full-matrix-test-results
-          path: TestResults
-          if-no-files-found: ignore
+          path: |
+            artifacts/test-results
+            artifacts/ci/full-matrix-summary.json
+          if-no-files-found: warn
