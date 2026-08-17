@@ -14,25 +14,17 @@ namespace DataLinq.Tests.Unit.Core;
 public sealed partial class ModelValueConverterTests
 {
     [Test]
-    public async Task StateChange_InsertWriteSlots_DistinguishUnsetFromAssignedNull()
+    public async Task StateChange_InsertSnapshot_DistinguishesUnsetFromAssignedNull()
     {
         var table = CreateDefaultSlotTable();
         var defaultColumn = table.GetColumnByDbName("server_value");
         var unset = CreateDefaultSlotStateChange(table, assignDefault: false, defaultValue: null);
         var assignedNull = CreateDefaultSlotStateChange(table, assignDefault: true, defaultValue: null);
 
-        var unsetSlots = unset.GetInsertWriteSlots();
-        var unsetSlot = unsetSlots.Single(slot => ReferenceEquals(slot.Column, defaultColumn));
-        var assignedNullSlot = assignedNull.GetInsertWriteSlots().Single(slot => ReferenceEquals(slot.Column, defaultColumn));
-
-        await Assert.That(unsetSlots.Count).IsEqualTo(table.ColumnCount);
-        for (var index = 0; index < unsetSlots.Count; index++)
-            await Assert.That(unsetSlots[index].Column).IsSameReferenceAs(table.Columns[index]);
-
-        await Assert.That(unsetSlot.IsAssigned).IsFalse();
-        await Assert.That(unsetSlot.ModelValue).IsNull();
-        await Assert.That(assignedNullSlot.IsAssigned).IsTrue();
-        await Assert.That(assignedNullSlot.ModelValue).IsNull();
+        await Assert.That(unset.Snapshot.Contains(defaultColumn)).IsFalse();
+        await Assert.That(unset.Snapshot.GetInsertModelValue(defaultColumn)).IsNull();
+        await Assert.That(assignedNull.Snapshot.Contains(defaultColumn)).IsTrue();
+        await Assert.That(assignedNull.Snapshot.GetInsertModelValue(defaultColumn)).IsNull();
     }
 
     [Test]

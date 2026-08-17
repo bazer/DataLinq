@@ -87,18 +87,12 @@ public partial class TableCache
 
             if (change.Type == TransactionChangeType.Update)
             {
-                var invalidatedIndices = new HashSet<ColumnIndex>();
-                foreach (var changedValue in change.GetChanges())
+                for (var index = 0; index < change.AffectedIndices.Count; index++)
                 {
-                    var columnIndices = change.Table.GetColumnIndices(changedValue.Key);
-                    for (var i = 0; i < columnIndices.Count; i++)
-                    {
-                        var columnIndex = columnIndices[i];
-                        if (invalidatedIndices.Add(columnIndex))
-                            RemoveIndexOnBothSides(
-                                columnIndex,
-                                change.GetCurrentRelationKey(columnIndex));
-                    }
+                    var columnIndex = change.AffectedIndices[index];
+                    RemoveIndexOnBothSides(
+                        columnIndex,
+                        change.GetCurrentRelationKey(columnIndex));
                 }
             }
             else
@@ -170,25 +164,17 @@ public partial class TableCache
 
     private static void AddUpdatedRelationKeys(StateChange change, CacheInvalidationImpactBuilder impactBuilder)
     {
-        var invalidatedIndices = new HashSet<ColumnIndex>();
-        foreach (var changedValue in change.GetChanges())
+        for (var indexPosition = 0; indexPosition < change.AffectedIndices.Count; indexPosition++)
         {
-            var columnIndices = change.Table.GetColumnIndices(changedValue.Key);
-            for (var i = 0; i < columnIndices.Count; i++)
-            {
-                var columnIndex = columnIndices[i];
-                if (!invalidatedIndices.Add(columnIndex))
-                    continue;
+            var columnIndex = change.AffectedIndices[indexPosition];
+            impactBuilder.AddRelationKey(
+                columnIndex,
+                change.GetCurrentRelationKey(columnIndex));
 
-                impactBuilder.AddRelationKey(
-                    columnIndex,
-                    change.GetCurrentRelationKey(columnIndex));
-
-                if (TryGetOriginalKey(change, columnIndex.Columns, out var originalKey))
-                    impactBuilder.AddRelationKey(columnIndex, originalKey);
-                else
-                    impactBuilder.ClearTable();
-            }
+            if (TryGetOriginalKey(change, columnIndex.Columns, out var originalKey))
+                impactBuilder.AddRelationKey(columnIndex, originalKey);
+            else
+                impactBuilder.ClearTable();
         }
     }
 

@@ -208,13 +208,17 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     public T Insert<T>(Mutable<T> model) where T : class, IImmutableInstance
     {
         ArgumentNullException.ThrowIfNull(model);
-        EnsureMutationPreflight(model, TransactionChangeType.Insert);
+        var snapshot = MutationPreflight.CaptureAndEnsure(
+            this,
+            model,
+            TransactionChangeType.Insert);
 
         var change = new StateChange(
             model,
             model.Metadata().Table,
-            TransactionChangeType.Insert);
-        return ExecuteStateChange(change) as T ??
+            TransactionChangeType.Insert,
+            snapshot);
+        return ExecutePreflightedStateChange(change) as T ??
             throw new ModelLoadFailureException(change.PrimaryKeys);
     }
 
@@ -268,17 +272,24 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     public T Update<T>(Mutable<T> model) where T : class, IImmutableInstance
     {
         ArgumentNullException.ThrowIfNull(model);
-        EnsureMutationPreflight(model, TransactionChangeType.Update);
-
-        // If there are no changes to save, skip saving and return the model from the cache directly.
-        if (!model.GetChanges().Any())
-            return GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
+        var snapshot = MutationPreflight.CaptureAndEnsure(
+            this,
+            model,
+            TransactionChangeType.Update);
 
         var change = new StateChange(
             model,
             model.Metadata().Table,
-            TransactionChangeType.Update);
-        return ExecuteStateChange(change) as T ??
+            TransactionChangeType.Update,
+            snapshot);
+
+        // If there are no changes to save, skip saving and return the model from the cache directly.
+        if (change.Snapshot.IsEmpty)
+        {
+            return GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
+        }
+
+        return ExecutePreflightedStateChange(change) as T ??
             throw new ModelLoadFailureException(change.PrimaryKeys);
     }
 
@@ -396,12 +407,17 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     public void Delete(IModelInstance model)
     {
         ArgumentNullException.ThrowIfNull(model);
-        EnsureMutationPreflight(model, TransactionChangeType.Delete);
+        var snapshot = MutationPreflight.CaptureAndEnsure(
+            this,
+            model,
+            TransactionChangeType.Delete);
 
-        _ = ExecuteStateChange(new StateChange(
+        var change = new StateChange(
             model,
             model.Metadata().Table,
-            TransactionChangeType.Delete));
+            TransactionChangeType.Delete,
+            snapshot);
+        _ = ExecutePreflightedStateChange(change);
     }
 
     /// <summary>
@@ -454,6 +470,11 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     {
         ArgumentNullException.ThrowIfNull(change);
         MutationPreflight.EnsureExecution(this, change);
+        return ExecutePreflightedStateChange(change);
+    }
+
+    private IImmutableInstance? ExecutePreflightedStateChange(StateChange change)
+    {
         BeginExclusiveOperation("execute a mutation");
         try
         {

@@ -521,6 +521,41 @@ internal sealed class BenchmarkContext : IDisposable
         return checksum;
     }
 
+    public int PrepareMutationCommands()
+    {
+        var transaction = allocationPreflightTransaction
+            ?? throw new InvalidOperationException("Mutation command benchmark transaction was not prepared.");
+        var change = allocationPreflightStateChange
+            ?? throw new InvalidOperationException("Mutation command benchmark state change was not prepared.");
+        var checksum = 0;
+
+        for (var index = 0; index < BatchOperationCount; index++)
+        {
+            using var command = change.PrepareExecutionCommand(transaction);
+            checksum = unchecked(checksum + command.Parameters.Count);
+        }
+
+        return checksum;
+    }
+
+    public void PrepareMutationFinalDriftValidation()
+    {
+        PrepareMutationExecutionPreflight();
+        allocationPreflightStateChange!.CaptureFinalizedMutation();
+    }
+
+    public int ValidateFinalMutationDrift()
+    {
+        var change = allocationPreflightStateChange
+            ?? throw new InvalidOperationException("Mutation final-validation state change was not prepared.");
+        var checksum = 0;
+
+        for (var index = 0; index < BatchOperationCount; index++)
+            checksum = unchecked(checksum + (change.HasSameFinalizedMutation() ? 1 : 0));
+
+        return checksum;
+    }
+
     public void CleanupMutationExecutionPreflight()
     {
         allocationPreflightTransaction?.Dispose();
@@ -815,7 +850,11 @@ internal sealed class BenchmarkContext : IDisposable
                     WarmV09SqlAdapter();
                     break;
                 case BenchmarkScenario.MutationExecutionPreflight:
+                case BenchmarkScenario.MutationCommandPreparation:
                     PrepareMutationExecutionPreflight();
+                    break;
+                case BenchmarkScenario.MutationFinalDriftValidation:
+                    PrepareMutationFinalDriftValidation();
                     break;
             }
         }
@@ -856,6 +895,8 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.ProviderRowModelMaterialization => MaterializeProviderRows(),
             BenchmarkScenario.MutationStateChangeCapture => CaptureMutationStateChanges(),
             BenchmarkScenario.MutationExecutionPreflight => ValidateMutationExecutionPreflight(),
+            BenchmarkScenario.MutationCommandPreparation => PrepareMutationCommands(),
+            BenchmarkScenario.MutationFinalDriftValidation => ValidateFinalMutationDrift(),
             BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => LoadEmployeesByPrimaryKeyBatchWithCacheEstimate(),
             BenchmarkScenario.WarmRelationTraversalWithCacheEstimate => TraverseWarmDepartmentNamesBatchWithCacheEstimate(),
             BenchmarkScenario.LargeRelationIndexPreload => PreloadLargeRelationIndex(),
@@ -879,6 +920,8 @@ internal sealed class BenchmarkContext : IDisposable
                 CleanupUpdatedEmployees();
                 break;
             case BenchmarkScenario.MutationExecutionPreflight:
+            case BenchmarkScenario.MutationCommandPreparation:
+            case BenchmarkScenario.MutationFinalDriftValidation:
                 CleanupMutationExecutionPreflight();
                 break;
         }
@@ -974,6 +1017,8 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.ProviderRowModelMaterialization => BatchOperationCount,
             BenchmarkScenario.MutationStateChangeCapture => BatchOperationCount,
             BenchmarkScenario.MutationExecutionPreflight => BatchOperationCount,
+            BenchmarkScenario.MutationCommandPreparation => BatchOperationCount,
+            BenchmarkScenario.MutationFinalDriftValidation => BatchOperationCount,
             BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => BatchOperationCount,
             BenchmarkScenario.WarmRelationTraversalWithCacheEstimate => BatchOperationCount,
             BenchmarkScenario.LargeRelationIndexPreload => 1,
@@ -1039,6 +1084,8 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.ProviderRowModelMaterialization => "Provider-row model materialization",
             BenchmarkScenario.MutationStateChangeCapture => "Mutation state-change capture",
             BenchmarkScenario.MutationExecutionPreflight => "Mutation execution preflight",
+            BenchmarkScenario.MutationCommandPreparation => "Mutation command preparation",
+            BenchmarkScenario.MutationFinalDriftValidation => "Mutation final drift validation",
             BenchmarkScenario.WarmPrimaryKeyFetchWithCacheEstimate => "Warm PK with cache estimate",
             BenchmarkScenario.WarmRelationTraversalWithCacheEstimate => "Warm relation with cache estimate",
             BenchmarkScenario.LargeRelationIndexPreload => "Large relation index preload",

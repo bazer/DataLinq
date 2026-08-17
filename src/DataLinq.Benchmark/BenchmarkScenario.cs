@@ -31,6 +31,8 @@ internal enum BenchmarkScenario
     ProviderRowModelMaterialization,
     MutationStateChangeCapture,
     MutationExecutionPreflight,
+    MutationCommandPreparation,
+    MutationFinalDriftValidation,
     WarmPrimaryKeyFetchWithCacheEstimate,
     WarmRelationTraversalWithCacheEstimate,
     LargeRelationIndexPreload,
