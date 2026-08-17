@@ -15,7 +15,7 @@ inputs:
     required: false
     default: ""
   affinity-role:
-    description: Explicit provider affinity role: anchor or target-specific.
+    description: "Explicit provider affinity role: anchor or target-specific."
     required: false
     default: ""
   workers:
