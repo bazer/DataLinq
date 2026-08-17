@@ -11,8 +11,11 @@ namespace DataLinq.Dev.CLI;
 
 internal static class PackageReportCommand
 {
-    public static Command Create(DevCliSettings settings)
+    public static Command Create(
+        DevCliSettings settings,
+        Func<PackageInspectionOptions, PackageInspector>? createInspector = null)
     {
+        createInspector ??= options => new PackageInspector(settings.Paths, options);
         var packageDirOption = new Option<string>("--package-dir")
         {
             Description = "Directory containing .nupkg and .snupkg files to inspect.",
@@ -110,7 +113,7 @@ internal static class PackageReportCommand
                 OutputFormat = format
             };
 
-            var inspector = new PackageInspector(settings.Paths, options);
+            var inspector = createInspector(options);
             var report = inspector.CreateReport();
 
             Render(report, format);

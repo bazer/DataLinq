@@ -118,16 +118,8 @@ public class IncrementalGeneratorBehaviorTests
         string source,
         NullableContextOptions nullableContextOptions = NullableContextOptions.Enable)
     {
-        var references = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(static assembly => !assembly.IsDynamic && !string.IsNullOrEmpty(assembly.Location))
-            .Select(static assembly => MetadataReference.CreateFromFile(assembly.Location))
-            .ToList();
-
-        references.AddRange(
-        [
-            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
-        ]);
+        var references = GeneratorMetadataReferenceCache.GetReferences(
+            excludedAssemblies: [typeof(ModelGenerator).Assembly]);
 
         return CSharpCompilation.Create(
             "IncrementalTestAssembly",
