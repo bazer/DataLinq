@@ -7,6 +7,7 @@ using DataLinq.Cache;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Linq;
 using DataLinq.Linq.Planning;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Metadata;
@@ -41,6 +42,10 @@ internal sealed class BenchmarkContext : IDisposable
     private readonly QueryPlanInvocation v09QueryInvocation;
     private readonly QueryPlanInvocationValue[] v09QueryBindingValues;
     private readonly QueryExecutionRequest v09QueryExecutionRequest;
+    private readonly PreparedQuery<EmployeesDb, int, Employee> preparedPrimaryKeySingle;
+    private readonly PreparedQuery<EmployeesDb, string, Employee> preparedNonPrimaryKeyFirst;
+    private readonly PreparedQuery<EmployeesDb, PreparedAnyArgument, bool> preparedScalarAny;
+    private readonly PreparedQuery<EmployeesDb, int[], int> preparedInCount;
     private readonly InsertEmployeeTemplate[] insertEmployeeTemplates;
     private readonly Dictionary<int, string> originalMutationLastNames;
     private readonly TableDefinition allocationTable;
@@ -136,6 +141,24 @@ internal sealed class BenchmarkContext : IDisposable
         v09QueryExecutionRequest = new QueryExecutionRequest(
             v09QueryInvocation,
             new QueryExecutionContext(Database.Provider.ReadOnlyAccess, CancellationToken.None));
+        preparedPrimaryKeySingle = Database.PrepareQuery(
+            sampleEmployeeNumbers[0],
+            employeeNumber => Database.Query().Employees.Single(employee => employee.emp_no == employeeNumber));
+        preparedNonPrimaryKeyFirst = Database.PrepareQuery(
+            sampleEmployeeLastNames[0],
+            lastName => Database.Query().Employees
+                .Where(employee => employee.last_name == lastName)
+                .OrderBy(employee => employee.emp_no)
+                .First());
+        preparedScalarAny = Database.PrepareQuery(
+            new PreparedAnyArgument(sampleEmployeeNumbers[0], sampleEmployeeGenders[0]),
+            argument => Database.Query().Employees.Any(employee =>
+                employee.emp_no == argument.EmployeeNumber &&
+                employee.gender == argument.Gender));
+        preparedInCount = Database.PrepareQuery(
+            sampleInPredicateEmployeeNumbers[0],
+            employeeNumbers => Database.Query().Employees.Count(employee =>
+                employeeNumbers.Contains(employee.emp_no!.Value)));
 
         ValidateV09QueryScenario();
         sampleEmployeeWithDepartmentNumbers = Database.Query().DepartmentEmployees
@@ -288,6 +311,75 @@ internal sealed class BenchmarkContext : IDisposable
             var gender = sampleEmployeeGenders[i];
             if (Database.Query().Employees.Any(x => x.emp_no == employeeNumber && x.gender == gender))
                 checksum++;
+        }
+
+        return checksum;
+    }
+
+    public int PreparePrimaryKeySingleBatch()
+    {
+        object? lastPrepared = null;
+        for (var i = 0; i < BatchOperationCount; i++)
+        {
+            lastPrepared = Database.PrepareQuery(
+                sampleEmployeeNumbers[i],
+                employeeNumber => Database.Query().Employees.Single(employee => employee.emp_no == employeeNumber));
+        }
+
+        GC.KeepAlive(lastPrepared);
+        return BatchOperationCount;
+    }
+
+    public int ExecutePreparedPrimaryKeySingleBatch()
+    {
+        var checksum = 0;
+        foreach (var employeeNumber in sampleEmployeeNumbers)
+            checksum += preparedPrimaryKeySingle.Execute(Database, employeeNumber).emp_no!.Value;
+
+        return checksum;
+    }
+
+    public int ExecutePreparedNonPrimaryKeyEqualityBatch()
+    {
+        var checksum = 0;
+        foreach (var lastName in sampleEmployeeLastNames)
+            checksum += preparedNonPrimaryKeyFirst.Execute(Database, lastName).emp_no!.Value;
+
+        return checksum;
+    }
+
+    public int ExecutePreparedScalarAnyBatch()
+    {
+        var checksum = 0;
+        for (var i = 0; i < BatchOperationCount; i++)
+        {
+            if (preparedScalarAny.Execute(
+                    Database,
+                    new PreparedAnyArgument(sampleEmployeeNumbers[i], sampleEmployeeGenders[i])))
+            {
+                checksum++;
+            }
+        }
+
+        return checksum;
+    }
+
+    public int ExecutePreparedInCountBatch()
+    {
+        var checksum = 0;
+        foreach (var employeeNumbers in sampleInPredicateEmployeeNumbers)
+            checksum += preparedInCount.Execute(Database, employeeNumbers);
+
+        return checksum;
+    }
+
+    public int ExecuteOrdinaryInCountBatch()
+    {
+        var checksum = 0;
+        foreach (var employeeNumbers in sampleInPredicateEmployeeNumbers)
+        {
+            checksum += Database.Query().Employees.Count(employee =>
+                employeeNumbers.Contains(employee.emp_no!.Value));
         }
 
         return checksum;
@@ -919,6 +1011,10 @@ internal sealed class BenchmarkContext : IDisposable
                     _ = LoadEmployeesByPrimaryKeyBatch();
                     DataLinqMetrics.Reset();
                     break;
+                case BenchmarkScenario.PreparedPrimaryKeySingle:
+                    _ = ExecutePreparedPrimaryKeySingleBatch();
+                    DataLinqMetrics.Reset();
+                    break;
                 case BenchmarkScenario.WarmGeneratedStaticGet:
                     _ = LoadEmployeesByGeneratedStaticGetBatch();
                     DataLinqMetrics.Reset();
@@ -994,6 +1090,12 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => LoadEmployeesByNonPrimaryKeyEqualityBatch(),
             BenchmarkScenario.RepeatedInPredicateFetch => LoadEmployeesByInPredicateBatch(),
             BenchmarkScenario.RepeatedScalarAny => ExecuteScalarAnyBatch(),
+            BenchmarkScenario.PreparePrimaryKeySingle => PreparePrimaryKeySingleBatch(),
+            BenchmarkScenario.PreparedPrimaryKeySingle => ExecutePreparedPrimaryKeySingleBatch(),
+            BenchmarkScenario.PreparedNonPrimaryKeyEquality => ExecutePreparedNonPrimaryKeyEqualityBatch(),
+            BenchmarkScenario.PreparedScalarAny => ExecutePreparedScalarAnyBatch(),
+            BenchmarkScenario.OrdinaryInCount => ExecuteOrdinaryInCountBatch(),
+            BenchmarkScenario.PreparedInCount => ExecutePreparedInCountBatch(),
             BenchmarkScenario.ExpressionParseStructuralTemplate => ParseExpressionStructuralTemplateBatch(),
             BenchmarkScenario.ExpressionParseTemplateInitialBind => ParseExpressionTemplateAndInitialBindBatch(),
             BenchmarkScenario.TemplateFreezeValidation => FreezeAndValidateTemplateBatch(),
@@ -1121,6 +1223,12 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => BatchOperationCount,
             BenchmarkScenario.RepeatedInPredicateFetch => BatchOperationCount,
             BenchmarkScenario.RepeatedScalarAny => BatchOperationCount,
+            BenchmarkScenario.PreparePrimaryKeySingle => BatchOperationCount,
+            BenchmarkScenario.PreparedPrimaryKeySingle => BatchOperationCount,
+            BenchmarkScenario.PreparedNonPrimaryKeyEquality => BatchOperationCount,
+            BenchmarkScenario.PreparedScalarAny => BatchOperationCount,
+            BenchmarkScenario.OrdinaryInCount => BatchOperationCount,
+            BenchmarkScenario.PreparedInCount => BatchOperationCount,
             BenchmarkScenario.ExpressionParseStructuralTemplate => BatchOperationCount,
             BenchmarkScenario.ExpressionParseTemplateInitialBind => BatchOperationCount,
             BenchmarkScenario.TemplateFreezeValidation => BatchOperationCount,
@@ -1193,6 +1301,12 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => "Repeated non-PK equality fetch",
             BenchmarkScenario.RepeatedInPredicateFetch => "Repeated IN predicate fetch",
             BenchmarkScenario.RepeatedScalarAny => "Repeated scalar Any",
+            BenchmarkScenario.PreparePrimaryKeySingle => "Prepare primary-key Single",
+            BenchmarkScenario.PreparedPrimaryKeySingle => "Prepared warm primary-key Single",
+            BenchmarkScenario.PreparedNonPrimaryKeyEquality => "Prepared non-PK equality First",
+            BenchmarkScenario.PreparedScalarAny => "Prepared scalar Any",
+            BenchmarkScenario.OrdinaryInCount => "Ordinary IN Count",
+            BenchmarkScenario.PreparedInCount => "Prepared IN Count",
             BenchmarkScenario.ExpressionParseStructuralTemplate => "Expression parse/structural template",
             BenchmarkScenario.ExpressionParseTemplateInitialBind => "Expression parse/template/initial bind",
             BenchmarkScenario.TemplateFreezeValidation => "Template freeze/validation",
@@ -1246,6 +1360,10 @@ internal sealed class BenchmarkContext : IDisposable
         string LastName,
         Employee.Employeegender Gender,
         DateOnly HireDate);
+
+    private readonly record struct PreparedAnyArgument(
+        int EmployeeNumber,
+        Employee.Employeegender Gender);
 
     private sealed class PrecomputedProviderDataReader(object?[] values) : IDataLinqDataReader
     {
