@@ -76,7 +76,7 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | String casing | `ToUpper`, `ToLower` | `Translation/EmployeesStringMemberTests.cs` | Public docs match this. |
 | String trimming and length | `Trim`, `Length`, `Trim().Length` | `Translation/EmployeesStringMemberTests.cs` | Public docs match this. |
 | String substring | `Substring(...)` in tested argument shapes | `Translation/EmployeesStringMemberTests.cs` | Public docs should stay conservative on overload breadth. |
-| String null/whitespace checks | `string.IsNullOrEmpty`, `string.IsNullOrWhiteSpace` in true and false forms | `Translation/EmployeesStringMemberTests.cs` | Public docs match this. |
+| String null/whitespace checks | `string.IsNullOrEmpty`; `string.IsNullOrWhiteSpace` in true and false forms with CLR Unicode-whitespace parity | `Translation/EmployeesStringMemberTests.cs`, `Translation/StringWhitespaceTranslationTests.cs` | `IsNullOrWhiteSpace` is tested against the runtime `char.IsWhiteSpace` set on every SQL provider. |
 | DateOnly members | `Year`, `Month`, `Day`, `DayOfYear`, `DayOfWeek` | `Translation/EmployeesDateTimeMemberTests.cs` | Public docs match this. |
 | TimeOnly members | `Hour` behind nullable guard | `Translation/EmployeesDateTimeMemberTests.cs` | Public docs match this at member level. |
 | DateTime members | `Minute`, `Second`, `Millisecond` behind nullable guard | `Translation/EmployeesDateTimeMemberTests.cs` | Public docs match this at member level. |
