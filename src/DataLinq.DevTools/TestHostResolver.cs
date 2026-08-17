@@ -198,9 +198,12 @@ public static class TestHostResolver
                          .Select(static element => (string?)element.Attribute("Include"))
                          .Where(static include => !string.IsNullOrWhiteSpace(include)))
             {
+                var normalizedReference = reference!
+                    .Replace('\\', Path.DirectorySeparatorChar)
+                    .Replace('/', Path.DirectorySeparatorChar);
                 var referencedProject = Path.GetFullPath(Path.Combine(
                     Path.GetDirectoryName(currentProject)!,
-                    reference!));
+                    normalizedReference));
                 pendingProjects.Push(referencedProject);
             }
         }
