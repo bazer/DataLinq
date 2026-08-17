@@ -5,4 +5,4 @@ internal sealed record TestCliSuite(
     string Description,
     string ProjectPath,
     bool UsesTargetBatches,
-    bool IncludeSqliteTargets = true);
+    bool IncludeSqliteTargets);
