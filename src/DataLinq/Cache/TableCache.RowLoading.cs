@@ -109,8 +109,8 @@ public partial class TableCache
                     $"Source index row loader returned a result for a different request than table '{Table.DbName}' index '{index.Name}'.");
             }
 
-            foreach (var providerRow in result.Rows)
-                AddCanonicalRow(providerRow, sourceServices);
+            foreach (var loadedRow in result.Rows)
+                AddCanonicalRow(loadedRow, sourceServices);
         }
         else if (TryConvertScalarProviderColumnValue(foreignKey, index.Columns, dataSource, out var predicateColumn, out var predicateValue))
         {
@@ -153,14 +153,10 @@ public partial class TableCache
         return GetRowArray();
 
         void AddCanonicalRow(
-            CanonicalProviderValueRow providerRow,
+            LoadedCanonicalRow loadedRow,
             IDataLinqIndexRowServices sourceServices)
         {
-            if (!providerRow.TryCreateCanonicalPrimaryKey(out var primaryKey))
-            {
-                throw new InvalidOperationException(
-                    $"Source index row for table '{Table.DbName}' did not contain a canonical primary key.");
-            }
+            var primaryKey = loadedRow.CanonicalProviderKey;
 
             AddPrimaryKey(primaryKey);
 
@@ -174,7 +170,7 @@ public partial class TableCache
             rowCacheMisses++;
             MetricsHandle.RecordDatabaseRowsLoaded(1);
             AddLoadedRow(sourceServices.MaterializationServices
-                .MaterializeAfterKnownCacheMiss(providerRow));
+                .MaterializeAfterKnownCacheMiss(loadedRow));
         }
 
         void AddRowData(RowData rowData)
@@ -400,16 +396,11 @@ public partial class TableCache
         {
             var request = new SourcePrimaryKeyRowRequest(Table, split);
             var result = sourceServices.RowLoader.Load(request);
-            foreach (var providerRow in result.Rows)
+            foreach (var loadedRow in result.Rows)
             {
-                if (!providerRow.TryCreateCanonicalPrimaryKey(out var key))
-                {
-                    throw new InvalidOperationException(
-                        $"Source row for table '{Table.DbName}' did not contain a canonical primary key.");
-                }
-
+                var key = loadedRow.CanonicalProviderKey;
                 var row = sourceServices.MaterializationServices
-                    .MaterializeAfterKnownCacheMiss(providerRow);
+                    .MaterializeAfterKnownCacheMiss(loadedRow);
                 if (!rows.TryAdd(key, row))
                 {
                     throw new InvalidOperationException(
@@ -440,7 +431,8 @@ public partial class TableCache
             "Source row loader");
 
         var row = sourceServices.MaterializationServices
-            .MaterializeAfterKnownCacheMiss(providerRow);
+            .MaterializeAfterKnownCacheMiss(
+                new LoadedCanonicalRow(providerRow, canonicalProviderKey));
         MetricsHandle.RecordDatabaseRowsLoaded(1);
         return row;
     }

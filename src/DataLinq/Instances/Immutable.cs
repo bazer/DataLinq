@@ -23,10 +23,12 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
         // Preserve the legacy constructor's historical null behavior. Some row-local projection
         // tests construct immutable shells without a source because they never perform source-bound
         // operations; the new neutral constructor below is the strict contract.
-        this.rowData = rowData;
+        this.rowData = UnwrapKnownCanonicalPrimaryKey(rowData, out var canonicalPrimaryKey);
         readSource = dataSource;
         baselineOrigin = MutableBaselineOrigin.FromReadSource(dataSource);
-        CaptureCanonicalPrimaryKey(rowData, allowUnavailableLegacyRow: true);
+        _cachedPrimaryKey = canonicalPrimaryKey;
+        if (!canonicalPrimaryKey.HasValue)
+            CaptureCanonicalPrimaryKey(this.rowData, allowUnavailableLegacyRow: true);
     }
 
     protected Immutable(IRowData rowData, IDataLinqReadSource readSource)
@@ -34,10 +36,12 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
         ArgumentNullException.ThrowIfNull(rowData);
         ArgumentNullException.ThrowIfNull(readSource);
 
-        this.rowData = rowData;
+        this.rowData = UnwrapKnownCanonicalPrimaryKey(rowData, out var canonicalPrimaryKey);
         this.readSource = readSource;
         baselineOrigin = MutableBaselineOrigin.FromReadSource(readSource);
-        CaptureCanonicalPrimaryKey(rowData, allowUnavailableLegacyRow: false);
+        _cachedPrimaryKey = canonicalPrimaryKey;
+        if (!canonicalPrimaryKey.HasValue)
+            CaptureCanonicalPrimaryKey(this.rowData, allowUnavailableLegacyRow: false);
     }
 
     MutableBaselineOrigin IImmutableBaselineOrigin.BaselineOrigin => baselineOrigin;
@@ -48,6 +52,20 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
 
     // Cache the primary key once calculated for performance
     protected DataLinqKey? _cachedPrimaryKey = null;
+
+    private static IRowData UnwrapKnownCanonicalPrimaryKey(
+        IRowData sourceRow,
+        out DataLinqKey? canonicalPrimaryKey)
+    {
+        if (sourceRow is KnownCanonicalPrimaryKeyRowData known)
+        {
+            canonicalPrimaryKey = known.CanonicalProviderKey;
+            return known.RowData;
+        }
+
+        canonicalPrimaryKey = null;
+        return sourceRow;
+    }
 
     private void CaptureCanonicalPrimaryKey(
         IRowData? sourceRow,

@@ -102,6 +102,9 @@ internal sealed class MemoryReadSource :
     internal IImmutableInstance Materialize(CanonicalProviderValueRow row) =>
         materializationServices.GetOrMaterialize(row);
 
+    internal IImmutableInstance Materialize(LoadedCanonicalRow row) =>
+        materializationServices.GetOrMaterialize(row);
+
     internal IReadOnlyList<CanonicalProviderValueRow> GetRows(TableDefinition table) =>
         store.GetRows(table);
 

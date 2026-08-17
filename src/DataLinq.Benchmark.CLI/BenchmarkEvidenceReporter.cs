@@ -80,6 +80,12 @@ internal static class BenchmarkEvidenceReporter
                 "Canonical provider-row decoding",
                 "Provider-row model materialization",
                 "Provider-row decode/materialization pipeline",
+                "Composite key reconstruction baseline",
+                "Scalar canonical-key propagation",
+                "Composite canonical-key propagation",
+                "Typed-ID canonical-key propagation",
+                "Converter-backed canonical-key propagation",
+                "Binary canonical-key propagation",
                 "Mutation state-change capture",
                 "Mutation execution preflight"
             ]
@@ -118,6 +124,12 @@ internal static class BenchmarkEvidenceReporter
             ["Canonical provider-row decoding"] = 1000,
             ["Provider-row model materialization"] = 1000,
             ["Provider-row decode/materialization pipeline"] = 1000,
+            ["Composite key reconstruction baseline"] = 1000,
+            ["Scalar canonical-key propagation"] = 1000,
+            ["Composite canonical-key propagation"] = 1000,
+            ["Typed-ID canonical-key propagation"] = 1000,
+            ["Converter-backed canonical-key propagation"] = 1000,
+            ["Binary canonical-key propagation"] = 1000,
             ["Mutation state-change capture"] = 1000,
             ["Mutation execution preflight"] = 1000
         };

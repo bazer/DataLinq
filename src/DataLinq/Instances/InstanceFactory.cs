@@ -124,6 +124,19 @@ public static class InstanceFactory
             "Update or regenerate the model declaration with neutral IDataLinqReadSource construction before using a read source that does not implement IDataSourceAccess.");
     }
 
+    /// <summary>
+    /// Creates a neutral-source immutable while transferring the source-validated canonical key
+    /// into immutable identity state. The constructor bridge is unwrapped by the immutable base and
+    /// is not retained by the created model.
+    /// </summary>
+    internal static IImmutableInstance NewReadSourceImmutableRow(
+        RowData rowData,
+        IDataLinqReadSource readSource,
+        DataLinqKey canonicalProviderKey) =>
+        NewReadSourceImmutableRow(
+            new KnownCanonicalPrimaryKeyRowData(rowData, canonicalProviderKey),
+            readSource);
+
     private static IImmutableInstance CreateLegacyImmutableRow(
         IRowData rowData,
         IDataSourceAccess dataSource)

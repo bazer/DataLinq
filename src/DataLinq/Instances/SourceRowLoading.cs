@@ -259,6 +259,24 @@ internal sealed class SourceIndexRowRequest
 }
 
 /// <summary>
+/// Short-lived source-boundary row carrier. The canonical key owns any mutable components and is
+/// reused by cache lookup, materialization, immutable construction, and cache publication.
+/// </summary>
+internal readonly record struct LoadedCanonicalRow
+{
+    internal LoadedCanonicalRow(
+        CanonicalProviderValueRow providerRow,
+        DataLinqKey canonicalProviderKey)
+    {
+        ProviderRow = providerRow ?? throw new ArgumentNullException(nameof(providerRow));
+        CanonicalProviderKey = canonicalProviderKey;
+    }
+
+    internal CanonicalProviderValueRow ProviderRow { get; }
+    internal DataLinqKey CanonicalProviderKey { get; }
+}
+
+/// <summary>
 /// Owned finite result from a source-row loader. Implementations must finish and dispose any backend
 /// cursor before constructing this result; no reader lifetime escapes through the neutral contract.
 /// </summary>
@@ -271,12 +289,15 @@ internal sealed class SourceRowLoadResult
         Request = request ?? throw new ArgumentNullException(nameof(request));
         ArgumentNullException.ThrowIfNull(rows);
 
-        var snapshot = ImmutableArray.CreateRange(rows);
+        var snapshot = rows is ICollection<CanonicalProviderValueRow> collection
+            ? ImmutableArray.CreateBuilder<LoadedCanonicalRow>(collection.Count)
+            : ImmutableArray.CreateBuilder<LoadedCanonicalRow>();
         var requestedKeys = new HashSet<DataLinqKey>(request.CanonicalProviderKeys);
         var returnedKeys = new HashSet<DataLinqKey>();
-        for (var index = 0; index < snapshot.Length; index++)
+        var index = 0;
+        foreach (var candidate in rows)
         {
-            var row = snapshot[index]
+            var row = candidate
                 ?? throw new ArgumentException(
                     $"Source-row result for table '{request.Table.DbName}' contains a null row at index {index}.",
                     nameof(rows));
@@ -308,14 +329,19 @@ internal sealed class SourceRowLoadResult
                     $"Source-row result for table '{request.Table.DbName}' contains duplicate primary key '{rowKey}' at index {index}.",
                     nameof(rows));
             }
+
+            snapshot.Add(new LoadedCanonicalRow(row, rowKey));
+            index++;
         }
 
-        Rows = snapshot;
+        Rows = snapshot.Count == snapshot.Capacity
+            ? snapshot.MoveToImmutable()
+            : snapshot.ToImmutable();
     }
 
     internal SourcePrimaryKeyRowRequest Request { get; }
     internal TableDefinition Table => Request.Table;
-    internal ImmutableArray<CanonicalProviderValueRow> Rows { get; }
+    internal ImmutableArray<LoadedCanonicalRow> Rows { get; }
 }
 
 /// <summary>
@@ -332,11 +358,14 @@ internal sealed class SourceIndexRowLoadResult
         Request = request ?? throw new ArgumentNullException(nameof(request));
         ArgumentNullException.ThrowIfNull(rows);
 
-        var snapshot = ImmutableArray.CreateRange(rows);
+        var snapshot = rows is ICollection<CanonicalProviderValueRow> collection
+            ? ImmutableArray.CreateBuilder<LoadedCanonicalRow>(collection.Count)
+            : ImmutableArray.CreateBuilder<LoadedCanonicalRow>();
         var returnedKeys = new HashSet<DataLinqKey>();
-        for (var index = 0; index < snapshot.Length; index++)
+        var index = 0;
+        foreach (var candidate in rows)
         {
-            var row = snapshot[index]
+            var row = candidate
                 ?? throw new ArgumentException(
                     $"Source-index row result for table '{request.Table.DbName}' contains a null row at index {index}.",
                     nameof(rows));
@@ -361,15 +390,20 @@ internal sealed class SourceIndexRowLoadResult
                     $"Source-index row result for table '{request.Table.DbName}' contains duplicate primary key '{rowKey}' at index {index}.",
                     nameof(rows));
             }
+
+            snapshot.Add(new LoadedCanonicalRow(row, rowKey));
+            index++;
         }
 
-        Rows = snapshot;
+        Rows = snapshot.Count == snapshot.Capacity
+            ? snapshot.MoveToImmutable()
+            : snapshot.ToImmutable();
     }
 
     internal SourceIndexRowRequest Request { get; }
     internal TableDefinition Table => Request.Table;
     internal ColumnIndex Index => Request.Index;
-    internal ImmutableArray<CanonicalProviderValueRow> Rows { get; }
+    internal ImmutableArray<LoadedCanonicalRow> Rows { get; }
 }
 
 /// <summary>

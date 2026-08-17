@@ -465,6 +465,54 @@ public class EmployeesBenchmarks : IDisposable
     }
 
     [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Composite key reconstruction baseline")]
+    public int CompositeCanonicalKeyReconstructionBaseline()
+    {
+        executedScenario = BenchmarkScenario.CompositeKeyReconstructionBaseline;
+        return context!.ReconstructCompositeCanonicalKeys();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Scalar canonical-key propagation")]
+    public int ScalarCanonicalKeyPropagation()
+    {
+        executedScenario = BenchmarkScenario.ScalarCanonicalKeyPropagation;
+        return context!.PropagateScalarCanonicalKeys();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Composite canonical-key propagation")]
+    public int CompositeCanonicalKeyPropagation()
+    {
+        executedScenario = BenchmarkScenario.CompositeCanonicalKeyPropagation;
+        return context!.PropagateCompositeCanonicalKeys();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Typed-ID canonical-key propagation")]
+    public int TypedIdCanonicalKeyPropagation()
+    {
+        executedScenario = BenchmarkScenario.TypedIdCanonicalKeyPropagation;
+        return context!.PropagateTypedIdCanonicalKeys();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Converter-backed canonical-key propagation")]
+    public int ConverterBackedCanonicalKeyPropagation()
+    {
+        executedScenario = BenchmarkScenario.ConverterBackedCanonicalKeyPropagation;
+        return context!.PropagateConverterBackedCanonicalKeys();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Binary canonical-key propagation")]
+    public int BinaryCanonicalKeyPropagation()
+    {
+        executedScenario = BenchmarkScenario.BinaryCanonicalKeyPropagation;
+        return context!.PropagateBinaryCanonicalKeys();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Mutation state-change capture")]
     public int MutationStateChangeCapture()
     {

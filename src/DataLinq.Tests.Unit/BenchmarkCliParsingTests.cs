@@ -146,6 +146,12 @@ public class BenchmarkCliParsingTests
     [Arguments("Canonical provider-row decoding", "row-decoding")]
     [Arguments("Provider-row model materialization", "row-materialization")]
     [Arguments("Provider-row decode/materialization pipeline", "row-materialization-pipeline")]
+    [Arguments("Composite key reconstruction baseline", "canonical-key-composite-baseline")]
+    [Arguments("Scalar canonical-key propagation", "canonical-key-scalar")]
+    [Arguments("Composite canonical-key propagation", "canonical-key-composite")]
+    [Arguments("Typed-ID canonical-key propagation", "canonical-key-typed-id")]
+    [Arguments("Converter-backed canonical-key propagation", "canonical-key-converter")]
+    [Arguments("Binary canonical-key propagation", "canonical-key-binary")]
     [Arguments("Mutation state-change capture", "mutation-capture")]
     [Arguments("Mutation execution preflight", "mutation-preflight")]
     public async Task AllocationStages_HaveStableTrackingAndScenarioCategories(

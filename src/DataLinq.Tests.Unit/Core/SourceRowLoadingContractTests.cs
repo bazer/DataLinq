@@ -146,7 +146,8 @@ public sealed class SourceRowLoadingContractTests
         await Assert.That(result.Request).IsSameReferenceAs(request);
         await Assert.That(result.Table).IsSameReferenceAs(table);
         await Assert.That(result.Rows.Length).IsEqualTo(1);
-        await Assert.That(result.Rows[0]).IsSameReferenceAs(row);
+        await Assert.That(result.Rows[0].ProviderRow).IsSameReferenceAs(row);
+        await Assert.That(result.Rows[0].CanonicalProviderKey).IsEqualTo(DataLinqKey.FromValue(42));
         await Assert.That(typeof(IDisposable).IsAssignableFrom(typeof(SourceRowLoadResult))).IsFalse();
 
         var crossTableFailure = Capture<ArgumentException>(() =>
@@ -225,7 +226,8 @@ public sealed class SourceRowLoadingContractTests
         await Assert.That(result.Table).IsSameReferenceAs(table);
         await Assert.That(result.Index).IsSameReferenceAs(index);
         await Assert.That(result.Rows.Length).IsEqualTo(1);
-        await Assert.That(result.Rows[0]).IsSameReferenceAs(backendMatchedRow);
+        await Assert.That(result.Rows[0].ProviderRow).IsSameReferenceAs(backendMatchedRow);
+        await Assert.That(result.Rows[0].CanonicalProviderKey).IsEqualTo(DataLinqKey.FromValue(42));
         await Assert.That(typeof(IDisposable).IsAssignableFrom(typeof(SourceIndexRowLoadResult))).IsFalse();
 
         var nullRowFailure = Capture<ArgumentException>(() =>
@@ -247,6 +249,33 @@ public sealed class SourceRowLoadingContractTests
                     CreateCanonicalRow(table, 42, "Backend-equivalent Ada")
                 ]));
         await Assert.That(duplicateKeyFailure.Message).Contains("duplicate primary key");
+    }
+
+    [Test]
+    public async Task RowLoadResult_CanonicalBinaryKeyDoesNotAliasCallerOrRowBuffers()
+    {
+        var table = CreateBinaryKeyTable();
+        var idColumn = table.GetColumnByDbName("id");
+        var callerBytes = new byte[] { 1, 2, 3 };
+        var request = new SourcePrimaryKeyRowRequest(
+            table,
+            [DataLinqKey.FromValue(callerBytes)]);
+        var providerRow = CanonicalProviderValueRow.Create(
+            table,
+            new object?[] { callerBytes, "Ada" });
+
+        var result = new SourceRowLoadResult(request, [providerRow]);
+        callerBytes[0] = 91;
+        var exposedRowBytes = (byte[])providerRow[idColumn]!;
+        exposedRowBytes[0] = 92;
+        var exposedKeyBytes = (byte[])result.Rows[0].CanonicalProviderKey.GetValue(0)!;
+        exposedKeyBytes[0] = 93;
+
+        await Assert.That((byte[])providerRow[idColumn]!).IsEquivalentTo(new byte[] { 1, 2, 3 });
+        await Assert.That((byte[])result.Rows[0].CanonicalProviderKey.GetValue(0)!)
+            .IsEquivalentTo(new byte[] { 1, 2, 3 });
+        await Assert.That(result.Rows[0].CanonicalProviderKey)
+            .IsEqualTo(DataLinqKey.FromValue(new byte[] { 1, 2, 3 }));
     }
 
     [Test]
@@ -346,6 +375,45 @@ public sealed class SourceRowLoadingContractTests
         return new MetadataDefinitionFactory().Build(draft).ValueOrException();
     }
 
+    private static TableDefinition CreateBinaryKeyTable()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "SourceRowLoadingBinaryKeyDb",
+            new CsTypeDeclaration(typeof(SourceRowLoadingContractTests)))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration(typeof(BinaryKeySourceRowModel)))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(byte[])),
+                                new MetadataColumnDraft("id") { PrimaryKey = true })
+                            {
+                                CsSize = 3
+                            },
+                            new MetadataValuePropertyDraft(
+                                "Name",
+                                new CsTypeDeclaration(typeof(string)),
+                                new MetadataColumnDraft("name"))
+                        ]
+                    },
+                    new MetadataTableDraft("binary_key_rows"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory()
+            .Build(draft)
+            .ValueOrException()
+            .TableModels
+            .Single()
+            .Table;
+    }
+
     private static MetadataTableModelDraft CreateTableModel(
         string propertyName,
         string tableName,
@@ -417,6 +485,7 @@ public sealed class SourceRowLoadingContractTests
     private sealed record ModelId(int Value);
     private sealed class SourceRowModel;
     private sealed class OtherSourceRowModel;
+    private sealed class BinaryKeySourceRowModel;
 
     private sealed class RecordingLoader : ISourceRowLoader
     {
