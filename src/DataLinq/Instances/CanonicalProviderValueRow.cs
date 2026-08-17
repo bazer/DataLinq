@@ -16,15 +16,18 @@ namespace DataLinq.Instances;
 internal sealed class CanonicalProviderValueRow
 {
     private readonly object?[] values;
+    private readonly int identityModelSizeAdjustment;
 
     private CanonicalProviderValueRow(
         TableDefinition table,
         object?[] values,
-        int estimatedPayloadSize)
+        int estimatedPayloadSize,
+        int identityModelSizeAdjustment)
     {
         Table = table;
         this.values = values;
         EstimatedPayloadSize = estimatedPayloadSize;
+        this.identityModelSizeAdjustment = identityModelSizeAdjustment;
     }
 
     public TableDefinition Table { get; }
@@ -35,6 +38,13 @@ internal sealed class CanonicalProviderValueRow
     /// converter-backed wrapper types whose model payload cannot be estimated directly.
     /// </summary>
     internal int EstimatedPayloadSize { get; }
+
+    /// <summary>
+    /// Reuses the canonical total for materialization while preserving explicit model-size overrides
+    /// on identity-mapped columns. Scalar-converted columns are adjusted after conversion.
+    /// </summary>
+    internal int EstimatedIdentityModelPayloadSize =>
+        checked(EstimatedPayloadSize + identityModelSizeAdjustment);
 
     public object? this[int columnOrdinal]
     {
@@ -64,6 +74,7 @@ internal sealed class CanonicalProviderValueRow
 
         var ownedValues = new object?[canonicalValues.Length];
         var estimatedPayloadSize = 0;
+        var identityModelSizeAdjustment = 0;
 
         for (var ordinal = 0; ordinal < canonicalValues.Length; ordinal++)
         {
@@ -73,14 +84,24 @@ internal sealed class CanonicalProviderValueRow
             ValidateValue(column, value, useProviderType: true, nameof(canonicalValues));
             var ownedValue = CopyMutableValue(value);
             ownedValues[ordinal] = ownedValue;
+            var estimatedValueSize = EstimateCanonicalValueSize(column, ownedValue);
             estimatedPayloadSize = AddEstimatedValueSize(
                 table,
                 column,
-                ownedValue,
+                estimatedValueSize,
                 estimatedPayloadSize);
+            identityModelSizeAdjustment = AddIdentityModelSizeAdjustment(
+                column,
+                ownedValue,
+                estimatedValueSize,
+                identityModelSizeAdjustment);
         }
 
-        return new CanonicalProviderValueRow(table, ownedValues, estimatedPayloadSize);
+        return new CanonicalProviderValueRow(
+            table,
+            ownedValues,
+            estimatedPayloadSize,
+            identityModelSizeAdjustment);
     }
 
     /// <summary>
@@ -98,6 +119,7 @@ internal sealed class CanonicalProviderValueRow
         ValidateValueCount(table, canonicalValues.Length, nameof(canonicalValues));
 
         var estimatedPayloadSize = 0;
+        var identityModelSizeAdjustment = 0;
 
         for (var ordinal = 0; ordinal < canonicalValues.Length; ordinal++)
         {
@@ -105,14 +127,24 @@ internal sealed class CanonicalProviderValueRow
             var value = canonicalValues[ordinal];
 
             ValidateValue(column, value, useProviderType: true, nameof(canonicalValues));
+            var estimatedValueSize = EstimateCanonicalValueSize(column, value);
             estimatedPayloadSize = AddEstimatedValueSize(
                 table,
                 column,
-                value,
+                estimatedValueSize,
                 estimatedPayloadSize);
+            identityModelSizeAdjustment = AddIdentityModelSizeAdjustment(
+                column,
+                value,
+                estimatedValueSize,
+                identityModelSizeAdjustment);
         }
 
-        return new CanonicalProviderValueRow(table, canonicalValues, estimatedPayloadSize);
+        return new CanonicalProviderValueRow(
+            table,
+            canonicalValues,
+            estimatedPayloadSize,
+            identityModelSizeAdjustment);
     }
 
     private static void ValidateValueCount(
@@ -131,12 +163,12 @@ internal sealed class CanonicalProviderValueRow
     private static int AddEstimatedValueSize(
         TableDefinition table,
         ColumnDefinition column,
-        object? value,
+        int estimatedValueSize,
         int estimatedPayloadSize)
     {
         try
         {
-            return checked(estimatedPayloadSize + EstimateCanonicalValueSize(column, value));
+            return checked(estimatedPayloadSize + estimatedValueSize);
         }
         catch (OverflowException exception)
         {
@@ -144,6 +176,22 @@ internal sealed class CanonicalProviderValueRow
                 $"Canonical provider payload estimate overflowed while reading column '{table.DbName}.{column.DbName}'.",
                 exception);
         }
+    }
+
+    private static int AddIdentityModelSizeAdjustment(
+        ColumnDefinition column,
+        object? value,
+        int estimatedProviderValueSize,
+        int currentAdjustment)
+    {
+        if (value is null ||
+            column.HasScalarConverter ||
+            column.ValueProperty.CsSize is not { } explicitModelSize)
+        {
+            return currentAdjustment;
+        }
+
+        return checked(currentAdjustment + explicitModelSize - estimatedProviderValueSize);
     }
 
     internal int GetEstimatedValueSize(int columnOrdinal)
