@@ -27,7 +27,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_BasicQueryShapeParsesToDataLinqPlan),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var threshold = 10010;
         var query = databaseScope.Database.Query().Employees
@@ -61,7 +61,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_UnboundResultPreservesConvertContractForScalarAndSequenceCaptures),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = databaseScope.Database.Query().Employees
             .OrderBy(employee => employee.emp_no)
@@ -104,7 +104,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_PrimaryOrderingRemovesPriorTopLevelOrderings),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Managers
             .OrderBy(row => row.dept_fk)
@@ -132,7 +132,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_RootThenByRequiresAPrecedingPrimaryOrdering),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Managers
             .ThenBy(row => row.emp_no);
@@ -151,7 +151,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_OrderingPreservesQueryReferencingNumericConversions),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Managers
             .OrderBy(row => (long)row.emp_no)
@@ -179,7 +179,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_ResultAndAggregateShapesParseToDataLinqPlan),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertParserProducesDataLinqPlan(databaseScope.Database, () => databaseScope.Database.Query().Employees.Count());
         await AssertParserProducesDataLinqPlan(databaseScope.Database, () => databaseScope.Database.Query().Employees.Any());
@@ -197,7 +197,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_GroupedAggregateProjectionParsesToDataLinqPlan),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
@@ -304,7 +304,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_RelationAndLocalMembershipShapesParseToDataLinqPlan),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var managerNumber = 110022;
         var localIds = new[] { new LocalEmployeeId(10001), new LocalEmployeeId(10002) };
@@ -347,7 +347,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_RejectsCapturedRelationCountThresholdsThatWouldChangeTemplateShape),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var threshold = 0;
         var query = databaseScope.Database.Query().Employees
@@ -367,7 +367,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_NormalizesLocalBooleanPredicatesIntoInvocationValues),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var includeRows = true;
         var query = databaseScope.Database.Query().Employees
@@ -388,7 +388,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_EmptyUnsupportedLocalPredicateRetainsSequenceShapeSpecialization),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var ids = Array.Empty<int>();
         var query = databaseScope.Database.Query().Employees
@@ -413,7 +413,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_StringDateNullableAndBooleanShapesParseToDataLinqPlan),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var login = new TimeOnly(9, 15, 0);
         var testDate = new DateOnly(2021, 7, 3);
@@ -452,7 +452,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_LocalSequenceAndAggregateVariantsParseToDataLinqPlan),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeeNumbers = new[] { 10001, 10002, 10003 };
         var departmentNumbers = new[] { "d001", "d002" };
@@ -476,7 +476,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_BarePagingShapesParseToDataLinqPlan),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertParserProducesDataLinqPlan(
             databaseScope.Database,
@@ -501,7 +501,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_ExplicitJoinShapeParsesToDataLinqPlan),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
             .Join(
@@ -524,7 +524,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(DataLinqExpressionProvider_QueryableChainsParseToMatchingPlans),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var provider = new ExpressionQueryPlanProvider(databaseScope.Database.Provider.Metadata);
         var employees = provider.CreateRoot<Employee>();
@@ -577,7 +577,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(DataLinqExpressionProvider_TerminalExpressionsParseToMatchingPlans),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var provider = new ExpressionQueryPlanProvider(databaseScope.Database.Provider.Metadata);
         var employees = provider.CreateRoot<Employee>();
@@ -604,7 +604,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_PostPagingFilterRecordsPushdown),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Employees
             .OrderBy(x => x.emp_no)
@@ -625,7 +625,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_UnsupportedShapesKeepFocusedDiagnostics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertParserFailure(
             databaseScope.Database,
@@ -746,7 +746,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_LocalMethodEvaluationCapturesParameterIndependentMethods),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var probe = new LocalMethodProbe();
 
@@ -769,7 +769,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_LocalMethodEvaluationConvertsArgumentsBeforeInvocation),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var source = 257;
         var probe = new LocalMethodProbe();
@@ -787,7 +787,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_LocalTopLevelUncheckedConversionExecutesWithConvertedValue),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var source = 17.9d;
         var baseline = databaseScope.Database.Query().Managers
@@ -809,7 +809,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_LocalTopLevelCheckedConversionThrowsBeforeExecution),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var source = long.MaxValue;
         var query = databaseScope.Database.Query().Managers
@@ -826,7 +826,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_LocalMethodEvaluationEvaluatesReceiverFactoryExactlyOnce),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var probe = new LocalMethodProbe();
         var query = databaseScope.Database.Query().Employees
@@ -843,7 +843,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_LocalMethodEvaluationSupportsUnaryNegationArguments),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var days = 10;
         var origin = new DateOnly(2000, 1, 20);
@@ -862,7 +862,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_LocalMethodEvaluationStillRejectsQueryDependentMethods),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var probe = new LocalMethodProbe();
 
@@ -883,7 +883,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_AotStrictLocalEvaluationRejectsCapturedMemberReflection),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var threshold = 10010;
         var query = databaseScope.Database.Query().Employees
@@ -906,7 +906,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_AotStrictLocalEvaluationRejectsCompatibilityMethodReflection),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Employees
             .Where(x => x.emp_no == ThrowIfInvokedEmployeeNumber());
@@ -928,7 +928,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_AotStrictRejectsCapturedQueryableRootBeforeMemberReflection),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var provider = new ExpressionQueryPlanProvider(databaseScope.Database.Provider.Metadata);
         var employees = provider.CreateRoot<Employee>();
@@ -957,7 +957,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_AotStrictRejectsNestedCapturedQueryableRootBeforeMemberReflection),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var provider = new ExpressionQueryPlanProvider(databaseScope.Database.Provider.Metadata);
         var holder = new CapturedQueryRootHolder(provider.CreateRoot<Employee>());
@@ -986,7 +986,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_AotStrictRejectsUnsupportedPropertyRootWithoutInvokingGetter),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var probe = new CapturedQueryRootPropertyProbe();
         Expression<Func<bool>> query = () => probe.Root.Any(employee => employee.emp_no > 0);
@@ -1009,7 +1009,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_AotStrictPreservesDirectDatabaseAndTransactionRoots),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
         using var transaction = databaseScope.Database.Transaction();
 
         Expression<Func<bool>> databaseQuery = () =>
@@ -1038,7 +1038,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_NormalizesAotSafeProjectionRecipeWithoutInvocationValues),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         IQueryable<object[]> CreateQuery(int offset, int start, int length)
             => databaseScope.Database.Query().Employees.Select(employee => new object[]
@@ -1086,7 +1086,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_ConstructorRecipeIsExplicitlySqlOnlyCompatibility),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Employees
             .Select(employee => new ProjectionDto(employee.first_name.Trim()));
@@ -1107,7 +1107,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_RejectsUnsupportedProjectionOperatorsAndOverloadsEarly),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var userDefinedOperator = databaseScope.Database.Query().Employees
             .Select(employee =>
@@ -1147,7 +1147,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_CapturesLocalStringOverloadAsOneScalarBinding),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var local = "AAliceA";
         var query = databaseScope.Database.Query().Employees
@@ -1172,7 +1172,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_CapturesProjectionScalarExactlyOnce),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var probe = new ProjectionCaptureProbe();
         var query = databaseScope.Database.Query().Employees
@@ -1194,7 +1194,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_RejectsCheckedNarrowingAndCoerciveProjectionConversions),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         object boxedShort = (short)1;
         var checkedTopLevel = databaseScope.Database.Query().Employees
@@ -1232,7 +1232,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_PreservesImplicitWideningProjectionConversion),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Employees
             .Select(employee => new object[] { (long)employee.emp_no!.Value });
@@ -1251,7 +1251,7 @@ public class ExpressionQueryPlanParserTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionParser_ScalarJoinRecipeHasNoClientExpressionPlaceholder),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees.Join(
             databaseScope.Database.Query().Departments,

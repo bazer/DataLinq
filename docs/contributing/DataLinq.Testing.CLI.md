@@ -177,6 +177,22 @@ Use `--no-build` after an explicit solution/project build, including in CI. The 
 
 The summary's `BuildProject` value records whether this invocation performed the once-per-project build. Each result's command arguments record the exact resolved host DLL used by `dotnet exec`.
 
+### Compliance fixture profiles and reuse
+
+Employees compliance fixtures must choose the smallest explicit `EmployeesFixtureProfile` that proves the behavior:
+
+- `SchemaOnly` creates the schema without stock rows. Use it for schema, custom-seed, and empty-database cases.
+- `TinySeeded` creates 32 deterministic employees. It is the default choice for isolated mutation, transaction, cache, and relationship behavior.
+- `FullSeeded` creates the 300-row corpus. Reserve it for tests whose expected result or query distribution depends on that corpus.
+
+There is intentionally no implicit profile. A new test that does not state its data requirement is underspecified.
+
+Server-backed isolated fixtures rent one of four databases per target and profile. A returned lease is reset before reuse: the harness fingerprints the schema, rebuilds it when a test changed database objects, otherwise deletes the tiny fixture rows in one foreign-key-controlled batch, restores the employee auto-increment sequence, and then reapplies only the selected seed profile. Lease failures identify both the owning test scenario and logical database; a failed reset poisons and replaces that lease instead of returning suspect state to another test. SQLite fixtures retain per-test lifetime because their cheap local setup does not benefit from the server lease pool.
+
+Shared server fixtures use connector pooling with connection reset enabled and a maximum pool size of eight, matching normal test-host concurrency without exhausting the server across multiple logical pools. Isolated and administrative connections remain unpooled. Do not enable pooling for isolated fixtures: it obscures ownership, delays cleanup, and was a major source of unnecessary server connections.
+
+Each compliance result directory can include `fixture-metrics.json`. Its versioned report records per-target/profile create, reuse, reset, failure, wait, seed, and cleanup measurements; serialized administrative-command and lock counts; global server connection counters; and a final server-status sample taken by the CLI after the test host has exited. `ServerThreadsConnectedAfterTestHostExit` should therefore return to the telemetry probe itself rather than retain test-host sockets. The CLI treats telemetry as diagnostic evidence: inability to sample it is reported without turning otherwise valid tests into failures.
+
 ### Summary JSON evidence contract
 
 The versioned summary records a collision-free run id, the named plan when present, the resolved invocation, runtime/OS identity, safe non-secret environment inputs, structured selected targets and resolved suites (including plan filters), expected-versus-observed suite/batch rows, build and test command arguments with UTC timestamps, totals and outcomes, report and raw-log artifact paths, and start/end checkout plus Testing CLI/DevTools runner attestations. Each result row includes accumulated infrastructure setup and test-host time plus TRX-derived test-body totals, nearest-rank p50/p95/p99/max durations, effective concurrency, configured TUnit parallelism when present, and the 20 slowest tests and classes. The aggregate `Timings` object reports accumulated build-process, infrastructure, test-host, test-body, and teardown seconds; these are deliberately labelled as accumulated work because parallel suite execution can overlap them.
@@ -228,6 +244,7 @@ artifacts/test-results/<run-id>/<suite>/<target-row>/
   raw.log
   report.html
   report.trx
+  fixture-metrics.json  # compliance rows that rent server fixtures
 ```
 
 Explicit build logs for that invocation are written under `artifacts/test-results/<run-id>/build/`. The summary's `RunId`, result paths, and aggregate `ArtifactPaths` connect each suite/target row to these files. GitHub Actions uploads this tree with `if: always()` so failed rows retain the reports the test host managed to produce.

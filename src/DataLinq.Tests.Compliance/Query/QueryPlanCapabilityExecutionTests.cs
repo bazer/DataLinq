@@ -19,7 +19,7 @@ public sealed class QueryPlanCapabilityExecutionTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(UnsupportedSqlCapability_FailsBeforeSequenceOrTerminalBackendWork),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = databaseScope.Database.Query().Employees;
 

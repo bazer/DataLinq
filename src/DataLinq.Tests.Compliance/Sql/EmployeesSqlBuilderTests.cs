@@ -400,7 +400,7 @@ WHERE
     }
 
     private static EmployeesTestDatabase OpenDatabase(TestProviderDescriptor provider, string scenarioName)
-        => EmployeesTestDatabase.OpenSharedSeeded(provider, scenarioName, EmployeesSeedMode.None);
+        => EmployeesTestDatabase.OpenSharedSeeded(provider, scenarioName, EmployeesFixtureProfile.SchemaOnly);
 
     private static (string parameterSign, string escapeCharacter, string databasePrefix) GetSqlConstants(Database<EmployeesDb> database)
     {

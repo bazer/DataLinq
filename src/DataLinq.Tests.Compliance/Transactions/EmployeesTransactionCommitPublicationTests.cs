@@ -28,7 +28,7 @@ public sealed class EmployeesTransactionCommitPublicationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Commit_WrapperCommittedStatusObservesPublishedStateAndReusableMutable),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var initialMutable = employees.NewEmployee(employeeNumber);
         initialMutable.first_name = originalFirstName;

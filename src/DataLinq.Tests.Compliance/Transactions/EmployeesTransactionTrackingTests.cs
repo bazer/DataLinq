@@ -27,7 +27,7 @@ public sealed class EmployeesTransactionTrackingTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(SuccessfulMutations_RecordOrderedChangesAndOnlyLifecycleMutableReferences),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var existing = database.Insert(employees.NewEmployee(updateEmployeeNumber));
         var deletable = database.Insert(employees.NewEmployee(deleteEmployeeNumber));
@@ -105,7 +105,7 @@ public sealed class EmployeesTransactionTrackingTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(EqualButDistinctMutables_AreBothTrackedByReferenceIdentity),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var employee = database.Insert(employees.NewEmployee(employeeNumber));
         var firstMutable = employee.Mutate();
@@ -153,7 +153,7 @@ public sealed class EmployeesTransactionTrackingTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(RepeatedSameMutable_RecordsMultipleChangesButOneTouchedReference),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var mutable = employees.NewEmployee(employeeNumber);
 
@@ -205,7 +205,7 @@ public sealed class EmployeesTransactionTrackingTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(CleanNoChangeUpdate_RecordsNeitherChangeNorTouchedMutable),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var employee = database.Insert(employees.NewEmployee(employeeNumber));
         var mutable = employee.Mutate();

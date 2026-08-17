@@ -25,7 +25,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_UpdateCommit_InvalidatesReadOnlyRowCache),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = employees.GetOrCreateEmployee(999970, employeesDatabase);
@@ -68,7 +68,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_DeleteCommit_RemovesReadOnlyRowCacheEntry),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = employees.GetOrCreateEmployee(999971, employeesDatabase);
@@ -97,7 +97,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_NonPrimaryKeyMaterialization_UsesProviderKeyCacheThroughUpdateAndDelete),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = employees.GetOrCreateEmployee(999975, employeesDatabase);
@@ -148,7 +148,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_UpdateBeforeCommit_UsesTransactionLocalRowCache),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = employees.GetOrCreateEmployee(999974, employeesDatabase);
@@ -201,7 +201,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_Rollback_DoesNotInvalidateReadOnlyRowCacheForUncommittedMutation),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = employees.GetOrCreateEmployee(999972, employeesDatabase);
@@ -246,7 +246,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_Rollback_DiscardsTransactionRelationIndexView),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
 
         var employeesDatabase = databaseScope.Database;
         const int employeeNumber = 999968;
@@ -302,7 +302,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_OpenTransactionDispose_RemovesTransactionRowsAndPreservesReadOnlyRowCache),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = employees.GetOrCreateEmployee(999969, employeesDatabase);
@@ -466,7 +466,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_StateChangeInvalidation_RecordsMaintenanceTelemetry),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         try
         {

@@ -14,7 +14,7 @@ public class EmployeesImplicitRelationJoinTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ImplicitSingularRelationPredicateAndOrdering_MatchesInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -53,7 +53,7 @@ public class EmployeesImplicitRelationJoinTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ImplicitSingularRelationPredicateAndOrdering_WorksFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
@@ -86,7 +86,7 @@ public class EmployeesImplicitRelationJoinTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ImplicitSingularRelationScalarProjection_MatchesInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees

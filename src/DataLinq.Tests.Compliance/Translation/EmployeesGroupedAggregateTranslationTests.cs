@@ -14,7 +14,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedCountProjection_OverDirectKey_MatchesInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -51,7 +51,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedCountProjection_WorksFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
@@ -88,7 +88,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedNumericAggregates_OverDirectNumericSelector_MatchInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -143,7 +143,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedNumericAggregates_OverNullableValueSelector_MatchInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().Employees
@@ -195,7 +195,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedNumericAggregates_WorkFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
@@ -249,7 +249,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedHaving_OverAggregatePredicates_MatchesInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var minimumCount = 0;
@@ -293,7 +293,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedProjectionWhereOrderingAndPaging_MatchesInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var minimumCount = 0;
@@ -340,7 +340,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedProjectionCountAndAny_MatchInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var minimumCount = 0;
@@ -387,7 +387,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedProjectionComposition_WorksFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
@@ -434,7 +434,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedCompositeAndComputedKeys_MatchInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -483,7 +483,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedEnumNullableAndStringFunctionKeys_MatchInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().Employees
@@ -536,7 +536,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedConstructorProjection_OverCompositeKey_MatchesInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -579,7 +579,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedExplicitJoinKeys_MatchInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -634,7 +634,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedComputedKeyOverExplicitJoinQualifiesAmbiguousColumn),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -698,7 +698,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedImplicitRelationKey_WorksFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
@@ -735,7 +735,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedCountProjection_RendersGroupBySql),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
             .Where(x => x.dept_no.StartsWith("d00"))
@@ -761,7 +761,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedNumericAggregates_RenderAggregateSql),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
             .GroupBy(x => x.dept_no)
@@ -793,7 +793,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedComposition_RendersHavingOrderingPagingAndDerivedCountSql),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var minimumCount = 0;
         var query = databaseScope.Database.Query().DepartmentEmployees
@@ -845,7 +845,7 @@ public class EmployeesGroupedAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupedAdvancedKeys_RenderSqlShape),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var compositeQuery = databaseScope.Database.Query().DepartmentEmployees
             .GroupBy(row => new

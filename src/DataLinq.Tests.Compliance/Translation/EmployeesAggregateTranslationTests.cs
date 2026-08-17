@@ -14,7 +14,7 @@ public class EmployeesAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ScalarAggregates_OverDirectNumericMembers_MatchInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var managers = employeesDatabase.Query().Managers.ToList();
@@ -32,7 +32,7 @@ public class EmployeesAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ScalarAggregates_OverFilteredNumericMembers_MatchInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var managers = employeesDatabase.Query().Managers.ToList();
@@ -53,7 +53,7 @@ public class EmployeesAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ScalarResultFamily_WorksFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
@@ -84,7 +84,7 @@ public class EmployeesAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ScalarAggregates_OverNullableNumericMembers_MatchInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employees = employeesDatabase.Query().Employees.ToList();
@@ -106,7 +106,7 @@ public class EmployeesAggregateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ScalarAggregates_EmptyFilteredSequences_FollowDocumentedNullAndSumBehavior),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
 

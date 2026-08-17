@@ -20,7 +20,7 @@ public class EmployeesCacheTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_DoesNotAccumulateDuplicateDeptEmployeeRowsAcrossRepeatedQueries),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var setup = PrepareScenario(employeesDatabase);
@@ -46,7 +46,7 @@ public class EmployeesCacheTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_RemoveRowsInsertedBeforeTick_EvictsRowsInLoadOrder),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var setup = PrepareScenario(employeesDatabase);
@@ -109,7 +109,7 @@ public class EmployeesCacheTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_RemoveRowsByRowLimit_KeepsConfiguredRowCount),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var setup = PrepareScenario(employeesDatabase);
@@ -139,7 +139,7 @@ public class EmployeesCacheTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_RemoveRowsByByteLimit_CapsDatabaseEstimatedCacheBytes),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var setup = PrepareScenario(employeesDatabase);
@@ -171,7 +171,7 @@ public class EmployeesCacheTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_RemoveRowsBySettings_OnlyAppliesTableSpecificLimitsToThatTable),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         employeesDatabase.Provider.State.ClearCache();

@@ -6,9 +6,12 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Runtime.ExceptionServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using DataLinq.DevTools;
+using MySqlConnector;
 using Spectre.Console;
 
 namespace DataLinq.Testing.CLI;
@@ -659,6 +662,8 @@ internal static class RunCommand
         var environmentVariables = new Dictionary<string, string?>(
             settings.ToolPaths.CreateEnvironment(profile),
             StringComparer.OrdinalIgnoreCase);
+        environmentVariables[DataLinq.Testing.PodmanTestEnvironmentSettings.FixtureTelemetryReportPathEnvironmentVariable] =
+            artifacts.FixtureTelemetryReportPath;
 
         if (selection is not null)
         {
@@ -696,6 +701,7 @@ internal static class RunCommand
             artifacts.LogPath,
             environmentVariables,
             selection);
+        CompleteFixtureTelemetryReport(artifacts.FixtureTelemetryReportPath, settings, selection);
         var configuredMaximumParallelTests = ResolveConfiguredMaximumParallelTests(environmentVariables);
         return result with
         {
@@ -705,6 +711,73 @@ internal static class RunCommand
                 result.ProcessResult.Duration.TotalSeconds,
                 configuredMaximumParallelTests)
         };
+    }
+
+    private static void CompleteFixtureTelemetryReport(
+        string reportPath,
+        TestInfraCliSettings settings,
+        CliTargetSelection? selection)
+    {
+        if (selection is null || selection.ServerTargets.Count == 0 || !File.Exists(reportPath))
+            return;
+
+        try
+        {
+            var report = JsonNode.Parse(File.ReadAllText(reportPath))?.AsObject();
+            if (report is null)
+                return;
+
+            var environment = DataLinq.Testing.PodmanTestEnvironmentSettings.FromEnvironment(settings.RepositoryRoot);
+            var samples = new JsonArray();
+            foreach (var target in selection.ServerTargets)
+            {
+                var (connections, threadsConnected) = ReadServerStatusAfterTestHostExit(environment, target);
+                samples.Add(new JsonObject
+                {
+                    ["Target"] = target.Id,
+                    ["ServerConnectionsAfterTestHostExit"] = connections,
+                    ["ServerThreadsConnectedAfterTestHostExit"] = threadsConnected
+                });
+            }
+
+            report["SchemaVersion"] = "v0.9.fixture-telemetry.v2";
+            report["PostProcessServerStatus"] = samples;
+            File.WriteAllText(
+                reportPath,
+                report.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(
+                $"Could not append post-process server status to fixture telemetry report '{reportPath}': {exception.Message}");
+        }
+    }
+
+    private static (long? Connections, long? ThreadsConnected) ReadServerStatusAfterTestHostExit(
+        DataLinq.Testing.PodmanTestEnvironmentSettings environment,
+        DataLinq.Testing.DatabaseServerTarget target)
+    {
+        using var connection = new MySqlConnection(environment.CreateAdminConnectionString(target));
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            "SHOW GLOBAL STATUS WHERE Variable_name IN ('Connections', 'Threads_connected');";
+        using var reader = command.ExecuteReader();
+        long? connections = null;
+        long? threadsConnected = null;
+        while (reader.Read())
+        {
+            var name = reader.GetString(0);
+            if (!long.TryParse(reader.GetString(1), out var value))
+                continue;
+
+            if (string.Equals(name, "Connections", StringComparison.OrdinalIgnoreCase))
+                connections = value;
+            else if (string.Equals(name, "Threads_connected", StringComparison.OrdinalIgnoreCase))
+                threadsConnected = value;
+        }
+
+        return (connections, threadsConnected);
     }
 
     private static LoggedCommandResult ExecuteDotnet(
@@ -1050,7 +1123,8 @@ internal static class RunCommand
             directory,
             Path.Combine(directory, "raw.log"),
             Path.Combine(directory, "report.html"),
-            Path.Combine(directory, "report.trx"));
+            Path.Combine(directory, "report.trx"),
+            Path.Combine(directory, "fixture-metrics.json"));
     }
 
     private static string SanitizeArtifactSegment(string value)
@@ -1566,11 +1640,15 @@ internal static class RunCommand
             result.Failed,
             result.Skipped,
             new[]
-            {
-                result.LogPath,
-                result.TestArtifacts.HtmlReportPath,
-                result.TestArtifacts.TrxReportPath
-            },
+                {
+                    result.LogPath,
+                    result.TestArtifacts.HtmlReportPath,
+                    result.TestArtifacts.TrxReportPath
+                }
+                .Concat(File.Exists(result.TestArtifacts.FixtureTelemetryReportPath)
+                    ? [result.TestArtifacts.FixtureTelemetryReportPath]
+                    : Array.Empty<string>())
+                .ToArray(),
             result.LogPath,
             result.TestArtifacts.HtmlReportPath,
             result.TestArtifacts.TrxReportPath,
@@ -1690,6 +1768,7 @@ internal static class RunCommand
         string Directory,
         string LogPath,
         string HtmlReportPath,
-        string TrxReportPath);
+        string TrxReportPath,
+        string FixtureTelemetryReportPath);
 
 }

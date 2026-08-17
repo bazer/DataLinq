@@ -15,7 +15,7 @@ public class SeededEmployeesQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(SeededDepartments_HaveExpectedCountAndLookupBehavior),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
 
@@ -36,7 +36,7 @@ public class SeededEmployeesQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(SeededEmployees_CanQueryViewsAndPrimaryKeyLookups),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
 
@@ -57,7 +57,7 @@ public class SeededEmployeesQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(SeededDepartments_LazyLoadManagers),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var department = Department.Get("d005", employeesDatabase);

@@ -11,26 +11,29 @@ internal static class SharedEmployeesDatabaseCatalog
 
     public static SharedEmployeesDatabaseStore GetOrCreate(
         TestProviderDescriptor provider,
-        EmployeesSeedMode seedMode,
+        EmployeesFixtureProfile profile,
         PodmanTestEnvironmentSettings settings)
     {
-        var key = $"{provider.Name}:{seedMode}";
+        var key = $"{provider.Name}:{profile}";
         return Stores.GetOrAdd(
             key,
             _ => new Lazy<SharedEmployeesDatabaseStore>(
-                () => CreateStore(provider, seedMode, settings),
+                () => CreateStore(provider, profile, settings),
                 isThreadSafe: true)).Value;
     }
 
     private static SharedEmployeesDatabaseStore CreateStore(
         TestProviderDescriptor provider,
-        EmployeesSeedMode seedMode,
+        EmployeesFixtureProfile profile,
         PodmanTestEnvironmentSettings settings)
     {
         ProviderRegistration.EnsureRegistered();
 
-        var logicalDatabaseName = $"shared_employees_{seedMode}_{provider.Name}_v1";
-        var connection = settings.CreateConnection(provider, logicalDatabaseName);
+        var logicalDatabaseName = $"shared_employees_{profile}_{provider.Name}_v1";
+        var connection = settings.CreateConnection(
+            provider,
+            logicalDatabaseName,
+            enableServerPooling: provider.ServerTarget is not null);
         SqliteConnection? keepAliveConnection = null;
 
         if (provider.Kind == TestProviderKind.SQLiteInMemory)
@@ -44,7 +47,7 @@ internal static class SharedEmployeesDatabaseCatalog
 
         using var database = TestDatabaseLifecycle.CreateDatabase<EmployeesDb>(connection);
         EmployeesTestDatabase.EnsureSchema(database, connection);
-        EmployeesTestDatabase.EnsureSeedData(database, seedMode);
+        EmployeesTestDatabase.EnsureSeedData(database, profile);
 
         return new SharedEmployeesDatabaseStore(connection, keepAliveConnection);
     }

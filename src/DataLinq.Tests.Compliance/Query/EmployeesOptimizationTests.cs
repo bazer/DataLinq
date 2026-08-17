@@ -17,7 +17,7 @@ public class EmployeesOptimizationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_TryGetSimplePrimaryKey_SingleKey_ReturnsDataLinqKey),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var key = databaseScope.Database
             .From("employees")
@@ -36,7 +36,7 @@ public class EmployeesOptimizationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_TryGetSimplePrimaryKey_CompositePrimaryKey_ReturnsDataLinqKey),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var key = databaseScope.Database
             .From("dept-emp")
@@ -57,7 +57,7 @@ public class EmployeesOptimizationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_TryGetSimplePrimaryKey_NonPrimaryKeyPredicate_ReturnsNull),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var key = databaseScope.Database
             .From("employees")
@@ -74,7 +74,7 @@ public class EmployeesOptimizationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_TryGetSimplePrimaryKey_PrimaryKeyAndOtherPredicate_ReturnsNull),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var key = databaseScope.Database
             .From("employees")
@@ -92,7 +92,7 @@ public class EmployeesOptimizationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_TryGetSimplePrimaryKey_PartialCompositePrimaryKey_ReturnsNull),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var key = databaseScope.Database
             .From("dept-emp")
@@ -109,7 +109,7 @@ public class EmployeesOptimizationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_TryGetSimplePrimaryKey_OrCondition_ReturnsNull),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var key = databaseScope.Database
             .From("employees")
@@ -127,7 +127,7 @@ public class EmployeesOptimizationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_TryGetSimplePrimaryKey_NegatedPredicate_ReturnsNull),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var key = databaseScope.Database
             .From("employees")
@@ -144,7 +144,7 @@ public class EmployeesOptimizationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_TryGetSimplePrimaryKey_WorksWithEvaluatedVariable),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeeId = 9999;
         Expression<System.Func<Employee, bool>> expression = employee => employee.emp_no == employeeId;
@@ -170,7 +170,7 @@ public class EmployeesOptimizationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_RelationTraversal_ColdCacheMiss_LoadsAndStoresRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var database = databaseScope.Database;
         var employeeNumber = database.Query().DepartmentEmployees
@@ -210,7 +210,7 @@ public class EmployeesOptimizationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(RelationIndex_IntegralColdLoadPopulatesWarmKeyPath),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var database = databaseScope.Database;
         var employeeNumber = database.Query().salaries
@@ -283,7 +283,7 @@ public class EmployeesOptimizationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_PrimaryKeySingle_ColdCacheMiss_LoadsAndStoresRow),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var database = databaseScope.Database;
         var employeeNumber = database.Query().Employees
@@ -315,7 +315,7 @@ public class EmployeesOptimizationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_PrimaryKeySingleOrDefault_MissingRowPreservesTelemetryWithoutMaterialization),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var database = databaseScope.Database;
         const int missingEmployeeNumber = int.MaxValue;
@@ -344,7 +344,7 @@ public class EmployeesOptimizationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_PrimaryKeySingle_WarmCacheHit_PreservesQueryTelemetryWithoutCommand),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var database = databaseScope.Database;
         var employeeNumber = database.Query().Employees

@@ -15,7 +15,7 @@ public class EmployeesMutationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_MutateOnMissingModel_ThrowsArgumentNullException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
 
@@ -35,7 +35,7 @@ public class EmployeesMutationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_MutateOrNewOnMissingModel_ReturnsNewMutableEmployee),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employee = databaseScope.Database.Query().Employees
             .Where(x => x.emp_no == 423692592)
@@ -59,7 +59,7 @@ public class EmployeesMutationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_ResetWithoutModel_RevertsToOriginalState),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employee = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).First();
         var mutable = new MutableEmployee(employee);
@@ -79,7 +79,7 @@ public class EmployeesMutationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_ResetWithModel_RevertsToProvidedModel),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employee = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).First();
         var mutable = new MutableEmployee(employee)
@@ -100,7 +100,7 @@ public class EmployeesMutationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_SaveResetsChangeTrackingAndPersistsValues),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = employeesDatabase.Query().Employees.OrderBy(x => x.emp_no).First();
@@ -126,7 +126,7 @@ public class EmployeesMutationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_ChangingPropertyMarksMutableAsChanged),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employee = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).First();
         var mutable = employee.Mutate();

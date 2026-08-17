@@ -16,7 +16,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_GroupedAndOr_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -40,7 +40,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_SimpleAndGroupedOr_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -64,7 +64,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NegatedGroupedAnd_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -88,7 +88,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NegatedGroupedOrWithinSuperset_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -116,7 +116,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_SimpleAndNegatedGroupedOr_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -140,7 +140,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NegatedGroupedAndOrGroupedAnd_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -166,7 +166,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NegatedEmptyContainsInsideGroup_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -190,7 +190,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_SimpleAndNegatedEmptyContainsOrSimple_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -214,7 +214,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_GroupedOrWithNegatedEmptyAny_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -238,7 +238,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NestedEmptyContainsAndOr_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -265,7 +265,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NestedEmptyAnyOrAnd_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -291,7 +291,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NegatedNestedEmptyContainsGroup_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -318,7 +318,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_EmptyContainsDoesNotVisitUnsupportedItemExpression),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -343,7 +343,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_EmptyAnyDoesNotVisitUnsupportedPredicateExpression),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -368,7 +368,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NegatedSimpleOrSimpleWithinSuperset_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -396,7 +396,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_SimpleOrNegatedSimple_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);
@@ -420,7 +420,7 @@ public class EmployeesBooleanLogicTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NegatedGroupedOrWithInnerNegation_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employees = GetOrderedEmployees(databaseScope.Database);
         var scenario = GetScenario(employees);

@@ -17,7 +17,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(QuerySyntaxInnerJoin_ComposesAndProjectsSqlRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = (from departmentEmployee in employeesDatabase.Query().DepartmentEmployees.ToList()
@@ -64,7 +64,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(QuerySyntaxInnerJoin_WorksFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
@@ -107,7 +107,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(QuerySyntaxInnerJoin_CountAndAnyMatchInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expectedCount = (from departmentEmployee in employeesDatabase.Query().DepartmentEmployees.ToList()
@@ -143,7 +143,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(QuerySyntaxInnerJoin_PostPagingWhereMatchesInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = (from departmentEmployee in employeesDatabase.Query().DepartmentEmployees.ToList()
@@ -190,7 +190,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExplicitInnerJoin_DirectMemberKeysProjectsBothSides_MatchesInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -244,7 +244,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExplicitInnerJoin_NullableValueKeyProjectsBothSides_MatchesInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -301,7 +301,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExplicitInnerJoin_CompositePrimaryKeysThrowQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().DepartmentEmployees
@@ -322,7 +322,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExplicitInnerJoin_ComposedWhereOrderingAndPaging_MatchesInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -387,7 +387,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExplicitInnerJoin_CountAndAnyOverJoinedProjection_MatchInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expectedRows = employeesDatabase.Query().DepartmentEmployees
@@ -428,7 +428,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExplicitInnerJoin_ComposedJoinedProjectionWorksFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
@@ -485,7 +485,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExplicitInnerJoin_PostPagingWhereAndOrderingMatchInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees.ToList()
@@ -536,7 +536,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExplicitInnerJoin_RowLocalFunctionProjection_MatchesInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -579,7 +579,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExplicitInnerJoin_ScalarRecipeExecutesWithoutPlaceholderOrOriginalExpression),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -619,7 +619,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExplicitInnerJoin_PostPagingCountAndAnyMatchInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expectedRows = employeesDatabase.Query().DepartmentEmployees.ToList()
@@ -664,7 +664,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExplicitInnerJoin_PostPagingWorksFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
@@ -717,7 +717,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExplicitInnerJoin_PostPagingRowLocalProjectionThrowsQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().DepartmentEmployees
@@ -747,7 +747,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExplicitInnerJoin_RelationProjectionThrowsQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().DepartmentEmployees
@@ -772,7 +772,7 @@ public class EmployeesJoinTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(GroupJoin_ThrowsQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().Departments

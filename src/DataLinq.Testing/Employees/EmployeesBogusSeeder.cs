@@ -9,6 +9,7 @@ namespace DataLinq.Testing;
 internal static class EmployeesBogusSeeder
 {
     private const int DeterministicSeed = 59345922;
+    internal const int TinyEmployeeCount = 32;
     internal const int DefaultEmployeeCount = 300;
 
     public static void Seed(Database<EmployeesDb> database)

@@ -21,7 +21,7 @@ public sealed class EmployeesLocalProjectionTransactionTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(RetainedLocalProjections_ReadUncommittedValuesFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         var link = database.Query().DepartmentEmployees

@@ -16,7 +16,7 @@ public class EmployeesNullableBooleanTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableBool_EqualsTrue),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employeeNumbers = SetupNullableBoolTestData(employeesDatabase);
@@ -46,7 +46,7 @@ public class EmployeesNullableBooleanTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableBool_NotEqualsTrue),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employeeNumbers = SetupNullableBoolTestData(employeesDatabase);
@@ -77,7 +77,7 @@ public class EmployeesNullableBooleanTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableBool_EqualsFalse),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employeeNumbers = SetupNullableBoolTestData(employeesDatabase);
@@ -107,7 +107,7 @@ public class EmployeesNullableBooleanTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableBool_NotEqualsFalse),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employeeNumbers = SetupNullableBoolTestData(employeesDatabase);
@@ -138,7 +138,7 @@ public class EmployeesNullableBooleanTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableBool_EqualsNull),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employeeNumbers = SetupNullableBoolTestData(employeesDatabase);

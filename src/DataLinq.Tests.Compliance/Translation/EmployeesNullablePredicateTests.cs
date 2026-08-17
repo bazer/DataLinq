@@ -22,7 +22,7 @@ public class EmployeesNullablePredicateTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableHasValuePredicates_MatchInMemoryFiltering),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var rows = SetupNullablePredicateRows(employeesDatabase);
@@ -62,7 +62,7 @@ public class EmployeesNullablePredicateTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableValueComparisons_MatchGuardedInMemoryFiltering),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var rows = SetupNullablePredicateRows(employeesDatabase);
@@ -100,7 +100,7 @@ public class EmployeesNullablePredicateTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableMixedEqualityPredicates_MatchCSharpNullSemantics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var rows = SetupNullablePredicateRows(employeesDatabase);
@@ -144,7 +144,7 @@ public class EmployeesNullablePredicateTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableLocalMembershipPredicates_MatchCSharpNullSemantics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         _ = SetupNullablePredicateRows(employeesDatabase);

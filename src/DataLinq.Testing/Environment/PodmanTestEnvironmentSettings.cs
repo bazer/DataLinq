@@ -36,9 +36,11 @@ public sealed record PodmanTestEnvironmentSettings(
     public const string TargetIdsEnvironmentVariable = "DATALINQ_TEST_TARGETS";
     public const string PodmanExecutablePathEnvironmentVariable = "DATALINQ_TEST_PODMAN_PATH";
     public const string PodmanSocketPathEnvironmentVariable = "DATALINQ_TEST_PODMAN_SOCKET";
+    public const string FixtureTelemetryReportPathEnvironmentVariable = "DATALINQ_TEST_FIXTURE_REPORT";
 
     private const string LegacyContainerPrefixEnvironmentVariable = "DATALINQ_TEST_PODMAN_POD";
     private const uint AdminMaximumPoolSize = 1;
+    internal const uint SharedFixtureMaximumPoolSize = 8;
 
     public static string ResolveContainerPrefix(string fallback) =>
         GetEnvironmentVariable(fallback, ContainerPrefixEnvironmentVariable, LegacyContainerPrefixEnvironmentVariable);
@@ -122,7 +124,10 @@ public sealed record PodmanTestEnvironmentSettings(
         return builder.ConnectionString;
     }
 
-    public TestConnectionDefinition CreateConnection(TestProviderDescriptor provider, string logicalDatabaseName)
+    public TestConnectionDefinition CreateConnection(
+        TestProviderDescriptor provider,
+        string logicalDatabaseName,
+        bool enableServerPooling = false)
     {
         var normalizedName = NormalizeName(logicalDatabaseName);
 
@@ -130,7 +135,8 @@ public sealed record PodmanTestEnvironmentSettings(
         {
             TestProviderKind.SQLiteFile => CreateSqliteFileConnection(normalizedName),
             TestProviderKind.SQLiteInMemory => CreateSqliteInMemoryConnection(normalizedName),
-            TestProviderKind.Server when provider.ServerTarget is not null => CreateServerConnection(provider.ServerTarget, normalizedName),
+            TestProviderKind.Server when provider.ServerTarget is not null =>
+                CreateServerConnection(provider.ServerTarget, normalizedName, enableServerPooling),
             _ => throw new InvalidOperationException($"Unsupported provider kind '{provider.Kind}'.")
         };
     }
@@ -147,7 +153,10 @@ public sealed record PodmanTestEnvironmentSettings(
             .ToArray();
     }
 
-    private TestConnectionDefinition CreateServerConnection(DatabaseServerTarget target, string logicalDatabaseName)
+    private TestConnectionDefinition CreateServerConnection(
+        DatabaseServerTarget target,
+        string logicalDatabaseName,
+        bool enablePooling)
     {
         EnsureTargetIsAvailable(target);
 
@@ -158,7 +167,10 @@ public sealed record PodmanTestEnvironmentSettings(
             Database = logicalDatabaseName,
             UserID = ApplicationUser,
             Password = ApplicationPassword,
-            Pooling = false,
+            Pooling = enablePooling,
+            ConnectionReset = true,
+            MaximumPoolSize = SharedFixtureMaximumPoolSize,
+            ConnectionIdleTimeout = 30,
             CharacterSet = "utf8mb4",
             SslMode = MySqlSslMode.None,
             AllowPublicKeyRetrieval = true

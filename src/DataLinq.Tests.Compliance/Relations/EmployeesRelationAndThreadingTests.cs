@@ -22,7 +22,7 @@ public class EmployeesRelationAndThreadingTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Relations_ManagerDepartmentLazyLoad_ResolvesSingleValue),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var manager = employeesDatabase.Query().Managers
@@ -41,7 +41,7 @@ public class EmployeesRelationAndThreadingTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Relations_DepartmentManagersLazyLoad_ResolvesCollection),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var department = employeesDatabase.Query().Departments
@@ -60,7 +60,7 @@ public class EmployeesRelationAndThreadingTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Relations_EmployeesWithoutManagerLinks_ExposeEmptyCollections),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = employeesDatabase.Query().Employees
@@ -77,7 +77,7 @@ public class EmployeesRelationAndThreadingTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Threading_ParallelRelationTraversal_KeepsGraphsConsistent),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var amount = GetParallelIterationCount(provider);
@@ -119,7 +119,7 @@ public class EmployeesRelationAndThreadingTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Threading_ParallelReads_ReturnExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var iterations = GetParallelIterationCount(provider);
@@ -146,7 +146,7 @@ public class EmployeesRelationAndThreadingTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Threading_ParallelTransactionCommits_PersistIndependentUpdates),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employeeNumbers = Enumerable.Range(999980, GetParallelTransactionCount(provider)).ToArray();
@@ -185,7 +185,7 @@ public class EmployeesRelationAndThreadingTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Threading_ParallelManagerLazyLoads_ResolveDepartments),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var departments = employeesDatabase.Query().Managers
@@ -214,7 +214,7 @@ public class EmployeesRelationAndThreadingTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Threading_ParallelDepartmentLazyLoads_ResolveManagerCollections),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var iterations = GetParallelIterationCount(provider);
@@ -245,7 +245,7 @@ public class EmployeesRelationAndThreadingTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Threading_ParallelSnapshots_AdvanceCacheTimestamps),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         Parallel.For(0, GetParallelIterationCount(provider), _ =>

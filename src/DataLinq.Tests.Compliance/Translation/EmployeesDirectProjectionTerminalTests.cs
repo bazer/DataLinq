@@ -18,7 +18,7 @@ public sealed class EmployeesDirectProjectionTerminalTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(DirectProjectionSequencesAndTerminals_MatchFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
@@ -77,7 +77,7 @@ public sealed class EmployeesDirectProjectionTerminalTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ScalarMemberTerminals_PreserveSuccessEmptyAndMultipleRowSemantics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var seedEmployees = employeesDatabase.Query().Employees
@@ -130,7 +130,7 @@ public sealed class EmployeesDirectProjectionTerminalTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(RootSqlRowTerminals_PreserveSuccessEmptyAndMultipleRowSemantics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var seedEmployees = employeesDatabase.Query().Employees

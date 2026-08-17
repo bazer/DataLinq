@@ -20,7 +20,7 @@ public sealed class ProviderEquivalentPrimaryKeyLookupTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(StaticGet_ProviderEquivalentStringKeyReturnsStoredCanonicalRow),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();

@@ -28,10 +28,12 @@ public sealed class EmployeesMutationGuardTests
 
         using var sourceScope = EmployeesTestDatabase.CreateIsolated(
             provider,
-            nameof(CrossProviderGuards_RejectUpdateSaveAndImmutableDeleteBeforeTargetStateChanges));
+            nameof(CrossProviderGuards_RejectUpdateSaveAndImmutableDeleteBeforeTargetStateChanges),
+            EmployeesFixtureProfile.SchemaOnly);
         using var targetScope = EmployeesTestDatabase.CreateIsolated(
             provider,
-            nameof(CrossProviderGuards_RejectUpdateSaveAndImmutableDeleteBeforeTargetStateChanges));
+            nameof(CrossProviderGuards_RejectUpdateSaveAndImmutableDeleteBeforeTargetStateChanges),
+            EmployeesFixtureProfile.SchemaOnly);
 
         var sourceDatabase = sourceScope.Database;
         var targetDatabase = targetScope.Database;
@@ -107,7 +109,8 @@ public sealed class EmployeesMutationGuardTests
 
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
-            nameof(CrossTransactionGuards_RejectDirtyCleanAndImplicitReuseButAllowOwningTransaction));
+            nameof(CrossTransactionGuards_RejectDirtyCleanAndImplicitReuseButAllowOwningTransaction),
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var employee = database.Insert(employees.NewEmployee(employeeNumber));
         var mutable = employee.Mutate();
@@ -185,7 +188,8 @@ public sealed class EmployeesMutationGuardTests
 
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
-            nameof(PrimaryKeyGuards_RejectKeyOnlyAndKeyPlusValueWithoutChangingEitherRow));
+            nameof(PrimaryKeyGuards_RejectKeyOnlyAndKeyPlusValueWithoutChangingEitherRow),
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var firstNew = employees.NewEmployee(firstEmployeeNumber);
         firstNew.first_name = firstName;
@@ -239,7 +243,8 @@ public sealed class EmployeesMutationGuardTests
 
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
-            nameof(ReadOnlyGuards_RejectAllMutationRoutesAndLeaveTheTransactionReadable));
+            nameof(ReadOnlyGuards_RejectAllMutationRoutesAndLeaveTheTransactionReadable),
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var existingNew = employees.NewEmployee(existingEmployeeNumber);
         existingNew.first_name = "Read baseline";

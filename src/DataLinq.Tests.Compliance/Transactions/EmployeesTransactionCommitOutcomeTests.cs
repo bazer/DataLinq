@@ -50,7 +50,7 @@ public sealed class EmployeesTransactionCommitOutcomeTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             testName,
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var seed = employees.NewEmployee(employeeNumber);
         seed.first_name = committedFirstName;

@@ -26,7 +26,7 @@ public class QueryPlanSnapshotTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(BasicQueryShapeSnapshot_RedactsValuesAndPreservesOperatorOrder),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var threshold = 10010;
         var query = databaseScope.Database.Query().Employees
@@ -73,7 +73,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(LocalSequenceSnapshots_AreIdenticalForDifferentValuesWithSameShape),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var firstIds = new[] { 10, 20, 30 };
         var secondIds = new[] { 101, 202, 303 };
@@ -98,7 +98,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(CapturedBindings_AreFrozenAndIsolatedAcrossParsedPlans),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         int? employeeNumber = 10001;
         var localEmployeeNumbers = new[] { 10001, 10002 };
@@ -133,7 +133,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(RelationAnySnapshot_RecordsCorrelatedExistenceShape),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var managerNumber = 110022;
         var query = databaseScope.Database.Query().Departments
@@ -168,7 +168,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(AggregateSnapshot_RecordsResultAndFunctionShape),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var snapshot = Snapshot(databaseScope.Database, () => databaseScope.Database.Query().Managers
             .Where(x => x.dept_fk.StartsWith("d00"))
@@ -199,7 +199,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(GroupedAggregateSnapshot_RecordsGroupKeyAndAggregateMembers),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
             .Where(x => x.dept_no.StartsWith("d00"))
@@ -238,7 +238,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(GroupedNumericAggregateSnapshot_RecordsSelectorMembers),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
             .GroupBy(x => x.dept_no)
@@ -278,7 +278,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(GroupedHavingSnapshot_RecordsAggregatePredicates),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var minimumCount = 0;
         var minimumSum = 0;
@@ -321,7 +321,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(GroupedProjectionCompositionSnapshot_RecordsHavingOrderingAndPaging),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var minimumCount = 0;
         var query = databaseScope.Database.Query().DepartmentEmployees
@@ -371,7 +371,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(GroupedCompositeAndComputedKeySnapshot_RecordsNamedKeyMembers),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
             .GroupBy(row => new
@@ -412,7 +412,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(GroupedJoinedKeySnapshot_RecordsJoinedSourceSlotKey),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
             .Join(
@@ -460,7 +460,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(NegatedFunctionPredicateSnapshot_RecordsEffectiveComparisonPolarity),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var snapshot = Snapshot(
             databaseScope.Database,
@@ -476,7 +476,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExplicitJoinSnapshot_RecordsBothSourcesAndJoinKeys),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
             .Join(
@@ -517,7 +517,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ComposedExplicitJoinSnapshot_RecordsProjectedPredicateAndOrdering),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
             .Join(
@@ -563,7 +563,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(QuerySyntaxJoinSnapshot_RecordsSourceSlotJoinAndSqlRowProjection),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query =
             from departmentEmployee in databaseScope.Database.Query().DepartmentEmployees
@@ -607,7 +607,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ImplicitRelationJoinSnapshot_RecordsImplicitJoinAndReusesSource),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
             .Where(row => row.departments.Name.StartsWith("S") && row.departments.DeptNo == "d007")
@@ -645,7 +645,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(PostPagingCompositionSnapshot_RecordsPushdownBoundary),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var take = 10;
         var prefix = "A";
@@ -689,7 +689,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(JoinedPostPagingCompositionSnapshot_RecordsPushdownBoundary),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var take = 30;
         var prefix = "Needle";
@@ -745,7 +745,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ResultShapeSnapshots_RecordScalarAndSingleResultShapes),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var countSnapshot = Snapshot(databaseScope.Database, () => databaseScope.Database.Query().Employees.Count());
         var anySnapshot = Snapshot(databaseScope.Database, () => databaseScope.Database.Query().Employees.Any());
@@ -773,7 +773,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(LocalAnyAndRelationCountSnapshots_RecordMembershipAndExistenceShapes),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var localIds = new[] { new LocalEmployeeId(10001), new LocalEmployeeId(10002) };
         var localAnySnapshot = Snapshot(
@@ -804,7 +804,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ComputedProjectionSnapshot_RecordsRowLocalProjectionShape),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var snapshot = Snapshot(
             databaseScope.Database,
@@ -820,7 +820,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(AnonymousProjectionSnapshot_RecordsFunctionsAndReferencedSource),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Employees.Select(employee => new
         {
@@ -854,7 +854,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(JoinedRowLocalProjectionSnapshot_RecordsBothSourcesAndFunctionMembers),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees.Join(
             databaseScope.Database.Query().Departments,
@@ -893,7 +893,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ImplicitRelationProjectionSnapshot_RecordsSqlRowAndJoinSource),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
             .Select(row => new
@@ -929,7 +929,7 @@ specialization:
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(NullableInequalitySnapshots_RecordLiteralNullCapturedNullAndCapturedNonNullSemantics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         TimeOnly? nullLogin = null;
         TimeOnly? login = new TimeOnly(9, 15, 0);

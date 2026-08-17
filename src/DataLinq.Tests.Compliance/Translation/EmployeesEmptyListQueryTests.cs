@@ -15,7 +15,7 @@ public class EmployeesEmptyListQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_ContainsReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees
@@ -32,7 +32,7 @@ public class EmployeesEmptyListQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_ContainsAndTrueConditionReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees
@@ -49,7 +49,7 @@ public class EmployeesEmptyListQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_ContainsOrTrueConditionReturnsMatchingRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -76,7 +76,7 @@ public class EmployeesEmptyListQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_NegatedContainsReturnsAllSalaries),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -96,7 +96,7 @@ public class EmployeesEmptyListQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_ContainsOrNonEmptyContainsReturnsMatchingNonEmptyRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -124,7 +124,7 @@ public class EmployeesEmptyListQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_ContainsAndNonEmptyContainsReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -145,7 +145,7 @@ public class EmployeesEmptyListQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_AnyReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees
@@ -162,7 +162,7 @@ public class EmployeesEmptyListQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_AnyAndTrueConditionReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees
@@ -179,7 +179,7 @@ public class EmployeesEmptyListQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_AnyOrTrueConditionReturnsMatchingRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -206,7 +206,7 @@ public class EmployeesEmptyListQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_NegatedAnyKeepsKnownEmployees),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -232,7 +232,7 @@ public class EmployeesEmptyListQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_AnyOrNonEmptyAnyReturnsMatchingNonEmptyRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -261,7 +261,7 @@ public class EmployeesEmptyListQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_AnyAndNonEmptyAnyReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -282,7 +282,7 @@ public class EmployeesEmptyListQueryTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_AnyWithComplexPredicateReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees

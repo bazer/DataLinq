@@ -17,7 +17,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_ToUpperMatchesDepartment),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var (_, department) = SetupStringTestData(databaseScope.Database);
         var expected = databaseScope.Database.Query().Departments
@@ -43,7 +43,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_ToLowerMatchesDepartment),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var (_, department) = SetupStringTestData(databaseScope.Database);
         var expected = databaseScope.Database.Query().Departments
@@ -69,7 +69,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_TrimMatchesInsertedEmployee),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var (employee, _) = SetupStringTestData(databaseScope.Database);
         var expected = databaseScope.Database.Query().Employees
@@ -89,7 +89,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_SubstringMatchesInsertedEmployee),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         SetupStringTestData(databaseScope.Database);
         var expected = databaseScope.Database.Query().Employees
@@ -115,7 +115,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_IsNullOrEmptyFalseFiltersEmptyString),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         SetupStringTestData(databaseScope.Database);
         var expected = databaseScope.Database.Query().Employees
@@ -141,7 +141,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_IsNullOrEmptyTrueReturnsOnlyEmptyString),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         SetupStringTestData(databaseScope.Database);
         var expected = databaseScope.Database.Query().Employees
@@ -168,7 +168,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_IsNullOrWhiteSpaceFalseFiltersWhitespaceRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         SetupStringTestData(databaseScope.Database);
         var expected = databaseScope.Database.Query().Employees
@@ -195,7 +195,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_IsNullOrWhiteSpaceTrueReturnsEmptyAndWhitespaceRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         SetupStringTestData(databaseScope.Database);
         var expected = databaseScope.Database.Query().Employees
@@ -223,7 +223,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_LengthMatchesInsertedEmployee),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         SetupStringTestData(databaseScope.Database);
         var expected = databaseScope.Database.Query().Employees
@@ -250,7 +250,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_TrimLengthMatchesInsertedEmployee),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         SetupStringTestData(databaseScope.Database);
         var expected = databaseScope.Database.Query().Employees
@@ -277,7 +277,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_LikePredicatesTreatCapturedMetacharactersLiterally),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         SetupStringTestData(databaseScope.Database);
         var startsWithValue = "%_!Start";
@@ -346,7 +346,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_CharLikePredicatesTreatMetacharactersLiterally),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         SetupStringTestData(databaseScope.Database);
         var startsWithValue = '%';
@@ -401,7 +401,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(String_LikePredicatesEscapeParametersAndRenderEscapeClause),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var startsWithValue = "%_!Start";
         var containsValue = "Mid%_!Val";
@@ -427,7 +427,7 @@ public class EmployeesStringMemberTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(String_LikePredicatesRejectCapturedNullSearchValues),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         string? searchValue = null;
         var query = databaseScope.Database.Query().Employees

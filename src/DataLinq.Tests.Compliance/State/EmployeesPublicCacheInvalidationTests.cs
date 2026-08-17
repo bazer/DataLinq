@@ -21,7 +21,7 @@ public class EmployeesPublicCacheInvalidationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_Clear_RemovesRowsFromAllLoadedTableCaches),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -48,7 +48,7 @@ public class EmployeesPublicCacheInvalidationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_ClearTable_RemovesOnlySelectedTableRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -76,7 +76,7 @@ public class EmployeesPublicCacheInvalidationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateScalarProviderKey_RemovesOneCachedRow),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -107,7 +107,7 @@ public class EmployeesPublicCacheInvalidationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateEvent_Row_RemovesCachedRow),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -138,7 +138,7 @@ public class EmployeesPublicCacheInvalidationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateEvent_Table_ClearsSelectedTable),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -165,7 +165,7 @@ public class EmployeesPublicCacheInvalidationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_ConcurrentExternalInvalidationDuringReads_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -229,7 +229,7 @@ public class EmployeesPublicCacheInvalidationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateUnknownProviderKey_IsNoOp),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -250,7 +250,7 @@ public class EmployeesPublicCacheInvalidationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateMany_RemovesEachCachedRow),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -279,7 +279,7 @@ public class EmployeesPublicCacheInvalidationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateCompositeProviderKeyComponents_RemovesCachedRow),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -306,7 +306,7 @@ public class EmployeesPublicCacheInvalidationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateTableDefinition_UsesDynamicProviderKeyComponents),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -331,7 +331,7 @@ public class EmployeesPublicCacheInvalidationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateDynamicComponents_RejectsMismatchedArityAndTypes),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
 
@@ -349,7 +349,7 @@ public class EmployeesPublicCacheInvalidationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateEvent_RejectsMissingAndMalformedFields),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
 

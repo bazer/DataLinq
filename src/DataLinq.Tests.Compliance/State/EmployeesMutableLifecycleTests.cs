@@ -22,10 +22,10 @@ public sealed class EmployeesMutableLifecycleTests
     {
         using var firstScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(OriginCapture_PreservesExactProviderAndUnresolvedTransactionTokenAfterReadSourceNormalization));
+            nameof(OriginCapture_PreservesExactProviderAndUnresolvedTransactionTokenAfterReadSourceNormalization), EmployeesFixtureProfile.TinySeeded);
         using var secondScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(OriginCapture_PreservesExactProviderAndUnresolvedTransactionTokenAfterReadSourceNormalization));
+            nameof(OriginCapture_PreservesExactProviderAndUnresolvedTransactionTokenAfterReadSourceNormalization), EmployeesFixtureProfile.TinySeeded);
 
         var committedEmployee = firstScope.Database.Query().Employees.OrderBy(x => x.emp_no).First();
         var committedMutable = committedEmployee.Mutate();
@@ -79,7 +79,8 @@ public sealed class EmployeesMutableLifecycleTests
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
-            nameof(TransactionHydration_BindsInsertUpdateAndDeleteToExactTokenThenNormalizesAfterCommit));
+            nameof(TransactionHydration_BindsInsertUpdateAndDeleteToExactTokenThenNormalizesAfterCommit),
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var existing = database.Insert(employees.NewEmployee(990001));
         var deletable = database.Insert(employees.NewEmployee(990002));
@@ -166,7 +167,7 @@ public sealed class EmployeesMutableLifecycleTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(OwnedRollback_DiscardsTransactionScopedSubscriber),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
         var database = databaseScope.Database;
         var original = database.Insert(employees.NewEmployee(990017));
         var later = database.Insert(employees.NewEmployee(990018));
@@ -204,7 +205,7 @@ public sealed class EmployeesMutableLifecycleTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(AttachedExternallyCommittedThenWrapperRollback_ReportsOutcomeUnknown),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
         var database = databaseScope.Database;
         using IDbConnection connection = database.Provider.GetDbConnection();
         connection.Open();
@@ -268,10 +269,10 @@ public sealed class EmployeesMutableLifecycleTests
     {
         using var firstScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(Reset_PreservesTransactionProvenanceAndRejectsAReplacementOwner));
+            nameof(Reset_PreservesTransactionProvenanceAndRejectsAReplacementOwner), EmployeesFixtureProfile.TinySeeded);
         using var secondScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(Reset_PreservesTransactionProvenanceAndRejectsAReplacementOwner));
+            nameof(Reset_PreservesTransactionProvenanceAndRejectsAReplacementOwner), EmployeesFixtureProfile.TinySeeded);
 
         var committedFirst = firstScope.Database.Query().Employees.OrderBy(x => x.emp_no).First();
         var committedSecondProvider = secondScope.Database.Query().Employees
@@ -315,7 +316,7 @@ public sealed class EmployeesMutableLifecycleTests
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(InvalidLifecycle_PublicResetCannotClearReasonChangesOrPersistedIdentity));
+            nameof(InvalidLifecycle_PublicResetCannotClearReasonChangesOrPersistedIdentity), EmployeesFixtureProfile.TinySeeded);
         var employee = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).First();
         var invalid = employee.Mutate();
         var equalPeer = employee.Mutate();
@@ -370,7 +371,7 @@ public sealed class EmployeesMutableLifecycleTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             testName,
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
         var database = databaseScope.Database;
         var updateId = idBase;
         var deleteId = idBase + 1;

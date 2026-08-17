@@ -16,7 +16,7 @@ public class EmployeesInstanceEqualityTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Immutable_EqualsSameCachedInstance(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Immutable_EqualsSameCachedInstance));
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Immutable_EqualsSameCachedInstance), EmployeesFixtureProfile.TinySeeded);
         var employeeNumber = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).Select(x => x.emp_no!.Value).First();
 
         var employeeA = GetCachedEmployee(databaseScope.Database, employeeNumber);
@@ -31,7 +31,7 @@ public class EmployeesInstanceEqualityTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Immutable_EqualsDifferentInstancesWithSamePrimaryKey(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Immutable_EqualsDifferentInstancesWithSamePrimaryKey));
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Immutable_EqualsDifferentInstancesWithSamePrimaryKey), EmployeesFixtureProfile.TinySeeded);
         var employeeNumber = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).Select(x => x.emp_no!.Value).First();
 
         var employeeA = GetFreshEmployee(databaseScope.Database, employeeNumber);
@@ -47,7 +47,7 @@ public class EmployeesInstanceEqualityTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Immutable_EqualsDifferentRows_False(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Immutable_EqualsDifferentRows_False));
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Immutable_EqualsDifferentRows_False), EmployeesFixtureProfile.TinySeeded);
         var employeeNumbers = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).Select(x => x.emp_no!.Value).Take(2).ToList();
 
         var employeeA = GetFreshEmployee(databaseScope.Database, employeeNumbers[0]);
@@ -62,7 +62,7 @@ public class EmployeesInstanceEqualityTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutable_EqualsDifferentInstancesWithSamePrimaryKey(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Mutable_EqualsDifferentInstancesWithSamePrimaryKey));
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Mutable_EqualsDifferentInstancesWithSamePrimaryKey), EmployeesFixtureProfile.TinySeeded);
         var employeeNumber = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).Select(x => x.emp_no!.Value).First();
 
         var mutableA = GetFreshEmployee(databaseScope.Database, employeeNumber).Mutate();
@@ -77,7 +77,7 @@ public class EmployeesInstanceEqualityTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutable_EqualsAfterNonPrimaryKeyMutation_StillUsesPrimaryKeyIdentity(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Mutable_EqualsAfterNonPrimaryKeyMutation_StillUsesPrimaryKeyIdentity));
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Mutable_EqualsAfterNonPrimaryKeyMutation_StillUsesPrimaryKeyIdentity), EmployeesFixtureProfile.TinySeeded);
         var employeeNumber = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).Select(x => x.emp_no!.Value).First();
 
         var employee = GetFreshEmployee(databaseScope.Database, employeeNumber);
@@ -96,7 +96,7 @@ public class EmployeesInstanceEqualityTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Immutable_AndMutable_EqualsAcrossTypesByPrimaryKey(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Immutable_AndMutable_EqualsAcrossTypesByPrimaryKey));
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Immutable_AndMutable_EqualsAcrossTypesByPrimaryKey), EmployeesFixtureProfile.TinySeeded);
         var employeeNumber = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).Select(x => x.emp_no!.Value).First();
 
         var immutable = GetFreshEmployee(databaseScope.Database, employeeNumber);
@@ -111,7 +111,7 @@ public class EmployeesInstanceEqualityTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Collections_UsePrimaryKeyEqualityForPersistedInstances(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Collections_UsePrimaryKeyEqualityForPersistedInstances));
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Collections_UsePrimaryKeyEqualityForPersistedInstances), EmployeesFixtureProfile.TinySeeded);
         var employeeNumbers = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).Select(x => x.emp_no!.Value).Take(2).ToList();
 
         var employeeA1 = GetFreshEmployee(databaseScope.Database, employeeNumbers[0]);
@@ -139,7 +139,7 @@ public class EmployeesInstanceEqualityTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NewMutable_DoesNotEqualPersistedEmployee(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(NewMutable_DoesNotEqualPersistedEmployee));
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(NewMutable_DoesNotEqualPersistedEmployee), EmployeesFixtureProfile.TinySeeded);
         var employeeNumber = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).Select(x => x.emp_no!.Value).First();
 
         var existingEmployee = GetFreshEmployee(databaseScope.Database, employeeNumber);
@@ -157,7 +157,7 @@ public class EmployeesInstanceEqualityTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(SaveTransition_ChangesHashCodeAndThenUsesPersistedPrimaryKey),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
 
         var database = databaseScope.Database;
         var employee = _employees.NewEmployee();

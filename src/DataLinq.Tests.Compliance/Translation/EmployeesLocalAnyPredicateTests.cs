@@ -13,7 +13,7 @@ public class EmployeesLocalAnyPredicateTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(LocalScalarAnyPredicateTranslatesToMembership),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var selectedIds = employeesDatabase.Query().Employees
@@ -37,7 +37,7 @@ public class EmployeesLocalAnyPredicateTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(LocalScalarAnyPredicateRendersMembershipSql),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var selectedIds = databaseScope.Database.Query().Employees
             .OrderBy(x => x.emp_no)
@@ -60,7 +60,7 @@ public class EmployeesLocalAnyPredicateTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(LocalObjectMemberAnyPredicateTranslatesToMembership),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var selectedIds = employeesDatabase.Query().Employees
@@ -86,7 +86,7 @@ public class EmployeesLocalAnyPredicateTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(LocalObjectMemberAnyPredicateSupportsReversedEquality),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var selectedIds = employeesDatabase.Query().Employees
@@ -112,7 +112,7 @@ public class EmployeesLocalAnyPredicateTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(LocalObjectMemberAnyPredicateSupportsNullableWrappers),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var selectedIds = employeesDatabase.Query().Employees
@@ -138,7 +138,7 @@ public class EmployeesLocalAnyPredicateTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(NegatedLocalObjectMemberAnyPredicateTranslatesToNotIn),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var selectedIds = employeesDatabase.Query().Employees

@@ -15,7 +15,7 @@ public class EmployeesDateTimeMemberTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(DateOnly_YearMatchesExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var (testDate, _, _) = GetTestDateAndTime(databaseScope.Database);
         var expectedCount = databaseScope.Database.Query().DepartmentEmployees
@@ -35,7 +35,7 @@ public class EmployeesDateTimeMemberTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(DateOnly_MonthMatchesExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var (testDate, _, _) = GetTestDateAndTime(databaseScope.Database);
         var expectedCount = databaseScope.Database.Query().DepartmentEmployees
@@ -55,7 +55,7 @@ public class EmployeesDateTimeMemberTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(DateOnly_DayMatchesExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var (testDate, _, _) = GetTestDateAndTime(databaseScope.Database);
         var expectedCount = databaseScope.Database.Query().DepartmentEmployees
@@ -75,7 +75,7 @@ public class EmployeesDateTimeMemberTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(DateOnly_DayOfYearMatchesExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var (testDate, _, _) = GetTestDateAndTime(databaseScope.Database);
         var expectedCount = databaseScope.Database.Query().DepartmentEmployees
@@ -95,7 +95,7 @@ public class EmployeesDateTimeMemberTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(DateOnly_DayOfWeekMatchesExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var (testDate, _, _) = GetTestDateAndTime(databaseScope.Database);
         var expectedCount = databaseScope.Database.Query().DepartmentEmployees
@@ -115,7 +115,7 @@ public class EmployeesDateTimeMemberTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(TimeOnly_HourMatchesExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var (_, testTime, _) = GetTestDateAndTime(databaseScope.Database);
         var expectedCount = databaseScope.Database.Query().Employees
@@ -135,7 +135,7 @@ public class EmployeesDateTimeMemberTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(DateTime_MinuteMatchesExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var (_, _, testDateTime) = GetTestDateAndTime(databaseScope.Database);
         var expectedCount = databaseScope.Database.Query().Employees
@@ -155,7 +155,7 @@ public class EmployeesDateTimeMemberTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(DateTime_SecondMatchesExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var (_, _, testDateTime) = GetTestDateAndTime(databaseScope.Database);
         var expectedCount = databaseScope.Database.Query().Employees
@@ -175,7 +175,7 @@ public class EmployeesDateTimeMemberTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(DateTime_MillisecondMatchesExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var (_, _, testDateTime) = GetTestDateAndTime(databaseScope.Database);
         var expectedCount = databaseScope.Database.Query().Employees

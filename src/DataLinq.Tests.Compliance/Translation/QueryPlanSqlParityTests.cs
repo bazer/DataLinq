@@ -19,7 +19,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExpressionExecutionProvider_ExecutesEntityQueries),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var expressionProvider = ExpressionQueryPlanProvider.ForExecution(databaseScope.Database.Provider.ReadOnlyAccess);
         var employees = expressionProvider.CreateRoot<Employee>();
@@ -66,7 +66,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExpressionExecutionProvider_ExecutesScalarResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var expressionProvider = ExpressionQueryPlanProvider.ForExecution(databaseScope.Database.Provider.ReadOnlyAccess);
         var employees = expressionProvider.CreateRoot<Employee>();
@@ -95,7 +95,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExpressionExecutionProvider_ExecutesBarePagingWithoutDroppingOperators),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var expressionProvider = ExpressionQueryPlanProvider.ForExecution(databaseScope.Database.Provider.ReadOnlyAccess);
         var employees = expressionProvider.CreateRoot<Employee>();
@@ -114,7 +114,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExpressionExecutionProvider_PreservesNonPositivePagingSemantics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var expressionProvider = ExpressionQueryPlanProvider.ForExecution(databaseScope.Database.Provider.ReadOnlyAccess);
         var employees = expressionProvider.CreateRoot<Employee>()
@@ -170,7 +170,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExpressionPlanSql_RendersSupportedSequenceShapes),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var threshold = 10010;
         var ids = new[] { 10001, 10002, 10003 };
@@ -236,7 +236,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExpressionPlanSql_RendersScalarResultShapes),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var countSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
             databaseScope.Database,
@@ -266,7 +266,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionPlanSql_RendersPostPagingPushdownWithSeparateParameters),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var threshold = 10005;
         var excludedName = "Alice";
@@ -297,7 +297,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionPlanSql_NormalizesNonPositivePagingCounts),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var negativeCount = -3;
         var zeroCount = 0;
@@ -344,7 +344,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionPlanSql_RendersPagedCountAndAnyAsSqlScalarPushdown),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var countSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
             databaseScope.Database,
@@ -377,7 +377,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionPlanSql_RendersDirectPostPagingOrderByPushdown),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var takeOrderSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
             databaseScope.Database,
@@ -407,7 +407,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ExpressionPlanSql_RendersJoinedPostPagingPushdownWithDerivedAliases),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var prefix = "S";
         var query = databaseScope.Database.Query().DepartmentEmployees
@@ -447,7 +447,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(PlanSql_RendersParameterizedPredicatesOrderingAndPaging),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var threshold = 10010;
         var excludedName = "SensitiveName";
@@ -478,7 +478,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(PlanSql_RendersLocalSequenceMembershipWithParameterizedValues),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var ids = new[] { 10001, 10002, 10003 };
         var query = databaseScope.Database.Query().Employees
@@ -499,7 +499,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(PlanSql_FoldsEmptyLocalSequenceMembershipToFixedConditions),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var ids = Array.Empty<int>();
         var containsSql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
@@ -527,7 +527,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(PlanSql_RendersCapturedNullAndNullableMembershipWithCSharpSemantics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         TimeOnly? capturedNull = null;
         TimeOnly? capturedLogin = new TimeOnly(9, 15);
@@ -589,7 +589,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(PlanSql_RebindsSameNullableSequenceShapeWithFreshValuesAndNullPosition),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         TimeOnly?[] firstValues = [new TimeOnly(9, 15), null];
         TimeOnly?[] secondValues = [null, new TimeOnly(10, 30)];
@@ -627,7 +627,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(PlanSql_ResolvesRuntimeValuesOnlyFromValidatedInvocation),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var firstThreshold = 10010;
         var secondThreshold = 10020;
@@ -665,7 +665,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(PlanSql_ResolvesReboundLocalSequenceOnlyFromValidatedInvocation),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var firstIds = new[] { 10001, 10002 };
         var secondIds = new[] { 10003, 10004 };
@@ -705,7 +705,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(PlanSql_RendersNullIntrinsicWithoutInvocationParameter),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var sql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(
             databaseScope.Database,
@@ -722,7 +722,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(PlanSql_RendersStringAndDateTimeFunctions),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var prefix = "A";
         var query = databaseScope.Database.Query().Employees
@@ -743,7 +743,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(PlanSql_RendersRelationExistsPredicate),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var managerNumber = databaseScope.Database.Query().Managers
             .OrderBy(x => x.emp_no)
@@ -768,7 +768,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExpressionPlanSql_EntityExecutionMatchesProductionForSingleSourceQuery),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var expected = databaseScope.Database.Query().Employees
             .Where(x => x.emp_no > 10005 && x.last_login.HasValue)
@@ -796,7 +796,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExpressionPlanSql_RelationExistsExecutionMatchesProduction),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var managerNumber = databaseScope.Database.Query().Managers
             .OrderBy(x => x.emp_no)
@@ -826,7 +826,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(PlanSql_EntityExecutionMatchesProductionForSingleSourceQuery),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var expected = databaseScope.Database.Query().Employees
             .Where(x => x.emp_no > 10005 && x.last_login.HasValue)
@@ -854,7 +854,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(PlanSql_RelationExistsExecutionMatchesProduction),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var managerNumber = databaseScope.Database.Query().Managers
             .OrderBy(x => x.emp_no)
@@ -884,7 +884,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExpressionExecutionProvider_PostPagingFilterAndOrderingMatchInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().Employees
@@ -916,7 +916,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExpressionExecutionProvider_PostPagingCompositionWorksFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
@@ -949,7 +949,7 @@ public class QueryPlanSqlParityTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ExpressionExecutionProvider_PagedAggregateUsesPushedDownSource),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().Managers
