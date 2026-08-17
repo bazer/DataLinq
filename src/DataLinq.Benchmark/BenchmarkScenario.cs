@@ -29,6 +29,7 @@ internal enum BenchmarkScenario
     SqlAdapterScalarAny,
     CanonicalProviderRowDecoding,
     ProviderRowModelMaterialization,
+    ProviderRowDecodeMaterialization,
     MutationStateChangeCapture,
     MutationExecutionPreflight,
     MutationCommandPreparation,

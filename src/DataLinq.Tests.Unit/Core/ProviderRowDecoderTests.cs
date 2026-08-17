@@ -97,6 +97,21 @@ public sealed class ProviderRowDecoderTests
     }
 
     [Test]
+    public async Task DecodeFullRow_DetachesMutableValuesBeforeTransferringItsBuffer()
+    {
+        var table = CreateSimplePrimaryKeyTable(typeof(byte[]), "key");
+        var sourceBytes = new byte[] { 1, 2, 3 };
+        var reader = new RecordingReader([sourceBytes]);
+
+        var row = ProviderRowDecoder.DecodeFullRow(reader, table, "sql:test");
+        sourceBytes[0] = 9;
+
+        var borrowedBytes = (byte[])row.GetBorrowedValue(0)!;
+        await Assert.That(borrowedBytes).IsNotSameReferenceAs(sourceBytes);
+        await Assert.That(borrowedBytes[0]).IsEqualTo((byte)1);
+    }
+
+    [Test]
     public async Task DecodeFullRow_UsesColumnAwareReadForConvertedNonPrimaryGuid()
     {
         var converter = new RecordingGuidIdConverter();

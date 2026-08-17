@@ -23,15 +23,16 @@ internal static class ProviderRowDecoder
         for (var ordinal = 0; ordinal < table.ColumnCount; ordinal++)
         {
             var column = table.Columns[ordinal];
-            canonicalValues[ordinal] = DecodeCanonicalValueCore(
-                reader,
-                column,
-                ordinal,
-                sourceName,
-                useColumnAwareGuid: true);
+            canonicalValues[ordinal] = CanonicalProviderValueRow.CopyMutableValue(
+                DecodeCanonicalValueCore(
+                    reader,
+                    column,
+                    ordinal,
+                    sourceName,
+                    useColumnAwareGuid: true));
         }
 
-        return CanonicalProviderValueRow.Create(table, canonicalValues);
+        return CanonicalProviderValueRow.CreateOwned(table, canonicalValues);
     }
 
     internal static object? DecodeCanonicalValue(

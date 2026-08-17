@@ -32,8 +32,9 @@ public sealed class ProviderRowMaterializerTests
 
         payload[0] = 9;
         var rowData = ProviderRowMaterializer.Materialize(providerRow, "memory");
-        var borrowedProviderPayload = (byte[])providerRow[payloadColumn]!;
-        borrowedProviderPayload[0] = 8;
+        var ownedProviderPayload = (byte[])providerRow.GetBorrowedValue(payloadColumn.Index)!;
+        var detachedProviderPayload = (byte[])providerRow[payloadColumn]!;
+        detachedProviderPayload[0] = 8;
         var modelPayload = (byte[])rowData[payloadColumn]!;
         modelPayload[0] = 6;
 
@@ -41,12 +42,58 @@ public sealed class ProviderRowMaterializerTests
         await Assert.That(rowData[convertedColumn]).IsTypeOf<DerivedMaterializedReferenceId>();
         await Assert.That(((MaterializedReferenceId)rowData[convertedColumn]!).Value).IsEqualTo(42);
         await Assert.That(rowData[nullableColumn]).IsNull();
+        await Assert.That(modelPayload).IsNotSameReferenceAs(ownedProviderPayload);
+        await Assert.That(ownedProviderPayload[0]).IsEqualTo((byte)1);
         await Assert.That(((byte[])providerRow[payloadColumn]!)[0]).IsEqualTo((byte)1);
+        await Assert.That(rowData.Size).IsEqualTo(11);
         await Assert.That(converter.FromProviderCalls.Count).IsEqualTo(1);
         await Assert.That(converter.FromProviderCalls[0].Value).IsEqualTo(42);
         await Assert.That(converter.FromProviderCalls[0].Context.Column).IsSameReferenceAs(convertedColumn);
         await Assert.That(converter.ToProviderCalls).IsEqualTo(0);
         await Assert.That(convertedColumn.ScalarConverter).IsSameReferenceAs(nullableColumn.ScalarConverter);
+    }
+
+    [Test]
+    public async Task Materialize_PreservesIdentitySizeOverridesAndAdjustsKnownConvertedSizes()
+    {
+        var converter = new RecordingScalarConverter(
+            typeof(long),
+            typeof(int),
+            static (value, _) => (long)(int)value!);
+        var draft = CreateDatabaseDraft(
+            "sized_materializer_rows",
+            new MetadataValuePropertyDraft(
+                "IdentityValue",
+                new CsTypeDeclaration(typeof(int)),
+                new MetadataColumnDraft("identity_value") { PrimaryKey = true })
+            {
+                CsSize = 12
+            },
+            new MetadataValuePropertyDraft(
+                "ConvertedValue",
+                new CsTypeDeclaration(typeof(long)),
+                new MetadataColumnDraft("converted_value"))
+            {
+                ScalarConverter = CreateConverterDraft(converter)
+            },
+            new MetadataValuePropertyDraft(
+                "Name",
+                new CsTypeDeclaration(typeof(string)),
+                new MetadataColumnDraft("name")));
+        var table = new MetadataDefinitionFactory()
+            .Build(draft)
+            .ValueOrException()
+            .TableModels
+            .Single()
+            .Table;
+        var providerRow = CanonicalProviderValueRow.Create(
+            table,
+            new object?[] { 7, 42, "Ada" });
+
+        var rowData = ProviderRowMaterializer.Materialize(providerRow, "memory");
+
+        await Assert.That(rowData[table.GetColumnByDbName("converted_value")]).IsEqualTo(42L);
+        await Assert.That(rowData.Size).IsEqualTo(30);
     }
 
     [Test]
@@ -79,6 +126,7 @@ public sealed class ProviderRowMaterializerTests
             ProviderRowMaterializer.Materialize(requiredProviderRow, "memory"));
 
         await Assert.That(nullableRow[0]).IsNull();
+        await Assert.That(nullableRow.Size).IsEqualTo(0);
         await Assert.That(nullableConverter.FromProviderCalls.Count).IsEqualTo(1);
         await Assert.That(requiredConverter.FromProviderCalls.Count).IsEqualTo(1);
         await Assert.That(exception.InnerException).IsTypeOf<ArgumentException>();

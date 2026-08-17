@@ -24,14 +24,35 @@ internal static class ProviderRowMaterializer
         ValidateSourceName(sourceName);
 
         var modelValues = new object?[providerRow.Count];
+        var size = providerRow.EstimatedIdentityModelPayloadSize;
         for (var ordinal = 0; ordinal < providerRow.Count; ordinal++)
         {
             var column = providerRow.Table.Columns[ordinal];
-            var providerValue = providerRow[ordinal];
-            modelValues[ordinal] = MaterializeValueCore(column, providerValue, sourceName);
+            var providerValue = providerRow.GetBorrowedValue(ordinal);
+            var modelValue = MaterializeValueCore(column, providerValue, sourceName);
+
+            // The canonical row and model row are independent owners. Identity-mapped binary
+            // values therefore cross this boundary with one clone, while immutable scalars and
+            // converter-created wrappers transfer directly into the materializer-owned buffer.
+            var ownedModelValue = CanonicalProviderValueRow.CopyMutableValue(modelValue);
+            modelValues[ordinal] = ownedModelValue;
+
+            // Identity-mapped cells reuse the canonical row's aggregate estimate. Only a scalar
+            // conversion can change one cell's model-side size and therefore needs an adjustment.
+            if (column.HasScalarConverter)
+            {
+                var estimatedProviderValueSize = providerRow.GetEstimatedValueSize(ordinal);
+                size = checked(
+                    size - estimatedProviderValueSize +
+                    RowData.GetMaterializedValueSize(
+                        column,
+                        ownedModelValue,
+                        providerRow,
+                        ordinal));
+            }
         }
 
-        return RowData.CreateTrusted(providerRow, modelValues);
+        return RowData.CreateMaterializedOwned(providerRow, modelValues, size);
     }
 
     /// <summary>

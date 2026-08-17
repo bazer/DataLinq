@@ -338,6 +338,14 @@ public class EmployeesBenchmarks : IDisposable
     }
 
     [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Provider-row decode/materialization pipeline")]
+    public int ProviderRowDecodeMaterialization()
+    {
+        executedScenario = BenchmarkScenario.ProviderRowDecodeMaterialization;
+        return context!.DecodeAndMaterializeProviderRows();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Mutation state-change capture")]
     public int MutationStateChangeCapture()
     {

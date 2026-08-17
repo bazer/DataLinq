@@ -100,6 +100,26 @@ public readonly struct DataLinqKey : IEquatable<DataLinqKey>, IProviderKey
         return FromNormalizedValues(values);
     }
 
+    /// <summary>
+    /// Normalizes and takes exclusive ownership of a caller-created component buffer. The caller
+    /// must not retain or mutate the array after this call. Public factories remain defensive.
+    /// </summary>
+    internal static DataLinqKey FromOwnedValues(object?[] values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+
+        if (values.Length == 0)
+            return Null;
+
+        if (values.Length == 1)
+            return FromValue(values[0]);
+
+        for (var index = 0; index < values.Length; index++)
+            values[index] = NormalizeKeyValue(values[index]);
+
+        return FromNormalizedValues(values);
+    }
+
     public bool Equals(DataLinqKey other)
     {
         if (IsNull && other.IsNull)

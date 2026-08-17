@@ -77,7 +77,7 @@ public static class KeyFactory
                 useColumnAwareGuid: column.IsGuidColumn);
         }
 
-        return CreateKeyFromValues(values);
+        return DataLinqKey.FromOwnedValues(values);
     }
 
     public static DataLinqKey GetKey(IRowData row, IReadOnlyList<ColumnDefinition> columns)
@@ -88,11 +88,16 @@ public static class KeyFactory
                 columns[0],
                 "key.row");
 
-        var values = new object?[columns.Count];
-        for (var i = 0; i < values.Length; i++)
-            values[i] = row.GetValue(columns[i]);
+        var canonicalValues = new object?[columns.Count];
+        for (var index = 0; index < canonicalValues.Length; index++)
+        {
+            canonicalValues[index] = GetCanonicalModelKeyValue(
+                columns[index],
+                row.GetValue(columns[index]),
+                "key.row");
+        }
 
-        return CreateKeyFromModelValuesCore(values, columns, "key.row");
+        return DataLinqKey.FromOwnedValues(canonicalValues);
     }
 
     public static DataLinqKey GetKey(IModelInstance model, IReadOnlyList<ColumnDefinition> columns)
@@ -103,11 +108,16 @@ public static class KeyFactory
                 columns[0],
                 "key.model");
 
-        var values = new object?[columns.Count];
-        for (var i = 0; i < values.Length; i++)
-            values[i] = model[columns[i]];
+        var canonicalValues = new object?[columns.Count];
+        for (var index = 0; index < canonicalValues.Length; index++)
+        {
+            canonicalValues[index] = GetCanonicalModelKeyValue(
+                columns[index],
+                model[columns[index]],
+                "key.model");
+        }
 
-        return CreateKeyFromModelValuesCore(values, columns, "key.model");
+        return DataLinqKey.FromOwnedValues(canonicalValues);
     }
 
     private static DataLinqKey CreateKeyFromModelValueCore(
@@ -136,7 +146,7 @@ public static class KeyFactory
                 sourceName);
         }
 
-        return CreateKeyFromValues(canonicalValues);
+        return DataLinqKey.FromOwnedValues(canonicalValues);
     }
 
     private static object? GetCanonicalModelKeyValue(

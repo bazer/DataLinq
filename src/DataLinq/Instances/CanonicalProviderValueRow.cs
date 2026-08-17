@@ -10,23 +10,24 @@ namespace DataLinq.Instances;
 /// <remarks>
 /// This is deliberately separate from <see cref="IRowData"/>, whose values are public model values.
 /// SQL physical values must be decoded before entering this buffer, and scalar-converter model values
-/// must not enter it. The buffer owns a copy of the supplied slots and of mutable byte-array cells.
+/// must not enter it. Public construction copies supplied slots and mutable byte-array cells; trusted
+/// internal construction can explicitly transfer an already-detached buffer.
 /// </remarks>
 internal sealed class CanonicalProviderValueRow
 {
     private readonly object?[] values;
-    private readonly int[] estimatedValueSizes;
+    private readonly int identityModelSizeAdjustment;
 
     private CanonicalProviderValueRow(
         TableDefinition table,
         object?[] values,
-        int[] estimatedValueSizes,
-        int estimatedPayloadSize)
+        int estimatedPayloadSize,
+        int identityModelSizeAdjustment)
     {
         Table = table;
         this.values = values;
-        this.estimatedValueSizes = estimatedValueSizes;
         EstimatedPayloadSize = estimatedPayloadSize;
+        this.identityModelSizeAdjustment = identityModelSizeAdjustment;
     }
 
     public TableDefinition Table { get; }
@@ -37,6 +38,13 @@ internal sealed class CanonicalProviderValueRow
     /// converter-backed wrapper types whose model payload cannot be estimated directly.
     /// </summary>
     internal int EstimatedPayloadSize { get; }
+
+    /// <summary>
+    /// Reuses the canonical total for materialization while preserving explicit model-size overrides
+    /// on identity-mapped columns. Scalar-converted columns are adjusted after conversion.
+    /// </summary>
+    internal int EstimatedIdentityModelPayloadSize =>
+        checked(EstimatedPayloadSize + identityModelSizeAdjustment);
 
     public object? this[int columnOrdinal]
     {
@@ -61,19 +69,12 @@ internal sealed class CanonicalProviderValueRow
     internal static CanonicalProviderValueRow Create(TableDefinition table, ReadOnlySpan<object?> canonicalValues)
     {
         ArgumentNullException.ThrowIfNull(table);
-
         ValidateTableLayout(table);
+        ValidateValueCount(table, canonicalValues.Length, nameof(canonicalValues));
 
-        if (canonicalValues.Length != table.ColumnCount)
-        {
-            throw new ArgumentException(
-                $"Canonical provider row for table '{table.DbName}' requires exactly {table.ColumnCount} table-ordinal values, but received {canonicalValues.Length}. Missing cells must not be represented as null.",
-                nameof(canonicalValues));
-        }
-
-        var copiedValues = new object?[canonicalValues.Length];
-        var estimatedValueSizes = new int[canonicalValues.Length];
+        var ownedValues = new object?[canonicalValues.Length];
         var estimatedPayloadSize = 0;
+        var identityModelSizeAdjustment = 0;
 
         for (var ordinal = 0; ordinal < canonicalValues.Length; ordinal++)
         {
@@ -81,33 +82,138 @@ internal sealed class CanonicalProviderValueRow
             var value = canonicalValues[ordinal];
 
             ValidateValue(column, value, useProviderType: true, nameof(canonicalValues));
-
-            var copiedValue = CopyMutableValue(value);
-            copiedValues[ordinal] = copiedValue;
-            var estimatedValueSize = EstimateCanonicalValueSize(column, copiedValue);
-            estimatedValueSizes[ordinal] = estimatedValueSize;
-
-            try
-            {
-                estimatedPayloadSize = checked(estimatedPayloadSize + estimatedValueSize);
-            }
-            catch (OverflowException exception)
-            {
-                throw new InvalidOperationException(
-                    $"Canonical provider payload estimate overflowed while reading column '{table.DbName}.{column.DbName}'.",
-                    exception);
-            }
+            var ownedValue = CopyMutableValue(value);
+            ownedValues[ordinal] = ownedValue;
+            var estimatedValueSize = EstimateCanonicalValueSize(column, ownedValue);
+            estimatedPayloadSize = AddEstimatedValueSize(
+                table,
+                column,
+                estimatedValueSize,
+                estimatedPayloadSize);
+            identityModelSizeAdjustment = AddIdentityModelSizeAdjustment(
+                column,
+                ownedValue,
+                estimatedValueSize,
+                identityModelSizeAdjustment);
         }
 
-        return new CanonicalProviderValueRow(table, copiedValues, estimatedValueSizes, estimatedPayloadSize);
+        return new CanonicalProviderValueRow(
+            table,
+            ownedValues,
+            estimatedPayloadSize,
+            identityModelSizeAdjustment);
+    }
+
+    /// <summary>
+    /// Takes exclusive ownership of a complete canonical-provider buffer. The caller must not retain
+    /// or mutate the array or any mutable cells after this call. Validation completes before the row
+    /// is returned, so a failed transfer cannot expose partially initialized state.
+    /// </summary>
+    internal static CanonicalProviderValueRow CreateOwned(
+        TableDefinition table,
+        object?[] canonicalValues)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentNullException.ThrowIfNull(canonicalValues);
+        ValidateTableLayout(table);
+        ValidateValueCount(table, canonicalValues.Length, nameof(canonicalValues));
+
+        var estimatedPayloadSize = 0;
+        var identityModelSizeAdjustment = 0;
+
+        for (var ordinal = 0; ordinal < canonicalValues.Length; ordinal++)
+        {
+            var column = table.Columns[ordinal];
+            var value = canonicalValues[ordinal];
+
+            ValidateValue(column, value, useProviderType: true, nameof(canonicalValues));
+            var estimatedValueSize = EstimateCanonicalValueSize(column, value);
+            estimatedPayloadSize = AddEstimatedValueSize(
+                table,
+                column,
+                estimatedValueSize,
+                estimatedPayloadSize);
+            identityModelSizeAdjustment = AddIdentityModelSizeAdjustment(
+                column,
+                value,
+                estimatedValueSize,
+                identityModelSizeAdjustment);
+        }
+
+        return new CanonicalProviderValueRow(
+            table,
+            canonicalValues,
+            estimatedPayloadSize,
+            identityModelSizeAdjustment);
+    }
+
+    private static void ValidateValueCount(
+        TableDefinition table,
+        int valueCount,
+        string parameterName)
+    {
+        if (valueCount != table.ColumnCount)
+        {
+            throw new ArgumentException(
+                $"Canonical provider row for table '{table.DbName}' requires exactly {table.ColumnCount} table-ordinal values, but received {valueCount}. Missing cells must not be represented as null.",
+                parameterName);
+        }
+    }
+
+    private static int AddEstimatedValueSize(
+        TableDefinition table,
+        ColumnDefinition column,
+        int estimatedValueSize,
+        int estimatedPayloadSize)
+    {
+        try
+        {
+            return checked(estimatedPayloadSize + estimatedValueSize);
+        }
+        catch (OverflowException exception)
+        {
+            throw new InvalidOperationException(
+                $"Canonical provider payload estimate overflowed while reading column '{table.DbName}.{column.DbName}'.",
+                exception);
+        }
+    }
+
+    private static int AddIdentityModelSizeAdjustment(
+        ColumnDefinition column,
+        object? value,
+        int estimatedProviderValueSize,
+        int currentAdjustment)
+    {
+        if (value is null ||
+            column.HasScalarConverter ||
+            column.ValueProperty.CsSize is not { } explicitModelSize)
+        {
+            return currentAdjustment;
+        }
+
+        return checked(currentAdjustment + explicitModelSize - estimatedProviderValueSize);
     }
 
     internal int GetEstimatedValueSize(int columnOrdinal)
     {
-        if ((uint)columnOrdinal >= (uint)estimatedValueSizes.Length)
+        if ((uint)columnOrdinal >= (uint)values.Length)
             throw new ArgumentOutOfRangeException(nameof(columnOrdinal));
 
-        return estimatedValueSizes[columnOrdinal];
+        return EstimateCanonicalValueSize(
+            Table.Columns[columnOrdinal],
+            values[columnOrdinal]);
+    }
+
+    /// <summary>
+    /// Borrows one canonical cell for immediate trusted processing. The returned value must not be
+    /// retained or mutated; public indexers continue to return detached mutable values.
+    /// </summary>
+    internal object? GetBorrowedValue(int columnOrdinal)
+    {
+        if ((uint)columnOrdinal >= (uint)values.Length)
+            throw new ArgumentOutOfRangeException(nameof(columnOrdinal));
+
+        return values[columnOrdinal];
     }
 
     internal bool TryCreateCanonicalPrimaryKey(out DataLinqKey key)
@@ -119,11 +225,25 @@ internal sealed class CanonicalProviderValueRow
             return false;
         }
 
+        if (primaryKeyColumns.Count == 1)
+        {
+            var column = primaryKeyColumns[0];
+            var value = GetBorrowedValue(column.Index);
+            if (value is null)
+            {
+                throw new InvalidOperationException(
+                    $"Canonical provider row for table '{Table.DbName}' contains null primary-key component '{column.DbName}'.");
+            }
+
+            key = DataLinqKey.FromValue(value);
+            return true;
+        }
+
         var keyValues = new object?[primaryKeyColumns.Count];
         for (var index = 0; index < primaryKeyColumns.Count; index++)
         {
             var column = primaryKeyColumns[index];
-            keyValues[index] = this[column];
+            keyValues[index] = GetBorrowedValue(column.Index);
             if (keyValues[index] is null)
             {
                 throw new InvalidOperationException(
@@ -131,7 +251,7 @@ internal sealed class CanonicalProviderValueRow
             }
         }
 
-        key = DataLinqKey.FromValues(keyValues);
+        key = DataLinqKey.FromOwnedValues(keyValues);
         return true;
     }
 
