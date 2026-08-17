@@ -815,6 +815,37 @@ public sealed class TransactionMutationGuardTests
     }
 
     [Test]
+    public async Task MutationSnapshot_OccupancyBits_Cross64And128ColumnBoundaries()
+    {
+        const int columnCount = 130;
+        var occupancy = 0UL;
+        ulong[]? overflowOccupancy = null;
+
+        foreach (var ordinal in new[] { 63, 64, 65, 127, 128, 129 })
+        {
+            MutationSnapshot.SetBit(
+                ref occupancy,
+                ref overflowOccupancy,
+                ordinal,
+                columnCount);
+        }
+
+        await Assert.That(occupancy).IsEqualTo(1UL << 63);
+        await Assert.That(overflowOccupancy).IsNotNull();
+        await Assert.That(overflowOccupancy!.Length).IsEqualTo(2);
+        await Assert.That(overflowOccupancy[0])
+            .IsEqualTo((1UL << 0) | (1UL << 1) | (1UL << 63));
+        await Assert.That(overflowOccupancy[1])
+            .IsEqualTo((1UL << 0) | (1UL << 1));
+
+        foreach (var ordinal in new[] { 63, 64, 65, 127, 128, 129 })
+            await Assert.That(MutationSnapshot.IsBitSet(occupancy, overflowOccupancy, ordinal)).IsTrue();
+
+        foreach (var ordinal in new[] { 0, 62, 66, 126 })
+            await Assert.That(MutationSnapshot.IsBitSet(occupancy, overflowOccupancy, ordinal)).IsFalse();
+    }
+
+    [Test]
     [NotInParallel]
     public async Task InPlaceReferenceTypedIdDrift_RejectsAgainstCanonicalProviderBaseline()
     {
