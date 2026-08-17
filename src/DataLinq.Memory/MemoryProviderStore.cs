@@ -332,10 +332,17 @@ internal sealed class MemoryTableState
                         rowsParameterName);
                 }
 
-                var canonicalValues = valuesAreModelValues
-                    ? NormalizeModelValues(table, values)
-                    : values;
-                row = CanonicalProviderValueRow.Create(table, canonicalValues);
+                if (valuesAreModelValues)
+                {
+                    var canonicalValues = NormalizeModelValues(table, values);
+                    row = CanonicalProviderValueRow.CreateOwned(table, canonicalValues);
+                }
+                else
+                {
+                    // Canonical seed rows are caller-owned and must retain defensive-copy semantics.
+                    row = CanonicalProviderValueRow.Create(table, values);
+                }
+
                 if (!row.TryCreateCanonicalPrimaryKey(out primaryKey))
                 {
                     throw new InvalidOperationException(

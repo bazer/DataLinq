@@ -32,8 +32,9 @@ public sealed class ProviderRowMaterializerTests
 
         payload[0] = 9;
         var rowData = ProviderRowMaterializer.Materialize(providerRow, "memory");
-        var borrowedProviderPayload = (byte[])providerRow[payloadColumn]!;
-        borrowedProviderPayload[0] = 8;
+        var ownedProviderPayload = (byte[])providerRow.GetBorrowedValue(payloadColumn.Index)!;
+        var detachedProviderPayload = (byte[])providerRow[payloadColumn]!;
+        detachedProviderPayload[0] = 8;
         var modelPayload = (byte[])rowData[payloadColumn]!;
         modelPayload[0] = 6;
 
@@ -41,6 +42,8 @@ public sealed class ProviderRowMaterializerTests
         await Assert.That(rowData[convertedColumn]).IsTypeOf<DerivedMaterializedReferenceId>();
         await Assert.That(((MaterializedReferenceId)rowData[convertedColumn]!).Value).IsEqualTo(42);
         await Assert.That(rowData[nullableColumn]).IsNull();
+        await Assert.That(modelPayload).IsNotSameReferenceAs(ownedProviderPayload);
+        await Assert.That(ownedProviderPayload[0]).IsEqualTo((byte)1);
         await Assert.That(((byte[])providerRow[payloadColumn]!)[0]).IsEqualTo((byte)1);
         await Assert.That(converter.FromProviderCalls.Count).IsEqualTo(1);
         await Assert.That(converter.FromProviderCalls[0].Value).IsEqualTo(42);

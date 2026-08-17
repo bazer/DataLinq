@@ -144,6 +144,26 @@ public class RowDataTests
     }
 
     [Test]
+    public async Task CanonicalProviderValueRow_OwnedFactoryTransfersBufferButKeepsAccessDetached()
+    {
+        var table = CreateCanonicalProviderRowTestTable();
+        var payloadColumn = table.GetColumnByDbName("payload");
+        var payload = new byte[] { 1, 2, 3 };
+        object?[] ownedValues = [42, "Ada", 7, payload];
+
+        var row = CanonicalProviderValueRow.CreateOwned(table, ownedValues);
+        var borrowedPayload = (byte[])row.GetBorrowedValue(payloadColumn.Index)!;
+        var detachedPayload = (byte[])row[payloadColumn]!;
+
+        detachedPayload[0] = 9;
+
+        await Assert.That(borrowedPayload).IsSameReferenceAs(payload);
+        await Assert.That(detachedPayload).IsNotSameReferenceAs(payload);
+        await Assert.That(((byte[])row[payloadColumn]!)[0]).IsEqualTo((byte)1);
+        await Assert.That(row.EstimatedPayloadSize).IsEqualTo(21);
+    }
+
+    [Test]
     public async Task CanonicalProviderValueRow_RejectsMissingNullWireAndModelValues()
     {
         var table = CreateCanonicalProviderRowTestTable();

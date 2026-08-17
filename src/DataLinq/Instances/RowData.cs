@@ -98,10 +98,37 @@ public sealed class RowData : IRowData, IEquatable<RowData>
 
             CanonicalProviderValueRow.ValidateModelValue(column, value, nameof(modelValues));
             copiedValues[ordinal] = CanonicalProviderValueRow.CopyMutableValue(value);
-            size = checked(size + GetSize(column, value, providerRow.GetEstimatedValueSize(ordinal)));
+            size = checked(size + GetMaterializedValueSize(
+                column,
+                copiedValues[ordinal],
+                providerRow,
+                ordinal));
         }
 
         return new RowData(providerRow.Table, copiedValues, size);
+    }
+
+    /// <summary>
+    /// Takes exclusive ownership of a complete, validated model-value buffer produced by the row
+    /// materializer. The caller must not retain or mutate the array after this call.
+    /// </summary>
+    internal static RowData CreateMaterializedOwned(
+        CanonicalProviderValueRow providerRow,
+        object?[] modelValues,
+        int size)
+    {
+        ArgumentNullException.ThrowIfNull(providerRow);
+        ArgumentNullException.ThrowIfNull(modelValues);
+        ArgumentOutOfRangeException.ThrowIfNegative(size);
+
+        if (modelValues.Length != providerRow.Count)
+        {
+            throw new ArgumentException(
+                $"Model row for table '{providerRow.Table.DbName}' requires exactly {providerRow.Count} table-ordinal values, but received {modelValues.Length}.",
+                nameof(modelValues));
+        }
+
+        return new RowData(providerRow.Table, modelValues, size);
     }
 
     //protected Dictionary<ColumnDefinition, object?> Data { get; }
@@ -202,7 +229,23 @@ public sealed class RowData : IRowData, IEquatable<RowData>
         return null;
     }
 
-    private static int GetSize(ColumnDefinition column, object? value, int? canonicalProviderSizeFallback = null)
+    internal static int GetMaterializedValueSize(
+        ColumnDefinition column,
+        object? value,
+        CanonicalProviderValueRow providerRow,
+        int columnOrdinal)
+    {
+        ArgumentNullException.ThrowIfNull(providerRow);
+
+        return TryGetSize(column, value)
+            ?? providerRow.GetEstimatedValueSize(columnOrdinal);
+    }
+
+    private static int GetSize(ColumnDefinition column, object? value)
+        => TryGetSize(column, value)
+            ?? throw new NotImplementedException($"Size for type '{column.ValueProperty.CsType}' not implemented");
+
+    private static int? TryGetSize(ColumnDefinition column, object? value)
     {
         if (value == null)
             return 0;
@@ -223,13 +266,7 @@ public sealed class RowData : IRowData, IEquatable<RowData>
         if (column.ValueProperty.CsType.Type == typeof(byte[]) && value is byte[] b)
             return b.Length;
 
-        // Trusted materialization always has the canonical provider row available. Its payload is a
-        // stable cache-accounting proxy for model types without a direct estimate, including typed-ID
-        // wrappers and currently unlisted temporal structs, without a second conversion or object walk.
-        if (canonicalProviderSizeFallback.HasValue)
-            return canonicalProviderSizeFallback.Value;
-
-        throw new NotImplementedException($"Size for type '{column.ValueProperty.CsType}' not implemented");
+        return null;
     }
 
     public bool Equals(RowData? other)
