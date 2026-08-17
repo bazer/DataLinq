@@ -16,6 +16,7 @@ public sealed class EmployeesMutableLifecycleTests
     private readonly EmployeesTestData employees = new();
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task OriginCapture_PreservesExactProviderAndUnresolvedTransactionTokenAfterReadSourceNormalization(
         TestProviderDescriptor provider)
@@ -73,6 +74,7 @@ public sealed class EmployeesMutableLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TransactionHydration_BindsInsertUpdateAndDeleteToExactTokenThenNormalizesAfterCommit(
         TestProviderDescriptor provider)
@@ -140,6 +142,7 @@ public sealed class EmployeesMutableLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task OwnedRollback_InvalidatesInsertUpdateDeleteAndPreservesCommittedState(
         TestProviderDescriptor provider) =>
@@ -150,6 +153,7 @@ public sealed class EmployeesMutableLifecycleTests
             disposeOpenTransaction: false);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task OwnedOpenDispose_InvalidatesInsertUpdateDeleteAndPreservesCommittedState(
         TestProviderDescriptor provider) =>
@@ -160,6 +164,7 @@ public sealed class EmployeesMutableLifecycleTests
             disposeOpenTransaction: true);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task OwnedRollback_DiscardsTransactionScopedSubscriber(
         TestProviderDescriptor provider)
@@ -198,6 +203,7 @@ public sealed class EmployeesMutableLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task AttachedExternallyCommittedThenWrapperRollback_ReportsOutcomeUnknown(
         TestProviderDescriptor provider)
@@ -263,6 +269,7 @@ public sealed class EmployeesMutableLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Reset_PreservesTransactionProvenanceAndRejectsAReplacementOwner(
         TestProviderDescriptor provider)
@@ -310,6 +317,7 @@ public sealed class EmployeesMutableLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task InvalidLifecycle_PublicResetCannotClearReasonChangesOrPersistedIdentity(
         TestProviderDescriptor provider)

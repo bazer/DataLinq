@@ -9,6 +9,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesDateTimeMemberTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task DateOnly_YearMatchesExpectedRows(TestProviderDescriptor provider)
     {
@@ -29,6 +30,7 @@ public class EmployeesDateTimeMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task DateOnly_MonthMatchesExpectedRows(TestProviderDescriptor provider)
     {
@@ -49,6 +51,7 @@ public class EmployeesDateTimeMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task DateOnly_DayMatchesExpectedRows(TestProviderDescriptor provider)
     {
@@ -69,6 +72,7 @@ public class EmployeesDateTimeMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task DateOnly_DayOfYearMatchesExpectedRows(TestProviderDescriptor provider)
     {
@@ -89,6 +93,7 @@ public class EmployeesDateTimeMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task DateOnly_DayOfWeekMatchesExpectedRows(TestProviderDescriptor provider)
     {
@@ -109,6 +114,7 @@ public class EmployeesDateTimeMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TimeOnly_HourMatchesExpectedRows(TestProviderDescriptor provider)
     {
@@ -129,6 +135,7 @@ public class EmployeesDateTimeMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task DateTime_MinuteMatchesExpectedRows(TestProviderDescriptor provider)
     {
@@ -149,6 +156,7 @@ public class EmployeesDateTimeMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task DateTime_SecondMatchesExpectedRows(TestProviderDescriptor provider)
     {
@@ -169,6 +177,7 @@ public class EmployeesDateTimeMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task DateTime_MillisecondMatchesExpectedRows(TestProviderDescriptor provider)
     {

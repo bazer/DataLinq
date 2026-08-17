@@ -11,6 +11,7 @@ namespace DataLinq.Tests.Compliance;
 public sealed class EmployeesDirectProjectionTerminalTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task DirectProjectionSequencesAndTerminals_MatchFromTransactionRoot(
         TestProviderDescriptor provider)
@@ -70,6 +71,7 @@ public sealed class EmployeesDirectProjectionTerminalTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ScalarMemberTerminals_PreserveSuccessEmptyAndMultipleRowSemantics(
         TestProviderDescriptor provider)
@@ -123,6 +125,7 @@ public sealed class EmployeesDirectProjectionTerminalTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RootSqlRowTerminals_PreserveSuccessEmptyAndMultipleRowSemantics(
         TestProviderDescriptor provider)

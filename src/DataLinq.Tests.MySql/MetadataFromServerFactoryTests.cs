@@ -13,6 +13,7 @@ namespace DataLinq.Tests.MySql;
 public class MetadataFromServerFactoryTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_EmployeesSchema_BuildsExpectedTablesViewsAndColumns(TestProviderDescriptor provider)
     {
@@ -74,6 +75,7 @@ public class MetadataFromServerFactoryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_IncludeFilter_ReturnsOnlyRequestedObjects(TestProviderDescriptor provider)
     {
@@ -98,6 +100,7 @@ public class MetadataFromServerFactoryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_IncludeFilter_SuppressesWarningsForExcludedTables(TestProviderDescriptor provider)
     {
@@ -144,6 +147,7 @@ public class MetadataFromServerFactoryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseColumns_MapsExpectedTypesAndEnumMetadata(TestProviderDescriptor provider)
     {
@@ -189,6 +193,7 @@ public class MetadataFromServerFactoryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseRelationsAndIndices_CreatesExpectedForeignKeysRelationPropertiesAndUniqueIndex(TestProviderDescriptor provider)
     {
@@ -243,6 +248,7 @@ public class MetadataFromServerFactoryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.MySqlProviders))]
     public async Task ParseDatabase_PrimaryKeyAlsoForeignKey_RemainsRequiredForGenerator(TestProviderDescriptor provider)
     {
@@ -276,6 +282,7 @@ public class MetadataFromServerFactoryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.MySqlProviders))]
     public async Task ParseDatabase_RecursiveRelation_CreatesLinkedForeignKeyAndCandidateKeySides(TestProviderDescriptor provider)
     {

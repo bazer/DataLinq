@@ -8,6 +8,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesImplicitRelationJoinTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ImplicitSingularRelationPredicateAndOrdering_MatchesInMemory(TestProviderDescriptor provider)
     {
@@ -47,6 +48,7 @@ public class EmployeesImplicitRelationJoinTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ImplicitSingularRelationPredicateAndOrdering_WorksFromTransactionRoot(TestProviderDescriptor provider)
     {
@@ -80,6 +82,7 @@ public class EmployeesImplicitRelationJoinTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ImplicitSingularRelationScalarProjection_MatchesInMemory(TestProviderDescriptor provider)
     {

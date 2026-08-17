@@ -10,6 +10,7 @@ namespace DataLinq.Tests.Compliance;
 public sealed class EmployeesLocalProjectionTerminalTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ComputedRowLocalTerminals_PreserveSuccessEmptyAndMultipleRowSemantics(
         TestProviderDescriptor provider)
@@ -65,6 +66,7 @@ public sealed class EmployeesLocalProjectionTerminalTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ConstructorBackedAnonymousTerminals_PreserveSuccessEmptyAndMultipleRowSemantics(
         TestProviderDescriptor provider)
@@ -122,6 +124,7 @@ public sealed class EmployeesLocalProjectionTerminalTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ImplicitRelationJoinedRowLocalTerminals_PreserveCardinalitySemantics(
         TestProviderDescriptor provider)

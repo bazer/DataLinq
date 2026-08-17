@@ -10,6 +10,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesNullableBooleanTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableBool_EqualsTrue(TestProviderDescriptor provider)
     {
@@ -40,6 +41,7 @@ public class EmployeesNullableBooleanTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableBool_NotEqualsTrue(TestProviderDescriptor provider)
     {
@@ -71,6 +73,7 @@ public class EmployeesNullableBooleanTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableBool_EqualsFalse(TestProviderDescriptor provider)
     {
@@ -101,6 +104,7 @@ public class EmployeesNullableBooleanTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableBool_NotEqualsFalse(TestProviderDescriptor provider)
     {
@@ -132,6 +136,7 @@ public class EmployeesNullableBooleanTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableBool_EqualsNull(TestProviderDescriptor provider)
     {

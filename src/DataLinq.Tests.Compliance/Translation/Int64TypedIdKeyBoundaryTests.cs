@@ -22,6 +22,7 @@ public sealed class Int64TypedIdKeyBoundaryTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Int64TypedIdRelation_ColdLoadWarmsCanonicalIndexAcrossProviders(
         TestProviderDescriptor provider)
@@ -113,6 +114,7 @@ public sealed class Int64TypedIdKeyBoundaryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Int64TypedIdJoinedRowLocal_HydratesCanonicalPrimaryKeysAcrossProviders(
         TestProviderDescriptor provider)

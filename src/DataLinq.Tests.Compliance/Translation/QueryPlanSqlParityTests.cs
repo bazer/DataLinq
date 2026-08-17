@@ -13,6 +13,7 @@ namespace DataLinq.Tests.Compliance;
 public class QueryPlanSqlParityTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionExecutionProvider_ExecutesEntityQueries(TestProviderDescriptor provider)
     {
@@ -60,6 +61,7 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionExecutionProvider_ExecutesScalarResults(TestProviderDescriptor provider)
     {
@@ -89,6 +91,7 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionExecutionProvider_ExecutesBarePagingWithoutDroppingOperators(TestProviderDescriptor provider)
     {
@@ -108,6 +111,7 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionExecutionProvider_PreservesNonPositivePagingSemantics(TestProviderDescriptor provider)
     {
@@ -164,6 +168,7 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionPlanSql_RendersSupportedSequenceShapes(TestProviderDescriptor provider)
     {
@@ -230,6 +235,7 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionPlanSql_RendersScalarResultShapes(TestProviderDescriptor provider)
     {
@@ -762,6 +768,7 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionPlanSql_EntityExecutionMatchesProductionForSingleSourceQuery(TestProviderDescriptor provider)
     {
@@ -790,6 +797,7 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionPlanSql_RelationExistsExecutionMatchesProduction(TestProviderDescriptor provider)
     {
@@ -820,6 +828,7 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PlanSql_EntityExecutionMatchesProductionForSingleSourceQuery(TestProviderDescriptor provider)
     {
@@ -848,6 +857,7 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PlanSql_RelationExistsExecutionMatchesProduction(TestProviderDescriptor provider)
     {
@@ -878,6 +888,7 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionExecutionProvider_PostPagingFilterAndOrderingMatchInMemory(TestProviderDescriptor provider)
     {
@@ -910,6 +921,7 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionExecutionProvider_PostPagingCompositionWorksFromTransactionRoot(TestProviderDescriptor provider)
     {
@@ -943,6 +955,7 @@ public class QueryPlanSqlParityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExpressionExecutionProvider_PagedAggregateUsesPushedDownSource(TestProviderDescriptor provider)
     {

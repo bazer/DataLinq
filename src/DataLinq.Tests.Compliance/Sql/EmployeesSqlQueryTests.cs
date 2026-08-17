@@ -10,6 +10,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesSqlQueryTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlQuery_SimpleWhereSelectsDepartmentAcrossProviders(TestProviderDescriptor provider)
     {
@@ -28,6 +29,7 @@ public class EmployeesSqlQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlQuery_GetFromQueryReturnsExpectedDepartmentAcrossProviders(TestProviderDescriptor provider)
     {
@@ -45,6 +47,7 @@ public class EmployeesSqlQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_JoinWhereOrderLimitRendersProviderSpecificSql(TestProviderDescriptor provider)
     {
@@ -81,6 +84,7 @@ public class EmployeesSqlQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_ToDbCommandMaterializesProviderParametersAtCommandBoundary(TestProviderDescriptor provider)
     {
@@ -112,6 +116,7 @@ public class EmployeesSqlQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_RepeatedSingleValueEqualityShapeKeepsCurrentParameterValue(TestProviderDescriptor provider)
     {
@@ -142,6 +147,7 @@ public class EmployeesSqlQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_RepeatedAndEqualityShapeKeepsCurrentParameterValues(TestProviderDescriptor provider)
     {
@@ -173,6 +179,7 @@ public class EmployeesSqlQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_RepeatedInPredicateShapeKeepsCurrentParameterValues(TestProviderDescriptor provider)
     {
@@ -204,6 +211,7 @@ public class EmployeesSqlQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Literal_ToDbCommandPreservesSuppliedProviderParameter(TestProviderDescriptor provider)
     {

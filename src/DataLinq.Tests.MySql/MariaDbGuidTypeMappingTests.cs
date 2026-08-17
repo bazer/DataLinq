@@ -19,6 +19,7 @@ namespace DataLinq.Tests.MySql;
 public class MariaDbGuidTypeMappingTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.MariaDbProviders))]
     public async Task ParseDatabase_NativeUuidColumn_MapsToGuid(TestProviderDescriptor provider)
     {
@@ -74,6 +75,7 @@ public class MariaDbGuidTypeMappingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.MariaDbProviders))]
     public async Task Runtime_NativeUuidColumn_RoundTripsGuidValues(TestProviderDescriptor provider)
     {
@@ -94,6 +96,7 @@ public class MariaDbGuidTypeMappingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.MariaDbProviders))]
     public async Task Runtime_ContainsQuery_WorksForNativeUuidColumnWithoutGuidFormat(TestProviderDescriptor provider)
     {
@@ -122,6 +125,7 @@ public class MariaDbGuidTypeMappingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.MariaDbProviders))]
     public async Task Runtime_Binary16ContainsQuery_WorksWithoutGuidFormat(TestProviderDescriptor provider)
     {

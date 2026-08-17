@@ -11,6 +11,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesStringMemberTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_ToUpperMatchesDepartment(TestProviderDescriptor provider)
     {
@@ -37,6 +38,7 @@ public class EmployeesStringMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_ToLowerMatchesDepartment(TestProviderDescriptor provider)
     {
@@ -63,6 +65,7 @@ public class EmployeesStringMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_TrimMatchesInsertedEmployee(TestProviderDescriptor provider)
     {
@@ -83,6 +86,7 @@ public class EmployeesStringMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_SubstringMatchesInsertedEmployee(TestProviderDescriptor provider)
     {
@@ -109,6 +113,7 @@ public class EmployeesStringMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_IsNullOrEmptyFalseFiltersEmptyString(TestProviderDescriptor provider)
     {
@@ -135,6 +140,7 @@ public class EmployeesStringMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_IsNullOrEmptyTrueReturnsOnlyEmptyString(TestProviderDescriptor provider)
     {
@@ -162,6 +168,7 @@ public class EmployeesStringMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_IsNullOrWhiteSpaceFalseFiltersWhitespaceRows(TestProviderDescriptor provider)
     {
@@ -189,6 +196,7 @@ public class EmployeesStringMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_IsNullOrWhiteSpaceTrueReturnsEmptyAndWhitespaceRows(TestProviderDescriptor provider)
     {
@@ -217,6 +225,7 @@ public class EmployeesStringMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_LengthMatchesInsertedEmployee(TestProviderDescriptor provider)
     {
@@ -244,6 +253,7 @@ public class EmployeesStringMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_TrimLengthMatchesInsertedEmployee(TestProviderDescriptor provider)
     {
@@ -271,6 +281,7 @@ public class EmployeesStringMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_LikePredicatesTreatCapturedMetacharactersLiterally(TestProviderDescriptor provider)
     {
@@ -340,6 +351,7 @@ public class EmployeesStringMemberTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_CharLikePredicatesTreatMetacharactersLiterally(TestProviderDescriptor provider)
     {

@@ -7,6 +7,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesLocalAnyPredicateTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task LocalScalarAnyPredicateTranslatesToMembership(TestProviderDescriptor provider)
     {
@@ -54,6 +55,7 @@ public class EmployeesLocalAnyPredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task LocalObjectMemberAnyPredicateTranslatesToMembership(TestProviderDescriptor provider)
     {
@@ -80,6 +82,7 @@ public class EmployeesLocalAnyPredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task LocalObjectMemberAnyPredicateSupportsReversedEquality(TestProviderDescriptor provider)
     {
@@ -106,6 +109,7 @@ public class EmployeesLocalAnyPredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task LocalObjectMemberAnyPredicateSupportsNullableWrappers(TestProviderDescriptor provider)
     {
@@ -132,6 +136,7 @@ public class EmployeesLocalAnyPredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NegatedLocalObjectMemberAnyPredicateTranslatesToNotIn(TestProviderDescriptor provider)
     {

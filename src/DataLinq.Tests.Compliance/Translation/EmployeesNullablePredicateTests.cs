@@ -16,6 +16,7 @@ public class EmployeesNullablePredicateTests
     private static readonly DateTime CreatedB = new(2024, 3, 5, 8, 30, 0, 123);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableHasValuePredicates_MatchInMemoryFiltering(TestProviderDescriptor provider)
     {
@@ -56,6 +57,7 @@ public class EmployeesNullablePredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableValueComparisons_MatchGuardedInMemoryFiltering(TestProviderDescriptor provider)
     {
@@ -94,6 +96,7 @@ public class EmployeesNullablePredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableMixedEqualityPredicates_MatchCSharpNullSemantics(TestProviderDescriptor provider)
     {
@@ -138,6 +141,7 @@ public class EmployeesNullablePredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableLocalMembershipPredicates_MatchCSharpNullSemantics(TestProviderDescriptor provider)
     {

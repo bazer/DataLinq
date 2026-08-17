@@ -14,6 +14,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesCacheTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_DoesNotAccumulateDuplicateDeptEmployeeRowsAcrossRepeatedQueries(TestProviderDescriptor provider)
     {
@@ -40,6 +41,7 @@ public class EmployeesCacheTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_RemoveRowsInsertedBeforeTick_EvictsRowsInLoadOrder(TestProviderDescriptor provider)
     {
@@ -103,6 +105,7 @@ public class EmployeesCacheTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_RemoveRowsByRowLimit_KeepsConfiguredRowCount(TestProviderDescriptor provider)
     {
@@ -133,6 +136,7 @@ public class EmployeesCacheTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_RemoveRowsByByteLimit_CapsDatabaseEstimatedCacheBytes(TestProviderDescriptor provider)
     {
@@ -165,6 +169,7 @@ public class EmployeesCacheTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_RemoveRowsBySettings_OnlyAppliesTableSpecificLimitsToThatTable(TestProviderDescriptor provider)
     {

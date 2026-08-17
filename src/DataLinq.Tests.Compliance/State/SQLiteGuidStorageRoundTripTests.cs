@@ -17,6 +17,7 @@ public sealed class SQLiteGuidStorageRoundTripTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.SQLiteOnly)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.SqliteProviders))]
     public async Task ScalarGuidPrimaryKeys_UseResolvedCodecsAcrossSQLiteCacheAndMutationPaths(
         TestProviderDescriptor provider)
@@ -193,6 +194,7 @@ public sealed class SQLiteGuidStorageRoundTripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.SQLiteOnly)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.SqliteProviders))]
     public async Task NonKeyGuidFormats_RoundTripKnownPhysicalValuesAcrossSQLiteProviders(
         TestProviderDescriptor provider)
@@ -299,6 +301,7 @@ public sealed class SQLiteGuidStorageRoundTripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.SQLiteOnly)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.SqliteProviders))]
     public async Task NonKeyGuidFormats_DirectProjectionsDecodeDeclaredStorageAcrossSQLiteProviders(
         TestProviderDescriptor provider)
@@ -390,6 +393,7 @@ public sealed class SQLiteGuidStorageRoundTripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.SQLiteOnly)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.SqliteProviders))]
     public async Task NonKeyGuidFormats_QueryPredicatesBindExactPhysicalValuesAcrossSQLiteProviders(
         TestProviderDescriptor provider)

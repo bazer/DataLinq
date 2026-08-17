@@ -52,7 +52,8 @@ public sealed record TestRunSummaryInvocation(
     bool TearDown,
     string OutputMode,
     ToolingProfile Profile,
-    string? Plan = null);
+    string? Plan = null,
+    int? MaximumParallelTests = null);
 
 public sealed record TestRunSummaryRepositoryState(
     bool Captured,
@@ -82,7 +83,8 @@ public sealed record TestRunSummaryExpectedResult(
     string Suite,
     string ProjectPath,
     int? BatchIndex,
-    IReadOnlyList<string> TargetIds);
+    IReadOnlyList<string> TargetIds,
+    string? ProviderAffinityRole = null);
 
 public sealed record TestRunSummaryBuild(
     string ProjectPath,
@@ -168,7 +170,8 @@ public sealed record TestRunSummaryResult(
     string HtmlReportPath,
     string TrxReportPath,
     double InfrastructureSetupDurationSeconds,
-    TestRunSummaryPerformance Performance);
+    TestRunSummaryPerformance Performance,
+    string? ProviderAffinityRole = null);
 
 public sealed record TestRunSummaryFailure(
     string Stage,

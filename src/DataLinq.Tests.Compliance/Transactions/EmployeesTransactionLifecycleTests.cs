@@ -28,6 +28,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_AttachedExternalTransactionReadsItsOwnRawWrite(
         TestProviderDescriptor provider)
@@ -77,6 +78,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_AttachedWrapperCommit_PersistsAndPromotesMutable(
         TestProviderDescriptor provider)
@@ -126,6 +128,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_AttachedWrapperRollback_InvalidatesMutableAndPreservesRow(
         TestProviderDescriptor provider)
@@ -164,6 +167,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalCommitThenWrapperCommit_RejectsGuessedPublication(
         TestProviderDescriptor provider) =>
@@ -174,6 +178,7 @@ public class EmployeesTransactionLifecycleTests
             commitExternally: true);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalRollbackThenWrapperCommit_RejectsGuessedPublication(
         TestProviderDescriptor provider) =>
@@ -184,6 +189,7 @@ public class EmployeesTransactionLifecycleTests
             commitExternally: false);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalCommitThenWrapperRead_RecoversCachesAndRejectsTheRead(
         TestProviderDescriptor provider) =>
@@ -195,6 +201,7 @@ public class EmployeesTransactionLifecycleTests
             ExternalWrapperOperation.Read);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalRollbackThenWrapperWrite_RecoversCachesAndRejectsTheWrite(
         TestProviderDescriptor provider) =>
@@ -206,6 +213,7 @@ public class EmployeesTransactionLifecycleTests
             ExternalWrapperOperation.Write);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalCommitThenWrapperDispose_RecoversCachesAndReportsAmbiguity(
         TestProviderDescriptor provider) =>
@@ -217,6 +225,7 @@ public class EmployeesTransactionLifecycleTests
             ExternalWrapperOperation.Dispose);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalCommitThenWrapperRollback_RecoversCachesAndReportsAmbiguity(
         TestProviderDescriptor provider) =>
@@ -228,6 +237,7 @@ public class EmployeesTransactionLifecycleTests
             ExternalWrapperOperation.Rollback);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalRollbackThenWrapperRollback_RecoversCachesAndReportsAmbiguity(
         TestProviderDescriptor provider) =>
@@ -398,6 +408,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_DbCommandInsideTransactionReadsInsertedRows(TestProviderDescriptor provider)
     {
@@ -442,6 +453,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_InsertAutoIncrement_AssignsPrimaryKeyAndPersists(TestProviderDescriptor provider)
     {
@@ -478,6 +490,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_InsertAndUpdateAutoIncrement_PersistsUpdatedValues(TestProviderDescriptor provider)
     {
@@ -518,6 +531,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_UpdateWithoutChanges_ReturnsEquivalentModel(TestProviderDescriptor provider)
     {
@@ -537,6 +551,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_ImplicitUpdate_PersistsChanges(TestProviderDescriptor provider)
     {
@@ -561,6 +576,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_ExplicitUpdate_PersistsChangesAfterCommit(TestProviderDescriptor provider)
     {
@@ -593,6 +609,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_Rollback_RestoresOriginalValues(TestProviderDescriptor provider)
     {
@@ -628,6 +645,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_DoubleCommitAndRollbackGuards_ThrowAfterCommit(TestProviderDescriptor provider)
     {
@@ -652,6 +670,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_DoubleRollbackAndCommitGuards_ThrowAfterRollback(TestProviderDescriptor provider)
     {
@@ -676,6 +695,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_CacheIsIsolatedPerTransaction(TestProviderDescriptor provider)
     {
@@ -713,6 +733,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_SaveShortcut_PersistsChanges(TestProviderDescriptor provider)
     {
@@ -732,6 +753,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_InsertRelations_PersistsAfterCommit(TestProviderDescriptor provider)
     {
@@ -771,6 +793,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_InsertRelationsWithinTransaction_MaintainsGraphIdentity(TestProviderDescriptor provider)
     {
@@ -817,6 +840,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_InsertRelationsReadAfterCommit_ClearsTransactionCache(TestProviderDescriptor provider)
     {
@@ -870,6 +894,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_ReSavingOriginalMutable_PreservesEarlierPersistedChanges(TestProviderDescriptor provider)
     {
@@ -895,6 +920,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_ReSavingSameMutableWithinExplicitTransactionAndAfterCommit_PreservesAllValues(TestProviderDescriptor provider)
     {
@@ -940,6 +966,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_RelationInsertRollback_KeepsViewsScopedAndDoesNotNotifyOutsideSubscriber(TestProviderDescriptor provider)
     {

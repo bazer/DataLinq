@@ -105,6 +105,7 @@ public class ServerTypeMappingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(nameof(IntegerTypeCases))]
     public async Task ParseColumn_MapsIntegerTypes(TypeMappingScenario scenario)
     {
@@ -114,6 +115,7 @@ public class ServerTypeMappingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(nameof(FloatingAndTemporalCases))]
     public async Task ParseColumn_MapsFloatingPointAndTemporalTypes(TypeMappingScenario scenario)
     {
@@ -123,6 +125,7 @@ public class ServerTypeMappingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(nameof(StringBinaryAndSpecialCases))]
     public async Task ParseColumn_MapsStringBinaryAndSpecialTypes(TypeMappingScenario scenario)
     {
@@ -132,6 +135,7 @@ public class ServerTypeMappingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseColumn_Binary16UuidLayout_RemainsUnresolved(TestProviderDescriptor provider)
     {
@@ -149,6 +153,7 @@ public class ServerTypeMappingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(nameof(NullableCases))]
     public async Task ParseColumn_MapsNullableTypes(TypeMappingScenario scenario)
     {
@@ -158,6 +163,7 @@ public class ServerTypeMappingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_StringDefaultWithEmbeddedDoubleQuotes_GeneratesCleanCSharpDefault(TestProviderDescriptor provider)
     {
@@ -189,6 +195,7 @@ public class ServerTypeMappingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(nameof(QuotedNumericDefaultCases))]
     public async Task ParseDatabase_QuotedNumericDefaults_AreTypedAndGeneratedWithoutStringLiterals(NumericDefaultScenario scenario)
     {

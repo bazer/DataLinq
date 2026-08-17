@@ -10,6 +10,7 @@ public class EmployeesTransactionTests
     private readonly EmployeesTestData _employees = new();
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Insert_CommitsInsertedEmployeeAcrossProviders(TestProviderDescriptor provider)
     {

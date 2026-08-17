@@ -11,6 +11,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesOptimizationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_TryGetSimplePrimaryKey_SingleKey_ReturnsDataLinqKey(TestProviderDescriptor provider)
     {
@@ -30,6 +31,7 @@ public class EmployeesOptimizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_TryGetSimplePrimaryKey_CompositePrimaryKey_ReturnsDataLinqKey(TestProviderDescriptor provider)
     {
@@ -51,6 +53,7 @@ public class EmployeesOptimizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_TryGetSimplePrimaryKey_NonPrimaryKeyPredicate_ReturnsNull(TestProviderDescriptor provider)
     {
@@ -68,6 +71,7 @@ public class EmployeesOptimizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_TryGetSimplePrimaryKey_PrimaryKeyAndOtherPredicate_ReturnsNull(TestProviderDescriptor provider)
     {
@@ -86,6 +90,7 @@ public class EmployeesOptimizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_TryGetSimplePrimaryKey_PartialCompositePrimaryKey_ReturnsNull(TestProviderDescriptor provider)
     {
@@ -103,6 +108,7 @@ public class EmployeesOptimizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_TryGetSimplePrimaryKey_OrCondition_ReturnsNull(TestProviderDescriptor provider)
     {
@@ -121,6 +127,7 @@ public class EmployeesOptimizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_TryGetSimplePrimaryKey_NegatedPredicate_ReturnsNull(TestProviderDescriptor provider)
     {
@@ -138,6 +145,7 @@ public class EmployeesOptimizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_TryGetSimplePrimaryKey_WorksWithEvaluatedVariable(TestProviderDescriptor provider)
     {
@@ -164,6 +172,7 @@ public class EmployeesOptimizationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_RelationTraversal_ColdCacheMiss_LoadsAndStoresRows(TestProviderDescriptor provider)
     {
@@ -203,6 +212,7 @@ public class EmployeesOptimizationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationIndex_IntegralColdLoadPopulatesWarmKeyPath(
         TestProviderDescriptor provider)
@@ -277,6 +287,7 @@ public class EmployeesOptimizationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_PrimaryKeySingle_ColdCacheMiss_LoadsAndStoresRow(TestProviderDescriptor provider)
     {
@@ -309,6 +320,7 @@ public class EmployeesOptimizationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_PrimaryKeySingleOrDefault_MissingRowPreservesTelemetryWithoutMaterialization(TestProviderDescriptor provider)
     {
@@ -338,6 +350,7 @@ public class EmployeesOptimizationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_PrimaryKeySingle_WarmCacheHit_PreservesQueryTelemetryWithoutCommand(TestProviderDescriptor provider)
     {

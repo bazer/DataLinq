@@ -45,6 +45,7 @@ public sealed class TypedIdPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TypedIdPredicates_ExecuteEqualityContainsAndLocalAnyAcrossProviders(
         TestProviderDescriptor provider)
@@ -81,6 +82,7 @@ public sealed class TypedIdPredicateTranslationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TypedIdMaterialization_BatchedColdAndOrderedMixedCachePreserveIdentityAndTelemetry(
         TestProviderDescriptor provider)
@@ -141,6 +143,7 @@ public sealed class TypedIdPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TypedIdScalarProjection_MaterializesModelAndNullableValuesAcrossProviders(
         TestProviderDescriptor provider)
@@ -214,6 +217,7 @@ public sealed class TypedIdPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TypedIdAotSafeLocalProjectionRecipe_MaterializesModelValuesAcrossProviders(
         TestProviderDescriptor provider)
@@ -302,6 +306,7 @@ public sealed class TypedIdPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TypedIdSqlRowProjection_MaterializesAliasedRootJoinedAndTerminalRowsAcrossProviders(
         TestProviderDescriptor provider)
@@ -386,6 +391,7 @@ public sealed class TypedIdPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TypedIdExplicitConstructorSqlRowProjection_MaterializesRootJoinedAndTerminalRowsAcrossProviders(
         TestProviderDescriptor provider)
@@ -480,6 +486,7 @@ public sealed class TypedIdPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TypedIdJoinedRowLocalProjection_HydratesCanonicalPrimaryKeysAcrossProviders(
         TestProviderDescriptor provider)
@@ -572,6 +579,7 @@ public sealed class TypedIdPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TypedIdGroupedAggregateKeys_MaterializeScalarNullableAndCompositeValuesAcrossProviders(
         TestProviderDescriptor provider)

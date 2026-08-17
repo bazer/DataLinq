@@ -15,6 +15,7 @@ public sealed class ConvertedAggregateTranslationTests
 {
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ScalarAggregates_RejectConverterBackedSelectorsBeforeSqlExecution(
         TestProviderDescriptor provider)
@@ -56,6 +57,7 @@ public sealed class ConvertedAggregateTranslationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedAggregates_RejectConverterBackedSelectorsBeforeSqlExecution(
         TestProviderDescriptor provider)

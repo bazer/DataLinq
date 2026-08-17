@@ -34,6 +34,7 @@ public class ProviderMatrixTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ProviderCatalog)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.AllLtsServerProviders))]
     public async Task AllLtsServerProviders_AreVersionedAndPodmanManaged(TestProviderDescriptor provider)
     {
@@ -45,6 +46,7 @@ public class ProviderMatrixTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EnvironmentSettings_CanCreateConnectionDefinitionsForActiveProviders(TestProviderDescriptor provider)
     {

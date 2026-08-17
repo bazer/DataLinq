@@ -11,6 +11,7 @@ namespace DataLinq.Tests.Compliance;
 public sealed class ServerDefaultInsertTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Insert_DefaultOnlyAndExplicitAssignmentsRoundTrip(
         TestProviderDescriptor provider)

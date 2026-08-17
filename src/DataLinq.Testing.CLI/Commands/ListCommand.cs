@@ -99,12 +99,13 @@ internal static class ListCommand
             .AddColumn("Suite")
             .AddColumn("Purpose")
             .AddColumn("Resource")
+            .AddColumn("Workers")
             .AddColumn("Cases")
             .AddColumn("Estimate")
             .AddColumn("TUnit filter");
         if (plan.RequiresExplicitSelection)
         {
-            suites.AddRow("<explicit>", "code under change", "suite-dependent", "?", "?", "required");
+            suites.AddRow("<explicit>", "code under change", "suite-dependent", "caller", "?", "?", "required");
         }
         else
         {
@@ -114,6 +115,7 @@ internal static class ListCommand
                     suite.Suite,
                     suite.Purpose,
                     suite.Resource,
+                    suite.MaximumParallelTests?.ToString() ?? "auto",
                     $"~{suite.ExpectedCaseCount}",
                     $"~{suite.EstimatedDurationSeconds:0.0}s",
                     suite.Filter is null

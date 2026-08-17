@@ -17,6 +17,7 @@ public sealed class EmployeesTransactionFailureTests
     private readonly EmployeesTestData employees = new();
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ConstraintFailure_PoisonsAndRollsBackEarlierSuccessfulUpdate(
         TestProviderDescriptor provider)
@@ -123,6 +124,7 @@ public sealed class EmployeesTransactionFailureTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PublicChangesMutation_CannotAlterPrivateCommitAuthority(
         TestProviderDescriptor provider)
@@ -202,6 +204,7 @@ public sealed class EmployeesTransactionFailureTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PublicStateChangeExecuteQuery_MutableDeleteUsesTransactionAuthority(
         TestProviderDescriptor provider)
@@ -243,6 +246,7 @@ public sealed class EmployeesTransactionFailureTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PublicStateChangeExecuteQuery_AutoIncrementInsertHydratesAndCommitsAuthoritativeBaseline(
         TestProviderDescriptor provider)
@@ -310,6 +314,7 @@ public sealed class EmployeesTransactionFailureTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SuccessfulIndexedUpdate_FreezesExecutedKeyAndIgnoresLaterUnexecutedValueOnCommit(
         TestProviderDescriptor provider)
@@ -370,6 +375,7 @@ public sealed class EmployeesTransactionFailureTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullForeignKey_FirstAccessAfterPoisoningRejectsThroughManagedReadGate(
         TestProviderDescriptor provider)

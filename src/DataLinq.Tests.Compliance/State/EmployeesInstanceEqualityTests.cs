@@ -13,6 +13,7 @@ public class EmployeesInstanceEqualityTests
     private readonly EmployeesTestData _employees = new();
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Immutable_EqualsSameCachedInstance(TestProviderDescriptor provider)
     {
@@ -28,6 +29,7 @@ public class EmployeesInstanceEqualityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Immutable_EqualsDifferentInstancesWithSamePrimaryKey(TestProviderDescriptor provider)
     {
@@ -44,6 +46,7 @@ public class EmployeesInstanceEqualityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Immutable_EqualsDifferentRows_False(TestProviderDescriptor provider)
     {
@@ -59,6 +62,7 @@ public class EmployeesInstanceEqualityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutable_EqualsDifferentInstancesWithSamePrimaryKey(TestProviderDescriptor provider)
     {
@@ -74,6 +78,7 @@ public class EmployeesInstanceEqualityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutable_EqualsAfterNonPrimaryKeyMutation_StillUsesPrimaryKeyIdentity(TestProviderDescriptor provider)
     {
@@ -93,6 +98,7 @@ public class EmployeesInstanceEqualityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Immutable_AndMutable_EqualsAcrossTypesByPrimaryKey(TestProviderDescriptor provider)
     {
@@ -108,6 +114,7 @@ public class EmployeesInstanceEqualityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Collections_UsePrimaryKeyEqualityForPersistedInstances(TestProviderDescriptor provider)
     {
@@ -136,6 +143,7 @@ public class EmployeesInstanceEqualityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NewMutable_DoesNotEqualPersistedEmployee(TestProviderDescriptor provider)
     {
@@ -151,6 +159,7 @@ public class EmployeesInstanceEqualityTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SaveTransition_ChangesHashCodeAndThenUsesPersistedPrimaryKey(TestProviderDescriptor provider)
     {

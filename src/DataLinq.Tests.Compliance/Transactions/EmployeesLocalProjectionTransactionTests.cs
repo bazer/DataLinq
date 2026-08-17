@@ -14,6 +14,7 @@ namespace DataLinq.Tests.Compliance;
 public sealed class EmployeesLocalProjectionTransactionTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RetainedLocalProjections_ReadUncommittedValuesFromTransactionRoot(
         TestProviderDescriptor provider)

@@ -9,6 +9,7 @@ namespace DataLinq.Tests.Compliance;
 public class SeededEmployeesQueryTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SeededDepartments_HaveExpectedCountAndLookupBehavior(TestProviderDescriptor provider)
     {
@@ -30,6 +31,7 @@ public class SeededEmployeesQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SeededEmployees_CanQueryViewsAndPrimaryKeyLookups(TestProviderDescriptor provider)
     {
@@ -51,6 +53,7 @@ public class SeededEmployeesQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SeededDepartments_LazyLoadManagers(TestProviderDescriptor provider)
     {

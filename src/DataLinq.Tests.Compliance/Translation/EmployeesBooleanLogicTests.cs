@@ -10,6 +10,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesBooleanLogicTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_GroupedAndOr_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -34,6 +35,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_SimpleAndGroupedOr_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -58,6 +60,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedGroupedAnd_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -82,6 +85,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedGroupedOrWithinSuperset_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -110,6 +114,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_SimpleAndNegatedGroupedOr_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -134,6 +139,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedGroupedAndOrGroupedAnd_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -160,6 +166,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedEmptyContainsInsideGroup_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -184,6 +191,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_SimpleAndNegatedEmptyContainsOrSimple_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -208,6 +216,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_GroupedOrWithNegatedEmptyAny_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -232,6 +241,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NestedEmptyContainsAndOr_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -259,6 +269,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NestedEmptyAnyOrAnd_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -285,6 +296,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedNestedEmptyContainsGroup_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -312,6 +324,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_EmptyContainsDoesNotVisitUnsupportedItemExpression(TestProviderDescriptor provider)
     {
@@ -337,6 +350,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_EmptyAnyDoesNotVisitUnsupportedPredicateExpression(TestProviderDescriptor provider)
     {
@@ -362,6 +376,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedSimpleOrSimpleWithinSuperset_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -390,6 +405,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_SimpleOrNegatedSimple_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -414,6 +430,7 @@ public class EmployeesBooleanLogicTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedGroupedOrWithInnerNegation_ReturnsExpectedRows(TestProviderDescriptor provider)
     {

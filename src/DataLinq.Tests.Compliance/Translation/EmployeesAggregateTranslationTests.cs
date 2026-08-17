@@ -8,6 +8,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesAggregateTranslationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ScalarAggregates_OverDirectNumericMembers_MatchInMemoryResults(TestProviderDescriptor provider)
     {
@@ -26,6 +27,7 @@ public class EmployeesAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ScalarAggregates_OverFilteredNumericMembers_MatchInMemoryResults(TestProviderDescriptor provider)
     {
@@ -47,6 +49,7 @@ public class EmployeesAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ScalarResultFamily_WorksFromTransactionRoot(TestProviderDescriptor provider)
     {
@@ -78,6 +81,7 @@ public class EmployeesAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ScalarAggregates_OverNullableNumericMembers_MatchInMemoryResults(TestProviderDescriptor provider)
     {
@@ -100,6 +104,7 @@ public class EmployeesAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ScalarAggregates_EmptyFilteredSequences_FollowDocumentedNullAndSumBehavior(TestProviderDescriptor provider)
     {

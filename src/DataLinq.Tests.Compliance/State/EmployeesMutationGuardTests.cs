@@ -16,6 +16,7 @@ public sealed class EmployeesMutationGuardTests
     private readonly EmployeesTestData employees = new();
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task CrossProviderGuards_RejectUpdateSaveAndImmutableDeleteBeforeTargetStateChanges(
         TestProviderDescriptor provider)
@@ -99,6 +100,7 @@ public sealed class EmployeesMutationGuardTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task CrossTransactionGuards_RejectDirtyCleanAndImplicitReuseButAllowOwningTransaction(
         TestProviderDescriptor provider)
@@ -176,6 +178,7 @@ public sealed class EmployeesMutationGuardTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PrimaryKeyGuards_RejectKeyOnlyAndKeyPlusValueWithoutChangingEitherRow(
         TestProviderDescriptor provider)
@@ -231,6 +234,7 @@ public sealed class EmployeesMutationGuardTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ReadOnlyGuards_RejectAllMutationRoutesAndLeaveTheTransactionReadable(
         TestProviderDescriptor provider)

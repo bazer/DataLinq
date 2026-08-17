@@ -13,6 +13,7 @@ namespace DataLinq.Tests.Compliance;
 public sealed class StringWhitespaceTranslationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task IsNullOrWhiteSpace_MatchesClrForEveryWhitespaceCharacterAcrossProviders(
         TestProviderDescriptor provider)

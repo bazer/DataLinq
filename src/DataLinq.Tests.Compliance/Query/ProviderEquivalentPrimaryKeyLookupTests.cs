@@ -11,6 +11,7 @@ public sealed class ProviderEquivalentPrimaryKeyLookupTests
 {
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(
         typeof(ProviderEquivalentPrimaryKeyLookupTests),
         nameof(CaseInsensitiveServerProviders))]

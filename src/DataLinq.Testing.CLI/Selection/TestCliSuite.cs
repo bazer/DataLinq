@@ -10,4 +10,5 @@ internal sealed record TestCliSuite(
     int? ExpectedCaseCount = null,
     double? EstimatedDurationSeconds = null,
     string? Purpose = null,
-    string? Resource = null);
+    string? Resource = null,
+    int? MaximumParallelTests = null);

@@ -19,6 +19,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
     private readonly EmployeesTestData employees = new();
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_UpdateCommit_InvalidatesReadOnlyRowCache(TestProviderDescriptor provider)
     {
@@ -62,6 +63,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_DeleteCommit_RemovesReadOnlyRowCacheEntry(TestProviderDescriptor provider)
     {
@@ -91,6 +93,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_NonPrimaryKeyMaterialization_UsesProviderKeyCacheThroughUpdateAndDelete(TestProviderDescriptor provider)
     {
@@ -142,6 +145,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_UpdateBeforeCommit_UsesTransactionLocalRowCache(TestProviderDescriptor provider)
     {
@@ -195,6 +199,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_Rollback_DoesNotInvalidateReadOnlyRowCacheForUncommittedMutation(TestProviderDescriptor provider)
     {
@@ -240,6 +245,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_Rollback_DiscardsTransactionRelationIndexView(TestProviderDescriptor provider)
     {
@@ -296,6 +302,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_OpenTransactionDispose_RemovesTransactionRowsAndPreservesReadOnlyRowCache(TestProviderDescriptor provider)
     {
@@ -340,6 +347,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_ForeignKeyUpdate_ClearsExistingRelationCollections(TestProviderDescriptor provider)
     {
@@ -372,6 +380,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_StateChange_NotifiesSubscribersForChangedTable(TestProviderDescriptor provider)
     {
@@ -402,6 +411,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_UnchangedForeignKeyUpdate_ClearsRelationCollectionsContainingChangedRows(TestProviderDescriptor provider)
     {
@@ -458,6 +468,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_StateChangeInvalidation_RecordsMaintenanceTelemetry(TestProviderDescriptor provider)
     {

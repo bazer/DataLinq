@@ -9,7 +9,8 @@ internal sealed record TestCliRunPlanSuite(
     int ExpectedCaseCount,
     double EstimatedDurationSeconds,
     string Purpose,
-    string Resource);
+    string Resource,
+    int? MaximumParallelTests = null);
 
 internal sealed record TestCliRunPlan(
     string Name,

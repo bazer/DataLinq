@@ -9,6 +9,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesEmptyListQueryTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_ContainsReturnsEmpty(TestProviderDescriptor provider)
     {
@@ -26,6 +27,7 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_ContainsAndTrueConditionReturnsEmpty(TestProviderDescriptor provider)
     {
@@ -43,6 +45,7 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_ContainsOrTrueConditionReturnsMatchingRows(TestProviderDescriptor provider)
     {
@@ -70,6 +73,7 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_NegatedContainsReturnsAllSalaries(TestProviderDescriptor provider)
     {
@@ -90,6 +94,7 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_ContainsOrNonEmptyContainsReturnsMatchingNonEmptyRows(TestProviderDescriptor provider)
     {
@@ -118,6 +123,7 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_ContainsAndNonEmptyContainsReturnsEmpty(TestProviderDescriptor provider)
     {
@@ -139,6 +145,7 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_AnyReturnsEmpty(TestProviderDescriptor provider)
     {
@@ -156,6 +163,7 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_AnyAndTrueConditionReturnsEmpty(TestProviderDescriptor provider)
     {
@@ -173,6 +181,7 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_AnyOrTrueConditionReturnsMatchingRows(TestProviderDescriptor provider)
     {
@@ -200,6 +209,7 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_NegatedAnyKeepsKnownEmployees(TestProviderDescriptor provider)
     {
@@ -226,6 +236,7 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_AnyOrNonEmptyAnyReturnsMatchingNonEmptyRows(TestProviderDescriptor provider)
     {
@@ -255,6 +266,7 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_AnyAndNonEmptyAnyReturnsEmpty(TestProviderDescriptor provider)
     {
@@ -276,6 +288,7 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_AnyWithComplexPredicateReturnsEmpty(TestProviderDescriptor provider)
     {

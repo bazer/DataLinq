@@ -13,6 +13,7 @@ namespace DataLinq.Tests.Compliance;
 public sealed class NullableComparisonTranslationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableComparisons_PreserveCSharpTruthTablesAcrossProviders(
         TestProviderDescriptor provider)

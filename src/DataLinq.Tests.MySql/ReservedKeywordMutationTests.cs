@@ -11,6 +11,7 @@ namespace DataLinq.Tests.MySql;
 public class ReservedKeywordMutationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task Update_ColumnNamedReferences_QuotesSetColumn(TestProviderDescriptor provider)
     {

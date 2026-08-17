@@ -12,6 +12,7 @@ namespace DataLinq.Tests.MySql;
 public sealed class SchemaComparerScalarStorageProviderTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task Compare_LiveCanonicalIntSchema_AcceptsSignedIntAndRejectsMatchingVarchar(
         TestProviderDescriptor provider)
@@ -52,6 +53,7 @@ public sealed class SchemaComparerScalarStorageProviderTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task Compare_LiveCanonicalLongSchema_AcceptsSignedBigIntAndRejectsMatchingInt(
         TestProviderDescriptor provider)

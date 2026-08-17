@@ -19,6 +19,8 @@ public sealed class TestingCliRunPlanCatalogTests
         await Assert.That(source).Contains("FullPlan = \"full\"");
         await Assert.That(command).Contains("Provider --alias/--targets remain an independent override");
         await Assert.That(command).Contains("ResolveTargetSelection(");
+        await Assert.That(command).Contains("--maximum-parallel-tests");
+        await Assert.That(source).Contains("MaximumParallelTests: 8");
     }
 
     [Test]
@@ -63,6 +65,25 @@ public sealed class TestingCliRunPlanCatalogTests
         await Assert.That(list).Contains("TestHostProcessSeconds");
         await Assert.That(list).Contains("Expected cases");
         await Assert.That(model).Contains("string? Plan = null");
+        await Assert.That(model).Contains("string? ProviderAffinityRole = null");
+    }
+
+    [Test]
+    public async Task CompletePlans_RunProviderInvariantTestsOnce()
+    {
+        var catalog = ReadCliSource("Selection", "TestCliRunPlanCatalog.cs");
+        var command = ReadCliSource("Commands", "RunCommand.cs");
+
+        await Assert.That(catalog).Contains("complianceAnchorCases = 484");
+        await Assert.That(catalog).Contains("everyProviderCases = 363");
+        await Assert.That(catalog).Contains("serverTargetCases = 369");
+        await Assert.That(catalog).Contains("mySqlInvariantCases = 65");
+        await Assert.That(catalog).Contains("mySqlTargetCases = 61");
+        await Assert.That(catalog).Contains("mariaDbTargetCases = 63");
+        await Assert.That(command).Contains("AnchorWithInvariant");
+        await Assert.That(command).Contains("TargetSpecific");
+        await Assert.That(command).Contains("ProviderAffinity=EveryProvider");
+        await Assert.That(command).Contains("ProviderAffinity=ServerFamily");
     }
 
     private static string ReadCliSource(string directory, string fileName) =>

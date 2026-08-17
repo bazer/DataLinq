@@ -13,6 +13,7 @@ public sealed class TypedIdRelationKeyNormalizationTests
 {
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task IntegralTypedIdRelation_ColdLoadPopulatesWarmCanonicalKeyPathAcrossProviders(
         TestProviderDescriptor provider)

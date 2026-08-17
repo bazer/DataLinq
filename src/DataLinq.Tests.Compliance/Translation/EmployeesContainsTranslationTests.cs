@@ -9,6 +9,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesContainsTranslationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_EmptyArrayReturnsNoRows(TestProviderDescriptor provider)
     {
@@ -60,6 +61,7 @@ public class EmployeesContainsTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_NegatedContainsFiltersRows(TestProviderDescriptor provider)
     {
@@ -87,6 +89,7 @@ public class EmployeesContainsTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_ReadOnlySpanFiltersRows(TestProviderDescriptor provider)
     {
@@ -115,6 +118,7 @@ public class EmployeesContainsTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_ProjectedLocalSequenceFiltersRows(TestProviderDescriptor provider)
     {
@@ -141,6 +145,7 @@ public class EmployeesContainsTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_EmptyProjectedLocalSequenceReturnsNoRows(TestProviderDescriptor provider)
     {
@@ -159,6 +164,7 @@ public class EmployeesContainsTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_ConstantTrueReturnsAllRows(TestProviderDescriptor provider)
     {
@@ -181,6 +187,7 @@ public class EmployeesContainsTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_ConstantFalseReturnsNoRows(TestProviderDescriptor provider)
     {

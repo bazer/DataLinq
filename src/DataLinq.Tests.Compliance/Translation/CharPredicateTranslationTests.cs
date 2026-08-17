@@ -14,6 +14,7 @@ namespace DataLinq.Tests.Compliance;
 public class CharPredicateTranslationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task CharPredicate_SqlQueryMatchesRawTextCharAcrossProviders(TestProviderDescriptor provider)
     {
@@ -36,6 +37,7 @@ public class CharPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task CharPredicate_LinqMatchesRawTextCharAcrossProviders(TestProviderDescriptor provider)
     {

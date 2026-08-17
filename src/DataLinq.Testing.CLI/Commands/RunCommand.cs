@@ -19,6 +19,9 @@ namespace DataLinq.Testing.CLI;
 internal static class RunCommand
 {
     private static readonly Regex AnsiEscapePattern = new(@"\x1B\[[0-9;?]*[ -/]*[@-~]", RegexOptions.CultureInvariant);
+    private const string EveryProviderAffinityFilter = "/**[ProviderAffinity=EveryProvider]";
+    private const string ServerProviderAffinityFilter =
+        "/**[(ProviderAffinity=EveryProvider)|(ProviderAffinity=ServerFamily)]";
 
     public static Command Create(TestInfraOrchestrator orchestrator, TestInfraCliSettings settings)
     {
@@ -60,6 +63,10 @@ internal static class RunCommand
             Description = "How many targets to include in each batch.",
             DefaultValueFactory = _ => 2
         };
+        var maximumParallelTestsOption = new Option<int?>("--maximum-parallel-tests")
+        {
+            Description = "Maximum concurrent TUnit tests. Overrides the named plan suite limit when supplied."
+        };
         var tearDownOption = new Option<bool>("--tear-down")
         {
             Description = "Stops the provisioned server targets after the run completes."
@@ -84,6 +91,7 @@ internal static class RunCommand
         command.Options.Add(buildOption);
         command.Options.Add(noBuildOption);
         command.Options.Add(batchSizeOption);
+        command.Options.Add(maximumParallelTestsOption);
         command.Options.Add(tearDownOption);
         command.Options.Add(summaryJsonOption);
 
@@ -110,6 +118,9 @@ internal static class RunCommand
             var batchSize = parseResult.GetValue(batchSizeOption);
             if (batchSize < 1 || batchSize > 32)
                 throw new InvalidOperationException("'--batch-size' must be between 1 and 32.");
+            var maximumParallelTests = parseResult.GetValue(maximumParallelTestsOption);
+            if (maximumParallelTests is <= 0 or > 256)
+                throw new InvalidOperationException("'--maximum-parallel-tests' must be between 1 and 256.");
             if (parseResult.GetValue(buildOption) && parseResult.GetValue(noBuildOption))
                 throw new InvalidOperationException("'--build' and '--no-build' cannot be combined.");
             var buildProjects = !parseResult.GetValue(noBuildOption);
@@ -140,7 +151,8 @@ internal static class RunCommand
                 requestedSummaryPath,
                 CommandHelpers.ParseOutputMode(parseResult.GetValue(outputOption)),
                 CommandHelpers.ParseProfile(parseResult.GetValue(profileOption)),
-                requestedPlan));
+                requestedPlan,
+                maximumParallelTests));
 
             if (exitCode != 0)
                 Environment.ExitCode = exitCode;
@@ -164,9 +176,10 @@ internal static class RunCommand
         string? summaryJsonPath,
         TestCliOutputMode outputMode,
         ToolingProfile profile,
-        TestCliRunPlan? plan = null)
+        TestCliRunPlan? plan = null,
+        int? maximumParallelTests = null)
     {
-        var exitCode = ExecuteSafely(() => RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, filter, configuration, buildProject, batchSize, parallelSuites, tearDown, summaryJsonPath, outputMode, profile, plan));
+        var exitCode = ExecuteSafely(() => RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, filter, configuration, buildProject, batchSize, parallelSuites, tearDown, summaryJsonPath, outputMode, profile, plan, maximumParallelTests));
         if (exitCode != 0)
             Environment.ExitCode = exitCode;
     }
@@ -252,7 +265,8 @@ internal static class RunCommand
         string? summaryJsonPath,
         TestCliOutputMode outputMode,
         ToolingProfile profile,
-        TestCliRunPlan? plan)
+        TestCliRunPlan? plan,
+        int? maximumParallelTests)
     {
         var repositoryRoot = settings.RepositoryRoot;
         var summaryRequested = !string.IsNullOrWhiteSpace(summaryJsonPath);
@@ -301,9 +315,10 @@ internal static class RunCommand
                     tearDown,
                     outputMode,
                     profile,
-                    plan?.Name)
+                    plan?.Name,
+                    maximumParallelTests)
                 : null;
-            expectedResults.AddRange(CreateExpectedResults(suites, selection, repositoryRoot, batchSize));
+            expectedResults.AddRange(CreateExpectedResults(suites, selection, repositoryRoot, batchSize, plan));
             var projectPaths = suites
                 .Select(suite => ResolveProjectPath(repositoryRoot, suite.ProjectPath))
                 .Distinct(PathComparer)
@@ -355,6 +370,8 @@ internal static class RunCommand
                                 profile,
                                 runArtifactRoot,
                                 testHostPaths,
+                                maximumParallelTests,
+                                DeduplicatesProviderInvariants(plan, suite),
                                 completedResultRef: completedResult =>
                                 {
                                     lock (resultLock)
@@ -402,6 +419,8 @@ internal static class RunCommand
                             profile,
                             runArtifactRoot,
                             testHostPaths,
+                            maximumParallelTests,
+                            DeduplicatesProviderInvariants(plan, suite),
                             completedResultRef: results.Add,
                             usedTargetsRef: value => usedTargets = usedTargets || value);
 
@@ -491,7 +510,8 @@ internal static class RunCommand
                             tearDown,
                             outputMode,
                             profile,
-                            plan?.Name),
+                            plan?.Name,
+                            maximumParallelTests),
                         repositoryStart!,
                         repositoryEnd,
                         runnerAssemblies.EntryAssembly,
@@ -530,6 +550,8 @@ internal static class RunCommand
         ToolingProfile profile,
         string runArtifactRoot,
         IReadOnlyDictionary<string, string> testHostPaths,
+        int? maximumParallelTests,
+        bool deduplicateProviderInvariants,
         Action<RunResult> completedResultRef,
         Action<bool>? usedTargetsRef)
     {
@@ -574,7 +596,20 @@ internal static class RunCommand
                 infrastructureStopwatch.Stop();
 
                 var artifacts = CreateRunArtifactPaths(runArtifactRoot, suite.Name, index + 1, batch);
-                var result = ExecuteTestRun(testHostPath, filter, settings, batch, artifacts, profile);
+                var affinityRole = deduplicateProviderInvariants
+                    ? index == 0 ? "AnchorWithInvariant" : "TargetSpecific"
+                    : null;
+                var effectiveFilter = deduplicateProviderInvariants && index > 0
+                    ? CreateProviderAffinityFilter(batch, filter)
+                    : filter;
+                var result = ExecuteTestRun(
+                    testHostPath,
+                    effectiveFilter,
+                    settings,
+                    batch,
+                    artifacts,
+                    profile,
+                    maximumParallelTests ?? suite.MaximumParallelTests);
 
                 var runResult = CreateRunResult(
                     suite.Name,
@@ -582,7 +617,8 @@ internal static class RunCommand
                     index + 1,
                     batch.Targets.Select(static target => target.Id).ToArray(),
                     infrastructureStopwatch.Elapsed,
-                    result);
+                    result,
+                    affinityRole);
                 completedResultRef(runResult);
                 RenderTestRunOutcome(runResult, outputMode);
 
@@ -602,7 +638,14 @@ internal static class RunCommand
             }
 
             var artifacts = CreateRunArtifactPaths(runArtifactRoot, suite.Name, batchIndex: null, selection: null);
-            var result = ExecuteTestRun(testHostPath, filter, settings, selection: null, artifacts, profile);
+            var result = ExecuteTestRun(
+                testHostPath,
+                filter,
+                settings,
+                selection: null,
+                artifacts,
+                profile,
+                maximumParallelTests ?? suite.MaximumParallelTests);
 
             var runResult = CreateRunResult(
                 suite.Name,
@@ -610,7 +653,8 @@ internal static class RunCommand
                 batchIndex: null,
                 targetIds: Array.Empty<string>(),
                 infrastructureElapsed: TimeSpan.Zero,
-                result);
+                result,
+                providerAffinityRole: null);
             completedResultRef(runResult);
             RenderTestRunOutcome(runResult, outputMode);
 
@@ -619,6 +663,28 @@ internal static class RunCommand
         }
 
         return exitCode;
+    }
+
+    private static bool DeduplicatesProviderInvariants(
+        TestCliRunPlan? plan,
+        TestCliSuite suite) =>
+        plan?.Name is TestCliRunPlanCatalog.LatestPlan or TestCliRunPlanCatalog.FullPlan
+        && suite.Name is TestCliSuiteCatalog.ComplianceSuite or TestCliSuiteCatalog.MySqlSuite;
+
+    private static string CreateProviderAffinityFilter(
+        CliTargetSelection batch,
+        string? existingFilter)
+    {
+        if (!string.IsNullOrWhiteSpace(existingFilter))
+        {
+            throw new InvalidOperationException(
+                "Provider-invariant plan deduplication cannot be combined with a suite filter. " +
+                "Use the focused plan for an explicitly filtered run.");
+        }
+
+        return batch.ServerTargets.Count > 0
+            ? ServerProviderAffinityFilter
+            : EveryProviderAffinityFilter;
     }
 
     private static LoggedCommandResult BuildProject(
@@ -657,13 +723,15 @@ internal static class RunCommand
         TestInfraCliSettings settings,
         CliTargetSelection? selection,
         RunArtifactPaths artifacts,
-        ToolingProfile profile)
+        ToolingProfile profile,
+        int? maximumParallelTests)
     {
         var environmentVariables = new Dictionary<string, string?>(
             settings.ToolPaths.CreateEnvironment(profile),
             StringComparer.OrdinalIgnoreCase);
         environmentVariables[DataLinq.Testing.PodmanTestEnvironmentSettings.FixtureTelemetryReportPathEnvironmentVariable] =
             artifacts.FixtureTelemetryReportPath;
+        environmentVariables["TUNIT_MAX_PARALLEL_TESTS"] = maximumParallelTests?.ToString();
 
         if (selection is not null)
         {
@@ -1264,7 +1332,8 @@ internal static class RunCommand
         int? batchIndex,
         IReadOnlyList<string> targetIds,
         TimeSpan infrastructureElapsed,
-        LoggedCommandResult result) =>
+        LoggedCommandResult result,
+        string? providerAffinityRole) =>
         new(
             Suite: suite,
             ProjectPath: projectPath,
@@ -1287,7 +1356,8 @@ internal static class RunCommand
             WorkingDirectory: result.WorkingDirectory,
             Environment: result.Environment,
             StartedAtUtc: result.StartedAtUtc,
-            CompletedAtUtc: result.CompletedAtUtc);
+            CompletedAtUtc: result.CompletedAtUtc,
+            ProviderAffinityRole: providerAffinityRole);
 
     private static string SanitizeConsoleOutput(string output) =>
         string.IsNullOrEmpty(output)
@@ -1442,7 +1512,8 @@ internal static class RunCommand
         bool tearDown,
         TestCliOutputMode outputMode,
         ToolingProfile profile,
-        string? planName)
+        string? planName,
+        int? maximumParallelTests)
     {
         var resolvedSuites = suites
             .Select(suite => new TestRunSummarySuite(
@@ -1493,7 +1564,8 @@ internal static class RunCommand
             TearDown: tearDown,
             OutputMode: outputMode.ToString(),
             Profile: profile,
-            Plan: planName);
+            Plan: planName,
+            MaximumParallelTests: maximumParallelTests);
     }
 
     private static TestRunSummaryInvocation CreateFallbackSummaryInvocation(
@@ -1509,7 +1581,8 @@ internal static class RunCommand
         bool tearDown,
         TestCliOutputMode outputMode,
         ToolingProfile profile,
-        string? planName) =>
+        string? planName,
+        int? maximumParallelTests) =>
         new(
             Command: "run",
             RepositoryRoot: repositoryRoot,
@@ -1537,7 +1610,8 @@ internal static class RunCommand
             TearDown: tearDown,
             OutputMode: outputMode.ToString(),
             Profile: profile,
-            Plan: planName);
+            Plan: planName,
+            MaximumParallelTests: maximumParallelTests);
 
     private static TestRunSummarySafeEnvironment CreateSummarySafeEnvironment()
     {
@@ -1558,7 +1632,8 @@ internal static class RunCommand
         IReadOnlyList<TestCliSuite> suites,
         CliTargetSelection selection,
         string repositoryRoot,
-        int batchSize)
+        int batchSize,
+        TestCliRunPlan? plan)
     {
         var expected = new List<TestRunSummaryExpectedResult>();
         foreach (var suite in suites)
@@ -1570,7 +1645,8 @@ internal static class RunCommand
                     suite.Name,
                     projectPath,
                     BatchIndex: null,
-                    TargetIds: Array.Empty<string>()));
+                    TargetIds: Array.Empty<string>(),
+                    ProviderAffinityRole: null));
                 continue;
             }
 
@@ -1584,7 +1660,10 @@ internal static class RunCommand
                     suite.Name,
                     projectPath,
                     BatchIndex: index + 1,
-                    TargetIds: batches[index].Select(static target => target.Id).ToArray()));
+                    TargetIds: batches[index].Select(static target => target.Id).ToArray(),
+                    ProviderAffinityRole: DeduplicatesProviderInvariants(plan, suite)
+                        ? index == 0 ? "AnchorWithInvariant" : "TargetSpecific"
+                        : null));
             }
         }
 
@@ -1653,7 +1732,8 @@ internal static class RunCommand
             result.TestArtifacts.HtmlReportPath,
             result.TestArtifacts.TrxReportPath,
             result.InfrastructureSetupDurationSeconds,
-            result.Performance)).ToArray();
+            result.Performance,
+            result.ProviderAffinityRole)).ToArray();
         var report = TestRunSummaryReporter.Create(new TestRunSummaryReportInput(
             RunId: runId,
             StartedAtUtc: startedAtUtc,
@@ -1734,7 +1814,8 @@ internal static class RunCommand
         string WorkingDirectory,
         TestRunSummaryCommandEnvironment Environment,
         DateTimeOffset StartedAtUtc,
-        DateTimeOffset CompletedAtUtc)
+        DateTimeOffset CompletedAtUtc,
+        string? ProviderAffinityRole)
     {
         public string Targets => TargetIds.Count == 0
             ? "-"

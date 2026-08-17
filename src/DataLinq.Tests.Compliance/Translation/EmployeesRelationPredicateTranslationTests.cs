@@ -10,6 +10,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesRelationPredicateTranslationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationAnyPredicate_TranslatesToExistsAndMatchesInMemory(TestProviderDescriptor provider)
     {
@@ -84,6 +85,7 @@ public class EmployeesRelationPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NegatedRelationAnyPredicate_TranslatesToNotExistsAndMatchesInMemory(TestProviderDescriptor provider)
     {
@@ -115,6 +117,7 @@ public class EmployeesRelationPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCountGreaterThanZero_TranslatesToExistsAndMatchesInMemory(TestProviderDescriptor provider)
     {
@@ -141,6 +144,7 @@ public class EmployeesRelationPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCountEqualsZero_TranslatesToNotExistsAndMatchesInMemory(TestProviderDescriptor provider)
     {
@@ -169,6 +173,7 @@ public class EmployeesRelationPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationAnyCompoundPredicate_TranslatesGroupedExistsAndMatchesInMemory(TestProviderDescriptor provider)
     {
@@ -197,6 +202,7 @@ public class EmployeesRelationPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationPredicateTraversal_ThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
@@ -214,6 +220,7 @@ public class EmployeesRelationPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCountUnsupportedThreshold_ThrowsQueryTranslationException(TestProviderDescriptor provider)
     {

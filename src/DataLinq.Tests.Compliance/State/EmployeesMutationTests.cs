@@ -9,6 +9,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesMutationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_MutateOnMissingModel_ThrowsArgumentNullException(TestProviderDescriptor provider)
     {
@@ -29,6 +30,7 @@ public class EmployeesMutationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_MutateOrNewOnMissingModel_ReturnsNewMutableEmployee(TestProviderDescriptor provider)
     {
@@ -53,6 +55,7 @@ public class EmployeesMutationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_ResetWithoutModel_RevertsToOriginalState(TestProviderDescriptor provider)
     {
@@ -73,6 +76,7 @@ public class EmployeesMutationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_ResetWithModel_RevertsToProvidedModel(TestProviderDescriptor provider)
     {
@@ -94,6 +98,7 @@ public class EmployeesMutationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_SaveResetsChangeTrackingAndPersistsValues(TestProviderDescriptor provider)
     {
@@ -120,6 +125,7 @@ public class EmployeesMutationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_ChangingPropertyMarksMutableAsChanged(TestProviderDescriptor provider)
     {

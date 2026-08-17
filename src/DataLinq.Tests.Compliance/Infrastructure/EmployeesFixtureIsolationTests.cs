@@ -15,6 +15,7 @@ public sealed class EmployeesFixtureIsolationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task IsolatedTinyFixture_RemovesRowSchemaSessionAndCacheStateBetweenOwners(
         TestProviderDescriptor provider)
@@ -101,6 +102,7 @@ public sealed class EmployeesFixtureIsolationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ServerProviders))]
     public async Task IsolatedTinyFixture_RebuildsTriggerContaminationBeforeNextOwner(
         TestProviderDescriptor provider)

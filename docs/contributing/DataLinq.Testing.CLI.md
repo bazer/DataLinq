@@ -156,6 +156,8 @@ Supported suites:
   Resolves and executes existing test host DLLs directly. Missing, ambiguous, or source-stale outputs fail with an actionable error.
 - `--batch-size`
   Defaults to `2`. Must be between `1` and `32`.
+- `--maximum-parallel-tests`
+  Sets `TUNIT_MAX_PARALLEL_TESTS` for each child test host. Values must be between `1` and `256`. An explicit value overrides the per-suite limit recorded by a named plan.
 - `--parallel`
   Runs the selected suites in parallel instead of serially.
 - `--tear-down`
@@ -176,6 +178,49 @@ The runner resolves the complete suite plan before starting test hosts. By defau
 Use `--no-build` after an explicit solution/project build, including in CI. The resolver requires exactly one executable target framework/runtime, the DLL, its `.runtimeconfig.json`, and its `.deps.json`. It also walks project references and rejects an output older than relevant project sources or build props. `--build` and `--no-build` are mutually exclusive.
 
 The summary's `BuildProject` value records whether this invocation performed the once-per-project build. Each result's command arguments record the exact resolved host DLL used by `dotnet exec`.
+
+### Resource-aware scheduling
+
+Named plans carry an explicit worker limit per suite: generators, Memory, compliance, and MySQL/MariaDB use eight workers; unit uses sixteen. These are resource budgets, not CPU-count guesses. Override them only for a recorded concurrency sweep with `--maximum-parallel-tests`; the invocation and each TRX performance result record the requested limit, observed effective concurrency, and test-host duration.
+
+The August 2026 MariaDB 11.8 compliance sweep used the same warm build, 489 cases, and 250-connection container for every row:
+
+| Workers | Host | Effective concurrency | p95 | Connections opened | Threads before/after host exit | Admin-lock wait |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 4 | 31.5 s | 2.08 | 0.51 s | 2,643 | 248 / 1 | 682 ms |
+| 8 | 29.8 s | 3.32 | 0.98 s | 2,629 | 230 / 1 | 1,627 ms |
+| 12 | 29.8 s | 5.41 | 1.68 s | 2,640 | 249 / 1 | 1,081 ms |
+| 16 | 30.2 s | 6.98 | 2.02 s | 2,629 | 245 / 1 | 1,214 ms |
+
+Eight is the plan default because it had the best host time without the 12-worker run's one-thread connection headroom. Higher test-body concurrency merely increased contention and p95; it did not shorten the run. Every sweep row had zero max-connection retries and returned to the single post-process telemetry connection.
+
+Five subsequent eight-worker MariaDB 11.8 runs passed all 489 cases in 29.8, 27.9, 29.6, 31.0, and 29.8 seconds (29.8-second median). All five recorded zero connection retries and one connected telemetry probe after the test host exited.
+
+The `latest` and `full` compliance and MySQL/MariaDB manifests assign each batch an auditable `ProviderAffinityRole`:
+
+- `AnchorWithInvariant` is the first batch. It runs the provider-invariant tests once, any catalog/SQLite-special cases once, and the provider cases for its selected targets.
+- `TargetSpecific` batches use TUnit properties to select `EveryProvider` cases and, for server batches, `ServerFamily` cases. They do not rediscover invariant or SQLite/catalog cases.
+
+Compliance methods using `ActiveProviders`, `ServerProviders`, `SqliteProviders`, or `AllLtsServerProviders`, and MySQL-suite methods using a server provider source, must declare `ProviderAffinity` beside their data source. Tests without a provider data source are invariant by convention. This makes the full-plan logical pairing explicit: an invariant method appears once, while each required provider-backed method appears once for every applicable target. `--batch-size 1` still produces one explicit result row per target; the anchor role explains why the first row contains the one-time cases.
+
+The current six-target full-plan manifest executes 4,443 tests: 2,323 compliance cases and 315 MySQL-suite cases alongside generators, unit, and Memory. The former per-target rediscovery would execute 5,243 cases for the same logical coverage. Affinity scheduling therefore removes 800 redundant executions: 605 invariant/SQLite/catalog repeats from compliance and 195 invariant repeats from the MySQL-specific suite. Its per-target rows are explicit: compliance runs 484 on the SQLite anchor, 363 on SQLite memory, and 369 on each server; MySQL runs 126 on the MySQL anchor and 63 on each MariaDB target. The measured run passed the then-current 4,439 cases in 244.6 seconds of command wall time, with 202.3 accumulated test-host seconds and 822.6 test-body seconds; the manifest subsequently gained the four server-provider trigger-isolation cases.
+
+Unkeyed `[NotInParallel]` stops the entire test process and is restricted to a source-enforced allowlist. It remains justified only where unconstrained tests necessarily observe or modify the same process-global resource:
+
+- telemetry/metrics tests reset global counters or install listeners that receive ordinary database activity from every concurrent test;
+- CLI/configuration tests mutate process environment variables or the current directory, and console tests redirect the process streams;
+- provider-registry tests replace global plugin/provider registrations read by otherwise unconstrained tests;
+- Memory characterization tests inspect static converter/materialization histories that ordinary Memory tests also update;
+- compliance translation, relation-cache, GUID, and capability characterizations assert process-global converter or telemetry call counts that ordinary compliance tests also update;
+- the Employees lease isolation proof requires sole ownership to prove deterministic LIFO reuse, while its metrics/cache characterization peers reset process-global counters.
+
+Database-local and fixture-local exclusions use these stable key families instead:
+
+| Key family | Protected resource |
+| --- | --- |
+| `process:database-cache` | Static database/cache notification state where every mutating peer participates in the same key |
+
+Tests sharing a key serialize with each other but continue alongside tests that do not touch that resource. A source-policy test rejects any new process-global file outside the reviewed allowlist and verifies that provider data sources carry the matching affinity property.
 
 ### Compliance fixture profiles and reuse
 

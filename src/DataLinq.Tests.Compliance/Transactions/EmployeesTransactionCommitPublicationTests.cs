@@ -16,6 +16,7 @@ public sealed class EmployeesTransactionCommitPublicationTests
     private readonly EmployeesTestData employees = new();
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Commit_WrapperCommittedStatusObservesPublishedStateAndReusableMutable(
         TestProviderDescriptor provider)

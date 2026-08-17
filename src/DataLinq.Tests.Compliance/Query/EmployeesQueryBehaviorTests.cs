@@ -12,6 +12,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesQueryBehaviorTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_ToListAndCountOnTablesAndViews_WorkAcrossProviders(TestProviderDescriptor provider)
     {
@@ -29,6 +30,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_StaticGetAndSimpleDepartmentPredicates_WorkAcrossProviders(TestProviderDescriptor provider)
     {
@@ -53,6 +55,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_DepartmentStringPredicates_WorkAcrossProviders(TestProviderDescriptor provider)
     {
@@ -75,6 +78,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_ChainedWherePredicates_ComposeAcrossResultOperators(TestProviderDescriptor provider)
     {
@@ -143,6 +147,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_ChainedWhereAfterOrdering_PreservesOuterPredicateAndOrdering(TestProviderDescriptor provider)
     {
@@ -182,6 +187,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_ManagerStringAndDatePredicates_MatchInMemoryFiltering(TestProviderDescriptor provider)
     {
@@ -232,6 +238,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_EnumPredicates_MatchInMemoryFiltering(TestProviderDescriptor provider)
     {
@@ -278,6 +285,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_DepartmentContainsCollections_WorkAcrossProviders(TestProviderDescriptor provider)
     {
@@ -303,6 +311,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_MultipleContainsPredicates_MatchDynamicSeededRows(TestProviderDescriptor provider)
     {
@@ -342,6 +351,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_MultipleContainsWithAdditionalPredicates_MatchDynamicSeededRows(TestProviderDescriptor provider)
     {
@@ -416,6 +426,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_AnySingleAndFirstOperators_WorkAcrossProviders(TestProviderDescriptor provider)
     {
@@ -449,6 +460,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_CompleteEntityResultFamily_PreservesBehaviorAcrossProviders(
         TestProviderDescriptor provider)
@@ -495,6 +507,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_OrderedFirstAndLastVariants_WorkAcrossProviders(TestProviderDescriptor provider)
     {
@@ -524,6 +537,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_OrderByProjectionAndPaging_MatchInMemoryBehavior(TestProviderDescriptor provider)
     {
@@ -646,6 +660,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_TwoPropertyComparisons_MatchInMemoryFiltering(TestProviderDescriptor provider)
     {
@@ -684,6 +699,7 @@ public class EmployeesQueryBehaviorTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_UnsupportedTailAndWhileOperators_ThrowQueryTranslationException(TestProviderDescriptor provider)
     {

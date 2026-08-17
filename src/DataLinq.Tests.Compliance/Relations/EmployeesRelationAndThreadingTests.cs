@@ -16,6 +16,7 @@ public class EmployeesRelationAndThreadingTests
     private const int LocalParallelTransactionCount = 10;
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Relations_ManagerDepartmentLazyLoad_ResolvesSingleValue(TestProviderDescriptor provider)
     {
@@ -35,6 +36,7 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Relations_DepartmentManagersLazyLoad_ResolvesCollection(TestProviderDescriptor provider)
     {
@@ -54,6 +56,7 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Relations_EmployeesWithoutManagerLinks_ExposeEmptyCollections(TestProviderDescriptor provider)
     {
@@ -71,6 +74,7 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Threading_ParallelRelationTraversal_KeepsGraphsConsistent(TestProviderDescriptor provider)
     {
@@ -113,6 +117,7 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Threading_ParallelReads_ReturnExpectedRows(TestProviderDescriptor provider)
     {
@@ -140,6 +145,7 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Threading_ParallelTransactionCommits_PersistIndependentUpdates(TestProviderDescriptor provider)
     {
@@ -179,6 +185,7 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Threading_ParallelManagerLazyLoads_ResolveDepartments(TestProviderDescriptor provider)
     {
@@ -208,6 +215,7 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Threading_ParallelDepartmentLazyLoads_ResolveManagerCollections(TestProviderDescriptor provider)
     {
@@ -239,6 +247,7 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Threading_ParallelSnapshots_AdvanceCacheTimestamps(TestProviderDescriptor provider)
     {

@@ -15,6 +15,7 @@ public sealed class EmployeesTransactionTrackingTests
     private readonly EmployeesTestData employees = new();
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SuccessfulMutations_RecordOrderedChangesAndOnlyLifecycleMutableReferences(
         TestProviderDescriptor provider)
@@ -96,6 +97,7 @@ public sealed class EmployeesTransactionTrackingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EqualButDistinctMutables_AreBothTrackedByReferenceIdentity(
         TestProviderDescriptor provider)
@@ -144,6 +146,7 @@ public sealed class EmployeesTransactionTrackingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RepeatedSameMutable_RecordsMultipleChangesButOneTouchedReference(
         TestProviderDescriptor provider)
@@ -196,6 +199,7 @@ public sealed class EmployeesTransactionTrackingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task CleanNoChangeUpdate_RecordsNeitherChangeNorTouchedMutable(
         TestProviderDescriptor provider)

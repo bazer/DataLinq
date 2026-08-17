@@ -15,6 +15,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesPublicCacheInvalidationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_Clear_RemovesRowsFromAllLoadedTableCaches(TestProviderDescriptor provider)
     {
@@ -42,6 +43,7 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_ClearTable_RemovesOnlySelectedTableRows(TestProviderDescriptor provider)
     {
@@ -70,6 +72,7 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateScalarProviderKey_RemovesOneCachedRow(TestProviderDescriptor provider)
     {
@@ -101,6 +104,7 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateEvent_Row_RemovesCachedRow(TestProviderDescriptor provider)
     {
@@ -132,6 +136,7 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateEvent_Table_ClearsSelectedTable(TestProviderDescriptor provider)
     {
@@ -159,6 +164,7 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_ConcurrentExternalInvalidationDuringReads_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
@@ -223,6 +229,7 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateUnknownProviderKey_IsNoOp(TestProviderDescriptor provider)
     {
@@ -244,6 +251,7 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateMany_RemovesEachCachedRow(TestProviderDescriptor provider)
     {
@@ -273,6 +281,7 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateCompositeProviderKeyComponents_RemovesCachedRow(TestProviderDescriptor provider)
     {
@@ -300,6 +309,7 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateTableDefinition_UsesDynamicProviderKeyComponents(TestProviderDescriptor provider)
     {
@@ -325,6 +335,7 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateDynamicComponents_RejectsMismatchedArityAndTypes(TestProviderDescriptor provider)
     {
@@ -343,6 +354,7 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateEvent_RejectsMissingAndMalformedFields(TestProviderDescriptor provider)
     {

@@ -8,6 +8,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesGroupedAggregateTranslationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedCountProjection_OverDirectKey_MatchesInMemoryResults(TestProviderDescriptor provider)
     {
@@ -45,6 +46,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedCountProjection_WorksFromTransactionRoot(TestProviderDescriptor provider)
     {
@@ -82,6 +84,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedNumericAggregates_OverDirectNumericSelector_MatchInMemoryResults(TestProviderDescriptor provider)
     {
@@ -137,6 +140,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedNumericAggregates_OverNullableValueSelector_MatchInMemoryResults(TestProviderDescriptor provider)
     {
@@ -189,6 +193,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedNumericAggregates_WorkFromTransactionRoot(TestProviderDescriptor provider)
     {
@@ -243,6 +248,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedHaving_OverAggregatePredicates_MatchesInMemoryResults(TestProviderDescriptor provider)
     {
@@ -287,6 +293,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedProjectionWhereOrderingAndPaging_MatchesInMemoryResults(TestProviderDescriptor provider)
     {
@@ -334,6 +341,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedProjectionCountAndAny_MatchInMemoryResults(TestProviderDescriptor provider)
     {
@@ -381,6 +389,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedProjectionComposition_WorksFromTransactionRoot(TestProviderDescriptor provider)
     {
@@ -428,6 +437,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedCompositeAndComputedKeys_MatchInMemoryResults(TestProviderDescriptor provider)
     {
@@ -477,6 +487,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedEnumNullableAndStringFunctionKeys_MatchInMemoryResults(TestProviderDescriptor provider)
     {
@@ -530,6 +541,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedConstructorProjection_OverCompositeKey_MatchesInMemoryResults(TestProviderDescriptor provider)
     {
@@ -573,6 +585,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedExplicitJoinKeys_MatchInMemoryResults(TestProviderDescriptor provider)
     {
@@ -628,6 +641,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedComputedKeyOverExplicitJoinQualifiesAmbiguousColumn(TestProviderDescriptor provider)
     {
@@ -692,6 +706,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedImplicitRelationKey_WorksFromTransactionRoot(TestProviderDescriptor provider)
     {
@@ -729,6 +744,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedCountProjection_RendersGroupBySql(TestProviderDescriptor provider)
     {
@@ -755,6 +771,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedNumericAggregates_RenderAggregateSql(TestProviderDescriptor provider)
     {
@@ -787,6 +804,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedComposition_RendersHavingOrderingPagingAndDerivedCountSql(TestProviderDescriptor provider)
     {
@@ -839,6 +857,7 @@ public class EmployeesGroupedAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupedAdvancedKeys_RenderSqlShape(TestProviderDescriptor provider)
     {

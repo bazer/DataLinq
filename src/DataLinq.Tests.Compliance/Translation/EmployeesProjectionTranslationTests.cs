@@ -12,6 +12,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesProjectionTranslationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ComputedAnonymousProjection_AppliesAfterSqlFilteringOrderingAndPaging(TestProviderDescriptor provider)
     {
@@ -64,6 +65,7 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ComputedScalarProjection_MatchesPostMaterializationBehavior(TestProviderDescriptor provider)
     {
@@ -92,6 +94,7 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ComputedProjection_ExecutesParsedInvocationAndRebindsCapturedValue(TestProviderDescriptor provider)
     {
@@ -133,6 +136,7 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task CapturedOnlyProjection_PreservesSourceCardinalityWithoutOriginalExpression(TestProviderDescriptor provider)
     {
@@ -158,6 +162,7 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task AotSafeOperatorRecipe_MatchesLiftedFloatingStringAndReferenceSemantics(TestProviderDescriptor provider)
     {
@@ -223,6 +228,7 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBackedAnonymousProjection_MatchesInMemoryAndSelectsAliases(TestProviderDescriptor provider)
     {
@@ -265,6 +271,7 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ImplicitSingularRelationProjection_MatchesInMemoryAndUsesJoin(TestProviderDescriptor provider)
     {
@@ -307,6 +314,7 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RowLocalImplicitSingularRelationProjection_ExecutesParsedInvocation(TestProviderDescriptor provider)
     {
@@ -361,6 +369,7 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ImplicitSingularRelationProjection_WorksFromTransactionRoot(TestProviderDescriptor provider)
     {
@@ -396,6 +405,7 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationProjection_ThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
@@ -423,6 +433,7 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedProjectionMethod_ThrowsWithoutInvokingMethod(TestProviderDescriptor provider)
     {

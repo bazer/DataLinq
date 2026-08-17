@@ -66,10 +66,10 @@ internal static class TestCliRunPlanCatalog
             DefaultTargetIds: [TestTargetCatalog.SQLiteFileTargetId],
             Suites:
             [
-                new(TestCliSuiteCatalog.GeneratorsSuite, null, 60, 8, "generator/compiler", "compiler"),
-                new(TestCliSuiteCatalog.UnitSuite, null, 1596, 16, "core unit and tooling", "in-process, process, filesystem"),
-                new(TestCliSuiteCatalog.MemorySuite, null, 142, 5, "memory integration", "in-process database"),
-                new(TestCliSuiteCatalog.ComplianceSuite, null, 483, 26, "provider-invariant compliance", "SQLite file")
+                new(TestCliSuiteCatalog.GeneratorsSuite, null, 61, 8, "generator/compiler", "compiler", MaximumParallelTests: 8),
+                new(TestCliSuiteCatalog.UnitSuite, null, 1602, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
+                new(TestCliSuiteCatalog.MemorySuite, null, 142, 5, "memory integration", "in-process database", MaximumParallelTests: 8),
+                new(TestCliSuiteCatalog.ComplianceSuite, null, 484, 26, "provider-invariant compliance", "SQLite file", MaximumParallelTests: 8)
             ]),
         new(
             Name: LatestPlan,
@@ -104,7 +104,8 @@ internal static class TestCliRunPlanCatalog
                 ExpectedCaseCount = entry.ExpectedCaseCount,
                 EstimatedDurationSeconds = entry.EstimatedDurationSeconds,
                 Purpose = entry.Purpose,
-                Resource = entry.Resource
+                Resource = entry.Resource,
+                MaximumParallelTests = entry.MaximumParallelTests
             })
             .ToArray();
 
@@ -116,15 +117,28 @@ internal static class TestCliRunPlanCatalog
         int estimatedServerTargets,
         double estimatedDurationSeconds)
     {
-        var complianceCases = 483 * estimatedTargets;
-        const int estimatedMySqlCasesPerTarget = 80;
+        const int complianceAnchorCases = 484;
+        const int everyProviderCases = 363;
+        const int serverTargetCases = 369;
+        var remainingSqliteTargets = Math.Max(0, estimatedTargets - estimatedServerTargets - 1);
+        var complianceCases = complianceAnchorCases
+            + (remainingSqliteTargets * everyProviderCases)
+            + (estimatedServerTargets * serverTargetCases);
+        const int mySqlInvariantCases = 65;
+        const int mySqlTargetCases = 61;
+        const int mariaDbTargetCases = 63;
+        var mySqlProviderCases = estimatedServerTargets == 0
+            ? 0
+            : mySqlInvariantCases
+                + mySqlTargetCases
+                + (Math.Max(0, estimatedServerTargets - 1) * mariaDbTargetCases);
         return
         [
-            new(TestCliSuiteCatalog.GeneratorsSuite, null, 60, 8, "generator/compiler", "compiler"),
-            new(TestCliSuiteCatalog.UnitSuite, null, 1596, 16, "core unit and tooling", "in-process, process, filesystem"),
-            new(TestCliSuiteCatalog.MemorySuite, null, 142, 5, "memory integration", "in-process database"),
-            new(TestCliSuiteCatalog.ComplianceSuite, null, complianceCases, estimatedDurationSeconds * 0.75, "provider-invariant compliance", "SQLite and server databases"),
-            new(TestCliSuiteCatalog.MySqlSuite, null, estimatedMySqlCasesPerTarget * estimatedServerTargets, estimatedDurationSeconds * 0.25, "provider-specific compliance", "MySQL/MariaDB server")
+            new(TestCliSuiteCatalog.GeneratorsSuite, null, 61, 8, "generator/compiler", "compiler", MaximumParallelTests: 8),
+            new(TestCliSuiteCatalog.UnitSuite, null, 1602, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
+            new(TestCliSuiteCatalog.MemorySuite, null, 142, 5, "memory integration", "in-process database", MaximumParallelTests: 8),
+            new(TestCliSuiteCatalog.ComplianceSuite, null, complianceCases, estimatedDurationSeconds * 0.75, "provider-invariant compliance", "SQLite and server databases", MaximumParallelTests: 8),
+            new(TestCliSuiteCatalog.MySqlSuite, null, mySqlProviderCases, estimatedDurationSeconds * 0.25, "provider-specific compliance", "MySQL/MariaDB server", MaximumParallelTests: 8)
         ];
     }
 }

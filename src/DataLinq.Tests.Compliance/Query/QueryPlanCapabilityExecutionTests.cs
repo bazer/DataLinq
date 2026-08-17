@@ -11,6 +11,7 @@ public sealed class QueryPlanCapabilityExecutionTests
 {
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedSqlCapability_FailsBeforeSequenceOrTerminalBackendWork(
         TestProviderDescriptor provider)

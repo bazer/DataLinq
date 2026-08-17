@@ -11,6 +11,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesJoinTranslationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task QuerySyntaxInnerJoin_ComposesAndProjectsSqlRows(TestProviderDescriptor provider)
     {
@@ -58,6 +59,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task QuerySyntaxInnerJoin_WorksFromTransactionRoot(TestProviderDescriptor provider)
     {
@@ -101,6 +103,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task QuerySyntaxInnerJoin_CountAndAnyMatchInMemory(TestProviderDescriptor provider)
     {
@@ -137,6 +140,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task QuerySyntaxInnerJoin_PostPagingWhereMatchesInMemory(TestProviderDescriptor provider)
     {
@@ -184,6 +188,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_DirectMemberKeysProjectsBothSides_MatchesInMemory(TestProviderDescriptor provider)
     {
@@ -238,6 +243,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_NullableValueKeyProjectsBothSides_MatchesInMemory(TestProviderDescriptor provider)
     {
@@ -295,6 +301,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_CompositePrimaryKeysThrowQueryTranslationException(TestProviderDescriptor provider)
     {
@@ -316,6 +323,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_ComposedWhereOrderingAndPaging_MatchesInMemory(TestProviderDescriptor provider)
     {
@@ -381,6 +389,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_CountAndAnyOverJoinedProjection_MatchInMemory(TestProviderDescriptor provider)
     {
@@ -422,6 +431,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_ComposedJoinedProjectionWorksFromTransactionRoot(TestProviderDescriptor provider)
     {
@@ -479,6 +489,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_PostPagingWhereAndOrderingMatchInMemory(TestProviderDescriptor provider)
     {
@@ -530,6 +541,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_RowLocalFunctionProjection_MatchesInMemory(TestProviderDescriptor provider)
     {
@@ -573,6 +585,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_ScalarRecipeExecutesWithoutPlaceholderOrOriginalExpression(TestProviderDescriptor provider)
     {
@@ -613,6 +626,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_PostPagingCountAndAnyMatchInMemory(TestProviderDescriptor provider)
     {
@@ -658,6 +672,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_PostPagingWorksFromTransactionRoot(TestProviderDescriptor provider)
     {
@@ -711,6 +726,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_PostPagingRowLocalProjectionThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
@@ -741,6 +757,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitInnerJoin_RelationProjectionThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
@@ -766,6 +783,7 @@ public class EmployeesJoinTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GroupJoin_ThrowsQueryTranslationException(TestProviderDescriptor provider)
     {

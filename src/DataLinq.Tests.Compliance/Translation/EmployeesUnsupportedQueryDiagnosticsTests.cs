@@ -10,6 +10,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesUnsupportedQueryDiagnosticsTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedPredicateMethodThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
@@ -27,6 +28,7 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedLocalAnyPredicateThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
@@ -46,6 +48,7 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedRelationSelectorThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
@@ -63,6 +66,7 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedAggregateSelectorThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
@@ -79,6 +83,7 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedGroupByThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
@@ -96,6 +101,7 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedGroupedProjectionShapesThrowQueryTranslationException(TestProviderDescriptor provider)
     {
@@ -174,6 +180,7 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PostPagingOrderByUsesSubqueryPushdown(TestProviderDescriptor provider)
     {
@@ -206,6 +213,7 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PostPagingWhereUsesSubqueryPushdown(TestProviderDescriptor provider)
     {
@@ -236,6 +244,7 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PostPagingProjectionFilterThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
