@@ -359,6 +359,11 @@ internal static class IsolatedEmployeesDatabasePool
                   FROM information_schema.REFERENTIAL_CONSTRAINTS
                  WHERE CONSTRAINT_SCHEMA = @schema
                 UNION ALL
+                SELECT 'trigger', TRIGGER_NAME, EVENT_OBJECT_TABLE, EVENT_MANIPULATION,
+                       ACTION_TIMING, ACTION_ORIENTATION, COALESCE(ACTION_CONDITION, ''), ACTION_STATEMENT
+                  FROM information_schema.TRIGGERS
+                 WHERE TRIGGER_SCHEMA = @schema
+                UNION ALL
                 SELECT 'view', TABLE_NAME, COALESCE(VIEW_DEFINITION, ''), CHECK_OPTION,
                        IS_UPDATABLE, SECURITY_TYPE, CHARACTER_SET_CLIENT, COLLATION_CONNECTION
                   FROM information_schema.VIEWS
