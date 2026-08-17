@@ -41,14 +41,14 @@ public static class TestShardEvidenceAggregator
     public static IReadOnlyList<TestShardEvidenceContract> FullMatrixContract { get; } =
     [
         new("generators", null, null, 61),
-        new("unit", null, null, 1607),
+        new("unit", null, null, 1608),
         new("memory", null, null, 142),
         new("compliance", "sqlite-file", "AnchorWithInvariant", 484),
         new("compliance", "sqlite-memory", "TargetSpecific", 363),
-        new("compliance", "mysql-8.4", "TargetSpecific", 368),
-        new("compliance", "mariadb-10.11", "TargetSpecific", 368),
-        new("compliance", "mariadb-11.4", "TargetSpecific", 368),
-        new("compliance", "mariadb-11.8", "TargetSpecific", 368),
+        new("compliance", "mysql-8.4", "TargetSpecific", 369),
+        new("compliance", "mariadb-10.11", "TargetSpecific", 369),
+        new("compliance", "mariadb-11.4", "TargetSpecific", 369),
+        new("compliance", "mariadb-11.8", "TargetSpecific", 369),
         new("mysql", "mysql-8.4", "AnchorWithInvariant", 126),
         new("mysql", "mariadb-10.11", "TargetSpecific", 63),
         new("mysql", "mariadb-11.4", "TargetSpecific", 63),
@@ -190,8 +190,13 @@ public static class TestShardEvidenceAggregator
         {
             throw new InvalidDataException($"Shard '{path}' is not a complete passing invocation.");
         }
-        if (!report.RunnerEvidence.ValidForEvidence || report.RunnerEvidence.StateChangedDuringRun ||
-            report.RunnerEvidence.Start.Dirty || report.RunnerEvidence.End.Dirty)
+        if (!report.RunnerEvidence.Start.Captured ||
+            !report.RunnerEvidence.End.Captured ||
+            report.RunnerEvidence.StateChangedDuringRun ||
+            !report.RunnerEvidence.AssembliesMatchCheckout ||
+            !report.RunnerEvidence.AssembliesBuiltFromCleanState ||
+            report.RunnerEvidence.Start.Dirty ||
+            report.RunnerEvidence.End.Dirty)
         {
             throw new InvalidDataException($"Shard '{path}' was not produced from a stable clean checkout.");
         }

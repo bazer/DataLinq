@@ -23,7 +23,7 @@ public sealed class TestShardEvidenceAggregatorTests
 
         await Assert.That(aggregate.Complete).IsTrue();
         await Assert.That(aggregate.Shards).Count().IsEqualTo(13);
-        await Assert.That(aggregate.TotalCases).IsEqualTo(4444);
+        await Assert.That(aggregate.TotalCases).IsEqualTo(4449);
         await Assert.That(aggregate.Shards.Select(static shard => $"{shard.Suite}:{shard.TargetId ?? "-"}").Distinct()).Count().IsEqualTo(13);
     }
 
@@ -67,6 +67,37 @@ public sealed class TestShardEvidenceAggregatorTests
         await Assert.That(configuration!.Message).Contains("configuration 'Release'");
         await Assert.That(schema!.Message).Contains("incompatible schema");
         await Assert.That(count!.Message).Contains("contract mismatch");
+    }
+
+    [Test]
+    public async Task AggregateDirectory_RejectsUnattestedShardRunnerProvenance()
+    {
+        using var checkoutFixture = new ShardFixture();
+        checkoutFixture.WriteContract();
+        checkoutFixture.ReplaceInSummary(
+            "unit-local-summary.json",
+            "\"AssembliesMatchCheckout\": true",
+            "\"AssembliesMatchCheckout\": false");
+        var checkout = Capture(() => TestShardEvidenceAggregator.AggregateDirectory(
+            checkoutFixture.Root,
+            Commit,
+            "Release"));
+
+        using var buildFixture = new ShardFixture();
+        buildFixture.WriteContract();
+        buildFixture.ReplaceInSummary(
+            "unit-local-summary.json",
+            "\"AssembliesBuiltFromCleanState\": true",
+            "\"AssembliesBuiltFromCleanState\": false");
+        var build = Capture(() => TestShardEvidenceAggregator.AggregateDirectory(
+            buildFixture.Root,
+            Commit,
+            "Release"));
+
+        await Assert.That(checkout).IsTypeOf<InvalidDataException>();
+        await Assert.That(checkout!.Message).Contains("stable clean checkout");
+        await Assert.That(build).IsTypeOf<InvalidDataException>();
+        await Assert.That(build!.Message).Contains("stable clean checkout");
     }
 
     private static Exception? Capture(Action action)
@@ -119,6 +150,17 @@ public sealed class TestShardEvidenceAggregatorTests
                 if (string.Equals(key, duplicateKey, StringComparison.OrdinalIgnoreCase))
                     WriteShard(index++, contract, Commit, "Release", TestRunSummaryReporter.SchemaVersion, contract.ExpectedCases);
             }
+        }
+
+        public void ReplaceInSummary(string fileName, string oldValue, string newValue)
+        {
+            var path = Directory
+                .EnumerateFiles(Root, fileName, SearchOption.AllDirectories)
+                .Single();
+            var content = File.ReadAllText(path);
+            if (!content.Contains(oldValue, StringComparison.Ordinal))
+                throw new InvalidDataException($"Summary '{path}' did not contain '{oldValue}'.");
+            File.WriteAllText(path, content.Replace(oldValue, newValue, StringComparison.Ordinal));
         }
 
         private void WriteShard(
@@ -235,7 +277,10 @@ public sealed class TestShardEvidenceAggregatorTests
                 0,
                 new TestRunSummaryTimingBreakdown(1, 0, 1, cases, 0),
                 new TestRunSummaryRuntimeEnvironment("Linux", "X64", ".NET 10.0.0", 4),
-                new TestRunSummaryRunnerEvidence(repositoryState, repositoryState, runner, runner, false, true, true, true),
+                // A single shard is not independently valid release evidence because it is
+                // intentionally narrower than the canonical full matrix. The aggregate must
+                // validate its runner provenance fields without requiring full-matrix scope.
+                new TestRunSummaryRunnerEvidence(repositoryState, repositoryState, runner, runner, false, true, true, false),
                 [expected],
                 [],
                 [result],
