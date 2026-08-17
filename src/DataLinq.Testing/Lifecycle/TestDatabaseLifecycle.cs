@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -14,6 +16,7 @@ internal static class TestDatabaseLifecycle
 {
     private const int ServerAdminRetryAttempts = 30;
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> ServerAdminLocks = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, ServerLifecycleTelemetry> ServerTelemetry = new(StringComparer.OrdinalIgnoreCase);
 
     public static Database<TDatabase> CreateDatabase<TDatabase>(TestConnectionDefinition connection)
         where TDatabase : class, IDatabaseModel<TDatabase>
@@ -52,8 +55,7 @@ internal static class TestDatabaseLifecycle
             using var dropDatabase = adminConnection.CreateCommand();
             dropDatabase.CommandText = $"DROP DATABASE IF EXISTS {QuoteIdentifier(connection.LogicalDatabaseName)};";
             dropDatabase.ExecuteNonQuery();
-        },
-        clearPools: true);
+        });
     }
 
     public static void DeleteSqliteFile(string connectionString)
@@ -93,16 +95,26 @@ internal static class TestDatabaseLifecycle
         }
     }
 
+    internal static IReadOnlyList<ServerLifecycleMetrics> CaptureServerLifecycleMetrics() =>
+        ServerTelemetry.Values
+            .OrderBy(static telemetry => telemetry.TargetId, StringComparer.OrdinalIgnoreCase)
+            .Select(static telemetry => telemetry.Capture())
+            .ToArray();
+
     private static string QuoteIdentifier(string value) => $"`{value.Replace("`", "``", StringComparison.Ordinal)}`";
 
     private static void ExecuteServerAdminCommand(
         DatabaseServerTarget target,
         PodmanTestEnvironmentSettings settings,
-        Action<MySqlConnection> action,
-        bool clearPools = false)
+        Action<MySqlConnection> action)
     {
+        var telemetry = ServerTelemetry.GetOrAdd(
+            target.Id,
+            _ => new ServerLifecycleTelemetry(target, settings));
         var serverLock = ServerAdminLocks.GetOrAdd(target.Id, _ => new SemaphoreSlim(1, 1));
+        var waitStarted = Stopwatch.GetTimestamp();
         serverLock.Wait();
+        telemetry.RecordLockWait(Stopwatch.GetTimestamp() - waitStarted);
 
         try
         {
@@ -112,17 +124,24 @@ internal static class TestDatabaseLifecycle
             {
                 try
                 {
-                    if (clearPools)
-                        MySqlConnection.ClearAllPools();
-
                     using var adminConnection = new MySqlConnection(settings.CreateAdminConnectionString(target));
                     adminConnection.Open();
-                    action(adminConnection);
+                    telemetry.RecordConnectionOpen(adminConnection);
+                    var commandStarted = Stopwatch.GetTimestamp();
+                    try
+                    {
+                        action(adminConnection);
+                    }
+                    finally
+                    {
+                        telemetry.RecordCommand(Stopwatch.GetTimestamp() - commandStarted);
+                    }
                     return;
                 }
                 catch (MySqlException exception) when (IsTooManyConnections(exception) && attempt < ServerAdminRetryAttempts)
                 {
                     lastException = exception;
+                    telemetry.RecordRetry();
                     Thread.Sleep(GetRetryDelay(attempt));
                 }
             }
@@ -135,6 +154,108 @@ internal static class TestDatabaseLifecycle
         finally
         {
             serverLock.Release();
+        }
+    }
+
+    private sealed class ServerLifecycleTelemetry(
+        DatabaseServerTarget target,
+        PodmanTestEnvironmentSettings settings)
+    {
+        private readonly object statusSync = new();
+        private long adminLockWaitTicks;
+        private long adminCommandTicks;
+        private int adminCommands;
+        private int adminConnectionOpens;
+        private int retries;
+        private bool startCaptured;
+        private long? startConnections;
+        private long? startThreadsConnected;
+
+        public string TargetId => target.Id;
+
+        public void RecordLockWait(long ticks) => Interlocked.Add(ref adminLockWaitTicks, ticks);
+
+        public void RecordCommand(long ticks)
+        {
+            Interlocked.Add(ref adminCommandTicks, ticks);
+            Interlocked.Increment(ref adminCommands);
+        }
+
+        public void RecordRetry() => Interlocked.Increment(ref retries);
+
+        public void RecordConnectionOpen(MySqlConnection connection)
+        {
+            Interlocked.Increment(ref adminConnectionOpens);
+            lock (statusSync)
+            {
+                if (startCaptured)
+                    return;
+
+                try
+                {
+                    (startConnections, startThreadsConnected) = ReadServerStatus(connection);
+                    startCaptured = true;
+                }
+                catch
+                {
+                    // Telemetry must never turn a healthy database setup into a test failure.
+                }
+            }
+        }
+
+        public ServerLifecycleMetrics Capture()
+        {
+            long? endConnections = null;
+            long? endThreadsConnected = null;
+            try
+            {
+                using var connection = new MySqlConnection(settings.CreateAdminConnectionString(target));
+                connection.Open();
+                Interlocked.Increment(ref adminConnectionOpens);
+                (endConnections, endThreadsConnected) = ReadServerStatus(connection);
+            }
+            catch
+            {
+                // The already-recorded lifecycle metrics remain useful when final status is unavailable.
+            }
+
+            return new ServerLifecycleMetrics(
+                target.Id,
+                Volatile.Read(ref adminCommands),
+                Volatile.Read(ref adminConnectionOpens),
+                Volatile.Read(ref retries),
+                Math.Round(Volatile.Read(ref adminLockWaitTicks) * 1000d / Stopwatch.Frequency, 3),
+                Math.Round(Volatile.Read(ref adminCommandTicks) * 1000d / Stopwatch.Frequency, 3),
+                startConnections,
+                endConnections,
+                startConnections.HasValue && endConnections.HasValue
+                    ? endConnections.Value - startConnections.Value
+                    : null,
+                startThreadsConnected,
+                endThreadsConnected);
+        }
+
+        private static (long? Connections, long? ThreadsConnected) ReadServerStatus(MySqlConnection connection)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText =
+                "SHOW GLOBAL STATUS WHERE Variable_name IN ('Connections', 'Threads_connected');";
+            using var reader = command.ExecuteReader();
+            long? connections = null;
+            long? threadsConnected = null;
+            while (reader.Read())
+            {
+                var name = reader.GetString(0);
+                if (!long.TryParse(reader.GetString(1), out var value))
+                    continue;
+
+                if (string.Equals(name, "Connections", StringComparison.OrdinalIgnoreCase))
+                    connections = value;
+                else if (string.Equals(name, "Threads_connected", StringComparison.OrdinalIgnoreCase))
+                    threadsConnected = value;
+            }
+
+            return (connections, threadsConnected);
         }
     }
 
@@ -178,3 +299,16 @@ internal static class TestDatabaseLifecycle
             $"Start the required target with 'dotnet run --project src\\DataLinq.Testing.CLI -- up --targets {target.Id}' and wait for it to become ready before running server-backed TUnit tests.";
     }
 }
+
+internal sealed record ServerLifecycleMetrics(
+    string Target,
+    int AdminCommands,
+    int AdminConnectionOpens,
+    int TooManyConnectionRetries,
+    double AdminLockWaitMilliseconds,
+    double AdminCommandMilliseconds,
+    long? ServerConnectionsAtStart,
+    long? ServerConnectionsAtEnd,
+    long? ServerConnectionOpenDelta,
+    long? ServerThreadsConnectedAtStart,
+    long? ServerThreadsConnectedAtEnd);

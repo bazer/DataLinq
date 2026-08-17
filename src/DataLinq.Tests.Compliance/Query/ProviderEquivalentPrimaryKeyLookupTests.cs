@@ -11,6 +11,7 @@ public sealed class ProviderEquivalentPrimaryKeyLookupTests
 {
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(
         typeof(ProviderEquivalentPrimaryKeyLookupTests),
         nameof(CaseInsensitiveServerProviders))]
@@ -20,7 +21,7 @@ public sealed class ProviderEquivalentPrimaryKeyLookupTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(StaticGet_ProviderEquivalentStringKeyReturnsStoredCanonicalRow),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();

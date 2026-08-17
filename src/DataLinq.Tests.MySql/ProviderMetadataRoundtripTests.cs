@@ -16,6 +16,7 @@ namespace DataLinq.Tests.MySql;
 public class ProviderMetadataRoundtripTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task CreateReadGenerateCreateRead_PreservesFirstSliceSupportedSubset(TestProviderDescriptor provider)
     {
@@ -52,6 +53,7 @@ public class ProviderMetadataRoundtripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_GeneratedModelSource_PreservesProviderMetadataShape(TestProviderDescriptor provider)
     {
@@ -72,6 +74,7 @@ public class ProviderMetadataRoundtripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_LiveSchemaDrift_ProducesValidationDifferences(TestProviderDescriptor provider)
     {
@@ -122,6 +125,7 @@ public class ProviderMetadataRoundtripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_FirstSliceSchema_CapturesIdentifiersIndexesAndDuplicateRelations(TestProviderDescriptor provider)
     {
@@ -159,6 +163,7 @@ public class ProviderMetadataRoundtripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_CompositeUniqueIndex_GeneratesClassLevelIndexWithDatabaseColumnNames(TestProviderDescriptor provider)
     {
@@ -189,6 +194,7 @@ public class ProviderMetadataRoundtripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_TableAndColumnComments_GeneratesCommentAttributes(TestProviderDescriptor provider)
     {
@@ -238,6 +244,7 @@ public class ProviderMetadataRoundtripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_CheckConstraints_RoundTripAsRawProviderAttributes(TestProviderDescriptor provider)
     {
@@ -288,6 +295,7 @@ public class ProviderMetadataRoundtripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_QuotedIdentifiers_RoundTripWithStableCSharpNames(TestProviderDescriptor provider)
     {
@@ -346,6 +354,7 @@ public class ProviderMetadataRoundtripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_CompositeForeignKey_RoundTripAsSingleRelation(TestProviderDescriptor provider)
     {
@@ -408,6 +417,7 @@ public class ProviderMetadataRoundtripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_ForeignKeyReferentialActions_RoundTrip(TestProviderDescriptor provider)
     {
@@ -464,6 +474,7 @@ public class ProviderMetadataRoundtripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_UnsupportedPrefixIndexesWarnAndSkip(TestProviderDescriptor provider)
     {
@@ -493,6 +504,7 @@ public class ProviderMetadataRoundtripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_GeneratedColumnsWarnAndSkip(TestProviderDescriptor provider)
     {
@@ -523,6 +535,7 @@ public class ProviderMetadataRoundtripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_RawExpressionDefaults_RoundTripAsProviderSql(TestProviderDescriptor provider)
     {
@@ -573,6 +586,7 @@ public class ProviderMetadataRoundtripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_UuidFunctionDefault_RemainsProviderSql(TestProviderDescriptor provider)
     {

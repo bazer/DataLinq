@@ -6,9 +6,12 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Runtime.ExceptionServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using DataLinq.DevTools;
+using MySqlConnector;
 using Spectre.Console;
 
 namespace DataLinq.Testing.CLI;
@@ -16,12 +19,21 @@ namespace DataLinq.Testing.CLI;
 internal static class RunCommand
 {
     private static readonly Regex AnsiEscapePattern = new(@"\x1B\[[0-9;?]*[ -/]*[@-~]", RegexOptions.CultureInvariant);
+    private const string EveryProviderAffinityFilter = "/**[ProviderAffinity=EveryProvider]";
+    private const string ServerProviderAffinityFilter =
+        "/**[(ProviderAffinity=EveryProvider)|(ProviderAffinity=ServerFamily)]";
+    private const string AnchorWithInvariantRole = "AnchorWithInvariant";
+    private const string TargetSpecificRole = "TargetSpecific";
 
     public static Command Create(TestInfraOrchestrator orchestrator, TestInfraCliSettings settings)
     {
         var aliasOption = CommandHelpers.AliasOption();
         var targetsOption = CommandHelpers.TargetsOption();
         var suiteOption = CommandHelpers.SuiteOption();
+        var planOption = new Option<string?>("--plan")
+        {
+            Description = "Runs a named feedback contract: focused, smoke, quick, latest, or full. Provider --alias/--targets remain an independent override."
+        };
         var interactiveOption = CommandHelpers.InteractiveOption();
         var parallelSuitesOption = CommandHelpers.ParallelSuitesOption();
         var outputOption = CommandHelpers.OutputOption();
@@ -42,12 +54,24 @@ internal static class RunCommand
         };
         var buildOption = new Option<bool>("--build")
         {
-            Description = "Builds the test project before running it."
+            Description = "Explicitly builds each distinct test project once before running it (the default unless --no-build is used)."
+        };
+        var noBuildOption = new Option<bool>("--no-build")
+        {
+            Description = "Runs existing test host outputs directly and fails if they are missing, ambiguous, or stale."
         };
         var batchSizeOption = new Option<int>("--batch-size")
         {
             Description = "How many targets to include in each batch.",
             DefaultValueFactory = _ => 2
+        };
+        var maximumParallelTestsOption = new Option<int?>("--maximum-parallel-tests")
+        {
+            Description = "Maximum concurrent TUnit tests. Overrides the named plan suite limit when supplied."
+        };
+        var providerAffinityRoleOption = new Option<string?>("--provider-affinity-role")
+        {
+            Description = "Explicit single-target evidence role: anchor or target-specific."
         };
         var tearDownOption = new Option<bool>("--tear-down")
         {
@@ -62,6 +86,7 @@ internal static class RunCommand
         command.Options.Add(aliasOption);
         command.Options.Add(targetsOption);
         command.Options.Add(suiteOption);
+        command.Options.Add(planOption);
         command.Options.Add(interactiveOption);
         command.Options.Add(parallelSuitesOption);
         command.Options.Add(outputOption);
@@ -70,18 +95,27 @@ internal static class RunCommand
         command.Options.Add(filterOption);
         command.Options.Add(configurationOption);
         command.Options.Add(buildOption);
+        command.Options.Add(noBuildOption);
         command.Options.Add(batchSizeOption);
+        command.Options.Add(maximumParallelTestsOption);
+        command.Options.Add(providerAffinityRoleOption);
         command.Options.Add(tearDownOption);
         command.Options.Add(summaryJsonOption);
 
-        command.SetAction(parseResult =>
+        command.SetAction(parseResult => CommandHelpers.ExecuteSafely(() =>
         {
+            var requestedPlanName = parseResult.GetValue(planOption);
+            var requestedPlan = string.IsNullOrWhiteSpace(requestedPlanName)
+                ? null
+                : TestCliRunPlanCatalog.GetPlan(requestedPlanName);
             var requestedSummaryPath = parseResult.GetValue(summaryJsonOption);
-            if (!string.IsNullOrWhiteSpace(requestedSummaryPath))
-                TestRunSummaryReporter.InvalidateExistingReport(settings.RepositoryRoot, requestedSummaryPath);
+            if (requestedPlan is not null && string.IsNullOrWhiteSpace(requestedSummaryPath))
+                requestedSummaryPath = TestCliRunPlanCatalog.GetLastSummaryPath(settings.RepositoryRoot, requestedPlan.Name);
 
             if (parseResult.GetValue(interactiveOption))
             {
+                if (requestedPlan is not null)
+                    throw new InvalidOperationException("'--interactive' cannot be combined with '--plan'.");
                 if (!string.IsNullOrWhiteSpace(requestedSummaryPath))
                     throw new InvalidOperationException("'--interactive' cannot be combined with '--summary-json'.");
                 InteractiveCliRunner.RunTests(orchestrator, settings);
@@ -91,31 +125,54 @@ internal static class RunCommand
             var batchSize = parseResult.GetValue(batchSizeOption);
             if (batchSize < 1 || batchSize > 32)
                 throw new InvalidOperationException("'--batch-size' must be between 1 and 32.");
+            var maximumParallelTests = parseResult.GetValue(maximumParallelTestsOption);
+            if (maximumParallelTests is <= 0 or > 256)
+                throw new InvalidOperationException("'--maximum-parallel-tests' must be between 1 and 256.");
+            if (parseResult.GetValue(buildOption) && parseResult.GetValue(noBuildOption))
+                throw new InvalidOperationException("'--build' and '--no-build' cannot be combined.");
+            var buildProjects = !parseResult.GetValue(noBuildOption);
 
-            var selection = TargetSelectionResolver.Resolve(
+            var suiteName = parseResult.GetValue(suiteOption) ?? TestCliSuiteCatalog.AllSuites;
+            var filter = parseResult.GetValue(filterOption);
+            var projectPath = parseResult.GetValue(projectOption);
+            var providerAffinityRole = ParseProviderAffinityRole(parseResult.GetValue(providerAffinityRoleOption));
+            ValidatePlanOverrides(requestedPlan, suiteName, filter, projectPath);
+
+            var selection = ResolveTargetSelection(
+                requestedPlan,
                 parseResult.GetValue(aliasOption),
-                parseResult.GetValue(targetsOption),
-                defaultAlias: "latest");
+                parseResult.GetValue(targetsOption));
+            ValidatePlanSelection(requestedPlan, selection);
+            ValidateProviderAffinityShard(
+                providerAffinityRole,
+                requestedPlan,
+                suiteName,
+                filter,
+                selection,
+                batchSize);
 
             var exitCode = ExecuteSafely(() => RunSelection(
                 orchestrator,
                 settings,
                 selection,
-                parseResult.GetValue(suiteOption) ?? TestCliSuiteCatalog.AllSuites,
-                parseResult.GetValue(projectOption),
-                parseResult.GetValue(filterOption),
+                suiteName,
+                projectPath,
+                filter,
                 parseResult.GetValue(configurationOption) ?? throw new InvalidOperationException("A build configuration is required."),
-                parseResult.GetValue(buildOption),
+                buildProjects,
                 batchSize,
                 parseResult.GetValue(parallelSuitesOption),
                 parseResult.GetValue(tearDownOption),
                 requestedSummaryPath,
                 CommandHelpers.ParseOutputMode(parseResult.GetValue(outputOption)),
-                CommandHelpers.ParseProfile(parseResult.GetValue(profileOption))));
+                CommandHelpers.ParseProfile(parseResult.GetValue(profileOption)),
+                requestedPlan,
+                maximumParallelTests,
+                providerAffinityRole));
 
             if (exitCode != 0)
                 Environment.ExitCode = exitCode;
-        });
+        }));
 
         return command;
     }
@@ -134,9 +191,12 @@ internal static class RunCommand
         bool tearDown,
         string? summaryJsonPath,
         TestCliOutputMode outputMode,
-        ToolingProfile profile)
+        ToolingProfile profile,
+        TestCliRunPlan? plan = null,
+        int? maximumParallelTests = null,
+        string? providerAffinityRole = null)
     {
-        var exitCode = ExecuteSafely(() => RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, filter, configuration, buildProject, batchSize, parallelSuites, tearDown, summaryJsonPath, outputMode, profile));
+        var exitCode = ExecuteSafely(() => RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, filter, configuration, buildProject, batchSize, parallelSuites, tearDown, summaryJsonPath, outputMode, profile, plan, maximumParallelTests, providerAffinityRole));
         if (exitCode != 0)
             Environment.ExitCode = exitCode;
     }
@@ -154,6 +214,95 @@ internal static class RunCommand
         }
     }
 
+    private static void ValidatePlanOverrides(
+        TestCliRunPlan? plan,
+        string suiteName,
+        string? filter,
+        string? projectPath)
+    {
+        if (plan is null)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(projectPath))
+            throw new InvalidOperationException("'--project' cannot be combined with '--plan'. Use a named suite from the plan contract.");
+
+        if (plan.RequiresExplicitSelection)
+        {
+            if (string.Equals(suiteName, TestCliSuiteCatalog.AllSuites, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("The focused plan requires an explicit '--suite'.");
+            if (string.IsNullOrWhiteSpace(filter))
+                throw new InvalidOperationException("The focused plan requires an explicit TUnit '--filter'.");
+            return;
+        }
+
+        if (!string.Equals(suiteName, TestCliSuiteCatalog.AllSuites, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"The '{plan.Name}' plan owns its suite selection; do not combine it with '--suite'. Use '--plan focused' for an ad hoc suite.");
+        if (!string.IsNullOrWhiteSpace(filter))
+            throw new InvalidOperationException($"The '{plan.Name}' plan owns its filters; do not combine it with '--filter'. Use '--plan focused' for an ad hoc filter.");
+    }
+
+    private static CliTargetSelection ResolveTargetSelection(
+        TestCliRunPlan? plan,
+        string? aliasName,
+        string? targetList)
+    {
+        if (plan is null)
+            return TargetSelectionResolver.Resolve(aliasName, targetList, defaultAlias: TestTargetCatalog.LatestAlias);
+
+        if (!string.IsNullOrWhiteSpace(aliasName) || !string.IsNullOrWhiteSpace(targetList))
+            return TargetSelectionResolver.Resolve(aliasName, targetList);
+
+        return plan.DefaultTargetAlias is not null
+            ? TargetSelectionResolver.ResolveAlias(plan.DefaultTargetAlias)
+            : TargetSelectionResolver.ResolveTargets(plan.DefaultTargetIds);
+    }
+
+    private static void ValidatePlanSelection(TestCliRunPlan? plan, CliTargetSelection selection)
+    {
+        if (plan?.Name is not (TestCliRunPlanCatalog.SmokePlan or TestCliRunPlanCatalog.QuickPlan))
+            return;
+
+        var serverTargets = selection.Targets.Where(static target => target.UsesPodman).Select(static target => target.Id).ToArray();
+        if (serverTargets.Length > 0)
+            throw new InvalidOperationException($"The '{plan.Name}' plan is a no-Podman contract and cannot use server targets: {string.Join(", ", serverTargets)}.");
+    }
+
+    private static string? ParseProviderAffinityRole(string? value) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            null or "" => null,
+            "anchor" or "anchor-with-invariant" => AnchorWithInvariantRole,
+            "target" or "target-specific" => TargetSpecificRole,
+            _ => throw new InvalidOperationException(
+                $"Unsupported provider affinity role '{value}'. Use anchor or target-specific.")
+        };
+
+    private static void ValidateProviderAffinityShard(
+        string? providerAffinityRole,
+        TestCliRunPlan? plan,
+        string suiteName,
+        string? filter,
+        CliTargetSelection selection,
+        int batchSize)
+    {
+        if (providerAffinityRole is null)
+            return;
+
+        if (plan is not null)
+            throw new InvalidOperationException("'--provider-affinity-role' cannot be combined with '--plan'.");
+        if (!string.IsNullOrWhiteSpace(filter))
+            throw new InvalidOperationException("'--provider-affinity-role' owns the TUnit filter and cannot be combined with '--filter'.");
+        if (suiteName is not (TestCliSuiteCatalog.ComplianceSuite or TestCliSuiteCatalog.MySqlSuite))
+            throw new InvalidOperationException("'--provider-affinity-role' requires '--suite compliance' or '--suite mysql'.");
+        if (selection.Targets.Count != 1 || batchSize != 1)
+            throw new InvalidOperationException("Provider-affinity evidence shards require exactly one target and '--batch-size 1'.");
+        if (suiteName == TestCliSuiteCatalog.MySqlSuite &&
+            TestTargetCatalog.IsSQLiteTarget(selection.Targets[0].Id))
+        {
+            throw new InvalidOperationException("The mysql suite requires a MySQL or MariaDB target.");
+        }
+    }
+
     private static int RunSelection(
         TestInfraOrchestrator orchestrator,
         TestInfraCliSettings settings,
@@ -168,13 +317,19 @@ internal static class RunCommand
         bool tearDown,
         string? summaryJsonPath,
         TestCliOutputMode outputMode,
-        ToolingProfile profile)
+        ToolingProfile profile,
+        TestCliRunPlan? plan,
+        int? maximumParallelTests,
+        string? providerAffinityRole)
     {
         var repositoryRoot = settings.RepositoryRoot;
         var summaryRequested = !string.IsNullOrWhiteSpace(summaryJsonPath);
         if (summaryRequested)
             TestRunSummaryReporter.InvalidateExistingReport(repositoryRoot, summaryJsonPath!);
         var startedAtUtc = DateTimeOffset.UtcNow;
+        var runId = CreateRunId(startedAtUtc);
+        var runArtifactRoot = Path.Combine(repositoryRoot, "artifacts", "test-results", runId);
+        Directory.CreateDirectory(runArtifactRoot);
         var repositoryStart = summaryRequested
             ? TestRunSummaryReporter.CaptureRepositoryState(repositoryRoot)
             : null;
@@ -185,6 +340,7 @@ internal static class RunCommand
         var results = new List<RunResult>();
         var expectedResults = new List<TestRunSummaryExpectedResult>();
         var overallExitCode = 0;
+        var teardownDurationSeconds = 0d;
         var usedTargets = false;
         var resultLock = new object();
         var failureStage = "resolve-suites";
@@ -196,7 +352,8 @@ internal static class RunCommand
 
         try
         {
-            var suites = ResolveSuites(suiteName, projectPathOverride);
+            var suites = ResolveSuites(suiteName, projectPathOverride, plan);
+            var invocationFilter = FormatInvocationFilter(suites, filter);
             invocation = summaryRequested
                 ? CreateSummaryInvocation(
                     repositoryRoot,
@@ -204,24 +361,36 @@ internal static class RunCommand
                     suites,
                     suiteName,
                     projectPathOverride,
-                    filter,
+                    invocationFilter,
                     configuration,
                     buildProject,
                     batchSize,
                     parallelSuites,
                     tearDown,
                     outputMode,
-                    profile)
+                    profile,
+                    plan?.Name,
+                    maximumParallelTests,
+                    providerAffinityRole)
                 : null;
-            expectedResults.AddRange(CreateExpectedResults(suites, selection, repositoryRoot, batchSize));
+            expectedResults.AddRange(CreateExpectedResults(
+                suites,
+                selection,
+                repositoryRoot,
+                batchSize,
+                plan,
+                providerAffinityRole));
+            var projectPaths = suites
+                .Select(suite => ResolveProjectPath(repositoryRoot, suite.ProjectPath))
+                .Distinct(PathComparer)
+                .ToArray();
 
             if (buildProject)
             {
-                foreach (var suite in suites)
+                foreach (var projectPath in projectPaths)
                 {
-                    var projectPath = ResolveProjectPath(repositoryRoot, suite.ProjectPath);
-                    failureStage = $"build:{suite.Name}";
-                    var build = BuildProject(projectPath, configuration, settings, outputMode, profile);
+                    failureStage = $"build:{Path.GetFileNameWithoutExtension(projectPath)}";
+                    var build = BuildProject(projectPath, configuration, settings, outputMode, profile, runArtifactRoot);
                     builds.Add(CreateSummaryBuild(projectPath, build));
                     if (build.ProcessResult.ExitCode == 0)
                         continue;
@@ -230,6 +399,16 @@ internal static class RunCommand
                     throw new InvalidOperationException($"Failed to build '{projectPath}'.");
                 }
             }
+
+            failureStage = "resolve-test-hosts";
+            var testHostPaths = projectPaths.ToDictionary(
+                static projectPath => projectPath,
+                projectPath => TestHostResolver.Resolve(
+                    repositoryRoot,
+                    projectPath,
+                    configuration,
+                    requireCurrentOutput: true).HostPath,
+                PathComparer);
 
             failureStage = "run-suites";
             Exception? suiteExecutionException = null;
@@ -245,13 +424,16 @@ internal static class RunCommand
                                 selection,
                                 settings,
                                 repositoryRoot,
-                                configuration,
-                                filter,
-                                buildProject,
+                                suite.Filter ?? filter,
                                 batchSize,
                                 orchestrator,
                                 outputMode,
                                 profile,
+                                runArtifactRoot,
+                                testHostPaths,
+                                maximumParallelTests,
+                                DeduplicatesProviderInvariants(plan, suite),
+                                providerAffinityRole,
                                 completedResultRef: completedResult =>
                                 {
                                     lock (resultLock)
@@ -292,13 +474,16 @@ internal static class RunCommand
                             selection,
                             settings,
                             repositoryRoot,
-                            configuration,
-                            filter,
-                            buildProject,
+                            suite.Filter ?? filter,
                             batchSize,
                             orchestrator,
                             outputMode,
                             profile,
+                            runArtifactRoot,
+                            testHostPaths,
+                            maximumParallelTests,
+                            DeduplicatesProviderInvariants(plan, suite),
+                            providerAffinityRole,
                             completedResultRef: results.Add,
                             usedTargetsRef: value => usedTargets = usedTargets || value);
 
@@ -314,6 +499,7 @@ internal static class RunCommand
 
             if (tearDown && usedTargets)
             {
+                var teardownStopwatch = Stopwatch.StartNew();
                 try
                 {
                     orchestrator.Down(remove: false, selection: null);
@@ -333,6 +519,11 @@ internal static class RunCommand
                             exception.Message,
                             settings.AdminPassword,
                             settings.ApplicationPassword));
+                }
+                finally
+                {
+                    teardownStopwatch.Stop();
+                    teardownDurationSeconds = teardownStopwatch.Elapsed.TotalSeconds;
                 }
             }
 
@@ -367,6 +558,7 @@ internal static class RunCommand
                 {
                     summaryReport = WriteSummaryJson(
                         summaryJsonPath!,
+                        runId,
                         startedAtUtc,
                         invocation ?? CreateFallbackSummaryInvocation(
                             repositoryRoot,
@@ -380,7 +572,10 @@ internal static class RunCommand
                             parallelSuites,
                             tearDown,
                             outputMode,
-                            profile),
+                            profile,
+                            plan?.Name,
+                            maximumParallelTests,
+                            providerAffinityRole),
                         repositoryStart!,
                         repositoryEnd,
                         runnerAssemblies.EntryAssembly,
@@ -390,7 +585,8 @@ internal static class RunCommand
                         orderedResults,
                         overallExitCode,
                         failure,
-                        teardownFailure);
+                        teardownFailure,
+                        teardownDurationSeconds);
                 }
                 catch (Exception reportException) when (executionException is not null)
                 {
@@ -411,19 +607,24 @@ internal static class RunCommand
         CliTargetSelection selection,
         TestInfraCliSettings settings,
         string repositoryRoot,
-        string configuration,
         string? filter,
-        bool buildProject,
         int batchSize,
         TestInfraOrchestrator orchestrator,
         TestCliOutputMode outputMode,
         ToolingProfile profile,
+        string runArtifactRoot,
+        IReadOnlyDictionary<string, string> testHostPaths,
+        int? maximumParallelTests,
+        bool deduplicateProviderInvariants,
+        string? explicitProviderAffinityRole,
         Action<RunResult> completedResultRef,
         Action<bool>? usedTargetsRef)
     {
         var projectPath = ResolveProjectPath(repositoryRoot, suite.ProjectPath);
         if (!File.Exists(projectPath))
             throw new FileNotFoundException($"The requested test project was not found: '{projectPath}'.", projectPath);
+        if (!testHostPaths.TryGetValue(projectPath, out var testHostPath))
+            throw new InvalidOperationException($"No resolved test host exists for '{projectPath}'.");
 
         var exitCode = 0;
 
@@ -455,19 +656,35 @@ internal static class RunCommand
                 }
 
                 using var mutedScope = suppressInfraOutput ? ConsoleSync.PushMuted() : null;
+                var infrastructureStopwatch = Stopwatch.StartNew();
                 orchestrator.Up(batch, recreate: false);
+                infrastructureStopwatch.Stop();
 
-                var start = Stopwatch.StartNew();
-                var result = ExecuteTestRun(projectPath, configuration, filter, buildProject, settings, batch, suite.Name, batchIndex: index + 1, profile);
-                start.Stop();
+                var artifacts = CreateRunArtifactPaths(runArtifactRoot, suite.Name, index + 1, batch);
+                var affinityRole = explicitProviderAffinityRole ?? (deduplicateProviderInvariants
+                    ? index == 0 ? AnchorWithInvariantRole : TargetSpecificRole
+                    : null);
+                var effectiveFilter = affinityRole == TargetSpecificRole
+                    ? CreateProviderAffinityFilter(batch, filter)
+                    : null;
+                effectiveFilter ??= filter;
+                var result = ExecuteTestRun(
+                    testHostPath,
+                    effectiveFilter,
+                    settings,
+                    batch,
+                    artifacts,
+                    profile,
+                    maximumParallelTests ?? suite.MaximumParallelTests);
 
                 var runResult = CreateRunResult(
                     suite.Name,
                     projectPath,
                     index + 1,
                     batch.Targets.Select(static target => target.Id).ToArray(),
-                    start.Elapsed,
-                    result);
+                    infrastructureStopwatch.Elapsed,
+                    result,
+                    affinityRole);
                 completedResultRef(runResult);
                 RenderTestRunOutcome(runResult, outputMode);
 
@@ -486,17 +703,24 @@ internal static class RunCommand
                 });
             }
 
-            var start = Stopwatch.StartNew();
-            var result = ExecuteTestRun(projectPath, configuration, filter, buildProject, settings, selection: null, suite.Name, batchIndex: null, profile);
-            start.Stop();
+            var artifacts = CreateRunArtifactPaths(runArtifactRoot, suite.Name, batchIndex: null, selection: null);
+            var result = ExecuteTestRun(
+                testHostPath,
+                filter,
+                settings,
+                selection: null,
+                artifacts,
+                profile,
+                maximumParallelTests ?? suite.MaximumParallelTests);
 
             var runResult = CreateRunResult(
                 suite.Name,
                 projectPath,
                 batchIndex: null,
                 targetIds: Array.Empty<string>(),
-                start.Elapsed,
-                result);
+                infrastructureElapsed: TimeSpan.Zero,
+                result,
+                providerAffinityRole: null);
             completedResultRef(runResult);
             RenderTestRunOutcome(runResult, outputMode);
 
@@ -507,7 +731,35 @@ internal static class RunCommand
         return exitCode;
     }
 
-    private static LoggedCommandResult BuildProject(string projectPath, string configuration, TestInfraCliSettings settings, TestCliOutputMode outputMode, ToolingProfile profile)
+    private static bool DeduplicatesProviderInvariants(
+        TestCliRunPlan? plan,
+        TestCliSuite suite) =>
+        plan?.Name is TestCliRunPlanCatalog.LatestPlan or TestCliRunPlanCatalog.FullPlan
+        && suite.Name is TestCliSuiteCatalog.ComplianceSuite or TestCliSuiteCatalog.MySqlSuite;
+
+    private static string CreateProviderAffinityFilter(
+        CliTargetSelection batch,
+        string? existingFilter)
+    {
+        if (!string.IsNullOrWhiteSpace(existingFilter))
+        {
+            throw new InvalidOperationException(
+                "Provider-invariant plan deduplication cannot be combined with a suite filter. " +
+                "Use the focused plan for an explicitly filtered run.");
+        }
+
+        return batch.ServerTargets.Count > 0
+            ? ServerProviderAffinityFilter
+            : EveryProviderAffinityFilter;
+    }
+
+    private static LoggedCommandResult BuildProject(
+        string projectPath,
+        string configuration,
+        TestInfraCliSettings settings,
+        TestCliOutputMode outputMode,
+        ToolingProfile profile,
+        string runArtifactRoot)
     {
         var arguments = new List<string>
         {
@@ -522,25 +774,30 @@ internal static class RunCommand
         if (profile.IsOffline())
             arguments.Add("-p:RestoreIgnoreFailedSources=true");
 
-        var result = ExecuteDotnet(arguments, settings, profile, "build-" + Path.GetFileNameWithoutExtension(projectPath));
+        var logPath = Path.Combine(
+            runArtifactRoot,
+            "build",
+            $"{SanitizeArtifactSegment(Path.GetFileNameWithoutExtension(projectPath))}.log");
+        var result = ExecuteDotnet(arguments, settings, profile, logPath);
         RenderBuildOutcome(projectPath, result, outputMode);
         return result;
     }
 
     private static LoggedCommandResult ExecuteTestRun(
-        string projectPath,
-        string configuration,
+        string testHostPath,
         string? filter,
-        bool usePrebuiltProject,
         TestInfraCliSettings settings,
         CliTargetSelection? selection,
-        string suiteName,
-        int? batchIndex,
-        ToolingProfile profile)
+        RunArtifactPaths artifacts,
+        ToolingProfile profile,
+        int? maximumParallelTests)
     {
         var environmentVariables = new Dictionary<string, string?>(
             settings.ToolPaths.CreateEnvironment(profile),
             StringComparer.OrdinalIgnoreCase);
+        environmentVariables[DataLinq.Testing.PodmanTestEnvironmentSettings.FixtureTelemetryReportPathEnvironmentVariable] =
+            artifacts.FixtureTelemetryReportPath;
+        environmentVariables["TUNIT_MAX_PARALLEL_TESTS"] = maximumParallelTests?.ToString();
 
         if (selection is not null)
         {
@@ -557,31 +814,111 @@ internal static class RunCommand
 
         var arguments = new List<string>
         {
-            "run",
-            "--project", projectPath,
-            "-c", configuration
+            "exec",
+            testHostPath
         };
-
-        if (usePrebuiltProject)
-            arguments.Add("--no-build");
+        arguments.AddRange([
+            "--results-directory", artifacts.Directory,
+            "--report-html-filename", artifacts.HtmlReportPath,
+            "--report-trx",
+            "--report-trx-filename", Path.GetFileName(artifacts.TrxReportPath),
+            "--no-progress"
+        ]);
 
         if (!string.IsNullOrWhiteSpace(filter))
-            arguments.AddRange(["--", "--treenode-filter", filter]);
+            arguments.AddRange(["--treenode-filter", filter]);
 
-        return ExecuteDotnet(
+        var result = ExecuteDotnet(
             arguments,
             settings,
             profile,
-            CreateRunArtifactPrefix(suiteName, batchIndex, selection),
+            artifacts.LogPath,
             environmentVariables,
             selection);
+        CompleteFixtureTelemetryReport(artifacts.FixtureTelemetryReportPath, settings, selection);
+        var configuredMaximumParallelTests = ResolveConfiguredMaximumParallelTests(environmentVariables);
+        return result with
+        {
+            TestArtifacts = artifacts,
+            Performance = TestRunTrxReader.Read(
+                artifacts.TrxReportPath,
+                result.ProcessResult.Duration.TotalSeconds,
+                configuredMaximumParallelTests)
+        };
+    }
+
+    private static void CompleteFixtureTelemetryReport(
+        string reportPath,
+        TestInfraCliSettings settings,
+        CliTargetSelection? selection)
+    {
+        if (selection is null || selection.ServerTargets.Count == 0 || !File.Exists(reportPath))
+            return;
+
+        try
+        {
+            var report = JsonNode.Parse(File.ReadAllText(reportPath))?.AsObject();
+            if (report is null)
+                return;
+
+            var environment = DataLinq.Testing.PodmanTestEnvironmentSettings.FromEnvironment(settings.RepositoryRoot);
+            var samples = new JsonArray();
+            foreach (var target in selection.ServerTargets)
+            {
+                var (connections, threadsConnected) = ReadServerStatusAfterTestHostExit(environment, target);
+                samples.Add(new JsonObject
+                {
+                    ["Target"] = target.Id,
+                    ["ServerConnectionsAfterTestHostExit"] = connections,
+                    ["ServerThreadsConnectedAfterTestHostExit"] = threadsConnected
+                });
+            }
+
+            report["SchemaVersion"] = "v0.9.fixture-telemetry.v2";
+            report["PostProcessServerStatus"] = samples;
+            File.WriteAllText(
+                reportPath,
+                report.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(
+                $"Could not append post-process server status to fixture telemetry report '{reportPath}': {exception.Message}");
+        }
+    }
+
+    private static (long? Connections, long? ThreadsConnected) ReadServerStatusAfterTestHostExit(
+        DataLinq.Testing.PodmanTestEnvironmentSettings environment,
+        DataLinq.Testing.DatabaseServerTarget target)
+    {
+        using var connection = new MySqlConnection(environment.CreateAdminConnectionString(target));
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            "SHOW GLOBAL STATUS WHERE Variable_name IN ('Connections', 'Threads_connected');";
+        using var reader = command.ExecuteReader();
+        long? connections = null;
+        long? threadsConnected = null;
+        while (reader.Read())
+        {
+            var name = reader.GetString(0);
+            if (!long.TryParse(reader.GetString(1), out var value))
+                continue;
+
+            if (string.Equals(name, "Connections", StringComparison.OrdinalIgnoreCase))
+                connections = value;
+            else if (string.Equals(name, "Threads_connected", StringComparison.OrdinalIgnoreCase))
+                threadsConnected = value;
+        }
+
+        return (connections, threadsConnected);
     }
 
     private static LoggedCommandResult ExecuteDotnet(
         IReadOnlyList<string> arguments,
         TestInfraCliSettings settings,
         ToolingProfile profile,
-        string artifactPrefix,
+        string logPath,
         IReadOnlyDictionary<string, string?>? environmentVariables = null,
         CliTargetSelection? targetSelection = null)
     {
@@ -603,7 +940,7 @@ internal static class RunCommand
             settings.RepositoryRoot,
             mergedEnvironmentVariables);
         var completedAtUtc = DateTimeOffset.UtcNow;
-        var logPath = WriteRawLog(settings, artifactPrefix, processResult);
+        WriteRawLog(logPath, processResult);
         return new LoggedCommandResult(
             processResult,
             logPath,
@@ -712,17 +1049,10 @@ internal static class RunCommand
         });
     }
 
-    private static string WriteRawLog(TestInfraCliSettings settings, string artifactPrefix, ExternalCommandResult result)
+    private static void WriteRawLog(string logPath, ExternalCommandResult result)
     {
-        var directory = Path.Combine(settings.ArtifactRoot, "cli-logs");
-        Directory.CreateDirectory(directory);
-
-        var safePrefix = string.Concat(artifactPrefix.Select(static character =>
-            Path.GetInvalidFileNameChars().Contains(character) ? '-' : character));
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff");
-        var path = Path.Combine(directory, $"{safePrefix}-{timestamp}.log");
-        File.WriteAllText(path, string.Concat(result.StandardOutput, result.StandardError));
-        return path;
+        Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+        File.WriteAllText(logPath, string.Concat(result.StandardOutput, result.StandardError));
     }
 
     private static void RenderBuildOutcome(string projectPath, LoggedCommandResult result, TestCliOutputMode outputMode)
@@ -906,15 +1236,47 @@ internal static class RunCommand
         return "passed";
     }
 
-    private static string CreateRunArtifactPrefix(string suiteName, int? batchIndex, CliTargetSelection? selection)
-    {
-        var segments = new List<string> { "run", suiteName };
-        if (batchIndex.HasValue)
-            segments.Add($"batch{batchIndex.Value}");
-        if (selection is not null && selection.Targets.Count > 0)
-            segments.Add(string.Join("-", selection.Targets.Select(static target => target.Id)));
+    private static string CreateRunId(DateTimeOffset startedAtUtc) =>
+        $"{startedAtUtc.UtcDateTime:yyyyMMddTHHmmssfffZ}-{Guid.NewGuid():N}";
 
-        return string.Join("-", segments);
+    private static RunArtifactPaths CreateRunArtifactPaths(
+        string runArtifactRoot,
+        string suiteName,
+        int? batchIndex,
+        CliTargetSelection? selection)
+    {
+        var rowName = batchIndex.HasValue
+            ? $"batch-{batchIndex.Value:00}-{string.Join("-", selection!.Targets.Select(static target => target.Id))}"
+            : "targetless";
+        var directory = Path.Combine(
+            runArtifactRoot,
+            SanitizeArtifactSegment(suiteName),
+            SanitizeArtifactSegment(rowName));
+        Directory.CreateDirectory(directory);
+        return new RunArtifactPaths(
+            directory,
+            Path.Combine(directory, "raw.log"),
+            Path.Combine(directory, "report.html"),
+            Path.Combine(directory, "report.trx"),
+            Path.Combine(directory, "fixture-metrics.json"));
+    }
+
+    private static string SanitizeArtifactSegment(string value)
+    {
+        var sanitized = new string(value
+            .Select(static character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.'
+                ? character
+                : '-')
+            .ToArray());
+        return string.IsNullOrWhiteSpace(sanitized) ? "unnamed" : sanitized;
+    }
+
+    private static int? ResolveConfiguredMaximumParallelTests(
+        IReadOnlyDictionary<string, string?> environmentVariables)
+    {
+        const string key = "TUNIT_MAX_PARALLEL_TESTS";
+        var value = ResolveEnvironmentValue(environmentVariables, key);
+        return int.TryParse(value, out var parsed) && parsed > 0 ? parsed : null;
     }
 
     private static void RenderSummary(IReadOnlyList<RunResult> results)
@@ -995,8 +1357,14 @@ internal static class RunCommand
         });
     }
 
-    private static IReadOnlyList<TestCliSuite> ResolveSuites(string suiteName, string? projectPathOverride)
+    private static IReadOnlyList<TestCliSuite> ResolveSuites(
+        string suiteName,
+        string? projectPathOverride,
+        TestCliRunPlan? plan)
     {
+        if (plan is not null && !plan.RequiresExplicitSelection)
+            return TestCliRunPlanCatalog.ResolveSuites(plan);
+
         if (string.IsNullOrWhiteSpace(projectPathOverride))
             return TestCliSuiteCatalog.Resolve(suiteName);
 
@@ -1005,6 +1373,18 @@ internal static class RunCommand
 
         var suite = TestCliSuiteCatalog.GetSuite(suiteName);
         return [suite with { ProjectPath = projectPathOverride }];
+    }
+
+    private static string? FormatInvocationFilter(IReadOnlyList<TestCliSuite> suites, string? requestedFilter)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedFilter))
+            return requestedFilter;
+
+        var suiteFilters = suites
+            .Where(static suite => !string.IsNullOrWhiteSpace(suite.Filter))
+            .Select(static suite => $"{suite.Name}={suite.Filter}")
+            .ToArray();
+        return suiteFilters.Length == 0 ? null : string.Join(";", suiteFilters);
     }
 
     private static string ResolveProjectPath(string repositoryRoot, string projectPath) =>
@@ -1017,20 +1397,24 @@ internal static class RunCommand
         string projectPath,
         int? batchIndex,
         IReadOnlyList<string> targetIds,
-        TimeSpan elapsed,
-        LoggedCommandResult result) =>
+        TimeSpan infrastructureElapsed,
+        LoggedCommandResult result,
+        string? providerAffinityRole) =>
         new(
             Suite: suite,
             ProjectPath: projectPath,
             BatchIndex: batchIndex,
             TargetIds: targetIds,
             ExitCode: result.ProcessResult.ExitCode,
-            DurationSeconds: Math.Round(elapsed.TotalSeconds, 1),
+            DurationSeconds: Math.Round(result.ProcessResult.Duration.TotalSeconds, 3),
+            InfrastructureSetupDurationSeconds: Math.Round(infrastructureElapsed.TotalSeconds, 3),
             Total: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "total"),
             Succeeded: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "succeeded"),
             Failed: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "failed"),
             Skipped: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "skipped"),
             FailedTests: ParseFailedTests(SanitizeConsoleOutput(result.ProcessResult.StandardOutput)),
+            TestArtifacts: result.TestArtifacts ?? throw new InvalidOperationException("A test run did not declare its report artifacts."),
+            Performance: result.Performance ?? TestRunTrxReader.Unavailable("Test performance capture was not attempted."),
             ProcessResult: result.ProcessResult,
             LogPath: result.LogPath,
             Executable: result.Executable,
@@ -1038,7 +1422,8 @@ internal static class RunCommand
             WorkingDirectory: result.WorkingDirectory,
             Environment: result.Environment,
             StartedAtUtc: result.StartedAtUtc,
-            CompletedAtUtc: result.CompletedAtUtc);
+            CompletedAtUtc: result.CompletedAtUtc,
+            ProviderAffinityRole: providerAffinityRole);
 
     private static string SanitizeConsoleOutput(string output) =>
         string.IsNullOrEmpty(output)
@@ -1192,14 +1577,18 @@ internal static class RunCommand
         bool parallelSuites,
         bool tearDown,
         TestCliOutputMode outputMode,
-        ToolingProfile profile)
+        ToolingProfile profile,
+        string? planName,
+        int? maximumParallelTests,
+        string? providerAffinityRole)
     {
         var resolvedSuites = suites
             .Select(suite => new TestRunSummarySuite(
                 suite.Name,
                 ResolveProjectPath(repositoryRoot, suite.ProjectPath),
                 suite.UsesTargetBatches,
-                suite.IncludeSqliteTargets))
+                suite.IncludeSqliteTargets,
+                suite.Filter))
             .ToArray();
         var selectedTargets = selection.Targets
             .Select(static target => new TestRunSummaryTarget(
@@ -1241,7 +1630,10 @@ internal static class RunCommand
             ParallelSuites: parallelSuites,
             TearDown: tearDown,
             OutputMode: outputMode.ToString(),
-            Profile: profile);
+            Profile: profile,
+            Plan: planName,
+            MaximumParallelTests: maximumParallelTests,
+            ProviderAffinityRole: providerAffinityRole);
     }
 
     private static TestRunSummaryInvocation CreateFallbackSummaryInvocation(
@@ -1256,7 +1648,10 @@ internal static class RunCommand
         bool parallelSuites,
         bool tearDown,
         TestCliOutputMode outputMode,
-        ToolingProfile profile) =>
+        ToolingProfile profile,
+        string? planName,
+        int? maximumParallelTests,
+        string? providerAffinityRole) =>
         new(
             Command: "run",
             RepositoryRoot: repositoryRoot,
@@ -1283,7 +1678,10 @@ internal static class RunCommand
             ParallelSuites: parallelSuites,
             TearDown: tearDown,
             OutputMode: outputMode.ToString(),
-            Profile: profile);
+            Profile: profile,
+            Plan: planName,
+            MaximumParallelTests: maximumParallelTests,
+            ProviderAffinityRole: providerAffinityRole);
 
     private static TestRunSummarySafeEnvironment CreateSummarySafeEnvironment()
     {
@@ -1304,7 +1702,9 @@ internal static class RunCommand
         IReadOnlyList<TestCliSuite> suites,
         CliTargetSelection selection,
         string repositoryRoot,
-        int batchSize)
+        int batchSize,
+        TestCliRunPlan? plan,
+        string? explicitProviderAffinityRole)
     {
         var expected = new List<TestRunSummaryExpectedResult>();
         foreach (var suite in suites)
@@ -1316,7 +1716,8 @@ internal static class RunCommand
                     suite.Name,
                     projectPath,
                     BatchIndex: null,
-                    TargetIds: Array.Empty<string>()));
+                    TargetIds: Array.Empty<string>(),
+                    ProviderAffinityRole: null));
                 continue;
             }
 
@@ -1330,7 +1731,11 @@ internal static class RunCommand
                     suite.Name,
                     projectPath,
                     BatchIndex: index + 1,
-                    TargetIds: batches[index].Select(static target => target.Id).ToArray()));
+                    TargetIds: batches[index].Select(static target => target.Id).ToArray(),
+                    ProviderAffinityRole: explicitProviderAffinityRole ??
+                        (DeduplicatesProviderInvariants(plan, suite)
+                            ? index == 0 ? AnchorWithInvariantRole : TargetSpecificRole
+                            : null)));
             }
         }
 
@@ -1351,6 +1756,7 @@ internal static class RunCommand
 
     private static TestRunSummaryReport WriteSummaryJson(
         string summaryJsonPath,
+        string runId,
         DateTimeOffset startedAtUtc,
         TestRunSummaryInvocation invocation,
         TestRunSummaryRepositoryState repositoryStart,
@@ -1362,7 +1768,8 @@ internal static class RunCommand
         IReadOnlyList<RunResult> results,
         int overallExitCode,
         TestRunSummaryFailure? failure,
-        TestRunSummaryFailure? teardownFailure)
+        TestRunSummaryFailure? teardownFailure,
+        double teardownDurationSeconds)
     {
         var summaryResults = results.Select(static result => new TestRunSummaryResult(
             result.Suite,
@@ -1383,9 +1790,24 @@ internal static class RunCommand
             result.Succeeded,
             result.Failed,
             result.Skipped,
-            new[] { result.LogPath },
-            result.LogPath)).ToArray();
+            new[]
+                {
+                    result.LogPath,
+                    result.TestArtifacts.HtmlReportPath,
+                    result.TestArtifacts.TrxReportPath
+                }
+                .Concat(File.Exists(result.TestArtifacts.FixtureTelemetryReportPath)
+                    ? [result.TestArtifacts.FixtureTelemetryReportPath]
+                    : Array.Empty<string>())
+                .ToArray(),
+            result.LogPath,
+            result.TestArtifacts.HtmlReportPath,
+            result.TestArtifacts.TrxReportPath,
+            result.InfrastructureSetupDurationSeconds,
+            result.Performance,
+            result.ProviderAffinityRole)).ToArray();
         var report = TestRunSummaryReporter.Create(new TestRunSummaryReportInput(
+            RunId: runId,
             StartedAtUtc: startedAtUtc,
             CompletedAtUtc: DateTimeOffset.UtcNow,
             Invocation: invocation,
@@ -1403,7 +1825,8 @@ internal static class RunCommand
             Builds: builds,
             Results: summaryResults,
             Failure: failure,
-            TeardownFailure: teardownFailure));
+            TeardownFailure: teardownFailure,
+            TeardownDurationSeconds: teardownDurationSeconds));
         var resolvedExitCode = TestRunSummaryReporter.ResolveExitCode(report, overallExitCode);
         if (resolvedExitCode != report.OverallExitCode)
             report = report with { OverallExitCode = resolvedExitCode };
@@ -1437,6 +1860,10 @@ internal static class RunCommand
         return int.MaxValue;
     }
 
+    private static StringComparer PathComparer => OperatingSystem.IsWindows()
+        ? StringComparer.OrdinalIgnoreCase
+        : StringComparer.Ordinal;
+
     private sealed record RunResult(
         string Suite,
         string ProjectPath,
@@ -1444,11 +1871,14 @@ internal static class RunCommand
         IReadOnlyList<string> TargetIds,
         int ExitCode,
         double DurationSeconds,
+        double InfrastructureSetupDurationSeconds,
         int? Total,
         int? Succeeded,
         int? Failed,
         int? Skipped,
         IReadOnlyList<FailedTestResult> FailedTests,
+        RunArtifactPaths TestArtifacts,
+        TestRunSummaryPerformance Performance,
         ExternalCommandResult ProcessResult,
         string LogPath,
         string Executable,
@@ -1456,7 +1886,8 @@ internal static class RunCommand
         string WorkingDirectory,
         TestRunSummaryCommandEnvironment Environment,
         DateTimeOffset StartedAtUtc,
-        DateTimeOffset CompletedAtUtc)
+        DateTimeOffset CompletedAtUtc,
+        string? ProviderAffinityRole)
     {
         public string Targets => TargetIds.Count == 0
             ? "-"
@@ -1482,6 +1913,15 @@ internal static class RunCommand
         string WorkingDirectory,
         TestRunSummaryCommandEnvironment Environment,
         DateTimeOffset StartedAtUtc,
-        DateTimeOffset CompletedAtUtc);
+        DateTimeOffset CompletedAtUtc,
+        RunArtifactPaths? TestArtifacts = null,
+        TestRunSummaryPerformance? Performance = null);
+
+    private sealed record RunArtifactPaths(
+        string Directory,
+        string LogPath,
+        string HtmlReportPath,
+        string TrxReportPath,
+        string FixtureTelemetryReportPath);
 
 }

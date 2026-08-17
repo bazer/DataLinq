@@ -29,7 +29,8 @@ public sealed record TestRunSummarySuite(
     string Name,
     string ProjectPath,
     bool UsesTargetBatches,
-    bool IncludeSqliteTargets);
+    bool IncludeSqliteTargets,
+    string? Filter = null);
 
 public sealed record TestRunSummaryInvocation(
     string Command,
@@ -50,7 +51,10 @@ public sealed record TestRunSummaryInvocation(
     bool ParallelSuites,
     bool TearDown,
     string OutputMode,
-    ToolingProfile Profile);
+    ToolingProfile Profile,
+    string? Plan = null,
+    int? MaximumParallelTests = null,
+    string? ProviderAffinityRole = null);
 
 public sealed record TestRunSummaryRepositoryState(
     bool Captured,
@@ -80,7 +84,8 @@ public sealed record TestRunSummaryExpectedResult(
     string Suite,
     string ProjectPath,
     int? BatchIndex,
-    IReadOnlyList<string> TargetIds);
+    IReadOnlyList<string> TargetIds,
+    string? ProviderAffinityRole = null);
 
 public sealed record TestRunSummaryBuild(
     string ProjectPath,
@@ -100,6 +105,47 @@ public sealed record TestRunSummaryCommandEnvironment(
     bool UsesExplicitTargetSet,
     bool TargetAliasCleared,
     IReadOnlyList<string> TargetIds);
+
+public sealed record TestRunSummarySlowTest(
+    string Name,
+    string? ClassName,
+    string Outcome,
+    double DurationSeconds);
+
+public sealed record TestRunSummarySlowClass(
+    string ClassName,
+    int TestCount,
+    double TotalDurationSeconds,
+    double AverageDurationSeconds,
+    double MaximumDurationSeconds);
+
+public sealed record TestRunSummaryPerformance(
+    bool Captured,
+    string? CaptureError,
+    int TestCount,
+    double TotalTestDurationSeconds,
+    double? P50DurationSeconds,
+    double? P95DurationSeconds,
+    double? P99DurationSeconds,
+    double? MaximumDurationSeconds,
+    double? EffectiveConcurrency,
+    int? ConfiguredMaximumParallelTests,
+    string ConfiguredParallelismSource,
+    IReadOnlyList<TestRunSummarySlowTest> SlowestTests,
+    IReadOnlyList<TestRunSummarySlowClass> SlowestClasses);
+
+public sealed record TestRunSummaryTimingBreakdown(
+    double BuildProcessSeconds,
+    double InfrastructureSetupSeconds,
+    double TestHostProcessSeconds,
+    double TestBodySeconds,
+    double TeardownSeconds);
+
+public sealed record TestRunSummaryRuntimeEnvironment(
+    string OperatingSystem,
+    string ProcessArchitecture,
+    string FrameworkDescription,
+    int ProcessorCount);
 
 public sealed record TestRunSummaryResult(
     string Suite,
@@ -121,7 +167,12 @@ public sealed record TestRunSummaryResult(
     int? Failed,
     int? Skipped,
     IReadOnlyList<string> ArtifactPaths,
-    string LogPath);
+    string LogPath,
+    string HtmlReportPath,
+    string TrxReportPath,
+    double InfrastructureSetupDurationSeconds,
+    TestRunSummaryPerformance Performance,
+    string? ProviderAffinityRole = null);
 
 public sealed record TestRunSummaryFailure(
     string Stage,
@@ -129,6 +180,7 @@ public sealed record TestRunSummaryFailure(
     string Message);
 
 public sealed record TestRunSummaryReportInput(
+    string RunId,
     DateTimeOffset StartedAtUtc,
     DateTimeOffset CompletedAtUtc,
     TestRunSummaryInvocation Invocation,
@@ -146,10 +198,12 @@ public sealed record TestRunSummaryReportInput(
     IReadOnlyList<TestRunSummaryBuild> Builds,
     IReadOnlyList<TestRunSummaryResult> Results,
     TestRunSummaryFailure? Failure,
-    TestRunSummaryFailure? TeardownFailure = null);
+    TestRunSummaryFailure? TeardownFailure = null,
+    double TeardownDurationSeconds = 0);
 
 public sealed record TestRunSummaryReport(
     string SchemaVersion,
+    string RunId,
     DateTimeOffset StartedAtUtc,
     DateTimeOffset CompletedAtUtc,
     double DurationSeconds,
@@ -167,6 +221,8 @@ public sealed record TestRunSummaryReport(
     int? Passed,
     int? Failed,
     int? Skipped,
+    TestRunSummaryTimingBreakdown Timings,
+    TestRunSummaryRuntimeEnvironment RuntimeEnvironment,
     TestRunSummaryRunnerEvidence RunnerEvidence,
     IReadOnlyList<TestRunSummaryExpectedResult> ExpectedResults,
     IReadOnlyList<TestRunSummaryBuild> Builds,

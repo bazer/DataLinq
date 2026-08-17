@@ -16,13 +16,14 @@ public class EmployeesNullablePredicateTests
     private static readonly DateTime CreatedB = new(2024, 3, 5, 8, 30, 0, 123);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableHasValuePredicates_MatchInMemoryFiltering(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableHasValuePredicates_MatchInMemoryFiltering),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var rows = SetupNullablePredicateRows(employeesDatabase);
@@ -56,13 +57,14 @@ public class EmployeesNullablePredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableValueComparisons_MatchGuardedInMemoryFiltering(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableValueComparisons_MatchGuardedInMemoryFiltering),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var rows = SetupNullablePredicateRows(employeesDatabase);
@@ -94,13 +96,14 @@ public class EmployeesNullablePredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableMixedEqualityPredicates_MatchCSharpNullSemantics(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableMixedEqualityPredicates_MatchCSharpNullSemantics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var rows = SetupNullablePredicateRows(employeesDatabase);
@@ -138,13 +141,14 @@ public class EmployeesNullablePredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableLocalMembershipPredicates_MatchCSharpNullSemantics(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableLocalMembershipPredicates_MatchCSharpNullSemantics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         _ = SetupNullablePredicateRows(employeesDatabase);

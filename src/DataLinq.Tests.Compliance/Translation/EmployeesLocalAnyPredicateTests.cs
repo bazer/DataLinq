@@ -7,13 +7,14 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesLocalAnyPredicateTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task LocalScalarAnyPredicateTranslatesToMembership(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(LocalScalarAnyPredicateTranslatesToMembership),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var selectedIds = employeesDatabase.Query().Employees
@@ -37,7 +38,7 @@ public class EmployeesLocalAnyPredicateTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(LocalScalarAnyPredicateRendersMembershipSql),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var selectedIds = databaseScope.Database.Query().Employees
             .OrderBy(x => x.emp_no)
@@ -54,13 +55,14 @@ public class EmployeesLocalAnyPredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task LocalObjectMemberAnyPredicateTranslatesToMembership(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(LocalObjectMemberAnyPredicateTranslatesToMembership),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var selectedIds = employeesDatabase.Query().Employees
@@ -80,13 +82,14 @@ public class EmployeesLocalAnyPredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task LocalObjectMemberAnyPredicateSupportsReversedEquality(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(LocalObjectMemberAnyPredicateSupportsReversedEquality),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var selectedIds = employeesDatabase.Query().Employees
@@ -106,13 +109,14 @@ public class EmployeesLocalAnyPredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task LocalObjectMemberAnyPredicateSupportsNullableWrappers(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(LocalObjectMemberAnyPredicateSupportsNullableWrappers),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var selectedIds = employeesDatabase.Query().Employees
@@ -132,13 +136,14 @@ public class EmployeesLocalAnyPredicateTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NegatedLocalObjectMemberAnyPredicateTranslatesToNotIn(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(NegatedLocalObjectMemberAnyPredicateTranslatesToNotIn),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var selectedIds = employeesDatabase.Query().Employees

@@ -17,6 +17,7 @@ public sealed class EmployeesTransactionFailureTests
     private readonly EmployeesTestData employees = new();
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ConstraintFailure_PoisonsAndRollsBackEarlierSuccessfulUpdate(
         TestProviderDescriptor provider)
@@ -31,7 +32,7 @@ public sealed class EmployeesTransactionFailureTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(ConstraintFailure_PoisonsAndRollsBackEarlierSuccessfulUpdate),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var updatedEmployee = database.Insert(
             employees.NewEmployee(updatedEmployeeNumber));
@@ -123,6 +124,7 @@ public sealed class EmployeesTransactionFailureTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PublicChangesMutation_CannotAlterPrivateCommitAuthority(
         TestProviderDescriptor provider)
@@ -134,7 +136,7 @@ public sealed class EmployeesTransactionFailureTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(PublicChangesMutation_CannotAlterPrivateCommitAuthority),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var updatedEmployee = database.Insert(
             employees.NewEmployee(updatedEmployeeNumber));
@@ -202,6 +204,7 @@ public sealed class EmployeesTransactionFailureTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PublicStateChangeExecuteQuery_MutableDeleteUsesTransactionAuthority(
         TestProviderDescriptor provider)
@@ -211,7 +214,7 @@ public sealed class EmployeesTransactionFailureTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(PublicStateChangeExecuteQuery_MutableDeleteUsesTransactionAuthority),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var employee = database.Insert(employees.NewEmployee(employeeNumber));
         var mutable = employee.Mutate();
@@ -243,6 +246,7 @@ public sealed class EmployeesTransactionFailureTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PublicStateChangeExecuteQuery_AutoIncrementInsertHydratesAndCommitsAuthoritativeBaseline(
         TestProviderDescriptor provider)
@@ -250,7 +254,7 @@ public sealed class EmployeesTransactionFailureTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(PublicStateChangeExecuteQuery_AutoIncrementInsertHydratesAndCommitsAuthoritativeBaseline),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var mutable = employees.NewEmployee();
         var table = database.Provider.Metadata.GetTableModel(typeof(Employee)).Table;
@@ -310,6 +314,7 @@ public sealed class EmployeesTransactionFailureTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SuccessfulIndexedUpdate_FreezesExecutedKeyAndIgnoresLaterUnexecutedValueOnCommit(
         TestProviderDescriptor provider)
@@ -322,7 +327,7 @@ public sealed class EmployeesTransactionFailureTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(SuccessfulIndexedUpdate_FreezesExecutedKeyAndIgnoresLaterUnexecutedValueOnCommit),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var department = database.Insert(new MutableDepartment
         {
@@ -370,6 +375,7 @@ public sealed class EmployeesTransactionFailureTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullForeignKey_FirstAccessAfterPoisoningRejectsThroughManagedReadGate(
         TestProviderDescriptor provider)
@@ -379,7 +385,7 @@ public sealed class EmployeesTransactionFailureTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullForeignKey_FirstAccessAfterPoisoningRejectsThroughManagedReadGate),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         _ = database.Insert(employees.NewEmployee(duplicateEmployeeNumber));
         var departmentRelation = database.Provider.Metadata

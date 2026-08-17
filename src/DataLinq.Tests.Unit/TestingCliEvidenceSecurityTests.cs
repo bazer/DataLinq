@@ -32,6 +32,19 @@ public sealed class TestingCliEvidenceSecurityTests
         await Assert.That(source).Contains("overallExitCode = 1;");
     }
 
+    [Test]
+    public async Task RunCommand_BuildsDistinctProjectsAndExecutesResolvedHostsDirectly()
+    {
+        var source = ReadTestingCliSource("Commands", "RunCommand.cs");
+
+        await Assert.That(source).Contains(".Distinct(PathComparer)");
+        await Assert.That(source).Contains("TestHostResolver.Resolve(");
+        await Assert.That(source).Contains("\"exec\",");
+        await Assert.That(source).Contains("testHostPath");
+        await Assert.That(source).DoesNotContain("\"--project\", projectPath");
+        await Assert.That(source).Contains("'--build' and '--no-build' cannot be combined.");
+    }
+
     private static string ReadTestingCliSource(string directory, string fileName)
     {
         var root = RepositoryRootLocator.Find();

@@ -2031,7 +2031,18 @@ public class CompatibilitySizeReportTests
             FailOnRuntimeRemotion: true,
             FailOnAnalyzerAssetLeak: true);
 
-        return new PackageInspector(paths, options).CreateReport();
+        var repositoryState = new TestRunSummaryRepositoryState(
+            Captured: true,
+            Commit: "0123456789abcdef0123456789abcdef01234567",
+            Branch: "test/hermetic-package-inspection",
+            Dirty: false,
+            StatusSha256: new string('0', 64));
+
+        return new PackageInspector(
+            paths,
+            options,
+            new FixedRepositoryStateCapture(repositoryState),
+            TestRunSummaryReporter.CaptureRunnerAssemblies).CreateReport();
     }
 
     private static IReadOnlySet<string> PackageSet(params string[] packageIds) =>
@@ -2076,5 +2087,11 @@ public class CompatibilitySizeReportTests
         var entry = archive.CreateEntry(entryName);
         using var writer = new StreamWriter(entry.Open());
         writer.Write(content);
+    }
+
+    private sealed class FixedRepositoryStateCapture(TestRunSummaryRepositoryState state)
+        : IRepositoryStateCapture
+    {
+        public TestRunSummaryRepositoryState Capture(string repositoryRoot) => state;
     }
 }

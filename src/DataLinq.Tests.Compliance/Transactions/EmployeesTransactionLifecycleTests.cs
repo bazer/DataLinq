@@ -28,6 +28,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_AttachedExternalTransactionReadsItsOwnRawWrite(
         TestProviderDescriptor provider)
@@ -35,7 +36,7 @@ public class EmployeesTransactionLifecycleTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_AttachedExternalTransactionReadsItsOwnRawWrite),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
 
@@ -77,6 +78,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_AttachedWrapperCommit_PersistsAndPromotesMutable(
         TestProviderDescriptor provider)
@@ -84,7 +86,7 @@ public class EmployeesTransactionLifecycleTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_AttachedWrapperCommit_PersistsAndPromotesMutable),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employeeNumber = 999700;
@@ -126,6 +128,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_AttachedWrapperRollback_InvalidatesMutableAndPreservesRow(
         TestProviderDescriptor provider)
@@ -133,7 +136,7 @@ public class EmployeesTransactionLifecycleTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_AttachedWrapperRollback_InvalidatesMutableAndPreservesRow),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
         var database = databaseScope.Database;
         var original = _employees.GetOrCreateEmployee(999701, database);
         var originalFirstName = original.first_name;
@@ -164,6 +167,7 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalCommitThenWrapperCommit_RejectsGuessedPublication(
         TestProviderDescriptor provider) =>
@@ -174,6 +178,7 @@ public class EmployeesTransactionLifecycleTests
             commitExternally: true);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalRollbackThenWrapperCommit_RejectsGuessedPublication(
         TestProviderDescriptor provider) =>
@@ -184,6 +189,7 @@ public class EmployeesTransactionLifecycleTests
             commitExternally: false);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalCommitThenWrapperRead_RecoversCachesAndRejectsTheRead(
         TestProviderDescriptor provider) =>
@@ -195,6 +201,7 @@ public class EmployeesTransactionLifecycleTests
             ExternalWrapperOperation.Read);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalRollbackThenWrapperWrite_RecoversCachesAndRejectsTheWrite(
         TestProviderDescriptor provider) =>
@@ -206,6 +213,7 @@ public class EmployeesTransactionLifecycleTests
             ExternalWrapperOperation.Write);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalCommitThenWrapperDispose_RecoversCachesAndReportsAmbiguity(
         TestProviderDescriptor provider) =>
@@ -217,6 +225,7 @@ public class EmployeesTransactionLifecycleTests
             ExternalWrapperOperation.Dispose);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalCommitThenWrapperRollback_RecoversCachesAndReportsAmbiguity(
         TestProviderDescriptor provider) =>
@@ -228,6 +237,7 @@ public class EmployeesTransactionLifecycleTests
             ExternalWrapperOperation.Rollback);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_ExternalRollbackThenWrapperRollback_RecoversCachesAndReportsAmbiguity(
         TestProviderDescriptor provider) =>
@@ -247,7 +257,7 @@ public class EmployeesTransactionLifecycleTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             testName,
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
         var database = databaseScope.Database;
         var baseline = _employees.GetOrCreateEmployee(employeeNumber, database).Mutate();
         baseline.first_name = "Bob";
@@ -304,7 +314,7 @@ public class EmployeesTransactionLifecycleTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             testName,
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
         var database = databaseScope.Database;
         var baseline = _employees.GetOrCreateEmployee(employeeNumber, database).Mutate();
         baseline.first_name = "Bob";
@@ -398,13 +408,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_DbCommandInsideTransactionReadsInsertedRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_DbCommandInsideTransactionReadsInsertedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
 
@@ -442,13 +453,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_InsertAutoIncrement_AssignsPrimaryKeyAndPersists(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_InsertAutoIncrement_AssignsPrimaryKeyAndPersists),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.NewEmployee();
@@ -478,13 +490,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_InsertAndUpdateAutoIncrement_PersistsUpdatedValues(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_InsertAndUpdateAutoIncrement_PersistsUpdatedValues),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.NewEmployee();
@@ -518,13 +531,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_UpdateWithoutChanges_ReturnsEquivalentModel(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_UpdateWithoutChanges_ReturnsEquivalentModel),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999795, employeesDatabase);
@@ -537,13 +551,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_ImplicitUpdate_PersistsChanges(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_ImplicitUpdate_PersistsChanges),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999998, employeesDatabase);
@@ -561,13 +576,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_ExplicitUpdate_PersistsChangesAfterCommit(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_ExplicitUpdate_PersistsChangesAfterCommit),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999997, employeesDatabase);
@@ -593,13 +609,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_Rollback_RestoresOriginalValues(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_Rollback_RestoresOriginalValues),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999996, employeesDatabase);
@@ -628,13 +645,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_DoubleCommitAndRollbackGuards_ThrowAfterCommit(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_DoubleCommitAndRollbackGuards_ThrowAfterCommit),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999995, employeesDatabase);
@@ -652,13 +670,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_DoubleRollbackAndCommitGuards_ThrowAfterRollback(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_DoubleRollbackAndCommitGuards_ThrowAfterRollback),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999994, employeesDatabase);
@@ -676,13 +695,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_CacheIsIsolatedPerTransaction(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_CacheIsIsolatedPerTransaction),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999991, employeesDatabase);
@@ -713,13 +733,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_SaveShortcut_PersistsChanges(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_SaveShortcut_PersistsChanges),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999800, employeesDatabase).Mutate();
@@ -732,13 +753,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_InsertRelations_PersistsAfterCommit(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_InsertRelations_PersistsAfterCommit),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999799, employeesDatabase);
@@ -771,13 +793,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_InsertRelationsWithinTransaction_MaintainsGraphIdentity(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_InsertRelationsWithinTransaction_MaintainsGraphIdentity),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999798, employeesDatabase);
@@ -817,13 +840,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_InsertRelationsReadAfterCommit_ClearsTransactionCache(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_InsertRelationsReadAfterCommit_ClearsTransactionCache),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999797, employeesDatabase);
@@ -870,13 +894,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_ReSavingOriginalMutable_PreservesEarlierPersistedChanges(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_ReSavingOriginalMutable_PreservesEarlierPersistedChanges),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999796, employeesDatabase).Mutate();
@@ -895,13 +920,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_ReSavingSameMutableWithinExplicitTransactionAndAfterCommit_PreservesAllValues(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_ReSavingSameMutableWithinExplicitTransactionAndAfterCommit_PreservesAllValues),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var mutableEmployee = _employees.GetOrCreateEmployee(999795, employeesDatabase).Mutate();
@@ -940,13 +966,14 @@ public class EmployeesTransactionLifecycleTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_RelationInsertRollback_KeepsViewsScopedAndDoesNotNotifyOutsideSubscriber(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Transaction_RelationInsertRollback_KeepsViewsScopedAndDoesNotNotifyOutsideSubscriber),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999794, employeesDatabase);

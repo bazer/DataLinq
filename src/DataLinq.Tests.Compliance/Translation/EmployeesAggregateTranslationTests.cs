@@ -8,13 +8,14 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesAggregateTranslationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ScalarAggregates_OverDirectNumericMembers_MatchInMemoryResults(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ScalarAggregates_OverDirectNumericMembers_MatchInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var managers = employeesDatabase.Query().Managers.ToList();
@@ -26,13 +27,14 @@ public class EmployeesAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ScalarAggregates_OverFilteredNumericMembers_MatchInMemoryResults(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ScalarAggregates_OverFilteredNumericMembers_MatchInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var managers = employeesDatabase.Query().Managers.ToList();
@@ -47,13 +49,14 @@ public class EmployeesAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ScalarResultFamily_WorksFromTransactionRoot(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ScalarResultFamily_WorksFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
@@ -78,13 +81,14 @@ public class EmployeesAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ScalarAggregates_OverNullableNumericMembers_MatchInMemoryResults(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ScalarAggregates_OverNullableNumericMembers_MatchInMemoryResults),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employees = employeesDatabase.Query().Employees.ToList();
@@ -100,13 +104,14 @@ public class EmployeesAggregateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ScalarAggregates_EmptyFilteredSequences_FollowDocumentedNullAndSumBehavior(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ScalarAggregates_EmptyFilteredSequences_FollowDocumentedNullAndSumBehavior),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
 

@@ -19,6 +19,7 @@ public sealed class EmployeesTransactionCommitOutcomeTests
     private readonly EmployeesTestData employees = new();
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_CommitBoundaryThrowsBeforeNativeCommit_RollsBackActualOutcome(
         TestProviderDescriptor provider) =>
@@ -29,6 +30,7 @@ public sealed class EmployeesTransactionCommitOutcomeTests
             commitNativeBeforeThrow: false);
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public Task Transaction_NativeCommitCompletesThenBoundaryThrows_RematerializesActualOutcome(
         TestProviderDescriptor provider) =>
@@ -50,7 +52,7 @@ public sealed class EmployeesTransactionCommitOutcomeTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             testName,
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var seed = employees.NewEmployee(employeeNumber);
         seed.first_name = committedFirstName;

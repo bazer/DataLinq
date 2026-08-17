@@ -21,7 +21,7 @@ namespace DataLinq.Tests.Unit;
 public class DatabaseCacheTests
 {
     [Test]
-    [NotInParallel]
+    [NotInParallel("process:database-cache")]
     public async Task Constructor_DoesNotCreateHistorySnapshotUntilRequested()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
@@ -46,7 +46,7 @@ public class DatabaseCacheTests
     }
 
     [Test]
-    [NotInParallel]
+    [NotInParallel("process:database-cache")]
     public async Task Constructor_DoesNotStartCleanupWorker_InBrowserRuntime()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
@@ -68,7 +68,7 @@ public class DatabaseCacheTests
     }
 
     [Test]
-    [NotInParallel]
+    [NotInParallel("process:database-cache")]
     public async Task Constructor_MultipleCleanupIntervals_StartsOneCoordinatedScheduler()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
@@ -106,7 +106,7 @@ public class DatabaseCacheTests
     }
 
     [Test]
-    [NotInParallel]
+    [NotInParallel("process:database-cache")]
     public async Task CleanupScheduler_RunDueScheduledCleanup_IsDeterministicWithoutBackgroundWorker()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
@@ -136,7 +136,7 @@ public class DatabaseCacheTests
     }
 
     [Test]
-    [NotInParallel]
+    [NotInParallel("process:database-cache")]
     public async Task CleanupScheduler_RunMemoryPressureCleanup_RemovesBoundedRows()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
@@ -190,7 +190,7 @@ public class DatabaseCacheTests
     }
 
     [Test]
-    [NotInParallel]
+    [NotInParallel("process:database-cache")]
     public async Task CleanupScheduler_RunDueMemoryPressureCleanup_RespectsCheckInterval()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
@@ -241,7 +241,7 @@ public class DatabaseCacheTests
     }
 
     [Test]
-    [NotInParallel]
+    [NotInParallel("process:database-cache")]
     public async Task CleanupScheduler_RunMemoryPressureCleanup_SkipsUnsupportedReader()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
@@ -280,7 +280,7 @@ public class DatabaseCacheTests
     }
 
     [Test]
-    [NotInParallel]
+    [NotInParallel("process:database-cache")]
     public async Task Constructor_UseCacheDefaults_AreEffectiveWithoutMutatingMetadata()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
@@ -319,7 +319,7 @@ public class DatabaseCacheTests
     }
 
     [Test]
-    [NotInParallel]
+    [NotInParallel("process:database-cache")]
     public async Task ProviderConstructor_UseCacheDefaults_DoesNotMutateMetadata()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
@@ -347,7 +347,7 @@ public class DatabaseCacheTests
     }
 
     [Test]
-    [NotInParallel]
+    [NotInParallel("process:database-cache")]
     public async Task Constructor_CacheDisabledDefaultPolicyKeepsLegacyCleanupOnly()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
@@ -374,7 +374,7 @@ public class DatabaseCacheTests
     }
 
     [Test]
-    [NotInParallel]
+    [NotInParallel("process:database-cache")]
     public async Task Constructor_ExplicitCachePolicy_ReusesFrozenMetadataCollections()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
@@ -402,7 +402,7 @@ public class DatabaseCacheTests
     }
 
     [Test]
-    [NotInParallel]
+    [NotInParallel("process:database-cache")]
     public async Task ClearForRecovery_ClearsEveryTableBeforeNotificationsAndCollectsFailures()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -14,7 +15,7 @@ namespace DataLinq.DevTools;
 
 public static class TestRunSummaryReporter
 {
-    public const string SchemaVersion = "v0.9.testing-run-summary.v1";
+    public const string SchemaVersion = "v0.9.testing-run-summary.v2";
 
     private const string RepositoryBuildStateMetadataName = "DataLinqRepositoryBuildState";
     private const string CleanRepositoryBuildState = "clean";
@@ -72,6 +73,7 @@ public static class TestRunSummaryReporter
         ArgumentNullException.ThrowIfNull(input.ExpectedResults);
         ArgumentNullException.ThrowIfNull(input.Builds);
         ArgumentNullException.ThrowIfNull(input.Results);
+        ArgumentException.ThrowIfNullOrWhiteSpace(input.RunId);
 
         if (input.CompletedAtUtc < input.StartedAtUtc)
             throw new ArgumentException("The test summary completion timestamp cannot precede its start timestamp.", nameof(input));
@@ -120,6 +122,17 @@ public static class TestRunSummaryReporter
             assembliesMatch,
             assembliesClean,
             validForEvidence);
+        var timings = new TestRunSummaryTimingBreakdown(
+            BuildProcessSeconds: RoundSeconds(builds.Sum(static build => build.DurationSeconds)),
+            InfrastructureSetupSeconds: RoundSeconds(results.Sum(static result => result.InfrastructureSetupDurationSeconds)),
+            TestHostProcessSeconds: RoundSeconds(results.Sum(static result => result.DurationSeconds)),
+            TestBodySeconds: RoundSeconds(results.Sum(static result => result.Performance.TotalTestDurationSeconds)),
+            TeardownSeconds: RoundSeconds(input.TeardownDurationSeconds));
+        var runtimeEnvironment = new TestRunSummaryRuntimeEnvironment(
+            RuntimeInformation.OSDescription,
+            RuntimeInformation.ProcessArchitecture.ToString(),
+            RuntimeInformation.FrameworkDescription,
+            Environment.ProcessorCount);
         var artifactPaths = new[] { reportPath }
             .Concat(builds.Select(static build => build.LogPath))
             .Concat(results.SelectMany(static result => result.ArtifactPaths))
@@ -128,6 +141,7 @@ public static class TestRunSummaryReporter
 
         return new TestRunSummaryReport(
             SchemaVersion,
+            input.RunId,
             input.StartedAtUtc,
             input.CompletedAtUtc,
             Math.Round((input.CompletedAtUtc - input.StartedAtUtc).TotalSeconds, 3),
@@ -145,6 +159,8 @@ public static class TestRunSummaryReporter
             input.Passed,
             input.Failed,
             input.Skipped,
+            timings,
+            runtimeEnvironment,
             runnerEvidence,
             Array.AsReadOnly(expectedResults),
             Array.AsReadOnly(builds),
@@ -335,6 +351,7 @@ public static class TestRunSummaryReporter
             SelectedTargets = Array.AsReadOnly(selectedTargets),
             ResolvedSuites = Array.AsReadOnly(resolvedSuites),
             SafeEnvironment = safeEnvironment,
+            Plan = string.IsNullOrWhiteSpace(invocation.Plan) ? null : invocation.Plan.Trim(),
             IncludesAllSuites = HasExactSet(
                 resolvedSuites.Select(static suite => suite.Name),
                 ReleaseSuites.Keys),
@@ -383,9 +400,12 @@ public static class TestRunSummaryReporter
                            TryNormalizeDatabaseHost(result.Environment.DatabaseHost, out databaseHost);
         var artifacts = result.ArtifactPaths
             .Append(result.LogPath)
+            .Append(result.HtmlReportPath)
+            .Append(result.TrxReportPath)
             .Select(Path.GetFullPath)
             .Distinct(PathComparer)
             .ToArray();
+        var performance = Normalize(result.Performance);
         var outcome = DetermineResultOutcome(result);
         return result with
         {
@@ -402,7 +422,26 @@ public static class TestRunSummaryReporter
                 TargetIds = environmentTargetIds
             },
             ArtifactPaths = Array.AsReadOnly(artifacts),
-            LogPath = Path.GetFullPath(result.LogPath)
+            LogPath = Path.GetFullPath(result.LogPath),
+            HtmlReportPath = Path.GetFullPath(result.HtmlReportPath),
+            TrxReportPath = Path.GetFullPath(result.TrxReportPath),
+            InfrastructureSetupDurationSeconds = RoundSeconds(result.InfrastructureSetupDurationSeconds),
+            Performance = performance
+        };
+    }
+
+    private static TestRunSummaryPerformance Normalize(TestRunSummaryPerformance performance)
+    {
+        ArgumentNullException.ThrowIfNull(performance);
+        ArgumentNullException.ThrowIfNull(performance.SlowestTests);
+        ArgumentNullException.ThrowIfNull(performance.SlowestClasses);
+        return performance with
+        {
+            CaptureError = performance.CaptureError is null
+                ? null
+                : SanitizeFailureMessage(performance.CaptureError),
+            SlowestTests = Array.AsReadOnly(performance.SlowestTests.Take(20).ToArray()),
+            SlowestClasses = Array.AsReadOnly(performance.SlowestClasses.Take(20).ToArray())
         };
     }
 
@@ -413,6 +452,8 @@ public static class TestRunSummaryReporter
         if (result.Total is null || result.Passed is null || result.Failed is null || result.Skipped is null)
             return TestRunSummaryOutcome.Incomplete;
         if (!CountsAreNonnegativeAndConsistent(result.Total.Value, result.Passed.Value, result.Failed.Value, result.Skipped.Value))
+            return TestRunSummaryOutcome.Incomplete;
+        if (!result.Performance.Captured || result.Performance.TestCount != result.Total.Value)
             return TestRunSummaryOutcome.Incomplete;
         return TestRunSummaryOutcome.Passed;
     }
@@ -507,6 +548,14 @@ public static class TestRunSummaryReporter
             !expectedKeys.SequenceEqual(actualKeys, StringComparer.Ordinal))
             return false;
 
+        if (results.Any(static result =>
+                !result.Performance.Captured ||
+                result.Total is null ||
+                result.Performance.TestCount != result.Total.Value))
+        {
+            return false;
+        }
+
         if (results.Any(result => !IsCommandEnvironmentComplete(invocation, result)))
             return false;
 
@@ -523,6 +572,7 @@ public static class TestRunSummaryReporter
 
         var expectedProjects = invocation.ResolvedSuites
             .Select(static suite => suite.ProjectPath)
+            .Distinct(PathComparer)
             .Order(PathComparer)
             .ToArray();
         var builtProjects = builds
@@ -701,6 +751,8 @@ public static class TestRunSummaryReporter
         failed >= 0 &&
         skipped >= 0 &&
         (long)passed + failed + skipped == total;
+
+    private static double RoundSeconds(double value) => Math.Round(value, 3);
 
     private static bool HasCompleteArtifacts(
         string repositoryRoot,

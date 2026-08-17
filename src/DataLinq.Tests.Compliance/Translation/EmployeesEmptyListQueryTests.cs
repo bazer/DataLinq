@@ -9,13 +9,14 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesEmptyListQueryTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_ContainsReturnsEmpty(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_ContainsReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees
@@ -26,13 +27,14 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_ContainsAndTrueConditionReturnsEmpty(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_ContainsAndTrueConditionReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees
@@ -43,13 +45,14 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_ContainsOrTrueConditionReturnsMatchingRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_ContainsOrTrueConditionReturnsMatchingRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -70,13 +73,14 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_NegatedContainsReturnsAllSalaries(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_NegatedContainsReturnsAllSalaries),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -90,13 +94,14 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_ContainsOrNonEmptyContainsReturnsMatchingNonEmptyRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_ContainsOrNonEmptyContainsReturnsMatchingNonEmptyRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -118,13 +123,14 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_ContainsAndNonEmptyContainsReturnsEmpty(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_ContainsAndNonEmptyContainsReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -139,13 +145,14 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_AnyReturnsEmpty(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_AnyReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees
@@ -156,13 +163,14 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_AnyAndTrueConditionReturnsEmpty(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_AnyAndTrueConditionReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees
@@ -173,13 +181,14 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_AnyOrTrueConditionReturnsMatchingRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_AnyOrTrueConditionReturnsMatchingRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -200,13 +209,14 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_NegatedAnyKeepsKnownEmployees(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_NegatedAnyKeepsKnownEmployees),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -226,13 +236,14 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_AnyOrNonEmptyAnyReturnsMatchingNonEmptyRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_AnyOrNonEmptyAnyReturnsMatchingNonEmptyRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -255,13 +266,14 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_AnyAndNonEmptyAnyReturnsEmpty(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_AnyAndNonEmptyAnyReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
@@ -276,13 +288,14 @@ public class EmployeesEmptyListQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EmptyList_AnyWithComplexPredicateReturnsEmpty(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(EmptyList_AnyWithComplexPredicateReturnsEmpty),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees

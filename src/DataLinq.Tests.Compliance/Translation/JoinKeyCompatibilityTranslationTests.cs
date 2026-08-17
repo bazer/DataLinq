@@ -15,6 +15,7 @@ public sealed class JoinKeyCompatibilityTranslationTests
 {
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task DifferentConverterMappings_RejectBeforeSqlOrConverterExecution(
         TestProviderDescriptor provider)
@@ -62,6 +63,7 @@ public sealed class JoinKeyCompatibilityTranslationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task DifferentGuidStorageFormats_RejectBeforeSqlExecution(
         TestProviderDescriptor provider)

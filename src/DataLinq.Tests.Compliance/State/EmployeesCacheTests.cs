@@ -14,13 +14,14 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesCacheTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_DoesNotAccumulateDuplicateDeptEmployeeRowsAcrossRepeatedQueries(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_DoesNotAccumulateDuplicateDeptEmployeeRowsAcrossRepeatedQueries),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var setup = PrepareScenario(employeesDatabase);
@@ -40,13 +41,14 @@ public class EmployeesCacheTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_RemoveRowsInsertedBeforeTick_EvictsRowsInLoadOrder(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_RemoveRowsInsertedBeforeTick_EvictsRowsInLoadOrder),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var setup = PrepareScenario(employeesDatabase);
@@ -103,13 +105,14 @@ public class EmployeesCacheTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_RemoveRowsByRowLimit_KeepsConfiguredRowCount(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_RemoveRowsByRowLimit_KeepsConfiguredRowCount),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var setup = PrepareScenario(employeesDatabase);
@@ -133,13 +136,14 @@ public class EmployeesCacheTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_RemoveRowsByByteLimit_CapsDatabaseEstimatedCacheBytes(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_RemoveRowsByByteLimit_CapsDatabaseEstimatedCacheBytes),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var setup = PrepareScenario(employeesDatabase);
@@ -165,13 +169,14 @@ public class EmployeesCacheTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_RemoveRowsBySettings_OnlyAppliesTableSpecificLimitsToThatTable(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_RemoveRowsBySettings_OnlyAppliesTableSpecificLimitsToThatTable),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         employeesDatabase.Provider.State.ClearCache();

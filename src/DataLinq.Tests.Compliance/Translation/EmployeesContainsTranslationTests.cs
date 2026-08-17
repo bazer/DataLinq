@@ -9,13 +9,14 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesContainsTranslationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_EmptyArrayReturnsNoRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Contains_EmptyArrayReturnsNoRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var results = databaseScope.Database.Query()
             .Employees
@@ -31,7 +32,7 @@ public class EmployeesContainsTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(Contains_EmptyArrayRendersFalsePredicateInSql),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Employees
             .Where(x => Array.Empty<int>().Contains(x.emp_no!.Value));
@@ -48,7 +49,7 @@ public class EmployeesContainsTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(Contains_NegatedEmptyArrayRendersTruePredicateInSql),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Employees
             .Where(x => !Array.Empty<int>().Contains(x.emp_no!.Value));
@@ -60,13 +61,14 @@ public class EmployeesContainsTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_NegatedContainsFiltersRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Contains_NegatedContainsFiltersRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var ids = employeesDatabase.Query().Employees
@@ -87,13 +89,14 @@ public class EmployeesContainsTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_ReadOnlySpanFiltersRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Contains_ReadOnlySpanFiltersRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var ids = employeesDatabase.Query().Employees
@@ -115,13 +118,14 @@ public class EmployeesContainsTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_ProjectedLocalSequenceFiltersRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Contains_ProjectedLocalSequenceFiltersRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var ids = employeesDatabase.Query().Employees
@@ -141,13 +145,14 @@ public class EmployeesContainsTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_EmptyProjectedLocalSequenceReturnsNoRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Contains_EmptyProjectedLocalSequenceReturnsNoRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var localIds = Array.Empty<LocalEmployeeId>();
 
@@ -159,13 +164,14 @@ public class EmployeesContainsTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_ConstantTrueReturnsAllRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Contains_ConstantTrueReturnsAllRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var anyId = employeesDatabase.Query().Employees
@@ -181,13 +187,14 @@ public class EmployeesContainsTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_ConstantFalseReturnsNoRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Contains_ConstantFalseReturnsNoRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var ids = employeesDatabase.Query().Employees

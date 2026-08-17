@@ -14,6 +14,7 @@ public class RelationCacheInvalidationPrecisionTests
 {
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCache_NonRelationColumnUpdate_ClearsOnlyRelationsContainingChangedRow(TestProviderDescriptor provider)
     {
@@ -63,6 +64,7 @@ public class RelationCacheInvalidationPrecisionTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCache_ForeignKeyMove_ClearsOldAndNewBucketsOnly(TestProviderDescriptor provider)
     {
@@ -115,6 +117,7 @@ public class RelationCacheInvalidationPrecisionTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCache_EventWithOldAndNewRelationValues_ClearsOldAndNewBucketsOnly(TestProviderDescriptor provider)
     {
@@ -180,6 +183,7 @@ public class RelationCacheInvalidationPrecisionTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCache_EventMissingRelationValues_DowngradesToTableWideClear(TestProviderDescriptor provider)
     {
@@ -238,6 +242,7 @@ public class RelationCacheInvalidationPrecisionTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCache_EventRejectsMalformedIndexValues(TestProviderDescriptor provider)
     {
@@ -276,6 +281,7 @@ public class RelationCacheInvalidationPrecisionTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCache_DuplicateForeignKeyScalarValue_DoesNotClearDifferentRelationIndex(TestProviderDescriptor provider)
     {
@@ -324,6 +330,7 @@ public class RelationCacheInvalidationPrecisionTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCache_InsertClearsOnlyRelationBucketThatGainsRow(TestProviderDescriptor provider)
     {
@@ -371,6 +378,7 @@ public class RelationCacheInvalidationPrecisionTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCache_DeleteClearsOnlyRelationsContainingDeletedRow(TestProviderDescriptor provider)
     {
@@ -418,6 +426,7 @@ public class RelationCacheInvalidationPrecisionTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCache_ReferenceRelationClearsWhenReferencedRowChanges(TestProviderDescriptor provider)
     {
@@ -463,6 +472,7 @@ public class RelationCacheInvalidationPrecisionTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCache_EventParentRowInvalidationClearsReferenceRelation(TestProviderDescriptor provider)
     {
@@ -514,6 +524,7 @@ public class RelationCacheInvalidationPrecisionTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCache_ManualChildInvalidationFallsBackToTableWideClear(TestProviderDescriptor provider)
     {
@@ -564,6 +575,7 @@ public class RelationCacheInvalidationPrecisionTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCache_ManualParentInvalidationClearsReferenceRelation(TestProviderDescriptor provider)
     {

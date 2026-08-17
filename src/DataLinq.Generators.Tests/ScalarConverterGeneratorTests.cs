@@ -634,16 +634,6 @@ public sealed class ScalarConverterGeneratorTests : GeneratorTestBase
         IEnumerable<SyntaxTree> syntaxTrees)
     {
         var sourceTrees = syntaxTrees.ToArray();
-        var generatorAssembly = typeof(ModelGenerator).Assembly;
-        var references = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(assembly =>
-                !assembly.IsDynamic &&
-                !string.IsNullOrEmpty(assembly.Location) &&
-                assembly != generatorAssembly &&
-                !string.Equals(assembly.GetName().Name, "DataLinq", StringComparison.Ordinal))
-            .Select(assembly => MetadataReference.CreateFromFile(assembly.Location))
-            .ToList();
-
         var outputDirectory = new DirectoryInfo(AppContext.BaseDirectory);
         var targetFramework = outputDirectory.Name;
         var configuration = outputDirectory.Parent?.Name
@@ -655,7 +645,10 @@ public sealed class ScalarConverterGeneratorTests : GeneratorTestBase
         if (!File.Exists(runtimeAssemblyPath))
             throw new FileNotFoundException("The runtime DataLinq reference required for generated-output compilation was not built.", runtimeAssemblyPath);
 
-        references.Add(MetadataReference.CreateFromFile(runtimeAssemblyPath));
+        var references = GeneratorMetadataReferenceCache.GetReferences(
+            excludedAssemblies: [typeof(ModelGenerator).Assembly],
+            excludedAssemblyNames: ["DataLinq"],
+            additionalLocations: [runtimeAssemblyPath]);
 
         var compilation = CSharpCompilation.Create(
             "ScalarConverterRuntimeCompilation",

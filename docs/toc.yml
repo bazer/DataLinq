@@ -96,6 +96,8 @@
       href: contributing/DataLinq.Dev.CLI.md
     - name: DataLinq.Testing.CLI
       href: contributing/DataLinq.Testing.CLI.md
+    - name: CI Test Lanes
+      href: contributing/CI Test Lanes.md
     - name: DataLinq.Benchmark.CLI
       href: contributing/DataLinq.Benchmark.CLI.md
     - name: AI Assistant Guidance

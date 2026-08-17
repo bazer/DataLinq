@@ -15,6 +15,7 @@ public sealed class EmployeesTransactionTrackingTests
     private readonly EmployeesTestData employees = new();
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SuccessfulMutations_RecordOrderedChangesAndOnlyLifecycleMutableReferences(
         TestProviderDescriptor provider)
@@ -27,7 +28,7 @@ public sealed class EmployeesTransactionTrackingTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(SuccessfulMutations_RecordOrderedChangesAndOnlyLifecycleMutableReferences),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var existing = database.Insert(employees.NewEmployee(updateEmployeeNumber));
         var deletable = database.Insert(employees.NewEmployee(deleteEmployeeNumber));
@@ -96,6 +97,7 @@ public sealed class EmployeesTransactionTrackingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EqualButDistinctMutables_AreBothTrackedByReferenceIdentity(
         TestProviderDescriptor provider)
@@ -105,7 +107,7 @@ public sealed class EmployeesTransactionTrackingTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(EqualButDistinctMutables_AreBothTrackedByReferenceIdentity),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var employee = database.Insert(employees.NewEmployee(employeeNumber));
         var firstMutable = employee.Mutate();
@@ -144,6 +146,7 @@ public sealed class EmployeesTransactionTrackingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RepeatedSameMutable_RecordsMultipleChangesButOneTouchedReference(
         TestProviderDescriptor provider)
@@ -153,7 +156,7 @@ public sealed class EmployeesTransactionTrackingTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(RepeatedSameMutable_RecordsMultipleChangesButOneTouchedReference),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var mutable = employees.NewEmployee(employeeNumber);
 
@@ -196,6 +199,7 @@ public sealed class EmployeesTransactionTrackingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task CleanNoChangeUpdate_RecordsNeitherChangeNorTouchedMutable(
         TestProviderDescriptor provider)
@@ -205,7 +209,7 @@ public sealed class EmployeesTransactionTrackingTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(CleanNoChangeUpdate_RecordsNeitherChangeNorTouchedMutable),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var employee = database.Insert(employees.NewEmployee(employeeNumber));
         var mutable = employee.Mutate();

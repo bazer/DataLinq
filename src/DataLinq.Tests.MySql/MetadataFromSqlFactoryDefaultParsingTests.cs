@@ -510,6 +510,7 @@ public class MetadataFromSqlFactoryDefaultParsingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task StaticGuidDefaults_RoundTripExactPhysicalLayouts(TestProviderDescriptor provider)
     {

@@ -94,7 +94,7 @@ For provider-matrix or server-backed runs:
 ```powershell
 ./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- list
 dotnet run --project src/DataLinq.Testing.CLI -- wait --alias latest
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
+dotnet run --project src/DataLinq.Testing.CLI -- run --plan latest --batch-size 4
 ```
 
 For sandboxed server-backed verification after the containers already exist:
@@ -105,10 +105,10 @@ $env:DATALINQ_TEST_DB_HOST = '127.0.0.1'
 Remove-Item Env:DATALINQ_TEST_DB_HOST
 ```
 
-The compliance quick suite is local/SQLite-oriented and is known to run successfully inside the Codex sandbox on native Windows:
+The quick feedback plan is local/SQLite-oriented and is known to run successfully inside the Codex sandbox on native Windows:
 
 ```powershell
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --plan quick --output failures
 ```
 
 For benchmarks:

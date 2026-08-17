@@ -17,7 +17,7 @@ internal static class InteractiveCliRunner
 
         return command switch
         {
-            "list" => RunList(stateStore),
+            "list" => RunList(stateStore, settings.RepositoryRoot),
             "up" => RunUp(orchestrator),
             "wait" => RunWait(orchestrator),
             "down" => RunDown(orchestrator),
@@ -27,9 +27,9 @@ internal static class InteractiveCliRunner
         };
     }
 
-    public static int RunList(TestInfraRuntimeStateStore stateStore)
+    public static int RunList(TestInfraRuntimeStateStore stateStore, string repositoryRoot)
     {
-        ListCommand.Render(stateStore);
+        ListCommand.Render(stateStore, repositoryRoot);
         return 0;
     }
 
@@ -105,9 +105,9 @@ internal static class InteractiveCliRunner
             new SelectionPrompt<string>()
                 .Title("Build configuration")
                 .AddChoices("Debug", "Release"));
-        var build = AnsiConsole.Prompt(new ConfirmationPrompt("Build before running tests?")
+        var build = AnsiConsole.Prompt(new ConfirmationPrompt("Build each test project once before running?")
         {
-            DefaultValue = false
+            DefaultValue = true
         });
         var batchSize = AnsiConsole.Prompt(
             new TextPrompt<int>("Batch size")

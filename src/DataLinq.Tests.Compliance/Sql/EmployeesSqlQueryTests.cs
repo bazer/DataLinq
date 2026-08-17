@@ -10,13 +10,14 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesSqlQueryTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlQuery_SimpleWhereSelectsDepartmentAcrossProviders(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(SqlQuery_SimpleWhereSelectsDepartmentAcrossProviders),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var departments = databaseScope.Database
             .From<Department>()
@@ -28,13 +29,14 @@ public class EmployeesSqlQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlQuery_GetFromQueryReturnsExpectedDepartmentAcrossProviders(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(SqlQuery_GetFromQueryReturnsExpectedDepartmentAcrossProviders),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
         using var transaction = databaseScope.Database.Transaction();
 
         var departments = transaction
@@ -45,12 +47,13 @@ public class EmployeesSqlQueryTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_JoinWhereOrderLimitRendersProviderSpecificSql(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(SqlBuilder_JoinWhereOrderLimitRendersProviderSpecificSql));
+            nameof(SqlBuilder_JoinWhereOrderLimitRendersProviderSpecificSql), EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var (parameterSign, escapeCharacter, databasePrefix) = GetSqlConstants(employeesDatabase);
@@ -64,12 +67,14 @@ public class EmployeesSqlQueryTests
             .SelectQuery()
             .ToSql();
 
-        var expectedSql = $@"SELECT d.{escapeCharacter}dept_no{escapeCharacter}, d.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} d
-JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} m ON d.{escapeCharacter}dept_no{escapeCharacter} = m.{escapeCharacter}dept_no{escapeCharacter}
-WHERE
-m.{escapeCharacter}dept_no{escapeCharacter} = {parameterSign}w0
-ORDER BY d.{escapeCharacter}dept_no{escapeCharacter} DESC
-LIMIT 1";
+        var expectedSql = string.Join(
+            "\n",
+            $"SELECT d.{escapeCharacter}dept_no{escapeCharacter}, d.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} d",
+            $"JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} m ON d.{escapeCharacter}dept_no{escapeCharacter} = m.{escapeCharacter}dept_no{escapeCharacter}",
+            "WHERE",
+            $"m.{escapeCharacter}dept_no{escapeCharacter} = {parameterSign}w0",
+            $"ORDER BY d.{escapeCharacter}dept_no{escapeCharacter} DESC",
+            "LIMIT 1");
 
         await Assert.That(sql.Text).IsEqualTo(expectedSql);
         await Assert.That(sql.Parameters.Count).IsEqualTo(1);
@@ -79,12 +84,13 @@ LIMIT 1";
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_ToDbCommandMaterializesProviderParametersAtCommandBoundary(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(SqlBuilder_ToDbCommandMaterializesProviderParametersAtCommandBoundary));
+            nameof(SqlBuilder_ToDbCommandMaterializesProviderParametersAtCommandBoundary), EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var (parameterSign, _, _) = GetSqlConstants(employeesDatabase);
@@ -110,12 +116,13 @@ LIMIT 1";
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_RepeatedSingleValueEqualityShapeKeepsCurrentParameterValue(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(SqlBuilder_RepeatedSingleValueEqualityShapeKeepsCurrentParameterValue));
+            nameof(SqlBuilder_RepeatedSingleValueEqualityShapeKeepsCurrentParameterValue), EmployeesFixtureProfile.FullSeeded);
 
         static Sql CreateSql(Database<EmployeesDb> database, string departmentNumber)
             => database
@@ -140,12 +147,13 @@ LIMIT 1";
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_RepeatedAndEqualityShapeKeepsCurrentParameterValues(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(SqlBuilder_RepeatedAndEqualityShapeKeepsCurrentParameterValues));
+            nameof(SqlBuilder_RepeatedAndEqualityShapeKeepsCurrentParameterValues), EmployeesFixtureProfile.FullSeeded);
 
         static Sql CreateSql(Database<EmployeesDb> database, string departmentNumber, string departmentName)
             => database
@@ -171,12 +179,13 @@ LIMIT 1";
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_RepeatedInPredicateShapeKeepsCurrentParameterValues(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(SqlBuilder_RepeatedInPredicateShapeKeepsCurrentParameterValues));
+            nameof(SqlBuilder_RepeatedInPredicateShapeKeepsCurrentParameterValues), EmployeesFixtureProfile.FullSeeded);
 
         static Sql CreateSql(Database<EmployeesDb> database, string firstDepartmentNumber, string secondDepartmentNumber)
             => database
@@ -202,12 +211,13 @@ LIMIT 1";
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Literal_ToDbCommandPreservesSuppliedProviderParameter(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(Literal_ToDbCommandPreservesSuppliedProviderParameter));
+            nameof(Literal_ToDbCommandPreservesSuppliedProviderParameter), EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var (parameterSign, escapeCharacter, databasePrefix) = GetSqlConstants(employeesDatabase);

@@ -16,21 +16,12 @@ public abstract class GeneratorTestBase
         CSharpParseOptions? parseOptions = null,
         NullableContextOptions nullableContextOptions = NullableContextOptions.Enable)
     {
-        var referenceLocations = AppDomain.CurrentDomain.GetAssemblies()
-            // The analyzer assembly embeds SharedCore types for generator execution. A consumer
-            // compilation references DataLinq.dll, not the analyzer as a runtime library; including
-            // both produces false CS0433 duplicate-type errors.
-            .Where(a => a != typeof(ModelGenerator).Assembly && !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-            .Select(a => a.Location)
-            .Concat(
-            [
-                typeof(object).Assembly.Location,
-                typeof(Enumerable).Assembly.Location,
-                GetDataLinqRuntimeAssemblyPath()
-            ])
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(static location => MetadataReference.CreateFromFile(location))
-            .ToList();
+        // The analyzer assembly embeds SharedCore types for generator execution. A consumer
+        // compilation references DataLinq.dll, not the analyzer as a runtime library; including
+        // both produces false CS0433 duplicate-type errors.
+        var referenceLocations = GeneratorMetadataReferenceCache.GetReferences(
+            excludedAssemblies: [typeof(ModelGenerator).Assembly],
+            additionalLocations: [GetDataLinqRuntimeAssemblyPath()]);
 
         var compilation = CSharpCompilation.Create("TestAssembly",
             syntaxTrees,

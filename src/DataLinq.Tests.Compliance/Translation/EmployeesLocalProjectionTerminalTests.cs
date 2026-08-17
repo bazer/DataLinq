@@ -10,6 +10,7 @@ namespace DataLinq.Tests.Compliance;
 public sealed class EmployeesLocalProjectionTerminalTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ComputedRowLocalTerminals_PreserveSuccessEmptyAndMultipleRowSemantics(
         TestProviderDescriptor provider)
@@ -17,7 +18,7 @@ public sealed class EmployeesLocalProjectionTerminalTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ComputedRowLocalTerminals_PreserveSuccessEmptyAndMultipleRowSemantics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var seedEmployees = employeesDatabase.Query().Employees
@@ -65,6 +66,7 @@ public sealed class EmployeesLocalProjectionTerminalTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ConstructorBackedAnonymousTerminals_PreserveSuccessEmptyAndMultipleRowSemantics(
         TestProviderDescriptor provider)
@@ -72,7 +74,7 @@ public sealed class EmployeesLocalProjectionTerminalTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ConstructorBackedAnonymousTerminals_PreserveSuccessEmptyAndMultipleRowSemantics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var seedEmployees = employeesDatabase.Query().Employees
@@ -122,6 +124,7 @@ public sealed class EmployeesLocalProjectionTerminalTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ImplicitRelationJoinedRowLocalTerminals_PreserveCardinalitySemantics(
         TestProviderDescriptor provider)
@@ -129,7 +132,7 @@ public sealed class EmployeesLocalProjectionTerminalTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ImplicitRelationJoinedRowLocalTerminals_PreserveCardinalitySemantics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var seedRows = employeesDatabase.Query().DepartmentEmployees

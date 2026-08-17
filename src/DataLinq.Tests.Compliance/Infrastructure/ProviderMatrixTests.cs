@@ -34,6 +34,7 @@ public class ProviderMatrixTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ProviderCatalog)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.AllLtsServerProviders))]
     public async Task AllLtsServerProviders_AreVersionedAndPodmanManaged(TestProviderDescriptor provider)
     {
@@ -45,6 +46,7 @@ public class ProviderMatrixTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task EnvironmentSettings_CanCreateConnectionDefinitionsForActiveProviders(TestProviderDescriptor provider)
     {
@@ -148,8 +150,17 @@ public class ProviderMatrixTests
 
         var adminConnection = new MySqlConnectionStringBuilder(settings.CreateAdminConnectionString(target));
         var applicationConnection = new MySqlConnectionStringBuilder(settings.CreateConnection(provider, "datalinq_employees").ConnectionString);
+        var sharedConnection = new MySqlConnectionStringBuilder(settings.CreateConnection(
+            provider,
+            "shared_datalinq_employees",
+            enableServerPooling: true).ConnectionString);
 
         await Assert.That(adminConnection.AllowPublicKeyRetrieval).IsTrue();
         await Assert.That(applicationConnection.AllowPublicKeyRetrieval).IsTrue();
+        await Assert.That(applicationConnection.Pooling).IsFalse();
+        await Assert.That(sharedConnection.Pooling).IsTrue();
+        await Assert.That(sharedConnection.ConnectionReset).IsTrue();
+        await Assert.That(sharedConnection.MaximumPoolSize)
+            .IsEqualTo(8u);
     }
 }

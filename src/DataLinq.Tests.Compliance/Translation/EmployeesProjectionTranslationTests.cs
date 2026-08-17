@@ -12,13 +12,14 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesProjectionTranslationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ComputedAnonymousProjection_AppliesAfterSqlFilteringOrderingAndPaging(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ComputedAnonymousProjection_AppliesAfterSqlFilteringOrderingAndPaging),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().Employees
@@ -64,13 +65,14 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ComputedScalarProjection_MatchesPostMaterializationBehavior(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ComputedScalarProjection_MatchesPostMaterializationBehavior),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().Employees
@@ -92,13 +94,14 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ComputedProjection_ExecutesParsedInvocationAndRebindsCapturedValue(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ComputedProjection_ExecutesParsedInvocationAndRebindsCapturedValue),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var prefix = "first:";
@@ -133,13 +136,14 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task CapturedOnlyProjection_PreservesSourceCardinalityWithoutOriginalExpression(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(CapturedOnlyProjection_PreservesSourceCardinalityWithoutOriginalExpression),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var captured = "constant-per-row";
@@ -158,13 +162,14 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task AotSafeOperatorRecipe_MatchesLiftedFloatingStringAndReferenceSemantics(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(AotSafeOperatorRecipe_MatchesLiftedFloatingStringAndReferenceSemantics),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var firstNaN = double.NaN;
@@ -223,13 +228,14 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBackedAnonymousProjection_MatchesInMemoryAndSelectsAliases(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(SqlBackedAnonymousProjection_MatchesInMemoryAndSelectsAliases),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().Employees
@@ -265,13 +271,14 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ImplicitSingularRelationProjection_MatchesInMemoryAndUsesJoin(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ImplicitSingularRelationProjection_MatchesInMemoryAndUsesJoin),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -307,13 +314,14 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RowLocalImplicitSingularRelationProjection_ExecutesParsedInvocation(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(RowLocalImplicitSingularRelationProjection_ExecutesParsedInvocation),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().DepartmentEmployees
@@ -361,13 +369,14 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ImplicitSingularRelationProjection_WorksFromTransactionRoot(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(ImplicitSingularRelationProjection_WorksFromTransactionRoot),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         using var transaction = employeesDatabase.Transaction();
@@ -396,13 +405,14 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationProjection_ThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(RelationProjection_ThrowsQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         QueryTranslationException? exception = null;
 
@@ -423,13 +433,14 @@ public class EmployeesProjectionTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedProjectionMethod_ThrowsWithoutInvokingMethod(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(UnsupportedProjectionMethod_ThrowsWithoutInvokingMethod),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var probe = new ProjectionMethodProbe();
         QueryTranslationException? exception = null;

@@ -10,13 +10,14 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesUnsupportedQueryDiagnosticsTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedPredicateMethodThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(UnsupportedPredicateMethodThrowsQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().Employees
@@ -27,13 +28,14 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedLocalAnyPredicateThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(UnsupportedLocalAnyPredicateThrowsQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var ids = new[] { 1001, 1002 };
 
@@ -46,13 +48,14 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedRelationSelectorThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(UnsupportedRelationSelectorThrowsQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().Departments
@@ -63,13 +66,14 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedAggregateSelectorThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(UnsupportedAggregateSelectorThrowsQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().Employees
@@ -79,13 +83,14 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedGroupByThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(UnsupportedGroupByThrowsQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().Employees
@@ -96,13 +101,14 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task UnsupportedGroupedProjectionShapesThrowQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(UnsupportedGroupedProjectionShapesThrowQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().DepartmentEmployees
@@ -174,13 +180,14 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PostPagingOrderByUsesSubqueryPushdown(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(PostPagingOrderByUsesSubqueryPushdown),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().Employees
@@ -206,13 +213,14 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PostPagingWhereUsesSubqueryPushdown(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(PostPagingWhereUsesSubqueryPushdown),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().Employees
@@ -236,13 +244,14 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task PostPagingProjectionFilterThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(PostPagingProjectionFilterThrowsQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().Employees

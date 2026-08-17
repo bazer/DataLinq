@@ -16,6 +16,7 @@ namespace DataLinq.Tests.Compliance;
 public sealed class TypedIdImplicitRelationProjectionTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ImplicitRelationSqlRowProjection_MaterializesConvertedRelatedValuesAcrossProviders(
         TestProviderDescriptor provider)
@@ -116,6 +117,7 @@ public sealed class TypedIdImplicitRelationProjectionTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ExplicitJoinLocalProjection_MaterializesConvertedJoinedSourceValuesAcrossProviders(
         TestProviderDescriptor provider)

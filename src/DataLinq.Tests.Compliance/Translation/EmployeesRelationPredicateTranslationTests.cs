@@ -10,13 +10,14 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesRelationPredicateTranslationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationAnyPredicate_TranslatesToExistsAndMatchesInMemory(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(RelationAnyPredicate_TranslatesToExistsAndMatchesInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var managerNumber = employeesDatabase.Query().Managers
@@ -46,7 +47,7 @@ public class EmployeesRelationPredicateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(RelationAnyPredicateRendersCorrelatedExistsSql),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var managerNumber = databaseScope.Database.Query().Managers
             .OrderBy(x => x.emp_no)
@@ -68,7 +69,7 @@ public class EmployeesRelationPredicateTranslationTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(NegatedRelationAnyPredicateRendersCorrelatedNotExistsSql),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var managerNumber = databaseScope.Database.Query().Managers
             .OrderBy(x => x.emp_no)
@@ -84,13 +85,14 @@ public class EmployeesRelationPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NegatedRelationAnyPredicate_TranslatesToNotExistsAndMatchesInMemory(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(NegatedRelationAnyPredicate_TranslatesToNotExistsAndMatchesInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var managerNumber = employeesDatabase.Query().Managers
@@ -115,13 +117,14 @@ public class EmployeesRelationPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCountGreaterThanZero_TranslatesToExistsAndMatchesInMemory(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(RelationCountGreaterThanZero_TranslatesToExistsAndMatchesInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().Employees
@@ -141,13 +144,14 @@ public class EmployeesRelationPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCountEqualsZero_TranslatesToNotExistsAndMatchesInMemory(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(RelationCountEqualsZero_TranslatesToNotExistsAndMatchesInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().Employees
@@ -169,13 +173,14 @@ public class EmployeesRelationPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationAnyCompoundPredicate_TranslatesGroupedExistsAndMatchesInMemory(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(RelationAnyCompoundPredicate_TranslatesGroupedExistsAndMatchesInMemory),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var expected = employeesDatabase.Query().Departments
@@ -197,13 +202,14 @@ public class EmployeesRelationPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationPredicateTraversal_ThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(RelationPredicateTraversal_ThrowsQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().Departments
@@ -214,13 +220,14 @@ public class EmployeesRelationPredicateTranslationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task RelationCountUnsupportedThreshold_ThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(RelationCountUnsupportedThreshold_ThrowsQueryTranslationException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().Departments

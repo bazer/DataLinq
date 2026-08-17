@@ -21,6 +21,7 @@ public sealed class JoinedGuidTypedIdKeyHydrationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task JoinedRowLocal_RawGuidTypedIdsHydrateCanonicalKeysAcrossProviders(
         TestProviderDescriptor provider)
@@ -165,6 +166,7 @@ public sealed class JoinedGuidTypedIdKeyHydrationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ImplicitRelationDirectProjection_DecodesGuidBackedValuesAcrossProviders(
         TestProviderDescriptor provider)
@@ -224,6 +226,7 @@ public sealed class JoinedGuidTypedIdKeyHydrationTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task GuidTypedIdRelation_RawRowsRollbackThenColdLoadWarmsCanonicalIndexAcrossProviders(
         TestProviderDescriptor provider)

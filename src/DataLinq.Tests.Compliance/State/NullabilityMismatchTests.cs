@@ -18,6 +18,7 @@ public sealed class NullabilityMismatchTests
         "FROM nullability_contract_rows";
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task ModelLoadingPaths_RejectSqlNullWithStableContextAcrossProviders(
         TestProviderDescriptor provider)
@@ -118,6 +119,7 @@ public sealed class NullabilityMismatchTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task DirectReaderAndProjection_RejectNullWithoutProducingClrDefaults(
         TestProviderDescriptor provider)

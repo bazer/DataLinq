@@ -38,14 +38,14 @@ public sealed class PackageInspector
 
     private readonly DevToolPaths paths;
     private readonly PackageInspectionOptions options;
-    private readonly Func<string, TestRunSummaryRepositoryState> captureRepositoryState;
+    private readonly IRepositoryStateCapture repositoryStateCapture;
     private readonly Func<(TestRunSummaryRunnerAssembly EntryAssembly, TestRunSummaryRunnerAssembly DevToolsAssembly)> captureRunnerAssemblies;
 
     public PackageInspector(DevToolPaths paths, PackageInspectionOptions options)
         : this(
             paths,
             options,
-            TestRunSummaryReporter.CaptureRepositoryState,
+            GitRepositoryStateCapture.Instance,
             TestRunSummaryReporter.CaptureRunnerAssemblies)
     {
     }
@@ -53,16 +53,16 @@ public sealed class PackageInspector
     internal PackageInspector(
         DevToolPaths paths,
         PackageInspectionOptions options,
-        Func<string, TestRunSummaryRepositoryState> captureRepositoryState,
+        IRepositoryStateCapture repositoryStateCapture,
         Func<(TestRunSummaryRunnerAssembly EntryAssembly, TestRunSummaryRunnerAssembly DevToolsAssembly)> captureRunnerAssemblies)
     {
         ArgumentNullException.ThrowIfNull(paths);
         ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(captureRepositoryState);
+        ArgumentNullException.ThrowIfNull(repositoryStateCapture);
         ArgumentNullException.ThrowIfNull(captureRunnerAssemblies);
         this.paths = paths;
         this.options = NormalizeOptions(paths, options);
-        this.captureRepositoryState = captureRepositoryState;
+        this.repositoryStateCapture = repositoryStateCapture;
         this.captureRunnerAssemblies = captureRunnerAssemblies;
     }
 
@@ -90,7 +90,7 @@ public sealed class PackageInspector
     public PackageInspectionReport CreateReport()
     {
         var startedAtUtc = DateTimeOffset.UtcNow;
-        var repositoryStart = captureRepositoryState(options.RepositoryRoot);
+        var repositoryStart = repositoryStateCapture.Capture(options.RepositoryRoot);
         var runnerAssemblies = captureRunnerAssemblies();
 
         var packageDirectory = options.PackageDirectory;
@@ -127,7 +127,7 @@ public sealed class PackageInspector
             var candidate = CreateCandidateIdentity(packages, symbolPackages, classifiedFindings);
             var summary = CreateSummary(packages, classifiedFindings);
             var completedAtUtc = DateTimeOffset.UtcNow;
-            var repositoryEnd = captureRepositoryState(options.RepositoryRoot);
+            var repositoryEnd = repositoryStateCapture.Capture(options.RepositoryRoot);
             var runner = EvaluateRunnerEvidence(
                 repositoryStart,
                 repositoryEnd,
@@ -184,7 +184,7 @@ public sealed class PackageInspector
                                           not OperationCanceledException)
         {
             var completedAtUtc = DateTimeOffset.UtcNow;
-            var repositoryEnd = captureRepositoryState(options.RepositoryRoot);
+            var repositoryEnd = repositoryStateCapture.Capture(options.RepositoryRoot);
             var runner = EvaluateRunnerEvidence(
                 repositoryStart,
                 repositoryEnd,

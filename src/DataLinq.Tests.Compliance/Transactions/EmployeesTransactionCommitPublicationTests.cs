@@ -16,6 +16,7 @@ public sealed class EmployeesTransactionCommitPublicationTests
     private readonly EmployeesTestData employees = new();
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Commit_WrapperCommittedStatusObservesPublishedStateAndReusableMutable(
         TestProviderDescriptor provider)
@@ -28,7 +29,7 @@ public sealed class EmployeesTransactionCommitPublicationTests
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Commit_WrapperCommittedStatusObservesPublishedStateAndReusableMutable),
-            EmployeesSeedMode.None);
+            EmployeesFixtureProfile.SchemaOnly);
         var database = databaseScope.Database;
         var initialMutable = employees.NewEmployee(employeeNumber);
         initialMutable.first_name = originalFirstName;

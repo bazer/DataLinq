@@ -27,6 +27,7 @@ public sealed class ServerGuidStorageRoundTripTests
     ];
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ServerProviders))]
     public async Task NonKeyGuidFormats_IgnoreConnectorGuidFormatAcrossServerProviders(
         TestProviderDescriptor provider)
@@ -129,6 +130,7 @@ public sealed class ServerGuidStorageRoundTripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ServerProviders))]
     public async Task NonKeyGuidPredicates_BindResolvedPhysicalValuesAcrossConnectorGuidFormats(
         TestProviderDescriptor provider)
@@ -186,6 +188,7 @@ public sealed class ServerGuidStorageRoundTripTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ServerProviders))]
     public async Task NonKeyGuidFormats_DirectProjectionsDecodeDeclaredStorageAcrossServerProviders(
         TestProviderDescriptor provider)
@@ -243,6 +246,7 @@ public sealed class ServerGuidStorageRoundTripTests
 
     [Test]
     [NotInParallel]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ServerProviders))]
     public async Task ScalarGuidPrimaryKeys_PreserveCodecIdentityAcrossConnectorGuidFormats(
         TestProviderDescriptor provider)

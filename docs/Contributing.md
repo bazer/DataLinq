@@ -109,22 +109,22 @@ Useful output modes:
 - `--output diag`
   Full diagnostic output with raw artifacts.
 
-List the available targets, aliases, suites, and current runtime state:
+List the feedback plans, suites, provider target sets, estimates/measurements, and current runtime state:
 
 ```bash
 dotnet run --project DataLinq.Testing.CLI -- list
 ```
 
-Run the fast local lane:
+Run the normal pre-push lane:
 
 ```bash
-dotnet run --project DataLinq.Testing.CLI -- run --suite all --alias quick
+dotnet run --project DataLinq.Testing.CLI -- run --plan quick
 ```
 
 Run the main latest server-backed lane:
 
 ```bash
-dotnet run --project DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --plan latest --batch-size 4
 ```
 
 Run only a specific suite:
@@ -140,13 +140,13 @@ dotnet run --project DataLinq.Testing.CLI -- run --suite mysql --alias latest --
 Run a focused subset inside a suite with a TUnit tree-node filter:
 
 ```bash
-dotnet run --project DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
+dotnet run --project DataLinq.Testing.CLI -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
 ```
 
 When invoking the CLI repeatedly from the same build output, prefer `--no-build` together with an explicit configuration and framework:
 
 ```bash
-dotnet run --no-build --project DataLinq.Testing.CLI -c Debug --framework net10.0 -- run --suite all --alias latest --batch-size 4
+dotnet run --no-build --project DataLinq.Testing.CLI -c Debug --framework net10.0 -- run --plan latest --batch-size 4 --no-build
 ```
 
 Visual Studio runsettings live under `src`:

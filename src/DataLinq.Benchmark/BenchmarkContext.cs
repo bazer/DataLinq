@@ -177,7 +177,7 @@ internal sealed class BenchmarkContext : IDisposable
         using var startupScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             "benchmark-startup",
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         startupConnection = startupScope.Connection;
         startupEmployeeNumber = startupScope.Database.Query().Employees

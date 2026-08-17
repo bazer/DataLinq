@@ -9,13 +9,14 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesMutationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_MutateOnMissingModel_ThrowsArgumentNullException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_MutateOnMissingModel_ThrowsArgumentNullException),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
 
@@ -29,13 +30,14 @@ public class EmployeesMutationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_MutateOrNewOnMissingModel_ReturnsNewMutableEmployee(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_MutateOrNewOnMissingModel_ReturnsNewMutableEmployee),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employee = databaseScope.Database.Query().Employees
             .Where(x => x.emp_no == 423692592)
@@ -53,13 +55,14 @@ public class EmployeesMutationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_ResetWithoutModel_RevertsToOriginalState(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_ResetWithoutModel_RevertsToOriginalState),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employee = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).First();
         var mutable = new MutableEmployee(employee);
@@ -73,13 +76,14 @@ public class EmployeesMutationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_ResetWithModel_RevertsToProvidedModel(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_ResetWithModel_RevertsToProvidedModel),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employee = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).First();
         var mutable = new MutableEmployee(employee)
@@ -94,13 +98,14 @@ public class EmployeesMutationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_SaveResetsChangeTrackingAndPersistsValues(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_SaveResetsChangeTrackingAndPersistsValues),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = employeesDatabase.Query().Employees.OrderBy(x => x.emp_no).First();
@@ -120,13 +125,14 @@ public class EmployeesMutationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_ChangingPropertyMarksMutableAsChanged(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_ChangingPropertyMarksMutableAsChanged),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employee = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).First();
         var mutable = employee.Mutate();

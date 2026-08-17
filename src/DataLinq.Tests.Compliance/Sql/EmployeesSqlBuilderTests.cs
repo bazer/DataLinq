@@ -9,6 +9,7 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesSqlBuilderTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_SimpleWhereRendersExpectedSql(TestProviderDescriptor provider)
     {
@@ -30,6 +31,7 @@ WHERE
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_SimpleWhereAndRendersExpectedSql(TestProviderDescriptor provider)
     {
@@ -52,6 +54,7 @@ WHERE
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_SimpleWhereOrRendersExpectedSql(TestProviderDescriptor provider)
     {
@@ -74,6 +77,7 @@ WHERE
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_ComplexWhereOrRendersExpectedSql(TestProviderDescriptor provider)
     {
@@ -95,6 +99,7 @@ WHERE
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_ComplexWhereAndRendersExpectedSql(TestProviderDescriptor provider)
     {
@@ -116,6 +121,7 @@ WHERE
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_ComparisonPredicatesRenderExpectedSql(TestProviderDescriptor provider)
     {
@@ -169,6 +175,7 @@ WHERE
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_WhereNotRendersExpectedSql(TestProviderDescriptor provider)
     {
@@ -190,6 +197,7 @@ NOT ({escapeCharacter}dept_no{escapeCharacter} = {parameterSign}w0)",
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_OrderByVariantsRenderExpectedSql(TestProviderDescriptor provider)
     {
@@ -219,6 +227,7 @@ ORDER BY {escapeCharacter}dept_no{escapeCharacter} DESC, {escapeCharacter}dept_n
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_WhereOrderLimitVariantsRenderExpectedSql(TestProviderDescriptor provider)
     {
@@ -273,6 +282,7 @@ LIMIT 1",
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_WhatJoinInsertAndInClausesRenderExpectedSql(TestProviderDescriptor provider)
     {
@@ -400,7 +410,7 @@ WHERE
     }
 
     private static EmployeesTestDatabase OpenDatabase(TestProviderDescriptor provider, string scenarioName)
-        => EmployeesTestDatabase.OpenSharedSeeded(provider, scenarioName, EmployeesSeedMode.None);
+        => EmployeesTestDatabase.OpenSharedSeeded(provider, scenarioName, EmployeesFixtureProfile.SchemaOnly);
 
     private static (string parameterSign, string escapeCharacter, string databasePrefix) GetSqlConstants(Database<EmployeesDb> database)
     {

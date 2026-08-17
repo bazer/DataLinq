@@ -16,7 +16,7 @@ public class QueryPlanUnsupportedShapeTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ParserRejectsFilterAfterProjection),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Employees
             .Select(x => new { x.emp_no })
@@ -35,7 +35,7 @@ public class QueryPlanUnsupportedShapeTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ParserRejectsGroupJoin),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Departments
             .GroupJoin(
@@ -58,7 +58,7 @@ public class QueryPlanUnsupportedShapeTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ParserRejectsPostPagingFilterOverRowLocalExplicitJoin),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
             .Join(
@@ -90,7 +90,7 @@ public class QueryPlanUnsupportedShapeTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ParserRejectsQuerySyntaxJoinProjectionOfWholeSourceEntities),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query =
             from departmentEmployee in databaseScope.Database.Query().DepartmentEmployees
@@ -117,7 +117,7 @@ public class QueryPlanUnsupportedShapeTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ParserRejectsComputedQuerySyntaxJoinProjection),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query =
             from departmentEmployee in databaseScope.Database.Query().DepartmentEmployees
@@ -143,7 +143,7 @@ public class QueryPlanUnsupportedShapeTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ParserRejectsRelationPropertyProjection),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Departments
             .Select(department => department.Managers);
@@ -162,7 +162,7 @@ public class QueryPlanUnsupportedShapeTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ParserRejectsNestedDatabaseSubqueryProjection),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().Departments
             .Select(department => databaseScope.Database.Query().Managers.Count(manager => manager.dept_fk == department.DeptNo));
@@ -181,7 +181,7 @@ public class QueryPlanUnsupportedShapeTests
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             TestProviderMatrix.SQLiteInMemory,
             nameof(ParserRejectsRelationPropertyProjectionInsideExplicitJoinSelector),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var query = databaseScope.Database.Query().DepartmentEmployees
             .Join(

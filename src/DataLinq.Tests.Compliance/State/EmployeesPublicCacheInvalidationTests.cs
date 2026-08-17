@@ -15,13 +15,14 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesPublicCacheInvalidationTests
 {
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_Clear_RemovesRowsFromAllLoadedTableCaches(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_Clear_RemovesRowsFromAllLoadedTableCaches),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -42,13 +43,14 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_ClearTable_RemovesOnlySelectedTableRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_ClearTable_RemovesOnlySelectedTableRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -70,13 +72,14 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateScalarProviderKey_RemovesOneCachedRow(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateScalarProviderKey_RemovesOneCachedRow),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -101,13 +104,14 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateEvent_Row_RemovesCachedRow(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateEvent_Row_RemovesCachedRow),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -132,13 +136,14 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateEvent_Table_ClearsSelectedTable(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateEvent_Table_ClearsSelectedTable),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -159,13 +164,14 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_ConcurrentExternalInvalidationDuringReads_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_ConcurrentExternalInvalidationDuringReads_ReturnsExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -223,13 +229,14 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateUnknownProviderKey_IsNoOp(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateUnknownProviderKey_IsNoOp),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -244,13 +251,14 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateMany_RemovesEachCachedRow(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateMany_RemovesEachCachedRow),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -273,13 +281,14 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateCompositeProviderKeyComponents_RemovesCachedRow(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateCompositeProviderKeyComponents_RemovesCachedRow),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -300,13 +309,14 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateTableDefinition_UsesDynamicProviderKeyComponents(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateTableDefinition_UsesDynamicProviderKeyComponents),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
         database.Provider.State.ClearCache();
@@ -325,13 +335,14 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateDynamicComponents_RejectsMismatchedArityAndTypes(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateDynamicComponents_RejectsMismatchedArityAndTypes),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
 
@@ -343,13 +354,14 @@ public class EmployeesPublicCacheInvalidationTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_InvalidateEvent_RejectsMissingAndMalformedFields(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Cache_InvalidateEvent_RejectsMissingAndMalformedFields),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var database = databaseScope.Database;
 

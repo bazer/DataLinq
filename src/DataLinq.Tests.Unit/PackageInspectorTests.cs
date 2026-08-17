@@ -767,6 +767,48 @@ public class PackageInspectorTests
     }
 
     [Test]
+    public async Task Inspector_UsesDeterministicInjectedBranchCommitDirtyAndFailureStates()
+    {
+        using var fixture = new PackageFixture();
+        fixture.Write(CreateCorePackage(), CreateMemoryPackage());
+        var start = new TestRunSummaryRepositoryState(
+            true,
+            RepositoryCommit,
+            "feature/hermetic-tests",
+            false,
+            new string('0', 64));
+        var end = start with
+        {
+            Commit = "fedcba9876543210fedcba9876543210fedcba98",
+            Branch = "feature/changed",
+            Dirty = true,
+            StatusSha256 = new string('1', 64)
+        };
+        var capture = new SequenceRepositoryStateCapture(start, end);
+
+        var report = fixture.Inspect(repositoryStateCapture: capture);
+
+        await Assert.That(report.Runner.Start).IsEqualTo(start);
+        await Assert.That(report.Runner.End).IsEqualTo(end);
+        await Assert.That(report.Runner.StateChangedDuringRun).IsTrue();
+        await Assert.That(report.Runner.ValidForEvidence).IsFalse();
+        await Assert.That(capture.CaptureCount).IsEqualTo(2);
+
+        var expected = new IOException("deterministic repository capture failure");
+        Exception? actual = null;
+        try
+        {
+            _ = fixture.Inspect(repositoryStateCapture: new StubRepositoryStateCapture(_ => throw expected));
+        }
+        catch (Exception exception)
+        {
+            actual = exception;
+        }
+
+        await Assert.That(actual).IsSameReferenceAs(expected);
+    }
+
+    [Test]
     public async Task Inspector_UnknownFindingKindsFailClosed()
     {
         using var fixture = new PackageFixture();
@@ -913,7 +955,7 @@ public class PackageInspectorTests
         var inspector = new PackageInspector(
             DevToolPaths.Create(fixture.RepositoryRoot),
             options,
-            Capture,
+            new StubRepositoryStateCapture(Capture),
             () => (entry, devTools));
         Exception? exception = null;
         try
@@ -1061,7 +1103,19 @@ public class PackageInspectorTests
     private static RootCommand CreatePackageReportRoot(DevCliSettings settings)
     {
         var root = new RootCommand();
-        root.Subcommands.Add(PackageReportCommand.Create(settings));
+        var repositoryState = new TestRunSummaryRepositoryState(
+            false,
+            "unknown",
+            "unknown",
+            true,
+            "unknown");
+        root.Subcommands.Add(PackageReportCommand.Create(
+            settings,
+            options => new PackageInspector(
+                settings.Paths,
+                options,
+                new StubRepositoryStateCapture(_ => repositoryState),
+                TestRunSummaryReporter.CaptureRunnerAssemblies)));
         return root;
     }
 
@@ -1299,7 +1353,8 @@ public class PackageInspectorTests
             IReadOnlySet<string>? expectedPackageIds = null,
             IReadOnlySet<string>? runtimePackageIds = null,
             string? outputDirectory = null,
-            bool cleanRunner = false)
+            bool cleanRunner = false,
+            IRepositoryStateCapture? repositoryStateCapture = null)
         {
             var options = new PackageInspectionOptions(
                 root,
@@ -1315,15 +1370,12 @@ public class PackageInspectorTests
                 ExpectedVersion = expectedVersion,
                 OutputDirectory = outputDirectory
             };
-            if (!cleanRunner)
-                return new PackageInspector(DevToolPaths.Create(root), options).CreateReport();
-
-            var state = CleanRepositoryState();
+            var state = cleanRunner ? CleanRepositoryState() : UnavailableRepositoryState();
             return new PackageInspector(
                 DevToolPaths.Create(root),
                 options,
-                _ => state,
-                CleanRunnerAssemblies).CreateReport();
+                repositoryStateCapture ?? new StubRepositoryStateCapture(_ => state),
+                cleanRunner ? CleanRunnerAssemblies : TestRunSummaryReporter.CaptureRunnerAssemblies).CreateReport();
         }
 
         public void CopyArchivesFrom(PackageFixture source)
@@ -1380,6 +1432,9 @@ public class PackageInspectorTests
 
         private static TestRunSummaryRepositoryState CleanRepositoryState() =>
             new(true, RepositoryCommit, "v0.9", false, new string('0', 64));
+
+        private static TestRunSummaryRepositoryState UnavailableRepositoryState() =>
+            new(false, "unknown", "unknown", true, "unknown");
 
         private static (TestRunSummaryRunnerAssembly EntryAssembly, TestRunSummaryRunnerAssembly DevToolsAssembly)
             CleanRunnerAssemblies() =>
@@ -1480,6 +1535,26 @@ public class PackageInspectorTests
             var entry = archive.CreateEntry(entryName);
             using var stream = entry.Open();
             stream.Write(content);
+        }
+    }
+
+    private sealed class StubRepositoryStateCapture(
+        Func<string, TestRunSummaryRepositoryState> capture) : IRepositoryStateCapture
+    {
+        public TestRunSummaryRepositoryState Capture(string repositoryRoot) => capture(repositoryRoot);
+    }
+
+    private sealed class SequenceRepositoryStateCapture(
+        params TestRunSummaryRepositoryState[] states) : IRepositoryStateCapture
+    {
+        private int captureCount;
+
+        public int CaptureCount => captureCount;
+
+        public TestRunSummaryRepositoryState Capture(string repositoryRoot)
+        {
+            var index = captureCount++;
+            return states[Math.Min(index, states.Length - 1)];
         }
     }
 }

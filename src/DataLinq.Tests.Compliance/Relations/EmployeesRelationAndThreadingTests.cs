@@ -16,13 +16,14 @@ public class EmployeesRelationAndThreadingTests
     private const int LocalParallelTransactionCount = 10;
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Relations_ManagerDepartmentLazyLoad_ResolvesSingleValue(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Relations_ManagerDepartmentLazyLoad_ResolvesSingleValue),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var manager = employeesDatabase.Query().Managers
@@ -35,13 +36,14 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Relations_DepartmentManagersLazyLoad_ResolvesCollection(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Relations_DepartmentManagersLazyLoad_ResolvesCollection),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var department = employeesDatabase.Query().Departments
@@ -54,13 +56,14 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Relations_EmployeesWithoutManagerLinks_ExposeEmptyCollections(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Relations_EmployeesWithoutManagerLinks_ExposeEmptyCollections),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employee = employeesDatabase.Query().Employees
@@ -71,13 +74,14 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Threading_ParallelRelationTraversal_KeepsGraphsConsistent(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Threading_ParallelRelationTraversal_KeepsGraphsConsistent),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.FullSeeded);
 
         var employeesDatabase = databaseScope.Database;
         var amount = GetParallelIterationCount(provider);
@@ -113,13 +117,14 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Threading_ParallelReads_ReturnExpectedRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Threading_ParallelReads_ReturnExpectedRows),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var iterations = GetParallelIterationCount(provider);
@@ -140,13 +145,14 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Threading_ParallelTransactionCommits_PersistIndependentUpdates(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Threading_ParallelTransactionCommits_PersistIndependentUpdates),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var employeeNumbers = Enumerable.Range(999980, GetParallelTransactionCount(provider)).ToArray();
@@ -179,13 +185,14 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Threading_ParallelManagerLazyLoads_ResolveDepartments(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Threading_ParallelManagerLazyLoads_ResolveDepartments),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var departments = employeesDatabase.Query().Managers
@@ -208,13 +215,14 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Threading_ParallelDepartmentLazyLoads_ResolveManagerCollections(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Threading_ParallelDepartmentLazyLoads_ResolveManagerCollections),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         var iterations = GetParallelIterationCount(provider);
@@ -239,13 +247,14 @@ public class EmployeesRelationAndThreadingTests
     }
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Threading_ParallelSnapshots_AdvanceCacheTimestamps(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Threading_ParallelSnapshots_AdvanceCacheTimestamps),
-            EmployeesSeedMode.Bogus);
+            EmployeesFixtureProfile.TinySeeded);
 
         var employeesDatabase = databaseScope.Database;
         Parallel.For(0, GetParallelIterationCount(provider), _ =>

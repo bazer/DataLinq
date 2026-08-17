@@ -19,12 +19,12 @@ podman machine start
 
 dotnet run --project DataLinq.Dev.CLI -- build
 
-dotnet run --project DataLinq.Testing.CLI -- run --alias latest --batch-size 4 --output failures
+dotnet run --project DataLinq.Testing.CLI -- run --plan latest --batch-size 4 --output failures
 ```
 
 `build` restores packages as part of normal .NET behavior. The test CLI brings missing server containers up before running server-backed batches.
 
-Use `--alias quick` for the SQLite-only lane and `--alias all` before broad provider changes.
+Use `--plan smoke` while iterating, `--plan quick` before pushing, and `--plan full --batch-size 1` for authoritative all-provider evidence.
 
 ## Required Tools
 
@@ -136,9 +136,9 @@ On Windows, `podman info` should report a Windows client talking to a Linux host
 podman machine start
 ```
 
-## Test Target Aliases
+## Provider Target-Set Aliases
 
-The test CLI has three useful aliases:
+The test CLI has three provider target-set aliases. These are independent of feedback run plans:
 
 - `quick`
   Runs only local SQLite targets. No Podman required.
@@ -151,10 +151,11 @@ The central target inventory is the [Test Provider Matrix](../support-matrices/T
 
 These aliases select SQL provider targets. The targetless Testing CLI `memory` suite is separate and runs once regardless of whether `quick`, `latest`, or `all` is selected; `sqlite-memory` remains the SQLite provider target.
 
-List the suites, aliases, targets, and current runtime state:
+List the run plans, suites, aliases, targets, estimates/measurements, and current runtime state:
 
 ```powershell
 dotnet run --project DataLinq.Testing.CLI -- list
+dotnet run --project DataLinq.Testing.CLI -- list --plan quick
 ```
 
 ## Bring Containers Up
@@ -202,22 +203,28 @@ podman ps
 
 ## Run Tests
 
-Fast local SQLite-only run:
+Curated no-Podman smoke run (30-second warm budget):
 
 ```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --alias quick
+dotnet run --project DataLinq.Testing.CLI -- run --plan smoke
 ```
 
-Normal contributor run:
+Normal no-Podman pre-push run (60-second warm budget):
 
 ```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --alias latest --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --plan quick
+```
+
+Latest provider-family run:
+
+```powershell
+dotnet run --project DataLinq.Testing.CLI -- run --plan latest --batch-size 4
 ```
 
 Full provider matrix:
 
 ```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --alias all --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --plan full --batch-size 1
 ```
 
 Run specific suites:
@@ -235,19 +242,19 @@ The Memory suite does not start or multiply across provider targets. Its test pr
 Run a focused subset inside a suite with a TUnit tree-node filter:
 
 ```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
+dotnet run --project DataLinq.Testing.CLI -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
 ```
 
 Use failure-focused output while iterating:
 
 ```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --alias latest --output failures
+dotnet run --project DataLinq.Testing.CLI -- run --plan latest --output failures
 ```
 
 On a fresh checkout, do not add `--no-build` to the outer `dotnet run` command. Let the CLI and `dotnet run` build what is missing. Use `--no-build` only after the CLI project has already been built:
 
 ```powershell
-dotnet run --no-build --project DataLinq.Testing.CLI -c Debug --framework net10.0 -- run --alias latest --batch-size 4
+dotnet run --no-build --project DataLinq.Testing.CLI -c Debug --framework net10.0 -- run --plan latest --batch-size 4 --no-build
 ```
 
 ## Stop or Reset Containers
@@ -302,11 +309,13 @@ The system cannot find the file specified.
 ...\bin\Debug\net10.0\DataLinq.Tests.Unit.exe
 ```
 
-the test project was not built for that configuration. Run without outer `--no-build`, or force a build:
+the test project was not built for that configuration. Let the Testing CLI perform its default once-per-project build:
 
 ```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --alias latest --build
+dotnet run --project DataLinq.Testing.CLI -- run --plan latest
 ```
+
+If the solution was already built explicitly, use `run --plan latest --no-build`. The CLI will execute the resolved host DLLs directly and reject missing, ambiguous, or source-stale outputs instead of silently running the wrong binary.
 
 ### Visual Studio Reports Missing wasm-tools
 
@@ -369,7 +378,7 @@ dotnet run --project DataLinq.Dev.CLI -- restore
 dotnet run --project DataLinq.Dev.CLI -- build
 
 dotnet run --project DataLinq.Testing.CLI -- up --alias latest
-dotnet run --project DataLinq.Testing.CLI -- run --alias latest --batch-size 4 --output failures
+dotnet run --project DataLinq.Testing.CLI -- run --plan latest --batch-size 4 --output failures
 ```
 
-Use `--alias quick` when you do not need containers. Use `--alias all` before broad provider changes.
+Use `--plan smoke` when you need the shortest representative signal, `--plan quick` before pushing, and `--plan full --batch-size 1` before broad provider/release changes.
