@@ -8,7 +8,7 @@ internal static class CommandHelpers
 {
     public static Option<string?> AliasOption() => new("--alias")
     {
-        Description = "Uses one of the named target aliases: quick, latest, or all."
+        Description = "Uses one of the named provider target sets: quick, latest, or all. This is independent of --plan."
     };
 
     public static Option<string?> TargetsOption() => new("--targets")
@@ -18,7 +18,7 @@ internal static class CommandHelpers
 
     public static Option<string> SuiteOption() => new("--suite")
     {
-        Description = "Chooses which test suite to run: generators, unit, memory, compliance, mysql, or all.",
+        Description = "Chooses a suite for an explicit or focused run: generators, unit, memory, compliance, mysql, or all.",
         DefaultValueFactory = _ => TestCliSuiteCatalog.AllSuites
     };
 

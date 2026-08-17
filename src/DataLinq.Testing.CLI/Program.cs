@@ -16,7 +16,7 @@ internal static class Program
             return InteractiveCliRunner.RunRoot(orchestrator, settings, stateStore);
 
         var rootCommand = new RootCommand("Cross-platform test infrastructure CLI for DataLinq.");
-        rootCommand.Subcommands.Add(ListCommand.Create(stateStore));
+        rootCommand.Subcommands.Add(ListCommand.Create(stateStore, settings));
         rootCommand.Subcommands.Add(UpCommand.Create(orchestrator));
         rootCommand.Subcommands.Add(WaitCommand.Create(orchestrator));
         rootCommand.Subcommands.Add(DownCommand.Create(orchestrator));

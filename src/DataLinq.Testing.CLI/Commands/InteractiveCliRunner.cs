@@ -17,7 +17,7 @@ internal static class InteractiveCliRunner
 
         return command switch
         {
-            "list" => RunList(stateStore),
+            "list" => RunList(stateStore, settings.RepositoryRoot),
             "up" => RunUp(orchestrator),
             "wait" => RunWait(orchestrator),
             "down" => RunDown(orchestrator),
@@ -27,9 +27,9 @@ internal static class InteractiveCliRunner
         };
     }
 
-    public static int RunList(TestInfraRuntimeStateStore stateStore)
+    public static int RunList(TestInfraRuntimeStateStore stateStore, string repositoryRoot)
     {
-        ListCommand.Render(stateStore);
+        ListCommand.Render(stateStore, repositoryRoot);
         return 0;
     }
 

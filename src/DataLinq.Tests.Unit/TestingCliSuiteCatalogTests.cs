@@ -43,7 +43,9 @@ public sealed class TestingCliSuiteCatalogTests
             ("Compliance", true, true),
             ("MySql", true, false)
         ]);
-        await Assert.That(suiteModel).Contains("bool IncludeSqliteTargets);");
-        await Assert.That(suiteModel).DoesNotContain("IncludeSqliteTargets =");
+        await Assert.That(suiteModel).Contains("bool IncludeSqliteTargets,");
+        await Assert.That(suiteModel).Contains("string? Filter = null");
+        await Assert.That(suiteModel).Contains("string? Purpose = null");
+        await Assert.That(suiteModel).Contains("string? Resource = null");
     }
 }

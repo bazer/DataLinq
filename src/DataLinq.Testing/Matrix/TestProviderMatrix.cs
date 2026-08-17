@@ -108,7 +108,7 @@ public static class TestProviderMatrix
                 $"but the currently provisioned Podman targets only expose [{string.Join(", ", availableTargets)}]. " +
                 $"Missing targets: [{string.Join(", ", missingTargets)}]. " +
                 $"Run 'dotnet run --project src\\DataLinq.Testing.CLI -- up --alias all' to provision every LTS target locally, " +
-                $"or use 'dotnet run --project src\\DataLinq.Testing.CLI -- run --alias all --batch-size <n>' to fan out across the matrix in batches.");
+                $"or use 'dotnet run --project src\\DataLinq.Testing.CLI -- run --plan full --batch-size <n>' to fan out across the matrix in batches.");
         }
 
         return All;

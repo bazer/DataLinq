@@ -355,7 +355,11 @@ public sealed class TestRunSummaryReporterTests
         try
         {
             var reportPath = Path.Combine(directory, "summary.json");
-            var report = TestRunSummaryReporter.Create(CreateInput(reportPath: reportPath));
+            var input = CreateInput(reportPath: reportPath);
+            var report = TestRunSummaryReporter.Create(input with
+            {
+                Invocation = input.Invocation with { Plan = "full" }
+            });
             InvalidDataException? exception = null;
 
             try
@@ -577,7 +581,11 @@ public sealed class TestRunSummaryReporterTests
         try
         {
             var reportPath = Path.Combine(directory, "summary.json");
-            var report = TestRunSummaryReporter.Create(CreateInput(reportPath: reportPath));
+            var input = CreateInput(reportPath: reportPath);
+            var report = TestRunSummaryReporter.Create(input with
+            {
+                Invocation = input.Invocation with { Plan = "full" }
+            });
 
             TestRunSummaryReporter.Write(report);
 
@@ -591,6 +599,7 @@ public sealed class TestRunSummaryReporterTests
             await Assert.That(root.GetProperty("RunId").GetString()).IsEqualTo("test-run-20260807");
             await Assert.That(root.GetProperty("Outcome").GetString()).IsEqualTo("Passed");
             await Assert.That(root.GetProperty("Total").GetInt32()).IsEqualTo(3);
+            await Assert.That(root.GetProperty("Invocation").GetProperty("Plan").GetString()).IsEqualTo("full");
             await Assert.That(root.GetProperty("Results")[0].GetProperty("Targets").GetString()).IsEqualTo("-");
             await Assert.That(root.GetProperty("Results")[0].GetProperty("TargetIds").GetArrayLength()).IsEqualTo(0);
             await Assert.That(root.GetProperty("Results")[0].GetProperty("Performance").GetProperty("Captured").GetBoolean()).IsTrue();

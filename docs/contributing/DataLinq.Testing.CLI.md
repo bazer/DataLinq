@@ -20,13 +20,15 @@ The command examples assume your current directory is the repo's `src` folder.
 
 Lists:
 
+- feedback run plans and their warm budgets
 - suites
-- aliases
+- provider target-set aliases
 - targets
 - current runtime state
 
 ```bash
 dotnet run --project DataLinq.Testing.CLI -- list
+dotnet run --project DataLinq.Testing.CLI -- list --plan smoke
 ```
 
 ### `up`
@@ -70,19 +72,37 @@ dotnet run --project DataLinq.Testing.CLI -- reset --targets mysql-8.4
 
 ### `run`
 
-Runs the selected suite or suites. Provider-backed suites use the selected targets; targetless suites run once.
+Runs a named feedback plan or an explicitly selected suite. Provider-backed suites use the selected targets; targetless suites run once.
 
 ```bash
-dotnet run --project DataLinq.Testing.CLI -- run --suite all --alias quick
-dotnet run --project DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --plan smoke
+dotnet run --project DataLinq.Testing.CLI -- run --plan quick
+dotnet run --project DataLinq.Testing.CLI -- run --plan latest --batch-size 4
+dotnet run --project DataLinq.Testing.CLI -- run --plan full --batch-size 1
+dotnet run --project DataLinq.Testing.CLI -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
 dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --targets mysql-8.4,mariadb-11.8
 dotnet run --project DataLinq.Testing.CLI -- run --suite memory --output failures --summary-json artifacts/test-results/memory.json
-dotnet run --project DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
 ```
+
+## Run Plans
+
+Run plans answer **what tests should run now?** Provider aliases and `--targets` independently answer **which database implementations should provider-backed tests use?** Do not conflate those axes.
+
+| Plan | Intent | Default prerequisites | Warm budget |
+| --- | --- | --- | ---: |
+| `focused` | One explicit suite and TUnit tree filter for the code under change. | Selected-suite dependent. | 30 s |
+| `smoke` | Curated query, mutation, mapping, cache, generator, Memory, and SQLite representatives. | Warm build; no Podman. | 30 s |
+| `quick` | All generator, unit, Memory, and provider-invariant compliance tests against `sqlite-file`. | Warm build; no Podman. | 60 s |
+| `latest` | Complete logical suite coverage against SQLite and the latest target in each server family. | Podman and latest server targets. | 300 s |
+| `full` | Every required suite and supported provider target. | Podman and the full server matrix. | 600 s |
+
+`list --plan <name>` shows the exact suites, targets, purpose/resource classifications, expected case counts, estimates, and the most recent recorded measurement before execution. A plan run writes `artifacts/test-results/last-<plan>.json` automatically unless `--summary-json` chooses another artifact path. The listing separates accumulated test-host wall time—the meaningful warm comparison—from cold build and total duration.
+
+Smoke is an explicit test-method allow-list. Adding a test—even beside an existing smoke test—does not silently make it smoke coverage; a maintainer must deliberately add its exact TUnit path to the catalog and state its purpose/resource classification. Expensive lifecycle, process, filesystem, package, SQLite, and server-backed coverage remains in quick/latest/full even when it is not appropriate for smoke. No test is deleted to make a budget green.
 
 ## Target Selection
 
-Target selection for provider-backed suites is controlled by either `--alias` or `--targets`. Aliases select SQL test targets; they do not select the DataLinq.Memory backend.
+Target selection for provider-backed suites is controlled by either `--alias` or `--targets`. Aliases are provider target sets, not run plans; they do not select suites or the DataLinq.Memory backend.
 
 Supported aliases:
 
@@ -93,7 +113,7 @@ Supported aliases:
 - `all`
   every supported target
 
-If you do not specify a target selection for `up`, `wait`, `reset`, or `run`, the default alias is `latest`.
+If you do not specify a target selection for `up`, `wait`, `reset`, or a legacy suite-level `run`, the default alias is `latest`. Named plans declare their own defaults. An explicit `--alias` or `--targets` overrides that provider set independently; smoke and quick reject Podman targets because no-server execution is part of their contract.
 
 The `generators`, `unit`, and `memory` suites are targetless. They run once even when an alias contains several SQL targets. In summary JSON the legacy `Targets` field remains `-` for backward compatibility, while `TargetIds` is the authoritative structured field and is empty for targetless runs.
 
@@ -120,6 +140,8 @@ Supported suites:
 
 ## Important `run` Options
 
+- `--plan`
+  Chooses `focused`, `smoke`, `quick`, `latest`, or `full`. Non-focused plans own their suite/filter selection. Focused requires both `--suite` and `--filter`.
 - `--suite`
   Defaults to `all`.
 - `--project`
@@ -145,7 +167,7 @@ Supported suites:
 - `--profile repo|sandbox|ci`
   Controls the repo-local execution profile used when invoking `dotnet`.
 
-`--project` cannot be combined with `--suite all`. That combination is nonsense, and the CLI rejects it. `--interactive` cannot be combined with `--summary-json`.
+`--project` cannot be combined with `--suite all` or a named plan. Non-focused plans cannot be combined with `--suite`/`--filter`; use focused for an ad hoc selection. `--interactive` cannot be combined with `--summary-json` or `--plan`.
 
 ### Build-once execution model
 
@@ -157,7 +179,7 @@ The summary's `BuildProject` value records whether this invocation performed the
 
 ### Summary JSON evidence contract
 
-The versioned summary records a collision-free run id, the resolved invocation, runtime/OS identity, safe non-secret environment inputs, structured selected targets and resolved suites, expected-versus-observed suite/batch rows, build and test command arguments with UTC timestamps, totals and outcomes, report and raw-log artifact paths, and start/end checkout plus Testing CLI/DevTools runner attestations. Each result row includes accumulated infrastructure setup and test-host time plus TRX-derived test-body totals, nearest-rank p50/p95/p99/max durations, effective concurrency, configured TUnit parallelism when present, and the 20 slowest tests and classes. The aggregate `Timings` object reports accumulated build-process, infrastructure, test-host, test-body, and teardown seconds; these are deliberately labelled as accumulated work because parallel suite execution can overlap them.
+The versioned summary records a collision-free run id, the named plan when present, the resolved invocation, runtime/OS identity, safe non-secret environment inputs, structured selected targets and resolved suites (including plan filters), expected-versus-observed suite/batch rows, build and test command arguments with UTC timestamps, totals and outcomes, report and raw-log artifact paths, and start/end checkout plus Testing CLI/DevTools runner attestations. Each result row includes accumulated infrastructure setup and test-host time plus TRX-derived test-body totals, nearest-rank p50/p95/p99/max durations, effective concurrency, configured TUnit parallelism when present, and the 20 slowest tests and classes. The aggregate `Timings` object reports accumulated build-process, infrastructure, test-host, test-body, and teardown seconds; these are deliberately labelled as accumulated work because parallel suite execution can overlap them.
 
 Each server-backed command row records the normalized effective database host resolved from the child environment or current runtime state; missing capture, disagreement with an explicit override, or inconsistent effective hosts makes the invocation incomplete. The report writer and stale-file invalidation accept destinations only beneath `<repo>/artifacts`. `ArtifactsComplete` requires every result's raw log, HTML report, and TRX report to exist as regular files beneath that root; malformed or count-mismatched TRX performance data also makes an otherwise passing row incomplete. Reparse-point escapes fail closed. Failure details are bounded and credential-redacted. Once parsing has invoked the run action, semantic run-action validation invalidates an older file at the requested path before new output is written, so an interrupted or rejected rerun cannot leave a stale green report behind. `System.CommandLine` syntax and parser failures occur before that action and therefore neither invalidate the old file nor synthesize JSON; evidence consumers must require a successful command exit together with the expected schema and validity gates, never mere file existence.
 
@@ -174,9 +196,9 @@ The active suites run on TUnit and Microsoft.Testing.Platform, so this is not th
 Useful examples:
 
 ```bash
-dotnet run --project DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
-dotnet run --project DataLinq.Testing.CLI -- run --suite unit --filter "/*/*/*/HandleEvent_NoSubscribers_DoesNotThrow"
-dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --alias quick --filter "/*/DataLinq.Tests.Compliance.Query/*/*"
+dotnet run --project DataLinq.Testing.CLI -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
+dotnet run --project DataLinq.Testing.CLI -- run --plan focused --suite unit --filter "/*/*/*/HandleEvent_NoSubscribers_DoesNotThrow"
+dotnet run --project DataLinq.Testing.CLI -- run --plan focused --suite compliance --alias quick --filter "/*/DataLinq.Tests.Compliance.Query/*/*"
 ```
 
 Wildcards are supported. For the underlying syntax, see the [TUnit test filter documentation](https://tunit.dev/docs/execution/test-filters/).

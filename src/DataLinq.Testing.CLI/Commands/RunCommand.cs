@@ -22,6 +22,10 @@ internal static class RunCommand
         var aliasOption = CommandHelpers.AliasOption();
         var targetsOption = CommandHelpers.TargetsOption();
         var suiteOption = CommandHelpers.SuiteOption();
+        var planOption = new Option<string?>("--plan")
+        {
+            Description = "Runs a named feedback contract: focused, smoke, quick, latest, or full. Provider --alias/--targets remain an independent override."
+        };
         var interactiveOption = CommandHelpers.InteractiveOption();
         var parallelSuitesOption = CommandHelpers.ParallelSuitesOption();
         var outputOption = CommandHelpers.OutputOption();
@@ -66,6 +70,7 @@ internal static class RunCommand
         command.Options.Add(aliasOption);
         command.Options.Add(targetsOption);
         command.Options.Add(suiteOption);
+        command.Options.Add(planOption);
         command.Options.Add(interactiveOption);
         command.Options.Add(parallelSuitesOption);
         command.Options.Add(outputOption);
@@ -79,14 +84,20 @@ internal static class RunCommand
         command.Options.Add(tearDownOption);
         command.Options.Add(summaryJsonOption);
 
-        command.SetAction(parseResult =>
+        command.SetAction(parseResult => CommandHelpers.ExecuteSafely(() =>
         {
+            var requestedPlanName = parseResult.GetValue(planOption);
+            var requestedPlan = string.IsNullOrWhiteSpace(requestedPlanName)
+                ? null
+                : TestCliRunPlanCatalog.GetPlan(requestedPlanName);
             var requestedSummaryPath = parseResult.GetValue(summaryJsonOption);
-            if (!string.IsNullOrWhiteSpace(requestedSummaryPath))
-                TestRunSummaryReporter.InvalidateExistingReport(settings.RepositoryRoot, requestedSummaryPath);
+            if (requestedPlan is not null && string.IsNullOrWhiteSpace(requestedSummaryPath))
+                requestedSummaryPath = TestCliRunPlanCatalog.GetLastSummaryPath(settings.RepositoryRoot, requestedPlan.Name);
 
             if (parseResult.GetValue(interactiveOption))
             {
+                if (requestedPlan is not null)
+                    throw new InvalidOperationException("'--interactive' cannot be combined with '--plan'.");
                 if (!string.IsNullOrWhiteSpace(requestedSummaryPath))
                     throw new InvalidOperationException("'--interactive' cannot be combined with '--summary-json'.");
                 InteractiveCliRunner.RunTests(orchestrator, settings);
@@ -100,18 +111,24 @@ internal static class RunCommand
                 throw new InvalidOperationException("'--build' and '--no-build' cannot be combined.");
             var buildProjects = !parseResult.GetValue(noBuildOption);
 
-            var selection = TargetSelectionResolver.Resolve(
+            var suiteName = parseResult.GetValue(suiteOption) ?? TestCliSuiteCatalog.AllSuites;
+            var filter = parseResult.GetValue(filterOption);
+            var projectPath = parseResult.GetValue(projectOption);
+            ValidatePlanOverrides(requestedPlan, suiteName, filter, projectPath);
+
+            var selection = ResolveTargetSelection(
+                requestedPlan,
                 parseResult.GetValue(aliasOption),
-                parseResult.GetValue(targetsOption),
-                defaultAlias: "latest");
+                parseResult.GetValue(targetsOption));
+            ValidatePlanSelection(requestedPlan, selection);
 
             var exitCode = ExecuteSafely(() => RunSelection(
                 orchestrator,
                 settings,
                 selection,
-                parseResult.GetValue(suiteOption) ?? TestCliSuiteCatalog.AllSuites,
-                parseResult.GetValue(projectOption),
-                parseResult.GetValue(filterOption),
+                suiteName,
+                projectPath,
+                filter,
                 parseResult.GetValue(configurationOption) ?? throw new InvalidOperationException("A build configuration is required."),
                 buildProjects,
                 batchSize,
@@ -119,11 +136,12 @@ internal static class RunCommand
                 parseResult.GetValue(tearDownOption),
                 requestedSummaryPath,
                 CommandHelpers.ParseOutputMode(parseResult.GetValue(outputOption)),
-                CommandHelpers.ParseProfile(parseResult.GetValue(profileOption))));
+                CommandHelpers.ParseProfile(parseResult.GetValue(profileOption)),
+                requestedPlan));
 
             if (exitCode != 0)
                 Environment.ExitCode = exitCode;
-        });
+        }));
 
         return command;
     }
@@ -142,9 +160,10 @@ internal static class RunCommand
         bool tearDown,
         string? summaryJsonPath,
         TestCliOutputMode outputMode,
-        ToolingProfile profile)
+        ToolingProfile profile,
+        TestCliRunPlan? plan = null)
     {
-        var exitCode = ExecuteSafely(() => RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, filter, configuration, buildProject, batchSize, parallelSuites, tearDown, summaryJsonPath, outputMode, profile));
+        var exitCode = ExecuteSafely(() => RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, filter, configuration, buildProject, batchSize, parallelSuites, tearDown, summaryJsonPath, outputMode, profile, plan));
         if (exitCode != 0)
             Environment.ExitCode = exitCode;
     }
@@ -162,6 +181,59 @@ internal static class RunCommand
         }
     }
 
+    private static void ValidatePlanOverrides(
+        TestCliRunPlan? plan,
+        string suiteName,
+        string? filter,
+        string? projectPath)
+    {
+        if (plan is null)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(projectPath))
+            throw new InvalidOperationException("'--project' cannot be combined with '--plan'. Use a named suite from the plan contract.");
+
+        if (plan.RequiresExplicitSelection)
+        {
+            if (string.Equals(suiteName, TestCliSuiteCatalog.AllSuites, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("The focused plan requires an explicit '--suite'.");
+            if (string.IsNullOrWhiteSpace(filter))
+                throw new InvalidOperationException("The focused plan requires an explicit TUnit '--filter'.");
+            return;
+        }
+
+        if (!string.Equals(suiteName, TestCliSuiteCatalog.AllSuites, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"The '{plan.Name}' plan owns its suite selection; do not combine it with '--suite'. Use '--plan focused' for an ad hoc suite.");
+        if (!string.IsNullOrWhiteSpace(filter))
+            throw new InvalidOperationException($"The '{plan.Name}' plan owns its filters; do not combine it with '--filter'. Use '--plan focused' for an ad hoc filter.");
+    }
+
+    private static CliTargetSelection ResolveTargetSelection(
+        TestCliRunPlan? plan,
+        string? aliasName,
+        string? targetList)
+    {
+        if (plan is null)
+            return TargetSelectionResolver.Resolve(aliasName, targetList, defaultAlias: TestTargetCatalog.LatestAlias);
+
+        if (!string.IsNullOrWhiteSpace(aliasName) || !string.IsNullOrWhiteSpace(targetList))
+            return TargetSelectionResolver.Resolve(aliasName, targetList);
+
+        return plan.DefaultTargetAlias is not null
+            ? TargetSelectionResolver.ResolveAlias(plan.DefaultTargetAlias)
+            : TargetSelectionResolver.ResolveTargets(plan.DefaultTargetIds);
+    }
+
+    private static void ValidatePlanSelection(TestCliRunPlan? plan, CliTargetSelection selection)
+    {
+        if (plan?.Name is not (TestCliRunPlanCatalog.SmokePlan or TestCliRunPlanCatalog.QuickPlan))
+            return;
+
+        var serverTargets = selection.Targets.Where(static target => target.UsesPodman).Select(static target => target.Id).ToArray();
+        if (serverTargets.Length > 0)
+            throw new InvalidOperationException($"The '{plan.Name}' plan is a no-Podman contract and cannot use server targets: {string.Join(", ", serverTargets)}.");
+    }
+
     private static int RunSelection(
         TestInfraOrchestrator orchestrator,
         TestInfraCliSettings settings,
@@ -176,7 +248,8 @@ internal static class RunCommand
         bool tearDown,
         string? summaryJsonPath,
         TestCliOutputMode outputMode,
-        ToolingProfile profile)
+        ToolingProfile profile,
+        TestCliRunPlan? plan)
     {
         var repositoryRoot = settings.RepositoryRoot;
         var summaryRequested = !string.IsNullOrWhiteSpace(summaryJsonPath);
@@ -208,7 +281,8 @@ internal static class RunCommand
 
         try
         {
-            var suites = ResolveSuites(suiteName, projectPathOverride);
+            var suites = ResolveSuites(suiteName, projectPathOverride, plan);
+            var invocationFilter = FormatInvocationFilter(suites, filter);
             invocation = summaryRequested
                 ? CreateSummaryInvocation(
                     repositoryRoot,
@@ -216,14 +290,15 @@ internal static class RunCommand
                     suites,
                     suiteName,
                     projectPathOverride,
-                    filter,
+                    invocationFilter,
                     configuration,
                     buildProject,
                     batchSize,
                     parallelSuites,
                     tearDown,
                     outputMode,
-                    profile)
+                    profile,
+                    plan?.Name)
                 : null;
             expectedResults.AddRange(CreateExpectedResults(suites, selection, repositoryRoot, batchSize));
             var projectPaths = suites
@@ -270,7 +345,7 @@ internal static class RunCommand
                                 selection,
                                 settings,
                                 repositoryRoot,
-                                filter,
+                                suite.Filter ?? filter,
                                 batchSize,
                                 orchestrator,
                                 outputMode,
@@ -317,7 +392,7 @@ internal static class RunCommand
                             selection,
                             settings,
                             repositoryRoot,
-                            filter,
+                            suite.Filter ?? filter,
                             batchSize,
                             orchestrator,
                             outputMode,
@@ -412,7 +487,8 @@ internal static class RunCommand
                             parallelSuites,
                             tearDown,
                             outputMode,
-                            profile),
+                            profile,
+                            plan?.Name),
                         repositoryStart!,
                         repositoryEnd,
                         runnerAssemblies.EntryAssembly,
@@ -1073,8 +1149,14 @@ internal static class RunCommand
         });
     }
 
-    private static IReadOnlyList<TestCliSuite> ResolveSuites(string suiteName, string? projectPathOverride)
+    private static IReadOnlyList<TestCliSuite> ResolveSuites(
+        string suiteName,
+        string? projectPathOverride,
+        TestCliRunPlan? plan)
     {
+        if (plan is not null && !plan.RequiresExplicitSelection)
+            return TestCliRunPlanCatalog.ResolveSuites(plan);
+
         if (string.IsNullOrWhiteSpace(projectPathOverride))
             return TestCliSuiteCatalog.Resolve(suiteName);
 
@@ -1083,6 +1165,18 @@ internal static class RunCommand
 
         var suite = TestCliSuiteCatalog.GetSuite(suiteName);
         return [suite with { ProjectPath = projectPathOverride }];
+    }
+
+    private static string? FormatInvocationFilter(IReadOnlyList<TestCliSuite> suites, string? requestedFilter)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedFilter))
+            return requestedFilter;
+
+        var suiteFilters = suites
+            .Where(static suite => !string.IsNullOrWhiteSpace(suite.Filter))
+            .Select(static suite => $"{suite.Name}={suite.Filter}")
+            .ToArray();
+        return suiteFilters.Length == 0 ? null : string.Join(";", suiteFilters);
     }
 
     private static string ResolveProjectPath(string repositoryRoot, string projectPath) =>
@@ -1273,14 +1367,16 @@ internal static class RunCommand
         bool parallelSuites,
         bool tearDown,
         TestCliOutputMode outputMode,
-        ToolingProfile profile)
+        ToolingProfile profile,
+        string? planName)
     {
         var resolvedSuites = suites
             .Select(suite => new TestRunSummarySuite(
                 suite.Name,
                 ResolveProjectPath(repositoryRoot, suite.ProjectPath),
                 suite.UsesTargetBatches,
-                suite.IncludeSqliteTargets))
+                suite.IncludeSqliteTargets,
+                suite.Filter))
             .ToArray();
         var selectedTargets = selection.Targets
             .Select(static target => new TestRunSummaryTarget(
@@ -1322,7 +1418,8 @@ internal static class RunCommand
             ParallelSuites: parallelSuites,
             TearDown: tearDown,
             OutputMode: outputMode.ToString(),
-            Profile: profile);
+            Profile: profile,
+            Plan: planName);
     }
 
     private static TestRunSummaryInvocation CreateFallbackSummaryInvocation(
@@ -1337,7 +1434,8 @@ internal static class RunCommand
         bool parallelSuites,
         bool tearDown,
         TestCliOutputMode outputMode,
-        ToolingProfile profile) =>
+        ToolingProfile profile,
+        string? planName) =>
         new(
             Command: "run",
             RepositoryRoot: repositoryRoot,
@@ -1364,7 +1462,8 @@ internal static class RunCommand
             ParallelSuites: parallelSuites,
             TearDown: tearDown,
             OutputMode: outputMode.ToString(),
-            Profile: profile);
+            Profile: profile,
+            Plan: planName);
 
     private static TestRunSummarySafeEnvironment CreateSummarySafeEnvironment()
     {

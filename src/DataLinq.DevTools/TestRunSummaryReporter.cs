@@ -351,6 +351,7 @@ public static class TestRunSummaryReporter
             SelectedTargets = Array.AsReadOnly(selectedTargets),
             ResolvedSuites = Array.AsReadOnly(resolvedSuites),
             SafeEnvironment = safeEnvironment,
+            Plan = string.IsNullOrWhiteSpace(invocation.Plan) ? null : invocation.Plan.Trim(),
             IncludesAllSuites = HasExactSet(
                 resolvedSuites.Select(static suite => suite.Name),
                 ReleaseSuites.Keys),

@@ -29,7 +29,8 @@ public sealed record TestRunSummarySuite(
     string Name,
     string ProjectPath,
     bool UsesTargetBatches,
-    bool IncludeSqliteTargets);
+    bool IncludeSqliteTargets,
+    string? Filter = null);
 
 public sealed record TestRunSummaryInvocation(
     string Command,
@@ -50,7 +51,8 @@ public sealed record TestRunSummaryInvocation(
     bool ParallelSuites,
     bool TearDown,
     string OutputMode,
-    ToolingProfile Profile);
+    ToolingProfile Profile,
+    string? Plan = null);
 
 public sealed record TestRunSummaryRepositoryState(
     bool Captured,

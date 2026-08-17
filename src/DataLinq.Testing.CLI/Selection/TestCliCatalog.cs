@@ -13,15 +13,15 @@ internal static class TestCliCatalog
     [
         new(
             Name: TestTargetCatalog.QuickAlias,
-            Description: "Runs the local SQLite quick lane only.",
+            Description: "Selects both local SQLite targets; it does not choose a feedback run plan.",
             TargetIds: TestTargetCatalog.ResolveAlias(TestTargetCatalog.QuickAlias)),
         new(
             Name: TestTargetCatalog.LatestAlias,
-            Description: "Runs SQLite plus the latest supported MySQL and MariaDB LTS targets.",
+            Description: "Selects SQLite plus the latest supported MySQL and MariaDB LTS targets.",
             TargetIds: TestTargetCatalog.ResolveAlias(TestTargetCatalog.LatestAlias)),
         new(
             Name: TestTargetCatalog.AllAlias,
-            Description: "Runs every supported local test target.",
+            Description: "Selects every supported test target.",
             TargetIds: TestTargetCatalog.ResolveAlias(TestTargetCatalog.AllAlias))
     ];
 
