@@ -10,7 +10,8 @@ namespace DataLinq.Instances;
 /// <remarks>
 /// This is deliberately separate from <see cref="IRowData"/>, whose values are public model values.
 /// SQL physical values must be decoded before entering this buffer, and scalar-converter model values
-/// must not enter it. The buffer owns a copy of the supplied slots and of mutable byte-array cells.
+/// must not enter it. Public construction copies supplied slots and mutable byte-array cells; trusted
+/// internal construction can explicitly transfer an already-detached buffer.
 /// </remarks>
 internal sealed class CanonicalProviderValueRow
 {
@@ -58,9 +59,28 @@ internal sealed class CanonicalProviderValueRow
     internal static CanonicalProviderValueRow Create(TableDefinition table, ReadOnlySpan<object?> canonicalValues)
     {
         ArgumentNullException.ThrowIfNull(table);
+        ValidateTableLayout(table);
+        ValidateValueCount(table, canonicalValues.Length, nameof(canonicalValues));
 
         var ownedValues = new object?[canonicalValues.Length];
-        return CreateCore(table, canonicalValues, ownedValues, copyMutableValues: true);
+        var estimatedPayloadSize = 0;
+
+        for (var ordinal = 0; ordinal < canonicalValues.Length; ordinal++)
+        {
+            var column = table.Columns[ordinal];
+            var value = canonicalValues[ordinal];
+
+            ValidateValue(column, value, useProviderType: true, nameof(canonicalValues));
+            var ownedValue = CopyMutableValue(value);
+            ownedValues[ordinal] = ownedValue;
+            estimatedPayloadSize = AddEstimatedValueSize(
+                table,
+                column,
+                ownedValue,
+                estimatedPayloadSize);
+        }
+
+        return new CanonicalProviderValueRow(table, ownedValues, estimatedPayloadSize);
     }
 
     /// <summary>
@@ -74,28 +94,8 @@ internal sealed class CanonicalProviderValueRow
     {
         ArgumentNullException.ThrowIfNull(table);
         ArgumentNullException.ThrowIfNull(canonicalValues);
-
-        return CreateCore(
-            table,
-            canonicalValues,
-            canonicalValues,
-            copyMutableValues: false);
-    }
-
-    private static CanonicalProviderValueRow CreateCore(
-        TableDefinition table,
-        ReadOnlySpan<object?> canonicalValues,
-        object?[] ownedValues,
-        bool copyMutableValues)
-    {
         ValidateTableLayout(table);
-
-        if (canonicalValues.Length != table.ColumnCount)
-        {
-            throw new ArgumentException(
-                $"Canonical provider row for table '{table.DbName}' requires exactly {table.ColumnCount} table-ordinal values, but received {canonicalValues.Length}. Missing cells must not be represented as null.",
-                nameof(canonicalValues));
-        }
+        ValidateValueCount(table, canonicalValues.Length, nameof(canonicalValues));
 
         var estimatedPayloadSize = 0;
 
@@ -105,24 +105,45 @@ internal sealed class CanonicalProviderValueRow
             var value = canonicalValues[ordinal];
 
             ValidateValue(column, value, useProviderType: true, nameof(canonicalValues));
-
-            var ownedValue = copyMutableValues ? CopyMutableValue(value) : value;
-            ownedValues[ordinal] = ownedValue;
-            var estimatedValueSize = EstimateCanonicalValueSize(column, ownedValue);
-
-            try
-            {
-                estimatedPayloadSize = checked(estimatedPayloadSize + estimatedValueSize);
-            }
-            catch (OverflowException exception)
-            {
-                throw new InvalidOperationException(
-                    $"Canonical provider payload estimate overflowed while reading column '{table.DbName}.{column.DbName}'.",
-                    exception);
-            }
+            estimatedPayloadSize = AddEstimatedValueSize(
+                table,
+                column,
+                value,
+                estimatedPayloadSize);
         }
 
-        return new CanonicalProviderValueRow(table, ownedValues, estimatedPayloadSize);
+        return new CanonicalProviderValueRow(table, canonicalValues, estimatedPayloadSize);
+    }
+
+    private static void ValidateValueCount(
+        TableDefinition table,
+        int valueCount,
+        string parameterName)
+    {
+        if (valueCount != table.ColumnCount)
+        {
+            throw new ArgumentException(
+                $"Canonical provider row for table '{table.DbName}' requires exactly {table.ColumnCount} table-ordinal values, but received {valueCount}. Missing cells must not be represented as null.",
+                parameterName);
+        }
+    }
+
+    private static int AddEstimatedValueSize(
+        TableDefinition table,
+        ColumnDefinition column,
+        object? value,
+        int estimatedPayloadSize)
+    {
+        try
+        {
+            return checked(estimatedPayloadSize + EstimateCanonicalValueSize(column, value));
+        }
+        catch (OverflowException exception)
+        {
+            throw new InvalidOperationException(
+                $"Canonical provider payload estimate overflowed while reading column '{table.DbName}.{column.DbName}'.",
+                exception);
+        }
     }
 
     internal int GetEstimatedValueSize(int columnOrdinal)
