@@ -37,7 +37,7 @@ internal readonly struct ExpressionQueryPlanParseResult
     public IReadOnlyList<QueryPlanInvocationValue> InvocationValues { get; }
 
     public QueryPlanInvocation Bind()
-        => QueryPlanInvocation.Bind(Template, InvocationValues);
+        => QueryPlanInvocation.BindParserOwned(Template, InvocationValues);
 }
 
 internal sealed class ExpressionQueryPlanParser

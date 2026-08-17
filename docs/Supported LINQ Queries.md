@@ -109,6 +109,8 @@ The test suite covers:
 - `string.IsNullOrEmpty(...)`
 - `string.IsNullOrWhiteSpace(...)`
 
+`string.IsNullOrWhiteSpace(...)` follows the CLR `char.IsWhiteSpace` set, including tabs, line breaks, no-break space, and Unicode separator characters. It does not inherit the narrower whitespace rules of the database provider's default `TRIM` function.
+
 ### Date and time member access
 
 The test suite also covers member access inside predicates for several date and time types, including:

@@ -62,14 +62,14 @@ internal sealed class QueryPlanBindingDeclarations
 
     private readonly QueryPlanBindingDeclaration[] declarations;
     private readonly ReadOnlyCollection<QueryPlanBindingDeclaration> declarationView;
-    private readonly Dictionary<string, QueryPlanBindingDeclaration> declarationsById;
+    private readonly Dictionary<string, int> declarationOrdinalsById;
 
     private QueryPlanBindingDeclarations(
         QueryPlanBindingDeclaration[] declarations,
-        Dictionary<string, QueryPlanBindingDeclaration> declarationsById)
+        Dictionary<string, int> declarationOrdinalsById)
     {
         this.declarations = declarations;
-        this.declarationsById = declarationsById;
+        this.declarationOrdinalsById = declarationOrdinalsById;
         declarationView = Array.AsReadOnly(declarations);
     }
 
@@ -88,14 +88,14 @@ internal sealed class QueryPlanBindingDeclarations
             return Empty;
 
         var frozen = new QueryPlanBindingDeclaration[source.Length];
-        var byId = new Dictionary<string, QueryPlanBindingDeclaration>(source.Length, StringComparer.Ordinal);
+        var ordinalsById = new Dictionary<string, int>(source.Length, StringComparer.Ordinal);
 
         for (var index = 0; index < source.Length; index++)
         {
             var declaration = source[index]
                 ?? throw new ArgumentException("Query plan binding declarations cannot contain null entries.", nameof(declarations));
 
-            if (!byId.TryAdd(declaration.Id, declaration))
+            if (!ordinalsById.TryAdd(declaration.Id, index))
             {
                 throw new ArgumentException(
                     $"Query plan binding declaration id '{declaration.Id}' is duplicated.",
@@ -105,13 +105,26 @@ internal sealed class QueryPlanBindingDeclarations
             frozen[index] = declaration;
         }
 
-        return new QueryPlanBindingDeclarations(frozen, byId);
+        return new QueryPlanBindingDeclarations(frozen, ordinalsById);
     }
 
     public bool TryGet(string id, out QueryPlanBindingDeclaration declaration)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
-        return declarationsById.TryGetValue(id, out declaration!);
+        if (declarationOrdinalsById.TryGetValue(id, out var ordinal))
+        {
+            declaration = declarations[ordinal];
+            return true;
+        }
+
+        declaration = null!;
+        return false;
+    }
+
+    internal bool TryGetOrdinal(string id, out int ordinal)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        return declarationOrdinalsById.TryGetValue(id, out ordinal);
     }
 }
 
@@ -145,52 +158,66 @@ internal abstract record QueryPlanInvocationValue(string Id, QueryPlanBindingKin
 
 internal sealed class QueryPlanBindingValues
 {
-    public static QueryPlanBindingValues Empty { get; } = new([], []);
+    public static QueryPlanBindingValues Empty { get; } = new(
+        QueryPlanBindingDeclarations.Empty,
+        Array.Empty<QueryPlanInvocationValue>());
 
-    private readonly QueryPlanInvocationValue[] values;
-    private readonly ReadOnlyCollection<QueryPlanInvocationValue> valueView;
-    private readonly Dictionary<string, QueryPlanInvocationValue> valuesById;
+    private readonly QueryPlanBindingDeclarations declarations;
+    private readonly IReadOnlyList<QueryPlanInvocationValue> values;
 
     private QueryPlanBindingValues(
-        QueryPlanInvocationValue[] values,
-        Dictionary<string, QueryPlanInvocationValue> valuesById)
+        QueryPlanBindingDeclarations declarations,
+        IReadOnlyList<QueryPlanInvocationValue> values)
     {
+        this.declarations = declarations;
         this.values = values;
-        this.valuesById = valuesById;
-        valueView = Array.AsReadOnly(values);
     }
 
-    public int Count => values.Length;
+    public int Count => values.Count;
 
-    public IReadOnlyList<QueryPlanInvocationValue> Items => valueView;
+    public IReadOnlyList<QueryPlanInvocationValue> Items => values;
 
     public QueryPlanInvocationValue this[int index] => values[index];
 
     public bool TryGet(string id, out QueryPlanInvocationValue value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
-        return valuesById.TryGetValue(id, out value!);
-    }
-
-    internal static QueryPlanBindingValues CreateValidated(IReadOnlyList<QueryPlanInvocationValue> values)
-    {
-        if (values.Count == 0)
-            return Empty;
-
-        var frozen = new QueryPlanInvocationValue[values.Count];
-        var byId = new Dictionary<string, QueryPlanInvocationValue>(values.Count, StringComparer.Ordinal);
-
-        for (var index = 0; index < values.Count; index++)
+        if (declarations.TryGetOrdinal(id, out var ordinal) && ordinal < values.Count)
         {
-            var value = Freeze(values[index]);
-            byId.Add(value.Id, value);
-            frozen[index] = value;
+            value = values[ordinal];
+            return true;
         }
 
-        return new QueryPlanBindingValues(frozen, byId);
+        value = null!;
+        return false;
     }
 
-    private static QueryPlanInvocationValue Freeze(QueryPlanInvocationValue value)
+    internal static QueryPlanBindingValues CreateDefensive(
+        QueryPlanBindingDeclarations declarations,
+        QueryPlanInvocationValue[] values)
+    {
+        ArgumentNullException.ThrowIfNull(declarations);
+        ArgumentNullException.ThrowIfNull(values);
+
+        if (values.Length == 0)
+            return Empty;
+
+        return new QueryPlanBindingValues(declarations, Array.AsReadOnly(values));
+    }
+
+    internal static QueryPlanBindingValues CreateParserOwned(
+        QueryPlanBindingDeclarations declarations,
+        IReadOnlyList<QueryPlanInvocationValue> values)
+    {
+        ArgumentNullException.ThrowIfNull(declarations);
+        ArgumentNullException.ThrowIfNull(values);
+
+        return values.Count == 0
+            ? Empty
+            : new QueryPlanBindingValues(declarations, values);
+    }
+
+    internal static QueryPlanInvocationValue Freeze(QueryPlanInvocationValue value)
     {
         return value switch
         {
@@ -199,7 +226,7 @@ internal sealed class QueryPlanBindingValues
                 CopyScalarValue(scalar.Value)),
             QueryPlanInvocationValue.LocalSequence sequence => new QueryPlanInvocationValue.LocalSequence(
                 sequence.Id,
-                Array.AsReadOnly(sequence.Values.Select(CopyScalarValue).ToArray())),
+                Array.AsReadOnly(CopyValues(sequence.Values))),
             _ => throw new ArgumentException(
                 $"Unknown query plan invocation value '{value.GetType().Name}'.",
                 nameof(value))
@@ -208,6 +235,33 @@ internal sealed class QueryPlanBindingValues
 
     private static object? CopyScalarValue(object? value)
         => value is Array array ? array.Clone() : value;
+
+    private static object?[] CopyValues(IReadOnlyList<object?> values)
+    {
+        var copy = new object?[values.Count];
+        var index = 0;
+
+        foreach (var value in values)
+        {
+            if (index == copy.Length)
+            {
+                throw new ArgumentException(
+                    "Query plan local-sequence value enumerated more items than its declared count.",
+                    nameof(values));
+            }
+
+            copy[index++] = CopyScalarValue(value);
+        }
+
+        if (index != copy.Length)
+        {
+            throw new ArgumentException(
+                "Query plan local-sequence value enumerated fewer items than its declared count.",
+                nameof(values));
+        }
+
+        return copy;
+    }
 }
 
 internal enum QueryPlanBindingNullness

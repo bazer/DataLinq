@@ -77,6 +77,8 @@ public class ExpressionQueryPlanParserTests
             databaseScope.Database.Provider.Metadata,
             query.Body,
             typeof(bool));
+        var capturedScalar = unbound.InvocationValues.OfType<QueryPlanInvocationValue.Scalar>().Single();
+        var capturedSequence = unbound.InvocationValues.OfType<QueryPlanInvocationValue.LocalSequence>().Single();
         var rebound = unbound.Bind();
         var converted = ExpressionQueryPlanParser.Convert(databaseScope.Database, query);
         var reboundScalar = rebound.Values.Items.OfType<QueryPlanInvocationValue.Scalar>().Single();
@@ -85,6 +87,9 @@ public class ExpressionQueryPlanParserTests
         var convertedSequence = converted.Values.Items.OfType<QueryPlanInvocationValue.LocalSequence>().Single();
 
         await Assert.That(rebound.Template).IsSameReferenceAs(unbound.Template);
+        await Assert.That(reboundScalar).IsSameReferenceAs(capturedScalar);
+        await Assert.That(reboundSequence).IsSameReferenceAs(capturedSequence);
+        await Assert.That(reboundSequence.Values).IsSameReferenceAs(capturedSequence.Values);
         await Assert.That(QueryPlanDebugWriter.WriteTemplate(rebound.Template))
             .IsEqualTo(QueryPlanDebugWriter.WriteTemplate(converted.Template));
         await Assert.That(QueryPlanDebugWriter.WriteInvocation(rebound))
