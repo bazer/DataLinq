@@ -129,7 +129,9 @@ Supported suites:
 - `--configuration`
   Defaults to `Debug`.
 - `--build`
-  Builds the test project before running it.
+  Explicitly builds each distinct test project once before running it. This is the default unless `--no-build` is used; the option remains useful when scripts want to state the contract visibly.
+- `--no-build`
+  Resolves and executes existing test host DLLs directly. Missing, ambiguous, or source-stale outputs fail with an actionable error.
 - `--batch-size`
   Defaults to `2`. Must be between `1` and `32`.
 - `--parallel`
@@ -144,6 +146,14 @@ Supported suites:
   Controls the repo-local execution profile used when invoking `dotnet`.
 
 `--project` cannot be combined with `--suite all`. That combination is nonsense, and the CLI rejects it. `--interactive` cannot be combined with `--summary-json`.
+
+### Build-once execution model
+
+The runner resolves the complete suite plan before starting test hosts. By default it builds every distinct test project exactly once, resolves the resulting executable TUnit/Microsoft.Testing.Platform DLL, and invokes each suite/target row with `dotnet exec`. Provider rows therefore do not re-enter MSBuild and do not rebuild or reevaluate the same project.
+
+Use `--no-build` after an explicit solution/project build, including in CI. The resolver requires exactly one executable target framework/runtime, the DLL, its `.runtimeconfig.json`, and its `.deps.json`. It also walks project references and rejects an output older than relevant project sources or build props. `--build` and `--no-build` are mutually exclusive.
+
+The summary's `BuildProject` value records whether this invocation performed the once-per-project build. Each result's command arguments record the exact resolved host DLL used by `dotnet exec`.
 
 ### Summary JSON evidence contract
 

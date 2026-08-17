@@ -571,6 +571,7 @@ public static class TestRunSummaryReporter
 
         var expectedProjects = invocation.ResolvedSuites
             .Select(static suite => suite.ProjectPath)
+            .Distinct(PathComparer)
             .Order(PathComparer)
             .ToArray();
         var builtProjects = builds

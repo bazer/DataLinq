@@ -42,7 +42,11 @@ internal static class RunCommand
         };
         var buildOption = new Option<bool>("--build")
         {
-            Description = "Builds the test project before running it."
+            Description = "Explicitly builds each distinct test project once before running it (the default unless --no-build is used)."
+        };
+        var noBuildOption = new Option<bool>("--no-build")
+        {
+            Description = "Runs existing test host outputs directly and fails if they are missing, ambiguous, or stale."
         };
         var batchSizeOption = new Option<int>("--batch-size")
         {
@@ -70,6 +74,7 @@ internal static class RunCommand
         command.Options.Add(filterOption);
         command.Options.Add(configurationOption);
         command.Options.Add(buildOption);
+        command.Options.Add(noBuildOption);
         command.Options.Add(batchSizeOption);
         command.Options.Add(tearDownOption);
         command.Options.Add(summaryJsonOption);
@@ -91,6 +96,9 @@ internal static class RunCommand
             var batchSize = parseResult.GetValue(batchSizeOption);
             if (batchSize < 1 || batchSize > 32)
                 throw new InvalidOperationException("'--batch-size' must be between 1 and 32.");
+            if (parseResult.GetValue(buildOption) && parseResult.GetValue(noBuildOption))
+                throw new InvalidOperationException("'--build' and '--no-build' cannot be combined.");
+            var buildProjects = !parseResult.GetValue(noBuildOption);
 
             var selection = TargetSelectionResolver.Resolve(
                 parseResult.GetValue(aliasOption),
@@ -105,7 +113,7 @@ internal static class RunCommand
                 parseResult.GetValue(projectOption),
                 parseResult.GetValue(filterOption),
                 parseResult.GetValue(configurationOption) ?? throw new InvalidOperationException("A build configuration is required."),
-                parseResult.GetValue(buildOption),
+                buildProjects,
                 batchSize,
                 parseResult.GetValue(parallelSuitesOption),
                 parseResult.GetValue(tearDownOption),
@@ -218,13 +226,16 @@ internal static class RunCommand
                     profile)
                 : null;
             expectedResults.AddRange(CreateExpectedResults(suites, selection, repositoryRoot, batchSize));
+            var projectPaths = suites
+                .Select(suite => ResolveProjectPath(repositoryRoot, suite.ProjectPath))
+                .Distinct(PathComparer)
+                .ToArray();
 
             if (buildProject)
             {
-                foreach (var suite in suites)
+                foreach (var projectPath in projectPaths)
                 {
-                    var projectPath = ResolveProjectPath(repositoryRoot, suite.ProjectPath);
-                    failureStage = $"build:{suite.Name}";
+                    failureStage = $"build:{Path.GetFileNameWithoutExtension(projectPath)}";
                     var build = BuildProject(projectPath, configuration, settings, outputMode, profile, runArtifactRoot);
                     builds.Add(CreateSummaryBuild(projectPath, build));
                     if (build.ProcessResult.ExitCode == 0)
@@ -234,6 +245,16 @@ internal static class RunCommand
                     throw new InvalidOperationException($"Failed to build '{projectPath}'.");
                 }
             }
+
+            failureStage = "resolve-test-hosts";
+            var testHostPaths = projectPaths.ToDictionary(
+                static projectPath => projectPath,
+                projectPath => TestHostResolver.Resolve(
+                    repositoryRoot,
+                    projectPath,
+                    configuration,
+                    requireCurrentOutput: true).HostPath,
+                PathComparer);
 
             failureStage = "run-suites";
             Exception? suiteExecutionException = null;
@@ -249,14 +270,13 @@ internal static class RunCommand
                                 selection,
                                 settings,
                                 repositoryRoot,
-                                configuration,
                                 filter,
-                                buildProject,
                                 batchSize,
                                 orchestrator,
                                 outputMode,
                                 profile,
                                 runArtifactRoot,
+                                testHostPaths,
                                 completedResultRef: completedResult =>
                                 {
                                     lock (resultLock)
@@ -297,14 +317,13 @@ internal static class RunCommand
                             selection,
                             settings,
                             repositoryRoot,
-                            configuration,
                             filter,
-                            buildProject,
                             batchSize,
                             orchestrator,
                             outputMode,
                             profile,
                             runArtifactRoot,
+                            testHostPaths,
                             completedResultRef: results.Add,
                             usedTargetsRef: value => usedTargets = usedTargets || value);
 
@@ -425,20 +444,21 @@ internal static class RunCommand
         CliTargetSelection selection,
         TestInfraCliSettings settings,
         string repositoryRoot,
-        string configuration,
         string? filter,
-        bool buildProject,
         int batchSize,
         TestInfraOrchestrator orchestrator,
         TestCliOutputMode outputMode,
         ToolingProfile profile,
         string runArtifactRoot,
+        IReadOnlyDictionary<string, string> testHostPaths,
         Action<RunResult> completedResultRef,
         Action<bool>? usedTargetsRef)
     {
         var projectPath = ResolveProjectPath(repositoryRoot, suite.ProjectPath);
         if (!File.Exists(projectPath))
             throw new FileNotFoundException($"The requested test project was not found: '{projectPath}'.", projectPath);
+        if (!testHostPaths.TryGetValue(projectPath, out var testHostPath))
+            throw new InvalidOperationException($"No resolved test host exists for '{projectPath}'.");
 
         var exitCode = 0;
 
@@ -475,7 +495,7 @@ internal static class RunCommand
                 infrastructureStopwatch.Stop();
 
                 var artifacts = CreateRunArtifactPaths(runArtifactRoot, suite.Name, index + 1, batch);
-                var result = ExecuteTestRun(projectPath, configuration, filter, buildProject, settings, batch, artifacts, profile);
+                var result = ExecuteTestRun(testHostPath, filter, settings, batch, artifacts, profile);
 
                 var runResult = CreateRunResult(
                     suite.Name,
@@ -503,7 +523,7 @@ internal static class RunCommand
             }
 
             var artifacts = CreateRunArtifactPaths(runArtifactRoot, suite.Name, batchIndex: null, selection: null);
-            var result = ExecuteTestRun(projectPath, configuration, filter, buildProject, settings, selection: null, artifacts, profile);
+            var result = ExecuteTestRun(testHostPath, filter, settings, selection: null, artifacts, profile);
 
             var runResult = CreateRunResult(
                 suite.Name,
@@ -553,10 +573,8 @@ internal static class RunCommand
     }
 
     private static LoggedCommandResult ExecuteTestRun(
-        string projectPath,
-        string configuration,
+        string testHostPath,
         string? filter,
-        bool usePrebuiltProject,
         TestInfraCliSettings settings,
         CliTargetSelection? selection,
         RunArtifactPaths artifacts,
@@ -581,15 +599,9 @@ internal static class RunCommand
 
         var arguments = new List<string>
         {
-            "run",
-            "--project", projectPath,
-            "-c", configuration
+            "exec",
+            testHostPath
         };
-
-        if (usePrebuiltProject)
-            arguments.Add("--no-build");
-
-        arguments.Add("--");
         arguments.AddRange([
             "--results-directory", artifacts.Directory,
             "--report-html-filename", artifacts.HtmlReportPath,
@@ -1518,6 +1530,10 @@ internal static class RunCommand
 
         return int.MaxValue;
     }
+
+    private static StringComparer PathComparer => OperatingSystem.IsWindows()
+        ? StringComparer.OrdinalIgnoreCase
+        : StringComparer.Ordinal;
 
     private sealed record RunResult(
         string Suite,

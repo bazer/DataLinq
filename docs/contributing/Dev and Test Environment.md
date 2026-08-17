@@ -302,11 +302,13 @@ The system cannot find the file specified.
 ...\bin\Debug\net10.0\DataLinq.Tests.Unit.exe
 ```
 
-the test project was not built for that configuration. Run without outer `--no-build`, or force a build:
+the test project was not built for that configuration. Let the Testing CLI perform its default once-per-project build:
 
 ```powershell
-dotnet run --project DataLinq.Testing.CLI -- run --alias latest --build
+dotnet run --project DataLinq.Testing.CLI -- run --alias latest
 ```
+
+If the solution was already built explicitly, use `run --alias latest --no-build`. The CLI will execute the resolved host DLLs directly and reject missing, ambiguous, or source-stale outputs instead of silently running the wrong binary.
 
 ### Visual Studio Reports Missing wasm-tools
 

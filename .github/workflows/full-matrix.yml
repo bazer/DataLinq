@@ -85,7 +85,7 @@ jobs:
         run: dotnet run --project src/DataLinq.Dev.CLI -- build src/DataLinq.sln --profile ci
 
       - name: Run full matrix suite set
-        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll run --suite all --alias all --batch-size 1 --summary-json artifacts/ci/full-matrix-summary.json
+        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll run --suite all --alias all --batch-size 1 --no-build --summary-json artifacts/ci/full-matrix-summary.json
 
       - name: Update full matrix test count badge data
         if: success()
