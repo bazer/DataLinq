@@ -72,15 +72,28 @@ public static class TestHostResolver
         var hostLastWriteUtc = File.GetLastWriteTimeUtc(selected.HostPath);
         if (requireCurrentOutput)
         {
-            var newerInput = EnumerateBuildInputs(fullProjectPath, repositoryRoot)
-                .Select(path => new { Path = path, LastWriteUtc = File.GetLastWriteTimeUtc(path) })
-                .Where(input => input.LastWriteUtc > hostLastWriteUtc)
-                .OrderByDescending(static input => input.LastWriteUtc)
+            var hostDirectory = Path.GetDirectoryName(selected.HostPath)!;
+            var newerInput = EnumerateProjectBuildInputs(fullProjectPath, repositoryRoot)
+                .Select(input => new
+                {
+                    input.Path,
+                    InputLastWriteUtc = File.GetLastWriteTimeUtc(input.Path),
+                    OutputPath = ResolveProjectOutputPath(input.ProjectPath, fullProjectPath, selected.HostPath, hostDirectory)
+                })
+                .Select(input => new
+                {
+                    input.Path,
+                    input.InputLastWriteUtc,
+                    input.OutputPath,
+                    OutputLastWriteUtc = File.GetLastWriteTimeUtc(input.OutputPath)
+                })
+                .Where(input => input.InputLastWriteUtc > input.OutputLastWriteUtc)
+                .OrderByDescending(static input => input.InputLastWriteUtc)
                 .FirstOrDefault();
             if (newerInput is not null)
             {
                 throw new InvalidOperationException(
-                    $"The prebuilt test host '{selected.HostPath}' is stale because '{newerInput.Path}' is newer. " +
+                    $"The prebuilt test graph is stale because '{newerInput.Path}' is newer than '{newerInput.OutputPath}'. " +
                     "Run without '--no-build' to rebuild the affected project graph.");
             }
         }
@@ -142,9 +155,24 @@ public static class TestHostResolver
         return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static IReadOnlySet<string> EnumerateBuildInputs(string projectPath, string repositoryRoot)
+    private static string ResolveProjectOutputPath(
+        string projectPath,
+        string rootProjectPath,
+        string hostPath,
+        string hostDirectory)
     {
-        var inputs = new HashSet<string>(PathComparer);
+        if (PathComparer.Equals(projectPath, rootProjectPath))
+            return hostPath;
+
+        var copiedAssemblyPath = Path.Combine(
+            hostDirectory,
+            $"{Path.GetFileNameWithoutExtension(projectPath)}.dll");
+        return File.Exists(copiedAssemblyPath) ? copiedAssemblyPath : hostPath;
+    }
+
+    private static IReadOnlyList<ProjectBuildInput> EnumerateProjectBuildInputs(string projectPath, string repositoryRoot)
+    {
+        var inputs = new HashSet<ProjectBuildInput>(ProjectBuildInputComparer.Instance);
         var visitedProjects = new HashSet<string>(PathComparer);
         var pendingProjects = new Stack<string>();
         pendingProjects.Push(Path.GetFullPath(projectPath));
@@ -156,9 +184,9 @@ public static class TestHostResolver
                 continue;
 
             foreach (var input in EnumerateProjectDirectoryInputs(Path.GetDirectoryName(currentProject)!))
-                inputs.Add(input);
+                inputs.Add(new ProjectBuildInput(currentProject, input));
             foreach (var props in EnumerateProjectAndAncestorProps(currentProject, repositoryRoot))
-                inputs.Add(props);
+                inputs.Add(new ProjectBuildInput(currentProject, props));
 
             var document = TryLoadProject(currentProject);
             if (document is null)
@@ -177,7 +205,7 @@ public static class TestHostResolver
             }
         }
 
-        return inputs;
+        return inputs.ToArray();
     }
 
     private static IEnumerable<string> EnumerateProjectDirectoryInputs(string projectDirectory) =>
@@ -239,4 +267,21 @@ public static class TestHostResolver
         string HostPath,
         string RuntimeConfigPath,
         string DependencyManifestPath);
+
+    private sealed record ProjectBuildInput(string ProjectPath, string Path);
+
+    private sealed class ProjectBuildInputComparer : IEqualityComparer<ProjectBuildInput>
+    {
+        public static ProjectBuildInputComparer Instance { get; } = new();
+
+        public bool Equals(ProjectBuildInput? x, ProjectBuildInput? y) =>
+            x is not null && y is not null &&
+            PathComparer.Equals(x.ProjectPath, y.ProjectPath) &&
+            PathComparer.Equals(x.Path, y.Path);
+
+        public int GetHashCode(ProjectBuildInput obj) =>
+            HashCode.Combine(
+                PathComparer.GetHashCode(obj.ProjectPath),
+                PathComparer.GetHashCode(obj.Path));
+    }
 }

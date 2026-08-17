@@ -49,7 +49,7 @@ public sealed class TestHostResolverTests
     }
 
     [Test]
-    public async Task Resolve_RejectsAHostOlderThanReferencedProjectSources()
+    public async Task Resolve_RejectsAReferencedOutputOlderThanItsProjectSources()
     {
         using var fixture = TestHostFixture.Create("net10.0", includeReferencedProject: true);
         fixture.WriteHost("net10.0", newerThanInputs: false);
@@ -69,8 +69,25 @@ public sealed class TestHostResolverTests
         }
 
         await Assert.That(exception).IsNotNull();
-        await Assert.That(exception!.Message).Contains("is stale because");
+        await Assert.That(exception!.Message).Contains("graph is stale because");
         await Assert.That(exception.Message).Contains("Referenced.cs");
+    }
+
+    [Test]
+    public async Task Resolve_AcceptsUpdatedReferencedOutputWithoutRecompiledRootHost()
+    {
+        using var fixture = TestHostFixture.Create("net10.0", includeReferencedProject: true);
+        var hostPath = fixture.WriteHost("net10.0", newerThanInputs: true);
+        File.SetLastWriteTimeUtc(hostPath, new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc));
+        fixture.WriteReferencedOutput("net10.0", new DateTime(2026, 1, 3, 0, 0, 0, DateTimeKind.Utc));
+
+        var result = TestHostResolver.Resolve(
+            fixture.RepositoryRoot,
+            fixture.ProjectPath,
+            "Debug",
+            requireCurrentOutput: true);
+
+        await Assert.That(result.HostPath).IsEqualTo(hostPath);
     }
 
     private sealed class TestHostFixture : IDisposable
@@ -144,6 +161,18 @@ public sealed class TestHostResolverTests
             File.SetLastWriteTimeUtc(runtimeConfigPath, timestamp);
             File.SetLastWriteTimeUtc(dependencyManifestPath, timestamp);
             return hostPath;
+        }
+
+        public void WriteReferencedOutput(string targetFramework, DateTime timestamp)
+        {
+            var path = Path.Combine(
+                Path.GetDirectoryName(ProjectPath)!,
+                "bin",
+                "Debug",
+                targetFramework,
+                "Referenced.dll");
+            File.WriteAllText(path, "referenced");
+            File.SetLastWriteTimeUtc(path, timestamp);
         }
 
         public void Dispose()
