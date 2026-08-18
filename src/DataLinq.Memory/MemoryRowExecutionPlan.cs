@@ -37,7 +37,6 @@ internal sealed class MemoryRowExecutionPlan
         ValidatedQueryExecutionRequest request,
         QueryPlanSourceSlot rootSource)
     {
-        ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(rootSource);
         if (rootSource.Kind != QueryPlanSourceKind.RootTable)
             throw CapabilityInvariant("the selected row source is not a root table.");

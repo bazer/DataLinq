@@ -184,7 +184,6 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
 
     private void EnsureRequest(ValidatedQueryExecutionRequest request)
     {
-        ArgumentNullException.ThrowIfNull(request);
         request.EnsureBackend(this);
 
         if (!ReferenceEquals(request.Context.Source, dataSource))

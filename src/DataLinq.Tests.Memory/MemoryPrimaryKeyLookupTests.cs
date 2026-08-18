@@ -84,6 +84,8 @@ public sealed class MemoryPrimaryKeyLookupTests
 
             var table = database.Metadata.GetTableModel(typeof(MemoryConvertedRow)).Table;
             var modelRowData = cold.GetRowData();
+            await Assert.That(modelRowData).IsTypeOf<RowData>();
+            await Assert.That(modelRowData).IsNotTypeOf<KnownCanonicalPrimaryKeyRowData>();
             await Assert.That(modelRowData[table.GetColumnByDbName("id")])
                 .IsTypeOf<MemoryGuidId>();
             await Assert.That(modelRowData[table.GetColumnByDbName("id")])
@@ -95,7 +97,7 @@ public sealed class MemoryPrimaryKeyLookupTests
 
             await Assert.That(MemoryGuidIdConverter.ToProviderColumns)
                 .IsEquivalentTo(
-                    ["id", "related_id", "id", "id", "id", "id"],
+                    ["id", "related_id", "id", "id", "id"],
                     CollectionOrdering.Matching);
             await Assert.That(MemoryGuidIdConverter.FromProviderColumns)
                 .IsEquivalentTo(["id", "related_id"], CollectionOrdering.Matching);
@@ -317,9 +319,8 @@ public sealed class MemoryPrimaryKeyLookupTests
 
     [Test]
     [NotInParallel]
-    public async Task PublicFind_KeyCaptureConverterFailureIsRedactedAndDoesNotPoisonTheCache()
+    public async Task PublicFind_PropagatedCanonicalKeySkipsModelKeyRecapture()
     {
-        const string sensitiveFailure = "key-capture-converter-secret-9162";
         MemoryGuidIdConverter.Reset();
         try
         {
@@ -328,34 +329,21 @@ public sealed class MemoryPrimaryKeyLookupTests
             MemoryGuidIdConverter.SetToProviderProbe(columnName =>
             {
                 if (columnName == "id" && ++idProbeCount == 2)
-                    throw new InvalidOperationException(sensitiveFailure);
+                    throw new InvalidOperationException("The immutable reconstructed its known key.");
             });
 
-            var exception = Capture<MemoryLookupException>(() =>
-                database.Find<MemoryConvertedRow>(new MemoryGuidId(KnownId)));
+            var materialized = database.Find<MemoryConvertedRow>(new MemoryGuidId(KnownId));
 
-            await Assert.That(exception.Message).Contains("memory_converted_rows.id");
-            await Assert.That(exception.Message).Contains(typeof(MemoryGuidId).FullName!);
-            await Assert.That(exception.ToString()).DoesNotContain(sensitiveFailure);
-            await Assert.That(exception.ToString()).DoesNotContain(KnownId.ToString());
-            await Assert.That(exception.InnerException).IsNull();
-            await Assert.That(idProbeCount).IsEqualTo(2);
+            await Assert.That(materialized).IsNotNull();
+            await Assert.That(materialized!.Id).IsEqualTo(new MemoryGuidId(KnownId));
+            await Assert.That(idProbeCount).IsEqualTo(1);
             await Assert.That(database.Diagnostics.PrimaryKeyRequests).IsEqualTo(1);
             await Assert.That(database.Diagnostics.PrimaryKeyProbes).IsEqualTo(1);
             await Assert.That(database.Diagnostics.CacheLookups).IsEqualTo(1);
             await Assert.That(database.Diagnostics.CacheMisses).IsEqualTo(1);
-            await Assert.That(database.Diagnostics.Materializations).IsEqualTo(0);
-            await Assert.That(database.Diagnostics.CacheInsertions).IsEqualTo(0);
-            await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(0);
-
-            MemoryGuidIdConverter.SetToProviderProbe(null);
-            var recovered = database.Find<MemoryConvertedRow>(new MemoryGuidId(KnownId));
-
-            await Assert.That(recovered).IsNotNull();
-            await Assert.That(recovered!.Id).IsEqualTo(new MemoryGuidId(KnownId));
-            await Assert.That(database.Diagnostics.CacheMisses).IsEqualTo(2);
             await Assert.That(database.Diagnostics.Materializations).IsEqualTo(1);
             await Assert.That(database.Diagnostics.CacheInsertions).IsEqualTo(1);
+            await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(0);
         }
         finally
         {
@@ -388,50 +376,6 @@ public sealed class MemoryPrimaryKeyLookupTests
                 await Assert.That(actual).IsSameReferenceAs(expected);
                 await Assert.That(database.Diagnostics).IsEqualTo(before);
             }
-        }
-        finally
-        {
-            MemoryGuidIdConverter.Reset();
-        }
-    }
-
-    [Test]
-    [NotInParallel]
-    public async Task PublicFind_KeyCaptureCancellationAndFatalFailuresPreserveExceptionIdentity()
-    {
-        MemoryGuidIdConverter.Reset();
-        try
-        {
-            var database = CreateConvertedDatabase();
-            Exception[] expectedExceptions =
-            [
-                new OperationCanceledException("key capture cancelled"),
-                new OutOfMemoryException("key capture out of memory"),
-                new AccessViolationException("key capture access violation")
-            ];
-
-            foreach (var expected in expectedExceptions)
-            {
-                var idProbeCount = 0;
-                MemoryGuidIdConverter.SetToProviderProbe(columnName =>
-                {
-                    if (columnName == "id" && ++idProbeCount == 2)
-                        throw expected;
-                });
-                var actual = Capture<Exception>(() =>
-                    database.Find<MemoryConvertedRow>(new MemoryGuidId(KnownId)));
-
-                await Assert.That(actual).IsSameReferenceAs(expected);
-                await Assert.That(idProbeCount).IsEqualTo(2);
-            }
-
-            await Assert.That(database.Diagnostics.PrimaryKeyRequests).IsEqualTo(3);
-            await Assert.That(database.Diagnostics.PrimaryKeyProbes).IsEqualTo(3);
-            await Assert.That(database.Diagnostics.CacheLookups).IsEqualTo(3);
-            await Assert.That(database.Diagnostics.CacheMisses).IsEqualTo(3);
-            await Assert.That(database.Diagnostics.Materializations).IsEqualTo(0);
-            await Assert.That(database.Diagnostics.CacheInsertions).IsEqualTo(0);
-            await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(0);
         }
         finally
         {

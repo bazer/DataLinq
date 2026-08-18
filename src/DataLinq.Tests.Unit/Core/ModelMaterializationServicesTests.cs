@@ -96,7 +96,7 @@ public sealed class ModelMaterializationServicesTests
         var runtime = new RecordingRuntime { CompetingWinner = winner };
         var services = new ModelMaterializationServices("sql", runtime);
 
-        var materialized = services.MaterializeAfterKnownCacheMiss(providerRow);
+        var materialized = services.MaterializeAfterKnownCacheMiss(CreateLoadedRow(providerRow));
 
         await Assert.That(materialized).IsSameReferenceAs(winner);
         await Assert.That(materialized).IsNotSameReferenceAs(runtime.LastCreatedInstance!);
@@ -105,6 +105,8 @@ public sealed class ModelMaterializationServicesTests
         await Assert.That(runtime.CacheHitMetrics).IsEqualTo(0);
         await Assert.That(runtime.CacheMissMetrics).IsEqualTo(0);
         await Assert.That(runtime.FactoryCalls).IsEqualTo(1);
+        await Assert.That(runtime.LastFactoryKey!.Value.GetValue(0)).IsTypeOf<int>();
+        await Assert.That(runtime.LastFactoryKey.Value.GetValue(0)).IsEqualTo(42);
         await Assert.That(runtime.CacheAddCalls).IsEqualTo(1);
         await Assert.That(runtime.MaterializationMetrics).IsEqualTo(1);
         await Assert.That(runtime.CacheInsertionMetrics).IsEqualTo(0);
@@ -350,6 +352,14 @@ public sealed class ModelMaterializationServicesTests
             Origin = ScalarConverterOrigin.Property
         };
 
+    private static LoadedCanonicalRow CreateLoadedRow(CanonicalProviderValueRow providerRow)
+    {
+        if (!providerRow.TryCreateCanonicalPrimaryKey(out var canonicalProviderKey))
+            throw new InvalidOperationException("The test row must have a primary key.");
+
+        return new LoadedCanonicalRow(providerRow, canonicalProviderKey);
+    }
+
     private static TException Capture<TException>(Action action)
         where TException : Exception
     {
@@ -381,6 +391,7 @@ public sealed class ModelMaterializationServicesTests
         public int MaterializationMetrics { get; private set; }
         public int CacheInsertionMetrics { get; private set; }
         public DataLinqKey? LastLookupKey { get; private set; }
+        public DataLinqKey? LastFactoryKey { get; private set; }
         public DataLinqKey? LastCacheKey { get; private set; }
         public RowData? LastCacheRow { get; private set; }
         public TestImmutableInstance? LastCreatedInstance { get; private set; }
@@ -397,9 +408,12 @@ public sealed class ModelMaterializationServicesTests
             return cache.TryGetValue(canonicalProviderKey, out instance);
         }
 
-        public IImmutableInstance CreateImmutable(RowData rowData)
+        public IImmutableInstance CreateImmutable(
+            RowData rowData,
+            DataLinqKey? canonicalProviderKey)
         {
             FactoryCalls++;
+            LastFactoryKey = canonicalProviderKey;
             if (FactoryException is not null)
                 throw FactoryException;
 

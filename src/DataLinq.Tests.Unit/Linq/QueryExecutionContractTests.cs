@@ -151,7 +151,7 @@ public class QueryExecutionContractTests
     }
 
     [Test]
-    public async Task Prepare_StoresRequirementsAndTheExactSelectedBackend()
+    public async Task Prepare_UsesValueEnvelopesAndLazilyReconstructsRequirements()
     {
         var (metadata, invocation) = CreateEntityInvocation();
         var backend = new TrackingBackend(CreateCapabilities());
@@ -160,15 +160,45 @@ public class QueryExecutionContractTests
         var request = new QueryExecutionRequest(invocation, context);
 
         var validated = ValidatedQueryExecutionRequest.Prepare(request);
+        var requirements = validated.Requirements;
 
-        await Assert.That(ReferenceEquals(validated.Request, request)).IsTrue();
+        await Assert.That(typeof(QueryExecutionContext).IsValueType).IsTrue();
+        await Assert.That(typeof(QueryExecutionRequest).IsValueType).IsTrue();
+        await Assert.That(typeof(ValidatedQueryExecutionRequest).IsValueType).IsTrue();
+        await Assert.That(ReferenceEquals(validated.Request.Invocation, request.Invocation)).IsTrue();
         await Assert.That(ReferenceEquals(validated.Invocation, invocation)).IsTrue();
-        await Assert.That(ReferenceEquals(validated.Context, context)).IsTrue();
+        await Assert.That(ReferenceEquals(validated.Context.Source, context.Source)).IsTrue();
+        await Assert.That(validated.Context.CancellationToken).IsEqualTo(context.CancellationToken);
         await Assert.That(ReferenceEquals(validated.Backend, backend)).IsTrue();
-        await Assert.That(validated.Requirements.Structural.Count).IsGreaterThan(0);
-        await Assert.That(validated.Requirements.Structural.Any(requirement =>
+        await Assert.That(requirements.Structural.Count).IsGreaterThan(0);
+        await Assert.That(requirements.Structural.Any(requirement =>
             requirement.Feature == QueryPlanFeature.Projection(QueryPlanProjectionKind.Entity))).IsTrue();
         await Assert.That(source.BackendAccesses).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Prepare_AllocatesNothingForSupportedExecutionAfterWarmup()
+    {
+        var (metadata, invocation) = CreateEntityInvocation();
+        var backend = new TrackingBackend(CreateCapabilities());
+        var source = new TrackingReadSource(metadata, backend);
+        var request = new QueryExecutionRequest(
+            invocation,
+            new QueryExecutionContext(source, CancellationToken.None));
+        _ = ValidatedQueryExecutionRequest.Prepare(request);
+
+        var checksum = 0;
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var iteration = 0; iteration < 100; iteration++)
+        {
+            var validated = ValidatedQueryExecutionRequest.Prepare(request);
+            checksum += validated.Invocation.Values.Count;
+        }
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(allocated).IsEqualTo(0);
+        await Assert.That(checksum).IsEqualTo(invocation.Values.Count * 100);
+        await Assert.That(source.BackendAccesses).IsEqualTo(101);
     }
 
     [Test]
@@ -214,7 +244,10 @@ public class QueryExecutionContractTests
 
         await Assert.That(result).IsEqualTo(7);
         await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(1);
-        await Assert.That(ReferenceEquals(backend.LastScalarRequest, request)).IsTrue();
+        await Assert.That(backend.LastScalarRequest.HasValue).IsTrue();
+        await Assert.That(ReferenceEquals(
+            backend.LastScalarRequest!.Value.Invocation,
+            request.Invocation)).IsTrue();
         await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
         await Assert.That(backend.OpenProjectionCursorCalls).IsEqualTo(0);
         await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
@@ -237,7 +270,10 @@ public class QueryExecutionContractTests
 
         await Assert.That(result).IsFalse();
         await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(1);
-        await Assert.That(ReferenceEquals(backend.LastScalarRequest, request)).IsTrue();
+        await Assert.That(backend.LastScalarRequest.HasValue).IsTrue();
+        await Assert.That(ReferenceEquals(
+            backend.LastScalarRequest!.Value.Invocation,
+            request.Invocation)).IsTrue();
         await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
         await Assert.That(backend.OpenProjectionCursorCalls).IsEqualTo(0);
         await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
@@ -260,7 +296,10 @@ public class QueryExecutionContractTests
 
         await Assert.That(result).IsEquivalentTo(["Ada", "Grace"]);
         await Assert.That(backend.OpenProjectionCursorCalls).IsEqualTo(1);
-        await Assert.That(ReferenceEquals(backend.LastProjectionRequest, request)).IsTrue();
+        await Assert.That(backend.LastProjectionRequest.HasValue).IsTrue();
+        await Assert.That(ReferenceEquals(
+            backend.LastProjectionRequest!.Value.Invocation,
+            request.Invocation)).IsTrue();
         await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
         await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
         await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
@@ -283,7 +322,10 @@ public class QueryExecutionContractTests
 
         await Assert.That(result).IsEqualTo("Ada");
         await Assert.That(backend.OpenProjectionCursorCalls).IsEqualTo(1);
-        await Assert.That(ReferenceEquals(backend.LastProjectionRequest, request)).IsTrue();
+        await Assert.That(backend.LastProjectionRequest.HasValue).IsTrue();
+        await Assert.That(ReferenceEquals(
+            backend.LastProjectionRequest!.Value.Invocation,
+            request.Invocation)).IsTrue();
         await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
         await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
         await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
@@ -312,7 +354,10 @@ public class QueryExecutionContractTests
 
         await Assert.That(result).IsEquivalentTo(["Ada", "Grace"]);
         await Assert.That(backend.OpenProjectionCursorCalls).IsEqualTo(1);
-        await Assert.That(ReferenceEquals(backend.LastProjectionRequest, request)).IsTrue();
+        await Assert.That(backend.LastProjectionRequest.HasValue).IsTrue();
+        await Assert.That(ReferenceEquals(
+            backend.LastProjectionRequest!.Value.Invocation,
+            request.Invocation)).IsTrue();
         await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
         await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
         await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);
@@ -337,7 +382,10 @@ public class QueryExecutionContractTests
 
         await Assert.That(result).IsEqualTo("Ada");
         await Assert.That(backend.OpenProjectionCursorCalls).IsEqualTo(1);
-        await Assert.That(ReferenceEquals(backend.LastProjectionRequest, request)).IsTrue();
+        await Assert.That(backend.LastProjectionRequest.HasValue).IsTrue();
+        await Assert.That(ReferenceEquals(
+            backend.LastProjectionRequest!.Value.Invocation,
+            request.Invocation)).IsTrue();
         await Assert.That(backend.OpenEntityCursorCalls).IsEqualTo(0);
         await Assert.That(backend.ExecuteScalarCalls).IsEqualTo(0);
         await Assert.That(backend.TryExecuteTerminalEntityCalls).IsEqualTo(0);

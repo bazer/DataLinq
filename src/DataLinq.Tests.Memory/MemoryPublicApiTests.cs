@@ -78,7 +78,7 @@ public sealed class MemoryPublicApiTests
         await Assert.That(stored.RelatedId).IsEqualTo(new MemoryGuidId(KnownRelatedId));
         await Assert.That(stored.OptionalRelatedId).IsNull();
         await Assert.That(MemoryGuidIdConverter.ToProviderColumns)
-            .IsEquivalentTo(["id", "related_id", "id"]);
+            .IsEquivalentTo(["id", "related_id"]);
         await Assert.That(MemoryGuidIdConverter.FromProviderColumns)
             .IsEquivalentTo(["id", "related_id"]);
     }

@@ -353,9 +353,9 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         await Assert.That(services.RowLoader).IsSameReferenceAs(services.RowLoader);
         await Assert.That(result.Request).IsSameReferenceAs(request);
         await Assert.That(result.Rows.Length).IsEqualTo(2);
-        await Assert.That(result.Rows[0][table.GetColumnByDbName("id")]).IsEqualTo(42);
-        await Assert.That(result.Rows[0][table.GetColumnByDbName("id")]).IsTypeOf<int>();
-        await Assert.That(result.Rows[1][table.GetColumnByDbName("name")]).IsEqualTo("Grace");
+        await Assert.That(result.Rows[0].ProviderRow[table.GetColumnByDbName("id")]).IsEqualTo(42);
+        await Assert.That(result.Rows[0].ProviderRow[table.GetColumnByDbName("id")]).IsTypeOf<int>();
+        await Assert.That(result.Rows[1].ProviderRow[table.GetColumnByDbName("name")]).IsEqualTo("Grace");
         await Assert.That(writer.Values.Select(static value => value.Value).ToArray())
             .IsEquivalentTo(new object?[] { 42, 43 });
         await Assert.That(converter.ToProviderCalls).IsEqualTo(0);
@@ -435,8 +435,8 @@ public sealed class DataSourceAccessSourceRowLoaderTests
         await Assert.That(writer.Values[0].Value).IsEqualTo("Ada");
         await Assert.That(result.Request).IsSameReferenceAs(request);
         await Assert.That(result.Rows.Length).IsEqualTo(2);
-        await Assert.That(result.Rows[0][nameColumn]).IsEqualTo("Ada");
-        await Assert.That(result.Rows[1][table.GetColumnByDbName("id")]).IsEqualTo(43);
+        await Assert.That(result.Rows[0].ProviderRow[nameColumn]).IsEqualTo("Ada");
+        await Assert.That(result.Rows[1].ProviderRow[table.GetColumnByDbName("id")]).IsEqualTo(43);
         await Assert.That(converter.ToProviderCalls).IsEqualTo(0);
         await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
         await Assert.That(provider.CommandCreationCalls).IsEqualTo(1);

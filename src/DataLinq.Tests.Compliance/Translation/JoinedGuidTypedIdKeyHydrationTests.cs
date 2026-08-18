@@ -147,10 +147,9 @@ public sealed class JoinedGuidTypedIdKeyHydrationTests
             await Assert.That(warmRows[0][1]).IsSameReferenceAs(parent);
             await Assert.That(warmRows[1][1]).IsSameReferenceAs(parent);
 
-            // Immutable construction intentionally captures each model primary key once.
-            // These three calls are the two child keys plus the one shared parent key; any
-            // converter use in joined reader-key selection would add calls before cache lookup.
-            await Assert.That(coldToProviderCalls).IsEqualTo(3);
+            // Joined rows carry their reader-decoded canonical keys into immutable construction,
+            // so no model-to-provider key recapture should occur before cache publication.
+            await Assert.That(coldToProviderCalls).IsEqualTo(0);
             await Assert.That(warmToProviderCalls).IsEqualTo(coldToProviderCalls);
 
             // Cold materialization converts two child IDs, two parent FKs, and one parent ID.
@@ -353,11 +352,13 @@ public sealed class JoinedGuidTypedIdKeyHydrationTests
 
             await Assert.That(referenceSnapshot.Commands.ReaderExecutions).IsEqualTo(1);
             await Assert.That(referenceSnapshot.Relations.ReferenceLoads).IsEqualTo(coldRows.Length);
-            await Assert.That(coldToProviderCalls).IsEqualTo(3);
+            // Only the relation predicate converts the parent model key. The two loaded child
+            // immutables reuse their source-validated provider keys instead of converting again.
+            await Assert.That(coldToProviderCalls).IsEqualTo(1);
             await Assert.That(coldFromProviderCalls).IsEqualTo(4);
             await Assert.That(warmToProviderCalls).IsEqualTo(coldToProviderCalls);
             await Assert.That(warmFromProviderCalls).IsEqualTo(coldFromProviderCalls);
-            await Assert.That(JoinedGuidTypedIdConverter.ToProviderCalls).IsEqualTo(5);
+            await Assert.That(JoinedGuidTypedIdConverter.ToProviderCalls).IsEqualTo(3);
             await Assert.That(JoinedGuidTypedIdConverter.FromProviderCalls).IsEqualTo(4);
         }
         finally

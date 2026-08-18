@@ -11,8 +11,9 @@ namespace DataLinq.Instances;
 internal interface IModelMaterializationServices
 {
     IImmutableInstance GetOrMaterialize(CanonicalProviderValueRow providerRow);
+    IImmutableInstance GetOrMaterialize(LoadedCanonicalRow loadedRow);
     IImmutableInstance MaterializeAfterKnownCacheMiss(
-        CanonicalProviderValueRow providerRow);
+        LoadedCanonicalRow loadedRow);
 }
 
 /// <summary>
@@ -34,7 +35,9 @@ internal interface IModelMaterializationRuntime
     /// <summary>
     /// Invokes the generated immutable factory without recording materialization metrics.
     /// </summary>
-    IImmutableInstance CreateImmutable(RowData rowData);
+    IImmutableInstance CreateImmutable(
+        RowData rowData,
+        DataLinqKey? canonicalProviderKey);
 
     /// <summary>
     /// Publishes an immutable instance to the correctly scoped identity cache. Cache-disabled rows
@@ -102,8 +105,15 @@ internal sealed class ReadSourceModelMaterializationRuntime : IModelMaterializat
         out IImmutableInstance? instance) =>
         cache.TryGetCached(table, canonicalProviderKey, out instance);
 
-    public IImmutableInstance CreateImmutable(RowData rowData) =>
-        InstanceFactory.NewReadSourceImmutableRow(rowData, readSource);
+    public IImmutableInstance CreateImmutable(
+        RowData rowData,
+        DataLinqKey? canonicalProviderKey) =>
+        canonicalProviderKey.HasValue
+            ? InstanceFactory.NewReadSourceImmutableRow(
+                rowData,
+                readSource,
+                canonicalProviderKey.Value)
+            : InstanceFactory.NewReadSourceImmutableRow(rowData, readSource);
 
     public ModelCachePublicationResult PublishCached(
         TableDefinition table,
@@ -168,24 +178,38 @@ internal sealed class ModelMaterializationServices : IModelMaterializationServic
     }
 
     public IImmutableInstance GetOrMaterialize(CanonicalProviderValueRow providerRow)
-        => Materialize(providerRow, probeCache: true);
+    {
+        ArgumentNullException.ThrowIfNull(providerRow);
+        var canonicalProviderKey = providerRow.TryCreateCanonicalPrimaryKey(out var key)
+            ? key
+            : (DataLinqKey?)null;
+        return Materialize(providerRow, canonicalProviderKey, probeCache: true);
+    }
+
+    public IImmutableInstance GetOrMaterialize(LoadedCanonicalRow loadedRow) =>
+        Materialize(
+            loadedRow.ProviderRow,
+            loadedRow.CanonicalProviderKey,
+            probeCache: true);
 
     public IImmutableInstance MaterializeAfterKnownCacheMiss(
-        CanonicalProviderValueRow providerRow) =>
-        Materialize(providerRow, probeCache: false);
+        LoadedCanonicalRow loadedRow) =>
+        Materialize(
+            loadedRow.ProviderRow,
+            loadedRow.CanonicalProviderKey,
+            probeCache: false);
 
     private IImmutableInstance Materialize(
         CanonicalProviderValueRow providerRow,
+        DataLinqKey? canonicalProviderKey,
         bool probeCache)
     {
         ArgumentNullException.ThrowIfNull(providerRow);
 
-        var hasCanonicalKey =
-            providerRow.TryCreateCanonicalPrimaryKey(out var canonicalProviderKey);
-        if (hasCanonicalKey && probeCache)
+        if (canonicalProviderKey.HasValue && probeCache)
         {
             var cacheHit =
-                runtime.TryGetCached(providerRow.Table, canonicalProviderKey, out var cached) &&
+                runtime.TryGetCached(providerRow.Table, canonicalProviderKey.Value, out var cached) &&
                 cached is not null;
             runtime.RecordCacheLookup(providerRow.Table, cacheHit);
 
@@ -194,17 +218,17 @@ internal sealed class ModelMaterializationServices : IModelMaterializationServic
         }
 
         var rowData = ProviderRowMaterializer.Materialize(providerRow, sourceName);
-        var created = runtime.CreateImmutable(rowData)
+        var created = runtime.CreateImmutable(rowData, canonicalProviderKey)
             ?? throw new InvalidOperationException(
                 $"Immutable factory returned null for model '{providerRow.Table.Model.CsType}'.");
         runtime.RecordMaterialization(providerRow.Table);
 
-        if (!hasCanonicalKey)
+        if (!canonicalProviderKey.HasValue)
             return created;
 
         var publication = runtime.PublishCached(
             providerRow.Table,
-            canonicalProviderKey,
+            canonicalProviderKey.Value,
             rowData,
             created);
 

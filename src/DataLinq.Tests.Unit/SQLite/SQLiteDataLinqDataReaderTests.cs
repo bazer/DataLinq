@@ -76,6 +76,34 @@ public class SQLiteDataLinqDataReaderTests
         await Assert.That(exception.Message).DoesNotContain("mark the model property nullable");
     }
 
+    [Test]
+    public async Task GetBytes_DistinguishesEmptyBlobFromSqlNull()
+    {
+        using var reader = CreateReader("SELECT X'', NULL");
+
+        var empty = reader.GetBytes(0);
+        var sqlNull = reader.GetBytes(1);
+
+        await Assert.That(empty).IsNotNull();
+        await Assert.That(empty!).IsEmpty();
+        await Assert.That(sqlNull).IsNull();
+    }
+
+    [Test]
+    public async Task GetBytes_ReturnsExactIndependentBuffers()
+    {
+        using var reader = CreateReader("SELECT X'010203'");
+
+        var first = reader.GetBytes(0)!;
+        var second = reader.GetBytes(0)!;
+        first[0] = 9;
+
+        await Assert.That(first.Length).IsEqualTo(3);
+        await Assert.That(second.Length).IsEqualTo(3);
+        await Assert.That(first).IsNotSameReferenceAs(second);
+        await Assert.That(second).IsEquivalentTo(new byte[] { 1, 2, 3 });
+    }
+
     private static SQLiteDataLinqDataReader CreateReader(string sql)
     {
         var connection = new SqliteConnection("Data Source=:memory:");

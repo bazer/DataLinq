@@ -1143,6 +1143,76 @@ public class QueryPlanCapabilityValidationTests
     }
 
     [Test]
+    public async Task ExecutionCapabilityValidation_AllocatesNothingForSupportedInvocation()
+    {
+        var invocation = CreateRepresentativeInvocation(includeNestedPaging: true);
+        QueryPlanCapabilityValidator.ValidateForExecution(
+            invocation,
+            QueryBackendCapabilities.Sql);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var iteration = 0; iteration < 100; iteration++)
+        {
+            QueryPlanCapabilityValidator.ValidateForExecution(
+                invocation,
+                QueryBackendCapabilities.Sql);
+        }
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        if (allocated != 0)
+            throw new InvalidOperationException($"Execution validation allocated {allocated} bytes.");
+
+        await Assert.That(allocated).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task ExecutionCapabilityValidation_PreservesFirstInvocationDiagnostic()
+    {
+        var invocation = CreateRepresentativeInvocation();
+        var capabilities = WithUnsupported(
+            "shape-limited",
+            QueryPlanFeature.LocalSequenceShape(
+                QueryPlanLocalSequenceShapeKind.NonEmptyWithNulls));
+
+        var inspected = Capture<QueryBackendCapabilityException>(() =>
+            QueryPlanCapabilityValidator.Validate(invocation, capabilities));
+        var executed = Capture<QueryBackendCapabilityException>(() =>
+            QueryPlanCapabilityValidator.ValidateForExecution(invocation, capabilities));
+
+        await Assert.That(executed.BackendName).IsEqualTo(inspected.BackendName);
+        await Assert.That(executed.Feature).IsEqualTo(inspected.Feature);
+        await Assert.That(executed.Location).IsEqualTo(inspected.Location);
+        await Assert.That(executed.SourceId).IsEqualTo(inspected.SourceId);
+        await Assert.That(executed.ColumnName).IsEqualTo(inspected.ColumnName);
+        await Assert.That(executed.Message).IsEqualTo(inspected.Message);
+    }
+
+    [Test]
+    public async Task ExecutionCapabilityValidation_HandlesLargeInvocationWithoutTemporaryStorage()
+    {
+        const int bindingCount = 4096;
+        var table = GetTable<Employee>();
+        var source = Source("s0", "t0", table, QueryPlanSourceKind.RootTable);
+        var capture = new QueryPlanBindingCapture();
+        for (var index = 0; index < bindingCount; index++)
+            _ = capture.CaptureScalar(index, typeof(int));
+        var template = new QueryPlanTemplate(
+            [source],
+            [],
+            new QueryPlanProjection.Entity(source),
+            QueryPlanResult.Sequence(typeof(Employee)),
+            capture.CreateDeclarations(),
+            capture.CreateSpecialization());
+        var invocation = QueryPlanInvocation.Bind(template, capture.InvocationValues);
+
+        QueryPlanCapabilityValidator.ValidateForExecution(
+            invocation,
+            QueryBackendCapabilities.Sql);
+
+        await Assert.That(invocation.Values.Count).IsEqualTo(bindingCount);
+    }
+
+    [Test]
     public async Task Requirements_CompactFeatureSpansAlignWithLazyDiagnosticsForNestedPagingPlan()
     {
         var requirements = QueryPlanRequirements.Extract(

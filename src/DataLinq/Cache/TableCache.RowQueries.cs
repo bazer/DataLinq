@@ -12,11 +12,20 @@ namespace DataLinq.Cache;
 
 public partial class TableCache
 {
-    private IEnumerable<RowData> GetRowDataFromPrimaryKeyValues<TKey>(IEnumerable<TKey> keys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
+    private IEnumerable<RowData> GetRowDataFromPrimaryKeyValues<TKey>(
+        IReadOnlyList<TKey> keys,
+        int offset,
+        int count,
+        IDataSourceAccess dataSource,
+        List<OrderBy>? orderings = null)
         where TKey : notnull
     {
-        var keyArray = keys as TKey[] ?? keys.ToArray();
-        if (keyArray.Length == 0)
+        ArgumentNullException.ThrowIfNull(keys);
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        if (offset > keys.Count - count)
+            throw new ArgumentException("The requested primary-key slice exceeds the collection bounds.");
+        if (count == 0)
             return [];
 
         var q = new SqlQuery(Table, dataSource);
@@ -25,14 +34,23 @@ public partial class TableCache
         {
             var pkColumn = Table.PrimaryKeyColumns[0];
 
-            q.Where(pkColumn.DbName)
-             .In(keyArray.Select(key => dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, ProviderKeyComponents.GetValue(key, 0))));
+            var values = new object?[count];
+            for (var index = 0; index < count; index++)
+            {
+                values[index] = dataSource.Provider.GetWriter().ConvertColumnValue(
+                    pkColumn,
+                    ProviderKeyComponents.GetValue(keys[offset + index], 0));
+            }
+
+            q.Where(pkColumn.DbName).In(values);
         }
         else
         {
             var first = true;
-            foreach (var key in keyArray)
+            var exclusiveEnd = offset + count;
+            for (var keyIndex = offset; keyIndex < exclusiveEnd; keyIndex++)
             {
+                var key = keys[keyIndex];
                 ProviderKeyComponents.ThrowIfComponentCountMismatch(
                     key,
                     primaryKeyColumnsCount,

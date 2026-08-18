@@ -54,6 +54,8 @@ internal sealed class BenchmarkContext : IDisposable
     private readonly CanonicalProviderValueRow allocationProviderRow;
     private readonly CanonicalProviderValueRow[] allocationProviderRows;
     private readonly IModelMaterializationServices allocationMaterializationServices;
+    private readonly CanonicalKeyPropagationAllocationFixture canonicalKeyAllocations;
+    private readonly SourceLoadingAllocationFixture sourceLoadingAllocations;
     private readonly MutableEmployee[] allocationMutationModels;
     private readonly int startupEmployeeNumber;
     private readonly TestConnectionDefinition startupConnection;
@@ -114,6 +116,8 @@ internal sealed class BenchmarkContext : IDisposable
         allocationProviderReader = new PrecomputedProviderDataReader(allocationCanonicalValues);
         allocationMaterializationServices =
             ((IDataLinqReadServices)Database.Provider.ReadOnlyAccess).MaterializationServices;
+        canonicalKeyAllocations = new CanonicalKeyPropagationAllocationFixture();
+        sourceLoadingAllocations = new SourceLoadingAllocationFixture();
         allocationMutationModels = sampleEmployees
             .Select(employee =>
             {
@@ -456,7 +460,11 @@ internal sealed class BenchmarkContext : IDisposable
         for (var i = 0; i < BatchOperationCount; i++)
         {
             var request = ValidatedQueryExecutionRequest.Prepare(v09QueryExecutionRequest);
-            checksum += request.Requirements.StructuralCount + request.Requirements.InvocationCount;
+            // Requirements is diagnostic-only and intentionally lazy. Keep this receipt scoped to
+            // runtime preparation rather than explicit requirement introspection.
+            checksum +=
+                request.Invocation.Template.StructuralRequirementFeatures.Length +
+                request.Invocation.Values.Count;
         }
 
         return checksum;
@@ -675,12 +683,48 @@ internal sealed class BenchmarkContext : IDisposable
         for (var index = 0; index < allocationProviderRows.Length; index++)
         {
             var instance = allocationMaterializationServices
-                .MaterializeAfterKnownCacheMiss(allocationProviderRows[index]);
+                .MaterializeAfterKnownCacheMiss(
+                    new LoadedCanonicalRow(
+                        allocationProviderRows[index],
+                        sampleEmployeePrimaryKeys[index]));
             checksum = unchecked(checksum + ((RowData)instance.GetRowData()).Size);
         }
 
         return checksum;
     }
+
+    public int ReconstructCompositeCanonicalKeys() =>
+        canonicalKeyAllocations.ReconstructCompositeKeys();
+
+    public int PropagateScalarCanonicalKeys() =>
+        canonicalKeyAllocations.PropagateScalarKeys();
+
+    public int PropagateCompositeCanonicalKeys() =>
+        canonicalKeyAllocations.PropagateCompositeKeys();
+
+    public int PropagateTypedIdCanonicalKeys() =>
+        canonicalKeyAllocations.PropagateTypedIdKeys();
+
+    public int PropagateConverterBackedCanonicalKeys() =>
+        canonicalKeyAllocations.PropagateConverterBackedKeys();
+
+    public int PropagateBinaryCanonicalKeys() =>
+        canonicalKeyAllocations.PropagateBinaryKeys();
+
+    public int CreateSourceBatchSlices() =>
+        sourceLoadingAllocations.CreateBatchSlices();
+
+    public int ConstructSourceRequests() =>
+        sourceLoadingAllocations.ConstructBorrowedRequests();
+
+    public int ConstructSourceLoaderResultStorage() =>
+        sourceLoadingAllocations.ConstructLoaderResultStorage();
+
+    public int ValidateSourceResults() =>
+        sourceLoadingAllocations.ValidateLoaderResults();
+
+    public int PublishSourceCacheResults() =>
+        sourceLoadingAllocations.PublishCacheResults();
 
     public int CaptureMutationStateChanges()
     {
@@ -1109,6 +1153,17 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.SingularSourceSqlPreparation => PrepareSingularSourceSqlQueries(),
             BenchmarkScenario.SingularSourceResultValidation => ValidateSingularSourceResults(),
             BenchmarkScenario.KnownMissMaterializationPublication => MaterializeAndPublishKnownMissRows(),
+            BenchmarkScenario.CompositeKeyReconstructionBaseline => ReconstructCompositeCanonicalKeys(),
+            BenchmarkScenario.ScalarCanonicalKeyPropagation => PropagateScalarCanonicalKeys(),
+            BenchmarkScenario.CompositeCanonicalKeyPropagation => PropagateCompositeCanonicalKeys(),
+            BenchmarkScenario.TypedIdCanonicalKeyPropagation => PropagateTypedIdCanonicalKeys(),
+            BenchmarkScenario.ConverterBackedCanonicalKeyPropagation => PropagateConverterBackedCanonicalKeys(),
+            BenchmarkScenario.BinaryCanonicalKeyPropagation => PropagateBinaryCanonicalKeys(),
+            BenchmarkScenario.SourceBatchSliceCreation => CreateSourceBatchSlices(),
+            BenchmarkScenario.SourceRequestConstruction => ConstructSourceRequests(),
+            BenchmarkScenario.SourceLoaderResultConstruction => ConstructSourceLoaderResultStorage(),
+            BenchmarkScenario.SourceResultValidation => ValidateSourceResults(),
+            BenchmarkScenario.SourceCacheResultPublication => PublishSourceCacheResults(),
             BenchmarkScenario.MutationStateChangeCapture => CaptureMutationStateChanges(),
             BenchmarkScenario.MutationExecutionPreflight => ValidateMutationExecutionPreflight(),
             BenchmarkScenario.MutationCommandPreparation => PrepareMutationCommands(),
@@ -1242,6 +1297,17 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.SingularSourceSqlPreparation => BatchOperationCount,
             BenchmarkScenario.SingularSourceResultValidation => BatchOperationCount,
             BenchmarkScenario.KnownMissMaterializationPublication => BatchOperationCount,
+            BenchmarkScenario.CompositeKeyReconstructionBaseline => BatchOperationCount,
+            BenchmarkScenario.ScalarCanonicalKeyPropagation => BatchOperationCount,
+            BenchmarkScenario.CompositeCanonicalKeyPropagation => BatchOperationCount,
+            BenchmarkScenario.TypedIdCanonicalKeyPropagation => BatchOperationCount,
+            BenchmarkScenario.ConverterBackedCanonicalKeyPropagation => BatchOperationCount,
+            BenchmarkScenario.BinaryCanonicalKeyPropagation => BatchOperationCount,
+            BenchmarkScenario.SourceBatchSliceCreation => BatchOperationCount,
+            BenchmarkScenario.SourceRequestConstruction => BatchOperationCount,
+            BenchmarkScenario.SourceLoaderResultConstruction => BatchOperationCount,
+            BenchmarkScenario.SourceResultValidation => BatchOperationCount,
+            BenchmarkScenario.SourceCacheResultPublication => BatchOperationCount,
             BenchmarkScenario.MutationStateChangeCapture => BatchOperationCount,
             BenchmarkScenario.MutationExecutionPreflight => BatchOperationCount,
             BenchmarkScenario.MutationCommandPreparation => BatchOperationCount,
@@ -1320,6 +1386,17 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.SingularSourceSqlPreparation => "Singular source SQL preparation",
             BenchmarkScenario.SingularSourceResultValidation => "Singular source result validation",
             BenchmarkScenario.KnownMissMaterializationPublication => "Known-miss materialization/publication",
+            BenchmarkScenario.CompositeKeyReconstructionBaseline => "Composite key reconstruction baseline",
+            BenchmarkScenario.ScalarCanonicalKeyPropagation => "Scalar canonical-key propagation",
+            BenchmarkScenario.CompositeCanonicalKeyPropagation => "Composite canonical-key propagation",
+            BenchmarkScenario.TypedIdCanonicalKeyPropagation => "Typed-ID canonical-key propagation",
+            BenchmarkScenario.ConverterBackedCanonicalKeyPropagation => "Converter-backed canonical-key propagation",
+            BenchmarkScenario.BinaryCanonicalKeyPropagation => "Binary canonical-key propagation",
+            BenchmarkScenario.SourceBatchSliceCreation => "Source batch slice creation",
+            BenchmarkScenario.SourceRequestConstruction => "Source request construction",
+            BenchmarkScenario.SourceLoaderResultConstruction => "Source loader result construction",
+            BenchmarkScenario.SourceResultValidation => "Source result validation",
+            BenchmarkScenario.SourceCacheResultPublication => "Source cache result publication",
             BenchmarkScenario.MutationStateChangeCapture => "Mutation state-change capture",
             BenchmarkScenario.MutationExecutionPreflight => "Mutation execution preflight",
             BenchmarkScenario.MutationCommandPreparation => "Mutation command preparation",

@@ -78,7 +78,7 @@ public sealed class MemoryModelSeedTests
         await Assert.That(MemoryGuidIdConverter.FromProviderColumns)
             .IsEquivalentTo(["id", "related_id"], CollectionOrdering.Matching);
         await Assert.That(MemoryGuidIdConverter.ToProviderColumns)
-            .IsEquivalentTo(["id", "related_id", "id"], CollectionOrdering.Matching);
+            .IsEquivalentTo(["id", "related_id"], CollectionOrdering.Matching);
 
         database.ClearMaterializedRowsForTest<MemoryConvertedRow>();
         var rematerialized = database.FindCanonical<MemoryConvertedRow>(DataLinqKey.FromValue(KnownId));
@@ -92,7 +92,7 @@ public sealed class MemoryModelSeedTests
                 CollectionOrdering.Matching);
         await Assert.That(MemoryGuidIdConverter.ToProviderColumns)
             .IsEquivalentTo(
-                ["id", "related_id", "id", "id"],
+                ["id", "related_id"],
                 CollectionOrdering.Matching);
     }
 
@@ -136,7 +136,7 @@ public sealed class MemoryModelSeedTests
                 ["id", "related_id", "optional_related_id"],
                 CollectionOrdering.Matching);
         await Assert.That(MemoryGuidIdConverter.ToProviderColumns)
-            .IsEquivalentTo(["id"], CollectionOrdering.Matching);
+            .IsEmpty();
     }
 
     [Test]
@@ -311,7 +311,7 @@ public sealed class MemoryModelSeedTests
         await Assert.That(recovered).IsNotNull();
         await Assert.That(recovered!.Id).IsEqualTo(new MemoryGuidId(KnownId));
         await Assert.That(MemoryGuidIdConverter.ToProviderColumns)
-            .IsEquivalentTo(["id", "related_id", "id"], CollectionOrdering.Matching);
+            .IsEquivalentTo(["id", "related_id"], CollectionOrdering.Matching);
         await Assert.That(MemoryGuidIdConverter.FromProviderColumns)
             .IsEquivalentTo(["id", "related_id"], CollectionOrdering.Matching);
     }

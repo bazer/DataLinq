@@ -1,10 +1,69 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Immutable;
+using System.Linq;
 using System.Threading;
 using DataLinq.Metadata;
 
 namespace DataLinq.Instances;
+
+/// <summary>
+/// Read-only index/count view over stable collection storage. The view never exposes its backing
+/// collection and its pattern enumerator avoids the interface-enumerator allocation in
+/// performance-sensitive synchronous loops.
+/// </summary>
+internal readonly struct ReadOnlyListSlice<T> : IReadOnlyList<T>
+{
+    private readonly IReadOnlyList<T> source;
+    private readonly int offset;
+
+    internal ReadOnlyListSlice(IReadOnlyList<T> source, int offset, int count)
+    {
+        this.source = source ?? throw new ArgumentNullException(nameof(source));
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        if (offset > source.Count - count)
+            throw new ArgumentException("The requested slice exceeds the source collection bounds.");
+
+        this.offset = offset;
+        Count = count;
+    }
+
+    internal ReadOnlyListSlice(IReadOnlyList<T> source)
+        : this(source, 0, source?.Count ?? throw new ArgumentNullException(nameof(source)))
+    {
+    }
+
+    public int Count { get; }
+    internal int Length => Count;
+
+    public T this[int index]
+    {
+        get
+        {
+            if ((uint)index >= (uint)Count)
+                throw new ArgumentOutOfRangeException(nameof(index));
+
+            return source[offset + index];
+        }
+    }
+
+    public Enumerator GetEnumerator() => new(this);
+    IEnumerator<T> IEnumerable<T>.GetEnumerator() => GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    internal struct Enumerator(ReadOnlyListSlice<T> slice) : IEnumerator<T>
+    {
+        private int index = -1;
+
+        public T Current => slice[index];
+        object? IEnumerator.Current => Current;
+
+        public bool MoveNext() => ++index < slice.Count;
+        public void Reset() => index = -1;
+        public void Dispose() { }
+    }
+}
 
 /// <summary>
 /// Immutable request for a finite batch of full canonical-provider rows selected by primary key.
@@ -17,37 +76,71 @@ internal sealed class SourcePrimaryKeyRowRequest
         TableDefinition table,
         IEnumerable<DataLinqKey> canonicalProviderKeys,
         CancellationToken cancellationToken = default)
+        : this(
+            table,
+            SnapshotKeys(canonicalProviderKeys),
+            cancellationToken,
+            nameof(canonicalProviderKeys))
+    {
+    }
+
+    private SourcePrimaryKeyRowRequest(
+        TableDefinition table,
+        ReadOnlyListSlice<DataLinqKey> canonicalProviderKeys,
+        CancellationToken cancellationToken,
+        string parameterName)
     {
         Table = table ?? throw new ArgumentNullException(nameof(table));
-        ArgumentNullException.ThrowIfNull(canonicalProviderKeys);
 
         SourceRowLoadingValidation.ValidatePrimaryKeyTable(table);
 
-        var keys = ImmutableArray.CreateRange(canonicalProviderKeys);
-        if (keys.IsDefaultOrEmpty)
+        if (canonicalProviderKeys.Length == 0)
         {
             throw new ArgumentException(
                 "A primary-key row request requires at least one canonical provider key.",
-                nameof(canonicalProviderKeys));
+                parameterName);
         }
 
-        for (var keyIndex = 0; keyIndex < keys.Length; keyIndex++)
+        for (var keyIndex = 0; keyIndex < canonicalProviderKeys.Length; keyIndex++)
             SourceRowLoadingValidation.ValidateCanonicalKey(
                 table,
-                keys[keyIndex],
+                canonicalProviderKeys[keyIndex],
                 keyIndex,
-                nameof(canonicalProviderKeys));
+                parameterName);
 
-        CanonicalProviderKeys = keys;
+        CanonicalProviderKeys = canonicalProviderKeys;
         CancellationToken = cancellationToken;
     }
 
+    /// <summary>
+    /// Borrows one slice of caller-owned stable storage for a synchronous load. The caller must not
+    /// mutate the collection until the returned result has been consumed.
+    /// </summary>
+    internal static SourcePrimaryKeyRowRequest Borrow(
+        TableDefinition table,
+        IReadOnlyList<DataLinqKey> canonicalProviderKeys,
+        int offset,
+        int count,
+        CancellationToken cancellationToken = default) =>
+        new(
+            table,
+            new ReadOnlyListSlice<DataLinqKey>(canonicalProviderKeys, offset, count),
+            cancellationToken,
+            nameof(canonicalProviderKeys));
+
     internal TableDefinition Table { get; }
-    internal ImmutableArray<DataLinqKey> CanonicalProviderKeys { get; }
+    internal ReadOnlyListSlice<DataLinqKey> CanonicalProviderKeys { get; }
     internal CancellationToken CancellationToken { get; }
 
     internal void ThrowIfCancellationRequested() =>
         CancellationToken.ThrowIfCancellationRequested();
+
+    private static ReadOnlyListSlice<DataLinqKey> SnapshotKeys(
+        IEnumerable<DataLinqKey> canonicalProviderKeys)
+    {
+        ArgumentNullException.ThrowIfNull(canonicalProviderKeys);
+        return new ReadOnlyListSlice<DataLinqKey>(canonicalProviderKeys.ToArray());
+    }
 }
 
 internal static class SourceRowLoadingValidation
@@ -259,63 +352,170 @@ internal sealed class SourceIndexRowRequest
 }
 
 /// <summary>
+/// Short-lived source-boundary row carrier. The canonical key owns any mutable components and is
+/// reused by cache lookup, materialization, immutable construction, and cache publication.
+/// </summary>
+internal readonly record struct LoadedCanonicalRow
+{
+    internal LoadedCanonicalRow(
+        CanonicalProviderValueRow providerRow,
+        DataLinqKey canonicalProviderKey)
+    {
+        ProviderRow = providerRow ?? throw new ArgumentNullException(nameof(providerRow));
+        CanonicalProviderKey = canonicalProviderKey;
+    }
+
+    internal CanonicalProviderValueRow ProviderRow { get; }
+    internal DataLinqKey CanonicalProviderKey { get; }
+}
+
+/// <summary>
 /// Owned finite result from a source-row loader. Implementations must finish and dispose any backend
 /// cursor before constructing this result; no reader lifetime escapes through the neutral contract.
 /// </summary>
 internal sealed class SourceRowLoadResult
 {
+    // The dedicated crossover benchmark keeps linear scans decisively ahead through 16 rows;
+    // hash sets reach parity around 32 while adding 1.7-4 KB per validation at those sizes.
+    internal const int LinearValidationThreshold = 16;
+
     internal SourceRowLoadResult(
         SourcePrimaryKeyRowRequest request,
         IEnumerable<CanonicalProviderValueRow> rows)
     {
-        Request = request ?? throw new ArgumentNullException(nameof(request));
+        ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(rows);
 
-        var snapshot = ImmutableArray.CreateRange(rows);
-        var requestedKeys = new HashSet<DataLinqKey>(request.CanonicalProviderKeys);
-        var returnedKeys = new HashSet<DataLinqKey>();
-        for (var index = 0; index < snapshot.Length; index++)
+        var builder = new Builder(
+            request,
+            rows is ICollection<CanonicalProviderValueRow> collection ? collection.Count : 0);
+        foreach (var candidate in rows)
+            builder.Add(candidate, nameof(rows));
+
+        var built = builder.Build();
+        Request = built.Request;
+        Rows = built.Rows;
+    }
+
+    private SourceRowLoadResult(
+        SourcePrimaryKeyRowRequest request,
+        List<LoadedCanonicalRow> ownedRows)
+    {
+        Request = request;
+        Rows = new ReadOnlyListSlice<LoadedCanonicalRow>(ownedRows);
+    }
+
+    internal SourcePrimaryKeyRowRequest Request { get; }
+    internal TableDefinition Table => Request.Table;
+    internal ReadOnlyListSlice<LoadedCanonicalRow> Rows { get; }
+
+    internal struct Builder
+    {
+        private readonly SourcePrimaryKeyRowRequest request;
+        private readonly List<LoadedCanonicalRow> rows;
+        private HashSet<DataLinqKey>? requestedKeys;
+        private HashSet<DataLinqKey>? returnedKeys;
+        private bool built;
+
+        internal Builder(SourcePrimaryKeyRowRequest request, int capacity = 0)
         {
-            var row = snapshot[index]
+            this.request = request ?? throw new ArgumentNullException(nameof(request));
+            rows = capacity > 0
+                ? new List<LoadedCanonicalRow>(capacity)
+                : [];
+        }
+
+        internal void Add(CanonicalProviderValueRow? candidate, string parameterName = "rows")
+        {
+            if (built)
+                throw new InvalidOperationException("A source-row result builder cannot be reused after Build.");
+
+            var index = rows.Count;
+            var row = candidate
                 ?? throw new ArgumentException(
                     $"Source-row result for table '{request.Table.DbName}' contains a null row at index {index}.",
-                    nameof(rows));
+                    parameterName);
 
             if (!ReferenceEquals(row.Table, request.Table))
             {
                 throw new ArgumentException(
                     $"Source-row result for table '{request.Table.DbName}' contains a row from table '{row.Table.DbName}' at index {index}.",
-                    nameof(rows));
+                    parameterName);
             }
 
             if (!row.TryCreateCanonicalPrimaryKey(out var rowKey))
             {
                 throw new ArgumentException(
                     $"Source-row result for table '{request.Table.DbName}' contains a row without a canonical primary key at index {index}.",
-                    nameof(rows));
+                    parameterName);
             }
 
-            if (!requestedKeys.Contains(rowKey))
+            if (!ContainsRequestedKey(rowKey))
             {
                 throw new ArgumentException(
                     $"Source-row result for table '{request.Table.DbName}' contains an unrequested primary key at index {index}.",
-                    nameof(rows));
+                    parameterName);
             }
 
-            if (!returnedKeys.Add(rowKey))
+            if (ContainsReturnedKey(rowKey))
             {
                 throw new ArgumentException(
                     $"Source-row result for table '{request.Table.DbName}' contains duplicate primary key '{rowKey}' at index {index}.",
-                    nameof(rows));
+                    parameterName);
             }
+
+            rows.Add(new LoadedCanonicalRow(row, rowKey));
         }
 
-        Rows = snapshot;
-    }
+        internal SourceRowLoadResult Build()
+        {
+            if (built)
+                throw new InvalidOperationException("A source-row result builder can build only once.");
 
-    internal SourcePrimaryKeyRowRequest Request { get; }
-    internal TableDefinition Table => Request.Table;
-    internal ImmutableArray<CanonicalProviderValueRow> Rows { get; }
+            built = true;
+            return new SourceRowLoadResult(request, rows);
+        }
+
+        private bool ContainsRequestedKey(DataLinqKey key)
+        {
+            if (request.CanonicalProviderKeys.Length <= LinearValidationThreshold)
+            {
+                for (var index = 0; index < request.CanonicalProviderKeys.Length; index++)
+                {
+                    if (request.CanonicalProviderKeys[index].Equals(key))
+                        return true;
+                }
+
+                return false;
+            }
+
+            requestedKeys ??= new HashSet<DataLinqKey>(request.CanonicalProviderKeys);
+            return requestedKeys.Contains(key);
+        }
+
+        private bool ContainsReturnedKey(DataLinqKey key)
+        {
+            if (rows.Count < LinearValidationThreshold)
+            {
+                for (var index = 0; index < rows.Count; index++)
+                {
+                    if (rows[index].CanonicalProviderKey.Equals(key))
+                        return true;
+                }
+
+                return false;
+            }
+
+            if (returnedKeys is null)
+            {
+                returnedKeys = new HashSet<DataLinqKey>();
+                for (var index = 0; index < rows.Count; index++)
+                    returnedKeys.Add(rows[index].CanonicalProviderKey);
+            }
+
+            return !returnedKeys.Add(key);
+        }
+    }
 }
 
 /// <summary>
@@ -329,47 +529,115 @@ internal sealed class SourceIndexRowLoadResult
         SourceIndexRowRequest request,
         IEnumerable<CanonicalProviderValueRow> rows)
     {
-        Request = request ?? throw new ArgumentNullException(nameof(request));
+        ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(rows);
 
-        var snapshot = ImmutableArray.CreateRange(rows);
-        var returnedKeys = new HashSet<DataLinqKey>();
-        for (var index = 0; index < snapshot.Length; index++)
+        var builder = new Builder(
+            request,
+            rows is ICollection<CanonicalProviderValueRow> collection ? collection.Count : 0);
+        foreach (var candidate in rows)
+            builder.Add(candidate, nameof(rows));
+
+        var built = builder.Build();
+        Request = built.Request;
+        Rows = built.Rows;
+    }
+
+    private SourceIndexRowLoadResult(
+        SourceIndexRowRequest request,
+        List<LoadedCanonicalRow> ownedRows)
+    {
+        Request = request;
+        Rows = new ReadOnlyListSlice<LoadedCanonicalRow>(ownedRows);
+    }
+
+    internal SourceIndexRowRequest Request { get; }
+    internal TableDefinition Table => Request.Table;
+    internal ColumnIndex Index => Request.Index;
+    internal ReadOnlyListSlice<LoadedCanonicalRow> Rows { get; }
+
+    internal struct Builder
+    {
+        private readonly SourceIndexRowRequest request;
+        private readonly List<LoadedCanonicalRow> rows;
+        private HashSet<DataLinqKey>? returnedKeys;
+        private bool built;
+
+        internal Builder(SourceIndexRowRequest request, int capacity = 0)
         {
-            var row = snapshot[index]
+            this.request = request ?? throw new ArgumentNullException(nameof(request));
+            rows = capacity > 0
+                ? new List<LoadedCanonicalRow>(capacity)
+                : [];
+        }
+
+        internal void Add(CanonicalProviderValueRow? candidate, string parameterName = "rows")
+        {
+            if (built)
+                throw new InvalidOperationException("A source-index result builder cannot be reused after Build.");
+
+            var index = rows.Count;
+            var row = candidate
                 ?? throw new ArgumentException(
                     $"Source-index row result for table '{request.Table.DbName}' contains a null row at index {index}.",
-                    nameof(rows));
+                    parameterName);
 
             if (!ReferenceEquals(row.Table, request.Table))
             {
                 throw new ArgumentException(
                     $"Source-index row result for table '{request.Table.DbName}' contains a row from table '{row.Table.DbName}' at index {index}.",
-                    nameof(rows));
+                    parameterName);
             }
 
             if (!row.TryCreateCanonicalPrimaryKey(out var rowKey))
             {
                 throw new ArgumentException(
                     $"Source-index row result for table '{request.Table.DbName}' contains a row without a canonical primary key at index {index}.",
-                    nameof(rows));
+                    parameterName);
             }
 
-            if (!returnedKeys.Add(rowKey))
+            if (ContainsReturnedKey(rowKey))
             {
                 throw new ArgumentException(
                     $"Source-index row result for table '{request.Table.DbName}' contains duplicate primary key '{rowKey}' at index {index}.",
-                    nameof(rows));
+                    parameterName);
             }
+
+            rows.Add(new LoadedCanonicalRow(row, rowKey));
         }
 
-        Rows = snapshot;
-    }
+        internal SourceIndexRowLoadResult Build()
+        {
+            if (built)
+                throw new InvalidOperationException("A source-index result builder can build only once.");
 
-    internal SourceIndexRowRequest Request { get; }
-    internal TableDefinition Table => Request.Table;
-    internal ColumnIndex Index => Request.Index;
-    internal ImmutableArray<CanonicalProviderValueRow> Rows { get; }
+            built = true;
+            return new SourceIndexRowLoadResult(request, rows);
+        }
+
+        private bool ContainsReturnedKey(DataLinqKey key)
+        {
+            if (rows.Count < SourceRowLoadResult.LinearValidationThreshold)
+            {
+                for (var index = 0; index < rows.Count; index++)
+                {
+                    if (rows[index].CanonicalProviderKey.Equals(key))
+                        return true;
+                }
+
+                return false;
+            }
+
+            if (returnedKeys is null)
+            {
+                returnedKeys = new HashSet<DataLinqKey>();
+                for (var index = 0; index < rows.Count; index++)
+                    returnedKeys.Add(rows[index].CanonicalProviderKey);
+            }
+
+            return !returnedKeys.Add(key);
+        }
+    }
 }
 
 /// <summary>

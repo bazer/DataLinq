@@ -9,7 +9,7 @@ using MySqlConnector;
 
 namespace DataLinq.MySql;
 
-public struct SqlDataLinqDataReader : IDataLinqDataReader, IDisposable
+public struct SqlDataLinqDataReader : IDataLinqDataReader, IDataLinqOwnedBinaryBufferReader, IDisposable
 {
     public SqlDataLinqDataReader(MySqlDataReader dataReader)
         : this(dataReader, null)
@@ -93,18 +93,29 @@ public struct SqlDataLinqDataReader : IDataLinqDataReader, IDisposable
 
     public byte[]? GetBytes(int ordinal)
     {
-        if (GetByteLength(ordinal) == 0)
+        if (IsDbNull(ordinal))
             return null;
 
-        var buffer = new byte[GetByteLength(ordinal)];
-        if (GetBytes(ordinal, buffer) == 0)
-            throw new Exception($"Unexpectedly read 0 bytes from column ordinal {ordinal}");
+        var length = GetByteLength(ordinal);
+        if (length == 0)
+            return [];
+
+        var buffer = new byte[checked((int)length)];
+        var bytesRead = dataReader.GetBytes(ordinal, 0, buffer, 0, buffer.Length);
+        if (bytesRead != length)
+            throw new InvalidOperationException(
+                $"Expected to read {length} bytes from column ordinal {ordinal}, but read {bytesRead}.");
 
         return buffer;
     }
 
+    byte[]? IDataLinqOwnedBinaryBufferReader.TakeOwnedBytes(int ordinal) => GetBytes(ordinal);
+
     public long GetBytes(int ordinal, Span<byte> buffer)
     {
+        if (buffer.IsEmpty)
+            return 0;
+
         byte[] tempBuffer = ArrayPool<byte>.Shared.Rent(buffer.Length);
 
         try

@@ -5,7 +5,7 @@ using DataLinq.Interfaces;
 
 namespace DataLinq.Linq.Planning;
 
-internal sealed record QueryExecutionContext
+internal readonly struct QueryExecutionContext
 {
     public QueryExecutionContext(
         IDataLinqReadSource source,
@@ -21,14 +21,13 @@ internal sealed record QueryExecutionContext
     public CancellationToken CancellationToken { get; }
 }
 
-internal sealed record QueryExecutionRequest
+internal readonly struct QueryExecutionRequest
 {
     public QueryExecutionRequest(
         QueryPlanInvocation invocation,
         QueryExecutionContext context)
     {
         ArgumentNullException.ThrowIfNull(invocation);
-        ArgumentNullException.ThrowIfNull(context);
         Invocation = invocation;
         Context = context;
     }
@@ -38,15 +37,13 @@ internal sealed record QueryExecutionRequest
     public QueryExecutionContext Context { get; }
 }
 
-internal sealed class ValidatedQueryExecutionRequest
+internal readonly struct ValidatedQueryExecutionRequest
 {
     private ValidatedQueryExecutionRequest(
         QueryExecutionRequest request,
-        QueryPlanRequirements requirements,
         IQueryPlanBackend backend)
     {
         Request = request;
-        Requirements = requirements;
         Backend = backend;
     }
 
@@ -56,15 +53,20 @@ internal sealed class ValidatedQueryExecutionRequest
 
     public QueryExecutionContext Context => Request.Context;
 
-    public QueryPlanRequirements Requirements { get; }
+    /// <summary>
+    /// Reconstructs the inspectable requirement model on demand. Runtime execution validates the
+    /// compact features directly and never retains this diagnostic-only object graph.
+    /// </summary>
+    public QueryPlanRequirements Requirements => QueryPlanRequirements.Extract(Invocation);
 
     public IQueryPlanBackend Backend { get; }
 
-    public static ValidatedQueryExecutionRequest Prepare(QueryExecutionRequest request)
+    public static ValidatedQueryExecutionRequest Prepare(in QueryExecutionRequest request)
     {
-        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.Invocation);
 
         var context = request.Context;
+        ArgumentNullException.ThrowIfNull(context.Source);
         context.CancellationToken.ThrowIfCancellationRequested();
         ValidateSourceOwnership(request.Invocation, context.Source);
 
@@ -82,11 +84,11 @@ internal sealed class ValidatedQueryExecutionRequest
                 "The read source returned a query-plan backend bound to another source.");
         }
 
-        var requirements = QueryPlanCapabilityValidator.Validate(
+        QueryPlanCapabilityValidator.ValidateForExecution(
             request.Invocation,
             backend.Capabilities);
 
-        return new ValidatedQueryExecutionRequest(request, requirements, backend);
+        return new ValidatedQueryExecutionRequest(request, backend);
     }
 
     public void EnsureBackend(IQueryPlanBackend backend)
@@ -109,8 +111,10 @@ internal sealed class ValidatedQueryExecutionRequest
         QueryPlanInvocation invocation,
         IDataLinqReadSource source)
     {
-        foreach (var sourceSlot in invocation.Template.Sources)
+        var sourceSlots = invocation.Template.Sources;
+        for (var index = 0; index < sourceSlots.Count; index++)
         {
+            var sourceSlot = sourceSlots[index];
             if (ReferenceEquals(sourceSlot.Table.Database, source.Metadata))
                 continue;
 

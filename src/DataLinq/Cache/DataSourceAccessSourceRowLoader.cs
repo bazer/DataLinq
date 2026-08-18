@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -59,13 +58,11 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
 
         request.ThrowIfCancellationRequested();
         var select = CreateSelect(request);
-        var rows = ReadCanonicalRows(
+        var result = ReadCanonicalRows(
             select,
-            request.Table,
-            request.CancellationToken,
-            request.CanonicalProviderKeys.Length);
+            request);
         request.ThrowIfCancellationRequested();
-        return new SourceRowLoadResult(request, rows);
+        return result;
     }
 
     public SourceIndexRowLoadResult Load(SourceIndexRowRequest request)
@@ -75,12 +72,11 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
 
         request.ThrowIfCancellationRequested();
         var select = CreateSelect(request);
-        var rows = ReadCanonicalRows(
+        var result = ReadCanonicalRows(
             select,
-            request.Table,
-            request.CancellationToken);
+            request);
         request.ThrowIfCancellationRequested();
-        return new SourceIndexRowLoadResult(request, rows);
+        return result;
     }
 
     private void EnsureCanLoad(TableDefinition table, string operation)
@@ -94,17 +90,18 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
         }
     }
 
-    private List<CanonicalProviderValueRow> ReadCanonicalRows(
+    private SourceRowLoadResult ReadCanonicalRows(
         Select<object> select,
-        TableDefinition table,
-        CancellationToken cancellationToken,
-        int capacity = 0)
+        SourcePrimaryKeyRowRequest request)
     {
+        var cancellationToken = request.CancellationToken;
         cancellationToken.ThrowIfCancellationRequested();
         using var command = select.ToDbCommand();
         cancellationToken.ThrowIfCancellationRequested();
         using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
-        var rows = new List<CanonicalProviderValueRow>(capacity);
+        var builder = new SourceRowLoadResult.Builder(
+            request,
+            request.CanonicalProviderKeys.Length);
 
         while (true)
         {
@@ -113,11 +110,42 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
                 break;
 
             cancellationToken.ThrowIfCancellationRequested();
-            rows.Add(ProviderRowDecoder.DecodeFullRow(reader, table, sourceName));
+            builder.Add(ProviderRowDecoder.DecodeFullRow(
+                reader,
+                request.Table,
+                sourceName));
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        return rows;
+        return builder.Build();
+    }
+
+    private SourceIndexRowLoadResult ReadCanonicalRows(
+        Select<object> select,
+        SourceIndexRowRequest request)
+    {
+        var cancellationToken = request.CancellationToken;
+        cancellationToken.ThrowIfCancellationRequested();
+        using var command = select.ToDbCommand();
+        cancellationToken.ThrowIfCancellationRequested();
+        using var reader = dataSource.DatabaseAccess.ExecuteReader(command);
+        var builder = new SourceIndexRowLoadResult.Builder(request);
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!reader.ReadNextRow())
+                break;
+
+            cancellationToken.ThrowIfCancellationRequested();
+            builder.Add(ProviderRowDecoder.DecodeFullRow(
+                reader,
+                request.Table,
+                sourceName));
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return builder.Build();
     }
 
     private CanonicalProviderValueRow? ReadSingleCanonicalRow(

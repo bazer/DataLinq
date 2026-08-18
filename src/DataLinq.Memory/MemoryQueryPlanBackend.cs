@@ -111,7 +111,6 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
 
     public IQueryEntityCursor OpenEntityCursor(ValidatedQueryExecutionRequest request)
     {
-        ArgumentNullException.ThrowIfNull(request);
         request.EnsureBackend(this);
         request.Context.CancellationToken.ThrowIfCancellationRequested();
 
@@ -139,7 +138,6 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
     public IQueryProjectionCursor<TResult> OpenProjectionCursor<TResult>(
         ValidatedQueryExecutionRequest request)
     {
-        ArgumentNullException.ThrowIfNull(request);
         request.EnsureBackend(this);
         request.Context.CancellationToken.ThrowIfCancellationRequested();
 
@@ -172,7 +170,6 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
 
     public TResult ExecuteScalar<TResult>(ValidatedQueryExecutionRequest request)
     {
-        ArgumentNullException.ThrowIfNull(request);
         request.EnsureBackend(this);
         var cancellationToken = request.Context.CancellationToken;
         cancellationToken.ThrowIfCancellationRequested();
@@ -224,7 +221,6 @@ internal sealed class MemoryQueryPlanBackend : IQueryPlanBackend
         ValidatedQueryExecutionRequest request,
         out IImmutableInstance? result)
     {
-        ArgumentNullException.ThrowIfNull(request);
         request.EnsureBackend(this);
         request.Context.CancellationToken.ThrowIfCancellationRequested();
 

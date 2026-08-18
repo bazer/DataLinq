@@ -17,6 +17,35 @@ namespace DataLinq.Tests.Unit.Core;
 public sealed class GeneratedNeutralMaterializationTests
 {
     [Test]
+    public async Task KnownCanonicalKeySeedsGeneratedImmutableWithoutRetainingCarrier()
+    {
+        var metadata = MetadataFromTypeFactory
+            .ParseDatabaseFromDatabaseModel<GeneratedNeutralMaterializationDb>()
+            .ValueOrException();
+        var table = metadata.TableModels
+            .Single(x => x.Model.CsType.Type == typeof(GeneratedNeutralMaterializationRow))
+            .Table;
+        var readSource = new NeutralReadSource(
+            metadata,
+            [CreateCanonicalRow(table, id: 42, groupId: 7, name: "neutral")]);
+        var services = (IDataLinqSourceRowServices)readSource;
+        var result = services.RowLoader.Load(new SourcePrimaryKeyRowRequest(
+            table,
+            [DataLinqKey.FromValue(42)]));
+        var loadedRow = result.Rows.Single();
+
+        var materialized = services.MaterializationServices.MaterializeAfterKnownCacheMiss(loadedRow);
+        var row = (ImmutableGeneratedNeutralMaterializationRow)materialized;
+
+        await Assert.That(row.PrimaryKeys()).IsEqualTo(loadedRow.CanonicalProviderKey);
+        await Assert.That(row.GetRowData()).IsTypeOf<RowData>();
+        await Assert.That(row.GetRowData()).IsNotTypeOf<KnownCanonicalPrimaryKeyRowData>();
+        await Assert.That(readSource.CacheLookupCalls).IsEqualTo(0);
+        await Assert.That(readSource.PublicationCalls).IsEqualTo(1);
+        await Assert.That(readSource.CachedRowCount).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task NeutralSource_LoadersComposeWithGeneratedMaterializationAndIdentityCache()
     {
         var metadata = MetadataFromTypeFactory
@@ -37,7 +66,7 @@ public sealed class GeneratedNeutralMaterializationTests
             [DataLinqKey.FromValue(42)]);
         var primaryResult = primaryServices.RowLoader.Load(primaryRequest);
         var primaryMaterialized = primaryServices.MaterializationServices.GetOrMaterialize(
-            primaryResult.Rows.Single());
+            primaryResult.Rows.Single().ProviderRow);
 
         var indexRequest = new SourceIndexRowRequest(
             table,
@@ -45,7 +74,7 @@ public sealed class GeneratedNeutralMaterializationTests
             DataLinqKey.FromValue(7));
         var indexResult = indexServices.IndexRowLoader.Load(indexRequest);
         var indexMaterialized = indexServices.MaterializationServices.GetOrMaterialize(
-            indexResult.Rows.Single());
+            indexResult.Rows.Single().ProviderRow);
 
         var row = primaryMaterialized as ImmutableGeneratedNeutralMaterializationRow;
         object sourceIdentity = readSource;
