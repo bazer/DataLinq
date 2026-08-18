@@ -88,11 +88,29 @@ public partial class TableCache
         var keys = new List<TKey>();
         foreach (var reader in select.ReadReader())
         {
-            if (reader.GetValue<TKey>(column, 0) is TKey key)
+            if (ReadScalarProviderKey<TKey>(reader, column, 0) is TKey key)
                 keys.Add(key);
         }
 
         return keys;
+    }
+
+    private static TKey? ReadScalarProviderKey<TKey>(
+        IDataLinqDataReader reader,
+        ColumnDefinition column,
+        int ordinal)
+        where TKey : notnull
+    {
+        if (!column.HasScalarConverter)
+            return reader.GetValue<TKey>(column, ordinal);
+
+        var canonicalValue = ProviderRowDecoder.DecodeCanonicalValue(
+            reader,
+            column,
+            ordinal,
+            "cache:scalar-primary-key",
+            useColumnAwareGuid: true);
+        return canonicalValue is null ? default : (TKey)canonicalValue;
     }
 
     private DataLinqKey ReadPrimaryKey(IDataLinqDataReader reader, IReadOnlyList<int> primaryKeyOrdinals)
@@ -119,10 +137,10 @@ public partial class TableCache
         var column = Table.PrimaryKeyColumns[0];
         primaryKey = Table.PrimaryKeyShape[0].ProviderStoreKind switch
         {
-            TableKeyComponentStoreKind.Int32 => reader.GetValue<int>(column, primaryKeyOrdinals[0]),
-            TableKeyComponentStoreKind.Int64 => reader.GetValue<long>(column, primaryKeyOrdinals[0]),
-            TableKeyComponentStoreKind.Guid => reader.GetValue<Guid>(column, primaryKeyOrdinals[0]),
-            TableKeyComponentStoreKind.String => reader.GetValue<string>(column, primaryKeyOrdinals[0]),
+            TableKeyComponentStoreKind.Int32 => ReadScalarProviderKey<int>(reader, column, primaryKeyOrdinals[0]),
+            TableKeyComponentStoreKind.Int64 => ReadScalarProviderKey<long>(reader, column, primaryKeyOrdinals[0]),
+            TableKeyComponentStoreKind.Guid => ReadScalarProviderKey<Guid>(reader, column, primaryKeyOrdinals[0]),
+            TableKeyComponentStoreKind.String => ReadScalarProviderKey<string>(reader, column, primaryKeyOrdinals[0]),
             _ => null
         };
 

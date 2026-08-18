@@ -57,8 +57,8 @@ public sealed class ScalarConverterMetadataTests
         await Assert.That(component.ProviderClrType).IsEqualTo(typeof(int));
         await Assert.That(component.HasScalarConverter).IsTrue();
         await Assert.That(component.ScalarConverterHandle).IsNotNull();
-        await Assert.That(component.ProviderStoreKind).IsEqualTo(TableKeyComponentStoreKind.Unsupported);
-        await Assert.That(database.TableModels.Single().Table.PrimaryKeyShape.SupportsScalarProviderKeyStore).IsFalse();
+        await Assert.That(component.ProviderStoreKind).IsEqualTo(TableKeyComponentStoreKind.Int32);
+        await Assert.That(database.TableModels.Single().Table.PrimaryKeyShape.SupportsScalarProviderKeyStore).IsTrue();
     }
 
     [Test]
@@ -126,7 +126,7 @@ public sealed class ScalarConverterMetadataTests
     }
 
     [Test]
-    public async Task GeneratedRuntimeMetadata_InstantiatesTheResolvedConverterWithoutKeyFastPaths()
+    public async Task GeneratedRuntimeMetadata_UsesCanonicalProviderStoreWithoutGeneratedAccessor()
     {
         var database = MetadataFromTypeFactory
             .ParseDatabaseFromDatabaseModel<ScalarGeneratedMetadataDb>()
@@ -142,7 +142,8 @@ public sealed class ScalarConverterMetadataTests
         await Assert.That(column.ScalarMapping.SourceLocation!.Value.File.Name).IsEqualTo("ScalarConverterMetadataTests.cs");
         await Assert.That(column.ValueProperty.Attributes.OfType<ScalarConverterAttribute>().Single().ConverterType).IsEqualTo(typeof(ScalarMetadataIdConverter));
         await Assert.That(tableModel.Model.ProviderKeyRowStoreAccessor).IsNull();
-        await Assert.That(tableModel.Table.PrimaryKeyShape.SupportsScalarProviderKeyStore).IsFalse();
+        await Assert.That(tableModel.Table.PrimaryKeyShape[0].ProviderStoreKind).IsEqualTo(TableKeyComponentStoreKind.Int32);
+        await Assert.That(tableModel.Table.PrimaryKeyShape.SupportsScalarProviderKeyStore).IsTrue();
     }
 
     [Test]

@@ -8,6 +8,7 @@ using DataLinq.Interfaces;
 using DataLinq.Linq.Planning;
 using DataLinq.Metadata;
 using DataLinq.Tests.Models.Employees;
+using DataLinq.Tests.Unit.Core;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Linq;
@@ -77,6 +78,41 @@ public sealed class ExactPrimaryKeyTerminalQueryTests
 
         await Assert.That(holder.Reads).IsEqualTo(1);
         await Assert.That(source.Calls).IsEmpty();
+    }
+
+    [Test]
+    public async Task Provider_FallsBackWhenTheMappedPrimaryKeyMemberIsConverted()
+    {
+        var source = new TrackingExactSource(GetEmployeesMetadata());
+        var rows = new DbRead<Employee>(source);
+        long employeeNumber = 10001;
+
+        var exception = Capture<NotSupportedException>(() =>
+            rows.SingleOrDefault(row => row.emp_no == employeeNumber));
+
+        await Assert.That(exception.Message).Contains("query-plan execution services");
+        await Assert.That(source.Calls).IsEmpty();
+    }
+
+    [Test]
+    public async Task Provider_NormalizesConverterBackedPrimaryKeyBeforeCallingFastServices()
+    {
+        var metadata = MetadataFromTypeFactory
+            .ParseDatabaseFromDatabaseModel<ScalarGeneratedMetadataDb>()
+            .ValueOrException();
+        var source = new TrackingExactSource(metadata);
+        var rows = new DbRead<ScalarGeneratedMetadataRow>(source);
+        var id = new ScalarMetadataId(42);
+        var converter = (ScalarMetadataIdConverter)metadata.TableModels.Single()
+            .Table.PrimaryKeyColumns.Single().ScalarConverter!;
+
+        var result = rows.SingleOrDefault(row => row.Id == id);
+
+        await Assert.That(result).IsNull();
+        await Assert.That(source.Calls.Count).IsEqualTo(1);
+        await Assert.That(source.Calls[0].CanonicalProviderKey).IsEqualTo(42);
+        await Assert.That(source.Calls[0].CanonicalProviderKey).IsTypeOf<int>();
+        await Assert.That(converter.ToProviderCalls).IsEqualTo(1);
     }
 
     private static DatabaseDefinition GetEmployeesMetadata() =>

@@ -105,12 +105,7 @@ public sealed class TableKeyShape
 
     internal static TableKeyComponentStoreKind GetProviderStoreKind(ColumnDefinition column)
     {
-        // SC-1 records the canonical provider type, but canonical key normalization
-        // does not arrive until SC-3. Keep converted components off every current
-        // model-valued fast path until that normalization boundary exists.
-        return column.HasScalarConverter
-            ? TableKeyComponentStoreKind.Unsupported
-            : GetStoreKind(GetProviderCsType(column));
+        return GetStoreKind(GetProviderCsType(column));
     }
 
     internal static object? GetScalarConverterHandle(ColumnDefinition column) =>

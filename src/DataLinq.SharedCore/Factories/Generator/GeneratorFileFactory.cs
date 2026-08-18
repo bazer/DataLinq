@@ -1312,6 +1312,7 @@ public class GeneratorFileFactory
     {
         var columns = relationProperty.RelationPart.ColumnIndex.Columns;
         if (columns.Count == 1 &&
+            !columns[0].HasScalarConverter &&
             TableKeyShape.GetProviderStoreKind(columns[0]) != TableKeyComponentStoreKind.Unsupported)
         {
             keyProperty = columns[0].ValueProperty;

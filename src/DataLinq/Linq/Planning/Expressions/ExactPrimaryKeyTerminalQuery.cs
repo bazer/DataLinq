@@ -96,9 +96,7 @@ internal static class ExactPrimaryKeyTerminalQuery
         if (canonicalProviderKey is not null &&
             !table.PrimaryKeyShape.SupportsScalarProviderKey(canonicalProviderKey.GetType()))
         {
-            throw new InvalidOperationException(
-                $"Exact primary-key terminal conversion for column '{table.DbName}.{primaryKeyColumn.DbName}' " +
-                $"produced unsupported provider key type '{canonicalProviderKey.GetType().FullName}'.");
+            return false;
         }
 
         match = new ExactPrimaryKeyTerminalMatch(table, canonicalProviderKey, resultKind);
@@ -155,9 +153,8 @@ internal static class ExactPrimaryKeyTerminalQuery
         ColumnDefinition primaryKeyColumn,
         out Expression valueExpression)
     {
-        columnCandidate = UnwrapCompilerConversion(columnCandidate);
         if (columnCandidate is MemberExpression member &&
-            ReferenceEquals(UnwrapCompilerConversion(member.Expression!), parameter) &&
+            ReferenceEquals(member.Expression, parameter) &&
             table.TryGetColumnByPropertyName(member.Member.Name, out var column) &&
             ReferenceEquals(column, primaryKeyColumn))
         {

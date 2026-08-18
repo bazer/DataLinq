@@ -47,7 +47,7 @@ public sealed class KeyFactoryScalarConversionTests
         await Assert.That(converter.ToProviderCalls.Count).IsEqualTo(3);
         await Assert.That(converter.ToProviderCalls.All(call => ReferenceEquals(call.Context.Column, column))).IsTrue();
         await Assert.That(table.PrimaryKeyShape.HasScalarConverter).IsTrue();
-        await Assert.That(table.PrimaryKeyShape[0].ProviderStoreKind).IsEqualTo(TableKeyComponentStoreKind.Unsupported);
+        await Assert.That(table.PrimaryKeyShape[0].ProviderStoreKind).IsEqualTo(TableKeyComponentStoreKind.Int32);
     }
 
     [Test]
