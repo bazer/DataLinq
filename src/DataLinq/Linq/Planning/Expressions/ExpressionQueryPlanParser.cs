@@ -24,17 +24,21 @@ internal readonly struct ExpressionQueryPlanParseResult
 {
     public ExpressionQueryPlanParseResult(
         QueryPlanTemplate template,
-        IReadOnlyList<QueryPlanInvocationValue> invocationValues)
+        IReadOnlyList<QueryPlanInvocationValue> invocationValues,
+        IReadOnlyList<PreparedQueryBindingExpression>? preparedBindings = null)
     {
         ArgumentNullException.ThrowIfNull(template);
         ArgumentNullException.ThrowIfNull(invocationValues);
         Template = template;
         InvocationValues = invocationValues;
+        PreparedBindings = preparedBindings ?? Array.Empty<PreparedQueryBindingExpression>();
     }
 
     public QueryPlanTemplate Template { get; }
 
     public IReadOnlyList<QueryPlanInvocationValue> InvocationValues { get; }
+
+    public IReadOnlyList<PreparedQueryBindingExpression> PreparedBindings { get; }
 
     public QueryPlanInvocation Bind()
         => QueryPlanInvocation.BindParserOwned(Template, InvocationValues);
@@ -54,7 +58,10 @@ internal sealed class ExpressionQueryPlanParser
 
     private readonly DatabaseDefinition metadata;
     private readonly ExpressionQueryPlanParserOptions options;
+    private readonly ParameterExpression? preparedArgumentParameter;
+    private readonly object? preparedPrototypeArgument;
     private readonly QueryPlanBindingCapture bindings = new();
+    private readonly List<PreparedQueryBindingExpression> preparedBindings = [];
     private readonly List<QueryPlanSourceSlot> sources = [];
     private readonly List<QueryPlanOperation> operations = [];
     private readonly Dictionary<ParameterExpression, QueryPlanSourceSlot> parameterSourceSlots = [];
@@ -65,10 +72,16 @@ internal sealed class ExpressionQueryPlanParser
         new(ReferenceEqualityComparer.Instance);
     private int relationSubqueryCounter;
 
-    private ExpressionQueryPlanParser(DatabaseDefinition metadata, ExpressionQueryPlanParserOptions options)
+    private ExpressionQueryPlanParser(
+        DatabaseDefinition metadata,
+        ExpressionQueryPlanParserOptions options,
+        ParameterExpression? preparedArgumentParameter = null,
+        object? preparedPrototypeArgument = null)
     {
         this.metadata = metadata;
         this.options = options;
+        this.preparedArgumentParameter = preparedArgumentParameter;
+        this.preparedPrototypeArgument = preparedPrototypeArgument;
     }
 
     public static QueryPlanInvocation Convert<TDatabase, TModel>(Database<TDatabase> database, IQueryable<TModel> query)
@@ -126,6 +139,23 @@ internal sealed class ExpressionQueryPlanParser
         return parser.ParseUnbound(expression, resultType);
     }
 
+    internal static ExpressionQueryPlanParseResult Prepare<TArgument, TResult>(
+        DatabaseDefinition metadata,
+        TArgument prototypeArgument,
+        Expression<Func<TArgument, TResult>> query)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(query);
+
+        var argumentParameter = query.Parameters[0];
+        var parser = new ExpressionQueryPlanParser(
+            metadata,
+            ExpressionQueryPlanParserOptions.Default,
+            argumentParameter,
+            prototypeArgument);
+        return parser.ParseUnbound(query.Body, typeof(TResult));
+    }
+
     private ExpressionQueryPlanParseResult ParseUnbound(Expression expression, Type resultType)
     {
         var parsed = IsQueryableSequence(expression.Type)
@@ -150,7 +180,7 @@ internal sealed class ExpressionQueryPlanParser
             bindings.CreateDeclarations(),
             bindings.CreateSpecialization());
 
-        return new ExpressionQueryPlanParseResult(template, bindings.InvocationValues);
+        return new ExpressionQueryPlanParseResult(template, bindings.InvocationValues, preparedBindings);
     }
 
     private ParsedQuery ParseSequence(Expression expression)
@@ -1120,7 +1150,35 @@ internal sealed class ExpressionQueryPlanParser
         }
 
         var captured = bindings.CaptureScalar(valueFactory(), modelType);
+        if (preparedArgumentParameter is not null)
+        {
+            preparedBindings.Add(PreparedQueryBindingExpression.Scalar(
+                captured.BindingId,
+                expression,
+                preparedArgumentParameter));
+        }
         capturedScalarsByExpression[expression] = captured;
+        return captured;
+    }
+
+    private QueryPlanLocalSequenceBindingReference CaptureLocalSequence(
+        Expression expression,
+        IReadOnlyList<object?> values,
+        Type elementType,
+        ParameterExpression? sequenceElementParameter = null,
+        Expression? sequenceElementSelector = null)
+    {
+        var captured = bindings.CaptureLocalSequence(values, elementType);
+        if (preparedArgumentParameter is not null)
+        {
+            preparedBindings.Add(PreparedQueryBindingExpression.LocalSequence(
+                captured.BindingId,
+                expression,
+                preparedArgumentParameter,
+                sequenceElementParameter,
+                sequenceElementSelector));
+        }
+
         return captured;
     }
 
@@ -1790,9 +1848,17 @@ internal sealed class ExpressionQueryPlanParser
         predicate = null!;
         if (IsEnumerableMethod(methodCall, nameof(Enumerable.Contains)) && methodCall.Arguments.Count == 2)
         {
-            var values = EvaluateLocalSequence(methodCall.Arguments[0]);
+            var enumerableSequenceExpression = methodCall.Arguments[0];
+            var values = EvaluateLocalSequence(enumerableSequenceExpression);
             var elementType = methodCall.Method.GetGenericArguments()[0];
-            return CreateLocalMembershipPredicate(values, elementType, methodCall.Arguments[1], isNegated, out predicate);
+            return CreateLocalMembershipPredicate(
+                enumerableSequenceExpression,
+                values,
+                elementType,
+                methodCall.Arguments[1],
+                methodCall,
+                isNegated,
+                out predicate);
         }
 
         if (methodCall.Method.Name != nameof(Enumerable.Contains))
@@ -1820,16 +1886,25 @@ internal sealed class ExpressionQueryPlanParser
             var elementType = genericArguments.Length == 1
                 ? genericArguments[0]
                 : itemExpression.Type;
-            return CreateLocalMembershipPredicate(instanceValues, elementType, itemExpression, isNegated, out predicate);
+            return CreateLocalMembershipPredicate(
+                sequenceExpression,
+                instanceValues,
+                elementType,
+                itemExpression,
+                methodCall,
+                isNegated,
+                out predicate);
         }
 
         return false;
     }
 
     private bool CreateLocalMembershipPredicate(
+        Expression sequenceExpression,
         object?[] values,
         Type elementType,
         Expression itemExpression,
+        Expression membershipExpression,
         bool isNegated,
         out QueryPlanPredicate predicate)
     {
@@ -1837,14 +1912,14 @@ internal sealed class ExpressionQueryPlanParser
 
         if (TryGetColumnValue(itemExpression, out var item))
         {
-            var sequence = bindings.CaptureLocalSequence(values, elementType);
+            var sequence = CaptureLocalSequence(sequenceExpression, values, elementType);
             predicate = new QueryPlanPredicate.In(item, sequence, isNegated);
             return true;
         }
 
         if (values.Length == 0)
         {
-            _ = bindings.CaptureLocalSequence(values, elementType);
+            _ = CaptureLocalSequence(sequenceExpression, values, elementType);
             predicate = new QueryPlanPredicate.Fixed(isNegated);
             return true;
         }
@@ -1853,7 +1928,7 @@ internal sealed class ExpressionQueryPlanParser
         {
             var itemValue = EvaluateScalar(itemExpression);
             var found = values.Any(value => object.Equals(value, itemValue));
-            predicate = CaptureBooleanInvocation(found);
+            predicate = CaptureBooleanInvocation(found, membershipExpression);
             return true;
         }
 
@@ -1872,7 +1947,8 @@ internal sealed class ExpressionQueryPlanParser
         var sourceValues = EvaluateLocalSequence(methodCall.Arguments[0]);
         if (methodCall.Arguments.Count == 1)
         {
-            _ = bindings.CaptureLocalSequence(
+            _ = CaptureLocalSequence(
+                methodCall.Arguments[0],
                 sourceValues,
                 methodCall.Method.GetGenericArguments()[0]);
             predicate = new QueryPlanPredicate.Fixed(isNegated ? sourceValues.Length == 0 : sourceValues.Length > 0);
@@ -1882,14 +1958,21 @@ internal sealed class ExpressionQueryPlanParser
         var lambda = UnwrapLambda(methodCall.Arguments[1], methodCall.ToString());
         if (lambda.Parameters.Count == 1 &&
             lambda.Body is BinaryExpression { NodeType: ExpressionType.Equal } binary &&
-            TryCreateLocalAnyMembership(binary, lambda.Parameters[0], sourceValues, isNegated, out predicate))
+            TryCreateLocalAnyMembership(
+                methodCall.Arguments[0],
+                binary,
+                lambda.Parameters[0],
+                sourceValues,
+                isNegated,
+                out predicate))
         {
             return true;
         }
 
         if (sourceValues.Length == 0)
         {
-            _ = bindings.CaptureLocalSequence(
+            _ = CaptureLocalSequence(
+                methodCall.Arguments[0],
                 sourceValues,
                 methodCall.Method.GetGenericArguments()[0]);
             predicate = new QueryPlanPredicate.Fixed(isNegated);
@@ -1900,17 +1983,19 @@ internal sealed class ExpressionQueryPlanParser
     }
 
     private bool TryCreateLocalAnyMembership(
+        Expression sourceExpression,
         BinaryExpression binary,
         ParameterExpression localParameter,
         object?[] sourceValues,
         bool isNegated,
         out QueryPlanPredicate predicate)
     {
-        return TryCreateLocalAnyMembershipSide(binary.Left, binary.Right, localParameter, sourceValues, isNegated, out predicate) ||
-               TryCreateLocalAnyMembershipSide(binary.Right, binary.Left, localParameter, sourceValues, isNegated, out predicate);
+        return TryCreateLocalAnyMembershipSide(sourceExpression, binary.Left, binary.Right, localParameter, sourceValues, isNegated, out predicate) ||
+               TryCreateLocalAnyMembershipSide(sourceExpression, binary.Right, binary.Left, localParameter, sourceValues, isNegated, out predicate);
     }
 
     private bool TryCreateLocalAnyMembershipSide(
+        Expression sourceExpression,
         Expression outerCandidate,
         Expression localCandidate,
         ParameterExpression localParameter,
@@ -1930,7 +2015,12 @@ internal sealed class ExpressionQueryPlanParser
 
         predicate = new QueryPlanPredicate.In(
             outerColumn,
-            bindings.CaptureLocalSequence(values, localCandidate.Type),
+            CaptureLocalSequence(
+                sourceExpression,
+                values,
+                localCandidate.Type,
+                localParameter,
+                localCandidate),
             isNegated);
         return true;
     }
@@ -2982,7 +3072,11 @@ internal sealed class ExpressionQueryPlanParser
         if (ContainsQueryReference(expression))
             throw new QueryTranslationException($"Expression '{expression}' contains a query source and cannot be evaluated as a local scalar.");
 
-        return ExpressionLocalValueEvaluator.Evaluate(expression, null, null, options.LocalValueEvaluation);
+        return ExpressionLocalValueEvaluator.Evaluate(
+            expression,
+            preparedArgumentParameter,
+            preparedPrototypeArgument,
+            options.LocalValueEvaluation);
     }
 
     private QueryPlanPredicate CaptureLocalBooleanPredicate(Expression expression)
@@ -2990,12 +3084,12 @@ internal sealed class ExpressionQueryPlanParser
         var value = System.Convert.ToBoolean(
             EvaluateScalar(expression),
             System.Globalization.CultureInfo.InvariantCulture);
-        return CaptureBooleanInvocation(value);
+        return CaptureBooleanInvocation(value, expression);
     }
 
-    private QueryPlanPredicate CaptureBooleanInvocation(bool value)
+    private QueryPlanPredicate CaptureBooleanInvocation(bool value, Expression expression)
         => new QueryPlanPredicate.Compare(
-            bindings.CaptureScalar(value, typeof(bool)),
+            CaptureScalar(expression, () => value, typeof(bool)),
             QueryPlanComparisonOperator.Equal,
             BooleanIntrinsic(value: true));
 
@@ -3047,7 +3141,11 @@ internal sealed class ExpressionQueryPlanParser
 
         try
         {
-            var value = ExpressionLocalValueEvaluator.Evaluate(expression, null, null, options.LocalValueEvaluation);
+            var value = ExpressionLocalValueEvaluator.Evaluate(
+                expression,
+                preparedArgumentParameter,
+                preparedPrototypeArgument,
+                options.LocalValueEvaluation);
             if (value is IQueryable)
             {
                 throw new QueryTranslationException(

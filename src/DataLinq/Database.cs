@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Data;
 using System.Linq;
+using System.Linq.Expressions;
 using DataLinq.Cache;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Linq;
+using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
@@ -113,6 +116,58 @@ public abstract class Database<T> : IDisposable, IDataSourceAccess<T>
     public T Query()
     {
         return Provider.ReadOnlyAccess.Query();
+    }
+
+    /// <summary>
+    /// Prepares a reusable structural query plan and its current-value argument binders.
+    /// </summary>
+    /// <typeparam name="TArgument">The invocation argument type.</typeparam>
+    /// <typeparam name="TResult">The query result type.</typeparam>
+    /// <param name="prototypeArgument">
+    /// A representative argument whose scalar nullness and local-sequence count/null shape
+    /// define the prepared template specialization.
+    /// </param>
+    /// <param name="query">
+    /// The query shape. Values that can change between executions must be reached through its
+    /// argument; closure-captured invocation values are rejected.
+    /// </param>
+    /// <returns>A thread-safe prepared query that can execute against compatible sources.</returns>
+    public PreparedQuery<T, TArgument, TResult> PrepareQuery<TArgument, TResult>(
+        TArgument prototypeArgument,
+        Expression<Func<TArgument, TResult>> query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        return new PreparedQuery<T, TArgument, TResult>(
+            ExpressionQueryPlanParser.Prepare(
+                Provider.Metadata,
+                prototypeArgument,
+                query));
+    }
+
+    /// <summary>
+    /// Prepares a reusable structural query plan that streams a queryable sequence.
+    /// </summary>
+    /// <typeparam name="TArgument">The invocation argument type.</typeparam>
+    /// <typeparam name="TElement">The sequence element type.</typeparam>
+    /// <param name="prototypeArgument">
+    /// A representative argument whose scalar nullness and local-sequence count/null shape
+    /// define the prepared template specialization.
+    /// </param>
+    /// <param name="query">
+    /// The query shape. Values that can change between executions must be reached through its
+    /// argument; closure-captured invocation values are rejected.
+    /// </param>
+    /// <returns>A thread-safe prepared sequence query for compatible execution sources.</returns>
+    public PreparedSequenceQuery<T, TArgument, TElement> PrepareSequenceQuery<TArgument, TElement>(
+        TArgument prototypeArgument,
+        Expression<Func<TArgument, IQueryable<TElement>>> query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        return new PreparedSequenceQuery<T, TArgument, TElement>(
+            ExpressionQueryPlanParser.Prepare(
+                Provider.Metadata,
+                prototypeArgument,
+                query));
     }
 
     /// <summary>

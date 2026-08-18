@@ -35,6 +35,7 @@ public sealed class TestSchedulingPolicyTests
             "DataLinq.Tests.Compliance/Translation/Int64TypedIdKeyBoundaryTests.cs",
             "DataLinq.Tests.Compliance/Translation/JoinKeyCompatibilityTranslationTests.cs",
             "DataLinq.Tests.Compliance/Translation/JoinedGuidTypedIdKeyHydrationTests.cs",
+            "DataLinq.Tests.Compliance/Translation/PreparedQueryTests.cs",
             "DataLinq.Tests.Compliance/Translation/TypedIdPredicateTranslationTests.cs",
             "DataLinq.Tests.Compliance/Translation/TypedIdRelationKeyNormalizationTests.cs",
             "DataLinq.Tests.Memory/MemoryBooleanPredicateTests.cs",

@@ -41,6 +41,37 @@ var department = Department.Get("d005", db);
 
 If you need lower-level SQL-builder access, `Database<T>` also exposes `From(...)` and `From<TModel>()`. That is a different API surface from LINQ and should not be confused with "LINQ join support".
 
+## Prepared Queries
+
+If the same LINQ structure runs repeatedly, use an explicit prepared query to parse and freeze that structure once. Current values are read from the invocation argument and rebound for every execution:
+
+```csharp
+var employeeByNumber = db.PrepareQuery(
+    prototypeArgument: 10001,
+    employeeNumber => db.Query().Employees.Single(employee =>
+        employee.emp_no == employeeNumber));
+
+var employee = employeeByNumber.Execute(db, 10042);
+```
+
+The prototype is not a default value and is not retained by the prepared query. It defines value-sensitive specialization that affects SQL structure: scalar nullness and the exact count/null count of a local sequence. Later arguments must have the same specialization shape. For example, prepare separate `IN` queries for one-item and three-item lists if both cardinalities are hot paths.
+
+Use `PrepareSequenceQuery` when the result is a queryable sequence rather than a terminal such as `Single`, `Any`, `Count`, or `First`:
+
+```csharp
+var employeesByNumber = db.PrepareSequenceQuery(
+    prototypeArgument: new[] { 10001, 10002, 10003 },
+    employeeNumbers => db.Query().Employees
+        .Where(employee => employeeNumbers.Contains(employee.emp_no!.Value))
+        .OrderBy(employee => employee.emp_no));
+
+var employees = employeesByNumber.Execute(db, new[] { 10042, 10043, 10044 }).ToList();
+```
+
+Mutable arrays and local collections are snapshotted for each invocation before execution begins, including before lazy sequence enumeration. A prepared query is thread-safe and may execute against the database that created it, another compatible database instance, a read-only access, or a transaction. Metadata ownership and backend capabilities are still validated on every execution.
+
+Changing invocation values must flow through the prepared argument. Closure-captured values are rejected because retaining a closure would silently cache stale state—and often the database or transaction along with it. DataLinq does not maintain an automatic global expression cache; preparation is explicit and therefore bounded by the prepared objects your application chooses to retain.
+
 ## SQL-Backed Result Shapes
 
 The supported LINQ surface is no longer just "filter entities and hydrate them." Direct source-slot projections, scalar results, grouped aggregate rows, and supported join projection rows can be SQL-backed.

@@ -359,6 +359,7 @@ Implemented in 0.8 and later:
 - The support matrix is backed by active compliance tests for the documented query subset.
 - Trimmed compatibility reporting is no longer blocked by a Remotion dependency.
 - Query structure is frozen into `QueryPlanTemplate`, while binding declarations and invocation values are immutable, separately owned contracts validated by `QueryPlanInvocation.Bind(...)`.
+- Explicit prepared terminal and sequence queries retain one immutable `QueryPlanTemplate` plus bounded argument-binding expressions, then create invocation-local value snapshots and repeat source/capability validation for every execution. They do not retain the prototype argument, closure object, database, transaction, or prior invocation values.
 - Row-local projections are normalized into self-contained `QueryPlanProjectionRecipe` trees with explicit dispositions and execute through `QueryPlanProjectionRecipeEvaluator` without selector-lambda recovery.
 
 Supported parser areas include:
@@ -403,6 +404,7 @@ Some of those are natural future work. They should still enter through the plan 
 | DataLinq-owned parser | DataLinq controls diagnostics, support boundaries, AOT behavior, and package dependencies. | DataLinq must implement and maintain the supported subset itself. |
 | Query plan before SQL | SQL rendering is not coupled to expression-tree parser details. | Every supported shape needs a plan representation before it can run. |
 | Template/invocation split | Structural query shape and binding declarations can be reasoned about independently from one execution's values. | Value-sensitive assumptions must be modeled and validated as explicit specializations. |
+| Explicit prepared queries | Repeated hot shapes skip structural parsing without an unbounded global cache or stale captured values. | Callers must choose a representative specialization and keep separate prepared objects for structurally different null/list shapes. |
 | Normalized projection recipes | Row-local execution no longer depends on the original expression or runtime compilation, and AOT compatibility is explicit. | Every supported operator, member, function, conversion, or construction shape needs a recipe node and evaluator semantics. |
 | Conservative support matrix | Users get fewer fake promises and clearer failures. | Some LINQ-to-objects shapes that look natural are rejected. |
 | Row-local projection after materialization | Projection semantics stay close to normal .NET over generated model instances. | Wide-row reads can be less efficient than SQL `SELECT`-list projection. |

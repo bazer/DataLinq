@@ -20,6 +20,7 @@ public class EmployeesBenchmarks : IDisposable
     private const string Phase12CacheMemoryCategory = "phase12-cache-memory";
     private const string V09QueryBackendCategory = "v0.9-query-backend";
     private const string AllocationStagesCategory = "allocation-stages";
+    private const string PreparedQueriesCategory = "prepared-queries";
     private const string MacroReadWriteCategory = "macro-readwrite";
     private const string MacroBulkCategory = "macro-bulk";
     private BenchmarkContext? context;
@@ -265,6 +266,86 @@ public class EmployeesBenchmarks : IDisposable
     {
         executedScenario = BenchmarkScenario.RepeatedScalarAny;
         return context!.ExecuteScalarAnyBatch();
+    }
+
+    [BenchmarkCategory(PreparedQueriesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Prepare primary-key Single")]
+    public int PreparePrimaryKeySingle()
+    {
+        executedScenario = BenchmarkScenario.PreparePrimaryKeySingle;
+        return context!.PreparePrimaryKeySingleBatch();
+    }
+
+    [IterationSetup(Target = nameof(PreparedPrimaryKeySingle))]
+    public void SetupPreparedPrimaryKeySingle()
+    {
+        context!.ResetState(clearCache: true);
+        _ = context.ExecutePreparedPrimaryKeySingleBatch();
+        DataLinqMetrics.Reset();
+    }
+
+    [BenchmarkCategory(PreparedQueriesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Prepared warm primary-key Single")]
+    public int PreparedPrimaryKeySingle()
+    {
+        executedScenario = BenchmarkScenario.PreparedPrimaryKeySingle;
+        return context!.ExecutePreparedPrimaryKeySingleBatch();
+    }
+
+    [IterationSetup(Target = nameof(PreparedNonPrimaryKeyEquality))]
+    public void SetupPreparedNonPrimaryKeyEquality()
+    {
+        context!.ResetState(clearCache: true);
+    }
+
+    [BenchmarkCategory(PreparedQueriesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Prepared non-PK equality First")]
+    public int PreparedNonPrimaryKeyEquality()
+    {
+        executedScenario = BenchmarkScenario.PreparedNonPrimaryKeyEquality;
+        return context!.ExecutePreparedNonPrimaryKeyEqualityBatch();
+    }
+
+    [IterationSetup(Target = nameof(PreparedScalarAny))]
+    public void SetupPreparedScalarAny()
+    {
+        context!.ResetState(clearCache: true);
+    }
+
+    [BenchmarkCategory(PreparedQueriesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Prepared scalar Any")]
+    public int PreparedScalarAny()
+    {
+        executedScenario = BenchmarkScenario.PreparedScalarAny;
+        return context!.ExecutePreparedScalarAnyBatch();
+    }
+
+    [IterationSetup(Target = nameof(OrdinaryInCount))]
+    public void SetupOrdinaryInCount()
+    {
+        context!.ResetState(clearCache: true);
+    }
+
+    [BenchmarkCategory(PreparedQueriesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Ordinary IN Count")]
+    public int OrdinaryInCount()
+    {
+        executedScenario = BenchmarkScenario.OrdinaryInCount;
+        return context!.ExecuteOrdinaryInCountBatch();
+    }
+
+    [IterationSetup(Target = nameof(PreparedInCount))]
+    public void SetupPreparedInCount()
+    {
+        context!.ResetState(clearCache: true);
+    }
+
+    [BenchmarkCategory(PreparedQueriesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Prepared IN Count")]
+    public int PreparedInCount()
+    {
+        executedScenario = BenchmarkScenario.PreparedInCount;
+        return context!.ExecutePreparedInCountBatch();
     }
 
     [BenchmarkCategory(V09QueryBackendCategory)]
