@@ -55,6 +55,27 @@ internal sealed class MemoryReadSource :
 
     IQueryPlanBackend IDataLinqQueryPlanServices.QueryPlanBackend => queryPlanBackend;
 
+    public CanonicalProviderValueRow? LoadSingle(
+        TableDefinition table,
+        in DataLinqKey canonicalProviderKey,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateOwnedTable(table);
+        SourceRowLoadingValidation.ValidatePrimaryKeyTable(table);
+        SourceRowLoadingValidation.ValidateCanonicalKey(
+            table,
+            canonicalProviderKey,
+            keyIndex: 0,
+            nameof(canonicalProviderKey));
+        cancellationToken.ThrowIfCancellationRequested();
+        Interlocked.Increment(ref primaryKeyRequests);
+        Interlocked.Increment(ref primaryKeyProbes);
+
+        return store.TryGet(table, canonicalProviderKey, out var row)
+            ? row
+            : null;
+    }
+
     public SourceRowLoadResult Load(SourcePrimaryKeyRowRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);

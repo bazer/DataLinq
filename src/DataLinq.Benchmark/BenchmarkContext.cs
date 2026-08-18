@@ -6,6 +6,7 @@ using System.Threading;
 using DataLinq.Cache;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
+using DataLinq.Interfaces;
 using DataLinq.Linq.Planning;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Metadata;
@@ -46,6 +47,8 @@ internal sealed class BenchmarkContext : IDisposable
     private readonly object?[] allocationCanonicalValues;
     private readonly PrecomputedProviderDataReader allocationProviderReader;
     private readonly CanonicalProviderValueRow allocationProviderRow;
+    private readonly CanonicalProviderValueRow[] allocationProviderRows;
+    private readonly IModelMaterializationServices allocationMaterializationServices;
     private readonly MutableEmployee[] allocationMutationModels;
     private readonly int startupEmployeeNumber;
     private readonly TestConnectionDefinition startupConnection;
@@ -93,7 +96,19 @@ internal sealed class BenchmarkContext : IDisposable
         allocationProviderRow = CanonicalProviderValueRow.Create(
             allocationTable,
             allocationCanonicalValues);
+        allocationProviderRows = sampleEmployeeRowData
+            .Select(rowData => CanonicalProviderValueRow.Create(
+                allocationTable,
+                allocationTable.Columns
+                    .Select(column => ModelValueConverter.ToCanonicalProviderValue(
+                        column,
+                        rowData[column],
+                        "benchmark.singular-source"))
+                    .ToArray()))
+            .ToArray();
         allocationProviderReader = new PrecomputedProviderDataReader(allocationCanonicalValues);
+        allocationMaterializationServices =
+            ((IDataLinqReadServices)Database.Provider.ReadOnlyAccess).MaterializationServices;
         allocationMutationModels = sampleEmployees
             .Select(employee =>
             {
@@ -496,6 +511,80 @@ internal sealed class BenchmarkContext : IDisposable
                 "benchmark.allocation");
             checksum = unchecked(
                 checksum + providerRow.EstimatedPayloadSize + modelRow.Size);
+        }
+
+        return checksum;
+    }
+
+    public int ValidateSingularSourceArguments()
+    {
+        var checksum = 0;
+        for (var index = 0; index < sampleEmployeePrimaryKeys.Length; index++)
+        {
+            var key = sampleEmployeePrimaryKeys[index];
+            SourceRowLoadingValidation.ValidatePrimaryKeyTable(allocationTable);
+            SourceRowLoadingValidation.ValidateCanonicalKey(
+                allocationTable,
+                key,
+                keyIndex: 0,
+                nameof(key));
+            checksum = unchecked(checksum + key.ValueCount);
+        }
+
+        return checksum;
+    }
+
+    public int PrepareSingularSourceSqlQueries()
+    {
+        var checksum = 0;
+        var column = allocationTable.PrimaryKeyColumns[0];
+        var dataSource = Database.Provider.ReadOnlyAccess;
+        var writer = dataSource.Provider.GetWriter();
+
+        for (var index = 0; index < sampleEmployeePrimaryKeys.Length; index++)
+        {
+            var query = new ScalarColumnRowsQuery(
+                allocationTable,
+                dataSource,
+                column,
+                writer.ConvertColumnValue(
+                    column,
+                    sampleEmployeePrimaryKeys[index].GetValue(0)));
+            checksum = unchecked(checksum + query.ToSql().Text.Length);
+        }
+
+        return checksum;
+    }
+
+    public int ValidateSingularSourceResults()
+    {
+        var checksum = 0;
+        for (var index = 0; index < allocationProviderRows.Length; index++)
+        {
+            var key = sampleEmployeePrimaryKeys[index];
+            var row = allocationProviderRows[index];
+            SourceRowLoadingValidation.ValidateSingleResult(
+                allocationTable,
+                in key,
+                row,
+                "Benchmark singular source");
+            checksum = unchecked(checksum + row.EstimatedPayloadSize);
+        }
+
+        return checksum;
+    }
+
+    public void ResetKnownMissMaterialization() =>
+        ResetState(clearCache: true);
+
+    public int MaterializeAndPublishKnownMissRows()
+    {
+        var checksum = 0;
+        for (var index = 0; index < allocationProviderRows.Length; index++)
+        {
+            var instance = allocationMaterializationServices
+                .MaterializeAfterKnownCacheMiss(allocationProviderRows[index]);
+            checksum = unchecked(checksum + ((RowData)instance.GetRowData()).Size);
         }
 
         return checksum;
@@ -914,6 +1003,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.CanonicalProviderRowDecoding => DecodeCanonicalProviderRows(),
             BenchmarkScenario.ProviderRowModelMaterialization => MaterializeProviderRows(),
             BenchmarkScenario.ProviderRowDecodeMaterialization => DecodeAndMaterializeProviderRows(),
+            BenchmarkScenario.SingularSourceArgumentValidation => ValidateSingularSourceArguments(),
+            BenchmarkScenario.SingularSourceSqlPreparation => PrepareSingularSourceSqlQueries(),
+            BenchmarkScenario.SingularSourceResultValidation => ValidateSingularSourceResults(),
+            BenchmarkScenario.KnownMissMaterializationPublication => MaterializeAndPublishKnownMissRows(),
             BenchmarkScenario.MutationStateChangeCapture => CaptureMutationStateChanges(),
             BenchmarkScenario.MutationExecutionPreflight => ValidateMutationExecutionPreflight(),
             BenchmarkScenario.MutationCommandPreparation => PrepareMutationCommands(),
@@ -1037,6 +1130,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.CanonicalProviderRowDecoding => BatchOperationCount,
             BenchmarkScenario.ProviderRowModelMaterialization => BatchOperationCount,
             BenchmarkScenario.ProviderRowDecodeMaterialization => BatchOperationCount,
+            BenchmarkScenario.SingularSourceArgumentValidation => BatchOperationCount,
+            BenchmarkScenario.SingularSourceSqlPreparation => BatchOperationCount,
+            BenchmarkScenario.SingularSourceResultValidation => BatchOperationCount,
+            BenchmarkScenario.KnownMissMaterializationPublication => BatchOperationCount,
             BenchmarkScenario.MutationStateChangeCapture => BatchOperationCount,
             BenchmarkScenario.MutationExecutionPreflight => BatchOperationCount,
             BenchmarkScenario.MutationCommandPreparation => BatchOperationCount,
@@ -1105,6 +1202,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.CanonicalProviderRowDecoding => "Canonical provider-row decoding",
             BenchmarkScenario.ProviderRowModelMaterialization => "Provider-row model materialization",
             BenchmarkScenario.ProviderRowDecodeMaterialization => "Provider-row decode/materialization pipeline",
+            BenchmarkScenario.SingularSourceArgumentValidation => "Singular source argument validation",
+            BenchmarkScenario.SingularSourceSqlPreparation => "Singular source SQL preparation",
+            BenchmarkScenario.SingularSourceResultValidation => "Singular source result validation",
+            BenchmarkScenario.KnownMissMaterializationPublication => "Known-miss materialization/publication",
             BenchmarkScenario.MutationStateChangeCapture => "Mutation state-change capture",
             BenchmarkScenario.MutationExecutionPreflight => "Mutation execution preflight",
             BenchmarkScenario.MutationCommandPreparation => "Mutation command preparation",

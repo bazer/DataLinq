@@ -346,6 +346,44 @@ public class EmployeesBenchmarks : IDisposable
     }
 
     [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Singular source argument validation")]
+    public int SingularSourceArgumentValidation()
+    {
+        executedScenario = BenchmarkScenario.SingularSourceArgumentValidation;
+        return context!.ValidateSingularSourceArguments();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Singular source SQL preparation")]
+    public int SingularSourceSqlPreparation()
+    {
+        executedScenario = BenchmarkScenario.SingularSourceSqlPreparation;
+        return context!.PrepareSingularSourceSqlQueries();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Singular source result validation")]
+    public int SingularSourceResultValidation()
+    {
+        executedScenario = BenchmarkScenario.SingularSourceResultValidation;
+        return context!.ValidateSingularSourceResults();
+    }
+
+    [IterationSetup(Target = nameof(KnownMissMaterializationPublication))]
+    public void SetupKnownMissMaterializationPublication()
+    {
+        context!.ResetKnownMissMaterialization();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Known-miss materialization/publication")]
+    public int KnownMissMaterializationPublication()
+    {
+        executedScenario = BenchmarkScenario.KnownMissMaterializationPublication;
+        return context!.MaterializeAndPublishKnownMissRows();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Mutation state-change capture")]
     public int MutationStateChangeCapture()
     {

@@ -200,19 +200,14 @@ public sealed class MemoryDatabase<TDatabase>
         where TModel : class, IImmutableInstance, ITableModel<TDatabase>
     {
         var table = GetTable<TModel>();
-        var request = new SourcePrimaryKeyRowRequest(
+        var row = readSource.LoadSingle(
             table,
-            [canonicalProviderKey],
+            in canonicalProviderKey,
             cancellationToken);
-        var result = readSource.Load(request);
 
-        return result.Rows.Length switch
-        {
-            0 => null,
-            1 => (TModel)readSource.Materialize(result.Rows[0]),
-            _ => throw new InvalidOperationException(
-                $"Memory primary-key lookup returned more than one row for table '{table.DbName}'.")
-        };
+        return row is null
+            ? null
+            : (TModel)readSource.Materialize(row);
     }
 
     /// <summary>
