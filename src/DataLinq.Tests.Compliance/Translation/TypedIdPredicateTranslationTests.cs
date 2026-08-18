@@ -45,6 +45,7 @@ public sealed class TypedIdPredicateTranslationTests
     }
 
     [Test]
+    [NotInParallel]
     [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task TypedIdPredicates_ExecuteEqualityContainsAndLocalAnyAcrossProviders(
@@ -70,6 +71,15 @@ public sealed class TypedIdPredicateTranslationTests
         var contains = database.Query().Rows.Count(row => selectedIds.Contains(row.Id));
         var localAny = database.Query().Rows.Count(row => selectedIds.Any(id => id == row.Id));
 
+        database.Provider.State.ClearCache();
+        DataLinqMetrics.Reset();
+        var directSingle = database.Query().Rows.Single(row => row.Id == probe);
+        var coldSingleSnapshot = DataLinqMetrics.Snapshot();
+
+        DataLinqMetrics.Reset();
+        var reversedSingle = database.Query().Rows.Single(row => probe == row.Id);
+        var warmSingleSnapshot = DataLinqMetrics.Snapshot();
+
         await Assert.That(inserted).IsEqualTo(3);
         await Assert.That(directEquality).IsEqualTo(1);
         await Assert.That(reversedEquality).IsEqualTo(1);
@@ -78,6 +88,18 @@ public sealed class TypedIdPredicateTranslationTests
         await Assert.That(nullableNullEquality).IsEqualTo(1);
         await Assert.That(contains).IsEqualTo(2);
         await Assert.That(localAny).IsEqualTo(2);
+        await Assert.That(directSingle.Id).IsEqualTo(probe);
+        await Assert.That(reversedSingle).IsSameReferenceAs(directSingle);
+        await Assert.That(coldSingleSnapshot.Queries.EntityExecutions).IsEqualTo(1);
+        await Assert.That(coldSingleSnapshot.Commands.ReaderExecutions).IsEqualTo(1);
+        await Assert.That(coldSingleSnapshot.RowCache.Misses).IsEqualTo(1);
+        await Assert.That(coldSingleSnapshot.RowCache.Stores).IsEqualTo(1);
+        await Assert.That(coldSingleSnapshot.RowCache.DatabaseRowsLoaded).IsEqualTo(1);
+        await Assert.That(warmSingleSnapshot.Queries.EntityExecutions).IsEqualTo(1);
+        await Assert.That(warmSingleSnapshot.Commands.ReaderExecutions).IsEqualTo(0);
+        await Assert.That(warmSingleSnapshot.RowCache.Hits).IsEqualTo(1);
+        await Assert.That(warmSingleSnapshot.RowCache.Misses).IsEqualTo(0);
+        await Assert.That(warmSingleSnapshot.RowCache.Stores).IsEqualTo(0);
     }
 
     [Test]
