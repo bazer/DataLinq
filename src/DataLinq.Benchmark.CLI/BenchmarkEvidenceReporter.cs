@@ -86,6 +86,11 @@ internal static class BenchmarkEvidenceReporter
                 "Typed-ID canonical-key propagation",
                 "Converter-backed canonical-key propagation",
                 "Binary canonical-key propagation",
+                "Source batch slice creation",
+                "Source request construction",
+                "Source loader result construction",
+                "Source result validation",
+                "Source cache result publication",
                 "Mutation state-change capture",
                 "Mutation execution preflight"
             ]
@@ -130,6 +135,11 @@ internal static class BenchmarkEvidenceReporter
             ["Typed-ID canonical-key propagation"] = 1000,
             ["Converter-backed canonical-key propagation"] = 1000,
             ["Binary canonical-key propagation"] = 1000,
+            ["Source batch slice creation"] = 1000,
+            ["Source request construction"] = 1000,
+            ["Source loader result construction"] = 1000,
+            ["Source result validation"] = 1000,
+            ["Source cache result publication"] = 1000,
             ["Mutation state-change capture"] = 1000,
             ["Mutation execution preflight"] = 1000
         };

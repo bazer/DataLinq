@@ -252,6 +252,26 @@ public sealed class SourceRowLoadingContractTests
     }
 
     [Test]
+    public async Task IndexRowLoadResult_LargeValidationRejectsDuplicatePrimaryKeys()
+    {
+        var metadata = CreateMetadata();
+        var table = metadata.TableModels[0].Table;
+        var index = table.ColumnIndices.Single(x => x.Name == "ix_source_rows_name");
+        var request = new SourceIndexRowRequest(
+            table,
+            index,
+            DataLinqKey.FromValue("Ada"));
+        var rows = Enumerable.Range(0, SourceRowLoadResult.LinearValidationThreshold + 1)
+            .Select(id => CreateCanonicalRow(table, id, $"row-{id}"))
+            .Append(CreateCanonicalRow(table, 0, "duplicate"));
+
+        var failure = Capture<ArgumentException>(() =>
+            new SourceIndexRowLoadResult(request, rows));
+
+        await Assert.That(failure.Message).Contains("duplicate primary key");
+    }
+
+    [Test]
     public async Task RowLoadResult_CanonicalBinaryKeyDoesNotAliasCallerOrRowBuffers()
     {
         var table = CreateBinaryKeyTable();
@@ -276,6 +296,134 @@ public sealed class SourceRowLoadingContractTests
             .IsEquivalentTo(new byte[] { 1, 2, 3 });
         await Assert.That(result.Rows[0].CanonicalProviderKey)
             .IsEqualTo(DataLinqKey.FromValue(new byte[] { 1, 2, 3 }));
+    }
+
+    [Test]
+    [Arguments(SourceRowLoadResult.LinearValidationThreshold - 1)]
+    [Arguments(SourceRowLoadResult.LinearValidationThreshold)]
+    [Arguments(SourceRowLoadResult.LinearValidationThreshold + 1)]
+    public async Task RowLoadResult_ValidatesBelowAtAndAboveLinearThreshold(int rowCount)
+    {
+        var table = CreateMetadata().TableModels[0].Table;
+        var keys = Enumerable.Range(0, rowCount)
+            .Select(DataLinqKey.FromValue)
+            .ToArray();
+        var rows = Enumerable.Range(0, rowCount)
+            .Select(id => CreateCanonicalRow(table, id, $"row-{id}"))
+            .ToArray();
+        var request = new SourcePrimaryKeyRowRequest(table, keys);
+
+        var result = new SourceRowLoadResult(request, rows);
+
+        await Assert.That(result.Rows.Length).IsEqualTo(rowCount);
+        await Assert.That(result.Rows.Select(static row => (int)row.CanonicalProviderKey.GetValue(0)!).ToArray())
+            .IsEquivalentTo(Enumerable.Range(0, rowCount).ToArray());
+    }
+
+    [Test]
+    public async Task RowLoadResult_LargeValidationPreservesMissingExtraAndDuplicateChecks()
+    {
+        var table = CreateMetadata().TableModels[0].Table;
+        var request = new SourcePrimaryKeyRowRequest(
+            table,
+            Enumerable.Range(0, SourceRowLoadResult.LinearValidationThreshold + 2)
+                .Select(DataLinqKey.FromValue));
+        var missingResult = new SourceRowLoadResult(
+            request,
+            Enumerable.Range(0, SourceRowLoadResult.LinearValidationThreshold)
+                .Select(id => CreateCanonicalRow(table, id, $"row-{id}")));
+
+        await Assert.That(missingResult.Rows.Length)
+            .IsEqualTo(SourceRowLoadResult.LinearValidationThreshold);
+
+        var extraFailure = Capture<ArgumentException>(() =>
+            new SourceRowLoadResult(
+                request,
+                [CreateCanonicalRow(table, 999, "extra")]));
+        await Assert.That(extraFailure.Message).Contains("unrequested primary key");
+
+        var duplicateRows = Enumerable.Range(0, SourceRowLoadResult.LinearValidationThreshold + 1)
+            .Select(id => CreateCanonicalRow(table, id, $"row-{id}"))
+            .Append(CreateCanonicalRow(table, 0, "duplicate"));
+        var duplicateFailure = Capture<ArgumentException>(() =>
+            new SourceRowLoadResult(request, duplicateRows));
+        await Assert.That(duplicateFailure.Message).Contains("duplicate primary key");
+    }
+
+    [Test]
+    public async Task BorrowedPrimaryKeyRequest_UsesBoundedReadOnlySlice()
+    {
+        var table = CreateMetadata().TableModels[0].Table;
+        var stableKeys = Enumerable.Range(0, SourceRowLoadResult.LinearValidationThreshold + 4)
+            .Select(DataLinqKey.FromValue)
+            .ToList();
+
+        var request = SourcePrimaryKeyRowRequest.Borrow(
+            table,
+            stableKeys,
+            offset: 2,
+            count: SourceRowLoadResult.LinearValidationThreshold);
+
+        await Assert.That(request.CanonicalProviderKeys.Length)
+            .IsEqualTo(SourceRowLoadResult.LinearValidationThreshold);
+        await Assert.That(request.CanonicalProviderKeys[0]).IsEqualTo(DataLinqKey.FromValue(2));
+        await Assert.That(request.CanonicalProviderKeys[^1]).IsEqualTo(
+            DataLinqKey.FromValue(SourceRowLoadResult.LinearValidationThreshold + 1));
+
+        var emptyFailure = Capture<ArgumentException>(() =>
+            SourcePrimaryKeyRowRequest.Borrow(table, stableKeys, 0, 0));
+        await Assert.That(emptyFailure.Message).Contains("requires at least one");
+
+        _ = Capture<ArgumentException>(() =>
+            SourcePrimaryKeyRowRequest.Borrow(table, stableKeys, stableKeys.Count - 1, 3));
+    }
+
+    [Test]
+    public async Task BorrowedPrimaryKeyRequest_CoversExactAndMultiChunkBoundaries()
+    {
+        const int chunkSize = 500;
+        var table = CreateMetadata().TableModels[0].Table;
+        var stableKeys = Enumerable.Range(0, chunkSize * 2 + 1)
+            .Select(DataLinqKey.FromValue)
+            .ToList();
+        var chunks = new List<SourcePrimaryKeyRowRequest>();
+
+        for (var offset = 0; offset < stableKeys.Count; offset += chunkSize)
+        {
+            chunks.Add(SourcePrimaryKeyRowRequest.Borrow(
+                table,
+                stableKeys,
+                offset,
+                Math.Min(chunkSize, stableKeys.Count - offset)));
+        }
+
+        await Assert.That(chunks.Count).IsEqualTo(3);
+        await Assert.That(chunks[0].CanonicalProviderKeys.Length).IsEqualTo(chunkSize);
+        await Assert.That(chunks[0].CanonicalProviderKeys[^1]).IsEqualTo(DataLinqKey.FromValue(499));
+        await Assert.That(chunks[1].CanonicalProviderKeys[0]).IsEqualTo(DataLinqKey.FromValue(500));
+        await Assert.That(chunks[1].CanonicalProviderKeys[^1]).IsEqualTo(DataLinqKey.FromValue(999));
+        await Assert.That(chunks[2].CanonicalProviderKeys.Length).IsEqualTo(1);
+        await Assert.That(chunks[2].CanonicalProviderKeys[0]).IsEqualTo(DataLinqKey.FromValue(1000));
+    }
+
+    [Test]
+    public async Task ResultBuilder_TransfersOwnedStorageBehindReadOnlyViewAndRejectsReuse()
+    {
+        var table = CreateMetadata().TableModels[0].Table;
+        var request = new SourcePrimaryKeyRowRequest(
+            table,
+            [DataLinqKey.FromValue(1), DataLinqKey.FromValue(2)]);
+        var builder = new SourceRowLoadResult.Builder(request, capacity: 2);
+        builder.Add(CreateCanonicalRow(table, 1, "one"));
+        builder.Add(CreateCanonicalRow(table, 2, "two"));
+
+        var result = builder.Build();
+
+        await Assert.That(result.Rows.Length).IsEqualTo(2);
+        await Assert.That((object)result.Rows is IList<LoadedCanonicalRow>).IsFalse();
+        var reuseFailure = Capture<InvalidOperationException>(() =>
+            builder.Add(CreateCanonicalRow(table, 1, "reuse")));
+        await Assert.That(reuseFailure.Message).Contains("cannot be reused");
     }
 
     [Test]

@@ -83,20 +83,43 @@ internal sealed class MemoryReadSource :
         request.ThrowIfCancellationRequested();
         Interlocked.Increment(ref primaryKeyRequests);
 
-        var rows = new List<CanonicalProviderValueRow>(request.CanonicalProviderKeys.Length);
-        var distinctKeys = new HashSet<DataLinqKey>();
-        foreach (var key in request.CanonicalProviderKeys)
+        var builder = new SourceRowLoadResult.Builder(
+            request,
+            request.CanonicalProviderKeys.Length);
+        HashSet<DataLinqKey>? distinctKeys = request.CanonicalProviderKeys.Length >
+            SourceRowLoadResult.LinearValidationThreshold
+                ? new HashSet<DataLinqKey>()
+                : null;
+        for (var keyIndex = 0; keyIndex < request.CanonicalProviderKeys.Length; keyIndex++)
         {
             request.ThrowIfCancellationRequested();
-            if (!distinctKeys.Add(key))
+            var key = request.CanonicalProviderKeys[keyIndex];
+            var duplicate = distinctKeys is not null
+                ? !distinctKeys.Add(key)
+                : ContainsEarlierKey(request.CanonicalProviderKeys, keyIndex, key);
+            if (duplicate)
                 continue;
 
             Interlocked.Increment(ref primaryKeyProbes);
             if (store.TryGet(request.Table, key, out var row) && row is not null)
-                rows.Add(row);
+                builder.Add(row);
         }
 
-        return new SourceRowLoadResult(request, rows);
+        return builder.Build();
+    }
+
+    private static bool ContainsEarlierKey(
+        ReadOnlyListSlice<DataLinqKey> keys,
+        int exclusiveEnd,
+        DataLinqKey key)
+    {
+        for (var index = 0; index < exclusiveEnd; index++)
+        {
+            if (keys[index].Equals(key))
+                return true;
+        }
+
+        return false;
     }
 
     internal IImmutableInstance Materialize(CanonicalProviderValueRow row) =>

@@ -55,6 +55,7 @@ internal sealed class BenchmarkContext : IDisposable
     private readonly CanonicalProviderValueRow[] allocationProviderRows;
     private readonly IModelMaterializationServices allocationMaterializationServices;
     private readonly CanonicalKeyPropagationAllocationFixture canonicalKeyAllocations;
+    private readonly SourceLoadingAllocationFixture sourceLoadingAllocations;
     private readonly MutableEmployee[] allocationMutationModels;
     private readonly int startupEmployeeNumber;
     private readonly TestConnectionDefinition startupConnection;
@@ -116,6 +117,7 @@ internal sealed class BenchmarkContext : IDisposable
         allocationMaterializationServices =
             ((IDataLinqReadServices)Database.Provider.ReadOnlyAccess).MaterializationServices;
         canonicalKeyAllocations = new CanonicalKeyPropagationAllocationFixture();
+        sourceLoadingAllocations = new SourceLoadingAllocationFixture();
         allocationMutationModels = sampleEmployees
             .Select(employee =>
             {
@@ -705,6 +707,21 @@ internal sealed class BenchmarkContext : IDisposable
     public int PropagateBinaryCanonicalKeys() =>
         canonicalKeyAllocations.PropagateBinaryKeys();
 
+    public int CreateSourceBatchSlices() =>
+        sourceLoadingAllocations.CreateBatchSlices();
+
+    public int ConstructSourceRequests() =>
+        sourceLoadingAllocations.ConstructBorrowedRequests();
+
+    public int ConstructSourceLoaderResultStorage() =>
+        sourceLoadingAllocations.ConstructLoaderResultStorage();
+
+    public int ValidateSourceResults() =>
+        sourceLoadingAllocations.ValidateLoaderResults();
+
+    public int PublishSourceCacheResults() =>
+        sourceLoadingAllocations.PublishCacheResults();
+
     public int CaptureMutationStateChanges()
     {
         var checksum = 0;
@@ -1138,6 +1155,11 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.TypedIdCanonicalKeyPropagation => PropagateTypedIdCanonicalKeys(),
             BenchmarkScenario.ConverterBackedCanonicalKeyPropagation => PropagateConverterBackedCanonicalKeys(),
             BenchmarkScenario.BinaryCanonicalKeyPropagation => PropagateBinaryCanonicalKeys(),
+            BenchmarkScenario.SourceBatchSliceCreation => CreateSourceBatchSlices(),
+            BenchmarkScenario.SourceRequestConstruction => ConstructSourceRequests(),
+            BenchmarkScenario.SourceLoaderResultConstruction => ConstructSourceLoaderResultStorage(),
+            BenchmarkScenario.SourceResultValidation => ValidateSourceResults(),
+            BenchmarkScenario.SourceCacheResultPublication => PublishSourceCacheResults(),
             BenchmarkScenario.MutationStateChangeCapture => CaptureMutationStateChanges(),
             BenchmarkScenario.MutationExecutionPreflight => ValidateMutationExecutionPreflight(),
             BenchmarkScenario.MutationCommandPreparation => PrepareMutationCommands(),
@@ -1277,6 +1299,11 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.TypedIdCanonicalKeyPropagation => BatchOperationCount,
             BenchmarkScenario.ConverterBackedCanonicalKeyPropagation => BatchOperationCount,
             BenchmarkScenario.BinaryCanonicalKeyPropagation => BatchOperationCount,
+            BenchmarkScenario.SourceBatchSliceCreation => BatchOperationCount,
+            BenchmarkScenario.SourceRequestConstruction => BatchOperationCount,
+            BenchmarkScenario.SourceLoaderResultConstruction => BatchOperationCount,
+            BenchmarkScenario.SourceResultValidation => BatchOperationCount,
+            BenchmarkScenario.SourceCacheResultPublication => BatchOperationCount,
             BenchmarkScenario.MutationStateChangeCapture => BatchOperationCount,
             BenchmarkScenario.MutationExecutionPreflight => BatchOperationCount,
             BenchmarkScenario.MutationCommandPreparation => BatchOperationCount,
@@ -1361,6 +1388,11 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.TypedIdCanonicalKeyPropagation => "Typed-ID canonical-key propagation",
             BenchmarkScenario.ConverterBackedCanonicalKeyPropagation => "Converter-backed canonical-key propagation",
             BenchmarkScenario.BinaryCanonicalKeyPropagation => "Binary canonical-key propagation",
+            BenchmarkScenario.SourceBatchSliceCreation => "Source batch slice creation",
+            BenchmarkScenario.SourceRequestConstruction => "Source request construction",
+            BenchmarkScenario.SourceLoaderResultConstruction => "Source loader result construction",
+            BenchmarkScenario.SourceResultValidation => "Source result validation",
+            BenchmarkScenario.SourceCacheResultPublication => "Source cache result publication",
             BenchmarkScenario.MutationStateChangeCapture => "Mutation state-change capture",
             BenchmarkScenario.MutationExecutionPreflight => "Mutation execution preflight",
             BenchmarkScenario.MutationCommandPreparation => "Mutation command preparation",

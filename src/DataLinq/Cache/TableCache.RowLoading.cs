@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
-using DataLinq.Extensions.Helpers;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
@@ -39,22 +38,22 @@ public partial class TableCache
         {
             if (GetCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
             {
-                var canonicalKeys = keysToLoad
-                    .Select(ProviderKeyComponents.ToDataLinqKey)
-                    .Distinct()
-                    .ToList();
-                foreach (var loaded in LoadCanonicalRowsAfterKnownMiss(
+                var canonicalKeys = CreateDistinctCanonicalProviderKeys(keysToLoad);
+                LoadCanonicalRowsAfterKnownMiss(
                     canonicalKeys,
-                    sourceServices))
-                {
-                    rowsByPrimaryKey.TryAdd(loaded.Key, loaded.Value);
-                }
+                    sourceServices,
+                    rowsByPrimaryKey: rowsByPrimaryKey);
             }
             else
             {
-                foreach (var split in keysToLoad.SplitList(500))
+                for (var offset = 0; offset < keysToLoad.Count; offset += 500)
                 {
-                    foreach (var rowData in GetRowDataFromPrimaryKeyValues(split, dataSource))
+                    var count = Math.Min(500, keysToLoad.Count - offset);
+                    foreach (var rowData in GetRowDataFromPrimaryKeyValues(
+                        keysToLoad,
+                        offset,
+                        count,
+                        dataSource))
                     {
                         MetricsHandle.RecordDatabaseRowsLoaded(1);
                         var row = AddRow(rowData, dataSource);
@@ -328,22 +327,23 @@ public partial class TableCache
         {
             if (GetCanonicalPrimaryKeySourceServices(dataSource) is { } sourceServices)
             {
-                var canonicalKeys = keysToLoad
-                    .Select(ProviderKeyComponents.ToDataLinqKey)
-                    .Distinct()
-                    .ToList();
-                foreach (var loaded in LoadCanonicalRowsAfterKnownMiss(
+                var canonicalKeys = CreateDistinctCanonicalProviderKeys(keysToLoad);
+                LoadCanonicalRowsAfterKnownMiss(
                     canonicalKeys,
-                    sourceServices))
-                {
-                    loadedRows.Add(loaded.Value);
-                }
+                    sourceServices,
+                    loadedRows: loadedRows);
             }
             else
             {
-                foreach (var split in keysToLoad.SplitList(500))
+                for (var offset = 0; offset < keysToLoad.Count; offset += 500)
                 {
-                    foreach (var rowData in GetRowDataFromPrimaryKeyValues(split, dataSource, orderings))
+                    var count = Math.Min(500, keysToLoad.Count - offset);
+                    foreach (var rowData in GetRowDataFromPrimaryKeyValues(
+                        keysToLoad,
+                        offset,
+                        count,
+                        dataSource,
+                        orderings))
                     {
                         MetricsHandle.RecordDatabaseRowsLoaded(1);
                         loadedRows.Add(AddRow(rowData, dataSource));
@@ -385,33 +385,79 @@ public partial class TableCache
         return orderedRows ?? rows;
     }
 
-    private IReadOnlyDictionary<DataLinqKey, IImmutableInstance>
-        LoadCanonicalRowsAfterKnownMiss(
-            List<DataLinqKey> canonicalProviderKeys,
-            IDataLinqSourceRowServices sourceServices)
+    private void LoadCanonicalRowsAfterKnownMiss(
+        List<DataLinqKey> canonicalProviderKeys,
+        IDataLinqSourceRowServices sourceServices,
+        Dictionary<DataLinqKey, IImmutableInstance>? rowsByPrimaryKey = null,
+        List<IImmutableInstance>? loadedRows = null)
     {
-        var rows = new Dictionary<DataLinqKey, IImmutableInstance>(
-            canonicalProviderKeys.Count);
-        foreach (var split in canonicalProviderKeys.SplitList(500))
+        if ((rowsByPrimaryKey is null) == (loadedRows is null))
         {
-            var request = new SourcePrimaryKeyRowRequest(Table, split);
+            throw new ArgumentException(
+                "Canonical row loading requires exactly one result destination.");
+        }
+
+        for (var offset = 0; offset < canonicalProviderKeys.Count; offset += 500)
+        {
+            var count = Math.Min(500, canonicalProviderKeys.Count - offset);
+            var request = SourcePrimaryKeyRowRequest.Borrow(
+                Table,
+                canonicalProviderKeys,
+                offset,
+                count);
             var result = sourceServices.RowLoader.Load(request);
+            if (!ReferenceEquals(result.Request, request))
+            {
+                throw new InvalidOperationException(
+                    $"Source row loader returned a result for a different request than table '{Table.DbName}'.");
+            }
+
             foreach (var loadedRow in result.Rows)
             {
                 var key = loadedRow.CanonicalProviderKey;
                 var row = sourceServices.MaterializationServices
                     .MaterializeAfterKnownCacheMiss(loadedRow);
-                if (!rows.TryAdd(key, row))
-                {
-                    throw new InvalidOperationException(
-                        $"Source row loader returned duplicate canonical primary key '{key}' for table '{Table.DbName}'.");
-                }
+                if (rowsByPrimaryKey is not null)
+                    rowsByPrimaryKey.TryAdd(key, row);
+                else
+                    loadedRows!.Add(row);
 
                 MetricsHandle.RecordDatabaseRowsLoaded(1);
             }
         }
+    }
 
-        return rows;
+    private static List<DataLinqKey> CreateDistinctCanonicalProviderKeys<TKey>(
+        List<TKey> keys)
+        where TKey : notnull
+    {
+        var canonicalKeys = new List<DataLinqKey>(keys.Count);
+        HashSet<DataLinqKey>? seen = keys.Count > SourceRowLoadResult.LinearValidationThreshold
+            ? new HashSet<DataLinqKey>()
+            : null;
+
+        foreach (var key in keys)
+        {
+            var canonicalKey = ProviderKeyComponents.ToDataLinqKey(key);
+            var duplicate = seen is not null
+                ? !seen.Add(canonicalKey)
+                : ContainsKey(canonicalKeys, canonicalKey);
+            if (!duplicate)
+                canonicalKeys.Add(canonicalKey);
+        }
+
+        return canonicalKeys;
+    }
+
+    private static bool ContainsKey(List<DataLinqKey> keys, DataLinqKey candidate)
+    {
+        foreach (var key in keys)
+        {
+            if (key.Equals(candidate))
+                return true;
+        }
+
+        return false;
     }
 
     private IImmutableInstance? LoadCanonicalRowAfterKnownMiss(

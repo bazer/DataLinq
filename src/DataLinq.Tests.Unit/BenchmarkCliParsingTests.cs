@@ -152,6 +152,11 @@ public class BenchmarkCliParsingTests
     [Arguments("Typed-ID canonical-key propagation", "canonical-key-typed-id")]
     [Arguments("Converter-backed canonical-key propagation", "canonical-key-converter")]
     [Arguments("Binary canonical-key propagation", "canonical-key-binary")]
+    [Arguments("Source batch slice creation", "source-batch-slice")]
+    [Arguments("Source request construction", "source-request")]
+    [Arguments("Source loader result construction", "source-loader-result")]
+    [Arguments("Source result validation", "source-result-validation")]
+    [Arguments("Source cache result publication", "source-cache-publication")]
     [Arguments("Mutation state-change capture", "mutation-capture")]
     [Arguments("Mutation execution preflight", "mutation-preflight")]
     public async Task AllocationStages_HaveStableTrackingAndScenarioCategories(

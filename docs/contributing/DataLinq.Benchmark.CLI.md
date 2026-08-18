@@ -139,7 +139,7 @@ Repeat the same-runtime SQL hot-path comparison separately; combining selectors 
 
 The allocation budget is intentionally uncompromising: every tracked candidate row must allocate no more bytes per operation than the same-runner final-0.8 row (`AllocatedDeltaPercent <= 0`). The comparison warning percentage remains a triage threshold, not permission to rebaseline above 0.8. The machine-readable scope and policy live in `docs/contributing/benchmark-allocation-budgets.json`.
 
-Use `--allocation-stages --profile heavy` to attribute current-runtime work without a macro run. The eleven canonical cases isolate canonical provider-row ownership/copying, provider-to-model materialization, the combined decoder-to-model pipeline, scalar/composite/typed-ID/converter-backed/binary canonical-key propagation (including a composite reconstruction baseline), state-change capture from prebuilt changed mutables, and execution preflight against a prepared transaction/state change. The existing `--v09-query-backend` lane already isolates structural parsing, initial bind/freeze, invocation rebinding, and capability preparation.
+Use `--allocation-stages --profile heavy` to attribute current-runtime work without a macro run. The sixteen canonical cases isolate canonical provider-row ownership/copying, provider-to-model materialization, the combined decoder-to-model pipeline, scalar/composite/typed-ID/converter-backed/binary canonical-key propagation (including a composite reconstruction baseline), source batch slicing/request/result/validation/cache-publication boundaries, state-change capture from prebuilt changed mutables, and execution preflight against a prepared transaction/state change. The existing `--v09-query-backend` lane already isolates structural parsing, initial bind/freeze, invocation rebinding, and capability preparation.
 
 ## Phase 2 Watchpoints
 
@@ -355,7 +355,7 @@ The six canonical release-history matrices are exact:
 | `--v09-query-backend` | 6 | `sqlite-file`, `sqlite-memory` | 12 | `1000` except SQL-adapter scalar `Any` at `3000` |
 | `--v09-memory-read` | 9 | `memory` | 9 | `1` for every method |
 | `--allocation-regression` | 9 | `sqlite-memory` | 9 | provider/startup `1`; CRUD small `50`; CRUD batch `300`; remaining methods `1000` |
-| `--allocation-stages` | 11 | `sqlite-file`, `sqlite-memory` | 22 | `1000` for every method |
+| `--allocation-stages` | 16 | `sqlite-file`, `sqlite-memory` | 32 | `1000` for every method |
 
 Strict history validity requires exactly one of those selectors, `--profile heavy` (`MediumRun`), the default unfiltered `--filter "*"`, the exact provider set above, no `--no-build`, no pass-through BenchmarkDotNet arguments, one complete unique row per expected category/provider/method target, and the exact operation count and selector tracking group for every row. Each row must also carry its real non-`other` scenario category, runtime/job/toolchain identity, finite measurement/allocation data, and a matching complete nonnegative telemetry delta. A focused, filtered, smoke/default-profile, provider-subset, no-build, or pass-through invocation may still be a successful diagnostic run, but it is not release evidence.
 

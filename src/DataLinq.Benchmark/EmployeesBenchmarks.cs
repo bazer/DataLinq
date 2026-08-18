@@ -513,6 +513,46 @@ public class EmployeesBenchmarks : IDisposable
     }
 
     [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Source batch slice creation")]
+    public int SourceBatchSliceCreation()
+    {
+        executedScenario = BenchmarkScenario.SourceBatchSliceCreation;
+        return context!.CreateSourceBatchSlices();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Source request construction")]
+    public int SourceRequestConstruction()
+    {
+        executedScenario = BenchmarkScenario.SourceRequestConstruction;
+        return context!.ConstructSourceRequests();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Source loader result construction")]
+    public int SourceLoaderResultConstruction()
+    {
+        executedScenario = BenchmarkScenario.SourceLoaderResultConstruction;
+        return context!.ConstructSourceLoaderResultStorage();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Source result validation")]
+    public int SourceResultValidation()
+    {
+        executedScenario = BenchmarkScenario.SourceResultValidation;
+        return context!.ValidateSourceResults();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Source cache result publication")]
+    public int SourceCacheResultPublication()
+    {
+        executedScenario = BenchmarkScenario.SourceCacheResultPublication;
+        return context!.PublishSourceCacheResults();
+    }
+
+    [BenchmarkCategory(AllocationStagesCategory)]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Mutation state-change capture")]
     public int MutationStateChangeCapture()
     {
