@@ -13,6 +13,7 @@ namespace DataLinq.Memory;
 internal sealed class MemoryReadSource :
     IDataLinqSourceRowServices,
     IDataLinqQueryPlanServices,
+    IExactPrimaryKeyTerminalExecutionServices,
     ISourceRowLoader,
     IReadSourceMaterializationCache
 {
@@ -54,6 +55,24 @@ internal sealed class MemoryReadSource :
     ISourceRowLoader IDataLinqSourceRowServices.RowLoader => this;
 
     IQueryPlanBackend IDataLinqQueryPlanServices.QueryPlanBackend => queryPlanBackend;
+
+    IImmutableInstance? IExactPrimaryKeyTerminalExecutionServices.ExecuteExactPrimaryKeyTerminal(
+        TableDefinition table,
+        object? canonicalProviderKey,
+        QueryPlanResultKind resultKind)
+    {
+        ValidateOwnedTable(table);
+        IImmutableInstance? instance = null;
+        if (canonicalProviderKey is not null)
+        {
+            var key = DataLinqKey.FromValue(canonicalProviderKey);
+            var row = LoadSingle(table, in key);
+            if (row is not null)
+                instance = Materialize(row);
+        }
+
+        return ExactPrimaryKeyTerminalExecution.ApplyResultSemantics(instance, resultKind);
+    }
 
     public CanonicalProviderValueRow? LoadSingle(
         TableDefinition table,

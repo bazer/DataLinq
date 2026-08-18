@@ -22,9 +22,11 @@ public sealed class MemorySingleResultTests
 
         await Assert.That(predicateResult.Id).IsEqualTo(17);
         await Assert.That(whereResult).IsSameReferenceAs(predicateResult);
-        await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(10);
-        await Assert.That(database.Diagnostics.PredicateEvaluations).IsEqualTo(10);
-        await Assert.That(database.Diagnostics.PredicateRejections).IsEqualTo(8);
+        await Assert.That(database.Diagnostics.PrimaryKeyRequests).IsEqualTo(1);
+        await Assert.That(database.Diagnostics.PrimaryKeyProbes).IsEqualTo(1);
+        await Assert.That(database.Diagnostics.ScanRowsVisited).IsEqualTo(5);
+        await Assert.That(database.Diagnostics.PredicateEvaluations).IsEqualTo(5);
+        await Assert.That(database.Diagnostics.PredicateRejections).IsEqualTo(4);
         await Assert.That(database.Diagnostics.Materializations).IsEqualTo(1);
         await Assert.That(database.GetMaterializedRowCount<MemoryPrimitiveRow>()).IsEqualTo(1);
     }
@@ -38,8 +40,10 @@ public sealed class MemorySingleResultTests
         var entity = entityDatabase.Model.Rows.SingleOrDefault(row => row.Id == missingId);
 
         await Assert.That(entity).IsNull();
-        await Assert.That(entityDatabase.Diagnostics.ScanRowsVisited).IsEqualTo(5);
-        await Assert.That(entityDatabase.Diagnostics.PredicateEvaluations).IsEqualTo(5);
+        await Assert.That(entityDatabase.Diagnostics.PrimaryKeyRequests).IsEqualTo(1);
+        await Assert.That(entityDatabase.Diagnostics.PrimaryKeyProbes).IsEqualTo(1);
+        await Assert.That(entityDatabase.Diagnostics.ScanRowsVisited).IsEqualTo(0);
+        await Assert.That(entityDatabase.Diagnostics.PredicateEvaluations).IsEqualTo(0);
         AssertNoEntityWork(entityDatabase);
 
         var scalarDatabase = CreateDatabase();
@@ -65,7 +69,9 @@ public sealed class MemorySingleResultTests
             emptyDatabase.Model.Rows.Single(row => row.Id == 99));
 
         await Assert.That(empty.Message).IsEqualTo(expectedEmpty.Message);
-        await Assert.That(emptyDatabase.Diagnostics.ScanRowsVisited).IsEqualTo(5);
+        await Assert.That(emptyDatabase.Diagnostics.PrimaryKeyRequests).IsEqualTo(1);
+        await Assert.That(emptyDatabase.Diagnostics.PrimaryKeyProbes).IsEqualTo(1);
+        await Assert.That(emptyDatabase.Diagnostics.ScanRowsVisited).IsEqualTo(0);
         AssertNoEntityWork(emptyDatabase);
 
         var singleDatabase = CreateDatabase();

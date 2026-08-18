@@ -6,10 +6,16 @@ using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Linq.Planning;
 using DataLinq.Linq.Planning.Sql;
+using DataLinq.Metadata;
 
 namespace DataLinq.Mutation;
 
-public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqSourceRowServices, IDataLinqIndexRowServices, IDataLinqQueryPlanServices
+public abstract class DataSourceAccess :
+    IDataSourceAccess,
+    IDataLinqSourceRowServices,
+    IDataLinqIndexRowServices,
+    IDataLinqQueryPlanServices,
+    IExactPrimaryKeyTerminalExecutionServices
 {
     private IModelMaterializationServices? materializationServices;
     private IQueryPlanBackend? queryPlanBackend;
@@ -94,6 +100,16 @@ public abstract class DataSourceAccess : IDataSourceAccess, IDataLinqSourceRowSe
                 comparand: null) ?? created;
         }
     }
+
+    IImmutableInstance? IExactPrimaryKeyTerminalExecutionServices.ExecuteExactPrimaryKeyTerminal(
+        TableDefinition table,
+        object? canonicalProviderKey,
+        QueryPlanResultKind resultKind) =>
+        SqlQueryPlanBackend.ExecuteTerminalPrimaryKeyLookup(
+            this,
+            table,
+            canonicalProviderKey,
+            resultKind);
 
     /// <summary>
     /// Gets models from a query.

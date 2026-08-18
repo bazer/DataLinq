@@ -109,8 +109,6 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
     {
         EnsureEntityRequest(request);
         request.Context.CancellationToken.ThrowIfCancellationRequested();
-        DataSourceAccess.EnsureReadAllowed(dataSource, "execute a query plan");
-
         if (!TryGetTerminalScalarPrimaryKeyInvocation(
                 request.Invocation,
                 out var table,
@@ -121,7 +119,7 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
             return false;
         }
 
-        result = ExecuteTerminalPrimaryKeyLookup(table, primaryKey, resultKind);
+        result = ExecuteTerminalPrimaryKeyLookup(dataSource, table, primaryKey, resultKind);
         return true;
     }
 
@@ -193,11 +191,16 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
         }
     }
 
-    private IImmutableInstance? ExecuteTerminalPrimaryKeyLookup(
+    internal static IImmutableInstance? ExecuteTerminalPrimaryKeyLookup(
+        IDataSourceAccess dataSource,
         TableDefinition table,
         object? primaryKey,
         QueryPlanResultKind resultKind)
     {
+        ArgumentNullException.ThrowIfNull(dataSource);
+        ArgumentNullException.ThrowIfNull(table);
+        DataSourceAccess.EnsureReadAllowed(dataSource, "execute an exact primary-key terminal query");
+
         var telemetryContext = DataLinqTelemetryContext.FromProvider(dataSource.Provider);
         var activity = DataLinqTelemetry.StartQueryActivity(
             telemetryContext,
@@ -213,9 +216,9 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
         {
             var row = primaryKey is null
                 ? null
-                : GetRowByScalarPrimaryKey(table, primaryKey);
+                : GetRowByScalarPrimaryKey(dataSource, table, primaryKey);
 
-            var result = ConvertPrimaryKeyLookupResult(row, resultKind);
+            var result = ExactPrimaryKeyTerminalExecution.ApplyResultSemantics(row, resultKind);
             succeeded = true;
             return result;
         }
@@ -246,7 +249,8 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
         }
     }
 
-    private IImmutableInstance? GetRowByScalarPrimaryKey(
+    private static IImmutableInstance? GetRowByScalarPrimaryKey(
+        IDataSourceAccess dataSource,
         TableDefinition table,
         object primaryKey)
     {
@@ -255,20 +259,6 @@ internal sealed class SqlQueryPlanBackend : IQueryPlanBackend
             return row;
 
         return tableCache.GetRow(DataLinqKey.FromValue(primaryKey), dataSource);
-    }
-
-    private static IImmutableInstance? ConvertPrimaryKeyLookupResult(
-        IImmutableInstance? row,
-        QueryPlanResultKind resultKind)
-    {
-        if (row is not null)
-            return row;
-
-        return resultKind switch
-        {
-            QueryPlanResultKind.SingleOrDefault or QueryPlanResultKind.FirstOrDefault => null,
-            _ => throw new InvalidOperationException("Sequence contains no elements")
-        };
     }
 
     private static bool TryGetTerminalScalarPrimaryKeyInvocation(

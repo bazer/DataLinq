@@ -50,6 +50,9 @@ internal sealed class ExpressionQueryPlanProvider : IQueryProvider
 
     public TResult Execute<TResult>(Expression expression)
     {
+        if (TryExecuteExactPrimaryKeyTerminal(expression, out TResult exactResult))
+            return exactResult;
+
         var plan = Parse(expression, typeof(TResult));
         var request = ValidatedQueryExecutionRequest.Prepare(CreateExecutionRequest(plan));
         return ExpressionQueryPlanExecutor.Execute<TResult>(request);
@@ -64,6 +67,32 @@ internal sealed class ExpressionQueryPlanProvider : IQueryProvider
 
     public QueryPlanInvocation Parse(Expression expression, Type resultType)
         => ExpressionQueryPlanParser.Convert(metadata, expression, resultType);
+
+    private bool TryExecuteExactPrimaryKeyTerminal<TResult>(
+        Expression expression,
+        out TResult result)
+    {
+        result = default!;
+        if (readSource is not IExactPrimaryKeyTerminalExecutionServices services ||
+            !ExactPrimaryKeyTerminalQuery.TryMatch(
+                metadata,
+                this,
+                expression,
+                typeof(TResult),
+                out var match))
+        {
+            return false;
+        }
+
+        var instance = services.ExecuteExactPrimaryKeyTerminal(
+            match.Table,
+            match.CanonicalProviderKey,
+            match.ResultKind);
+        result = instance is null
+            ? default!
+            : (TResult)(object)instance;
+        return true;
+    }
 
     private QueryExecutionRequest CreateExecutionRequest(QueryPlanInvocation invocation)
     {

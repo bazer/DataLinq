@@ -69,6 +69,8 @@ public sealed class TypedIdPredicateTranslationTests
         var nullableNullEquality = database.Query().Rows.Count(row => row.ParentId == null);
         var contains = database.Query().Rows.Count(row => selectedIds.Contains(row.Id));
         var localAny = database.Query().Rows.Count(row => selectedIds.Any(id => id == row.Id));
+        var directSingle = database.Query().Rows.Single(row => row.Id == probe);
+        var reversedSingle = database.Query().Rows.Single(row => probe == row.Id);
 
         await Assert.That(inserted).IsEqualTo(3);
         await Assert.That(directEquality).IsEqualTo(1);
@@ -78,6 +80,8 @@ public sealed class TypedIdPredicateTranslationTests
         await Assert.That(nullableNullEquality).IsEqualTo(1);
         await Assert.That(contains).IsEqualTo(2);
         await Assert.That(localAny).IsEqualTo(2);
+        await Assert.That(directSingle.Id).IsEqualTo(probe);
+        await Assert.That(reversedSingle).IsSameReferenceAs(directSingle);
     }
 
     [Test]
