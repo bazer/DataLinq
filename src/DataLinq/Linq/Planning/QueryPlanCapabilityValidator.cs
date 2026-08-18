@@ -35,6 +35,34 @@ internal static class QueryPlanCapabilityValidator
             structural: false);
     }
 
+    /// <summary>
+    /// Validates one runtime invocation without constructing the inspectable requirements graph.
+    /// Detailed diagnostics are reconstructed only when an unsupported feature is encountered.
+    /// </summary>
+    internal static void ValidateForExecution(
+        QueryPlanInvocation invocation,
+        QueryBackendCapabilities capabilities)
+    {
+        ArgumentNullException.ThrowIfNull(invocation);
+        ArgumentNullException.ThrowIfNull(capabilities);
+
+        ValidateStructural(invocation.Template, capabilities);
+
+        var unsupportedIndex = QueryPlanRequirements.FindFirstUnsupportedInvocationFeature(
+            invocation,
+            capabilities);
+        if (unsupportedIndex < 0)
+            return;
+
+        var requirement = QueryPlanRequirements.ExtractInvocationDiagnostics(invocation)[unsupportedIndex];
+        throw new QueryBackendCapabilityException(
+            capabilities.BackendName,
+            requirement.Feature.Token,
+            requirement.Location,
+            requirement.SourceId,
+            requirement.ColumnName);
+    }
+
     internal static void ValidateStructural(
         QueryPlanTemplate template,
         QueryBackendCapabilities capabilities)

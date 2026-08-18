@@ -61,6 +61,22 @@ internal sealed class QueryPlanRequirements
         return StructuralExtractor.ExtractDiagnostics(template);
     }
 
+    internal static int FindFirstUnsupportedInvocationFeature(
+        QueryPlanInvocation invocation,
+        QueryBackendCapabilities capabilities)
+    {
+        ArgumentNullException.ThrowIfNull(invocation);
+        ArgumentNullException.ThrowIfNull(capabilities);
+        return InvocationRequirementExtractor.FindFirstUnsupportedFeature(invocation, capabilities);
+    }
+
+    internal static IReadOnlyList<QueryPlanRequirement> ExtractInvocationDiagnostics(
+        QueryPlanInvocation invocation)
+    {
+        ArgumentNullException.ThrowIfNull(invocation);
+        return InvocationRequirementExtractor.ExtractDiagnostics(invocation);
+    }
+
     private sealed class StructuralExtractor
     {
         private readonly QueryPlanTemplate template;
@@ -904,11 +920,11 @@ internal sealed class QueryPlanRequirements
             _ => null
         };
 
-        private static string? FindSourceId(IEnumerable<QueryPlanOperation> operations)
+        private static string? FindSourceId(IReadOnlyList<QueryPlanOperation> operations)
         {
-            foreach (var operation in operations)
+            for (var index = 0; index < operations.Count; index++)
             {
-                if (FindSourceId(operation) is { } sourceId)
+                if (FindSourceId(operations[index]) is { } sourceId)
                     return sourceId;
             }
 
@@ -937,11 +953,11 @@ internal sealed class QueryPlanRequirements
             return null;
         }
 
-        private static string? FindSourceId(IEnumerable<QueryPlanValue> values)
+        private static string? FindSourceId(IReadOnlyList<QueryPlanValue> values)
         {
-            foreach (var value in values)
+            for (var index = 0; index < values.Count; index++)
             {
-                if (FindSourceId(value) is { } sourceId)
+                if (FindSourceId(values[index]) is { } sourceId)
                     return sourceId;
             }
 
@@ -994,16 +1010,23 @@ internal sealed class QueryPlanRequirements
                     suffix);
     }
 
-    private sealed class InvocationRequirementExtractor
+    private struct InvocationRequirementExtractor
     {
         private readonly QueryPlanInvocation invocation;
         private readonly QueryPlanFeature[]? features;
         private readonly List<QueryPlanRequirement>? diagnostics;
+        private readonly QueryBackendCapabilities? validationCapabilities;
         private int nextFeature;
+        private int firstUnsupportedFeature;
 
         private InvocationRequirementExtractor(QueryPlanInvocation invocation, bool includeDiagnostics)
         {
             this.invocation = invocation;
+            features = null;
+            diagnostics = null;
+            validationCapabilities = null;
+            nextFeature = 0;
+            firstUnsupportedFeature = -1;
             if (includeDiagnostics)
                 diagnostics = [];
             else
@@ -1013,6 +1036,18 @@ internal sealed class QueryPlanRequirements
                     ? Array.Empty<QueryPlanFeature>()
                     : new QueryPlanFeature[count];
             }
+        }
+
+        private InvocationRequirementExtractor(
+            QueryPlanInvocation invocation,
+            QueryBackendCapabilities validationCapabilities)
+        {
+            this.invocation = invocation;
+            features = null;
+            diagnostics = null;
+            this.validationCapabilities = validationCapabilities;
+            nextFeature = 0;
+            firstUnsupportedFeature = -1;
         }
 
         public static QueryPlanFeature[] ExtractFeatures(QueryPlanInvocation invocation)
@@ -1027,6 +1062,15 @@ internal sealed class QueryPlanRequirements
             var extractor = new InvocationRequirementExtractor(invocation, includeDiagnostics: true);
             extractor.Extract();
             return Array.AsReadOnly(extractor.diagnostics!.ToArray());
+        }
+
+        public static int FindFirstUnsupportedFeature(
+            QueryPlanInvocation invocation,
+            QueryBackendCapabilities capabilities)
+        {
+            var extractor = new InvocationRequirementExtractor(invocation, capabilities);
+            extractor.Extract();
+            return extractor.firstUnsupportedFeature;
         }
 
         private void Extract()
@@ -1204,7 +1248,20 @@ internal sealed class QueryPlanRequirements
                 return;
             }
 
-            diagnostics!.Add(new QueryPlanRequirement(
+            if (diagnostics is null)
+            {
+                var featureIndex = nextFeature++;
+                if (firstUnsupportedFeature < 0 &&
+                    validationCapabilities!.GetDisposition(feature) !=
+                        QueryBackendCapabilityDisposition.Supported)
+                {
+                    firstUnsupportedFeature = featureIndex;
+                }
+
+                return;
+            }
+
+            diagnostics.Add(new QueryPlanRequirement(
                 feature,
                 location ?? throw new InvalidOperationException("Invocation diagnostic location was not captured."),
                 sourceId,
@@ -1249,22 +1306,22 @@ internal sealed class QueryPlanRequirements
             _ => null
         };
 
-        private static string? FindSourceId(IEnumerable<QueryPlanOperation> operations)
+        private static string? FindSourceId(IReadOnlyList<QueryPlanOperation> operations)
         {
-            foreach (var operation in operations)
+            for (var index = 0; index < operations.Count; index++)
             {
-                if (FindSourceId(operation) is { } sourceId)
+                if (FindSourceId(operations[index]) is { } sourceId)
                     return sourceId;
             }
 
             return null;
         }
 
-        private static string? FindSourceId(IEnumerable<QueryPlanValue> values)
+        private static string? FindSourceId(IReadOnlyList<QueryPlanValue> values)
         {
-            foreach (var value in values)
+            for (var index = 0; index < values.Count; index++)
             {
-                if (FindSourceId(value) is { } sourceId)
+                if (FindSourceId(values[index]) is { } sourceId)
                     return sourceId;
             }
 

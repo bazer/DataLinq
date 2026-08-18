@@ -460,7 +460,11 @@ internal sealed class BenchmarkContext : IDisposable
         for (var i = 0; i < BatchOperationCount; i++)
         {
             var request = ValidatedQueryExecutionRequest.Prepare(v09QueryExecutionRequest);
-            checksum += request.Requirements.StructuralCount + request.Requirements.InvocationCount;
+            // Requirements is diagnostic-only and intentionally lazy. Keep this receipt scoped to
+            // runtime preparation rather than explicit requirement introspection.
+            checksum +=
+                request.Invocation.Template.StructuralRequirementFeatures.Length +
+                request.Invocation.Values.Count;
         }
 
         return checksum;
