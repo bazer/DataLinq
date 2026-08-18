@@ -7,6 +7,7 @@ using BenchmarkDotNet.Exporters.Csv;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Order;
 using BenchmarkDotNet.Reports;
+using BenchmarkDotNet.Toolchains.InProcess.Emit;
 using Perfolizer.Horology;
 using Perfolizer.Metrology;
 
@@ -16,6 +17,7 @@ internal sealed class DataLinqBenchmarkConfig : ManualConfig
 {
     private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
     private const string BenchmarkArtifactsDirectoryEnvironmentVariable = "DATALINQ_BENCHMARK_ARTIFACTS_DIR";
+    private const string BenchmarkInProcessEnvironmentVariable = "DATALINQ_BENCHMARK_IN_PROCESS";
 
     public DataLinqBenchmarkConfig()
     {
@@ -82,7 +84,7 @@ internal sealed class DataLinqBenchmarkConfig : ManualConfig
         if (string.IsNullOrWhiteSpace(profile))
             profile = "default";
 
-        return profile.ToLowerInvariant() switch
+        var job = profile.ToLowerInvariant() switch
         {
             "default" => Job.ShortRun,
             "heavy" => Job.MediumRun,
@@ -90,5 +92,12 @@ internal sealed class DataLinqBenchmarkConfig : ManualConfig
             _ => throw new InvalidOperationException(
                 $"Benchmark profile '{profile}' is not supported. Use 'default', 'heavy', or 'smoke'.")
         };
+
+        return string.Equals(
+                Environment.GetEnvironmentVariable(BenchmarkInProcessEnvironmentVariable),
+                "true",
+                StringComparison.OrdinalIgnoreCase)
+            ? job.WithToolchain(InProcessEmitToolchain.Instance)
+            : job;
     }
 }

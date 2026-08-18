@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Buffers;
 using System.Linq;
 using DataLinq.Instances;
 using DataLinq.Metadata;
@@ -76,35 +75,30 @@ public class SQLiteDataLinqDataReader : IDataLinqDataReader
 
     public long GetByteLength(int ordinal)
     {
-        return dataReader.GetBytes(ordinal, 0, null, 0, 0);
+        return IsDbNull(ordinal)
+            ? 0
+            : dataReader.GetFieldValue<byte[]>(ordinal).Length;
     }
 
     public byte[]? GetBytes(int ordinal)
     {
-        if (GetByteLength(ordinal) == 0)
+        if (IsDbNull(ordinal))
             return null;
 
-        var buffer = new byte[GetByteLength(ordinal)];
-        if (GetBytes(ordinal, buffer) == 0)
-            throw new Exception($"Unexpectedly read 0 bytes from column ordinal {ordinal}");
-
-        return buffer;
+        // Microsoft.Data.Sqlite caches the array returned by GetFieldValue<byte[]> for the
+        // current row. Clone once so this method returns a sole-owned exact buffer to its caller.
+        return (byte[])dataReader.GetFieldValue<byte[]>(ordinal).Clone();
     }
 
     public long GetBytes(int ordinal, Span<byte> buffer)
     {
-        byte[] tempBuffer = ArrayPool<byte>.Shared.Rent(buffer.Length);
+        if (IsDbNull(ordinal) || buffer.IsEmpty)
+            return 0;
 
-        try
-        {
-            long bytesRead = dataReader.GetBytes(ordinal, 0, tempBuffer, 0, buffer.Length);
-            new ReadOnlySpan<byte>(tempBuffer, 0, (int)bytesRead).CopyTo(buffer);
-            return bytesRead;
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(tempBuffer);
-        }
+        var source = dataReader.GetFieldValue<byte[]>(ordinal);
+        var bytesRead = Math.Min(source.Length, buffer.Length);
+        source.AsSpan(0, bytesRead).CopyTo(buffer);
+        return bytesRead;
     }
 
     public bool ReadNextRow()

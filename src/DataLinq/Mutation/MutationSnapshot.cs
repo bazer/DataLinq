@@ -122,7 +122,7 @@ internal sealed class MutationSnapshot
             for (var ordinal = 0; ordinal < table.ColumnCount; ordinal++)
             {
                 if (!IsBitSet(occupancy, overflowOccupancy, ordinal))
-                    values[ordinal] = SnapshotValue(rowData.GetValue(ordinal));
+                    values[ordinal] = SnapshotValue(rowData.GetBorrowedValue(ordinal));
             }
         }
 

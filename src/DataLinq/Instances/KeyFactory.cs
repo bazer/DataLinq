@@ -84,7 +84,7 @@ public static class KeyFactory
     {
         if (columns.Count == 1)
             return CreateKeyFromModelValueCore(
-                row.GetValue(columns[0]),
+                GetRuntimeRowValue(row, columns[0]),
                 columns[0],
                 "key.row");
 
@@ -93,12 +93,17 @@ public static class KeyFactory
         {
             canonicalValues[index] = GetCanonicalModelKeyValue(
                 columns[index],
-                row.GetValue(columns[index]),
+                GetRuntimeRowValue(row, columns[index]),
                 "key.row");
         }
 
         return DataLinqKey.FromOwnedValues(canonicalValues);
     }
+
+    private static object? GetRuntimeRowValue(IRowData row, ColumnDefinition column) =>
+        row is RowData ownedRow
+            ? ownedRow.GetBorrowedValue(column)
+            : row.GetValue(column);
 
     public static DataLinqKey GetKey(IModelInstance model, IReadOnlyList<ColumnDefinition> columns)
     {

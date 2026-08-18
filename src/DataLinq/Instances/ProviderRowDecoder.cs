@@ -23,13 +23,16 @@ internal static class ProviderRowDecoder
         for (var ordinal = 0; ordinal < table.ColumnCount; ordinal++)
         {
             var column = table.Columns[ordinal];
-            canonicalValues[ordinal] = CanonicalProviderValueRow.CopyMutableValue(
-                DecodeCanonicalValueCore(
-                    reader,
-                    column,
-                    ordinal,
-                    sourceName,
-                    useColumnAwareGuid: true));
+            var canonicalValue = DecodeCanonicalValueCore(
+                reader,
+                column,
+                ordinal,
+                sourceName,
+                useColumnAwareGuid: true,
+                out var transfersMutableOwnership);
+            canonicalValues[ordinal] = transfersMutableOwnership
+                ? canonicalValue
+                : CanonicalProviderValueRow.CopyMutableValue(canonicalValue);
         }
 
         return CanonicalProviderValueRow.CreateOwned(table, canonicalValues);
@@ -51,7 +54,8 @@ internal static class ProviderRowDecoder
             column,
             ordinal,
             sourceName,
-            useColumnAwareGuid);
+            useColumnAwareGuid,
+            out _);
     }
 
     private static object? DecodeCanonicalValueCore(
@@ -59,8 +63,10 @@ internal static class ProviderRowDecoder
         ColumnDefinition column,
         int ordinal,
         string sourceName,
-        bool useColumnAwareGuid)
+        bool useColumnAwareGuid,
+        out bool transfersMutableOwnership)
     {
+        transfersMutableOwnership = false;
         object? canonicalValue = null;
         var valueProduced = false;
 
@@ -77,7 +83,8 @@ internal static class ProviderRowDecoder
                     reader,
                     column,
                     ordinal,
-                    useColumnAwareGuid);
+                    useColumnAwareGuid,
+                    out transfersMutableOwnership);
             }
             valueProduced = true;
             CanonicalProviderValueRow.ValidateCanonicalValue(
@@ -106,13 +113,28 @@ internal static class ProviderRowDecoder
         IDataLinqDataReader reader,
         ColumnDefinition column,
         int ordinal,
-        bool useColumnAwareGuid)
+        bool useColumnAwareGuid,
+        out bool transfersMutableOwnership)
     {
+        transfersMutableOwnership = false;
+
         if (useColumnAwareGuid && column.IsGuidColumn)
         {
             return reader.GetValue<object>(column, ordinal)
                 ?? throw new InvalidOperationException(
                     $"Reader returned null for non-NULL column '{column.Table.DbName}.{column.DbName}'.");
+        }
+
+        // Test the opt-in reader capability first so ordinary readers stay on the existing fast
+        // path without even consulting provider-type metadata. Reference-type nullability does
+        // not change byte[]'s runtime provider type, so no nullable-type normalization is needed.
+        if (reader is IDataLinqOwnedBinaryBufferReader ownedBinaryReader &&
+            column.ProviderClrType == typeof(byte[]))
+        {
+            transfersMutableOwnership = true;
+            return ownedBinaryReader.TakeOwnedBytes(ordinal)
+                ?? throw new InvalidOperationException(
+                    $"Reader returned null owned bytes for non-NULL column '{column.Table.DbName}.{column.DbName}'.");
         }
 
         if (!column.HasScalarConverter)

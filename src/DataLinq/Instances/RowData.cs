@@ -146,12 +146,30 @@ public sealed class RowData : IRowData, IEquatable<RowData>
     public object? GetValue(ColumnDefinition column)
     {
         // Fast array access using the pre-calculated index
-        return data[column.Index];
+        return CanonicalProviderValueRow.CopyMutableValue(data[column.Index]);
     }
 
     public object? GetValue(int columnIndex)
     {
+        return CanonicalProviderValueRow.CopyMutableValue(data[columnIndex]);
+    }
+
+    /// <summary>
+    /// Borrows one model cell for immediate trusted runtime processing. The returned value must not
+    /// be retained or mutated; public accessors detach mutable binary values from cached row state.
+    /// </summary>
+    internal object? GetBorrowedValue(int columnIndex)
+    {
+        if ((uint)columnIndex >= (uint)data.Length)
+            throw new ArgumentOutOfRangeException(nameof(columnIndex));
+
         return data[columnIndex];
+    }
+
+    internal object? GetBorrowedValue(ColumnDefinition column)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        return GetBorrowedValue(column.Index);
     }
 
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues()
@@ -159,7 +177,9 @@ public sealed class RowData : IRowData, IEquatable<RowData>
         for (var i = 0; i < Table.Columns.Count; i++)
         {
             var column = Table.Columns[i];
-            yield return new KeyValuePair<ColumnDefinition, object?>(column, data[column.Index]);
+            yield return new KeyValuePair<ColumnDefinition, object?>(
+                column,
+                CanonicalProviderValueRow.CopyMutableValue(data[column.Index]));
         }
     }
 

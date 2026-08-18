@@ -97,6 +97,19 @@ public class MutableRowData : IRowData
 
     public object? GetValue(int columnIndex) => GetValue(Table.Columns[columnIndex]);
 
+    internal object? GetBorrowedValue(int columnIndex)
+    {
+        var column = Table.Columns[columnIndex];
+        ValidateMappedColumn(column);
+
+        if (MutatedData.TryGetValue(column, out var value))
+            return value;
+
+        return ImmutableRowData is RowData ownedRow
+            ? ownedRow.GetBorrowedValue(columnIndex)
+            : ImmutableRowData?.GetValue(column);
+    }
+
     internal bool TryGetOriginalValue(ColumnDefinition column, out object? value)
     {
         if (ImmutableRowData is null)
@@ -105,7 +118,9 @@ public class MutableRowData : IRowData
             return false;
         }
 
-        value = ImmutableRowData.GetValue(column);
+        value = ImmutableRowData is RowData ownedRow
+            ? ownedRow.GetBorrowedValue(column)
+            : ImmutableRowData.GetValue(column);
         return true;
     }
 

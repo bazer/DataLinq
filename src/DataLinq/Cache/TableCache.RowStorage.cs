@@ -207,7 +207,7 @@ public partial class TableCache
         if (Table.PrimaryKeyShape.IsScalar)
         {
             var column = Table.PrimaryKeyColumns[0];
-            var value = rowData.GetValue(column);
+            var value = rowData.GetBorrowedValue(column);
             if (value is null)
                 return false;
 

@@ -228,10 +228,20 @@ public class RowDataTests
 
         modelValues[0] = new CanonicalProviderRowId(99);
         modelPayload[0] = 9;
+        var indexedPayload = (byte[])rowData[payloadColumn]!;
+        var selectedPayload = (byte[])rowData.GetValues([payloadColumn]).Single()!;
+        var enumeratedPayload = (byte[])rowData.GetColumnAndValues()
+            .Single(pair => pair.Key == payloadColumn)
+            .Value!;
+        indexedPayload[0] = 7;
+        selectedPayload[0] = 6;
+        enumeratedPayload[0] = 5;
 
         await Assert.That(providerRow[idColumn]).IsEqualTo(42);
         await Assert.That(rowData[idColumn]).IsEqualTo(new CanonicalProviderRowId(42));
         await Assert.That(((byte[])rowData[payloadColumn]!)[0]).IsEqualTo((byte)1);
+        await Assert.That(indexedPayload).IsNotSameReferenceAs(selectedPayload);
+        await Assert.That(selectedPayload).IsNotSameReferenceAs(enumeratedPayload);
         await Assert.That(rowData[table.GetColumnByDbName("name")]).IsEqualTo("Ada");
         await Assert.That(rowData[table.GetColumnByDbName("score")]).IsEqualTo(7);
         await Assert.That(rowData.Size).IsEqualTo(21);

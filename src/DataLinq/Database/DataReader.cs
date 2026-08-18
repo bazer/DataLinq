@@ -15,6 +15,7 @@ public interface IDataLinqDataReader : IDisposable
     Guid GetGuid(int ordinal);
     byte[]? GetBytes(int ordinal);
     long GetBytes(int ordinal, Span<byte> buffer);
+
     /// <summary>
     /// Reads a column as its model CLR value. SQL NULL is returned only when the generated database
     /// and model metadata permit null and <typeparamref name="T"/> can represent it; otherwise a
@@ -30,6 +31,24 @@ public interface IDataLinqDataReader : IDisposable
     T? GetValue<T>(ColumnDefinition column, int ordinal);
     bool ReadNextRow();
     bool IsDbNull(int ordinal);
+}
+
+/// <summary>
+/// Optional provider SPI for transferring exact, independently owned binary buffers into DataLinq's
+/// internal canonical-row pipeline.
+/// </summary>
+/// <remarks>
+/// Implement this only when every non-null result is a newly allocated, exact-length array. Returning
+/// a buffer transfers exclusive ownership to DataLinq: the reader and provider must neither retain nor
+/// mutate it. Readers that implement only <see cref="IDataLinqDataReader"/> remain on the defensive-copy path.
+/// </remarks>
+public interface IDataLinqOwnedBinaryBufferReader
+{
+    /// <summary>
+    /// Transfers one exact binary value. Returns <see langword="null"/> only for database NULL;
+    /// a non-null zero-length value returns an empty array.
+    /// </summary>
+    byte[]? TakeOwnedBytes(int ordinal);
 }
 
 public static class DataReader

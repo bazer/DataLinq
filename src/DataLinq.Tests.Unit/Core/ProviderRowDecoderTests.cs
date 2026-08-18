@@ -112,6 +112,75 @@ public sealed class ProviderRowDecoderTests
     }
 
     [Test]
+    public async Task DecodeFullRow_TakesExplicitlyOwnedBinaryBufferWithoutCanonicalClone()
+    {
+        var table = CreateSimplePrimaryKeyTable(typeof(byte[]), "key");
+        var transferredBytes = new byte[] { 1, 2, 3 };
+        var reader = new OwnedBinaryRecordingReader([transferredBytes]);
+
+        var row = ProviderRowDecoder.DecodeFullRow(reader, table, "sql:test");
+        var borrowedBytes = (byte[])row.GetBorrowedValue(0)!;
+        var detachedBytes = (byte[])row[0]!;
+        detachedBytes[0] = 9;
+
+        await Assert.That(borrowedBytes).IsSameReferenceAs(transferredBytes);
+        await Assert.That(detachedBytes).IsNotSameReferenceAs(transferredBytes);
+        await Assert.That(borrowedBytes[0]).IsEqualTo((byte)1);
+        await Assert.That(reader.OwnedReads).IsEqualTo(1);
+        await Assert.That(reader.GenericColumnReads).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task DecodeFullRow_TakesOwnedBinaryBufferForConverterBackedColumn()
+    {
+        var converter = new RecordingBinaryIdConverter();
+        var table = CreateBinaryConverterTable(converter);
+        var transferredBytes = new byte[] { 1, 2, 3 };
+        var reader = new OwnedBinaryRecordingReader([transferredBytes]);
+
+        var canonicalRow = ProviderRowDecoder.DecodeFullRow(reader, table, "sql:test");
+        var canonicalBytes = (byte[])canonicalRow.GetBorrowedValue(0)!;
+
+        await Assert.That(canonicalBytes).IsSameReferenceAs(transferredBytes);
+        await Assert.That(reader.OwnedReads).IsEqualTo(1);
+        await Assert.That(reader.GenericColumnReads).IsEqualTo(0);
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(0);
+
+        _ = ProviderRowMaterializer.Materialize(canonicalRow, "sql:test");
+
+        await Assert.That(converter.FromProviderCalls).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task DecodeFullRow_PreservesEmptyOwnedBinaryAsNonNull()
+    {
+        var table = CreateSimplePrimaryKeyTable(typeof(byte[]), "key");
+        var reader = new OwnedBinaryRecordingReader([Array.Empty<byte>()]);
+
+        var row = ProviderRowDecoder.DecodeFullRow(reader, table, "sql:test");
+
+        await Assert.That(row.GetBorrowedValue(0)).IsTypeOf<byte[]>();
+        await Assert.That(((byte[])row.GetBorrowedValue(0)!).Length).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task DecodeFullRow_RejectsNullFromOwnedCapabilityForNonNullCell()
+    {
+        var table = CreateSimplePrimaryKeyTable(typeof(byte[]), "key");
+        var reader = new OwnedBinaryRecordingReader([new byte[] { 1 }])
+        {
+            OwnedResult = null
+        };
+
+        var exception = Capture<ProviderValueDecodingException>(() =>
+            ProviderRowDecoder.DecodeFullRow(reader, table, "sql:test"));
+
+        await Assert.That(exception.InnerException).IsTypeOf<InvalidOperationException>();
+        await Assert.That(exception.InnerException!.Message).Contains("null owned bytes");
+        await Assert.That(reader.GenericColumnReads).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task DecodeFullRow_UsesColumnAwareReadForConvertedNonPrimaryGuid()
     {
         var converter = new RecordingGuidIdConverter();
@@ -383,6 +452,48 @@ public sealed class ProviderRowDecoderTests
             .Table;
     }
 
+    private static TableDefinition CreateBinaryConverterTable(RecordingBinaryIdConverter converter)
+    {
+        var scalarConverter = new MetadataScalarConverterDraft(
+            new CsTypeDeclaration(typeof(BinaryModelId)),
+            new CsTypeDeclaration(typeof(byte[])),
+            new CsTypeDeclaration(typeof(RecordingBinaryIdConverter)),
+            () => converter)
+        {
+            Origin = ScalarConverterOrigin.Property
+        };
+        var draft = new MetadataDatabaseDraft(
+            "ProviderRowDecoderBinaryConverterDb",
+            new CsTypeDeclaration(typeof(ProviderRowDecoderTests)))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration(typeof(DecoderRowModel)))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Key",
+                                new CsTypeDeclaration(typeof(BinaryModelId)),
+                                new MetadataColumnDraft("key") { PrimaryKey = true })
+                            {
+                                ScalarConverter = scalarConverter
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("binary_converter_rows"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory()
+            .Build(draft)
+            .ValueOrException()
+            .TableModels[0]
+            .Table;
+    }
+
     private static TableDefinition CreateSimplePrimaryKeyTable(Type keyType, string columnName)
     {
         var draft = new MetadataDatabaseDraft(
@@ -430,6 +541,7 @@ public sealed class ProviderRowDecoderTests
     }
 
     private sealed record ModelId(int Value);
+    private sealed record BinaryModelId(byte[] Value);
     private readonly record struct GuidModelId(Guid Value);
     private sealed class DecoderRowModel;
 
@@ -461,8 +573,29 @@ public sealed class ProviderRowDecoderTests
         }
     }
 
-    private sealed class RecordingReader(object?[] values) : IDataLinqDataReader
+    private sealed class RecordingBinaryIdConverter : DataLinqScalarConverter<BinaryModelId, byte[]>
     {
+        public int FromProviderCalls { get; private set; }
+
+        public override byte[] ToProvider(BinaryModelId modelValue, in ScalarConversionContext context) =>
+            modelValue.Value;
+
+        public override BinaryModelId FromProvider(byte[] providerValue, in ScalarConversionContext context)
+        {
+            FromProviderCalls++;
+            return new BinaryModelId(providerValue);
+        }
+    }
+
+    private class RecordingReader : IDataLinqDataReader
+    {
+        protected readonly object?[] values;
+
+        internal RecordingReader(object?[] values)
+        {
+            this.values = values;
+        }
+
         public Exception? Int32Failure { get; init; }
         public int Int32Reads { get; private set; }
         public int GuidReads { get; private set; }
@@ -506,5 +639,18 @@ public sealed class ProviderRowDecoderTests
         public bool ReadNextRow() => throw new NotSupportedException();
         public bool IsDbNull(int ordinal) => values[ordinal] is null or DBNull;
         public void Dispose() { }
+    }
+
+    private sealed class OwnedBinaryRecordingReader(object?[] values)
+        : RecordingReader(values), IDataLinqOwnedBinaryBufferReader
+    {
+        public byte[]? OwnedResult { get; init; } = (byte[]?)values[0];
+        public int OwnedReads { get; private set; }
+
+        public byte[]? TakeOwnedBytes(int ordinal)
+        {
+            OwnedReads++;
+            return OwnedResult;
+        }
     }
 }
