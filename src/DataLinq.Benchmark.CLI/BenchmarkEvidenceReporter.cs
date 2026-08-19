@@ -80,6 +80,10 @@ internal static class BenchmarkEvidenceReporter
                 "Canonical provider-row decoding",
                 "Provider-row model materialization",
                 "Provider-row decode/materialization pipeline",
+                "Singular source argument validation",
+                "Singular source SQL preparation",
+                "Singular source result validation",
+                "Known-miss materialization/publication",
                 "Composite key reconstruction baseline",
                 "Scalar canonical-key propagation",
                 "Composite canonical-key propagation",
@@ -92,7 +96,11 @@ internal static class BenchmarkEvidenceReporter
                 "Source result validation",
                 "Source cache result publication",
                 "Mutation state-change capture",
-                "Mutation execution preflight"
+                "Mutation execution preflight",
+                "Mutation command preparation",
+                "Mutation final drift validation",
+                "Cold typed-ID exact terminal",
+                "Warm typed-ID exact terminal"
             ]
         };
 
@@ -129,6 +137,10 @@ internal static class BenchmarkEvidenceReporter
             ["Canonical provider-row decoding"] = 1000,
             ["Provider-row model materialization"] = 1000,
             ["Provider-row decode/materialization pipeline"] = 1000,
+            ["Singular source argument validation"] = 1000,
+            ["Singular source SQL preparation"] = 1000,
+            ["Singular source result validation"] = 1000,
+            ["Known-miss materialization/publication"] = 1000,
             ["Composite key reconstruction baseline"] = 1000,
             ["Scalar canonical-key propagation"] = 1000,
             ["Composite canonical-key propagation"] = 1000,
@@ -141,7 +153,11 @@ internal static class BenchmarkEvidenceReporter
             ["Source result validation"] = 1000,
             ["Source cache result publication"] = 1000,
             ["Mutation state-change capture"] = 1000,
-            ["Mutation execution preflight"] = 1000
+            ["Mutation execution preflight"] = 1000,
+            ["Mutation command preparation"] = 1000,
+            ["Mutation final drift validation"] = 1000,
+            ["Cold typed-ID exact terminal"] = 1000,
+            ["Warm typed-ID exact terminal"] = 1000
         };
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -1466,6 +1482,20 @@ internal static class BenchmarkEvidenceReporter
             "Warm primary-key fetch" =>
                 telemetry.EntityQueriesPerOperation > 0d &&
                 telemetry.RowCacheHitsPerOperation > 0d,
+            "Cold typed-ID exact terminal" =>
+                telemetry.EntityQueriesPerOperation == 1d &&
+                telemetry.ReaderExecutionsPerOperation == 1d &&
+                telemetry.RowCacheHitsPerOperation == 0d &&
+                telemetry.RowCacheMissesPerOperation == 1d &&
+                telemetry.RowCacheStoresPerOperation == 1d &&
+                telemetry.DatabaseRowsPerOperation == 1d,
+            "Warm typed-ID exact terminal" =>
+                telemetry.EntityQueriesPerOperation == 1d &&
+                telemetry.ReaderExecutionsPerOperation == 0d &&
+                telemetry.RowCacheHitsPerOperation == 1d &&
+                telemetry.RowCacheMissesPerOperation == 0d &&
+                telemetry.RowCacheStoresPerOperation == 0d &&
+                telemetry.DatabaseRowsPerOperation == 0d,
             "Repeated non-PK equality fetch" or "Repeated IN predicate fetch" =>
                 telemetry.EntityQueriesPerOperation > 0d,
             "Repeated scalar Any" or "SQL adapter scalar Any" =>

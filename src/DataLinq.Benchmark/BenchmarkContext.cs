@@ -1208,7 +1208,7 @@ internal sealed class BenchmarkContext : IDisposable
         databaseScope.Dispose();
     }
 
-    private static BenchmarkTelemetryDeltaArtifact CreateDeltaArtifact(
+    internal static BenchmarkTelemetryDeltaArtifact CreateDeltaArtifact(
         string method,
         string providerName,
         int operationsPerInvoke,
@@ -1253,7 +1253,8 @@ internal sealed class BenchmarkContext : IDisposable
             CacheInvalidationProviderKeysPerOperation: Normalize(after.CacheInvalidations.ProviderKeys, before.CacheInvalidations.ProviderKeys, operationsPerInvoke),
             CacheInvalidationApproximateWorkPerOperation: Normalize(after.CacheInvalidations.ApproximateWork, before.CacheInvalidations.ApproximateWork, operationsPerInvoke),
             CacheInvalidationPreciseOperationsPerOperation: Normalize(after.CacheInvalidations.PreciseOperations, before.CacheInvalidations.PreciseOperations, operationsPerInvoke),
-            CacheInvalidationConservativeFallbackOperationsPerOperation: Normalize(after.CacheInvalidations.ConservativeFallbackOperations, before.CacheInvalidations.ConservativeFallbackOperations, operationsPerInvoke));
+            CacheInvalidationConservativeFallbackOperationsPerOperation: Normalize(after.CacheInvalidations.ConservativeFallbackOperations, before.CacheInvalidations.ConservativeFallbackOperations, operationsPerInvoke),
+            ReaderExecutionsPerOperation: Normalize(after.Commands.ReaderExecutions, before.Commands.ReaderExecutions, operationsPerInvoke));
     }
 
     private static int GetOperationsPerInvoke(BenchmarkScenario scenario)
