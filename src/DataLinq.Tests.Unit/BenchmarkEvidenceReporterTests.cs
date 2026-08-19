@@ -93,7 +93,7 @@ public sealed class BenchmarkEvidenceReporterTests
     [Test]
     [Arguments("Provider initialization", 1)]
     [Arguments("Startup primary-key fetch", 1)]
-    [Arguments("CRUD workflow small", 250)]
+    [Arguments("CRUD workflow small", 350)]
     [Arguments("CRUD workflow batch", 350)]
     [Arguments("Update employees", 2000)]
     [Arguments("Cold primary-key fetch", 1000)]

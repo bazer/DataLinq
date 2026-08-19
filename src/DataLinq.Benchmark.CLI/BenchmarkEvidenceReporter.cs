@@ -102,7 +102,7 @@ internal static class BenchmarkEvidenceReporter
             ["Provider initialization"] = 1,
             ["Startup primary-key fetch"] = 1,
             ["Warm primary-key fetch"] = 60000,
-            ["CRUD workflow small"] = 250,
+            ["CRUD workflow small"] = 350,
             ["CRUD workflow batch"] = 350,
             ["Update employees"] = 2000,
             ["Cold primary-key fetch"] = 1000,
