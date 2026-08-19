@@ -146,6 +146,10 @@ public class BenchmarkCliParsingTests
     [Arguments("Canonical provider-row decoding", "row-decoding")]
     [Arguments("Provider-row model materialization", "row-materialization")]
     [Arguments("Provider-row decode/materialization pipeline", "row-materialization-pipeline")]
+    [Arguments("Singular source argument validation", "singular-source-argument")]
+    [Arguments("Singular source SQL preparation", "singular-source-sql")]
+    [Arguments("Singular source result validation", "singular-source-result")]
+    [Arguments("Known-miss materialization/publication", "known-miss-publication")]
     [Arguments("Composite key reconstruction baseline", "canonical-key-composite-baseline")]
     [Arguments("Scalar canonical-key propagation", "canonical-key-scalar")]
     [Arguments("Composite canonical-key propagation", "canonical-key-composite")]
@@ -159,6 +163,10 @@ public class BenchmarkCliParsingTests
     [Arguments("Source cache result publication", "source-cache-publication")]
     [Arguments("Mutation state-change capture", "mutation-capture")]
     [Arguments("Mutation execution preflight", "mutation-preflight")]
+    [Arguments("Mutation command preparation", "mutation-command")]
+    [Arguments("Mutation final drift validation", "mutation-final-drift")]
+    [Arguments("Cold typed-ID exact terminal", "typed-id-exact-cold")]
+    [Arguments("Warm typed-ID exact terminal", "typed-id-exact-warm")]
     public async Task AllocationStages_HaveStableTrackingAndScenarioCategories(
         string method,
         string expectedCategory)
@@ -290,7 +298,7 @@ public class BenchmarkCliParsingTests
     }
 
     [Test]
-    public async Task TelemetryDelta_LegacyJsonDefaultsMemoryMetricsToZero()
+    public async Task TelemetryDelta_LegacyJsonDefaultsAdditiveMetricsToZero()
     {
         const string legacyJson = """
             {
@@ -318,6 +326,7 @@ public class BenchmarkCliParsingTests
             artifact.MemoryCacheInsertionsPerOperation
         };
 
+        await Assert.That(artifact.ReaderExecutionsPerOperation).IsEqualTo(0d);
         await Assert.That(memoryMetrics.All(static value => value == 0d)).IsTrue();
     }
 }

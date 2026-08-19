@@ -781,7 +781,7 @@ public class EmployeesBenchmarks : IDisposable
         GlobalCleanup();
     }
 
-    private static TestProviderDescriptor ResolveProvider(string providerName)
+    internal static TestProviderDescriptor ResolveProvider(string providerName)
         => providerName switch
         {
             var name when string.Equals(name, TestProviderMatrix.SQLiteFile.Name, StringComparison.OrdinalIgnoreCase) => TestProviderMatrix.SQLiteFile,

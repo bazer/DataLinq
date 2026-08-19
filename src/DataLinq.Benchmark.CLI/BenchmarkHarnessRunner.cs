@@ -738,7 +738,7 @@ internal sealed class BenchmarkHarnessRunner
 
         AnsiConsole.Write(table);
         AnsiConsole.MarkupLine("[grey]Mean: green = fastest, red = slowest. Error/Noise: yellow > 10% of mean, red > 20%.[/]");
-        AnsiConsole.MarkupLine("[grey]Telemetry deltas are per operation: Q=entity/scalar, Tx=starts/commits/rollbacks, Mut=inserts/updates/deletes with affected rows, Row=hits/misses/stores, Rel=hits/loads, Inv=ops rows/tables work precise/fallback, Mem=Memory construction/seed/read/cache work.[/]");
+        AnsiConsole.MarkupLine("[grey]Telemetry deltas are per operation: Q=entity/scalar, CmdR=reader executions, Tx=starts/commits/rollbacks, Mut=inserts/updates/deletes with affected rows, Row=hits/misses/stores, Rel=hits/loads, Inv=ops rows/tables work precise/fallback, Mem=Memory construction/seed/read/cache work.[/]");
         var artifact = CreateSummaryArtifact(
             runId,
             profile,
@@ -1422,6 +1422,10 @@ internal sealed class BenchmarkHarnessRunner
             "Canonical provider-row decoding" => AllocationStagesCategory,
             "Provider-row model materialization" => AllocationStagesCategory,
             "Provider-row decode/materialization pipeline" => AllocationStagesCategory,
+            "Singular source argument validation" => AllocationStagesCategory,
+            "Singular source SQL preparation" => AllocationStagesCategory,
+            "Singular source result validation" => AllocationStagesCategory,
+            "Known-miss materialization/publication" => AllocationStagesCategory,
             "Composite key reconstruction baseline" => AllocationStagesCategory,
             "Scalar canonical-key propagation" => AllocationStagesCategory,
             "Composite canonical-key propagation" => AllocationStagesCategory,
@@ -1435,6 +1439,10 @@ internal sealed class BenchmarkHarnessRunner
             "Source cache result publication" => AllocationStagesCategory,
             "Mutation state-change capture" => AllocationStagesCategory,
             "Mutation execution preflight" => AllocationStagesCategory,
+            "Mutation command preparation" => AllocationStagesCategory,
+            "Mutation final drift validation" => AllocationStagesCategory,
+            "Cold typed-ID exact terminal" => AllocationStagesCategory,
+            "Warm typed-ID exact terminal" => AllocationStagesCategory,
             "Memory database construction" => V09MemoryReadCategory,
             "Memory construct and seed" => V09MemoryReadCategory,
             "Memory primary-key hit" => V09MemoryReadCategory,
@@ -1510,6 +1518,10 @@ internal sealed class BenchmarkHarnessRunner
             "Canonical provider-row decoding" => "row-decoding",
             "Provider-row model materialization" => "row-materialization",
             "Provider-row decode/materialization pipeline" => "row-materialization-pipeline",
+            "Singular source argument validation" => "singular-source-argument",
+            "Singular source SQL preparation" => "singular-source-sql",
+            "Singular source result validation" => "singular-source-result",
+            "Known-miss materialization/publication" => "known-miss-publication",
             "Composite key reconstruction baseline" => "canonical-key-composite-baseline",
             "Scalar canonical-key propagation" => "canonical-key-scalar",
             "Composite canonical-key propagation" => "canonical-key-composite",
@@ -1523,6 +1535,10 @@ internal sealed class BenchmarkHarnessRunner
             "Source cache result publication" => "source-cache-publication",
             "Mutation state-change capture" => "mutation-capture",
             "Mutation execution preflight" => "mutation-preflight",
+            "Mutation command preparation" => "mutation-command",
+            "Mutation final drift validation" => "mutation-final-drift",
+            "Cold typed-ID exact terminal" => "typed-id-exact-cold",
+            "Warm typed-ID exact terminal" => "typed-id-exact-warm",
             "Memory database construction" => "memory-startup",
             "Memory construct and seed" => "memory-seed",
             "Memory primary-key hit" => "memory-primary-key",
@@ -1692,6 +1708,9 @@ internal sealed class BenchmarkHarnessRunner
 
         if (HasSignal(artifact.EntityQueriesPerOperation, artifact.ScalarQueriesPerOperation))
             parts.Add(string.Create(CultureInfo.InvariantCulture, $"Q {FormatQueries(artifact)}"));
+
+        if (HasSignal(artifact.EntityQueriesPerOperation, artifact.ReaderExecutionsPerOperation))
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"CmdR {FormatMetric(artifact.ReaderExecutionsPerOperation)}"));
 
         if (HasSignal(
             artifact.TransactionStartsPerOperation,

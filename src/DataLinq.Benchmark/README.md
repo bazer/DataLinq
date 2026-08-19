@@ -18,6 +18,7 @@ dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --filter "*WarmPrimaryK
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --phase2-watch
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --v09-query-backend --profile smoke
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --v09-memory-read --profile smoke
+dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --allocation-stages --profile smoke
 ```
 
 Benchmark artifacts are written under `artifacts/benchmarks/`.

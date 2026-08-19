@@ -109,6 +109,28 @@ public sealed class BenchmarkEvidenceReporterTests
     }
 
     [Test]
+    public async Task ResolveExpectedTargets_AllocationStagesIncludesTypedIdExactColdAndWarmRows()
+    {
+        using var fixture = new BenchmarkFixture();
+        var invocation = fixture.CreateInvocation("allocation-stages", fixture.OutputPath("allocation-stages.json")) with
+        {
+            SelectedCategory = BenchmarkHarnessRunner.AllocationStagesCategory,
+            ConfiguredProviderIds = ["sqlite-file", "sqlite-memory"]
+        };
+
+        var targets = BenchmarkEvidenceReporter.ResolveExpectedTargets(invocation);
+
+        await Assert.That(targets.Count).IsEqualTo(48);
+        await Assert.That(targets.Count(static target =>
+            target.Method is "Cold typed-ID exact terminal" or "Warm typed-ID exact terminal"))
+            .IsEqualTo(4);
+        await Assert.That(targets.Where(static target =>
+                target.Method is "Cold typed-ID exact terminal" or "Warm typed-ID exact terminal")
+            .All(static target => target.Category.StartsWith("typed-id-exact-", StringComparison.Ordinal)))
+            .IsTrue();
+    }
+
+    [Test]
     public async Task EvaluateRunnerEvidence_SeparatesToolingCheckoutFromHistoricalRuntimeTarget()
     {
         const string targetCommit = "89abcdef0123456789abcdef0123456789abcdef";

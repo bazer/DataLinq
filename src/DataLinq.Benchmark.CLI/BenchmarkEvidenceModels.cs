@@ -179,6 +179,7 @@ internal sealed record BenchmarkTelemetryDeltaArtifact(
     double CacheInvalidationApproximateWorkPerOperation,
     double CacheInvalidationPreciseOperationsPerOperation,
     double CacheInvalidationConservativeFallbackOperationsPerOperation,
+    double ReaderExecutionsPerOperation = 0d,
     double MemoryDatabasesConstructedPerOperation = 0d,
     double MemoryRowsSeededPerOperation = 0d,
     double MemoryPrimaryKeyRequestsPerOperation = 0d,
