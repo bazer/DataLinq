@@ -97,7 +97,7 @@ public sealed class BenchmarkEvidenceReporterTests
     [Arguments("CRUD workflow batch", 350)]
     [Arguments("Update employees", 2000)]
     [Arguments("Cold primary-key fetch", 1000)]
-    [Arguments("Warm primary-key fetch", 50000)]
+    [Arguments("Warm primary-key fetch", 60000)]
     [Arguments("Cold relation traversal", 1000)]
     [Arguments("Warm relation traversal", 1000000)]
     public async Task AllocationRegression_UsesExactCalibratedOperationCounts(

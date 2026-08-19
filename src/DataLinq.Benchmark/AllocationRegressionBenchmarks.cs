@@ -23,7 +23,7 @@ public class AllocationRegressionBenchmarks : IDisposable
     internal const int CrudWorkflowBatchOperations = 350;
     internal const int UpdateEmployeesOperations = 2_000;
     internal const int ColdPrimaryKeyOperations = 1_000;
-    internal const int WarmPrimaryKeyOperations = 50_000;
+    internal const int WarmPrimaryKeyOperations = 60_000;
     internal const int ColdRelationOperations = 1_000;
     internal const int WarmRelationOperations = 1_000_000;
 
