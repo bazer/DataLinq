@@ -465,6 +465,11 @@ internal sealed class BenchmarkHarnessRunner
                 "src",
                 "DataLinq.Benchmark.CLI",
                 "HistoricalBenchmarkConfig.cs.txt")}");
+            buildArguments.Add($"-p:DataLinqBenchmarkCalibrationSource={Path.Combine(
+                settings.RepositoryRoot,
+                "src",
+                "DataLinq.Benchmark",
+                "AllocationRegressionBenchmarks.cs")}");
         }
 
         var build = ExecuteRecordedDotnet(
@@ -541,7 +546,21 @@ internal sealed class BenchmarkHarnessRunner
                 runId,
                 runId is null ? null : logDirectory,
                 resultsDirectory,
-                providerIds.ToArray()));
+                providerIds.ToArray())
+            {
+                CustomAfterMicrosoftCommonTargets = settings.UsesExternalBenchmarkTarget
+                    ? Path.Combine(settings.RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "BenchmarkTargetProvenance.targets")
+                    : null,
+                BenchmarkTargetRepositoryRoot = settings.UsesExternalBenchmarkTarget
+                    ? settings.BenchmarkTargetRepositoryRoot
+                    : null,
+                BenchmarkCompatibilitySource = settings.UsesExternalBenchmarkTarget
+                    ? Path.Combine(settings.RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "HistoricalBenchmarkConfig.cs.txt")
+                    : null,
+                BenchmarkCalibrationSource = settings.UsesExternalBenchmarkTarget
+                    ? Path.Combine(settings.RepositoryRoot, "src", "DataLinq.Benchmark", "AllocationRegressionBenchmarks.cs")
+                    : null
+            });
         return new RecordedCommandResult(result, command);
     }
 
@@ -1456,9 +1475,7 @@ internal sealed class BenchmarkHarnessRunner
     }
 
     internal static IReadOnlyList<string> GetBenchmarkCategoryArguments(string? selectedCategory) =>
-        string.Equals(selectedCategory, AllocationRegressionCategory, StringComparison.Ordinal)
-            ? ["--anyCategories", "stable", MacroReadWriteCategory, MacroBulkCategory]
-            : selectedCategory is null
+        selectedCategory is null
                 ? []
                 : ["--anyCategories", selectedCategory];
 
