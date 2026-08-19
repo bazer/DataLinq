@@ -107,7 +107,7 @@ internal static class BenchmarkEvidenceReporter
             ["Update employees"] = 2000,
             ["Cold primary-key fetch"] = 1000,
             ["Cold relation traversal"] = 1000,
-            ["Warm relation traversal"] = 1000000,
+            ["Warm relation traversal"] = 1500000,
             ["Repeated non-PK equality fetch"] = 1000,
             ["Repeated IN predicate fetch"] = 1000,
             ["Repeated scalar Any"] = 1000,

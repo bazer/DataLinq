@@ -99,7 +99,7 @@ public sealed class BenchmarkEvidenceReporterTests
     [Arguments("Cold primary-key fetch", 1000)]
     [Arguments("Warm primary-key fetch", 60000)]
     [Arguments("Cold relation traversal", 1000)]
-    [Arguments("Warm relation traversal", 1000000)]
+    [Arguments("Warm relation traversal", 1500000)]
     public async Task AllocationRegression_UsesExactCalibratedOperationCounts(
         string method,
         int expectedOperations)
