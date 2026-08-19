@@ -91,6 +91,24 @@ public sealed class BenchmarkEvidenceReporterTests
     }
 
     [Test]
+    [Arguments("Provider initialization", 1)]
+    [Arguments("Startup primary-key fetch", 1)]
+    [Arguments("CRUD workflow small", 250)]
+    [Arguments("CRUD workflow batch", 350)]
+    [Arguments("Update employees", 2000)]
+    [Arguments("Cold primary-key fetch", 1000)]
+    [Arguments("Warm primary-key fetch", 50000)]
+    [Arguments("Cold relation traversal", 1000)]
+    [Arguments("Warm relation traversal", 1000000)]
+    public async Task AllocationRegression_UsesExactCalibratedOperationCounts(
+        string method,
+        int expectedOperations)
+    {
+        await Assert.That(BenchmarkEvidenceReporter.GetExpectedOperationsPerInvoke(method))
+            .IsEqualTo(expectedOperations);
+    }
+
+    [Test]
     public async Task EvaluateRunnerEvidence_SeparatesToolingCheckoutFromHistoricalRuntimeTarget()
     {
         const string targetCommit = "89abcdef0123456789abcdef0123456789abcdef";
@@ -923,6 +941,9 @@ public sealed class BenchmarkEvidenceReporterTests
             Directory.CreateDirectory(compatibilityDirectory);
             File.WriteAllText(Path.Combine(compatibilityDirectory, "BenchmarkTargetProvenance.targets"), "<Project />");
             File.WriteAllText(Path.Combine(compatibilityDirectory, "HistoricalBenchmarkConfig.cs.txt"), "// fixture");
+            File.WriteAllText(
+                Path.Combine(RepositoryRoot, "src", "DataLinq.Benchmark", "AllocationRegressionBenchmarks.cs"),
+                "// fixture");
         }
 
         public string RepositoryRoot { get; }
@@ -1224,7 +1245,8 @@ public sealed class BenchmarkEvidenceReporterTests
                         [
                             $"-p:CustomAfterMicrosoftCommonTargets={Path.Combine(RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "BenchmarkTargetProvenance.targets")}",
                             $"-p:DataLinqBenchmarkTargetRepositoryRoot={targetRoot}",
-                            $"-p:DataLinqBenchmarkCompatibilitySource={Path.Combine(RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "HistoricalBenchmarkConfig.cs.txt")}"
+                            $"-p:DataLinqBenchmarkCompatibilitySource={Path.Combine(RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "HistoricalBenchmarkConfig.cs.txt")}",
+                            $"-p:DataLinqBenchmarkCalibrationSource={Path.Combine(RepositoryRoot, "src", "DataLinq.Benchmark", "AllocationRegressionBenchmarks.cs")}"
                         ])
                         .ToArray()
                 },
@@ -1234,7 +1256,30 @@ public sealed class BenchmarkEvidenceReporterTests
                         argumentIndex == 0 ? assemblyPath : argument).ToArray(),
                     WorkingDirectory = Path.GetDirectoryName(projectPath)!
                 }
-            }).ToArray();
+            })
+            .Select(command => command with
+            {
+                Environment = command.Environment with
+                {
+                    CustomAfterMicrosoftCommonTargets = Path.Combine(
+                        RepositoryRoot,
+                        "src",
+                        "DataLinq.Benchmark.CLI",
+                        "BenchmarkTargetProvenance.targets"),
+                    BenchmarkTargetRepositoryRoot = targetRoot,
+                    BenchmarkCompatibilitySource = Path.Combine(
+                        RepositoryRoot,
+                        "src",
+                        "DataLinq.Benchmark.CLI",
+                        "HistoricalBenchmarkConfig.cs.txt"),
+                    BenchmarkCalibrationSource = Path.Combine(
+                        RepositoryRoot,
+                        "src",
+                        "DataLinq.Benchmark",
+                        "AllocationRegressionBenchmarks.cs")
+                }
+            })
+            .ToArray();
             var toolingState = new TestRunSummaryRepositoryState(true, Commit, "v0.9", false, "clean");
             var targetState = new TestRunSummaryRepositoryState(true, HistoricalCommit, "HEAD", false, "clean");
             var benchmarkAssembly = new BenchmarkAssemblyEvidence(

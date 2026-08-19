@@ -4,6 +4,10 @@
 		<Compile Include="$(DataLinqBenchmarkCompatibilitySource)" Link="Config.cs" />
 	</ItemGroup>
 
+	<ItemGroup Condition="'$(MSBuildProjectName)' == 'DataLinq.Benchmark' and '$(DataLinqBenchmarkCalibrationSource)' != ''">
+		<Compile Include="$(DataLinqBenchmarkCalibrationSource)" Link="AllocationRegressionBenchmarks.cs" />
+	</ItemGroup>
+
 	<Target Name="CaptureDataLinqExternalBenchmarkRepositoryBuildState"
 			BeforeTargets="GetAssemblyAttributes"
 			Condition="'$(DesignTimeBuild)' != 'true' and '$(DataLinqBenchmarkTargetRepositoryRoot)' != ''">

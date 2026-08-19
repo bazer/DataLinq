@@ -126,9 +126,35 @@ internal sealed class BenchmarkCliSettings
         ToolPaths.EnsureCreated();
     }
 
-    public IReadOnlyDictionary<string, string?> CreateProcessEnvironment() =>
-        new Dictionary<string, string?>(ToolPaths.CreateEnvironment(ToolingProfile.Repo), StringComparer.OrdinalIgnoreCase)
+    public IReadOnlyDictionary<string, string?> CreateProcessEnvironment()
+    {
+        var environment = new Dictionary<string, string?>(
+            ToolPaths.CreateEnvironment(ToolingProfile.Repo),
+            StringComparer.OrdinalIgnoreCase)
         {
             ["DATALINQ_BENCHMARK_PROVIDERS"] = Environment.GetEnvironmentVariable("DATALINQ_BENCHMARK_PROVIDERS")
         };
+
+        if (UsesExternalBenchmarkTarget)
+        {
+            environment["CustomAfterMicrosoftCommonTargets"] = Path.Combine(
+                RepositoryRoot,
+                "src",
+                "DataLinq.Benchmark.CLI",
+                "BenchmarkTargetProvenance.targets");
+            environment["DataLinqBenchmarkTargetRepositoryRoot"] = BenchmarkTargetRepositoryRoot;
+            environment["DataLinqBenchmarkCompatibilitySource"] = Path.Combine(
+                RepositoryRoot,
+                "src",
+                "DataLinq.Benchmark.CLI",
+                "HistoricalBenchmarkConfig.cs.txt");
+            environment["DataLinqBenchmarkCalibrationSource"] = Path.Combine(
+                RepositoryRoot,
+                "src",
+                "DataLinq.Benchmark",
+                "AllocationRegressionBenchmarks.cs");
+        }
+
+        return environment;
+    }
 }

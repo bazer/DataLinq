@@ -101,13 +101,13 @@ internal static class BenchmarkEvidenceReporter
         {
             ["Provider initialization"] = 1,
             ["Startup primary-key fetch"] = 1,
-            ["Warm primary-key fetch"] = 1000,
-            ["CRUD workflow small"] = 50,
-            ["CRUD workflow batch"] = 300,
-            ["Update employees"] = 1000,
+            ["Warm primary-key fetch"] = 50000,
+            ["CRUD workflow small"] = 250,
+            ["CRUD workflow batch"] = 350,
+            ["Update employees"] = 2000,
             ["Cold primary-key fetch"] = 1000,
             ["Cold relation traversal"] = 1000,
-            ["Warm relation traversal"] = 1000,
+            ["Warm relation traversal"] = 1000000,
             ["Repeated non-PK equality fetch"] = 1000,
             ["Repeated IN predicate fetch"] = 1000,
             ["Repeated scalar Any"] = 1000,
@@ -1327,6 +1327,9 @@ internal static class BenchmarkEvidenceReporter
                     root) &&
                 IsRepositoryFile(
                     Path.Combine(root, "src", "DataLinq.Benchmark.CLI", "HistoricalBenchmarkConfig.cs.txt"),
+                    root) &&
+                IsRepositoryFile(
+                    Path.Combine(root, "src", "DataLinq.Benchmark", "AllocationRegressionBenchmarks.cs"),
                     root);
             var expectedProject = Path.Combine(benchmarkTargetRoot, "src", "DataLinq.Benchmark", "DataLinq.Benchmark.csproj");
             var expectedAssembly = Path.Combine(
@@ -1588,6 +1591,11 @@ internal static class BenchmarkEvidenceReporter
                 "src",
                 "DataLinq.Benchmark.CLI",
                 "HistoricalBenchmarkConfig.cs.txt")}");
+            expectedBuildArguments.Add($"-p:DataLinqBenchmarkCalibrationSource={Path.Combine(
+                invocation.RepositoryRoot,
+                "src",
+                "DataLinq.Benchmark",
+                "AllocationRegressionBenchmarks.cs")}");
         }
         return string.Equals(commands[0].Stage, "restore", StringComparison.Ordinal) &&
                commands[0].Arguments.SequenceEqual(expectedRestoreArguments, StringComparer.Ordinal) &&
@@ -1603,14 +1611,35 @@ internal static class BenchmarkEvidenceReporter
         BenchmarkCommandEnvironment environment,
         BenchmarkInvocation invocation,
         string? runId,
-        string? resultsDirectory) =>
-        string.Equals(environment.Profile, runId is null ? null : invocation.Profile, StringComparison.Ordinal) &&
-        string.Equals(environment.BenchmarkRunId, runId, StringComparison.Ordinal) &&
-        PathsEqual(
-            environment.ArtifactsDirectory,
-            runId is null ? null : invocation.RunArtifactsDirectory) &&
-        PathsEqual(environment.ResultsDirectory, resultsDirectory) &&
-        environment.ProviderIds.SequenceEqual(invocation.ConfiguredProviderIds, StringComparer.Ordinal);
+        string? resultsDirectory)
+    {
+        var externalTarget = invocation.BenchmarkTargetRepositoryRoot is not null;
+        return string.Equals(environment.Profile, runId is null ? null : invocation.Profile, StringComparison.Ordinal) &&
+               string.Equals(environment.BenchmarkRunId, runId, StringComparison.Ordinal) &&
+               PathsEqual(
+                   environment.ArtifactsDirectory,
+                   runId is null ? null : invocation.RunArtifactsDirectory) &&
+               PathsEqual(environment.ResultsDirectory, resultsDirectory) &&
+               environment.ProviderIds.SequenceEqual(invocation.ConfiguredProviderIds, StringComparer.Ordinal) &&
+               PathsEqual(
+                   environment.CustomAfterMicrosoftCommonTargets,
+                   externalTarget
+                       ? Path.Combine(invocation.RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "BenchmarkTargetProvenance.targets")
+                       : null) &&
+               PathsEqual(
+                   environment.BenchmarkTargetRepositoryRoot,
+                   invocation.BenchmarkTargetRepositoryRoot) &&
+               PathsEqual(
+                   environment.BenchmarkCompatibilitySource,
+                   externalTarget
+                       ? Path.Combine(invocation.RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "HistoricalBenchmarkConfig.cs.txt")
+                       : null) &&
+               PathsEqual(
+                   environment.BenchmarkCalibrationSource,
+                   externalTarget
+                       ? Path.Combine(invocation.RepositoryRoot, "src", "DataLinq.Benchmark", "AllocationRegressionBenchmarks.cs")
+                       : null);
+    }
 
     private static bool PathsEqual(string? left, string? right)
     {
@@ -1664,7 +1693,7 @@ internal static class BenchmarkEvidenceReporter
                IsOptionalNonnegativeFinite(row.MaxMicroseconds) &&
                IsNonnegativeFinite(row.AllocatedBytes) &&
                row.OperationsPerInvoke is > 0 &&
-               (!ReleaseOperationCounts.TryGetValue(row.Method, out var expectedOperations) ||
+               (GetExpectedOperationsPerInvoke(row.Method) is not int expectedOperations ||
                 row.OperationsPerInvoke == expectedOperations) &&
                (invocation.SelectedCategory is null ||
                 !ReleaseLaneMethods.ContainsKey(invocation.SelectedCategory) ||
@@ -1689,6 +1718,9 @@ internal static class BenchmarkEvidenceReporter
             .Select(property => (double)property.GetValue(telemetry)!)
             .All(static value => double.IsFinite(value) && value >= 0d);
     }
+
+    internal static int? GetExpectedOperationsPerInvoke(string method) =>
+        ReleaseOperationCounts.TryGetValue(method, out var operations) ? operations : null;
 
     private static bool IsCleanAssemblyIdentity(
         TestRunSummaryRunnerAssembly assembly,

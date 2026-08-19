@@ -70,7 +70,13 @@ internal sealed record BenchmarkCommandEnvironment(
     string? BenchmarkRunId,
     string? ArtifactsDirectory,
     string? ResultsDirectory,
-    IReadOnlyList<string> ProviderIds);
+    IReadOnlyList<string> ProviderIds)
+{
+    public string? CustomAfterMicrosoftCommonTargets { get; init; }
+    public string? BenchmarkTargetRepositoryRoot { get; init; }
+    public string? BenchmarkCompatibilitySource { get; init; }
+    public string? BenchmarkCalibrationSource { get; init; }
+}
 
 internal sealed record BenchmarkCommandRecord(
     string Stage,

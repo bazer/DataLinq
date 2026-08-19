@@ -139,7 +139,7 @@ public class BenchmarkCliParsingTests
 
         await Assert.That(result).IsEqualTo(BenchmarkHarnessRunner.AllocationRegressionCategory);
         await Assert.That(BenchmarkHarnessRunner.GetBenchmarkCategoryArguments(result))
-            .IsEquivalentTo(["--anyCategories", "stable", "macro-readwrite", "macro-bulk"]);
+            .IsEquivalentTo(["--anyCategories", "allocation-regression"]);
     }
 
     [Test]
