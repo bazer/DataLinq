@@ -292,4 +292,16 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
     {
         return new MySqlConnection(dataSource.ConnectionString);
     }
+
+    public override void Dispose()
+    {
+        try
+        {
+            base.Dispose();
+        }
+        finally
+        {
+            dataSource.Dispose();
+        }
+    }
 }

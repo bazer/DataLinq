@@ -67,7 +67,7 @@ internal static class TestCliRunPlanCatalog
             Suites:
             [
                 new(TestCliSuiteCatalog.GeneratorsSuite, null, 61, 8, "generator/compiler", "compiler", MaximumParallelTests: 8),
-                new(TestCliSuiteCatalog.UnitSuite, null, 1618, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
+                new(TestCliSuiteCatalog.UnitSuite, null, 1619, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
                 new(TestCliSuiteCatalog.MemorySuite, null, 142, 5, "memory integration", "in-process database", MaximumParallelTests: 8),
                 new(TestCliSuiteCatalog.ComplianceSuite, null, 484, 26, "provider-invariant compliance", "SQLite file", MaximumParallelTests: 8)
             ]),
@@ -135,7 +135,7 @@ internal static class TestCliRunPlanCatalog
         return
         [
             new(TestCliSuiteCatalog.GeneratorsSuite, null, 61, 8, "generator/compiler", "compiler", MaximumParallelTests: 8),
-            new(TestCliSuiteCatalog.UnitSuite, null, 1618, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
+            new(TestCliSuiteCatalog.UnitSuite, null, 1619, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
             new(TestCliSuiteCatalog.MemorySuite, null, 142, 5, "memory integration", "in-process database", MaximumParallelTests: 8),
             new(TestCliSuiteCatalog.ComplianceSuite, null, complianceCases, estimatedDurationSeconds * 0.75, "provider-invariant compliance", "SQLite and server databases", MaximumParallelTests: 8),
             new(TestCliSuiteCatalog.MySqlSuite, null, mySqlProviderCases, estimatedDurationSeconds * 0.25, "provider-specific compliance", "MySQL/MariaDB server", MaximumParallelTests: 8)

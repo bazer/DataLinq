@@ -41,7 +41,7 @@ public static class TestShardEvidenceAggregator
     public static IReadOnlyList<TestShardEvidenceContract> FullMatrixContract { get; } =
     [
         new("generators", null, null, 61),
-        new("unit", null, null, 1618),
+        new("unit", null, null, 1619),
         new("memory", null, null, 142),
         new("compliance", "sqlite-file", "AnchorWithInvariant", 484),
         new("compliance", "sqlite-memory", "TargetSpecific", 363),

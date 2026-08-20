@@ -23,7 +23,7 @@ public sealed class TestShardEvidenceAggregatorTests
 
         await Assert.That(aggregate.Complete).IsTrue();
         await Assert.That(aggregate.Shards).Count().IsEqualTo(13);
-        await Assert.That(aggregate.TotalCases).IsEqualTo(4459);
+        await Assert.That(aggregate.TotalCases).IsEqualTo(4460);
         await Assert.That(aggregate.Shards.Select(static shard => $"{shard.Suite}:{shard.TargetId ?? "-"}").Distinct()).Count().IsEqualTo(13);
     }
 
