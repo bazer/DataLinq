@@ -104,7 +104,27 @@ public sealed class BenchmarkEvidenceReporterTests
         string method,
         int expectedOperations)
     {
-        await Assert.That(BenchmarkEvidenceReporter.GetExpectedOperationsPerInvoke(method))
+        await Assert.That(BenchmarkEvidenceReporter.GetExpectedOperationsPerInvoke(
+                method,
+                BenchmarkHarnessRunner.AllocationRegressionCategory))
+            .IsEqualTo(expectedOperations);
+    }
+
+    [Test]
+    [Arguments("Provider initialization", 1)]
+    [Arguments("Startup primary-key fetch", 1)]
+    [Arguments("CRUD workflow small", 50)]
+    [Arguments("CRUD workflow batch", 300)]
+    [Arguments("Update employees", 1000)]
+    [Arguments("Cold primary-key fetch", 1000)]
+    [Arguments("Warm primary-key fetch", 1000)]
+    [Arguments("Cold relation traversal", 1000)]
+    [Arguments("Warm relation traversal", 1000)]
+    public async Task PublishedEmployeesSubset_KeepsItsOwnOperationCounts(
+        string method,
+        int expectedOperations)
+    {
+        await Assert.That(BenchmarkEvidenceReporter.GetExpectedOperationsPerInvoke(method, selectedCategory: null))
             .IsEqualTo(expectedOperations);
     }
 

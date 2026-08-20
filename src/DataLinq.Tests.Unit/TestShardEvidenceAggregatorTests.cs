@@ -23,7 +23,7 @@ public sealed class TestShardEvidenceAggregatorTests
 
         await Assert.That(aggregate.Complete).IsTrue();
         await Assert.That(aggregate.Shards).Count().IsEqualTo(13);
-        await Assert.That(aggregate.TotalCases).IsEqualTo(4449);
+        await Assert.That(aggregate.TotalCases).IsEqualTo(4459);
         await Assert.That(aggregate.Shards.Select(static shard => $"{shard.Suite}:{shard.TargetId ?? "-"}").Distinct()).Count().IsEqualTo(13);
     }
 
@@ -100,6 +100,18 @@ public sealed class TestShardEvidenceAggregatorTests
         await Assert.That(build!.Message).Contains("stable clean checkout");
     }
 
+    [Test]
+    public async Task AggregateDirectory_TreatsEmptyTargetlessRoleAsAbsent()
+    {
+        using var fixture = new ShardFixture();
+        fixture.WriteContract(emptyRoleKey: "unit:-");
+
+        var aggregate = TestShardEvidenceAggregator.AggregateDirectory(fixture.Root, Commit, "Release");
+        var unit = aggregate.Shards.Single(static shard => shard.Suite == "unit");
+
+        await Assert.That(unit.ProviderAffinityRole).IsNull();
+    }
+
     private static Exception? Capture(Action action)
     {
         try
@@ -129,7 +141,8 @@ public sealed class TestShardEvidenceAggregatorTests
             string? commitOverride = null,
             string? configurationOverride = null,
             string? schemaOverride = null,
-            string? countOverrideKey = null)
+            string? countOverrideKey = null,
+            string? emptyRoleKey = null)
         {
             var index = 0;
             foreach (var contract in TestShardEvidenceAggregator.FullMatrixContract)
@@ -140,7 +153,9 @@ public sealed class TestShardEvidenceAggregatorTests
 
                 WriteShard(
                     index++,
-                    contract,
+                    string.Equals(key, emptyRoleKey, StringComparison.OrdinalIgnoreCase)
+                        ? contract with { ProviderAffinityRole = string.Empty }
+                        : contract,
                     commitOverride ?? Commit,
                     configurationOverride ?? "Release",
                     schemaOverride ?? TestRunSummaryReporter.SchemaVersion,

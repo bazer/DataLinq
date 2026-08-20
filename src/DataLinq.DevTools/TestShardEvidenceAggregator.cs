@@ -41,7 +41,7 @@ public static class TestShardEvidenceAggregator
     public static IReadOnlyList<TestShardEvidenceContract> FullMatrixContract { get; } =
     [
         new("generators", null, null, 61),
-        new("unit", null, null, 1608),
+        new("unit", null, null, 1618),
         new("memory", null, null, 142),
         new("compliance", "sqlite-file", "AnchorWithInvariant", 484),
         new("compliance", "sqlite-memory", "TargetSpecific", 363),
@@ -129,7 +129,7 @@ public static class TestShardEvidenceAggregator
             entries.Add(new TestShardEvidenceEntry(
                 result.Suite,
                 targetId,
-                result.ProviderAffinityRole,
+                NormalizeOptionalRole(result.ProviderAffinityRole),
                 result.Total!.Value,
                 report.RunId,
                 item.Path));
@@ -309,6 +309,9 @@ public static class TestShardEvidenceAggregator
 
     private static string EntryKey(TestShardEvidenceEntry entry) =>
         $"{entry.Suite}:{entry.TargetId ?? "-"}";
+
+    private static string? NormalizeOptionalRole(string? role) =>
+        string.IsNullOrEmpty(role) ? null : role;
 
     private sealed record LoadedShard(string Path, TestRunSummaryReport Report, string ArtifactRoot);
 }

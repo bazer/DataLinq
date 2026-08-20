@@ -104,18 +104,21 @@ internal static class BenchmarkEvidenceReporter
             ]
         };
 
+    // EmployeesBenchmarks and AllocationRegressionBenchmarks intentionally share display names
+    // while using different operation counts. Keep the published/default contract separate from
+    // the calibrated allocation lane instead of treating a display name as a global identity.
     private static readonly IReadOnlyDictionary<string, int> ReleaseOperationCounts =
         new Dictionary<string, int>(StringComparer.Ordinal)
         {
             ["Provider initialization"] = 1,
             ["Startup primary-key fetch"] = 1,
-            ["Warm primary-key fetch"] = 60000,
-            ["CRUD workflow small"] = 350,
-            ["CRUD workflow batch"] = 350,
-            ["Update employees"] = 2000,
+            ["Warm primary-key fetch"] = 1000,
+            ["CRUD workflow small"] = 50,
+            ["CRUD workflow batch"] = 300,
+            ["Update employees"] = 1000,
             ["Cold primary-key fetch"] = 1000,
             ["Cold relation traversal"] = 1000,
-            ["Warm relation traversal"] = 1500000,
+            ["Warm relation traversal"] = 1000,
             ["Repeated non-PK equality fetch"] = 1000,
             ["Repeated IN predicate fetch"] = 1000,
             ["Repeated scalar Any"] = 1000,
@@ -158,6 +161,20 @@ internal static class BenchmarkEvidenceReporter
             ["Mutation final drift validation"] = 1000,
             ["Cold typed-ID exact terminal"] = 1000,
             ["Warm typed-ID exact terminal"] = 1000
+        };
+
+    private static readonly IReadOnlyDictionary<string, int> AllocationRegressionOperationCounts =
+        new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["Provider initialization"] = 1,
+            ["Startup primary-key fetch"] = 1,
+            ["CRUD workflow small"] = 350,
+            ["CRUD workflow batch"] = 350,
+            ["Update employees"] = 2000,
+            ["Cold primary-key fetch"] = 1000,
+            ["Warm primary-key fetch"] = 60000,
+            ["Cold relation traversal"] = 1000,
+            ["Warm relation traversal"] = 1500000
         };
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -1723,7 +1740,7 @@ internal static class BenchmarkEvidenceReporter
                IsOptionalNonnegativeFinite(row.MaxMicroseconds) &&
                IsNonnegativeFinite(row.AllocatedBytes) &&
                row.OperationsPerInvoke is > 0 &&
-               (GetExpectedOperationsPerInvoke(row.Method) is not int expectedOperations ||
+               (GetExpectedOperationsPerInvoke(row.Method, invocation.SelectedCategory) is not int expectedOperations ||
                 row.OperationsPerInvoke == expectedOperations) &&
                (invocation.SelectedCategory is null ||
                 !ReleaseLaneMethods.ContainsKey(invocation.SelectedCategory) ||
@@ -1749,8 +1766,19 @@ internal static class BenchmarkEvidenceReporter
             .All(static value => double.IsFinite(value) && value >= 0d);
     }
 
-    internal static int? GetExpectedOperationsPerInvoke(string method) =>
-        ReleaseOperationCounts.TryGetValue(method, out var operations) ? operations : null;
+    internal static int? GetExpectedOperationsPerInvoke(string method, string? selectedCategory)
+    {
+        if (string.Equals(
+                selectedCategory,
+                BenchmarkHarnessRunner.AllocationRegressionCategory,
+                StringComparison.Ordinal) &&
+            AllocationRegressionOperationCounts.TryGetValue(method, out var allocationOperations))
+        {
+            return allocationOperations;
+        }
+
+        return ReleaseOperationCounts.TryGetValue(method, out var operations) ? operations : null;
+    }
 
     private static bool IsCleanAssemblyIdentity(
         TestRunSummaryRunnerAssembly assembly,
