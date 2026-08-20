@@ -1049,6 +1049,29 @@ The final `manifest.md` should contain a compact table like:
 | Docs | Pass/Fail | path | SHA | SHA | DocFX/link check/site inspection |
 | Release notes | Ready/Not ready | path | SHA | SHA | upgrade notes |
 
+### 0.9 allocation-regression disposition
+
+The final calibrated allocation receipt is the schema-v3 comparison recorded in [PR #82](https://github.com/bazer/DataLinq/pull/82). The corresponding [#26 discussion receipt](https://github.com/bazer/DataLinq/issues/26#issuecomment-5344291969) remains the durable decision record; #26 stays open for post-0.9 work because documenting these exceptions does not satisfy its literal parity target.
+
+The comparison uses the frozen final-0.8 runtime at commit [`8bcfc770246f960e27a91e3046f19a76c3736217`](https://github.com/bazer/DataLinq/commit/8bcfc770246f960e27a91e3046f19a76c3736217) and the 0.9 candidate at commit [`92c72b525a4be0313938cad7f003ed21f5627456`](https://github.com/bazer/DataLinq/commit/92c72b525a4be0313938cad7f003ed21f5627456). Their run ids are `20260819-150949221-b48e7ef6a7014c98b3b07c68f9b90635` and `20260819-151433403-c1257bf50b7444f9b41964acaeb5dcdf`, respectively. Both histories and the comparison are artifact-complete, comparable, `ValidForEvidence: true`, and contain exactly 9 expected rows, 9 observed rows, 9 telemetry rows, and 0 invalid rows.
+
+Both net8 benchmark assemblies ran on the same Microsoft Windows `10.0.26200` x64 host with 8 logical processors (`Intel64 Family 6 Model 140 Stepping 1, GenuineIntel`), .NET `10.0.11` through major roll-forward, RyuJIT x64, BenchmarkDotNet `0.15.8`, the `heavy` profile / `MediumRun` job, selector `allocation-regression`, provider `sqlite-memory`, and filter `*`. The calibrated operations per invoke are provider/startup `1`, CRUD small/batch `350`, update `2,000`, cold PK/relation `1,000`, warm PK `60,000`, and warm relation `1,500,000`.
+
+0.9 does **not** meet literal final-0.8 allocation parity. Four allocation warnings are accepted for the 0.9 release candidate without changing the budgets:
+
+| Accepted exception | final 0.8 B/op | 0.9 candidate B/op | Delta | Disposition |
+| --- | ---: | ---: | ---: | --- |
+| Update employees | 13,721.60 | 15,472.64 | +12.76% | Accept for 0.9. The remaining mutation/transaction ownership work crosses correctness-sensitive snapshot and lifetime boundaries; release-week changes carry more risk than the measured allocation cost. |
+| Cold relation traversal | 11,151.36 | 13,025.28 | +16.80% | Accept for 0.9. Further reduction points at relation/source caching and ownership changes; keep the measured regression visible rather than weakening cache or materialization validation. |
+| CRUD workflow batch | 51,107.84 | 64,512.00 | +26.23% | Accept for 0.9. This macro row compounds the retained mutation, relation, and provider-lifetime overheads; a broad lifetime optimization is not an appropriate release-closeout change. |
+| CRUD workflow small | 50,995.20 | 64,614.40 | +26.71% | Accept for 0.9. The narrow workflow exposes the same correctness-preserving mutation, relation, and lifetime costs with less useful work to amortize them; do not raise the budget or describe this row as parity. |
+
+The other allocation rows are explicitly dispositioned: warm relation remains `0.00 B/op`; warm PK is at exact parity (`1,761.28 B/op`); startup PK improves by `2.92%` (`70,584.32` to `68,526.08 B/op`); and cold PK (`+7.24%`) plus provider initialization (`+7.87%`) remain below the tracked 10% allocation-warning threshold. Telemetry is unchanged on all nine rows.
+
+The comparison reports three latency warnings: cold PK `+14.77%`, cold relation `+19.28%`, and update `+13.31%`. They are dispositioned as not establishing a stable product regression: the adjacent post-#76 receipt, against the same runtime implementation before benchmark-only calibration work, measured those rows at `-8.73%`, `-1.82%`, and `+8.11%`, with no non-noisy latency warning. The direction reversal and threshold crossing make a broad latency claim unjustified in either direction. This is not a latency waiver: a reproducible non-noisy regression in a refreshed final-candidate receipt remains a release blocker.
+
+Both histories retain BenchmarkDotNet's generic `MultimodalDistribution` notice. Cold PK also retains the minimum-iteration warning (52.553 ms baseline, 59.667 ms candidate). That warning is accepted because the workload deliberately exhausts 1,000 distinct keys; increasing the count against the fixed corpus would introduce cache hits and corrupt the cold-miss contract. These warnings require the disposition above but do not invalidate the allocation and telemetry evidence.
+
 The final candidate should come from one clean release commit. If a later code or packaging fix changes that commit, rerun the affected gates and update the manifest honestly; documentation-only wording fixes need only their relevant documentation checks.
 
 ### Blocker policy
