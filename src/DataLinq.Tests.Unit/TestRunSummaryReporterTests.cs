@@ -32,17 +32,17 @@ public sealed class TestRunSummaryReporterTests
         await Assert.That(report.IsFullMatrixInvocation).IsTrue();
         await Assert.That(report.HasPerTargetProviderTotals).IsTrue();
         await Assert.That(report.ValidForEvidence).IsTrue();
-        await Assert.That(report.Total).IsEqualTo(39);
-        await Assert.That(report.Passed).IsEqualTo(39);
-        await Assert.That(report.Results.Count).IsEqualTo(13);
+        await Assert.That(report.Total).IsEqualTo(51);
+        await Assert.That(report.Passed).IsEqualTo(51);
+        await Assert.That(report.Results.Count).IsEqualTo(17);
         var unitResult = report.Results.Single(static result => result.Suite == "unit");
         await Assert.That(unitResult.Targets).IsEqualTo("-");
         await Assert.That(unitResult.TargetIds).IsEmpty();
         await Assert.That(unitResult.Outcome).IsEqualTo(TestRunSummaryOutcome.Passed);
         await Assert.That(unitResult.Performance.Captured).IsTrue();
         await Assert.That(unitResult.Performance.TestCount).IsEqualTo(3);
-        await Assert.That(report.Timings.TestHostProcessSeconds).IsEqualTo(13);
-        await Assert.That(report.Timings.TestBodySeconds).IsEqualTo(19.5);
+        await Assert.That(report.Timings.TestHostProcessSeconds).IsEqualTo(17);
+        await Assert.That(report.Timings.TestBodySeconds).IsEqualTo(25.5);
         await Assert.That(report.RuntimeEnvironment.ProcessorCount > 0).IsTrue();
         await Assert.That(report.ArtifactPaths.Count).IsEqualTo(4);
         await Assert.That(report.RunnerEvidence.ValidForEvidence).IsTrue();
@@ -220,15 +220,15 @@ public sealed class TestRunSummaryReporterTests
     {
         var input = CreateFullMatrixInput();
         var omittedExpected = input.ExpectedResults
-            .Where(static result => !(result.Suite == "compliance" && result.TargetIds.Contains("mariadb-11.8")))
+            .Where(static result => !(result.Suite == "compliance" && result.TargetIds.Contains("mariadb-12.3")))
             .ToArray();
         var omittedResults = input.Results
-            .Where(static result => !(result.Suite == "compliance" && result.TargetIds.Contains("mariadb-11.8")))
+            .Where(static result => !(result.Suite == "compliance" && result.TargetIds.Contains("mariadb-12.3")))
             .ToArray();
         var missingCoverage = TestRunSummaryReporter.Create(input with
         {
-            Total = 36,
-            Passed = 36,
+            Total = 48,
+            Passed = 48,
             ExpectedResults = omittedExpected,
             Results = omittedResults
         });
@@ -808,8 +808,8 @@ public sealed class TestRunSummaryReporterTests
             EntryAssembly: RunnerAssembly("DataLinq.Testing.CLI"),
             DevToolsAssembly: RunnerAssembly("DataLinq.DevTools"),
             OverallExitCode: 0,
-            Total: 39,
-            Passed: 39,
+            Total: 51,
+            Passed: 51,
             Failed: 0,
             Skipped: 0,
             ExpectedResults: expected,

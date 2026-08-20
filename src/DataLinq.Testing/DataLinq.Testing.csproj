@@ -19,4 +19,8 @@
 		<ProjectReference Include="..\DataLinq.Tools\DataLinq.Tools.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<InternalsVisibleTo Include="DataLinq.Tests.Unit" />
+	</ItemGroup>
+
 </Project>

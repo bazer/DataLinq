@@ -14,6 +14,15 @@ That matters because MariaDB-specific behavior only appears when the connection 
 
 For drift checks and conservative SQL suggestions against MySQL or MariaDB metadata, see [Schema Validation and Diff](../Schema%20Validation%20and%20Diff.md). For the exact provider metadata boundary, see [Provider Metadata Support Matrix](../support-matrices/Provider%20Metadata%20Support%20Matrix.md).
 
+## Supported Server Versions
+
+| Family | Supported LTS series | Default `latest` target |
+| --- | --- | --- |
+| MySQL | 8.4, 9.7 | 9.7 |
+| MariaDB | 10.11, 11.4, 11.8, 12.3 | 12.3 |
+
+The test matrix follows each official image's rolling minor tag within its LTS series. `latest` means the explicitly configured family defaults, not a lexical comparison of version strings. The full release lane retains every LTS series in this table.
+
 ## Schema Introspection and Type Mapping
 
 `generate models` reads schema metadata from `information_schema` and maps backend types to C# types. The mapping is aware of signedness, length, defaults, foreign keys, indices, and enum definitions.

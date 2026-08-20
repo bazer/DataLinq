@@ -1,10 +1,15 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Core.Factories;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.MySql;
 using DataLinq.Mutation;
 using DataLinq.Testing;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.MySql;
 
@@ -13,21 +18,44 @@ public class ReservedKeywordMutationTests
     [Test]
     [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
-    public async Task Update_ColumnNamedReferences_QuotesSetColumn(TestProviderDescriptor provider)
+    public async Task MySql97LibraryKeyword_IsQuotedAcrossSchemaMetadataQueryAndMutation(TestProviderDescriptor provider)
     {
         using var scope = TemporaryModelTestDatabase<ReservedKeywordTestDatabase>.Create(
             provider,
-            nameof(Update_ColumnNamedReferences_QuotesSetColumn));
+            nameof(MySql97LibraryKeyword_IsQuotedAcrossSchemaMetadataQueryAndMutation));
+
+        var factory = MetadataFromSqlFactory.GetSqlFactory(
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true },
+            provider.DatabaseType);
+        var metadata = factory.ParseDatabase(
+                "ReservedKeywordDb",
+                "ReservedKeywordDb",
+                "DataLinq.Tests.ReservedKeywords",
+                scope.Connection.DataSourceName,
+                scope.Connection.ConnectionString)
+            .ValueOrException();
+        var table = metadata.TableModels.Single(static model => model.Table.DbName == "reserved_keyword_rows");
+        var generatedModel = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(metadata)
+            .Single(static file => file.contents.Contains("[Table(\"reserved_keyword_rows\")]", StringComparison.Ordinal));
+        var generatedSql = SqlFromMetadataFactory
+            .GetFactoryFromDatabaseType(provider.DatabaseType)
+            .GetCreateTables(metadata, foreignKeyRestrict: false)
+            .ValueOrException();
+
+        await Assert.That(table.Table.Columns.Any(static column => column.DbName == "Library")).IsTrue();
+        await Assert.That(generatedModel.contents).Contains("[Column(\"Library\")]");
+        await Assert.That(generatedSql.Text).Contains("`Library`");
 
         var inserted = scope.Database.Insert(new MutableReservedKeywordRow
         {
             Id = 1,
-            References = "before"
+            Library = "before"
         });
 
         using var transaction = scope.Database.Transaction(TransactionType.ReadAndWrite);
         var mutable = inserted.Mutate();
-        mutable.References = "after";
+        mutable.Library = "after";
 
         transaction.Save(mutable);
         transaction.Commit();
@@ -35,7 +63,7 @@ public class ReservedKeywordMutationTests
 
         var updated = scope.Database.Query().Rows.Single(x => x.Id == 1);
 
-        await Assert.That(updated.References).IsEqualTo("after");
+        await Assert.That(updated.Library).IsEqualTo("after");
     }
 }
 
@@ -54,8 +82,8 @@ public abstract partial class ReservedKeywordRow(IRowData rowData, IDataSourceAc
     [Type(DatabaseType.MariaDB, "int")]
     public abstract int Id { get; }
 
-    [Column("References")]
+    [Column("Library")]
     [Type(DatabaseType.MySQL, "varchar", 100)]
     [Type(DatabaseType.MariaDB, "varchar", 100)]
-    public abstract string References { get; }
+    public abstract string Library { get; }
 }

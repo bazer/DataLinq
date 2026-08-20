@@ -39,25 +39,25 @@ public class MetadataFromServerFactoryTests
             """,
             """
             CREATE TABLE `dept-emp` (
-                emp_no INT NOT NULL,
-                dept_no VARCHAR(4) NOT NULL,
-                from_date DATE NOT NULL,
-                to_date DATE NOT NULL,
-                PRIMARY KEY (emp_no, dept_no),
-                CONSTRAINT dept_emp_ibfk_1 FOREIGN KEY (emp_no) REFERENCES employees(emp_no),
-                CONSTRAINT dept_emp_ibfk_2 FOREIGN KEY (dept_no) REFERENCES departments(dept_no)
+                `emp_no` INT NOT NULL,
+                `dept_no` VARCHAR(4) NOT NULL,
+                `from_date` DATE NOT NULL,
+                `to_date` DATE NOT NULL,
+                PRIMARY KEY (`emp_no`, `dept_no`),
+                CONSTRAINT `dept_emp_ibfk_1` FOREIGN KEY (`emp_no`) REFERENCES `employees` (`emp_no`),
+                CONSTRAINT `dept_emp_ibfk_2` FOREIGN KEY (`dept_no`) REFERENCES `departments` (`dept_no`)
             );
             """,
             """
-            CREATE VIEW current_dept_emp AS
-            SELECT emp_no, dept_no, from_date, to_date
+            CREATE VIEW `current_dept_emp` AS
+            SELECT `emp_no`, `dept_no`, `from_date`, `to_date`
             FROM `dept-emp`;
             """,
             """
-            CREATE VIEW dept_emp_latest_date AS
-            SELECT dept_no, emp_no, MAX(from_date) AS from_date
+            CREATE VIEW `dept_emp_latest_date` AS
+            SELECT `dept_no`, `emp_no`, MAX(`from_date`) AS `from_date`
             FROM `dept-emp`
-            GROUP BY dept_no, emp_no;
+            GROUP BY `dept_no`, `emp_no`;
             """);
 
         var database = schema.ParseDatabase("employees", "EmployeesDb", "DataLinq.Tests.Models.Employees");

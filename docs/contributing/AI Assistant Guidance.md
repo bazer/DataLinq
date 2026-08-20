@@ -32,7 +32,7 @@ Use the repo docs in this order:
 - If a sandboxed restore fails with `NU1801` or `NU1101`, or a cold build cannot find package-backed types such as `Spectre.Console` or `System.CommandLine`, the likely problem is a missing workspace-local package cache plus blocked NuGet.org access. Rerun the same restore through `.\scripts\dotnet-sandbox.ps1 restore ...` with sandbox escalation, then retry the build inside the sandbox.
 - Blazor WebAssembly builds are a known native-Windows sandbox edge. `src/DataLinq.BlazorWasm/DataLinq.BlazorWasm.csproj` can fail inside the Codex sandbox with `MSB4216` and `MSB4027` from `MarshalingPInvokeScanner`, because MSBuild cannot create/connect to the WebAssembly task host. Full solution builds can also fail early with only `Build FAILED. 0 Warning(s) 0 Error(s)` and no useful raw log. Before calling this a repo regression, verify the same command outside the sandbox.
 - The WebAssembly `WASM0001` warnings that appear outside the sandbox are real. They come from `SQLitePCLRaw.provider.e_sqlite3` exposing varargs native SQLite functions such as `sqlite3_config` and `sqlite3_db_config`; the SDK says those calls are unsupported on WebAssembly and would fail at runtime. Do not blanket-suppress them without proving the affected functions are unreachable or changing the WebAssembly SQLite provider story.
-- For sandboxed server-backed Testing CLI runs on native Windows, set `DATALINQ_TEST_DB_HOST=127.0.0.1` for the command. The sandbox blocks TCP to the Podman VM host, but loopback reaches Podman's `wslrelay` listeners when the matrix ports are free. The matrix uses `13307` through `13310` specifically to avoid common local MySQL/MariaDB services. Server-backed `run` commands refresh `artifacts/testdata/testinfra-state.json` from the actually running containers, so a targeted verification should not leave the state narrowed to one server target. If server-backed sandbox connectivity looks wrong, first check whether the configured port is owned by `wslrelay`.
+- For sandboxed server-backed Testing CLI runs on native Windows, set `DATALINQ_TEST_DB_HOST=127.0.0.1` for the command. The sandbox blocks TCP to the Podman VM host, but loopback reaches Podman's `wslrelay` listeners when the matrix ports are free. The matrix uses `13307` through `13312` specifically to avoid common local MySQL/MariaDB services. Server-backed `run` commands refresh `artifacts/testdata/testinfra-state.json` from the actually running containers, so a targeted verification should not leave the state narrowed to one server target. If server-backed sandbox connectivity looks wrong, first check whether the configured port is owned by `wslrelay`.
 
 ## Use the Repo Tools, Not Ad Hoc Commands
 
@@ -101,7 +101,7 @@ For sandboxed server-backed verification after the containers already exist:
 
 ```powershell
 $env:DATALINQ_TEST_DB_HOST = '127.0.0.1'
-./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI --no-build -- run --suite mysql --targets mysql-8.4 --output failures
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI --no-build -- run --suite mysql --targets mysql-9.7 --output failures
 Remove-Item Env:DATALINQ_TEST_DB_HOST
 ```
 

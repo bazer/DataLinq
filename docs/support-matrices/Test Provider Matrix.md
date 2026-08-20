@@ -25,17 +25,19 @@ Local SQLite targets are provided by the test catalog, while MySQL and MariaDB s
 | Alias | Targets | Intended use |
 | --- | --- | --- |
 | `quick` | `sqlite-file`, `sqlite-memory` | Fast local feedback without Podman. |
-| `latest` | `sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mariadb-11.8` | Normal contributor lane with the newest default server-backed providers. |
-| `all` | `sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mariadb-10.11`, `mariadb-11.4`, `mariadb-11.8` | Broad provider verification before provider-sensitive changes close. |
+| `latest` | `sqlite-file`, `sqlite-memory`, `mysql-9.7`, `mariadb-12.3` | Normal contributor lane with the explicitly configured default LTS target from each server family. |
+| `all` | `sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mysql-9.7`, `mariadb-10.11`, `mariadb-11.4`, `mariadb-11.8`, `mariadb-12.3` | Broad provider verification before provider-sensitive changes close. |
 
 ## Server Targets
 
 | Target id | Display name | Family | Version | Image | Host port | Default server target |
 | --- | --- | --- | --- | --- | ---: | --- |
-| `mysql-8.4` | MySQL 8.4 LTS | MySql | 8.4 | `mysql:8.4` | 13307 | Yes |
+| `mysql-8.4` | MySQL 8.4 LTS | MySql | 8.4 | `mysql:8.4` | 13307 | No |
+| `mysql-9.7` | MySQL 9.7 LTS | MySql | 9.7 | `mysql:9.7` | 13311 | Yes |
 | `mariadb-10.11` | MariaDB 10.11 LTS | MariaDb | 10.11 | `mariadb:10.11` | 13310 | No |
 | `mariadb-11.4` | MariaDB 11.4 LTS | MariaDb | 11.4 | `mariadb:11.4` | 13309 | No |
-| `mariadb-11.8` | MariaDB 11.8 LTS | MariaDb | 11.8 | `mariadb:11.8` | 13308 | Yes |
+| `mariadb-11.8` | MariaDB 11.8 LTS | MariaDb | 11.8 | `mariadb:11.8` | 13308 | No |
+| `mariadb-12.3` | MariaDB 12.3 LTS | MariaDb | 12.3 | `mariadb:12.3` | 13312 | Yes |
 
 The high host ports are intentional. They avoid the common local MySQL/MariaDB range around `3306` through `3310`, where a developer machine may already have unrelated database services.
 
@@ -43,14 +45,19 @@ The high host ports are intentional. They avoid the common local MySQL/MariaDB r
 
 | Profile id | Display name | Server targets | Default profile |
 | --- | --- | --- | --- |
-| `current-lts` | Current LTS | `mysql-8.4`, `mariadb-11.8` | Yes |
+| `current-lts` | Current LTS | `mysql-9.7`, `mariadb-12.3` | Yes |
 | `mariadb-10.11-lts` | MySQL 8.4 + MariaDB 10.11 | `mysql-8.4`, `mariadb-10.11` | No |
 | `mariadb-11.4-lts` | MySQL 8.4 + MariaDB 11.4 | `mysql-8.4`, `mariadb-11.4` | No |
 | `mariadb-11.8-lts` | MySQL 8.4 + MariaDB 11.8 | `mysql-8.4`, `mariadb-11.8` | No |
+| `mariadb-12.3-lts` | MySQL 9.7 + MariaDB 12.3 | `mysql-9.7`, `mariadb-12.3` | No |
 | `mysql-8.4-only` | MySQL 8.4 only | `mysql-8.4` | No |
+| `mysql-9.7-only` | MySQL 9.7 only | `mysql-9.7` | No |
 | `mariadb-10.11-only` | MariaDB 10.11 only | `mariadb-10.11` | No |
 | `mariadb-11.4-only` | MariaDB 11.4 only | `mariadb-11.4` | No |
 | `mariadb-11.8-only` | MariaDB 11.8 only | `mariadb-11.8` | No |
+| `mariadb-12.3-only` | MariaDB 12.3 only | `mariadb-12.3` | No |
+
+Matrix loading fails closed unless target ids, images, and host ports are unique; each family has exactly one default LTS target; exactly one profile is the default; and that profile contains exactly the two explicitly flagged family defaults.
 
 ## Implementation References
 

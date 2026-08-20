@@ -37,7 +37,7 @@ Starts the selected server targets and waits for readiness.
 
 ```bash
 dotnet run --project DataLinq.Testing.CLI -- up --alias latest
-dotnet run --project DataLinq.Testing.CLI -- up --targets mysql-8.4,mariadb-11.8
+dotnet run --project DataLinq.Testing.CLI -- up --targets 'mysql-9.7,mariadb-12.3'
 ```
 
 Useful option:
@@ -67,7 +67,7 @@ dotnet run --project DataLinq.Testing.CLI -- down --remove
 Recreates the selected targets from scratch.
 
 ```bash
-dotnet run --project DataLinq.Testing.CLI -- reset --targets mysql-8.4
+dotnet run --project DataLinq.Testing.CLI -- reset --targets mysql-9.7
 ```
 
 ### `run`
@@ -80,7 +80,7 @@ dotnet run --project DataLinq.Testing.CLI -- run --plan quick
 dotnet run --project DataLinq.Testing.CLI -- run --plan latest --batch-size 4
 dotnet run --project DataLinq.Testing.CLI -- run --plan full --batch-size 1
 dotnet run --project DataLinq.Testing.CLI -- run --plan focused --suite unit --filter "/*/*/CacheNotificationManagerTests/*"
-dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --targets mysql-8.4,mariadb-11.8
+dotnet run --project DataLinq.Testing.CLI -- run --suite compliance --targets 'mysql-9.7,mariadb-12.3'
 dotnet run --project DataLinq.Testing.CLI -- run --suite memory --output failures --summary-json artifacts/test-results/memory.json
 ```
 
@@ -109,7 +109,7 @@ Supported aliases:
 - `quick`
   `sqlite-file`, `sqlite-memory`
 - `latest`
-  `sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mariadb-11.8`
+  `sqlite-file`, `sqlite-memory`, `mysql-9.7`, `mariadb-12.3`
 - `all`
   every supported target
 
@@ -205,7 +205,7 @@ The `latest` and `full` compliance and MySQL/MariaDB manifests assign each batch
 
 Compliance methods using `ActiveProviders`, `ServerProviders`, `SqliteProviders`, or `AllLtsServerProviders`, and MySQL-suite methods using a server provider source, must declare `ProviderAffinity` beside their data source. Tests without a provider data source are invariant by convention. This makes the full-plan logical pairing explicit: an invariant method appears once, while each required provider-backed method appears once for every applicable target. `--batch-size 1` still produces one explicit result row per target; the anchor role explains why the first row contains the one-time cases.
 
-The six-target full-plan manifest currently executes 4,449 tests: 2,323 compliance cases and 315 MySQL-suite cases alongside generators, unit, and Memory. The former per-target rediscovery would execute 5,249 cases for the same logical coverage. Affinity scheduling therefore removes 800 redundant executions: 605 invariant/SQLite/catalog repeats from compliance and 195 invariant repeats from the MySQL-specific suite. Its per-target rows are explicit: compliance runs 484 on the SQLite anchor, 363 on SQLite memory, and 369 on each server; MySQL runs 126 on the MySQL anchor and 63 on each MariaDB target. The last pre-CI-sharding measurement passed the then-current 4,439 cases in 244.6 seconds of command wall time, with 202.3 accumulated test-host seconds and 822.6 test-body seconds; the manifest count subsequently increased by six CI policy/aggregation tests and four server-provider trigger-isolation cases.
+The eight-target full-plan manifest currently executes 5,428 tests: 3,101 compliance cases and 445 MySQL-suite cases alongside 61 generator, 1,680 unit, and 141 Memory cases. Its 17 rows are explicit: compliance runs 496 on the SQLite-file anchor, 367 on SQLite memory, and 373 on each of the six servers; the MySQL suite runs 127 on the MySQL 9.7 anchor, 62 on MySQL 8.4, and 64 on each MariaDB target. These counts come from fresh executable discovery against the new servers, not arithmetic copied from the earlier four-server manifest.
 
 Unkeyed `[NotInParallel]` stops the entire test process and is restricted to a source-enforced allowlist. It remains justified only where unconstrained tests necessarily observe or modify the same process-global resource:
 
@@ -224,7 +224,7 @@ Database-local and fixture-local exclusions use these stable key families instea
 
 Tests sharing a key serialize with each other but continue alongside tests that do not touch that resource. A source-policy test rejects any new process-global file outside the reviewed allowlist and verifies that provider data sources carry the matching affinity property.
 
-The `aggregate` command validates downloaded nightly shard artifacts against the canonical 13-row full-matrix manifest. It requires an exact commit SHA and configuration and writes schema `v0.9.testing-shard-aggregate.v1`; missing, duplicate, wrong-count, wrong-role, failed, dirty, schema-incompatible, runtime-incompatible, or artifact-incomplete shards are hard failures. See [CI Test Lanes](CI%20Test%20Lanes.md) for the blocking policy and workflow shape.
+The `aggregate` command validates downloaded nightly shard artifacts against the canonical 17-row full-matrix manifest. It requires an exact commit SHA and configuration and writes schema `v0.9.testing-shard-aggregate.v1`; missing, duplicate, wrong-count, wrong-role, failed, dirty, schema-incompatible, runtime-incompatible, or artifact-incomplete shards are hard failures. See [CI Test Lanes](CI%20Test%20Lanes.md) for the blocking policy and workflow shape.
 
 ### Compliance fixture profiles and reuse
 
@@ -248,7 +248,7 @@ The versioned summary records a collision-free run id, the named plan when prese
 
 Each server-backed command row records the normalized effective database host resolved from the child environment or current runtime state; missing capture, disagreement with an explicit override, or inconsistent effective hosts makes the invocation incomplete. The report writer and stale-file invalidation accept destinations only beneath `<repo>/artifacts`. `ArtifactsComplete` requires every result's raw log, HTML report, and TRX report to exist as regular files beneath that root; malformed or count-mismatched TRX performance data also makes an otherwise passing row incomplete. Reparse-point escapes fail closed. Failure details are bounded and credential-redacted. Once parsing has invoked the run action, semantic run-action validation invalidates an older file at the requested path before new output is written, so an interrupted or rejected rerun cannot leave a stale green report behind. `System.CommandLine` syntax and parser failures occur before that action and therefore neither invalidate the old file nor synthesize JSON; evidence consumers must require a successful command exit together with the expected schema and validity gates, never mere file existence.
 
-`Outcome` and `IsCompleteForInvocation` describe the selected invocation. A focused or filtered run can therefore pass and be complete for what it was asked to execute while still having `ValidForEvidence` set to `false`. `ValidForEvidence` is deliberately stricter: it requires a passed, complete, artifact-complete, unfiltered `all`-suite/`all`-target run over the exact five-suite (`generators`, `unit`, `memory`, `compliance`, `mysql`) and six-target (`sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mariadb-10.11`, `mariadb-11.4`, `mariadb-11.8`) release catalog. The reporter reconstructs the expected suite/batch rows from that resolved invocation and requires an exact expected-versus-observed match, with one target per provider-backed result row; it does not trust the aggregate coverage flags alone. Valid evidence also requires a clean checkout whose commit and status remain stable and matching Testing CLI and DevTools assemblies built from that clean commit. Missing counts, expected rows, build records, or referenced logs make the requested summary incomplete or invalid rather than silently producing release evidence.
+`Outcome` and `IsCompleteForInvocation` describe the selected invocation. A focused or filtered run can therefore pass and be complete for what it was asked to execute while still having `ValidForEvidence` set to `false`. `ValidForEvidence` is deliberately stricter: it requires a passed, complete, artifact-complete, unfiltered `all`-suite/`all`-target run over the exact five-suite (`generators`, `unit`, `memory`, `compliance`, `mysql`) and eight-target (`sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mysql-9.7`, `mariadb-10.11`, `mariadb-11.4`, `mariadb-11.8`, `mariadb-12.3`) release catalog. The reporter reconstructs the expected suite/batch rows from that resolved invocation and requires an exact expected-versus-observed match, with one target per provider-backed result row; it does not trust the aggregate coverage flags alone. Valid evidence also requires a clean checkout whose commit and status remain stable and matching Testing CLI and DevTools assemblies built from that clean commit. Missing counts, expected rows, build records, or referenced logs make the requested summary incomplete or invalid rather than silently producing release evidence.
 
 Provider totals are aggregate within a target batch. Use `--batch-size 1` for the authoritative release matrix so each provider-backed result row has exactly one `TargetIds` entry and `HasPerTargetProviderTotals` is true. Warnings and skipped tests still require the separate dispositions defined by the release plan; `ValidForEvidence` does not waive that review.
 
@@ -305,7 +305,7 @@ That runtime state is how the test harness discovers:
 - published ports
 - configured test credentials
 
-Server-backed `up`, `wait`, and `run` commands refresh this file from the containers that are actually running. A targeted `run --targets mysql-8.4` selects MySQL for that run, but it should not permanently narrow runtime state if other Podman targets are still running.
+Server-backed `up`, `wait`, and `run` commands refresh this file from the containers that are actually running. A targeted `run --targets mysql-9.7` selects MySQL for that run, but it should not permanently narrow runtime state if other Podman targets are still running.
 
 If you bypass the CLI and expect the suites to “just know” the active provider matrix, you are making the repo harder than it needs to be.
 

@@ -67,9 +67,9 @@ internal static class TestCliRunPlanCatalog
             Suites:
             [
                 new(TestCliSuiteCatalog.GeneratorsSuite, null, 61, 8, "generator/compiler", "compiler", MaximumParallelTests: 8),
-                new(TestCliSuiteCatalog.UnitSuite, null, 1619, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
-                new(TestCliSuiteCatalog.MemorySuite, null, 142, 5, "memory integration", "in-process database", MaximumParallelTests: 8),
-                new(TestCliSuiteCatalog.ComplianceSuite, null, 484, 26, "provider-invariant compliance", "SQLite file", MaximumParallelTests: 8)
+                new(TestCliSuiteCatalog.UnitSuite, null, 1680, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
+                new(TestCliSuiteCatalog.MemorySuite, null, 141, 5, "memory integration", "in-process database", MaximumParallelTests: 8),
+                new(TestCliSuiteCatalog.ComplianceSuite, null, 496, 26, "provider-invariant compliance", "SQLite file", MaximumParallelTests: 8)
             ]),
         new(
             Name: LatestPlan,
@@ -79,7 +79,7 @@ internal static class TestCliRunPlanCatalog
             WarmBudgetSeconds: 300,
             DefaultTargetAlias: TestTargetCatalog.LatestAlias,
             DefaultTargetIds: Array.Empty<string>(),
-            Suites: CompleteSuites(estimatedTargets: 4, estimatedServerTargets: 2, estimatedDurationSeconds: 165)),
+            Suites: CompleteSuites(estimatedTargets: 4, estimatedServerTargets: 2, estimatedMySqlTargets: 1, estimatedDurationSeconds: 165)),
         new(
             Name: FullPlan,
             Description: "Runs every required suite against every supported provider target.",
@@ -88,7 +88,11 @@ internal static class TestCliRunPlanCatalog
             WarmBudgetSeconds: 600,
             DefaultTargetAlias: TestTargetCatalog.AllAlias,
             DefaultTargetIds: Array.Empty<string>(),
-            Suites: CompleteSuites(estimatedTargets: TestCliCatalog.Targets.Count, estimatedServerTargets: TestCliCatalog.Targets.Count(static target => target.UsesPodman), estimatedDurationSeconds: 360))
+            Suites: CompleteSuites(
+                estimatedTargets: TestCliCatalog.Targets.Count,
+                estimatedServerTargets: TestCliCatalog.Targets.Count(static target => target.UsesPodman),
+                estimatedMySqlTargets: DatabaseServerMatrix.Targets.Count(static target => target.Family == DatabaseServerFamily.MySql),
+                estimatedDurationSeconds: 360))
     ];
 
     public static TestCliRunPlan GetPlan(string name) =>
@@ -115,28 +119,30 @@ internal static class TestCliRunPlanCatalog
     private static IReadOnlyList<TestCliRunPlanSuite> CompleteSuites(
         int estimatedTargets,
         int estimatedServerTargets,
+        int estimatedMySqlTargets,
         double estimatedDurationSeconds)
     {
-        const int complianceAnchorCases = 484;
-        const int everyProviderCases = 363;
-        const int serverTargetCases = 369;
+        const int complianceAnchorCases = 496;
+        const int everyProviderCases = 367;
+        const int serverTargetCases = 373;
         var remainingSqliteTargets = Math.Max(0, estimatedTargets - estimatedServerTargets - 1);
         var complianceCases = complianceAnchorCases
             + (remainingSqliteTargets * everyProviderCases)
             + (estimatedServerTargets * serverTargetCases);
         const int mySqlInvariantCases = 65;
-        const int mySqlTargetCases = 61;
-        const int mariaDbTargetCases = 63;
+        const int mySqlTargetCases = 62;
+        const int mariaDbTargetCases = 64;
+        var mariaDbTargets = estimatedServerTargets - estimatedMySqlTargets;
         var mySqlProviderCases = estimatedServerTargets == 0
             ? 0
             : mySqlInvariantCases
-                + mySqlTargetCases
-                + (Math.Max(0, estimatedServerTargets - 1) * mariaDbTargetCases);
+                + (estimatedMySqlTargets * mySqlTargetCases)
+                + (mariaDbTargets * mariaDbTargetCases);
         return
         [
             new(TestCliSuiteCatalog.GeneratorsSuite, null, 61, 8, "generator/compiler", "compiler", MaximumParallelTests: 8),
-            new(TestCliSuiteCatalog.UnitSuite, null, 1619, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
-            new(TestCliSuiteCatalog.MemorySuite, null, 142, 5, "memory integration", "in-process database", MaximumParallelTests: 8),
+            new(TestCliSuiteCatalog.UnitSuite, null, 1680, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
+            new(TestCliSuiteCatalog.MemorySuite, null, 141, 5, "memory integration", "in-process database", MaximumParallelTests: 8),
             new(TestCliSuiteCatalog.ComplianceSuite, null, complianceCases, estimatedDurationSeconds * 0.75, "provider-invariant compliance", "SQLite and server databases", MaximumParallelTests: 8),
             new(TestCliSuiteCatalog.MySqlSuite, null, mySqlProviderCases, estimatedDurationSeconds * 0.25, "provider-specific compliance", "MySQL/MariaDB server", MaximumParallelTests: 8)
         ];

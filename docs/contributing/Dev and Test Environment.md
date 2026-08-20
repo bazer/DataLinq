@@ -143,9 +143,9 @@ The test CLI has three provider target-set aliases. These are independent of fee
 - `quick`
   Runs only local SQLite targets. No Podman required.
 - `latest`
-  Runs SQLite plus MySQL 8.4 and MariaDB 11.8. This is the normal server-backed lane.
+  Runs SQLite plus MySQL 9.7 and MariaDB 12.3. This is the normal server-backed lane.
 - `all`
-  Runs every supported target: SQLite, MySQL 8.4, MariaDB 10.11, MariaDB 11.4, and MariaDB 11.8.
+  Runs every supported target: SQLite, MySQL 8.4/9.7, and MariaDB 10.11/11.4/11.8/12.3.
 
 The central target inventory is the [Test Provider Matrix](../support-matrices/Test%20Provider%20Matrix.md).
 
@@ -175,7 +175,7 @@ dotnet run --project DataLinq.Testing.CLI -- up --alias all
 Start specific targets:
 
 ```powershell
-dotnet run --project DataLinq.Testing.CLI -- up --targets mysql-8.4,mariadb-11.8
+dotnet run --project DataLinq.Testing.CLI -- up --targets 'mysql-9.7,mariadb-12.3'
 ```
 
 The CLI pulls missing images, creates containers, waits for readiness, provisions the test users, and writes runtime state to this repo-root path:
@@ -194,6 +194,8 @@ The default ports are:
 | MariaDB 11.8 | 13308 |
 | MariaDB 11.4 | 13309 |
 | MariaDB 10.11 | 13310 |
+| MySQL 9.7 | 13311 |
+| MariaDB 12.3 | 13312 |
 
 Check running containers directly when needed:
 
@@ -274,7 +276,7 @@ dotnet run --project DataLinq.Testing.CLI -- down --remove
 Recreate selected targets from scratch:
 
 ```powershell
-dotnet run --project DataLinq.Testing.CLI -- reset --targets mysql-8.4
+dotnet run --project DataLinq.Testing.CLI -- reset --targets mysql-9.7
 ```
 
 ## Common Problems
@@ -334,7 +336,7 @@ The `WASM0001` warnings from `SQLitePCLRaw.provider.e_sqlite3` are separate from
 
 ### Port Already in Use
 
-The server-backed targets use ports 13307 through 13310. If one is already occupied, stop the conflicting process or override the target matrix deliberately. Do not run random local MySQL services on those ports and expect the tests to be meaningful. These ports intentionally avoid the common local MySQL/MariaDB range around 3306 through 3310.
+The server-backed targets use ports 13307 through 13312. If one is already occupied, stop the conflicting process or override the target matrix deliberately. Do not run random local MySQL services on those ports and expect the tests to be meaningful. These ports intentionally avoid the common local MySQL/MariaDB range around 3306 through 3310.
 
 ### Runtime State Looks Wrong
 

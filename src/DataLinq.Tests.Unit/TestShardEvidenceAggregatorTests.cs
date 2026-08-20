@@ -22,24 +22,24 @@ public sealed class TestShardEvidenceAggregatorTests
         var aggregate = TestShardEvidenceAggregator.AggregateDirectory(fixture.Root, Commit, "Release");
 
         await Assert.That(aggregate.Complete).IsTrue();
-        await Assert.That(aggregate.Shards).Count().IsEqualTo(13);
-        await Assert.That(aggregate.TotalCases).IsEqualTo(4460);
-        await Assert.That(aggregate.Shards.Select(static shard => $"{shard.Suite}:{shard.TargetId ?? "-"}").Distinct()).Count().IsEqualTo(13);
+        await Assert.That(aggregate.Shards).Count().IsEqualTo(17);
+        await Assert.That(aggregate.TotalCases).IsEqualTo(5428);
+        await Assert.That(aggregate.Shards.Select(static shard => $"{shard.Suite}:{shard.TargetId ?? "-"}").Distinct()).Count().IsEqualTo(17);
     }
 
     [Test]
     public async Task AggregateDirectory_RejectsMissingAndDuplicateTargets()
     {
         using var missingFixture = new ShardFixture();
-        missingFixture.WriteContract(skipKey: "compliance:mariadb-11.8");
+        missingFixture.WriteContract(skipKey: "compliance:mariadb-12.3");
         var missing = Capture(() => TestShardEvidenceAggregator.AggregateDirectory(missingFixture.Root, Commit, "Release"));
 
         using var duplicateFixture = new ShardFixture();
-        duplicateFixture.WriteContract(duplicateKey: "mysql:mariadb-11.8");
+        duplicateFixture.WriteContract(duplicateKey: "mysql:mysql-9.7");
         var duplicate = Capture(() => TestShardEvidenceAggregator.AggregateDirectory(duplicateFixture.Root, Commit, "Release"));
 
         await Assert.That(missing).IsTypeOf<InvalidDataException>();
-        await Assert.That(missing!.Message).Contains("Missing").And.Contains("compliance:mariadb-11.8");
+        await Assert.That(missing!.Message).Contains("Missing").And.Contains("compliance:mariadb-12.3");
         await Assert.That(duplicate).IsTypeOf<InvalidDataException>();
         await Assert.That(duplicate!.Message).Contains("Duplicate full-matrix shards");
     }
