@@ -27,7 +27,12 @@ public static class TestTargetCatalog
         return alias.ToLowerInvariant() switch
         {
             QuickAlias => [SQLiteFileTargetId, SQLiteMemoryTargetId],
-            LatestAlias => [SQLiteFileTargetId, SQLiteMemoryTargetId, GetLatestMySqlTarget().Id, GetLatestMariaDbTarget().Id],
+            LatestAlias =>
+            [
+                SQLiteFileTargetId,
+                SQLiteMemoryTargetId,
+                .. DatabaseServerMatrix.DefaultProfile.Targets.Select(static target => target.Id)
+            ],
             AllAlias => AllTargetIds,
             _ => throw new InvalidOperationException($"Unknown test target alias '{alias}'.")
         };
@@ -44,16 +49,4 @@ public static class TestTargetCatalog
 
         return DatabaseServerMatrix.Targets.SingleOrDefault(x => string.Equals(x.Id, targetId, StringComparison.OrdinalIgnoreCase));
     }
-
-    private static DatabaseServerTarget GetLatestMySqlTarget() =>
-        DatabaseServerMatrix.Targets
-            .Where(x => x.Family == DatabaseServerFamily.MySql && x.IsLts)
-            .OrderByDescending(x => x.Version, StringComparer.OrdinalIgnoreCase)
-            .First();
-
-    private static DatabaseServerTarget GetLatestMariaDbTarget() =>
-        DatabaseServerMatrix.Targets
-            .Where(x => x.Family == DatabaseServerFamily.MariaDb && x.IsLts)
-            .OrderByDescending(x => x.Version, StringComparer.OrdinalIgnoreCase)
-            .First();
 }

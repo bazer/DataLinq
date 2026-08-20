@@ -19,7 +19,8 @@ public sealed class CiWorkflowPolicyTests
         await Assert.That(workflow).Contains("Smoke (no Podman)");
         await Assert.That(workflow).Contains("fail-fast: false");
         await Assert.That(workflow).Contains("sqlite-file").And.Contains("sqlite-memory");
-        await Assert.That(workflow).Contains("mysql-8.4").And.Contains("mariadb-11.8");
+        await Assert.That(workflow).Contains("mysql-9.7").And.Contains("mariadb-12.3");
+        await Assert.That(workflow).DoesNotContain("mysql-8.4").And.DoesNotContain("mariadb-11.8");
         await Assert.That(action).Contains("--build").And.Contains("dotnet exec");
         await Assert.That(action).Contains("if: always()");
         await Assert.That(action).Contains("github.run_id").And.Contains("github.run_attempt");
@@ -44,6 +45,6 @@ public sealed class CiWorkflowPolicyTests
         await Assert.That(workflow).Contains("aggregate").And.Contains("--commit-sha ${{ github.sha }}");
         await Assert.That(workflow).DoesNotContain("--plan full");
         await Assert.That(TestShardEvidenceAggregator.FullMatrixContract.Select(
-            static contract => $"{contract.Suite}:{contract.TargetId ?? "-"}").Distinct()).Count().IsEqualTo(13);
+            static contract => $"{contract.Suite}:{contract.TargetId ?? "-"}").Distinct()).Count().IsEqualTo(17);
     }
 }

@@ -61,13 +61,17 @@ jobs:
           - { name: compliance-sqlite-file, suite: compliance, target: sqlite-file, role: anchor, workers: 8, podman: false }
           - { name: compliance-sqlite-memory, suite: compliance, target: sqlite-memory, role: target-specific, workers: 8, podman: false }
           - { name: compliance-mysql-8.4, suite: compliance, target: mysql-8.4, role: target-specific, workers: 8, podman: true }
+          - { name: compliance-mysql-9.7, suite: compliance, target: mysql-9.7, role: target-specific, workers: 8, podman: true }
           - { name: compliance-mariadb-10.11, suite: compliance, target: mariadb-10.11, role: target-specific, workers: 8, podman: true }
           - { name: compliance-mariadb-11.4, suite: compliance, target: mariadb-11.4, role: target-specific, workers: 8, podman: true }
           - { name: compliance-mariadb-11.8, suite: compliance, target: mariadb-11.8, role: target-specific, workers: 8, podman: true }
-          - { name: mysql-mysql-8.4, suite: mysql, target: mysql-8.4, role: anchor, workers: 8, podman: true }
+          - { name: compliance-mariadb-12.3, suite: compliance, target: mariadb-12.3, role: target-specific, workers: 8, podman: true }
+          - { name: mysql-mysql-8.4, suite: mysql, target: mysql-8.4, role: target-specific, workers: 8, podman: true }
+          - { name: mysql-mysql-9.7, suite: mysql, target: mysql-9.7, role: anchor, workers: 8, podman: true }
           - { name: mysql-mariadb-10.11, suite: mysql, target: mariadb-10.11, role: target-specific, workers: 8, podman: true }
           - { name: mysql-mariadb-11.4, suite: mysql, target: mariadb-11.4, role: target-specific, workers: 8, podman: true }
           - { name: mysql-mariadb-11.8, suite: mysql, target: mariadb-11.8, role: target-specific, workers: 8, podman: true }
+          - { name: mysql-mariadb-12.3, suite: mysql, target: mariadb-12.3, role: target-specific, workers: 8, podman: true }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/run-test-shard

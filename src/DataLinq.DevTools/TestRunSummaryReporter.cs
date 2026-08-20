@@ -43,9 +43,11 @@ public static class TestRunSummaryReporter
             ["sqlite-file"] = new(UsesPodman: false, HostPort: null),
             ["sqlite-memory"] = new(UsesPodman: false, HostPort: null),
             ["mysql-8.4"] = new(UsesPodman: true, HostPort: 13307),
+            ["mysql-9.7"] = new(UsesPodman: true, HostPort: 13311),
             ["mariadb-10.11"] = new(UsesPodman: true, HostPort: 13310),
             ["mariadb-11.4"] = new(UsesPodman: true, HostPort: 13309),
-            ["mariadb-11.8"] = new(UsesPodman: true, HostPort: 13308)
+            ["mariadb-11.8"] = new(UsesPodman: true, HostPort: 13308),
+            ["mariadb-12.3"] = new(UsesPodman: true, HostPort: 13312)
         };
 
     private static readonly TestRunSummaryRepositoryState UnavailableRepositoryState = new(

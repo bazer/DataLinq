@@ -41,18 +41,22 @@ public static class TestShardEvidenceAggregator
     public static IReadOnlyList<TestShardEvidenceContract> FullMatrixContract { get; } =
     [
         new("generators", null, null, 61),
-        new("unit", null, null, 1619),
-        new("memory", null, null, 142),
-        new("compliance", "sqlite-file", "AnchorWithInvariant", 484),
-        new("compliance", "sqlite-memory", "TargetSpecific", 363),
-        new("compliance", "mysql-8.4", "TargetSpecific", 369),
-        new("compliance", "mariadb-10.11", "TargetSpecific", 369),
-        new("compliance", "mariadb-11.4", "TargetSpecific", 369),
-        new("compliance", "mariadb-11.8", "TargetSpecific", 369),
-        new("mysql", "mysql-8.4", "AnchorWithInvariant", 126),
-        new("mysql", "mariadb-10.11", "TargetSpecific", 63),
-        new("mysql", "mariadb-11.4", "TargetSpecific", 63),
-        new("mysql", "mariadb-11.8", "TargetSpecific", 63)
+        new("unit", null, null, 1680),
+        new("memory", null, null, 141),
+        new("compliance", "sqlite-file", "AnchorWithInvariant", 496),
+        new("compliance", "sqlite-memory", "TargetSpecific", 367),
+        new("compliance", "mysql-8.4", "TargetSpecific", 373),
+        new("compliance", "mysql-9.7", "TargetSpecific", 373),
+        new("compliance", "mariadb-10.11", "TargetSpecific", 373),
+        new("compliance", "mariadb-11.4", "TargetSpecific", 373),
+        new("compliance", "mariadb-11.8", "TargetSpecific", 373),
+        new("compliance", "mariadb-12.3", "TargetSpecific", 373),
+        new("mysql", "mysql-8.4", "TargetSpecific", 62),
+        new("mysql", "mysql-9.7", "AnchorWithInvariant", 127),
+        new("mysql", "mariadb-10.11", "TargetSpecific", 64),
+        new("mysql", "mariadb-11.4", "TargetSpecific", 64),
+        new("mysql", "mariadb-11.8", "TargetSpecific", 64),
+        new("mysql", "mariadb-12.3", "TargetSpecific", 64)
     ];
 
     public static TestShardEvidenceAggregate AggregateDirectory(

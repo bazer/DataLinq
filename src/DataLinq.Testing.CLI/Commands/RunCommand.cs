@@ -249,12 +249,32 @@ internal static class RunCommand
         if (plan is null)
             return TargetSelectionResolver.Resolve(aliasName, targetList, defaultAlias: TestTargetCatalog.LatestAlias);
 
+        CliTargetSelection selection;
         if (!string.IsNullOrWhiteSpace(aliasName) || !string.IsNullOrWhiteSpace(targetList))
-            return TargetSelectionResolver.Resolve(aliasName, targetList);
+            selection = TargetSelectionResolver.Resolve(aliasName, targetList);
+        else
+            selection = plan.DefaultTargetAlias is not null
+                ? TargetSelectionResolver.ResolveAlias(plan.DefaultTargetAlias)
+                : TargetSelectionResolver.ResolveTargets(plan.DefaultTargetIds);
 
-        return plan.DefaultTargetAlias is not null
-            ? TargetSelectionResolver.ResolveAlias(plan.DefaultTargetAlias)
-            : TargetSelectionResolver.ResolveTargets(plan.DefaultTargetIds);
+        return plan.Name is TestCliRunPlanCatalog.LatestPlan or TestCliRunPlanCatalog.FullPlan
+            ? OrderCompletePlanTargets(selection)
+            : selection;
+    }
+
+    private static CliTargetSelection OrderCompletePlanTargets(CliTargetSelection selection)
+    {
+        var defaultMySqlTarget = DatabaseServerMatrix.DefaultProfile.MySqlTarget
+            ?? throw new InvalidOperationException("The default server profile does not contain a MySQL target.");
+        var localTargets = selection.Targets
+            .Where(static target => TestTargetCatalog.IsSQLiteTarget(target.Id));
+        var serverTargets = selection.Targets
+            .Where(static target => !TestTargetCatalog.IsSQLiteTarget(target.Id))
+            .OrderByDescending(target => string.Equals(
+                target.Id,
+                defaultMySqlTarget.Id,
+                StringComparison.OrdinalIgnoreCase));
+        return new CliTargetSelection(selection.AliasName, localTargets.Concat(serverTargets).ToArray());
     }
 
     private static void ValidatePlanSelection(TestCliRunPlan? plan, CliTargetSelection selection)
@@ -631,9 +651,7 @@ internal static class RunCommand
         if (suite.UsesTargetBatches)
         {
             usedTargetsRef?.Invoke(true);
-            var suiteTargets = suite.IncludeSqliteTargets
-                ? selection.Targets.ToArray()
-                : selection.Targets.Where(static x => !TestTargetCatalog.IsSQLiteTarget(x.Id)).ToArray();
+            var suiteTargets = SelectSuiteTargets(suite, selection);
 
             if (suiteTargets.Length == 0)
                 return exitCode;
@@ -736,6 +754,24 @@ internal static class RunCommand
         TestCliSuite suite) =>
         plan?.Name is TestCliRunPlanCatalog.LatestPlan or TestCliRunPlanCatalog.FullPlan
         && suite.Name is TestCliSuiteCatalog.ComplianceSuite or TestCliSuiteCatalog.MySqlSuite;
+
+    private static TestCliTarget[] SelectSuiteTargets(TestCliSuite suite, CliTargetSelection selection)
+    {
+        var targets = suite.IncludeSqliteTargets
+            ? selection.Targets.ToArray()
+            : selection.Targets.Where(static target => !TestTargetCatalog.IsSQLiteTarget(target.Id)).ToArray();
+        if (suite.Name != TestCliSuiteCatalog.MySqlSuite)
+            return targets;
+
+        var defaultMySqlTarget = DatabaseServerMatrix.DefaultProfile.MySqlTarget
+            ?? throw new InvalidOperationException("The default server profile does not contain a MySQL target.");
+        return targets
+            .OrderByDescending(target => string.Equals(
+                target.Id,
+                defaultMySqlTarget.Id,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+    }
 
     private static string CreateProviderAffinityFilter(
         CliTargetSelection batch,
@@ -1721,9 +1757,7 @@ internal static class RunCommand
                 continue;
             }
 
-            var suiteTargets = suite.IncludeSqliteTargets
-                ? selection.Targets.ToArray()
-                : selection.Targets.Where(static target => !TestTargetCatalog.IsSQLiteTarget(target.Id)).ToArray();
+            var suiteTargets = SelectSuiteTargets(suite, selection);
             var batches = CreateBatches(suiteTargets, batchSize);
             for (var index = 0; index < batches.Count; index++)
             {

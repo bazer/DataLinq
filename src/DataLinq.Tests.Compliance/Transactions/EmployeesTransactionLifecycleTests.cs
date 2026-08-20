@@ -435,6 +435,8 @@ public class EmployeesTransactionLifecycleTests
 
         var dbTransaction = transaction.DatabaseAccess.DbTransaction
             ?? throw new InvalidOperationException("Transaction has no active database transaction.");
+        if (provider.Kind == TestProviderKind.Server)
+            await Assert.That(dbTransaction.IsolationLevel).IsEqualTo(IsolationLevel.ReadCommitted);
         command.Connection = dbTransaction.Connection
             ?? throw new InvalidOperationException("Transaction connection was not available.");
         command.Transaction = dbTransaction;

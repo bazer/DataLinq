@@ -9,7 +9,7 @@
 [![NuGet DataLinq.CLI](https://img.shields.io/nuget/v/DataLinq.CLI?logo=nuget)](https://www.nuget.org/packages/DataLinq.CLI/)
 [![License: MIT](https://img.shields.io/github/license/bazer/DataLinq)](https://github.com/bazer/DataLinq/blob/master/LICENSE.md)
 [![.NET 8, 9, 10](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010-512BD4?logo=dotnet)](https://github.com/bazer/DataLinq#installation)
-[![Supported targets](https://img.shields.io/badge/targets-SQLite%20%7C%20MySQL%208.4%20%7C%20MariaDB%2010.11%2F11.4%2F11.8-0A7BBB)](https://datalinq.org/)
+[![Supported targets](https://img.shields.io/badge/targets-SQLite%20%7C%20MySQL%208.4%2F9.7%20%7C%20MariaDB%2010.11%2F11.4%2F11.8%2F12.3-0A7BBB)](https://datalinq.org/)
 
 [Documentation website](https://datalinq.org/) | [Getting started](https://datalinq.org/docs/getting-started/Installation.html) | [Changelog](https://datalinq.org/CHANGELOG.html)
 

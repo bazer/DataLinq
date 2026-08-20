@@ -13,7 +13,7 @@ internal static class CommandHelpers
 
     public static Option<string?> TargetsOption() => new("--targets")
     {
-        Description = "Uses a comma-separated target list such as 'sqlite-file,mariadb-11.8'."
+        Description = "Uses a comma-separated target list such as 'mysql-9.7,mariadb-12.3'."
     };
 
     public static Option<string> SuiteOption() => new("--suite")

@@ -60,10 +60,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { suite: compliance, target: mysql-8.4, role: target-specific }
-          - { suite: compliance, target: mariadb-11.8, role: target-specific }
-          - { suite: mysql, target: mysql-8.4, role: anchor }
-          - { suite: mysql, target: mariadb-11.8, role: target-specific }
+          - { suite: compliance, target: mysql-9.7, role: target-specific }
+          - { suite: compliance, target: mariadb-12.3, role: target-specific }
+          - { suite: mysql, target: mysql-9.7, role: anchor }
+          - { suite: mysql, target: mariadb-12.3, role: target-specific }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/run-test-shard

@@ -8,6 +8,16 @@
       "image": "mysql:8.4",
       "hostPort": 13307,
       "isLts": true,
+      "isDefault": false
+    },
+    {
+      "id": "mysql-9.7",
+      "displayName": "MySQL 9.7 LTS",
+      "family": "MySql",
+      "version": "9.7",
+      "image": "mysql:9.7",
+      "hostPort": 13311,
+      "isLts": true,
       "isDefault": true
     },
     {
@@ -38,6 +48,16 @@
       "image": "mariadb:11.8",
       "hostPort": 13308,
       "isLts": true,
+      "isDefault": false
+    },
+    {
+      "id": "mariadb-12.3",
+      "displayName": "MariaDB 12.3 LTS",
+      "family": "MariaDb",
+      "version": "12.3",
+      "image": "mariadb:12.3",
+      "hostPort": 13312,
+      "isLts": true,
       "isDefault": true
     }
   ],
@@ -46,7 +66,7 @@
       "id": "current-lts",
       "displayName": "Current LTS",
       "isDefault": true,
-      "targets": [ "mysql-8.4", "mariadb-11.8" ]
+      "targets": [ "mysql-9.7", "mariadb-12.3" ]
     },
     {
       "id": "mariadb-10.11-lts",
@@ -67,10 +87,22 @@
       "targets": [ "mysql-8.4", "mariadb-11.8" ]
     },
     {
+      "id": "mariadb-12.3-lts",
+      "displayName": "MySQL 9.7 + MariaDB 12.3",
+      "isDefault": false,
+      "targets": [ "mysql-9.7", "mariadb-12.3" ]
+    },
+    {
       "id": "mysql-8.4-only",
       "displayName": "MySQL 8.4 only",
       "isDefault": false,
       "targets": [ "mysql-8.4" ]
+    },
+    {
+      "id": "mysql-9.7-only",
+      "displayName": "MySQL 9.7 only",
+      "isDefault": false,
+      "targets": [ "mysql-9.7" ]
     },
     {
       "id": "mariadb-10.11-only",
@@ -89,6 +121,12 @@
       "displayName": "MariaDB 11.8 only",
       "isDefault": false,
       "targets": [ "mariadb-11.8" ]
+    },
+    {
+      "id": "mariadb-12.3-only",
+      "displayName": "MariaDB 12.3 only",
+      "isDefault": false,
+      "targets": [ "mariadb-12.3" ]
     }
   ]
 }

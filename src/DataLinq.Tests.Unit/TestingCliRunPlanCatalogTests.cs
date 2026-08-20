@@ -79,14 +79,16 @@ public sealed class TestingCliRunPlanCatalogTests
         var catalog = ReadCliSource("Selection", "TestCliRunPlanCatalog.cs");
         var command = ReadCliSource("Commands", "RunCommand.cs");
 
-        await Assert.That(catalog).Contains("complianceAnchorCases = 484");
-        await Assert.That(catalog).Contains("everyProviderCases = 363");
-        await Assert.That(catalog).Contains("serverTargetCases = 369");
+        await Assert.That(catalog).Contains("complianceAnchorCases = 496");
+        await Assert.That(catalog).Contains("everyProviderCases = 367");
+        await Assert.That(catalog).Contains("serverTargetCases = 373");
         await Assert.That(catalog).Contains("mySqlInvariantCases = 65");
-        await Assert.That(catalog).Contains("mySqlTargetCases = 61");
-        await Assert.That(catalog).Contains("mariaDbTargetCases = 63");
+        await Assert.That(catalog).Contains("mySqlTargetCases = 62");
+        await Assert.That(catalog).Contains("mariaDbTargetCases = 64");
         await Assert.That(command).Contains("AnchorWithInvariant");
         await Assert.That(command).Contains("TargetSpecific");
+        await Assert.That(command).Contains("DatabaseServerMatrix.DefaultProfile.MySqlTarget");
+        await Assert.That(command).Contains("OrderCompletePlanTargets");
         await Assert.That(command).Contains("ProviderAffinity=EveryProvider");
         await Assert.That(command).Contains("ProviderAffinity=ServerFamily");
     }

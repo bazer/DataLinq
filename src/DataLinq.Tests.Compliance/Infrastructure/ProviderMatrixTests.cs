@@ -14,13 +14,25 @@ public class ProviderMatrixTests
     [Test]
     public async Task DatabaseServerMatrix_LoadsCurrentLtsTargetsAndProfiles()
     {
-        await Assert.That(DatabaseServerMatrix.Targets.Count).IsEqualTo(4);
+        await Assert.That(DatabaseServerMatrix.Targets.Count).IsEqualTo(6);
         await Assert.That(DatabaseServerMatrix.GetTarget("mysql-8.4").IsLts).IsTrue();
+        await Assert.That(DatabaseServerMatrix.GetTarget("mysql-9.7").IsLts).IsTrue();
         await Assert.That(DatabaseServerMatrix.GetTarget("mariadb-10.11").IsLts).IsTrue();
         await Assert.That(DatabaseServerMatrix.GetTarget("mariadb-11.4").IsLts).IsTrue();
         await Assert.That(DatabaseServerMatrix.GetTarget("mariadb-11.8").IsLts).IsTrue();
+        await Assert.That(DatabaseServerMatrix.GetTarget("mariadb-12.3").IsLts).IsTrue();
+        await Assert.That(DatabaseServerMatrix.GetTarget("mysql-8.4").IsDefault).IsFalse();
+        await Assert.That(DatabaseServerMatrix.GetTarget("mysql-9.7").IsDefault).IsTrue();
+        await Assert.That(DatabaseServerMatrix.GetTarget("mariadb-11.8").IsDefault).IsFalse();
+        await Assert.That(DatabaseServerMatrix.GetTarget("mariadb-12.3").IsDefault).IsTrue();
+        await Assert.That(DatabaseServerMatrix.Targets.Select(x => x.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count()).IsEqualTo(DatabaseServerMatrix.Targets.Count);
+        await Assert.That(DatabaseServerMatrix.Targets.Select(x => x.Image).Distinct(StringComparer.OrdinalIgnoreCase).Count()).IsEqualTo(DatabaseServerMatrix.Targets.Count);
         await Assert.That(DatabaseServerMatrix.Targets.Select(x => x.HostPort).Distinct().Count()).IsEqualTo(DatabaseServerMatrix.Targets.Count);
         await Assert.That(DatabaseServerMatrix.DefaultProfile.Id).IsEqualTo("current-lts");
+        await Assert.That(DatabaseServerMatrix.DefaultProfile.Targets.Select(x => x.Id).ToArray())
+            .IsEquivalentTo(["mysql-9.7", "mariadb-12.3"]);
+        await Assert.That(TestTargetCatalog.ResolveAlias(TestTargetCatalog.LatestAlias).ToArray())
+            .IsEquivalentTo(["sqlite-file", "sqlite-memory", "mysql-9.7", "mariadb-12.3"]);
     }
 
     [Test]
@@ -124,9 +136,8 @@ public class ProviderMatrixTests
     }
 
     [Test]
-    public async Task MySql84ConnectionDefinitions_AllowPublicKeyRetrievalForContainerAuth()
+    public async Task MySqlConnectionDefinitions_AllowPublicKeyRetrievalForEverySupportedLts()
     {
-        var target = DatabaseServerMatrix.GetTarget("mysql-8.4");
         var settings = new PodmanTestEnvironmentSettings(
             RepositoryRoot: string.Empty,
             ArtifactRoot: string.Empty,
@@ -140,27 +151,36 @@ public class ProviderMatrixTests
             TargetPorts: new Dictionary<string, int>(),
             AvailableTargetIds: []);
 
-        var provider = new TestProviderDescriptor(
-            Name: target.Id,
-            Kind: TestProviderKind.Server,
-            DatabaseType: target.DatabaseType,
-            RequiresExternalServer: true,
-            UsesPodman: true,
-            ServerTarget: target);
+        var mySqlTargets = DatabaseServerMatrix.Targets
+            .Where(static target => target.Family == DatabaseServerFamily.MySql && target.IsLts)
+            .ToArray();
 
-        var adminConnection = new MySqlConnectionStringBuilder(settings.CreateAdminConnectionString(target));
-        var applicationConnection = new MySqlConnectionStringBuilder(settings.CreateConnection(provider, "datalinq_employees").ConnectionString);
-        var sharedConnection = new MySqlConnectionStringBuilder(settings.CreateConnection(
-            provider,
-            "shared_datalinq_employees",
-            enableServerPooling: true).ConnectionString);
+        await Assert.That(mySqlTargets.Select(static target => target.Id).ToArray())
+            .IsEquivalentTo(["mysql-8.4", "mysql-9.7"]);
 
-        await Assert.That(adminConnection.AllowPublicKeyRetrieval).IsTrue();
-        await Assert.That(applicationConnection.AllowPublicKeyRetrieval).IsTrue();
-        await Assert.That(applicationConnection.Pooling).IsFalse();
-        await Assert.That(sharedConnection.Pooling).IsTrue();
-        await Assert.That(sharedConnection.ConnectionReset).IsTrue();
-        await Assert.That(sharedConnection.MaximumPoolSize)
-            .IsEqualTo(8u);
+        foreach (var target in mySqlTargets)
+        {
+            var provider = new TestProviderDescriptor(
+                Name: target.Id,
+                Kind: TestProviderKind.Server,
+                DatabaseType: target.DatabaseType,
+                RequiresExternalServer: true,
+                UsesPodman: true,
+                ServerTarget: target);
+
+            var adminConnection = new MySqlConnectionStringBuilder(settings.CreateAdminConnectionString(target));
+            var applicationConnection = new MySqlConnectionStringBuilder(settings.CreateConnection(provider, "datalinq_employees").ConnectionString);
+            var sharedConnection = new MySqlConnectionStringBuilder(settings.CreateConnection(
+                provider,
+                "shared_datalinq_employees",
+                enableServerPooling: true).ConnectionString);
+
+            await Assert.That(adminConnection.AllowPublicKeyRetrieval).IsTrue();
+            await Assert.That(applicationConnection.AllowPublicKeyRetrieval).IsTrue();
+            await Assert.That(applicationConnection.Pooling).IsFalse();
+            await Assert.That(sharedConnection.Pooling).IsTrue();
+            await Assert.That(sharedConnection.ConnectionReset).IsTrue();
+            await Assert.That(sharedConnection.MaximumPoolSize).IsEqualTo(8u);
+        }
     }
 }
