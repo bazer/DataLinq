@@ -38,4 +38,13 @@ public abstract partial class PackageConsumerRow(
     [Type(DatabaseType.MySQL, "varchar", 100)]
     [Type(DatabaseType.MariaDB, "varchar", 100)]
     public abstract string Name { get; }
+
+    [Column("external_guid")]
+    [Type(DatabaseType.MariaDB, "uuid")]
+    public abstract Guid ExternalGuid { get; }
+
+    [Nullable]
+    [Column("optional_external_guid")]
+    [Type(DatabaseType.MariaDB, "uuid")]
+    public abstract Guid? OptionalExternalGuid { get; }
 }

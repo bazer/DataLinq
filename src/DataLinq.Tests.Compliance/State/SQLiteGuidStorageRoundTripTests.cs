@@ -16,6 +16,74 @@ public sealed class SQLiteGuidStorageRoundTripTests
     private static readonly Guid AlternateGuid = Guid.Parse("fedcba98-7654-3210-89ab-cdef01234567");
 
     [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.SQLiteOnly)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.SqliteProviders))]
+    public async Task MariaDbScopedUuidModel_UsesImplicitSqliteText36AcrossRuntimePaths(
+        TestProviderDescriptor provider)
+    {
+        using var databaseScope = TemporaryModelTestDatabase<SQLiteGuidStorageDb>.Create(
+            provider,
+            nameof(MariaDbScopedUuidModel_UsesImplicitSqliteText36AcrossRuntimePaths));
+        var database = databaseScope.Database;
+        var column = database.Provider.Metadata
+            .TableModels.Single(static table => table.Model.CsType.Type == typeof(SQLiteProviderScopedGuidRow))
+            .Table.Columns.Single(static candidate => candidate.DbName == "provider_scoped_guid");
+        var sqliteDefinition = column.GetGuidStorageFor(DatabaseType.SQLite);
+
+        await Assert.That(sqliteDefinition).IsNotNull();
+        await Assert.That(sqliteDefinition!.Format).IsEqualTo(GuidStorageFormat.Text36);
+        await Assert.That(sqliteDefinition.IsExplicit).IsFalse();
+
+        var inserted = database.Insert(new MutableSQLiteProviderScopedGuidRow
+        {
+            ProviderScopedGuid = KnownGuid,
+            OptionalProviderScopedGuid = null,
+            ExplicitCompactGuid = KnownGuid
+        });
+        var insertedId = inserted.Id ?? throw new InvalidOperationException(
+            "The provider-scoped SQLite UUID row did not receive an identity value.");
+
+        await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
+                $"SELECT provider_scoped_guid FROM provider_scoped_guid_rows WHERE id = {insertedId}"))
+            .IsEqualTo(KnownGuid.ToString("D"));
+        await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
+                $"SELECT explicit_compact_guid FROM provider_scoped_guid_rows WHERE id = {insertedId}"))
+            .IsEqualTo(KnownGuid.ToString("N"));
+        await Assert.That(Convert.ToInt32(database.Provider.DatabaseAccess.ExecuteScalar(
+                $"SELECT optional_provider_scoped_guid IS NULL FROM provider_scoped_guid_rows WHERE id = {insertedId}")))
+            .IsEqualTo(1);
+
+        var seeded = database.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO provider_scoped_guid_rows " +
+            "(provider_scoped_guid, optional_provider_scoped_guid, explicit_compact_guid) VALUES " +
+            "('fedcba98-7654-3210-89ab-cdef01234567', " +
+            "'00112233-4455-6677-8899-aabbccddeeff', " +
+            "'fedcba987654321089abcdef01234567')");
+        database.Provider.State.ClearCache();
+
+        var rawSeeded = database.Query().ProviderScopedGuidRows
+            .Single(row => row.ProviderScopedGuid == AlternateGuid);
+        await Assert.That(seeded).IsEqualTo(1);
+        await Assert.That(rawSeeded.ProviderScopedGuid).IsEqualTo(AlternateGuid);
+        await Assert.That(rawSeeded.OptionalProviderScopedGuid).IsEqualTo(KnownGuid);
+        await Assert.That(rawSeeded.ExplicitCompactGuid).IsEqualTo(AlternateGuid);
+
+        var mutable = inserted.Mutate();
+        mutable.ProviderScopedGuid = AlternateGuid;
+        mutable.OptionalProviderScopedGuid = KnownGuid;
+        var updated = database.Update(mutable);
+
+        await Assert.That(updated.ProviderScopedGuid).IsEqualTo(AlternateGuid);
+        await Assert.That(updated.OptionalProviderScopedGuid).IsEqualTo(KnownGuid);
+        await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
+                $"SELECT provider_scoped_guid FROM provider_scoped_guid_rows WHERE id = {insertedId}"))
+            .IsEqualTo(AlternateGuid.ToString("D"));
+        await Assert.That(database.Provider.DatabaseAccess.ExecuteScalar<string>(
+                $"SELECT optional_provider_scoped_guid FROM provider_scoped_guid_rows WHERE id = {insertedId}"))
+            .IsEqualTo(KnownGuid.ToString("D"));
+    }
+
+    [Test]
     [NotInParallel]
     [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.SQLiteOnly)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.SqliteProviders))]
@@ -871,6 +939,33 @@ public sealed partial class SQLiteGuidStorageDb(DataSourceAccess dataSource) : I
     public DbRead<SQLiteGuidStorageRow> Rows { get; } = new(dataSource);
     public DbRead<SQLiteDirectGuidKeyRow> DirectGuidKeyRows { get; } = new(dataSource);
     public DbRead<SQLiteTypedGuidKeyRow> TypedGuidKeyRows { get; } = new(dataSource);
+    public DbRead<SQLiteProviderScopedGuidRow> ProviderScopedGuidRows { get; } = new(dataSource);
+}
+
+[Table("provider_scoped_guid_rows")]
+public abstract partial class SQLiteProviderScopedGuidRow(IRowData rowData, IDataSourceAccess dataSource)
+    : Immutable<SQLiteProviderScopedGuidRow, SQLiteGuidStorageDb>(rowData, dataSource),
+      ITableModel<SQLiteGuidStorageDb>
+{
+    [PrimaryKey]
+    [AutoIncrement]
+    [Type(DatabaseType.SQLite, "INTEGER")]
+    [Column("id")]
+    public abstract int? Id { get; }
+
+    [Type(DatabaseType.MariaDB, "uuid")]
+    [Column("provider_scoped_guid")]
+    public abstract Guid ProviderScopedGuid { get; }
+
+    [Nullable]
+    [Type(DatabaseType.MariaDB, "uuid")]
+    [Column("optional_provider_scoped_guid")]
+    public abstract Guid? OptionalProviderScopedGuid { get; }
+
+    [Type(DatabaseType.MariaDB, "uuid")]
+    [GuidStorage(DatabaseType.SQLite, GuidStorageFormat.Text32)]
+    [Column("explicit_compact_guid")]
+    public abstract Guid ExplicitCompactGuid { get; }
 }
 
 [Table("guid_storage_rows")]

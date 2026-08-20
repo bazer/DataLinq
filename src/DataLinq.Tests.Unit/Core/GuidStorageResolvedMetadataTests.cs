@@ -124,11 +124,71 @@ public sealed class GuidStorageResolvedMetadataTests
                     DatabaseType.MariaDB,
                     GuidStorageFormat.NativeUuid)
             ]));
+        await Assert.That(nativeColumn.GuidStorageDefinitions.Count).IsEqualTo(2);
         await AssertDefinition(
-            nativeColumn.GuidStorageDefinitions.Single(),
+            nativeColumn.GuidStorageDefinitions[0],
             DatabaseType.MariaDB,
             GuidStorageFormat.NativeUuid,
             isExplicit: true);
+        await AssertDefinition(
+            nativeColumn.GuidStorageDefinitions[1],
+            DatabaseType.SQLite,
+            GuidStorageFormat.Text36,
+            isExplicit: false);
+    }
+
+    [Test]
+    public async Task Build_MariaDbNativeUuid_SynthesizesSqliteText36CompatibilityMetadata()
+    {
+        var column = Build(CreateDraft(
+            new CsTypeDeclaration(typeof(Guid?)),
+            dbTypes: [new DatabaseColumnType(DatabaseType.MariaDB, "uuid")]));
+
+        await Assert.That(column.GuidStorageDefinitions.Count).IsEqualTo(2);
+        await AssertDefinition(
+            column.GuidStorageDefinitions[0],
+            DatabaseType.MariaDB,
+            GuidStorageFormat.NativeUuid,
+            isExplicit: false);
+        await AssertDefinition(
+            column.GuidStorageDefinitions[1],
+            DatabaseType.SQLite,
+            GuidStorageFormat.Text36,
+            isExplicit: false);
+    }
+
+    [Test]
+    public async Task Build_MariaDbNativeUuid_ExactSqliteText32OverridesCompatibilityDefault()
+    {
+        var column = Build(CreateDraft(
+            new CsTypeDeclaration(typeof(Guid)),
+            dbTypes: [new DatabaseColumnType(DatabaseType.MariaDB, "uuid")],
+            guidStorage:
+            [
+                new GuidStorageAttribute(DatabaseType.SQLite, GuidStorageFormat.Text32)
+            ]));
+
+        await AssertDefinition(
+            column.GetGuidStorageFor(DatabaseType.SQLite)!,
+            DatabaseType.SQLite,
+            GuidStorageFormat.Text32,
+            isExplicit: true);
+    }
+
+    [Test]
+    public async Task Build_MariaDbBinary16_DoesNotSynthesizeAmbiguousSqliteBlobMetadata()
+    {
+        var column = Build(CreateDraft(
+            new CsTypeDeclaration(typeof(Guid)),
+            dbTypes: [new DatabaseColumnType(DatabaseType.MariaDB, "binary", 16)]));
+
+        await Assert.That(column.GuidStorageDefinitions.Count).IsEqualTo(1);
+        await AssertDefinition(
+            column.GuidStorageDefinitions[0],
+            DatabaseType.MariaDB,
+            GuidStorageFormat.Binary16LittleEndian,
+            isExplicit: false);
+        await Assert.That(column.GetGuidStorageFor(DatabaseType.SQLite)).IsNull();
     }
 
     [Test]
@@ -247,6 +307,27 @@ public sealed class GuidStorageResolvedMetadataTests
     }
 
     [Test]
+    public async Task Build_MariaDbNativeUuidTypedId_SynthesizesSqliteText36FromCanonicalGuid()
+    {
+        var scalarConverter = new MetadataScalarConverterDraft(
+            new CsTypeDeclaration(typeof(TypedGuidId)),
+            new CsTypeDeclaration(typeof(Guid)),
+            new CsTypeDeclaration(typeof(TypedGuidIdConverter)),
+            static () => new TypedGuidIdConverter());
+        var column = Build(CreateDraft(
+            new CsTypeDeclaration(typeof(TypedGuidId)),
+            dbTypes: [new DatabaseColumnType(DatabaseType.MariaDB, "uuid")],
+            scalarConverter: scalarConverter));
+
+        await Assert.That(column.IsGuidColumn).IsTrue();
+        await AssertDefinition(
+            column.GetGuidStorageFor(DatabaseType.SQLite)!,
+            DatabaseType.SQLite,
+            GuidStorageFormat.Text36,
+            isExplicit: false);
+    }
+
+    [Test]
     public async Task Build_GuidModelConvertedToString_IsNotEligible()
     {
         var scalarConverter = new MetadataScalarConverterDraft(
@@ -264,6 +345,25 @@ public sealed class GuidStorageResolvedMetadataTests
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.Message).Contains("canonical provider type");
         await Assert.That(failure.Message).Contains(typeof(string).FullName!);
+    }
+
+    [Test]
+    public async Task Build_MariaDbUuidGuidModelConvertedToString_DoesNotEnterUuidCodec()
+    {
+        var scalarConverter = new MetadataScalarConverterDraft(
+            new CsTypeDeclaration(typeof(Guid)),
+            new CsTypeDeclaration(typeof(string)),
+            new CsTypeDeclaration(typeof(GuidStringConverter)),
+            static () => new GuidStringConverter());
+        var column = Build(CreateDraft(
+            new CsTypeDeclaration(typeof(Guid)),
+            dbTypes: [new DatabaseColumnType(DatabaseType.MariaDB, "uuid")],
+            scalarConverter: scalarConverter));
+
+        await Assert.That(column.IsGuidColumn).IsFalse();
+        await Assert.That(column.ProviderClrType).IsEqualTo(typeof(string));
+        await Assert.That(column.GuidStorageDefinitions).IsEmpty();
+        await Assert.That(column.GetGuidStorageFor(DatabaseType.SQLite)).IsNull();
     }
 
     [Test]
@@ -351,15 +451,23 @@ public sealed class GuidStorageResolvedMetadataTests
                 .CreateModelFiles(database)
                 .Select(static file => file.contents));
 
+        await Assert.That(column.GuidStorageDefinitions.Count).IsEqualTo(2);
         await AssertDefinition(
-            column.GuidStorageDefinitions.Single(),
+            column.GuidStorageDefinitions[0],
             DatabaseType.MariaDB,
             GuidStorageFormat.NativeUuid,
+            isExplicit: false);
+        await AssertDefinition(
+            column.GuidStorageDefinitions[1],
+            DatabaseType.SQLite,
+            GuidStorageFormat.Text36,
             isExplicit: false);
         await Assert.That(modelSource)
             .Contains("[Type(DatabaseType.MariaDB, \"uuid\")]");
         await Assert.That(modelSource).DoesNotContain("\"uuid\", 36");
         await Assert.That(modelSource).DoesNotContain("#error DATALINQ_UUID_STORAGE_UNRESOLVED");
+        await Assert.That(MetadataEquivalenceDigest.CreateText(database)).Contains(
+            "guidStorage=MariaDB:NativeUuid:False,SQLite:Text36:False");
 
         var reparsed = MetadataSourceRoundtrip.ParseGeneratedModelSource(database);
         var reparsedType = reparsed.TableModels.Single().Table.Columns.Single().DbTypes.Single();
@@ -401,6 +509,26 @@ public sealed class GuidStorageResolvedMetadataTests
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.Message).Contains("stale or inconsistent");
+    }
+
+    [Test]
+    public async Task Build_MariaDbUuidRejectsCarriedMetadataMissingSynthesizedSqliteDefinition()
+    {
+        var result = new MetadataDefinitionFactory().Build(CreateDraft(
+            new CsTypeDeclaration(typeof(Guid)),
+            dbTypes: [new DatabaseColumnType(DatabaseType.MariaDB, "uuid")],
+            carriedDefinitions:
+            [
+                new GuidStorageDefinition(
+                    DatabaseType.MariaDB,
+                    GuidStorageFormat.NativeUuid,
+                    IsExplicit: false)
+            ]));
+
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("stale or inconsistent");
+        await Assert.That(failure.Message).Contains("Regenerate");
     }
 
     [Test]
