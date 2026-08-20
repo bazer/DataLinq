@@ -66,7 +66,10 @@ public sealed class PackageConsumerSmokeTests
             .And.Contains(": IDatabaseModel")
             .And.Contains("public abstract partial class PackageConsumerRow")
             .And.Contains("ITableModel<PackageConsumerDatabase>")
-            .And.Contains("[PrimaryKey]");
+            .And.Contains("[PrimaryKey]")
+            .And.Contains("[Type(DatabaseType.MariaDB, \"uuid\")]")
+            .And.Contains("public abstract Guid ExternalGuid")
+            .And.Contains("public abstract Guid? OptionalExternalGuid");
 
         await Assert.That(program)
             .Contains("MutablePackageConsumerRow[] CreateRows()")
@@ -78,6 +81,9 @@ public sealed class PackageConsumerSmokeTests
             .And.Contains("PluginHook.CreateDatabaseFromMetadata(")
             .And.Contains("typeof(MySqlDatabase<PackageConsumerDatabase>)")
             .And.Contains("GetConstructor([typeof(string)])")
+            .And.Contains("row.ExternalGuid == expectedGuid")
+            .And.Contains("physicalGuid == replacementGuid.ToString(\"D\")")
+            .And.Contains("physicalOptionalGuid == expectedGuid.ToString(\"D\")")
             .And.Contains("v0.9.package-consumer-execution.v1")
             .And.Contains("queryIds.SequenceEqual([-5, 17])")
             .And.Contains("rowIds.SequenceEqual([-5, 17, 42])");

@@ -201,6 +201,22 @@ public static partial class MetadataFactory
                 concreteTypes.Add(declaration.DatabaseType);
         }
 
+        // Provider-scoped server models are commonly reused with SQLite for
+        // integration tests. The built-in translation of a canonical Guid to
+        // SQLite TEXT has one deterministic compatibility representation: the
+        // dashed Text36 form used before the provider-keyed UUID codec existed.
+        // Admit only that exact built-in mapping. A translated SQLite BLOB is
+        // still ambiguous and must not acquire an invented byte order.
+        var effectiveSqliteType = EffectiveColumnTypeResolver.Resolve(column, DatabaseType.SQLite);
+        if (effectiveSqliteType is not null &&
+            GuidStoragePhysicalTypeResolver.InferCompatibilityDefault(
+                DatabaseType.SQLite,
+                effectiveSqliteType,
+                allowSchemaModifiers: false) == GuidStorageFormat.Text36)
+        {
+            concreteTypes.Add(DatabaseType.SQLite);
+        }
+
         return GuidStorageProviders.Where(concreteTypes.Contains).ToArray();
     }
 

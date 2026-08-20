@@ -4,6 +4,7 @@ using DataLinq.Core.Factories;
 using DataLinq.Memory;
 using DataLinq.Metadata;
 using DataLinq.MySql;
+using DataLinq.Mutation;
 using DataLinq.PackageConsumer;
 using DataLinq.SQLite;
 
@@ -82,13 +83,27 @@ static SQLiteExecutionResult CaptureSQLiteExecution()
         foreach (var row in CreateRows())
             database.Insert(row);
 
+        var expectedGuid = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
+        var replacementGuid = Guid.Parse("fedcba98-7654-3210-89ab-cdef01234567");
+        var matched = database.Query().Rows.Single(row => row.ExternalGuid == expectedGuid);
+        var mutable = matched.Mutate();
+        mutable.ExternalGuid = replacementGuid;
+        mutable.OptionalExternalGuid = expectedGuid;
+        _ = database.Update(mutable);
+
         var rowIds = database.Query().Rows
             .OrderBy(static row => row.Id)
             .Select(static row => row.Id)
             .ToArray();
+        var physicalGuid = database.Provider.DatabaseAccess.ExecuteScalar<string>(
+            "SELECT external_guid FROM package_consumer_rows WHERE id = 17");
+        var physicalOptionalGuid = database.Provider.DatabaseAccess.ExecuteScalar<string>(
+            "SELECT optional_external_guid FROM package_consumer_rows WHERE id = 17");
 
         return new SQLiteExecutionResult(
-            rowIds.SequenceEqual([-5, 17, 42]),
+            rowIds.SequenceEqual([-5, 17, 42]) &&
+            physicalGuid == replacementGuid.ToString("D") &&
+            physicalOptionalGuid == expectedGuid.ToString("D"),
             rowIds);
     }
     catch (Exception exception)
@@ -120,19 +135,25 @@ static MutablePackageConsumerRow[] CreateRows() =>
     {
         Id = 17,
         GroupId = 7,
-        Name = "seventeen"
+        Name = "seventeen",
+        ExternalGuid = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff"),
+        OptionalExternalGuid = null
     },
     new MutablePackageConsumerRow
     {
         Id = -5,
         GroupId = 7,
-        Name = "minus-five"
+        Name = "minus-five",
+        ExternalGuid = Guid.Parse("11112233-4455-6677-8899-aabbccddeeff"),
+        OptionalExternalGuid = Guid.Parse("21112233-4455-6677-8899-aabbccddeeff")
     },
     new MutablePackageConsumerRow
     {
         Id = 42,
         GroupId = 3,
-        Name = "forty-two"
+        Name = "forty-two",
+        ExternalGuid = Guid.Parse("31112233-4455-6677-8899-aabbccddeeff"),
+        OptionalExternalGuid = null
     }
 ];
 
