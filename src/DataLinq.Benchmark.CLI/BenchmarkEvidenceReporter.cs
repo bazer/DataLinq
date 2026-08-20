@@ -107,7 +107,7 @@ internal static class BenchmarkEvidenceReporter
     // EmployeesBenchmarks and AllocationRegressionBenchmarks intentionally share display names
     // while using different operation counts. Keep the published/default contract separate from
     // the calibrated allocation lane instead of treating a display name as a global identity.
-    private static readonly IReadOnlyDictionary<string, int> ReleaseOperationCounts =
+    private static readonly IReadOnlyDictionary<string, int> PublishedEmployeesOperationCounts =
         new Dictionary<string, int>(StringComparer.Ordinal)
         {
             ["Provider initialization"] = 1,
@@ -1777,7 +1777,7 @@ internal static class BenchmarkEvidenceReporter
             return allocationOperations;
         }
 
-        return ReleaseOperationCounts.TryGetValue(method, out var operations) ? operations : null;
+        return PublishedEmployeesOperationCounts.TryGetValue(method, out var operations) ? operations : null;
     }
 
     private static bool IsCleanAssemblyIdentity(
