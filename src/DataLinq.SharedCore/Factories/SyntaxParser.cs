@@ -1436,7 +1436,7 @@ public class SyntaxParser
             ? new RelationProperty(propSyntax.Identifier.Text, csType, model, parsedAttributes)
             : new ValueProperty(propSyntax.Identifier.Text, csType, model, parsedAttributes);
 
-        property.SetCsNullableCore(propSyntax.Type is NullableTypeSyntax);
+        property.SetCsNullableCore(ParseCsNullable(propSyntax, csType, parsedAttributes));
         property.SetSourceInfoCore(new PropertySourceInfo(
             new SourceTextSpan(propSyntax.SpanStart, propSyntax.Span.Length),
             GetDefaultValueExpressionSourceSpan(propSyntax)));
@@ -1544,7 +1544,7 @@ public class SyntaxParser
                 Attributes = parsedAttributes,
                 AttributeSourceSpans = attributeSourceSpans,
                 SourceInfo = sourceInfo,
-                CsNullable = propSyntax.Type is NullableTypeSyntax,
+                CsNullable = ParseCsNullable(propSyntax, csType, parsedAttributes),
                 RelationName = parsedAttributes
                     .OfType<RelationAttribute>()
                     .FirstOrDefault()?
@@ -1613,7 +1613,7 @@ public class SyntaxParser
             Attributes = parsedAttributes,
             AttributeSourceSpans = attributeSourceSpans,
             SourceInfo = sourceInfo,
-            CsNullable = propSyntax.Type is NullableTypeSyntax,
+            CsNullable = ParseCsNullable(propSyntax, csType, parsedAttributes),
             CsSize = csSize,
             EnumProperty = enumProperty
         };
@@ -1639,6 +1639,46 @@ public class SyntaxParser
         enumAttribute = enumAttributes.SingleOrDefault();
         failure = null;
         return true;
+    }
+
+    private static bool ParseCsNullable(
+        PropertyDeclarationSyntax propSyntax,
+        CsTypeDeclaration csType,
+        IEnumerable<Attribute> attributes)
+    {
+        if (propSyntax.Type is NullableTypeSyntax)
+            return true;
+
+        if (!attributes.Any(attribute => attribute is NullableAttribute) ||
+            !CanRepresentNullWithoutNullableAnnotation(csType))
+        {
+            return false;
+        }
+
+        return NullableAnnotationsAreDisabled(propSyntax);
+    }
+
+    private static bool CanRepresentNullWithoutNullableAnnotation(CsTypeDeclaration csType)
+    {
+        var runtimeType = MetadataTypeConverter.GetType(csType.Name);
+        return runtimeType != null && !runtimeType.IsValueType;
+    }
+
+    private static bool NullableAnnotationsAreDisabled(PropertyDeclarationSyntax propSyntax)
+    {
+        var annotationsDisabled = false;
+        var directives = propSyntax.SyntaxTree
+            .GetRoot()
+            .DescendantTrivia(descendIntoTrivia: true)
+            .Where(trivia => trivia.FullSpan.End <= propSyntax.SpanStart)
+            .Select(trivia => trivia.GetStructure())
+            .OfType<NullableDirectiveTriviaSyntax>()
+            .Where(directive => directive.IsActive && directive.TargetToken.ValueText != "warnings");
+
+        foreach (var directive in directives)
+            annotationsDisabled = directive.SettingToken.ValueText == "disable";
+
+        return annotationsDisabled;
     }
 
     private static Option<CsTypeDeclaration, IDLOptionFailure> ParsePropertyCsType(
