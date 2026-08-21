@@ -60,6 +60,34 @@ public class ModelGeneratorInputTests
     }
 
     [Test]
+    public async Task ModelDeclarationSnapshot_IncludesConditionalPropertyNullableAnnotationContext()
+    {
+        const string source = """
+            namespace SnapshotTests;
+            public abstract partial class SnapshotRow : ITableModel<SnapshotDb>
+            {
+            #if LEGACY_NULLABLE
+            #nullable disable
+            #endif
+                [Nullable, Column("value")]
+                public abstract string Value { get; }
+            }
+            """;
+        var path = GeneratorTestPaths.TestModel("ConditionalSnapshotRow.cs");
+
+        var definedSnapshot = ModelDeclarationSnapshot.Create(
+            GetTypeDeclaration(source, path, "LEGACY_NULLABLE"));
+        var undefinedSnapshot = ModelDeclarationSnapshot.Create(
+            GetTypeDeclaration(source, path));
+
+        await Assert.That(definedSnapshot.NullableAnnotationsDisabled).IsFalse();
+        await Assert.That(undefinedSnapshot.NullableAnnotationsDisabled).IsFalse();
+        await Assert.That(definedSnapshot.PropertyNullableAnnotationContext).IsEqualTo("1");
+        await Assert.That(undefinedSnapshot.PropertyNullableAnnotationContext).IsEqualTo("0");
+        await Assert.That(definedSnapshot).IsNotEqualTo(undefinedSnapshot);
+    }
+
+    [Test]
     public async Task ModelDeclarationInputComparer_UsesStructuralSnapshot()
     {
         var first = ModelDeclarationInput.Create(GetTypeDeclaration("""
@@ -124,8 +152,14 @@ public class ModelGeneratorInputTests
         await Assert.That(normalized[1].Snapshot.Namespace).IsEqualTo("BetaModels");
     }
 
-    private static TypeDeclarationSyntax GetTypeDeclaration(string source, string path)
-        => CSharpSyntaxTree.ParseText(source, path: path)
+    private static TypeDeclarationSyntax GetTypeDeclaration(
+        string source,
+        string path,
+        params string[] preprocessorSymbols)
+        => CSharpSyntaxTree.ParseText(
+                source,
+                CSharpParseOptions.Default.WithPreprocessorSymbols(preprocessorSymbols),
+                path: path)
             .GetRoot()
             .DescendantNodes()
             .OfType<TypeDeclarationSyntax>()

@@ -214,31 +214,39 @@ internal readonly struct ModelDeclarationSnapshot : IEquatable<ModelDeclarationS
         string @namespace,
         string name,
         string structuralText,
-        bool nullableAnnotationsDisabled)
+        bool nullableAnnotationsDisabled,
+        string propertyNullableAnnotationContext)
     {
         Namespace = @namespace;
         Name = name;
         StructuralText = structuralText;
         NullableAnnotationsDisabled = nullableAnnotationsDisabled;
+        PropertyNullableAnnotationContext = propertyNullableAnnotationContext;
     }
 
     public string Namespace { get; }
     public string Name { get; }
     public string StructuralText { get; }
     public bool NullableAnnotationsDisabled { get; }
+    public string PropertyNullableAnnotationContext { get; }
 
     public static ModelDeclarationSnapshot Create(BaseTypeDeclarationSyntax syntax)
         => new(
             GetNamespace(syntax),
             syntax.Identifier.ValueText,
             syntax.WithoutTrivia().NormalizeWhitespace().ToFullString(),
-            SyntaxParser.NullableAnnotationsAreDisabledAt(syntax));
+            SyntaxParser.NullableAnnotationsAreDisabledAt(syntax),
+            GetPropertyNullableAnnotationContext(syntax));
 
     public bool Equals(ModelDeclarationSnapshot other)
         => string.Equals(Namespace, other.Namespace, StringComparison.Ordinal) &&
            string.Equals(Name, other.Name, StringComparison.Ordinal) &&
            string.Equals(StructuralText, other.StructuralText, StringComparison.Ordinal) &&
-           NullableAnnotationsDisabled == other.NullableAnnotationsDisabled;
+           NullableAnnotationsDisabled == other.NullableAnnotationsDisabled &&
+           string.Equals(
+               PropertyNullableAnnotationContext,
+               other.PropertyNullableAnnotationContext,
+               StringComparison.Ordinal);
 
     public override bool Equals(object? obj)
         => obj is ModelDeclarationSnapshot other && Equals(other);
@@ -252,8 +260,20 @@ internal readonly struct ModelDeclarationSnapshot : IEquatable<ModelDeclarationS
             hash = hash * 31 + StringComparer.Ordinal.GetHashCode(Name);
             hash = hash * 31 + StringComparer.Ordinal.GetHashCode(StructuralText);
             hash = hash * 31 + NullableAnnotationsDisabled.GetHashCode();
+            hash = hash * 31 + StringComparer.Ordinal.GetHashCode(PropertyNullableAnnotationContext);
             return hash;
         }
+    }
+
+    private static string GetPropertyNullableAnnotationContext(BaseTypeDeclarationSyntax syntax)
+    {
+        if (syntax is not TypeDeclarationSyntax typeDeclaration)
+            return string.Empty;
+
+        return new string(typeDeclaration.Members
+            .OfType<PropertyDeclarationSyntax>()
+            .Select(static property => SyntaxParser.NullableAnnotationsAreDisabledAt(property) ? '1' : '0')
+            .ToArray());
     }
 
     private static string GetNamespace(SyntaxNode syntax)

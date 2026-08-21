@@ -69,6 +69,35 @@ public class IncrementalGeneratorBehaviorTests
 
     private const string NullableDisableSource = "#nullable disable\n" + InitialSource;
     private const string NullableEnableSource = "#nullable enable\n" + InitialSource;
+    private const string ConditionalNullableSource = """
+        using DataLinq;
+        using DataLinq.Attributes;
+        using DataLinq.Instances;
+        using DataLinq.Interfaces;
+        using DataLinq.Mutation;
+
+        namespace IncrementalTests;
+
+        public partial class IncrementalDb : IDatabaseModel
+        {
+            public IncrementalDb(DataSourceAccess dsa){}
+            public DbRead<IncrementalRow> Rows { get; }
+        }
+
+        [Table("rows")]
+        public abstract partial class IncrementalRow(IRowData rowData, IDataSourceAccess dataSource)
+            : Immutable<IncrementalRow, IncrementalDb>(rowData, dataSource), ITableModel<IncrementalDb>
+        {
+            [PrimaryKey, AutoIncrement, Column("id")]
+            public abstract int? Id { get; }
+
+        #if LEGACY_NULLABLE
+        #nullable disable
+        #endif
+            [Nullable, Column("value")]
+            public abstract string Value { get; }
+        }
+        """;
 
     [Test]
     public async Task TriviaOnlyModelChanges_DoNotModifyStructuralDeclarationSteps()
@@ -119,6 +148,38 @@ public class IncrementalGeneratorBehaviorTests
         await Assert.That(disabledAgainResult.Diagnostics.Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)).IsFalse();
     }
 
+    [Test]
+    public async Task ConditionalNullableDirectiveSymbolChanges_UpdateGeneratedNullableMetadata()
+    {
+        var driver = CreateTrackedDriver();
+
+        driver = driver.RunGenerators(CreateCompilation(
+            ConditionalNullableSource,
+            NullableContextOptions.Disable,
+            ["LEGACY_NULLABLE"]));
+        var definedResult = driver.GetRunResult().Results.Single();
+
+        driver = driver.RunGenerators(CreateCompilation(
+            ConditionalNullableSource,
+            NullableContextOptions.Disable));
+        var undefinedResult = driver.GetRunResult().Results.Single();
+
+        driver = driver.RunGenerators(CreateCompilation(
+            ConditionalNullableSource,
+            NullableContextOptions.Disable,
+            ["LEGACY_NULLABLE"]));
+        var definedAgainResult = driver.GetRunResult().Results.Single();
+
+        await Assert.That(GetGeneratedCsNullable(definedResult, "Value")).IsTrue();
+        await Assert.That(GetGeneratedCsNullable(undefinedResult, "Value")).IsFalse();
+        await Assert.That(GetGeneratedCsNullable(definedAgainResult, "Value")).IsTrue();
+
+        AssertStepOutputsWereRecomputed(undefinedResult, ModelGeneratorTrackingNames.MetadataResults);
+        AssertStepOutputsWereRecomputed(definedAgainResult, ModelGeneratorTrackingNames.MetadataResults);
+        await Assert.That(undefinedResult.Diagnostics.Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)).IsFalse();
+        await Assert.That(definedAgainResult.Diagnostics.Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)).IsFalse();
+    }
+
     private static GeneratorDriver CreateTrackedDriver()
     {
         IIncrementalGenerator generator = new ModelGenerator();
@@ -131,14 +192,16 @@ public class IncrementalGeneratorBehaviorTests
 
     private static Compilation CreateCompilation(
         string source,
-        NullableContextOptions nullableContextOptions = NullableContextOptions.Enable)
+        NullableContextOptions nullableContextOptions = NullableContextOptions.Enable,
+        IEnumerable<string>? preprocessorSymbols = null)
     {
         var references = GeneratorMetadataReferenceCache.GetReferences(
             excludedAssemblies: [typeof(ModelGenerator).Assembly]);
+        var parseOptions = CSharpParseOptions.Default.WithPreprocessorSymbols(preprocessorSymbols ?? []);
 
         return CSharpCompilation.Create(
             "IncrementalTestAssembly",
-            [CSharpSyntaxTree.ParseText(source, path: SourcePath)],
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: SourcePath)],
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
                 .WithNullableContextOptions(nullableContextOptions));
