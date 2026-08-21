@@ -37,11 +37,12 @@ public sealed record TestShardEvidenceAggregate(
 public static class TestShardEvidenceAggregator
 {
     public const string SchemaVersion = "v0.9.testing-shard-aggregate.v1";
+    public const int CompleteUnitSuiteExpectedCases = 1686;
 
     public static IReadOnlyList<TestShardEvidenceContract> FullMatrixContract { get; } =
     [
         new("generators", null, null, 61),
-        new("unit", null, null, 1680),
+        new("unit", null, null, CompleteUnitSuiteExpectedCases),
         new("memory", null, null, 141),
         new("compliance", "sqlite-file", "AnchorWithInvariant", 496),
         new("compliance", "sqlite-memory", "TargetSpecific", 367),
