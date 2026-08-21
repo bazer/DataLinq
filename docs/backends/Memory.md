@@ -2,6 +2,9 @@
 
 `DataLinq.Memory` is an experimental, read-only backend for generated DataLinq models. It stores explicitly seeded rows in process and executes a small, documented query subset without a SQL provider.
 
+> [!NOTE]
+> This page describes the unpublished 0.9 release candidate. It does not claim that the final `DataLinq.Memory` package is already on NuGet; check the [0.9 candidate notes](../releases/0.9.md) and [published changelog](../../CHANGELOG.md) for the release boundary.
+
 Use it for fast application tests, examples, and transient state when your assertions do not depend on SQL translation, collation, constraints, transactions, or provider-specific behavior. Keep provider-backed tests for those concerns.
 
 ## Install
@@ -50,6 +53,8 @@ Each table can be seeded once. `Seed` snapshots and validates the supplied gener
 
 `Find<TModel>(object)` supports one non-null primary-key column. It accepts the public model-side key type, including a scalar-converter-backed typed ID, and returns the same cached immutable instance on repeated hits.
 
+Memory stores canonical provider CLR values but has no SQL physical/wire codec. A Guid-backed typed ID still uses its scalar converter; `[GuidStorage]` matters when the same model runs against SQLite/MySQL/MariaDB, not while Memory holds the canonical `Guid`. See [Scalar Converters and Typed IDs](../Scalar%20Converters%20and%20Typed%20IDs.md).
+
 ## Supported query boundary
 
 The 0.9 preview supports a deliberately small capability-gated subset:
@@ -78,4 +83,3 @@ The preview has no Memory-owned:
 ## AOT and browser use
 
 The Memory runtime has no SQL-provider or native-database dependency. The supported generated-model smoke path is exercised under Native AOT, full trimming, and Blazor WebAssembly. That is evidence for the documented preview path, not a claim that arbitrary application code or arbitrary LINQ is AOT-compatible.
-

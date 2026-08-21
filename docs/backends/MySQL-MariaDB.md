@@ -44,7 +44,7 @@ The test matrix follows each official image's rolling minor tag within its LTS s
 | `DATETIME`, `TIMESTAMP` | `DateTime` |
 | `TIME` | `TimeOnly` |
 | `ENUM` | generated C# `enum` |
-| `BINARY(16)` | `Guid` |
+| `BINARY(16)` | `Guid` when UUID intent is resolved; physical byte order still needs trusted/explicit metadata |
 | `BLOB`, `VARBINARY`, etc. | `byte[]` |
 | `JSON` | `string` |
 | `UUID` (MariaDB only) | `Guid` |
@@ -52,7 +52,7 @@ The test matrix follows each official image's rolling minor tag within its LTS s
 Additional notes:
 
 - `SET` is treated as `string`
-- `BINARY(16)` is the normal `Guid` representation
+- `BINARY(16)` is MySQL's built-in `Guid` mapping, with the legacy little-endian layout as DataLinq's model-side compatibility default
 - enums are emitted as generated C# enums with value metadata
 
 ## Default Value Handling
@@ -92,6 +92,7 @@ MariaDB can use a native `UUID` type. DataLinq supports that, but only when you 
 - **Reading schema:** A MariaDB `UUID` column maps to `Guid`.
 - **Generating schema:** To emit a native MariaDB `UUID`, use `[Type(DatabaseType.MariaDB, "uuid")]`.
 - **Default behavior:** MariaDB SQL generation prefers native `UUID` for plain `Guid` properties.
+- **Explicit storage:** `[GuidStorage(DatabaseType.MariaDB, GuidStorageFormat.NativeUuid)]` records the physical contract and also applies to typed IDs whose converter canonical type is `Guid`.
 
 ### Provider Configuration
 
@@ -109,11 +110,22 @@ To leverage MariaDB-specific behavior, make sure your `datalinq.json` connection
 
 If you mark the connection as `MySQL`, you are asking DataLinq to behave like MySQL even if the server happens to be MariaDB.
 
-## Important Guid Caveat
+## UUID Physical Storage
 
-`Guid` values stored as `BINARY(16)` depend on `MySqlConnector` `GuidFormat=LittleEndianBinary16` behaving the way the tests expect.
+`Guid` and Guid-backed typed IDs have two independent mappings: model-to-canonical conversion and canonical-`Guid`-to-physical storage. Configure the latter with `[GuidStorage(...)]`.
 
-Native MariaDB `UUID` avoids that pain. `BINARY(16)` does not. This is a real caveat, not a theoretical one.
+For MySQL/MariaDB:
+
+- `NativeUuid` is valid only for unmodified MariaDB `UUID`;
+- `Text36` matches `CHAR(36)`/`VARCHAR(36)`;
+- `Text32` matches `CHAR(32)`/`VARCHAR(32)`;
+- `Binary16LittleEndian` and `Binary16Rfc4122` both match `BINARY(16)`.
+
+The SQL type `BINARY(16)` cannot tell those two byte layouts apart. DataLinq's compatibility default is the legacy .NET/MySqlConnector little-endian layout, but existing data remains the real authority. DataLinq's mapped path encodes binary parameters as bytes and reads binary columns as bytes, so `[GuidStorage]`—not a vague connector default—is the physical contract. Raw ADO.NET reads/writes outside DataLinq must use the same layout. Native MariaDB `UUID` avoids binary byte-order ambiguity.
+
+Changing the binary format without rewriting stored data is not a metadata edit. It is a data migration. Schema validation reports unresolved/mismatched formats and supported joins require the same resolved format on both keys before SQL execution.
+
+See the authoritative [`[GuidStorage]` attribute contract](../Attributes%20and%20Model%20Definitions.md#guidstorage) and [Scalar Converters and Typed IDs](../Scalar%20Converters%20and%20Typed%20IDs.md).
 
 ## SQL Generation
 
@@ -121,6 +133,7 @@ When generating a schema from your DataLinq models:
 
 - MySQL maps `Guid` to `BINARY(16)` by default
 - MariaDB maps `Guid` to native `UUID` by default
+- explicit `[Type(...)]` plus `[GuidStorage(...)]` overrides select compatible text or binary layouts instead
 - view definitions use `CREATE OR REPLACE VIEW`
 
 Default SQL generation is typed, not stringly:

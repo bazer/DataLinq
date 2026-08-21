@@ -4,7 +4,7 @@ DataLinq has a useful constrained-platform proof now, but the honest public clai
 
 ## Public Support Claim
 
-The ordinary supported runtime path is .NET on server, desktop, or test hosts using generated DataLinq models with the SQLite, MySQL, or MariaDB providers. The experimental `DataLinq.Memory` package is a separate provider-free, read-only path.
+The ordinary supported runtime path is .NET on server, desktop, or test hosts using generated DataLinq models with the SQLite, MySQL, or MariaDB providers. The 0.9 candidate adds `DataLinq.Memory` as a separate experimental, provider-free, read-only path. The candidate docs do not claim the final 0.9 package is published; use the [changelog](../CHANGELOG.md) for published-version boundaries.
 
 Current package and repo builds target .NET 8, .NET 9, and .NET 10. Provider behavior is documented separately:
 
@@ -23,6 +23,18 @@ Not accurate yet:
 > DataLinq is broadly AOT-compatible.
 
 The broad claim has to wait until provider coverage, query coverage, browser storage, and remaining third-party WebAssembly warning work are stronger.
+
+## Compiler Host Compatibility
+
+Runtime target frameworks and the compiler/source-generator host are different contracts.
+
+The 0.9 source generator references `Microsoft.CodeAnalysis.CSharp` 5.0.0. Microsoft's supported mapping makes **Visual Studio 2026 version 18.0 the minimum supported Visual Studio host** for that Roslyn package generation. Visual Studio 2022 is therefore not a supported 0.9 source-generator host merely because the consuming project targets .NET 8 or .NET 9.
+
+Command-line builds need a .NET SDK/compiler host containing Roslyn 5.0 or newer. The application output can still target .NET 8, .NET 9, or .NET 10; that runtime TFM says nothing about whether an older IDE compiler can load the analyzer.
+
+The generator is packaged as a build-time analyzer under `analyzers/dotnet/cs`. Roslyn assemblies are excluded from the public runtime dependency groups, so this compiler-host minimum does not mean applications deploy Roslyn with DataLinq.
+
+Authoritative mapping: [Microsoft's .NET compiler platform package version reference](https://learn.microsoft.com/en-us/visualstudio/extensibility/roslyn-version-support?view=visualstudio).
 
 ## Constrained-Platform Boundary
 
@@ -91,20 +103,10 @@ Memory-pressure cleanup is a server/desktop runtime feature. Browser/WebAssembly
 
 Payload numbers should be read from the compatibility size report with symbol files excluded, and symbol packages should be treated as separate release artifacts. Counting `.pdb` or `.snupkg` payload as deployed constrained-platform runtime size is misleading accounting.
 
-## Maintainer Verification Evidence
+## Verification Evidence
 
-Release evidence is repo-local unless it has been copied into release notes or the changelog. The final 0.8 local compatibility report path was:
+The [0.8 GitHub release](https://github.com/bazer/DataLinq/releases/tag/0.8.0) is the durable published boundary for the historical SQLite constrained-runtime receipt. Repo-local `artifacts/...` paths mentioned in maintainer records are not website downloads and should not be presented as package evidence.
 
-```text
-artifacts/dev/compat-size-report/20260630-131026977/report.md
-```
+The 0.9 candidate has expanded the same eight-target size/smoke catalog across generated SQLite and provider-free Memory, but the final package-backed receipt is still a release gate in [issue #80](https://github.com/bazer/DataLinq/issues/80). Until that exact candidate/package report exists durably, this page records the tested source boundary and caveats—not proof that final 0.9 NuGet bytes have been published.
 
-That report used:
-
-```bash
---clean-output --release-thresholds --fail-on-threshold --fail-on-banned-payload
-```
-
-It passed for Native AOT, trimmed publish, WebAssembly no-AOT, and WebAssembly AOT on that SDK/workload setup. It also verified WebAssembly browser execution through the `verifying-strict-parser-projection` smoke stage.
-
-The detailed engineering notes live in the repo's internal `docs/dev-plans` tree. The public verification hooks are the repo-local `DataLinq.Dev.CLI` `size-report` and `package-report` commands plus the constrained-platform smoke projects that back this narrow claim.
+Maintainers reproduce the boundary with `DataLinq.Dev.CLI` `size-report` and `package-report`, the constrained-platform smoke projects, clean output, release thresholds, banned-payload checks, browser execution, package hashes, and commit/package identity validation. Publication claims belong in the final release notes/changelog only after those receipts refer to the approved package set.

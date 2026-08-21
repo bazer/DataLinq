@@ -18,6 +18,8 @@ For a configured database, the generator produces:
 - provider-key row-store accessors for scalar and composite primary keys
 - generated `DataLinqPrimaryKey` structs for composite primary-key shapes
 - indexed value, mutable, and relation handles where those avoid runtime lookup
+- resolved scalar-converter instances and model/provider conversion calls for mapped value properties
+- resolved provider-scoped UUID storage definitions for direct and converter-backed canonical `Guid` columns
 
 The practical result is simple: normal runtime startup should consume generated metadata, not rediscover model shape from ordinary runtime reflection.
 
@@ -64,7 +66,8 @@ The finalized metadata model carries:
 - frozen lookup maps for common table and column resolution
 - generated declaration metadata
 - provider-key row-store accessor hooks
-- scalar-converter slots reserved for future converter work
+- resolved `ColumnScalarMapping` metadata, including model type, canonical provider type, converter type/instance, and registration origin
+- resolved UUID storage definitions and unresolved-provider diagnostics for canonical `Guid` columns
 
 ### 3. Source Emission
 
@@ -79,6 +82,7 @@ Generated model code is responsible for the repetitive but important parts:
 - relation properties
 - `Mutate`, `Save`, `Insert`, and `Update` helper methods
 - generated direct `Get(...)` methods for primary-key lookup
+- model-to-provider conversion in generated lookup, relation, mutable, and row-materialization paths
 - provider-key extraction from row data, readers, dynamic keys, and model instances
 - generated metadata drafts for runtime startup
 
@@ -98,11 +102,15 @@ Runtime systems use generated hooks instead of guessing:
 - `InstanceFactory` uses generated metadata and instance hooks
 - row caches use generated provider-key accessors where available
 - relation traversal uses generated relation/key handles
-- query materialization reads provider primary-key values and asks the relevant table cache for rows
+- query materialization reads canonical provider rows, converts mapped values at the model boundary, and publishes rows under provider-key identity
+
+Converter resolution is deliberately build-time-heavy. The generator validates converter construction, visibility, exact model/provider types, and registration precedence, then emits statically bound or metadata-cached conversion paths. Hot cache lookup and materialization loops do not rediscover converter types with reflection. See [Scalar Converters and Typed IDs](../Scalar%20Converters%20and%20Typed%20IDs.md) for the public contract.
 
 ## Platform Boundary
 
 Roslyn and source parsing belong at build time. Runtime packages should not carry compiler assemblies as runtime dependencies. Current public compatibility wording depends on that split.
+
+The 0.9 generator references Roslyn 5.0, which requires Visual Studio 2026 version 18.0 or a command-line SDK/compiler host containing Roslyn 5.0 or newer. That build-host floor is independent of the generated application's .NET 8/9/10 target; see [Platform Compatibility](../Platform%20Compatibility.md#compiler-host-compatibility).
 
 This does not make every DataLinq query AOT-safe. The production query pipeline now uses DataLinq's expression parser rather than `Remotion.Linq`, but the public AOT/WebAssembly claim remains the narrow generated SQLite smoke boundary described in [Platform Compatibility](../Platform%20Compatibility.md). Broad AOT claims still require toolchain proof, documented-query-subset coverage, and third-party warning cleanup.
 

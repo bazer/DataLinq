@@ -58,7 +58,7 @@ It can also carry generated provider-key row-store accessors, which let metadata
 - cache settings
 - table lookup helpers
 
-Primary-key metadata is now more than a list of columns. The table key shape records model/provider CLR type information, store-kind selection, and a future scalar-converter slot.
+Primary-key metadata is now more than a list of columns. The table key shape records model/provider CLR type information, provider store-kind selection, and the resolved scalar converter needed to cross that boundary.
 
 ### `ViewDefinition`
 
@@ -74,6 +74,8 @@ Primary-key metadata is now more than a list of columns. The table key shape rec
 - primary-key and auto-increment state
 - defaults
 - enum metadata
+- resolved scalar mapping: model CLR type, canonical provider CLR type, converter, and registration origin
+- provider-scoped UUID storage definitions when the canonical provider type is `Guid`
 - comments/checks where supported
 - relation/foreign-key participation
 
@@ -133,9 +135,12 @@ For a table, metadata describes:
 - scalar store kind for typed row stores and relation indexes
 - composite key component order
 - nullable component information
-- scalar-converter slot for future model/provider value conversion
+- resolved scalar-converter mapping for model/provider value conversion
+- provider-scoped UUID storage format for canonical `Guid` keys
 
-Generated scalar primary keys use provider CLR values directly. Generated composite primary keys use generated `DataLinqPrimaryKey` structs. Dynamic metadata paths use `DataLinqKey` as a carrier, not as the desired generated row-store identity.
+Generated `Get(...)` methods accept model-facing key values and convert them before cache/provider access. Generated scalar primary-key row stores use canonical provider CLR values directly. Generated composite primary keys use generated `DataLinqPrimaryKey` structs containing canonical provider components. Dynamic metadata paths use `DataLinqKey` as a carrier, not as the desired generated row-store identity.
+
+The scalar mapping does not own provider wire representation. If its canonical type is `Guid`, the column's resolved `GuidStorageDefinition` tells SQLite, MySQL, or MariaDB how to encode text/native/binary storage. That separation keeps provider byte order out of model values and cache identity.
 
 ## Maintenance Rule
 

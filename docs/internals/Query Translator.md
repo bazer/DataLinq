@@ -16,7 +16,9 @@ That invocation deliberately separates structural query shape from runtime data:
 - `QueryPlanBindingValues` is the immutable invocation payload. It contains the captured scalar and local-sequence values for one execution.
 - `QueryPlanInvocation.Bind(...)` validates that every declared binding has exactly one value with the expected kind, model type, nullability, and specialization before SQL rendering or execution can begin.
 
-Parser-time binding capture uses a mutable `QueryPlanBindingCapture`, but that object is builder state only. The retained template and invocation values own frozen copies. SQL generation and execution consume the invocation instead of parser-specific clauses, query-model types, or the original expression tree.
+Parser-time binding capture uses a mutable `QueryPlanBindingCapture`, but that object is builder state only. The retained template and invocation values own frozen copies. Backend validation and execution consume the invocation instead of parser-specific clauses, query-model types, or the original expression tree; the SQL backend alone then renders SQL.
+
+Execution then wraps the invocation and read source in a `QueryExecutionRequest`. `ValidatedQueryExecutionRequest.Prepare(...)` verifies that the source owns every table in the plan, asks that source for its bound `IQueryPlanBackend`, verifies that the backend belongs to the same source, and validates the complete feature set against the backend capability profile. Only then can SQL or Memory execution begin.
 
 `Remotion.Linq` is historical migration context for the 0.8 parser replacement. It is not part of the active production query provider or public runtime package dependency graph.
 
@@ -30,10 +32,12 @@ The ordinary collection path:
 
 1. partially evaluates local, query-independent expression subtrees
 2. parses the expression into a `QueryPlanTemplate` plus immutable invocation values, bound as a `QueryPlanInvocation`
-3. renders accepted predicates, ordering, joins, paging, single-source pushdown, and scalar result shapes through `QueryPlanSqlBuilder`
-4. executes SQL through the provider
-5. materializes entity rows through cache-aware table access, or reads SQL-backed projection aliases directly when the projection is a source-slot row
-6. applies supported computed row-local projection recipes after materialization
+3. creates a `QueryExecutionRequest` bound to the current read source
+4. selects that source's backend and validates ownership plus complete capabilities
+5. on SQL, renders accepted predicates, ordering, joins, paging, single-source pushdown, and scalar result shapes through `QueryPlanSqlBuilder`
+6. executes through the selected backend
+7. materializes entity rows through cache-aware canonical provider rows, or reads SQL-backed projection aliases directly when the projection is a source-slot row
+8. applies supported computed row-local projection recipes after materialization
 
 Entity reads remain cache-aware. DataLinq usually selects primary keys first, checks row cache state, and fetches missing rows rather than blindly rebuilding every row instance.
 
@@ -165,6 +169,12 @@ Supported singular relation member projection uses the same implicit join source
 
 `QueryPlanTemplate` and `QueryPlanInvocation`
 : Separate immutable query structure and binding declarations from one execution's frozen scalar and local-sequence values. The executor and SQL builder accept this invocation boundary, not the original expression.
+
+`QueryExecutionRequest` and `ValidatedQueryExecutionRequest`
+: Bind one invocation to one read source, resolve the source-owned backend, and enforce ownership/capability validation before execution.
+
+`IQueryPlanBackend`
+: Internal execution seam implemented by SQL and Memory. It owns cursors, scalar execution, entity terminals, and a complete capability profile. It is not a public arbitrary-backend plug-in API.
 
 `ExpressionLocalValueEvaluator`
 : Evaluates supported local values such as captured constants, simple member reads, empty collection factories, array/list indexes, and deterministic string operations without compiling or invoking arbitrary user methods.

@@ -109,6 +109,42 @@ What to do:
 
 The exception message should name the unsupported method, operator, selector, or predicate expression. If it does not, that is a diagnostics bug worth fixing.
 
+## A Query Throws `QueryBackendCapabilityException`
+
+The parser accepted the expression, but the selected source-owned backend rejected a feature in the normalized plan before backend work.
+
+Inspect:
+
+- `BackendName` — usually the SQL or experimental Memory backend;
+- `Feature` — the normalized operation/predicate/projection requirement;
+- `Location` — where the plan required it;
+- optional `SourceId` and `ColumnName`.
+
+This is especially common when a SQL-supported query is executed against Memory, whose read-only capability profile is deliberately smaller. Rewrite the query to the selected backend's documented subset or execute it against the SQL provider that owns the required semantics. Do not catch the exception and silently run the provider query as unrestricted LINQ-to-objects unless you intentionally materialize first and accept the data-volume/semantic change.
+
+## Scalar Converter Configuration Fails During Build
+
+The source generator resolves scalar converters, so bad configuration is supposed to fail before runtime.
+
+Check that the converter:
+
+- is a concrete, closed, non-generic class derived from `DataLinqScalarConverter<TModel,TProvider>`;
+- has a public parameterless constructor;
+- and every containing type is visible to generated code;
+- uses the property's exact non-null model type and a supported canonical provider scalar;
+- is applied to a value property, not a relation;
+- is not competing with a duplicate assembly registration for the same model type.
+
+A property `[ScalarConverter(...)]` overrides assembly registration. Fix the diagnostic at its source location rather than hand-editing `.g.cs` output. See [Scalar Converters and Typed IDs](Scalar%20Converters%20and%20Typed%20IDs.md).
+
+## UUID Storage Is Ambiguous or Mismatched
+
+Bare MySQL/MariaDB `BINARY(16)` and SQLite `BLOB` do not reveal UUID byte order. SQLite `TEXT` also does not reveal dashed `Text36` versus compact `Text32`. A schema can therefore have the right SQL type and still be unsafe to decode.
+
+Add an exact `[GuidStorage(DatabaseType, GuidStorageFormat)]` matching the existing data, not the format you wish the data had. For legacy MySQL/DataLinq binary values that is commonly `Binary16LittleEndian`; use `Binary16Rfc4122` only when the stored bytes are actually RFC/string order. Converter-backed typed IDs use the same attribute when their canonical provider type is `Guid`.
+
+Changing the attribute without rewriting stored values is data corruption with better branding. Treat any format change as a reviewed migration, rerun `datalinq validate`, and verify known UUID fixtures through reads, writes, keys, and joins. See the [`[GuidStorage]` contract](Attributes%20and%20Model%20Definitions.md#guidstorage).
+
 ## `First()` or `Last()` Returns a Surprising Row
 
 You did not order explicitly.
@@ -132,6 +168,12 @@ That may be correct.
 If the mutable instance has no tracked changes, `Update()` is intentionally a no-op and returns the cached immutable row instead of issuing a meaningless write.
 
 Check `HasChanges()` before assuming the ORM ignored you.
+
+## A Mutable Instance Says Its Baseline Is Invalid
+
+DataLinq invalidates transaction-derived mutables after failed mutation, rollback, unknown commit/rollback outcome, external completion, open-transaction disposal, or a known database commit followed by local finalization failure. The exception message includes the internal reason, such as `MutationFailed`, `RolledBack`, `CommitOutcomeUnknown`, or `CommittedStateFinalizationFailed`.
+
+That object cannot be made trustworthy with `Reset()`. Discard it and every immutable/relation result bound to the uncertain transaction, finish the wrapper as its diagnostic permits, then query a fresh committed row through the database and create a new mutable. If the exception is `TransactionCommitFinalizationException`, the database commit is known to have succeeded—do not retry the write. See [Transaction completion outcomes](Transactions.md#completion-outcomes).
 
 ## Attached ADO.NET Transaction Behavior Looks Odd
 

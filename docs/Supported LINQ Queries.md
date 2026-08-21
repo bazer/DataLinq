@@ -12,6 +12,8 @@ In 0.8 and later, `Database.Query()` runs through DataLinq's expression parser a
 
 That implementation detail does not expand the public LINQ contract. The supported surface is still the test-backed subset below. Structurally valid plans that exceed the selected backend's capabilities fail before command execution with a redacted DataLinq-owned capability diagnostic; parser-unsupported provider-query shapes still fail with DataLinq-owned `QueryTranslationException` diagnostics. Neither case uses silent client-side predicate fallback.
 
+Scalar-converter-backed values are normalized at the supported equality, comparison, local-membership, exact-key, relation, and join boundaries. That does not make arbitrary value-object member access or converter-backed numeric aggregates translatable. See [Scalar Converters and Typed IDs](Scalar%20Converters%20and%20Typed%20IDs.md) for the exact boundary.
+
 ## Core Query Operations
 
 The following operations are covered by tests:
@@ -340,7 +342,7 @@ var min = db.Query().Employees.Min(x => x.emp_no);
 var sum = db.Query().Employees.Sum(x => x.emp_no!.Value);
 ```
 
-`Sum(...)` returns zero for an empty filtered sequence. Nullable `Min(...)`, `Max(...)`, and `Average(...)` return `null` for an empty filtered sequence. Aggregates over computed selectors and relation-property aggregates are not supported yet. Grouped aggregate projection has a separate, narrower contract below.
+`Sum(...)` returns zero for an empty filtered sequence. Nullable `Min(...)`, `Max(...)`, and `Average(...)` return `null` for an empty filtered sequence. Aggregates over converter-backed values, computed selectors, and relation properties are not supported. Converter-backed numeric aggregates fail before SQL execution because a scalar converter proves conversion only, not that arithmetic or ordering on the canonical value preserves model semantics. `Count()` and `Any()` remain available when the surrounding shape is otherwise supported. Grouped aggregate projection has a separate, narrower contract below.
 
 ## Supported Grouped Aggregate Projection
 
@@ -438,6 +440,7 @@ This is not general LINQ `GroupBy(...)` support. These grouped shapes remain uns
 - whole composite `group.Key` object projection; project `group.Key.Member` values instead
 - client-computed group keys that cannot render as SQL
 - computed grouped aggregate selectors such as `group.Sum(row => row.Value + 1)`
+- converter-backed numeric aggregate selectors
 - grouping over row-local computed joined projection members
 - collection relation grouping
 - filters/orderings that require computed grouped-row members, grouped element enumeration, or client fallback

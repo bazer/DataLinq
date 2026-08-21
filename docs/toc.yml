@@ -39,6 +39,8 @@
       href: Transactions.md
     - name: Attributes and Model Definitions
       href: Attributes and Model Definitions.md
+    - name: Scalar Converters and Typed IDs
+      href: Scalar Converters and Typed IDs.md
     - name: Model Generation
       href: model-generation.md
     - name: Schema Validation and Diff
@@ -107,7 +109,7 @@
   items:
     - name: Changelog
       href: ../CHANGELOG.md
-    - name: 0.9 Release Notes
+    - name: 0.9 Release Candidate Notes
       href: releases/0.9.md
     - name: Roadmap
       href: Roadmap.md

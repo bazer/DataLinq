@@ -31,19 +31,22 @@ flowchart TD
     D --> F["QueryPlanBindingValues<br/>immutable invocation data"]
     E --> G["QueryPlanInvocation.Bind"]
     F --> G
-    G --> H["QueryPlanSqlBuilder"]
-    H --> I["SqlQuery / Select<br/>provider SQL and parameters"]
-    I --> J["Provider execution"]
-    J --> K["Cache-aware materialization"]
+    G --> RQ["QueryExecutionRequest<br/>invocation + read source"]
+    RQ --> OWN["Source ownership validation"]
+    OWN --> BACKEND["Source-owned backend selection"]
+    BACKEND --> CAP["Full capability validation"]
+    CAP --> H["SQL or Memory backend"]
+    H --> I["SQL rendering/provider execution<br/>or seeded-row execution"]
+    I --> K["Canonical rows and cache-aware materialization"]
     K --> L["QueryPlanProjectionRecipeEvaluator<br/>row-local projection when needed"]
     L --> M["Result returned to caller"]
 
     D --> N["QueryTranslationException<br/>unsupported shape"]
     G --> O["QueryPlanInvocationException<br/>invalid binding payload"]
-    H --> N
+    CAP --> P["QueryBackendCapabilityException<br/>unsupported backend feature"]
 ```
 
-The key boundary is `QueryPlanInvocation`: an immutable `QueryPlanTemplate` paired with immutable `QueryPlanBindingValues`. SQL rendering, execution, and projection consume that boundary to decide whether a query can run directly, needs row-local recipe evaluation after materialization, or must be rejected. The original expression is parse input only; it is not retained in the template and is not recovered as a selector lambda during execution.
+The key parser boundary is `QueryPlanInvocation`: an immutable `QueryPlanTemplate` paired with immutable `QueryPlanBindingValues`. `QueryExecutionRequest` then binds that invocation to one read source. The source owns backend selection, and complete capability validation runs before SQL commands or Memory row work. The original expression is parse input only; it is not retained in the template and is not recovered as a selector lambda during execution.
 
 ## The Core Plan Model
 
@@ -79,7 +82,7 @@ That gives DataLinq a contract between parsing and execution. SQL is one consume
 
 ## Query Roots And Provider Ownership
 
-`db.Query()` exposes generated table properties as `IQueryable<T>`. Those queryables are rooted in `ExpressionQueryPlanProvider`, a DataLinq-owned `IQueryProvider`.
+`db.Query()` exposes generated table properties as `IQueryable<T>`. Those queryables are rooted in `ExpressionQueryPlanProvider`, a DataLinq-owned `IQueryProvider`. At execution time the read source must own every source slot in the plan and supply a backend bound to itself; this prevents a retained plan from being executed against unrelated metadata or a backend from another database/transaction/Memory source.
 
 When normal LINQ operators run, the .NET `Queryable` methods build expression trees. DataLinq receives those trees at enumeration or terminal execution time.
 

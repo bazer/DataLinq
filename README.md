@@ -11,7 +11,7 @@
 [![.NET 8, 9, 10](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010-512BD4?logo=dotnet)](https://github.com/bazer/DataLinq#installation)
 [![Supported targets](https://img.shields.io/badge/targets-SQLite%20%7C%20MySQL%208.4%2F9.7%20%7C%20MariaDB%2010.11%2F11.4%2F11.8%2F12.3-0A7BBB)](https://datalinq.org/)
 
-[Documentation website](https://datalinq.org/) | [Getting started](https://datalinq.org/docs/getting-started/Installation.html) | [Changelog](https://datalinq.org/CHANGELOG.html)
+[Documentation website](https://datalinq.org/) | [Getting started](https://datalinq.org/docs/getting-started/Installation.html) | [0.9 release candidate](https://datalinq.org/docs/releases/0.9.html) | [Changelog](https://datalinq.org/CHANGELOG.html)
 
 DataLinq is an immutable-first, source-generated ORM for .NET. It is built for applications where repeated reads, relation traversal, predictable object state, and cache behavior matter more than having an ORM translate every possible LINQ expression.
 
@@ -30,7 +30,7 @@ DataLinq makes a narrower trade:
 - **Honest LINQ support:** documented query shapes are backed by tests; unsupported shapes should fail clearly.
 - **Schema trust tooling:** `validate` and `diff` compare generated model metadata against live provider metadata without pretending to be full migrations.
 
-It is currently focused on SQLite, MySQL, and MariaDB for .NET 8, .NET 9, and .NET 10. DataLinq 0.9 also includes an experimental, read-only `DataLinq.Memory` backend for explicitly seeded generated models.
+It is currently focused on SQLite, MySQL, and MariaDB for .NET 8, .NET 9, and .NET 10. The unpublished [DataLinq 0.9 release candidate](https://datalinq.org/docs/releases/0.9.html) on `master` also adds an experimental, read-only `DataLinq.Memory` backend for explicitly seeded generated models.
 
 ### When It Fits
 
@@ -53,14 +53,14 @@ dotnet add package DataLinq.MySql
 dotnet add package DataLinq.SQLite
 ```
 
-For provider-free, read-only tests and transient state:
+The 0.9 candidate package set adds provider-free, read-only tests and transient state through:
 
 ```bash
 dotnet add package DataLinq
 dotnet add package DataLinq.Memory
 ```
 
-Memory is intentionally not a SQL emulator or a replacement for provider-backed integration tests. See the [Memory backend guide](https://datalinq.org/docs/backends/Memory.html) for its exact query and lifecycle boundary.
+Memory is intentionally not a SQL emulator or a replacement for provider-backed integration tests. The command above requires a published/pre-release `DataLinq.Memory` version; the candidate notes do not claim that the final 0.9 package is already on NuGet. See the [Memory backend guide](https://datalinq.org/docs/backends/Memory.html) for its exact query and lifecycle boundary.
 
 The CLI is installed as a dotnet tool named `datalinq`:
 
@@ -69,6 +69,8 @@ dotnet tool install --global DataLinq.CLI
 ```
 
 Current package and repo builds target .NET 8, .NET 9, and .NET 10.
+
+The 0.9 source generator is built against Roslyn 5.0. Visual Studio users therefore require Visual Studio 2026 version 18.0 or newer; command-line builds require a .NET SDK/compiler host containing Roslyn 5.0 or newer. Runtime target-framework support does not make Visual Studio 2022 a supported 0.9 generator host. See [Platform Compatibility](https://datalinq.org/docs/Platform%20Compatibility.html#compiler-host-compatibility) and Microsoft's [Roslyn package/Visual Studio mapping](https://learn.microsoft.com/en-us/visualstudio/extensibility/roslyn-version-support?view=visualstudio).
 
 ### Configuration
 The CLI reads `datalinq.json` and, if present next to it, `datalinq.user.json`.
@@ -171,9 +173,12 @@ After that, the deeper working docs are:
 - [Caching and Mutation](https://datalinq.org/docs/Caching%20and%20Mutation.html)
 - [Diagnostics and Metrics](https://datalinq.org/docs/Diagnostics%20and%20Metrics.html)
 - [Supported LINQ Queries](https://datalinq.org/docs/Supported%20LINQ%20Queries.html)
+- [Scalar Converters and Typed IDs](https://datalinq.org/docs/Scalar%20Converters%20and%20Typed%20IDs.html)
 - [Platform Compatibility](https://datalinq.org/docs/Platform%20Compatibility.html)
 - [Transactions](https://datalinq.org/docs/Transactions.html)
 - [Attributes and Model Definitions](https://datalinq.org/docs/Attributes%20and%20Model%20Definitions.html)
+- [Memory (experimental)](https://datalinq.org/docs/backends/Memory.html)
+- [0.9 Release Candidate Notes](https://datalinq.org/docs/releases/0.9.html)
 - [Internals](https://datalinq.org/docs/internals/)
 - [Troubleshooting](https://datalinq.org/docs/Troubleshooting.html)
 

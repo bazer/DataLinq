@@ -146,6 +146,62 @@ Example:
 public abstract Guid UserId { get; }
 ```
 
+### `[ScalarConverter(typeof(...))]`
+
+Maps a model-facing property type to one canonical provider CLR scalar. This is the normal way to expose typed IDs without teaching SQL providers, row caches, or query bindings about the wrapper type.
+
+```csharp
+[PrimaryKey]
+[Column("employee_id")]
+[ScalarConverter(typeof(EmployeeIdConverter))]
+public abstract EmployeeId Id { get; }
+```
+
+The converter must derive from `DataLinqScalarConverter<TModel,TProvider>`. A property attribute overrides an assembly-level `[ScalarConverterRegistration(typeof(TModel), typeof(TConverter))]`; registrations otherwise apply to every mapped value property of the exact model type.
+
+This contract is detailed enough to deserve its own page. See [Scalar Converters and Typed IDs](Scalar%20Converters%20and%20Typed%20IDs.md) for a compilable converter, construction and visibility rules, null handling, supported runtime boundaries, query/default limitations, and UUID-backed typed IDs.
+
+### `[GuidStorage(...)]`
+
+Selects the physical representation for a direct `Guid` property or a converter-backed property whose canonical provider CLR type is `Guid`.
+
+The provider-neutral form applies wherever the declared SQL type is compatible:
+
+```csharp
+[GuidStorage(GuidStorageFormat.Text36)]
+```
+
+Use the provider-scoped overload when one model targets different physical types:
+
+```csharp
+[Type(DatabaseType.MySQL, "binary", 16)]
+[GuidStorage(DatabaseType.MySQL, GuidStorageFormat.Binary16Rfc4122)]
+[Type(DatabaseType.MariaDB, "uuid")]
+[GuidStorage(DatabaseType.MariaDB, GuidStorageFormat.NativeUuid)]
+[Type(DatabaseType.SQLite, "text")]
+[GuidStorage(DatabaseType.SQLite, GuidStorageFormat.Text36)]
+[Column("external_id")]
+public abstract Guid ExternalId { get; }
+```
+
+The formats are deliberately explicit:
+
+| Format | Physical value | Compatible built-in SQL shapes |
+| --- | --- | --- |
+| `NativeUuid` | Provider-native UUID value/string | Unmodified MariaDB `UUID` |
+| `Text36` | Lowercase dashed `D` format | SQLite `TEXT`; MySQL/MariaDB `CHAR(36)` or `VARCHAR(36)` |
+| `Text32` | Lowercase compact `N` format | SQLite `TEXT`; MySQL/MariaDB `CHAR(32)` or `VARCHAR(32)` |
+| `Binary16LittleEndian` | Legacy .NET mixed-endian bytes from `Guid.ToByteArray()` | SQLite `BLOB`; MySQL/MariaDB `BINARY(16)` |
+| `Binary16Rfc4122` | RFC/string-order bytes | SQLite `BLOB`; MySQL/MariaDB `BINARY(16)` |
+
+Compatibility defaults preserve existing DataLinq behavior where the model type is unambiguous: MariaDB `UUID` uses `NativeUuid`; MySQL/MariaDB `BINARY(16)` uses the legacy little-endian layout; 36- and 32-character server text types select their matching text format; and DataLinq's built-in SQLite `TEXT` mapping uses `Text36`. SQLite `BLOB` has no safe byte-order default and requires an explicit binary format.
+
+Those defaults do not make a live schema self-describing. Bare `BINARY(16)` and `BLOB` do not reveal byte order, and SQLite `TEXT` does not reveal dashed versus compact text. `validate` reports unresolved or mismatched storage unless it has trusted resolved metadata. Supported joins involving canonical `Guid` keys also require the same resolved format on both sides before SQL is rendered.
+
+Changing `Binary16LittleEndian` to `Binary16Rfc4122`, or `Text36` to `Text32`, changes stored bytes/text. It is a data migration even when the SQL column type stays the same. `datalinq diff` will not invent that rewrite for you.
+
+`[DefaultGuid(...)]` is a fixed direct-`Guid` model default and is encoded through the resolved format. `[DefaultNewUUID]` is also currently direct-`Guid` only, and provider DDL generation rejects it until the provider/version/storage mapping is proven. Converter-backed typed-ID defaults are not implied by either attribute.
+
 ### `[Enum(...)]`
 
 Associates enum values with a database enum representation.
@@ -319,6 +375,7 @@ That is a good example of where the cache-related attributes belong: on the data
 
 - Use the generator and generated models as your baseline truth. Do not freestyle the model shape unless you understand what the metadata pipeline expects.
 - Prefer provider-specific `[Type(...)]` overrides only when you actually need provider-specific behavior.
+- Keep scalar converters deterministic and equality-preserving; configure UUID physical storage independently from model conversion.
 - Keep relation definitions simple and explicit.
 - Treat cache attributes as advanced tuning, not as required setup.
 - Use `[Definition(...)]` for views you expect `generate sql` to emit correctly.
