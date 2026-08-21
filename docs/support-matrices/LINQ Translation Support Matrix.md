@@ -7,6 +7,8 @@
 
 This matrix records what the active compliance tests prove today, where the public support docs are accurate, and which gaps remain outside the documented support boundary.
 
+Unless a row explicitly says otherwise, this is the SQL-provider translator matrix for SQLite, MySQL, and MariaDB. The experimental Memory backend consumes the same normalized plan vocabulary but publishes a deliberately smaller capability profile; its authoritative list is [DataLinq.Memory](../backends/Memory.md). SQL coverage in this table is not Memory parity.
+
 The evidence column intentionally points at test files instead of implementation files. If a shape is not represented in active tests, treat it as unsupported or at least undocumented until a focused regression test proves otherwise.
 
 ## 0.8 Parser Migration Status
@@ -91,7 +93,7 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | Single-row operators | `Single(predicate)`, `SingleOrDefault(predicate)`, `First(predicate)`, `FirstOrDefault(predicate)` | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesStringMemberTests.cs` | Public docs match this. |
 | Last-row operators | `Last()`, `LastOrDefault(predicate)` in ordered scenarios | `EmployeesQueryBehaviorTests.cs` | Public docs match this but should keep the existing advice to order explicitly. |
 | Unsupported tail/while operators | `TakeLast`, `SkipLast`, `TakeWhile`, `SkipWhile` throw `QueryTranslationException` | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
-| Scalar aggregates | `Sum`, `Min`, `Max`, `Average` over direct numeric members, nullable numeric members, nullable `.Value`, and filtered sequences | `Translation/EmployeesAggregateTranslationTests.cs` | The boundary is narrow: no computed selector aggregates or relation-property aggregates. Grouped aggregate projection is tracked separately below. |
+| Scalar aggregates | `Sum`, `Min`, `Max`, `Average` over direct identity-mapped numeric members, nullable numeric members, nullable `.Value`, and filtered sequences | `Translation/EmployeesAggregateTranslationTests.cs`, `Translation/ConvertedAggregateTranslationTests.cs` | The boundary is narrow: converter-backed numeric selectors, computed selectors, and relation-property aggregates are rejected before SQL execution. A scalar converter declares value conversion, not arithmetic/order preservation. Grouped aggregate projection is tracked separately below. |
 
 ## Ordering, Paging, and Projection
 

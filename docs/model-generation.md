@@ -41,7 +41,9 @@ Unsupported edits include:
 - expecting `--fresh` to preserve renamed members or custom property types
 - expecting arbitrary value-object member queries to work just because a property has a custom C# type
 
-Custom C# property types are preservation, not a full scalar-converter system. The 0.9 roadmap aims to make provider-value conversion first-class. Until that lands, keep custom type edits boring and verify the generated model with real queries and writes before relying on them.
+Changing a C# property type is only source-surface preservation; it does not define how the value reaches the provider. When the model type differs from the canonical provider scalar, add a property `[ScalarConverter(...)]` or an assembly-level `[ScalarConverterRegistration(...)]`. DataLinq 0.9 resolves that mapping during source generation and carries it through the supported read, write, key, relation, query, Memory, and schema-validation paths.
+
+Keep the typed-ID declaration and converter outside `ModelDirectory`, because `generate models` owns the declaration files it refreshes. See [Scalar Converters and Typed IDs](Scalar%20Converters%20and%20Typed%20IDs.md) for the complete contract. Arbitrary value-object member translation is still unsupported; a configured converter makes `row.Id == id` meaningful, not every expression over `row.Id.Value`.
 
 ## Custom Behavior
 

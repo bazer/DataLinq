@@ -74,6 +74,8 @@ The current comparison covers:
 
 UUID storage format is checked only after the physical SQL type matches. MySQL/MariaDB `CHAR(36)`/`VARCHAR(36)`, `CHAR(32)`/`VARCHAR(32)`, and native MariaDB `UUID` describe their representation in the schema. Bare MySQL/MariaDB `BINARY(16)` and SQLite `BLOB` or `TEXT` do not describe UUID byte order or text shape, so validation reports an `Error/Ambiguous` unresolved-format difference unless trusted metadata supplies the format. A known format change over the same SQL type requires manual data migration and is emitted only as a review comment; `diff` never invents a UUID data rewrite.
 
+The same rule covers direct `Guid` properties and converter-backed typed IDs whose canonical provider type is `Guid`. Read the [`[GuidStorage]` attribute contract](Attributes%20and%20Model%20Definitions.md#guidstorage) before resolving an ambiguity; choosing a different format from the existing data is a migration, not a validation fix.
+
 Configured validation parses model source without loading its compiled assembly. Raw provider/default `[GuidStorage]` declarations state direct UUID intent, but bare `Guid`, `System.Guid`, or `global::System.Guid` remains unresolved because an assembly-level scalar converter registration could change the canonical provider type. Property converter markers and typed IDs likewise need authoritative resolved metadata before UUID-format validation can make a compatibility claim.
 
 Provider-specific metadata support is summarized in [Provider Metadata Support Matrix](support-matrices/Provider%20Metadata%20Support%20Matrix.md).

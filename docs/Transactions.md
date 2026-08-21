@@ -5,6 +5,8 @@ DataLinq supports both implicit and explicit transactions.
 Use implicit transactions for one-off writes.
 Use explicit transactions when several writes, reads, or relation updates must happen as one unit.
 
+The managed `Transaction` wrapper is also the cache and mutable-lifecycle authority. Finish through `Commit()`, `Rollback()`, or `Dispose()` on that wrapper; low-level provider handles cannot complete DataLinq's local state safely.
+
 The default transaction type is `TransactionType.ReadAndWrite`. There are also `ReadOnly` and `WriteOnly` modes when you want to be explicit about intent.
 
 ## Implicit Transactions
@@ -101,28 +103,50 @@ Within the same transaction:
 - repeated reads of the same row return the same immutable instance
 - transaction-local changes are visible through `transaction.Query()`
 - relation updates are visible inside the transaction once inserted or updated rows exist there
+- successful writes advance touched mutable baselines to transaction-local state; they are not committed baselines yet
 
-### After commit
+If any managed mutation fails during provider execution, generated-value hydration, transaction-local cache application, or mutable finalization, the transaction becomes poisoned. The original mutation exception is preserved, touched mutables are invalidated with `MutationFailed`, and later managed reads, writes, and `Commit()` throw `TransactionPoisonedException`. Only `Rollback()` or `Dispose()` remains a valid managed recovery attempt.
 
-After `Commit()`:
+### Completion outcomes
 
-- transaction-local cache entries are merged into the global cache
-- later queries outside the transaction see the committed state
-- the transaction should be treated as finished
+The database outcome and DataLinq's local outcome are separate facts:
 
-### After rollback
+| Outcome | What DataLinq does | What application code must do |
+| --- | --- | --- |
+| Clean commit | The provider commit succeeds, committed cache changes are published, transaction-local state is removed, touched mutable baselines are promoted, then committed status is observed. | Use returned/fresh immutable rows; treat the transaction as finished. |
+| Mutation failure before completion | The transaction is poisoned and touched mutables are invalidated. No later managed read/write/commit is allowed. | Roll back or dispose; discard transaction rows and mutables; retry in a new transaction from fresh committed rows. |
+| Clean rollback | Transaction-local state is removed and transaction-derived mutable baselines are invalidated as `RolledBack`. | Discard transaction rows and mutables; re-read through the database if continuing. |
+| Database commit known, local finalization fails | `TransactionCommitFinalizationException` reports that the database committed, while DataLinq removes local state, clears committed caches conservatively, discards recovery notifications, and invalidates touched mutables. | Do **not** retry commit or report rollback. Re-read committed data through a fresh database scope. |
+| Provider commit outcome unknown | The original provider exception is rethrown with DataLinq recovery context; local state is removed, committed caches are cleared conservatively, and touched mutables are invalidated as `CommitOutcomeUnknown`. | Do not assume commit or rollback. Dispose (or use the narrowly permitted rollback attempt only as provider recovery, not proof), then reconcile from fresh committed reads. |
+| Rollback outcome unknown | DataLinq removes/clears uncertain state and invalidates mutables as `RollbackOutcomeUnknown`. | Do not claim the database rolled back. Dispose and reconcile from a fresh scope. |
+| Attached transaction completed externally | DataLinq cannot infer commit versus rollback, clears uncertain cache state, and invalidates transaction-derived mutables as `ExternalCompletionUnknown`. | Dispose the wrapper, discard bound objects, and query fresh committed state. |
+| Open transaction disposed | The provider is asked to dispose/roll back, transaction-local state is removed, and transaction-derived mutables are invalidated as `OpenTransactionDisposed`. | Treat the wrapper and all transaction-derived state as finished. |
 
-After `Rollback()`:
+`TransactionCommitFinalizationException` is intentionally different from an unknown commit exception: its existence means the database commit succeeded. Retrying the write can duplicate data.
 
-- transaction-local changes are discarded
-- later queries outside the transaction see the old committed state
-- the transaction should be treated as finished
+### Mutable validity
+
+A mutable created from or successfully written through a transaction is usable only while its baseline is trustworthy. A clean commit promotes that baseline only after cache publication and local cleanup succeed. Rollback, failed mutation, uncertain completion, external completion, disposal of an open transaction, or known-committed local finalization failure permanently invalidates it.
+
+An invalid mutable throws an `InvalidOperationException` naming the invalidation reason when code tries to save, reset, or otherwise advance its baseline. Do not repair it by calling `Reset()` or copying values back into it. Materialize a fresh committed immutable row through the database, call `Mutate()` on that row, and retry the whole logical operation in a new transaction.
 
 ### Single-use lifecycle
 
-The test suite explicitly covers that calling `Commit()` or `Rollback()` again after completion throws.
+The test suite explicitly covers that calling `Commit()` or `Rollback()` again after completion throws. Reads and writes through a committed or rolled-back wrapper are also rejected. Concurrent managed operations are fenced while mutation or completion is being finalized.
 
 That is the correct behavior. A transaction object is not a reusable session object.
+
+## Recovery Checklist
+
+After any failure whose outcome or local state is uncertain:
+
+1. Preserve the original exception and inspect its type and DataLinq context; do not translate every failure into “rolled back”.
+2. Finish only through the managed wrapper using the operation still permitted by the diagnostic.
+3. Discard transaction-bound immutable rows, relation results, and mutable instances.
+4. Let DataLinq's conservative cache cleanup stand; if raw writes occurred outside the wrapper, explicitly invalidate the affected database/table/rows too.
+5. Create a fresh database/transaction scope and re-read committed data before deciding whether to retry.
+
+Retry the whole idempotent business operation only after reconciling state. Retrying an isolated statement after an unknown commit is how duplicate rows are born.
 
 ## Provider Caveat: SQLite vs MySQL/MariaDB
 

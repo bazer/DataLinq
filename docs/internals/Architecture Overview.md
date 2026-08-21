@@ -25,12 +25,16 @@ flowchart LR
 
     Generated --> Runtime
     Runtime --> Metadata["Frozen metadata"]
-    Runtime --> Query["LINQ and SQL pipeline"]
+    Runtime --> Query["LINQ parser and execution request"]
     Runtime --> Mutation["Mutation and transactions"]
     Runtime --> Cache["Row and relation caches"]
     Runtime --> Metrics["Diagnostics and metrics"]
 
-    Query --> Providers["SQLite / MySQL / MariaDB providers"]
+    Query --> BackendGate["Source-owned backend selection<br/>and capability validation"]
+    BackendGate --> SqlBackend["SQL query-plan backend"]
+    BackendGate --> MemoryBackend["Memory query-plan backend"]
+    SqlBackend --> Providers["SQLite / MySQL / MariaDB providers"]
+    MemoryBackend --> MemoryRows[("Explicitly seeded rows")]
     Mutation --> Providers
     Cache --> Providers
     Providers --> Database[("Database")]
@@ -103,6 +107,8 @@ Unsupported shapes should fail with `QueryTranslationException` or a clear unsup
 
 See [Query Translator](Query%20Translator.md) and [LINQ Parser Architecture](LINQ%20Parser%20Architecture.md).
 
+Normalized query execution is source-owned. The parser produces one structural template plus invocation values, a request binds that plan to a read source, and the source supplies the SQL or Memory backend. Full capability validation happens before provider commands or Memory row work.
+
 ### Provider Differences Are Explicit
 
 SQLite, MySQL, and MariaDB do not expose identical DDL, type, default, index, collation, view, or generated-column behavior. DataLinq documents the supported metadata subset instead of pretending providers are interchangeable at every edge.
@@ -117,7 +123,9 @@ flowchart TB
     GeneratedSurface --> RuntimeCore["Runtime core<br/>query, mutation, instance factory"]
     RuntimeCore --> MetadataLayer["Frozen metadata<br/>tables, columns, keys, relations"]
     RuntimeCore --> CacheLayer["Cache layer<br/>rows, indexes, relation state"]
-    RuntimeCore --> ProviderLayer["Provider layer<br/>SQL, commands, schema reads"]
+    RuntimeCore --> BackendLayer["Source-owned query backend<br/>capability validation"]
+    BackendLayer --> ProviderLayer["SQL provider layer<br/>commands, schema reads"]
+    BackendLayer --> MemoryLayer["Memory backend<br/>seeded canonical rows"]
     ProviderLayer --> Db[("Database")]
     CacheLayer --> ProviderLayer
     RuntimeCore --> Diagnostics["Diagnostics and telemetry"]
@@ -128,11 +136,12 @@ flowchart TB
 The useful mental model is:
 
 1. Application code queries through generated table properties.
-2. The query pipeline translates the supported LINQ shape into SQL.
-3. Entity-shaped reads usually retrieve primary keys first.
-4. The table cache reuses existing immutable instances for cache hits.
-5. Missing rows are fetched and materialized.
-6. Results are returned as immutable models or supported projection values.
+2. The parser freezes a `QueryPlanTemplate` plus invocation values.
+3. A `QueryExecutionRequest` binds the plan to the read source, which selects its own backend.
+4. DataLinq validates source ownership and the complete plan against the backend capability profile.
+5. SQL entity reads usually retrieve primary keys first; Memory reads operate only on explicitly seeded rows.
+6. Canonical provider rows are converted at the model boundary, and generated entities are cached by provider-key identity.
+7. Results are returned as immutable models or supported projection values.
 
 That cache-aware shape is why key identity and generated metadata matter so much. It is also not the only read shape: scalar results, SQL-backed projection rows, grouped aggregate rows, and supported joined projection rows can read SQL aliases directly when the query plan proves the values are source-slot or aggregate values rather than generated entities.
 
@@ -142,12 +151,12 @@ The write model is separate:
 
 1. Application code mutates an immutable instance or creates a mutable model.
 2. A transaction records changed values.
-3. Provider SQL writes the change.
-4. DataLinq updates transaction/global cache state.
-5. A fresh immutable instance represents the saved row.
-6. Relation/index cache entries are invalidated or refreshed at the supported precision.
+3. Provider SQL writes the change and the transaction publishes canonical transaction-local state.
+4. A fresh transaction-bound immutable instance represents the saved row.
+5. Clean commit publishes global cache/relation state and only then promotes touched mutable baselines.
+6. Mutation failure, rollback, uncertain completion, external completion, or local finalization failure removes/clears state conservatively and invalidates affected mutables.
 
-The mutation path is explicit because cache coherence depends on knowing what changed.
+The mutation path is explicit because cache coherence depends on knowing what changed and whether the database outcome is known. A known commit followed by local failure is not the same state as a provider commit call whose outcome is unknown.
 
 ## Internals Reading Order
 

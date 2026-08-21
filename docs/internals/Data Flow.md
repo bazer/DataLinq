@@ -17,11 +17,13 @@ flowchart LR
 
     Generated --> Runtime["Runtime API"]
     Frozen --> Runtime
-    Runtime --> Query["Query pipeline"]
+    Runtime --> Query["Parser and execution request"]
     Runtime --> Mutation["Mutation pipeline"]
     Runtime --> Cache["Cache and invalidation"]
 
-    Query --> Provider["Provider"]
+    Query --> Backend["Source-owned backend<br/>capability gate"]
+    Backend --> Provider["SQL provider"]
+    Backend --> Memory["Memory backend"]
     Mutation --> Provider
     Provider --> Db[("Database")]
     Cache --> Runtime
@@ -90,13 +92,19 @@ flowchart TD
     B --> V["QueryPlanBindingValues freezes captured invocation data"]
     C --> I0["QueryPlanInvocation validates and binds template plus values"]
     V --> I0
-    I0 --> D{"Execution path"}
+    I0 --> RQ["QueryExecutionRequest binds source"]
+    RQ --> OWN["Validate source ownership"]
+    OWN --> SEL["Source selects bound backend"]
+    SEL --> CAP["Validate complete capability profile"]
+    CAP -- "supported" --> D{"Backend/result path"}
+    CAP -- "unsupported" --> X["Throw QueryBackendCapabilityException<br/>before backend work"]
     D -- "entity sequence or entity terminal" --> E["Build key/entity SQL"]
     E --> F{"Rows in table cache?"}
     F -- "hit" --> G["Reuse immutable instance"]
     F -- "miss" --> H["Fetch missing row data"]
-    H --> I["Materialize immutable instance"]
-    I --> J["Store by provider key"]
+    H --> CAN["Decode canonical provider row"]
+    CAN --> I["Convert and materialize immutable instance"]
+    I --> J["Store by canonical provider key"]
     G --> K["Return model instance"]
     J --> K
     D -- "scalar result" --> L["Build scalar SQL<br/>COUNT, ANY, SUM, MIN, MAX, AVG"]
@@ -106,13 +114,16 @@ flowchart TD
     O --> P["Construct projection row"]
     D -- "row-local projection" --> Q["Materialize source rows through cache"]
     Q --> R["Evaluate normalized projection recipe"]
+    D -- "Memory" --> MEM["Execute supported plan over explicitly seeded canonical rows"]
+    MEM --> MM["Convert and materialize model values"]
     K --> S["Return result"]
     M --> S
     P --> S
     R --> S
+    MM --> S
 ```
 
-The query pipeline is intentionally bounded. It supports documented predicates, ordering, paging, projections, scalar aggregates, grouped aggregate rows, a supported explicit inner-join shape, a single query-syntax inner-join shape, singular implicit relation joins for documented member access, and relation-backed existence predicates. Unsupported expression shapes are rejected rather than guessed.
+The query pipeline is intentionally bounded. SQL supports the documented predicates, ordering, paging, projections, scalar aggregates, grouped aggregate rows, join shapes, and relation predicates. Memory publishes a smaller capability profile. Parser-invalid expressions and backend-invalid normalized plans are rejected at separate gates instead of being guessed or partially executed.
 
 ## Direct Primary-Key Lookup
 
@@ -150,26 +161,22 @@ Relation traversal is lazy and cache-aware. That is why relation/index invalidat
 ## Mutation And Transaction Flow
 
 ```mermaid
-sequenceDiagram
-    participant App as Application
-    participant Immutable as Immutable model
-    participant Mutable as Mutable wrapper
-    participant Tx as Transaction
-    participant Provider as Provider SQL
-    participant Cache as Cache state
-
-    App->>Immutable: Mutate(...)
-    Immutable-->>Mutable: Mutable copy
-    App->>Mutable: Change properties
-    Mutable->>Tx: Save / Insert / Update
-    Tx->>Provider: Execute write command
-    Provider-->>Tx: Persisted row/defaults
-    Tx->>Cache: Apply state changes
-    Cache-->>Tx: Invalidated or refreshed rows/indexes
-    Tx-->>App: Fresh immutable instance
+flowchart TD
+    A["Committed immutable row"] --> B["Create and edit mutable wrapper"]
+    B --> C["Managed transaction executes provider write"]
+    C --> D{"Mutation succeeds?"}
+    D -- "no" --> E["Poison transaction<br/>remove uncertain local state<br/>invalidate touched mutables"]
+    E --> F["Return original failure<br/>allow rollback or disposal only"]
+    D -- "yes" --> G["Decode canonical persisted row/defaults<br/>publish transaction-local state"]
+    G --> H["Return fresh transaction-bound immutable row"]
+    H --> I{"Completion outcome"}
+    I -- "clean commit" --> J["Publish committed cache state<br/>remove local state<br/>promote mutable baselines"]
+    I -- "commit outcome unknown" --> K["Remove local state<br/>clear caches conservatively<br/>invalidate mutables"]
+    I -- "database committed; local finalization fails" --> L["Report known commit<br/>clear caches conservatively<br/>invalidate mutables"]
+    I -- "rollback or open disposal" --> M["Remove transaction-local state<br/>invalidate mutables"]
 ```
 
-DataLinq does not rely on invisible dirty tracking. The mutation object is the write surface, and the transaction owns when changes become durable.
+DataLinq does not rely on invisible dirty tracking. The mutation object is the write surface, and the transaction owns when changes become durable. Database completion and local cache/mutable finalization are separate outcomes; see [Transactions](../Transactions.md#completion-outcomes) for the recovery contract.
 
 ## Cache Invalidation Flow
 

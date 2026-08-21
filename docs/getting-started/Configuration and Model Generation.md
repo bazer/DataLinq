@@ -144,6 +144,8 @@ The model declaration files are regenerated files with a supported edit surface.
 
 For the exact rules, see [Model Generation](../model-generation.md).
 
+If you replace a generated scalar property with a typed ID, type preservation is only half the job. Configure the model-to-provider mapping with a scalar converter and, for a canonical `Guid`, select the physical UUID format explicitly where the schema is ambiguous. Start with [Scalar Converters and Typed IDs](../Scalar%20Converters%20and%20Typed%20IDs.md), then use the [`[GuidStorage]` attribute contract](../Attributes%20and%20Model%20Definitions.md#guidstorage).
+
 ## Regeneration Details
 
 When `generate models` updates existing files in `ModelDirectory`, DataLinq preserves supported C# surface edits such as renamed members, shared enum property types, namespaces, and existing `using` directives for files it can match. New files still use the namespace from `datalinq.json`.

@@ -1,135 +1,143 @@
-# Implementing a New Backend for DataLinq
+# Implementing a New SQL Provider
 
-DataLinq is extensible, but "backend agnostic" should not be oversold.
+DataLinq has two different seams that are easy to confuse:
 
-The current design is friendliest to SQL-backed providers with ADO.NET-style connections, commands, readers, and transactions. If your target backend fits that shape, adding a provider is realistic. If it does not, expect real friction.
+1. a public SQL provider/plugin surface for a database that fits the existing ADO.NET and metadata model;
+2. an internal query-plan backend seam used by the built-in SQL and Memory executors.
 
-The concrete extension points are:
+0.9 does **not** ship a public SDK for arbitrary non-SQL execution backends. `IQueryPlanBackend`, `QueryExecutionRequest`, capability profiles, cursors, and the Memory executor are internal runtime architecture. Copying `DataLinq.Memory` and registering it through `PluginHook` is not a supported extension path.
 
-1. metadata reading
-2. SQL generation from metadata
-3. runtime provider and transaction behavior
-4. provider registration through `PluginHook`
+The practical public extension is a SQL provider whose connection, command, reader, transaction, metadata, and DDL behavior can satisfy DataLinq's existing contracts.
 
-## 1. Metadata Reading
+## Public SQL Provider Surface
 
-### Purpose
+A complete provider normally owns four connected pieces:
 
-The first job is schema introspection. That means turning backend-specific metadata into DataLinq's internal `DatabaseDefinition`, `TableDefinition`, `ViewDefinition`, and `ColumnDefinition` structures.
+| Concern | Public hook | Responsibility |
+| --- | --- | --- |
+| Runtime database creation | `IDatabaseProviderCreator` | Create the provider-specific `Database<T>` and configure logging/type recognition. |
+| Schema metadata | `IMetadataFromDatabaseFactoryCreator` + `IMetadataFromSqlFactory` | Read tables, views, columns, keys, indexes, relations, defaults, and supported provider details into `DatabaseDefinition`. |
+| DDL generation/application | `ISqlFromMetadataFactory` | Render supported metadata to provider SQL and create the database/file when requested. |
+| Registration | `PluginHook` dictionaries | Bind one `DatabaseType` to all three creator/factory roles. |
 
-### How It's Done in DataLinq
+The public interfaces are real, but this remains a low-level provider contract, not a polished third-party-provider SDK. You own consistency across runtime codecs, SQL rendering, metadata import, schema comparison, transactions, and tests.
 
-- MySQL and MariaDB use metadata factories built on `information_schema`.
-- SQLite uses `sqlite_master` plus PRAGMA queries.
-- Both factories finish by running shared metadata passes that parse indices, relations, interfaces, and indexed columns.
+## 1. Runtime and ADO.NET Integration
 
-### Steps to Implement
+Implement `IDatabaseProviderCreator` and a provider-specific `Database<T>`/provider stack that can:
 
-1. **Create a new metadata factory**
-   - Implement `IMetadataFromDatabaseFactoryCreator`.
-   - Return a backend-specific `IMetadataFromSqlFactory`.
-   - Read tables, views, columns, indices, and foreign keys from the backend's own metadata source.
-2. **Map types honestly**
-   - Convert native backend types into C# types and DataLinq metadata.
-   - Decide how provider-specific types, nullability, auto-increment, enums, and defaults are represented.
-3. **Test edge cases**
-   - Cover views, composite keys, nullable columns, foreign keys, and type mapping oddities.
+- create and open compatible `IDbConnection` instances;
+- create parameterized commands and wrap data readers;
+- bind canonical provider CLR values to the provider's physical/wire representation;
+- decode provider values into canonical rows before model conversion;
+- create and attach provider transactions;
+- report commit/rollback status accurately enough for DataLinq's managed lifecycle;
+- preserve command and transaction telemetry without leaking SQL or parameter values.
 
-## 2. The Default Type System Contract
+Transaction integration is not merely “call `Commit()`”. The DataLinq wrapper publishes committed cache state only after the database commit is known, distinguishes an unknown provider outcome from a known commit followed by local finalization failure, and invalidates transaction-derived mutable baselines conservatively. A provider adapter that lies about status will corrupt the higher-level lifecycle. Read [Transactions](Transactions.md) before implementing this layer.
 
-To improve portability, DataLinq uses a set of standardized default type names. When a model does not carry a provider-specific `[Type(...)]` override, the provider's `ISqlFromMetadataFactory` should translate these default types into native backend types.
+## 2. Schema Metadata Reading
 
-| Default Type Name | Represents C# Type(s) | Typical Native Mapping |
-| :--- | :--- | :--- |
+Implement `IMetadataFromDatabaseFactoryCreator` and return an `IMetadataFromSqlFactory` for schema introspection.
+
+The reader must map the provider's supported surface into DataLinq metadata without silently flattening unsupported details. Existing providers use:
+
+- MySQL/MariaDB `information_schema`;
+- SQLite `sqlite_master` plus PRAGMA queries.
+
+At minimum, decide and test:
+
+- tables versus views;
+- ordered columns and exact database names;
+- provider SQL type, length, signedness, precision, and scale;
+- nullability, primary keys, auto-increment/generated values, and defaults;
+- simple/unique/composite indexes;
+- ordered foreign keys and supported referential actions;
+- comments/checks or an explicit unsupported disposition;
+- canonical provider CLR types and UUID-format ambiguity.
+
+When provider metadata cannot represent a DataLinq distinction, warn, reject, or leave it unresolved. Importing lossy metadata as if it were exact makes `validate` worse than useless.
+
+## 3. The Default Type Contract
+
+When a model has no provider-specific `[Type(...)]`, `ISqlFromMetadataFactory` translates DataLinq's default type names:
+
+| Default type | Canonical CLR values | Typical native mapping |
+| --- | --- | --- |
 | `integer` | `int`, `uint`, `short`, `ushort` | `INT`, `INTEGER` |
 | `big-integer` | `long`, `ulong` | `BIGINT` |
 | `decimal` | `decimal` | `DECIMAL`, `NUMERIC` |
-| `float` | `float` | `FLOAT`, `REAL` |
-| `double` | `double` | `DOUBLE` |
+| `float`, `double` | `float`, `double` | `REAL`, `FLOAT`, `DOUBLE` |
 | `text` | `string`, `char` | `TEXT`, `VARCHAR`, `CLOB` |
-| `boolean` | `bool` | `BOOLEAN`, `BIT` |
-| `datetime` | `DateTime` | `DATETIME` |
-| `timestamp` | `DateTime` | `TIMESTAMP` |
-| `date` | `DateOnly` | `DATE` |
-| `time` | `TimeOnly` | `TIME` |
-| `uuid` | `Guid` | `UUID`, `UNIQUEIDENTIFIER`, `BINARY(16)` |
+| `boolean` | `bool` | `BOOLEAN`, `BIT`, integer affinity |
+| `datetime`, `timestamp` | `DateTime` | Provider temporal type |
+| `date`, `time` | `DateOnly`, `TimeOnly` | Provider temporal type |
+| `uuid` | `Guid` | Native UUID, text, or 16-byte binary |
 | `blob` | `byte[]` | `BLOB`, `VARBINARY` |
-| `json` | `string` | `JSON`, `JSONB`, text fallback |
-| `xml` | `string` | `XML`, text fallback |
+| `json`, `xml` | usually `string` | Native type or documented text fallback |
 
-The sharp edge here is obvious: the presence of default type names does not magically make every backend equally natural. They are a portability contract, not a promise of identical semantics.
+These names are a portability input, not a promise of identical semantics. Provider-specific type attributes, scalar converters, and physical UUID storage still have to resolve to a compatible mapping.
 
-## 3. SQL Generation From Metadata
+For canonical `Guid`, implement every claimed `GuidStorageFormat` consistently across parameters, readers, DDL, fixed defaults, schema validation, and joins. Bare binary types do not reveal byte order. See the [`[GuidStorage]` contract](Attributes%20and%20Model%20Definitions.md#guidstorage).
 
-### Purpose
+## 4. DDL From Metadata
 
-For SQL-based backends, DataLinq needs to generate DDL from metadata.
+Implement `ISqlFromMetadataFactory` so the metadata reader and SQL generator round-trip the same supported subset.
 
-### How It's Done in DataLinq
+Cover:
 
-- Providers register an `ISqlFromMetadataFactory`.
-- Existing implementations sort tables and views, emit DDL, and translate DataLinq default types or existing provider-specific types into backend SQL.
+- identifier quoting and database names;
+- provider-specific/default type translation;
+- primary keys, unique/simple indexes, and ordered foreign keys;
+- nullability, auto-increment, defaults, and supported referential actions;
+- view definitions inside the provider's documented boundary;
+- UUID physical formats and fail-closed unsupported/default-generation cases.
 
-### Steps to Implement
+DataLinq's `diff` command is intentionally more conservative than the raw DDL generator. Do not broaden migration claims merely because a provider can emit `CREATE TABLE`.
 
-1. **Develop a SQL generator**
-   - Accept `DatabaseDefinition` and emit backend-specific DDL.
-   - Handle quoting, defaults, type names, primary keys, unique indices, and foreign keys.
-2. **Align with metadata**
-   - Make sure your SQL generator and metadata factory agree on type and constraint semantics.
-3. **Support output and execution**
-   - Return SQL text and support applying it against the target database or file.
+## 5. Register the Provider
 
-## 4. Runtime Provider and Transaction Behavior
+Register all required roles for the same `DatabaseType`:
 
-### Purpose
+```csharp
+PluginHook.DatabaseProviders[type] = databaseProviderCreator;
+PluginHook.MetadataFromSqlFactories[type] = metadataFactoryCreator;
+PluginHook.SqlFromMetadataFactories[type] = sqlFactory;
+```
 
-Beyond schema management, a provider must actually run queries and writes. That means connection creation, command execution, reader wrapping, transaction management, and provider-specific SQL behavior.
+Missing one dictionary leaves a half-installed provider: runtime construction, model generation/schema reads, or SQL generation will fail independently.
 
-### How It's Done in DataLinq
+## 6. Query Execution Boundary
 
-- Providers create backend-specific `Database<T>` implementations and transaction classes.
-- Transactions are responsible for opening connections, choosing isolation level, executing commands, and committing or rolling back.
-- The LINQ layer and SQL builder rely on those provider pieces rather than talking to the backend directly.
+SQL providers do not implement `IQueryPlanBackend` themselves. The core runtime's internal `SqlQueryPlanBackend` owns normalized-plan capability validation and SQL query execution, then calls the selected DataLinq read source/provider services.
 
-### Steps to Implement
+That separation is intentional:
 
-1. **Implement the provider creator**
-   - Implement an `IDatabaseProviderCreator`.
-   - Register a concrete provider that can create `Database<T>` instances for your backend.
-2. **Wrap native readers**
-   - Make sure parameterized commands and scalar reads behave correctly.
-3. **Implement transaction behavior**
-   - Choose sane isolation defaults and cooperate with DataLinq's transaction lifecycle.
-   - Cache merge behavior after commit matters. Get that wrong and the provider will feel haunted.
-4. **Make failures diagnosable**
-   - Integrate logging and provide useful error behavior.
+```text
+ExpressionQueryPlanParser
+  -> QueryPlanTemplate + invocation values
+  -> QueryExecutionRequest
+  -> source-owned SqlQueryPlanBackend
+  -> capability validation
+  -> QueryPlanSqlBuilder
+  -> provider command/reader/transaction services
+```
 
-## 5. Registering the New Backend
+If a future release exposes a public non-SQL backend API, it will need a versioned capability, row, materialization, cancellation, and lifecycle contract. The internal 0.9 types are not that promise.
 
-Registration is not just "call `RegisterProvider()` and hope for the best".
+## 7. Verification Expectations
 
-In practice, you need to populate the relevant `PluginHook` dictionaries:
+Do not ship a provider with happy-path CRUD tests. At minimum verify:
 
-- `DatabaseProviders`
-- `SqlFromMetadataFactories`
-- `MetadataFromSqlFactories`
+- provider metadata read -> DDL -> fresh schema -> metadata roundtrip;
+- `validate` and conservative `diff` behavior for the supported subset;
+- scalar converter and direct value reads/writes;
+- every claimed UUID physical format, including legacy data and mismatches;
+- generated primary-key lookup, cache hits, relations, and supported joins;
+- query parameters, local membership, scalar results, and projection readers;
+- insert/update/delete plus database-generated value hydration;
+- commit, rollback, mutation failure, unknown outcome, attached transaction, disposal, and mutable invalidation;
+- telemetry and redacted diagnostics;
+- the shared TUnit compliance suite plus provider-specific edge cases.
 
-If one of those is missing, the provider is only half-installed.
-
-## 6. Testing Expectations
-
-Do not ship a provider with only happy-path tests.
-
-At minimum, verify:
-
-- schema introspection
-- type mapping in both directions
-- DDL generation
-- transaction lifecycle
-- simple reads and writes
-- cache-aware repeated reads
-
-## 7. Summary
-
-Adding a new backend is practical when the backend looks enough like the existing SQL providers. The real work is not just syntax translation. It is getting metadata, transactions, and cache-aware runtime behavior all to agree.
+The hard part is not SQL syntax. It is making metadata, canonical values, physical codecs, transactions, and cache identity tell the same story.

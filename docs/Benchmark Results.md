@@ -45,13 +45,16 @@ Do not compare default numbers directly against heavy numbers. They use differen
 
 <script type="module" src="../public/benchmark-results.js"></script>
 
-## Maintainer Evidence
+## 0.9 Candidate Disposition
 
-Exact artifact paths below are repo-local release evidence, not website downloads. They are useful to maintainers reviewing the 0.8 release pass, but they should not be read as public performance claims.
+The 0.9 candidate does not claim literal allocation parity with final 0.8 across the calibrated suite. It reaches or beats the final-0.8 allocation baseline on the accepted key rows, while four of nine `sqlite-memory` rows remain above their strict budgets: update employees, cold relation traversal, CRUD workflow batch, and CRUD workflow small.
 
-The final 0.8 release pass refreshed local heavy-profile benchmark histories:
+Those exceptions were accepted without raising the budgets because the remaining candidates require correctness-sensitive cache, ownership, transaction, or provider-lifetime work. The candidate comparison has no telemetry changes and does not establish a stable non-noisy latency regression or improvement. A reproducible latency regression remains a blocker.
 
-- `artifacts/benchmarks/history/v0.8-final-query-hotpath.json`
-- `artifacts/benchmarks/history/v0.8-final-phase2-watch.json`
+Use the [0.9 candidate release notes](releases/0.9.md#performance-and-final-08-comparison), [calibrated receipt in PR #82](https://github.com/bazer/DataLinq/pull/82), and [#26 disposition](https://github.com/bazer/DataLinq/issues/26#issuecomment-5344291969) for exact B/op values, commits, run identity, and rationale. This is candidate/source evidence. Final package-backed evidence and the explicit release GO remain tracked in [issue #80](https://github.com/bazer/DataLinq/issues/80).
 
-Those files are release evidence, not marketing copy. The query-hotpath run still had noisy rows, so it should not be used as a latency-improvement claim. The watchpoint run is useful for allocation baselines; for example, warm primary-key fetch remained at 1.77 KB allocated in both SQLite memory and file modes on that machine.
+## Historical 0.8 Evidence
+
+The [0.8 GitHub release](https://github.com/bazer/DataLinq/releases/tag/0.8.0) is the durable published boundary. Maintainer records also name repo-local `artifacts/...` histories used during that release, but those paths are not website downloads and are not reproduced here as if they were public benchmark artifacts.
+
+The historical 0.8 query-hotpath run contained noisy latency rows, so it is not an honest latency-improvement claim. Its allocation histories remain useful as the fixed comparison baseline used by the 0.9 candidate disposition above.

@@ -6,6 +6,8 @@ That is a good thing, not a defect. A small, test-backed query surface is far be
 
 For the exact query shapes that are currently safe to rely on, see [Supported LINQ Queries](Supported%20LINQ%20Queries.md).
 
+The examples on this page use the SQL backend through SQLite, MySQL, or MariaDB. The experimental [Memory backend](backends/Memory.md) consumes the same normalized query-plan boundary but intentionally accepts a much smaller, read-only subset.
+
 ## Runtime Setup
 
 At runtime you connect with a normal connection string. The JSON config files are for the CLI, not for ordinary application queries.
@@ -72,6 +74,23 @@ Mutable arrays and local collections are snapshotted for each invocation before 
 
 Changing invocation values must flow through the prepared argument. Closure-captured values are rejected because retaining a closure would silently cache stale state—and often the database or transaction along with it. DataLinq does not maintain an automatic global expression cache; preparation is explicit and therefore bounded by the prepared objects your application chooses to retain.
 
+## Backend Selection and Capability Rejection
+
+The production path is:
+
+```text
+ExpressionQueryPlanParser
+  -> QueryPlanTemplate + invocation values
+  -> QueryExecutionRequest
+  -> source-owned backend selection
+  -> full capability validation
+  -> SQL or Memory execution
+```
+
+The read source owns the backend. A SQL `Database` or `Transaction` selects its bound `SqlQueryPlanBackend`; `MemoryDatabase` selects its bound Memory backend. The request verifies that the source owns every plan table and that the selected backend is bound to that same source before it executes anything.
+
+Parsing and backend support are different gates. An expression can be structurally valid and still require a feature the selected backend does not implement. That case throws `QueryBackendCapabilityException`—a `QueryTranslationException` subtype with `BackendName`, `Feature`, and `Location`—before Memory row work or SQL command execution. DataLinq does not partially execute the plan and does not silently fall back to unrestricted LINQ-to-objects.
+
 ## SQL-Backed Result Shapes
 
 The supported LINQ surface is no longer just "filter entities and hydrate them." Direct source-slot projections, scalar results, grouped aggregate rows, and supported join projection rows can be SQL-backed.
@@ -115,7 +134,7 @@ Those examples still live inside a deliberately bounded translator. For relation
 
 ## Entity Query Execution Flow
 
-This flow describes entity-shaped reads: queries that return generated model instances, direct primary-key lookups, and row-local projections that first materialize source rows. It is not the execution path for every successful query.
+This SQL flow describes entity-shaped reads after the parser, request, source selection, and capability gate have accepted the plan. It covers queries that return generated model instances, direct primary-key lookups, and row-local projections that first materialize source rows. It is not the execution path for every successful query or for Memory.
 
 ```mermaid
 ---
@@ -167,6 +186,8 @@ flowchart TD
 ## What the Runtime Actually Does
 
 The important behavior splits by result shape.
+
+Before that split, DataLinq builds a `QueryExecutionRequest`, asks the read source for its bound backend, validates source ownership, and validates the complete normalized plan against that backend's capabilities. Only an accepted SQL request reaches the SQL paths below.
 
 For entity-shaped reads:
 
@@ -250,6 +271,7 @@ flowchart TD
 
 - If row order matters, order explicitly before calling `First`, `Last`, or paging operators. Unordered "first" is fake determinism.
 - Unsupported LINQ shapes should fail with `QueryTranslationException` during translation. They do not silently become good ideas.
+- A plan accepted by the parser can still fail with `QueryBackendCapabilityException` when the selected backend lacks a required feature. Treat the exception's backend/feature/location fields as the actionable diagnostic.
 - `Last()` and `LastOrDefault()` are supported in tested cases, but they are not the fast path. If what you really mean is "highest by X", write that as `OrderByDescending(...).First()` and be done with it.
 - If you are unsure whether a query shape is supported, simplify it to the documented surface or add a test before depending on it.
 

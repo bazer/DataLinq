@@ -35,8 +35,9 @@ DataLinq is organized around a few hard boundaries:
 - reads expose immutable instances
 - writes go through mutable wrappers and transactions
 - row-cache identity is provider-key identity
+- model values convert to canonical provider values before provider-key/cache boundaries; physical UUID codecs remain provider-specific
 - LINQ support is a documented subset, backed by tests
-- the LINQ parser owns the current query-plan boundary
+- the LINQ parser creates a template/invocation, while the read source owns backend selection and complete capability validation
 - provider metadata support is explicit and intentionally scoped
 
 The pay-off is a runtime that can be faster and easier to reason about than a more permissive ORM. The cost is that unsupported shapes should fail clearly instead of being guessed.
@@ -47,6 +48,9 @@ Use the internals pages together with:
 
 - [Querying](../Querying.md)
 - [Caching and Mutation](../Caching%20and%20Mutation.md)
+- [Transactions](../Transactions.md)
+- [Scalar Converters and Typed IDs](../Scalar%20Converters%20and%20Typed%20IDs.md)
+- [Memory (experimental)](../backends/Memory.md)
 - [Supported LINQ Queries](../Supported%20LINQ%20Queries.md)
 - [Provider Metadata Support Matrix](../support-matrices/Provider%20Metadata%20Support%20Matrix.md)
 - [Platform Compatibility](../Platform%20Compatibility.md)

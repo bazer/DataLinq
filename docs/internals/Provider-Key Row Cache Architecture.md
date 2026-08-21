@@ -41,26 +41,29 @@ That rule is the important part. DataLinq should not store the same row under bo
 
 ## Scalar Converter Boundary
 
-DataLinq 0.7.0 does not implement scalar converters, but the row-cache key shape now separates model metadata from provider metadata:
+DataLinq 0.9 resolves scalar converters during metadata construction and keeps the row-cache identity on the canonical provider side:
 
 - `TableKeyComponentDefinition.ModelCsType` and `ModelClrType` describe the value exposed by generated model APIs.
 - `TableKeyComponentDefinition.ProviderCsType` and `ProviderClrType` describe the value used by readers, query parameters, row stores, and relation index stores.
 - `TableKeyComponentDefinition.ProviderStoreKind` selects scalar cache/index stores. The old ambiguous `StoreKind` surface is gone because cache identity is provider identity.
-- `TableKeyComponentDefinition.ScalarConverterHandle` is currently `null`; it is the reserved metadata slot for resolved converter information.
+- `TableKeyComponentDefinition.ScalarConverterHandle` carries the resolved converter mapping when model and provider values differ.
+- Canonical `Guid` columns separately carry provider-scoped UUID storage definitions for the physical SQL boundary.
 
-Today, model and provider types are the same. That is an implementation state, not an architectural rule. The rule remains:
+The rule is:
 
 > Cache keys and relation index keys are provider values.
 
-Future scalar converter work should plug into these exact places:
+The implemented converter paths enforce that rule:
 
-- Generated `Get(...)` methods should keep their model-shaped public signatures, then convert model key arguments to provider values before calling `GetByProviderKey(...)`.
-- Generated relation traversal should convert foreign-key model properties to provider values before entering `GetImmutableRelation<..., TProviderKey>(...)`, `GetImmutableForeignKey<..., TProviderKey>(...)`, and `TypedIndexCache<TKey>`.
-- Query constants should normalize equality, local `Contains(...)`, simple primary-key extraction, and join key constants to provider values before SQL parameters or cache probes are created.
-- Mutation/default handling should accept model values at the mutable model boundary, convert to provider values for writes and cache invalidation, and convert database-generated provider defaults back to model values before updating mutable state.
-- Schema validation should compare database column storage against provider CLR type mapping and explicit database type metadata. The model CLR type should drive generated API shape and diagnostics, not storage compatibility.
+- Generated `Get(...)` methods keep model-shaped public signatures and convert key arguments before `GetByProviderKey(...)`.
+- Generated relation traversal converts model foreign keys before entering typed relation/index caches.
+- Query equality, comparison, local membership, exact-key extraction, and supported join keys normalize constants and locals before SQL parameters or cache probes are created.
+- Mutations accept model values, write canonical provider values, and convert supported database-generated values back before advancing mutable state.
+- Schema validation compares physical storage against the canonical provider mapping; model CLR type drives generated API shape, not SQL compatibility.
 
 Those conversions must be generated, statically bound, or cached outside hot loops. Reflection-heavy converter lookup belongs in metadata construction or source generation, not in cache lookup, relation traversal, materialization, or query parameter creation.
+
+Converter type equality is only a structural fence. Converter authors still own determinism and equality preservation. See [Scalar Converters and Typed IDs](../Scalar%20Converters%20and%20Typed%20IDs.md).
 
 ## Generated Lookup Flow
 
@@ -216,7 +219,7 @@ If a future change stores the same row under two key representations, it is almo
 
 Current cache clearing and external invalidation use these provider-key artifacts:
 
-- `TableDefinition.PrimaryKeyShape` is the table/key descriptor. Its components expose provider/model CLR types, provider store kind, nullability, column ordinals, and the scalar-converter placeholder.
+- `TableDefinition.PrimaryKeyShape` is the table/key descriptor. Its components expose provider/model CLR types, provider store kind, nullability, column ordinals, and resolved scalar-converter metadata.
 - Generated table models install `IProviderKeyRowStoreAccessor` or `IProviderKeyDataReaderRowStoreAccessor` when a table has primary-key metadata. That accessor is the bridge from bounded dynamic components into the table's exact provider-key type.
 - Generated model `Get(...)` methods are the exact public primary-key lookup path. `Database<T>.Get<M>(DataLinqKey)` and `Transaction<T>.Get<M>(DataLinqKey)` remain the explicit dynamic escape hatch.
 - `RowCache.TryRemoveProviderKey<TKey>(...)` removes a row from the single typed row store without constructing `IKey` or a duplicate side key.

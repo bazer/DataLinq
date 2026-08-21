@@ -187,25 +187,19 @@ config:
   look: classic
 ---
 flowchart TD
-    A["Fetch Immutable<br/>Instance (EmpX)"] --> B{"Call .Mutate()"}
-    B -- Creates Wrapper --> C["Mutable Instance<br/>(MutableEmp)"]:::MutateStyle
-    C --> D{"Modify Properties<br/><div style='font-family:monospace; font-size:0.9em;'>mutableEmp.Name = ...</div>"}
-    D --> E{"Call .Save()<br/>(Starts Transaction)"}
-
-    subgraph "Transaction Scope"
-        F["Generate SQL<br/>(UPDATE)"] --> G["Execute SQL<br/>on Database"]
-        G --> H{"Success?"}
-        H -- Yes --> I["Commit DB Tx"]
-        I --> J["Fetch Updated Row Data"]
-        J --> K["Create NEW<br/>Immutable Instance (EmpY)"]:::Sky
-        K --> L["Update Global Cache<br/>(Replace EmpX with EmpY)"]:::Aqua
-        H -- No --> M["Rollback DB Tx"]
-        M --> N["Discard Changes"]
-    end
-
-    E --> F
-    L --> O["End: Return NEW<br/>Immutable Instance (EmpY)"]:::SuccessStyle
-    N --> P["End: No Changes Applied"]:::ErrorStyle
+    A["Committed immutable row"] --> B["Create mutable wrapper"]:::MutateStyle
+    B --> C["Execute mutation in managed transaction"]
+    C --> D{"Mutation succeeds?"}
+    D -- "no" --> E["Poison transaction<br/>invalidate touched mutables"]:::ErrorStyle
+    E --> F["Rollback or dispose<br/>discard transaction state"]
+    D -- "yes" --> G["Hydrate authoritative row<br/>publish transaction-local state"]:::Sky
+    G --> H{"Completion"}
+    H -- "rollback / open dispose" --> I["Remove local state<br/>invalidate mutables"]:::ErrorStyle
+    H -- "commit call throws" --> J["Outcome unknown<br/>clear caches conservatively<br/>invalidate mutables"]:::ErrorStyle
+    H -- "database commit succeeds" --> K{"Local publication and<br/>finalization succeed?"}
+    K -- "no" --> L["Database committed<br/>clear caches conservatively<br/>invalidate mutables"]:::ErrorStyle
+    K -- "yes" --> M["Publish committed cache state<br/>promote mutable baselines"]:::Aqua
+    M --> N["Return/use authoritative immutable row"]:::SuccessStyle
 
     classDef Aqua stroke-width:1px, stroke:#46EDC8, fill:#DEFFF8, color:#378E7A
     classDef Sky stroke-width:1px, stroke:#374D7C, fill:#E2EBFF, color:#374D7C
@@ -214,6 +208,8 @@ flowchart TD
     classDef SuccessStyle stroke-width:1px, stroke:#81C784, fill:#E8F5E9, color:#1B5E20
     linkStyle default stroke:#000000
 ```
+
+The ugly branches are not theoretical decoration. A provider commit can fail without revealing whether the database committed, and a known database commit can be followed by a local cache/finalization failure. DataLinq keeps those outcomes distinct so application code does not retry a committed write or reuse a mutable whose baseline is no longer trustworthy. See [Transaction completion outcomes](Transactions.md#completion-outcomes).
 
 ## Important Write Behaviors
 
@@ -240,6 +236,12 @@ Those are not decoration. They are part of how the mutation flow avoids accident
 ### Relation caches update with writes
 
 When inserts, updates, or deletes affect a relation, DataLinq updates the relation-aware cache state as part of the transaction flow. That is why relation reads inside a transaction can reflect transaction-local changes.
+
+### Transaction-derived mutables can become invalid
+
+A mutable advanced inside a transaction has a transaction-local baseline until clean commit finalization promotes it. Mutation failure, rollback, unknown commit/rollback outcome, external completion, disposal of an open transaction, or known-committed local finalization failure invalidates that baseline permanently.
+
+Do not call `Reset()` and reuse such a mutable. Discard it, re-read the committed immutable row through a fresh database scope, and create a new mutable. The full state table and recovery rules are in [Transactions](Transactions.md#completion-outcomes).
 
 ## Diagnostics for Cache Behavior
 

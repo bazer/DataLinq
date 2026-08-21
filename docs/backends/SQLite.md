@@ -44,6 +44,26 @@ SQLite "smart" typing in DataLinq is based on column naming conventions, not mag
 
 SQLite does not have a native `ENUM` type. Define enums in your C# models if you want enum semantics. `generate models` will not infer them from an `INTEGER` column.
 
+### UUID Physical Storage
+
+SQLite has no native UUID type and its affinity does not encode UUID shape. For a direct `Guid` or a typed ID whose converter canonical type is `Guid`, use:
+
+- `Text36` or `Text32` with SQLite `TEXT`;
+- `Binary16LittleEndian` or `Binary16Rfc4122` with SQLite `BLOB`.
+
+DataLinq's built-in model mapping from canonical `Guid` to SQLite `TEXT` preserves the dashed `Text36` compatibility form. A live `TEXT` schema alone still cannot prove dashed versus compact values, and a `BLOB` schema cannot prove byte order. SQLite `BLOB` therefore has no model-side byte-order default and must be explicit.
+
+```csharp
+[Type(DatabaseType.SQLite, "blob")]
+[GuidStorage(DatabaseType.SQLite, GuidStorageFormat.Binary16Rfc4122)]
+[Column("external_id")]
+public abstract Guid ExternalId { get; }
+```
+
+Changing the format requires rewriting the stored values. `datalinq diff` intentionally emits only a review comment for a known format change and never fabricates a UUID data migration. Supported Guid-key joins also require both columns to resolve the same active SQLite format.
+
+See the authoritative [`[GuidStorage]` attribute contract](../Attributes%20and%20Model%20Definitions.md#guidstorage) and [Scalar Converters and Typed IDs](../Scalar%20Converters%20and%20Typed%20IDs.md).
+
 ## Default Value Handling
 
 SQLite defaults are now imported from `PRAGMA table_info(...).dflt_value` and converted into typed DataLinq metadata where that can be done honestly.
@@ -102,7 +122,7 @@ Transactions attached from caller-owned connections are deliberately not reconfi
 ## Best Practices
 
 - Use naming conventions if you want richer generated types from an existing SQLite schema.
-- Prefer `Guid` as `TEXT` unless you have a very specific reason not to.
+- Prefer an explicit `Text36` `Guid` mapping unless you have a real storage/interoperability reason to use another format.
 - Define enums in your source models rather than expecting SQLite introspection to infer them.
 - Prefer WAL with private/default cache for file-backed concurrent readers and writers. Reserve shared cache for cases such as named in-memory databases that actually require it.
 - DataLinq's CLI and test defaults omit `Cache` for file-backed databases. Explicit caller-supplied cache modes are preserved; named in-memory databases are normalized to shared cache so DataLinq's multiple connections see the same database.

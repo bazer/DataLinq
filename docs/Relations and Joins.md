@@ -73,6 +73,8 @@ That query uses an implicit inner join. DataLinq binds `row.departments.Name` to
 
 Before rendering an implicit or explicit join, DataLinq checks converter-aware key compatibility. Converter-backed columns need matching resolved model, canonical provider, and nominal converter types; canonical `Guid` columns also need the same resolved storage format for the active provider. Known mismatches fail before SQL execution. Converter authors still own the behavioral invariant that equal model keys encode to equal canonical values for both columns—the framework cannot infer that from a converter class alone.
 
+See [Scalar Converters and Typed IDs](Scalar%20Converters%20and%20Typed%20IDs.md) for the model/provider/physical value boundary and the converter invariants behind that check.
+
 This is deliberately narrow:
 
 - supported: singular relation member access in `Where`, `OrderBy`, `ThenBy`, and direct `Select(...)` projection

@@ -2,6 +2,9 @@
 
 DataLinq is an immutable-first, source-generated ORM for .NET. It is designed around a narrow but useful idea: push model shape and metadata into generated code so runtime reads, relations, mutations, validation, and caching can be explicit and predictable.
 
+> [!NOTE]
+> The site source on `master` includes the unpublished [0.9 release candidate](docs/releases/0.9.md), including experimental `DataLinq.Memory`. Use the [changelog](CHANGELOG.md) for the latest published package boundary.
+
 It is a strong fit when you want:
 
 - immutable models instead of ambient mutable state
@@ -31,10 +34,15 @@ flowchart LR
     CLI --> Models["Abstract source models"]
     Models --> Generator["Source generator"]
     Generator --> Generated["Immutable and mutable generated types"]
-    Generated --> Runtime["Runtime API"]
-    Runtime --> Cache["Provider-key row and relation cache"]
-    Runtime --> Provider["SQLite / MySQL / MariaDB provider"]
+    Generated --> Runtime["Runtime API and source"]
+    Runtime --> Plans["Query template + invocation"]
+    Plans --> Gate["Source-owned backend selection<br/>and capability validation"]
+    Gate --> SqlBackend["SQL backend"]
+    Gate --> Memory["Experimental Memory backend<br/>explicitly seeded, read-only"]
+    SqlBackend --> Cache["Canonical provider rows<br/>and provider-key cache"]
+    SqlBackend --> Provider["SQLite / MySQL / MariaDB provider"]
     Provider --> Schema
+    Memory --> MemoryRows[("In-process seeded rows")]
 ```
 
 The key is that generated code is not decoration. It is part of the runtime contract: generated metadata, generated factories, generated relation handles, and generated key accessors all help keep runtime behavior boring in the best possible way.
@@ -51,6 +59,7 @@ If you are new to DataLinq, this is the shortest sensible path:
 2. [Installation](docs/getting-started/Installation.md)
 3. [Configuration and Model Generation](docs/getting-started/Configuration%20and%20Model%20Generation.md)
 4. [Your First Query and Update](docs/getting-started/Your%20First%20Query%20and%20Update.md)
+5. [0.9 Release Candidate Notes](docs/releases/0.9.md)
 
 ## What Makes It Different
 
@@ -59,6 +68,7 @@ If you are new to DataLinq, this is the shortest sensible path:
 - **Cache-aware runtime:** repeated reads and relation traversal can reuse cached rows instead of rebuilding objects over and over.
 - **Explicit mutation workflow:** updates happen through mutable wrappers and transactions rather than hidden dirty tracking.
 - **Conservative query support:** the docs only promise the LINQ shapes that are actually covered by tests.
+- **Source-owned execution:** normalized plans are capability-checked against the selected SQL or experimental Memory backend before backend work.
 
 ## Small Example
 
@@ -91,6 +101,8 @@ Once you are through the onboarding flow, the docs split into the main working a
 - [Intro](docs/index.md)
 - [Getting Started](docs/getting-started/Installation.md)
 - [Usage](docs/Querying.md)
+- [Scalar Converters and Typed IDs](docs/Scalar%20Converters%20and%20Typed%20IDs.md)
+- [Memory (experimental)](docs/backends/Memory.md)
 - [Diagnostics and Metrics](docs/Diagnostics%20and%20Metrics.md)
 - [Platform Compatibility](docs/Platform%20Compatibility.md)
 - [Changelog](CHANGELOG.md)

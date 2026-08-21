@@ -2,6 +2,8 @@
 
 Welcome to the DataLinq documentation.
 
+These `master` docs describe the unpublished 0.9 release candidate where explicitly marked. They do not claim that final 0.9 packages exist; use the [changelog](../CHANGELOG.md) for the latest published release boundary and the [0.9 candidate notes](releases/0.9.md) for the pending delta.
+
 These docs are structured to help two kinds of readers:
 
 - developers who are new to DataLinq and need a clear path to first success
@@ -24,6 +26,7 @@ That leads to a model where:
 - relations are lazy and cache-aware
 - updates happen through mutable wrappers and transactions
 - supported LINQ is documented conservatively instead of being hand-waved as "probably works"
+- normalized queries are validated against a source-owned SQL or experimental Memory backend before backend work
 
 ## Why New Developers Should Care
 
@@ -57,6 +60,7 @@ Once the basics are in place, move into the deeper working docs:
 - [Caching and Mutation](Caching%20and%20Mutation.md)
 - [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md)
 - [Transactions](Transactions.md)
+- [Scalar Converters and Typed IDs](Scalar%20Converters%20and%20Typed%20IDs.md)
 - [Supported LINQ Queries](Supported%20LINQ%20Queries.md)
 - [Schema Validation and Diff](Schema%20Validation%20and%20Diff.md)
 - [Support Matrices](support-matrices/index.md)
@@ -85,6 +89,7 @@ If you already know what you need, jump directly to the major sections:
 - [Support Matrices](support-matrices/index.md)
 - [Platform Compatibility](Platform%20Compatibility.md)
 - [Attributes and Model Definitions](Attributes%20and%20Model%20Definitions.md)
+- [Scalar Converters and Typed IDs](Scalar%20Converters%20and%20Typed%20IDs.md)
 - [Troubleshooting](Troubleshooting.md)
 
 ### Providers
@@ -105,5 +110,5 @@ If you already know what you need, jump directly to the major sections:
 ### Release and Roadmap
 
 - [Changelog](../CHANGELOG.md)
-- [0.9 Release Notes](releases/0.9.md)
+- [0.9 Release Candidate Notes](releases/0.9.md)
 - [Roadmap](Roadmap.md)
