@@ -678,6 +678,24 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    [Arguments("System.String")]
+    [Arguments("global::System.String")]
+    [Arguments("System.Byte[]")]
+    [Arguments("global::System.Byte[]")]
+    public async Task ParsePropertySyntax_QualifiedNullableReferenceWithAnnotationsDisabled_IsCsNullable(
+        string propertyType)
+    {
+        var (parser, syntax, model) = GetPropertySyntax(
+            $@"[Column(""my_col""), Nullable] public {propertyType} Value {{ get; }}",
+            nullableDirective: "#nullable disable");
+
+        var property = (ValueProperty)ParseMutableProperty(parser, syntax, model);
+
+        await Assert.That(property.CsType.Name).IsEqualTo(propertyType);
+        await Assert.That(property.CsNullable).IsTrue();
+    }
+
+    [Test]
     public async Task ParsePropertySyntax_NullableStringWithAnnotationsEnabled_RemainsCsRequired()
     {
         var (parser, syntax, model) = GetPropertySyntax(

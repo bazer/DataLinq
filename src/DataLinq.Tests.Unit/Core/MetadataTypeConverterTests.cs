@@ -11,6 +11,7 @@ public sealed record TypeKeywordCase(Type Type, string ExpectedName);
 public sealed record StringKeywordCase(string TypeName, string ExpectedKeyword);
 public sealed record FullTypeNameCase(string TypeName, string ExpectedFullName);
 public sealed record TypeFlagCase(string TypeName, bool Expected);
+public sealed record RuntimeTypeNameCase(string TypeName, Type? ExpectedType);
 
 public class MetadataTypeConverterTests
 {
@@ -47,6 +48,13 @@ public class MetadataTypeConverterTests
     public async Task GetFullTypeName_ReturnsCorrectFullName(FullTypeNameCase testCase)
     {
         await Assert.That(MetadataTypeConverter.GetFullTypeName(testCase.TypeName)).IsEqualTo(testCase.ExpectedFullName);
+    }
+
+    [Test]
+    [MethodDataSource(nameof(RuntimeTypeNameCases))]
+    public async Task GetType_FromString_ReturnsCorrectRuntimeType(RuntimeTypeNameCase testCase)
+    {
+        await Assert.That(MetadataTypeConverter.GetType(testCase.TypeName)).IsEqualTo(testCase.ExpectedType);
     }
 
     [Test]
@@ -142,6 +150,18 @@ public class MetadataTypeConverterTests
         yield return () => new FullTypeNameCase("DateOnly", "System.DateOnly");
         yield return () => new FullTypeNameCase("byte[]", "System.Byte[]");
         yield return () => new FullTypeNameCase("MyNamespace.MyClass", "MyNamespace.MyClass");
+    }
+
+    public static IEnumerable<Func<RuntimeTypeNameCase>> RuntimeTypeNameCases()
+    {
+        yield return () => new RuntimeTypeNameCase("string", typeof(string));
+        yield return () => new RuntimeTypeNameCase("System.String", typeof(string));
+        yield return () => new RuntimeTypeNameCase("global::System.String", typeof(string));
+        yield return () => new RuntimeTypeNameCase("byte[]", typeof(byte[]));
+        yield return () => new RuntimeTypeNameCase("System.Byte[]", typeof(byte[]));
+        yield return () => new RuntimeTypeNameCase("global::System.Byte[]", typeof(byte[]));
+        yield return () => new RuntimeTypeNameCase("System.Int32", typeof(int));
+        yield return () => new RuntimeTypeNameCase("Custom.String", null);
     }
 
     public static IEnumerable<Func<TypeFlagCase>> NullableTypeCases()

@@ -1655,7 +1655,7 @@ public class SyntaxParser
             return false;
         }
 
-        return NullableAnnotationsAreDisabled(propSyntax);
+        return NullableAnnotationsAreDisabledAt(propSyntax);
     }
 
     private static bool CanRepresentNullWithoutNullableAnnotation(CsTypeDeclaration csType)
@@ -1664,13 +1664,13 @@ public class SyntaxParser
         return runtimeType != null && !runtimeType.IsValueType;
     }
 
-    private static bool NullableAnnotationsAreDisabled(PropertyDeclarationSyntax propSyntax)
+    internal static bool NullableAnnotationsAreDisabledAt(SyntaxNode syntax)
     {
         var annotationsDisabled = false;
-        var directives = propSyntax.SyntaxTree
+        var directives = syntax.SyntaxTree
             .GetRoot()
             .DescendantTrivia(descendIntoTrivia: true)
-            .Where(trivia => trivia.FullSpan.End <= propSyntax.SpanStart)
+            .Where(trivia => trivia.FullSpan.End <= syntax.SpanStart)
             .Select(trivia => trivia.GetStructure())
             .OfType<NullableDirectiveTriviaSyntax>()
             .Where(directive => directive.IsActive && directive.TargetToken.ValueText != "warnings");

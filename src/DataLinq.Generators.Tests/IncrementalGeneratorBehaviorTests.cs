@@ -34,6 +34,9 @@ public class IncrementalGeneratorBehaviorTests
         {
             [PrimaryKey, AutoIncrement, Column("id")]
             public abstract int? Id { get; }
+
+            [Nullable, Column("value")]
+            public abstract string Value { get; }
         }
         """;
 
@@ -60,6 +63,7 @@ public class IncrementalGeneratorBehaviorTests
               ITableModel<IncrementalDb>
         {
             [PrimaryKey, AutoIncrement, Column("id")] public abstract int? Id { get; }
+            [Nullable, Column("value")] public abstract string Value { get; }
         }
         """;
 
@@ -91,17 +95,28 @@ public class IncrementalGeneratorBehaviorTests
         driver = driver.RunGenerators(CreateCompilation(NullableDisableSource, NullableContextOptions.Disable));
         var disabledResult = driver.GetRunResult().Results.Single();
         var disabledGenerated = GetGeneratedSource(disabledResult, "IncrementalRow.cs");
+        var disabledCsNullable = GetGeneratedCsNullable(disabledResult, "Value");
 
         driver = driver.RunGenerators(CreateCompilation(NullableEnableSource, NullableContextOptions.Disable));
         var enabledResult = driver.GetRunResult().Results.Single();
         var enabledGenerated = GetGeneratedSource(enabledResult, "IncrementalRow.cs");
+        var enabledCsNullable = GetGeneratedCsNullable(enabledResult, "Value");
+
+        driver = driver.RunGenerators(CreateCompilation(NullableDisableSource, NullableContextOptions.Disable));
+        var disabledAgainResult = driver.GetRunResult().Results.Single();
+        var disabledAgainCsNullable = GetGeneratedCsNullable(disabledAgainResult, "Value");
 
         await Assert.That(disabledGenerated).Contains("#nullable disable");
+        await Assert.That(disabledCsNullable).IsTrue();
         await Assert.That(enabledGenerated).Contains("#nullable enable");
         await Assert.That(enabledGenerated).Contains("MutateOrNew(this IncrementalRow? model)");
+        await Assert.That(enabledCsNullable).IsFalse();
+        await Assert.That(disabledAgainCsNullable).IsTrue();
 
-        AssertStepOutputsWereReused(enabledResult, ModelGeneratorTrackingNames.MetadataResults);
+        AssertStepOutputsWereRecomputed(enabledResult, ModelGeneratorTrackingNames.MetadataResults);
+        AssertStepOutputsWereRecomputed(disabledAgainResult, ModelGeneratorTrackingNames.MetadataResults);
         await Assert.That(enabledResult.Diagnostics.Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)).IsFalse();
+        await Assert.That(disabledAgainResult.Diagnostics.Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)).IsFalse();
     }
 
     private static GeneratorDriver CreateTrackedDriver()
@@ -137,6 +152,26 @@ public class IncrementalGeneratorBehaviorTests
         return generatedSource.SourceText.ToString();
     }
 
+    private static bool GetGeneratedCsNullable(GeneratorRunResult generatorResult, string propertyName)
+    {
+        var metadataSource = GetGeneratedSource(generatorResult, "IncrementalDb.DataLinqMetadata.cs");
+        var propertyStart = metadataSource.IndexOf($"\"{propertyName}\",", StringComparison.Ordinal);
+        var csNullableStart = propertyStart >= 0
+            ? metadataSource.IndexOf("CsNullable = ", propertyStart, StringComparison.Ordinal)
+            : -1;
+
+        if (csNullableStart < 0)
+            throw new InvalidOperationException($"Generated metadata did not contain CsNullable for property '{propertyName}'.");
+
+        var contract = metadataSource.Substring(csNullableStart, Math.Min(32, metadataSource.Length - csNullableStart));
+        if (contract.StartsWith("CsNullable = true", StringComparison.Ordinal))
+            return true;
+        if (contract.StartsWith("CsNullable = false", StringComparison.Ordinal))
+            return false;
+
+        throw new InvalidOperationException($"Generated metadata contained an invalid CsNullable contract for property '{propertyName}'.");
+    }
+
     private static void AssertStepOutputsWereReused(GeneratorRunResult generatorResult, string trackingName)
     {
         if (!generatorResult.TrackedSteps.TryGetValue(trackingName, out var steps))
@@ -158,5 +193,19 @@ public class IncrementalGeneratorBehaviorTests
         if (unexpectedReasons.Length > 0)
             throw new InvalidOperationException(
                 $"Tracked step '{trackingName}' produced unexpected run reasons: {string.Join(", ", unexpectedReasons)}.");
+    }
+
+    private static void AssertStepOutputsWereRecomputed(GeneratorRunResult generatorResult, string trackingName)
+    {
+        if (!generatorResult.TrackedSteps.TryGetValue(trackingName, out var steps))
+            throw new InvalidOperationException($"Tracked step '{trackingName}' was not recorded.");
+
+        var outputReasons = steps
+            .SelectMany(static step => step.Outputs)
+            .Select(static output => output.Reason)
+            .ToArray();
+
+        if (!outputReasons.Any(static reason => reason is IncrementalStepRunReason.Modified or IncrementalStepRunReason.New))
+            throw new InvalidOperationException($"Tracked step '{trackingName}' unexpectedly reused every output.");
     }
 }

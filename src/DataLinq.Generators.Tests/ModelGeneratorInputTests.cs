@@ -38,6 +38,28 @@ public class ModelGeneratorInputTests
     }
 
     [Test]
+    public async Task ModelDeclarationSnapshot_IncludesNullableAnnotationContext()
+    {
+        var enabled = GetTypeDeclaration("""
+            #nullable enable
+            namespace SnapshotTests;
+            public abstract partial class SnapshotRow : ITableModel<SnapshotDb> { }
+            """, GeneratorTestPaths.TestModel("EnabledSnapshotRow.cs"));
+        var disabled = GetTypeDeclaration("""
+            #nullable disable
+            namespace SnapshotTests;
+            public abstract partial class SnapshotRow : ITableModel<SnapshotDb> { }
+            """, GeneratorTestPaths.TestModel("DisabledSnapshotRow.cs"));
+
+        var enabledSnapshot = ModelDeclarationSnapshot.Create(enabled);
+        var disabledSnapshot = ModelDeclarationSnapshot.Create(disabled);
+
+        await Assert.That(enabledSnapshot.NullableAnnotationsDisabled).IsFalse();
+        await Assert.That(disabledSnapshot.NullableAnnotationsDisabled).IsTrue();
+        await Assert.That(enabledSnapshot).IsNotEqualTo(disabledSnapshot);
+    }
+
+    [Test]
     public async Task ModelDeclarationInputComparer_UsesStructuralSnapshot()
     {
         var first = ModelDeclarationInput.Create(GetTypeDeclaration("""
