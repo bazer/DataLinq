@@ -84,34 +84,41 @@ public static class MetadataTypeConverter
         };
     }
 
-    public static Type? GetType(string typeName) => typeName.ToLowerInvariant() switch
+    public static Type? GetType(string typeName)
     {
-        "sbyte" => typeof(sbyte),
-        "byte" => typeof(byte),
-        "short" => typeof(short),
-        "ushort" => typeof(ushort),
-        "int" => typeof(int),
-        "uint" => typeof(uint),
-        "long" => typeof(long),
-        "ulong" => typeof(ulong),
-        "char" => typeof(char),
-        "float" => typeof(float),
-        "double" => typeof(double),
-        "bool" => typeof(bool),
-        "decimal" => typeof(decimal),
-        "datetime" => typeof(DateTime),
+        var normalizedTypeName = typeName.StartsWith("global::", StringComparison.Ordinal)
+            ? typeName.Substring("global::".Length)
+            : typeName;
+
+        return normalizedTypeName.ToLowerInvariant() switch
+        {
+            "sbyte" or "system.sbyte" => typeof(sbyte),
+            "byte" or "system.byte" => typeof(byte),
+            "short" or "system.int16" => typeof(short),
+            "ushort" or "system.uint16" => typeof(ushort),
+            "int" or "system.int32" => typeof(int),
+            "uint" or "system.uint32" => typeof(uint),
+            "long" or "system.int64" => typeof(long),
+            "ulong" or "system.uint64" => typeof(ulong),
+            "char" or "system.char" => typeof(char),
+            "float" or "system.single" => typeof(float),
+            "double" or "system.double" => typeof(double),
+            "bool" or "system.boolean" => typeof(bool),
+            "decimal" or "system.decimal" => typeof(decimal),
+            "datetime" or "system.datetime" => typeof(DateTime),
 #if NET6_0_OR_GREATER
-        "dateonly" => typeof(DateOnly),
-        "timeonly" => typeof(TimeOnly),
+            "dateonly" or "system.dateonly" => typeof(DateOnly),
+            "timeonly" or "system.timeonly" => typeof(TimeOnly),
 #else
-        "dateonly" => Type.GetType("System.DateOnly"),
-        "timeonly" => Type.GetType("System.TimeOnly"),
+            "dateonly" or "system.dateonly" => Type.GetType("System.DateOnly"),
+            "timeonly" or "system.timeonly" => Type.GetType("System.TimeOnly"),
 #endif
-        "guid" => typeof(Guid),
-        "string" => typeof(string),
-        "byte[]" => typeof(byte[]),
-        _ => null
-    };
+            "guid" or "system.guid" => typeof(Guid),
+            "string" or "system.string" => typeof(string),
+            "byte[]" or "system.byte[]" => typeof(byte[]),
+            _ => null
+        };
+    }
 
     public static string GetFullTypeName(string typeName) => typeName.ToLowerInvariant() switch
     {

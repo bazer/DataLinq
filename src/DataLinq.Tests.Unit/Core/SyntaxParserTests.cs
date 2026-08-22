@@ -7,6 +7,7 @@ using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
 using DataLinq.Interfaces;
+using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using Microsoft.CodeAnalysis.CSharp;
@@ -126,9 +127,13 @@ public class DummyClass {{}}
         return (new SyntaxParser(allDeclarations), attributeSyntax);
     }
 
-    private static (SyntaxParser parser, PropertyDeclarationSyntax propertySyntax, ModelDefinition model) GetPropertySyntax(string propertyCode, string modelInterfaces = "ITableModel<TestDb>")
+    private static (SyntaxParser parser, PropertyDeclarationSyntax propertySyntax, ModelDefinition model) GetPropertySyntax(
+        string propertyCode,
+        string modelInterfaces = "ITableModel<TestDb>",
+        string nullableDirective = "")
     {
         var code = $@"
+{nullableDirective}
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 using DataLinq.Instances;
@@ -661,6 +666,60 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParsePropertySyntax_NullableStringWithAnnotationsDisabled_IsCsNullable()
+    {
+        var (parser, syntax, model) = GetPropertySyntax(
+            @"[Column(""my_col""), Nullable] public string Name { get; }",
+            nullableDirective: "#nullable disable");
+
+        var property = (ValueProperty)ParseMutableProperty(parser, syntax, model);
+
+        await Assert.That(property.CsNullable).IsTrue();
+    }
+
+    [Test]
+    [Arguments("System.String")]
+    [Arguments("global::System.String")]
+    [Arguments("System.Byte[]")]
+    [Arguments("global::System.Byte[]")]
+    public async Task ParsePropertySyntax_QualifiedNullableReferenceWithAnnotationsDisabled_IsCsNullable(
+        string propertyType)
+    {
+        var (parser, syntax, model) = GetPropertySyntax(
+            $@"[Column(""my_col""), Nullable] public {propertyType} Value {{ get; }}",
+            nullableDirective: "#nullable disable");
+
+        var property = (ValueProperty)ParseMutableProperty(parser, syntax, model);
+
+        await Assert.That(property.CsType.Name).IsEqualTo(propertyType);
+        await Assert.That(property.CsNullable).IsTrue();
+    }
+
+    [Test]
+    public async Task ParsePropertySyntax_NullableStringWithAnnotationsEnabled_RemainsCsRequired()
+    {
+        var (parser, syntax, model) = GetPropertySyntax(
+            @"[Column(""my_col""), Nullable] public string Name { get; }",
+            nullableDirective: "#nullable enable");
+
+        var property = (ValueProperty)ParseMutableProperty(parser, syntax, model);
+
+        await Assert.That(property.CsNullable).IsFalse();
+    }
+
+    [Test]
+    public async Task ParsePropertySyntax_NullableNonNullableValueTypeWithAnnotationsDisabled_RemainsCsRequired()
+    {
+        var (parser, syntax, model) = GetPropertySyntax(
+            @"[Column(""my_col""), Nullable] public int Value { get; }",
+            nullableDirective: "#nullable disable");
+
+        var property = (ValueProperty)ParseMutableProperty(parser, syntax, model);
+
+        await Assert.That(property.CsNullable).IsFalse();
+    }
+
+    [Test]
     public async Task ParsePropertySyntax_QualifiedValueType_PreservesSourceTypeName()
     {
         var (parser, syntax, model) = GetPropertySyntax(@"[Column(""status"")] public External.Namespace.DocumentStatusCode Status { get; }");
@@ -1124,6 +1183,72 @@ public abstract partial class UserModel(IRowData rowData, IDataSourceAccess data
         await Assert.That(result.Table.Type).IsEqualTo(TableType.Table);
         await Assert.That(result.Table.DbName).IsEqualTo("users");
         await Assert.That(result.Model.OriginalInterfaces.Single().Name).IsEqualTo("ITableModel<TestDb>");
+    }
+
+    [Test]
+    public async Task ParseTableModelDraft_NullableStringWithAnnotationsDisabled_MaterializesSqlNull()
+    {
+        const string code = """
+#nullable disable
+
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial class TestDb : IDatabaseModel
+{
+    public TestDb(DataSourceAccess dataSource) { }
+}
+
+[Table("legacy_rows")]
+public abstract partial class LegacyRow(IRowData rowData, IDataSourceAccess dataSource) : Immutable<LegacyRow, TestDb>(rowData, dataSource), ITableModel<TestDb>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+    [Column("value"), Nullable] public abstract string Value { get; }
+}
+""";
+        var syntaxTree = CSharpSyntaxTree.ParseText(code);
+        var root = syntaxTree.GetCompilationUnitRoot();
+        var modelSyntax = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "LegacyRow");
+        var allDeclarations = root.DescendantNodes().OfType<TypeDeclarationSyntax>().ToImmutableArray();
+        var parser = new SyntaxParser(allDeclarations);
+
+        var tableModelDraft = parser.ParseTableModelDraft(
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class),
+            modelSyntax,
+            "LegacyRows").ValueOrException();
+        var resolvedTableModelDraft = tableModelDraft with
+        {
+            Model = tableModelDraft.Model with
+            {
+                ValueProperties = tableModelDraft.Model.ValueProperties
+                    .Select(property => property with
+                    {
+                        CsType = new CsTypeDeclaration(
+                            property.PropertyName == "Id" ? typeof(int) : typeof(string))
+                    })
+                    .ToArray()
+            }
+        };
+        var databaseDraft = new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels = [resolvedTableModelDraft]
+        };
+        var database = new MetadataDefinitionFactory().Build(databaseDraft).ValueOrException();
+        var table = database.TableModels.Single().Table;
+        var valueColumn = table.Columns.Single(column => column.DbName == "value");
+
+        var providerRow = CanonicalProviderValueRow.Create(table, [1, null]);
+        var modelRow = ProviderRowMaterializer.Materialize(providerRow, "sql:test");
+
+        await Assert.That(valueColumn.Nullable).IsTrue();
+        await Assert.That(valueColumn.ValueProperty.CsNullable).IsTrue();
+        await Assert.That(modelRow[valueColumn]).IsNull();
     }
 
     [Test]

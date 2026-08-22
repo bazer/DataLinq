@@ -805,6 +805,66 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     }
 
     [Test]
+    public async Task SourceGenerator_NullableStringWithAnnotationsDisabled_EmitsNullableRuntimeContract()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(
+            """
+            #nullable disable
+
+            using DataLinq;
+            using DataLinq.Attributes;
+            using DataLinq.Interfaces;
+            using DataLinq.Instances;
+            using DataLinq.Mutation;
+
+            namespace LegacyNullableNamespace;
+
+            public partial class LegacyNullableDb : IDatabaseModel
+            {
+                public LegacyNullableDb(DataSourceAccess dataSource) { }
+                public DbRead<LegacyNullableRow> Rows { get; }
+            }
+
+            [Table("legacy_nullable_rows")]
+            public abstract partial class LegacyNullableRow(IRowData rowData, IDataSourceAccess dataSource)
+                : Immutable<LegacyNullableRow, LegacyNullableDb>(rowData, dataSource), ITableModel<LegacyNullableDb>
+            {
+                [PrimaryKey, Column("id")]
+                public abstract int Id { get; }
+
+                [Nullable, Column("value")]
+                public abstract string Value { get; }
+            }
+            """,
+            path: GeneratorTestPaths.TestModel("LegacyNullableModel.cs"));
+
+        var (outputCompilation, generatorDiagnostics, generatedTrees) = RunGeneratorWithDiagnostics(
+            [inputTree],
+            nullableContextOptions: NullableContextOptions.Enable);
+        var metadataFile = generatedTrees
+            .Single(tree => Path.GetFileName(tree.FilePath).EndsWith("LegacyNullableDb.DataLinqMetadata.cs", StringComparison.Ordinal))
+            .ToString();
+        var valuePropertyStart = metadataFile.IndexOf("\"Value\",", StringComparison.Ordinal);
+        var csNullableStart = valuePropertyStart >= 0
+            ? metadataFile.IndexOf("CsNullable = ", valuePropertyStart, StringComparison.Ordinal)
+            : -1;
+        var errors = generatorDiagnostics
+            .Concat(outputCompilation.GetDiagnostics())
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ToList();
+
+        await Assert.That(errors).IsEmpty();
+        await Assert.That(valuePropertyStart).IsGreaterThanOrEqualTo(0);
+        await Assert.That(csNullableStart).IsGreaterThan(valuePropertyStart);
+
+        var valuePropertyContract = metadataFile.Substring(
+            valuePropertyStart,
+            csNullableStart + "CsNullable = true".Length - valuePropertyStart);
+        await Assert.That(valuePropertyContract).Contains("Nullable = true");
+        await Assert.That(valuePropertyContract).EndsWith("CsNullable = true");
+    }
+
+    [Test]
     public async Task Property_WithInvalidDefault_ShouldReportDiagnosticOnSourceAttribute_AndSkipBrokenAssignment()
     {
         var inputTree = CSharpSyntaxTree.ParseText(InvalidDefaultValueTestModelSource, path: InvalidDefaultValueSourcePath);
