@@ -42,7 +42,12 @@ public sealed class CiWorkflowPolicyTests
 
         await Assert.That(workflow).Contains("fail-fast: false");
         await Assert.That(workflow).Contains("merge-multiple: false");
-        await Assert.That(workflow).Contains("aggregate").And.Contains("--commit-sha ${{ github.sha }}");
+        await Assert.That(workflow).Contains("aggregate").And.Contains("--commit-sha \"${{ github.sha }}\"");
+        await Assert.That(workflow)
+            .Contains("Load previous successful matrix baseline")
+            .And.Contains("--baseline artifacts/ci/full-matrix-baseline.json")
+            .And.Contains("aggregate[\"CaseCountBaseline\"]")
+            .And.Contains(".github/badges/full-matrix-baseline.json");
         await Assert.That(workflow).DoesNotContain("--plan full");
         await Assert.That(TestShardEvidenceAggregator.FullMatrixContract.Select(
             static contract => $"{contract.Suite}:{contract.TargetId ?? "-"}").Distinct()).Count().IsEqualTo(17);

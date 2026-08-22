@@ -29,16 +29,17 @@ The nightly workflow fans out into 17 canonical shards:
 
 Every provider shard uses `--batch-size 1`. The SQLite-file compliance shard and MySQL 9.7 provider-specific shard are the invariant anchors. MySQL 8.4 and every other provider shard declare `target-specific`, which applies the provider-affinity filter inside the runner and records that role in the invocation, expected row, and result row.
 
-After every shard finishes—even if one failed—the aggregate job downloads all matching artifacts and applies schema `v0.9.testing-shard-aggregate.v1`. Aggregation fails closed unless all of the following are true:
+After every shard finishes—even if one failed—the aggregate job downloads all matching artifacts and applies schema `v0.9.testing-shard-aggregate.v2`. Before validation it loads the per-shard case-count baseline published by the previous successful master run. Aggregation fails closed unless all of the following are true:
 
 - exactly one report exists for every canonical suite/target and no unexpected or duplicate shard exists;
 - every report uses test-summary schema `v0.9.testing-run-summary.v2`, the requested configuration, the same OS/architecture/.NET runtime, and the exact Actions commit SHA;
 - checkout and runner attestations are clean, stable, and commit-matched;
 - the shard built once under the CI profile and contains exactly one complete passing result row;
-- its affinity role and exact case count match the canonical manifest;
+- its affinity role matches the canonical manifest;
+- its case count meets both the source-controlled floor and the previous successful per-shard count;
 - its uploaded raw log, HTML report, and TRX file are present after download.
 
-A broad multi-target batch is never release evidence. The aggregate is the nightly/release gate; a missing or duplicate target, incompatible schema, wrong commit, wrong configuration, count drift, failed/skipped case, or absent artifact makes it fail. Badge publication happens only after that aggregate succeeds. Nightly failure does not rewrite master, but it blocks using that run as release evidence. A release must use a successful aggregate produced from the exact candidate commit and configuration.
+A broad multi-target batch is never release evidence. The aggregate is the nightly/release gate; a missing or duplicate target, incompatible schema, wrong commit, wrong configuration, count regression, failed/skipped case, or absent artifact makes it fail. Test-count growth is accepted automatically and becomes the next successful baseline; a later loss in any individual shard still fails even when another shard grows enough to hide it in the total. All count and role mismatches are reported together. Badge and baseline publication happen only after the aggregate succeeds on master. Nightly failure therefore cannot ratchet the baseline downward or rewrite master. An intentional reviewed coverage reduction must change the source floors and increment the source-controlled baseline epoch; ordinary code changes cannot silently reset history. A failed run blocks using that run as release evidence, and a release must use a successful aggregate produced from the exact candidate commit and configuration.
 
 ## Critical-path measurements
 

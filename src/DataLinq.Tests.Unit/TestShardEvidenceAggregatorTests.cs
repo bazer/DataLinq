@@ -12,9 +12,10 @@ namespace DataLinq.Tests.Unit;
 public sealed class TestShardEvidenceAggregatorTests
 {
     private const string Commit = "0123456789abcdef0123456789abcdef01234567";
+    private const string BaselineCommit = "abcdef0123456789abcdef0123456789abcdef01";
 
     [Test]
-    public async Task AggregateDirectory_RequiresExactCompleteFullMatrix()
+    public async Task AggregateDirectory_RequiresCompleteFullMatrixAndProducesRatchetBaseline()
     {
         using var fixture = new ShardFixture();
         fixture.WriteContract();
@@ -23,8 +24,36 @@ public sealed class TestShardEvidenceAggregatorTests
 
         await Assert.That(aggregate.Complete).IsTrue();
         await Assert.That(aggregate.Shards).Count().IsEqualTo(17);
-        await Assert.That(aggregate.TotalCases).IsEqualTo(5434);
+        await Assert.That(aggregate.TotalCases).IsEqualTo(5436);
+        await Assert.That(aggregate.PreviousBaselineCommitSha).IsNull();
+        await Assert.That(aggregate.CaseCountBaseline.SchemaVersion)
+            .IsEqualTo(TestShardEvidenceAggregator.BaselineSchemaVersion);
+        await Assert.That(aggregate.CaseCountBaseline.Epoch)
+            .IsEqualTo(TestShardEvidenceAggregator.BaselineEpoch);
+        await Assert.That(aggregate.CaseCountBaseline.CommitSha).IsEqualTo(Commit);
+        await Assert.That(aggregate.CaseCountBaseline.Shards).Count().IsEqualTo(17);
         await Assert.That(aggregate.Shards.Select(static shard => $"{shard.Suite}:{shard.TargetId ?? "-"}").Distinct()).Count().IsEqualTo(17);
+    }
+
+    [Test]
+    public async Task AggregateDirectory_AcceptsCaseGrowthAndRatchetsObservedCounts()
+    {
+        using var fixture = new ShardFixture();
+        fixture.WriteContract(countOffsets: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["unit:-"] = 1,
+            ["compliance:sqlite-file"] = 2
+        });
+
+        var aggregate = TestShardEvidenceAggregator.AggregateDirectory(fixture.Root, Commit, "Release");
+        var unit = aggregate.CaseCountBaseline.Shards.Single(static shard => shard.Suite == "unit");
+        var sqliteAnchor = aggregate.CaseCountBaseline.Shards.Single(static shard =>
+            shard.Suite == "compliance" && shard.TargetId == "sqlite-file");
+
+        await Assert.That(aggregate.TotalCases).IsEqualTo(5439);
+        await Assert.That(unit.Cases).IsEqualTo(TestShardEvidenceAggregator.CompleteUnitMinimumCases + 1);
+        await Assert.That(sqliteAnchor.Cases)
+            .IsEqualTo(TestShardEvidenceAggregator.ComplianceSqliteAnchorMinimumCases + 2);
     }
 
     [Test]
@@ -45,7 +74,7 @@ public sealed class TestShardEvidenceAggregatorTests
     }
 
     [Test]
-    public async Task AggregateDirectory_RejectsWrongCommitConfigurationSchemaAndCounts()
+    public async Task AggregateDirectory_RejectsWrongCommitConfigurationSchemaAndCaseRegression()
     {
         using var commitFixture = new ShardFixture();
         commitFixture.WriteContract(commitOverride: new string('a', 40));
@@ -60,13 +89,116 @@ public sealed class TestShardEvidenceAggregatorTests
         var schema = Capture(() => TestShardEvidenceAggregator.AggregateDirectory(schemaFixture.Root, Commit, "Release"));
 
         using var countFixture = new ShardFixture();
-        countFixture.WriteContract(countOverrideKey: "unit:-");
+        countFixture.WriteContract(countOffsets: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["unit:-"] = -1
+        });
         var count = Capture(() => TestShardEvidenceAggregator.AggregateDirectory(countFixture.Root, Commit, "Release"));
 
         await Assert.That(commit!.Message).Contains("does not match commit");
         await Assert.That(configuration!.Message).Contains("configuration 'Release'");
         await Assert.That(schema!.Message).Contains("incompatible schema");
-        await Assert.That(count!.Message).Contains("contract mismatch");
+        await Assert.That(count!.Message).Contains("case-count regression").And.Contains("required at least 1686");
+    }
+
+    [Test]
+    public async Task AggregateDirectory_ReportsEveryCountAndRoleMismatchTogether()
+    {
+        using var fixture = new ShardFixture();
+        fixture.WriteContract(
+            countOffsets: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["unit:-"] = -1,
+                ["compliance:sqlite-file"] = -2
+            },
+            roleOverrides: new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["mysql:mysql-8.4"] = "AnchorWithInvariant"
+            });
+
+        var failure = Capture(() => TestShardEvidenceAggregator.AggregateDirectory(
+            fixture.Root,
+            Commit,
+            "Release"));
+
+        await Assert.That(failure).IsTypeOf<InvalidDataException>();
+        await Assert.That(failure!.Message)
+            .Contains("unit:-")
+            .And.Contains("compliance:sqlite-file")
+            .And.Contains("mysql:mysql-8.4")
+            .And.Contains("role mismatch");
+    }
+
+    [Test]
+    public async Task AggregateDirectory_UsesPreviousSuccessfulCountsAsHigherFloors()
+    {
+        using var regressionFixture = new ShardFixture();
+        var regressionBaseline = regressionFixture.WriteBaseline(new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["unit:-"] = 5
+        });
+        regressionFixture.WriteContract(countOffsets: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["unit:-"] = 4
+        });
+        var regression = Capture(() => TestShardEvidenceAggregator.AggregateDirectory(
+            regressionFixture.Root,
+            Commit,
+            "Release",
+            regressionBaseline));
+
+        using var acceptedFixture = new ShardFixture();
+        var acceptedBaseline = acceptedFixture.WriteBaseline(new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["unit:-"] = 5
+        });
+        acceptedFixture.WriteContract(countOffsets: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["unit:-"] = 6
+        });
+        var accepted = TestShardEvidenceAggregator.AggregateDirectory(
+            acceptedFixture.Root,
+            Commit,
+            "Release",
+            acceptedBaseline);
+
+        await Assert.That(regression).IsTypeOf<InvalidDataException>();
+        await Assert.That(regression!.Message)
+            .Contains("previous successful baseline 1691")
+            .And.Contains(BaselineCommit);
+        await Assert.That(accepted.PreviousBaselineCommitSha).IsEqualTo(BaselineCommit);
+        await Assert.That(accepted.CaseCountBaseline.Shards.Single(static shard => shard.Suite == "unit").Cases)
+            .IsEqualTo(TestShardEvidenceAggregator.CompleteUnitMinimumCases + 6);
+    }
+
+    [Test]
+    public async Task AggregateDirectory_RejectsFutureOrIncompleteBaselines()
+    {
+        using var futureFixture = new ShardFixture();
+        var futureBaseline = futureFixture.WriteBaseline(
+            epoch: TestShardEvidenceAggregator.BaselineEpoch + 1);
+        futureFixture.WriteContract();
+        var future = Capture(() => TestShardEvidenceAggregator.AggregateDirectory(
+            futureFixture.Root,
+            Commit,
+            "Release",
+            futureBaseline));
+
+        using var incompleteFixture = new ShardFixture();
+        var incompleteBaseline = incompleteFixture.WriteBaseline(skipKey: "mysql:mariadb-12.3");
+        incompleteFixture.WriteContract();
+        var incomplete = Capture(() => TestShardEvidenceAggregator.AggregateDirectory(
+            incompleteFixture.Root,
+            Commit,
+            "Release",
+            incompleteBaseline));
+
+        await Assert.That(future).IsTypeOf<InvalidDataException>();
+        await Assert.That(future!.Message).Contains("newer than supported epoch");
+        await Assert.That(incomplete).IsTypeOf<InvalidDataException>();
+        await Assert.That(incomplete!.Message)
+            .Contains("Case-count baseline coverage mismatch")
+            .And.Contains("mysql:mariadb-12.3");
     }
 
     [Test]
@@ -141,8 +273,9 @@ public sealed class TestShardEvidenceAggregatorTests
             string? commitOverride = null,
             string? configurationOverride = null,
             string? schemaOverride = null,
-            string? countOverrideKey = null,
-            string? emptyRoleKey = null)
+            string? emptyRoleKey = null,
+            IReadOnlyDictionary<string, int>? countOffsets = null,
+            IReadOnlyDictionary<string, string?>? roleOverrides = null)
         {
             var index = 0;
             foreach (var contract in TestShardEvidenceAggregator.FullMatrixContract)
@@ -151,20 +284,51 @@ public sealed class TestShardEvidenceAggregatorTests
                 if (string.Equals(key, skipKey, StringComparison.OrdinalIgnoreCase))
                     continue;
 
+                var shardContract = string.Equals(key, emptyRoleKey, StringComparison.OrdinalIgnoreCase)
+                    ? contract with { ProviderAffinityRole = string.Empty }
+                    : roleOverrides?.TryGetValue(key, out var roleOverride) == true
+                        ? contract with { ProviderAffinityRole = roleOverride }
+                        : contract;
                 WriteShard(
                     index++,
-                    string.Equals(key, emptyRoleKey, StringComparison.OrdinalIgnoreCase)
-                        ? contract with { ProviderAffinityRole = string.Empty }
-                        : contract,
+                    shardContract,
                     commitOverride ?? Commit,
                     configurationOverride ?? "Release",
                     schemaOverride ?? TestRunSummaryReporter.SchemaVersion,
-                    string.Equals(key, countOverrideKey, StringComparison.OrdinalIgnoreCase)
-                        ? contract.ExpectedCases + 1
-                        : contract.ExpectedCases);
+                    contract.MinimumCases + (countOffsets?.GetValueOrDefault(key) ?? 0));
                 if (string.Equals(key, duplicateKey, StringComparison.OrdinalIgnoreCase))
-                    WriteShard(index++, contract, Commit, "Release", TestRunSummaryReporter.SchemaVersion, contract.ExpectedCases);
+                    WriteShard(index++, contract, Commit, "Release", TestRunSummaryReporter.SchemaVersion, contract.MinimumCases);
             }
+        }
+
+        public string WriteBaseline(
+            IReadOnlyDictionary<string, int>? countOffsets = null,
+            int? epoch = null,
+            string? skipKey = null)
+        {
+            var baseline = new TestShardEvidenceBaseline(
+                TestShardEvidenceAggregator.BaselineSchemaVersion,
+                epoch ?? TestShardEvidenceAggregator.BaselineEpoch,
+                BaselineCommit,
+                TestShardEvidenceAggregator.FullMatrixContract
+                    .Where(contract => !string.Equals(
+                        $"{contract.Suite}:{contract.TargetId ?? "-"}",
+                        skipKey,
+                        StringComparison.OrdinalIgnoreCase))
+                    .Select(contract =>
+                {
+                    var key = $"{contract.Suite}:{contract.TargetId ?? "-"}";
+                    return new TestShardEvidenceBaselineEntry(
+                        contract.Suite,
+                        contract.TargetId,
+                        contract.ProviderAffinityRole,
+                        contract.MinimumCases + (countOffsets?.GetValueOrDefault(key) ?? 0));
+                }).ToArray());
+            var path = Path.Combine(Root, "full-matrix-baseline.json");
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            options.Converters.Add(new JsonStringEnumConverter());
+            File.WriteAllText(path, JsonSerializer.Serialize(baseline, options));
+            return path;
         }
 
         public void ReplaceInSummary(string fileName, string oldValue, string newValue)

@@ -101,14 +101,30 @@ jobs:
           merge-multiple: false
       - name: Build aggregator
         run: dotnet build src/DataLinq.Testing.CLI/DataLinq.Testing.CLI.csproj --configuration Release --nologo --verbosity minimal -p:NuGetAudit=false
+      - name: Load previous successful matrix baseline
+        shell: bash
+        run: |
+          mkdir -p artifacts/ci
+          git fetch --no-tags origin badge-data
+          if git cat-file -e "FETCH_HEAD:.github/badges/full-matrix-baseline.json" 2>/dev/null; then
+            git show "FETCH_HEAD:.github/badges/full-matrix-baseline.json" > artifacts/ci/full-matrix-baseline.json
+          else
+            echo "No published per-shard baseline exists yet; using source-controlled floors."
+          fi
       - name: Validate full evidence
-        run: >
-          dotnet exec src/DataLinq.Testing.CLI/bin/Release/net10.0/DataLinq.Testing.CLI.dll
-          aggregate
-          --input-root artifacts/downloaded-shards
-          --output artifacts/ci/full-matrix-aggregate.json
-          --commit-sha ${{ github.sha }}
-          --configuration Release
+        shell: bash
+        run: |
+          baseline_args=()
+          if [ -f artifacts/ci/full-matrix-baseline.json ]; then
+            baseline_args=(--baseline artifacts/ci/full-matrix-baseline.json)
+          fi
+          dotnet exec src/DataLinq.Testing.CLI/bin/Release/net10.0/DataLinq.Testing.CLI.dll \
+            aggregate \
+            --input-root artifacts/downloaded-shards \
+            --output artifacts/ci/full-matrix-aggregate.json \
+            --commit-sha "${{ github.sha }}" \
+            --configuration Release \
+            "${baseline_args[@]}"
       - name: Create test-count badge data
         shell: bash
         run: |
@@ -117,9 +133,12 @@ jobs:
           from pathlib import Path
           aggregate = json.loads(Path("artifacts/ci/full-matrix-aggregate.json").read_text(encoding="utf-8"))
           if aggregate.get("Complete") is not True:
-              raise SystemExit("full-matrix aggregate is incomplete")
+            raise SystemExit("full-matrix aggregate is incomplete")
           badge = {"schemaVersion": 1, "label": "full matrix tests", "message": str(aggregate["TotalCases"]), "color": "brightgreen"}
           Path("artifacts/ci/full-matrix-tests.json").write_text(json.dumps(badge, indent=2) + "\n", encoding="utf-8")
+          Path("artifacts/ci/full-matrix-baseline.json").write_text(
+              json.dumps(aggregate["CaseCountBaseline"], indent=2) + "\n",
+              encoding="utf-8")
           PY
       - name: Upload aggregate
         if: always()
@@ -129,6 +148,7 @@ jobs:
           path: |
             artifacts/ci/full-matrix-aggregate.json
             artifacts/ci/full-matrix-tests.json
+            artifacts/ci/full-matrix-baseline.json
           if-no-files-found: warn
 
   publish-badge:
@@ -161,11 +181,12 @@ jobs:
           fi
           mkdir -p badge-data-worktree/.github/badges
           cp aggregate-artifact/full-matrix-tests.json badge-data-worktree/.github/badges/full-matrix-tests.json
+          cp aggregate-artifact/full-matrix-baseline.json badge-data-worktree/.github/badges/full-matrix-baseline.json
           pushd badge-data-worktree
-          git add .github/badges/full-matrix-tests.json
+          git add .github/badges/full-matrix-tests.json .github/badges/full-matrix-baseline.json
           if git diff --cached --quiet; then
             echo "No badge changes to push."
             exit 0
           fi
-          git commit -m "Update full matrix test count badge [skip ci]"
+          git commit -m "Update full matrix evidence data [skip ci]"
           git push origin HEAD:badge-data
