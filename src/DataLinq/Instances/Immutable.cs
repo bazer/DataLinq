@@ -21,14 +21,14 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
     protected Immutable(IRowData rowData, IDataSourceAccess dataSource)
     {
         // Preserve the legacy constructor's historical null behavior. Some row-local projection
-        // tests construct immutable shells without a source because they never perform source-bound
-        // operations; the new neutral constructor below is the strict contract.
+        // tests construct immutable shells with a deliberately missing row and source because they
+        // never perform row- or source-bound operations; every non-null row has the strict contract.
         this.rowData = UnwrapKnownCanonicalPrimaryKey(rowData, out var canonicalPrimaryKey);
         readSource = dataSource;
         baselineOrigin = MutableBaselineOrigin.FromReadSource(dataSource);
         _cachedPrimaryKey = canonicalPrimaryKey;
         if (!canonicalPrimaryKey.HasValue)
-            CaptureCanonicalPrimaryKey(this.rowData, allowUnavailableLegacyRow: true);
+            CaptureCanonicalPrimaryKey(this.rowData);
     }
 
     protected Immutable(IRowData rowData, IDataLinqReadSource readSource)
@@ -41,7 +41,7 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
         baselineOrigin = MutableBaselineOrigin.FromReadSource(readSource);
         _cachedPrimaryKey = canonicalPrimaryKey;
         if (!canonicalPrimaryKey.HasValue)
-            CaptureCanonicalPrimaryKey(this.rowData, allowUnavailableLegacyRow: false);
+            CaptureCanonicalPrimaryKey(this.rowData);
     }
 
     MutableBaselineOrigin IImmutableBaselineOrigin.BaselineOrigin => baselineOrigin;
@@ -67,25 +67,102 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
         return sourceRow;
     }
 
-    private void CaptureCanonicalPrimaryKey(
-        IRowData? sourceRow,
-        bool allowUnavailableLegacyRow)
+    private void CaptureCanonicalPrimaryKey(IRowData? sourceRow)
     {
         if (sourceRow is null)
             return;
 
+        TableDefinition? table;
         try
         {
-            _cachedPrimaryKey = KeyFactory.GetKey(
-                sourceRow,
-                sourceRow.Table.PrimaryKeyColumns);
+            table = sourceRow.Table;
         }
-        catch (NotSupportedException) when (allowUnavailableLegacyRow)
+        catch (Exception exception) when (
+            exception is not OperationCanceledException and
+            not OutOfMemoryException and
+            not AccessViolationException)
         {
-            // Legacy row-local projection shells can expose metadata without readable values.
-            // Preserve their historical construction behavior; a real key access still fails.
-            // The strict neutral-source constructor does not accept this compatibility escape.
+            throw CreateRowDataContractException(
+                $"{nameof(IRowData)}.{nameof(IRowData.Table)} could not be read.",
+                innerException: exception);
         }
+
+        if (table is null)
+        {
+            throw CreateRowDataContractException(
+                $"{nameof(IRowData)}.{nameof(IRowData.Table)} is unavailable. " +
+                "A non-null row must expose DataLinq table metadata.");
+        }
+
+        if (table.TableModel is null)
+        {
+            throw CreateRowDataContractException(
+                $"{nameof(IRowData)}.{nameof(IRowData.Table)} metadata is incomplete: " +
+                $"{nameof(TableDefinition)}.{nameof(TableDefinition.TableModel)} is unavailable, " +
+                "so primary-key metadata cannot be validated.",
+                table);
+        }
+
+        var primaryKeyColumns = table.PrimaryKeyColumns;
+        if (primaryKeyColumns is null)
+        {
+            throw CreateRowDataContractException(
+                $"{nameof(TableDefinition)}.{nameof(TableDefinition.PrimaryKeyColumns)} is unavailable.",
+                table);
+        }
+
+        DataLinqKey primaryKey;
+        try
+        {
+            primaryKey = KeyFactory.GetKey(sourceRow, primaryKeyColumns);
+        }
+        catch (Exception exception) when (
+            exception is not OperationCanceledException and
+            not OutOfMemoryException and
+            not AccessViolationException)
+        {
+            throw CreateRowDataContractException(
+                $"required primary-key value(s) {FormatPrimaryKeyColumns(table, primaryKeyColumns)} " +
+                $"could not be read from the supplied {nameof(IRowData)} or converted to canonical provider values.",
+                table,
+                exception);
+        }
+
+        for (var index = 0; index < primaryKeyColumns.Count; index++)
+        {
+            if (primaryKey.GetValueUnsafe(index) is null)
+            {
+                var column = primaryKeyColumns[index];
+                throw CreateRowDataContractException(
+                    $"required primary-key value '{table.DbName}.{column.DbName}' is unavailable (null).",
+                    table);
+            }
+        }
+
+        _cachedPrimaryKey = primaryKey;
+    }
+
+    private static string FormatPrimaryKeyColumns(
+        TableDefinition table,
+        IReadOnlyList<ColumnDefinition> primaryKeyColumns) =>
+        primaryKeyColumns.Count == 0
+            ? "<none>"
+            : $"[{string.Join(", ", primaryKeyColumns.Select(column => $"'{table.DbName}.{column?.DbName ?? "<unavailable>"}'"))}]";
+
+    private static ArgumentException CreateRowDataContractException(
+        string violation,
+        TableDefinition? table = null,
+        Exception? innerException = null)
+    {
+        var tableContext = table is null
+            ? string.Empty
+            : $" for table '{table.DbName}'";
+
+        return new ArgumentException(
+            $"{nameof(IRowData)} contract violation while constructing immutable model " +
+            $"'{typeof(T).FullName}'{tableContext}: {violation}",
+            "rowData",
+            innerException);
     }
 
     public object? this[ColumnDefinition column] => rowData[column];
