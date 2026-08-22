@@ -24,6 +24,7 @@ public class QueryPlanProjectionRecipeEvaluatorTests
         var source = CreateSource(table, typeof(Employee));
         var rowData = new StubRowData(table, new Dictionary<ColumnDefinition, object?>
         {
+            [table.PrimaryKeyColumns.Single()] = 1001,
             [firstName] = " Ada "
         });
         var employee = new ThrowingEmployee(rowData);

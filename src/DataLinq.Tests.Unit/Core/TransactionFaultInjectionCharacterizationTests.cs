@@ -498,10 +498,13 @@ public class TransactionFaultInjectionCharacterizationTests
     private sealed class SourceOnlyRowData(TableDefinition table) : IRowData
     {
         public TableDefinition Table { get; } = table;
-        public object? this[ColumnDefinition column] => throw new NotSupportedException();
-        public object? this[int columnIndex] => throw new NotSupportedException();
-        public object? GetValue(ColumnDefinition column) => throw new NotSupportedException();
-        public object? GetValue(int columnIndex) => throw new NotSupportedException();
+        public object? this[ColumnDefinition column] => GetValue(column);
+        public object? this[int columnIndex] => GetValue(columnIndex);
+        public object? GetValue(ColumnDefinition column) =>
+            Table.PrimaryKeyColumns.Contains(column)
+                ? 1001
+                : throw new NotSupportedException();
+        public object? GetValue(int columnIndex) => GetValue(Table.Columns[columnIndex]);
         public IEnumerable<object?> GetValues(IEnumerable<ColumnDefinition> columns) => [];
         public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues() => [];
         public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues(IEnumerable<ColumnDefinition> columns) => [];
