@@ -77,7 +77,10 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
         {
             table = sourceRow.Table;
         }
-        catch (Exception exception)
+        catch (Exception exception) when (
+            exception is not OperationCanceledException and
+            not OutOfMemoryException and
+            not AccessViolationException)
         {
             throw CreateRowDataContractException(
                 $"{nameof(IRowData)}.{nameof(IRowData.Table)} could not be read.",
@@ -113,7 +116,10 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
         {
             primaryKey = KeyFactory.GetKey(sourceRow, primaryKeyColumns);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (
+            exception is not OperationCanceledException and
+            not OutOfMemoryException and
+            not AccessViolationException)
         {
             throw CreateRowDataContractException(
                 $"required primary-key value(s) {FormatPrimaryKeyColumns(table, primaryKeyColumns)} " +

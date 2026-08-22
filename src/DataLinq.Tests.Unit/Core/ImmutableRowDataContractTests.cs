@@ -23,7 +23,9 @@ public sealed class ImmutableRowDataContractTests
     [Test]
     public async Task NonNullRowWithoutTable_ReportsContractViolationFromBothConstructors()
     {
-        var rowData = new ContractRowData(null, _ => throw new InvalidOperationException());
+        var rowData = new ContractRowData(
+            (TableDefinition?)null,
+            _ => throw new InvalidOperationException());
         var table = CreateContractTable(hasPrimaryKey: true);
         var readSource = new ContractReadSource(table.Database);
 
@@ -80,6 +82,29 @@ public sealed class ImmutableRowDataContractTests
         await Assert.That(exception.Message).Contains("IRowData contract violation");
         await Assert.That(exception.Message).Contains("contract_rows.id");
         await Assert.That(exception.Message).Contains("unavailable (null)");
+    }
+
+    [Test]
+    public async Task RowContractBoundary_PreservesCancellationAndProcessLevelFailures()
+    {
+        Exception[] preservedFailures =
+        [
+            new OperationCanceledException("cancelled"),
+            new OutOfMemoryException("out of memory"),
+            new AccessViolationException("access violation")
+        ];
+        var table = CreateContractTable(hasPrimaryKey: true);
+
+        foreach (var expected in preservedFailures)
+        {
+            var tableFailure = Capture<Exception>(() =>
+                new ContractModel(ContractRowData.WithTableFailure(expected)));
+            var primaryKeyFailure = Capture<Exception>(() =>
+                new ContractModel(new ContractRowData(table, _ => throw expected)));
+
+            await Assert.That(tableFailure).IsSameReferenceAs(expected);
+            await Assert.That(primaryKeyFailure).IsSameReferenceAs(expected);
+        }
     }
 
     [Test]
@@ -195,11 +220,32 @@ public sealed class ImmutableRowDataContractTests
         public DatabaseDefinition Metadata { get; } = metadata;
     }
 
-    private sealed class ContractRowData(
-        TableDefinition? table,
-        Func<ColumnDefinition, object?> readValue) : IRowData
+    private sealed class ContractRowData : IRowData
     {
-        public TableDefinition Table => table!;
+        private readonly Func<TableDefinition?> readTable;
+        private readonly Func<ColumnDefinition, object?> readValue;
+
+        internal ContractRowData(
+            TableDefinition? table,
+            Func<ColumnDefinition, object?> readValue)
+            : this(() => table, readValue)
+        {
+        }
+
+        private ContractRowData(
+            Func<TableDefinition?> readTable,
+            Func<ColumnDefinition, object?> readValue)
+        {
+            this.readTable = readTable;
+            this.readValue = readValue;
+        }
+
+        internal static ContractRowData WithTableFailure(Exception exception) =>
+            new(
+                () => throw exception,
+                _ => throw new InvalidOperationException("Value access must not be attempted."));
+
+        public TableDefinition Table => readTable()!;
 
         public object? this[ColumnDefinition column] => GetValue(column);
         public object? this[int columnIndex] => GetValue(columnIndex);
