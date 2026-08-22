@@ -24,7 +24,10 @@ public sealed class TestingCliRunPlanCatalogTests
         await Assert.That(command).Contains("--maximum-parallel-tests");
         await Assert.That(command).Contains("--provider-affinity-role");
         await Assert.That(source).Contains("MaximumParallelTests: 8");
-        await Assert.That(aggregate).Contains("--commit-sha").And.Contains("--configuration");
+        await Assert.That(aggregate)
+            .Contains("--commit-sha")
+            .And.Contains("--configuration")
+            .And.Contains("--baseline");
         await Assert.That(program).Contains("AggregateCommand.Create(settings)");
     }
 
@@ -79,12 +82,12 @@ public sealed class TestingCliRunPlanCatalogTests
         var catalog = ReadCliSource("Selection", "TestCliRunPlanCatalog.cs");
         var command = ReadCliSource("Commands", "RunCommand.cs");
 
-        await Assert.That(catalog).Contains("complianceAnchorCases = 496");
-        await Assert.That(catalog).Contains("everyProviderCases = 367");
-        await Assert.That(catalog).Contains("serverTargetCases = 373");
-        await Assert.That(catalog).Contains("mySqlInvariantCases = 65");
-        await Assert.That(catalog).Contains("mySqlTargetCases = 62");
-        await Assert.That(catalog).Contains("mariaDbTargetCases = 64");
+        await Assert.That(catalog).Contains("ComplianceSqliteAnchorMinimumCases");
+        await Assert.That(catalog).Contains("ComplianceSqliteTargetMinimumCases");
+        await Assert.That(catalog).Contains("ComplianceServerTargetMinimumCases");
+        await Assert.That(catalog).Contains("MySqlInvariantMinimumCases");
+        await Assert.That(catalog).Contains("MySqlTargetMinimumCases");
+        await Assert.That(catalog).Contains("MariaDbTargetMinimumCases");
         await Assert.That(command).Contains("AnchorWithInvariant");
         await Assert.That(command).Contains("TargetSpecific");
         await Assert.That(command).Contains("DatabaseServerMatrix.DefaultProfile.MySqlTarget");

@@ -67,10 +67,10 @@ internal static class TestCliRunPlanCatalog
             DefaultTargetIds: [TestTargetCatalog.SQLiteFileTargetId],
             Suites:
             [
-                new(TestCliSuiteCatalog.GeneratorsSuite, null, 61, 8, "generator/compiler", "compiler", MaximumParallelTests: 8),
-                new(TestCliSuiteCatalog.UnitSuite, null, TestShardEvidenceAggregator.CompleteUnitSuiteExpectedCases, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
-                new(TestCliSuiteCatalog.MemorySuite, null, 141, 5, "memory integration", "in-process database", MaximumParallelTests: 8),
-                new(TestCliSuiteCatalog.ComplianceSuite, null, 496, 26, "provider-invariant compliance", "SQLite file", MaximumParallelTests: 8)
+                new(TestCliSuiteCatalog.GeneratorsSuite, null, TestShardEvidenceAggregator.CompleteGeneratorsMinimumCases, 8, "generator/compiler", "compiler", MaximumParallelTests: 8),
+                new(TestCliSuiteCatalog.UnitSuite, null, TestShardEvidenceAggregator.CompleteUnitMinimumCases, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
+                new(TestCliSuiteCatalog.MemorySuite, null, TestShardEvidenceAggregator.CompleteMemoryMinimumCases, 5, "memory integration", "in-process database", MaximumParallelTests: 8),
+                new(TestCliSuiteCatalog.ComplianceSuite, null, TestShardEvidenceAggregator.ComplianceSqliteAnchorMinimumCases, 26, "provider-invariant compliance", "SQLite file", MaximumParallelTests: 8)
             ]),
         new(
             Name: LatestPlan,
@@ -123,16 +123,16 @@ internal static class TestCliRunPlanCatalog
         int estimatedMySqlTargets,
         double estimatedDurationSeconds)
     {
-        const int complianceAnchorCases = 496;
-        const int everyProviderCases = 367;
-        const int serverTargetCases = 373;
+        const int complianceAnchorCases = TestShardEvidenceAggregator.ComplianceSqliteAnchorMinimumCases;
+        const int everyProviderCases = TestShardEvidenceAggregator.ComplianceSqliteTargetMinimumCases;
+        const int serverTargetCases = TestShardEvidenceAggregator.ComplianceServerTargetMinimumCases;
         var remainingSqliteTargets = Math.Max(0, estimatedTargets - estimatedServerTargets - 1);
         var complianceCases = complianceAnchorCases
             + (remainingSqliteTargets * everyProviderCases)
             + (estimatedServerTargets * serverTargetCases);
-        const int mySqlInvariantCases = 65;
-        const int mySqlTargetCases = 62;
-        const int mariaDbTargetCases = 64;
+        const int mySqlInvariantCases = TestShardEvidenceAggregator.MySqlInvariantMinimumCases;
+        const int mySqlTargetCases = TestShardEvidenceAggregator.MySqlTargetMinimumCases;
+        const int mariaDbTargetCases = TestShardEvidenceAggregator.MariaDbTargetMinimumCases;
         var mariaDbTargets = estimatedServerTargets - estimatedMySqlTargets;
         var mySqlProviderCases = estimatedServerTargets == 0
             ? 0
@@ -141,9 +141,9 @@ internal static class TestCliRunPlanCatalog
                 + (mariaDbTargets * mariaDbTargetCases);
         return
         [
-            new(TestCliSuiteCatalog.GeneratorsSuite, null, 61, 8, "generator/compiler", "compiler", MaximumParallelTests: 8),
-            new(TestCliSuiteCatalog.UnitSuite, null, TestShardEvidenceAggregator.CompleteUnitSuiteExpectedCases, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
-            new(TestCliSuiteCatalog.MemorySuite, null, 141, 5, "memory integration", "in-process database", MaximumParallelTests: 8),
+            new(TestCliSuiteCatalog.GeneratorsSuite, null, TestShardEvidenceAggregator.CompleteGeneratorsMinimumCases, 8, "generator/compiler", "compiler", MaximumParallelTests: 8),
+            new(TestCliSuiteCatalog.UnitSuite, null, TestShardEvidenceAggregator.CompleteUnitMinimumCases, 16, "core unit and tooling", "in-process, process, filesystem", MaximumParallelTests: 16),
+            new(TestCliSuiteCatalog.MemorySuite, null, TestShardEvidenceAggregator.CompleteMemoryMinimumCases, 5, "memory integration", "in-process database", MaximumParallelTests: 8),
             new(TestCliSuiteCatalog.ComplianceSuite, null, complianceCases, estimatedDurationSeconds * 0.75, "provider-invariant compliance", "SQLite and server databases", MaximumParallelTests: 8),
             new(TestCliSuiteCatalog.MySqlSuite, null, mySqlProviderCases, estimatedDurationSeconds * 0.25, "provider-specific compliance", "MySQL/MariaDB server", MaximumParallelTests: 8)
         ];

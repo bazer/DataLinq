@@ -12,7 +12,19 @@ public sealed record TestShardEvidenceContract(
     string Suite,
     string? TargetId,
     string? ProviderAffinityRole,
-    int ExpectedCases);
+    int MinimumCases);
+
+public sealed record TestShardEvidenceBaselineEntry(
+    string Suite,
+    string? TargetId,
+    string? ProviderAffinityRole,
+    int Cases);
+
+public sealed record TestShardEvidenceBaseline(
+    string SchemaVersion,
+    int Epoch,
+    string CommitSha,
+    IReadOnlyList<TestShardEvidenceBaselineEntry> Shards);
 
 public sealed record TestShardEvidenceEntry(
     string Suite,
@@ -32,38 +44,51 @@ public sealed record TestShardEvidenceAggregate(
     string FrameworkDescription,
     bool Complete,
     int TotalCases,
+    string? PreviousBaselineCommitSha,
+    TestShardEvidenceBaseline CaseCountBaseline,
     IReadOnlyList<TestShardEvidenceEntry> Shards);
 
 public static class TestShardEvidenceAggregator
 {
-    public const string SchemaVersion = "v0.9.testing-shard-aggregate.v1";
-    public const int CompleteUnitSuiteExpectedCases = 1686;
+    public const string SchemaVersion = "v0.9.testing-shard-aggregate.v2";
+    public const string BaselineSchemaVersion = "v0.9.testing-shard-count-baseline.v1";
+    public const int BaselineEpoch = 1;
+    public const int CompleteGeneratorsMinimumCases = 61;
+    public const int CompleteUnitMinimumCases = 1686;
+    public const int CompleteMemoryMinimumCases = 141;
+    public const int ComplianceSqliteAnchorMinimumCases = 498;
+    public const int ComplianceSqliteTargetMinimumCases = 367;
+    public const int ComplianceServerTargetMinimumCases = 373;
+    public const int MySqlTargetMinimumCases = 62;
+    public const int MySqlInvariantMinimumCases = 65;
+    public const int MariaDbTargetMinimumCases = 64;
 
     public static IReadOnlyList<TestShardEvidenceContract> FullMatrixContract { get; } =
     [
-        new("generators", null, null, 61),
-        new("unit", null, null, CompleteUnitSuiteExpectedCases),
-        new("memory", null, null, 141),
-        new("compliance", "sqlite-file", "AnchorWithInvariant", 496),
-        new("compliance", "sqlite-memory", "TargetSpecific", 367),
-        new("compliance", "mysql-8.4", "TargetSpecific", 373),
-        new("compliance", "mysql-9.7", "TargetSpecific", 373),
-        new("compliance", "mariadb-10.11", "TargetSpecific", 373),
-        new("compliance", "mariadb-11.4", "TargetSpecific", 373),
-        new("compliance", "mariadb-11.8", "TargetSpecific", 373),
-        new("compliance", "mariadb-12.3", "TargetSpecific", 373),
-        new("mysql", "mysql-8.4", "TargetSpecific", 62),
-        new("mysql", "mysql-9.7", "AnchorWithInvariant", 127),
-        new("mysql", "mariadb-10.11", "TargetSpecific", 64),
-        new("mysql", "mariadb-11.4", "TargetSpecific", 64),
-        new("mysql", "mariadb-11.8", "TargetSpecific", 64),
-        new("mysql", "mariadb-12.3", "TargetSpecific", 64)
+        new("generators", null, null, CompleteGeneratorsMinimumCases),
+        new("unit", null, null, CompleteUnitMinimumCases),
+        new("memory", null, null, CompleteMemoryMinimumCases),
+        new("compliance", "sqlite-file", "AnchorWithInvariant", ComplianceSqliteAnchorMinimumCases),
+        new("compliance", "sqlite-memory", "TargetSpecific", ComplianceSqliteTargetMinimumCases),
+        new("compliance", "mysql-8.4", "TargetSpecific", ComplianceServerTargetMinimumCases),
+        new("compliance", "mysql-9.7", "TargetSpecific", ComplianceServerTargetMinimumCases),
+        new("compliance", "mariadb-10.11", "TargetSpecific", ComplianceServerTargetMinimumCases),
+        new("compliance", "mariadb-11.4", "TargetSpecific", ComplianceServerTargetMinimumCases),
+        new("compliance", "mariadb-11.8", "TargetSpecific", ComplianceServerTargetMinimumCases),
+        new("compliance", "mariadb-12.3", "TargetSpecific", ComplianceServerTargetMinimumCases),
+        new("mysql", "mysql-8.4", "TargetSpecific", MySqlTargetMinimumCases),
+        new("mysql", "mysql-9.7", "AnchorWithInvariant", MySqlInvariantMinimumCases + MySqlTargetMinimumCases),
+        new("mysql", "mariadb-10.11", "TargetSpecific", MariaDbTargetMinimumCases),
+        new("mysql", "mariadb-11.4", "TargetSpecific", MariaDbTargetMinimumCases),
+        new("mysql", "mariadb-11.8", "TargetSpecific", MariaDbTargetMinimumCases),
+        new("mysql", "mariadb-12.3", "TargetSpecific", MariaDbTargetMinimumCases)
     ];
 
     public static TestShardEvidenceAggregate AggregateDirectory(
         string inputRoot,
         string expectedCommitSha,
-        string expectedConfiguration)
+        string expectedConfiguration,
+        string? baselinePath = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inputRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedCommitSha);
@@ -82,7 +107,8 @@ public static class TestShardEvidenceAggregator
         var reports = summaryPaths
             .Select(path => new LoadedShard(path, ReadSummary(path), FindArtifactRoot(root, path)))
             .ToArray();
-        return Aggregate(reports, expectedCommitSha, expectedConfiguration);
+        var baseline = baselinePath is null ? null : ReadBaseline(baselinePath);
+        return Aggregate(reports, expectedCommitSha, expectedConfiguration, baseline);
     }
 
     public static void Write(TestShardEvidenceAggregate aggregate, string outputPath)
@@ -104,7 +130,8 @@ public static class TestShardEvidenceAggregator
     private static TestShardEvidenceAggregate Aggregate(
         IReadOnlyList<LoadedShard> loaded,
         string expectedCommitSha,
-        string expectedConfiguration)
+        string expectedConfiguration,
+        TestShardEvidenceBaseline? baseline)
     {
         var duplicateRunIds = loaded.GroupBy(static item => item.Report.RunId, StringComparer.Ordinal)
             .Where(static group => group.Count() > 1)
@@ -141,6 +168,8 @@ public static class TestShardEvidenceAggregator
         }
 
         var expectedByKey = FullMatrixContract.ToDictionary(ContractKey, StringComparer.OrdinalIgnoreCase);
+        var baselineByKey = ValidateBaseline(baseline, expectedByKey);
+        var baselineApplied = baseline?.Epoch == BaselineEpoch;
         var actualGroups = entries.GroupBy(EntryKey, StringComparer.OrdinalIgnoreCase).ToArray();
         var duplicates = actualGroups.Where(static group => group.Count() > 1).Select(static group => group.Key).ToArray();
         if (duplicates.Length > 0)
@@ -156,19 +185,48 @@ public static class TestShardEvidenceAggregator
                 $"unexpected: [{string.Join(", ", unexpected)}].");
         }
 
+        var contractMismatches = new List<string>();
         foreach (var (key, contract) in expectedByKey)
         {
             var entry = actualByKey[key];
-            if (entry.Cases != contract.ExpectedCases ||
-                !string.Equals(entry.ProviderAffinityRole, contract.ProviderAffinityRole, StringComparison.Ordinal))
+            if (!string.Equals(entry.ProviderAffinityRole, contract.ProviderAffinityRole, StringComparison.Ordinal))
             {
-                throw new InvalidDataException(
-                    $"Shard '{key}' contract mismatch: expected {contract.ExpectedCases} cases and role " +
-                    $"'{contract.ProviderAffinityRole ?? "-"}', got {entry.Cases} and '{entry.ProviderAffinityRole ?? "-"}'.");
+                contractMismatches.Add(
+                    $"Shard '{key}' role mismatch: expected '{contract.ProviderAffinityRole ?? "-"}', " +
+                    $"got '{entry.ProviderAffinityRole ?? "-"}'.");
+            }
+
+            baselineByKey.TryGetValue(key, out var baselineEntry);
+            var requiredCases = Math.Max(contract.MinimumCases, baselineEntry?.Cases ?? 0);
+            if (entry.Cases < requiredCases)
+            {
+                var baselineBasis = baselineEntry is null
+                    ? $"source floor {contract.MinimumCases}"
+                    : $"source floor {contract.MinimumCases}, previous successful baseline {baselineEntry.Cases} " +
+                      $"at {baseline!.CommitSha}";
+                contractMismatches.Add(
+                    $"Shard '{key}' case-count regression: required at least {requiredCases} cases " +
+                    $"({baselineBasis}), got {entry.Cases}.");
             }
         }
 
+        if (contractMismatches.Count > 0)
+        {
+            throw new InvalidDataException(
+                "Full-matrix shard contract mismatches:" + Environment.NewLine +
+                string.Join(Environment.NewLine, contractMismatches.Select(static mismatch => $"- {mismatch}")));
+        }
+
         var orderedEntries = FullMatrixContract.Select(contract => actualByKey[ContractKey(contract)]).ToArray();
+        var currentBaseline = new TestShardEvidenceBaseline(
+            BaselineSchemaVersion,
+            BaselineEpoch,
+            expectedCommitSha,
+            orderedEntries.Select(static entry => new TestShardEvidenceBaselineEntry(
+                entry.Suite,
+                entry.TargetId,
+                entry.ProviderAffinityRole,
+                entry.Cases)).ToArray());
         return new TestShardEvidenceAggregate(
             SchemaVersion,
             TestRunSummaryReporter.SchemaVersion,
@@ -179,7 +237,73 @@ public static class TestShardEvidenceAggregator
             commonRuntime.FrameworkDescription,
             Complete: true,
             TotalCases: orderedEntries.Sum(static entry => entry.Cases),
+            PreviousBaselineCommitSha: baselineApplied ? baseline!.CommitSha : null,
+            CaseCountBaseline: currentBaseline,
             Shards: orderedEntries);
+    }
+
+    private static IReadOnlyDictionary<string, TestShardEvidenceBaselineEntry> ValidateBaseline(
+        TestShardEvidenceBaseline? baseline,
+        IReadOnlyDictionary<string, TestShardEvidenceContract> expectedByKey)
+    {
+        if (baseline is null)
+            return new Dictionary<string, TestShardEvidenceBaselineEntry>(StringComparer.OrdinalIgnoreCase);
+        if (!string.Equals(baseline.SchemaVersion, BaselineSchemaVersion, StringComparison.Ordinal))
+            throw new InvalidDataException($"Case-count baseline has incompatible schema '{baseline.SchemaVersion}'.");
+        if (baseline.Epoch <= 0)
+            throw new InvalidDataException("Case-count baseline has no valid positive epoch.");
+        if (baseline.Epoch > BaselineEpoch)
+        {
+            throw new InvalidDataException(
+                $"Case-count baseline epoch {baseline.Epoch} is newer than supported epoch {BaselineEpoch}.");
+        }
+        if (!IsCommitSha(baseline.CommitSha))
+            throw new InvalidDataException("Case-count baseline does not identify an exact 40-character commit SHA.");
+        if (baseline.Epoch < BaselineEpoch)
+            return new Dictionary<string, TestShardEvidenceBaselineEntry>(StringComparer.OrdinalIgnoreCase);
+        if (baseline.Shards is null)
+            throw new InvalidDataException("Case-count baseline has no shard rows.");
+
+        var groups = baseline.Shards.GroupBy(BaselineKey, StringComparer.OrdinalIgnoreCase).ToArray();
+        var duplicates = groups.Where(static group => group.Count() > 1).Select(static group => group.Key).ToArray();
+        if (duplicates.Length > 0)
+            throw new InvalidDataException($"Case-count baseline has duplicate shards: {string.Join(", ", duplicates)}.");
+
+        var byKey = groups.ToDictionary(static group => group.Key, static group => group.Single(), StringComparer.OrdinalIgnoreCase);
+        var missing = expectedByKey.Keys.Except(byKey.Keys, StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToArray();
+        var unexpected = byKey.Keys.Except(expectedByKey.Keys, StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToArray();
+        if (missing.Length > 0 || unexpected.Length > 0)
+        {
+            throw new InvalidDataException(
+                $"Case-count baseline coverage mismatch. Missing: [{string.Join(", ", missing)}]; " +
+                $"unexpected: [{string.Join(", ", unexpected)}].");
+        }
+
+        var mismatches = new List<string>();
+        foreach (var (key, contract) in expectedByKey)
+        {
+            var entry = byKey[key];
+            if (!string.Equals(NormalizeOptionalRole(entry.ProviderAffinityRole), contract.ProviderAffinityRole, StringComparison.Ordinal))
+            {
+                mismatches.Add(
+                    $"Shard '{key}' role is '{entry.ProviderAffinityRole ?? "-"}', expected " +
+                    $"'{contract.ProviderAffinityRole ?? "-"}'.");
+            }
+            if (entry.Cases < contract.MinimumCases)
+            {
+                mismatches.Add(
+                    $"Shard '{key}' records {entry.Cases} cases below source floor {contract.MinimumCases}.");
+            }
+        }
+
+        if (mismatches.Count > 0)
+        {
+            throw new InvalidDataException(
+                "Case-count baseline is invalid:" + Environment.NewLine +
+                string.Join(Environment.NewLine, mismatches.Select(static mismatch => $"- {mismatch}")));
+        }
+
+        return byKey;
     }
 
     private static void ValidateReportEnvelope(
@@ -267,6 +391,19 @@ public static class TestShardEvidenceAggregator
             ?? throw new InvalidDataException($"Shard summary '{path}' deserialized to null.");
     }
 
+    private static TestShardEvidenceBaseline ReadBaseline(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        if (!File.Exists(fullPath))
+            throw new FileNotFoundException("Case-count baseline file does not exist.", fullPath);
+
+        var json = File.ReadAllText(fullPath);
+        using var document = JsonDocument.Parse(json);
+        ValidateNoDuplicateProperties(document.RootElement, "$", fullPath);
+        return JsonSerializer.Deserialize<TestShardEvidenceBaseline>(json, JsonOptions(writeIndented: false))
+            ?? throw new InvalidDataException($"Case-count baseline '{fullPath}' deserialized to null.");
+    }
+
     private static void ValidateNoDuplicateProperties(JsonElement element, string jsonPath, string sourcePath)
     {
         if (element.ValueKind == JsonValueKind.Object)
@@ -312,11 +449,18 @@ public static class TestShardEvidenceAggregator
     private static string ContractKey(TestShardEvidenceContract contract) =>
         $"{contract.Suite}:{contract.TargetId ?? "-"}";
 
+    private static string BaselineKey(TestShardEvidenceBaselineEntry entry) =>
+        $"{entry.Suite}:{entry.TargetId ?? "-"}";
+
     private static string EntryKey(TestShardEvidenceEntry entry) =>
         $"{entry.Suite}:{entry.TargetId ?? "-"}";
 
     private static string? NormalizeOptionalRole(string? role) =>
         string.IsNullOrEmpty(role) ? null : role;
+
+    private static bool IsCommitSha(string commit) =>
+        commit is { Length: 40 } && commit.All(static character =>
+            character is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F');
 
     private sealed record LoadedShard(string Path, TestRunSummaryReport Report, string ArtifactRoot);
 }
