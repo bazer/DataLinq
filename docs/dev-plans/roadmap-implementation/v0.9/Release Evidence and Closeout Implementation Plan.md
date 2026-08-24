@@ -9,7 +9,7 @@
 
 **Created:** 2026-07-10.
 
-**Last reviewed:** 2026-08-07.
+**Last reviewed:** 2026-08-24.
 
 **Depends on:** The required workstreams in the [DataLinq 0.9 Implementation Roadmap](README.md). The final closeout begins only after their baseline evidence is green and the release has selected zero or one optional stretch.
 
@@ -61,7 +61,7 @@ The repository has good 0.8 release tooling, but it does not yet prove the 0.9 r
 | Area | Current repository state | Required 0.9 change |
 | --- | --- | --- |
 | Test suites | `DataLinq.Testing.CLI` now knows `generators`, `unit`, `memory`, `compliance`, `mysql`, and `all`. The targetless `memory` project lane runs once and is included exactly once in `all`; `sqlite-memory` retains its in-memory SQLite target meaning. | **Complete for W10 step 3 / RE-1A registration.** Keep this project-based lane distinct from provider-free compatibility and package-consumer evidence. |
-| Provider matrix | The active matrix already defines `sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mariadb-10.11`, `mariadb-11.4`, and `mariadb-11.8`. | Make the final 0.9 SQL gate run this exact matrix. Keep DataLinq.Memory outside the SQL server-target multiplication and run its capability suite separately. |
+| Provider matrix | The active matrix defines `sqlite-file`, `sqlite-memory`, `mysql-8.4`, `mysql-9.7`, `mariadb-10.11`, `mariadb-11.4`, `mariadb-11.8`, and `mariadb-12.3`. | Make the final 0.9 SQL gate run this exact matrix. Keep DataLinq.Memory outside the SQL server-target multiplication and run its capability suite separately. |
 | Constrained-runtime smoke | The historical SQLite graph and separate Memory graph are registered as eight independently named targets in the accepted `v0.9` compatibility surface. The complete clean source-project matrix and the exact `0.9.0-preview.w10.3` package-backed matrix both publish, execute, and inspect all eight targets successfully; the package-backed matrix additionally proves per-target package provenance, and Memory outputs scan clean for SQL-provider/native-database payload. | **Complete for W10 step 5 at the aligned-preview checkpoint.** Repeat the exact package-backed matrix against the final RC; this preview checkpoint is not final release evidence. |
 | Compatibility reporting | `CompatibilityTargetCatalog` exposes both the historical/default `phase8c` set and the eight-target `v0.9` set. Newly generated reports use schema `v0.9.compatibility-size-report.v6` and record resolved invocation/strict intent, timing, outcome/completeness/review/validity, guarded artifact paths and hashes, exact package inputs/aggregate and end-of-run stability, per-target archive/cache/extracted-file provenance, isolated candidate scratch/cache, checkout start/end state, and entry/DevTools assembly revision plus clean-build attestation. | **Complete for RE-1C / W10 steps 4-5 infrastructure and the RE-1H-D tooling checkpoint.** Preserve historical v2 and v5 artifacts and dated checkpoint descriptions without relabeling them; repeat the new strict exact-package contract against the final RC. |
 | Packing | `publish-nuget.ps1` now packs six public packages, including the separate preview `DataLinq.Memory`, rejects non-empty output, and honors an explicit candidate through `MinVerVersionOverride`. | **Complete for W10 step 1 / RE-1D.** Keep Memory separate from core and retain the exact fresh-directory/version checks. |
@@ -543,9 +543,11 @@ The final SQL provider targets are not shorthand:
 | `sqlite-file` | File-backed SQLite visibility, transaction, UUID text/binary, cache, and query regressions. |
 | `sqlite-memory` | In-memory SQLite provider behavior. This is not `DataLinq.Memory`. |
 | `mysql-8.4` | MySQL 8.4 LTS, including binary UUID layouts without `GuidFormat`. |
+| `mysql-9.7` | MySQL 9.7 Innovation, the explicit current MySQL default and latest-lane target. |
 | `mariadb-10.11` | MariaDB 10.11 LTS/native UUID behavior. |
 | `mariadb-11.4` | MariaDB 11.4 LTS/native UUID behavior. |
-| `mariadb-11.8` | MariaDB 11.8 LTS/native UUID behavior and current default lane. |
+| `mariadb-11.8` | MariaDB 11.8 LTS/native UUID behavior. |
+| `mariadb-12.3` | MariaDB 12.3 Innovation, the explicit current MariaDB default and latest-lane target. |
 
 Use the repository's `all` alias because it already names that provider matrix. Do not replace the final run with `latest` merely because it is faster.
 
