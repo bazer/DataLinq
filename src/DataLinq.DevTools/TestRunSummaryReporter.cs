@@ -537,16 +537,13 @@ public static class TestRunSummaryReporter
             return false;
         }
 
-        var derivedExpected = DeriveExpectedResults(invocation);
-        if (derivedExpected.Count == 0 || expected.Count != derivedExpected.Count || results.Count != expected.Count)
+        if (!ExpectedResultsMatchInvocation(invocation, expected) || results.Count != expected.Count)
             return false;
 
-        var derivedKeys = derivedExpected.Select(ResultKey).Order(StringComparer.Ordinal).ToArray();
         var expectedKeys = expected.Select(ResultKey).Order(StringComparer.Ordinal).ToArray();
         var actualKeys = results.Select(ResultKey).Order(StringComparer.Ordinal).ToArray();
         if (expectedKeys.Distinct(StringComparer.Ordinal).Count() != expectedKeys.Length ||
             actualKeys.Distinct(StringComparer.Ordinal).Count() != actualKeys.Length ||
-            !derivedKeys.SequenceEqual(expectedKeys, StringComparer.Ordinal) ||
             !expectedKeys.SequenceEqual(actualKeys, StringComparer.Ordinal))
             return false;
 
@@ -588,45 +585,62 @@ public static class TestRunSummaryReporter
     }
 
     private static string ResultKey(TestRunSummaryExpectedResult result) =>
-        $"{result.Suite}\n{result.ProjectPath}\n{result.BatchIndex?.ToString() ?? "-"}\n{string.Join("\n", result.TargetIds)}";
+        $"{result.Suite}\n{result.ProjectPath}\n{result.BatchIndex?.ToString() ?? "-"}\n{string.Join("\n", result.TargetIds)}\n{result.ProviderAffinityRole ?? "-"}";
 
     private static string ResultKey(TestRunSummaryResult result) =>
-        $"{result.Suite}\n{result.ProjectPath}\n{result.BatchIndex?.ToString() ?? "-"}\n{string.Join("\n", result.TargetIds)}";
+        $"{result.Suite}\n{result.ProjectPath}\n{result.BatchIndex?.ToString() ?? "-"}\n{string.Join("\n", result.TargetIds)}\n{result.ProviderAffinityRole ?? "-"}";
 
-    private static IReadOnlyList<TestRunSummaryExpectedResult> DeriveExpectedResults(
-        TestRunSummaryInvocation invocation)
+    private static bool ExpectedResultsMatchInvocation(
+        TestRunSummaryInvocation invocation,
+        IReadOnlyList<TestRunSummaryExpectedResult> expected)
     {
-        var expected = new List<TestRunSummaryExpectedResult>();
+        if (expected.Count == 0 || expected.Any(result => !invocation.ResolvedSuites.Any(suite =>
+                string.Equals(suite.Name, result.Suite, StringComparison.OrdinalIgnoreCase) &&
+                PathComparer.Equals(suite.ProjectPath, result.ProjectPath))))
+        {
+            return false;
+        }
+
         foreach (var suite in invocation.ResolvedSuites)
         {
+            var suiteResults = expected
+                .Where(result => string.Equals(result.Suite, suite.Name, StringComparison.OrdinalIgnoreCase) &&
+                                 PathComparer.Equals(result.ProjectPath, suite.ProjectPath))
+                .ToArray();
             if (!suite.UsesTargetBatches)
             {
-                expected.Add(new TestRunSummaryExpectedResult(
-                    suite.Name,
-                    suite.ProjectPath,
-                    BatchIndex: null,
-                    TargetIds: Array.Empty<string>()));
+                if (suiteResults.Length != 1 ||
+                    suiteResults[0].BatchIndex is not null ||
+                    suiteResults[0].TargetIds.Count != 0)
+                {
+                    return false;
+                }
+
                 continue;
             }
 
-            var suiteTargets = suite.IncludeSqliteTargets
-                ? invocation.SelectedTargets.ToArray()
-                : invocation.SelectedTargets.Where(static target => target.UsesPodman).ToArray();
-            for (var index = 0; index < suiteTargets.Length; index += invocation.BatchSize)
+            var suiteTargetIds = (suite.IncludeSqliteTargets
+                    ? invocation.SelectedTargets
+                    : invocation.SelectedTargets.Where(static target => target.UsesPodman))
+                .Select(static target => target.Id)
+                .ToArray();
+            var expectedBatchCount = (suiteTargetIds.Length + invocation.BatchSize - 1) / invocation.BatchSize;
+            if (suiteResults.Length != expectedBatchCount ||
+                !HasExactSet(
+                    suiteResults.Select(result => result.BatchIndex?.ToString() ?? "-"),
+                    Enumerable.Range(1, expectedBatchCount).Select(static index => index.ToString())) ||
+                suiteResults.Any(result => result.TargetIds.Count == 0 ||
+                                           result.TargetIds.Count > invocation.BatchSize))
             {
-                expected.Add(new TestRunSummaryExpectedResult(
-                    suite.Name,
-                    suite.ProjectPath,
-                    BatchIndex: (index / invocation.BatchSize) + 1,
-                    TargetIds: suiteTargets
-                        .Skip(index)
-                        .Take(invocation.BatchSize)
-                        .Select(static target => target.Id)
-                        .ToArray()));
+                return false;
             }
+
+            var suppliedTargetIds = suiteResults.SelectMany(static result => result.TargetIds).ToArray();
+            if (!HasExactSet(suppliedTargetIds, suiteTargetIds))
+                return false;
         }
 
-        return expected;
+        return true;
     }
 
     private static bool IsCommandEnvironmentComplete(
@@ -680,22 +694,10 @@ public static class TestRunSummaryReporter
         TestRunSummaryInvocation invocation,
         IReadOnlyList<TestRunSummaryExpectedResult> expected)
     {
-        var derivedProviderRows = DeriveExpectedResults(invocation)
-            .Where(static result => result.TargetIds.Count > 0)
-            .ToArray();
-        if (derivedProviderRows.Length == 0 ||
-            derivedProviderRows.Any(static result => result.TargetIds.Count != 1))
-        {
-            return false;
-        }
-
-        var derivedKeys = derivedProviderRows.Select(ResultKey).Order(StringComparer.Ordinal).ToArray();
-        var suppliedKeys = expected
-            .Where(static result => result.TargetIds.Count > 0)
-            .Select(ResultKey)
-            .Order(StringComparer.Ordinal)
-            .ToArray();
-        return derivedKeys.SequenceEqual(suppliedKeys, StringComparer.Ordinal);
+        var providerRows = expected.Where(static result => result.TargetIds.Count > 0).ToArray();
+        return providerRows.Length > 0 &&
+               providerRows.All(static result => result.TargetIds.Count == 1) &&
+               ExpectedResultsMatchInvocation(invocation, expected);
     }
 
     private static bool HasCanonicalReleaseScope(TestRunSummaryInvocation invocation)

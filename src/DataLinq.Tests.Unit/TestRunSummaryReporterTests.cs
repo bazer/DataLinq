@@ -35,6 +35,10 @@ public sealed class TestRunSummaryReporterTests
         await Assert.That(report.Total).IsEqualTo(51);
         await Assert.That(report.Passed).IsEqualTo(51);
         await Assert.That(report.Results.Count).IsEqualTo(17);
+        var firstSelectedServer = report.Invocation.SelectedTargets.First(static target => target.UsesPodman).Id;
+        var firstMySqlBatch = report.ExpectedResults.First(static result => result.Suite == "mysql").TargetIds[0];
+        await Assert.That(firstSelectedServer).IsNotEqualTo(firstMySqlBatch);
+        await Assert.That(firstMySqlBatch).IsEqualTo("mysql-9.7");
         var unitResult = report.Results.Single(static result => result.Suite == "unit");
         await Assert.That(unitResult.Targets).IsEqualTo("-");
         await Assert.That(unitResult.TargetIds).IsEmpty();
@@ -250,6 +254,32 @@ public sealed class TestRunSummaryReporterTests
         await Assert.That(missingCoverage.ValidForEvidence).IsFalse();
         await Assert.That(missingHost.IsCompleteForInvocation).IsFalse();
         await Assert.That(missingHost.ValidForEvidence).IsFalse();
+    }
+
+    [Test]
+    public async Task Create_ReorderedProviderBatchesStillRejectDuplicateCoverage()
+    {
+        var input = CreateFullMatrixInput();
+        var expected = input.ExpectedResults.ToArray();
+        var results = input.Results.ToArray();
+        var replacementIndex = Array.FindIndex(expected, static result =>
+            result.Suite == "compliance" && result.TargetIds.Contains("mariadb-12.3"));
+        expected[replacementIndex] = expected[replacementIndex] with { TargetIds = ["mysql-8.4"] };
+        results[replacementIndex] = results[replacementIndex] with
+        {
+            TargetIds = ["mysql-8.4"],
+            Environment = results[replacementIndex].Environment with { TargetIds = ["mysql-8.4"] }
+        };
+
+        var report = TestRunSummaryReporter.Create(input with
+        {
+            ExpectedResults = expected,
+            Results = results
+        });
+
+        await Assert.That(report.IsCompleteForInvocation).IsFalse();
+        await Assert.That(report.HasPerTargetProviderTotals).IsFalse();
+        await Assert.That(report.ValidForEvidence).IsFalse();
     }
 
     [Test]
@@ -747,7 +777,10 @@ public sealed class TestRunSummaryReporterTests
         }
 
         var mysqlSuite = suites.Single(static suite => suite.Name == "mysql");
-        var serverTargets = targets.Where(static target => target.UsesPodman).ToArray();
+        var serverTargets = targets
+            .Where(static target => target.UsesPodman)
+            .OrderByDescending(static target => target.Id == "mysql-9.7")
+            .ToArray();
         for (var index = 0; index < serverTargets.Length; index++)
         {
             expected.Add(new TestRunSummaryExpectedResult(
