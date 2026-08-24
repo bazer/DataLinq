@@ -14,7 +14,7 @@ public sealed class ApiCompatToolRunnerTests
     public async Task Runner_VerifiesPinnedVersionAndParsesGeneratedDiagnostics()
     {
         using var fixture = new RunnerFixture();
-        fixture.Process.Enqueue((_, _) => Result(0, "10.0.302+build-metadata\n"));
+        fixture.Process.Enqueue((_, _) => Result(0, "10.0.400+build-metadata\n"));
         fixture.Process.Enqueue((_, arguments) =>
         {
             WriteSuppression(arguments, "CP0002", baseline: true);
@@ -30,7 +30,7 @@ public sealed class ApiCompatToolRunnerTests
             strictBaseline: false);
 
         await Assert.That(version.Succeeded).IsTrue();
-        await Assert.That(runner.ToolVersion).IsEqualTo("10.0.302+build-metadata");
+        await Assert.That(runner.ToolVersion).IsEqualTo("10.0.400+build-metadata");
         await Assert.That(comparison.Succeeded).IsTrue();
         await Assert.That(comparison.Diagnostics).HasSingleItem();
         await Assert.That(comparison.Diagnostics[0].DiagnosticId).IsEqualTo("CP0002");
@@ -50,7 +50,7 @@ public sealed class ApiCompatToolRunnerTests
     public async Task Runner_TreatsSuccessfulMissingSuppressionAsZeroAndEmitsStrictFlag()
     {
         using var fixture = new RunnerFixture();
-        fixture.Process.Enqueue((_, _) => Result(0, "10.0.302\n"));
+        fixture.Process.Enqueue((_, _) => Result(0, "10.0.400\n"));
         fixture.Process.Enqueue((_, _) => Result(0, string.Empty));
         var runner = fixture.CreateRunner();
         runner.VerifyTool();
@@ -76,10 +76,10 @@ public sealed class ApiCompatToolRunnerTests
         var wrong = wrongRunner.VerifyTool();
 
         await Assert.That(wrong.Succeeded).IsFalse();
-        await Assert.That(wrong.Failure).Contains("expected pinned version '10.0.302'");
+        await Assert.That(wrong.Failure).Contains("expected pinned version '10.0.400'");
 
         using var freshFixture = new RunnerFixture();
-        freshFixture.Process.Enqueue((_, _) => Result(0, "10.0.302\n"));
+        freshFixture.Process.Enqueue((_, _) => Result(0, "10.0.400\n"));
         var runner = freshFixture.CreateRunner();
         runner.VerifyTool();
         var exception = Capture<InvalidOperationException>(() => runner.VerifyTool());

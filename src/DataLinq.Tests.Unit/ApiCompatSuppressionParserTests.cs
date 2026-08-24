@@ -94,7 +94,7 @@ public sealed class ApiCompatSuppressionParserTests
     [Test]
     public async Task Parse_EmptyRootReturnsNoDiagnostics()
     {
-        // ApiCompat 10.0.302 creates no output file when a same-assembly comparison has no
+        // ApiCompat 10.0.400 creates no output file when a same-assembly comparison has no
         // differences. If a caller deliberately retains the equivalent empty root, it is empty data.
         var diagnostics = Parse(
             """

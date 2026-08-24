@@ -40,7 +40,7 @@ internal sealed class ApiCompatExternalProcessRunner : IApiCompatProcessRunner
 
 internal sealed class ApiCompatToolRunner
 {
-    internal const string ExpectedToolVersion = "10.0.302";
+    internal const string ExpectedToolVersion = "10.0.400";
 
     private readonly DevToolPaths paths;
     private readonly ToolingProfile profile;
