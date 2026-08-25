@@ -36,31 +36,28 @@ Every active plan should also include a target release or `Unscheduled`, last-re
 - [Development Roadmap](Roadmap.md)
 - [Public Roadmap](../Roadmap.md)
 
-The current version-scoped release plan is [DataLinq 0.9](roadmap-implementation/v0.9/README.md).
+The current version-scoped release plan is [DataLinq 0.10](roadmap-implementation/v0.10/README.md).
 
-## DataLinq 0.9
+## DataLinq 0.10
 
-### Required work
+Required release plans:
 
-- [0.9 Implementation Order and Integration Plan](roadmap-implementation/v0.9/Implementation%20Order%20and%20Integration%20Plan.md)
-- [Query Backend and Execution Foundation Implementation Plan](roadmap-implementation/v0.9/Query%20Backend%20and%20Execution%20Foundation%20Implementation%20Plan.md)
-- [Scalar Converters and Typed IDs Implementation Plan](roadmap-implementation/v0.9/Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md)
-- [UUID Storage Format Support](providers-and-features/UUID%20Storage%20Format%20Support.md)
-- [Read-Only Memory Backend Implementation Plan](roadmap-implementation/v0.9/In-Memory%20Database%20Implementation%20Plan.md)
-- [Memory Backend Architecture](backends/memory/Architecture.md)
-- [SQL Transaction and Mutable Lifecycle Implementation Plan](roadmap-implementation/v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md)
-- [SQLite Transaction Isolation Alignment](providers-and-features/SQLite%20Transaction%20Isolation%20Alignment.md)
-- [Mutable Instance Lifecycle](query-and-runtime/Mutable%20Instance%20Lifecycle.md)
-- [Release Evidence and Closeout Implementation Plan](roadmap-implementation/v0.9/Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
+- [DataLinq 0.10 Implementation Roadmap](roadmap-implementation/v0.10/README.md)
+- [0.10 Implementation Order and Integration Plan](roadmap-implementation/v0.10/Implementation%20Order%20and%20Integration%20Plan.md)
+- [0.10 Release Evidence and Closeout Implementation Plan](roadmap-implementation/v0.10/Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 
-### Optional stretch candidates
+Required durable design sources:
 
-Exactly one stretch may be selected after the required release evidence is green:
+- [Async and Lazy Loading](query-and-runtime/Async%20and%20Lazy%20Loading.md)
+- [Dependency Injection and Hosting Integration](architecture/Dependency%20Injection%20and%20Hosting%20Integration.md)
+- [Schema Validation Hooks](providers-and-features/Schema%20Validation%20Hooks.md)
+- [Model Testing and Mocking Support](testing/Model%20Testing%20and%20Mocking%20Support.md)
 
-- [Join and Grouping Continuation Implementation Plan](roadmap-implementation/v0.9/Join%20and%20Grouping%20Continuation%20Implementation%20Plan.md)
-- [Memory JSON Persistence Implementation Plan](roadmap-implementation/v0.9/Memory%20JSON%20Persistence%20Implementation%20Plan.md)
+The release has no pre-authorized stretch goals. [Issue #93](https://github.com/bazer/DataLinq/issues/93) is required generator-correctness work. [Issue #65](https://github.com/bazer/DataLinq/issues/65), tooling/Studio interoperability, migrations, Memory mutation/persistence, broad query expansion, and other later programs are explicitly outside the initial 0.10 boundary.
 
-The JSON stretch is snapshot-only manual import/export. Durable flush, logs, replay, compaction, browser persistence, and CLI tooling are post-0.9 work.
+## DataLinq 0.9 History
+
+DataLinq 0.9 is shipped. Its [implementation roadmap](roadmap-implementation/v0.9/README.md), [implementation order](roadmap-implementation/v0.9/Implementation%20Order%20and%20Integration%20Plan.md), and [release evidence plan](roadmap-implementation/v0.9/Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md) remain historical implementation records. Use the [0.9 release notes](../releases/0.9.md) and changelog for shipped behavior.
 
 ## Durable Design Sources
 
@@ -105,17 +102,17 @@ The testing plan should keep pure model/relation graph builders distinct from a 
 
 - [JSON Persistence Store Architecture](backends/memory/persistence/json/JSON%20Persistence%20Store%20Architecture.md)
 
-This is a post-0.9 architecture source except for the optional snapshot-only prototype explicitly selected by the 0.9 roadmap.
+This remains a later architecture source. Memory persistence requires provider-neutral mutation, trustworthy transaction semantics, and a canonical committed-change artifact before it can become release work.
 
-## Next After 0.9
+## Direction After 0.10
 
-The preferred next release is adoption-focused:
+The leading candidate after 0.10 is tooling-process interoperability:
 
-1. native async provider execution and cancellation
-2. DI/provider registration
-3. explicit unit-of-work factories and host lifetimes
-4. startup schema validation
-5. model/relation graph builders and memory-backed test registration
+1. stable tooling contracts separated from CLI, Roslyn, and provider implementation dependencies
+2. a versioned, cancelable machine protocol with capability negotiation
+3. safe repository/config discovery and explicit secret state
+4. deterministic model/schema inspection documents
+5. structured validation and conservative-diff results
 
 The following write-path release should build on trustworthy mutable baselines and a provider-neutral mutation plan:
 
@@ -133,10 +130,11 @@ These are useful design programs, not current release commitments:
 - [Dependency-Tracked Result and Module Caching](query-and-runtime/Result%20set%20caching.md)
 - [Distributed Cache Coordination and CDC](architecture/Distributed%20Cache%20Coordination%20and%20CDC.md)
 
-DataLinq.Store remains a separate companion-project incubation track. Its module, authorization, protocol, sync, persistence, and generated-binding work must not silently expand the core 0.9 release.
+DataLinq.Store remains a separate companion-project incubation track. Its module, authorization, protocol, sync, persistence, and generated-binding work must not silently expand the 0.10 release.
 
 ## Historical Implementation Records
 
+- [0.9 implementation roadmap](roadmap-implementation/v0.9/README.md)
 - [0.8 implementation roadmap](roadmap-implementation/v0.8/README.md)
 - [Archived roadmap implementation records](archive/roadmap-implementation/README.md)
 - [Archived query/runtime plans](archive/query-and-runtime/README.md)

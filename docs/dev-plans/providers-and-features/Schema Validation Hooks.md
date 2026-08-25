@@ -4,9 +4,9 @@
 # Specification: Schema Validation Hooks
 
 **Status:** Accepted.
-**Release horizon:** First post-0.9 adoption release.
-**Last reviewed:** 2026-07-10.
-**Dependency:** Runtime validation should compose with the planned DI/hosting package rather than introduce a competing startup abstraction.
+**Release horizon:** DataLinq 0.10 for runtime/startup validation; MSBuild/build-time validation remains later work.
+**Last reviewed:** 2026-08-25.
+**Dependency:** Runtime validation composes with the 0.10 DI/hosting package rather than introducing a competing startup abstraction.
 **Goal:** Let applications and builds explicitly validate DataLinq model metadata against live database schemas so schema drift is caught during development, CI, deployment, and application startup.
 
 **Related work:**

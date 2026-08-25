@@ -4,9 +4,9 @@
 # Specification: Model Testing and Mocking Support
 
 **Status:** Accepted.
-**Release horizon:** First post-0.9 adoption release; pure model/relation builders may land independently.
-**Last reviewed:** 2026-07-10.
-**Dependency:** Queryable provider-like tests should use the capability-declared `DataLinq.Memory` preview after 0.9 rather than inventing a second LINQ-to-Objects provider.
+**Release horizon:** DataLinq 0.10 for the release-local builder, relation, Memory-fixture, unit-of-work, and DI-helper subset; later testing slices remain unscheduled.
+**Last reviewed:** 2026-08-25.
+**Dependency:** Queryable provider-like tests use the shipped capability-declared `DataLinq.Memory` preview rather than inventing a second LINQ-to-Objects provider; fake unit-of-work support follows the real 0.10 unit-of-work contract.
 **Goal:** Make DataLinq application code testable without a live database when the test is about business behavior, while preserving provider-backed tests for SQL translation, schema, transaction, and database-specific behavior.
 
 **Related work:**

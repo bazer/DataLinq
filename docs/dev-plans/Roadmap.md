@@ -1,325 +1,234 @@
 > [!WARNING]
-> This is an internal planning document. It describes intended work, not shipped behavior. Use the public docs, support matrices, and changelog for current product claims.
+> This is an internal planning document. It describes intended work, not shipped behavior. Use the public docs, support matrices, changelog, and release notes for current product claims.
 
 # DataLinq Development Roadmap
 
 **Status:** Active.
 
-**Last reviewed:** 2026-08-07.
+**Last reviewed:** 2026-08-25.
 
 ## Purpose
 
 This page answers three questions:
 
 1. What is the next release trying to prove?
-2. Which work is required, optional, or deliberately later?
+2. Which work is required or deliberately later?
 3. Which detailed plan owns each decision?
 
-Completed phase history does not belong here. The 0.8 implementation record lives under [`roadmap-implementation/v0.8/`](roadmap-implementation/v0.8/README.md), and release-level behavior lives in the changelog.
+DataLinq 0.9 is shipped. Its implementation record remains under [`roadmap-implementation/v0.9/`](roadmap-implementation/v0.9/README.md), while shipped behavior belongs in the public docs, [0.9 release notes](../releases/0.9.md), and changelog.
 
-## Current Baseline
+## Published Baseline
 
-The 0.8 release established the foundation that 0.9 consumes:
+DataLinq 0.9 established the foundation that 0.10 consumes:
 
-- a DataLinq-owned expression parser and `DataLinqQueryPlan`
-- SQL generation from the plan for the documented LINQ subset
-- immutable plan bindings with indexed lookup
-- source slots, SQL-backed projection rows, grouped aggregate rows, and bounded joins
-- provider-key cache identity and generated key accessors
-- generated metadata startup and constrained SQLite AOT/browser evidence
-- schema validation and conservative diff scripts
-- explicit cache invalidation, freshness vocabulary, telemetry, and memory-pressure cleanup
+- a DataLinq-owned query plan split into structural templates and immutable invocation values
+- backend-neutral read-source, row-loading, materialization, and capability-validation seams
+- scalar converters and typed IDs across the supported SQL and Memory boundaries
+- explicit physical UUID storage codecs for SQLite, MySQL, and MariaDB
+- an experimental, provider-free, read-only `DataLinq.Memory` package with a deliberately bounded query contract
+- trustworthy SQL mutable-instance baselines across commit, rollback, failure, uncertain completion, and disposal
+- release evidence covering packages, API compatibility, provider matrices, constrained runtimes, browser smoke, documentation, and benchmarks
 
 The important current limitations are equally real:
 
-- retained expression-query result families execute behind the selected SQL backend, and bounded neutral routes now cover integral/scalar-UUID primary keys, exact single-column integral relation indices, and one exact resolved canonical-`Guid` relation/index family with representative converter-backed binary evidence across SQLite, MySQL, and MariaDB; broader primary/joined keys, cache/relation families, direct-`Guid` relation execution, text/native UUID relation evidence, and legacy reader routes are not yet backend-neutral
-- projection recipes are self-contained after parsing, and the SQL adapter still owns the complete retained recipe family; the separate packable experimental memory preview retains an exhaustive 58-token island with direct model-value scalar projection, rather than general local or joined recipes
-- model values, canonical provider values, and provider physical/wire values are not separate first-class contracts
-- DataLinq has no native async database I/O surface
-- managed mutable baselines now have explicit rollback/cross-transaction provenance, but raw-handle and full-concurrency boundaries remain unresolved
-- `DataLinq.Memory` now has an implementation-complete, packable experimental read-only 0.9 preview: generated-mutable seed, exact single-column lookup, the explicit 58-token query subset, direct model-value scalar projection, predictable unsupported-shape diagnostics, and provider-free AOT/browser execution. Broader LINQ, composite lookup, relations, mutation, and persistence are post-0.9 work. Only final-candidate validation, release notes/checklist, and publication remain for the preview.
+- public database I/O is still primarily synchronous
+- DataLinq has no first-class dependency-injection or Generic Host integration package
+- unit-of-work and host lifetime ownership are not expressed through one supported application contract
+- startup schema validation has no standard host integration
+- application tests lack a complete metadata-aware immutable/relation graph and unit-of-work testing surface
+- C# source type aliases can escape into generated files without a valid semantic type identity
+- full migration execution, provider-neutral set-based mutation, Memory mutation/persistence, and tooling-process interoperability are not shipped
 
 ## Roadmap Principles
 
-1. Correct existing provider behavior before multiplying backends.
-2. Make one architecture boundary real before making it public and extensible.
-3. Prefer a narrow vertical proof over a broad collection of interfaces.
-4. Treat provider capabilities as explicit contracts, not runtime surprises.
-5. Separate model values, canonical provider values, and physical provider encodings.
-6. Keep memory semantics explicit; memory is not SQL emulation.
-7. Measure before adding caches or claiming performance wins.
-8. Select at most one optional stretch after required release evidence is green.
-9. Treat release evidence as protection against ordinary candidate mix-ups and incomplete runs; do not turn local tooling into a hostile-machine attestation system.
+1. Make ordinary application adoption boring before expanding into another major engine.
+2. Use native async provider APIs; never market `Task.Run` or sync-over-async as asynchronous database I/O.
+3. Keep I/O explicit. Property access must not secretly issue database commands.
+4. Make provider, database, unit-of-work, transaction, and disposal ownership visible in public contracts.
+5. Keep business-logic tests, Memory-backed tests, translation tests, and provider tests semantically distinct.
+6. Preserve current sync behavior while adding async APIs; compatibility changes require explicit review and evidence.
+7. Treat cancellation, logging, metrics, cache invalidation, and transaction terminal states as contract behavior, not plumbing afterthoughts.
+8. Do not add optional release work by default. Scope changes require a roadmap revision with dependencies and exit evidence.
+9. Measure performance changes against a frozen baseline without letting an unrelated parity target redefine the release.
+10. Keep roadmap claims separate from shipped product documentation.
 
-## 0.9 Decision
+## 0.10 Decision
 
-The 0.9 release is an architecture-first release with a deliberately small product proof:
+DataLinq 0.10 is an application-adoption and integration release:
 
-> Make query execution backend-selectable, make provider values explicit, and prove both with typed IDs, correct UUID storage, and a read-only generated-model memory backend.
+> Make DataLinq a first-class component in modern hosted .NET applications through native asynchronous and cancelable execution, explicit dependency-injection and unit-of-work lifetimes, opt-in startup schema validation, and first-class database-free testing support.
 
-The earlier plan combined backend extraction, plan caching, broad SQL query expansion, a transactional memory database, JSON durability, commit logs, replay, browser adapters, and CLI tooling. That was not a credible minor-release boundary. The trimmed plan keeps the differentiating architecture and moves the second transaction/persistence project out.
+The release does not attempt to combine adoption with migrations, Memory persistence, broad query expansion, Studio protocols, or a new write-path engine. Those are separate programs with different prerequisites and evidence.
 
-## 0.9 Dependency Order
+The authoritative release-local plans are:
 
-The authoritative start-to-release sequence is [0.9 Implementation Order And Integration Plan](roadmap-implementation/v0.9/Implementation%20Order%20and%20Integration%20Plan.md). It replaces the earlier conflicting linear summaries with explicit waves, safe parallel lanes, merge gates, and one ownership map.
+- [DataLinq 0.10 Implementation Roadmap](roadmap-implementation/v0.10/README.md)
+- [0.10 Implementation Order and Integration Plan](roadmap-implementation/v0.10/Implementation%20Order%20and%20Integration%20Plan.md)
+- [0.10 Release Evidence and Closeout Implementation Plan](roadmap-implementation/v0.10/Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 
-The condensed order is:
+## Required 0.10 Workstreams
 
-1. record the clean 0.8 behavior, package, compatibility, and performance baseline
-2. characterize query execution, transaction/cache behavior, mutable lifecycle, and scalar/UUID values in parallel
-3. land scalar metadata plus self-contained template/invocation and projection recipes
-4. satisfy the applicable per-family SQL transaction/cache fault and terminal-state gate before each neutral cache/relation routing slice moves
-5. land the shared canonical row/source/materializer boundary, scalar runtime conversion, capability validation, and SQL adapter
-6. complete typed-ID query/key/schema behavior; run the granular UUID physical-codec lane and separate-project primitive memory spike where their dependencies allow
-7. promote memory to a read-only preview package only if the spike gate passes, then complete its explicit semantics while UUID remains an independent required release gate
-8. run the provisional baseline evidence gate
-9. choose zero or one stretch
-10. rerun the frozen-candidate release closeout
+### Native Async And Cancellation
 
-The detailed release-evidence work is owned by [Release Evidence And Closeout Implementation Plan](roadmap-implementation/v0.9/Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md). The existing SQL correctness lane is owned by [SQL Transaction And Mutable Lifecycle Implementation Plan](roadmap-implementation/v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md).
+Durable design owner:
 
-Memory mutation and durable persistence require later transaction/mutation foundations and are not part of this sequence.
-
-## Required 0.9 Workstreams
-
-### Execution Foundation
-
-Owner:
-
-- [`roadmap-implementation/v0.9/Query Backend and Execution Foundation Implementation Plan.md`](roadmap-implementation/v0.9/Query%20Backend%20and%20Execution%20Foundation%20Implementation%20Plan.md)
+- [Async and Lazy Loading](query-and-runtime/Async%20and%20Lazy%20Loading.md)
 
 Required outcomes:
 
-- `DataLinqQueryPlan` execution no longer assumes that every backend is an ADO.NET SQL provider.
-- Supported execution does not need to rediscover projection behavior from the original expression tree.
-- cold primary-key, relation, and ordinary query row loading can go through a backend-neutral row source.
-- SQL-specific APIs remain on a SQL-facing surface rather than becoming throwing members on memory providers.
-- capability failures identify the unsupported plan node, operation, source, and backend.
-- the internal boundary is async/cancellation-ready without pretending that native async I/O ships in 0.9.
+- SQLite, MySQL, and MariaDB use provider async APIs, with native asynchronous I/O only where the underlying provider genuinely supports it and explicit SQLite limitations where it does not
+- public async query terminals and materialization cover the supported synchronous query families
+- relation I/O has explicit async loading rather than hidden async property behavior
+- mutation and transaction begin/commit/rollback paths have honest asynchronous APIs
+- `CancellationToken` reaches database commands and returns cancellation distinctly from timeout or generic failure
+- logging, telemetry, cache behavior, materialization, and transaction terminal states remain semantically aligned with sync execution
+- existing synchronous APIs remain supported without delegating through `.Result` or `.GetAwaiter().GetResult()`
 
-Structural template/invocation separation belongs here only to the extent required for a self-contained, reusable execution request. Production plan caching, eviction, cache lifetime, and public cache claims require separate benchmark evidence and remain later work.
+Awaitable entities, automatic lazy loading, sync property access that triggers I/O, and broad public backend plugin APIs are not part of this workstream.
 
-### Scalar Converters And Typed IDs
+### Dependency Injection, Hosting, And Unit Of Work
 
-Owners:
+Durable design owner:
 
-- [`roadmap-implementation/v0.9/Scalar Converters and Typed IDs Implementation Plan.md`](roadmap-implementation/v0.9/Scalar%20Converters%20and%20Typed%20IDs%20Implementation%20Plan.md)
-- [`metadata-and-generation/Scalar Converter Support.md`](metadata-and-generation/Scalar%20Converter%20Support.md)
-
-Required outcomes:
-
-- metadata distinguishes model CLR type from canonical provider CLR type
-- converters are resolved once rather than discovered on hot paths
-- reads, writes, query constants, local membership, keys, relations, and validation use one conversion contract
-- typed `int`, `long`, `Guid`, and `string` IDs are test-covered at the supported boundary
-- unsupported member-level value-object queries fail clearly
-- existing public model-facing row/indexer behavior remains model-valued
-
-Third-party typed-ID adapters, convention plugins, generated typed-key classes, multi-column value objects, and arbitrary value-object member translation remain later work.
-
-### UUID Storage Correctness
-
-Owner:
-
-- [`providers-and-features/UUID Storage Format Support.md`](providers-and-features/UUID%20Storage%20Format%20Support.md)
+- [Dependency Injection and Hosting Integration](architecture/Dependency%20Injection%20and%20Hosting%20Integration.md)
 
 Required outcomes:
 
-- UUID physical representation is column-specific metadata, not an accidental connection-string convention
-- reads, writes, query parameters, local membership, keys, relations, defaults, validation, and diffing use the same codec
-- MySQL/MariaDB binary/native/text UUID behavior is explicit and test-backed
-- SQLite text/blob behavior is explicit and test-backed where supported
-- canonical memory values remain `Guid`; MySQL byte order does not leak into memory or cache semantics
+- a deliberate extensions package keeps host dependencies out of unrelated runtime packages
+- applications can register a generated database and provider through normal `IServiceCollection` composition
+- read-root access does not accidentally grant an ambient mutable transaction
+- explicit unit-of-work factories own transaction creation, commit, rollback, failure, cancellation, and disposal
+- service lifetimes are tested for Generic Host, ASP.NET Core, workers, concurrent scopes, and application shutdown
+- DataLinq logging flows through the host logging pipeline with stable categories
+- the first release uses explicit ownership rather than an ambient `AsyncLocal` session
 
-UUID codecs consume the scalar/provider-value pipeline but are not scalar converters. The layers are:
+The first release supports unnamed registrations only. Named/keyed databases, read replicas, tenant routing, framework-specific XAML packages, and ambient transaction scopes require later evidence.
 
-```text
-model value <-> canonical provider CLR value <-> provider physical/wire value
-```
+### Startup Schema Validation
 
-### Read-Only Memory Preview
+Durable design owner:
 
-Owners:
-
-- [`roadmap-implementation/v0.9/In-Memory Database Implementation Plan.md`](roadmap-implementation/v0.9/In-Memory%20Database%20Implementation%20Plan.md) (read-only preview)
-- [`backends/memory/Architecture.md`](backends/memory/Architecture.md)
-
-Required first slice:
-
-- generated models only
-- deterministic seed loading
-- primary-key lookup
-- scalar equality/comparison and boolean predicates
-- local scalar membership
-- ordering and paging
-- `Any`, `Count`, and supported single-row results
-- direct scalar and direct SQL-row-style projection shapes
-- explicit unsupported-capability diagnostics
-- ordinary runtime, strict AOT, and browser WebAssembly execution
-
-The preview does not include:
-
-- insert/update/delete
-- transactions, rollback, conflict resolution, or atomic root swapping
-- forks or replayable commit batches
-- raw SQL
-- SQL-provider parity claims
-- a promise that every supported SQL query is supported in memory
-
-Provider-backed suites remain authoritative for SQL translation and provider behavior. Memory proves the DataLinq plan and memory capability contract.
-
-### Existing-Provider Correctness
-
-Owners:
-
-- [`roadmap-implementation/v0.9/SQL Transaction and Mutable Lifecycle Implementation Plan.md`](roadmap-implementation/v0.9/SQL%20Transaction%20and%20Mutable%20Lifecycle%20Implementation%20Plan.md)
-- [`providers-and-features/SQLite Transaction Isolation Alignment.md`](providers-and-features/SQLite%20Transaction%20Isolation%20Alignment.md)
-- [`query-and-runtime/Mutable Instance Lifecycle.md`](query-and-runtime/Mutable%20Instance%20Lifecycle.md)
+- [Schema Validation Hooks](providers-and-features/Schema%20Validation%20Hooks.md)
 
 Required outcomes:
 
-- SQLite no longer relies on dirty reads to provide same-transaction visibility
-- pending transaction state is not published as committed global state
-- mutable instances record enough provider/transaction provenance to reject untrustworthy reuse
-- rollback, disposal of an open transaction, failed writes, cross-provider reuse, and cross-transaction reuse have tested behavior
+- applications can opt into startup validation through the hosting integration
+- fail-fast, warning-only, and disabled policies are explicit
+- validation reuses the supported schema comparer and provider metadata readers
+- cancellation, timeout, missing-secret, connectivity, metadata-read, drift, and unsupported-difference outcomes are distinguishable
+- validation emits structured diagnostics through normal host logging
+- startup validation never applies migrations or repairs schema
 
-These gates protect the current SQL product. They also prevent a later memory mutation implementation from copying ambiguous semantics.
+MSBuild/build-time validation remains outside 0.10. It may later reuse the same structured validation contract, but it is not part of the startup-hosting baseline.
+
+### Testing Support
+
+Durable design owner:
+
+- [Model Testing and Mocking Support](testing/Model%20Testing%20and%20Mocking%20Support.md)
+
+Required 0.10 subset:
+
+- metadata-aware immutable row builders with correct values, primary keys, equality, and `Mutate()` behavior
+- complete collection and reference relation test doubles
+- relation graph builders that validate relation direction, keys, nullability, and deterministic ordering
+- fixture-oriented registration over the real `DataLinq.Memory` capability set
+- fake unit-of-work behavior aligned with the real 0.10 unit-of-work contract, including commit, rollback, disposal, and failure injection
+- DI replacement helpers for Memory-backed reads, fake units of work, and clearly named SQLite-in-memory provider tests
+- documentation that labels exactly what each testing layer proves and does not prove
+
+Generated test-shape interfaces, a broad query-assertion DSL, and simulated provider transaction semantics are later decisions. Builders and doubles must prove whether those additions are necessary first.
+
+### Source Type Alias Correctness
+
+Issue owner:
+
+- [Issue #93: Support source type aliases in generated models](https://github.com/bazer/DataLinq/issues/93)
+
+Required outcomes:
+
+- generator inputs resolve model property types semantically and emit stable, resolvable type identities
+- nullability and reference/value classification use the resolved symbol rather than alias spelling
+- syntax-only paths fail with a focused diagnostic where semantic alias resolution is unavailable
+- changing only an alias target invalidates the affected incremental generator output
+- custom scalar-converter aliases and existing keyword/qualified/custom type generation retain regression coverage
+
+This workstream is independent of the adoption dependency chain and may land early. It is not authorization for a broad generator architecture rewrite.
 
 ### Release Evidence
 
 Owner:
 
-- [`roadmap-implementation/v0.9/Release Evidence and Closeout Implementation Plan.md`](roadmap-implementation/v0.9/Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
+- [0.10 Release Evidence and Closeout Implementation Plan](roadmap-implementation/v0.10/Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 
-The 0.9 plan must end with the same kind of evidence discipline used for the 0.8 closeout:
+Required outcomes:
 
-- focused unit and compliance suites
-- capability-filtered memory tests rather than blindly adding memory to every SQL suite
-- full SQL-provider regression coverage
-- package-report and publish-package integration for every new package
-- trim, Native AOT, WebAssembly, and WebAssembly AOT browser execution where claimed
-- allocation benchmarks for repeated supported reads and memory primary-key lookup
-- public docs and support matrices updated only after evidence is green
+- every workstream has focused contract tests before broad integration
+- the complete SQLite/MySQL/MariaDB provider matrix remains green
+- async and sync paths have semantic parity tests, including cancellation and terminal-state behavior
+- new package boundaries pass inspection, consumer smoke, API compatibility, target-framework, and dependency checks
+- constrained-runtime and browser evidence is rerun where the affected package graph or runtime surface requires it
+- documentation builds cleanly and public pages describe only frozen, verified behavior
+- a before/after benchmark receipt explains changed allocations, latency, and telemetry
 
-## Optional 0.9 Stretch
+[Issue #26](https://github.com/bazer/DataLinq/issues/26) remains the historical 0.8 allocation-parity tracker. Literal parity is not a hidden 0.10 release gate. The 0.10 gate is that new regressions are measured, explained, and either corrected or explicitly accepted before release.
 
-At most one stretch may enter 0.9 after the required workstreams are green. Shipping neither is acceptable.
+## Explicitly Out Of 0.10
 
-### Option A: Bounded SQL Join Continuation
-
-Owner:
-
-- [`roadmap-implementation/v0.9/Join and Grouping Continuation Implementation Plan.md`](roadmap-implementation/v0.9/Join%20and%20Grouping%20Continuation%20Implementation%20Plan.md)
-
-Preferred order:
-
-1. multiple explicit inner joins over direct source-slot projection members
-2. composite direct-member join keys
-3. supported filtering/ordering/paging/results over those rows
-
-Narrow .NET 10 `Queryable.LeftJoin(...)`, grouped multi-join continuation, and relation-aware fluent join sugar remain later work.
-
-### Option B: Snapshot-Only JSON Prototype
-
-Owners:
-
-- [`roadmap-implementation/v0.9/Memory JSON Persistence Implementation Plan.md`](roadmap-implementation/v0.9/Memory%20JSON%20Persistence%20Implementation%20Plan.md)
-- [`backends/memory/persistence/json/JSON Persistence Store Architecture.md`](backends/memory/persistence/json/JSON%20Persistence%20Store%20Architecture.md)
-
-Allowed 0.9 boundary:
-
-- manual import/export only
-- one canonical, versioned snapshot document
-- deterministic table/row/column ordering
-- schema digest with test vectors
-- canonical provider-value encoding
-- actionable malformed-data diagnostics
-
-Excluded:
-
-- flush-on-commit durability
-- filesystem/browser storage adapters as a product contract
-- commit logs, replay, compaction, retention, and recovery claims
-- CLI command families
-- production browser persistence
-
-## Explicitly Out Of 0.9
-
-- native async provider execution as a shipped feature
-- public query-plan or backend plugin APIs
-- production query-plan caching
-- memory mutation and transactions
-- durable JSON persistence and commit logs
-- broad join/grouping expansion
-- `JoinBy(...)`, `JoinMany(...)`, and relation-aware left-join APIs
-- generated typed-key output
-- full migration execution
-- SQL JSON-path querying
-- dependency-tracked result caching
-- DataLinq.Store execution
-- distributed cache coordination and CDC
-
-## Post-0.9 Direction
-
-### Adoption Release
-
-The strongest immediate follow-up is a deliberately boring application-adoption release:
-
-1. native async query, relation, mutation, and transaction execution
-2. cancellation propagation to provider commands
-3. DI/provider registration
-4. explicit unit-of-work factory and host lifetimes
-5. startup schema-validation integration
-6. model/relation graph builders and memory-backed testing registration
-
-Owners:
-
-- [`query-and-runtime/Async and Lazy Loading.md`](query-and-runtime/Async%20and%20Lazy%20Loading.md)
-- [`architecture/Dependency Injection and Hosting Integration.md`](architecture/Dependency%20Injection%20and%20Hosting%20Integration.md)
-- [`providers-and-features/Schema Validation Hooks.md`](providers-and-features/Schema%20Validation%20Hooks.md)
-- [`testing/Model Testing and Mocking Support.md`](testing/Model%20Testing%20and%20Mocking%20Support.md)
-
-Async provider I/O and explicit loading come first. Awaitable entities, ambient sessions, and sync property access that hides I/O remain experiments, not default API direction.
-
-### Write-Path Release
-
-The mutation backlog forms one dependency chain:
-
-1. mutable lifecycle and provider-neutral mutation planning
-2. set-based update/delete
-3. explicit relation-aware mutation
-4. call-scoped batching
-5. provider bulk execution where evidence supports it
-6. structured post-commit audit events
-
-Owners:
-
-- [`query-and-runtime/Set-based mutations.md`](query-and-runtime/Set-based%20mutations.md)
-- [`query-and-runtime/Relation-Aware Mutation API.md`](query-and-runtime/Relation-Aware%20Mutation%20API.md)
-- [`query-and-runtime/Batched mutations.md`](query-and-runtime/Batched%20mutations.md)
-- [`query-and-runtime/Mutation Audit Events.md`](query-and-runtime/Mutation%20Audit%20Events.md)
-
-When this work starts, define one internal canonical committed-change receipt and adapt it into memory persistence, audit, invalidation/CDC, and Store-specific contracts. Do not publish one giant DTO that pretends those consumers have identical security and compatibility needs.
-
-### Later And Incubating
-
-Keep these separate until their prerequisites and product demand are concrete:
-
-- full migration execution
-- generated typed-key output and third-party adapters
+- [Issue #65](https://github.com/bazer/DataLinq/issues/65) and broader set-based or relation-aware mutations
+- call-scoped batching, provider bulk execution, and structured post-commit audit events
+- tooling-process interoperability and DataLinq Studio inspection protocols
+- MSBuild/build-time schema validation
+- full migration authoring, history, execution, recovery, or repair
+- Memory mutation, transactions, forks, persistence, commit logs, replay, or compaction
+- broad multi-join, grouping, left-join, or relation-aware join expansion
+- automatic structural query-plan caching or dependency-tracked result caching
+- generated typed-key output and third-party typed-ID adapters
 - SQL JSON-path translation and partial JSON updates
-- production JSON/browser persistence
-- dependency-tracked result/module caching
-- distributed coordination and CDC
-- DataLinq.Store modules, sync, authorization, and generated bindings
+- general observability export protocols or query-shape fingerprints
+- PostgreSQL or another new provider
+- distributed coordination, CDC, and DataLinq.Store execution
+
+There is no stretch-goal list. Any addition requires an explicit change to this roadmap, the implementation order, and the release-evidence plan before implementation begins.
+
+## Dependency Order
+
+The condensed order is:
+
+1. freeze the 0.9 sync/API/package/provider/performance baseline and inventory every I/O boundary
+2. define internal async/cancellation contracts and parity rules
+3. implement native provider async execution and terminal-state behavior
+4. expose the supported public async query, relation, mutation, and transaction surface
+5. build DI registration and explicit unit-of-work ownership on the settled async contracts
+6. integrate startup schema validation through the host boundary
+7. complete testing builders, Memory registration, fake unit of work, and DI replacement helpers against the real contracts
+8. integrate source-alias correctness on its independent lane
+9. run provisional package, API, provider, compatibility, documentation, and benchmark evidence
+10. freeze one candidate and run final release closeout without feature additions
+
+The detailed gates and safe parallel lanes live in the [0.10 Implementation Order and Integration Plan](roadmap-implementation/v0.10/Implementation%20Order%20and%20Integration%20Plan.md).
+
+## Direction After 0.10
+
+The leading candidate after 0.10 is tooling-process interoperability: versioned, cancelable project discovery, deterministic inspection documents, and structured validation/diff results that external tools can consume without loading arbitrary application assemblies or depending on CLI internals.
+
+The following write-path program remains separately ordered:
+
+1. provider-neutral mutation planning
+2. set-based update/delete, including a bounded atomic conditional-update contract
+3. relation-aware mutation
+4. call-scoped batching and measured provider bulk execution
+5. canonical committed-change receipts and structured audit adapters
+
+Migration execution, Memory persistence/replay, observability contracts, broader query work, result caching, PostgreSQL, and DataLinq.Store remain evidence-gated programs rather than implied release commitments.
 
 ## Plan Governance
 
-Every active plan should state:
+Every active plan must state:
 
 - status
 - target release or `Unscheduled`
-- last reviewed date
+- last-reviewed date
 - prerequisites
 - required exit evidence
 - explicit non-goals
@@ -330,11 +239,13 @@ If a durable design note and a release implementation plan disagree, update the 
 
 ## Review Triggers
 
-Revisit this order if:
+Revisit the release boundary only if current evidence shows that:
 
-- the vertical memory spike proves that the provider/source split is materially larger than the release can absorb
-- scalar conversion requires a public model break rather than an additive internal boundary
-- SQLite committed-visibility work exposes a broader transaction redesign
-- benchmark evidence shows plan parsing/rendering is a more urgent bottleneck than assumed
-- a concrete adoption requirement makes native async more urgent than the architecture proof
-- package/AOT/browser evidence cannot support the intended memory preview claim
+- the backend-neutral execution foundation cannot carry native cancellation without a material redesign
+- provider async semantics cannot preserve cache, transaction, or failure behavior without a public compatibility break
+- unit-of-work ownership requires a different provider/database lifetime model than the accepted hosting plan
+- testing helpers would need to duplicate Memory or provider semantics rather than adapt the real contracts
+- source-alias resolution requires a materially broader generator architecture change
+- package/API/benchmark evidence exposes a release-blocking regression
+
+A useful new feature, spare implementation capacity, or a completed required workstream is not by itself a reason to expand 0.10.
