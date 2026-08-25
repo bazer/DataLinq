@@ -45,11 +45,11 @@ Do not compare default numbers directly against heavy numbers. They use differen
 
 <script type="module" src="../public/benchmark-results.js"></script>
 
-## 0.9 Candidate Disposition
+## 0.9 Release Disposition
 
-The 0.9 candidate does not claim literal allocation parity with final 0.8 across the calibrated suite. It reaches or beats the final-0.8 allocation baseline on the accepted key rows, while four of nine `sqlite-memory` rows remain above their strict budgets: update employees, cold relation traversal, CRUD workflow batch, and CRUD workflow small.
+The 0.9 release does not claim literal allocation parity with final 0.8 across the calibrated suite. It reaches or beats the final-0.8 allocation baseline on the accepted key rows, while four of nine `sqlite-memory` rows remain above their strict budgets: update employees, cold relation traversal, CRUD workflow batch, and CRUD workflow small.
 
-Those exceptions were accepted without raising the budgets because the remaining candidates require correctness-sensitive cache, ownership, transaction, or provider-lifetime work. The calibrated allocation comparison has no telemetry changes, and its three latency warnings did not reproduce consistently in an adjacent same-runtime receipt.
+Those exceptions were accepted without raising the budgets because the remaining optimization paths require correctness-sensitive cache, ownership, transaction, or provider-lifetime work. The calibrated allocation comparison has no telemetry changes, and its three latency warnings did not reproduce consistently in an adjacent same-runtime receipt.
 
 The separate final SQL comparison against the retained July pre-foundation checkpoint is diagnostic rather than strict release evidence, because the older schema-v2 baseline lacks the complete environment identity now required by schema v3. Across its six repeated-query rows, 0.9 allocates about 17% to 34% more per operation after the backend boundary; timing is mostly noisy and does not establish a sustained hot-path regression. DataLinq 0.9 does not ship a production plan cache, so these results are not a plan-cache performance claim.
 
@@ -61,4 +61,4 @@ Use the [0.9 release notes](releases/0.9.md#performance), [calibrated receipt in
 
 The [0.8 GitHub release](https://github.com/bazer/DataLinq/releases/tag/0.8.0) is the durable published boundary. Maintainer records also name repo-local `artifacts/...` histories used during that release, but those paths are not website downloads and are not reproduced here as if they were public benchmark artifacts.
 
-The historical 0.8 query-hotpath run contained noisy latency rows, so it is not an honest latency-improvement claim. Its allocation histories remain useful as the fixed comparison baseline used by the 0.9 candidate disposition above.
+The historical 0.8 query-hotpath run contained noisy latency rows, so it is not an honest latency-improvement claim. Its allocation histories remain useful as the fixed comparison baseline used by the 0.9 release disposition above.

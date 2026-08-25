@@ -2,8 +2,7 @@
 
 `DataLinq.Memory` is an experimental, read-only backend for generated DataLinq models. It stores explicitly seeded rows in process and executes a small, documented query subset without a SQL provider.
 
-> [!NOTE]
-> This page describes the unpublished 0.9 release candidate. It does not claim that the final `DataLinq.Memory` package is already on NuGet; check the [0.9 candidate notes](../releases/0.9.md) and [published changelog](../../CHANGELOG.md) for the release boundary.
+`DataLinq.Memory` 0.9.0 is [published on NuGet](https://www.nuget.org/packages/DataLinq.Memory/0.9.0). See the [0.9.0 release notes](../releases/0.9.md) for its release boundary and upgrade guidance.
 
 Use it for fast application tests, examples, and transient state when your assertions do not depend on SQL translation, collation, constraints, transactions, or provider-specific behavior. Keep provider-backed tests for those concerns.
 
@@ -57,7 +56,7 @@ Memory stores canonical provider CLR values but has no SQL physical/wire codec. 
 
 ## Supported query boundary
 
-The 0.9 preview supports a deliberately small capability-gated subset:
+DataLinq.Memory 0.9.0 supports a deliberately small capability-gated subset:
 
 - one generated root table
 - the documented `int` comparisons and local `Contains` membership
@@ -71,7 +70,7 @@ Unsupported shapes throw `QueryBackendCapabilityException` before Memory row wor
 
 ## Deliberate non-features
 
-The preview has no Memory-owned:
+The experimental Memory backend has no Memory-owned:
 
 - insert, update, delete, or save operation after seeding
 - transaction, rollback, constraint, or generated-key behavior
@@ -82,4 +81,4 @@ The preview has no Memory-owned:
 
 ## AOT and browser use
 
-The Memory runtime has no SQL-provider or native-database dependency. The supported generated-model smoke path is exercised under Native AOT, full trimming, and Blazor WebAssembly. That is evidence for the documented preview path, not a claim that arbitrary application code or arbitrary LINQ is AOT-compatible.
+The Memory runtime has no SQL-provider or native-database dependency. The supported generated-model smoke path is exercised under Native AOT, full trimming, and Blazor WebAssembly. That is evidence for the documented experimental Memory path, not a claim that arbitrary application code or arbitrary LINQ is AOT-compatible.

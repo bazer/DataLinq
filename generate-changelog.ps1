@@ -5,6 +5,31 @@ $owner = "bazer"
 $repo = "DataLinq"
 $outputFile = "CHANGELOG.md"
 
+# Several historical GitHub release objects were created after their versions had
+# already shipped. Keep the established release dates for those backfilled tags;
+# releases not listed here use GitHub's authoritative publication timestamp.
+$legacyReleaseDates = @{
+    "0.8.0" = "2026-07-04"
+    "0.7.1" = "2026-06-25"
+    "0.7.0" = "2026-05-18"
+    "0.6.9" = "2026-04-28"
+    "0.6.8" = "2026-04-17"
+    "0.6.7" = "2026-03-27"
+    "0.6.6" = "2025-12-18"
+    "0.6.5" = "2025-11-12"
+    "0.6.4" = "2025-08-26"
+    "0.6.3" = "2025-08-17"
+    "0.6.2" = "2025-08-17"
+    "0.6.1" = "2025-08-04"
+    "0.6.0" = "2025-07-29"
+    "0.5.4" = "2025-06-11"
+    "0.5.3" = "2025-06-04"
+    "0.5.2" = "2025-05-19"
+    "0.5.1" = "2025-04-11"
+    "0.5.0" = "2025-04-02"
+    "0.0.1" = "2020-06-06"
+}
+
 # --- Optional: For private repos or to avoid rate limits, create a GitHub Personal Access Token (PAT) ---
 # --- and uncomment the line below. Make sure the PAT has `repo` scope.                      ---
 # $githubToken = "YOUR_PERSONAL_ACCESS_TOKEN_HERE"
@@ -27,7 +52,11 @@ try {
     exit 1
 }
 
-Write-Host "Found $($releases.Count) releases. Generating $outputFile..."
+$publishedReleases = @($releases | Where-Object {
+    -not $_.draft -and -not [string]::IsNullOrWhiteSpace([string]$_.published_at)
+})
+
+Write-Host "Found $($publishedReleases.Count) published releases. Generating $outputFile..."
 
 # Start building the Markdown content
 # Using a StringBuilder is more efficient for building large strings in a loop
@@ -40,37 +69,23 @@ $null = $markdownBuilder.AppendLine("---")
 $null = $markdownBuilder.AppendLine()
 
 
-# Loop through each release to fetch its tag's commit date
-foreach ($release in $releases) {
+# Use the preserved date for a known backfilled release. New releases use GitHub's
+# publication timestamp rather than the tagged commit date because the changelog
+# labels this value as "Released on".
+foreach ($release in $publishedReleases) {
     $releaseTitle = if ([string]::IsNullOrEmpty($release.name)) { $release.tag_name } else { $release.name }
-    
-    # --- NEW: Fetch commit data based on the release's tag_name ---
     $tagName = $release.tag_name
-    $commitApiUrl = "https://api.github.com/repos/$owner/$repo/commits/$tagName"
-    $commitDate = $null
+    $releaseDate = if ($legacyReleaseDates.ContainsKey($tagName)) {
+        $legacyReleaseDates[$tagName]
+    } else {
+        ([DateTimeOffset]$release.published_at).UtcDateTime.ToString("yyyy-MM-dd")
+    }
 
     Write-Host "  -> Processing tag: $tagName"
 
-    try {
-        if ($PSBoundParameters.ContainsKey('headers')) {
-            $commitDetails = Invoke-RestMethod -Uri $commitApiUrl -Headers $headers
-        } else {
-            $commitDetails = Invoke-RestMethod -Uri $commitApiUrl
-        }
-        
-        # Get the committer date, which is usually the most accurate timestamp
-        $commitDate = Get-Date($commitDetails.commit.committer.date) -Format "yyyy-MM-dd"
-
-    } catch {
-        Write-Warning "Could not fetch commit details for tag '$tagName'. Falling back to release publish date. Error: $_"
-        # Fallback to the original release date if the commit can't be found (e.g., for draft releases)
-        $commitDate = Get-Date($release.published_at) -Format "yyyy-MM-dd"
-    }
-    # --- END NEW ---
-
     $null = $markdownBuilder.AppendLine("## [$releaseTitle]($($release.html_url))")
     $null = $markdownBuilder.AppendLine()
-    $null = $markdownBuilder.AppendLine("**Released on:** $commitDate") # Use the commit date
+    $null = $markdownBuilder.AppendLine("**Released on:** $releaseDate")
     $null = $markdownBuilder.AppendLine()
     $null = $markdownBuilder.AppendLine($($release.body))
     $null = $markdownBuilder.AppendLine()

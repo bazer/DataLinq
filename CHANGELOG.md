@@ -4,6 +4,181 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.9.0 - Typed IDs, Prepared Queries, and an Experimental Memory Backend](https://github.com/bazer/DataLinq/releases/tag/0.9.0)
+
+**Released on:** 2026-08-25
+
+This is the release where DataLinq gets explicit about values and execution.
+
+0.9.0 separates application model values from provider values and physical database storage, adds reusable prepared queries, and introduces `DataLinq.Memory`: a provider-free, read-only backend for generated models. It also hardens transaction recovery, SQL nullability, UUID handling, cache identity, and a long list of LINQ edge cases where C# and SQL semantics can quietly disagree.
+
+The blunt version: this is a substantial runtime-foundation release. SQL remains the authoritative backend for SQLite, MySQL, and MariaDB, but query execution is no longer structurally welded to SQL. The new Memory backend proves that boundary without pretending to be a database emulator, and unsupported query shapes fail before partial backend execution.
+
+## Highlights
+
+* **Added first-class scalar converters and typed IDs.**
+  Generated models can expose domain types such as `EmployeeId` while DataLinq consistently uses a supported canonical scalar such as `int`, `long`, or `Guid` for queries, keys, caches, relations, mutations, and materialization.
+
+* **Added explicit UUID storage formats.**
+  Direct `Guid` properties and Guid-backed typed IDs can declare native UUID, dashed text, compact text, little-endian binary, or RFC 4122 binary storage per provider. DataLinq no longer has to blur model identity, provider values, and physical byte/text layout.
+
+* **Added reusable prepared queries.**
+  `PrepareQuery(...)` and `PrepareSequenceQuery(...)` parse and freeze a LINQ structure once, then snapshot and bind current argument values for each execution. Prepared queries are thread-safe and avoid an unbounded global expression cache or stale captured closures.
+
+* **Added the experimental `DataLinq.Memory` package.**
+  Generated models can now be explicitly seeded and queried in process without a SQL provider or native database dependency. The backend supports exact single-column lookup, typed IDs, direct scalar projections, and a deliberately small capability-gated LINQ subset.
+
+* **Made query execution backend-selectable and fail-closed.**
+  A read source now selects its own backend and capability profile. Structurally valid queries that the selected backend cannot execute throw a DataLinq-owned capability diagnostic before SQL commands or Memory row work begin; there is no silent unrestricted LINQ-to-objects fallback.
+
+* **Hardened transactions and mutable lifecycles.**
+  Failed mutations, rollbacks, externally completed transactions, uncertain provider outcomes, and post-commit local-finalization failures now have distinct recovery behavior. Transaction-derived mutables are promoted only after clean publication and invalidated whenever their baseline can no longer be trusted.
+
+## Scalar Converters, Typed IDs, and UUID Storage
+
+0.9.0 formalizes three separate representations:
+
+1. the public model value, such as `EmployeeId`;
+2. the canonical provider CLR value, such as `Guid`;
+3. the provider's physical value, such as MariaDB `UUID`, SQLite text, or a 16-byte layout.
+
+`DataLinqScalarConverter<TModel, TProvider>` maps the first two. Provider and column metadata own the third. That split is used consistently across reads, writes, generated lookup methods, exact-key terminals, cache identity, invalidation, relations, joins, query parameters, projections, database-generated values, and schema validation.
+
+Converters can be assigned per property with `[ScalarConverter(...)]` or registered for an exact model type at assembly level. The source generator validates converter shape and emits statically rooted factories. Converters must be deterministic, equality-preserving, concrete, non-generic, and parameterless; dependency-injected and provider-specific converter instances are intentionally outside the 0.9 contract.
+
+Guid-backed values can use `[GuidStorage(...)]` with:
+
+* `NativeUuid`
+* `Text36`
+* `Text32`
+* `Binary16LittleEndian`
+* `Binary16Rfc4122`
+
+SQLite, MySQL, and MariaDB encode and decode those formats explicitly, including joined rows, projections, mutations, keys, defaults, and cache-cleared reads. Ambiguous SQLite `BLOB` layouts fail closed rather than guessing byte order.
+
+See [Scalar Converters and Typed IDs](https://github.com/bazer/DataLinq/blob/0.9.0/docs/Scalar%20Converters%20and%20Typed%20IDs.md) and the [`GuidStorage` contract](https://github.com/bazer/DataLinq/blob/0.9.0/docs/Attributes%20and%20Model%20Definitions.md#guidstorage) for complete declarations and migration guidance.
+
+## Prepared Queries and Backend Execution
+
+Repeated query shapes can now opt into explicit preparation:
+
+```csharp
+var employeeByNumber = db.PrepareQuery(
+    prototypeArgument: 10001,
+    employeeNumber => db.Query().Employees.Single(employee =>
+        employee.emp_no == employeeNumber));
+
+var employee = employeeByNumber.Execute(db, 10042);
+```
+
+The prototype defines value-sensitive SQL specialization, including scalar nullness and local-sequence cardinality. It is not retained as a default value. Every execution snapshots its current argument values, revalidates source ownership and backend capabilities, and can run against a compatible database, read-only access, or transaction.
+
+Changing values must flow through the prepared argument. Closure-captured values are rejected because keeping a closure would also risk keeping stale state, databases, or transactions alive. DataLinq deliberately does not install a magical global query-plan cache; applications choose which prepared objects deserve a lifetime.
+
+The ordinary LINQ path now follows the same structural template, invocation, source-owned backend, and capability-validation boundary. SQL remains the broad production backend. Memory consumes the same normalized plan but accepts a much smaller profile.
+
+See [Querying](https://github.com/bazer/DataLinq/blob/0.9.0/docs/Querying.md#prepared-queries) for terminal and streaming examples.
+
+## Experimental `DataLinq.Memory`
+
+The new `DataLinq.Memory` package is useful for fast application tests, examples, and transient read-only state where assertions do not depend on SQL translation, collation, constraints, defaults, transactions, or migrations.
+
+It provides:
+
+* atomic one-time table seeding from generated mutable rows;
+* exact single-column primary-key lookup through `Find<TModel>(...)`;
+* scalar-converter-backed and Guid-backed typed-ID identity;
+* bounded `int` comparisons and local membership;
+* direct `Guid` and Guid-backed typed-ID equality;
+* supported Boolean composition;
+* one primary-key ordering with bounded `Skip` and `Take` forms;
+* direct scalar projection to the column's exact model type;
+* bounded `Any`, `Count`, `Single`, `SingleOrDefault`, and ordered `First` terminals;
+* generated-model smoke coverage under Native AOT, trimming, and Blazor WebAssembly.
+
+It intentionally does **not** provide mutation after seeding, transactions, persistence, relations, joins, grouping, raw SQL, arbitrary ordering, or general LINQ. Unsupported shapes throw `QueryBackendCapabilityException` before row execution. Keep provider-backed tests for real database behavior.
+
+See [DataLinq.Memory](https://github.com/bazer/DataLinq/blob/0.9.0/docs/backends/Memory.md) for the exact support boundary.
+
+## Correctness and Provider Behavior
+
+* Added strict SQL nullability checks across provider readers, canonical decoding, materialization, caches, immutable getters, and key selection. Invalid database/model/requested-CLR combinations now fail with a focused `DataLinqNullabilityMismatchException` instead of surfacing later as misleading casts or corrupt partial state.
+* Fixed nullable comparison negation so SQL preserves C# two-valued truth tables for lifted equality and relational expressions.
+* Fixed `StartsWith`, `EndsWith`, and `Contains` translation to escape SQL `LIKE` metacharacters and recognize only the intended `System.String` signatures.
+* Made `IsNullOrWhiteSpace` translation match CLR whitespace semantics across supported providers, including embedded-NUL edge cases.
+* Preserved C# evaluation order and exactly-once behavior for supported local methods, conversions, unary negation, nullable conversions, checked overflow, and string arguments.
+* Made negative `Skip` and `Take` counts follow LINQ semantics instead of being rejected or rendered incorrectly by SQL providers.
+* Added provider-correct default-only inserts, including native zero-column insert syntax and safe hydration of eligible generated keys/defaults.
+* Made binary keys and canonical row buffers deeply immutable at public/caller-owned boundaries while allowing audited ownership transfer internally.
+* Restored legacy SQLite `Text36` behavior for provider-scoped `Guid` columns whose built-in SQLite mapping is unambiguously `TEXT`. Explicit `Text32` still wins; binary UUID storage still requires an explicit byte order.
+* Changed generated SQLite file connections to use the provider's private/default cache while retaining shared cache for named in-memory databases and explicit caller opt-in. DataLinq-owned SQLite connections enforce committed visibility, including WAL reader behavior, instead of inheriting shared-cache locking semantics.
+* Provider-owned MySQL data sources are now disposed with the database, preventing connector resources from accumulating across repeated database lifetimes.
+* Added tested MySQL 9.7 and MariaDB 12.3 targets alongside MySQL 8.4 and MariaDB 10.11, 11.4, and 11.8.
+
+## Transaction Recovery
+
+Managed transaction completion is deliberately conservative in 0.9.0:
+
+* mutables are promoted only after the provider commit, committed-cache publication, transaction-cache cleanup, and local finalization all succeed;
+* mutation failure, rollback, uncertain commit/rollback outcome, external completion, or disposal of an open transaction invalidates transaction-derived mutable state;
+* a known database commit followed by local finalization failure throws `TransactionCommitFinalizationException` and still invalidates the affected local state;
+* uncertain completion clears provider-wide committed cache structures before recovery notifications, without pretending that cache recovery proves the database outcome;
+* attached transactions detect external completion instead of guessing whether another owner committed or rolled back.
+
+Low-level provider handles can still bypass these managed guarantees. After an uncertain provider failure, discard transaction-bound rows and mutables and re-read through a fresh database scope. Never retry a commit after `TransactionCommitFinalizationException`.
+
+See [Transactions](https://github.com/bazer/DataLinq/blob/0.9.0/docs/Transactions.md#completion-outcomes) for the state model and recovery checklist.
+
+## Performance
+
+0.9.0 adds an exact primary-key terminal fast path that bypasses general query planning for supported shapes, plus dedicated cold-key loaders, cached scalar SQL templates, fewer transient binding/execution objects, and lower-copy row materialization. The final calibrated comparison reaches final-0.8 allocation parity for warm primary-key lookup, improves startup primary-key allocation, and preserves zero-allocation warm relation traversal.
+
+That is not a claim of universal allocation parity. Four calibrated SQLite-memory scenarios remain above their strict final-0.8 allocation budgets: updates, cold relation traversal, and the two CRUD workflows. Repeated general query shapes also allocate more after the new backend boundary, which is why 0.9.0 exposes explicit prepared queries instead of claiming an automatic production plan cache.
+
+File-backed SQLite startup is roughly 0.1-0.2 ms slower in the retained comparison because 0.9.0 deliberately moved file connections away from shared cache. Warm primary-key latency remains stable or improved. We accept that bounded one-time cost for correct committed-reader behavior under WAL; it is not evidence that sustained-path regressions no longer matter.
+
+## Packages and Platforms
+
+The 0.9.0 package set is:
+
+* [`DataLinq`](https://www.nuget.org/packages/DataLinq/0.9.0)
+* [`DataLinq.SQLite`](https://www.nuget.org/packages/DataLinq.SQLite/0.9.0)
+* [`DataLinq.MySql`](https://www.nuget.org/packages/DataLinq.MySql/0.9.0)
+* [`DataLinq.Memory`](https://www.nuget.org/packages/DataLinq.Memory/0.9.0)
+* [`DataLinq.CLI`](https://www.nuget.org/packages/DataLinq.CLI/0.9.0)
+* [`DataLinq.Tools`](https://www.nuget.org/packages/DataLinq.Tools/0.9.0)
+
+All packages target .NET 8, .NET 9, and .NET 10. Keep DataLinq package versions aligned.
+
+The source generator is built against Roslyn 5.0. Visual Studio users need Visual Studio 2026 version 18.0 or newer; command-line builds need a .NET SDK/compiler host containing Roslyn 5.0 or newer. That compiler-host requirement is separate from the .NET 8/9/10 runtime targets.
+
+The final package comparison found no unexplained public API breaks against 0.8.0.
+
+## Upgrade Notes
+
+* **Rebuild generated models after upgrading.** Generated roots, immutable construction, scalar metadata, and backend-neutral binding changed in 0.9.0. Stale checked-in generated code may not satisfy the new runtime contract.
+* **Review typed-ID and `Guid` storage explicitly.** A physical UUID-format change is a data migration, not a harmless metadata edit. Validate every configured provider against existing stored values before changing `[GuidStorage]`.
+* **SQLite `TEXT` Guid mappings retain the established dashed format when DataLinq's built-in translation is unambiguous.** Declare `Text32` for existing compact text. Declare one of the binary formats for `BLOB`; DataLinq will not guess byte order.
+* **Expect unsupported queries to fail earlier.** Backend capability validation happens before backend work. Rewrite the query into the documented subset or materialize deliberately before performing client-only operations.
+* **Do not replace provider-backed integration tests with Memory tests.** Memory is valuable precisely because it is small and deterministic; it does not model SQL translation, constraints, collation, defaults, transactions, or migrations.
+* **Discard transaction-derived state after any uncertain or failed completion.** Re-read through a fresh scope, and never retry a commit after `TransactionCommitFinalizationException`.
+* **Check your compiler host, not only your target framework.** Targeting .NET 8 does not make an older Visual Studio/Roslyn host capable of loading the 0.9 generator.
+
+## Known Limitations
+
+* DataLinq supports a documented LINQ subset, not arbitrary LINQ.
+* `DataLinq.Memory` is experimental and read-only, with no relations, mutation, transactions, or persistence.
+* Converter-backed `Sum`, `Min`, `Max`, and `Average` remain unsupported because a value converter does not prove arithmetic or ordering semantics.
+* Browser SQLite support remains limited to the documented generated WebAssembly smoke path and retains visible third-party SQLitePCLRaw warnings.
+* Migration execution, native async database I/O, dependency-injection/hosting integration, and broad multi-join/composite-key work remain future work.
+* 0.9.0 does not claim full final-0.8 allocation parity or automatic production query-plan caching.
+
+## Full Changelog
+
+https://github.com/bazer/DataLinq/compare/0.8.0...0.9.0
+
+---
+
 ## [DataLinq v0.8.0 - Own LINQ Parser, Query Plans, AOT Browser Proofs, and Bounded Joins](https://github.com/bazer/DataLinq/releases/tag/0.8.0)
 
 **Released on:** 2026-07-04

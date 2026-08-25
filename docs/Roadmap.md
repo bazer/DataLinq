@@ -2,13 +2,11 @@
 
 This page is the public roadmap snapshot. It describes direction, not shipped behavior. For current product behavior, use the usage docs, support matrices, and changelog.
 
-## Published Baseline and Candidate Status
+## Published Baseline
 
-The latest published release is 0.8.0. Use the [changelog](../CHANGELOG.md) and [GitHub release](https://github.com/bazer/DataLinq/releases/tag/0.8.0) for that exact package boundary.
+The latest published release is [DataLinq 0.9.0](https://github.com/bazer/DataLinq/releases/tag/0.9.0). Use the [0.9.0 release notes](releases/0.9.md) for its highlights and upgrade guidance, and the [changelog](../CHANGELOG.md) for the complete published history.
 
-The `master` documentation also describes an unpublished 0.9 release candidate. Candidate behavior is real in source and tests, but it is not a claim that a `v0.9.0` tag, GitHub release, or final NuGet packages exist. The [candidate notes](releases/0.9.md) and [release checklist](https://github.com/bazer/DataLinq/issues/80) keep that distinction explicit.
-
-The published/core DataLinq shape remains a source-generated, immutable-first ORM for MySQL, MariaDB, and SQLite:
+The published DataLinq shape is a source-generated, immutable-first ORM for MySQL, MariaDB, and SQLite, plus an experimental provider-free read backend:
 
 - generated immutable and mutable model classes
 - cache-aware reads and relation traversal
@@ -21,15 +19,15 @@ The published/core DataLinq shape remains a source-generated, immutable-first OR
 - estimated cache-memory accounting and memory-pressure cleanup on supported runtimes
 - a narrow generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary, plus browser WebAssembly gate automation that keeps warning caveats visible
 - runtime package dependency groups without Roslyn/compiler assemblies or `Remotion.Linq`
+- `QueryPlanTemplate` plus immutable invocation values, `QueryExecutionRequest`, source-owned backend selection, and complete capability validation
+- scalar converters and typed IDs across the documented SQL/Memory read, write, key, cache, relation, query-value, join, and schema boundaries
+- explicit physical UUID storage for canonical `Guid` values
+- experimental, explicitly seeded, provider-free, read-only `DataLinq.Memory` with a deliberately smaller query contract
+- hardened transaction completion and mutable invalidation for mutation failure, rollback, uncertain outcomes, attached external completion, disposal, and known-committed local finalization failure
+- six aligned packages targeting .NET 8, .NET 9, and .NET 10
+- tested MySQL 8.4/9.7 and MariaDB 10.11/11.4/11.8/12.3 provider targets
 
-The 0.9 candidate adds these completed source-level baselines:
-
-- `QueryPlanTemplate` plus immutable invocation values, `QueryExecutionRequest`, source-owned backend selection, and complete capability validation;
-- scalar converters and typed IDs across the documented SQL/Memory read, write, key, cache, relation, query-value, join, and schema boundaries;
-- explicit physical UUID storage for canonical `Guid` values;
-- experimental, explicitly seeded, provider-free, read-only `DataLinq.Memory` with a deliberately smaller query contract;
-- hardened transaction completion and mutable invalidation for mutation failure, rollback, uncertain outcomes, attached external completion, disposal, and known-committed local finalization failure;
-- the six-package .NET 8/9/10 candidate set and expanded MySQL/MariaDB provider matrix, still subject to final package-backed release evidence.
+The final package hashes, API comparison, test matrix, constrained-runtime results, benchmark dispositions, and explicit GO are recorded in [issue #80](https://github.com/bazer/DataLinq/issues/80).
 
 The important non-claims are just as important:
 
@@ -42,13 +40,13 @@ The important non-claims are just as important:
 
 For release-level detail, see the [changelog](../CHANGELOG.md).
 
-## 0.9 Release Candidate
+## 0.9 Shipped Baseline
 
-The 0.9 candidate is narrower than the original backend-and-persistence proposal:
+The shipped 0.9 scope is narrower than the original backend-and-persistence proposal:
 
 > Make query execution genuinely backend-selectable, make provider values explicit, and prove both with typed IDs, correct UUID storage, and a small read-only memory backend.
 
-The candidate baseline implements:
+The 0.9 baseline implements:
 
 - a self-contained query execution request that does not need to rediscover supported projection behavior from the original expression tree
 - backend-neutral source, row-loading, materialization, and capability-validation seams, with the existing SQL path adapted through them
@@ -56,18 +54,18 @@ The candidate baseline implements:
 - scalar converters based on a clear model-value to canonical-provider-value boundary
 - typed-ID support across SQL reads, writes, keys, relations, query values, and schema validation
 - column-specific UUID storage codecs across canonical provider values and provider-specific physical representations
-- an experimental read-only `DataLinq.Memory` preview for generated models, with seeding, primary-key lookup, a small documented query subset, and explicit semantics
-- Native AOT, browser WebAssembly, package, benchmark, provider-regression, and documentation harnesses for the exact release claim, with final package-backed receipts still gated by #80
+- the experimental read-only `DataLinq.Memory` package for generated models, with seeding, primary-key lookup, a small documented query subset, and explicit semantics
+- Native AOT, browser WebAssembly, package, benchmark, provider-regression, and documentation evidence for the exact release claim
 - committed-visibility work for SQLite and trustworthy mutable-instance baseline rules for the existing SQL providers
 
-The memory preview is an architectural proof and a useful transient read store. It is not SQL emulation, a promise that every SQL query behaves identically in memory, or a replacement for provider-backed tests.
+The Memory backend is an architectural proof and a useful transient read store. It is not SQL emulation, a promise that every SQL query behaves identically in memory, or a replacement for provider-backed tests.
 
-The two optional stretches were excluded from the candidate baseline:
+The two optional stretches were excluded from the shipped 0.9 baseline:
 
 - bounded SQL multi-join/composite-key continuation, or
 - manual snapshot-only JSON import/export for memory stores
 
-Neither multi-join/composite-key continuation nor Memory JSON import/export is part of the 0.9 candidate claim.
+Neither multi-join/composite-key continuation nor Memory JSON import/export is part of the 0.9 release claim.
 
 ### Query Plan and Remotion Removal
 
@@ -99,7 +97,7 @@ Narrow `Queryable.LeftJoin(...)` support on .NET 10, grouped multi-join continua
 
 ### Scalar Converters and Typed Keys
 
-The cache and metadata layers distinguish provider-key identity from model-facing values. The 0.9 candidate implements scalar converters as a foundation, not merely an ergonomic wrapper:
+The cache and metadata layers distinguish provider-key identity from model-facing values. DataLinq 0.9 implements scalar converters as a foundation, not merely an ergonomic wrapper:
 
 - explicit converter metadata
 - model-to-canonical-provider normalization for reads, writes, query constants, local sequences, keys, joins, relations, and memory row buffers
@@ -113,7 +111,7 @@ Existing public model-facing `RowData` behavior should remain model-valued. Prov
 
 ### Correctness Gates
 
-The 0.9 candidate closes two existing correctness gaps before adding another mutable or persistent backend:
+DataLinq 0.9 closes two existing correctness gaps before adding another mutable or persistent backend:
 
 - DataLinq-owned SQLite paths now enforce committed visibility, with transaction-local state responsible for same-transaction reads; generated file-backed connections use private/default cache; and bounded WAL evidence records committed readers, `SQLITE_BUSY`/`SQLITE_LOCKED`, caller timeouts, and failure telemetry without automatic retries.
 - mutable instances remain reusable only while their baseline is trustworthy; rollback, failed writes, uncertain/external completion, disposal, and failed local finalization invalidate transaction-derived baselines explicitly.

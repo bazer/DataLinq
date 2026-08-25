@@ -2,7 +2,7 @@
 
 Welcome to the DataLinq documentation.
 
-These `master` docs describe the unpublished 0.9 release candidate where explicitly marked. They do not claim that final 0.9 packages exist; use the [changelog](../CHANGELOG.md) for the latest published release boundary and the [0.9 candidate notes](releases/0.9.md) for the pending delta.
+[DataLinq 0.9.0](https://github.com/bazer/DataLinq/releases/tag/0.9.0) is the current published release. Use the [0.9.0 release notes](releases/0.9.md) for its highlights and upgrade guidance, and the [changelog](../CHANGELOG.md) for the complete published history.
 
 These docs are structured to help two kinds of readers:
 
@@ -110,5 +110,5 @@ If you already know what you need, jump directly to the major sections:
 ### Release and Roadmap
 
 - [Changelog](../CHANGELOG.md)
-- [0.9 Release Candidate Notes](releases/0.9.md)
+- [0.9.0 Release Notes](releases/0.9.md)
 - [Roadmap](Roadmap.md)
