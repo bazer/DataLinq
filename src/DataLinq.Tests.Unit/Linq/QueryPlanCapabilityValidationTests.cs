@@ -1134,10 +1134,10 @@ public class QueryPlanCapabilityValidationTests
         var template = CreateRepresentativeInvocation().Template;
         QueryPlanCapabilityValidator.ValidateStructural(template, QueryBackendCapabilities.Sql);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var iteration = 0; iteration < 100; iteration++)
-            QueryPlanCapabilityValidator.ValidateStructural(template, QueryBackendCapabilities.Sql);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = MeasureMaximumSteadyStateAllocatedBytes(() =>
+            QueryPlanCapabilityValidator.ValidateStructural(
+                template,
+                QueryBackendCapabilities.Sql));
 
         await Assert.That(allocated).IsEqualTo(0);
     }
@@ -1150,14 +1150,10 @@ public class QueryPlanCapabilityValidationTests
             invocation,
             QueryBackendCapabilities.Sql);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var iteration = 0; iteration < 100; iteration++)
-        {
+        var allocated = MeasureMaximumSteadyStateAllocatedBytes(() =>
             QueryPlanCapabilityValidator.ValidateForExecution(
                 invocation,
-                QueryBackendCapabilities.Sql);
-        }
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+                QueryBackendCapabilities.Sql));
 
         if (allocated != 0)
             throw new InvalidOperationException($"Execution validation allocated {allocated} bytes.");
@@ -2263,6 +2259,34 @@ public class QueryPlanCapabilityValidationTests
         }
 
         throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
+    }
+
+    private static long MeasureMaximumSteadyStateAllocatedBytes(Action operation)
+    {
+        const int warmupSamples = 10;
+        const int measuredSamples = 5;
+        const int operationsPerSample = 100;
+
+        // Keep tiered JIT/PGO bookkeeping outside the verified steady-state samples.
+        for (var sample = 0; sample < warmupSamples; sample++)
+        {
+            for (var iteration = 0; iteration < operationsPerSample; iteration++)
+                operation();
+        }
+
+        var maximum = 0L;
+        for (var sample = 0; sample < measuredSamples; sample++)
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var iteration = 0; iteration < operationsPerSample; iteration++)
+                operation();
+
+            maximum = Math.Max(
+                maximum,
+                GC.GetAllocatedBytesForCurrentThread() - before);
+        }
+
+        return maximum;
     }
 
     private sealed record GroupProjection(string Key, int Count);
