@@ -1134,10 +1134,10 @@ public class QueryPlanCapabilityValidationTests
         var template = CreateRepresentativeInvocation().Template;
         QueryPlanCapabilityValidator.ValidateStructural(template, QueryBackendCapabilities.Sql);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var iteration = 0; iteration < 100; iteration++)
-            QueryPlanCapabilityValidator.ValidateStructural(template, QueryBackendCapabilities.Sql);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = MeasureMinimumAllocatedBytes(() =>
+            QueryPlanCapabilityValidator.ValidateStructural(
+                template,
+                QueryBackendCapabilities.Sql));
 
         await Assert.That(allocated).IsEqualTo(0);
     }
@@ -1150,14 +1150,10 @@ public class QueryPlanCapabilityValidationTests
             invocation,
             QueryBackendCapabilities.Sql);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var iteration = 0; iteration < 100; iteration++)
-        {
+        var allocated = MeasureMinimumAllocatedBytes(() =>
             QueryPlanCapabilityValidator.ValidateForExecution(
                 invocation,
-                QueryBackendCapabilities.Sql);
-        }
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+                QueryBackendCapabilities.Sql));
 
         if (allocated != 0)
             throw new InvalidOperationException($"Execution validation allocated {allocated} bytes.");
@@ -2263,6 +2259,28 @@ public class QueryPlanCapabilityValidationTests
         }
 
         throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
+    }
+
+    private static long MeasureMinimumAllocatedBytes(Action operation)
+    {
+        const int samples = 5;
+        const int operationsPerSample = 100;
+        var minimum = long.MaxValue;
+
+        // Tiered JIT/PGO may add one-time runtime allocations to an early sample.
+        // A real hot-path regression allocates in every steady-state sample.
+        for (var sample = 0; sample < samples; sample++)
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var iteration = 0; iteration < operationsPerSample; iteration++)
+                operation();
+
+            minimum = Math.Min(
+                minimum,
+                GC.GetAllocatedBytesForCurrentThread() - before);
+        }
+
+        return minimum;
     }
 
     private sealed record GroupProjection(string Key, int Count);
