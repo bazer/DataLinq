@@ -2,8 +2,7 @@
 
 `DataLinq.Memory` is an experimental, read-only backend for generated DataLinq models. It stores explicitly seeded rows in process and executes a small, documented query subset without a SQL provider.
 
-> [!NOTE]
-> This page describes the unpublished 0.9 release candidate. It does not claim that the final `DataLinq.Memory` package is already on NuGet; check the [0.9 candidate notes](../releases/0.9.md) and [published changelog](../../CHANGELOG.md) for the release boundary.
+`DataLinq.Memory` 0.9.0 is [published on NuGet](https://www.nuget.org/packages/DataLinq.Memory/0.9.0). See the [0.9.0 release notes](../releases/0.9.md) for its release boundary and upgrade guidance.
 
 Use it for fast application tests, examples, and transient state when your assertions do not depend on SQL translation, collation, constraints, transactions, or provider-specific behavior. Keep provider-backed tests for those concerns.
 

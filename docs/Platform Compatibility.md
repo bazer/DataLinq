@@ -4,7 +4,7 @@ DataLinq has a useful constrained-platform proof now, but the honest public clai
 
 ## Public Support Claim
 
-The ordinary supported runtime path is .NET on server, desktop, or test hosts using generated DataLinq models with the SQLite, MySQL, or MariaDB providers. The 0.9 candidate adds `DataLinq.Memory` as a separate experimental, provider-free, read-only path. The candidate docs do not claim the final 0.9 package is published; use the [changelog](../CHANGELOG.md) for published-version boundaries.
+The ordinary supported runtime path is .NET on server, desktop, or test hosts using generated DataLinq models with the SQLite, MySQL, or MariaDB providers. DataLinq 0.9.0 also ships `DataLinq.Memory` as a separate experimental, provider-free, read-only path. Use the [0.9.0 release notes](releases/0.9.md) for the current release boundary and the [changelog](../CHANGELOG.md) for published history.
 
 Current package and repo builds target .NET 8, .NET 9, and .NET 10. Provider behavior is documented separately:
 
@@ -105,8 +105,8 @@ Payload numbers should be read from the compatibility size report with symbol fi
 
 ## Verification Evidence
 
-The [0.8 GitHub release](https://github.com/bazer/DataLinq/releases/tag/0.8.0) is the durable published boundary for the historical SQLite constrained-runtime receipt. Repo-local `artifacts/...` paths mentioned in maintainer records are not website downloads and should not be presented as package evidence.
+The [0.9.0 GitHub release](https://github.com/bazer/DataLinq/releases/tag/0.9.0) is the current durable published boundary. Its final package-backed constrained-runtime gate passed all eight canonical generated SQLite and provider-free Memory targets: Native AOT, trimmed publish, browser WebAssembly without AOT, and browser WebAssembly with AOT for each backend. The known SQLitePCLRaw `WASM0001` warnings remain visible and third-party-scoped. The package hashes, exact commit, gate disposition, and explicit GO are recorded in [issue #80](https://github.com/bazer/DataLinq/issues/80).
 
-The 0.9 candidate has expanded the same eight-target size/smoke catalog across generated SQLite and provider-free Memory, but the final package-backed receipt is still a release gate in [issue #80](https://github.com/bazer/DataLinq/issues/80). Until that exact candidate/package report exists durably, this page records the tested source boundary and caveats—not proof that final 0.9 NuGet bytes have been published.
+The [0.8 GitHub release](https://github.com/bazer/DataLinq/releases/tag/0.8.0) remains the historical SQLite-only constrained-runtime boundary. Repo-local `artifacts/...` paths mentioned in maintainer records are not website downloads and are not presented here as public package evidence.
 
-Maintainers reproduce the boundary with `DataLinq.Dev.CLI` `size-report` and `package-report`, the constrained-platform smoke projects, clean output, release thresholds, banned-payload checks, browser execution, package hashes, and commit/package identity validation. Publication claims belong in the final release notes/changelog only after those receipts refer to the approved package set.
+Maintainers reproduce the boundary with `DataLinq.Dev.CLI` `size-report` and `package-report`, the constrained-platform smoke projects, clean output, release thresholds, banned-payload checks, browser execution, package hashes, and commit/package identity validation.

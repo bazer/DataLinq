@@ -9,7 +9,7 @@ This is the recommended path for a new developer:
 
 ## Choose a Provider
 
-The unpublished DataLinq 0.9 release candidate keeps the two SQL provider packages and adds one experimental provider-free read backend:
+DataLinq 0.9.0 ships two SQL provider packages and one experimental provider-free read backend:
 
 - `DataLinq.MySql`
   - use this for both MySQL and MariaDB
@@ -43,8 +43,7 @@ dotnet add package DataLinq.Memory
 
 Keep DataLinq package versions aligned. Memory is not a replacement for provider-backed tests; see [DataLinq.Memory](../backends/Memory.md) for its exact query and lifecycle boundary.
 
-> [!NOTE]
-> The 0.9 candidate documentation does not claim that final 0.9 packages are published. The Memory command requires a published or explicitly selected pre-release package version. For the current release state, see the [0.9 release candidate notes](../releases/0.9.md) and the [published changelog](../../CHANGELOG.md).
+DataLinq 0.9.0 is published on NuGet. See the [0.9.0 release notes](../releases/0.9.md) for upgrade guidance and the [published changelog](../../CHANGELOG.md) for release history.
 
 ## Install the CLI
 
