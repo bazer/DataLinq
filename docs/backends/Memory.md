@@ -56,7 +56,7 @@ Memory stores canonical provider CLR values but has no SQL physical/wire codec. 
 
 ## Supported query boundary
 
-The 0.9 preview supports a deliberately small capability-gated subset:
+DataLinq.Memory 0.9.0 supports a deliberately small capability-gated subset:
 
 - one generated root table
 - the documented `int` comparisons and local `Contains` membership
@@ -70,7 +70,7 @@ Unsupported shapes throw `QueryBackendCapabilityException` before Memory row wor
 
 ## Deliberate non-features
 
-The preview has no Memory-owned:
+The experimental Memory backend has no Memory-owned:
 
 - insert, update, delete, or save operation after seeding
 - transaction, rollback, constraint, or generated-key behavior
@@ -81,4 +81,4 @@ The preview has no Memory-owned:
 
 ## AOT and browser use
 
-The Memory runtime has no SQL-provider or native-database dependency. The supported generated-model smoke path is exercised under Native AOT, full trimming, and Blazor WebAssembly. That is evidence for the documented preview path, not a claim that arbitrary application code or arbitrary LINQ is AOT-compatible.
+The Memory runtime has no SQL-provider or native-database dependency. The supported generated-model smoke path is exercised under Native AOT, full trimming, and Blazor WebAssembly. That is evidence for the documented experimental Memory path, not a claim that arbitrary application code or arbitrary LINQ is AOT-compatible.

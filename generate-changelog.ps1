@@ -27,7 +27,11 @@ try {
     exit 1
 }
 
-Write-Host "Found $($releases.Count) releases. Generating $outputFile..."
+$publishedReleases = @($releases | Where-Object {
+    -not $_.draft -and -not [string]::IsNullOrWhiteSpace([string]$_.published_at)
+})
+
+Write-Host "Found $($publishedReleases.Count) published releases. Generating $outputFile..."
 
 # Start building the Markdown content
 # Using a StringBuilder is more efficient for building large strings in a loop
@@ -40,37 +44,19 @@ $null = $markdownBuilder.AppendLine("---")
 $null = $markdownBuilder.AppendLine()
 
 
-# Loop through each release to fetch its tag's commit date
-foreach ($release in $releases) {
+# Use GitHub's publication timestamp rather than the tagged commit date. A release
+# can be published on a later day than its commit or tag, and this changelog labels
+# the date as "Released on".
+foreach ($release in $publishedReleases) {
     $releaseTitle = if ([string]::IsNullOrEmpty($release.name)) { $release.tag_name } else { $release.name }
-    
-    # --- NEW: Fetch commit data based on the release's tag_name ---
     $tagName = $release.tag_name
-    $commitApiUrl = "https://api.github.com/repos/$owner/$repo/commits/$tagName"
-    $commitDate = $null
+    $releaseDate = ([DateTimeOffset]$release.published_at).UtcDateTime.ToString("yyyy-MM-dd")
 
     Write-Host "  -> Processing tag: $tagName"
 
-    try {
-        if ($PSBoundParameters.ContainsKey('headers')) {
-            $commitDetails = Invoke-RestMethod -Uri $commitApiUrl -Headers $headers
-        } else {
-            $commitDetails = Invoke-RestMethod -Uri $commitApiUrl
-        }
-        
-        # Get the committer date, which is usually the most accurate timestamp
-        $commitDate = Get-Date($commitDetails.commit.committer.date) -Format "yyyy-MM-dd"
-
-    } catch {
-        Write-Warning "Could not fetch commit details for tag '$tagName'. Falling back to release publish date. Error: $_"
-        # Fallback to the original release date if the commit can't be found (e.g., for draft releases)
-        $commitDate = Get-Date($release.published_at) -Format "yyyy-MM-dd"
-    }
-    # --- END NEW ---
-
     $null = $markdownBuilder.AppendLine("## [$releaseTitle]($($release.html_url))")
     $null = $markdownBuilder.AppendLine()
-    $null = $markdownBuilder.AppendLine("**Released on:** $commitDate") # Use the commit date
+    $null = $markdownBuilder.AppendLine("**Released on:** $releaseDate")
     $null = $markdownBuilder.AppendLine()
     $null = $markdownBuilder.AppendLine($($release.body))
     $null = $markdownBuilder.AppendLine()
