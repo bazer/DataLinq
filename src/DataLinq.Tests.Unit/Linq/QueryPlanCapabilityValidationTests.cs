@@ -1134,7 +1134,7 @@ public class QueryPlanCapabilityValidationTests
         var template = CreateRepresentativeInvocation().Template;
         QueryPlanCapabilityValidator.ValidateStructural(template, QueryBackendCapabilities.Sql);
 
-        var allocated = MeasureMinimumAllocatedBytes(() =>
+        var allocated = MeasureMaximumSteadyStateAllocatedBytes(() =>
             QueryPlanCapabilityValidator.ValidateStructural(
                 template,
                 QueryBackendCapabilities.Sql));
@@ -1150,7 +1150,7 @@ public class QueryPlanCapabilityValidationTests
             invocation,
             QueryBackendCapabilities.Sql);
 
-        var allocated = MeasureMinimumAllocatedBytes(() =>
+        var allocated = MeasureMaximumSteadyStateAllocatedBytes(() =>
             QueryPlanCapabilityValidator.ValidateForExecution(
                 invocation,
                 QueryBackendCapabilities.Sql));
@@ -2261,26 +2261,32 @@ public class QueryPlanCapabilityValidationTests
         throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
     }
 
-    private static long MeasureMinimumAllocatedBytes(Action operation)
+    private static long MeasureMaximumSteadyStateAllocatedBytes(Action operation)
     {
-        const int samples = 5;
+        const int warmupSamples = 10;
+        const int measuredSamples = 5;
         const int operationsPerSample = 100;
-        var minimum = long.MaxValue;
 
-        // Tiered JIT/PGO may add one-time runtime allocations to an early sample.
-        // A real hot-path regression allocates in every steady-state sample.
-        for (var sample = 0; sample < samples; sample++)
+        // Keep tiered JIT/PGO bookkeeping outside the verified steady-state samples.
+        for (var sample = 0; sample < warmupSamples; sample++)
+        {
+            for (var iteration = 0; iteration < operationsPerSample; iteration++)
+                operation();
+        }
+
+        var maximum = 0L;
+        for (var sample = 0; sample < measuredSamples; sample++)
         {
             var before = GC.GetAllocatedBytesForCurrentThread();
             for (var iteration = 0; iteration < operationsPerSample; iteration++)
                 operation();
 
-            minimum = Math.Min(
-                minimum,
+            maximum = Math.Max(
+                maximum,
                 GC.GetAllocatedBytesForCurrentThread() - before);
         }
 
-        return minimum;
+        return maximum;
     }
 
     private sealed record GroupProjection(string Key, int Count);
