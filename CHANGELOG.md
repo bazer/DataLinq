@@ -181,7 +181,7 @@ https://github.com/bazer/DataLinq/compare/0.8.0...0.9.0
 
 ## [DataLinq v0.8.0 - Own LINQ Parser, Query Plans, AOT Browser Proofs, and Bounded Joins](https://github.com/bazer/DataLinq/releases/tag/0.8.0)
 
-**Released on:** 2026-07-08
+**Released on:** 2026-07-04
 
 This is the release where DataLinq stops renting its query brain.
 
@@ -288,7 +288,7 @@ https://github.com/bazer/DataLinq/compare/0.7.1...0.8.0
 
 ## [DataLinq v0.7.1 - SQLite Metadata Fixes, CLI Polish, and Dependency Maintenance](https://github.com/bazer/DataLinq/releases/tag/0.7.1)
 
-**Released on:** 2026-06-26
+**Released on:** 2026-06-25
 
 This is a focused patch release. The honest headline is simple: 0.7.1 keeps the 0.7.0 work usable against newer package/runtime combinations, fixes a real SQLite metadata import break, and tightens the CLI output introduced around the new config and validation workflows.
 
@@ -520,7 +520,7 @@ https://github.com/bazer/DataLinq/compare/0.6.9...0.7.0
 
 ## [DataLinq v0.6.9 - Benchmark Evidence, Generator Hardening, and SQL Hot Paths](https://github.com/bazer/DataLinq/releases/tag/0.6.9)
 
-**Released on:** 2026-04-29
+**Released on:** 2026-04-28
 
 This is a big patch release. The theme is trust: better telemetry, better benchmark evidence, sharper generator diagnostics, and lower allocation pressure in the query hot path. It is not a “everything is magically faster now” release. The honest claim is narrower and better: DataLinq now has stronger measurement infrastructure, fewer avoidable runtime allocations, and much better failure messages when model metadata is wrong.
 
@@ -659,7 +659,7 @@ https://github.com/bazer/DataLinq/compare/0.6.7...0.6.8
 
 ## [DataLinq v0.6.7 - Generator Reliability, Default Handling, and Release Tooling](https://github.com/bazer/DataLinq/releases/tag/0.6.7)
 
-**Released on:** 2026-03-30
+**Released on:** 2026-03-27
 
 This release is mostly about correctness and maintainability, and that is exactly what it needed to be. The biggest themes are a cleaner source-generator pipeline, much better handling of default values across providers, several SQLite and MySQL/MariaDB correctness fixes, a large documentation overhaul, and a far more practical local NuGet publishing workflow.
 
@@ -726,7 +726,7 @@ https://github.com/bazer/DataLinq/compare/0.6.6...0.6.7
 
 ## [DataLinq v0.6.6 - Performance Improvements and SQLite Logging](https://github.com/bazer/DataLinq/releases/tag/0.6.6)
 
-**Released on:** 2026-03-22
+**Released on:** 2025-12-18
 
 This maintenance release improves core query and materialization performance, reduces memory overhead in hot paths, and makes SQLite logging behavior more consistent. It also includes a dependency refresh, source generator cleanup, and a large set of internal planning documents for upcoming releases.
 
@@ -759,7 +759,7 @@ This maintenance release improves core query and materialization performance, re
 
 ## [DataLinq v0.6.5 - LINQ Enhancements & Multi-Targeting](https://github.com/bazer/DataLinq/releases/tag/0.6.5)
 
-**Released on:** 2025-12-15
+**Released on:** 2025-11-12
 
 This release expands framework support to include .NET 8, 9, and 10, introduces significant improvements to the LINQ query parser for string manipulation and collection handling, and includes internal optimizations for newer .NET runtimes.
 
@@ -794,7 +794,7 @@ This release expands framework support to include .NET 8, 9, and 10, introduces 
 
 ## [DataLinq v0.6.4 - Critical Concurrency & Performance Fixes](https://github.com/bazer/DataLinq/releases/tag/0.6.4)
 
-**Released on:** 2025-08-27
+**Released on:** 2025-08-26
 
 This is a high-priority release that resolves critical performance and stability issues related to the relation caching system under high thread contention. It introduces a more robust, leak-free, and highly performant pattern for handling cache invalidation notifications.
 
@@ -859,7 +859,7 @@ This is a focused maintenance release that addresses critical performance issues
 
 ## [DataLinq v0.6.1 - Stability and Code Generation Fixes](https://github.com/bazer/DataLinq/releases/tag/0.6.1)
 
-**Released on:** 2025-08-05
+**Released on:** 2025-08-04
 
 This is a maintenance release that focuses on improving the correctness and robustness of the metadata parsing and source generation engines. It resolves critical bugs related to recursive table relationships and properties that serve as both a primary and foreign key. It also cleans up all known C# compiler warnings in the generated model code for a smoother developer experience.
 
@@ -1036,7 +1036,7 @@ A big thank you to our AI assistant Gemini for their help in diagnosing and reso
 
 ## [DataLinq v0.5.2 - Build System Overhaul, Stability, and Core Refinements](https://github.com/bazer/DataLinq/releases/tag/0.5.2)
 
-**Released on:** 2025-06-05
+**Released on:** 2025-05-19
 
 This release brings significant improvements to the DataLinq build system, NuGet packaging, and internal stability. It addresses several complexities encountered with cross-targeting, source generator dependencies, and test reliability, laying a more robust foundation for future development.
 
@@ -1116,7 +1116,7 @@ This release primarily focuses on critical fixes related to object equality, col
 
 ## [DataLinq v0.5.0 Release Notes](https://github.com/bazer/DataLinq/releases/tag/0.5.0)
 
-**Released on:** 2025-04-04
+**Released on:** 2025-04-02
 
 This release marks a significant step forward for DataLinq, switching to using a source generator instead of reflection, improving performance by reducing memory allocations, major internal refactorings for robustness, and adding foundational features like logging and improved error handling. I also made substantial progress on documentation, including a new DocFX-based website.
 
@@ -1177,7 +1177,7 @@ This release marks a significant step forward for DataLinq, switching to using a
 
 ## [0.0.1 - Will probably eat your data](https://github.com/bazer/DataLinq/releases/tag/0.0.1)
 
-**Released on:** 2025-04-04
+**Released on:** 2020-06-06
 
 First release with basic functionality.
 * Row cache 
