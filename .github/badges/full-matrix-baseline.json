@@ -1,0 +1,109 @@
+{
+  "SchemaVersion": "v0.9.testing-shard-count-baseline.v1",
+  "Epoch": 1,
+  "CommitSha": "a687616f6689b46843bbcdb9ce0fb291213322c7",
+  "Shards": [
+    {
+      "Suite": "generators",
+      "TargetId": null,
+      "ProviderAffinityRole": null,
+      "Cases": 65
+    },
+    {
+      "Suite": "unit",
+      "TargetId": null,
+      "ProviderAffinityRole": null,
+      "Cases": 1715
+    },
+    {
+      "Suite": "memory",
+      "TargetId": null,
+      "ProviderAffinityRole": null,
+      "Cases": 141
+    },
+    {
+      "Suite": "compliance",
+      "TargetId": "sqlite-file",
+      "ProviderAffinityRole": "AnchorWithInvariant",
+      "Cases": 498
+    },
+    {
+      "Suite": "compliance",
+      "TargetId": "sqlite-memory",
+      "ProviderAffinityRole": "TargetSpecific",
+      "Cases": 367
+    },
+    {
+      "Suite": "compliance",
+      "TargetId": "mysql-8.4",
+      "ProviderAffinityRole": "TargetSpecific",
+      "Cases": 373
+    },
+    {
+      "Suite": "compliance",
+      "TargetId": "mysql-9.7",
+      "ProviderAffinityRole": "TargetSpecific",
+      "Cases": 373
+    },
+    {
+      "Suite": "compliance",
+      "TargetId": "mariadb-10.11",
+      "ProviderAffinityRole": "TargetSpecific",
+      "Cases": 373
+    },
+    {
+      "Suite": "compliance",
+      "TargetId": "mariadb-11.4",
+      "ProviderAffinityRole": "TargetSpecific",
+      "Cases": 373
+    },
+    {
+      "Suite": "compliance",
+      "TargetId": "mariadb-11.8",
+      "ProviderAffinityRole": "TargetSpecific",
+      "Cases": 373
+    },
+    {
+      "Suite": "compliance",
+      "TargetId": "mariadb-12.3",
+      "ProviderAffinityRole": "TargetSpecific",
+      "Cases": 373
+    },
+    {
+      "Suite": "mysql",
+      "TargetId": "mysql-8.4",
+      "ProviderAffinityRole": "TargetSpecific",
+      "Cases": 62
+    },
+    {
+      "Suite": "mysql",
+      "TargetId": "mysql-9.7",
+      "ProviderAffinityRole": "AnchorWithInvariant",
+      "Cases": 127
+    },
+    {
+      "Suite": "mysql",
+      "TargetId": "mariadb-10.11",
+      "ProviderAffinityRole": "TargetSpecific",
+      "Cases": 64
+    },
+    {
+      "Suite": "mysql",
+      "TargetId": "mariadb-11.4",
+      "ProviderAffinityRole": "TargetSpecific",
+      "Cases": 64
+    },
+    {
+      "Suite": "mysql",
+      "TargetId": "mariadb-11.8",
+      "ProviderAffinityRole": "TargetSpecific",
+      "Cases": 64
+    },
+    {
+      "Suite": "mysql",
+      "TargetId": "mariadb-12.3",
+      "ProviderAffinityRole": "TargetSpecific",
+      "Cases": 64
+    }
+  ]
+}
