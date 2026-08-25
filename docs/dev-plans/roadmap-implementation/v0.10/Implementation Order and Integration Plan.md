@@ -1,0 +1,342 @@
+> [!WARNING]
+> This is an implementation plan for a future release. It is not documentation of shipped DataLinq behavior.
+
+# 0.10 Implementation Order And Integration Plan
+
+**Status:** Accepted.
+
+**Target release:** 0.10.
+
+**Last reviewed:** 2026-08-25.
+
+**Authority:** The [0.10 implementation roadmap](README.md) owns release scope. This document owns dependency order, shared-contract decisions, merge gates, and stop rules.
+
+## Purpose
+
+The adoption work crosses query execution, providers, transactions, hosting, schema validation, testing, generators, packaging, and documentation. This plan prevents each surface from inventing a slightly different cancellation, lifetime, or testing contract.
+
+It does not authorize implementation outside the 0.10 roadmap.
+
+## Ownership Map
+
+| Workstream | Durable design source | Shared contracts owned here | Release gate |
+| --- | --- | --- | --- |
+| A10 native async and cancellation | [Async and Lazy Loading](../../query-and-runtime/Async%20and%20Lazy%20Loading.md) | async provider/access contracts, cancellation, sync/async parity | A10 gate |
+| H10 DI, hosting, and unit of work | [Dependency Injection and Hosting Integration](../../architecture/Dependency%20Injection%20and%20Hosting%20Integration.md) | service lifetimes, read root, unit-of-work factory, disposal | H10 gate |
+| V10 startup validation | [Schema Validation Hooks](../../providers-and-features/Schema%20Validation%20Hooks.md) | host policy, structured result, cancellation/timeout behavior | V10 gate |
+| T10 testing support | [Model Testing and Mocking Support](../../testing/Model%20Testing%20and%20Mocking%20Support.md) | builders, relation graphs, Memory fixtures, fake unit of work | T10 gate |
+| G10 source aliases | [Issue #93](https://github.com/bazer/DataLinq/issues/93) | semantic type identity and incremental dependencies | G10 gate |
+| R10 release evidence | [Release Evidence and Closeout Plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md) | manifests, candidate identity, evidence validity, go/no-go | final gate |
+
+## Decisions To Freeze Before Public API Work
+
+### D10-1: Async Contract Shape
+
+Decide and test:
+
+- which current public operations perform I/O
+- which receive `Async` counterparts in the initial release
+- where `CancellationToken` is mandatory, optional, or not meaningful
+- which internal operations return `Task` versus `ValueTask` based on measured completion behavior rather than style
+- how async enumeration interacts with current query materialization and resource disposal
+
+Do not add public async methods incrementally until one audit proves the surface is coherent.
+
+### D10-2: Provider Cancellation And Failure Semantics
+
+Define:
+
+- cancellation before connection/command dispatch
+- cancellation during reader execution and materialization
+- cancellation during mutation and transaction operations
+- timeout versus caller cancellation
+- commit cancellation and uncertain outcome classification
+- cleanup/disposal after cancellation
+
+Provider differences may be explicit, but they cannot become silent semantic drift.
+
+### D10-3: Host Lifetime And Unit-Of-Work Ownership
+
+Define:
+
+- the reusable provider/database state lifetime
+- connection and transaction ownership
+- the read-only injected root
+- the explicit unit-of-work factory and instance boundary
+- participation by nested application services
+- commit, rollback, cancellation, failure, and disposal terminal states
+- host shutdown ownership
+
+Do not introduce an ambient session to avoid making this decision.
+
+### D10-4: Startup Validation Policy
+
+Define one structured validation result and explicit policies for:
+
+- fail startup
+- log warning and continue
+- disabled/no database access
+
+The host adapter consumes this result; it does not invent a second schema comparison model.
+
+### D10-5: Testing Fidelity Boundary
+
+Freeze the ladder of test guarantees:
+
+1. plain/business model shape
+2. real metadata-aware immutable instance
+3. real relation graph over testing infrastructure
+4. real `DataLinq.Memory` capability execution
+5. fake unit of work for application behavior
+6. SQLite/server-backed provider behavior
+
+Every helper name and document must reveal which layer it belongs to.
+
+### D10-6: Performance Evidence Policy
+
+Freeze a 0.9 baseline with the current benchmark harness before shared runtime changes. Issue #26 remains contextual debt; 0.10 blocks on new unexplained regressions, not automatic satisfaction of its literal final-0.8 parity target.
+
+## Authoritative Dependency Graph
+
+```mermaid
+flowchart TD
+    W0["W0 baseline and I/O inventory"] --> W1["W1 async/cancellation contracts"]
+    W1 --> W2["W2 provider-native async"]
+    W2 --> W3["W3 public async surface"]
+    W3 --> W4["W4 DI and unit of work"]
+    W4 --> W5["W5 startup validation"]
+    W4 --> W6B["W6B fake UoW and DI testing"]
+    W1 --> W6A["W6A builders and Memory fixtures"]
+    W6A --> W6B
+    W0 --> W7["W7 source alias correctness"]
+    W3 --> W8["W8 provisional integration evidence"]
+    W5 --> W8
+    W6B --> W8
+    W7 --> W8
+    W8 --> W9["W9 frozen-candidate closeout"]
+```
+
+## Implementation Waves
+
+### W0: Baseline And I/O Inventory
+
+Required work:
+
+- record clean commit, SDK, package graph, supported frameworks, provider targets, and test catalog
+- inventory query, relation, mutation, transaction, metadata-read, and validation I/O boundaries
+- map every current synchronous provider call to its native async availability
+- capture current public API and generated-code snapshots
+- run the focused/full test baselines and the benchmark lanes affected by async orchestration
+- record current logging, metrics, cache, invalidation, and transaction-terminal behavior
+
+Exit gate:
+
+- the audit has no unowned I/O path
+- later work can compare against immutable evidence rather than recollection
+- D10-1 through D10-6 have named owners and unresolved questions are explicit
+
+### W1: Internal Async And Cancellation Contracts
+
+Required work:
+
+- introduce internal async provider/access/source interfaces without changing public support claims
+- carry cancellation through query execution, row loading, relation loading, mutation, transaction, and schema metadata boundaries
+- preserve immutable invocation snapshots across awaits
+- add focused cancellation/failure tests with deterministic controllable providers
+- keep synchronous implementations direct
+
+Exit gate:
+
+- the contracts can express every inventoried I/O path
+- no production path uses `Task.Run` as provider async
+- no public API is frozen before provider feasibility is proven
+
+### W2: Native Provider Async Execution
+
+Required work:
+
+- implement SQLite provider async paths and document driver-level synchronous behavior or cancellation limits explicitly
+- implement MySQL/MariaDB native async paths through the shared provider
+- cover reader lifetime, command cancellation, mutations, transaction begin/commit/rollback, and disposal
+- preserve cache publication and invalidation boundaries
+- classify provider-specific cancellation/timeout/uncertain outcomes
+
+Exit gate:
+
+- representative provider compliance cases prove sync/async parity
+- cancellation tests cover pre-dispatch, in-flight, and cleanup behavior
+- server-backed targets have the same semantic assertions, with explicit provider exceptions only where unavoidable
+
+### W3: Public Async Surface
+
+Required work:
+
+- expose the audited async query, relation, mutation, transaction, and validation operations
+- add XML/API documentation and focused examples
+- validate overload consistency and `CancellationToken` placement
+- run ApiCompat and review every public addition or change
+- prove synchronous API behavior remains intact
+
+Exit gate:
+
+- the surface is coherent across supported operation families
+- unsupported async shapes fail explicitly
+- no hidden property I/O or ambient transaction behavior entered the API
+
+### W4: DI, Hosting, And Unit Of Work
+
+Required work:
+
+- establish the host-integration package boundary and dependency graph
+- implement generated-database/provider registration
+- expose read access and explicit unit-of-work factory contracts
+- integrate logging and options validation
+- test scopes, concurrent requests, nested service participation, cancellation, terminal failures, and shutdown
+- document ownership without implying EF `DbContext` semantics
+
+Exit gate:
+
+- ASP.NET Core and Generic Host consumer fixtures resolve and dispose services correctly
+- transaction state cannot leak across scopes
+- unit-of-work failure semantics match the existing SQL mutable lifecycle
+
+### W5: Startup Schema Validation
+
+Required work:
+
+- expose the structured runtime validation service
+- integrate fail-fast/warning/disabled host policies
+- propagate cancellation and timeout through provider metadata reads
+- redact secrets and preserve actionable differences
+- test multiple targets, deterministic ordering, partial failures, and host-startup behavior
+
+Exit gate:
+
+- startup validation proves no hidden database access when disabled
+- fail-fast and warning policies consume one semantic result
+- no migration or repair path exists in the host adapter
+
+### W6: Testing Support
+
+#### W6A: Builders, Relations, And Memory Fixtures
+
+May proceed after W1 establishes the relevant read/cancellation contracts.
+
+Required work:
+
+- relation/reference doubles
+- metadata-aware immutable builder
+- relation graph builder
+- Memory fixture and reset adapter
+- deterministic test data support required by those builders
+
+#### W6B: Fake Unit Of Work And DI Replacement
+
+Begins only after W4 freezes the real unit-of-work contract.
+
+Required work:
+
+- fake unit of work and failure injection
+- DI replacements for Memory-backed reads and fake writes
+- distinctly named SQLite-in-memory provider helper
+- docs/examples that separate test guarantees
+
+Exit gate:
+
+- builders preserve actual metadata/key/relation invariants
+- Memory helpers do not widen Memory capabilities
+- fake write behavior mirrors the public unit-of-work lifecycle without simulating provider semantics
+
+### W7: Source Alias Correctness
+
+May proceed independently after W0.
+
+Required work:
+
+- semantic type-symbol resolution
+- stable emitted type identity
+- alias-aware nullability/value classification
+- focused syntax-only diagnostics
+- incremental dependency invalidation
+- generator approval/runtime coverage for aliases and neighboring type forms
+
+Exit gate: all acceptance criteria in [issue #93](https://github.com/bazer/DataLinq/issues/93) are covered without unrelated generator redesign.
+
+### W8: Provisional Integration Evidence
+
+Required work:
+
+- full quick and provider matrices
+- API/package/consumer-smoke checks
+- affected compatibility and browser graphs
+- benchmark comparison and telemetry review
+- DocFX and link validation
+- public documentation draft based on implemented behavior only
+
+Exit gate:
+
+- no incomplete or nonzero command is reported as verified
+- every warning/finding is owned and dispositioned
+- release scope has not expanded
+
+### W9: Frozen-Candidate Closeout
+
+Required work:
+
+- freeze commit and exact candidate version
+- pack without publishing
+- rerun the complete evidence graph from that exact candidate
+- produce one manifest with artifact identities and an explicit go/no-go decision
+- update release notes and public claims only from frozen evidence
+
+Exit gate: all requirements in the [release evidence plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md) pass and publication remains a separate maintainer action.
+
+## Safe Parallel Lanes
+
+- W7 can run beside W1-W6 after W0.
+- W6A can begin after W1 while provider work continues, but it cannot invent a second query engine.
+- H10 package scaffolding may begin during W3, but public lifetimes cannot freeze until W3 contracts are stable.
+- Release tooling can add new suite/package registrations incrementally, but final evidence waits for W8/W9.
+- Documentation plans and examples may be drafted early; shipped-behavior wording waits for W9.
+
+## Merge Rules
+
+1. Each change names its owning workstream and gate.
+2. Shared contract changes include focused tests in the same change.
+3. Provider changes preserve the other providers or land behind an internal unused seam until parity is ready.
+4. Public API additions require XML docs, ApiCompat review, and at least one consumer-shaped test.
+5. New packages enter central versions, pack tooling, inspection, consumer smoke, and compatibility inventories together.
+6. Testing helpers consume production metadata/Memory/unit-of-work contracts rather than copying semantics.
+7. Public docs do not describe a workstream as shipped until W9 evidence is green.
+8. No commit may quietly add an explicitly excluded feature because a nearby abstraction makes it convenient.
+
+## Stop Rules
+
+Stop and revise the roadmap before continuing if:
+
+- native provider async requires a public breaking redesign not covered by the accepted contract
+- cancellation can leave cache or mutable-instance state with an unclassifiable outcome
+- the unit-of-work lifetime cannot be expressed without implicit ambient state
+- startup validation needs a competing schema model
+- testing support needs to fork Memory or provider execution semantics
+- source alias support requires a broad generator architecture rewrite
+- a proposed performance optimization introduces retention, pooling, or cache policy not justified by measured evidence
+- any explicitly excluded 0.10 item becomes a practical dependency
+
+Finishing early is not a scope-expansion event.
+
+## Definition Of Ready To Start Implementation
+
+- W0 commands and artifact locations are agreed
+- D10-1 through D10-6 have named owners
+- the initial public async surface audit is complete
+- package ownership and unit-of-work lifetime questions are explicit
+- the required testing subset is accepted
+- issue #93 remains independently scoped
+- the release evidence plan can record every workstream
+
+## Links
+
+- [DataLinq 0.10 Implementation Roadmap](README.md)
+- [0.10 Release Evidence and Closeout Implementation Plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
+- [Development Roadmap](../../Roadmap.md)

@@ -4,9 +4,9 @@
 # Specification: Dependency Injection and Hosting Integration
 
 **Status:** Accepted.
-**Release horizon:** First post-0.9 adoption release.
-**Last reviewed:** 2026-07-10.
-**Dependency:** Native async provider execution and the 0.9 backend/source boundary should be stable before host integration freezes public service abstractions.
+**Release horizon:** DataLinq 0.10 for unnamed registration, explicit unit of work, and startup-host integration; broader host variants remain later work.
+**Last reviewed:** 2026-08-25.
+**Dependency:** The shipped 0.9 backend/source boundary and the 0.10 async contracts must be stable before host integration freezes public service abstractions.
 **Goal:** Make DataLinq straightforward to configure, validate, and consume from ASP.NET Core, generic host, background workers, Blazor, MAUI, Avalonia, and other .NET application surfaces without hiding database I/O or transaction boundaries.
 
 **Related work:**

@@ -118,12 +118,32 @@ DataLinq 0.9 closes two existing correctness gaps before adding another mutable 
 
 These are current SQL-provider correctness requirements, not features invented for `DataLinq.Memory`.
 
+## DataLinq 0.10 Planned Direction
+
+DataLinq 0.10 is planned as an application-adoption and integration release:
+
+> Make DataLinq a first-class component in modern hosted .NET applications through native asynchronous and cancelable execution, explicit dependency-injection and unit-of-work lifetimes, opt-in startup schema validation, and first-class database-free testing support.
+
+The required release outcomes are:
+
+- async and cancelable query, explicit relation-load, mutation, and transaction execution across SQLite, MySQL, and MariaDB, using native provider async where the provider genuinely supports it and documenting provider limitations
+- cancellation propagated to provider commands without `Task.Run`, sync-over-async, or hidden property I/O
+- dependency-injection registration with explicit read-root, provider, unit-of-work, transaction, and disposal ownership
+- opt-in startup schema validation with fail-fast, warning-only, and disabled policies
+- metadata-aware immutable builders, relation test doubles and graphs, Memory-backed read registration, and unit-of-work test support
+- correct generated model and metadata output for C# source type aliases
+- package, API, provider-matrix, compatibility, documentation, and benchmark evidence for the exact release claim
+
+The internal `docs/dev-plans/roadmap-implementation/v0.10/` plan owns the detailed scope and dependency order. There are no pre-authorized stretch goals. Adding work to the release requires an explicit roadmap revision with dependencies and exit evidence.
+
 ## Later Work
 
-The first post-0.9 priority should be an adoption-focused release: native async query/relation/mutation execution with cancellation, DI/hosting integration, startup schema validation, and testing helpers that clearly distinguish business-logic tests from provider-behavior tests.
+Set-based and relation-aware mutations, including atomic conditional updates, remain a later write-path release. They need a provider-neutral mutation plan and an explicit cache-consistency contract rather than a narrow raw-SQL shortcut.
 
-Memory mutation, memory transactions, deterministic forks, canonical committed-change batches, JSON flush-on-commit durability, commit logs, replay, compaction, browser persistence adapters, and related CLI commands remain later work. They need a provider-neutral mutation contract and trustworthy transaction semantics first.
+Tooling-process interoperability for external tools and DataLinq Studio also remains after the initial 0.10 boundary. It should use versioned, cancelable, machine-consumable contracts instead of exposing CLI or Roslyn internals.
+
+Memory mutation, memory transactions, deterministic forks, canonical committed-change batches, JSON flush-on-commit durability, commit logs, replay, compaction, browser persistence adapters, and related CLI commands remain later work. They need provider-neutral mutation and trustworthy transaction semantics first.
 
 Dependency-tracked result-set caching remains deferred until provider-value normalization, joins, projection semantics, invalidation, freshness vocabulary, and DataLinq.Store module contracts are stronger. A cached result-set feature without a boring correctness story would be clever in the worst way.
 
-Full migration execution also remains future work. `validate` and `diff` are real product features today; `add-migration`, `update-database`, migration history tracking, and runtime migration APIs are not. SQL JSON path querying, generated typed-key output, production-grade JSON persistence, distributed coordination, and DataLinq.Store execution also need their own evidence before they become public claims.
+Full migration execution also remains future work. `validate` and `diff` are real product features today; `add-migration`, `update-database`, migration history tracking, and runtime migration APIs are not. Broad join/grouping expansion, SQL JSON path querying, generated typed-key output, production-grade JSON persistence, distributed coordination, PostgreSQL support, general observability protocols, and DataLinq.Store execution each need their own evidence before they become public claims.
