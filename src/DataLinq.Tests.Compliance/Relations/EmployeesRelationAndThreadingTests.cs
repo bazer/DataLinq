@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using DataLinq.Instances;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
 
@@ -53,6 +54,22 @@ public class EmployeesRelationAndThreadingTests
 
         await Assert.That(department.Managers).IsNotEmpty();
         await Assert.That(department.Managers.All(x => x.Department.DeptNo == department.Department.DeptNo)).IsTrue();
+
+        var relation = department.Department.Managers;
+        IEnumerable<Manager> rows = relation.AsEnumerable();
+        var expectedByKey = rows.ToDictionary(manager => manager.PrimaryKeys());
+
+        // Manager keys are composite; keyed enumeration must not use the parent department key.
+        relation.Clear();
+        IEnumerable<KeyValuePair<DataLinqKey, Manager>> keyedRows = relation.AsKeyValuePairs();
+        var pairs = keyedRows.ToArray();
+        await Assert.That(pairs.Length).IsEqualTo(expectedByKey.Count);
+        foreach (var pair in pairs)
+        {
+            await Assert.That(pair.Key).IsEqualTo(DataLinqKey.FromValues([pair.Value.dept_fk, pair.Value.emp_no]));
+            await Assert.That(ReferenceEquals(pair.Value, expectedByKey[pair.Key])).IsTrue();
+            await Assert.That(ReferenceEquals(relation.Get(pair.Key), pair.Value)).IsTrue();
+        }
     }
 
     [Test]
