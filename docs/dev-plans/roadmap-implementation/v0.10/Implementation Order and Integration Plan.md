@@ -40,11 +40,15 @@ Complete the audit and decide/test:
 - which receive `Async` counterparts in the initial release
 - which I/O operations accept an optional final `CancellationToken`; local construction/composition needs no token, and internal contracts may require explicit propagation
 - enforce revised AAPI-8: public key/single-reference lookups, query/relation terminals, collection accessors, and disposal use `ValueTask`; prepared execution, mutations, transaction completion/callbacks, and other non-LINQ operations use `Task`, with generic result types as appropriate; measure implementation costs without claiming a signature alone proves a performance improvement
-- enforce accepted AAPI-10: relation `Query()` returns a provider-backed, relation-scoped `IQueryable<T>` without I/O or complete-relation preloading; keep the existing `IEnumerable<T>` interface and local LINQ behavior
 - enforce AAPI-11's approved breaking rename to `AsKeyValuePairs()`, restoring standard row `AsEnumerable()`; A10 owns the narrow synchronous correction before async execution work, with T10 follow-through for custom/testing implementations and explicit source/binary migration evidence
-- enforce AAPI-12's explicit async row view, local predicate semantics, and collection accessor names/result shapes; settle exact overloads/member placement, generated-name collisions, and execution-capability dispatch without synchronous I/O fallback
+- enforce AAPI-12's explicit async row view, local predicate semantics, and collection accessor names/result shapes
 - enforce AAPI-13's normal transitive `System.Linq.AsyncEnumerable` dependency only for .NET 8/9 when implementing the async surface; pin its version centrally and verify packed dependency groups and consumers on .NET 8/9/10
+- enforce AAPI-14's interface execution members and overridable async defaults; settle the exact primitive/overload inventory and concrete/custom/test implementation compatibility without synchronous database fallback
+- enforce AAPI-15's public model-base visibility, overridable single-reference methods, and focused generated-name/inheritance diagnostics without automatically expanding mutable/shared model interfaces
+- enforce AAPI-16's required-reference validation in both synchronous and asynchronous navigation, nullable optional references, and duplicate-target failures; A10 owns runtime/generator work with T10 parity and explicit migration evidence
 - how async enumeration interacts with current query materialization and resource disposal
+
+Relation query composition is excluded from 0.10 under revised AAPI-10. Its [backlog proposal](../../query-and-runtime/Relation-Scoped%20Queries.md) creates no parser, test-helper query capability, or release-gate dependency here; existing database/transaction query roots remain in scope.
 
 Do not add public async methods incrementally until one audit proves the surface is coherent.
 

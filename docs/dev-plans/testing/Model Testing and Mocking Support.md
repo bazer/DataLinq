@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for the release-local builder, relation, Memory-fixture, unit-of-work, and DI-helper subset; later testing slices remain unscheduled.
-**Last reviewed:** 2026-08-25.
+**Last reviewed:** 2026-08-30.
 **Dependency:** Queryable provider-like tests use the shipped capability-declared `DataLinq.Memory` preview rather than inventing a second LINQ-to-Objects provider; fake unit-of-work support follows the real 0.10 unit-of-work contract.
 **Goal:** Make DataLinq application code testable without a live database when the test is about business behavior, while preserving provider-backed tests for SQL translation, schema, transaction, and database-specific behavior.
 
@@ -264,7 +264,7 @@ It should not try to simulate every provider transaction rule. Provider-backed t
 
 The current `ImmutableRelationMock<T>` should be completed or replaced.
 
-Required collection relation behavior:
+Synchronous subset of the required collection relation behavior (shape sketch, not a complete class implementation):
 
 ```csharp
 public sealed class TestImmutableRelation<T> : IImmutableRelation<T>
@@ -282,7 +282,18 @@ public sealed class TestImmutableRelation<T> : IImmutableRelation<T>
 }
 ```
 
-Required reference relation behavior:
+The accepted 0.10 async contract is owned by [AAPI-14 through AAPI-16](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-14-relation-execution-members-with-overridable-async-defaults):
+
+- Support `IImmutableRelation<T>` async execution members, including the explicit async row view, scoped lookup, terminals, and collection accessors. Reuse overridable shared defaults where correct instead of requiring every double to implement all terminal algorithms independently.
+- In-memory rows may complete immediately. Defaults and custom adapters must never conceal synchronous database I/O behind an async signature; an unsupported execution capability must fail explicitly.
+- Verify both interface-typed and concrete helper calls. Default interface implementations do not automatically expose methods through a concrete class type.
+- Make generated single-reference async methods usable through the public model base and its overridable loading path without a database; do not require new generated model/test-shape interfaces.
+- Keep required-reference failure, optional-reference nullability, and duplicate-target cardinality behavior identical to sync and async production navigation. Graph validation should diagnose invalid required relations; focused failure fixtures must also prove navigation does not silently return `null`.
+- No relation query-composition capability is required in 0.10. Standalone relation fixtures do not need an `IQueryable` source; intentionally queryable application tests continue to use the existing real Memory read-store boundary.
+
+The exact required execution primitives and overload inventory remain subject to A10's signature review. Cancellation/lifetime tests must follow the subsequently agreed OAPI contracts, rather than inventing a separate testing-only policy.
+
+Synchronous subset of the reference-holder shape:
 
 ```csharp
 public sealed class TestImmutableForeignKey<T> : IImmutableForeignKey<T>
@@ -292,6 +303,8 @@ public sealed class TestImmutableForeignKey<T> : IImmutableForeignKey<T>
     public void Clear();
 }
 ```
+
+A nullable lower-level `Value` can represent an absent target. It does not allow generated required navigation to return `null`: both the synchronous property and async method must enforce AAPI-16 before returning to application code. Ordinary nullable key-lookup misses retain their current meaning.
 
 Useful helpers:
 

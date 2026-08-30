@@ -100,11 +100,12 @@ Required focused evidence:
 - token-free and token-supplied consumer calls, sequential sync/async mixing, and both synchronous and asynchronous disposal
 - generated `<PropertyName>Async` single-reference methods bypass synchronous getters and preserve cache/nullability/source behavior
 - collection relation handles perform no database I/O; async terminals preserve relation membership, cardinality, source ownership, and cache correctness without promising full loading for every terminal
-- AAPI-10 `Query()` construction performs no I/O; scalar/composite/converted relation keys, source/transaction ownership, preserved local LINQ binding, and provider filtering/paging are verified without preloading or falsely marking the full relation cache as complete
 - revised AAPI-8 signature checks for `ValueTask` key/single-reference/query-terminal/relation-terminal/collection-accessor/disposal APIs and `Task` prepared-execution/mutation/transaction-completion/callback APIs, with cache-hit/miss benchmarks and correct single-consumption coverage
 - AAPI-11 migration evidence for the intentional keyed `AsEnumerable()` removal and `AsKeyValuePairs()` addition: interface/concrete row-view binding, I/O-free row-view construction, retained keyed identity/membership for empty and composite-key relations, and review of inferred callers and custom implementations; retain the exact approved break in ApiCompat review without changing the 0.9 baseline or suppressing unrelated diagnostics
 - AAPI-12/AAPI-13 local async predicate and collection result-type checks; packed .NET 8/9 consumers receive `System.Linq.AsyncEnumerable` transitively, DataLinq's .NET 10 dependency group omits it, and all three target consumers compile/run standard async LINQ with optional tokens
-
+- AAPI-14 interface/concrete consumer coverage, shared defaults and per-operation overrides, and custom/test implementation compatibility without cold-cache synchronous database I/O; retain local LINQ and existing translated navigation predicate binding
+- AAPI-15 generated methods callable on public model bases, with focused collisions/inheritance/optional-token diagnostics and no unintended additions to mutable/shared model interfaces
+- AAPI-16 required missing-reference failures in both sync and async, nullable optional references, duplicate-target failures, scalar/composite/converted keys, cold/warm/invalidation parity, and matching test-helper behavior; document the intentional sync correction while preserving nullable `Get`/`GetAsync` misses
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families
 - explicit relation-load parity for cache hit, cache miss, missing row, and provider failure
 - mutation success/failure and transaction commit/rollback parity
@@ -113,6 +114,8 @@ Required focused evidence:
 - uncertain commit and cleanup/disposal behavior
 - no `Task.Run`/sync-over-async fallback on supported native provider paths
 - logging, metrics, cache, invalidation, and terminal-state parity
+
+Relation query composition and its provider/parser/test-helper evidence are deferred outside 0.10 under revised AAPI-10. They are not required to close A10 or T10.
 
 ### DI, Hosting, And Unit Of Work
 

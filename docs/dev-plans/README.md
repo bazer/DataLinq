@@ -54,7 +54,7 @@ Required durable design sources:
 - [Schema Validation Hooks](providers-and-features/Schema%20Validation%20Hooks.md)
 - [Model Testing and Mocking Support](testing/Model%20Testing%20and%20Mocking%20Support.md)
 
-The release has no pre-authorized stretch goals. [Issue #93](https://github.com/bazer/DataLinq/issues/93) is required generator-correctness work. [Issue #65](https://github.com/bazer/DataLinq/issues/65), tooling/Studio interoperability, migrations, Memory mutation/persistence, broad query expansion, and other later programs are explicitly outside the initial 0.10 boundary.
+The release has no pre-authorized stretch goals. [Issue #93](https://github.com/bazer/DataLinq/issues/93) is required generator-correctness work. [Issue #65](https://github.com/bazer/DataLinq/issues/65), relation query composition, tooling/Studio interoperability, migrations, Memory mutation/persistence, broad query expansion, and other later programs are explicitly outside the 0.10 boundary.
 
 ## DataLinq 0.9 History
 
@@ -68,6 +68,7 @@ These pages carry broader design reasoning than a single release can implement.
 
 - [LINQ Parser Architecture Review](query-and-runtime/LINQ%20Parser%20Architecture%20Review.md)
 - [Relation-Aware Join API](query-and-runtime/Relation-Aware%20Join%20API.md)
+- [Relation-Scoped Queries](query-and-runtime/Relation-Scoped%20Queries.md) — unscheduled backlog; explicitly excluded from 0.10
 - [Async and Lazy Loading](query-and-runtime/Async%20and%20Lazy%20Loading.md)
 - [Set-Based Mutations](query-and-runtime/Set-based%20mutations.md)
 - [Relation-Aware Mutation API](query-and-runtime/Relation-Aware%20Mutation%20API.md)

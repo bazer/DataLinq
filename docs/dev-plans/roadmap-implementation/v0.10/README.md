@@ -43,14 +43,16 @@ Required contract:
 - optional `CancellationToken` parameters at meaningful public async I/O boundaries, propagated to database commands and any required lazy initialization
 - synchronous, I/O-free `Transaction()` creation; sync or async execution chosen per operation, with separate sync/async disposal
 - generated `<PropertyName>Async()` single-reference methods with optional tokens; collection relation handles remain synchronous and use async execution terminals, without generated collection-loading methods
-- synchronous, I/O-free relation `Query()` returning a DataLinq-backed `IQueryable<T>` over the relation rows for provider filtering/paging; the relation itself retains its existing `IEnumerable<T>` surface
+- relation async execution on `IImmutableRelation<T>` with overridable shared async defaults, deliberate concrete/test-helper visibility, and no silent synchronous database fallback; retain its `IEnumerable<T>` surface
+- generated single-reference methods callable on public model bases, with overridable implementations and focused name/inheritance collision diagnostics rather than an automatic expansion of generated model interfaces
+- required single-reference navigation returns a row or fails in both sync and async paths; optional missing targets remain nullable and duplicate targets fail cardinality checks, with explicit migration evidence for the synchronous behavior correction
 - public `ValueTask`/`ValueTask<T>` for key lookup, direct single-reference loading, query/relation terminals, relation collection accessors, and disposal; `Task`/`Task<T>` for prepared execution, mutations, transaction completion/callbacks, and other non-LINQ operations
 - the approved 0.10 breaking rename from keyed `AsEnumerable()` to `AsKeyValuePairs()`, allowing standard LINQ `AsEnumerable()` to yield rows; migration notes must cover binary/source compatibility, inferred element types, and loading timing
 - explicit async row enumeration via `AsAsyncEnumerable()` without dual enumerable-interface inheritance; local predicate delegates and `ValueTask` collection accessors under AAPI-12
 - standard async LINQ from a conditional transitive `System.Linq.AsyncEnumerable` dependency for .NET 8/9 and the framework for .NET 10, with packed-consumer verification across all targets
 - cancellation distinguished from timeout, provider failure, rollback failure, and uncertain commit outcome
 - sync/async parity for query results, conversion, cache behavior, invalidation, logging, metrics, and transaction terminal states
-- synchronous execution retained as real synchronous implementations rather than sync-over-async wrappers; the explicit enumeration rename above is the approved compatibility exception
+- synchronous execution retained as real synchronous implementations rather than sync-over-async wrappers; the enumeration rename and required-reference correction above are the specifically approved compatibility exceptions
 
 Acceptance summary:
 
@@ -65,6 +67,7 @@ Explicit non-goals:
 - new automatic lazy-loading mechanisms or new hidden property I/O; existing synchronous navigation behavior is retained
 - async APIs that wrap synchronous calls where native provider async exists; the documented SQLite driver limitation remains explicit
 - general backend plugin APIs
+- relation query composition, retained in the unscheduled [Relation-Scoped Queries](../../query-and-runtime/Relation-Scoped%20Queries.md) backlog proposal
 
 ### H10: Dependency Injection, Hosting, And Unit Of Work
 
@@ -132,6 +135,7 @@ Required contract:
 
 - metadata-aware immutable builders with valid row/table/key identity
 - collection and reference relation doubles that implement their full supported interfaces
+- async relation defaults/overrides and generated model-base navigation usable without a database, including the same optional/required/multiple-target outcomes as production; no relation-query capability is required
 - relation graph builders that use DataLinq relation metadata rather than hand-wired property substitution
 - fixture construction and registration over the real `DataLinq.Memory` capability set
 - fake unit-of-work behavior derived from H10, including writes, commit/rollback/disposal recording, and failure injection
@@ -231,6 +235,7 @@ DataLinq 0.10 is ready for maintainer release review only when:
 - migration authoring, execution, history, locking, recovery, and repair
 - Memory mutation, transactions, persistence, logs, replay, compaction, and browser storage
 - broad join/grouping expansion
+- relation-scoped query composition; its backlog proposal is not a prerequisite for async relation execution
 - automatic query-plan or result-set caching
 - generated typed keys, JSON query translation, general observability protocols, PostgreSQL, CDC, and DataLinq.Store execution
 
