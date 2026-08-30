@@ -44,6 +44,7 @@ Required release plans:
 
 - [DataLinq 0.10 Implementation Roadmap](roadmap-implementation/v0.10/README.md)
 - [0.10 Implementation Order and Integration Plan](roadmap-implementation/v0.10/Implementation%20Order%20and%20Integration%20Plan.md)
+- [0.10 Async Public API Decisions](roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md)
 - [0.10 Release Evidence and Closeout Implementation Plan](roadmap-implementation/v0.10/Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 
 Required durable design sources:

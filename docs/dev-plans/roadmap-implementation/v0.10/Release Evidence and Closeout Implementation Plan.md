@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-08-25.
+**Last reviewed:** 2026-08-30.
 
 **Depends on:** The required workstreams and gates in the [0.10 implementation roadmap](README.md) and [implementation order](Implementation%20Order%20and%20Integration%20Plan.md).
 
@@ -94,6 +94,11 @@ Acceptance:
 ### Async And Cancellation
 
 Required focused evidence:
+
+- the accepted [public API decisions](Async%20Public%20API%20Decisions.md), with unresolved signature/failure questions settled before W3
+- no database I/O during transaction construction or unused disposal; first-use initialization follows the selected sync/async operation and its token
+- token-free and token-supplied consumer calls, sequential sync/async mixing, and both synchronous and asynchronous disposal
+- generated `<PropertyName>Async` relation methods bypass synchronous getters and preserve cache/nullability/source behavior
 
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families
 - explicit relation-load parity for cache hit, cache miss, missing row, and provider failure

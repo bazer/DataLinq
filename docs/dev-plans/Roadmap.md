@@ -5,7 +5,7 @@
 
 **Status:** Active.
 
-**Last reviewed:** 2026-08-25.
+**Last reviewed:** 2026-08-30.
 
 ## Purpose
 
@@ -64,6 +64,7 @@ The authoritative release-local plans are:
 
 - [DataLinq 0.10 Implementation Roadmap](roadmap-implementation/v0.10/README.md)
 - [0.10 Implementation Order and Integration Plan](roadmap-implementation/v0.10/Implementation%20Order%20and%20Integration%20Plan.md)
+- [0.10 Async Public API Decisions](roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md)
 - [0.10 Release Evidence and Closeout Implementation Plan](roadmap-implementation/v0.10/Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 
 ## Required 0.10 Workstreams
@@ -79,8 +80,8 @@ Required outcomes:
 - SQLite, MySQL, and MariaDB use provider async APIs, with native asynchronous I/O only where the underlying provider genuinely supports it and explicit SQLite limitations where it does not
 - public async query terminals and materialization cover the supported synchronous query families
 - relation I/O has explicit async loading rather than hidden async property behavior
-- mutation and transaction begin/commit/rollback paths have honest asynchronous APIs
-- `CancellationToken` reaches database commands and returns cancellation distinctly from timeout or generic failure
+- `Transaction()` remains synchronous and lazy; the first database operation initializes through its sync/async path, while mutations, commit, rollback, and disposal have honest async execution
+- optional public `CancellationToken` parameters reach initialization and database commands and return cancellation distinctly from timeout or generic failure
 - logging, telemetry, cache behavior, materialization, and transaction terminal states remain semantically aligned with sync execution
 - existing synchronous APIs remain supported without delegating through `.Result` or `.GetAwaiter().GetResult()`
 

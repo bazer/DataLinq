@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-08-25.
+**Last reviewed:** 2026-08-30.
 
 **Authority:** The [0.10 implementation roadmap](README.md) owns release scope. This document owns dependency order, shared-contract decisions, merge gates, and stop rules.
 
@@ -32,17 +32,22 @@ It does not authorize implementation outside the 0.10 roadmap.
 
 ### D10-1: Async Contract Shape
 
-Decide and test:
+The accepted decisions and remaining OAPI questions live in [Async Public API Decisions](Async%20Public%20API%20Decisions.md). `Transaction()` stays synchronous and lazy, execution mode is chosen per operation, public cancellation tokens are optional, and generated relation methods use `<PropertyName>Async()` without a `Load` prefix. These decisions do not replace W0 evidence or freeze unproven signatures.
+
+Complete the audit and decide/test:
 
 - which current public operations perform I/O
 - which receive `Async` counterparts in the initial release
-- where `CancellationToken` is mandatory, optional, or not meaningful
-- which internal operations return `Task` versus `ValueTask` based on measured completion behavior rather than style
+- which I/O operations accept an optional final `CancellationToken`; local construction/composition needs no token, and internal contracts may require explicit propagation
+- which public and internal operations return `Task` versus `ValueTask` based on completion behavior, composition, and measured costs
+- the relation collection result shape, generated-name collision policy, and public interface compatibility
 - how async enumeration interacts with current query materialization and resource disposal
 
 Do not add public async methods incrementally until one audit proves the surface is coherent.
 
 ### D10-2: Provider Cancellation And Failure Semantics
+
+Resolve OAPI-3 through OAPI-6 and the provider capability questions in the [API decision record](Async%20Public%20API%20Decisions.md#open-decisions-before-the-complete-api-is-frozen).
 
 Define:
 
@@ -157,7 +162,7 @@ Required work:
 
 - implement SQLite provider async paths and document driver-level synchronous behavior or cancellation limits explicitly
 - implement MySQL/MariaDB native async paths through the shared provider
-- cover reader lifetime, command cancellation, mutations, transaction begin/commit/rollback, and disposal
+- cover reader lifetime, command cancellation, mutations, lazy transaction initialization through the first sync/async operation, commit/rollback, and disposal
 - preserve cache publication and invalidation boundaries
 - classify provider-specific cancellation/timeout/uncertain outcomes
 
@@ -173,7 +178,7 @@ Required work:
 
 - expose the audited async query, relation, mutation, transaction, and validation operations
 - add XML/API documentation and focused examples
-- validate overload consistency and `CancellationToken` placement
+- validate overload consistency, optional final `CancellationToken` parameters, generated `<PropertyName>Async` methods, and synchronous transaction construction against the API decision record
 - run ApiCompat and review every public addition or change
 - prove synchronous API behavior remains intact
 
@@ -181,7 +186,7 @@ Exit gate:
 
 - the surface is coherent across supported operation families
 - unsupported async shapes fail explicitly
-- no hidden property I/O or ambient transaction behavior entered the API
+- no new hidden property I/O or ambient transaction behavior entered the API; existing sync navigation behavior remains compatible
 
 ### W4: DI, Hosting, And Unit Of Work
 
@@ -338,5 +343,6 @@ Finishing early is not a scope-expansion event.
 ## Links
 
 - [DataLinq 0.10 Implementation Roadmap](README.md)
+- [0.10 Async Public API Decisions](Async%20Public%20API%20Decisions.md)
 - [0.10 Release Evidence and Closeout Implementation Plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 - [Development Roadmap](../../Roadmap.md)

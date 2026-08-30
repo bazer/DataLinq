@@ -4,9 +4,22 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for native async/cancellation; lazy-loading experiments remain later work.
-**Last reviewed:** 2026-08-25.
+**Last reviewed:** 2026-08-30.
 **Dependency:** The shipped 0.9 execution foundation provides the backend/source boundary; the 0.10 release-local plan owns the exact async surface and evidence.
 **Goal:** Introduce real async I/O support and define how lazy loading should behave without turning DataLinq into a magical, hard-to-reason-about API.
+
+## Accepted 0.10 API Decisions
+
+The release-local [Async Public API Decisions](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md) record is authoritative for the accepted public surface and remaining questions:
+
+- `Transaction()` remains synchronous and performs no database I/O; the first operation requiring database access initializes through its chosen sync/async path.
+- The same transaction supports sequential sync and async operations. `await using` selects asynchronous disposal, not asynchronous construction.
+- Public async cancellation tokens are optional and last; local query construction and composition remain synchronous.
+- Generated relation methods use the property name plus `Async`, for example `DepartmentAsync()` and `SalariesAsync()`, without a `Load` prefix or synchronous getter evaluation.
+- Existing synchronous lazy navigation remains supported for compatibility. Awaitable entities, task-valued navigation properties, and new hidden I/O mechanisms are outside 0.10.
+- Async query terminals use familiar names such as `ToListAsync` and `ToArrayAsync`. Complete signatures, awaitable/result types, streaming, and failure details remain explicitly open in the decision record.
+
+The broader options and phases below retain design rationale. They do not authorize interface-first model rewrites, strict sync-I/O modes, preload/batching features, hollow instances, or awaitable-entity experiments in 0.10. Provider APIs use native async where available; the documented Microsoft.Data.Sqlite synchronous-driver limitation is an explicit exception, not a promise of nonblocking SQLite I/O.
 
 ## 1. Why This Matters
 

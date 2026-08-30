@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-08-25.
+**Last reviewed:** 2026-08-30.
 
 **Prerequisite:** DataLinq 0.9.0 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
@@ -34,11 +34,15 @@ Adding scope requires all of the following before implementation:
 
 Durable design source: [Async and Lazy Loading](../../query-and-runtime/Async%20and%20Lazy%20Loading.md).
 
+Accepted public API decisions and open signature questions: [Async Public API Decisions](Async%20Public%20API%20Decisions.md).
+
 Required contract:
 
 - provider async APIs for SQLite, MySQL, and MariaDB, with native asynchronous I/O only where the underlying provider genuinely supports it and explicit SQLite limitations where it does not
 - async execution for supported query terminals, sequence/scalar materialization, explicit relation loads, mutations, and transaction operations
-- `CancellationToken` accepted at meaningful public I/O boundaries and propagated to database commands
+- optional `CancellationToken` parameters at meaningful public async I/O boundaries, propagated to database commands and any required lazy initialization
+- synchronous, I/O-free `Transaction()` creation; sync or async execution chosen per operation, with separate sync/async disposal
+- generated `<PropertyName>Async()` relation methods with optional tokens; existing synchronous navigation properties remain compatible
 - cancellation distinguished from timeout, provider failure, rollback failure, and uncertain commit outcome
 - sync/async parity for query results, conversion, cache behavior, invalidation, logging, metrics, and transaction terminal states
 - synchronous APIs retained as real synchronous implementations rather than sync-over-async wrappers
@@ -53,9 +57,8 @@ Acceptance summary:
 Explicit non-goals:
 
 - awaitable entities
-- automatic lazy loading
-- synchronous property access that performs hidden I/O
-- async APIs that only wrap synchronous provider calls
+- new automatic lazy-loading mechanisms or new hidden property I/O; existing synchronous navigation behavior is retained
+- async APIs that wrap synchronous calls where native provider async exists; the documented SQLite driver limitation remains explicit
 - general backend plugin APIs
 
 ### H10: Dependency Injection, Hosting, And Unit Of Work
@@ -233,5 +236,6 @@ These are not stretch goals. They remain outside 0.10 until the roadmap is expli
 - [Public Roadmap](../../../Roadmap.md)
 - [Development Roadmap](../../Roadmap.md)
 - [0.10 Implementation Order and Integration Plan](Implementation%20Order%20and%20Integration%20Plan.md)
+- [0.10 Async Public API Decisions](Async%20Public%20API%20Decisions.md)
 - [0.10 Release Evidence and Closeout Implementation Plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 - [DataLinq 0.9 Implementation Roadmap](../v0.9/README.md)
