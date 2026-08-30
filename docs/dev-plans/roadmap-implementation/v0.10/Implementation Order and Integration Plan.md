@@ -39,14 +39,15 @@ Complete the audit and decide/test:
 - which current public operations perform I/O
 - which receive `Async` counterparts in the initial release
 - which I/O operations accept an optional final `CancellationToken`; local construction/composition needs no token, and internal contracts may require explicit propagation
-- enforce revised AAPI-8: public key/single-reference lookups, query/relation terminals, collection accessors, and disposal use `ValueTask`; prepared execution, mutations, transaction completion/callbacks, and other non-LINQ operations use `Task`, with generic result types as appropriate; measure implementation costs without claiming a signature alone proves a performance improvement
+- enforce revised AAPI-8: public key/single-reference lookups, query/relation terminals, collection accessors, and disposal use `ValueTask`; prepared scalar/row execution, mutations, transaction completion/callbacks, and other non-LINQ awaitable operations use `Task`, with generic result types as appropriate; measure implementation costs without claiming a signature alone proves a performance improvement
 - enforce AAPI-11's approved breaking rename to `AsKeyValuePairs()`, restoring standard row `AsEnumerable()`; A10 owns the narrow synchronous correction before async execution work, with T10 follow-through for custom/testing implementations and explicit source/binary migration evidence
 - enforce AAPI-12's explicit async row view, local predicate semantics, and collection accessor names/result shapes
 - enforce AAPI-13's normal transitive `System.Linq.AsyncEnumerable` dependency only for .NET 8/9 when implementing the async surface; pin its version centrally and verify packed dependency groups and consumers on .NET 8/9/10
 - enforce AAPI-14's interface execution members and overridable async defaults; settle the exact primitive/overload inventory and concrete/custom/test implementation compatibility without synchronous database fallback
 - enforce AAPI-15's public model-base visibility, overridable single-reference methods, and focused generated-name/inheritance diagnostics without automatically expanding mutable/shared model interfaces
 - enforce AAPI-16's required-reference validation in both synchronous and asynchronous navigation, nullable optional references, and duplicate-target failures; A10 owns runtime/generator work with T10 parity and explicit migration evidence
-- how async enumeration interacts with current query materialization and resource disposal
+- enforce AAPI-17/AAPI-18: direct `IAsyncEnumerable<T>` views and prepared-sequence `ExecuteAsync(...)`, no universal streaming guarantee, explicit completed materialization, deferred sequence I/O, ordinary/prepared/terminal parameter-capture boundaries, and sequential repeat enumeration without permanent result caching
+- enforce AAPI-19/AAPI-20: optional method/enumerator tokens honored together, cancellation during buffered iteration, ownership/disposal on every enumeration exit, rejection of another execution during a live transaction reader, and preservation of validated later relation source transitions
 
 Relation query composition is excluded from 0.10 under revised AAPI-10. Its [backlog proposal](../../query-and-runtime/Relation-Scoped%20Queries.md) creates no parser, test-helper query capability, or release-gate dependency here; existing database/transaction query roots remain in scope.
 
@@ -54,7 +55,7 @@ Do not add public async methods incrementally until one audit proves the surface
 
 ### D10-2: Provider Cancellation And Failure Semantics
 
-Resolve OAPI-3 through OAPI-6 and the provider capability questions in the [API decision record](Async%20Public%20API%20Decisions.md#open-decisions-before-the-complete-api-is-frozen).
+OAPI-3's enumeration contracts are accepted under AAPI-17 through AAPI-20. Resolve OAPI-4 through OAPI-6 and the provider capability questions in the [API decision record](Async%20Public%20API%20Decisions.md#open-decisions-before-the-complete-api-is-frozen), including failure/cleanup behavior and the wider operation gate without reopening the accepted enumeration boundaries.
 
 Define:
 

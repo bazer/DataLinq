@@ -79,6 +79,7 @@ Required outcomes:
 
 - SQLite, MySQL, and MariaDB use provider async APIs, with native asynchronous I/O only where the underlying provider genuinely supports it and explicit SQLite limitations where it does not
 - public async query terminals and materialization cover the supported synchronous query families
+- async sequence APIs preserve invocation capture boundaries, combine method/enumerator cancellation, and own their execution-resource cleanup; buffering remains permitted and explicit materialization provides completed collections
 - relation I/O has explicit async loading rather than hidden async property behavior
 - required single-reference navigation returns a row or fails in both sync and async paths; optional missing references remain nullable, with explicit 0.10 migration evidence for the required-reference correction
 - `Transaction()` remains synchronous and lazy; the first database operation initializes through its sync/async path, while mutations, commit, rollback, and disposal have honest async execution

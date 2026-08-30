@@ -80,7 +80,7 @@ Keep local operations synchronous: existing database/transaction `Query()` facto
 
 Provide explicit async counterparts for the supported execution families. Preserve existing sync behavior, query support limits, conversions, cache and invalidation rules, logging, metrics, and transaction terminal semantics. Synchronous APIs remain direct synchronous implementations.
 
-Do not run simultaneous managed operations on the same transaction. Sequential mixing is supported; exact overlap diagnostics and what counts as an active operation during streaming remain open under OAPI-3/OAPI-6.
+Do not run simultaneous managed operations on the same transaction. Sequential mixing is supported. AAPI-20 requires rejection of another execution operation while a reader remains active, including between moves; exact diagnostics and the wider operation-gate contract remain under OAPI-6.
 
 Database-level mutation helpers continue to own the implicit transaction and its completion. Transaction-level mutation helpers execute inside their existing transaction without committing it. `SaveAsync()` corresponds to DataLinq's current `Save()` behavior, not an EF-style change-tracker flush.
 
@@ -135,10 +135,10 @@ The accepted naming direction is the synchronous execution name plus `Async`, in
 | Supported row terminals | `FirstAsync`, `FirstOrDefaultAsync`, `SingleAsync`, `SingleOrDefaultAsync`, `LastAsync`, `LastOrDefaultAsync` | Match current predicate, projection, empty-result, and cardinality contracts |
 | Supported scalar reductions | `AnyAsync`, `CountAsync`, `SumAsync`, `MinAsync`, `MaxAsync`, `AverageAsync` | Exact selector, numeric, and nullable overloads |
 | Key lookup | `GetAsync` on the database/transaction, relation handles, and generated model helpers | Typed/composite keys, source receivers, and nullability; `ValueTask<T>` family settled in AAPI-8 |
-| Prepared queries | Async execution counterparts; preparation remains synchronous | Scalar versus sequence signatures and snapshot/streaming semantics |
+| Prepared queries | `ExecuteAsync`; preparation remains synchronous | AAPI-8/AAPI-17 settle scalar versus sequence return shapes; AAPI-18 settles capture timing; complete receiver/overload audit remains |
 | Mutations | `InsertAsync`, `UpdateAsync`, `SaveAsync`, `DeleteAsync` | Single/multiple model and change-delegate overloads; mutable input lifetime |
 | Completion | `CommitAsync`, `RollbackAsync`, `DisposeAsync` | Callback overloads, failure reporting, cleanup precedence |
-| Streaming | `AsAsyncEnumerable` is the candidate direction | Public contract is not frozen; see OAPI-3 |
+| Async sequences | `AsAsyncEnumerable` | Accepted under AAPI-17 through AAPI-20; no universal streaming guarantee; exact query extension inventory remains |
 | Provider metadata and lower-level SQL | Async counterparts for audited I/O operations | Explicit inclusion/exclusion list before W3 |
 
 This table is an inventory starting point, not a declaration that all overloads or backend query shapes are supported. Async does not add `All`, `LongCount`, arbitrary joins, new mutation semantics, or unrestricted client-side fallback to the supported query language.
@@ -169,9 +169,9 @@ Use the following public awaitable types consistently across providers, overload
 | Async transaction callback delegates | `Func<..., Task>` or `Func<..., Task<TResult>>`; exact parameters remain under OAPI-5 |
 | Other public awaitable operations, including metadata and lower-level SQL execution | `Task` or `Task<TResult>` according to the synchronous result contract |
 
-The rule selects public awaitables, not streaming result shapes. Streaming is still OAPI-3; it does not imply wrapping an `IAsyncEnumerable<T>` in a task or replacing the standard `ValueTask<bool>`/`ValueTask` members of its enumeration/disposal protocol.
+The rule selects public awaitables. AAPI-17 separately settles sequence results: `AsAsyncEnumerable()` and prepared-sequence `ExecuteAsync(...)` return `IAsyncEnumerable<T>` directly, without a task wrapper. Its enumeration/disposal protocol retains the standard `ValueTask<bool>`/`ValueTask` members.
 
-Rationale: standard `System.Linq.AsyncEnumerable` terminals use `ValueTask<TResult>`. DataLinq adopts that family for its LINQ terminals on both `IQueryable<T>` and relation handles, so changing the execution surface does not change the public awaitable family. This deliberately follows framework async LINQ rather than EF Core's task-returning query extensions. DataLinq-specific collection accessors use `ValueTask` for the same consistency, even though they have no exact framework counterparts. Key and single-reference lookups also have paths that return cached rows without database I/O, which `ValueTask<T>` can carry without allocating an operation-specific task. Prepared execution, mutations, transaction completion/callbacks, metadata, and other non-LINQ operations retain `Task` composition and reusable task semantics. Optional cancellation tokens and synchronous lazy transaction creation remain unchanged.
+Rationale: standard `System.Linq.AsyncEnumerable` terminals use `ValueTask<TResult>`. DataLinq adopts that family for its LINQ terminals on both `IQueryable<T>` and relation handles, so changing the execution surface does not change the public awaitable family. This deliberately follows framework async LINQ rather than EF Core's task-returning query extensions. DataLinq-specific collection accessors use `ValueTask` for the same consistency, even though they have no exact framework counterparts. Key and single-reference lookups also have paths that return cached rows without database I/O, which `ValueTask<T>` can carry without allocating an operation-specific task. Prepared scalar/row execution, mutations, transaction completion/callbacks, metadata, and other non-LINQ awaitable operations retain `Task` composition and reusable task semantics. Optional cancellation tokens and synchronous lazy transaction creation remain unchanged.
 
 Consumption and implementation requirements:
 
@@ -250,7 +250,7 @@ Migration and compatibility requirements:
 
 ### AAPI-12: Explicit Async Row Enumeration And Collection Accessors
 
-**Accepted direction:** 2026-08-30. Keep the synchronous relation handle and add an explicit `AsAsyncEnumerable(CancellationToken cancellationToken = default)` row view returning `IAsyncEnumerable<T>`. Do not add `IAsyncEnumerable<T>` as another base interface on the relation, which can make existing LINQ extension calls ambiguous. AAPI-14 settles member placement; enumeration/token lifetime details remain under OAPI-3.
+**Accepted direction:** 2026-08-30. Keep the synchronous relation handle and add an explicit `AsAsyncEnumerable(CancellationToken cancellationToken = default)` row view returning `IAsyncEnumerable<T>`. Do not add `IAsyncEnumerable<T>` as another base interface on the relation, which can make existing LINQ extension calls ambiguous. AAPI-14 settles member placement; AAPI-17 through AAPI-20 settle enumeration, token, and lifetime contracts.
 
 Use standard async LINQ after selecting that view:
 
@@ -273,7 +273,7 @@ The accepted collection accessor names and result types are:
 
 These preserve the synchronous result shapes and relation membership semantics. They are DataLinq collection APIs, not claims that identically named framework operators exist. Keyed async materialization is available through `ToFrozenDictionaryAsync`; this decision does not add an `AsKeyValuePairsAsync` member. Local cache clearing remains synchronous.
 
-Start from asynchronous loading into a completed relation snapshot where that preserves current behavior. Use the returned snapshot directly after awaiting, not a synchronous getter that could load again after invalidation. An `IAsyncEnumerable<T>` return type does not promise database streaming: local `Take(10)` may follow a complete relation load. Callers needing provider filtering/paging can use an ordinary database/transaction query with an explicitly written relation predicate. OAPI-3 still owns the precise execution start, buffering, snapshot/re-enumeration, cancellation, and reader lifetime contract; OAPI-4/OAPI-6 own load coordination and atomic publication.
+Start from asynchronous loading into a completed relation snapshot where that preserves current behavior. Use the returned snapshot directly after awaiting, not a synchronous getter that could load again after invalidation. An `IAsyncEnumerable<T>` return type does not promise database streaming: local `Take(10)` may follow a complete relation load. Callers needing provider filtering/paging can use an ordinary database/transaction query with an explicitly written relation predicate. AAPI-17 through AAPI-20 define execution start, buffering, capture/re-enumeration, token combination, and reader lifetime. OAPI-4/OAPI-6 still own detailed cancellation/failure behavior, load coordination, and atomic publication.
 
 ### AAPI-13: Standard Async LINQ With A Conditional Transitive Dependency
 
@@ -344,6 +344,106 @@ Requirements:
 
 **Owner/gate:** A10 owns the sync/async runtime and generator correction, with T10 parity and explicit compatibility evidence. Record the plan now; implementation still follows W0/W1/W2 and the agreed public-surface gate.
 
+### AAPI-17: Async Sequences Do Not Promise Database Streaming
+
+**Accepted:** 2026-08-30. Use `IAsyncEnumerable<T>` directly for the explicit relation/query `AsAsyncEnumerable(CancellationToken cancellationToken = default)` view and for prepared-sequence `ExecuteAsync(source, argument, cancellationToken = default)`. Do not wrap either sequence in `Task<IAsyncEnumerable<T>>` or `ValueTask<IAsyncEnumerable<T>>` merely to obtain it. Prepared scalar/row execution retains `Task<TResult>` under AAPI-8.
+
+Consumer shape:
+
+```csharp
+var rows = query.AsAsyncEnumerable(ct);
+
+await foreach (var row in rows)
+{
+    Process(row);
+}
+
+await foreach (var row in preparedSequence.ExecuteAsync(db, arguments, ct))
+{
+    Process(row);
+}
+```
+
+The sequence contract permits buffering. It does not guarantee a live database reader, constant memory, one database fetch per move, or a provider-side row limit from a local `Take(10)`. The initial relation implementation may asynchronously obtain a complete collection before yielding; future implementations may fetch differently while preserving the accepted result, cardinality, visibility, and cache contracts. Do not require a new streaming/query engine for 0.10.
+
+`ToListAsync()`, `ToArrayAsync()`, and `ValuesAsync()` explicitly return completed materialization. Owned readers are closed before successful completion, and enumerating that returned collection requires no database I/O. Other lazy navigation reached through its rows can still load. Callers requiring a completed collection must use such a materializer rather than rely on the current buffering implementation of an async view.
+
+**Owner/gate:** A10, D10-1; validate return shapes and buffering/materialization boundaries before W3. Exact supported query receivers/overloads remain under OAPI-7.
+
+### AAPI-18: Separate Parameter Capture From Deferred Sequence I/O
+
+**Accepted:** 2026-08-30. Preserve the current ordinary and prepared query argument boundaries. Obtaining an async sequence or its enumerator performs no DataLinq database I/O; sequence execution may begin with the first `MoveNextAsync()`.
+
+| Operation | Capture bound query arguments | Start database I/O |
+| --- | --- | --- |
+| Ordinary query `AsAsyncEnumerable()` | At `GetAsyncEnumerator()` for each enumeration | First `MoveNextAsync()` |
+| Prepared sequence `ExecuteAsync(source, argument, ct)` | At the `ExecuteAsync(...)` call | First `MoveNextAsync()` |
+| Materializing query terminal such as `ToListAsync()` | During the method call, before its first suspension | As part of that operation |
+
+Obtaining a relation async view also performs no database I/O; any relation loading occurs during enumeration. Local argument validation and prepared argument capture may happen synchronously. Database execution failures arise when enumeration executes. Calling an awaitable terminal starts that operation; the later `await` is not its start trigger.
+
+An async iterator must not accidentally move prepared binding/snapshotting into its lazy body. Ordinary queries currently parse/bind in the [enumerator/provider path](../../../../src/DataLinq/Linq/Planning/Expressions/ExpressionPlanQueryable.cs). [Prepared execution](../../../../src/DataLinq/Linq/PreparedQuery.cs) binds before returning the lazy sequence, with [before-enumeration snapshot coverage](../../../../src/DataLinq.Tests.Compliance/Translation/PreparedQueryTests.cs).
+
+For a prepared sequence, mutating a supported invocation array/local sequence after `ExecuteAsync(...)` must not change that invocation's bound values. This preserves the existing snapshot contract; it does not introduce arbitrary deep cloning or change standard local delegate/closure semantics. A parameter snapshot is not a database snapshot: row visibility still depends on execution time and transaction isolation.
+
+Sequential repeated enumeration is supported without promising identical results:
+
+- An ordinary query creates another execution and captures the current bound parameter values when its new enumerator is obtained.
+- A prepared sequence returned by one `ExecuteAsync(...)` invocation reuses that invocation's captured arguments on each enumeration, but database results can change. Another `ExecuteAsync(...)` call captures a new invocation.
+- A relation can reuse a valid cache or reload after invalidation. Reusing its async view does not create permanent result caching or require an extra database read on a valid cache hit.
+- Retain a materialized list, array, or immutable values collection when the application needs the same collection again. This fixes that collection, not every navigation reachable from its elements.
+
+**Owner/gate:** A10, D10-1/D10-2; capture tests must distinguish sequence construction, enumerator construction, and first movement, including mutation between those stages and repeated enumeration.
+
+### AAPI-19: Honor Both Method And Enumerator Cancellation Tokens
+
+**Accepted:** 2026-08-30. Optional cancellation on the sequence factory/execution method and standard `.WithCancellation(...)` both apply to enumeration:
+
+```csharp
+await foreach (var row in relation.AsAsyncEnumerable(ct))
+{
+    Process(row);
+}
+
+await foreach (var row in relation.AsAsyncEnumerable().WithCancellation(ct))
+{
+    Process(row);
+}
+```
+
+If different method and enumerator tokens are supplied, cancellation of either requests cancellation of that enumeration. Do not ignore or overwrite one of them. Follow standard async-iterator `[EnumeratorCancellation]` behavior, including equivalent custom-enumerator implementations and disposal of any owned linked token source. The same/default-token cases must retain the same meaning without requiring unnecessary linking.
+
+Observe cancellation during buffered row iteration as well as asynchronous loading. Buffering does not make a large local enumeration uncancelable. A retained sequence with a method token retains that token's cancellation constraint on later enumerations; passing another enumerator token does not undo it.
+
+This decides token delivery and combination, not all failure semantics. Pre-canceled cache hits, initialization recovery, cleanup tokens, exception precedence, shared-load coordination, and precise provider interruption limits remain under OAPI-4/OAPI-6/OAPI-9. No mandatory ambient transaction token or public token on `DisposeAsync()` is introduced.
+
+**Owner/gate:** A10 with T10; verify token-free calls, either token alone, equal/different tokens, buffered iteration, repeat enumeration, and linked-token resource cleanup before W3.
+
+### AAPI-20: Enumeration Owns Its Resources, Not The Caller Transaction
+
+**Accepted:** 2026-08-30. The enumerator owns the execution resources it creates. Completion, failure, cancellation, and early `break` must deterministically dispose owned readers/commands and other owned execution resources. Disposing an unused enumerator must not initialize database access. `await foreach` awaits enumerator disposal; callers obtaining an enumerator manually must dispose it themselves.
+
+Enumerator disposal must not commit or dispose a caller-owned transaction. A live reader remains bound to its execution source and must not migrate to a new source midway through enumeration or continue using a disposed source.
+
+Reject another execution operation on the same transaction while a reader remains active, including between `MoveNextAsync()` calls while application code processes the current row. A pause in row production does not release the reader. Exact diagnostics and wider overlap/disposal coordination remain under OAPI-6; this restriction does not serialize independent database-root operations.
+
+Callers needing nested operations on the transaction should explicitly finish materialization first:
+
+```csharp
+var employees = await transaction.Query().Employees.ToListAsync(ct);
+
+foreach (var employee in employees)
+{
+    var department = await employee.DepartmentAsync(ct);
+}
+```
+
+Do not make correctness depend on an async view happening to buffer in the current implementation. Materialized collections can be enumerated without the original reader, but subsequent navigation can still need a valid read source.
+
+Preserve the existing validated post-transaction relation rules. [Collection relations](../../../../src/DataLinq/Instances/ImmutableRelation.cs) and [reference relations](../../../../src/DataLinq/Instances/ImmutableForeignKey.cs) can switch to committed reads after certain completed transactions, subject to [terminal trust checks](../../../../src/DataLinq/Mutation/Transaction.cs). Do not impose a blanket rule that every relation becomes unusable after commit. Later relation access may follow that existing transition; an active reader may not change source midway through execution.
+
+**Owner/gate:** A10, D10-1/D10-2 with H10/T10 consultation; verify resource ownership, early/manual disposal, active-reader overlap, and allowed/rejected terminal-source transitions. Cleanup failure precedence and the complete operation gate remain open under OAPI-4/OAPI-6.
+
 ### OAPI-1: Task Versus ValueTask
 
 **Resolved:** 2026-08-30 by [AAPI-8](#aapi-8-valuetask-for-query-and-relation-results-key-lookup-and-disposal-task-otherwise), including its final framework-alignment revision. The OAPI identifier is retained for existing references. Public awaitable types are decided; performance, consumption, and compatibility verification remain part of implementation evidence.
@@ -360,17 +460,15 @@ The remaining questions in this section are open. Resolved portions are identifi
 
 The remaining work is the exact primitive/overload inventory, exception/diagnostic selection, and compatibility verification under OAPI-7. Check interface and concrete receivers, custom implementations, inherited generated members, scalar/composite/converted keys, and existing local LINQ and translated navigation predicates. Default methods do not remove those checks.
 
-OAPI-3 still owns enumeration lifetime, source completion, and token combination; direct `await foreach` on the relation itself is not an accepted addition. OAPI-4/OAPI-6 own shared load coordination, complete cache publication, and invalidation across awaits. In particular, use the loaded result directly after awaiting: warming a cache and then calling a synchronous getter can reintroduce I/O.
+AAPI-17 through AAPI-20 settle enumeration lifetime, capture, token combination, and reader/source ownership; direct `await foreach` on the relation itself is not an accepted addition. OAPI-4/OAPI-6 own shared load coordination, complete cache publication, and invalidation across awaits. In particular, use the loaded result directly after awaiting: warming a cache and then calling a synchronous getter can reintroduce I/O.
 
 **Owner/gate:** A10 with T10 consultation, D10-1; generated API and compatibility review before W3.
 
 ### OAPI-3: Streaming, Invocation Snapshots, And Reader Ownership
 
-Decide the exact `AsAsyncEnumerable()` and prepared-sequence execution signatures, when database execution starts, when current argument values are captured, how cancellation is supplied during enumeration, and what repeated enumeration means.
+**Design decisions resolved:** 2026-08-30 by AAPI-17 through AAPI-20: direct async-sequence results without a universal streaming promise, distinct ordinary/prepared capture boundaries, deferred sequence I/O, repeated enumeration, combined method/enumerator tokens, deterministic resource disposal, rejection of another execution during an active transaction reader, and preservation of existing validated relation source transitions.
 
-Preserve the existing prepared-query guarantee: mutable invocation values are snapshotted at `Execute(...)` call time, before lazy enumeration. An async iterator must not accidentally move that snapshot into the first `MoveNextAsync()`. See [prepared queries](../../../../src/DataLinq/Linq/PreparedQuery.cs).
-
-Recommendation: use `IAsyncEnumerable<T>` for streaming, keep query composition separate from execution, and define ordinary versus prepared invocation timing explicitly. Require deterministic reader/command disposal on completion, exceptions, cancellation, and early `break`. Document that enumeration cannot outlive its execution source. Decide whether another operation during a live stream is rejected; do not assume a partially enumerated reader permits nested queries on the same transaction.
+The identifier is retained for traceability. Exact signature/receiver inventory remains under OAPI-7; failure and cleanup semantics under OAPI-4; broader operation/load coordination under OAPI-6; provider limits under OAPI-9. These remaining reviews do not reopen the accepted enumeration contracts without an explicit revision.
 
 **Owner/gate:** A10, D10-1/D10-2; lifetime feasibility in W2, complete contract before W3.
 
@@ -401,7 +499,7 @@ Recommendation: preserve the distinction between local change delegates and asyn
 
 ### OAPI-6: Concurrency And Cache Coordination
 
-Sequential mixing is accepted; the exact public response to overlap is not. Define the operation gate across awaits, transaction disposal during an active operation, cancellation of one waiter, and relation/cache invalidation while loading.
+Sequential mixing is accepted, and AAPI-20 requires rejection of another execution operation while a transaction reader remains active. The exact public diagnostic and the wider operation gate still need definition across awaits, transaction disposal during an active operation, cancellation of one waiter, and relation/cache invalidation while loading.
 
 Recommendation: reject overlapping transaction operations deterministically rather than implicitly queueing them. Do not extend that restriction to independent database-root operations without evidence. If existing cache coordination shares work across callers, one caller's cancellation must not silently cancel unrelated consumers or publish incomplete cached values. This is preservation of existing cache guarantees, not authorization for new coalescing or cache policies.
 
@@ -433,11 +531,11 @@ Recommendation: retain the same backend capability validation and query rejectio
 
 ## Recommended Decision Order
 
-OAPI-1 and OAPI-2's structural choices are resolved. Continue with:
+OAPI-1, OAPI-2's structural choices, and OAPI-3's enumeration contracts are resolved. Continue with:
 
-1. OAPI-3: settle enumeration timing, buffering/streaming, snapshots, token combination, and resource ownership before freezing sequence APIs.
-2. OAPI-4 through OAPI-6: settle failure, mutation-input, and concurrency contracts together, before provider/public implementation is frozen.
-3. Complete OAPI-7 and OAPI-9 across every audited boundary, including OAPI-2's remaining exact signatures and compatibility evidence. Keep OAPI-8 within the agreed compatibility and release scope.
+1. OAPI-4: settle cancellation checkpoints, initialization recovery, transaction/commit outcomes, and operation-versus-cleanup failures.
+2. OAPI-5/OAPI-6: settle mutable-input/callback and broader concurrency/cache-coordination contracts against those failure rules before provider/public implementation is frozen.
+3. Complete OAPI-7 and OAPI-9 across every audited boundary, including remaining exact signatures and compatibility/provider evidence. Keep OAPI-8 within the agreed compatibility and release scope.
 
 ## Required Exit Evidence
 
@@ -447,7 +545,8 @@ OAPI-1 and OAPI-2's structural choices are resolved. Continue with:
 - Benchmarks cover cache-hit/miss and mixed execution without presenting the return-type decision itself as proof of an allocation or latency improvement.
 - Controllable providers prove no I/O at transaction creation/unused disposal, correct first-use dispatch, and deterministic initialization failure/cleanup.
 - Provider tests prove result, cache, mutation, telemetry, and terminal-state parity without synchronous fallback on native async paths.
-- Streaming tests cover snapshot timing, early disposal, cancellation, source lifetime, and active-reader overlap.
+- AAPI-17/AAPI-18 evidence covers direct `IAsyncEnumerable<T>` sequence results, no database I/O at sequence/enumerator construction or unused disposal, ordinary parameter capture at enumerator construction, prepared invocation capture at the execution call, terminal capture before first suspension, and sequential repeated enumeration without permanent result caching. Explicit materializers close owned readers before success; async views remain free to buffer.
+- AAPI-19/AAPI-20 evidence covers optional method/enumerator tokens alone and combined, cancellation while iterating buffered rows, linked-token cleanup, reader/command disposal on all exits, preservation of caller transaction ownership, rejection of execution during a live reader, and valid/invalid later relation source transitions without migrating an active reader.
 - Generator and ApiCompat evidence cover new members, collisions, nullability, and existing consumer compatibility.
 - Relation API evidence proves I/O-free collection handle access, relation-scoped keyed lookup, result/cardinality parity, no false complete-cache publication after partial execution, and preserved local LINQ/translated navigation predicate binding.
 - AAPI-11 evidence records the approved source/binary and loading-timing migration, proves row versus key/value enumeration on interface and concrete receivers, and reviews exact ApiCompat diagnostics without hiding unrelated breaks.
@@ -470,6 +569,7 @@ These references explain the accepted conventions and dependency policy; they do
 - [.NET 10 async LINQ guidance](https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/10.0/asyncenumerable) describes framework/package availability and package conflicts. Standard [`AsyncEnumerable.ToListAsync`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.asyncenumerable.tolistasync?view=net-10.0) returns `ValueTask<List<T>>`; AAPI-8 aligns DataLinq's LINQ terminal awaitables with that convention.
 - [Standard `Enumerable.AsEnumerable`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.enumerable.asenumerable?view=net-10.0) returns the existing sequence with an `IEnumerable<T>` compile-time type, supporting the naming correction in AAPI-11.
 - [NuGet conditional package references](https://learn.microsoft.com/en-us/nuget/consume-packages/package-references-in-project-files#adding-a-packagereference-condition) support AAPI-13's per-target dependency policy.
+- [C# async-stream guidance](https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/generate-consume-asynchronous-stream) explains `await foreach` disposal and enumerator cancellation. [Async iterator mechanics](https://learn.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8) explain method/enumerator token combination under `[EnumeratorCancellation]`, supporting AAPI-19/AAPI-20; its historical async-LINQ package advice does not replace AAPI-13.
 - EF Core provides [`ToListAsync`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.entityframeworkcore.entityframeworkqueryableextensions.tolistasync?view=efcore-10.0) and [`ToArrayAsync`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.entityframeworkcore.entityframeworkqueryableextensions.toarrayasync?view=efcore-10.0), with optional cancellation tokens. [Query composition stays synchronous](https://learn.microsoft.com/en-us/ef/core/miscellaneous/async).
 - EF Core's [`BeginTransactionAsync`](https://github.com/dotnet/efcore/blob/release/10.0/src/EFCore.Relational/Storage/RelationalConnection.cs) opens a connection and starts the provider transaction immediately. It is not equivalent to DataLinq's lazy `Transaction()` factory.
 - [Microsoft.Data.Sqlite async limitations](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/async) explain why a shared awaitable surface cannot promise nonblocking SQLite I/O.

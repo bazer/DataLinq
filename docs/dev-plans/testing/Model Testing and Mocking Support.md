@@ -291,7 +291,9 @@ The accepted 0.10 async contract is owned by [AAPI-14 through AAPI-16](../roadma
 - Keep required-reference failure, optional-reference nullability, and duplicate-target cardinality behavior identical to sync and async production navigation. Graph validation should diagnose invalid required relations; focused failure fixtures must also prove navigation does not silently return `null`.
 - No relation query-composition capability is required in 0.10. Standalone relation fixtures do not need an `IQueryable` source; intentionally queryable application tests continue to use the existing real Memory read-store boundary.
 
-The exact required execution primitives and overload inventory remain subject to A10's signature review. Cancellation/lifetime tests must follow the subsequently agreed OAPI contracts, rather than inventing a separate testing-only policy.
+The exact required execution primitives and overload inventory remain subject to A10's signature review. [AAPI-17 through AAPI-20](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-17-async-sequences-do-not-promise-database-streaming) now own the accepted enumeration contract: direct async sequences may buffer, support sequential re-enumeration, honor method and enumerator tokens together, and observe cancellation during buffered iteration. In-memory doubles must not ignore those tokens simply because they have no database I/O.
+
+Query-capable fixtures follow ordinary/prepared parameter-capture boundaries without substituting permanent result caching. Ownership/active-reader tests use controllable execution sources or provider-backed fixtures; a pure collection double does not prove reader disposal or transaction behavior. Do not make every graph fixture construct a query provider to test these separate execution contracts. Detailed failure/cleanup and broader concurrency policies still follow OAPI-4/OAPI-6 rather than a testing-only policy.
 
 Synchronous subset of the reference-holder shape:
 

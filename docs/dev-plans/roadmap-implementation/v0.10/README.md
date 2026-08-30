@@ -46,9 +46,12 @@ Required contract:
 - relation async execution on `IImmutableRelation<T>` with overridable shared async defaults, deliberate concrete/test-helper visibility, and no silent synchronous database fallback; retain its `IEnumerable<T>` surface
 - generated single-reference methods callable on public model bases, with overridable implementations and focused name/inheritance collision diagnostics rather than an automatic expansion of generated model interfaces
 - required single-reference navigation returns a row or fails in both sync and async paths; optional missing targets remain nullable and duplicate targets fail cardinality checks, with explicit migration evidence for the synchronous behavior correction
-- public `ValueTask`/`ValueTask<T>` for key lookup, direct single-reference loading, query/relation terminals, relation collection accessors, and disposal; `Task`/`Task<T>` for prepared execution, mutations, transaction completion/callbacks, and other non-LINQ operations
+- public `ValueTask`/`ValueTask<T>` for key lookup, direct single-reference loading, query/relation terminals, relation collection accessors, and disposal; `Task`/`Task<T>` for prepared scalar/row execution, mutations, transaction completion/callbacks, and other non-LINQ awaitable operations; direct `IAsyncEnumerable<T>` for prepared sequences
 - the approved 0.10 breaking rename from keyed `AsEnumerable()` to `AsKeyValuePairs()`, allowing standard LINQ `AsEnumerable()` to yield rows; migration notes must cover binary/source compatibility, inferred element types, and loading timing
 - explicit async row enumeration via `AsAsyncEnumerable()` without dual enumerable-interface inheritance; local predicate delegates and `ValueTask` collection accessors under AAPI-12
+- no database I/O at sequence/enumerator construction; ordinary parameters captured at enumerator construction, prepared arguments at `ExecuteAsync(...)`, and materializing-terminal parameters before first suspension; sequential repeat enumeration without a permanent result cache
+- async views may buffer; explicit materializers finish and close owned readers before success, and method/enumerator cancellation tokens are both honored, including during buffered iteration
+- deterministic disposal of enumeration-owned resources on all exits without completing a caller-owned transaction; reject another execution while a transaction reader is active and preserve validated later relation source transitions
 - standard async LINQ from a conditional transitive `System.Linq.AsyncEnumerable` dependency for .NET 8/9 and the framework for .NET 10, with packed-consumer verification across all targets
 - cancellation distinguished from timeout, provider failure, rollback failure, and uncertain commit outcome
 - sync/async parity for query results, conversion, cache behavior, invalidation, logging, metrics, and transaction terminal states
@@ -60,6 +63,7 @@ Acceptance summary:
 - cancellation before dispatch, during provider execution, and during multi-step DataLinq orchestration has deterministic behavior
 - no provider call that offers a native async equivalent is accidentally routed through `Task.Run`
 - no async API captures mutable query invocation values after the existing snapshot boundary
+- sequence return types, repeat-enumeration behavior, combined tokens, early disposal, and active-reader/source lifetimes follow AAPI-17 through AAPI-20
 
 Explicit non-goals:
 
