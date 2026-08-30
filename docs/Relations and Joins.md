@@ -19,6 +19,23 @@ var managers = department.Managers.ToList();
 
 Collection relations return `IImmutableRelation<T>`. They are lazy and cache-aware. The first traversal resolves related primary keys and hydrates missing rows; later traversal can reuse relation and row-cache state.
 
+### 0.10 Enumeration Migration (Unreleased)
+
+In 0.9, the relation's `AsEnumerable()` instance method returned primary-key/row pairs, hiding the standard LINQ row extension. The 0.10 breaking correction removes that member and retains keyed enumeration as `AsKeyValuePairs()`:
+
+```csharp
+using System.Linq;
+
+var rows = department.Managers.AsEnumerable();         // IEnumerable<Manager>
+var keyedRows = department.Managers.AsKeyValuePairs(); // KeyValuePair<DataLinqKey, Manager> elements
+```
+
+Standard `AsEnumerable()` only exposes the relation as a row sequence; the call does not load it. Enumeration can still perform synchronous I/O. `AsKeyValuePairs()` preserves the previous keyed operation and may load immediately and build a dictionary. Its keys identify the related rows, including composite primary keys; they are not the parent relation's foreign key.
+
+When upgrading, change pair-consuming calls to `AsKeyValuePairs()`, update custom `IImmutableRelation<T>` implementations and mocks, and recompile consumers. Audit existing calls even when they still compile: inferred types can silently change from pairs to rows, and obtaining the row view no longer triggers loading. There is no obsolete `AsEnumerable()` alias because it would continue hiding the standard extension. This rename does not add async execution APIs.
+
+### Singular Relations
+
 Singular relations return the related model instance:
 
 ```csharp

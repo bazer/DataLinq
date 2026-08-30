@@ -32,15 +32,18 @@ It does not authorize implementation outside the 0.10 roadmap.
 
 ### D10-1: Async Contract Shape
 
-The accepted decisions and remaining OAPI questions live in [Async Public API Decisions](Async%20Public%20API%20Decisions.md). `Transaction()` stays synchronous and lazy, execution mode is chosen per operation, public cancellation tokens are optional, and generated relation methods use `<PropertyName>Async()` without a `Load` prefix. These decisions do not replace W0 evidence or freeze unproven signatures.
+The accepted decisions and remaining OAPI questions live in [Async Public API Decisions](Async%20Public%20API%20Decisions.md). `Transaction()` stays synchronous and lazy, execution mode is chosen per operation, and public cancellation tokens are optional. Generated single-reference methods use `<PropertyName>Async()` without a `Load` prefix; collection handles remain synchronous and expose async execution terminals. These decisions do not replace W0 evidence or freeze unproven signatures.
 
 Complete the audit and decide/test:
 
 - which current public operations perform I/O
 - which receive `Async` counterparts in the initial release
 - which I/O operations accept an optional final `CancellationToken`; local construction/composition needs no token, and internal contracts may require explicit propagation
-- which public and internal operations return `Task` versus `ValueTask` based on completion behavior, composition, and measured costs
-- the relation collection result shape, generated-name collision policy, and public interface compatibility
+- enforce revised AAPI-8: public key/single-reference lookups, query/relation terminals, collection accessors, and disposal use `ValueTask`; prepared execution, mutations, transaction completion/callbacks, and other non-LINQ operations use `Task`, with generic result types as appropriate; measure implementation costs without claiming a signature alone proves a performance improvement
+- enforce accepted AAPI-10: relation `Query()` returns a provider-backed, relation-scoped `IQueryable<T>` without I/O or complete-relation preloading; keep the existing `IEnumerable<T>` interface and local LINQ behavior
+- enforce AAPI-11's approved breaking rename to `AsKeyValuePairs()`, restoring standard row `AsEnumerable()`; A10 owns the narrow synchronous correction before async execution work, with T10 follow-through for custom/testing implementations and explicit source/binary migration evidence
+- enforce AAPI-12's explicit async row view, local predicate semantics, and collection accessor names/result shapes; settle exact overloads/member placement, generated-name collisions, and execution-capability dispatch without synchronous I/O fallback
+- enforce AAPI-13's normal transitive `System.Linq.AsyncEnumerable` dependency only for .NET 8/9 when implementing the async surface; pin its version centrally and verify packed dependency groups and consumers on .NET 8/9/10
 - how async enumeration interacts with current query materialization and resource disposal
 
 Do not add public async methods incrementally until one audit proves the surface is coherent.

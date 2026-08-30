@@ -276,7 +276,7 @@ public sealed class TestImmutableRelation<T> : IImmutableRelation<T>
     public T? this[DataLinqKey key] { get; }
     public T? Get(DataLinqKey key);
     public bool ContainsKey(DataLinqKey key);
-    public IEnumerable<KeyValuePair<DataLinqKey, T>> AsEnumerable();
+    public IEnumerable<KeyValuePair<DataLinqKey, T>> AsKeyValuePairs();
     public FrozenDictionary<DataLinqKey, T> ToFrozenDictionary();
     public void Clear();
 }

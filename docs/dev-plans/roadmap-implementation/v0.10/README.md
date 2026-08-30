@@ -42,10 +42,15 @@ Required contract:
 - async execution for supported query terminals, sequence/scalar materialization, explicit relation loads, mutations, and transaction operations
 - optional `CancellationToken` parameters at meaningful public async I/O boundaries, propagated to database commands and any required lazy initialization
 - synchronous, I/O-free `Transaction()` creation; sync or async execution chosen per operation, with separate sync/async disposal
-- generated `<PropertyName>Async()` relation methods with optional tokens; existing synchronous navigation properties remain compatible
+- generated `<PropertyName>Async()` single-reference methods with optional tokens; collection relation handles remain synchronous and use async execution terminals, without generated collection-loading methods
+- synchronous, I/O-free relation `Query()` returning a DataLinq-backed `IQueryable<T>` over the relation rows for provider filtering/paging; the relation itself retains its existing `IEnumerable<T>` surface
+- public `ValueTask`/`ValueTask<T>` for key lookup, direct single-reference loading, query/relation terminals, relation collection accessors, and disposal; `Task`/`Task<T>` for prepared execution, mutations, transaction completion/callbacks, and other non-LINQ operations
+- the approved 0.10 breaking rename from keyed `AsEnumerable()` to `AsKeyValuePairs()`, allowing standard LINQ `AsEnumerable()` to yield rows; migration notes must cover binary/source compatibility, inferred element types, and loading timing
+- explicit async row enumeration via `AsAsyncEnumerable()` without dual enumerable-interface inheritance; local predicate delegates and `ValueTask` collection accessors under AAPI-12
+- standard async LINQ from a conditional transitive `System.Linq.AsyncEnumerable` dependency for .NET 8/9 and the framework for .NET 10, with packed-consumer verification across all targets
 - cancellation distinguished from timeout, provider failure, rollback failure, and uncertain commit outcome
 - sync/async parity for query results, conversion, cache behavior, invalidation, logging, metrics, and transaction terminal states
-- synchronous APIs retained as real synchronous implementations rather than sync-over-async wrappers
+- synchronous execution retained as real synchronous implementations rather than sync-over-async wrappers; the explicit enumeration rename above is the approved compatibility exception
 
 Acceptance summary:
 

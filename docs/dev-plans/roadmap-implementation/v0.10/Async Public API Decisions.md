@@ -17,7 +17,7 @@
 
 Record the API decisions agreed on 2026-08-30 without pretending that every signature or failure case is settled. Public design discussion can precede implementation; it does not replace the before-state evidence or provider feasibility gate.
 
-The accepted direction is additive: ordinary application code chooses synchronous or asynchronous execution at each operation. It does not choose a separate async database, transaction, or entity model.
+The async direction is additive: ordinary application code chooses synchronous or asynchronous execution at each operation. It does not choose a separate async database, transaction, or entity model. AAPI-11 separately approves a breaking correction to synchronous relation enumeration for 0.10; it is not an exception permitting unrelated API breaks.
 
 ## Accepted Decisions
 
@@ -105,16 +105,16 @@ await anotherTransaction.CommitAsync(ct);
 
 Omitting a token means no caller-requested cancellation; it does not disable command timeouts. Do not store one mandatory ambient token on the transaction or require applications to supply `CancellationToken.None` as boilerplate. This public ergonomics decision does not prevent internal contracts from requiring an explicitly propagated token.
 
-### AAPI-5: Relation Methods Use The Property Name Plus Async
+### AAPI-5: Singular Relation Methods Use The Property Name Plus Async
 
-Generate an explicit method beside each supported navigation property:
+**Refined:** 2026-08-30. Generated async methods apply to single-reference navigation. Collection navigation retains its synchronous handle and uses execution methods under AAPI-9; the earlier generated `SalariesAsync()` proposal is superseded.
+
+Generate an explicit method beside each supported single-reference navigation property:
 
 ```csharp
 var department = await employee.DepartmentAsync();
-var salaries = await employee.SalariesAsync();
 
 var cancelableDepartment = await employee.DepartmentAsync(ct);
-var cancelableSalaries = await employee.SalariesAsync(ct);
 ```
 
 Use `<PropertyName>Async`, preserving the declared property name, without a `Load` or `Get` prefix. Do not make entities awaitable or replace navigation properties with `Task<T>` properties.
@@ -123,7 +123,7 @@ The generated method resolves through the internal relation metadata and loading
 
 Retain the existing synchronous navigation properties for compatibility, including their current lazy-loading behavior. The async surface introduces an explicit way to perform that work. The roadmap's prohibition on hidden property I/O means no new hidden I/O mechanism and no synchronous getter evaluation inside async loading; it does not remove existing navigation behavior.
 
-Async loading must preserve the relation's metadata, nullability contract, cache semantics, and source/transaction ownership. Collection return types, missing-target diagnostics, and generated-name collisions remain open below. A warmed relation is not a permanent guarantee against future I/O: invalidation can make a later synchronous property access load again.
+Async loading must preserve the relation's metadata, nullability contract, cache semantics, and source/transaction ownership. Missing-target diagnostics and generated-name collisions remain open below. A warmed relation is not a permanent guarantee against future I/O: invalidation can make a later synchronous property access load again.
 
 ### AAPI-6: Use Familiar Async Query Execution Names
 
@@ -131,10 +131,10 @@ The accepted naming direction is the synchronous execution name plus `Async`, in
 
 | Surface | Intended names | Remaining work |
 | --- | --- | --- |
-| Buffered query results | `ToListAsync`, `ToArrayAsync` | Awaitable types and complete receiver/overload inventory |
+| Buffered query results | `ToListAsync`, `ToArrayAsync` | Complete receiver/overload inventory; awaitable types are settled in AAPI-8 |
 | Supported row terminals | `FirstAsync`, `FirstOrDefaultAsync`, `SingleAsync`, `SingleOrDefaultAsync`, `LastAsync`, `LastOrDefaultAsync` | Match current predicate, projection, empty-result, and cardinality contracts |
 | Supported scalar reductions | `AnyAsync`, `CountAsync`, `SumAsync`, `MinAsync`, `MaxAsync`, `AverageAsync` | Exact selector, numeric, and nullable overloads |
-| Key lookup | `GetAsync` on the database/transaction and generated model helpers | Typed/composite keys, source receivers, nullability, awaitable types |
+| Key lookup | `GetAsync` on the database/transaction, relation handles, and generated model helpers | Typed/composite keys, source receivers, and nullability; `ValueTask<T>` family settled in AAPI-8 |
 | Prepared queries | Async execution counterparts; preparation remains synchronous | Scalar versus sequence signatures and snapshot/streaming semantics |
 | Mutations | `InsertAsync`, `UpdateAsync`, `SaveAsync`, `DeleteAsync` | Single/multiple model and change-delegate overloads; mutable input lifetime |
 | Completion | `CommitAsync`, `RollbackAsync`, `DisposeAsync` | Callback overloads, failure reporting, cleanup precedence |
@@ -149,25 +149,196 @@ Use native asynchronous provider operations wherever they exist. Do not implemen
 
 The common awaitable API is not a guarantee that every provider performs nonblocking I/O. Microsoft.Data.Sqlite executes its async ADO.NET methods synchronously; the SQLite implementation and cancellation documentation must state that limitation. It is the explicit provider exception already allowed by A10, not permission to wrap genuinely asynchronous providers in synchronous work. Memory completion and unsupported backends require an explicit decision under OAPI-9.
 
+### AAPI-8: ValueTask For Query And Relation Results, Key Lookup, And Disposal; Task Otherwise
+
+**Accepted and revised:** 2026-08-30. Resolves OAPI-1. The final revision aligns query and collection terminals with the standard .NET async LINQ return types. It supersedes the earlier same-day decision to use `Task` for ordinary query/relation terminals; that earlier choice is no longer the contract.
+
+Use the following public awaitable types consistently across providers, overloads, and cache-hit/cache-miss paths:
+
+| Public operation family | Accepted return type |
+| --- | --- |
+| `GetAsync` on database/transaction access, relation handles, and generated key lookup helpers | `ValueTask<T>` with the existing lookup result's nullability, normally `ValueTask<T?>` for a nullable entity lookup |
+| Generated direct single-reference loading, such as `DepartmentAsync` | `ValueTask<TResult>`; preserve declared relation nullability, with missing-target behavior reviewed under OAPI-2 |
+| `DisposeAsync` | Parameterless `ValueTask`, following `IAsyncDisposable` |
+| `ToListAsync`, `ToArrayAsync`, row terminals, and scalar reductions on both queries and collection relations | `ValueTask<TResult>`, including `ValueTask<List<T>>`, `ValueTask<T[]>`, nullable `ValueTask<T?>` for nullable row results, `ValueTask<bool>` for `AnyAsync`, and `ValueTask<int>` for `CountAsync` |
+| Relation `ValuesAsync`, `KeysAsync`, `ContainsKeyAsync`, and `ToFrozenDictionaryAsync` | `ValueTask<TResult>` with the collection result types specified in AAPI-12 |
+| Prepared scalar/row execution | `Task<TResult>`, even when a particular execution can use cached data |
+| `InsertAsync`, `UpdateAsync`, `SaveAsync`, and other result-returning mutation counterparts | `Task<TResult>` |
+| `DeleteAsync`, `CommitAsync`, `RollbackAsync`, and other no-result execution counterparts | `Task` |
+| Result-returning transaction callback helpers | `Task<TResult>` |
+| Async transaction callback delegates | `Func<..., Task>` or `Func<..., Task<TResult>>`; exact parameters remain under OAPI-5 |
+| Other public awaitable operations, including metadata and lower-level SQL execution | `Task` or `Task<TResult>` according to the synchronous result contract |
+
+The rule selects public awaitables, not streaming result shapes. Streaming is still OAPI-3; it does not imply wrapping an `IAsyncEnumerable<T>` in a task or replacing the standard `ValueTask<bool>`/`ValueTask` members of its enumeration/disposal protocol.
+
+Rationale: standard `System.Linq.AsyncEnumerable` terminals use `ValueTask<TResult>`. DataLinq adopts that family for its LINQ terminals on both `IQueryable<T>` and relation handles, so changing the execution surface does not change the public awaitable family. This deliberately follows framework async LINQ rather than EF Core's task-returning query extensions. DataLinq-specific collection accessors use `ValueTask` for the same consistency, even though they have no exact framework counterparts. Key and single-reference lookups also have paths that return cached rows without database I/O, which `ValueTask<T>` can carry without allocating an operation-specific task. Prepared execution, mutations, transaction completion/callbacks, metadata, and other non-LINQ operations retain `Task` composition and reusable task semantics. Optional cancellation tokens and synchronous lazy transaction creation remain unchanged.
+
+Consumption and implementation requirements:
+
+- Treat each returned `ValueTask` or `ValueTask<T>` as a single-consumption awaitable. Calling a method again creates a new awaitable and remains valid even when both calls return the same cached entity.
+- Callers needing to share or repeatedly await an operation convert it to a `Task` or `Task<T>` with `.AsTask()` once and retain that task. Do not promise allocation savings when callers convert every operation.
+- Cache-miss execution remains genuinely asynchronous where the provider supports it; `ValueTask<T>` is not a synchronous-only API.
+- The initial implementation may use directly completed values and task-backed slow paths. This decision does not introduce custom `IValueTaskSource<T>` pooling.
+- Internal return types remain implementation choices, informed by measured costs. A public `ValueTask<T>` may still wrap a task on the asynchronous path; the signature alone does not prove an allocation improvement.
+- Do not change the public awaitable type according to the provider, cache state, or a particular query optimization.
+
+Benchmark cached non-null results, misses, mixed workloads, cancellation/failure, and `.AsTask()` consumption through the real call chain. These measurements validate the chosen implementation and identify regressions; they are not a condition for accepting this API decision. No measured performance improvement is claimed by this record. A material problem requires an explicit design revision rather than silently changing public return types.
+
+### AAPI-9: Collection Relation Handles Stay Synchronous; Execution Gets Async Counterparts
+
+**Accepted:** 2026-08-30. Refines AAPI-5/AAPI-8 and settles the collection execution boundary within OAPI-2. AAPI-10 subsequently settles the explicit query-composition entry point.
+
+Obtaining a collection relation remains synchronous and performs no database I/O. Preserve `IImmutableRelation<T>` and its `IEnumerable<T>` row surface, with the explicit naming correction in AAPI-11; AAPI-10 adds a separate `Query()` result instead of inheriting `IQueryable<T>`. Place async execution on the relation operations rather than generating `SalariesAsync()`:
+
+```csharp
+var salaries = employee.Salaries;
+
+var first = await salaries.FirstOrDefaultAsync(ct);
+var single = await salaries.SingleOrDefaultAsync(ct);
+var any = await salaries.AnyAsync(ct);
+var count = await salaries.CountAsync(ct);
+var salary = await salaries.GetAsync(salaryKey, ct);
+var list = await salaries.ToListAsync(ct);
+var array = await salaries.ToArrayAsync(ct);
+```
+
+All shown cancellation tokens are optional. Include supported `First`, `Single`, `Last`, and `OrDefault` counterparts in the complete overload audit. Existing synchronous operations remain available on the same relation object. Synchronous local work, such as clearing the relation's local cached state, needs no async counterpart.
+
+Contract:
+
+- A terminal promises its result and cardinality, not that it loads or primes the entire relation. Preserve ordering, source/transaction visibility, row identity, and cache/invalidation correctness.
+- `GetAsync(key)` is scoped to membership in this relation, not only the existence of a row with that primary key.
+- `SingleAsync`/`SingleOrDefaultAsync` must detect multiple matches. A partial fetch must never publish the relation as completely loaded.
+- `ToListAsync` and `ToArrayAsync` explicitly materialize all matching rows into their named result types and dispose owned readers before successful completion. Enumerating that returned collection performs no database I/O; accessing a different lazy navigation on an element can still do so.
+- Reuse native asynchronous loading services. An extension or default interface method that calls a synchronous terminal and wraps the result in a completed task does not meet the async contract.
+- Per-operation optimizations such as limited row fetches, existence queries, or counts remain implementation opportunities, not additional 0.10 scope or guaranteed query plans.
+
+Current [collection relation code](../../../../src/DataLinq/Instances/ImmutableRelation.cs) materializes complete relation values for these operations. This describes the existing implementation, not a restriction imposed on future implementations by the accepted API.
+
+### AAPI-10: Query Returns A Provider-Backed IQueryable Over Relation Rows
+
+**Accepted:** 2026-08-30. Resolves the query-composition choice within OAPI-2. AAPI-12 subsequently settles the explicit async row-view direction; detailed enumeration lifetime and member-placement compatibility remain open.
+
+Expose the synchronous, parameterless `relation.Query()` call, returning `IQueryable<T>` for the relation's row type. Creating the query performs no database I/O and needs no cancellation token. Composition remains synchronous; the terminal selects synchronous or asynchronous execution and receives the optional token:
+
+```csharp
+var query = employee.Salaries.Query();
+
+var recentSalaries = await query
+    .Where(salary => salary.FromDate >= cutoff)
+    .OrderBy(salary => salary.FromDate)
+    .Take(10)
+    .ToListAsync(ct);
+```
+
+Required behavior:
+
+- Keep `IImmutableRelation<T>` inheriting `IEnumerable<T>`, not `IQueryable<T>`. Local LINQ calls retain their binding and behavior except for the approved `AsEnumerable()` correction in AAPI-11; provider query composition is explicitly selected with `Query()`.
+- The query retains the relation membership constraint, scalar/composite and converted-key semantics, and the correct execution source/transaction. It must not become an unconstrained query over the related table.
+- Use the DataLinq query provider and its supported translation/capability checks. Do not implement `Query()` by loading `Values` or wrapping the synchronous relation with the framework's `AsQueryable()`.
+- Filters, ordering, and paging compose into the provider query so callers can request a subset without first materializing the entire relation. This does not promise a particular database execution plan or bypass valid row-cache use.
+- Query execution preserves row identity, visibility, cancellation, and source ownership. A filtered or limited result must not be published as a completely loaded relation cache.
+- Existing synchronous relation operations and their cache behavior remain available. This decision does not add unsupported joins, general client fallback, or a new query engine.
+
+**Owner/gate:** A10, D10-1/D10-2 with T10 consultation; verify relation-scoped roots and sync/async consumer behavior before W3.
+
+### AAPI-11: AsEnumerable Enumerates Rows; AsKeyValuePairs Names Keyed Enumeration
+
+**Accepted breaking change:** 2026-08-30, for 0.10. The synchronous rename is implemented separately in [PR #111](https://github.com/bazer/DataLinq/pull/111), independently of this planning record and the remaining async runtime work; it is not part of the shipped 0.9 API.
+
+Remove the pair-returning `AsEnumerable()` instance member from `IImmutableRelation<T>`, `ImmutableRelation<T, TKey>` (including its inherited one-parameter form), and `ImmutableRelationMock<T>`. Retain keyed enumeration under the explicit name:
+
+```csharp
+IEnumerable<KeyValuePair<DataLinqKey, T>> AsKeyValuePairs();
+```
+
+Do not add a replacement instance `AsEnumerable()` or an obsolete forwarding alias. With `using System.Linq`, the ordinary framework extension now handles the row view:
+
+```csharp
+IEnumerable<Salary> rows = relation.AsEnumerable();
+IEnumerable<KeyValuePair<DataLinqKey, Salary>> keyedRows = relation.AsKeyValuePairs();
+```
+
+The framework `AsEnumerable()` returns the same relation as `IEnumerable<T>` without loading, copying, or creating a snapshot. Enumerating it follows the existing synchronous relation-loading path. `AsKeyValuePairs()` retains the old keyed operation: keys are the related rows' primary keys, including composite keys, not the parent relation's foreign key. Calling it may synchronously load rows and construct the frozen dictionary; it does not acquire a deferred-I/O guarantee from the rename. It promises no new ordering. `Values`, `Keys`, the indexer, `Get`, and `ToFrozenDictionary` keep their existing contracts. The existing mock's unimplemented behavior is not repaired by this rename; T10 owns that work.
+
+Migration and compatibility requirements:
+
+- Change old pair-consuming `relation.AsEnumerable()` calls to `relation.AsKeyValuePairs()`. Row consumers can now use standard `AsEnumerable()` or enumerate the relation directly.
+- Recompile consumers and update custom interface implementations, explicit implementations, mocks, reflection/member references, and generated consumer artifacts that name the old member. This is an intentional source and binary break, not an additive alias.
+- Some old calls using inferred types can still compile after recompilation but now enumerate rows. Successful compilation alone is not a complete migration check; audit every relation `AsEnumerable()` call for its intended element type and loading timing.
+- Record the exact break in the 0.10 compatibility review and release migration notes. Do not hide it by rewriting the 0.9 baseline or broadly suppressing unrelated ApiCompat diagnostics.
+- Consumer-shaped tests must exercise both interface-typed and concrete relations, standard row enumeration, deferred row-view construction, and retained keyed lookup/identity behavior, including empty and composite-key relations.
+
+**Owner/gate:** A10, D10-1 with T10 compatibility follow-through; the narrow synchronous correction may land before async execution changes. W0/W1/W2 still gate shared async execution work.
+
+### AAPI-12: Explicit Async Row Enumeration And Collection Accessors
+
+**Accepted direction:** 2026-08-30. Keep the synchronous relation handle and add an explicit `AsAsyncEnumerable(CancellationToken cancellationToken = default)` row view returning `IAsyncEnumerable<T>`. Do not add `IAsyncEnumerable<T>` as another base interface on the relation, which can make existing LINQ extension calls ambiguous. Exact member placement and enumeration/token lifetime details remain under OAPI-2/OAPI-3.
+
+Use standard async LINQ after selecting that view:
+
+```csharp
+var rows = await relation.AsAsyncEnumerable()
+    .Where(row => MatchesLocally(row))
+    .ToListAsync(ct);
+```
+
+Collection predicate terminals use local `Func<T, bool>` delegates; provider expression predicates belong after `Query()`. Select the async view before applying local async LINQ operators. `relation.Where(...)` already produces a synchronous `IEnumerable<T>` pipeline, and DataLinq must not add a generic wrapper that secretly enumerates it synchronously or recover relations from framework iterator internals.
+
+The accepted collection accessor names and result types are:
+
+| Relation operation | Return type |
+| --- | --- |
+| `ValuesAsync(CancellationToken cancellationToken = default)` | `ValueTask<ImmutableArray<T>>` |
+| `KeysAsync(CancellationToken cancellationToken = default)` | `ValueTask<ImmutableArray<DataLinqKey>>` |
+| `ContainsKeyAsync(DataLinqKey key, CancellationToken cancellationToken = default)` | `ValueTask<bool>` |
+| `ToFrozenDictionaryAsync(CancellationToken cancellationToken = default)` | `ValueTask<FrozenDictionary<DataLinqKey, T>>` |
+
+These preserve the synchronous result shapes and relation membership semantics. They are DataLinq collection APIs, not claims that identically named framework operators exist. Keyed async materialization is available through `ToFrozenDictionaryAsync`; this decision does not add an `AsKeyValuePairsAsync` member. Local cache clearing remains synchronous.
+
+Start from asynchronous loading into a completed relation snapshot where that preserves current behavior. Use the returned snapshot directly after awaiting, not a synchronous getter that could load again after invalidation. An `IAsyncEnumerable<T>` return type does not promise database streaming: local `Take(10)` may follow a complete relation load. Use `Query().Take(10)` to request a provider-side subset. OAPI-3 still owns the precise execution start, buffering, snapshot/re-enumeration, cancellation, and reader lifetime contract; OAPI-4/OAPI-6 own load coordination and atomic publication.
+
+### AAPI-13: Standard Async LINQ With A Conditional Transitive Dependency
+
+**Accepted:** 2026-08-30. Use framework async LINQ on .NET 10 and a normal transitive `System.Linq.AsyncEnumerable` package dependency on .NET 8 and .NET 9. Do not build a parallel DataLinq local async operator library or require consumers to discover/install the package themselves.
+
+At async-surface implementation, add this reference to `src/DataLinq/DataLinq.csproj`, with the selected compatible version pinned centrally in `src/Directory.Packages.props`:
+
+```xml
+<ItemGroup Condition="'$(TargetFramework)' == 'net8.0'
+                   Or '$(TargetFramework)' == 'net9.0'">
+  <PackageReference Include="System.Linq.AsyncEnumerable" />
+</ItemGroup>
+```
+
+Do not use `PrivateAssets="all"`; consumers need the dependency's compile/runtime assets. NuGet pack must emit the dependency for DataLinq's .NET 8/9 groups and omit it from DataLinq's .NET 10 group. Another dependency may still bring the package into a .NET 10 application; this condition only controls DataLinq's contribution. Avoid the older, overlapping `System.Linq.Async` package in the supported consumer setup and document potential extension-method conflicts.
+
+This records the dependency policy, not an installed package or selected version. Verify the packed package dependency groups and compile/run ordinary async-LINQ consumers targeting .NET 8, 9, and 10, using both token-free and token-supplied calls. Project-reference builds alone do not prove transitive NuGet behavior. No package publication is authorized by this decision.
+
+### OAPI-1: Task Versus ValueTask
+
+**Resolved:** 2026-08-30 by [AAPI-8](#aapi-8-valuetask-for-query-and-relation-results-key-lookup-and-disposal-task-otherwise), including its final framework-alignment revision. The OAPI identifier is retained for existing references. Public awaitable types are decided; performance, consumption, and compatibility verification remain part of implementation evidence.
+
+**Owner/gate:** A10, D10-1; validate in W1/W2 and verify exact public signatures in W3.
+
 ## Open Decisions Before The Complete API Is Frozen
 
 Everything in this section is open. Recommendations are discussion starting points, not additional accepted requirements.
 
-### OAPI-1: Task Versus ValueTask
+### OAPI-2: Relation Query Composition And Generator Compatibility
 
-Decide the public awaitable type for each family, especially cache-hit key lookups and relation access. Changing `Task<T>` to `ValueTask<T>` later is a public API change even if simple `await` call sites look identical.
+AAPI-9 settles the synchronous collection handle and async terminals; AAPI-10 selects explicit `Query()` composition. AAPI-11 corrects keyed enumeration naming, AAPI-12 settles the explicit async row view and collection accessor direction, and AAPI-13 settles standard async LINQ packaging. AAPI-5 retains generated single-reference methods. Remaining work covers exact overloads/member placement, execution capability, single-reference behavior, and generator/public interface compatibility. Enumeration lifetime and token combination remain under OAPI-3; direct `await foreach` on the relation itself is not an accepted addition.
 
-Recommendation: start with `Task`/`Task<T>` for ordinary query materialization, mutations, completion, and callback delegates; measure representative cache-hit lookup/relation paths before deciding whether public `ValueTask<T>` is justified. Account for composition and repeated-await expectations as well as allocations. Internal choices may differ. `DisposeAsync()` already has its standard `ValueTask` shape.
+Implementation/compatibility review:
 
-**Owner/gate:** A10, D10-1; measure in W1/W2 and freeze before W3.
+- Preserve local LINQ overload binding and the current translated navigation predicate shapes, except for AAPI-11's deliberate correction. The parser recognizes relation `Any`/`Count` extension calls as `Enumerable` methods; AAPI-10 avoids changing their inherited receiver type.
+- Audit instance members versus relation-specific extension methods and execution-capability dispatch against custom implementations and database-free test helpers. Unknown implementations must not silently fall back to synchronous I/O; known in-memory implementations may complete immediately.
+- Implement shared sync/async load coordination and use the loaded snapshot directly after awaiting. Warming the cache and then calling a synchronous getter can reintroduce I/O if invalidation occurs between the two steps. Complete publication, cancellation, and invalidation coordination remain under OAPI-4/OAPI-6.
+- Build the AAPI-10 relation constraint explicitly: the current [root parser](../../../../src/DataLinq/Linq/Planning/Expressions/ExpressionQueryPlanParser.cs) maps an ordinary queryable constant to its table, without automatically supplying relation membership. Retain provider capability validation and async execution dispatch.
 
-### OAPI-2: Relation Result Shape And Generator Compatibility
+Also define missing optional versus broken required references, duplicate reference targets, and behavior after transaction completion. Preserve existing lookup/cardinality behavior unless a compatibility change is explicitly approved; do not silently turn missing required data into a new exception policy.
 
-Decide whether `SalariesAsync()` returns a fully materialized immutable collection, another read-only collection, or a relation handle. Also define missing optional versus broken required references, duplicate reference targets, and behavior after transaction completion.
-
-Recommendation: prefer a buffered result that callers can enumerate without keeping a reader alive. Compare `ImmutableArray<T>` with `IReadOnlyList<T>` against existing [relation values](../../../../src/DataLinq/Instances/ImmutableRelation.cs). Preserve existing lookup/cardinality behavior unless a compatibility change is explicitly approved; do not silently turn missing required data into a new exception policy.
-
-Decide how generated methods appear on partial base models, generated implementations, and testing surfaces. Cover collisions with user-defined `<PropertyName>Async` members, inheritance, nullability, and scalar/composite relation keys. Recommendation: issue a focused collision diagnostic rather than silently renaming the accepted API. Do not require an unrelated generator/interface rewrite.
+Decide how generated single-reference methods appear on partial base models, generated implementations, and testing surfaces. Cover collisions with user-defined `<PropertyName>Async` members, inheritance, nullability, and scalar/composite relation keys. Recommendation: issue a focused collision diagnostic rather than silently renaming the accepted API. Do not require an unrelated generator/interface rewrite.
 
 **Owner/gate:** A10 with T10 consultation, D10-1; generated API and compatibility review before W3.
 
@@ -240,7 +411,9 @@ Recommendation: retain the same backend capability validation and query rejectio
 
 ## Recommended Decision Order
 
-1. OAPI-1 and OAPI-2: awaitable and relation result types determine the signatures application code will consume.
+OAPI-1 is resolved by AAPI-8. Continue with:
+
+1. OAPI-2: finish exact relation overloads, member placement/capability dispatch, single-reference behavior, and generator compatibility after AAPI-9 through AAPI-13.
 2. OAPI-3: settle streaming and snapshot timing before committing to sequence APIs.
 3. OAPI-4 through OAPI-6: settle failure, mutation-input, and concurrency contracts together, before provider/public implementation is frozen.
 4. Complete OAPI-7 and OAPI-9 across every audited boundary. Keep OAPI-8 within the agreed compatibility and release scope.
@@ -248,11 +421,17 @@ Recommendation: retain the same backend capability validation and query rejectio
 ## Required Exit Evidence
 
 - A complete signature inventory identifies receiver, result type, token position/default, backend support, ownership, and failure behavior.
-- Consumer-shaped compilation tests cover token-free and token-supplied calls, generated relation methods, sync/async mixing, and both disposal forms.
+- Consumer-shaped compilation tests cover token-free and token-supplied calls, generated single-reference methods, collection relation terminals, sync/async mixing, and both disposal forms.
+- Signature/consumer checks enforce AAPI-8, including task-returning callbacks, direct single consumption of value tasks, and one-time `.AsTask()` conversion for reusable operations.
+- Benchmarks cover cache-hit/miss and mixed execution without presenting the return-type decision itself as proof of an allocation or latency improvement.
 - Controllable providers prove no I/O at transaction creation/unused disposal, correct first-use dispatch, and deterministic initialization failure/cleanup.
 - Provider tests prove result, cache, mutation, telemetry, and terminal-state parity without synchronous fallback on native async paths.
 - Streaming tests cover snapshot timing, early disposal, cancellation, source lifetime, and active-reader overlap.
 - Generator and ApiCompat evidence cover new members, collisions, nullability, and existing consumer compatibility.
+- Relation API evidence proves I/O-free collection handle access, relation-scoped keyed lookup, result/cardinality parity, no false complete-cache publication after partial execution, and the chosen query-composition/overload-resolution contract.
+- AAPI-10 evidence proves I/O-free `Query()` construction, preserved local LINQ binding, relation-scoped scalar/composite/converted-key queries, source/transaction correctness, and provider filtering/paging without preloading the complete relation.
+- AAPI-11 evidence records the approved source/binary and loading-timing migration, proves row versus key/value enumeration on interface and concrete receivers, and reviews exact ApiCompat diagnostics without hiding unrelated breaks.
+- AAPI-12/AAPI-13 evidence covers local predicates, exact collection result/awaitable types, overload resolution with standard async LINQ, and packed .NET 8/9/10 consumers plus per-target dependency groups.
 - Cancellation/failure tests distinguish database outcome from local finalization and cleanup outcomes.
 - Evidence is recorded under [#106](https://github.com/bazer/DataLinq/issues/106); this decision record alone does not close W0, A10, or a release gate.
 
@@ -262,8 +441,13 @@ No separate async transaction type/factory, awaitable entities, task-valued navi
 
 ## External Comparisons
 
-These references explain familiar conventions, not dependencies or additional DataLinq scope:
+These references explain the accepted conventions and dependency policy; they do not add operations beyond DataLinq's supported query surface:
 
+- [.NET's `ValueTask<T>` contract](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.valuetask-1?view=net-10.0) documents single consumption, one-time `.AsTask()` conversion, and the performance trade-offs behind AAPI-8.
+- [EF Core's removal of direct `IAsyncEnumerable<T>` implementation from `DbSet`](https://learn.microsoft.com/en-us/ef/core/what-is-new/ef-core-6.0/breaking-changes#dbset-no-longer-implements-iasyncenumerable) illustrates LINQ overload ambiguity on receivers exposing multiple query/enumeration protocols; its mitigation is an explicit async-enumerable view.
+- [.NET 10 async LINQ guidance](https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/10.0/asyncenumerable) describes framework/package availability and package conflicts. Standard [`AsyncEnumerable.ToListAsync`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.asyncenumerable.tolistasync?view=net-10.0) returns `ValueTask<List<T>>`; AAPI-8 aligns DataLinq's LINQ terminal awaitables with that convention.
+- [Standard `Enumerable.AsEnumerable`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.enumerable.asenumerable?view=net-10.0) returns the existing sequence with an `IEnumerable<T>` compile-time type, supporting the naming correction in AAPI-11.
+- [NuGet conditional package references](https://learn.microsoft.com/en-us/nuget/consume-packages/package-references-in-project-files#adding-a-packagereference-condition) support AAPI-13's per-target dependency policy.
 - EF Core provides [`ToListAsync`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.entityframeworkcore.entityframeworkqueryableextensions.tolistasync?view=efcore-10.0) and [`ToArrayAsync`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.entityframeworkcore.entityframeworkqueryableextensions.toarrayasync?view=efcore-10.0), with optional cancellation tokens. [Query composition stays synchronous](https://learn.microsoft.com/en-us/ef/core/miscellaneous/async).
 - EF Core's [`BeginTransactionAsync`](https://github.com/dotnet/efcore/blob/release/10.0/src/EFCore.Relational/Storage/RelationalConnection.cs) opens a connection and starts the provider transaction immediately. It is not equivalent to DataLinq's lazy `Transaction()` factory.
 - [Microsoft.Data.Sqlite async limitations](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/async) explain why a shared awaitable surface cannot promise nonblocking SQLite I/O.

@@ -98,7 +98,12 @@ Required focused evidence:
 - the accepted [public API decisions](Async%20Public%20API%20Decisions.md), with unresolved signature/failure questions settled before W3
 - no database I/O during transaction construction or unused disposal; first-use initialization follows the selected sync/async operation and its token
 - token-free and token-supplied consumer calls, sequential sync/async mixing, and both synchronous and asynchronous disposal
-- generated `<PropertyName>Async` relation methods bypass synchronous getters and preserve cache/nullability/source behavior
+- generated `<PropertyName>Async` single-reference methods bypass synchronous getters and preserve cache/nullability/source behavior
+- collection relation handles perform no database I/O; async terminals preserve relation membership, cardinality, source ownership, and cache correctness without promising full loading for every terminal
+- AAPI-10 `Query()` construction performs no I/O; scalar/composite/converted relation keys, source/transaction ownership, preserved local LINQ binding, and provider filtering/paging are verified without preloading or falsely marking the full relation cache as complete
+- revised AAPI-8 signature checks for `ValueTask` key/single-reference/query-terminal/relation-terminal/collection-accessor/disposal APIs and `Task` prepared-execution/mutation/transaction-completion/callback APIs, with cache-hit/miss benchmarks and correct single-consumption coverage
+- AAPI-11 migration evidence for the intentional keyed `AsEnumerable()` removal and `AsKeyValuePairs()` addition: interface/concrete row-view binding, I/O-free row-view construction, retained keyed identity/membership for empty and composite-key relations, and review of inferred callers and custom implementations; retain the exact approved break in ApiCompat review without changing the 0.9 baseline or suppressing unrelated diagnostics
+- AAPI-12/AAPI-13 local async predicate and collection result-type checks; packed .NET 8/9 consumers receive `System.Linq.AsyncEnumerable` transitively, DataLinq's .NET 10 dependency group omits it, and all three target consumers compile/run standard async LINQ with optional tokens
 
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families
 - explicit relation-load parity for cache hit, cache miss, missing row, and provider failure
