@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-08-30.
+**Last reviewed:** 2026-08-31.
 
 **Prerequisite:** DataLinq 0.9.0 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
@@ -54,6 +54,10 @@ Required contract:
 - deterministic disposal of enumeration-owned resources on all exits without completing a caller-owned transaction; reject another execution while a transaction reader is active and preserve validated later relation source transitions
 - standard async LINQ from a conditional transitive `System.Linq.AsyncEnumerable` dependency for .NET 8/9 and the framework for .NET 10, with packed-consumer verification across all targets
 - cancellation distinguished from timeout, provider failure, rollback failure, and uncertain commit outcome
+- ordinary argument/lifecycle validation before pre-cancellation; otherwise-valid execution honors pre-cancellation even on cache hits and unused commit, without changing prior transaction work or poisoning an otherwise usable transaction; completed success is not retroactively canceled
+- failed/interrupted first-use initialization makes the wrapper unusable without automatic reset/replay; canceled reads require successful cleanup and provider trust for reuse, while interrupted writes/post-write hydration poison the transaction and short local consistency finalization completes without cancellation checkpoints
+- confirmed database commit/rollback remains distinct from local finalization and resource cleanup; uncertain completion blocks unsafe reuse/retry, and structured cause/outcome/recovery/secondary-failure information preserves ordinary provider exception types
+- explicit rollback honors caller cancellation; internal recovery uses an independent configurable 30-second starting rollback budget subject to provider verification, with no total-disposal deadline or unsafe abandonment of active work; throwing disposal retains documented C# scope-exit limitations
 - sync/async parity for query results, conversion, cache behavior, invalidation, logging, metrics, and transaction terminal states
 - synchronous execution retained as real synchronous implementations rather than sync-over-async wrappers; the enumeration rename and required-reference correction above are the specifically approved compatibility exceptions
 
@@ -64,6 +68,7 @@ Acceptance summary:
 - no provider call that offers a native async equivalent is accidentally routed through `Task.Run`
 - no async API captures mutable query invocation values after the existing snapshot boundary
 - sequence return types, repeat-enumeration behavior, combined tokens, early disposal, and active-reader/source lifetimes follow AAPI-17 through AAPI-20
+- initialization, cancellation, completion, cleanup, and structured failure behavior follow AAPI-21 through AAPI-26; exact signatures, configuration, and provider feasibility still require W1/W2/W3 evidence
 
 Explicit non-goals:
 

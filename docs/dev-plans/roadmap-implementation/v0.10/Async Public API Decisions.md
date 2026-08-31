@@ -7,7 +7,7 @@
 
 **Target release:** 0.10 / A10 ([issue #107](https://github.com/bazer/DataLinq/issues/107)).
 
-**Last reviewed:** 2026-08-30.
+**Last reviewed:** 2026-08-31.
 
 **Prerequisites:** The [W0 baseline and I/O audit](Implementation%20Order%20and%20Integration%20Plan.md#w0-baseline-and-io-inventory) and W1/W2 provider feasibility evidence remain required before implementation changes shared execution and freezes the complete public surface.
 
@@ -15,7 +15,7 @@
 
 ## Purpose And Decision Boundary
 
-Record the API decisions agreed on 2026-08-30 without pretending that every signature or failure case is settled. Public design discussion can precede implementation; it does not replace the before-state evidence or provider feasibility gate.
+Record the API decisions agreed on 2026-08-30 and 2026-08-31 without pretending that every signature or failure case is settled. Public design discussion can precede implementation; it does not replace the before-state evidence or provider feasibility gate.
 
 The async direction is additive: ordinary application code chooses synchronous or asynchronous execution at each operation. It does not choose a separate async database, transaction, or entity model. AAPI-11 separately approves a breaking correction to synchronous relation enumeration, and AAPI-16 approves enforcing required-reference nullability in both sync and async navigation. These are specific 0.10 compatibility corrections, not permission for unrelated API breaks.
 
@@ -72,7 +72,7 @@ await transaction.CommitAsync();
 
 `await using` selects `DisposeAsync()` at scope exit; it does not await construction. Ordinary `using` continues to select synchronous disposal. The choice matters when an exception or early return leaves an active transaction needing rollback and resource cleanup, even if the normal path calls `CommitAsync()`.
 
-`DisposeAsync()` follows the standard parameterless `ValueTask` signature. Failure precedence and cleanup behavior after cancellation still need the explicit decisions listed below.
+`DisposeAsync()` follows the standard parameterless `ValueTask` signature. AAPI-25 settles cleanup policy and failure precedence, including the limitation of preserving an arbitrary application exception during scope-exit disposal.
 
 ### AAPI-3: Async Is Chosen Per Execution Operation
 
@@ -147,7 +147,7 @@ This table is an inventory starting point, not a declaration that all overloads 
 
 Use native asynchronous provider operations wherever they exist. Do not implement them with `Task.Run`, `.Result`, or `.GetAwaiter().GetResult()`.
 
-The common awaitable API is not a guarantee that every provider performs nonblocking I/O. Microsoft.Data.Sqlite executes its async ADO.NET methods synchronously; the SQLite implementation and cancellation documentation must state that limitation. It is the explicit provider exception already allowed by A10, not permission to wrap genuinely asynchronous providers in synchronous work. Memory completion and unsupported backends require an explicit decision under OAPI-9.
+The common awaitable API is not a guarantee that every provider performs nonblocking I/O. Microsoft.Data.Sqlite executes its async ADO.NET methods synchronously; the SQLite implementation and cancellation documentation must state that limitation. It is the explicit provider exception already allowed by A10, not permission to wrap genuinely asynchronous providers in synchronous work. AAPI-25's recovery budget does not create a hard interruption guarantee. Memory completion and unsupported backends require an explicit decision under OAPI-9.
 
 ### AAPI-8: ValueTask For Query And Relation Results, Key Lookup, And Disposal; Task Otherwise
 
@@ -273,7 +273,7 @@ The accepted collection accessor names and result types are:
 
 These preserve the synchronous result shapes and relation membership semantics. They are DataLinq collection APIs, not claims that identically named framework operators exist. Keyed async materialization is available through `ToFrozenDictionaryAsync`; this decision does not add an `AsKeyValuePairsAsync` member. Local cache clearing remains synchronous.
 
-Start from asynchronous loading into a completed relation snapshot where that preserves current behavior. Use the returned snapshot directly after awaiting, not a synchronous getter that could load again after invalidation. An `IAsyncEnumerable<T>` return type does not promise database streaming: local `Take(10)` may follow a complete relation load. Callers needing provider filtering/paging can use an ordinary database/transaction query with an explicitly written relation predicate. AAPI-17 through AAPI-20 define execution start, buffering, capture/re-enumeration, token combination, and reader lifetime. OAPI-4/OAPI-6 still own detailed cancellation/failure behavior, load coordination, and atomic publication.
+Start from asynchronous loading into a completed relation snapshot where that preserves current behavior. Use the returned snapshot directly after awaiting, not a synchronous getter that could load again after invalidation. An `IAsyncEnumerable<T>` return type does not promise database streaming: local `Take(10)` may follow a complete relation load. Callers needing provider filtering/paging can use an ordinary database/transaction query with an explicitly written relation predicate. AAPI-17 through AAPI-20 define execution start, buffering, capture/re-enumeration, token combination, and reader lifetime. AAPI-21 through AAPI-26 define cancellation/failure policies; OAPI-6 retains load coordination and atomic publication details.
 
 ### AAPI-13: Standard Async LINQ With A Conditional Transitive Dependency
 
@@ -415,7 +415,7 @@ If different method and enumerator tokens are supplied, cancellation of either r
 
 Observe cancellation during buffered row iteration as well as asynchronous loading. Buffering does not make a large local enumeration uncancelable. A retained sequence with a method token retains that token's cancellation constraint on later enumerations; passing another enumerator token does not undo it.
 
-This decides token delivery and combination, not all failure semantics. Pre-canceled cache hits, initialization recovery, cleanup tokens, exception precedence, shared-load coordination, and precise provider interruption limits remain under OAPI-4/OAPI-6/OAPI-9. No mandatory ambient transaction token or public token on `DisposeAsync()` is introduced.
+This decides token delivery and combination, not all failure semantics. AAPI-21 through AAPI-26 settle execution-entry cancellation, initialization recovery, operation/completion outcomes, cleanup policy, and structured failure reporting. Shared-load coordination and precise provider interruption limits remain under OAPI-6/OAPI-9, with exact public signatures under OAPI-7. No mandatory ambient transaction token or public token on `DisposeAsync()` is introduced.
 
 **Owner/gate:** A10 with T10; verify token-free calls, either token alone, equal/different tokens, buffered iteration, repeat enumeration, and linked-token resource cleanup before W3.
 
@@ -442,7 +442,127 @@ Do not make correctness depend on an async view happening to buffer in the curre
 
 Preserve the existing validated post-transaction relation rules. [Collection relations](../../../../src/DataLinq/Instances/ImmutableRelation.cs) and [reference relations](../../../../src/DataLinq/Instances/ImmutableForeignKey.cs) can switch to committed reads after certain completed transactions, subject to [terminal trust checks](../../../../src/DataLinq/Mutation/Transaction.cs). Do not impose a blanket rule that every relation becomes unusable after commit. Later relation access may follow that existing transition; an active reader may not change source midway through execution.
 
-**Owner/gate:** A10, D10-1/D10-2 with H10/T10 consultation; verify resource ownership, early/manual disposal, active-reader overlap, and allowed/rejected terminal-source transitions. Cleanup failure precedence and the complete operation gate remain open under OAPI-4/OAPI-6.
+**Owner/gate:** A10, D10-1/D10-2 with H10/T10 consultation; verify resource ownership, early/manual disposal, active-reader overlap, and allowed/rejected terminal-source transitions. AAPI-25 settles cleanup failure precedence; the complete operation gate remains open under OAPI-6.
+
+### AAPI-21: Validate First, Then Honor Pre-Cancellation Even On Cache Hits
+
+**Accepted:** 2026-08-31. Resolves the execution-entry portion of OAPI-4; AAPI-22 through AAPI-26 settle the remaining failure-policy decisions.
+
+For an otherwise valid asynchronous execution call, observe an already-canceled token before cache lookup, database initialization, or mutation work. An immediately available result does not bypass cancellation. Ordinary argument and transaction-state validation takes precedence; cancellation must not hide an invalid call or make an unusable transaction appear usable. This precedence does not require database I/O to discover errors before checking cancellation.
+
+| Situation | Accepted behavior |
+| --- | --- |
+| Cached `GetAsync(key, canceledToken)` or another cached execution result | Report cancellation rather than return the cached result |
+| `ToListAsync(canceledToken)` | Report cancellation without execution or a partial successful result |
+| `CommitAsync(canceledToken)` on a valid unused transaction | Report cancellation without committing, rolling back, or initializing the transaction; leave it unused |
+| Invalid arguments or an unusable transaction | Report the applicable argument/lifecycle error before checking cancellation |
+| Cancellation requested after the operation has completed successfully | Preserve success rather than retroactively reporting cancellation |
+
+Rejecting a call solely for pre-execution cancellation does not poison an otherwise usable transaction or change its prior work. The caller may make a later valid call with another token. This is not a promise that a transaction remains usable after cancellation during initialization, provider execution, mutation, or completion.
+
+This rule applies at execution and does not move the sequence construction, parameter capture, or deferred I/O boundaries accepted in AAPI-18. Async enumeration must observe pre-cancellation before executing or yielding cached/buffered rows. Synchronous local factories remain synchronous, and parameterless `DisposeAsync()` does not acquire a caller token.
+
+The late-cancellation rule preserves completed success; it does not by itself settle where cancellation may be observed during a multi-step operation, whether commit has a known outcome, or how subsequent finalization/cleanup failures are reported. Apply AAPI-22 through AAPI-26 for those distinctions.
+
+**Owner/gate:** A10, D10-2; prove warm/cold execution parity, validation precedence, absence of pre-canceled I/O/mutation, unchanged transaction usability, unused-commit behavior, and completed-success preservation in W1/W2 before W3.
+
+### AAPI-22: Interrupted First-Use Initialization Makes The Wrapper Unusable
+
+**Accepted:** 2026-08-31. Once first-use initialization starts, an initialization failure or observed cancellation makes that transaction wrapper unusable for further managed reads, writes, and commit. Clean up owned resources and require a new transaction; disposal remains the managed resource-recovery path. Do not automatically reset the wrapper to unused, reconnect it, retry initialization, or replay the first operation.
+
+| Initialization boundary | Required behavior |
+| --- | --- |
+| Cancellation observed before initialization starts | Leave the transaction unused and reusable under AAPI-21 |
+| Connection opening, required configuration, or provider begin fails/is interrupted | Clean up and reject subsequent business operations through the wrapper |
+| Initialization succeeds, then cancellation is observed before the application command starts | Keep the initialized transaction usable; no application statement executed |
+| Initialization cleanup also fails | Preserve the initialization failure, expose cleanup failures, and retain the unusable state |
+
+A cancellation request alone does not establish initialization failure. Keep connection/transaction resources private until the whole initialization sequence succeeds, including required provider configuration, then publish usable state. Do not expose a half-initialized connection or transaction as open/usable. This refines the current synchronous providers' early `Open` publication; implementation must verify the shared state transitions without inventing unrelated compatibility changes.
+
+**Owner/gate:** A10, D10-2; W1/W2 fault injection at opening, configuration, begin, publication, and cleanup. Prove no initialization replay and distinguish successful initialization followed by pre-command cancellation from interrupted initialization.
+
+### AAPI-23: Read Recovery Requires Trust; Interrupted Mutations Poison
+
+**Accepted:** 2026-08-31. Apply cancellation checkpoints during fetching/materialization and release owned execution resources before allowing later execution. A buffered terminal must not return partial contents as success; a stream cannot recall rows already delivered to application code.
+
+Never publish an incomplete relation load as complete. Existing complete, valid cached rows need not be discarded solely because later reading was canceled; preserve normal cache/invalidation rules. The complete shared-load/invalidation coordination mechanism remains under OAPI-6.
+
+A canceled ordinary DataLinq read may leave its caller-owned transaction reusable only after cleanup succeeds and provider evidence establishes that the intended transaction remains trustworthy. An open connection alone is insufficient. If integrity cannot be established, reject further reads, writes, and commit, allowing only recovery operations valid for the remaining provider state. Do not reconnect and silently continue the old transaction. Do not assume a raw command is harmless merely because it returns rows; its execution contract belongs to the OAPI-7 inventory.
+
+| Mutation boundary | Required behavior |
+| --- | --- |
+| Cancellation observed before this operation starts mutation work | Preserve prior transaction work under AAPI-21 |
+| Cancellation during a write, with effects possible or uncertain | Fail and poison the transaction |
+| Cancellation during required generated-value/authoritative-row loading after a write | Fail and poison because database effects and local model state may disagree |
+| Provider work succeeds and short local cache/baseline finalization remains | Complete the consistency-critical local work without cancellation checkpoints midway through it |
+| Mutation completes successfully before cancellation is observed | Preserve success |
+
+Poisoning retains the existing managed mutation rule: block reads, writes, and commit, invalidate affected mutable state, and require rollback or disposal. Required post-write database reads remain cancelable; actual local finalization errors still poison. Do not make all remaining I/O uncancelable after the first write.
+
+For a multi-model mutation helper, observed cancellation after that call has performed writes must prevent committing its completed prefix. Exact input enumeration/capture remains under OAPI-5; this decision does not introduce a batching engine.
+
+Transaction-level mutations do not automatically roll back a caller-owned transaction. Database-level helpers own their implicit transaction and perform required rollback/cleanup under AAPI-25, without treating an uncertain commit as a proved rollback.
+
+**Owner/gate:** A10, D10-2 with T10 consultation; W1/W2 cover reusable/broken read sources, reader cleanup failures, partial buffers/streams, partial relation publication, write/hydration cancellation, local finalization, and interrupted multi-model execution.
+
+### AAPI-24: Database Completion Outcome Survives Cancellation And Cleanup Failure
+
+**Accepted:** 2026-08-31. Track database completion separately from overall async method success. Propagate caller cancellation through provider commit/rollback where supported, but never infer rollback or absence of commit solely from cancellation.
+
+| Commit evidence | Required behavior |
+| --- | --- |
+| Cancellation observed before commit dispatch | Report cancellation without commit/rollback; preserve prior transaction state |
+| Commit confirmed, finalization and cleanup succeed | Return success even if the token is now canceled |
+| Commit confirmed, local committed-state finalization fails | Preserve `TransactionCommitFinalizationException` and its known-committed meaning |
+| Commit confirmed, resource cleanup fails | Report cleanup failure while retaining confirmed committed outcome |
+| Commit attempted, outcome cannot be established | Report the original failure with unknown commit outcome; never automatically retry |
+
+After a failed commit attempt, reject further business operations and another commit through that wrapper. Preserve the narrowly permitted rollback/disposal recovery paths. A later rollback attempt cannot establish that an earlier uncertain commit did not happen. After confirmed commit, necessary local finalization and cleanup proceed independently of the request token.
+
+The provider adapter must record confirmed database completion separately from subsequent telemetry/status notification, local finalization, and disposal. Current provider `Commit()` methods combine several of these stages, while the managed wrapper conservatively classifies a failure from the combined call as unknown. Refine that internal boundary so later cleanup cannot erase established completion evidence; do not infer confirmation from a prematurely published status alone.
+
+For rollback, pre-dispatch cancellation preserves the prior state, including an already-poisoned state. Confirmed rollback remains confirmed after cleanup failure. An interrupted rollback without confirmation has unknown rollback outcome. After a failed rollback attempt, allow disposal rather than resumed business operations. Do not manufacture a definite database outcome from connection closure or recovery attempts.
+
+**Owner/gate:** A10, D10-2 with H10/T10 consultation; W1/W2 distinguish dispatch, server confirmation, lost confirmation, local finalization, observer failure, and resource cleanup. Verify terminal restrictions and no automatic replay.
+
+### AAPI-25: Independent Recovery Budget And Explicit Cleanup Failure Precedence
+
+**Accepted:** 2026-08-31. Public `RollbackAsync(ct)` honors its optional caller token. DataLinq-initiated recovery rollback after an implicit mutation/callback failure uses an independent recovery token. `DisposeAsync()` remains parameterless and uses internal cleanup policy where applicable; an already-canceled request token must not prevent necessary recovery from starting.
+
+Use a configurable 30-second starting budget for DataLinq-initiated rollback attempts, subject to W1/W2 provider verification before freezing the configuration surface. This is a cooperative rollback budget, not a guaranteed deadline for all cleanup/disposal. It does not make non-cancelable provider calls interruptible or remove SQLite's synchronous-driver limitation. The exact option name/location and validated provider behavior remain under OAPI-7/OAPI-9.
+
+Do not merely stop awaiting rollback and return its connection to a pool while work continues. Any provider-specific abort/release strategy must prove safe ownership and non-reuse. Continue other safe, independent cleanup steps after one fails; do not skip them because the original caller token was canceled.
+
+When DataLinq owns both operation execution and its cleanup:
+
+- Preserve the primary operation exception, including its type and stack, when rollback/disposal/recovery also fail.
+- Expose secondary failures as structured information under AAPI-26; logging alone is insufficient.
+- If execution succeeded and cleanup alone failed, report the cleanup failure with any known database outcome preserved.
+- Do not rethrow an already-reported cleanup failure during later scope disposal merely because it was recorded earlier. New cleanup failures remain reportable.
+
+Retain throwing disposal. Parameterless `DisposeAsync()` does not receive an arbitrary exception from surrounding application code. Under C# `await using`, a disposal exception can replace an exception already propagating; the same limitation applies when an `await foreach` body fails and enumerator disposal then fails. Document this limitation instead of promising universal exception preservation or making disposal silently nonthrowing. DataLinq-owned callback helpers can preserve the operation exception because they control its execution/cleanup boundary; their exact overloads remain under OAPI-5.
+
+**Owner/gate:** A10, D10-2 with H10/T10 consultation; W1/W2 verify explicit versus recovery tokens, configurable budget/default feasibility, cooperative limits, no unsafe abandoned work, continued cleanup, primary/secondary failure access, and no duplicate failure masking.
+
+### AAPI-26: Structured Failure Context Separates Cause, Outcome, And Recovery
+
+**Accepted:** 2026-08-31. Preserve ordinary provider/application exception types and add supported structured DataLinq failure information rather than wrapping every failure in a generic exception or requiring message/internal `Exception.Data` parsing.
+
+| Information dimension | Required distinction |
+| --- | --- |
+| Failure cause | Observed caller cancellation, command timeout, provider error, local finalization error |
+| Operation stage | Initialization, command execution, row loading, commit, rollback, cleanup |
+| Database completion outcome | Completion not attempted, confirmed committed, confirmed rolled back, unknown, as applicable |
+| Permitted recovery | Continue after successful cleanup, rollback/dispose only, dispose only, as applicable |
+| Secondary failures | Rollback, resource disposal, cache recovery, notification failures |
+
+These are semantic dimensions, not frozen public enum/property names. Caller cancellation and unknown commit outcome may both be true. Outcome, cause, and permitted recovery must not be collapsed into one mutually exclusive error classification. Do not confuse no completion attempt with no prior transaction writes.
+
+Use `OperationCanceledException` for cancellation actually observed through the operation's cancellation path. Preserve provider timeout exceptions and error codes, unrelated provider/application failures even when the token is also canceled, and `TransactionCommitFinalizationException` for its existing known-committed meaning. Do not catch every exception under `ct.IsCancellationRequested` and relabel it cancellation. For races, use provider results and available evidence without claiming an unknowable event ordering.
+
+Failure information must reach callers of database-level helpers after their implicit transaction is disposed, not only callers retaining an explicit transaction. Freeze exact accessors, compatibility, and operation-specific classifications in OAPI-7 after provider evidence under OAPI-9. Do not introduce a new generic exception hierarchy, automatic retry policy, or public provider-plugin API through this decision.
+
+**Owner/gate:** A10, D10-1/D10-2 with H10/T10 consultation; W1/W2 fault injection and W3 consumer coverage must prove exception identity/stack, cause/outcome independence, recovery restrictions, and structured secondary failures for both explicit and implicit transaction APIs.
 
 ### OAPI-1: Task Versus ValueTask
 
@@ -460,7 +580,7 @@ The remaining questions in this section are open. Resolved portions are identifi
 
 The remaining work is the exact primitive/overload inventory, exception/diagnostic selection, and compatibility verification under OAPI-7. Check interface and concrete receivers, custom implementations, inherited generated members, scalar/composite/converted keys, and existing local LINQ and translated navigation predicates. Default methods do not remove those checks.
 
-AAPI-17 through AAPI-20 settle enumeration lifetime, capture, token combination, and reader/source ownership; direct `await foreach` on the relation itself is not an accepted addition. OAPI-4/OAPI-6 own shared load coordination, complete cache publication, and invalidation across awaits. In particular, use the loaded result directly after awaiting: warming a cache and then calling a synchronous getter can reintroduce I/O.
+AAPI-17 through AAPI-20 settle enumeration lifetime, capture, token combination, and reader/source ownership; direct `await foreach` on the relation itself is not an accepted addition. AAPI-21 through AAPI-26 define failure policies; OAPI-6 retains shared load coordination, complete cache publication, and invalidation across awaits. In particular, use the loaded result directly after awaiting: warming a cache and then calling a synchronous getter can reintroduce I/O.
 
 **Owner/gate:** A10 with T10 consultation, D10-1; generated API and compatibility review before W3.
 
@@ -468,24 +588,15 @@ AAPI-17 through AAPI-20 settle enumeration lifetime, capture, token combination,
 
 **Design decisions resolved:** 2026-08-30 by AAPI-17 through AAPI-20: direct async-sequence results without a universal streaming promise, distinct ordinary/prepared capture boundaries, deferred sequence I/O, repeated enumeration, combined method/enumerator tokens, deterministic resource disposal, rejection of another execution during an active transaction reader, and preservation of existing validated relation source transitions.
 
-The identifier is retained for traceability. Exact signature/receiver inventory remains under OAPI-7; failure and cleanup semantics under OAPI-4; broader operation/load coordination under OAPI-6; provider limits under OAPI-9. These remaining reviews do not reopen the accepted enumeration contracts without an explicit revision.
+The identifier is retained for traceability. Exact signature/receiver inventory remains under OAPI-7, broader operation/load coordination under OAPI-6, and provider limits under OAPI-9. Failure and cleanup policies are accepted under AAPI-21 through AAPI-26. These remaining reviews do not reopen accepted contracts without an explicit revision.
 
 **Owner/gate:** A10, D10-1/D10-2; lifetime feasibility in W2, complete contract before W3.
 
 ### OAPI-4: Cancellation, Commit Outcomes, And Cleanup Failures
 
-Define pre-canceled calls including cache hits; cancellation during initialization, command execution, row loading, and mutable finalization; timeout classification; and which transaction states allow further work after each failure.
+**Design decisions resolved:** 2026-08-31 by AAPI-21 through AAPI-26: validation/pre-cancellation, terminal interrupted initialization, conditional read recovery and mutation poisoning, cancellation/finalization checkpoints, independent database completion outcomes, cooperative recovery budget, throwing disposal and exception precedence, and structured failure information.
 
-The accepted A10 requirements already distinguish caller cancellation, timeout, provider failure, rollback failure, and uncertain commit. They do not yet specify every exception type or public outcome property. A known database commit with failed local finalization must retain its existing distinct meaning.
-
-Recommendations for discussion:
-
-- Check pre-cancellation consistently even when a read could hit cache; do not return a partially filled buffered collection as success.
-- Do not report confirmed commit success as cancellation solely because the token changed afterward, and never equate cancellation with rollback.
-- Keep uncertain outcomes explicit and prevent unsafe automatic retry or publication of guessed committed state.
-- Do not let an already-canceled operation token prevent necessary cleanup. Decide any bounded cleanup policy separately.
-- Preserve the original operation failure when rollback or disposal also fails, while exposing the cleanup failure rather than hiding it.
-- Define whether a canceled first-use initialization can be retried on the same wrapper or makes it terminal; do not publish a half-initialized connection/transaction as usable.
+The identifier remains for traceability. Exact public exception/context/configuration signatures and compatibility remain under OAPI-7; provider-specific classification, interruption limits, and verification of the 30-second starting recovery budget remain under OAPI-9 and W1/W2. Mutation-input/callback contracts remain under OAPI-5; wider operation/shared-load coordination remains under OAPI-6. These implementation/signature gates do not reopen the accepted failure policies without an explicit revision.
 
 **Owner/gate:** A10, D10-2; deterministic fault-injection and provider evidence in W1/W2 before W3.
 
@@ -531,11 +642,11 @@ Recommendation: retain the same backend capability validation and query rejectio
 
 ## Recommended Decision Order
 
-OAPI-1, OAPI-2's structural choices, and OAPI-3's enumeration contracts are resolved. Continue with:
+OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, and OAPI-4's failure policies are resolved. Continue with:
 
-1. OAPI-4: settle cancellation checkpoints, initialization recovery, transaction/commit outcomes, and operation-versus-cleanup failures.
-2. OAPI-5/OAPI-6: settle mutable-input/callback and broader concurrency/cache-coordination contracts against those failure rules before provider/public implementation is frozen.
-3. Complete OAPI-7 and OAPI-9 across every audited boundary, including remaining exact signatures and compatibility/provider evidence. Keep OAPI-8 within the agreed compatibility and release scope.
+1. OAPI-5: settle mutable-input capture/lifetime, multi-model inputs, and transaction callback contracts against AAPI-21 through AAPI-26.
+2. OAPI-6: settle broader concurrency/cache coordination before provider/public implementation is frozen.
+3. Complete OAPI-7 and OAPI-9 across every audited boundary, including exact failure-context/configuration signatures and provider evidence. Keep OAPI-8 within the agreed compatibility and release scope.
 
 ## Required Exit Evidence
 
@@ -547,6 +658,8 @@ OAPI-1, OAPI-2's structural choices, and OAPI-3's enumeration contracts are reso
 - Provider tests prove result, cache, mutation, telemetry, and terminal-state parity without synchronous fallback on native async paths.
 - AAPI-17/AAPI-18 evidence covers direct `IAsyncEnumerable<T>` sequence results, no database I/O at sequence/enumerator construction or unused disposal, ordinary parameter capture at enumerator construction, prepared invocation capture at the execution call, terminal capture before first suspension, and sequential repeated enumeration without permanent result caching. Explicit materializers close owned readers before success; async views remain free to buffer.
 - AAPI-19/AAPI-20 evidence covers optional method/enumerator tokens alone and combined, cancellation while iterating buffered rows, linked-token cleanup, reader/command disposal on all exits, preservation of caller transaction ownership, rejection of execution during a live reader, and valid/invalid later relation source transitions without migrating an active reader.
+- AAPI-21 evidence covers pre-canceled warm/cold execution, argument/lifecycle validation precedence, no pre-canceled initialization or mutation, no partial materializer success, unchanged prior transaction work/usability, unused `CommitAsync` remaining unused, and no retroactive cancellation after completed success. Preserve AAPI-18's deferred sequence boundaries.
+- AAPI-22 through AAPI-26 evidence covers private initialization publication/terminal interruption, reusable versus untrustworthy canceled reads, mutation/hydration poisoning and uninterrupted local finalization, partial multi-model cancellation, confirmed versus unknown completion independent of cleanup, explicit versus recovery tokens, cooperative budget feasibility, primary/secondary exception reporting and scope-disposal limitations, and structured cause/outcome/recovery information for explicit and implicit helpers. The release evidence plan owns the detailed matrix; no failure policy is considered implemented merely because it is accepted here.
 - Generator and ApiCompat evidence cover new members, collisions, nullability, and existing consumer compatibility.
 - Relation API evidence proves I/O-free collection handle access, relation-scoped keyed lookup, result/cardinality parity, no false complete-cache publication after partial execution, and preserved local LINQ/translated navigation predicate binding.
 - AAPI-11 evidence records the approved source/binary and loading-timing migration, proves row versus key/value enumeration on interface and concrete receivers, and reviews exact ApiCompat diagnostics without hiding unrelated breaks.
@@ -573,3 +686,6 @@ These references explain the accepted conventions and dependency policy; they do
 - EF Core provides [`ToListAsync`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.entityframeworkcore.entityframeworkqueryableextensions.tolistasync?view=efcore-10.0) and [`ToArrayAsync`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.entityframeworkcore.entityframeworkqueryableextensions.toarrayasync?view=efcore-10.0), with optional cancellation tokens. [Query composition stays synchronous](https://learn.microsoft.com/en-us/ef/core/miscellaneous/async).
 - EF Core's [`BeginTransactionAsync`](https://github.com/dotnet/efcore/blob/release/10.0/src/EFCore.Relational/Storage/RelationalConnection.cs) opens a connection and starts the provider transaction immediately. It is not equivalent to DataLinq's lazy `Transaction()` factory.
 - [Microsoft.Data.Sqlite async limitations](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/async) explain why a shared awaitable surface cannot promise nonblocking SQLite I/O.
+- [Microsoft cancellation guidance](https://devblogs.microsoft.com/premier-developer/recommended-patterns-for-cancellationtoken/) and [canceling an operation versus stopping the wait](https://devblogs.microsoft.com/dotnet/how-do-i-cancel-non-cancelable-async-operations/) support the consistency and resource-ownership boundaries in AAPI-23 through AAPI-25.
+- [MySqlConnector cancellation](https://mysqlconnector.net/overview/command-cancellation/) documents distinct cancellation/timeout mechanisms and connection consequences; verify the pinned provider's behavior rather than inferring transaction usability from the exception name alone.
+- [C# exception propagation through `finally`](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/statements#1311-the-try-statement) explains AAPI-25's scope-disposal limitation.

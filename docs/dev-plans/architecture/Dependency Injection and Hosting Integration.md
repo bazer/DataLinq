@@ -5,9 +5,11 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for unnamed registration, explicit unit of work, and startup-host integration; broader host variants remain later work.
-**Last reviewed:** 2026-08-25.
+**Last reviewed:** 2026-08-31.
 **Dependency:** The shipped 0.9 backend/source boundary and the 0.10 async contracts must be stable before host integration freezes public service abstractions.
 **Goal:** Make DataLinq straightforward to configure, validate, and consume from ASP.NET Core, generic host, background workers, Blazor, MAUI, Avalonia, and other .NET application surfaces without hiding database I/O or transaction boundaries.
+
+**0.10 failure contract:** [AAPI-21 through AAPI-26](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-21-validate-first-then-honor-pre-cancellation-even-on-cache-hits) own cancellation validation, initialization/read/mutation recovery, confirmed/unknown completion, cleanup precedence, and structured failure information. Host unit-of-work helpers must consume these policies, including an independent configurable 30-second starting recovery rollback budget subject to provider verification rather than the canceled request token. Do not promise a hard total-disposal deadline or infer rollback from cancellation. Callback/mutable-input and wider concurrency design remain open under OAPI-5/OAPI-6; this reference does not freeze those APIs or host lifetimes.
 
 **Related work:**
 

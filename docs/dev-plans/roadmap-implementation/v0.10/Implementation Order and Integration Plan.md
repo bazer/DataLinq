@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-08-30.
+**Last reviewed:** 2026-08-31.
 
 **Authority:** The [0.10 implementation roadmap](README.md) owns release scope. This document owns dependency order, shared-contract decisions, merge gates, and stop rules.
 
@@ -55,16 +55,20 @@ Do not add public async methods incrementally until one audit proves the surface
 
 ### D10-2: Provider Cancellation And Failure Semantics
 
-OAPI-3's enumeration contracts are accepted under AAPI-17 through AAPI-20. Resolve OAPI-4 through OAPI-6 and the provider capability questions in the [API decision record](Async%20Public%20API%20Decisions.md#open-decisions-before-the-complete-api-is-frozen), including failure/cleanup behavior and the wider operation gate without reopening the accepted enumeration boundaries.
+OAPI-3's enumeration contracts are accepted under AAPI-17 through AAPI-20, and OAPI-4's failure policies under AAPI-21 through AAPI-26. Resolve OAPI-5/OAPI-6 and the exact signature/provider questions in the [API decision record](Async%20Public%20API%20Decisions.md#open-decisions-before-the-complete-api-is-frozen) without reopening those accepted boundaries.
 
-Define:
+Implement and prove:
 
-- cancellation before connection/command dispatch
-- cancellation during reader execution and materialization
-- cancellation during mutation and transaction operations
-- timeout versus caller cancellation
-- commit cancellation and uncertain outcome classification
-- cleanup/disposal after cancellation
+- ordinary argument/lifecycle validation before pre-cancellation, including cached execution and unused commit; preserve prior transaction work and completed success
+- private first-use initialization publication and unusable wrappers after interrupted initialization, without automatic reset/replay; successful initialization followed by pre-command cancellation remains distinct
+- reusable canceled reads only after cleanup and provider trust are established; no partial materializer success or false complete relation publication
+- poisoning after interrupted writes/post-write hydration, cancelable required I/O, and uninterrupted short local consistency finalization; prevent committing a canceled multi-model call's completed prefix
+- independent confirmed/unknown database completion outcomes that survive subsequent finalization, notification, and cleanup failures, with terminal recovery restrictions
+- explicit rollback caller tokens versus independent recovery rollback tokens; configurable 30-second starting recovery budget, verified before configuration freeze, without a total-cleanup deadline or unsafe abandoned work
+- throwing disposal, primary/secondary failure precedence where DataLinq owns execution/cleanup, documented scope-exit limitations, and no duplicate reporting of already-reported cleanup failures
+- structured cause/stage/outcome/recovery/secondary-failure information for explicit and implicit helpers, preserving ordinary exception identity and provider codes
+
+Exact public accessors/options and compatibility remain under OAPI-7. Provider-specific interruption/classification and recovery-budget feasibility remain under OAPI-9 and W1/W2. Callback input/lifetime and wider operation/shared-load coordination remain open under OAPI-5/OAPI-6.
 
 Provider differences may be explicit, but they cannot become silent semantic drift.
 

@@ -4,7 +4,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for native async/cancellation; lazy-loading experiments remain later work.
-**Last reviewed:** 2026-08-30.
+**Last reviewed:** 2026-08-31.
 **Dependency:** The shipped 0.9 execution foundation provides the backend/source boundary; the 0.10 release-local plan owns the exact async surface and evidence.
 **Goal:** Introduce real async I/O support and define how lazy loading should behave without turning DataLinq into a magical, hard-to-reason-about API.
 
@@ -30,7 +30,13 @@ The release-local [Async Public API Decisions](../roadmap-implementation/v0.10/A
 - Sequential repeated enumeration is supported without permanent result caching: ordinary queries capture current parameters again, one prepared invocation retains its bound arguments, and relations may reuse a valid cache or reload. Retain a materialized collection for stable collection reuse.
 - Honor both optional method tokens and `.WithCancellation(...)`; if different tokens are supplied, either can request cancellation. Observe cancellation during buffered iteration as well as loading, and release owned linked-token resources.
 - Enumerators dispose owned execution resources on all exits, including early `break`, without committing or disposing a caller-owned transaction. Reject another execution operation while a reader remains active on that transaction. Preserve existing validated later relation transitions to committed reads, but never migrate an active reader between sources.
-- Exact primitive/overload inventories and diagnostic types still require review. Cancellation/failure and cleanup precedence, initialization recovery, and wider transaction/cache coordination remain open in the decision record.
+- Ordinary argument and transaction-state validation precedes pre-cancellation. Otherwise-valid execution honors an already-canceled token even on cache hits and unused commit, without starting I/O/mutation, poisoning an otherwise usable transaction, or changing its prior work. Completed success is not retroactively canceled, and deferred sequence execution boundaries remain unchanged.
+- Interrupted first-use initialization makes the wrapper unusable; publish usable initialization only after all required steps succeed, with no automatic reset/replay. Successful initialization followed by pre-command cancellation remains usable.
+- Canceled ordinary reads permit transaction reuse only after cleanup and provider trust are established. Interrupted writes/post-write hydration poison the transaction; required I/O remains cancelable, short local consistency finalization completes, and canceled multi-model calls cannot permit committing their completed prefix.
+- Track confirmed/unknown database completion independently of local finalization and cleanup. Preserve known commit/rollback after subsequent failures, block unsafe terminal reuse, and never automatically replay uncertain commits.
+- Explicit rollback honors its caller token; internal recovery uses an independent configurable 30-second starting rollback budget, subject to provider verification without promising a total cleanup deadline. Retain throwing disposal, preserve primary/secondary failures where DataLinq owns execution/cleanup, document scope-exit exception replacement, and do not rethrow already-reported cleanup failures merely on later disposal.
+- Provide structured failure cause, stage, database outcome, permitted recovery, and secondary failures for explicit and implicit helpers while preserving ordinary exception types. A canceled token alone must not relabel unrelated errors.
+- OAPI-4's design policies are accepted under AAPI-21 through AAPI-26. Exact primitive/overload/context/configuration signatures and provider evidence still require review; mutable-input/callback and wider transaction/cache coordination remain open under OAPI-5/OAPI-6.
 
 The broader options and phases below retain design rationale. They do not authorize interface-first model rewrites, strict sync-I/O modes, preload/batching features, hollow instances, or awaitable-entity experiments in 0.10. Provider APIs use native async where available; the documented Microsoft.Data.Sqlite synchronous-driver limitation is an explicit exception, not a promise of nonblocking SQLite I/O.
 

@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-08-30.
+**Last reviewed:** 2026-08-31.
 
 **Depends on:** The required workstreams and gates in the [0.10 implementation roadmap](README.md) and [implementation order](Implementation%20Order%20and%20Integration%20Plan.md).
 
@@ -110,6 +110,14 @@ Required focused evidence:
 - sequential re-enumeration recaptures ordinary parameters, retains prepared invocation values, and permits relation cache reuse/reload; no permanent result cache or database-snapshot guarantee is inferred from the async view; explicit materializers close owned readers before success
 - AAPI-19 token-free, method-token, enumerator-token, equal/different-token, buffered-iteration, repeat-enumeration, and linked-token cleanup coverage
 - AAPI-20 normal/early/error/canceled/manual disposal releases owned execution resources without completing or disposing a caller transaction; another execution is rejected while a transaction reader is active, including between moves; valid/invalid later relation source transitions remain aligned with sync behavior and cannot migrate an active reader
+- AAPI-21 pre-canceled warm/cold execution and validation-precedence checks; no pre-canceled I/O/mutation or partial materializer success; prior transaction work/usability is unchanged, unused commit leaves the transaction unused, and completed success is not retroactively canceled; sequence execution boundaries remain those of AAPI-18
+- AAPI-22 initialization fault injection at opening, required configuration, begin, publication, and cleanup: no half-initialized usable state or automatic reset/replay; distinguish interrupted initialization from successful initialization followed by pre-command cancellation
+- AAPI-23 canceled-read reuse requires successful cleanup and verified provider transaction trust; cover broken connections/transactions, partial buffers/streams/relations, preservation of already-valid cache entries, and no silent reconnect; raw row-returning commands must not be assumed side-effect-free
+- AAPI-23 mutation/hydration cancellation poisons affected state, required post-write I/O remains cancelable, short local consistency finalization completes without cancellation checkpoints, and multi-model cancellation after writes cannot permit committing its completed prefix; caller-owned versus implicit transaction recovery remains distinct
+- AAPI-24 dispatch/confirmation/finalization/notification/cleanup faults preserve known commit/rollback independently of method success, classify lost confirmation as unknown, forbid automatic replay, and enforce the allowed terminal recovery paths
+- AAPI-25 explicit rollback tokens versus independent recovery tokens, configurable 30-second starting budget and provider feasibility, no hard total-cleanup promise, no unsafe abandoned operation/connection reuse, and continued safe independent cleanup after a failure
+- AAPI-25 primary exception type/stack and structured secondary failures when DataLinq owns execution/cleanup; cleanup-only failure after successful execution; documented throwing `await using`/`await foreach` disposal limitations; no duplicate masking by already-reported cleanup failures
+- AAPI-26 cause/stage/outcome/recovery/secondary-failure information for explicit transactions and disposed implicit helpers; cancellation and unknown commit can coexist, provider timeout codes remain intact, and unrelated errors are not relabeled solely because a token was canceled
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families
 - explicit relation-load parity for cache hit, cache miss, missing row, and provider failure
 - mutation success/failure and transaction commit/rollback parity
@@ -130,6 +138,7 @@ Required focused evidence:
 - ASP.NET Core and Generic Host consumer fixtures
 - concurrent scope isolation
 - explicit unit-of-work begin/commit/rollback/failure/cancellation/disposal
+- unit-of-work failure reporting/recovery consumes AAPI-21 through AAPI-26 rather than inventing host-specific outcomes or cleanup-token rules
 - nested application-service participation without hidden ambient ownership
 - logging through the host pipeline
 
@@ -153,6 +162,7 @@ Required focused evidence:
 - relation direction and key mismatch diagnostics
 - Memory fixture seeding/reset and capability rejection
 - fake unit-of-work recording, commit/rollback/disposal, and failure injection
+- failure fixtures represent AAPI-21 through AAPI-26 cause/outcome/cleanup distinctions without claiming that an in-memory fake proves provider interruption or safe connection reuse
 - DI replacement behavior for Memory, fake unit of work, and SQLite-in-memory provider tests
 
 ### Source Type Aliases
