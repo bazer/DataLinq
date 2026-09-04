@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-08-31.
+**Last reviewed:** 2026-09-04.
 
 **Prerequisite:** DataLinq 0.9.0 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
@@ -58,6 +58,8 @@ Required contract:
 - failed/interrupted first-use initialization makes the wrapper unusable without automatic reset/replay; canceled reads require successful cleanup and provider trust for reuse, while interrupted writes/post-write hydration poison the transaction and short local consistency finalization completes without cancellation checkpoints
 - confirmed database commit/rollback remains distinct from local finalization and resource cleanup; uncertain completion blocks unsafe reuse/retry, and structured cause/outcome/recovery/secondary-failure information preserves ordinary provider exception types
 - explicit rollback honors caller cancellation; internal recovery uses an independent configurable 30-second starting rollback budget subject to provider verification, with no total-disposal deadline or unsafe abandonment of active work; throwing disposal retains documented C# scope-exit limitations
+- mutation identity/values captured before first suspension, exclusive pending mutable input use, exactly-once synchronous local editing delegates, and finite multi-model enumeration/capture before writes; preserve supported snapshot semantics and document escaped-reference/async-void limits
+- task-returning `CommitAsync` callback families with transaction-only and token-aware forms, helper-owned completion, explicit token delivery, no callback replay, and results delivered after commit/finalization/cleanup; transaction-bound deferred results must be materialized inside the callback
 - sync/async parity for query results, conversion, cache behavior, invalidation, logging, metrics, and transaction terminal states
 - synchronous execution retained as real synchronous implementations rather than sync-over-async wrappers; the enumeration rename and required-reference correction above are the specifically approved compatibility exceptions
 
@@ -69,6 +71,7 @@ Acceptance summary:
 - no async API captures mutable query invocation values after the existing snapshot boundary
 - sequence return types, repeat-enumeration behavior, combined tokens, early disposal, and active-reader/source lifetimes follow AAPI-17 through AAPI-20
 - initialization, cancellation, completion, cleanup, and structured failure behavior follow AAPI-21 through AAPI-26; exact signatures, configuration, and provider feasibility still require W1/W2/W3 evidence
+- mutation input/delegate/collection and callback behavior follows AAPI-27 through AAPI-33, including ownership release, overload binding, and preserved entity relation transitions after completion
 
 Explicit non-goals:
 
@@ -77,6 +80,7 @@ Explicit non-goals:
 - async APIs that wrap synchronous calls where native provider async exists; the documented SQLite driver limitation remains explicit
 - general backend plugin APIs
 - relation query composition, retained in the unscheduled [Relation-Scoped Queries](../../query-and-runtime/Relation-Scoped%20Queries.md) backlog proposal
+- asynchronous editing delegates, async-stream mutation inputs, bulk execution, and automatic mutation dependency ordering
 
 ### H10: Dependency Injection, Hosting, And Unit Of Work
 
