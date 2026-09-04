@@ -37,6 +37,7 @@ The test matrix follows each official image's rolling minor tag within its LTS s
 | `TINYINT` | `sbyte` |
 | `TINYINT UNSIGNED` | `byte` |
 | `BIT(1)` | `bool` |
+| `BIT(2)` through `BIT(64)` | `ulong` |
 | `DECIMAL` | `decimal` |
 | `DOUBLE`, `FLOAT` | `double`, `float` |
 | `VARCHAR`, `TEXT`, `CHAR`, etc. | `string` |
@@ -139,7 +140,7 @@ When generating a schema from your DataLinq models:
 Default SQL generation is typed, not stringly:
 
 - string and char defaults are SQL-quoted and escaped correctly
-- `bit` defaults are emitted as `b'0'` and `b'1'`
+- `BIT(1)` defaults are emitted as `b'0'` and `b'1'`; wider bit-field defaults preserve their unsigned numeric value
 - numeric defaults use invariant formatting
 - `DateOnly`, `TimeOnly`, `DateTime`, and related values are emitted as provider-safe SQL literals
 - MariaDB `uuid` defaults and MySQL `binary(16)` `Guid` defaults are emitted differently because they are genuinely different storage shapes
