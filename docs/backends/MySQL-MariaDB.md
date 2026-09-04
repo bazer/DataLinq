@@ -55,6 +55,17 @@ Additional notes:
 - `BINARY(16)` is MySQL's built-in `Guid` mapping, with the legacy little-endian layout as DataLinq's model-side compatibility default
 - enums are emitted as generated C# enums with value metadata
 
+`TIME` values mapped to `TimeOnly` must be within a single day, from `00:00:00`
+through `23:59:59.999999`. Negative values and durations of 24 hours or more
+throw `InvalidCastException` instead of wrapping into a different time of day.
+For duration columns, declare the model property as `TimeSpan` (or `TimeSpan?`
+for nullable columns) with a `time` provider type. This preserves negative and
+multi-day values. Model generation retains `TimeOnly` as its default mapping,
+so adjust generated model declarations for columns whose meaning is a duration.
+Duration defaults preserve the sign, total hours, and microseconds in generated
+MySQL/MariaDB SQL, and exact ticks in generated C# code. SQL generation rejects
+sub-microsecond duration defaults that MySQL/MariaDB cannot represent.
+
 ## Default Value Handling
 
 `generate models` imports MySQL and MariaDB defaults into DataLinq metadata instead of treating them as raw schema text.
