@@ -241,12 +241,6 @@ public class Select<T> : IQuery
         return definitions;
     }
 
-    private List<OrderBy> GetCacheOrderings()
-        => query.OrderByList
-            .Where(static ordering => ordering.Column is not null)
-            .Select(static ordering => new OrderBy(ordering.Column!, alias: null, ordering.Ascending))
-            .ToList();
-
     public IEnumerable<DataLinqKey> ReadKeys()
     {
         return KeyFactory.GetKeys(this, query.Table.PrimaryKeyColumns);
@@ -343,7 +337,7 @@ public class Select<T> : IQuery
                 }
                 else if (!query.HasDerivedSource &&
                     !query.HasJoins &&
-                    tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, GetCacheOrderings(), out var providerKeyRows))
+                    tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, out var providerKeyRows))
                 {
                     foreach (var row in providerKeyRows)
                         yield return row;
@@ -352,9 +346,9 @@ public class Select<T> : IQuery
                 {
                     this.What(query.Table.PrimaryKeyColumns);
                     var keys = this.ReadKeys().ToArray();
-                    var orderings = query.HasJoins ? null : GetCacheOrderings();
-
-                    foreach (var row in tableCache.GetRows(keys, query.DataSource, orderings: orderings))
+                    // The database has already applied ordering, collation, and paging.
+                    // Replay that key sequence instead of sorting cached models in the CLR.
+                    foreach (var row in tableCache.GetRows(keys, query.DataSource))
                         yield return row;
                 }
             }
