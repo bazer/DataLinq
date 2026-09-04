@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for the release-local builder, relation, Memory-fixture, unit-of-work, and DI-helper subset; later testing slices remain unscheduled.
-**Last reviewed:** 2026-08-31.
+**Last reviewed:** 2026-09-04.
 **Dependency:** Queryable provider-like tests use the shipped capability-declared `DataLinq.Memory` preview rather than inventing a second LINQ-to-Objects provider; fake unit-of-work support follows the real 0.10 unit-of-work contract.
 **Goal:** Make DataLinq application code testable without a live database when the test is about business behavior, while preserving provider-backed tests for SQL translation, schema, transaction, and database-specific behavior.
 
@@ -295,7 +295,9 @@ The exact required execution primitives and overload inventory remain subject to
 
 Query-capable fixtures follow ordinary/prepared parameter-capture boundaries without substituting permanent result caching. Ownership/active-reader tests use controllable execution sources or provider-backed fixtures; a pure collection double does not prove reader disposal or transaction behavior. Do not make every graph fixture construct a query provider to test these separate execution contracts.
 
-[AAPI-21 through AAPI-26](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-21-validate-first-then-honor-pre-cancellation-even-on-cache-hits) own accepted cancellation/failure policies. Immediate/cache-hit doubles honor pre-cancellation after ordinary validation and never publish a partial relation as complete. Failure fixtures distinguish interrupted initialization, reusable versus untrustworthy canceled reads, poisoned mutations, known/unknown completion, and primary/secondary cleanup errors. Fake unit-of-work behavior must expose the same supported cause/outcome/recovery information as H10 without pretending to prove provider interruption, recovery-budget feasibility, or connection reuse. Use controllable providers and provider-backed tests for those guarantees. Mutable-input/callback and broader concurrency policies remain under OAPI-5/OAPI-6 rather than a testing-only policy.
+[AAPI-21 through AAPI-26](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-21-validate-first-then-honor-pre-cancellation-even-on-cache-hits) own accepted cancellation/failure policies. Immediate/cache-hit doubles honor pre-cancellation after ordinary validation and never publish a partial relation as complete. Failure fixtures distinguish interrupted initialization, reusable versus untrustworthy canceled reads, poisoned mutations, known/unknown completion, and primary/secondary cleanup errors. Fake unit-of-work behavior must expose the same supported cause/outcome/recovery information as H10 without pretending to prove provider interruption, recovery-budget feasibility, or connection reuse. Use controllable providers and provider-backed tests for those guarantees.
+
+[AAPI-27 through AAPI-33](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-27-capture-mutation-inputs-before-the-first-suspension) own accepted mutation/callback policies: capture before suspension, exclusive pending mutable use, exactly-once synchronous local edits, finite all-model capture, task callback families with explicit token propagation, borrowed completion restrictions, and results delivered after helper cleanup. Focused fixtures follow these contracts without adding a testing-only mutation engine or claiming that escaped references/custom types can be universally intercepted. Broader concurrency and unfinished callback work remain under OAPI-6.
 
 Synchronous subset of the reference-holder shape:
 

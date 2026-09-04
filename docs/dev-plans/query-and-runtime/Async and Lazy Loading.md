@@ -4,7 +4,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for native async/cancellation; lazy-loading experiments remain later work.
-**Last reviewed:** 2026-08-31.
+**Last reviewed:** 2026-09-04.
 **Dependency:** The shipped 0.9 execution foundation provides the backend/source boundary; the 0.10 release-local plan owns the exact async surface and evidence.
 **Goal:** Introduce real async I/O support and define how lazy loading should behave without turning DataLinq into a magical, hard-to-reason-about API.
 
@@ -36,7 +36,10 @@ The release-local [Async Public API Decisions](../roadmap-implementation/v0.10/A
 - Track confirmed/unknown database completion independently of local finalization and cleanup. Preserve known commit/rollback after subsequent failures, block unsafe terminal reuse, and never automatically replay uncertain commits.
 - Explicit rollback honors its caller token; internal recovery uses an independent configurable 30-second starting rollback budget, subject to provider verification without promising a total cleanup deadline. Retain throwing disposal, preserve primary/secondary failures where DataLinq owns execution/cleanup, document scope-exit exception replacement, and do not rethrow already-reported cleanup failures merely on later disposal.
 - Provide structured failure cause, stage, database outcome, permitted recovery, and secondary failures for explicit and implicit helpers while preserving ordinary exception types. A canceled token alone must not relabel unrelated errors.
-- OAPI-4's design policies are accepted under AAPI-21 through AAPI-26. Exact primitive/overload/context/configuration signatures and provider evidence still require review; mutable-input/callback and wider transaction/cache coordination remain open under OAPI-5/OAPI-6.
+- Mutation identity/values and `SaveAsync` lifecycle selection are captured before first suspension. Pending operations have exclusive use of their mutable inputs through supported assignment/reset paths, with transaction-level versus implicit-helper lifetime and existing invalidation/snapshot limits preserved.
+- Retain exactly-once synchronous local editing delegates before final capture, with pre-cancellation and local-failure semantics explicit; document the `Action` async-void limitation rather than adding asynchronous editing callbacks. Capture finite multiple-model membership/order/values before writes and reject repeated mutable object references; generated-value dependencies require explicitly sequenced operations.
+- `CommitAsync` uses task-returning transaction-only/token-aware and result/no-result callback families. Helpers own completion, await callbacks once, reject borrowed commit/rollback/disposal, propagate tokens explicitly, and deliver results only after successful commit/finalization/cleanup. Materialize transaction-bound deferred results inside the callback; preserve validated later entity relation transitions.
+- OAPI-4/OAPI-5 policies are accepted under AAPI-21 through AAPI-33. Exact primitive/overload/context/configuration signatures and provider evidence still require review; wider transaction/cache coordination and unfinished callback work remain under OAPI-6. Async-stream mutation inputs, bulk execution, and automatic mutation dependency ordering remain outside 0.10.
 
 The broader options and phases below retain design rationale. They do not authorize interface-first model rewrites, strict sync-I/O modes, preload/batching features, hollow instances, or awaitable-entity experiments in 0.10. Provider APIs use native async where available; the documented Microsoft.Data.Sqlite synchronous-driver limitation is an explicit exception, not a promise of nonblocking SQLite I/O.
 

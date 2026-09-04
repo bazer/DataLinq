@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-08-31.
+**Last reviewed:** 2026-09-04.
 
 **Depends on:** The required workstreams and gates in the [0.10 implementation roadmap](README.md) and [implementation order](Implementation%20Order%20and%20Integration%20Plan.md).
 
@@ -118,6 +118,13 @@ Required focused evidence:
 - AAPI-25 explicit rollback tokens versus independent recovery tokens, configurable 30-second starting budget and provider feasibility, no hard total-cleanup promise, no unsafe abandoned operation/connection reuse, and continued safe independent cleanup after a failure
 - AAPI-25 primary exception type/stack and structured secondary failures when DataLinq owns execution/cleanup; cleanup-only failure after successful execution; documented throwing `await using`/`await foreach` disposal limitations; no duplicate masking by already-reported cleanup failures
 - AAPI-26 cause/stage/outcome/recovery/secondary-failure information for explicit transactions and disposed implicit helpers; cancellation and unknown commit can coexist, provider timeout codes remain intact, and unrelated errors are not relabeled solely because a token was canceled
+- AAPI-27 mutation identity/mapped-value/lifecycle capture before first suspension, delayed-await independence, supported array snapshot isolation, consistent provider/cache/finalization inputs, and measured capture costs without claiming arbitrary deep cloning
+- AAPI-28 supported assignment/reset guards and same-object mutation rejection across transactions, transaction-level versus implicit-helper ownership duration, release on every exit, custom/generated compatibility, and no restoration of invalid mutable baselines merely because a task finished
+- AAPI-29 exactly-once local edits after validation/pre-cancellation and before final capture, failures/cancellation retaining local assignments without pre-write poisoning, and consumer guidance for the retained `Action` async-void limitation
+- AAPI-30 finite input single enumeration/order and all-model capture before suspension/writes, pre-write enumeration/validation/duplicate-object rejection, original-list independence, ownership release on capture failure, no committed prefix after cancellation, and explicit sequencing for generated-value dependencies
+- AAPI-31 transaction-only/token-aware and result/no-result task callback consumers, optional/named cancellation and transaction-type parameters, async lambda/method group overload resolution, and guidance avoiding async work through synchronous generic `Commit`
+- AAPI-32 exactly-once awaited callbacks, helper-owned completion and rejected borrowed commit/rollback/disposal before provider execution, explicit inner-token propagation, pre-callback/pre-commit cancellation, poisoned-state rejection, nested-service participation, and unfinished-work coordination verified with OAPI-6
+- AAPI-33 no result delivery before successful commit/finalization/cleanup, failure outcome preservation, materialization of deferred transaction-bound work, no automatic arbitrary result enumeration or hidden transaction retention, and valid later entity relation transitions
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families
 - explicit relation-load parity for cache hit, cache miss, missing row, and provider failure
 - mutation success/failure and transaction commit/rollback parity
@@ -139,6 +146,7 @@ Required focused evidence:
 - concurrent scope isolation
 - explicit unit-of-work begin/commit/rollback/failure/cancellation/disposal
 - unit-of-work failure reporting/recovery consumes AAPI-21 through AAPI-26 rather than inventing host-specific outcomes or cleanup-token rules
+- host callback helpers consume AAPI-27 through AAPI-33 input/lifetime/completion/result policies without inventing ambient token propagation or independent completion rights for borrowed transactions
 - nested application-service participation without hidden ambient ownership
 - logging through the host pipeline
 
@@ -163,6 +171,7 @@ Required focused evidence:
 - Memory fixture seeding/reset and capability rejection
 - fake unit-of-work recording, commit/rollback/disposal, and failure injection
 - failure fixtures represent AAPI-21 through AAPI-26 cause/outcome/cleanup distinctions without claiming that an in-memory fake proves provider interruption or safe connection reuse
+- mutation/callback fixtures follow AAPI-27 through AAPI-33 capture, exclusive mutable use, delegate invocation, collection preflight, token propagation, borrowed completion, and post-cleanup result timing contracts; provider evidence remains separate
 - DI replacement behavior for Memory, fake unit of work, and SQLite-in-memory provider tests
 
 ### Source Type Aliases
