@@ -281,6 +281,16 @@ DataLinq also exposes lower-level query construction through `From(...)` and `Sq
 
 That API is real and useful, but it is not the same thing as the LINQ translator. The existence of raw SQL builder classes does not mean arbitrary LINQ `Join`, `GroupBy`, or aggregate shapes are supported.
 
+For low-level `Where(...).In(...)` and `NotIn(...)`, an empty collection renders a
+complete false or true predicate respectively. `WhereNot(...)` reverses that result,
+and empty collections add no SQL parameters. A null collection argument is rejected.
+
+Collections containing null values use SQL three-valued logic. `In(new string?[] { null })`
+and `NotIn(new string?[] { null })` both select no rows in a `WHERE` clause. A mixed
+`In(new string?[] { "a", null })` matches `"a"`; its `NotIn` form selects no rows.
+Use an explicit `EqualToNull()` condition when null itself should match. This
+low-level contract is separate from the LINQ translator's null handling.
+
 ## Summary
 
 Use the LINQ surface that is already covered by tests, lean on explicit ordering, and treat relation access as lazy and cache-backed. That is the honest mental model for querying with DataLinq today.
