@@ -123,8 +123,17 @@ Required focused evidence:
 - AAPI-29 exactly-once local edits after validation/pre-cancellation and before final capture, failures/cancellation retaining local assignments without pre-write poisoning, and consumer guidance for the retained `Action` async-void limitation
 - AAPI-30 finite input single enumeration/order and all-model capture before suspension/writes, pre-write enumeration/validation/duplicate-object rejection, original-list independence, ownership release on capture failure, no committed prefix after cancellation, and explicit sequencing for generated-value dependencies
 - AAPI-31 transaction-only/token-aware and result/no-result task callback consumers, optional/named cancellation and transaction-type parameters, async lambda/method group overload resolution, and guidance avoiding async work through synchronous generic `Commit`
-- AAPI-32 exactly-once awaited callbacks, helper-owned completion and rejected borrowed commit/rollback/disposal before provider execution, explicit inner-token propagation, pre-callback/pre-commit cancellation, poisoned-state rejection, nested-service participation, and unfinished-work coordination verified with OAPI-6
+- AAPI-32 exactly-once awaited callbacks, helper-owned completion and rejected borrowed commit/rollback/disposal before provider execution, explicit inner-token propagation, pre-callback/pre-commit cancellation, poisoned-state rejection, nested-service participation, and unfinished-work coordination under AAPI-36/AAPI-38
 - AAPI-33 no result delivery before successful commit/finalization/cleanup, failure outcome preservation, materialization of deferred transaction-bound work, no automatic arbitrary result enumeration or hidden transaction retention, and valid later entity relation transitions
+- AAPI-34 deterministic sync/async transaction overlap rejection on warm/cold paths, initialization and completion; attempted/active-operation diagnostics, unchanged first-operation behavior, and independent database-root concurrency
+- AAPI-35 execution ownership through hydration/finalization/cleanup and between reader moves, rejected concurrent moves/move-disposal, unused/deferred sequence behavior, and release based on actual completion rather than when a caller awaits
+- AAPI-36 private internal ownership across resumed threads, hydration within its enclosing mutation, rejected public reentrancy and inherited child-work privileges, separate mutable reservations/local-edit allowance, and helper lifetime ownership without blocking callback operations
+- AAPI-37 caller disposal rejected during active operations/readers without marking disposed or disturbing work, no in-use provider disposal, and safe eventual cleanup after operation completion
+- AAPI-38 atomic callback admission closure, unfinished-operation/reader detection, no commit/result, observation before safe reader/recovery cleanup, original versus secondary failures, late escaped-use rejection, and explicit completed-task detection and drain-deadline limits
+- AAPI-39 eligible mixed sync/async relation coordination, independent loader/waiter cancellation, release after failures without cached failed tasks, fresh caller attempts, same-transaction overlap precedence, and no database-wide serialization
+- AAPI-40 cold/warm load invalidation, subscription/version/publication races, row/index/relation coverage, no stale repopulation or newer-entry overwrite, successful uncached original results, and no automatic retry loop/latest-at-return promise
+- AAPI-41 valid individual-row retention after later failure, no partial relation/index completeness, empty/optional/required reference semantics, consistent collection/keyed generations, and transaction/database/source isolation through normal completion/invalidation
+- use controllable pauses at initialization, hydration, reader moves, callback completion, and cache publication rather than timing-dependent delays; exercise cleanup failures and measure coordination/versioning costs against W0
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families
 - explicit relation-load parity for cache hit, cache miss, missing row, and provider failure
 - mutation success/failure and transaction commit/rollback parity
@@ -147,6 +156,7 @@ Required focused evidence:
 - explicit unit-of-work begin/commit/rollback/failure/cancellation/disposal
 - unit-of-work failure reporting/recovery consumes AAPI-21 through AAPI-26 rather than inventing host-specific outcomes or cleanup-token rules
 - host callback helpers consume AAPI-27 through AAPI-33 input/lifetime/completion/result policies without inventing ambient token propagation or independent completion rights for borrowed transactions
+- host lifetime/recovery follows AAPI-34 through AAPI-38: no hidden transaction queuing, busy caller-disposal rejection, private helper ownership, and safe unfinished-callback recovery without commit or a hard drain deadline
 - nested application-service participation without hidden ambient ownership
 - logging through the host pipeline
 
@@ -172,6 +182,7 @@ Required focused evidence:
 - fake unit-of-work recording, commit/rollback/disposal, and failure injection
 - failure fixtures represent AAPI-21 through AAPI-26 cause/outcome/cleanup distinctions without claiming that an in-memory fake proves provider interruption or safe connection reuse
 - mutation/callback fixtures follow AAPI-27 through AAPI-33 capture, exclusive mutable use, delegate invocation, collection preflight, token propagation, borrowed completion, and post-cleanup result timing contracts; provider evidence remains separate
+- concurrency fixtures follow AAPI-34 through AAPI-41 ownership, independent wait cancellation, invalidation-safe completeness, and isolation; collection doubles alone do not prove provider concurrency, recovery, or connection lifetime
 - DI replacement behavior for Memory, fake unit of work, and SQLite-in-memory provider tests
 
 ### Source Type Aliases
