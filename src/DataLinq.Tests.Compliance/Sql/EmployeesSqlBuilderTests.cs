@@ -349,30 +349,30 @@ LIMIT 1",
         var notInMany = databaseScope.Database.From("departments").Where("Id").NotIn(manyIds).SelectQuery().ToSql();
 
         await AssertSql(what, $"SELECT {escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter}");
-        await AssertSql(explicitJoin, $@"SELECT d.{escapeCharacter}dept_no{escapeCharacter}, d.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} d
-JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} m ON d.{escapeCharacter}dept_no{escapeCharacter} = m.{escapeCharacter}dept_no{escapeCharacter}");
-        await AssertSql(includedJoin, $@"SELECT d.{escapeCharacter}dept_no{escapeCharacter}, d.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} d
-JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} m ON d.{escapeCharacter}dept_no{escapeCharacter} = m.{escapeCharacter}dept_no{escapeCharacter}");
+        await AssertSql(explicitJoin, $@"SELECT {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}, {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} {escapeCharacter}d{escapeCharacter}
+JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} {escapeCharacter}m{escapeCharacter} ON {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} = {escapeCharacter}m{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}");
+        await AssertSql(includedJoin, $@"SELECT {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}, {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} {escapeCharacter}d{escapeCharacter}
+JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} {escapeCharacter}m{escapeCharacter} ON {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} = {escapeCharacter}m{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}");
         await AssertSql(
             includedJoinWhere,
-            $@"SELECT d.{escapeCharacter}dept_no{escapeCharacter}, d.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} d
-JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} m ON d.{escapeCharacter}dept_no{escapeCharacter} = m.{escapeCharacter}dept_no{escapeCharacter}
+            $@"SELECT {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}, {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} {escapeCharacter}d{escapeCharacter}
+JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} {escapeCharacter}m{escapeCharacter} ON {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} = {escapeCharacter}m{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}
 WHERE
-m.{escapeCharacter}dept_no{escapeCharacter} = {parameterSign}w0
-ORDER BY d.{escapeCharacter}dept_no{escapeCharacter} DESC
+{escapeCharacter}m{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} = {parameterSign}w0
+ORDER BY {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} DESC
 LIMIT 1",
             (1, $"{parameterSign}w0", "d005"));
-        await AssertSql(includedJoinLimit, $@"SELECT d.{escapeCharacter}dept_no{escapeCharacter}, d.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} d
-JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} m ON d.{escapeCharacter}dept_no{escapeCharacter} = m.{escapeCharacter}dept_no{escapeCharacter}
-ORDER BY d.{escapeCharacter}dept_no{escapeCharacter} DESC
+        await AssertSql(includedJoinLimit, $@"SELECT {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}, {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} {escapeCharacter}d{escapeCharacter}
+JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} {escapeCharacter}m{escapeCharacter} ON {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} = {escapeCharacter}m{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}
+ORDER BY {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} DESC
 LIMIT 1");
-        await AssertSql(includedJoinOrder, $@"SELECT d.{escapeCharacter}dept_no{escapeCharacter}, d.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} d
-JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} m ON d.{escapeCharacter}dept_no{escapeCharacter} = m.{escapeCharacter}dept_no{escapeCharacter}
-ORDER BY d.{escapeCharacter}dept_no{escapeCharacter} DESC");
-        await AssertSql(doubleJoin, $@"SELECT d.{escapeCharacter}dept_no{escapeCharacter}, d.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} d
-JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} m ON d.{escapeCharacter}dept_no{escapeCharacter} = m.{escapeCharacter}dept_no{escapeCharacter}
-JOIN {databasePrefix}{escapeCharacter}dept-emp{escapeCharacter} e ON e.{escapeCharacter}dept_no{escapeCharacter} = m.{escapeCharacter}dept_no{escapeCharacter}
-ORDER BY d.{escapeCharacter}dept_no{escapeCharacter} DESC");
+        await AssertSql(includedJoinOrder, $@"SELECT {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}, {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} {escapeCharacter}d{escapeCharacter}
+JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} {escapeCharacter}m{escapeCharacter} ON {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} = {escapeCharacter}m{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}
+ORDER BY {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} DESC");
+        await AssertSql(doubleJoin, $@"SELECT {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}, {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} {escapeCharacter}d{escapeCharacter}
+JOIN {databasePrefix}{escapeCharacter}dept_manager{escapeCharacter} {escapeCharacter}m{escapeCharacter} ON {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} = {escapeCharacter}m{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}
+JOIN {databasePrefix}{escapeCharacter}dept-emp{escapeCharacter} {escapeCharacter}e{escapeCharacter} ON {escapeCharacter}e{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} = {escapeCharacter}m{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}
+ORDER BY {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter} DESC");
         await AssertSql(
             insert,
             $@"INSERT INTO {databasePrefix}{escapeCharacter}departments{escapeCharacter} ({escapeCharacter}dept_no{escapeCharacter}) VALUES ({parameterSign}v0)",
@@ -391,13 +391,13 @@ SELECT {lastInsertCommand}",
 SELECT {lastInsertCommand}");
         await AssertSql(
             inOne,
-            $@"SELECT d.{escapeCharacter}dept_no{escapeCharacter}, d.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} d
+            $@"SELECT {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}, {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} {escapeCharacter}d{escapeCharacter}
 WHERE
 {escapeCharacter}Id{escapeCharacter} IN ({parameterSign}w0)",
             (1, $"{parameterSign}w0", 3));
         await AssertSql(
             inMany,
-            $@"SELECT d.{escapeCharacter}dept_no{escapeCharacter}, d.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} d
+            $@"SELECT {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_no{escapeCharacter}, {escapeCharacter}d{escapeCharacter}.{escapeCharacter}dept_name{escapeCharacter} FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} {escapeCharacter}d{escapeCharacter}
 WHERE
 {escapeCharacter}Id{escapeCharacter} IN ({parameterSign}w0, {parameterSign}w1, {parameterSign}w2)",
             (3, $"{parameterSign}w2", 3));

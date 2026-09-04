@@ -35,8 +35,8 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         connection.Open();
         var command = connection.CreateCommand();
 
-        command.CommandText = $"CREATE DATABASE IF NOT EXISTS `{databaseName}`;\n" +
-            $"USE `{databaseName}`;\n" +
+        command.CommandText = $"CREATE DATABASE IF NOT EXISTS {SqlIdentifier.Quote(databaseName, "`")};\n" +
+            $"USE {SqlIdentifier.Quote(databaseName, "`")};\n" +
             sql.Text;
 
         return command.ExecuteNonQuery();

@@ -27,9 +27,7 @@ public class Insert<T> : IQuery
             if (columnIndex > 0)
                 sql.AddText(",");
 
-            sql.AddText(query.EscapeCharacter);
-            sql.AddText(key);
-            sql.AddText(query.EscapeCharacter);
+            SqlIdentifier.Append(sql, key, query.EscapeCharacter);
             columnIndex++;
         }
         sql.AddText(") VALUES (");

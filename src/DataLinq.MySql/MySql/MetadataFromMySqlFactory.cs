@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
@@ -289,7 +289,7 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
     {
         try
         {
-            using var reader = informationSchemaDb.Provider.DatabaseAccess.ExecuteReader($"SHOW CREATE VIEW `{databaseName}`.`{viewName}`");
+            using var reader = informationSchemaDb.Provider.DatabaseAccess.ExecuteReader($"SHOW CREATE VIEW {DataLinq.Query.SqlIdentifier.Quote(databaseName, "`")}.{DataLinq.Query.SqlIdentifier.Quote(viewName, "`")}");
             if (!reader.ReadNextRow())
                 return null;
 
@@ -324,8 +324,8 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
 
     private static string ExtractSelectFromCreateView(string createViewSql, string databaseName, string viewName)
     {
-        var markerWithDb = $"VIEW `{databaseName}`.`{viewName}` AS ";
-        var markerWithoutDb = $"VIEW `{viewName}` AS ";
+        var markerWithDb = $"VIEW {DataLinq.Query.SqlIdentifier.Quote(databaseName, "`")}.{DataLinq.Query.SqlIdentifier.Quote(viewName, "`")} AS ";
+        var markerWithoutDb = $"VIEW {DataLinq.Query.SqlIdentifier.Quote(viewName, "`")} AS ";
 
         var index = createViewSql.IndexOf(markerWithDb, StringComparison.OrdinalIgnoreCase);
         if (index >= 0)
@@ -345,7 +345,7 @@ public class MetadataFromMySqlFactory : MetadataFromSqlFactory
             return null;
 
         return definition
-            .Replace($"`{databaseName}`.", "")
+            .Replace($"{DataLinq.Query.SqlIdentifier.Quote(databaseName, "`")}.", "")
             .Replace($"{databaseName}.", "")
             .Trim();
     }

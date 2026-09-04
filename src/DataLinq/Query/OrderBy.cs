@@ -11,8 +11,8 @@ public class OrderBy
     public bool Ascending { get; }
 
     internal string DbName(string escapeCharacter) => string.IsNullOrEmpty(Alias)
-        ? RawExpression ?? $"{escapeCharacter}{Column!.DbName}{escapeCharacter}"
-        : $"{Alias}.{escapeCharacter}{Column!.DbName}{escapeCharacter}";
+        ? RawExpression ?? SqlIdentifier.Quote(Column!.DbName, escapeCharacter)
+        : $"{SqlIdentifier.Quote(Alias, escapeCharacter)}.{SqlIdentifier.Quote(Column!.DbName, escapeCharacter)}";
 
     internal void AddDbName(Sql sql, string escapeCharacter)
     {
@@ -25,13 +25,11 @@ public class OrderBy
         var column = Column ?? throw new InvalidOperationException("Column orderings require a column definition.");
         if (!string.IsNullOrEmpty(Alias))
         {
-            sql.AddText(Alias);
+            SqlIdentifier.Append(sql, Alias, escapeCharacter);
             sql.AddText(".");
         }
 
-        sql.AddText(escapeCharacter);
-        sql.AddText(column.DbName);
-        sql.AddText(escapeCharacter);
+        SqlIdentifier.Append(sql, column.DbName, escapeCharacter);
     }
 
     public OrderBy(ColumnDefinition column, string? alias, bool ascending)

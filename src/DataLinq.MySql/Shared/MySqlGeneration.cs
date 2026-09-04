@@ -6,7 +6,7 @@ public class MySqlGeneration(int indentationSpaces = 4, char quoteChar = '`', st
 {
     public override SqlGeneration CreateView(string viewName, string definition)
     {
-        sql.AddText($"CREATE OR REPLACE VIEW {QuoteCharacter}{viewName}{QuoteCharacter}\n");
+        sql.AddText($"CREATE OR REPLACE VIEW {QuotedString(viewName)}\n");
         sql.AddText($"AS {definition};");
         sql.AddText("\n\n");
         return this;
