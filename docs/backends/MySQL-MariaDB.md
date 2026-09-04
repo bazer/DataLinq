@@ -146,6 +146,19 @@ Default SQL generation is typed, not stringly:
 
 If DataLinq can parse a supported MySQL/MariaDB default and represent it in metadata, it should also be able to emit it back out correctly in generated SQL. That roundtrip is now something the test suite actually checks.
 
+## Database and table existence checks
+
+`DatabaseExists` and `TableExists` use parameterized equality searches in
+`information_schema`. Percent signs, underscores, quotes, and identifier delimiters
+are literal name characters, not patterns or SQL fragments. A missing schema/table
+returns `false`; metadata visibility still follows the connected account's privileges.
+
+Ordinary names retain the server's metadata case rules, including
+[`lower_case_table_names`](https://dev.mysql.com/doc/refman/8.4/en/charset-collation-information-schema.html).
+The virtual `information_schema` database and its tables accept either case; DataLinq
+normalizes their metadata spelling because current MySQL equality searches otherwise
+reject some valid case variants. Regression tests cover both provider families.
+
 ## Transaction Behavior
 
 The current MySQL and MariaDB transaction implementation opens transactions with `IsolationLevel.ReadCommitted`.
