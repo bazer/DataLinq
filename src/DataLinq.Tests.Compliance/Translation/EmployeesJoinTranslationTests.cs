@@ -376,8 +376,9 @@ public class EmployeesJoinTranslationTests
         await Assert.That(normalized).Contains("JOIN");
         await Assert.That(normalized).Contains("WHERE");
         await Assert.That(normalized).Contains("ORDER BY");
-        await Assert.That(normalized).Contains("t0.");
-        await Assert.That(normalized).Contains("t1.");
+        var quote = databaseScope.Database.Provider.Constants.EscapeCharacter;
+        await Assert.That(normalized).Contains($"{quote}t0{quote}.");
+        await Assert.That(normalized).Contains($"{quote}t1{quote}.");
         await Assert.That(actual.Length).IsEqualTo(expected.Length);
 
         for (var index = 0; index < expected.Length; index++)

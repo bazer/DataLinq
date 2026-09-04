@@ -700,7 +700,8 @@ public class EmployeesGroupedAggregateTranslationTests
         await Assert.That(FormatComposedGroups(actual)).IsEqualTo(FormatComposedGroups(expected));
         await Assert.That(normalized).Contains("JOIN");
         await Assert.That(normalized).Contains("GROUP BY");
-        await Assert.That(normalized).Contains("UPPER(t0.");
+        var quote = databaseScope.Database.Provider.Constants.EscapeCharacter;
+        await Assert.That(normalized).Contains($"UPPER({quote}t0{quote}.");
         await Assert.That(normalized).DoesNotContain("UPPER(\"dept_no\")");
         await Assert.That(normalized).DoesNotContain("UPPER(`dept_no`)");
     }
@@ -765,7 +766,8 @@ public class EmployeesGroupedAggregateTranslationTests
         var sql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(databaseScope.Database, query);
         var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text);
 
-        await Assert.That(normalized).Contains("GROUP BY t0.");
+        var quote = databaseScope.Database.Provider.Constants.EscapeCharacter;
+        await Assert.That(normalized).Contains($"GROUP BY {quote}t0{quote}.");
         await Assert.That(normalized).Contains("COUNT(*)");
         await Assert.That(sql.Parameters.Select(x => x.Value).ToArray()).Contains("d00%");
     }
@@ -795,7 +797,8 @@ public class EmployeesGroupedAggregateTranslationTests
         var sql = CurrentQueryTranslationInspection.BuildExpressionPlanSql(databaseScope.Database, query);
         var normalized = CurrentQueryTranslationInspection.NormalizeSqlWhitespace(sql.Text);
 
-        await Assert.That(normalized).Contains("GROUP BY t0.");
+        var quote = databaseScope.Database.Provider.Constants.EscapeCharacter;
+        await Assert.That(normalized).Contains($"GROUP BY {quote}t0{quote}.");
         await Assert.That(normalized).Contains("COUNT(*)");
         await Assert.That(normalized).Contains("SUM(");
         await Assert.That(normalized).Contains("MIN(");

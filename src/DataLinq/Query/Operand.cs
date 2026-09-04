@@ -42,20 +42,18 @@ public class ColumnOperand : Operand
     }
 
     public string FormatName(string escapeCharacter) => string.IsNullOrEmpty(Alias)
-        ? $"{escapeCharacter}{Name}{escapeCharacter}"
-        : $"{Alias}.{escapeCharacter}{Name}{escapeCharacter}";
+        ? SqlIdentifier.Quote(Name, escapeCharacter)
+        : $"{SqlIdentifier.Quote(Alias, escapeCharacter)}.{SqlIdentifier.Quote(Name, escapeCharacter)}";
 
     internal void AddName(Sql sql, string escapeCharacter)
     {
         if (!string.IsNullOrEmpty(Alias))
         {
-            sql.AddText(Alias);
+            SqlIdentifier.Append(sql, Alias, escapeCharacter);
             sql.AddText(".");
         }
 
-        sql.AddText(escapeCharacter);
-        sql.AddText(Name);
-        sql.AddText(escapeCharacter);
+        SqlIdentifier.Append(sql, Name, escapeCharacter);
     }
 
     public override string ToString()
@@ -68,7 +66,7 @@ public class ColumnOperandWithDefinition : ColumnOperand
 {
     public ColumnDefinition ColumnDefinition { get; }
     internal ColumnOperandWithDefinition(ColumnDefinition column, string? alias = null)
-        : base(column.DbName, alias)
+        : base(column.DbName, alias ?? string.Empty)
     {
         ColumnDefinition = column;
     }

@@ -71,7 +71,7 @@ public class Select<T> : IQuery
         sql.AddText("(");
         sql.AddText(derivedSourceSql.Text);
         sql.AddText(") ");
-        sql.AddText(query.Alias ?? throw new InvalidOperationException("A derived query source requires an alias."));
+        SqlIdentifier.Append(sql, query.Alias ?? throw new InvalidOperationException("A derived query source requires an alias."), query.EscapeCharacter);
         sql.Parameters.AddRange(derivedSourceSql.Parameters);
     }
 
@@ -84,7 +84,7 @@ public class Select<T> : IQuery
             for (var i = 0; i < whatList.Count; i++)
             {
                 AddColumnSeparator(sql, i);
-                if (whatList[i].StartsWith(query.EscapeCharacter, StringComparison.Ordinal))
+                if (query.Table.TryGetColumnByDbName(SqlIdentifier.Unquote(whatList[i], query.EscapeCharacter), out _))
                     AddColumnPrefix(sql, alias);
 
                 sql.AddText(whatList[i]);
@@ -98,9 +98,7 @@ public class Select<T> : IQuery
         {
             AddColumnSeparator(sql, i);
             AddColumnPrefix(sql, alias);
-            sql.AddText(query.EscapeCharacter);
-            sql.AddText(columns[i].DbName);
-            sql.AddText(query.EscapeCharacter);
+            SqlIdentifier.Append(sql, columns[i].DbName, query.EscapeCharacter);
         }
     }
 
@@ -110,12 +108,12 @@ public class Select<T> : IQuery
             sql.AddText(", ");
     }
 
-    private static void AddColumnPrefix(Sql sql, string? alias)
+    private void AddColumnPrefix(Sql sql, string? alias)
     {
         if (alias is null)
             return;
 
-        sql.AddText(alias);
+        SqlIdentifier.Append(sql, alias, query.EscapeCharacter);
         sql.AddText(".");
     }
 
@@ -210,7 +208,7 @@ public class Select<T> : IQuery
         foreach (var what in query.WhatList)
         {
             // Strip escape characters to match against DbName
-            var cleanName = what.Replace(escape, "");
+            var cleanName = SqlIdentifier.Unquote(what, escape);
 
             // Find the matching column. 
             // Note: If 'what' is a raw SQL expression (e.g. "COUNT(*)"), this will be null.

@@ -253,11 +253,14 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override Sql GetTableName(Sql sql, string tableName, string? alias = null)
     {
-        sql.AddText($"{Constants.EscapeCharacter}{DatabaseName}{Constants.EscapeCharacter}.");
-
-        sql.AddText(string.IsNullOrEmpty(alias)
-            ? $"{Constants.EscapeCharacter}{tableName}{Constants.EscapeCharacter}"
-            : $"{Constants.EscapeCharacter}{tableName}{Constants.EscapeCharacter} {alias}");
+        SqlIdentifier.Append(sql, DatabaseName, Constants.EscapeCharacter);
+        sql.AddText(".");
+        SqlIdentifier.Append(sql, tableName, Constants.EscapeCharacter);
+        if (!string.IsNullOrEmpty(alias))
+        {
+            sql.AddText(" ");
+            SqlIdentifier.Append(sql, alias, Constants.EscapeCharacter);
+        }
 
         return sql;
     }
