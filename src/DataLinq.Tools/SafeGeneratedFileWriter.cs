@@ -10,6 +10,11 @@ namespace DataLinq.Tools;
 
 public static class SafeGeneratedFileWriter
 {
+    /// <summary>
+    /// Stages all files before replacing targets, restoring earlier targets if a write fails.
+    /// A backup-cleanup failure is reported after all targets are committed; the generated
+    /// output is retained and the failure identifies backups that need manual cleanup.
+    /// </summary>
     public static Option<bool, IDLOptionFailure> WriteAll(
         IEnumerable<(string path, string contents)> files,
         Encoding encoding,
@@ -75,8 +80,8 @@ public static class SafeGeneratedFileWriter
                 var tempPath = Path.Combine(
                     directory,
                     $".{Path.GetFileName(file.TargetPath)}.{Guid.NewGuid():N}.tmp");
-                File.WriteAllText(tempPath, file.Contents, encoding);
                 stagedWrites.Add(new StagedGeneratedFileWrite(file.TargetPath, tempPath));
+                File.WriteAllText(tempPath, file.Contents, encoding);
             }
 
             foreach (var stagedWrite in stagedWrites)
@@ -84,11 +89,6 @@ public static class SafeGeneratedFileWriter
                 log?.Invoke($"Writing {stagedWrite.TargetPath}");
                 CommitStagedWrite(stagedWrite);
             }
-
-            foreach (var stagedWrite in stagedWrites)
-                DeleteIfExists(stagedWrite.BackupPath);
-
-            return true;
         }
         catch (Exception exception)
         {
@@ -99,16 +99,38 @@ public static class SafeGeneratedFileWriter
 
             return DLOptionFailure.Fail(DLFailureType.Exception, message);
         }
+
+        // All targets are committed. Backup cleanup is a separate phase: once one
+        // backup has been deleted, the batch can no longer safely roll back.
+        var cleanupFailures = new List<string>();
+        foreach (var stagedWrite in stagedWrites)
+        {
+            try
+            {
+                DeleteIfExists(stagedWrite.BackupPath);
+            }
+            catch (Exception exception)
+            {
+                cleanupFailures.Add($"'{stagedWrite.BackupPath}': {exception.Message}");
+            }
+        }
+
+        return cleanupFailures.Count == 0
+            ? true
+            : DLOptionFailure.Fail(DLFailureType.Exception,
+                "All generated files were written, but backup cleanup failed. The generated output was retained. " +
+                string.Join(" ", cleanupFailures));
     }
 
     private static void CommitStagedWrite(StagedGeneratedFileWrite stagedWrite)
     {
         if (File.Exists(stagedWrite.TargetPath))
         {
-            stagedWrite.BackupPath = Path.Combine(
+            var backupPath = Path.Combine(
                 Path.GetDirectoryName(stagedWrite.TargetPath)!,
                 $".{Path.GetFileName(stagedWrite.TargetPath)}.{Guid.NewGuid():N}.bak");
-            File.Move(stagedWrite.TargetPath, stagedWrite.BackupPath);
+            File.Move(stagedWrite.TargetPath, backupPath);
+            stagedWrite.BackupPath = backupPath;
         }
 
         File.Move(stagedWrite.TempPath, stagedWrite.TargetPath);
@@ -117,25 +139,43 @@ public static class SafeGeneratedFileWriter
 
     private static Exception? RollBack(List<StagedGeneratedFileWrite> stagedWrites)
     {
-        try
+        var failures = new List<Exception>();
+        foreach (var stagedWrite in stagedWrites.AsEnumerable().Reverse())
         {
-            foreach (var stagedWrite in stagedWrites.AsEnumerable().Reverse())
+            try
             {
-                if (stagedWrite.Committed)
-                    DeleteIfExists(stagedWrite.TargetPath);
+                if (stagedWrite.BackupPath != null)
+                {
+                    // Never remove the only remaining copy if a backup was lost.
+                    if (!File.Exists(stagedWrite.BackupPath))
+                        throw new IOException($"Cannot restore '{stagedWrite.TargetPath}': backup '{stagedWrite.BackupPath}' is missing. The current output was retained.");
 
-                if (stagedWrite.BackupPath != null && File.Exists(stagedWrite.BackupPath))
+                    if (stagedWrite.Committed)
+                        DeleteIfExists(stagedWrite.TargetPath);
                     File.Move(stagedWrite.BackupPath, stagedWrite.TargetPath);
-
-                DeleteIfExists(stagedWrite.TempPath);
+                }
+                else if (stagedWrite.Committed)
+                {
+                    DeleteIfExists(stagedWrite.TargetPath);
+                }
+            }
+            catch (Exception exception)
+            {
+                failures.Add(new IOException($"Rollback failed for '{stagedWrite.TargetPath}'. {exception.Message}", exception));
             }
 
-            return null;
+            // A failed restore must not prevent cleanup or restoration of other files.
+            try
+            {
+                DeleteIfExists(stagedWrite.TempPath);
+            }
+            catch (Exception exception)
+            {
+                failures.Add(new IOException($"Cannot remove staged file '{stagedWrite.TempPath}'. {exception.Message}", exception));
+            }
         }
-        catch (Exception exception)
-        {
-            return exception;
-        }
+
+        return failures.Count == 0 ? null : new AggregateException(failures);
     }
 
     private static void DeleteIfExists(string? path)
