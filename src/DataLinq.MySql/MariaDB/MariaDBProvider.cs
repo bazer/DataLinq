@@ -9,7 +9,7 @@ namespace DataLinq.MariaDB;
 
 public class MariaDBProvider : IDatabaseProviderRegister
 {
-    public static bool HasBeenRegistered { get; private set; }
+    public static bool HasBeenRegistered => PluginHook.IsRegistered(DatabaseType.MariaDB);
 
     public static void RegisterProvider()
     {
@@ -20,11 +20,7 @@ public class MariaDBProvider : IDatabaseProviderRegister
         var sqlFactory = new SqlFromMariaDBFactory();
         var metadataFactory = new MetadataFromMariaDBFactoryCreator();
 
-        PluginHook.DatabaseProviders[DatabaseType.MariaDB] = creator;
-        PluginHook.SqlFromMetadataFactories[DatabaseType.MariaDB] = sqlFactory;
-        PluginHook.MetadataFromSqlFactories[DatabaseType.MariaDB] = metadataFactory;
-
-        HasBeenRegistered = true;
+        PluginHook.RegisterProvider(DatabaseType.MariaDB, creator, sqlFactory, metadataFactory);
     }
 }
 

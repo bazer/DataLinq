@@ -8,7 +8,7 @@ namespace DataLinq.MySql;
 
 public class MySQLProvider : IDatabaseProviderRegister
 {
-    public static bool HasBeenRegistered { get; private set; }
+    public static bool HasBeenRegistered => PluginHook.IsRegistered(DatabaseType.MySQL);
 
     public static void RegisterProvider()
     {
@@ -19,11 +19,7 @@ public class MySQLProvider : IDatabaseProviderRegister
         var sqlFactory = new SqlFromMySqlFactory();
         var metadataFactory = new MetadataFromMySqlFactoryCreator();
 
-        PluginHook.DatabaseProviders[DatabaseType.MySQL] = creator;
-        PluginHook.SqlFromMetadataFactories[DatabaseType.MySQL] = sqlFactory;
-        PluginHook.MetadataFromSqlFactories[DatabaseType.MySQL] = metadataFactory;
-
-        HasBeenRegistered = true;
+        PluginHook.RegisterProvider(DatabaseType.MySQL, creator, sqlFactory, metadataFactory);
     }
 }
 

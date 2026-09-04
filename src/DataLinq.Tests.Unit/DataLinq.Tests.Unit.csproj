@@ -24,6 +24,7 @@
 		<ProjectReference Include="..\DataLinq.Testing\DataLinq.Testing.csproj" />
 		<ProjectReference Include="..\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj" />
 		<ProjectReference Include="..\DataLinq.Tools\DataLinq.Tools.csproj" />
+		<ProjectReference Include="..\..\tests\fixtures\ProviderRegistrationProcess\ProviderRegistrationProcess.csproj" />
 		<Analyzer Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)\throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
 	</ItemGroup>
 
