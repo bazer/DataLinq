@@ -12,6 +12,7 @@
 
 	<ItemGroup>
 		<InternalsVisibleTo Include="DataLinq.Tests.Unit" />
+		<InternalsVisibleTo Include="DataLinq.Testing.CLI" />
 	</ItemGroup>
 
 	<Import Project="RunnerBuildProvenance.targets" />
