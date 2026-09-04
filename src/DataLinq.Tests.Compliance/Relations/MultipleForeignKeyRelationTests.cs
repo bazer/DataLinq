@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -12,6 +14,7 @@ namespace DataLinq.Tests.Compliance;
 public class MultipleForeignKeyRelationTests
 {
     [Test]
+    [NotInParallel]
     [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.EveryProvider)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Transaction_MultipleForeignKeysToSameTable_LazyLoadsDistinctRelations(TestProviderDescriptor provider)
@@ -40,18 +43,46 @@ public class MultipleForeignKeyRelationTests
         await Assert.That(ReferenceEquals(createdBy, creator)).IsTrue();
         await Assert.That(ReferenceEquals(approvedBy, approver)).IsTrue();
 
-        var createdInvoices = creator.CreatedInvoices.ToArray();
+        var relation = creator.CreatedInvoices;
+        var concreteRelation = (ImmutableRelation<RuntimeInvoice, int>)relation;
+        var loadsBeforeRowViews = GetCollectionLoads(databaseScope.Database);
+
+        // Both receiver types must bind to the standard row extension without loading.
+        IEnumerable<RuntimeInvoice> rows = relation.AsEnumerable();
+        IEnumerable<RuntimeInvoice> concreteRows = concreteRelation.AsEnumerable();
+
+        await Assert.That(ReferenceEquals(rows, relation)).IsTrue();
+        await Assert.That(ReferenceEquals(concreteRows, relation)).IsTrue();
+        await Assert.That(GetCollectionLoads(databaseScope.Database)).IsEqualTo(loadsBeforeRowViews);
+
+        var createdInvoices = rows.ToArray();
+        await Assert.That(GetCollectionLoads(databaseScope.Database)).IsEqualTo(loadsBeforeRowViews + 1);
         var approvedInvoices = approver.ApprovedInvoices.ToArray();
 
         await Assert.That(createdInvoices.Length).IsEqualTo(1);
         await Assert.That(approvedInvoices.Length).IsEqualTo(1);
         await Assert.That(ReferenceEquals(invoice, createdInvoices.Single())).IsTrue();
         await Assert.That(ReferenceEquals(invoice, approvedInvoices.Single())).IsTrue();
-        await Assert.That(creator.ApprovedInvoices).IsEmpty();
-        await Assert.That(approver.CreatedInvoices).IsEmpty();
+
+        IEnumerable<KeyValuePair<DataLinqKey, RuntimeInvoice>> keyedRows = relation.AsKeyValuePairs();
+        var pair = keyedRows.Single();
+        await Assert.That(pair.Key).IsEqualTo(DataLinqKey.FromValue(100));
+        await Assert.That(ReferenceEquals(pair.Value, createdInvoices.Single())).IsTrue();
+        await Assert.That(ReferenceEquals(relation.Get(pair.Key), pair.Value)).IsTrue();
+        await Assert.That(ReferenceEquals(concreteRelation.AsKeyValuePairs().Single().Value, pair.Value)).IsTrue();
+
+        await Assert.That(creator.ApprovedInvoices.AsEnumerable()).IsEmpty();
+        await Assert.That(creator.ApprovedInvoices.AsKeyValuePairs()).IsEmpty();
+        await Assert.That(approver.CreatedInvoices.AsEnumerable()).IsEmpty();
+        await Assert.That(approver.CreatedInvoices.AsKeyValuePairs()).IsEmpty();
 
         transaction.Commit();
     }
+
+    private static long GetCollectionLoads(Database<MultipleForeignKeyRelationDb> database)
+        => DataLinqMetrics.Snapshot().Providers
+            .Single(provider => provider.ProviderInstanceId == database.Provider.TelemetryInstanceId)
+            .Tables.Sum(table => table.Relations.CollectionLoads);
 }
 
 [Database("multiple_fk_relation")]
