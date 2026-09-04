@@ -29,7 +29,7 @@ public class SqlDbAccess : DatabaseAccess
         using var connection = dataSource.OpenConnection();
         command.Connection = connection;
 
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration, command);
 
         return ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
     }
@@ -51,7 +51,7 @@ public class SqlDbAccess : DatabaseAccess
         using var connection = dataSource.OpenConnection();
         command.Connection = connection;
 
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration, command);
 
         return ExecuteCommandWithTelemetry(command, "scalar", transactional: false, transactionType: null, command.ExecuteScalar);
     }
@@ -61,7 +61,7 @@ public class SqlDbAccess : DatabaseAccess
         var connection = dataSource.OpenConnection();
         command.Connection = connection;
 
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration, command);
 
         var reader = ExecuteCommandWithTelemetry(
             command,
