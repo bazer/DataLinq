@@ -34,9 +34,14 @@ internal class TypedIndexCache<TKey> : IIndexCache
     where TKey : notnull
 {
     private readonly object cacheLock = new();
-    private readonly object ticksQueueLock = new();
-    private (TKey keys, long ticks)? oldestTick;
-    private readonly Queue<(TKey keys, long ticks)> ticks = new();
+    private readonly LinkedList<(TKey key, long tick)> expirationOrder = new();
+    private readonly Dictionary<TKey, LinkedListNode<(TKey key, long tick)>> expirationNodes = new();
+    private readonly Func<long> getCurrentTick;
+
+    internal TypedIndexCache(Func<long>? getCurrentTick = null)
+    {
+        this.getCurrentTick = getCurrentTick ?? (static () => DateTime.Now.Ticks);
+    }
 
     private readonly Dictionary<DataLinqKey, ImmutableArray<TKey>> primaryKeysToForeignKeys = new();
 
@@ -54,14 +59,11 @@ internal class TypedIndexCache<TKey> : IIndexCache
         int reverseMapCount;
         int tickCount;
 
-        lock (ticksQueueLock)
+        lock (cacheLock)
         {
-            tickCount = ticks.Count;
-            lock (cacheLock)
-            {
-                foreignKeyCount = foreignKeys.Count;
-                reverseMapCount = primaryKeysToForeignKeys.Count;
-            }
+            tickCount = expirationOrder.Count;
+            foreignKeyCount = foreignKeys.Count;
+            reverseMapCount = primaryKeysToForeignKeys.Count;
         }
 
         var overheadBytes = CacheMemoryEstimator.IndexCacheContainerBytes;
@@ -76,7 +78,14 @@ internal class TypedIndexCache<TKey> : IIndexCache
             Interlocked.Read(ref reverseMappingValueBytes));
         overheadBytes = CacheMemoryEstimator.SaturatingAdd(
             overheadBytes,
-            CacheMemoryEstimator.QueueOverheadBytes(tickCount, CacheMemoryEstimator.TickQueueEntryBytes(typeof(TKey))));
+            CacheMemoryEstimator.DictionaryOverheadBytes(tickCount));
+        overheadBytes = CacheMemoryEstimator.SaturatingAdd(
+            overheadBytes,
+            CacheMemoryEstimator.ObjectHeaderBytes + CacheMemoryEstimator.ReferenceSize + sizeof(int));
+        overheadBytes = CacheMemoryEstimator.SaturatingAdd(
+            overheadBytes,
+            CacheMemoryEstimator.SaturatingMultiply(tickCount,
+                CacheMemoryEstimator.LinkedListNodeBytes + CacheMemoryEstimator.TickQueueEntryBytes(typeof(TKey))));
 
         return new CacheMemoryEstimate(
             IndexPayloadBytes: Interlocked.Read(ref indexPayloadBytes),
@@ -94,25 +103,25 @@ internal class TypedIndexCache<TKey> : IIndexCache
     {
         // Forward and reverse mappings must observe the same cache-owned snapshot.
         var storedPrimaryKeys = (DataLinqKey[])primaryKeys.Clone();
-        var ticksNow = DateTime.Now.Ticks;
-
-        lock (ticksQueueLock)
+        lock (cacheLock)
         {
-            lock (cacheLock)
-            {
-                if (!foreignKeys.TryAdd(foreignKey, storedPrimaryKeys))
-                    return false;
+            if (foreignKeys.ContainsKey(foreignKey))
+                return false;
 
-                Interlocked.Add(ref indexPayloadBytes, EstimatePrimaryKeyArrayBytes(storedPrimaryKeys));
+            var ticksNow = getCurrentTick();
+            foreignKeys.TryAdd(foreignKey, storedPrimaryKeys);
+            Interlocked.Add(ref indexPayloadBytes, EstimatePrimaryKeyArrayBytes(storedPrimaryKeys));
+            foreach (var primaryKey in storedPrimaryKeys)
+                AddReverseMapping(primaryKey, foreignKey);
 
-                foreach (var primaryKey in storedPrimaryKeys)
-                    AddReverseMapping(primaryKey, foreignKey);
-            }
-
-            ticks.Enqueue((foreignKey, ticksNow));
-
-            if (!oldestTick.HasValue)
-                oldestTick = (foreignKey, ticksNow);
+            // Usually append in O(1); preserve timestamp order if the wall clock moves backwards.
+            var previous = expirationOrder.Last;
+            while (previous is not null && previous.Value.tick > ticksNow)
+                previous = previous.Previous;
+            var entry = (foreignKey, ticksNow);
+            expirationNodes.Add(foreignKey, previous is null
+                ? expirationOrder.AddFirst(entry)
+                : expirationOrder.AddAfter(previous, entry));
         }
 
         return true;
@@ -136,6 +145,8 @@ internal class TypedIndexCache<TKey> : IIndexCache
         {
             if (foreignKeys.TryRemove(foreignKey, out var pks))
             {
+                if (expirationNodes.Remove(foreignKey, out var node))
+                    expirationOrder.Remove(node);
                 Interlocked.Add(ref indexPayloadBytes, -EstimatePrimaryKeyArrayBytes(pks));
 
                 numRowsRemoved = 1;
@@ -164,10 +175,13 @@ internal class TypedIndexCache<TKey> : IIndexCache
     {
         numRowsRemoved = 0;
 
-        foreach (var fk in GetForeignKeysByPrimaryKey(primaryKey).ToList())
+        lock (cacheLock)
         {
-            TryRemoveProviderKeyCore(fk, out var num);
-            numRowsRemoved += num;
+            foreach (var fk in GetForeignKeysByPrimaryKey(primaryKey))
+            {
+                TryRemoveProviderKeyCore(fk, out var num);
+                numRowsRemoved += num;
+            }
         }
 
         return true;
@@ -175,30 +189,13 @@ internal class TypedIndexCache<TKey> : IIndexCache
 
     public int RemoveInsertedBeforeTick(long tick)
     {
-        if (!oldestTick.HasValue)
-            return 0;
-
         var count = 0;
-        lock (ticksQueueLock)
+        lock (cacheLock)
         {
-            while (oldestTick?.ticks < tick)
+            while (expirationOrder.First is { } oldest && oldest.Value.tick < tick)
             {
-                if (TryRemoveProviderKeyCore(oldestTick.Value.keys, out var numRowsRemoved))
-                {
-                    count += numRowsRemoved;
-
-                    ticks.TryDequeue(out var _);
-                }
-                else
-                    break;
-
-                if (ticks.TryPeek(out var nextTick))
-                    oldestTick = nextTick;
-                else
-                {
-                    oldestTick = null;
-                    break;
-                }
+                TryRemoveProviderKeyCore(oldest.Value.key, out var numRowsRemoved);
+                count += numRowsRemoved;
             }
         }
 
@@ -219,18 +216,14 @@ internal class TypedIndexCache<TKey> : IIndexCache
 
     public void Clear()
     {
-        lock (ticksQueueLock)
+        lock (cacheLock)
         {
-            lock (cacheLock)
-            {
-                foreignKeys.Clear();
-                primaryKeysToForeignKeys.Clear();
-                Interlocked.Exchange(ref indexPayloadBytes, 0);
-                Interlocked.Exchange(ref reverseMappingValueBytes, 0);
-            }
-
-            ticks.Clear();
-            oldestTick = null;
+            foreignKeys.Clear();
+            primaryKeysToForeignKeys.Clear();
+            expirationOrder.Clear();
+            expirationNodes.Clear();
+            Interlocked.Exchange(ref indexPayloadBytes, 0);
+            Interlocked.Exchange(ref reverseMappingValueBytes, 0);
         }
     }
 
