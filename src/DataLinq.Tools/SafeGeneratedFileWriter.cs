@@ -18,12 +18,29 @@ public static class SafeGeneratedFileWriter
     public static Option<bool, IDLOptionFailure> WriteAll(
         IEnumerable<(string path, string contents)> files,
         Encoding encoding,
+        Action<string>? log = null) => WriteAll(files, encoding, overwriteExisting: true, log);
+
+    /// <summary>
+    /// When overwriteExisting is false, any collision fails the entire batch.
+    /// No-replace file moves also protect targets created after the preflight check.
+    /// </summary>
+    public static Option<bool, IDLOptionFailure> WriteAll(
+        IEnumerable<(string path, string contents)> files,
+        Encoding encoding,
+        bool overwriteExisting,
         Action<string>? log = null)
     {
         if (!TryCreateWritePlan(files, out var writePlan, out var failure))
             return failure!;
 
-        return WriteAllCore(writePlan, encoding, log);
+        if (!overwriteExisting)
+        {
+            var collision = writePlan.FirstOrDefault(file => File.Exists(file.TargetPath) || Directory.Exists(file.TargetPath));
+            if (collision is not null)
+                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Generated target '{collision.TargetPath}' already exists and overwriting is disabled. No files were written.");
+        }
+
+        return WriteAllCore(writePlan, encoding, overwriteExisting, log);
     }
 
     private static bool TryCreateWritePlan(
@@ -63,6 +80,7 @@ public static class SafeGeneratedFileWriter
     private static Option<bool, IDLOptionFailure> WriteAllCore(
         List<GeneratedFileWrite> writePlan,
         Encoding encoding,
+        bool overwriteExisting,
         Action<string>? log)
     {
         var stagedWrites = new List<StagedGeneratedFileWrite>();
@@ -87,7 +105,7 @@ public static class SafeGeneratedFileWriter
             foreach (var stagedWrite in stagedWrites)
             {
                 log?.Invoke($"Writing {stagedWrite.TargetPath}");
-                CommitStagedWrite(stagedWrite);
+                CommitStagedWrite(stagedWrite, overwriteExisting);
             }
         }
         catch (Exception exception)
@@ -122,9 +140,9 @@ public static class SafeGeneratedFileWriter
                 string.Join(" ", cleanupFailures));
     }
 
-    private static void CommitStagedWrite(StagedGeneratedFileWrite stagedWrite)
+    private static void CommitStagedWrite(StagedGeneratedFileWrite stagedWrite, bool overwriteExisting)
     {
-        if (File.Exists(stagedWrite.TargetPath))
+        if (overwriteExisting && File.Exists(stagedWrite.TargetPath))
         {
             var backupPath = Path.Combine(
                 Path.GetDirectoryName(stagedWrite.TargetPath)!,
