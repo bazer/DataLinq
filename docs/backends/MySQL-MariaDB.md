@@ -77,6 +77,19 @@ Examples:
 - `ENUM('standard','premium') DEFAULT 'premium'` -> generated enum member default
 - `VARCHAR DEFAULT '""'` -> C# string default containing two double-quote characters, not leaked SQL quoting syntax
 
+Enum import preserves database labels and their one-based numeric identities,
+including quotes, backslashes, commas, and empty labels. Generated C# member names
+are made valid and distinct independently; the `[Enum]` attribute and generated
+schema retain the original database labels.
+
+When generating SQL for a session with `NO_BACKSLASH_ESCAPES` enabled, set
+`SqlFromMetadataFactory.NoBackslashEscapes = true` on the factory before calling
+`GetCreateTables`. The default is `false`. This selects the correct escaping for
+enum labels, defaults, and comments, since [MySQL string escaping](https://dev.mysql.com/doc/refman/8.0/en/string-literals.html)
+and [MariaDB string escaping](https://mariadb.com/docs/server/reference/sql-structure/sql-language-structure/string-literals)
+depend on that session setting. Metadata import reads the server's canonical enum
+representation, which is tested in both modes on every supported server target.
+
 ### Unsupported or Dangerous Defaults
 
 Zero-date defaults such as `0000-00-00` and `0000-00-00 00:00:00` are not generated into typed date properties.

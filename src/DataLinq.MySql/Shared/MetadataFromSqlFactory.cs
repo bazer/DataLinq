@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text.RegularExpressions;
+using System.Text;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
@@ -158,7 +158,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
 
         if (csType == "enum")
         {
-            var (dbValues, csValues) = ParseEnumType(dbColumns.COLUMN_TYPE);
+            var (dbValues, csValues) = ParseEnumType(dbColumns.COLUMN_TYPE, valueProp.PropertyName + "Value");
             valueProp.EnumProperty = new EnumProperty(dbValues, csValues, true);
 
             if (valueProp.CsType.Name == "enum")
@@ -346,13 +346,38 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
 
     protected DefaultAttribute? ParseDefaultValue(ProviderTableDraft table, ICOLUMNS dbColumns, ProviderValuePropertyDraft property)
     {
-        if (dbColumns.COLUMN_DEFAULT == null || string.Equals(dbColumns.COLUMN_DEFAULT, "NULL", StringComparison.CurrentCultureIgnoreCase))
+        if (dbColumns.COLUMN_DEFAULT == null ||
+            (databaseType == DatabaseType.MariaDB && string.Equals(dbColumns.COLUMN_DEFAULT, "NULL", StringComparison.OrdinalIgnoreCase)))
             return null;
 
-        if (dbColumns.COLUMN_DEFAULT == "" && property.CsType.Type != typeof(string))
+        if (dbColumns.COLUMN_DEFAULT == "" && property.CsType.Type != typeof(string) && property.EnumProperty is null)
             return null;
 
         var normalizedExpression = UnwrapParenthesizedDefaultExpression(dbColumns.COLUMN_DEFAULT).Trim();
+
+        if (property.EnumProperty is { } enumProperty &&
+            dbColumns.EXTRA?.Contains("DEFAULT_GENERATED", StringComparison.OrdinalIgnoreCase) != true)
+        {
+            // MySQL can return an unquoted label; MariaDB normally returns a quoted
+            // metadata literal. Neither form should be mistaken for a SQL expression.
+            // Match MySQL's raw label first: quotes/parentheses/NULL can be label text.
+            if (databaseType == DatabaseType.MySQL)
+            {
+                foreach (var member in enumProperty.DbValuesOrCsValues)
+                    if (string.Equals(member.name, dbColumns.COLUMN_DEFAULT, StringComparison.Ordinal))
+                        return new DefaultAttribute(member.value);
+            }
+
+            var enumDefault = dbColumns.COLUMN_DEFAULT;
+            if (IsSqlStringLiteral(normalizedExpression))
+            {
+                var position = 0;
+                enumDefault = ReadMetadataStringLiteral(normalizedExpression, ref position);
+            }
+            foreach (var member in enumProperty.DbValuesOrCsValues)
+                if (string.Equals(member.name, enumDefault, StringComparison.Ordinal))
+                    return new DefaultAttribute(member.value);
+        }
 
         if (IsCurrentTimestampDefault(normalizedExpression) ||
             (property.CsType.Type == typeof(DateOnly) && IsCurrentDateDefault(normalizedExpression)) ||
@@ -573,35 +598,69 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
     private static uint? ConvertColumnDecimals(ulong? decimals) =>
         decimals is null ? null : (uint)decimals.Value;
 
-    private (IEnumerable<(string, int)> dbValues, IEnumerable<(string, int)> csValues) ParseEnumType(string COLUMN_TYPE)
+    private (IEnumerable<(string, int)> dbValues, IEnumerable<(string, int)> csValues) ParseEnumType(string columnType, string enumTypeName)
     {
-        var startIndex = COLUMN_TYPE.IndexOf('(') + 1;
-        var endIndex = COLUMN_TYPE.LastIndexOf(')');
-        if (startIndex == 0 || endIndex == -1 || endIndex < startIndex)
-            return ([], []);
-
-        var enumContent = COLUMN_TYPE.Substring(startIndex, endIndex - startIndex);
-
-        var regex = new Regex(@"'([^']*)'");
-        var matches = regex.Matches(enumContent);
-
+        var position = columnType.IndexOf('(') + 1;
+        if (position == 0)
+            throw new FormatException("ENUM metadata is missing its value list.");
         var dbValues = new List<(string, int)>();
         var csValues = new List<(string, int)>();
+        var names = new HashSet<string>(StringComparer.Ordinal) { enumTypeName, "value__" };
 
-        for (int i = 0; i < matches.Count; i++)
+        while (position < columnType.Length)
         {
-            var match = matches[i];
-            var dbName = match.Groups[1].Value;
-            dbValues.Add((dbName, i + 1));
-
-            // It's crucial to ensure the resulting name is a valid C# identifier.
+            while (position < columnType.Length && char.IsWhiteSpace(columnType[position])) position++;
+            var dbName = ReadMetadataStringLiteral(columnType, ref position);
+            var ordinal = dbValues.Count + 1;
+            dbValues.Add((dbName, ordinal));
             var csName = string.IsNullOrWhiteSpace(dbName)
-                ? "Empty" // Or "None", "Default", etc. "Empty" is clear.
-                : options.CapitaliseNames && !dbName.IsFirstCharUpper() ? dbName.ToPascalCase() : dbName.Replace(" ", "_");
+                ? "Empty"
+                : dbName.ToCSharpIdentifier(options.CapitaliseNames);
+            var candidate = csName;
+            for (var suffix = 2; !names.Add(candidate); suffix++)
+                candidate = csName + "_" + suffix.ToString(CultureInfo.InvariantCulture);
+            csValues.Add((candidate, ordinal));
 
-            csValues.Add((csName, i + 1));
+            while (position < columnType.Length && char.IsWhiteSpace(columnType[position])) position++;
+            if (position < columnType.Length && columnType[position] == ')')
+                return (dbValues, csValues);
+            if (position >= columnType.Length || columnType[position++] != ',')
+                throw new FormatException("ENUM metadata contains an invalid value separator.");
         }
-        return (dbValues, csValues);
+        throw new FormatException("ENUM metadata has an unterminated value list.");
+    }
+
+    private static string ReadMetadataStringLiteral(string text, ref int position)
+    {
+        if (position >= text.Length || text[position++] != '\'')
+            throw new FormatException("Expected a quoted string in ENUM metadata.");
+
+        // COLUMN_TYPE uses canonical escaping even when NO_BACKSLASH_ESCAPES is
+        // active. This parses server metadata, not arbitrary SQL source text.
+        var value = new StringBuilder();
+        while (position < text.Length)
+        {
+            var character = text[position++];
+            if (character == '\'')
+            {
+                if (position >= text.Length || text[position] != '\'')
+                    return value.ToString();
+                position++;
+            }
+            else if (character == '\\')
+            {
+                if (position >= text.Length)
+                    throw new FormatException("ENUM metadata ends inside an escape sequence.");
+                character = text[position++] switch
+                {
+                    '0' => '\0', 'b' => '\b', 'n' => '\n', 'r' => '\r',
+                    't' => '\t', 'Z' => '\u001a',
+                    var escaped => escaped
+                };
+            }
+            value.Append(character);
+        }
+        throw new FormatException("ENUM metadata contains an unterminated string.");
     }
 
     protected sealed class ProviderDatabaseDraft(string name, CsTypeDeclaration csType, string dbName)
