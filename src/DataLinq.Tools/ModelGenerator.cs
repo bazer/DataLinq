@@ -84,6 +84,7 @@ public enum ModelGeneratorError
 public struct ModelGeneratorOptions
 {
     public bool ReadSourceModels { get; set; } = false;
+    /// <summary>Allow replacing generated destinations. False fails the whole plan on any collision.</summary>
     public bool OverwriteExistingModels { get; set; } = false;
     public bool CapitalizeNames { get; set; } = false;
     public bool DeclareEnumsInClass { get; set; } = false;
@@ -102,8 +103,10 @@ public sealed record GeneratedModelWritePlan(
     IReadOnlyList<(string path, string contents)> Files,
     Encoding FileEncoding)
 {
+    public bool OverwriteExistingModels { get; init; }
+
     public Option<bool, IDLOptionFailure> Write(Action<string>? log = null) =>
-        SafeGeneratedFileWriter.WriteAll(Files, FileEncoding, log);
+        SafeGeneratedFileWriter.WriteAll(Files, FileEncoding, OverwriteExistingModels, log);
 }
 
 public class ModelGenerator : Generator
@@ -233,7 +236,17 @@ public class ModelGenerator : Generator
             return CreateModelFileRenderingFailure(exception);
         }
 
-        return new GeneratedModelWritePlan(dbMetadata, modelFiles, fileEncoding);
+        if (!this.options.OverwriteExistingModels)
+        {
+            var collision = modelFiles.FirstOrDefault(file => File.Exists(file.path) || Directory.Exists(file.path));
+            if (collision.path is not null)
+                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Generated target '{collision.path}' already exists and OverwriteExistingModels is false. No files were written.");
+        }
+
+        return new GeneratedModelWritePlan(dbMetadata, modelFiles, fileEncoding)
+        {
+            OverwriteExistingModels = this.options.OverwriteExistingModels
+        };
     }
 
     private static IDLOptionFailure CreateModelFileRenderingFailure(Exception exception)
