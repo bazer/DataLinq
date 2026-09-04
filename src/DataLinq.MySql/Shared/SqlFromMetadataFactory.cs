@@ -17,6 +17,9 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
     protected abstract DatabaseType DatabaseType { get; }
     internal DatabaseType ProviderDatabaseType => DatabaseType;
 
+    /// <summary>Set when generated SQL will execute with NO_BACKSLASH_ESCAPES enabled.</summary>
+    public bool NoBackslashEscapes { get; set; }
+
     public static SqlFromMetadataFactory GetFactoryFromDatabaseType(DatabaseType databaseType)
     {
         if (databaseType == DatabaseType.MariaDB)
@@ -44,7 +47,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
 
     public virtual Option<Sql, IDLOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
     {
-        var sql = new MySqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
+        var sql = new MySqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n", NoBackslashEscapes);
         //sql.CreateDatabase(metadata.DbName);
 
         foreach (var table in sql.SortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table).ToList()))
@@ -77,7 +80,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
                 .Type(dbType.Name.ToUpper(), column.DbName, longestName);
 
             if (dbType.Name == "enum" && column.ValueProperty.EnumProperty.HasValue)
-                sql.EnumValues(column.ValueProperty.EnumProperty.Value.CsValuesOrDbValues.Select(x => x.name));
+                sql.EnumValues(column.ValueProperty.EnumProperty.Value.DbValuesOrCsValues.Select(x => x.name));
 
             if (!NoLengthTypes.Contains(dbType.Name.ToLower()) && dbType.Length.HasValue && dbType.Length != 0)
                 sql.TypeLength(dbType.Length, dbType.Decimals);
@@ -163,7 +166,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         {
             var enumDefaultValue = ResolveEnumDefaultValue(column.ValueProperty, defaultAttr);
             if (enumDefaultValue != null)
-                return $"'{enumDefaultValue.Replace("'", "''")}'";
+                return QuoteSqlString(enumDefaultValue);
         }
 
         var dbType = GetDbType(column);
@@ -214,7 +217,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             : checks.Where(x => x.DatabaseType == DatabaseType.Default);
     }
 
-    private static string QuoteSqlString(string value) => $"'{value.Replace("'", "''")}'";
+    private string QuoteSqlString(string value) => MySqlGeneration.QuoteString(value, NoBackslashEscapes);
 
     private static string FormatBooleanDefaultValue(object value, DatabaseColumnType dbType)
     {
