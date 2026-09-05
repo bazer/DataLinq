@@ -49,7 +49,8 @@ internal interface IModelMaterializationRuntime
         TableDefinition table,
         DataLinqKey canonicalProviderKey,
         RowData rowData,
-        IImmutableInstance instance);
+        IImmutableInstance instance,
+        RowReadGeneration? readGeneration = null);
 
     void RecordCacheLookup(TableDefinition table, bool hit);
     void RecordMaterialization(TableDefinition table);
@@ -75,7 +76,8 @@ internal interface IReadSourceMaterializationCache
         TableDefinition table,
         DataLinqKey canonicalProviderKey,
         RowData rowData,
-        IImmutableInstance instance);
+        IImmutableInstance instance,
+        RowReadGeneration? readGeneration = null);
 
     void RecordCacheLookup(TableDefinition table, bool hit);
     void RecordMaterialization(TableDefinition table);
@@ -119,8 +121,9 @@ internal sealed class ReadSourceModelMaterializationRuntime : IModelMaterializat
         TableDefinition table,
         DataLinqKey canonicalProviderKey,
         RowData rowData,
-        IImmutableInstance instance) =>
-        cache.PublishCached(table, canonicalProviderKey, rowData, instance);
+        IImmutableInstance instance,
+        RowReadGeneration? readGeneration = null) =>
+        cache.PublishCached(table, canonicalProviderKey, rowData, instance, readGeneration);
 
     public void RecordCacheLookup(TableDefinition table, bool hit) =>
         cache.RecordCacheLookup(table, hit);
@@ -190,19 +193,22 @@ internal sealed class ModelMaterializationServices : IModelMaterializationServic
         Materialize(
             loadedRow.ProviderRow,
             loadedRow.CanonicalProviderKey,
-            probeCache: true);
+            probeCache: true,
+            loadedRow.ReadGeneration);
 
     public IImmutableInstance MaterializeAfterKnownCacheMiss(
         LoadedCanonicalRow loadedRow) =>
         Materialize(
             loadedRow.ProviderRow,
             loadedRow.CanonicalProviderKey,
-            probeCache: false);
+            probeCache: false,
+            loadedRow.ReadGeneration);
 
     private IImmutableInstance Materialize(
         CanonicalProviderValueRow providerRow,
         DataLinqKey? canonicalProviderKey,
-        bool probeCache)
+        bool probeCache,
+        RowReadGeneration? readGeneration = null)
     {
         ArgumentNullException.ThrowIfNull(providerRow);
 
@@ -230,7 +236,8 @@ internal sealed class ModelMaterializationServices : IModelMaterializationServic
             providerRow.Table,
             canonicalProviderKey.Value,
             rowData,
-            created);
+            created,
+            readGeneration);
 
         switch (publication.Publication)
         {

@@ -39,9 +39,9 @@ public sealed class ReadSourceMaterializationServicesTests
                 .IsSameReferenceAs(readServices.MaterializationServices);
 
             var first = readServices.MaterializationServices.GetOrMaterialize(
-                CreateCanonicalRow(table, 42, "Ada"));
+                ReadRow(databaseCache.GetTableCache(table), 42, "Ada"));
             var second = readServices.MaterializationServices.GetOrMaterialize(
-                CreateCanonicalRow(table, 42, "Changed value must not rematerialize"));
+                ReadRow(databaseCache.GetTableCache(table), 42, "Changed value must not rematerialize"));
 
             await Assert.That(second).IsSameReferenceAs(first);
             await Assert.That(first.GetReadSource()).IsSameReferenceAs(readSource);
@@ -71,16 +71,16 @@ public sealed class ReadSourceMaterializationServicesTests
             using var provider = new CacheBackedProvider(metadata);
             var committedServices = (IDataLinqReadServices)provider.ReadOnlyAccess;
             var committed = committedServices.MaterializationServices.GetOrMaterialize(
-                CreateCanonicalRow(table, 42, "Committed"));
+                ReadRow(provider.GetTableCache(table), 42, "Committed"));
 
             using var transaction = provider.StartTransaction(TransactionType.ReadAndWrite);
             var transactionServices = (IDataLinqReadServices)transaction;
             var pending = transactionServices.MaterializationServices.GetOrMaterialize(
-                CreateCanonicalRow(table, 42, "Pending"));
+                ReadRow(provider.GetTableCache(table), 42, "Pending"));
             var pendingAgain = transactionServices.MaterializationServices.GetOrMaterialize(
-                CreateCanonicalRow(table, 42, "Changed pending value"));
+                ReadRow(provider.GetTableCache(table), 42, "Changed pending value"));
             var committedAgain = committedServices.MaterializationServices.GetOrMaterialize(
-                CreateCanonicalRow(table, 42, "Changed committed value"));
+                ReadRow(provider.GetTableCache(table), 42, "Changed committed value"));
 
             await Assert.That(pending).IsNotSameReferenceAs(committed);
             await Assert.That(pendingAgain).IsSameReferenceAs(pending);
@@ -114,8 +114,8 @@ public sealed class ReadSourceMaterializationServicesTests
             using var provider = new CacheBackedProvider(metadata);
             var services = ((IDataLinqReadServices)provider.ReadOnlyAccess).MaterializationServices;
 
-            var first = services.GetOrMaterialize(CreateCanonicalRow(table, 42, "First"));
-            var second = services.GetOrMaterialize(CreateCanonicalRow(table, 42, "Second"));
+            var first = services.GetOrMaterialize(ReadRow(provider.GetTableCache(table), 42, "First"));
+            var second = services.GetOrMaterialize(ReadRow(provider.GetTableCache(table), 42, "Second"));
 
             await Assert.That(second).IsNotSameReferenceAs(first);
             await Assert.That(factoryCalls).IsEqualTo(2);
@@ -126,6 +126,53 @@ public sealed class ReadSourceMaterializationServicesTests
             DatabaseDefinition.TryRemoveLoadedDatabase(typeof(MaterializationDatabaseModel), out _);
             DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
         }
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task DataSourceAccessServices_RejectsUntrackedAndInvalidatedLoads()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+        TableCache? cache = null;
+        var invalidateDuringConstruction = false;
+        var metadata = CreateMetadata(() =>
+        {
+            if (invalidateDuringConstruction)
+                cache!.ClearCache();
+        });
+        var table = metadata.TableModels.Single().Table;
+        DatabaseDefinition.TryRemoveLoadedDatabase(typeof(MaterializationDatabaseModel), out _);
+        try
+        {
+            using var provider = new CacheBackedProvider(metadata);
+            cache = provider.GetTableCache(table);
+            var services = ((IDataLinqReadServices)provider.ReadOnlyAccess).MaterializationServices;
+            _ = services.GetOrMaterialize(CreateCanonicalRow(table, 42, "Untracked"));
+            await Assert.That(cache.RowCount).IsEqualTo(0);
+
+            var old = ReadRow(cache, 42, "Old");
+            invalidateDuringConstruction = true;
+            _ = services.MaterializeAfterKnownCacheMiss(old);
+            await Assert.That(cache.RowCount).IsEqualTo(0);
+            invalidateDuringConstruction = false;
+
+            var current = services.GetOrMaterialize(ReadRow(cache, 42, "Current"));
+            await Assert.That(cache.RowCount).IsEqualTo(1);
+            _ = services.MaterializeAfterKnownCacheMiss(old);
+            await Assert.That(services.GetOrMaterialize(ReadRow(cache, 42, "Unused"))).IsSameReferenceAs(current);
+        }
+        finally
+        {
+            DatabaseDefinition.TryRemoveLoadedDatabase(typeof(MaterializationDatabaseModel), out _);
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    private static LoadedCanonicalRow ReadRow(TableCache cache, int id, string name)
+    {
+        var generation = cache.CaptureReadGeneration();
+        return new(CreateCanonicalRow(cache.Table, id, name), DataLinqKey.FromValue(id)) { ReadGeneration = generation };
     }
 
     private static CanonicalProviderValueRow CreateCanonicalRow(

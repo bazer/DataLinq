@@ -32,12 +32,14 @@ internal sealed class DataSourceAccessMaterializationCache : IReadSourceMaterial
         TableDefinition table,
         DataLinqKey canonicalProviderKey,
         RowData rowData,
-        IImmutableInstance instance) =>
+        IImmutableInstance instance,
+        RowReadGeneration? readGeneration = null) =>
         GetTableCache(table).PublishMaterializedRow(
             canonicalProviderKey,
             rowData,
             instance,
-            dataSource);
+            dataSource,
+            readGeneration);
 
     public void RecordCacheLookup(TableDefinition table, bool hit) =>
         GetTableCache(table).RecordMaterializationCacheLookup(hit);

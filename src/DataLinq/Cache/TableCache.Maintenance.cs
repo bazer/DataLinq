@@ -12,8 +12,9 @@ public partial class TableCache
 {
     public void ClearCache()
     {
-        ClearRows();
+        ClearRowsWithoutNotification();
         ClearIndex();
+        OnRowChanged();
     }
 
     public void ClearRows()
@@ -26,7 +27,11 @@ public partial class TableCache
     {
         var rowsRemoved = RowCount;
         var startedAt = Stopwatch.GetTimestamp();
-        rowCache?.ClearRows();
+        lock (publicationGate)
+        {
+            AdvanceReadGeneration();
+            rowCache?.ClearRows();
+        }
         var duration = Stopwatch.GetElapsedTime(startedAt);
         RefreshOccupancyMetrics();
         DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.Clear, rowsRemoved, duration);
@@ -105,7 +110,13 @@ public partial class TableCache
     {
         var startedAt = Stopwatch.GetTimestamp();
         RemoveAllIndicesInsertedBeforeTick(tick);
-        var rowsRemoved = ProcessRemovedRowsAndNotify(rowCache?.RemoveRowsInsertedBeforeTickAndReturnKeys(tick) ?? []);
+        IReadOnlyList<DataLinqKey> removedKeys;
+        lock (publicationGate)
+        {
+            AdvanceReadGeneration();
+            removedKeys = rowCache?.RemoveRowsInsertedBeforeTickAndReturnKeys(tick) ?? [];
+        }
+        var rowsRemoved = ProcessRemovedRowsAndNotify(removedKeys);
         var duration = Stopwatch.GetElapsedTime(startedAt);
         RecordCacheLimitCleanup(CacheMaintenanceOperations.AgeLimit, rowsRemoved, duration, cleanupTrigger);
         return rowsRemoved;
@@ -156,8 +167,16 @@ public partial class TableCache
         MetricsHandle.UpdateCacheOccupancy(GetOccupancySnapshot());
     }
 
-    private int RemoveRowsOverRowLimit(int maxRows) =>
-        ProcessRemovedRowsAndNotify(rowCache?.RemoveRowsOverRowLimitAndReturnKeys(maxRows) ?? []);
+    private int RemoveRowsOverRowLimit(int maxRows)
+    {
+        IReadOnlyList<DataLinqKey> removedKeys;
+        lock (publicationGate)
+        {
+            AdvanceReadGeneration();
+            removedKeys = rowCache?.RemoveRowsOverRowLimitAndReturnKeys(maxRows) ?? [];
+        }
+        return ProcessRemovedRowsAndNotify(removedKeys);
+    }
 
     private int RemoveRowsOverEstimatedSizeLimit(long maxBytes, int maxRows = int.MaxValue)
     {
@@ -166,7 +185,12 @@ public partial class TableCache
 
         while (GetMemoryEstimate().EstimatedCacheBytes > maxBytes && rowsRemoved < maxRows)
         {
-            var removedKeys = rowCache?.RemoveOldestRows(1) ?? [];
+            IReadOnlyList<DataLinqKey> removedKeys;
+            lock (publicationGate)
+            {
+                AdvanceReadGeneration();
+                removedKeys = rowCache?.RemoveOldestRows(1) ?? [];
+            }
             if (removedKeys.Count == 0)
                 break;
 
