@@ -75,7 +75,7 @@ The current caveats to a stronger claim are still concrete:
 - Native AOT verification requires the local Native AOT platform toolchain; missing MSVC linker prerequisites are environment failures, not query-pipeline evidence
 - browser runtime verification now runs through `size-report` for WebAssembly targets, and the generated metadata startup path that previously failed with `MONO_WASM: function signature mismatch` is fixed
 - the final clean-output report passes on this machine, but WebAssembly clean-output stability still depends on the installed .NET SDK and workload state
-- SQLitePCLRaw WebAssembly varargs warnings remain visible: native extension loading and direct raw configuration calls are outside the verified browser path; see the [configuration call-path audit](dev-plans/SQLite%20WebAssembly%20Configuration%20Boundary.md)
+- SQLitePCLRaw WebAssembly varargs warnings remain visible: native extension loading and direct raw configuration calls are outside the verified browser path; see the [configuration call-path audit](contributing/SQLite%20WebAssembly%20Verification.md)
 - generated SQLite smoke coverage is not broad provider coverage
 - the LINQ translator is intentionally limited to the documented subset
 
@@ -87,7 +87,7 @@ The current generated SQLite AOT browser evidence is positive for the narrow smo
 
 The current no-AOT browser WebAssembly path also passes the same generated SQLite in-memory smoke boundary. Treat this as a narrow smoke result, not as a promise that every no-AOT browser configuration, storage mode, or query shape is supported.
 
-The [SQLite WebAssembly configuration audit](dev-plans/SQLite%20WebAssembly%20Configuration%20Boundary.md) traces the exact dependency versions and records a clean-revision browser run for both variants. Normal generated CRUD/query execution avoids the warned native configuration entry points. Calling `SqliteConnection.LoadExtension` or SQLitePCLRaw configuration/log-hook APIs can reach unsupported signatures and is outside this boundary. The warnings are deliberately unsuppressed.
+The [SQLite WebAssembly configuration audit](contributing/SQLite%20WebAssembly%20Verification.md) traces the exact dependency versions and records a clean-revision browser run for both variants. Normal generated CRUD/query execution avoids the warned native configuration entry points. Calling `SqliteConnection.LoadExtension` or SQLitePCLRaw configuration/log-hook APIs can reach unsupported signatures and is outside this boundary. The warnings are deliberately unsuppressed.
 
 The provider-free Memory browser paths execute their own generated-model smoke without SQLitePCLRaw or a native database payload. They cover explicit seed, typed and direct `Guid` values, primary-key lookup, the documented predicate/order/page/projection/result subset, and one deterministic unsupported-query diagnostic. They do not add browser persistence or general LINQ support.
 

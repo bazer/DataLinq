@@ -1,6 +1,6 @@
 # SQLite WebAssembly native configuration boundary
 
-Resolution of [review finding F29](Codebase%20Review%202026-09-04.md#f29). The native varargs warnings remain visible. The generated in-memory SQLite browser path avoids the warned entry points; native extension loading and direct SQLitePCLRaw configuration calls are outside this verified boundary.
+Resolution of [review finding F29](https://github.com/bazer/DataLinq/blob/d172a43b/docs/dev-plans/Codebase%20Review%202026-09-04.md#f29). The native varargs warnings remain visible. The generated in-memory SQLite browser path avoids the warned entry points; native extension loading and direct SQLitePCLRaw configuration calls are outside this verified boundary.
 
 ## Exact dependency and call-path audit
 
