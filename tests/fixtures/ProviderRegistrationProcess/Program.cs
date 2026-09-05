@@ -119,4 +119,3 @@ public static class ProviderRegistrationProcess
             throw new InvalidOperationException(message);
     }
 }
-
