@@ -86,53 +86,65 @@ public interface IImmutableRelation<T> : IEnumerable<T> where T : IModelInstance
 public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelInstance
 {
     private readonly IEnumerable<T> list;
+    private Lazy<Snapshot> snapshot;
 
     public ImmutableRelationMock(IEnumerable<T> list)
     {
-        this.list = list;
+        this.list = list ?? throw new ArgumentNullException(nameof(list));
+        snapshot = CreateSnapshot();
     }
 
-    public T? this[DataLinqKey key] => throw new System.NotImplementedException();
+    public T? this[DataLinqKey key] => Get(key);
 
-    public int Count => throw new System.NotImplementedException();
+    public int Count => Values.Length;
 
-    public ImmutableArray<DataLinqKey> Keys => throw new System.NotImplementedException();
+    public ImmutableArray<DataLinqKey> Keys => ToFrozenDictionary().Keys;
 
-    public ImmutableArray<T> Values => throw new System.NotImplementedException();
+    public ImmutableArray<T> Values => Volatile.Read(ref snapshot).Value.Values;
 
     public IEnumerable<KeyValuePair<DataLinqKey, T>> AsEnumerable()
     {
-        throw new System.NotImplementedException();
+        return ToFrozenDictionary().AsEnumerable();
     }
 
     public void Clear()
     {
-        throw new System.NotImplementedException();
+        Interlocked.Exchange(ref snapshot, CreateSnapshot());
     }
 
     public bool ContainsKey(DataLinqKey key)
     {
-        throw new System.NotImplementedException();
+        return ToFrozenDictionary().ContainsKey(key);
     }
 
     public T? Get(DataLinqKey key)
     {
-        throw new System.NotImplementedException();
+        return ToFrozenDictionary().TryGetValue(key, out var value) ? value : default;
     }
 
     public IEnumerator<T> GetEnumerator()
     {
-        throw new System.NotImplementedException();
+        return ((IEnumerable<T>)Values).GetEnumerator();
     }
 
     public FrozenDictionary<DataLinqKey, T> ToFrozenDictionary()
     {
-        throw new System.NotImplementedException();
+        return Volatile.Read(ref snapshot).Value.Instances.Value;
     }
 
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();
+    }
+
+    private Lazy<Snapshot> CreateSnapshot() => new(() => new Snapshot(list.ToImmutableArray()));
+
+    private sealed class Snapshot(ImmutableArray<T> values)
+    {
+        internal ImmutableArray<T> Values { get; } = values;
+        // ToDictionary rejects ambiguous duplicate primary keys before freezing.
+        internal Lazy<FrozenDictionary<DataLinqKey, T>> Instances { get; } =
+            new(() => values.ToDictionary(value => value.PrimaryKeys()).ToFrozenDictionary());
     }
 }
 

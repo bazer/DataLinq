@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.Linq;
 using DataLinq.Interfaces;
@@ -89,19 +90,25 @@ public class SqlQuery<T>
         return new Select<T>(this).ExecuteAs<T>();
     }
 
+    [Obsolete("Use Transaction.Delete(model) for tracked mutations, or DeleteQuery().ToDbCommand() for caller-owned raw SQL execution.", error: true)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public QueryResult Delete()
     {
-        return new Delete<T>(this).Execute();
+        throw new NotSupportedException("Use Transaction.Delete(model) for tracked mutations, or DeleteQuery().ToDbCommand() for caller-owned raw SQL execution.");
     }
 
+    [Obsolete("Use Transaction.Insert(model) for tracked mutations, or InsertQuery().ToDbCommand() for caller-owned raw SQL execution.", error: true)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public QueryResult Insert()
     {
-        return new Insert<T>(this).Execute();
+        throw new NotSupportedException("Use Transaction.Insert(model) for tracked mutations, or InsertQuery().ToDbCommand() for caller-owned raw SQL execution.");
     }
 
+    [Obsolete("Use Transaction.Update(model) for tracked mutations, or UpdateQuery().ToDbCommand() for caller-owned raw SQL execution.", error: true)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public QueryResult Update()
     {
-        return new Update<T>(this).Execute();
+        throw new NotSupportedException("Use Transaction.Update(model) for tracked mutations, or UpdateQuery().ToDbCommand() for caller-owned raw SQL execution.");
     }
 
     public virtual Select<T> SelectQuery()
