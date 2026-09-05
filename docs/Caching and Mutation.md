@@ -82,6 +82,10 @@ Relations are backed by index caches that map foreign-key values to related prim
 
 The useful consequence is simple: relation traversal gets cheaper after the first lookup, and relation-aware writes can update what the in-memory graph sees.
 
+Collection values and their optional key dictionary belong to one immutable snapshot. A concurrent `Clear()` removes the published snapshot without changing values already held by a reader. Both collection relations and single foreign-key references subscribe before publishing a load and check the table generation to detect changes that occurred before subscription. An invalidated initial load can finish, but is not retained. Notifications are attached to the particular loaded snapshot, so an old notification cannot clear a newer one. Concurrent misses may perform duplicate loads; subsequent reads reuse the accepted snapshot.
+
+Transaction-bound relations validate transaction state on cache hits too. When a terminal transaction permits fallback to committed reads, the relation loads a snapshot from that committed source instead of retaining transaction-local values.
+
 If you need to inspect what the cache subsystem is actually doing at runtime, see [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md). That page documents the shipped `DataLinqMetrics` API, including row-cache, relation, invalidation, and cache-notification metrics.
 
 ## Cache Limits and Memory Pressure
