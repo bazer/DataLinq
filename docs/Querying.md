@@ -275,19 +275,19 @@ flowchart TD
 - `Last()` and `LastOrDefault()` are supported in tested cases, but they are not the fast path. If what you really mean is "highest by X", write that as `OrderByDescending(...).First()` and be done with it.
 - If you are unsure whether a query shape is supported, simplify it to the documented surface or add a test before depending on it.
 
-## Lower-Level Query APIs
-
-DataLinq also exposes lower-level query construction through `From(...)` and `SqlQuery`.
-
-That API is real and useful, but it is not the same thing as the LINQ translator. The existence of raw SQL builder classes does not mean arbitrary LINQ `Join`, `GroupBy`, or aggregate shapes are supported.
-
-### Command and reader ownership
+## Command and reader ownership
 
 The SQL providers' `DatabaseAccess` string overloads create and own their commands. Scalar and non-query calls dispose them before returning, including on failure. `ExecuteReader(string)` transfers command ownership to the returned reader: dispose that reader when finished. `ReadReader(string)` disposes both reader and command when enumeration completes, stops early, or throws; a manually obtained enumerator must also be disposed.
 
 Overloads accepting an `IDbCommand` leave disposal responsibility with the caller. Commands returned by `ToDbCommand()` or `StateChange.GetDbCommand()` likewise belong to the caller. Use a `using` scope around both command and reader. Microsoft.Data.Sqlite can additionally clean up registered commands when an owned connection closes; this provider behavior does not replace caller ownership, particularly inside a transaction whose connection remains open.
 
 Managed mutations dispose their internal command after execution and hydration, without waiting for transaction completion. The reader ownership wrapper attempts reader cleanup before command cleanup and preserves both exceptions if both fail. Providers' optional owned-binary-buffer capability is preserved when wrapping a reader.
+
+## Lower-Level Query APIs
+
+DataLinq also exposes lower-level query construction through `From(...)` and `SqlQuery`.
+
+That API is real and useful, but it is not the same thing as the LINQ translator. The existence of raw SQL builder classes does not mean arbitrary LINQ `Join`, `GroupBy`, or aggregate shapes are supported.
 
 ## Summary
 
