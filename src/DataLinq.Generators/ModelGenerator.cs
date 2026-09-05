@@ -75,13 +75,37 @@ public sealed class ModelGenerator : IIncrementalGenerator
             .Select(static (input, _) => ModelGeneratorExecutionInput.Create(input.Left, input.Right))
             .WithTrackingName(ModelGeneratorTrackingNames.GeneratorInputs);
 
-        context.RegisterSourceOutputSafely(generatorInputs, (sourceProductionContext, generatorInput) =>
-        {
-            if (sourceProductionContext.CancellationToken.IsCancellationRequested)
-                return;
+        var preparations = generatorInputs.Combine(collectedClasses).Combine(collectedEnums)
+            .SelectMany(static (input, cancellationToken) => input.Left.Left.MetadataResults
+                .Select(metadata => PrepareDatabase(metadata, input.Left.Left.Compilation,
+                    input.Left.Left.UseNullableReferenceTypes, input.Left.Right, input.Right, cancellationToken))
+                .ToImmutableArray())
+            .WithTrackingName("DataLinq.SemanticPreparation");
 
-            foreach (var metadata in generatorInput.MetadataResults)
-                ExecuteForDatabase(metadata, generatorInput.Compilation, sourceProductionContext, generatorInput.UseNullableReferenceTypes);
+        // Diagnostics use the current compilation even when source emission is cached.
+        context.RegisterSourceOutputSafely(preparations, static (production, prepared) =>
+        {
+            foreach (var diagnostic in prepared.Diagnostics)
+                production.ReportDiagnostic(diagnostic);
+        }, GeneratorName);
+
+        var sourceInputs = preparations.Where(static prepared => prepared.Emission is not null)
+            .Select(static (prepared, _) => prepared.Emission!)
+            .WithComparer(DatabaseEmissionInputComparer.Instance)
+            .WithTrackingName("DataLinq.DatabaseSemanticInputs");
+        var emissions = sourceInputs.Select(static (input, _) => new DatabaseEmissionOutput(input.Database,
+                EmitGeneratedSources(input.Database, table => input.TableOptions[table], () => input.DatabaseOptions)))
+            .WithTrackingName("DataLinq.DatabaseEmissions");
+
+        context.RegisterSourceOutputSafely(emissions, static (production, emission) =>
+        {
+            foreach (var source in emission.Result.SourceFiles)
+                production.AddSource(source.HintName, source.Contents);
+        }, GeneratorName);
+        context.RegisterSourceOutputSafely(emissions.Combine(context.CompilationProvider), static (production, input) =>
+        {
+            foreach (var failure in input.Left.Result.Failures)
+                ReportGenerationFailureDiagnostic(failure.Exception, input.Left.Database, input.Right, production.ReportDiagnostic);
         }, GeneratorName);
     }
 
@@ -118,12 +142,16 @@ public sealed class ModelGenerator : IIncrementalGenerator
         }
     }
 
-    private void ExecuteForDatabase(Option<DatabaseDefinition, IDLOptionFailure> db, Compilation compilation, SourceProductionContext context, bool useNullableReferenceTypes)
+    private static PreparedDatabaseInput PrepareDatabase(Option<DatabaseDefinition, IDLOptionFailure> db,
+        Compilation compilation, bool useNullableReferenceTypes,
+        ImmutableArray<ModelDeclarationInput> declarations, ImmutableArray<EnumDeclarationInput> enums,
+        System.Threading.CancellationToken cancellationToken)
     {
+        var diagnostics = new List<Diagnostic>();
         if (db.HasFailed)
         {
-            ReportFailureDiagnostics(db.Failure.Value, compilation, context);
-            return;
+            ReportFailureDiagnostics(db.Failure.Value, compilation, diagnostics.Add);
+            return new PreparedDatabaseInput(null, diagnostics);
         }
 
         try
@@ -131,30 +159,30 @@ public sealed class ModelGenerator : IIncrementalGenerator
             var scalarMetadataResult = ScalarConverterMetadataResolver.Resolve(
                 db.Value,
                 compilation,
-                context.CancellationToken);
+                cancellationToken);
             if (!scalarMetadataResult.TryUnwrap(out var database, out var scalarMetadataFailure))
             {
-                ReportFailureDiagnostics(scalarMetadataFailure, compilation, context);
-                return;
+                ReportFailureDiagnostics(scalarMetadataFailure, compilation, diagnostics.Add);
+                return new PreparedDatabaseInput(null, diagnostics);
             }
 
             var validationContext = new GeneratorValidationContext();
             foreach (var validator in validators)
-                validator.Validate(database, compilation, context, validationContext);
+                validator.Validate(database, compilation, cancellationToken, diagnostics.Add, validationContext);
 
             var runtimeValuePropertyTypeNames = ResolveRuntimeValuePropertyTypeNames(
                 database,
                 compilation,
-                context.CancellationToken);
+                cancellationToken);
             var readSourceConstructorModelTypeNames = ResolveReadSourceConstructorModelTypeNames(
                 database,
                 compilation,
-                context.CancellationToken);
+                cancellationToken);
             var supportsReadSourceDatabaseConstruction =
                 SourceModelSyntaxResolver.HasExactDatabaseReadSourceConstructor(
                     database,
                     compilation,
-                    context.CancellationToken);
+                    cancellationToken);
 
             GeneratorFileFactoryOptions CreateOptions(bool nullableReferenceTypes) => new()
             {
@@ -166,20 +194,17 @@ public sealed class ModelGenerator : IIncrementalGenerator
             };
 
             var databaseNullableContext = ResolveDatabaseNullableReferenceTypes(database, compilation, useNullableReferenceTypes);
-            var emissionResult = EmitGeneratedSources(
-                database,
-                table => CreateOptions(ResolveTableNullableReferenceTypes(table, compilation, databaseNullableContext)),
-                () => CreateOptions(databaseNullableContext));
-
-            foreach (var sourceFile in emissionResult.SourceFiles)
-                context.AddSource(sourceFile.HintName, sourceFile.Contents);
-
-            foreach (var failure in emissionResult.Failures)
-                ReportGenerationFailureDiagnostic(failure.Exception, database, compilation, context);
+            var tableOptions = database.TableModels.Where(static table => !table.IsStub)
+                .ToDictionary(table => table, table => CreateOptions(ResolveTableNullableReferenceTypes(table, compilation, databaseNullableContext)));
+            var emission = new DatabaseEmissionInput(database, CreateOptions(databaseNullableContext), tableOptions,
+                declarations, enums);
+            return new PreparedDatabaseInput(emission, diagnostics);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception e)
         {
-            ReportGenerationFailureDiagnostic(e, db.Value, compilation, context);
+            ReportGenerationFailureDiagnostic(e, db.Value, compilation, diagnostics.Add);
+            return new PreparedDatabaseInput(null, diagnostics);
         }
     }
 
@@ -342,12 +367,12 @@ public sealed class ModelGenerator : IIncrementalGenerator
     private static void ReportFailureDiagnostics(
         IDLOptionFailure failure,
         Compilation compilation,
-        SourceProductionContext context)
+        Action<Diagnostic> reportDiagnostic)
     {
         var issues = DataLinqDiagnosticIssue.FromFailure(failure);
         if (issues.Count == 0)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            reportDiagnostic(Diagnostic.Create(
                 GeneratorDiagnostics.MetadataGenerationFailed,
                 ResolveSourceLocation(failure.GetMostRelevantSourceLocation(), compilation),
                 $"{failure}"));
@@ -356,7 +381,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
 
         foreach (var issue in issues)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            reportDiagnostic(Diagnostic.Create(
                 GeneratorDiagnostics.MetadataGenerationFailed,
                 ResolveSourceLocation(issue.SourceLocation, compilation),
                 FormatDiagnosticIssueMessage(issue)));
@@ -378,9 +403,9 @@ public sealed class ModelGenerator : IIncrementalGenerator
         Exception exception,
         DatabaseDefinition database,
         Compilation compilation,
-        SourceProductionContext context)
+        Action<Diagnostic> reportDiagnostic)
     {
-        context.ReportDiagnostic(Diagnostic.Create(
+        reportDiagnostic(Diagnostic.Create(
             GeneratorDiagnostics.ModelFileGenerationFailed,
             ResolveGenerationFailureLocation(exception, database, compilation),
             exception.Message));

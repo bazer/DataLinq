@@ -53,7 +53,7 @@ public abstract class GeneratorTestBase
         return generatedTrees;
     }
 
-    private static string GetDataLinqRuntimeAssemblyPath()
+    protected static string GetDataLinqRuntimeAssemblyPath()
     {
         var outputDirectory = new DirectoryInfo(AppContext.BaseDirectory);
         var projectRoot = outputDirectory.Parent?.Parent?.Parent?.Parent

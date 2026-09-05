@@ -7,7 +7,8 @@ namespace DataLinq.SourceGenerators;
 
 internal sealed class DefaultValueCompatibilityValidator : IGeneratorDatabaseValidator
 {
-    public void Validate(DatabaseDefinition database, Compilation compilation, SourceProductionContext context, GeneratorValidationContext validationContext)
+    public void Validate(DatabaseDefinition database, Compilation compilation, System.Threading.CancellationToken cancellationToken,
+        System.Action<Diagnostic> reportDiagnostic, GeneratorValidationContext validationContext)
     {
         foreach (var property in database.TableModels.SelectMany(x => x.Model.ValueProperties.Values))
         {
@@ -15,14 +16,14 @@ internal sealed class DefaultValueCompatibilityValidator : IGeneratorDatabaseVal
             if (defaultAttr == null || string.IsNullOrWhiteSpace(defaultAttr.CodeExpression))
                 continue;
 
-            if (!SourceModelSyntaxResolver.TryGetDefaultExpressionContext(property, compilation, context.CancellationToken, out var expressionContext))
+            if (!SourceModelSyntaxResolver.TryGetDefaultExpressionContext(property, compilation, cancellationToken, out var expressionContext))
                 continue;
 
             var conversion = expressionContext.SemanticModel.ClassifyConversion(expressionContext.ExpressionSyntax, expressionContext.PropertyType);
             if (conversion.IsImplicit)
                 continue;
 
-            context.ReportDiagnostic(Diagnostic.Create(
+            reportDiagnostic(Diagnostic.Create(
                 GeneratorDiagnostics.InvalidDefaultValue,
                 expressionContext.ExpressionSyntax.GetLocation(),
                 defaultAttr.CodeExpression,
