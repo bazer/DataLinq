@@ -16,6 +16,22 @@ public class TimeDurationTests
     [Test]
     [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task SeededEmployeeTimesMatchTheWholeSecondColumnPrecision(TestProviderDescriptor provider)
+    {
+        using var scope = EmployeesTestDatabase.CreateIsolated(
+            provider, nameof(SeededEmployeeTimesMatchTheWholeSecondColumnPrecision), EmployeesFixtureProfile.TinySeeded);
+        var rows = scope.Database.Query().Employees.ToArray();
+        await Assert.That(rows.Length).IsEqualTo(32);
+        foreach (var row in rows)
+        {
+            await Assert.That(row.last_login.HasValue).IsTrue();
+            await Assert.That(row.last_login!.Value.Ticks % TimeSpan.TicksPerSecond).IsEqualTo(0L);
+        }
+    }
+
+    [Test]
+    [Property(TestProviderAffinity.PropertyName, TestProviderAffinity.ServerFamily)]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task TimeOnlyRejectsDurationsOutsideItsRangeWithoutWrapping(TestProviderDescriptor provider)
     {
         using var schema = ServerSchemaDatabase.Create(provider, nameof(TimeOnlyRejectsDurationsOutsideItsRangeWithoutWrapping));

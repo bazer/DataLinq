@@ -66,6 +66,12 @@ Duration defaults preserve the sign, total hours, and microseconds in generated
 MySQL/MariaDB SQL, and exact ticks in generated C# code. SQL generation rejects
 sub-microsecond duration defaults that MySQL/MariaDB cannot represent.
 
+Match time-of-day inputs to the column's fractional precision. For example,
+MySQL can round `23:59:59.999999` stored in `TIME(0)` to `24:00:00`, which is
+outside `TimeOnly`'s range. Use sufficient column precision or explicitly choose
+the application's rounding/truncation policy before writing. DataLinq does not
+silently wrap the stored duration to midnight.
+
 ## Default Value Handling
 
 `generate models` imports MySQL and MariaDB defaults into DataLinq metadata instead of treating them as raw schema text.
