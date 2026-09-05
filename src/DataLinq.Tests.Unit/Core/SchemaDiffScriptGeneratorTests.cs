@@ -13,6 +13,80 @@ namespace DataLinq.Tests.Unit.Core;
 public class SchemaDiffScriptGeneratorTests
 {
     [Test]
+    [Arguments(DatabaseType.SQLite, false)]
+    [Arguments(DatabaseType.SQLite, true)]
+    [Arguments(DatabaseType.MySQL, false)]
+    [Arguments(DatabaseType.MySQL, true)]
+    [Arguments(DatabaseType.MariaDB, false)]
+    [Arguments(DatabaseType.MariaDB, true)]
+    public async Task MissingTableNamesEveryConstraintAndUnsupportedIndexItDoesNotInstall(DatabaseType provider, bool specificChecks)
+    {
+        MetadataTableModelDraft Parent() => CreateTable("account", [CreateColumn("id", typeof(int), false, primaryKey: true)]);
+        MetadataTableModelDraft Child(bool constrained) => CreateTable("invoice",
+            [
+                CreateColumn("id", typeof(int), false, primaryKey: true),
+                CreateColumn("account_id", typeof(int), false, attributes: constrained
+                    ? [new ForeignKeyAttribute("account", "id", "FK_invoice_account", ReferentialAction.Cascade, ReferentialAction.Restrict)] : []),
+                CreateColumn("amount", typeof(int), false),
+                CreateColumn("notes", typeof(string), false)
+            ], constrained
+                ? [new CheckAttribute("ck_default", "amount > 0"),
+                   .. (specificChecks ? new Attribute[] {
+                       new CheckAttribute(DatabaseType.SQLite, "ck_SQLite", "amount > 1"),
+                       new CheckAttribute(DatabaseType.MySQL, "ck_MySQL", "amount > 2"),
+                       new CheckAttribute(DatabaseType.MariaDB, "ck_MariaDB", "amount > 3") } : []),
+                   new IndexAttribute("ix_filtered_invoice", IndexCharacteristic.FILTERED, IndexType.BTREE, "amount"),
+                   new IndexAttribute("ix_fulltext_invoice", IndexCharacteristic.Simple, IndexType.FULLTEXT, "notes"),
+                   new IndexAttribute("cache_only_invoice", IndexCharacteristic.VirtualDataLinq, IndexType.BTREE, "notes")]
+                : []);
+
+        var model = CreateDatabase(Parent(), Child(true));
+        var before = SchemaComparer.Compare(model, CreateDatabase(Parent()), provider);
+        await Assert.That(before.Count).IsEqualTo(1);
+        var script = new SchemaDiffScriptGenerator().Generate(provider, before);
+        await Assert.That(script).Contains("CREATE TABLE IF NOT EXISTS");
+        await Assert.That(script).Contains("foreign key 'FK_invoice_account'");
+        await Assert.That(script).Contains("account_id");
+        await Assert.That(script).Contains("references");
+        await Assert.That(script).Contains("ON UPDATE Cascade, ON DELETE Restrict");
+        await Assert.That(script.Split("Manual action required: foreign key").Length - 1).IsEqualTo(1);
+        await Assert.That(script).Contains("index 'ix_filtered_invoice'");
+        await Assert.That(script).Contains("FILTERED/BTREE");
+        await Assert.That(script).Contains("index 'ix_fulltext_invoice'");
+        await Assert.That(script).Contains("Simple/FULLTEXT");
+        await Assert.That(script).DoesNotContain("cache_only_invoice");
+        await Assert.That(script).Contains(specificChecks ? $"check 'ck_{provider}'" : "check 'ck_default'");
+        if (specificChecks)
+            await Assert.That(script).DoesNotContain("ck_default");
+
+        // A schema containing just the suggested columns/PK still lacks these
+        // constraints. Every drift item supported by the comparer is named.
+        var followup = SchemaComparer.Compare(model, CreateDatabase(Parent(), Child(false)), provider);
+        await Assert.That(followup.Any(item => item.Kind == SchemaDifferenceKind.MissingForeignKey)).IsTrue();
+        await Assert.That(followup.Any(item => item.Kind == SchemaDifferenceKind.MissingCheck)).IsEqualTo(provider != DatabaseType.SQLite);
+        foreach (var difference in followup)
+        {
+            await Assert.That(difference.Kind is SchemaDifferenceKind.MissingForeignKey or SchemaDifferenceKind.MissingCheck or SchemaDifferenceKind.MissingIndex).IsTrue();
+            await Assert.That(script).Contains(difference.Path.Split('.').Last());
+        }
+    }
+
+    [Test]
+    [Arguments(DatabaseType.SQLite)]
+    [Arguments(DatabaseType.MySQL)]
+    [Arguments(DatabaseType.MariaDB)]
+    public async Task MissingTableConstraintReviewTextCannotCreateExtraSqlStatements(DatabaseType provider)
+    {
+        var model = CreateDatabase(CreateTable("account", [CreateColumn("id", typeof(int), false, primaryKey: true)],
+            [new CheckAttribute("ck_id\nDROP TABLE account;", "id > 0\r\nDELETE FROM account;"),
+             new IndexAttribute("ix_id\nDROP TABLE account;", IndexCharacteristic.FILTERED, "id")]));
+        var script = new SchemaDiffScriptGenerator().Generate(provider, SchemaComparer.Compare(model, CreateDatabase(), provider));
+        var actionLines = script.Split('\n').Where(line => line.Contains("DROP TABLE", StringComparison.Ordinal) || line.Contains("DELETE FROM", StringComparison.Ordinal)).ToArray();
+        await Assert.That(actionLines.Length).IsEqualTo(2);
+        await Assert.That(actionLines.All(line => line.StartsWith("-- ", StringComparison.Ordinal))).IsTrue();
+    }
+
+    [Test]
     [Arguments(DatabaseType.SQLite, true)]
     [Arguments(DatabaseType.SQLite, false)]
     [Arguments(DatabaseType.MySQL, true)]

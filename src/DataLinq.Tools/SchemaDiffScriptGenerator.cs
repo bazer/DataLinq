@@ -138,9 +138,44 @@ public sealed class SchemaDiffScriptGenerator
         builder.AppendLine(");");
         builder.AppendLine();
 
-        foreach (var index in GetCreatableIndexes(table))
+        foreach (var index in GetPhysicalIndexes(table))
             AppendCreateIndex(builder, provider, null, index);
+
+        AppendMissingTableConstraints(builder, provider, table);
     }
+
+    private static void AppendMissingTableConstraints(StringBuilder builder, SqlDiffProvider provider, TableDefinition table)
+    {
+        var relations = table.ColumnIndices
+            .SelectMany(index => index.RelationParts)
+            .Where(part => part.Type == RelationPartType.ForeignKey)
+            .Select(part => part.Relation)
+            .Distinct()
+            .OrderBy(relation => relation.ConstraintName, StringComparer.Ordinal);
+        foreach (var relation in relations)
+        {
+            var foreignKey = relation.ForeignKey.ColumnIndex;
+            var candidateKey = relation.CandidateKey.ColumnIndex;
+            builder.AppendLine("-- " + EscapeSqlComment(
+                $"Manual action required: foreign key '{relation.ConstraintName}' on {provider.Quote(foreignKey.Table.DbName)} ({provider.QuoteList(foreignKey.Columns.Select(column => column.DbName))}) " +
+                $"references {provider.Quote(candidateKey.Table.DbName)} ({provider.QuoteList(candidateKey.Columns.Select(column => column.DbName))}); " +
+                $"ON UPDATE {FormatReferentialAction(relation.OnUpdate)}, ON DELETE {FormatReferentialAction(relation.OnDelete)}. No constraint SQL was generated."));
+            builder.AppendLine();
+        }
+
+        var checks = table.Model?.Attributes.OfType<CheckAttribute>().ToArray() ?? [];
+        var providerChecks = checks.Where(check => check.DatabaseType == provider.DatabaseType).ToArray();
+        var effectiveChecks = providerChecks.Length > 0 ? providerChecks : checks.Where(check => check.DatabaseType == DatabaseType.Default);
+        foreach (var check in effectiveChecks.OrderBy(check => check.Name, StringComparer.Ordinal))
+        {
+            builder.AppendLine("-- " + EscapeSqlComment(
+                $"Manual action required: check '{check.Name}' on {provider.Quote(table.DbName)}: CHECK ({check.Expression}). No constraint SQL was generated."));
+            builder.AppendLine();
+        }
+    }
+
+    private static string FormatReferentialAction(ReferentialAction action) =>
+        action == ReferentialAction.Unspecified ? "not specified" : action.ToString();
 
     private static void AppendAddColumn(
         StringBuilder builder,
@@ -256,9 +291,9 @@ public sealed class SchemaDiffScriptGenerator
         return $"{typeName}({dbType.Length.Value.ToString(CultureInfo.InvariantCulture)})";
     }
 
-    private static IEnumerable<ColumnIndex> GetCreatableIndexes(TableDefinition table) =>
+    private static IEnumerable<ColumnIndex> GetPhysicalIndexes(TableDefinition table) =>
         table.ColumnIndices
-            .Where(x => x.Characteristic is IndexCharacteristic.Simple or IndexCharacteristic.Unique)
+            .Where(x => x.Characteristic is not (IndexCharacteristic.PrimaryKey or IndexCharacteristic.VirtualDataLinq))
             .OrderBy(x => x.Name, StringComparer.Ordinal);
 
     private static bool IsCreatableIndex(DatabaseType databaseType, ColumnIndex index)
