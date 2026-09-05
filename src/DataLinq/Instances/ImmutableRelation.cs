@@ -146,9 +146,41 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
     where T : IImmutableInstance
     where TKey : notnull
 {
-    private volatile FrozenDictionary<DataLinqKey, T>? relationInstances;
-    private ImmutableArray<T> relationValues;
-    private volatile bool relationValuesLoaded;
+    private RelationSnapshot? snapshot;
+    private object clearGeneration = new();
+
+    // Each subscription belongs to exactly one load. Losing or superseded loads
+    // are weakly held by the notification queue and cannot clear a newer snapshot.
+    private sealed class RelationSnapshot(
+        ImmutableRelation<T, TKey> owner,
+        IDataSourceAccess source,
+        ImmutableArray<T> values) : ICacheNotification
+    {
+        private FrozenDictionary<DataLinqKey, T>? instances;
+        internal IDataSourceAccess Source { get; } = source;
+        internal ImmutableArray<T> Values { get; } = values;
+        internal bool Invalidated { get; set; } // Accessed under owner's loadLock.
+
+        internal FrozenDictionary<DataLinqKey, T> GetInstances()
+        {
+            var current = Volatile.Read(ref instances);
+            if (current is not null)
+                return current;
+
+            var created = Values.ToFrozenDictionary(row => row.PrimaryKeys());
+            return Interlocked.CompareExchange(ref instances, created, null) ?? created;
+        }
+
+        public void Clear()
+        {
+            lock (owner.loadLock)
+            {
+                Invalidated = true;
+                if (ReferenceEquals(owner.snapshot, this))
+                    Volatile.Write(ref owner.snapshot, null);
+            }
+        }
+    }
 
 #if NET9_0_OR_GREATER
     protected readonly Lock loadLock = new();
@@ -198,67 +230,55 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
         return dataSource;
     }
 
-    protected ImmutableArray<T> GetValues()
+    protected ImmutableArray<T> GetValues() => GetSnapshot().Values;
+
+    protected FrozenDictionary<DataLinqKey, T> GetInstances() => GetSnapshot().GetInstances();
+
+    private RelationSnapshot GetSnapshot()
     {
-        if (relationValuesLoaded)
-        {
-            GetTableCache().MetricsHandle.RecordRelationCollectionCacheHit();
-            return relationValues;
-        }
-
-        lock (loadLock)
-        {
-            // Check if another thread loaded relationInstances while we were waiting for the lock.
-            if (!relationValuesLoaded)
-                return LoadValues();
-
-            return relationValues;
-        }
-    }
-
-    protected FrozenDictionary<DataLinqKey, T> GetInstances()
-    {
-        var localInstance = relationInstances;
-        if (localInstance != null)
-        {
-            GetTableCache().MetricsHandle.RecordRelationCollectionCacheHit();
-            return localInstance;
-        }
-
-        lock (loadLock)
-        {
-            if (relationInstances == null)
-            {
-                var valuesWereLoaded = relationValuesLoaded;
-                var values = valuesWereLoaded ? relationValues : LoadValues();
-                if (valuesWereLoaded)
-                    GetTableCache().MetricsHandle.RecordRelationCollectionCacheHit();
-
-                relationInstances = values.ToFrozenDictionary(x => x.PrimaryKeys());
-            }
-
-            return relationInstances;
-        }
-    }
-
-    private ImmutableArray<T> LoadValues()
-    {
-        // Load the relation instances from the data source.
-        // This will only happen once, and subsequent calls will return the cached value.
+        // Validate transaction state even on cache hits and never reuse a
+        // transaction-local snapshot after switching to committed reads.
         var source = GetDataSource();
         var tableCache = GetTableCache(source);
+        var current = Volatile.Read(ref snapshot);
+        if (current is not null && ReferenceEquals(current.Source, source))
+        {
+            tableCache.MetricsHandle.RecordRelationCollectionCacheHit();
+            return current;
+        }
 
-        relationValues = ToImmutableRelationValues(tableCache.GetRows(foreignKey, property, source));
+        object generation;
+        lock (loadLock)
+            generation = clearGeneration;
 
-        relationValuesLoaded = true;
+        // I/O and user model construction must not block Clear or notification
+        // callbacks. Concurrent misses may load twice; only one snapshot wins.
+        var readGeneration = tableCache.CaptureReadGeneration();
+        var values = ToImmutableRelationValues(tableCache.GetRows(foreignKey, property, source));
+        var created = new RelationSnapshot(this, source, values);
         tableCache.MetricsHandle.RecordRelationCollectionLoad();
         tableCache.SubscribeToChanges(
-            this,
+            created,
             source as Transaction,
             GetRelationCacheKey(),
-            GetPrimaryKeys(relationValues));
+            GetPrimaryKeys(values));
 
-        return relationValues;
+        lock (loadLock)
+        {
+            current = snapshot;
+            if (current is not null && ReferenceEquals(current.Source, source))
+                return current;
+
+            // A notification before Subscribe is detected by the table generation;
+            // one after Subscribe invalidates this candidate, even before publication.
+            if (ReferenceEquals(generation, clearGeneration) && !created.Invalidated &&
+                ReferenceEquals(readGeneration, tableCache.CaptureReadGeneration()))
+            {
+                Volatile.Write(ref snapshot, created);
+            }
+        }
+
+        return created;
     }
 
     private static ImmutableArray<T> ToImmutableRelationValues(IEnumerable<IImmutableInstance> rows)
@@ -308,14 +328,10 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
 
     public void Clear()
     {
-        if (relationValuesLoaded || relationInstances != null)
+        lock (loadLock)
         {
-            lock (loadLock)
-            {
-                relationInstances = null;
-                relationValues = default;
-                relationValuesLoaded = false;
-            }
+            clearGeneration = new object();
+            Volatile.Write(ref snapshot, null);
         }
     }
 
