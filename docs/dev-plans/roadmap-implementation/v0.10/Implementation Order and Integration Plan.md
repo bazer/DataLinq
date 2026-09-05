@@ -50,6 +50,8 @@ Complete the audit and decide/test:
 - enforce AAPI-19/AAPI-20: optional method/enumerator tokens honored together, cancellation during buffered iteration, ownership/disposal on every enumeration exit, rejection of another execution during a live transaction reader, and preservation of validated later relation source transitions
 - enforce AAPI-27 through AAPI-30: mutation identity/values captured before first suspension, exclusive use of pending mutable inputs, exactly-once synchronous local edits, and finite multi-model enumeration/capture before execution; retain documented reference-value/async-void limits
 - enforce AAPI-31 through AAPI-33: task-returning transaction-only/token-aware callback families, helper-owned completion with explicit token propagation, and results delivered after commit/finalization/cleanup; materialize transaction-bound deferred results inside callbacks without hidden transaction retention
+- enforce AAPI-34 through AAPI-38: one active execution operation per transaction across sync/async paths, resource-lifetime and private internal/mutable/helper ownership, rejected caller disposal during active work, and safe recovery without commit for unfinished callbacks
+- enforce AAPI-39 through AAPI-41: existing per-relation coordination with independent wait cancellation, invalidation-safe row/index/relation publication, complete-result versus individual-row caching, and transaction/database isolation without a general coalescing system
 
 Relation query composition is excluded from 0.10 under revised AAPI-10. Its [backlog proposal](../../query-and-runtime/Relation-Scoped%20Queries.md) creates no parser, test-helper query capability, or release-gate dependency here; existing database/transaction query roots remain in scope.
 
@@ -57,7 +59,7 @@ Do not add public async methods incrementally until one audit proves the surface
 
 ### D10-2: Provider Cancellation And Failure Semantics
 
-OAPI-3's enumeration contracts are accepted under AAPI-17 through AAPI-20, OAPI-4's failure policies under AAPI-21 through AAPI-26, and OAPI-5's mutation/callback contracts under AAPI-27 through AAPI-33. Resolve OAPI-6 and the exact signature/provider questions in the [API decision record](Async%20Public%20API%20Decisions.md#open-decisions-before-the-complete-api-is-frozen) without reopening those accepted boundaries.
+OAPI-3's enumeration contracts are accepted under AAPI-17 through AAPI-20, OAPI-4's failure policies under AAPI-21 through AAPI-26, OAPI-5's mutation/callback contracts under AAPI-27 through AAPI-33, and OAPI-6's concurrency/cache policies under AAPI-34 through AAPI-41. Resolve the exact signature/provider questions in the [API decision record](Async%20Public%20API%20Decisions.md#open-decisions-before-the-complete-api-is-frozen) without reopening those accepted boundaries.
 
 Implement and prove:
 
@@ -69,8 +71,9 @@ Implement and prove:
 - explicit rollback caller tokens versus independent recovery rollback tokens; configurable 30-second starting recovery budget, verified before configuration freeze, without a total-cleanup deadline or unsafe abandoned work
 - throwing disposal, primary/secondary failure precedence where DataLinq owns execution/cleanup, documented scope-exit limitations, and no duplicate reporting of already-reported cleanup failures
 - structured cause/stage/outcome/recovery/secondary-failure information for explicit and implicit helpers, preserving ordinary exception identity and provider codes
+- deterministic overlap/admission/recovery and cache invalidation/publication races under AAPI-34 through AAPI-41, including mixed sync/async execution, independent waiter cancellation, and cleanup failures without unsafe abandoned work
 
-Exact public accessors/options, callback/mutation overload inventory, and compatibility remain under OAPI-7. Provider-specific interruption/classification and recovery-budget feasibility remain under OAPI-9 and W1/W2. Wider operation/shared-load coordination, internal ownership across awaits, and enforcement/recovery of unfinished callback work remain under OAPI-6. AAPI-28's exclusive mutable lifetime and AAPI-32's borrowed completion restrictions are accepted requirements for that design.
+Exact public accessors/options, callback/mutation overload inventory, and compatibility remain under OAPI-7. Provider-specific interruption/classification and recovery-budget feasibility remain under OAPI-9 and W1/W2. AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, private ownership across awaits, and recovery of unfinished callback work. Private gate/versioning representations and cost remain implementation choices; preserve AAPI-28's exclusive mutable lifetime and AAPI-32's borrowed completion restrictions.
 
 Provider differences may be explicit, but they cannot become silent semantic drift.
 

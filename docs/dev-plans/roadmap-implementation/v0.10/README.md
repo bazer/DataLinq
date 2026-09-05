@@ -60,6 +60,8 @@ Required contract:
 - explicit rollback honors caller cancellation; internal recovery uses an independent configurable 30-second starting rollback budget subject to provider verification, with no total-disposal deadline or unsafe abandonment of active work; throwing disposal retains documented C# scope-exit limitations
 - mutation identity/values captured before first suspension, exclusive pending mutable input use, exactly-once synchronous local editing delegates, and finite multi-model enumeration/capture before writes; preserve supported snapshot semantics and document escaped-reference/async-void limits
 - task-returning `CommitAsync` callback families with transaction-only and token-aware forms, helper-owned completion, explicit token delivery, no callback replay, and results delivered after commit/finalization/cleanup; transaction-bound deferred results must be materialized inside the callback
+- one active transaction execution across sync/async paths, held through resource/finalization/cleanup lifetime, with private internal ownership, rejected caller disposal while active, and safe recovery without commit for unfinished callback work
+- existing relation-load coordination with independent waiter cancellation, invalidation-safe row/index/relation publication, complete-result versus individual-row cache rules, and transaction/database isolation; independent database-root operations remain eligible for concurrency
 - sync/async parity for query results, conversion, cache behavior, invalidation, logging, metrics, and transaction terminal states
 - synchronous execution retained as real synchronous implementations rather than sync-over-async wrappers; the enumeration rename and required-reference correction above are the specifically approved compatibility exceptions
 
@@ -72,6 +74,7 @@ Acceptance summary:
 - sequence return types, repeat-enumeration behavior, combined tokens, early disposal, and active-reader/source lifetimes follow AAPI-17 through AAPI-20
 - initialization, cancellation, completion, cleanup, and structured failure behavior follow AAPI-21 through AAPI-26; exact signatures, configuration, and provider feasibility still require W1/W2/W3 evidence
 - mutation input/delegate/collection and callback behavior follows AAPI-27 through AAPI-33, including ownership release, overload binding, and preserved entity relation transitions after completion
+- concurrency/cache behavior follows AAPI-34 through AAPI-41, proven with deterministic execution/admission/invalidation/publication races and measured against W0; accepted design does not substitute for provider or runtime evidence
 
 Explicit non-goals:
 
@@ -81,6 +84,7 @@ Explicit non-goals:
 - general backend plugin APIs
 - relation query composition, retained in the unscheduled [Relation-Scoped Queries](../../query-and-runtime/Relation-Scoped%20Queries.md) backlog proposal
 - asynchronous editing delegates, async-stream mutation inputs, bulk execution, and automatic mutation dependency ordering
+- a database-wide execution lock, general shared-task/load-coalescing system, automatic invalidation retry loop, or hard deadline for draining active provider work
 
 ### H10: Dependency Injection, Hosting, And Unit Of Work
 

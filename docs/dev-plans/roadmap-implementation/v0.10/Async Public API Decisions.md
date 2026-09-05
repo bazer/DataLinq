@@ -80,7 +80,7 @@ Keep local operations synchronous: existing database/transaction `Query()` facto
 
 Provide explicit async counterparts for the supported execution families. Preserve existing sync behavior, query support limits, conversions, cache and invalidation rules, logging, metrics, and transaction terminal semantics. Synchronous APIs remain direct synchronous implementations.
 
-Do not run simultaneous managed operations on the same transaction. Sequential mixing is supported. AAPI-20 requires rejection of another execution operation while a reader remains active, including between moves; exact diagnostics and the wider operation-gate contract remain under OAPI-6.
+Do not run simultaneous managed operations on the same transaction. Sequential mixing is supported. AAPI-20 and AAPI-34 through AAPI-38 settle active-reader and wider execution ownership, overlap diagnostics, caller disposal, and helper-owned recovery across awaits; exact public accessors and compatibility remain under OAPI-7.
 
 Database-level mutation helpers continue to own the implicit transaction and its completion. Transaction-level mutation helpers execute inside their existing transaction without committing it. `SaveAsync()` corresponds to DataLinq's current `Save()` behavior, not an EF-style change-tracker flush.
 
@@ -273,7 +273,7 @@ The accepted collection accessor names and result types are:
 
 These preserve the synchronous result shapes and relation membership semantics. They are DataLinq collection APIs, not claims that identically named framework operators exist. Keyed async materialization is available through `ToFrozenDictionaryAsync`; this decision does not add an `AsKeyValuePairsAsync` member. Local cache clearing remains synchronous.
 
-Start from asynchronous loading into a completed relation snapshot where that preserves current behavior. Use the returned snapshot directly after awaiting, not a synchronous getter that could load again after invalidation. An `IAsyncEnumerable<T>` return type does not promise database streaming: local `Take(10)` may follow a complete relation load. Callers needing provider filtering/paging can use an ordinary database/transaction query with an explicitly written relation predicate. AAPI-17 through AAPI-20 define execution start, buffering, capture/re-enumeration, token combination, and reader lifetime. AAPI-21 through AAPI-26 define cancellation/failure policies; OAPI-6 retains load coordination and atomic publication details.
+Start from asynchronous loading into a completed relation snapshot where that preserves current behavior. Use the returned snapshot directly after awaiting, not a synchronous getter that could load again after invalidation. An `IAsyncEnumerable<T>` return type does not promise database streaming: local `Take(10)` may follow a complete relation load. Callers needing provider filtering/paging can use an ordinary database/transaction query with an explicitly written relation predicate. AAPI-17 through AAPI-20 define execution start, buffering, capture/re-enumeration, token combination, and reader lifetime. AAPI-21 through AAPI-26 define cancellation/failure policies; AAPI-39 through AAPI-41 settle load coordination, invalidation-safe publication, completeness, and isolation.
 
 ### AAPI-13: Standard Async LINQ With A Conditional Transitive Dependency
 
@@ -415,7 +415,7 @@ If different method and enumerator tokens are supplied, cancellation of either r
 
 Observe cancellation during buffered row iteration as well as asynchronous loading. Buffering does not make a large local enumeration uncancelable. A retained sequence with a method token retains that token's cancellation constraint on later enumerations; passing another enumerator token does not undo it.
 
-This decides token delivery and combination, not all failure semantics. AAPI-21 through AAPI-26 settle execution-entry cancellation, initialization recovery, operation/completion outcomes, cleanup policy, and structured failure reporting. Shared-load coordination and precise provider interruption limits remain under OAPI-6/OAPI-9, with exact public signatures under OAPI-7. No mandatory ambient transaction token or public token on `DisposeAsync()` is introduced.
+This decides token delivery and combination, not all failure semantics. AAPI-21 through AAPI-26 settle execution-entry cancellation, initialization recovery, operation/completion outcomes, cleanup policy, and structured failure reporting. AAPI-39 settles independent waiter/load cancellation; precise provider interruption limits remain under OAPI-9, with exact public signatures under OAPI-7. No mandatory ambient transaction token or public token on `DisposeAsync()` is introduced.
 
 **Owner/gate:** A10 with T10; verify token-free calls, either token alone, equal/different tokens, buffered iteration, repeat enumeration, and linked-token resource cleanup before W3.
 
@@ -425,7 +425,7 @@ This decides token delivery and combination, not all failure semantics. AAPI-21 
 
 Enumerator disposal must not commit or dispose a caller-owned transaction. A live reader remains bound to its execution source and must not migrate to a new source midway through enumeration or continue using a disposed source.
 
-Reject another execution operation on the same transaction while a reader remains active, including between `MoveNextAsync()` calls while application code processes the current row. A pause in row production does not release the reader. Exact diagnostics and wider overlap/disposal coordination remain under OAPI-6; this restriction does not serialize independent database-root operations.
+Reject another execution operation on the same transaction while a reader remains active, including between `MoveNextAsync()` calls while application code processes the current row. A pause in row production does not release the reader. AAPI-34 through AAPI-38 settle diagnostics, wider overlap/disposal coordination, and helper recovery; this restriction does not serialize independent database-root operations.
 
 Callers needing nested operations on the transaction should explicitly finish materialization first:
 
@@ -442,7 +442,7 @@ Do not make correctness depend on an async view happening to buffer in the curre
 
 Preserve the existing validated post-transaction relation rules. [Collection relations](../../../../src/DataLinq/Instances/ImmutableRelation.cs) and [reference relations](../../../../src/DataLinq/Instances/ImmutableForeignKey.cs) can switch to committed reads after certain completed transactions, subject to [terminal trust checks](../../../../src/DataLinq/Mutation/Transaction.cs). Do not impose a blanket rule that every relation becomes unusable after commit. Later relation access may follow that existing transition; an active reader may not change source midway through execution.
 
-**Owner/gate:** A10, D10-1/D10-2 with H10/T10 consultation; verify resource ownership, early/manual disposal, active-reader overlap, and allowed/rejected terminal-source transitions. AAPI-25 settles cleanup failure precedence; the complete operation gate remains open under OAPI-6.
+**Owner/gate:** A10, D10-1/D10-2 with H10/T10 consultation; verify resource ownership, early/manual disposal, active-reader overlap, and allowed/rejected terminal-source transitions. AAPI-25 settles cleanup failure precedence; AAPI-34 through AAPI-38 settle the wider operation ownership contract, with implementation/provider evidence still required.
 
 ### AAPI-21: Validate First, Then Honor Pre-Cancellation Even On Cache Hits
 
@@ -485,7 +485,7 @@ A cancellation request alone does not establish initialization failure. Keep con
 
 **Accepted:** 2026-08-31. Apply cancellation checkpoints during fetching/materialization and release owned execution resources before allowing later execution. A buffered terminal must not return partial contents as success; a stream cannot recall rows already delivered to application code.
 
-Never publish an incomplete relation load as complete. Existing complete, valid cached rows need not be discarded solely because later reading was canceled; preserve normal cache/invalidation rules. The complete shared-load/invalidation coordination mechanism remains under OAPI-6.
+Never publish an incomplete relation load as complete. Existing complete, valid cached rows need not be discarded solely because later reading was canceled; preserve normal cache/invalidation rules. AAPI-39 through AAPI-41 settle shared-load coordination, invalidation-safe publication, completeness, and isolation; exact internal mechanisms require implementation evidence.
 
 A canceled ordinary DataLinq read may leave its caller-owned transaction reusable only after cleanup succeeds and provider evidence establishes that the intended transaction remains trustworthy. An open connection alone is insufficient. If integrity cannot be established, reject further reads, writes, and commit, allowing only recovery operations valid for the remaining provider state. Do not reconnect and silently continue the old transaction. Do not assume a raw command is harmless merely because it returns rows; its execution contract belongs to the OAPI-7 inventory.
 
@@ -586,7 +586,7 @@ This does not promise arbitrary deep cloning. Existing snapshots copy arrays wit
 | Failed operation invalidates the mutable | Ending exclusive use does not restore a trustworthy baseline |
 | Unsupported/custom mutation bypasses the guard | Retain snapshot/version checks and distinguish pre-execution rejection from inconsistency after writes |
 
-This is a bounded ownership contract, not general mutable thread safety or universal interception of escaped array/object changes. OAPI-6 owns the wider operation coordination mechanism; OAPI-7 owns custom/generated implementation and compatibility coverage. The restriction applies to conflicting use during pending async work and does not authorize unrelated synchronous API changes.
+This is a bounded ownership contract, not general mutable thread safety or universal interception of escaped array/object changes. AAPI-34 through AAPI-36 settle wider operation coordination and private ownership; OAPI-7 owns custom/generated implementation and compatibility coverage. The restriction applies to conflicting use during pending async work and does not authorize unrelated synchronous API changes.
 
 **Owner/gate:** A10 with T10 consultation, D10-1/D10-2; verify supported setter/reset paths, same-object submission across transactions, transaction versus database-helper lifetime, release on every exit, and continued invalidation after failure.
 
@@ -659,7 +659,7 @@ Guide asynchronous transaction work to `CommitAsync`. The current synchronous ge
 
 **Accepted:** 2026-09-04. A `CommitAsync` helper owns its transaction lifecycle. Invoke its callback once and await the returned task; never automatically retry/replay it. The callback borrows the transaction for operations and may pass it to application services. Reject callback attempts to commit, roll back, or dispose the helper-owned transaction before those actions reach the provider. Applications needing manual completion use `Transaction()`.
 
-Transaction operations started by the callback must finish before the callback returns. The enforcement and recovery mechanics for unfinished operations/readers and escaped work remain under OAPI-6; this decision does not authorize committing while they are active.
+Transaction operations started by the callback must finish before the callback returns. AAPI-36 and AAPI-38 settle private helper ownership and recovery for unfinished operations/readers and escaped work, including the limits of detecting unawaited completed tasks. Do not commit while tracked work remains active.
 
 | Cancellation boundary | Required behavior |
 | --- | --- |
@@ -684,6 +684,108 @@ Returning immutable rows remains valid, including the accepted later relation tr
 
 **Owner/gate:** A10 with H10/T10 consultation, D10-1/D10-2; W1/W2/W3 cover delayed result delivery, commit/finalization/cleanup failures, materialized results, rejection at execution of invalid deferred transaction-bound work, and valid later relation transitions without hidden transaction retention.
 
+### AAPI-34: Reject Overlapping Transaction Execution
+
+**Accepted:** 2026-09-04. Permit one active managed execution operation per transaction, shared by synchronous and asynchronous APIs. Reject a conflicting call immediately with `InvalidOperationException`; do not implicitly queue it. Cover queries, transaction-bound relation execution, mutations, initialization, and transaction completion, including warm-cache execution. The diagnostic identifies the transaction and attempted/active operations; exact public diagnostic access remains subject to OAPI-7.
+
+Rejecting the second call must neither cancel nor poison the first operation. Preserve ordinary argument/lifecycle validation and AAPI-21's cancellation precedence. Local immutable property reads and processing already materialized collections do not become transaction execution. Independent database-root operations remain eligible for concurrency with independently owned execution resources; do not introduce a database-wide execution lock.
+
+**Owner/gate:** A10, D10-1/D10-2; deterministic W1/W2 tests cover sync/async overlap, warm/cold execution, initialization and completion, diagnostics, unchanged first-operation behavior, and independent database-root concurrency.
+
+### AAPI-35: Execution Ownership Follows Operation And Resource Lifetime
+
+**Accepted:** 2026-09-04. Hold exclusive execution ownership through the actual operation and its required finalization/cleanup, not merely an individual provider command or `await`.
+
+| Boundary | Required behavior |
+| --- | --- |
+| Materializer, lookup, or mutation | Admission through required finalization and cleanup, including post-write hydration |
+| Async sequence construction | Does not acquire an execution slot; preserve AAPI-18's capture boundaries |
+| Enumeration execution | Acquire when execution starts and retain ownership while execution resources remain active, including between moves |
+| Commit or rollback | Include the provider operation and required local completion |
+| Reader disposal | Release reader ownership only after cleanup finishes |
+| Already completed operation not yet awaited by its caller | Execution ownership is already released |
+
+Reject overlapping `MoveNextAsync()` calls and enumerator disposal while a move is pending. Sequential enumerator disposal after the move finishes remains valid. Explicitly materialized collections can be processed after their readers close; callers must not depend on an async sequence's incidental buffering to make nested transaction execution safe. Preserve AAPI-20's caller transaction ownership and validated later relation-source transitions.
+
+**Owner/gate:** A10 with H10/T10 consultation, D10-1/D10-2; pause execution at initialization, hydration, reader moves, and cleanup to prove ownership duration, release on all exits, and deferred/unused-enumerator behavior.
+
+### AAPI-36: Use Private Operation Ownership Across Awaits
+
+**Accepted:** 2026-09-04. Use explicit private operation ownership for internal execution across awaits, with separate controls for transaction execution, mutable input reservations, and helper-owned transaction lifetime. The current [thread-ID-based internal read allowance](../../../../src/DataLinq/Mutation/Transaction.cs) is not an ownership model for suspended operations.
+
+Internal authoritative-row hydration participates in its enclosing mutation rather than competing as a new public operation. Application callbacks, notification handlers, and reentrant public calls do not receive internal privileges. Do not use an inherited `AsyncLocal` flag as blanket execution permission; private execution paths carry the required ownership.
+
+Preserve AAPI-28's per-object reservation, including conflicts through another transaction. A narrow allowance permits the synchronous editing delegate's intended local assignments before capture, but grants no transaction execution right and must not flow into asynchronous work. Keep the existing limits on escaped references/custom mutation paths explicit.
+
+The transaction callback helper owns completion but does not hold the ordinary execution slot throughout its callback; the callback must be able to perform its permitted sequential operations.
+
+**Owner/gate:** A10 with H10/T10 consultation, D10-1/D10-2; verify resumed execution on different threads, internal hydration, public reentrancy rejection, child-work isolation, local editing allowances, cross-transaction mutable conflicts, and callback execution without a self-blocking lifetime gate.
+
+### AAPI-37: Reject Caller Disposal While Execution Is Active
+
+**Accepted:** 2026-09-04. Caller-initiated `Dispose()` and `DisposeAsync()` reject active transaction execution/readers immediately. Do not implicitly cancel, queue behind, or tear down active work. A rejected disposal attempt must not mark the transaction disposed or disturb the operation.
+
+The caller first lets the operation finish, or requests cancellation and awaits its completion, then disposes any remaining reader and the transaction. Waiting implicitly can deadlock when application code pauses inside enumeration and awaits transaction disposal that itself waits for that enumerator. Disposing an in-use provider connection is not a safe alternative.
+
+An overlap error leaves the caller responsible for eventual cleanup. Helper-owned recovery uses the separate controlled path under AAPI-38; it does not turn public disposal into an implicit waiting API. Preserve AAPI-25's cleanup failure and repeated-reporting policy.
+
+**Owner/gate:** A10 with H10 consultation, D10-2; W1/W2 prove active-command and paused-reader rejection, unchanged disposal/lifecycle state, safe later cleanup, and no provider disposal during active execution.
+
+### AAPI-38: Recover Without Commit When Callbacks Leave Work Unfinished
+
+**Accepted:** 2026-09-04. When a `CommitAsync` callback finishes, atomically stop admitting callback operations and inspect tracked work. An active transaction operation or reader prevents commit even if that work later succeeds.
+
+Required helper-owned recovery:
+
+1. Observe already-started operations until their provider activity has safely finished.
+2. Close tracked escaped readers once no read is executing and prevent further use of those readers.
+3. Perform rollback/disposal under AAPI-24 through AAPI-26.
+
+If the callback returned successfully, unfinished work produces a clear `InvalidOperationException`. If it already threw, preserve that original failure and report unfinished-work/cleanup problems through the accepted secondary-failure information. Do not deliver the callback result or commit its work merely because outstanding operations subsequently succeed.
+
+Tracking outstanding work cannot prove that every completed task was awaited. DataLinq also cannot discover arbitrary background application work that has not yet touched the transaction; later transaction execution is rejected. This lifetime restriction does not remove AAPI-20's permitted later entity relation-source transitions.
+
+Do not promise bounded helper completion while an operation lacks effective cancellation. The independent rollback budget does not authorize abandoning active provider work, overlapping recovery with that work, or returning an in-use connection to the pool. Preserve explicit token propagation without introducing mandatory ambient cancellation.
+
+**Owner/gate:** A10 with H10/T10 consultation, D10-2; deterministic callback-completion races cover active operations, pending moves, escaped readers, admission closure, no commit/result, primary/secondary errors, completed-task detection limits, and safe recovery without a hard drain deadline.
+
+### AAPI-39: Coordinate Existing Relation Loads With Independent Wait Cancellation
+
+**Accepted:** 2026-09-04. Adapt the existing per-relation cold-load coordination for asynchronous waiting. One eligible caller owns loading; other eligible callers wait for that relation's loading slot and recheck current state afterward. This does not introduce a general shared-task, database-wide load-coalescing, or new retention policy.
+
+| Event | Required behavior |
+| --- | --- |
+| Waiting caller cancels | End only that caller's wait; leave the loader alone |
+| Loading caller cancels | Apply its normal operation/recovery policy; do not publish incomplete state |
+| Loader fails | Release coordination; do not permanently cache its failed task |
+| Another caller proceeds afterward | Recheck current state and, if necessary, perform its own load with its own operation/token |
+
+A waiter must not inherit another caller's cancellation. A later caller loading for itself is not automatic replay of the failed caller's operation. AAPI-34's same-transaction overlap rejection takes precedence over relation waiting.
+
+Async callers await coordination; synchronous callers retain synchronous waiting/execution rather than public sync-over-async wrappers. Do not hold a thread-affine monitor across an await. A primitive such as `SemaphoreSlim` is an implementation candidate, not a frozen public or internal representation.
+
+**Owner/gate:** A10, D10-2; W1/W2 cover mixed sync/async access, owner/waiter cancellation independently, failed-load release, fresh attempts, same-transaction precedence, and unrelated relation/database concurrency. Compare coordination costs with W0.
+
+### AAPI-40: Invalidation Prevents Stale Load Publication
+
+**Accepted:** 2026-09-04. Use versioned publication or an equivalent correctness mechanism so a load invalidated while pending cannot repopulate current cache state. Capture the relevant invalidation version before loading and coordinate the final version check, subscription, and publication. Invalidation must affect pending loads even when no cached value exists yet.
+
+The current [collection loader](../../../../src/DataLinq/Instances/ImmutableRelation.cs) publishes values before subscribing, and `Clear()` only clears already-loaded state. A thread-safe dictionary alone does not close the load/invalidation/publication race. Cover row and index publication as well as collection/reference relation holders, including the subscription boundary and short coordinated state updates.
+
+When invalidation wins, the otherwise successful original read may return the data it actually obtained. It must not install that result as reusable current cache state, overwrite a newer entry, or start an automatic retry loop. Later access reloads under normal read semantics; no latest-at-return database consistency guarantee is introduced. Use the returned async result directly rather than a synchronous getter that might perform I/O again.
+
+**Owner/gate:** A10, D10-2; pause loads before publication and race cold/warm invalidation, subscription, newer publication, row/index insertion, and relation clearing. Prove no stale repopulation, lost invalidation, or retry loop. Exact versioning granularity remains an implementation choice subject to correctness and W0 cost evidence.
+
+### AAPI-41: Preserve Cache Completeness And Transaction Isolation
+
+**Accepted:** 2026-09-04. Distinguish complete valid individual cached rows from complete query/relation results. Existing valid per-row entries may survive a later read failure/cancellation under normal policy; do not flush unrelated valid state solely because a caller cancels. Never mark a partially read relation or index-key set complete.
+
+Empty relations and absent optional references can be complete results only after successful evaluation. Missing required references still produce AAPI-16's required-reference error. Cached collection values and keyed views must represent a consistent generation.
+
+Keep transaction-visible data isolated from other transactions and shared committed caches. Preserve the existing [transaction-local relation-membership boundary](../../../../src/DataLinq/Cache/TableCache.RowLoading.cs); cache identity uses the appropriate database/source/table/key scope, not keys alone. This preserves current valid publication/invalidation policies rather than adding a cross-transaction result-sharing mechanism.
+
+**Owner/gate:** A10 with T10 consultation, D10-2; W1/W2 verify partial failure versus individual-row retention, empty/absent/required outcomes, consistent collection/keyed views, transaction-local membership through commit/rollback, and independent database/source isolation.
+
 ### OAPI-1: Task Versus ValueTask
 
 **Resolved:** 2026-08-30 by [AAPI-8](#aapi-8-valuetask-for-query-and-relation-results-key-lookup-and-disposal-task-otherwise), including its final framework-alignment revision. The OAPI identifier is retained for existing references. Public awaitable types are decided; performance, consumption, and compatibility verification remain part of implementation evidence.
@@ -700,7 +802,7 @@ The remaining questions in this section are open. Resolved portions are identifi
 
 The remaining work is the exact primitive/overload inventory, exception/diagnostic selection, and compatibility verification under OAPI-7. Check interface and concrete receivers, custom implementations, inherited generated members, scalar/composite/converted keys, and existing local LINQ and translated navigation predicates. Default methods do not remove those checks.
 
-AAPI-17 through AAPI-20 settle enumeration lifetime, capture, token combination, and reader/source ownership; direct `await foreach` on the relation itself is not an accepted addition. AAPI-21 through AAPI-26 define failure policies; OAPI-6 retains shared load coordination, complete cache publication, and invalidation across awaits. In particular, use the loaded result directly after awaiting: warming a cache and then calling a synchronous getter can reintroduce I/O.
+AAPI-17 through AAPI-20 settle enumeration lifetime, capture, token combination, and reader/source ownership; direct `await foreach` on the relation itself is not an accepted addition. AAPI-21 through AAPI-26 define failure policies; AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, complete cache publication, and invalidation across awaits. In particular, use the loaded result directly after awaiting: warming a cache and then calling a synchronous getter can reintroduce I/O.
 
 **Owner/gate:** A10 with T10 consultation, D10-1; generated API and compatibility review before W3.
 
@@ -708,7 +810,7 @@ AAPI-17 through AAPI-20 settle enumeration lifetime, capture, token combination,
 
 **Design decisions resolved:** 2026-08-30 by AAPI-17 through AAPI-20: direct async-sequence results without a universal streaming promise, distinct ordinary/prepared capture boundaries, deferred sequence I/O, repeated enumeration, combined method/enumerator tokens, deterministic resource disposal, rejection of another execution during an active transaction reader, and preservation of existing validated relation source transitions.
 
-The identifier is retained for traceability. Exact signature/receiver inventory remains under OAPI-7, broader operation/load coordination under OAPI-6, and provider limits under OAPI-9. Failure and cleanup policies are accepted under AAPI-21 through AAPI-26. These remaining reviews do not reopen accepted contracts without an explicit revision.
+The identifier is retained for traceability. Exact signature/receiver inventory remains under OAPI-7 and provider limits under OAPI-9. Failure/cleanup policies are accepted under AAPI-21 through AAPI-26, and broader operation/load coordination under AAPI-34 through AAPI-41. These remaining reviews do not reopen accepted contracts without an explicit revision.
 
 **Owner/gate:** A10, D10-1/D10-2; lifetime feasibility in W2, complete contract before W3.
 
@@ -716,7 +818,7 @@ The identifier is retained for traceability. Exact signature/receiver inventory 
 
 **Design decisions resolved:** 2026-08-31 by AAPI-21 through AAPI-26: validation/pre-cancellation, terminal interrupted initialization, conditional read recovery and mutation poisoning, cancellation/finalization checkpoints, independent database completion outcomes, cooperative recovery budget, throwing disposal and exception precedence, and structured failure information.
 
-The identifier remains for traceability. Exact public exception/context/configuration signatures and compatibility remain under OAPI-7; provider-specific classification, interruption limits, and verification of the 30-second starting recovery budget remain under OAPI-9 and W1/W2. AAPI-27 through AAPI-33 settle mutation-input/callback policy; wider operation/shared-load coordination remains under OAPI-6. These implementation/signature gates do not reopen accepted policies without an explicit revision.
+The identifier remains for traceability. Exact public exception/context/configuration signatures and compatibility remain under OAPI-7; provider-specific classification, interruption limits, and verification of the 30-second starting recovery budget remain under OAPI-9 and W1/W2. AAPI-27 through AAPI-33 settle mutation-input/callback policy; AAPI-34 through AAPI-41 settle wider operation/shared-load coordination. These implementation/signature gates do not reopen accepted policies without an explicit revision.
 
 **Owner/gate:** A10, D10-2; deterministic fault-injection and provider evidence in W1/W2 before W3.
 
@@ -724,15 +826,15 @@ The identifier remains for traceability. Exact public exception/context/configur
 
 **Design decisions resolved:** 2026-09-04 by AAPI-27 through AAPI-33: mutation capture before suspension, exclusive mutable use, synchronous local editing delegates, finite multi-model capture, task-returning callback families, helper-owned completion/cancellation, and results delivered after cleanup.
 
-Exact receiver/overload and custom/generated compatibility inventory remains under OAPI-7. OAPI-6 owns wider operation/cache coordination, internal ownership enforcement, and unfinished callback work. Existing local-edit `Action` ergonomics are accepted with the documented async-void limitation; no asynchronous editing delegates, unbounded mutation streams, bulk engine, or automatic dependency ordering are approved. These remaining gates do not reopen the accepted contracts without an explicit revision.
+Exact receiver/overload and custom/generated compatibility inventory remains under OAPI-7. AAPI-34 through AAPI-41 settle wider operation/cache coordination, private ownership, and unfinished callback work. Existing local-edit `Action` ergonomics are accepted with the documented async-void limitation; no asynchronous editing delegates, unbounded mutation streams, bulk engine, or automatic dependency ordering are approved. These remaining gates do not reopen the accepted contracts without an explicit revision.
 
 **Owner/gate:** A10 with H10 consultation, D10-1/D10-2; before W3 and final unit-of-work design.
 
 ### OAPI-6: Concurrency And Cache Coordination
 
-Sequential mixing is accepted, and AAPI-20 requires rejection of another execution operation while a transaction reader remains active. The exact public diagnostic and the wider operation gate still need definition across awaits, transaction disposal during an active operation, cancellation of one waiter, and relation/cache invalidation while loading.
+**Design decisions resolved:** 2026-09-04 by AAPI-34 through AAPI-41: transaction overlap rejection and diagnostics, resource-lifetime ownership, private internal ownership, rejected caller disposal during active work, safe helper recovery for unfinished callbacks, independent relation-wait cancellation, invalidation-safe publication, and cache completeness/isolation.
 
-Recommendation: reject overlapping transaction operations deterministically rather than implicitly queueing them. Do not extend that restriction to independent database-root operations without evidence. If existing cache coordination shares work across callers, one caller's cancellation must not silently cancel unrelated consumers or publish incomplete cached values. This is preservation of existing cache guarantees, not authorization for new coalescing or cache policies.
+Exact public accessors/overloads and compatibility remain under OAPI-7; provider interruption and recovery feasibility remain under OAPI-9 and W1/W2. Private gate/versioning representations and performance require implementation evidence. Do not introduce a database-wide execution lock, general shared-task/coalescing system, automatic retry loop, ambient cancellation, or hard deadline for draining active work. These gates do not reopen accepted contracts without an explicit revision.
 
 **Owner/gate:** A10, D10-2; runtime tests in W1/W2 and H10 lifetime review.
 
@@ -762,10 +864,10 @@ Recommendation: retain the same backend capability validation and query rejectio
 
 ## Recommended Decision Order
 
-OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, and OAPI-5's mutation/callback contracts are resolved. Continue with:
+OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, OAPI-5's mutation/callback contracts, and OAPI-6's concurrency/cache policies are resolved. Continue with:
 
-1. OAPI-6: settle broader concurrency/cache coordination, operation ownership across awaits, and unfinished callback work before provider/public implementation is frozen.
-2. Complete OAPI-7 and OAPI-9 across every audited boundary, including exact callback/failure-context/configuration signatures and provider evidence. Keep OAPI-8 within the agreed compatibility and release scope.
+1. Complete OAPI-7's audited surface and exact contracts: receivers/extensions, overloads and interface compatibility, lower-level execution/ownership, and failure-context/configuration signatures.
+2. Complete OAPI-9's backend/capability and provider evidence. Keep OAPI-8 within the agreed compatibility and release scope; accepted OAPI-6 policies still require deterministic implementation evidence before API freeze.
 
 ## Required Exit Evidence
 
@@ -780,6 +882,7 @@ OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's fa
 - AAPI-21 evidence covers pre-canceled warm/cold execution, argument/lifecycle validation precedence, no pre-canceled initialization or mutation, no partial materializer success, unchanged prior transaction work/usability, unused `CommitAsync` remaining unused, and no retroactive cancellation after completed success. Preserve AAPI-18's deferred sequence boundaries.
 - AAPI-22 through AAPI-26 evidence covers private initialization publication/terminal interruption, reusable versus untrustworthy canceled reads, mutation/hydration poisoning and uninterrupted local finalization, partial multi-model cancellation, confirmed versus unknown completion independent of cleanup, explicit versus recovery tokens, cooperative budget feasibility, primary/secondary exception reporting and scope-disposal limitations, and structured cause/outcome/recovery information for explicit and implicit helpers. The release evidence plan owns the detailed matrix; no failure policy is considered implemented merely because it is accepted here.
 - AAPI-27 through AAPI-33 evidence covers capture before suspension, exclusive mutable input use and lifetime, local delegate order/failures, finite single enumeration and all-model capture, duplicate object rejection, task-returning callback overload binding, borrowed completion restrictions, explicit token propagation, awaited callback work and post-cleanup result delivery. Preserve independent deferred database roots and validated later entity-relation transitions; measure input snapshot costs and verify custom/generated compatibility before claiming the surface complete.
+- AAPI-34 through AAPI-41 evidence covers mixed sync/async overlap and resource lifetimes, private internal/mutable/helper ownership, rejected busy disposal, unfinished-callback admission/recovery, independent owner/waiter cancellation, cold-load invalidation/subscription/publication races, partial-result completeness, and transaction/database isolation. Use deterministic paused execution at initialization, hydration, reader moves, callback completion, and publication rather than timing-dependent delays; verify safe cleanup failures and compare coordination costs with W0.
 - Generator and ApiCompat evidence cover new members, collisions, nullability, and existing consumer compatibility.
 - Relation API evidence proves I/O-free collection handle access, relation-scoped keyed lookup, result/cardinality parity, no false complete-cache publication after partial execution, and preserved local LINQ/translated navigation predicate binding.
 - AAPI-11 evidence records the approved source/binary and loading-timing migration, proves row versus key/value enumeration on interface and concrete receivers, and reviews exact ApiCompat diagnostics without hiding unrelated breaks.
@@ -810,3 +913,5 @@ These references explain the accepted conventions and dependency policy; they do
 - [MySqlConnector cancellation](https://mysqlconnector.net/overview/command-cancellation/) documents distinct cancellation/timeout mechanisms and connection consequences; verify the pinned provider's behavior rather than inferring transaction usability from the exception name alone.
 - [C# exception propagation through `finally`](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/statements#1311-the-try-statement) explains AAPI-25's scope-disposal limitation.
 - [C# async return types](https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/async-return-types#void-return-type) explains why retained local-edit `Action` callbacks cannot safely await async-void work and why transaction callbacks return tasks.
+- [MySqlConnector connection reuse](https://mysqlconnector.net/troubleshooting/connection-reuse/) documents single-operation/open-reader restrictions and unsafe disposal during active execution, supporting AAPI-34 through AAPI-38.
+- [`SemaphoreSlim.WaitAsync`](https://learn.microsoft.com/en-us/dotnet/api/system.threading.semaphoreslim.waitasync?view=net-10.0) supports cancellable asynchronous coordination waits; AAPI-39 does not freeze a particular primitive.
