@@ -18,6 +18,53 @@ namespace DataLinq.Tests.Unit.Core;
 public sealed class TransactionMutationFailureTests
 {
     [Test]
+    public async Task LongTransactionDisposesEachOwnedMutationCommandImmediately()
+    {
+        using var fixture = new ScriptedFixture();
+        using var transaction = fixture.Database.Transaction();
+        for (var index = 0; index < 1000; index++)
+        {
+            // Deletes exercise the production mutation boundary without asking this
+            // statement-only fake to supply an authoritative row reload.
+            transaction.Delete(fixture.CreateImmutable(index + 1, "before"));
+            if (fixture.Scenario.CommandDisposals != index + 1)
+                throw new InvalidOperationException("Mutation command survived its statement in an open transaction.");
+        }
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(1000);
+        await Assert.That(fixture.Scenario.CommandCreations).IsEqualTo(1000);
+    }
+
+    [Test]
+    public async Task CommandCleanupFailurePoisonsAfterStatementAndDoesNotPublishSuccess()
+    {
+        using var fixture = new ScriptedFixture();
+        using var transaction = fixture.Database.Transaction();
+        var mutable = fixture.CreateExistingMutable(401, "before");
+        mutable["Value"] = "after";
+        var expected = new InjectedMutationException("command disposal");
+        fixture.Scenario.CommandDisposeFailure = expected;
+        var observed = Capture<InjectedMutationException>(() => transaction.Update(mutable));
+        await Assert.That(observed).IsSameReferenceAs(expected);
+        await AssertPoisoned(transaction, TransactionFailureStage.Hydration, expected);
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(1);
+        await Assert.That(transaction.Changes).IsEmpty();
+    }
+
+    [Test]
+    public async Task ExplicitStateChangeCommandRemainsOwnedByItsCaller()
+    {
+        using var fixture = new ScriptedFixture();
+        using var transaction = fixture.Database.Transaction();
+        var mutable = fixture.CreateExistingMutable(401, "before");
+        mutable["Value"] = "after";
+        var change = new StateChange(mutable, fixture.RowTable, TransactionChangeType.Update);
+        var command = change.GetDbCommand(transaction);
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(0);
+        command.Dispose();
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task CommandConstructionFailure_PoisonsAndExcludesCandidate()
     {
         using var fixture = new ScriptedFixture();
@@ -53,6 +100,7 @@ public sealed class TransactionMutationFailureTests
 
         var observed = Capture<InvalidOperationException>(() => transaction.Update(mutable));
 
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(1);
         await Assert.That(observed.Message).Contains(
             "assignments changed during provider command preparation");
         await AssertPoisoned(
@@ -80,6 +128,7 @@ public sealed class TransactionMutationFailureTests
 
         var observed = Capture<InjectedMutationException>(() => transaction.Update(mutable));
 
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(1);
         await Assert.That(observed).IsSameReferenceAs(expected);
         await AssertPoisoned(
             transaction,
@@ -104,6 +153,7 @@ public sealed class TransactionMutationFailureTests
         var observed = Capture<GeneratedValueDecodingException>(() =>
             transaction.Insert(mutable));
 
+        await Assert.That(fixture.Scenario.CommandDisposals).IsEqualTo(1);
         await AssertPoisoned(
             transaction,
             TransactionFailureStage.Hydration,
@@ -1501,6 +1551,8 @@ public sealed class TransactionMutationFailureTests
         internal Action? CommandCreated { get; set; }
         internal object? ScalarResult { get; set; } = 1L;
         internal int CommandCreations { get; set; }
+        internal int CommandDisposals { get; set; }
+        internal Exception? CommandDisposeFailure { get; set; }
         internal int NonQueryExecutions { get; set; }
         internal int ScalarExecutions { get; set; }
         internal int ReaderExecutions { get; set; }
@@ -1565,7 +1617,12 @@ public sealed class TransactionMutationFailureTests
             if (scenario.CommandFailure is not null)
                 throw scenario.CommandFailure;
 
-            var command = new ScriptedDbCommand();
+            var command = new ScriptedDbCommand(() =>
+            {
+                scenario.CommandDisposals++;
+                if (scenario.CommandDisposeFailure is not null)
+                    throw scenario.CommandDisposeFailure;
+            });
             scenario.CommandCreated?.Invoke();
             return command;
         }
@@ -1621,7 +1678,7 @@ public sealed class TransactionMutationFailureTests
         public object? ConvertValue(ColumnDefinition column, object? value) => value;
     }
 
-    private sealed class ScriptedDbCommand : IDbCommand
+    private sealed class ScriptedDbCommand(Action? onDispose = null) : IDbCommand
     {
         [AllowNull]
         public string CommandText { get; set; } = "SCRIPTED MUTATION";
@@ -1638,7 +1695,7 @@ public sealed class TransactionMutationFailureTests
         public IDataReader ExecuteReader(CommandBehavior behavior) => throw new NotSupportedException();
         public object? ExecuteScalar() => throw new NotSupportedException();
         public void Prepare() => throw new NotSupportedException();
-        public void Dispose() { }
+        public void Dispose() => onDispose?.Invoke();
     }
 
     private sealed class ScriptedDatabaseTransaction : DatabaseTransaction

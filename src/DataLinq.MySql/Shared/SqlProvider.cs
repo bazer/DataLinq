@@ -267,10 +267,17 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
         var sql = query.ToSql();
 
         var command = new MySqlCommand(sql.Text);
-        foreach (var parameter in sql.Parameters)
-            command.Parameters.Add(CreateParameter(parameter));
-
-        return command;
+        try
+        {
+            foreach (var parameter in sql.Parameters)
+                command.Parameters.Add(CreateParameter(parameter));
+            return command;
+        }
+        catch
+        {
+            command.Dispose();
+            throw;
+        }
     }
 
     private static IDataParameter CreateParameter(SqlParameterBinding parameter)

@@ -88,14 +88,23 @@ public class SqlDatabaseTransaction : DatabaseTransaction
         return ExecuteCommandWithTelemetry(command, "non_query", transactional: true, Type, command.ExecuteNonQuery);
     }
 
-    public override int ExecuteNonQuery(string query) =>
-        ExecuteNonQuery(new MySqlCommand(query));
+    public override int ExecuteNonQuery(string query)
+    {
+        using var command = new MySqlCommand(query);
+        return ExecuteNonQuery(command);
+    }
 
-    public override object? ExecuteScalar(string query) =>
-        ExecuteScalar(new MySqlCommand(query));
+    public override object? ExecuteScalar(string query)
+    {
+        using var command = new MySqlCommand(query);
+        return ExecuteScalar(command);
+    }
 
-    public override T ExecuteScalar<T>(string query) =>
-        ExecuteScalar<T>(new MySqlCommand(query));
+    public override T ExecuteScalar<T>(string query)
+    {
+        using var command = new MySqlCommand(query);
+        return ExecuteScalar<T>(command);
+    }
 
     public override T ExecuteScalar<T>(IDbCommand command) =>
         (T)(ExecuteScalar(command) ?? default(T)!);
@@ -111,7 +120,7 @@ public class SqlDatabaseTransaction : DatabaseTransaction
 
     public override IDataLinqDataReader ExecuteReader(string query)
     {
-        return ExecuteReader(new MySqlCommand(query));
+        return ExecuteOwnedReader(new MySqlCommand(query));
     }
 
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)

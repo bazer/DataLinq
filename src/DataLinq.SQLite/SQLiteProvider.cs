@@ -329,11 +329,17 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     {
         var sql = query.ToSql();
         var command = new SqliteCommand(sql.Text);
-
-        foreach (var parameter in sql.Parameters)
-            command.Parameters.Add(CreateParameter(parameter));
-
-        return command;
+        try
+        {
+            foreach (var parameter in sql.Parameters)
+                command.Parameters.Add(CreateParameter(parameter));
+            return command;
+        }
+        catch
+        {
+            command.Dispose();
+            throw;
+        }
     }
 
     private static IDataParameter CreateParameter(SqlParameterBinding parameter)
@@ -364,9 +370,10 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
             throw new InvalidOperationException("Database file or server does not exist.");
 
         var literal = new Literal(ReadOnlyAccess, "SELECT name FROM sqlite_master WHERE type='table' AND name = @tableName", new SqliteParameter("@tableName", tableName));
+        using var command = literal.ToDbCommand();
 
         return DatabaseAccess
-            .ReadReader(literal.ToDbCommand())
+            .ReadReader(command)
             .Any();
     }
 
