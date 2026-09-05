@@ -36,6 +36,7 @@ Use this decision table:
 | bring test containers up or down | [`DataLinq.Testing.CLI`](DataLinq.Testing.CLI.md) |
 | run `quick`, `latest`, or `all` target aliases | [`DataLinq.Testing.CLI`](DataLinq.Testing.CLI.md) |
 | run or compare benchmarks | [`DataLinq.Benchmark.CLI`](DataLinq.Benchmark.CLI.md) |
+| audit direct/transitive dependencies against the online advisory feed | `scripts/audit-dependencies.ps1`, documented in [CI Test Lanes](CI%20Test%20Lanes.md#dependency-advisory-audit) |
 
 ## Native Windows Sandbox Build Notes
 
