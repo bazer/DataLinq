@@ -37,4 +37,3 @@ From a clean checkout, build `DataLinq.Dev.CLI` with `--no-incremental` so its r
 The output directory must be fresh. The comma-separated selector must be quoted in PowerShell. Browser smoke results and logs matter; successful publishing alone is insufficient. On this host, package-source access required running outside the sandbox.
 
 This proves the generated in-memory SQLite CRUD/query smoke with these dependencies and browser. It does not add native extension loading, arbitrary SQLitePCLRaw configuration, OPFS/file-backed storage, all LINQ shapes, other SQL providers in a browser, or a small browser payload. Dependency upgrades require rerunning this audit and the browser checks. `WASM0001` remains unsuppressed because the unsupported entry points still exist.
-
