@@ -146,12 +146,18 @@ internal sealed class TestInfraOrchestrator(
 
     private void CreateContainer(DatabaseServerTarget target, string containerName)
     {
+        podman.Execute(CreateContainerArguments(settings, target, containerName))
+            .ThrowIfFailed($"Failed to create container '{containerName}'.");
+    }
+
+    internal static IReadOnlyList<string> CreateContainerArguments(TestInfraCliSettings settings, DatabaseServerTarget target, string containerName)
+    {
         var arguments = new List<string>
         {
             "run",
             "-d",
             "--name", containerName,
-            "-p", $"{target.HostPort}:3306"
+            "-p", PodmanPortBinding.Create(settings.HostBindAddress, target.HostPort).ToPublishArgument()
         };
 
         arguments.AddRange(target.Family switch
@@ -181,7 +187,7 @@ internal sealed class TestInfraOrchestrator(
         arguments.Add("--collation-server=utf8mb4_unicode_ci");
         arguments.Add("--skip-name-resolve");
 
-        podman.Execute(arguments).ThrowIfFailed($"Failed to create container '{containerName}'.");
+        return arguments;
     }
 
     private void RefreshRuntimeState(string? host = null)
@@ -205,7 +211,7 @@ internal sealed class TestInfraOrchestrator(
         stateStore.Save(stateStore.BuildState(
             settings,
             new CliTargetSelection(aliasName, runningTargets),
-            host ?? PodmanHostResolver.Resolve(podman)));
+            host ?? PodmanHostResolver.Resolve(settings.HostBindAddress)));
     }
 
     private string ResolveHost(CliTargetSelection selection)
@@ -213,7 +219,7 @@ internal sealed class TestInfraOrchestrator(
         if (selection.ServerTargets.Count == 0)
             return Environment.GetEnvironmentVariable("DATALINQ_TEST_DB_HOST") ?? "127.0.0.1";
 
-        return PodmanHostResolver.Resolve(podman);
+        return PodmanHostResolver.Resolve(settings.HostBindAddress);
     }
 
     private static string? ResolveAliasName(IReadOnlyList<TestCliTarget> targets)

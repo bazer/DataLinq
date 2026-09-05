@@ -16,7 +16,8 @@ internal sealed record TestInfraCliSettings(
     string ApplicationUser,
     string ApplicationPassword,
     string EmployeesDatabase,
-    int ServerMaxConnections)
+    int ServerMaxConnections,
+    string HostBindAddress = PodmanPortBinding.DefaultHost)
 {
     public static TestInfraCliSettings FromEnvironment()
     {
@@ -34,7 +35,9 @@ internal sealed record TestInfraCliSettings(
             ApplicationUser: GetEnvironmentVariable("datalinq", PodmanTestEnvironmentSettings.ApplicationUserEnvironmentVariable),
             ApplicationPassword: GetEnvironmentVariable("datalinq", PodmanTestEnvironmentSettings.ApplicationPasswordEnvironmentVariable),
             EmployeesDatabase: GetEnvironmentVariable("datalinq_employees", PodmanTestEnvironmentSettings.EmployeesDatabaseEnvironmentVariable),
-            ServerMaxConnections: GetEnvironmentVariable(250, PodmanTestEnvironmentSettings.ServerMaxConnectionsEnvironmentVariable));
+            ServerMaxConnections: GetEnvironmentVariable(250, PodmanTestEnvironmentSettings.ServerMaxConnectionsEnvironmentVariable),
+            HostBindAddress: PodmanPortBinding.Create(
+                GetEnvironmentVariable(PodmanPortBinding.DefaultHost, PodmanPortBinding.EnvironmentVariable), 3306).HostIp);
     }
 
     public string GetContainerName(DatabaseServerTarget target) =>
