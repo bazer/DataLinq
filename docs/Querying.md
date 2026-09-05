@@ -267,6 +267,14 @@ flowchart TD
     linkStyle default stroke:#000000
 ```
 
+## Mutation builders and relation test doubles
+
+For tracked writes, use `Transaction.Insert(model)`, `Transaction.Update(model)`, and `Transaction.Delete(model)`. The old direct `SqlQuery`/`WhereGroup` mutation methods and `Insert`/`Update`/`Delete.Execute()` were never implemented. They are now hidden from editor completion and marked obsolete with a compiler error; existing binaries receive an actionable `NotSupportedException`.
+
+The retained `InsertQuery()`, `UpdateQuery()`, and `DeleteQuery()` builders support `ToSql()` and `ToDbCommand()`. Dispose the returned command yourself. For example, `using var command = transaction.From("items").Where("id").EqualTo(42).DeleteQuery().ToDbCommand();` creates a parameterized command, which can be executed through `transaction.DatabaseAccess.ExecuteNonQuery(command)`. Raw execution bypasses DataLinq's tracked mutation and cache publication protocol. If such writes are committed, the caller must arrange the appropriate cache invalidation; use the tracked transaction API for ordinary model changes.
+
+`ImmutableRelationMock<T>` implements the relation collection contract over a lazily captured immutable array. Enumeration preserves source order; keyed access uses model primary keys and rejects duplicate keys. `Clear()` discards the snapshot, so the next access enumerates the original source again. An already-running read may finish with its older snapshot. The mock does not clone the supplied model objects or load database relations.
+
 ## Practical Caveats
 
 - If row order matters, order explicitly before calling `First`, `Last`, or paging operators. Unordered "first" is fake determinism.
@@ -278,12 +286,6 @@ flowchart TD
 ## Lower-Level Query APIs
 
 DataLinq also exposes lower-level query construction through `From(...)` and `SqlQuery`.
-
-For tracked writes, use `Transaction.Insert(model)`, `Transaction.Update(model)`, and `Transaction.Delete(model)`. The old direct `SqlQuery`/`WhereGroup` mutation methods and `Insert`/`Update`/`Delete.Execute()` were never implemented. They are now hidden from editor completion and marked obsolete with a compiler error; existing binaries receive an actionable `NotSupportedException`.
-
-The retained `InsertQuery()`, `UpdateQuery()`, and `DeleteQuery()` builders support `ToSql()` and `ToDbCommand()`. Dispose the returned command yourself. For example, `using var command = transaction.From("items").Where("id").EqualTo(42).DeleteQuery().ToDbCommand();` creates a parameterized command, which can be executed through `transaction.DatabaseAccess.ExecuteNonQuery(command)`. Raw execution bypasses DataLinq's tracked mutation and cache publication protocol. If such writes are committed, the caller must arrange the appropriate cache invalidation; use the tracked transaction API for ordinary model changes.
-
-`ImmutableRelationMock<T>` implements the relation collection contract over a lazily captured immutable array. Enumeration preserves source order; keyed access uses model primary keys and rejects duplicate keys. `Clear()` discards the snapshot, so the next access enumerates the original source again. An already-running read may finish with its older snapshot. The mock does not clone the supplied model objects or load database relations.
 
 That API is real and useful, but it is not the same thing as the LINQ translator. The existence of raw SQL builder classes does not mean arbitrary LINQ `Join`, `GroupBy`, or aggregate shapes are supported.
 
