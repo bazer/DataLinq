@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.ComponentModel;
 
 namespace DataLinq.Query;
 
@@ -14,7 +15,7 @@ public class Delete<T> : IQuery
 
     public IDbCommand ToDbCommand()
     {
-        throw new System.NotImplementedException();
+        return query.DataSource.Provider.ToDbCommand(this);
     }
 
     public Sql ToSql(string? paramPrefix = null)
@@ -28,8 +29,10 @@ public class Delete<T> : IQuery
         return sql;
     }
 
+    [Obsolete("Direct query mutation execution is unsupported. Use Transaction.Delete(model) for tracked mutations, or ToDbCommand() for caller-owned raw SQL execution.", error: true)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public QueryResult Execute()
     {
-        throw new NotImplementedException();
+        throw new NotSupportedException("Use Transaction.Delete(model) for tracked mutations, or ToDbCommand() for caller-owned raw SQL execution.");
     }
 }
