@@ -72,50 +72,72 @@ public partial class TableCache
 
     public void ClearIndex()
     {
-        foreach (var indexCache in GetLoadedIndexCaches())
-            indexCache.Clear();
+        lock (publicationGate)
+        {
+            AdvanceReadGeneration();
+            foreach (var indexCache in GetLoadedIndexCaches())
+                indexCache.Clear();
+        }
 
         RefreshOccupancyMetrics();
     }
 
     internal void TryRemoveRowFromAllIndices(DataLinqKey primaryKeys, out int numRowsRemoved)
     {
-        numRowsRemoved = 0;
-
-        foreach (var indexCache in GetLoadedIndexCaches())
+        lock (publicationGate)
         {
-            if (indexCache.TryRemovePrimaryKey(primaryKeys, out var rowsRemoved))
-                numRowsRemoved += rowsRemoved;
+            AdvanceReadGeneration();
+            numRowsRemoved = 0;
+
+            foreach (var indexCache in GetLoadedIndexCaches())
+            {
+                if (indexCache.TryRemovePrimaryKey(primaryKeys, out var rowsRemoved))
+                    numRowsRemoved += rowsRemoved;
+            }
         }
     }
 
     internal bool TryRemoveForeignKeyIndex<TKey>(ColumnIndex columnIndex, TKey foreignKey, out int numRowsRemoved)
         where TKey : notnull
     {
-        var indexCache = TryGetIndexCache(columnIndex);
-        if (indexCache is null)
+        lock (publicationGate)
         {
-            numRowsRemoved = 0;
-            return true;
-        }
+            AdvanceReadGeneration();
+            var indexCache = TryGetIndexCache(columnIndex);
+            if (indexCache is null)
+            {
+                numRowsRemoved = 0;
+                return true;
+            }
 
-        return indexCache.TryRemove(foreignKey, out numRowsRemoved);
+            return indexCache.TryRemove(foreignKey, out numRowsRemoved);
+        }
     }
 
     internal bool TryRemovePrimaryKeyIndex(ColumnIndex columnIndex, DataLinqKey primaryKeys, out int numRowsRemoved)
     {
-        var indexCache = TryGetIndexCache(columnIndex);
-        if (indexCache is null)
+        lock (publicationGate)
         {
-            numRowsRemoved = 0;
-            return true;
-        }
+            AdvanceReadGeneration();
+            var indexCache = TryGetIndexCache(columnIndex);
+            if (indexCache is null)
+            {
+                numRowsRemoved = 0;
+                return true;
+            }
 
-        return indexCache.TryRemovePrimaryKey(primaryKeys, out numRowsRemoved);
+            return indexCache.TryRemovePrimaryKey(primaryKeys, out numRowsRemoved);
+        }
     }
 
-    public int RemoveAllIndicesInsertedBeforeTick(long tick) =>
-        GetLoadedIndexCaches().Sum(x => x.RemoveInsertedBeforeTick(tick));
+    public int RemoveAllIndicesInsertedBeforeTick(long tick)
+    {
+        lock (publicationGate)
+        {
+            AdvanceReadGeneration();
+            return GetLoadedIndexCaches().Sum(x => x.RemoveInsertedBeforeTick(tick));
+        }
+    }
 
     internal void PreloadIndex(DataLinqKey foreignKey, RelationProperty otherSide, int? limitRows = null)
     {
@@ -131,8 +153,13 @@ public partial class TableCache
         if (limitRows.HasValue)
             query.Limit(limitRows.Value);
 
+        var generation = CaptureReadGeneration();
         foreach (var (fk, pk) in query.SelectQuery().ReadPrimaryAndForeignKeys(index))
-            GetIndexCache(index).TryAdd(fk, pk);
+        {
+            lock (publicationGate)
+                if (ReferenceEquals(generation, readGeneration))
+                    GetIndexCache(index).TryAdd(fk, pk);
+        }
 
 
         var otherColumns = otherSide.RelationPart.ColumnIndex.Columns;
@@ -151,8 +178,13 @@ public partial class TableCache
         if (limitRows.HasValue)
             query.Limit(limitRows.Value);
 
+        generation = CaptureReadGeneration();
         foreach (var pk in query.SelectQuery().ReadKeys())
-            GetIndexCache(index).TryAdd(pk, []);
+        {
+            lock (publicationGate)
+                if (ReferenceEquals(generation, readGeneration))
+                    GetIndexCache(index).TryAdd(pk, []);
+        }
 
         RefreshOccupancyMetrics();
     }
@@ -175,12 +207,17 @@ public partial class TableCache
             .Where(index.Columns, foreignKey)
             .SelectQuery();
 
+        var generation = CaptureReadGeneration();
         var newKeys = KeyFactory.GetKeys(select, Table.PrimaryKeyColumns).ToArray();
 
         // Key-only transaction reads are scoped to the transaction and must not publish
         // their visible key set into the shared committed index cache.
         if (dataSource is ReadOnlyAccess && indexCachePolicy.type != IndexCacheType.None)
-            GetIndexCache(index).TryAdd(foreignKey, newKeys);
+        {
+            lock (publicationGate)
+                if (ReferenceEquals(generation, readGeneration))
+                    GetIndexCache(index).TryAdd(foreignKey, newKeys);
+        }
 
         RefreshOccupancyMetrics();
 

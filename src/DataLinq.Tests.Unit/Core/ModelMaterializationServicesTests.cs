@@ -425,7 +425,8 @@ public sealed class ModelMaterializationServicesTests
             TableDefinition table,
             DataLinqKey canonicalProviderKey,
             RowData rowData,
-            IImmutableInstance instance)
+            IImmutableInstance instance,
+            RowReadGeneration? readGeneration = null)
         {
             CacheAddCalls++;
             LastCacheKey = canonicalProviderKey;
