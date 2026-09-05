@@ -5,7 +5,9 @@ namespace DataLinq.Interfaces;
 
 public interface IDatabaseAccess
 {
+    /// <summary>Executes a caller-owned command. The caller must dispose the returned reader and command.</summary>
     IDataLinqDataReader ExecuteReader(IDbCommand command);
+    /// <summary>Creates a command owned by the returned reader. Dispose the reader to release both resources.</summary>
     IDataLinqDataReader ExecuteReader(string query);
     object? ExecuteScalar(IDbCommand command);
     T ExecuteScalar<T>(IDbCommand command);
