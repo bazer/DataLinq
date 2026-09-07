@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using DataLinq.Instances;
 using DataLinq.Metadata;
@@ -362,11 +363,19 @@ public class WhereGroup<T> : IWhere<T>
     // --- Methods to pass through to SqlQuery<T> ---
     public SqlQuery<T> Set<V>(string key, V value) => Query.Set(key, value);
     public IEnumerable<T> Select() => Query.Select();
-    public QueryResult Delete() => Query.Delete();
-    public QueryResult Insert() => Query.Insert();
-    public QueryResult Update() => Query.Update();
+    [Obsolete("Use Transaction.Delete(model) for tracked mutations, or DeleteQuery().ToDbCommand() for caller-owned raw SQL execution.", error: true)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public QueryResult Delete() => throw new NotSupportedException("Use Transaction.Delete(model) or DeleteQuery().ToDbCommand().");
+    [Obsolete("Use Transaction.Insert(model) for tracked mutations, or InsertQuery().ToDbCommand() for caller-owned raw SQL execution.", error: true)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public QueryResult Insert() => throw new NotSupportedException("Use Transaction.Insert(model) or InsertQuery().ToDbCommand().");
+    [Obsolete("Use Transaction.Update(model) for tracked mutations, or UpdateQuery().ToDbCommand() for caller-owned raw SQL execution.", error: true)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public QueryResult Update() => throw new NotSupportedException("Use Transaction.Update(model) or UpdateQuery().ToDbCommand().");
     public Select<T> SelectQuery() => new Select<T>(Query);
     public Insert<T> InsertQuery() => new Insert<T>(Query);
+    public Update<T> UpdateQuery() => new Update<T>(Query);
+    public Delete<T> DeleteQuery() => new Delete<T>(Query);
     public SqlQuery<T> OrderBy(string columnName, string? alias = null, bool ascending = true) => Query.OrderBy(columnName, alias, ascending);
     public SqlQuery<T> OrderBy(ColumnDefinition column, string? alias = null, bool ascending = true) => Query.OrderBy(column, alias, ascending);
     public SqlQuery<T> OrderByDesc(string columnName, string? alias = null) => Query.OrderByDesc(columnName, alias);
