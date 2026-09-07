@@ -73,7 +73,7 @@ public sealed class CacheIndexPublicationTests
 
     // This existing log point runs after the SQL cursor is disposed and before
     // relation keys are published, so even an empty result can be paused exactly.
-    private sealed class PublicationLogger : ILoggerFactory, ILogger
+    internal sealed class PublicationLogger : ILoggerFactory, ILogger
     {
         private readonly ManualResetEventSlim blocked = new();
         private readonly ManualResetEventSlim released = new();
