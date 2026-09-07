@@ -10,6 +10,27 @@ namespace DataLinq.Tests.Unit.Core;
 public class SafeGeneratedFileWriterTests
 {
     [Test]
+    public async Task WriteAll_NoOverwriteRejectsLateCollisionAndRollsBackEarlierNewFile()
+    {
+        using var fixture = SafeGeneratedFileWriterFixture.Create();
+        var first = Path.Combine(fixture.BasePath, "First.cs");
+        var second = Path.Combine(fixture.BasePath, "Second.cs");
+        var result = SafeGeneratedFileWriter.WriteAll(
+            [(first, "first generated"), (second, "second generated")], Encoding.UTF8, overwriteExisting: false,
+            message =>
+            {
+                if (message.EndsWith(second, StringComparison.Ordinal))
+                    File.WriteAllText(second, "concurrently created");
+            });
+
+        await Assert.That(result.HasFailed).IsTrue();
+        await Assert.That(File.Exists(first)).IsFalse();
+        await Assert.That(File.ReadAllText(second)).IsEqualTo("concurrently created");
+        await Assert.That(Directory.GetFiles(fixture.BasePath, "*.tmp").Length).IsEqualTo(0);
+        await Assert.That(Directory.GetFiles(fixture.BasePath, "*.bak").Length).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task WriteAll_WritesAllFilesOnSuccess()
     {
         using var fixture = SafeGeneratedFileWriterFixture.Create();
