@@ -466,7 +466,7 @@ public class SqlQuery<T>
         WhatList ??= [];
         foreach (var column in columns)
         {
-            WhatList.Add(EscapeCharacter + column.DbName + EscapeCharacter);
+            WhatList.Add(SqlIdentifier.Quote(column.DbName, EscapeCharacter));
         }
 
         return this;
@@ -477,7 +477,7 @@ public class SqlQuery<T>
         WhatList ??= [];
         foreach (var selector in selectors)
         {
-            WhatList.Add(IsColumnName(selector) ? EscapeCharacter + selector + EscapeCharacter : selector);
+            WhatList.Add(IsColumnName(selector) ? SqlIdentifier.Quote(selector, EscapeCharacter) : selector);
         }
 
         return this;
