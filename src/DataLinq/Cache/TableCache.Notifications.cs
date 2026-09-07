@@ -447,7 +447,7 @@ public partial class TableCache
 
     public void SubscribeToChanges(ICacheNotification subscriber, Transaction? transaction = null)
     {
-        (notificationManager ??= new CacheNotificationManager(MetricsHandle)).Subscribe(subscriber, transaction);
+        GetOrCreateNotificationManager().Subscribe(subscriber, transaction);
     }
 
     internal void SubscribeToChanges(
@@ -456,30 +456,42 @@ public partial class TableCache
         RelationCacheKey? relationKey,
         IReadOnlyCollection<DataLinqKey> loadedPrimaryKeys)
     {
-        (notificationManager ??= new CacheNotificationManager(MetricsHandle)).Subscribe(subscriber, transaction, relationKey, loadedPrimaryKeys);
+        GetOrCreateNotificationManager().Subscribe(subscriber, transaction, relationKey, loadedPrimaryKeys);
+    }
+
+    private CacheNotificationManager GetOrCreateNotificationManager()
+    {
+        var manager = Volatile.Read(ref notificationManager);
+        if (manager is not null)
+            return manager;
+
+        var candidate = new CacheNotificationManager(MetricsHandle);
+        // Subscribe only after choosing the published manager. A losing candidate
+        // has no subscriptions, resources, or metric registrations to discard.
+        return Interlocked.CompareExchange(ref notificationManager, candidate, null) ?? candidate;
     }
 
     protected virtual void OnRowChanged(Transaction? transaction = null)
     {
-        notificationManager?.Notify(transaction);
+        Volatile.Read(ref notificationManager)?.Notify(transaction);
     }
 
     private void OnRowChanged(CacheInvalidationImpact impact, Transaction? transaction = null)
     {
-        notificationManager?.Notify(impact, transaction);
+        Volatile.Read(ref notificationManager)?.Notify(impact, transaction);
     }
 
     public void CleanRelationNotifications()
     {
-        notificationManager?.Clean();
+        Volatile.Read(ref notificationManager)?.Clean();
     }
 
     internal CacheMemoryEstimate GetNotificationMemoryEstimate() =>
-        notificationManager?.GetMemoryEstimate() ?? CacheMemoryEstimate.Empty;
+        Volatile.Read(ref notificationManager)?.GetMemoryEstimate() ?? CacheMemoryEstimate.Empty;
 
     internal void DiscardRecoveryNotifications() =>
-        notificationManager?.Discard();
+        Volatile.Read(ref notificationManager)?.Discard();
 
     internal void DiscardTransactionNotifications(Transaction transaction) =>
-        notificationManager?.Discard(transaction);
+        Volatile.Read(ref notificationManager)?.Discard(transaction);
 }
