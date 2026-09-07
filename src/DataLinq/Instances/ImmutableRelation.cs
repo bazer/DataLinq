@@ -21,7 +21,11 @@ public interface IImmutableRelation<T> : IEnumerable<T> where T : IModelInstance
     ImmutableArray<DataLinqKey> Keys { get; }
     ImmutableArray<T> Values { get; }
 
-    IEnumerable<KeyValuePair<DataLinqKey, T>> AsEnumerable();
+    /// <summary>
+    /// Returns relation rows paired with their primary keys.
+    /// Resolving the keyed collection may synchronously load the relation.
+    /// </summary>
+    IEnumerable<KeyValuePair<DataLinqKey, T>> AsKeyValuePairs();
     void Clear();
     bool Any() => Count != 0;
 
@@ -100,7 +104,7 @@ public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelIn
 
     public ImmutableArray<T> Values => throw new System.NotImplementedException();
 
-    public IEnumerable<KeyValuePair<DataLinqKey, T>> AsEnumerable()
+    public IEnumerable<KeyValuePair<DataLinqKey, T>> AsKeyValuePairs()
     {
         throw new System.NotImplementedException();
     }
@@ -172,7 +176,8 @@ public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataS
     public ImmutableArray<DataLinqKey> Keys => GetInstances().Keys;
     public int Count => GetValues().Length;
     public bool ContainsKey(DataLinqKey key) => GetInstances().ContainsKey(key);
-    public IEnumerable<KeyValuePair<DataLinqKey, T>> AsEnumerable() => GetInstances().AsEnumerable();
+    /// <inheritdoc />
+    public IEnumerable<KeyValuePair<DataLinqKey, T>> AsKeyValuePairs() => GetInstances().AsEnumerable();
     public FrozenDictionary<DataLinqKey, T> ToFrozenDictionary() => GetInstances();
 
     protected TableCache GetTableCache() => GetTableCache(GetDataSource());
