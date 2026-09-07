@@ -443,7 +443,7 @@ public class ModelFileFactory
         }
 
         if (valueProperty.EnumProperty != null && HasDatabaseEnumType(valueProperty))
-            yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.CsValuesOrDbValues.Select(x => FormatStringLiteral(x.name)))})]";
+            yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.DbValuesOrCsValues.Select(x => FormatStringLiteral(x.name)))})]";
 
         yield return $"{namespaceTab}{tab}[Column({FormatStringLiteral(c.DbName)})]";
         yield return $"{namespaceTab}{tab}public abstract {c.ValueProperty.CsType.Name}{GetPropertyNullable(c)} {c.ValueProperty.PropertyName} {{ get; }}";

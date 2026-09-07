@@ -155,7 +155,8 @@ public class SqlGeneration
             ? Add($"({length},{decimals})")
             : Add($"({length})")
         : this;
-    public SqlGeneration EnumValues(IEnumerable<string> values) => Add($"({string.Join(",", values.Select(x => $"'{x}'"))})");
+    public SqlGeneration EnumValues(IEnumerable<string> values) => Add($"({string.Join(",", values.Select(FormatEnumLiteral))})");
+    protected virtual string FormatEnumLiteral(string value) => $"'{value.Replace("'", "''")}'";
     public SqlGeneration Unsigned(bool? signed) => signed.HasValue && !signed.Value ? Space().Add("UNSIGNED") : this;
     public string Align(int longest, string text) => new string(' ', longest - text.Length);
 
