@@ -139,7 +139,6 @@ public partial class TableCache
     internal bool TryGetRowsFromScalarPrimaryKeyQuery<T>(
         Select<T> select,
         IDataSourceAccess dataSource,
-        List<OrderBy>? orderings,
         out IEnumerable<IImmutableInstance> rows)
     {
         if (!Table.PrimaryKeyShape.SupportsScalarProviderKeyStore)
@@ -153,10 +152,10 @@ public partial class TableCache
 
         rows = Table.PrimaryKeyShape[0].ProviderStoreKind switch
         {
-            TableKeyComponentStoreKind.Int32 => GetRows(ReadScalarPrimaryKeys<T, int>(select, primaryKeyColumn), dataSource, orderings),
-            TableKeyComponentStoreKind.Int64 => GetRows(ReadScalarPrimaryKeys<T, long>(select, primaryKeyColumn), dataSource, orderings),
-            TableKeyComponentStoreKind.Guid => GetRows(ReadScalarPrimaryKeys<T, Guid>(select, primaryKeyColumn), dataSource, orderings),
-            TableKeyComponentStoreKind.String => GetRows(ReadScalarPrimaryKeys<T, string>(select, primaryKeyColumn), dataSource, orderings),
+            TableKeyComponentStoreKind.Int32 => GetRows(ReadScalarPrimaryKeys<T, int>(select, primaryKeyColumn), dataSource),
+            TableKeyComponentStoreKind.Int64 => GetRows(ReadScalarPrimaryKeys<T, long>(select, primaryKeyColumn), dataSource),
+            TableKeyComponentStoreKind.Guid => GetRows(ReadScalarPrimaryKeys<T, Guid>(select, primaryKeyColumn), dataSource),
+            TableKeyComponentStoreKind.String => GetRows(ReadScalarPrimaryKeys<T, string>(select, primaryKeyColumn), dataSource),
             _ => []
         };
 
