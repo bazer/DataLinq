@@ -4,6 +4,8 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace DataLinq.DevTools;
 
@@ -15,8 +17,20 @@ public static class ExternalProcessRunner
         string fileName,
         IReadOnlyList<string> arguments,
         string? workingDirectory = null,
-        IReadOnlyDictionary<string, string?>? environmentVariables = null)
+        IReadOnlyDictionary<string, string?>? environmentVariables = null) =>
+        ExecuteAsync(fileName, arguments, workingDirectory, environmentVariables).GetAwaiter().GetResult();
+
+    public static async Task<ExternalCommandResult> ExecuteAsync(
+        string fileName,
+        IReadOnlyList<string> arguments,
+        string? workingDirectory = null,
+        IReadOnlyDictionary<string, string?>? environmentVariables = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (timeout is { } limit && (limit < TimeSpan.Zero || limit.TotalMilliseconds > uint.MaxValue - 1))
+            throw new ArgumentOutOfRangeException(nameof(timeout));
         var startInfo = new ProcessStartInfo
         {
             FileName = fileName,
@@ -39,12 +53,10 @@ public static class ExternalProcessRunner
         {
             using var process = StartProcess(startInfo, fileName);
 
-            var standardOutput = process.StandardOutput.ReadToEnd();
-            var standardError = process.StandardError.ReadToEnd();
-            process.WaitForExit();
+            var captured = await ProcessOutputCapture.ReadTextAsync(process, timeout, cancellationToken).ConfigureAwait(false);
             stopwatch.Stop();
 
-            return new ExternalCommandResult(process.ExitCode, standardOutput, standardError)
+            return new ExternalCommandResult(captured.ExitCode, captured.StandardOutput, captured.StandardError)
             {
                 Duration = stopwatch.Elapsed
             };

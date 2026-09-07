@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using DataLinq.DevTools;
 
 namespace DataLinq.Testing.CLI;
 
@@ -28,11 +29,8 @@ internal sealed class PodmanCliTransport(string executablePath) : IPodmanTranspo
             using var process = Process.Start(startInfo)
                 ?? throw new PodmanTransportUnavailableException($"Failed to start '{executablePath}'.");
 
-            var standardOutput = process.StandardOutput.ReadToEnd();
-            var standardError = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-
-            return new PodmanCommandResult(process.ExitCode, standardOutput, standardError);
+            var captured = ProcessOutputCapture.ReadTextAsync(process, TimeSpan.FromMinutes(30)).GetAwaiter().GetResult();
+            return new PodmanCommandResult(captured.ExitCode, captured.StandardOutput, captured.StandardError);
         }
         catch (Win32Exception exception)
         {
