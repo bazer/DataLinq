@@ -70,7 +70,7 @@ public class SqlDatabaseTransaction : DatabaseTransaction
                 BeginTransactionTelemetry();
 
                 if (databaseName != null)
-                    ExecuteNonQuery($"USE `{databaseName}`;");
+                    ExecuteNonQuery($"USE {DataLinq.Query.SqlIdentifier.Quote(databaseName, "`")};");
             }
 
             if (dbConnection == null)

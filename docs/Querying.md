@@ -279,6 +279,10 @@ flowchart TD
 
 DataLinq also exposes lower-level query construction through `From(...)` and `SqlQuery`.
 
+Identifier arguments (column names, table names, and aliases) are quoted as individual components, including embedded quote characters. Query values are bound as parameters. Use an allowlist when external input chooses which mapped fields may be queried; quoting does not decide whether a field is authorized.
+
+SQL-expression APIs still require trusted SQL: this includes `RawSql`, raw predicate/order/group expressions, the expression selectors accepted by `What(string[])`, and provider function-rendering arguments. Never concatenate external input into those expressions. `What(IEnumerable<ColumnDefinition>)` selects mapped columns without interpreting them as SQL expressions.
+
 That API is real and useful, but it is not the same thing as the LINQ translator. The existence of raw SQL builder classes does not mean arbitrary LINQ `Join`, `GroupBy`, or aggregate shapes are supported.
 
 ## Summary

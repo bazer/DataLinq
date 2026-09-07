@@ -43,7 +43,8 @@ public class EmployeesImplicitRelationJoinTests
 
         await Assert.That(normalized).Contains("JOIN");
         await Assert.That(normalized).Contains("dept_name");
-        await Assert.That(normalized).Contains("t1.");
+        var quote = databaseScope.Database.Provider.Constants.EscapeCharacter;
+        await Assert.That(normalized).Contains($"{quote}t1{quote}.");
         await Assert.That(string.Join("|", actual)).IsEqualTo(string.Join("|", expected));
     }
 

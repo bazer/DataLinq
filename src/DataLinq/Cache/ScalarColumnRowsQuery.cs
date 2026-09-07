@@ -106,9 +106,7 @@ internal sealed class ScalarColumnRowsQuery(
     private void AddColumn(Sql sql, ColumnDefinition column)
     {
         var escapeCharacter = dataSource.Provider.Constants.EscapeCharacter;
-        sql.AddText(escapeCharacter);
-        sql.AddText(column.DbName);
-        sql.AddText(escapeCharacter);
+        SqlIdentifier.Append(sql, column.DbName, escapeCharacter);
     }
 
     private readonly record struct ScalarColumnRowsQueryTemplateKey(
