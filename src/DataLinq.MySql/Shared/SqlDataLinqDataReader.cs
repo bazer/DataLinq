@@ -62,13 +62,14 @@ public struct SqlDataLinqDataReader : IDataLinqDataReader, IDataLinqOwnedBinaryB
 
     public TimeOnly GetTimeOnly(int ordinal)
     {
-        // MySqlConnector returns TimeSpan for TIME columns.
+        // TIME can represent a duration, while TimeOnly represents a time of day.
         var timeSpan = dataReader.GetTimeSpan(ordinal);
-        var ticks = timeSpan.Ticks % TimeSpan.TicksPerDay;
-        if (ticks < 0)
-            ticks += TimeSpan.TicksPerDay;
+        if (timeSpan.Ticks < 0 || timeSpan.Ticks >= TimeSpan.TicksPerDay)
+            throw new InvalidCastException(
+                $"TIME column '{dataReader.GetName(ordinal)}' contains duration '{timeSpan:c}', which cannot be represented by TimeOnly. " +
+                "Map duration columns to TimeSpan to preserve their value.");
 
-        return new TimeOnly(ticks);
+        return TimeOnly.FromTimeSpan(timeSpan);
     }
 
     public Guid GetGuid(int ordinal)
