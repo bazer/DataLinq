@@ -5,6 +5,7 @@ using DataLinq.Exceptions;
 using DataLinq.Linq;
 using DataLinq.Linq.Planning.Expressions;
 using DataLinq.Metadata;
+using DataLinq.Mutation;
 using DataLinq.SQLite;
 using Microsoft.Data.Sqlite;
 
@@ -204,6 +205,8 @@ public static class PlatformSmokeRunner
         var owners = expressionProvider.CreateRoot<PlatformSmokeOwner>();
         var tasks = expressionProvider.CreateRoot<PlatformSmokeTask>();
 
+        await VerifyGeneratedMutations(database, tasks, reportStage);
+
         await ReportStage(reportStage, "querying-generated-relation");
         var firstQueryWatch = Stopwatch.StartNew();
         var firstTask = tasks
@@ -261,6 +264,47 @@ public static class PlatformSmokeRunner
         var metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<PlatformSmokeDb>();
         if (metadata.HasFailed)
             throw new InvalidOperationException(metadata.Failure.ToString());
+    }
+
+    private static async ValueTask VerifyGeneratedMutations(
+        SQLiteDatabase<PlatformSmokeDb> database,
+        IQueryable<PlatformSmokeTask> tasks,
+        Func<string, ValueTask>? reportStage)
+    {
+        await ReportStage(reportStage, "verifying-generated-crud-insert");
+        var inserted = database.Insert(new MutablePlatformSmokeTask
+        {
+            Id = 99, OwnerId = 1, Title = "CRUD insert", Priority = 1, Completed = false
+        });
+        if (tasks.Where(task => task.Id == 99).ToArray().Single().Title != "CRUD insert")
+            throw new InvalidOperationException("Committed generated insert was not visible.");
+
+        await ReportStage(reportStage, "verifying-generated-crud-update");
+        var update = inserted.Mutate();
+        update.Title = "CRUD update";
+        database.Update(update);
+        if (tasks.Where(task => task.Id == 99).ToArray().Single().Title != "CRUD update")
+            throw new InvalidOperationException("Committed generated update was not visible.");
+
+        await ReportStage(reportStage, "verifying-generated-crud-rollback");
+        using (var transaction = database.Transaction())
+        {
+            var transactionTasks = ExpressionQueryPlanProvider.ForExecution(transaction).CreateRoot<PlatformSmokeTask>();
+            var rollback = transactionTasks.Where(task => task.Id == 99).ToArray().Single().Mutate();
+            rollback.Title = "Must roll back";
+            transaction.Update(rollback);
+            if (transactionTasks.Where(task => task.Id == 99).ToArray().Single().Title != "Must roll back")
+                throw new InvalidOperationException("Generated update was not visible inside its transaction.");
+            transaction.Rollback();
+        }
+        if (tasks.Where(task => task.Id == 99).ToArray().Single().Title != "CRUD update")
+            throw new InvalidOperationException("Rolled-back generated update escaped its transaction.");
+
+        await ReportStage(reportStage, "verifying-generated-crud-delete");
+        database.Delete(tasks.Where(task => task.Id == 99).ToArray().Single());
+        if (tasks.Where(task => task.Id == 99).ToArray().Length != 0)
+            throw new InvalidOperationException("Committed generated delete was not visible.");
+        await ReportStage(reportStage, "verified-generated-crud-and-rollback");
     }
 
     private static async ValueTask VerifyRawSqliteConnection(
