@@ -1501,6 +1501,9 @@ internal sealed class BenchmarkHarnessRunner
             "Cold relation traversal" => "relation-traversal",
             "Warm relation traversal" => "relation-traversal",
             "Scalar row-cache add/get/remove" => "cache-hotpath",
+            "RowLimit5000" or "RowLimit10000" or "RowLimit20000" or
+            "PayloadLimit5000" or "PayloadLimit10000" or "PayloadLimit20000" or
+            "SingleRowBatches5000" or "SingleRowBatches10000" or "SingleRowBatches20000" => "cache-eviction",
             "Warm PK with cache estimate" => "cache-memory",
             "Warm relation with cache estimate" => "cache-memory",
             "Large relation index preload" => "cache-memory",
