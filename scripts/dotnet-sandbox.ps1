@@ -74,17 +74,20 @@ if ($arguments.Count -gt 0 -and $commandsWithImplicitRestore -contains $argument
 
 $commandsWithRestoreConfig = @('restore')
 if ($arguments.Count -gt 0 -and $commandsWithRestoreConfig -contains $arguments[0]) {
-    $restoreConfigProperty = "-p:RestoreConfigFile=$nugetConfig"
-    $ignoreFailedSourcesProperty = '-p:RestoreIgnoreFailedSources=true'
+    # An explicit audit config must not be replaced by the offline workspace
+    # default, and callers can require source failures to remain fatal.
+    $hasExplicitConfig = @($arguments | Where-Object { $_ -match '^(--configfile(?:=|$)|[-/](?:p|property):RestoreConfigFile=)' }).Count -gt 0
+    $hasExplicitSourcePolicy = @($arguments | Where-Object { $_ -match '^[-/](?:p|property):RestoreIgnoreFailedSources=' }).Count -gt 0
+    $restoreDefaults = [System.Collections.Generic.List[string]]::new()
+    if (-not $hasExplicitConfig) { $restoreDefaults.Add("-p:RestoreConfigFile=$nugetConfig") }
+    if (-not $hasExplicitSourcePolicy) { $restoreDefaults.Add('-p:RestoreIgnoreFailedSources=true') }
     $appArgumentSeparatorIndex = $arguments.IndexOf('--')
 
     if ($appArgumentSeparatorIndex -ge 0) {
-        $arguments.Insert($appArgumentSeparatorIndex, $restoreConfigProperty)
-        $arguments.Insert($appArgumentSeparatorIndex + 1, $ignoreFailedSourcesProperty)
+        $arguments.InsertRange($appArgumentSeparatorIndex, $restoreDefaults)
     }
     else {
-        $arguments.Add($restoreConfigProperty)
-        $arguments.Add($ignoreFailedSourcesProperty)
+        $arguments.AddRange($restoreDefaults)
     }
 }
 

@@ -11,13 +11,31 @@ DataLinq's CI is organized around time to first useful failure and trustworthy p
 | Smoke | Curated generator, unit, Memory, and SQLite representatives | No Podman | Pull requests and master |
 | Local shards | Complete generator, unit, Memory, SQLite-file, and SQLite-memory suites | No Podman | Pull requests and master |
 | Latest server shards | Compliance and provider-specific tests on MySQL 9.7 and MariaDB 12.3 | One Podman target per shard | Pull requests and master |
-| Latest required gate | Requires every smoke/local/server matrix job to succeed | None | The single branch-protection result |
+| Dependency advisory audit | Full solution restore, direct/transitive advisories at every severity, and feed/coverage checks | Online NuGet audit source; WebAssembly workload for graph evaluation | Pull requests and master |
+| Latest required gate | Requires every smoke/local/server job and the dependency advisory audit to succeed | None | The single branch-protection result |
 
 The smoke result is independent and normally appears first; slower server setup cannot hide an immediate compiler, query, mutation, cache, or SQLite regression. Matrix `fail-fast` is disabled, so one broken target does not suppress the evidence from the other required targets.
 
 Pull-request and branch runs use a workflow/ref concurrency group with cancellation. A newer commit cancels obsolete work for the same pull request or branch. Master uses the same complete latest-provider-family contract; it does not treat a green smoke job as permission to ignore a failed server shard.
 
 Each shard builds `DataLinq.Testing.CLI`, asks the CLI to build its selected test project exactly once, and then executes the resolved host DLL directly. Shards upload raw logs, HTML, TRX, fixture telemetry, and their summary with `if: always()`. Artifact names contain the logical shard, Actions run id, and run attempt, so retries and concurrent runs cannot overwrite one another.
+
+## Dependency advisory audit
+
+The reusable `dependency-audit.yml` workflow runs with `Latest CI`, can be dispatched manually, and runs daily at 05:17 UTC to detect newly disclosed advisories without waiting for a code change. Normal local/offline test profiles may still use `NuGetAudit=false`; those results are not advisory evidence.
+
+Run the dedicated gate with PowerShell 7:
+
+```powershell
+./scripts/audit-dependencies.ps1 -SelfTestOnly
+./scripts/audit-dependencies.ps1
+```
+
+The script uses an explicit audit source, forces dependency reevaluation, disables the HTTP cache, checks transitive packages at every severity, and treats `NU1900` through `NU1905` as errors. The Windows wrapper preserves its explicit config and source-failure policy. `Directory.Solution.targets` requires NuGet's audited-project count to equal the complete solution restore count, and the script requires that coverage marker as well. Static graph restore is disabled for this gate because NuGet does not expose the coverage counters there. The WebAssembly workload is installed in CI so browser projects remain in the restored graph. See [NuGet audit configuration and coverage counters](https://learn.microsoft.com/en-us/nuget/concepts/auditing-packages).
+
+Self-tests restore isolated fixtures under `artifacts/dependency-audit` without building or executing them. They require failure for direct and transitive versions affected by [GHSA-5crp-9r3c-p9vr](https://github.com/advisories/GHSA-5crp-9r3c-p9vr), successful auditing of a clean fixture, failure when auditing is disabled at solution level, and failure for an unavailable audit feed. The transitive case uses the published dependencies of [Microsoft.AspNet.WebApi.Client 5.2.7](https://www.nuget.org/packages/Microsoft.AspNet.WebApi.Client/5.2.7). These deliberately vulnerable fixture references are generated locally and are not product dependencies.
+
+Logs are uploaded even when the gate fails. A feed or restore failure is inconclusive and blocks the gate; it is not a clean result. A clean audit only means the configured feed reported no known applicable advisories at that time. Advisory-specific `NuGetAuditSuppress` items require a separately reviewed rationale; none are introduced by this gate.
 
 ## Nightly full matrix
 
