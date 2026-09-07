@@ -75,6 +75,10 @@ public class ServerTypeMappingTests
             new TypeMappingScenario(default!, "VARBINARY(100)", "byte[]", ExpectedDbType: "varbinary"),
             new TypeMappingScenario(default!, "BLOB", "byte[]", ExpectedDbType: "blob"),
             new TypeMappingScenario(default!, "BIT(1)", "bool", ExpectedDbType: "bit"),
+            new TypeMappingScenario(default!, "BIT(2)", "ulong", ExpectedDbType: "bit"),
+            new TypeMappingScenario(default!, "BIT(8)", "ulong", ExpectedDbType: "bit"),
+            new TypeMappingScenario(default!, "BIT(32)", "ulong", ExpectedDbType: "bit"),
+            new TypeMappingScenario(default!, "BIT(64)", "ulong", ExpectedDbType: "bit"),
             new TypeMappingScenario(default!, "ENUM('a', 'b')", "enum", ExpectedDbType: "enum", ExpectEnum: true)
         };
 
@@ -87,7 +91,8 @@ public class ServerTypeMappingTests
         {
             new TypeMappingScenario(default!, "INT NULL", "int", true, "int"),
             new TypeMappingScenario(default!, "VARCHAR(50) NULL", "string", true, "varchar"),
-            new TypeMappingScenario(default!, "DATETIME NULL", "DateTime", true, "datetime")
+            new TypeMappingScenario(default!, "DATETIME NULL", "DateTime", true, "datetime"),
+            new TypeMappingScenario(default!, "BIT(8) NULL", "ulong", true, "bit")
         };
 
         return Expand(definitions);
