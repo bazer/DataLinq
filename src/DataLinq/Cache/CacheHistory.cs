@@ -6,13 +6,30 @@ namespace DataLinq.Cache;
 
 public class CacheHistory(uint maxCapacity = 10000)
 {
-    public uint Count { get; private set; }
-    public uint MaxCapacity { get; set; } = maxCapacity;
+    public uint Count
+    {
+        get { lock (lockObject) return (uint)history.Count; }
+    }
+
+    /// <summary>Maximum retained snapshots. Reducing it immediately discards the oldest snapshots.</summary>
+    public uint MaxCapacity
+    {
+        get { lock (lockObject) return capacity; }
+        set
+        {
+            lock (lockObject)
+            {
+                capacity = value;
+                TrimToCapacity();
+            }
+        }
+    }
 
     public event Action<DatabaseCacheSnapshot>? OnAdd;
 
-    private LinkedList<DatabaseCacheSnapshot> history = new();
+    private readonly LinkedList<DatabaseCacheSnapshot> history = new();
     private readonly object lockObject = new();
+    private uint capacity = maxCapacity;
 
     public void Add(DatabaseCacheSnapshot snapshot)
     {
@@ -21,13 +38,7 @@ public class CacheHistory(uint maxCapacity = 10000)
         lock (lockObject)
         {
             history.AddLast(snapshot);
-            Count++;
-
-            while (Count > MaxCapacity)
-            {
-                Count--;
-                history.RemoveFirst();
-            }
+            TrimToCapacity();
         }
 
         OnAdd?.Invoke(snapshot);
@@ -35,18 +46,26 @@ public class CacheHistory(uint maxCapacity = 10000)
 
     public DatabaseCacheSnapshot[] GetHistory()
     {
-        return history.ToArray();
+        lock (lockObject)
+            return history.ToArray();
     }
 
     public DatabaseCacheSnapshot? GetLatest()
     {
-        return history.Last?.Value;
+        lock (lockObject)
+            return history.Last?.Value;
     }
 
     public void Clear()
     {
-        history.Clear();
-        Count = 0;
+        lock (lockObject)
+            history.Clear();
+    }
+
+    private void TrimToCapacity()
+    {
+        while ((uint)history.Count > capacity)
+            history.RemoveFirst();
     }
 
     internal CacheMemoryEstimate GetMemoryEstimate()
