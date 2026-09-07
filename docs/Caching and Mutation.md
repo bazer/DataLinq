@@ -68,6 +68,14 @@ flowchart TD
     linkStyle default stroke:#000000
 ```
 
+## Reads overlapping invalidation
+
+Each SQL-backed cache load captures its table's current read generation before querying the source. Row and relation-index publication checks that generation under the same short gate used for invalidation. Clearing, evicting, or invalidating entries therefore prevents an older in-flight load from adding its results back afterwards, including empty relation key sets. A fresh cache entry published after invalidation is preserved.
+
+An individual read that overlaps a mutation can still return its earlier snapshot. Invalidation does not cancel that read or turn ordinary reads into a serializable transaction. It prevents the earlier result from poisoning subsequent cached reads. Database I/O, immutable model constructors, and notification callbacks run outside the publication gate.
+
+The generation is conservative at table scope: invalidating one key can prevent other concurrent misses on that table from being cached. Those reads still return their results and later reads can refill the cache. Writes made outside DataLinq still require explicit cache invalidation.
+
 ## Relation Cache Mechanics
 
 Relations are backed by index caches that map foreign-key values to related primary keys. Once that mapping exists, subsequent relation access can skip a lot of work.

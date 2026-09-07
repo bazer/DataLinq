@@ -39,8 +39,8 @@ public partial class TableCache
 
     private IImmutableInstance? GetRowByDynamicKey(DataLinqKey primaryKeys, IDataSourceAccess dataSource)
     {
-        return GetRowCore(primaryKeys, dataSource, static (cache, rowData, source, _) =>
-            cache.AddRow(rowData, source));
+        return GetRowCore(primaryKeys, dataSource, static (cache, rowData, source, _, generation) =>
+            cache.AddRow(rowData, source, generation));
     }
 
     public IImmutableInstance? GetRow<TKey>(
@@ -57,14 +57,14 @@ public partial class TableCache
         if (ShouldUseDynamicKeyLookup(primaryKey))
             return GetRowByDynamicKey(DataLinqKey.FromValue(primaryKey), dataSource);
 
-        return GetRowCore(primaryKey, dataSource, static (cache, rowData, source, key) =>
-            cache.AddRow(rowData, source, key));
+        return GetRowCore(primaryKey, dataSource, static (cache, rowData, source, key, generation) =>
+            cache.AddRow(rowData, source, key, generation));
     }
 
     private IImmutableInstance? GetRowCore<TKey>(
         TKey primaryKey,
         IDataSourceAccess dataSource,
-        Func<TableCache, RowData, IDataSourceAccess, TKey, IImmutableInstance> addRow)
+        Func<TableCache, RowData, IDataSourceAccess, TKey, RowReadGeneration, IImmutableInstance> addRow)
         where TKey : notnull
     {
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
@@ -92,9 +92,10 @@ public partial class TableCache
             return loaded;
         }
 
+        var generation = CaptureReadGeneration();
         var rowData = GetRowDataFromPrimaryKeyValue(primaryKey, dataSource);
         if (rowData is not null)
-            return RecordDatabaseRowLoaded(addRow(this, rowData, dataSource, primaryKey));
+            return RecordDatabaseRowLoaded(addRow(this, rowData, dataSource, primaryKey, generation));
 
         Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, 1);
         return null;

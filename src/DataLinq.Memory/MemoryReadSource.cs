@@ -200,7 +200,8 @@ internal sealed class MemoryReadSource :
         TableDefinition table,
         DataLinqKey canonicalProviderKey,
         RowData rowData,
-        IImmutableInstance instance)
+        IImmutableInstance instance,
+        RowReadGeneration? readGeneration = null)
     {
         ArgumentNullException.ThrowIfNull(rowData);
         ArgumentNullException.ThrowIfNull(instance);
