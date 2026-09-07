@@ -59,18 +59,27 @@ public class SqlDbAccess : DatabaseAccess
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)
     {
         var connection = dataSource.OpenConnection();
-        command.Connection = connection;
+        try
+        {
+            command.Connection = connection;
+            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+            var reader = ExecuteCommandWithTelemetry(
+                command,
+                "reader",
+                transactional: false,
+                transactionType: null,
+                () => command.ExecuteReader(CommandBehavior.CloseConnection) as MySqlDataReader);
 
-        var reader = ExecuteCommandWithTelemetry(
-            command,
-            "reader",
-            transactional: false,
-            transactionType: null,
-            () => command.ExecuteReader(CommandBehavior.CloseConnection) as MySqlDataReader);
-
-        return new SqlDataLinqDataReader(reader!, databaseType);
+            return new SqlDataLinqDataReader(reader!, databaseType);
+        }
+        catch
+        {
+            // CloseConnection only transfers ownership once a reader was created.
+            // Logging, command setup, or execution can throw before that handoff.
+            connection.Dispose();
+            throw;
+        }
     }
 
     public override IDataLinqDataReader ExecuteReader(string query) =>
