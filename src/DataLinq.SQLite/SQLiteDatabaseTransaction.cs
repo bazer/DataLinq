@@ -80,7 +80,7 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration, command);
         return ExecuteCommandWithTelemetry(command, "non_query", transactional: true, Type, command.ExecuteNonQuery);
     }
 
@@ -100,7 +100,7 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration, command);
         return ExecuteCommandWithTelemetry(command, "scalar", transactional: true, Type, command.ExecuteScalar)!;
     }
 
@@ -113,7 +113,7 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
-        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration, command);
 
         var reader = ExecuteCommandWithTelemetry(
             command,

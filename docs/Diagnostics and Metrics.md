@@ -8,6 +8,38 @@ DataLinq now exposes runtime metrics through a hierarchical snapshot API:
 
 That shape is deliberate. A flat runtime snapshot would be easy to read but too easy to misread. It would blur together values that are really owned by different providers and tables, and it would make it harder to reason about production behavior when several providers were loaded at once.
 
+## SQL parameter logging
+
+Enabling debug logging for `DataLinq.SqlCommand` logs SQL text and parameter names,
+types, and string/binary lengths. Non-null parameter values are redacted by default;
+nulls are shown as `NULL`. `command.FormatCommand()` uses the same safe default.
+
+To deliberately include bounded values, pass an explicit logging configuration to
+the provider:
+
+```csharp
+var logging = new DataLinqLoggingConfiguration(loggerFactory)
+{
+    SqlParameters = new SqlParameterLoggingOptions
+    {
+        IncludeSensitiveValues = true,
+        MaximumValueLength = 128,
+        RedactParameter = parameter => parameter.ParameterName == "@token"
+    }
+};
+```
+
+The length default is 256 formatted value characters, excluding quotes/prefix and
+the truncation marker. Zero shows no value characters; negative lengths are rejected.
+Strings escape line breaks/control characters; binary values use a bounded hexadecimal
+prefix. Additional redaction takes precedence over opt-in, and unknown object types
+are not formatted through arbitrary `ToString()` implementations. Without opt-in,
+all non-null values are hidden regardless of parameter names.
+
+This policy covers DataLinq's parameter formatting. SQL command text is retained,
+including literals the caller embeds directly in raw SQL; use parameters for data.
+Other logger categories and third-party sinks have their own policies.
+
 ## Entry Points
 
 Use the static `DataLinqMetrics` API:
