@@ -49,6 +49,7 @@ public partial class TableCache
                 for (var offset = 0; offset < keysToLoad.Count; offset += 500)
                 {
                     var count = Math.Min(500, keysToLoad.Count - offset);
+                    var generation = CaptureReadGeneration();
                     foreach (var rowData in GetRowDataFromPrimaryKeyValues(
                         keysToLoad,
                         offset,
@@ -56,7 +57,7 @@ public partial class TableCache
                         dataSource))
                     {
                         MetricsHandle.RecordDatabaseRowsLoaded(1);
-                        var row = AddRow(rowData, dataSource);
+                        var row = AddRow(rowData, dataSource, generation);
                         rowsByPrimaryKey.TryAdd(CreatePrimaryKey(rowData), row);
                     }
                 }
@@ -76,6 +77,7 @@ public partial class TableCache
     private IImmutableInstance[] LoadRowsFromForeignKeyAndCache<TKey>(TKey foreignKey, ColumnIndex index, IDataSourceAccess dataSource)
         where TKey : notnull
     {
+        var generation = CaptureReadGeneration();
         var rowCount = 0;
         IImmutableInstance? singleRow = null;
         List<IImmutableInstance>? rows = null;
@@ -145,7 +147,11 @@ public partial class TableCache
         Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, rowCacheMisses);
 
         if (cachePrimaryKeys)
-            GetIndexCache(index).TryAdd(foreignKey, GetPrimaryKeyArray());
+        {
+            lock (publicationGate)
+                if (ReferenceEquals(generation, readGeneration))
+                    GetIndexCache(index).TryAdd(foreignKey, GetPrimaryKeyArray());
+        }
 
         RefreshOccupancyMetrics();
 
@@ -169,7 +175,7 @@ public partial class TableCache
             rowCacheMisses++;
             MetricsHandle.RecordDatabaseRowsLoaded(1);
             AddLoadedRow(sourceServices.MaterializationServices
-                .MaterializeAfterKnownCacheMiss(loadedRow));
+                .MaterializeAfterKnownCacheMiss(loadedRow with { ReadGeneration = generation }));
         }
 
         void AddRowData(RowData rowData)
@@ -186,7 +192,7 @@ public partial class TableCache
 
             rowCacheMisses++;
             MetricsHandle.RecordDatabaseRowsLoaded(1);
-            AddLoadedRow(AddRow(rowData, dataSource));
+            AddLoadedRow(AddRow(rowData, dataSource, generation));
         }
 
         void AddLoadedRow(IImmutableInstance row)
@@ -338,6 +344,7 @@ public partial class TableCache
                 for (var offset = 0; offset < keysToLoad.Count; offset += 500)
                 {
                     var count = Math.Min(500, keysToLoad.Count - offset);
+                    var generation = CaptureReadGeneration();
                     foreach (var rowData in GetRowDataFromPrimaryKeyValues(
                         keysToLoad,
                         offset,
@@ -346,7 +353,7 @@ public partial class TableCache
                         orderings))
                     {
                         MetricsHandle.RecordDatabaseRowsLoaded(1);
-                        loadedRows.Add(AddRow(rowData, dataSource));
+                        loadedRows.Add(AddRow(rowData, dataSource, generation));
                     }
                 }
             }
@@ -405,6 +412,7 @@ public partial class TableCache
                 canonicalProviderKeys,
                 offset,
                 count);
+            var generation = CaptureReadGeneration();
             var result = sourceServices.RowLoader.Load(request);
             if (!ReferenceEquals(result.Request, request))
             {
@@ -416,7 +424,7 @@ public partial class TableCache
             {
                 var key = loadedRow.CanonicalProviderKey;
                 var row = sourceServices.MaterializationServices
-                    .MaterializeAfterKnownCacheMiss(loadedRow);
+                    .MaterializeAfterKnownCacheMiss(loadedRow with { ReadGeneration = generation });
                 if (rowsByPrimaryKey is not null)
                     rowsByPrimaryKey.TryAdd(key, row);
                 else
@@ -464,6 +472,7 @@ public partial class TableCache
         DataLinqKey canonicalProviderKey,
         IDataLinqSourceRowServices sourceServices)
     {
+        var generation = CaptureReadGeneration();
         var providerRow = sourceServices.RowLoader.LoadSingle(
             Table,
             in canonicalProviderKey);
@@ -478,7 +487,7 @@ public partial class TableCache
 
         var row = sourceServices.MaterializationServices
             .MaterializeAfterKnownCacheMiss(
-                new LoadedCanonicalRow(providerRow, canonicalProviderKey));
+                new LoadedCanonicalRow(providerRow, canonicalProviderKey) { ReadGeneration = generation });
         MetricsHandle.RecordDatabaseRowsLoaded(1);
         return row;
     }
