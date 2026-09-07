@@ -41,18 +41,26 @@ internal interface IRowStore<TKey> : IRowStore
 internal sealed class RowStore<TKey> : IRowStore<TKey>
     where TKey : notnull
 {
-    private sealed class RowEntry(IImmutableInstance row, int size, long overheadBytes, long ticks)
+    private sealed class RowEntry(IImmutableInstance row, int size, long overheadBytes, long ticks, LinkedListNode<TKey> evictionNode)
     {
         public IImmutableInstance Row { get; } = row;
         public int Size { get; } = size;
         public long OverheadBytes { get; } = overheadBytes;
         public long Ticks { get; } = ticks;
+        public LinkedListNode<TKey> EvictionNode { get; } = evictionNode;
     }
 
     private readonly object rowsLock = new();
     private readonly Dictionary<TKey, RowEntry> rows = new();
+    private readonly LinkedList<TKey> evictionOrder = new();
+    private readonly Func<long> getCurrentTick;
     private long rowPayloadBytes;
     private long rowOwnedOverheadBytes;
+
+    internal RowStore(Func<long>? getCurrentTick = null)
+    {
+        this.getCurrentTick = getCurrentTick ?? (static () => DateTime.Now.Ticks);
+    }
 
     public Type KeyType => typeof(TKey);
 
@@ -89,6 +97,9 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
             CacheMemoryEstimator.DictionaryOverheadBytes(count));
         rowStoreOverheadBytes = CacheMemoryEstimator.SaturatingAdd(
             rowStoreOverheadBytes,
+            CacheMemoryEstimator.ObjectHeaderBytes + CacheMemoryEstimator.ReferenceSize + sizeof(int));
+        rowStoreOverheadBytes = CacheMemoryEstimator.SaturatingAdd(
+            rowStoreOverheadBytes,
             Interlocked.Read(ref rowOwnedOverheadBytes));
 
         return new CacheMemoryEstimate(
@@ -101,7 +112,7 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
         get
         {
             lock (rowsLock)
-                return rows.Count == 0 ? null : rows.Values.Min(static x => x.Ticks);
+                return evictionOrder.First is { } first ? rows[first.Value].Ticks : null;
         }
     }
 
@@ -110,7 +121,7 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
         get
         {
             lock (rowsLock)
-                return rows.Count == 0 ? null : rows.Values.Max(static x => x.Ticks);
+                return evictionOrder.Last is { } last ? rows[last.Value].Ticks : null;
         }
     }
 
@@ -119,6 +130,7 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
         lock (rowsLock)
         {
             rows.Clear();
+            evictionOrder.Clear();
             Interlocked.Exchange(ref rowPayloadBytes, 0);
             Interlocked.Exchange(ref rowOwnedOverheadBytes, 0);
         }
@@ -175,7 +187,7 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
 
         lock (rowsLock)
         {
-            foreach (var key in rows.Where(x => x.Value.Ticks < tick).Select(x => x.Key).ToArray())
+            while (TryFindOldestKey(out var key, out var entry) && entry!.Ticks < tick)
                 RemoveExisting(key, removedKeys);
         }
 
@@ -220,7 +232,6 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
 
     public bool TryAdd(TKey key, int size, long rowContainerBytes, IImmutableInstance row)
     {
-        var ticks = DateTime.Now.Ticks;
         var overheadBytes = EstimateRowEntryOverhead(key, rowContainerBytes);
 
         lock (rowsLock)
@@ -228,7 +239,17 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
             if (rows.ContainsKey(key))
                 return false;
 
-            rows.Add(key, new RowEntry(row, size, overheadBytes, ticks));
+            var ticks = getCurrentTick();
+            var node = new LinkedListNode<TKey>(key);
+            // Normally append in O(1), but keep absolute age order if the wall clock moves backwards.
+            var previous = evictionOrder.Last;
+            while (previous is not null && rows[previous.Value].Ticks > ticks)
+                previous = previous.Previous;
+            rows.Add(key, new RowEntry(row, size, overheadBytes, ticks, node));
+            if (previous is null)
+                evictionOrder.AddFirst(node);
+            else
+                evictionOrder.AddAfter(previous, node);
             Interlocked.Add(ref rowPayloadBytes, size);
             Interlocked.Add(ref rowOwnedOverheadBytes, overheadBytes);
             return true;
@@ -288,19 +309,15 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
 
     private bool TryFindOldestKey(out TKey key, out RowEntry? entry)
     {
+        if (evictionOrder.First is { } oldest)
+        {
+            key = oldest.Value;
+            entry = rows[key];
+            return true;
+        }
         key = default!;
         entry = null;
-
-        foreach (var row in rows)
-        {
-            if (entry is null || row.Value.Ticks < entry.Ticks)
-            {
-                key = row.Key;
-                entry = row.Value;
-            }
-        }
-
-        return entry is not null;
+        return false;
     }
 
     private int RemoveExisting(TKey key, List<DataLinqKey>? removedKeys = null)
@@ -308,6 +325,7 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
         if (!rows.Remove(key, out var entry))
             return 0;
 
+        evictionOrder.Remove(entry.EvictionNode);
         Interlocked.Add(ref rowPayloadBytes, -entry.Size);
         Interlocked.Add(ref rowOwnedOverheadBytes, -entry.OverheadBytes);
         removedKeys?.Add(ProviderKeyComponents.ToDataLinqKey(key));
@@ -317,6 +335,9 @@ internal sealed class RowStore<TKey> : IRowStore<TKey>
     private static long EstimateRowEntryOverhead(TKey key, long rowContainerBytes)
     {
         var overhead = CacheMemoryEstimator.RowEntryBytes;
+        overhead = CacheMemoryEstimator.SaturatingAdd(overhead,
+            CacheMemoryEstimator.ReferenceSize + CacheMemoryEstimator.LinkedListNodeBytes
+            + CacheMemoryEstimator.EstimateArrayElementBytes(typeof(TKey)));
         overhead = CacheMemoryEstimator.SaturatingAdd(overhead, CacheMemoryEstimator.EstimateKeyPayloadBytes(key));
         overhead = CacheMemoryEstimator.SaturatingAdd(overhead, CacheMemoryEstimator.ImmutableRowInstanceBytes);
         return CacheMemoryEstimator.SaturatingAdd(overhead, rowContainerBytes);
