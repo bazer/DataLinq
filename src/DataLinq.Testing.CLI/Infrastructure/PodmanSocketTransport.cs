@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using DataLinq.DevTools;
 
 namespace DataLinq.Testing.CLI;
 
@@ -337,21 +338,24 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
                 ?? throw new PodmanTransportUnavailableException($"Failed to start '{curlExecutable}'.");
 
             byte[] bodyBytes;
+            string standardError;
+            int exitCode;
             if (captureBinaryBody)
             {
-                using var memory = new MemoryStream();
-                process.StandardOutput.BaseStream.CopyTo(memory);
-                bodyBytes = memory.ToArray();
+                var captured = ProcessOutputCapture.ReadBinaryAsync(process, TimeSpan.FromMinutes(30)).GetAwaiter().GetResult();
+                bodyBytes = captured.StandardOutput;
+                standardError = captured.StandardError;
+                exitCode = captured.ExitCode;
             }
             else
             {
-                bodyBytes = Encoding.UTF8.GetBytes(process.StandardOutput.ReadToEnd());
+                var captured = ProcessOutputCapture.ReadTextAsync(process, TimeSpan.FromMinutes(30)).GetAwaiter().GetResult();
+                bodyBytes = Encoding.UTF8.GetBytes(captured.StandardOutput);
+                standardError = captured.StandardError;
+                exitCode = captured.ExitCode;
             }
 
-            var standardError = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-
-            if (process.ExitCode != 0)
+            if (exitCode != 0)
             {
                 throw new PodmanTransportUnavailableException(
                     $"Could not communicate with the Podman socket '{SocketPath}'. Ensure the Podman service is running.{Environment.NewLine}{standardError}".TrimEnd());
