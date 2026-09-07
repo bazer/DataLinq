@@ -221,6 +221,16 @@ public class Where<T> : IWhere<T>
 
     protected WhereGroup<T> SetAndReturn<V>(V[] value, Operator @operator)
     {
+        ArgumentNullException.ThrowIfNull(value);
+        if (value.Length == 0 && @operator is Operator.In or Operator.NotIn)
+        {
+            // An empty set is a predicate, not a value operand. Negation is
+            // applied by the existing fixed-condition renderer.
+            Right = null;
+            Operator = @operator == Operator.In ? Operator.AlwaysFalse : Operator.AlwaysTrue;
+            return WhereGroup;
+        }
+
         Right = Operand.Value(value.Cast<object>());
         Operator = @operator;
         return this.WhereGroup;
@@ -320,16 +330,7 @@ public class Where<T> : IWhere<T>
 
         if (operand is ValueOperand valueOperand)
         {
-            // Check for empty IN/NOT IN here before calling provider
-            if ((Operator == Operator.In || Operator == Operator.NotIn) && valueOperand.IsNull)
-            {
-                // Empty list for IN means false, for NOT IN means true
-                sql.AddText(Operator == Operator.In ? "1=0" : "1=1");
-            }
-            else
-            {
-                AppendParameterNames(valueOperand, sql, prefix, addCommandParameter);
-            }
+            AppendParameterNames(valueOperand, sql, prefix, addCommandParameter);
 
             if (valueOperand is EscapedLikePatternOperand escapedPattern)
             {
