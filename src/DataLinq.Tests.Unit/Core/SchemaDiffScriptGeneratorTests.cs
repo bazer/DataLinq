@@ -13,6 +13,64 @@ namespace DataLinq.Tests.Unit.Core;
 public class SchemaDiffScriptGeneratorTests
 {
     [Test]
+    [Arguments(DatabaseType.SQLite, true)]
+    [Arguments(DatabaseType.SQLite, false)]
+    [Arguments(DatabaseType.MySQL, true)]
+    [Arguments(DatabaseType.MySQL, false)]
+    [Arguments(DatabaseType.MariaDB, true)]
+    [Arguments(DatabaseType.MariaDB, false)]
+    public async Task MissingViewIsAnExplicitManualActionAndNeverBecomesATable(DatabaseType provider, bool hasDefinition)
+    {
+        var definition = hasDefinition ? "SELECT id,\r\n name FROM account\n-- definition comment\rSELECT '*/';" : null;
+        // Validated model drafts require a definition. The public script API also
+        // accepts incomplete metadata built directly by callers.
+        var differences = hasDefinition
+            ? SchemaComparer.Compare(CreateDatabase(CreateTable("active_account", [CreateColumn("id", typeof(int), false)],
+                tableType: TableType.View, viewDefinition: definition)), CreateDatabase(), provider).ToArray()
+            : [new SchemaDifference(SchemaDifferenceKind.MissingTable, SchemaDifferenceSeverity.Error,
+                SchemaDifferenceSafety.Additive, "active_account", "Missing view", new ViewDefinition("active_account"))];
+        await Assert.That(differences.Single().ModelDefinition).IsTypeOf<ViewDefinition>();
+        var script = new SchemaDiffScriptGenerator().Generate(provider, differences);
+        await Assert.That(script).Contains("Manual action required: create view");
+        await Assert.That(script).DoesNotContain("CREATE TABLE");
+        if (hasDefinition)
+            await Assert.That(script).Contains("-- SELECT id,");
+        else
+            await Assert.That(script).Contains("No view definition is available");
+        // Everything following the fixed banner is a blank or line comment.
+        await Assert.That(script.Split('\n').Skip(3).All(line =>
+            string.IsNullOrWhiteSpace(line) || line.StartsWith("-- ", StringComparison.Ordinal))).IsTrue();
+    }
+
+    [Test]
+    [Arguments(DatabaseType.SQLite)]
+    [Arguments(DatabaseType.MySQL)]
+    [Arguments(DatabaseType.MariaDB)]
+    public async Task MissingViewDoesNotPreventOrdinaryTableCreation(DatabaseType provider)
+    {
+        var model = CreateDatabase(
+            CreateTable("account", [CreateColumn("id", typeof(int), false, primaryKey: true)]),
+            CreateTable("active_account", [CreateColumn("id", typeof(int), false)], tableType: TableType.View, viewDefinition: "SELECT id FROM account"));
+        var script = new SchemaDiffScriptGenerator().Generate(provider, SchemaComparer.Compare(model, CreateDatabase(), provider));
+        await Assert.That(script.Split("CREATE TABLE IF NOT EXISTS").Length - 1).IsEqualTo(1);
+        await Assert.That(script).Contains("Manual action required: create view");
+    }
+
+    [Test]
+    [Arguments(SchemaDifferenceSafety.Additive)]
+    [Arguments(SchemaDifferenceSafety.Informational)]
+    [Arguments(SchemaDifferenceSafety.Ambiguous)]
+    public async Task ReviewPathsCannotEscapeTheirLineComments(SchemaDifferenceSafety safety)
+    {
+        var difference = new SchemaDifference(SchemaDifferenceKind.MissingTable, SchemaDifferenceSeverity.Warning,
+            safety, "view\r\nDROP TABLE account;", "message\nDELETE FROM account;",
+            safety == SchemaDifferenceSafety.Additive ? new ViewDefinition("view") : null);
+        var script = new SchemaDiffScriptGenerator().Generate(DatabaseType.SQLite, [difference]);
+        await Assert.That(script.Split('\n').Skip(3).All(line =>
+            string.IsNullOrWhiteSpace(line) || line.StartsWith("-- ", StringComparison.Ordinal))).IsTrue();
+    }
+
+    [Test]
     public async Task Generate_SQLiteMissingTable_CreatesTableAndIndexes()
     {
         var model = CreateDatabase(
@@ -194,7 +252,9 @@ public class SchemaDiffScriptGeneratorTests
     private static MetadataTableModelDraft CreateTable(
         string tableName,
         MetadataValuePropertyDraft[] columns,
-        Attribute[]? attributes = null)
+        Attribute[]? attributes = null,
+        TableType tableType = TableType.Table,
+        string? viewDefinition = null)
     {
         return new MetadataTableModelDraft(
             ToCsName(tableName),
@@ -203,7 +263,7 @@ public class SchemaDiffScriptGeneratorTests
                 Attributes = attributes ?? [],
                 ValueProperties = columns
             },
-            new MetadataTableDraft(tableName));
+            new MetadataTableDraft(tableName) { Type = tableType, Definition = viewDefinition });
     }
 
     private static MetadataValuePropertyDraft CreateColumn(

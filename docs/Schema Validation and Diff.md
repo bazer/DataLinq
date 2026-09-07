@@ -112,6 +112,8 @@ The generated script starts with a warning header. It emits SQL for supported ad
 - missing simple indexes
 - missing unique indexes
 
+A missing view is always an explicit manual action. The script includes its model definition as commented reference text when available, or asks for a reviewed `CREATE VIEW` statement when the metadata has no definition. It never substitutes `CREATE TABLE` for a view. Review the dialect, dependencies, and permissions before writing the view DDL.
+
 Everything else is emitted as a comment:
 
 - destructive drift

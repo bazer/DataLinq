@@ -49,6 +49,10 @@ public sealed class SchemaDiffScriptGenerator
         {
             switch (difference.Kind)
             {
+                case SchemaDifferenceKind.MissingTable when difference.ModelDefinition is ViewDefinition view:
+                    AppendMissingView(builder, provider, difference, view);
+                    break;
+
                 case SchemaDifferenceKind.MissingTable when difference.ModelDefinition is TableDefinition table:
                     AppendCreateTable(builder, provider, difference, table);
                     break;
@@ -93,6 +97,25 @@ public sealed class SchemaDiffScriptGenerator
 
             _ => throw new NotSupportedException($"Schema diff script generation is not supported for {databaseType}.")
         };
+
+    private static void AppendMissingView(
+        StringBuilder builder,
+        SqlDiffProvider provider,
+        SchemaDifference difference,
+        ViewDefinition view)
+    {
+        AppendDifferenceHeader(builder, "review required", difference);
+        builder.AppendLine($"-- Manual action required: create view {EscapeSqlComment(provider.Quote(view.DbName))} after reviewing its provider-specific definition and dependencies.");
+        if (string.IsNullOrWhiteSpace(view.Definition))
+            builder.AppendLine("-- No view definition is available in the model metadata. Supply and review a CREATE VIEW statement.");
+        else
+        {
+            builder.AppendLine("-- Model view definition (reference only; no SQL is executed automatically):");
+            foreach (var line in view.Definition.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+                builder.AppendLine($"-- {line}");
+        }
+        builder.AppendLine();
+    }
 
     private static void AppendCreateTable(
         StringBuilder builder,
@@ -152,7 +175,7 @@ public sealed class SchemaDiffScriptGenerator
 
         if (!IsCreatableIndex(provider.DatabaseType, index))
         {
-            builder.AppendLine($"-- Manual action required: index '{index.Name}' uses unsupported diff-script shape {index.Characteristic}/{index.Type}.");
+            builder.AppendLine($"-- Manual action required: index '{EscapeSqlComment(index.Name)}' uses unsupported diff-script shape {index.Characteristic}/{index.Type}.");
             builder.AppendLine();
             return;
         }
@@ -251,7 +274,7 @@ public sealed class SchemaDiffScriptGenerator
 
     private static void AppendDifferenceHeader(StringBuilder builder, string category, SchemaDifference difference)
     {
-        builder.AppendLine($"-- {category.ToUpperInvariant()} {difference.Kind} {difference.Path}");
+        builder.AppendLine($"-- {category.ToUpperInvariant()} {difference.Kind} {EscapeSqlComment(difference.Path)}");
         builder.AppendLine($"-- {EscapeSqlComment(difference.Message)}");
     }
 
@@ -259,7 +282,7 @@ public sealed class SchemaDiffScriptGenerator
     {
         if (difference.Safety == SchemaDifferenceSafety.Informational)
         {
-            builder.AppendLine($"-- INFO {difference.Kind} {difference.Path}");
+            builder.AppendLine($"-- INFO {difference.Kind} {EscapeSqlComment(difference.Path)}");
             builder.AppendLine($"-- {EscapeSqlComment(difference.Message)}");
             builder.AppendLine("-- No SQL generated for informational metadata drift.");
             builder.AppendLine();
@@ -274,7 +297,7 @@ public sealed class SchemaDiffScriptGenerator
             _ => "unsupported change"
         };
 
-        builder.AppendLine($"-- REVIEW REQUIRED {difference.Severity}/{difference.Safety} {difference.Kind} {difference.Path}");
+        builder.AppendLine($"-- REVIEW REQUIRED {difference.Severity}/{difference.Safety} {difference.Kind} {EscapeSqlComment(difference.Path)}");
         builder.AppendLine($"-- {EscapeSqlComment(difference.Message)}");
         builder.AppendLine($"-- No SQL generated: {reviewReason}.");
         builder.AppendLine();
