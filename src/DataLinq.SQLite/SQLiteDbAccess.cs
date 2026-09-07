@@ -50,7 +50,7 @@ public class SQLiteDbAccess : DatabaseAccess
         using (var connection = OpenOwnedConnection())
         {
             command.Connection = connection;
-            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+            Log.SqlCommand(loggingConfiguration, command);
             int result = ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
             connection.Close();
 
@@ -75,7 +75,7 @@ public class SQLiteDbAccess : DatabaseAccess
         using (var connection = OpenOwnedConnection())
         {
             command.Connection = connection;
-            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+            Log.SqlCommand(loggingConfiguration, command);
             var result = ExecuteCommandWithTelemetry(command, "scalar", transactional: false, transactionType: null, command.ExecuteScalar);
             connection.Close();
 
@@ -89,7 +89,7 @@ public class SQLiteDbAccess : DatabaseAccess
         try
         {
             command.Connection = connection;
-            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+            Log.SqlCommand(loggingConfiguration, command);
 
             var reader = ExecuteCommandWithTelemetry(
                 command,
