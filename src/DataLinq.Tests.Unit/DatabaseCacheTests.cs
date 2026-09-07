@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Cache;
@@ -20,6 +21,43 @@ namespace DataLinq.Tests.Unit;
 
 public class DatabaseCacheTests
 {
+    [Test]
+    [NotInParallel("process:database-cache")]
+    public async Task ConcurrentFirstSubscriptions_AllReachThePublishedManager()
+    {
+        var metadata = CreateMetadataWithExplicitCachePolicy();
+        for (var iteration = 0; iteration < 64; iteration++)
+        {
+            using var cache = new DatabaseCache(new FakeDatabaseProvider(metadata), DataLinqLoggingConfiguration.NullConfiguration);
+            var table = cache.TableCaches.Values.Single();
+            var subscribers = Enumerable.Range(0, 8).Select(_ => new CountingNotification()).ToArray();
+            using var start = new Barrier(subscribers.Length);
+            var workers = subscribers.Select((subscriber, index) => Task.Factory.StartNew(() =>
+            {
+                if (!start.SignalAndWait(TimeSpan.FromSeconds(10)))
+                    throw new TimeoutException("Subscription workers did not reach the start barrier.");
+                if (index % 2 == 0)
+                    table.SubscribeToChanges(subscriber);
+                else
+                    table.SubscribeToChanges(subscriber, null, null, []);
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)).ToArray();
+
+            await Task.WhenAll(workers).WaitAsync(TimeSpan.FromSeconds(20));
+            table.ClearRows();
+            await Assert.That(subscribers.All(subscriber => subscriber.ClearCalls == 1)).IsTrue();
+            table.ClearRows();
+            await Assert.That(subscribers.All(subscriber => subscriber.ClearCalls == 1)).IsTrue();
+            GC.KeepAlive(subscribers);
+        }
+    }
+
+    private sealed class CountingNotification : ICacheNotification
+    {
+        private int clearCalls;
+        internal int ClearCalls => Volatile.Read(ref clearCalls);
+        public void Clear() => Interlocked.Increment(ref clearCalls);
+    }
+
     [Test]
     [NotInParallel("process:database-cache")]
     public async Task Constructor_DoesNotCreateHistorySnapshotUntilRequested()
