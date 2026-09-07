@@ -24,7 +24,7 @@ public enum SQLiteJournalMode
 
 public class SQLiteProvider : IDatabaseProviderRegister
 {
-    public static bool HasBeenRegistered { get; private set; }
+    public static bool HasBeenRegistered => PluginHook.IsRegistered(DatabaseType.SQLite);
 
     //[ModuleInitializer]
     public static void RegisterProvider()
@@ -32,11 +32,8 @@ public class SQLiteProvider : IDatabaseProviderRegister
         if (HasBeenRegistered)
             return;
 
-        PluginHook.DatabaseProviders[DatabaseType.SQLite] = new SQLiteDatabaseCreator();
-        PluginHook.SqlFromMetadataFactories[DatabaseType.SQLite] = new SqlFromSQLiteFactory();
-        PluginHook.MetadataFromSqlFactories[DatabaseType.SQLite] = new MetadataFromSQLiteFactoryCreator();
-
-        HasBeenRegistered = true;
+        PluginHook.RegisterProvider(DatabaseType.SQLite,
+            new SQLiteDatabaseCreator(), new SqlFromSQLiteFactory(), new MetadataFromSQLiteFactoryCreator());
     }
 }
 

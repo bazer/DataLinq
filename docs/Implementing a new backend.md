@@ -18,7 +18,7 @@ A complete provider normally owns four connected pieces:
 | Runtime database creation | `IDatabaseProviderCreator` | Create the provider-specific `Database<T>` and configure logging/type recognition. |
 | Schema metadata | `IMetadataFromDatabaseFactoryCreator` + `IMetadataFromSqlFactory` | Read tables, views, columns, keys, indexes, relations, defaults, and supported provider details into `DatabaseDefinition`. |
 | DDL generation/application | `ISqlFromMetadataFactory` | Render supported metadata to provider SQL and create the database/file when requested. |
-| Registration | `PluginHook` dictionaries | Bind one `DatabaseType` to all three creator/factory roles. |
+| Registration | `PluginHook.RegisterProvider` | Atomically bind one `DatabaseType` to all three creator/factory roles. |
 
 The public interfaces are real, but this remains a low-level provider contract, not a polished third-party-provider SDK. You own consistency across runtime codecs, SQL rendering, metadata import, schema comparison, transactions, and tests.
 
@@ -100,12 +100,22 @@ DataLinq's `diff` command is intentionally more conservative than the raw DDL ge
 Register all required roles for the same `DatabaseType`:
 
 ```csharp
-PluginHook.DatabaseProviders[type] = databaseProviderCreator;
-PluginHook.MetadataFromSqlFactories[type] = metadataFactoryCreator;
-PluginHook.SqlFromMetadataFactories[type] = sqlFactory;
+bool installed = PluginHook.RegisterProvider(
+    type, databaseProviderCreator, sqlFactory, metadataFactoryCreator);
 ```
 
-Missing one dictionary leaves a half-installed provider: runtime construction, model generation/schema reads, or SQL generation will fail independently.
+Registration publishes the three services together. Concurrent first use is safe;
+the first registration wins and later calls return `false`. Built-in providers'
+`HasBeenRegistered` properties read this central state. Use `replaceExisting: true`
+only when intentionally replacing a provider's complete registration.
+
+**Extension API migration:** the former mutable dictionary fields are now read-only
+snapshot properties. Code that assigned those fields or updated individual entries
+must migrate to `RegisterProvider` and be recompiled. Existing lookup/enumeration
+source code still works. Captured snapshots remain unchanged after registration or
+replacement; the service objects themselves are not made immutable. Use
+`PluginHook.Registrations` or `TryGetRegistration` when several services must come
+from the same registration during concurrent replacement.
 
 ## 6. Query Execution Boundary
 
