@@ -581,7 +581,7 @@ public class SqlQuery<T>
     /// </summary>
     public DataLinqKey? TryGetSimplePrimaryKey()
     {
-        if (HasDerivedSource)
+        if (!CanUseSinglePrimaryKeyLookup)
             return null;
 
         // We can only optimization if:
@@ -602,7 +602,7 @@ public class SqlQuery<T>
     {
         primaryKey = null;
 
-        if (HasDerivedSource)
+        if (!CanUseSinglePrimaryKeyLookup)
             return false;
 
         if (WhereGroup == null || WhereGroup.IsNegated)
@@ -613,4 +613,11 @@ public class SqlQuery<T>
 
         return WhereGroup.TryGetSimpleScalarPrimaryKey(Table.PrimaryKeyColumns[0], out primaryKey);
     }
+
+    // A key predicate alone is insufficient: the rest of the query must not
+    // filter, duplicate, or skip the row returned by a direct key lookup.
+    private bool CanUseSinglePrimaryKeyLookup =>
+        !HasDerivedSource && !HasJoins &&
+        GroupByList.Count == 0 && HavingGroup is null &&
+        limit != 0 && offset.GetValueOrDefault() == 0;
 }
