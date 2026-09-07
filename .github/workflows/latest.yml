@@ -20,6 +20,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  dependency-audit:
+    uses: ./.github/workflows/dependency-audit.yml
+
   smoke:
     name: Smoke (no Podman)
     runs-on: ubuntu-latest
@@ -78,7 +81,7 @@ jobs:
   required:
     name: Latest required gate
     if: always()
-    needs: [smoke, local, latest-servers]
+    needs: [smoke, local, latest-servers, dependency-audit]
     runs-on: ubuntu-latest
     steps:
       - name: Require every lane
@@ -86,7 +89,9 @@ jobs:
           SMOKE_RESULT: ${{ needs.smoke.result }}
           LOCAL_RESULT: ${{ needs.local.result }}
           SERVER_RESULT: ${{ needs.latest-servers.result }}
+          AUDIT_RESULT: ${{ needs.dependency-audit.result }}
         run: |
           test "$SMOKE_RESULT" = success
           test "$LOCAL_RESULT" = success
           test "$SERVER_RESULT" = success
+          test "$AUDIT_RESULT" = success
