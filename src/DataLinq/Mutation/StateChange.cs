@@ -345,44 +345,46 @@ public class StateChange
 
         try
         {
-            var command = PrepareExecutionCommand(transaction);
-            EnsureCapturedMutationUnchanged("provider command preparation");
-
-            if (Type == TransactionChangeType.Insert && HasAutoIncrement && PrimaryKeys.IsNull)
+            using (var command = PrepareExecutionCommand(transaction))
             {
-                var newId = transaction.DatabaseAccess.ExecuteScalar(command);
-                affectedRows = 1;
-                EnsureCapturedMutationUnchanged("provider statement execution");
-                executionPhase = StateChangeExecutionPhase.Hydration;
+                EnsureCapturedMutationUnchanged("provider command preparation");
 
-                if (Model is IMutableInstance mutable)
+                if (Type == TransactionChangeType.Insert && HasAutoIncrement && PrimaryKeys.IsNull)
                 {
-                    var autoIncrement = Table.AutoIncrementPrimaryKeyColumn;
+                    var newId = transaction.DatabaseAccess.ExecuteScalar(command);
+                    affectedRows = 1;
+                    EnsureCapturedMutationUnchanged("provider statement execution");
+                    executionPhase = StateChangeExecutionPhase.Hydration;
 
-                    if (autoIncrement != null)
+                    if (Model is IMutableInstance mutable)
                     {
-                        var canonicalValue = GeneratedValueDecoder.DecodeAutoIncrementValue(
-                            autoIncrement,
-                            newId,
-                            "sql.generated");
-                        var modelValue = ProviderRowMaterializer.MaterializeValue(
-                            autoIncrement,
-                            canonicalValue,
-                            "sql.generated");
-                        mutable[autoIncrement] = modelValue;
+                        var autoIncrement = Table.AutoIncrementPrimaryKeyColumn;
+
+                        if (autoIncrement != null)
+                        {
+                            var canonicalValue = GeneratedValueDecoder.DecodeAutoIncrementValue(
+                                autoIncrement,
+                                newId,
+                                "sql.generated");
+                            var modelValue = ProviderRowMaterializer.MaterializeValue(
+                                autoIncrement,
+                                canonicalValue,
+                                "sql.generated");
+                            mutable[autoIncrement] = modelValue;
+                        }
                     }
                 }
-            }
-            else
-            {
-                affectedRows = transaction.DatabaseAccess.ExecuteNonQuery(command);
-                EnsureCapturedMutationUnchanged("provider statement execution");
-            }
+                else
+                {
+                    affectedRows = transaction.DatabaseAccess.ExecuteNonQuery(command);
+                    EnsureCapturedMutationUnchanged("provider statement execution");
+                }
 
-            executionPhase = StateChangeExecutionPhase.Hydration;
-            FinalizePrimaryKeysAfterExecution();
-            FinalizeRelationKeysAfterExecution();
-            CaptureFinalizedMutation();
+                executionPhase = StateChangeExecutionPhase.Hydration;
+                FinalizePrimaryKeysAfterExecution();
+                FinalizeRelationKeysAfterExecution();
+                CaptureFinalizedMutation();
+            }
             executionPhase = StateChangeExecutionPhase.Completed;
             succeeded = true;
         }
@@ -519,7 +521,7 @@ public class StateChange
     /// Creates a database command for the state change to be executed within the transaction.
     /// </summary>
     /// <param name="transaction">The transaction the command is for.</param>
-    /// <returns>The database command to execute.</returns>
+    /// <returns>The database command to execute. The caller owns and must dispose it.</returns>
     public IDbCommand GetDbCommand(Transaction transaction)
     {
         ArgumentNullException.ThrowIfNull(transaction);
