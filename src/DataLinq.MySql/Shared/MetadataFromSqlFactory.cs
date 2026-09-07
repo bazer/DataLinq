@@ -364,8 +364,13 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
                 databaseType,
                 FormatRawDefaultExpression(dbColumns.COLUMN_DEFAULT.Trim(), normalizedExpression));
 
-        if (property.CsType.Type == typeof(bool) && normalizedExpression.StartsWith("b'"))
-            return new DefaultAttribute(normalizedExpression == "b'1'");
+        if ((property.CsType.Type == typeof(bool) || property.CsType.Type == typeof(ulong)) &&
+            normalizedExpression.StartsWith("b'", StringComparison.OrdinalIgnoreCase) &&
+            normalizedExpression.EndsWith("'", StringComparison.Ordinal))
+        {
+            var bitValue = Convert.ToUInt64(normalizedExpression.Substring(2, normalizedExpression.Length - 3), 2);
+            return new DefaultAttribute(property.CsType.Type == typeof(bool) ? (object)(bitValue != 0) : bitValue);
+        }
 
         if (!IsTypedSqlLiteralDefault(normalizedExpression, property))
             return new DefaultSqlAttribute(databaseType, FormatRawDefaultExpression(dbColumns.COLUMN_DEFAULT.Trim(), normalizedExpression));
@@ -719,7 +724,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
                 return (dbType.Signed == false) ? "ulong" : "long";
 
             case "bit":
-                return "bool";
+                return dbType.Length is > 1 ? "ulong" : "bool";
             case "double":
                 return "double";
             case "float":
