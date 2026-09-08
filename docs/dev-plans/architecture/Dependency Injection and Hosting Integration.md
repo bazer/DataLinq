@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for unnamed registration, explicit unit of work, and startup-host integration; broader host variants remain later work.
-**Last reviewed:** 2026-09-04.
+**Last reviewed:** 2026-09-09.
 **Dependency:** The shipped 0.9 backend/source boundary and the 0.10 async contracts must be stable before host integration freezes public service abstractions.
 **Goal:** Make DataLinq straightforward to configure, validate, and consume from ASP.NET Core, generic host, background workers, Blazor, MAUI, Avalonia, and other .NET application surfaces without hiding database I/O or transaction boundaries.
 
@@ -14,6 +14,8 @@
 **0.10 mutation/callback contract:** [AAPI-27 through AAPI-33](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-27-capture-mutation-inputs-before-the-first-suspension) settle mutation input capture/exclusive lifetime, synchronous local edits, finite multi-model capture, task-returning callback families, borrowed completion restrictions, explicit token delivery, and results after successful commit/finalization/cleanup. Apply those policies to host helpers without hidden transaction retention or callback replay.
 
 **0.10 concurrency contract:** [AAPI-34 through AAPI-41](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-34-reject-overlapping-transaction-execution) settle transaction overlap/resource ownership, private internal/mutable/helper rights, busy caller-disposal rejection, unfinished-callback admission/recovery, and cache coordination/isolation. Host helpers must not queue transaction work implicitly, commit unfinished callbacks, propagate ambient cancellation, or promise a hard drain deadline. Exact public surfaces remain under OAPI-7, provider feasibility under OAPI-9, and host lifetimes still require H10 design.
+
+**0.10 lower-level ownership/failure access:** [AAPI-56 through AAPI-63](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-56-mirror-lower-level-execution-with-verified-async-capability) settle verified async execution and reader/resource ownership, raw/managed adapter gating without raw mutation tracking, consuming synchronous attachment, owning-root async disposal, typed immutable failure snapshots, and provider-scoped recovery configuration. Host registrations must capture validated immutable `DataLinqExecutionOptions.RecoveryRollbackTimeout` settings (30-second default, positive finite supported durations), preserve direct constructor compatibility, and let transactions/helpers inherit them. The budget starts at automatic rollback, not unfinished-work draining; no global/live settings, restarting retries, or total-disposal deadline are introduced. Expose failure context after helper disposal with recovery actions valid at reporting time. End dependent transaction/reader lifetimes before provider disposal; container-created versus externally supplied ownership must be explicit, without double-owning database/provider resources. Exact registration/constructor compatibility and provider feasibility still require H10/A10 evidence.
 
 **Related work:**
 

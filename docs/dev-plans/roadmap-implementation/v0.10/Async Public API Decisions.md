@@ -80,7 +80,7 @@ Keep local operations synchronous: existing database/transaction `Query()` facto
 
 Provide explicit async counterparts for the supported execution families. Preserve existing sync behavior, query support limits, conversions, cache and invalidation rules, logging, metrics, and transaction terminal semantics. Synchronous APIs remain direct synchronous implementations.
 
-Do not run simultaneous managed operations on the same transaction. Sequential mixing is supported. AAPI-20 and AAPI-34 through AAPI-38 settle active-reader and wider execution ownership, overlap diagnostics, caller disposal, and helper-owned recovery across awaits; exact public accessors and compatibility remain under OAPI-7.
+Do not run simultaneous managed operations on the same transaction. Sequential mixing is supported. AAPI-20 and AAPI-34 through AAPI-38 settle active-reader and wider execution ownership, overlap diagnostics, caller disposal, and helper-owned recovery across awaits. AAPI-59 extends the shared gate to DataLinq adapter calls; AAPI-62 selects typed diagnostic access. Detailed fields and compatibility still require OAPI-7 evidence.
 
 Database-level mutation helpers continue to own the implicit transaction and its completion. Transaction-level mutation helpers execute inside their existing transaction without committing it. `SaveAsync()` corresponds to DataLinq's current `Save()` behavior, not an EF-style change-tracker flush.
 
@@ -529,7 +529,7 @@ For rollback, pre-dispatch cancellation preserves the prior state, including an 
 
 **Accepted:** 2026-08-31. Public `RollbackAsync(ct)` honors its optional caller token. DataLinq-initiated recovery rollback after an implicit mutation/callback failure uses an independent recovery token. `DisposeAsync()` remains parameterless and uses internal cleanup policy where applicable; an already-canceled request token must not prevent necessary recovery from starting.
 
-Use a configurable 30-second starting budget for DataLinq-initiated rollback attempts, subject to W1/W2 provider verification before freezing the configuration surface. This is a cooperative rollback budget, not a guaranteed deadline for all cleanup/disposal. It does not make non-cancelable provider calls interruptible or remove SQLite's synchronous-driver limitation. The exact option name/location and validated provider behavior remain under OAPI-7/OAPI-9.
+Use a configurable 30-second starting budget for DataLinq-initiated rollback attempts, subject to W1/W2 provider verification before API freeze. This is a cooperative rollback budget, not a guaranteed deadline for all cleanup/disposal. It does not make non-cancelable provider calls interruptible or remove SQLite's synchronous-driver limitation. AAPI-63 selects the provider-scoped option name/location and validation policy; constructor/consumer evidence and validated provider behavior remain required under OAPI-7/OAPI-9.
 
 Do not merely stop awaiting rollback and return its connection to a pool while work continues. Any provider-specific abort/release strategy must prove safe ownership and non-reuse. Continue other safe, independent cleanup steps after one fails; do not skip them because the original caller token was canceled.
 
@@ -560,7 +560,7 @@ These are semantic dimensions, not frozen public enum/property names. Caller can
 
 Use `OperationCanceledException` for cancellation actually observed through the operation's cancellation path. Preserve provider timeout exceptions and error codes, unrelated provider/application failures even when the token is also canceled, and `TransactionCommitFinalizationException` for its existing known-committed meaning. Do not catch every exception under `ct.IsCancellationRequested` and relabel it cancellation. For races, use provider results and available evidence without claiming an unknowable event ordering.
 
-Failure information must reach callers of database-level helpers after their implicit transaction is disposed, not only callers retaining an explicit transaction. Freeze exact accessors, compatibility, and operation-specific classifications in OAPI-7 after provider evidence under OAPI-9. Do not introduce a new generic exception hierarchy, automatic retry policy, or public provider-plugin API through this decision.
+Failure information must reach callers of database-level helpers after their implicit transaction is disposed, not only callers retaining an explicit transaction. AAPI-62 selects typed immutable context access; complete detailed field/enum, compatibility, and operation-specific classification evidence under OAPI-7/OAPI-9 before API freeze. Do not introduce a new generic exception hierarchy, automatic retry policy, or public provider-plugin API through this decision.
 
 **Owner/gate:** A10, D10-1/D10-2 with H10/T10 consultation; W1/W2 fault injection and W3 consumer coverage must prove exception identity/stack, cause/outcome independence, recovery restrictions, and structured secondary failures for both explicit and implicit transaction APIs.
 
@@ -993,6 +993,136 @@ Custom/test models can override the async method. Overriding only the synchronou
 
 **Owner/gate:** A10 with T10 consultation, D10-1/D10-2; verify scalar/composite/converted keys, nullable/required/missing/duplicate references, interface/concrete/custom dispatch, shared warm/cold/invalidation state, generated inheritance/collisions, and migration evidence for the synchronous required-reference correction. These are planned contracts, not claims that current generated getters already enforce them.
 
+### AAPI-56: Mirror Lower-Level Execution With Verified Async Capability
+
+**Accepted:** 2026-09-09. Add async counterparts to the existing [IDatabaseAccess](../../../../src/DataLinq/Interfaces/IDatabaseAccess.cs) interface and concrete access classes, preserving SQL-string and caller-supplied `IDbCommand` families with optional final cancellation tokens:
+
+| Family | Async result |
+| --- | --- |
+| `ExecuteNonQueryAsync` | `Task<int>` |
+| `ExecuteScalarAsync` | `Task<object?>` |
+| `ExecuteScalarAsync<T>` | `Task<T>` |
+| `ExecuteReaderAsync` | `Task<IDataLinqAsyncDataReader>` |
+| `ReadReaderAsync` | `IAsyncEnumerable<IDataLinqDataReader>` |
+
+Preserve existing scalar conversion contracts. Keeping `IDbCommand` accepts commands returned by existing `ToDbCommand()` APIs without application casts; it does not promise support for arbitrary implementations. Validate the actual command against the selected provider before opening a connection or executing. Deriving from `DbCommand` does not prove native async execution: framework base methods can call synchronous methods. Verify provider dispatch, preserving the accepted SQLite exception.
+
+New interface defaults and base-class virtual methods report `NotSupportedException` unless async execution is implemented. Shared defaults may compose supported async operations, never synchronous execution. Concrete/interface/custom compatibility still requires consumer evidence; this does not establish a general provider plugin protocol.
+
+Remaining public [Select execution helpers](../../../../src/DataLinq/Query/Select.cs) receive counterparts: sequence helpers return direct async sequences; lower-level scalar and single-row results use `Task`. Preserve existing result shapes and supported materialization. SQL construction, `ToSql()`, and `ToDbCommand()` remain synchronous.
+
+**Owner/gate:** A10, D10-1/D10-2; inventory lower-level helpers and prove string/command and interface/concrete overloads, unsupported-command rejection before I/O, scalar parity, provider dispatch, cleanup, optional/named tokens, and custom compatibility in packed consumers.
+
+### AAPI-57: An Async Reader Capability With A Borrowed Current-Row View
+
+**Accepted:** 2026-09-09. Preserve existing synchronous reader implementations and add the companion capability:
+
+```csharp
+public interface IDataLinqAsyncDataReader
+    : IDataLinqDataReader, IAsyncDisposable
+{
+    Task<bool> ReadNextRowAsync(
+        CancellationToken cancellationToken = default);
+}
+```
+
+`DisposeAsync()` retains AAPI-8's `ValueTask` convention. Current-row getters stay synchronous; supported async execution/advancement must make the needed row data available through async I/O where the provider supports it. Do not silently defer blocking provider reads into getters. Sequential large-object streaming, async getter families, and multiple-result APIs are not incidental additions.
+
+`ReadReaderAsync` yields access to the current reader position, not independent row snapshots. The [synchronous helper](../../../../src/DataLinq/Database/DatabaseAccess.cs) already yields the same reader repeatedly. Read or copy values during iteration; collecting reader references does not produce independent rows. The enumerator owns advancement/disposal, so callers must not manually advance or dispose its yielded reader. Use `ReadRowsAsync` or model materialization for independently usable results.
+
+**Owner/gate:** A10 with T10 consultation, D10-1/D10-2; verify capability/return types, native advancement/cleanup rather than framework sync fallback, current-row getters, ephemeral cursor semantics, independent materialized rows, and cancellation/overlap contracts.
+
+### AAPI-58: Preserve Owned And Borrowed Command Lifetimes
+
+**Accepted:** 2026-09-09. Preserve the command-ownership distinction across awaits:
+
+| Entry point | Command owner | Reader owner |
+| --- | --- | --- |
+| `ExecuteReaderAsync(string, ct)` | DataLinq; released with reader | Caller disposes returned reader |
+| `ExecuteReaderAsync(command, ct)` | Caller | Caller disposes returned reader |
+| `ReadReaderAsync(string, ct)` | Enumerator owns created command | Enumerator |
+| `ReadReaderAsync(command, ct)` | Caller | Enumerator |
+
+Scalar/non-query execution disposes internally created commands before completion; supplied commands remain caller-owned. Standalone execution owns the connection it opens. A transaction-bound reader does not own its surrounding transaction or that transaction's connection.
+
+Caller commands are borrowed mutable provider resources. Do not mutate, reuse, or dispose them while execution or the returned reader is active. They do not acquire AAPI-18's generated-query parameter snapshot guarantee; do not clone arbitrary provider commands, parameters, streams, or output values. This distinguishes a borrowed command from DataLinq-owned invocation capture.
+
+Deferred sequence construction remains free of database I/O. Clean up owned resources on exhaustion, early termination, cancellation, and failure, including failure before reader creation transfers ownership. Preserve AAPI-25/AAPI-26 primary/secondary exception handling where DataLinq controls execution and cleanup. The existing [owned-command reader](../../../../src/DataLinq/Database/OwnedCommandDataReader.cs) is a baseline, not evidence that async cleanup is implemented.
+
+**Owner/gate:** A10, D10-2; fault-inject setup/open/execution/reader creation/disposal, verify borrowed ownership and standalone versus transaction connection lifetimes, and preserve failure precedence and resource-lifetime gating.
+
+### AAPI-59: Raw SQL Shares Execution Safety, Not Tracked Mutation Semantics
+
+**Accepted:** 2026-09-09. Raw calls through a DataLinq transaction adapter participate in the same operation/reader lifetime gate as its managed wrapper. Reject overlap with managed queries, mutations, and completion. Internal managed execution carries private ownership through the adapter without self-rejection.
+
+Treat failed/canceled raw execution after dispatch conservatively: a row-returning command is not evidence of read-only execution and does not acquire AAPI-23's reusable ordinary-read exception. Permit only recovery valid for the resulting provider state. Pre-dispatch validation/cancellation preserves otherwise valid prior work. Do not parse SQL to guess effects or add a public trusted-read-only switch.
+
+Raw SQL remains outside automatic model-change tracking, generated-value hydration, and affected-row cache publication. Applications should avoid mixing untracked writes with pending tracked mutations and must explicitly invalidate affected committed caches after raw writes. Execution safety does not turn arbitrary SQL into managed mutation semantics.
+
+Direct use of escaped provider commands/transaction handles remains outside what DataLinq can reliably observe. Distinguish those escape hatches from calls through the DataLinq adapter. The [current managed guard](../../../../src/DataLinq/Mutation/Transaction.cs) explicitly excludes low-level access; sharing the gate with adapter calls is a planned change, not current behavior.
+
+**Owner/gate:** A10, D10-2; exercise raw/managed overlap, reader lifetimes, private dispatch, pre/post-dispatch failures, row-returning mutations, conservative recovery, and explicit cache/escape-hatch limits without a SQL-effects inference engine.
+
+### AAPI-60: Synchronous Attachment Preserves Consuming Ownership
+
+**Accepted:** 2026-09-09. Keep `AttachTransaction(...)` synchronous with no cancellation token. It validates/adopts an active transaction without opening a connection, beginning another transaction, or performing database work. Do not add `AttachTransactionAsync`.
+
+Preserve the existing [consuming attachment contract](../../../../src/DataLinq/Database.cs): the wrapper consumes the transaction and may close/dispose its connection. Complete and dispose through that wrapper, not independently through the original handle. Supported native transactions receive async execution/completion; arbitrary `IDbTransaction` wrappers are not async-capable merely because their connection has a familiar provider type. Unsupported async capability fails explicitly.
+
+Do not reopen or replace an attached transaction after failure. Preserve unknown-outcome handling when external completion is detected. `leaveOpen`, borrowed-completion modes, and external transaction coordination require separate scope/ownership decisions and are not added in 0.10.
+
+**Owner/gate:** A10 with H10 consultation, D10-1/D10-2; verify I/O-free attachment, native/unsupported capability, consumed transaction/connection ownership, wrapper completion, and externally completed handle recovery.
+
+### AAPI-61: Async Disposal On Existing Owning Roots
+
+**Accepted:** 2026-09-09. Support parameterless `DisposeAsync()` on existing owning database/provider and transaction surfaces while retaining genuine synchronous disposal. Preserve [database-to-provider ownership](../../../../src/DataLinq/Database.cs). Built-in providers use actual async resource cleanup where available and keep purely local cleanup synchronous; SQLite retains its documented synchronous-driver limitation.
+
+Both disposal forms share lifecycle state so resources are not released twice. Continue safe independent cleanup after a step fails and retain structured secondary failures. Applications and hosting must end dependent transaction/reader lifetimes before disposing their provider. Do not turn root disposal into an implicit background-operation cancellation/draining engine.
+
+DI ownership remains explicit: the container owns resources it creates; externally supplied instances follow their registration's ownership contract. Avoid independent database/provider ownership registrations that dispose the same resources twice. Exact interface/custom compatibility and registration signatures remain implementation evidence, not permission for synchronous provider-I/O fallback.
+
+**Owner/gate:** A10 with H10 consultation, D10-1/D10-2; prove async/sync dispatch, shared disposal state, exception precedence, dependency lifetime order, and container-created versus externally supplied ownership without expanding shutdown scope.
+
+### AAPI-62: Typed Immutable Failure Context Access
+
+**Accepted:** 2026-09-09. Provide a typed accessor and transaction property, preserving original exception types and stacks:
+
+```csharp
+// Public static accessor on DataLinqFailure:
+public static DataLinqFailureContext? GetContext(Exception exception);
+
+// Public property on Transaction:
+public DataLinqFailureContext? FailureContext { get; }
+```
+
+The accessor returns `null` when no DataLinq context is attached. Context exposes separate cause, operation/stage, database completion outcome, permitted recovery actions, ordered secondary failures, transaction identity where applicable, and attempted/active operations for overlap diagnostics. Keep these dimensions independent under AAPI-26; detailed field/enum inventory still requires consumer/provider evidence.
+
+Use immutable snapshots. Exception context describes the failure when reported; a transaction may expose a newer snapshot after explicit recovery without changing already-returned snapshots. Implicit-helper context survives cleanup/disposal and must not instruct callers to roll back a transaction the helper already disposed. A continue recovery action describes transaction usability, not permission for automatic retry.
+
+Keep storage internal: callers must not depend on `Exception.Data` keys, serialization format, or logging configuration. The context itself does not retain a live transaction/connection or automatically include SQL, connection strings, parameters, or raw keys. This does not sanitize the original provider exception's own contents.
+
+**Owner/gate:** A10 with H10/T10 consultation, D10-1/D10-2; verify accessor/property binding, absent context, immutable snapshots, explicit/implicit reporting, original exceptions, secondary ordering, overlap diagnostics, recovery after disposal, and no added live-resource retention or sensitive payloads.
+
+### AAPI-63: Provider-Scoped Recovery Rollback Configuration
+
+**Accepted:** 2026-09-09. Use provider-scoped execution options:
+
+```csharp
+public sealed class DataLinqExecutionOptions
+{
+    public TimeSpan RecoveryRollbackTimeout { get; init; }
+        = TimeSpan.FromSeconds(30);
+}
+```
+
+Supply options during provider construction and corresponding hosting registration. Capture validated immutable configuration per provider; transactions and implicit helpers inherit it. Preserve existing constructor signatures when adding configuration overloads. Do not add process-global settings, mutable live configuration, or timeout parameters on every mutation overload.
+
+Accept positive finite durations within the supported timer range. Reject zero, negative, and infinite values. The budget starts when automatic rollback begins, not while waiting for unfinished provider work to settle. Do not repeatedly restart it to retry rollback. Explicit `RollbackAsync(ct)` retains its caller token.
+
+This remains AAPI-25's cooperative rollback budget, not a total-disposal deadline. Expiration never authorizes abandoning active provider work and returning its connection to a pool. W1/W2 still prove default feasibility, timer validation, and provider cancellation limits before API freeze.
+
+**Owner/gate:** A10 with H10/T10 consultation, D10-1/D10-2; verify direct/host construction, preserved constructors, independent immutable provider settings, helper inheritance, invalid durations, budget start/one-attempt behavior, explicit/recovery tokens, and safe cleanup despite expiry.
+
 ### OAPI-1: Task Versus ValueTask
 
 **Resolved:** 2026-08-30 by [AAPI-8](#aapi-8-valuetask-for-query-and-relation-results-key-lookup-and-disposal-task-otherwise), including its final framework-alignment revision. The OAPI identifier is retained for existing references. Public awaitable types are decided; performance, consumption, and compatibility verification remain part of implementation evidence.
@@ -1025,7 +1155,7 @@ The identifier is retained for traceability. Exact signature/receiver inventory 
 
 **Design decisions resolved:** 2026-08-31 by AAPI-21 through AAPI-26: validation/pre-cancellation, terminal interrupted initialization, conditional read recovery and mutation poisoning, cancellation/finalization checkpoints, independent database completion outcomes, cooperative recovery budget, throwing disposal and exception precedence, and structured failure information.
 
-The identifier remains for traceability. Exact public exception/context/configuration signatures and compatibility remain under OAPI-7; provider-specific classification, interruption limits, and verification of the 30-second starting recovery budget remain under OAPI-9 and W1/W2. AAPI-27 through AAPI-33 settle mutation-input/callback policy; AAPI-34 through AAPI-41 settle wider operation/shared-load coordination. These implementation/signature gates do not reopen accepted policies without an explicit revision.
+The identifier remains for traceability. AAPI-62/AAPI-63 settle typed failure accessors, immutable snapshots, and provider-scoped recovery configuration. Detailed field/enum, constructor, and compatibility evidence remains under OAPI-7; provider-specific classification, interruption limits, and verification of the 30-second starting recovery budget remain under OAPI-9 and W1/W2. AAPI-27 through AAPI-33 settle mutation-input/callback policy; AAPI-34 through AAPI-41 settle wider operation/shared-load coordination. These implementation/signature gates do not reopen accepted policies without an explicit revision.
 
 **Owner/gate:** A10, D10-2; deterministic fault-injection and provider evidence in W1/W2 before W3.
 
@@ -1051,7 +1181,9 @@ Exact public accessors/overloads and compatibility remain under OAPI-7; provider
 
 **Key/relation decisions resolved:** 2026-09-09 by AAPI-49 through AAPI-55: existing key lookup families and model/provider-key normalization, one async collection primitive with acyclic defaults, concrete/custom dispatch policy, preserved synchronous reference covariance with an invariant async capability, shared navigation state, and explicit failure/diagnostic classes.
 
-OAPI-7 remains open for mutation/callback receiver inventory, lower-level SQL/command/reader ownership, schema metadata/existence checks, attached provider transactions, owned database/provider disposal, and public failure-context/recovery-configuration signatures. Give every public I/O boundary an explicit counterpart or documented exclusion. Complete consumer/ApiCompat checks for accepted query/key/relation signatures and generated diagnostics as implementation evidence; keep backend internals private and do not reopen accepted policy without an explicit revision. Memory/neutral-source capability remains an explicit OAPI-9 question.
+**Lower-level execution/ownership and failure-access decisions resolved:** 2026-09-09 by AAPI-56 through AAPI-63: mirrored execution families and verified async capability, reader/current-row semantics, owned/borrowed resources, raw/managed safety boundaries, consuming synchronous attachment, owning-root async disposal, typed immutable failure context, and provider-scoped recovery configuration.
+
+OAPI-7 remains open for schema metadata/existence-check contracts and the final mutation/callback receiver/overload inventory. Give every public I/O boundary an explicit counterpart or documented exclusion. Complete the detailed lower-level helper/field/enum/constructor inventory, consumer/ApiCompat checks, and generated diagnostics for accepted policies as implementation evidence; these are not proof of implemented behavior. Keep backend internals private and do not reopen accepted policy without an explicit revision. Memory/neutral-source capability remains an explicit OAPI-9 question.
 
 **Owner/gate:** A10, D10-1; W0 audit, W3 ApiCompat and consumer-shaped compilation coverage.
 
@@ -1073,9 +1205,9 @@ Recommendation: retain the same backend capability validation and query rejectio
 
 ## Recommended Decision Order
 
-OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, OAPI-5's mutation/callback contracts, and OAPI-6's concurrency/cache policies are resolved. OAPI-7's query/key/relation policies are accepted under AAPI-42 through AAPI-55; its remaining inventory is still open. Continue with:
+OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, OAPI-5's mutation/callback contracts, and OAPI-6's concurrency/cache policies are resolved. OAPI-7's query/key/relation, lower-level execution/ownership, and failure-access/configuration policies are accepted under AAPI-42 through AAPI-63; its remaining inventory is still open. Continue with:
 
-1. Complete OAPI-7's remaining surface and contracts: lower-level execution/ownership, metadata/existence and attached-resource boundaries, failure-context/configuration signatures, and mutation/callback receivers. Verify the accepted query/key/relation overloads and generated diagnostics with consumer compilation.
+1. Complete OAPI-7's metadata/existence contracts and mutation/callback receiver/overload inventory. Verify accepted signatures, helper/field/enum/constructor details, custom compatibility, and generated diagnostics with consumer compilation and runtime/provider evidence.
 2. Complete OAPI-9's backend/capability and provider evidence. Keep OAPI-8 within the agreed compatibility and release scope; accepted OAPI-6 policies still require deterministic implementation evidence before API freeze.
 
 ## Required Exit Evidence
@@ -1094,6 +1226,7 @@ OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's fa
 - AAPI-34 through AAPI-41 evidence covers mixed sync/async overlap and resource lifetimes, private internal/mutable/helper ownership, rejected busy disposal, unfinished-callback admission/recovery, independent owner/waiter cancellation, cold-load invalidation/subscription/publication races, partial-result completeness, and transaction/database isolation. Use deterministic paused execution at initialization, hydration, reader moves, callback completion, and publication rather than timing-dependent delays; verify safe cleanup failures and compare coordination costs with W0.
 - AAPI-42 through AAPI-48 evidence covers deliberate imports/static aliases and EF Core coexistence, interface-typed/projection receivers, incompatible provider rejection without fallback, exact supported terminal/predicate/default/numeric overloads, and direct versus standard local collection materialization. Packed .NET 8/9/10 consumers prove nullable result types, named/optional tokens, integer averages, prepared sequences, and absence of unintended surface/translation expansion.
 - Generator and ApiCompat evidence cover new members, collisions, nullability, and existing consumer compatibility.
+- AAPI-56 through AAPI-63 evidence covers lower-level string/command/helper signatures and verified async capability, current-row versus materialized results, command/reader/connection ownership and early failures, raw/managed gating without inferred SQL effects or tracking, consuming synchronous attachment, owning-root disposal and DI lifetime order, typed immutable failure snapshots after explicit/implicit recovery, and provider-scoped validated recovery settings without deadline/retry/abandonment promises. Audit synchronous compatibility changes explicitly and verify native dispatch through provider tests.
 - AAPI-49 through AAPI-55 evidence covers database/transaction/generated source families and support helpers, model/provider-key normalization exactly once, null-key sentinel parity, the single async collection primitive and acyclic defaults, concrete/interface/custom dispatch without fallback or recursion, relation membership and duplicate-key rejection, internally consistent results across invalidation, retained synchronous covariance and invariant async references, and generated required/optional/cardinality/capability failures and DLG collision diagnostics. Packed consumers prove exact signatures and constraints; runtime tests prove shared loader state without post-await synchronous I/O.
 - Relation API evidence proves I/O-free collection handle access, relation-scoped keyed lookup, result/cardinality parity, no false complete-cache publication after partial execution, and preserved local LINQ/translated navigation predicate binding.
 - AAPI-11 evidence records the approved source/binary and loading-timing migration, proves row versus key/value enumeration on interface and concrete receivers, and reviews exact ApiCompat diagnostics without hiding unrelated breaks.
@@ -1128,4 +1261,5 @@ These references explain the accepted conventions and dependency policy; they do
 - [`SemaphoreSlim.WaitAsync`](https://learn.microsoft.com/en-us/dotnet/api/system.threading.semaphoreslim.waitasync?view=net-10.0) supports cancellable asynchronous coordination waits; AAPI-39 does not freeze a particular primitive.
 - [C# signatures and overloading](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/basic-concepts#76-signatures-and-overloading) explains why different return types do not resolve competing query extension signatures under AAPI-42.
 - [Default interface method versioning](https://learn.microsoft.com/en-us/dotnet/csharp/advanced-topics/interface-implementation/default-interface-methods-versions) supports AAPI-52's distinction between interface and concrete member access; [variant generic interface rules](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/covariance-contravariance/creating-variant-generic-interfaces) support AAPI-54's separate invariant async reference capability.
+- [.NET command execution defaults](https://learn.microsoft.com/en-us/dotnet/api/system.data.common.dbcommand.executedbdatareaderasync?view=net-10.0), [reader advancement](https://learn.microsoft.com/en-us/dotnet/api/system.data.common.dbdatareader.readasync?view=net-10.0), and [reader disposal](https://learn.microsoft.com/en-us/dotnet/api/system.data.common.dbdatareader.disposeasync?view=net-10.0) document synchronous fallbacks, supporting AAPI-56/AAPI-57's requirement to verify actual async dispatch.
 - [`Queryable.FirstOrDefault`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.queryable.firstordefault?view=net-10.0) and [`Queryable.Average`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.queryable.average?view=net-10.0) support AAPI-46/AAPI-47's default and numeric result conventions; framework overload availability does not broaden DataLinq's accepted translation surface.

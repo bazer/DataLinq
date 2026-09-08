@@ -78,7 +78,9 @@ Acceptance summary:
 - concurrency/cache behavior follows AAPI-34 through AAPI-41, proven with deterministic execution/admission/invalidation/publication races and measured against W0; accepted design does not substitute for provider or runtime evidence
 - query-surface behavior follows AAPI-42 through AAPI-48, with packed .NET 8/9/10 and EF Core/async-LINQ consumer evidence
 - key/generated/relation behavior follows AAPI-49 through AAPI-55: existing lookup families and typed normalization, one async collection primitive with acyclic defaults, concrete/custom compatibility, invariant async reference capability alongside synchronous covariance, and shared navigation state with explicit failures/diagnostics; consumer/runtime evidence remains required
-- lower-level execution/ownership, metadata/attached resources, mutation/callback receiver inventory, and failure/configuration signatures still require OAPI-7 decisions; Memory/neutral-source capability remains under OAPI-9
+- lower-level execution/ownership follows AAPI-56 through AAPI-61: mirrored async families with verified provider capability, explicit reader/current-row and borrowed-resource lifetimes, raw/managed adapter safety without raw mutation tracking, consuming synchronous attachment, and owning-root async disposal
+- failure access/configuration follows AAPI-62/AAPI-63: typed immutable exception/transaction snapshots and positive finite provider-scoped RecoveryRollbackTimeout, with no automatic retry or total-disposal deadline
+- metadata/existence contracts and mutation/callback receiver/overload inventory still require OAPI-7 decisions; detailed accepted-signature, field/enum/constructor, compatibility, and runtime evidence remains required, and Memory/neutral-source capability remains under OAPI-9
 
 Explicit non-goals:
 

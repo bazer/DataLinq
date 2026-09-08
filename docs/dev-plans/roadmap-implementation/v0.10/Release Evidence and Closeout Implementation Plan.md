@@ -147,6 +147,14 @@ Required focused evidence:
 - AAPI-53 acyclic defaults, relation-scoped membership, duplicate-key rejection, direct awaited-result use, internally consistent values/keyed results, and no cross-call generation or positional-correspondence promise
 - AAPI-54 preserved synchronous reference covariance and exact constraints, invariant async capability, built-in/custom dispatch, and explicit unsupported capability without synchronous Value fallback
 - AAPI-55 shared navigation loader state with distinct sync/async execution, public async overrides, optional/required/duplicate/capability/provider failure distinctions, and focused error-severity DLG inheritance/name collisions
+- AAPI-56 lower-level string/IDbCommand/helper families and result types, interface/concrete/custom compatibility, pre-I/O command capability validation, scalar parity, and native dispatch rather than framework sync fallback
+- AAPI-57 async reader advancement/disposal, synchronous getters over asynchronously available row data, ephemeral reader positions versus independently materialized rows, and no incidental LOB/multiple-result API expansion
+- AAPI-58 borrowed versus owned command/reader/connection lifetime, no caller-command mutation/reuse while active or arbitrary command cloning, deferred sequence I/O, pre-reader failure cleanup, and primary/secondary failure precedence
+- AAPI-59 raw/managed adapter overlap gates and private internal dispatch, conservative raw failure after dispatch including row-returning mutations, pre-dispatch preservation, explicit cache invalidation duties, and escaped-provider-handle limitations
+- AAPI-60 I/O-free consuming synchronous attachment, supported/unsupported native async capability, wrapper-only completion, connection ownership, and externally completed handle recovery without leaveOpen or borrowed-completion expansion
+- AAPI-61 owning-root sync/async disposal dispatch and shared state, safe independent cleanup and secondary failures, dependency lifetime order, and container-created versus externally supplied resource ownership
+- AAPI-62 typed exception/transaction failure access, absent context, immutable old/new snapshots, valid recovery after implicit disposal, original exception identity/stack, secondary ordering, and no added live-resource/sensitive-payload retention
+- AAPI-63 provider construction/host options with preserved constructors, positive finite timer validation, immutable per-provider/helper inheritance, budget start at automatic rollback, no restarting retries, caller/recovery token distinction, and safe behavior after expiry
 - packed .NET 8/9/10 consumers cover accepted query signatures, projections, nullability, optional/named tokens, EF Core coexistence, and standard async-LINQ resolution; keep signature approval separate from implementation/provider evidence
 - use controllable pauses at initialization, hydration, reader moves, callback completion, and cache publication rather than timing-dependent delays; exercise cleanup failures and measure coordination/versioning costs against W0
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families
@@ -200,6 +208,7 @@ Required focused evidence:
 - concurrency fixtures follow AAPI-34 through AAPI-41 ownership, independent wait cancellation, invalidation-safe completeness, and isolation; collection doubles alone do not prove provider concurrency, recovery, or connection lifetime
 - query-capable fixtures follow AAPI-42 through AAPI-48 provider rejection, supported expression/default/numeric semantics, and explicit local async composition; a LINQ-to-Objects IQueryable is not automatically a DataLinq async execution source
 - key/relation fixtures follow AAPI-49 through AAPI-55 normalization, primitive/default dispatch, membership/key consistency, covariance/capability, generated failure, and collision contracts; packed consumers and runtime/provider tests establish different parts of the evidence
+- lower-level/failure fixtures follow AAPI-56 through AAPI-63 capability, cursor/resource ownership, raw/managed gates, attachment/disposal, immutable context, and recovery-configuration contracts; use controllable providers and host tests for guarantees that collection doubles cannot establish
 - DI replacement behavior for Memory, fake unit of work, and SQLite-in-memory provider tests
 
 ### Source Type Aliases
