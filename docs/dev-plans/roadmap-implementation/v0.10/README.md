@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-04.
+**Last reviewed:** 2026-09-09.
 
 **Prerequisite:** DataLinq 0.9.0 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
@@ -62,6 +62,7 @@ Required contract:
 - task-returning `CommitAsync` callback families with transaction-only and token-aware forms, helper-owned completion, explicit token delivery, no callback replay, and results delivered after commit/finalization/cleanup; transaction-bound deferred results must be materialized inside the callback
 - one active transaction execution across sync/async paths, held through resource/finalization/cleanup lifetime, with private internal ownership, rejected caller disposal while active, and safe recovery without commit for unfinished callback work
 - existing relation-load coordination with independent waiter cancellation, invalidation-safe row/index/relation publication, complete-result versus individual-row cache rules, and transaction/database isolation; independent database-root operations remain eligible for concurrency
+- query extensions in `DataLinq.Linq` with explicit static invocation for ambiguous imports, validated `IQueryable<T>` execution, supported terminal/predicate/default/numeric-selector overloads, and standard async LINQ for additional local collection construction; preserve existing translation limits
 - sync/async parity for query results, conversion, cache behavior, invalidation, logging, metrics, and transaction terminal states
 - synchronous execution retained as real synchronous implementations rather than sync-over-async wrappers; the enumeration rename and required-reference correction above are the specifically approved compatibility exceptions
 
@@ -75,6 +76,7 @@ Acceptance summary:
 - initialization, cancellation, completion, cleanup, and structured failure behavior follow AAPI-21 through AAPI-26; exact signatures, configuration, and provider feasibility still require W1/W2/W3 evidence
 - mutation input/delegate/collection and callback behavior follows AAPI-27 through AAPI-33, including ownership release, overload binding, and preserved entity relation transitions after completion
 - concurrency/cache behavior follows AAPI-34 through AAPI-41, proven with deterministic execution/admission/invalidation/publication races and measured against W0; accepted design does not substitute for provider or runtime evidence
+- query-surface behavior follows AAPI-42 through AAPI-48, with packed .NET 8/9/10 and EF Core/async-LINQ consumer evidence; key/generated/relation, lower-level execution, and failure/configuration inventory still require OAPI-7 decisions
 
 Explicit non-goals:
 

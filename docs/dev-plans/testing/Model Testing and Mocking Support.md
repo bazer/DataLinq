@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for the release-local builder, relation, Memory-fixture, unit-of-work, and DI-helper subset; later testing slices remain unscheduled.
-**Last reviewed:** 2026-09-04.
+**Last reviewed:** 2026-09-09.
 **Dependency:** Queryable provider-like tests use the shipped capability-declared `DataLinq.Memory` preview rather than inventing a second LINQ-to-Objects provider; fake unit-of-work support follows the real 0.10 unit-of-work contract.
 **Goal:** Make DataLinq application code testable without a live database when the test is about business behavior, while preserving provider-backed tests for SQL translation, schema, transaction, and database-specific behavior.
 
@@ -300,6 +300,8 @@ Query-capable fixtures follow ordinary/prepared parameter-capture boundaries wit
 [AAPI-27 through AAPI-33](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-27-capture-mutation-inputs-before-the-first-suspension) own accepted mutation/callback policies: capture before suspension, exclusive pending mutable use, exactly-once synchronous local edits, finite all-model capture, task callback families with explicit token propagation, borrowed completion restrictions, and results delivered after helper cleanup. Focused fixtures follow these contracts without adding a testing-only mutation engine or claiming that escaped references/custom types can be universally intercepted.
 
 [AAPI-34 through AAPI-41](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-34-reject-overlapping-transaction-execution) own concurrency/cache policies. Use controllable execution fixtures for overlap/resource ownership, private helper/internal rights, rejected busy caller disposal, unfinished-callback admission/recovery, independent wait cancellation, invalidation/publication races, completeness, and source isolation. Preserve completed-task detection and drain-deadline limits. A pure collection double cannot establish safe provider interruption, connection cleanup, or shared-cache publication; those require runtime/provider evidence. Exact custom-interface compatibility remains under OAPI-7.
+
+[AAPI-42 through AAPI-48](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-42-deliberate-query-extension-namespace-and-static-entry-point) own accepted query-surface policy. Query-capable fixtures use actual DataLinq execution services and preserve supported expression/default/numeric semantics; do not make arbitrary LINQ-to-Objects `IQueryable<T>` values appear async-capable through fallback. Keep local relation/collection operations explicit through their async views. Packed consumer tests cover deliberate imports/static aliases, EF Core and standard async LINQ, projections, nullable results, and optional/named tokens. This does not require pure collection doubles to implement a query provider or resolve the remaining relation-interface inventory.
 
 Synchronous subset of the reference-holder shape:
 

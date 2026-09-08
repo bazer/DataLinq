@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-04.
+**Last reviewed:** 2026-09-09.
 
 **Authority:** The [0.10 implementation roadmap](README.md) owns release scope. This document owns dependency order, shared-contract decisions, merge gates, and stop rules.
 
@@ -52,6 +52,7 @@ Complete the audit and decide/test:
 - enforce AAPI-31 through AAPI-33: task-returning transaction-only/token-aware callback families, helper-owned completion with explicit token propagation, and results delivered after commit/finalization/cleanup; materialize transaction-bound deferred results inside callbacks without hidden transaction retention
 - enforce AAPI-34 through AAPI-38: one active execution operation per transaction across sync/async paths, resource-lifetime and private internal/mutable/helper ownership, rejected caller disposal during active work, and safe recovery without commit for unfinished callbacks
 - enforce AAPI-39 through AAPI-41: existing per-relation coordination with independent wait cancellation, invalidation-safe row/index/relation publication, complete-result versus individual-row caching, and transaction/database isolation without a general coalescing system
+- enforce AAPI-42 through AAPI-48: deliberate `DataLinq.Linq` query extensions/static entry, validated `IQueryable<T>` receivers, supported terminal/expression-predicate/default/numeric-selector overloads, and list/array versus standard local async collection materialization; no added LINQ translation or catch-all fallback
 
 Relation query composition is excluded from 0.10 under revised AAPI-10. Its [backlog proposal](../../query-and-runtime/Relation-Scoped%20Queries.md) creates no parser, test-helper query capability, or release-gate dependency here; existing database/transaction query roots remain in scope.
 
@@ -73,7 +74,7 @@ Implement and prove:
 - structured cause/stage/outcome/recovery/secondary-failure information for explicit and implicit helpers, preserving ordinary exception identity and provider codes
 - deterministic overlap/admission/recovery and cache invalidation/publication races under AAPI-34 through AAPI-41, including mixed sync/async execution, independent waiter cancellation, and cleanup failures without unsafe abandoned work
 
-Exact public accessors/options, callback/mutation overload inventory, and compatibility remain under OAPI-7. Provider-specific interruption/classification and recovery-budget feasibility remain under OAPI-9 and W1/W2. AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, private ownership across awaits, and recovery of unfinished callback work. Private gate/versioning representations and cost remain implementation choices; preserve AAPI-28's exclusive mutable lifetime and AAPI-32's borrowed completion restrictions.
+OAPI-7's query-surface policies are accepted under AAPI-42 through AAPI-48; complete their signature/consumer evidence. Exact key/generated/relation surfaces, public accessors/options, callback/mutation receiver inventory, lower-level ownership, and compatibility remain open under OAPI-7. Provider-specific interruption/classification and recovery-budget feasibility remain under OAPI-9 and W1/W2. AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, private ownership across awaits, and recovery of unfinished callback work. Private gate/versioning representations and cost remain implementation choices; preserve AAPI-28's exclusive mutable lifetime and AAPI-32's borrowed completion restrictions.
 
 Provider differences may be explicit, but they cannot become silent semantic drift.
 

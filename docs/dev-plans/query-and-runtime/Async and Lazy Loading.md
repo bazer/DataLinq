@@ -4,7 +4,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for native async/cancellation; lazy-loading experiments remain later work.
-**Last reviewed:** 2026-09-04.
+**Last reviewed:** 2026-09-09.
 **Dependency:** The shipped 0.9 execution foundation provides the backend/source boundary; the 0.10 release-local plan owns the exact async surface and evidence.
 **Goal:** Introduce real async I/O support and define how lazy loading should behave without turning DataLinq into a magical, hard-to-reason-about API.
 
@@ -41,7 +41,8 @@ The release-local [Async Public API Decisions](../roadmap-implementation/v0.10/A
 - `CommitAsync` uses task-returning transaction-only/token-aware and result/no-result callback families. Helpers own completion, await callbacks once, reject borrowed commit/rollback/disposal, propagate tokens explicitly, and deliver results only after successful commit/finalization/cleanup. Materialize transaction-bound deferred results inside the callback; preserve validated later entity relation transitions.
 - Enforce one active transaction execution across sync/async paths through resource/finalization/cleanup lifetime, using private internal ownership separate from mutable reservations and helper completion rights. Reject caller disposal during active work; helpers close admission and recover unfinished callback operations/readers without commit or unsafe abandoned provider work.
 - Adapt existing relation-load coordination with independent waiter cancellation. Invalidation must prevent pending row/index/relation loads from republishing stale state, including cold loads and subscription races. Preserve complete individual-row caching, complete relation/index results, and transaction/database isolation without general load coalescing or automatic retry loops.
-- OAPI-4/OAPI-5/OAPI-6 policies are accepted under AAPI-21 through AAPI-41. Exact primitive/overload/context/configuration signatures and provider evidence still require OAPI-7/OAPI-9 review; internal coordination/versioning choices require deterministic runtime and W0 cost evidence. Async-stream mutation inputs, bulk execution, and automatic mutation dependency ordering remain outside 0.10.
+- Query extensions use `DataLinq.Linq` and the explicit `DataLinqAsyncQueryableExtensions` static entry when imports conflict. Validate actual DataLinq execution for `IQueryable<T>` entity/projection receivers; preserve supported terminal families, expression predicates, LINQ defaults, selector/numeric aggregate forms, and list/array versus standard local async collection materialization without provider fallback or translation expansion.
+- OAPI-4/OAPI-5/OAPI-6 policies are accepted under AAPI-21 through AAPI-41, and OAPI-7's query surface under AAPI-42 through AAPI-48. Key/generated/relation primitives, lower-level execution, context/configuration signatures, and provider evidence still require OAPI-7/OAPI-9 review; internal coordination/versioning choices require deterministic runtime and W0 cost evidence. Async-stream mutation inputs, bulk execution, and automatic mutation dependency ordering remain outside 0.10.
 
 The broader options and phases below retain design rationale. They do not authorize interface-first model rewrites, strict sync-I/O modes, preload/batching features, hollow instances, or awaitable-entity experiments in 0.10. Provider APIs use native async where available; the documented Microsoft.Data.Sqlite synchronous-driver limitation is an explicit exception, not a promise of nonblocking SQLite I/O.
 

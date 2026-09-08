@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-04.
+**Last reviewed:** 2026-09-09.
 
 **Depends on:** The required workstreams and gates in the [0.10 implementation roadmap](README.md) and [implementation order](Implementation%20Order%20and%20Integration%20Plan.md).
 
@@ -133,6 +133,14 @@ Required focused evidence:
 - AAPI-39 eligible mixed sync/async relation coordination, independent loader/waiter cancellation, release after failures without cached failed tasks, fresh caller attempts, same-transaction overlap precedence, and no database-wide serialization
 - AAPI-40 cold/warm load invalidation, subscription/version/publication races, row/index/relation coverage, no stale repopulation or newer-entry overwrite, successful uncached original results, and no automatic retry loop/latest-at-return promise
 - AAPI-41 valid individual-row retention after later failure, no partial relation/index completeness, empty/optional/required reference semantics, consistent collection/keyed generations, and transaction/database/source isolation through normal completion/invalidation
+- AAPI-42 deliberate `DataLinq.Linq` imports, `DataLinqAsyncQueryableExtensions` static/alias invocation, and EF Core coexistence without relying on return types to resolve competing signatures
+- AAPI-43 interface-typed/entity/scalar/anonymous/DTO query receivers and actual provider/source validation, including arbitrary providers wrapped by public `Queryable<T>`; reject incompatibility without sync enumeration, `Task.Run`, foreign-provider forwarding, or decorator unwrapping
+- AAPI-44 exact supported terminal families and retained expression/backend restrictions; predicate-contained operators do not silently become standalone terminals, and omitted terminal families are not added through async execution
+- AAPI-45 predicate-free/expression-predicate element/count/existence overloads, optional final/named tokens, no query delegate/async-predicate or token-first alternatives, and `Where` composition for list/array materializers
+- AAPI-46 empty reference/value/nullable results and multiple-match failures, accurate unconstrained nullable annotations, no caller-default overloads, and preserved required-reference navigation distinction
+- AAPI-47 selector-only aggregate entry points, numeric/nullable return families including integer-to-double averages, empty/null/conversion/overflow behavior, generic Min/Max capability validation, and converter-backed rejection
+- AAPI-48 direct query list/array materialization, standard async local collection construction, retained relation-specific frozen dictionaries, and prepared sequence composition without extra ExecuteToList/ExecuteToArray families
+- packed .NET 8/9/10 consumers cover accepted query signatures, projections, nullability, optional/named tokens, EF Core coexistence, and standard async-LINQ resolution; keep signature approval separate from implementation/provider evidence
 - use controllable pauses at initialization, hydration, reader moves, callback completion, and cache publication rather than timing-dependent delays; exercise cleanup failures and measure coordination/versioning costs against W0
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families
 - explicit relation-load parity for cache hit, cache miss, missing row, and provider failure
@@ -183,6 +191,7 @@ Required focused evidence:
 - failure fixtures represent AAPI-21 through AAPI-26 cause/outcome/cleanup distinctions without claiming that an in-memory fake proves provider interruption or safe connection reuse
 - mutation/callback fixtures follow AAPI-27 through AAPI-33 capture, exclusive mutable use, delegate invocation, collection preflight, token propagation, borrowed completion, and post-cleanup result timing contracts; provider evidence remains separate
 - concurrency fixtures follow AAPI-34 through AAPI-41 ownership, independent wait cancellation, invalidation-safe completeness, and isolation; collection doubles alone do not prove provider concurrency, recovery, or connection lifetime
+- query-capable fixtures follow AAPI-42 through AAPI-48 provider rejection, supported expression/default/numeric semantics, and explicit local async composition; a LINQ-to-Objects IQueryable is not automatically a DataLinq async execution source
 - DI replacement behavior for Memory, fake unit of work, and SQLite-in-memory provider tests
 
 ### Source Type Aliases
