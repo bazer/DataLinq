@@ -64,12 +64,15 @@ internal static class TestDatabaseLifecycle
         if (string.IsNullOrWhiteSpace(builder.DataSource))
             return;
 
+        using var poolConnection = new SqliteConnection(connectionString);
         const int attempts = 60;
         for (var attempt = 1; attempt <= attempts; attempt++)
         {
             try
             {
-                SqliteConnection.ClearAllPools();
+                // Other fixtures may be opening or using their pooled connections concurrently.
+                // Release only the pool owned by the database being deleted.
+                SqliteConnection.ClearPool(poolConnection);
 
                 if (attempt % 5 == 0)
                 {
