@@ -36,6 +36,43 @@ public sealed class TestShardEvidenceAggregatorTests
     }
 
     [Test]
+    [Arguments("Ubuntu 24.04 LTS")]
+    [Arguments("Ubuntu 24.04.4 LTS")]
+    [Arguments("Ubuntu 24.04.5 LTS")]
+    public async Task AggregateDirectory_AcceptsUbuntuPointReleaseRollouts(string shardOperatingSystem)
+    {
+        using var fixture = new ShardFixture();
+        fixture.WriteContract(operatingSystem: "Ubuntu 24.04.4 LTS");
+        fixture.ReplaceInSummary("generators-local-summary.json",
+            "Ubuntu 24.04.4 LTS", shardOperatingSystem);
+
+        var aggregate = TestShardEvidenceAggregator.AggregateDirectory(fixture.Root, Commit, "Release");
+
+        await Assert.That(aggregate.Complete).IsTrue();
+        await Assert.That(aggregate.OperatingSystem).IsEqualTo("Ubuntu 24.04 LTS");
+        await Assert.That(aggregate.Shards).Count().IsEqualTo(17);
+    }
+
+    [Test]
+    [Arguments("Ubuntu 24.04.4 LTS", "Ubuntu 22.04.5 LTS")]
+    [Arguments("Ubuntu 24.04.4 LTS", "Ubuntu 26.04.1 LTS")]
+    [Arguments("Ubuntu 24.04.4 LTS", "Debian GNU/Linux 12 (bookworm)")]
+    [Arguments("Ubuntu 24.04.4 LTS", "Ubuntu 24.04.5")]
+    [Arguments("X64", "Arm64")]
+    [Arguments(".NET 10.0.0", ".NET 10.0.1")]
+    public async Task AggregateDirectory_RejectsIncompatibleRuntimeIdentities(string original, string replacement)
+    {
+        using var fixture = new ShardFixture();
+        fixture.WriteContract(operatingSystem: "Ubuntu 24.04.4 LTS");
+        fixture.ReplaceInSummary("generators-local-summary.json", original, replacement);
+
+        var failure = Capture(() => TestShardEvidenceAggregator.AggregateDirectory(fixture.Root, Commit, "Release"));
+
+        await Assert.That(failure).IsTypeOf<InvalidDataException>();
+        await Assert.That(failure!.Message).Contains("incompatible runtime identity");
+    }
+
+    [Test]
     public async Task AggregateDirectory_AcceptsCaseGrowthAndRatchetsObservedCounts()
     {
         using var fixture = new ShardFixture();
@@ -312,7 +349,8 @@ public sealed class TestShardEvidenceAggregatorTests
             string? schemaOverride = null,
             string? emptyRoleKey = null,
             IReadOnlyDictionary<string, int>? countOffsets = null,
-            IReadOnlyDictionary<string, string?>? roleOverrides = null)
+            IReadOnlyDictionary<string, string?>? roleOverrides = null,
+            string operatingSystem = "Linux")
         {
             var index = 0;
             foreach (var contract in TestShardEvidenceAggregator.FullMatrixContract)
@@ -332,9 +370,10 @@ public sealed class TestShardEvidenceAggregatorTests
                     commitOverride ?? Commit,
                     configurationOverride ?? "Release",
                     schemaOverride ?? TestRunSummaryReporter.SchemaVersion,
-                    contract.MinimumCases + (countOffsets?.GetValueOrDefault(key) ?? 0));
+                    contract.MinimumCases + (countOffsets?.GetValueOrDefault(key) ?? 0),
+                    operatingSystem);
                 if (string.Equals(key, duplicateKey, StringComparison.OrdinalIgnoreCase))
-                    WriteShard(index++, contract, Commit, "Release", TestRunSummaryReporter.SchemaVersion, contract.MinimumCases);
+                    WriteShard(index++, contract, Commit, "Release", TestRunSummaryReporter.SchemaVersion, contract.MinimumCases, operatingSystem);
             }
         }
 
@@ -385,7 +424,8 @@ public sealed class TestShardEvidenceAggregatorTests
             string commit,
             string configuration,
             string schema,
-            int cases)
+            int cases,
+            string operatingSystem)
         {
             var artifactRoot = Path.Combine(Root, $"artifact-{index:D2}");
             var resultRoot = Path.Combine(artifactRoot, "artifacts", "test-results", $"run-{index:D2}");
@@ -492,7 +532,7 @@ public sealed class TestShardEvidenceAggregatorTests
                 0,
                 0,
                 new TestRunSummaryTimingBreakdown(1, 0, 1, cases, 0),
-                new TestRunSummaryRuntimeEnvironment("Linux", "X64", ".NET 10.0.0", 4),
+                new TestRunSummaryRuntimeEnvironment(operatingSystem, "X64", ".NET 10.0.0", 4),
                 // A single shard is not independently valid release evidence because it is
                 // intentionally narrower than the canonical full matrix. The aggregate must
                 // validate its runner provenance fields without requiring full-matrix scope.

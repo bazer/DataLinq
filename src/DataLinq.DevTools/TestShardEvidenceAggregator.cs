@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace DataLinq.DevTools;
 
@@ -50,6 +51,10 @@ public sealed record TestShardEvidenceAggregate(
 
 public static class TestShardEvidenceAggregator
 {
+    private static readonly Regex UbuntuLtsDescription = new(
+        @"^Ubuntu (?<release>[0-9]+\.[0-9]+)(?:\.[0-9]+)? LTS$",
+        RegexOptions.CultureInvariant);
+
     public const string SchemaVersion = "v0.9.testing-shard-aggregate.v2";
     public const string BaselineSchemaVersion = "v0.9.testing-shard-count-baseline.v1";
     public const int BaselineEpoch = 1;
@@ -232,7 +237,7 @@ public static class TestShardEvidenceAggregator
             TestRunSummaryReporter.SchemaVersion,
             expectedCommitSha,
             expectedConfiguration,
-            commonRuntime!.OperatingSystem,
+            NormalizeOperatingSystem(commonRuntime!.OperatingSystem),
             commonRuntime.ProcessArchitecture,
             commonRuntime.FrameworkDescription,
             Complete: true,
@@ -444,9 +449,17 @@ public static class TestShardEvidenceAggregator
     }
 
     private static bool SameRuntime(TestRunSummaryRuntimeEnvironment left, TestRunSummaryRuntimeEnvironment right) =>
-        string.Equals(left.OperatingSystem, right.OperatingSystem, StringComparison.Ordinal) &&
+        string.Equals(NormalizeOperatingSystem(left.OperatingSystem), NormalizeOperatingSystem(right.OperatingSystem), StringComparison.Ordinal) &&
         string.Equals(left.ProcessArchitecture, right.ProcessArchitecture, StringComparison.Ordinal) &&
         string.Equals(left.FrameworkDescription, right.FrameworkDescription, StringComparison.Ordinal);
+
+    private static string NormalizeOperatingSystem(string description)
+    {
+        // Hosted runners roll out Ubuntu point releases gradually. Their shared LTS
+        // release is the compatibility boundary; each shard retains its full OS description.
+        var match = UbuntuLtsDescription.Match(description);
+        return match.Success ? $"Ubuntu {match.Groups["release"].Value} LTS" : description;
+    }
 
     private static string FormatRuntime(TestRunSummaryRuntimeEnvironment runtime) =>
         $"{runtime.OperatingSystem}/{runtime.ProcessArchitecture}/{runtime.FrameworkDescription}";
