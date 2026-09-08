@@ -102,6 +102,43 @@ public sealed class TestShardEvidenceAggregatorTests
     }
 
     [Test]
+    [Arguments(0, 1)]
+    [Arguments(1, 0)]
+    public async Task AggregateDirectory_RejectsFailedOrSkippedCasesAndReportsCounts(int failed, int skipped)
+    {
+        using var fixture = new ShardFixture();
+        fixture.WriteContract();
+        var cases = TestShardEvidenceAggregator.CompleteUnitMinimumCases;
+        var passed = cases - failed - skipped;
+        fixture.ReplaceInSummary("unit-local-summary.json", $"\"Passed\": {cases}", $"\"Passed\": {passed}");
+        fixture.ReplaceInSummary("unit-local-summary.json", "\"Failed\": 0", $"\"Failed\": {failed}");
+        fixture.ReplaceInSummary("unit-local-summary.json", "\"Skipped\": 0", $"\"Skipped\": {skipped}");
+
+        // A successful process and complete summary do not make skipped cases passing evidence.
+        var failure = Capture(() => TestShardEvidenceAggregator.AggregateDirectory(fixture.Root, Commit, "Release"));
+
+        await Assert.That(failure).IsTypeOf<InvalidDataException>();
+        await Assert.That(failure!.Message)
+            .Contains("unit-local-summary.json")
+            .And.Contains($"total={cases}, passed={passed}, failed={failed}, skipped={skipped}")
+            .And.Contains("zero failed/skipped cases");
+    }
+
+    [Test]
+    public async Task AggregateDirectory_ReportsMissingCaseCountsAsUnknown()
+    {
+        using var fixture = new ShardFixture();
+        fixture.WriteContract();
+        fixture.ReplaceInSummary("unit-local-summary.json",
+            $"\"Total\": {TestShardEvidenceAggregator.CompleteUnitMinimumCases}", "\"Total\": null");
+
+        var failure = Capture(() => TestShardEvidenceAggregator.AggregateDirectory(fixture.Root, Commit, "Release"));
+
+        await Assert.That(failure).IsTypeOf<InvalidDataException>();
+        await Assert.That(failure!.Message).Contains("total=unknown");
+    }
+
+    [Test]
     public async Task AggregateDirectory_ReportsEveryCountAndRoleMismatchTogether()
     {
         using var fixture = new ShardFixture();

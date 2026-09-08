@@ -28,8 +28,16 @@ public static class SafeGeneratedFileWriter
         IEnumerable<(string path, string contents)> files,
         Encoding encoding,
         bool overwriteExisting,
-        Action<string>? log = null)
+        Action<string>? log = null) => WriteAll(files, encoding, overwriteExisting, log, DeleteIfExists);
+
+    internal static Option<bool, IDLOptionFailure> WriteAll(
+        IEnumerable<(string path, string contents)> files,
+        Encoding encoding,
+        bool overwriteExisting,
+        Action<string>? log,
+        Action<string?> deleteBackup)
     {
+        ArgumentNullException.ThrowIfNull(deleteBackup);
         if (!TryCreateWritePlan(files, out var writePlan, out var failure))
             return failure!;
 
@@ -40,7 +48,7 @@ public static class SafeGeneratedFileWriter
                 return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Generated target '{collision.TargetPath}' already exists and overwriting is disabled. No files were written.");
         }
 
-        return WriteAllCore(writePlan, encoding, overwriteExisting, log);
+        return WriteAllCore(writePlan, encoding, overwriteExisting, log, deleteBackup);
     }
 
     private static bool TryCreateWritePlan(
@@ -81,7 +89,8 @@ public static class SafeGeneratedFileWriter
         List<GeneratedFileWrite> writePlan,
         Encoding encoding,
         bool overwriteExisting,
-        Action<string>? log)
+        Action<string>? log,
+        Action<string?> deleteBackup)
     {
         var stagedWrites = new List<StagedGeneratedFileWrite>();
 
@@ -125,7 +134,7 @@ public static class SafeGeneratedFileWriter
         {
             try
             {
-                DeleteIfExists(stagedWrite.BackupPath);
+                deleteBackup(stagedWrite.BackupPath);
             }
             catch (Exception exception)
             {

@@ -363,7 +363,12 @@ public static class TestShardEvidenceAggregator
         if (result.Total is null || result.Passed != result.Total || result.Failed != 0 || result.Skipped != 0 ||
             !result.Performance.Captured || result.Performance.TestCount != result.Total)
         {
-            throw new InvalidDataException($"Shard '{path}' has incomplete or inconsistent case counts.");
+            throw new InvalidDataException(
+                $"Shard '{path}' has incomplete or inconsistent case counts: " +
+                $"total={result.Total?.ToString() ?? "unknown"}, passed={result.Passed?.ToString() ?? "unknown"}, " +
+                $"failed={result.Failed?.ToString() ?? "unknown"}, skipped={result.Skipped?.ToString() ?? "unknown"}, " +
+                $"performance captured={result.Performance.Captured}, performance cases={result.Performance.TestCount}. " +
+                "Full-matrix evidence requires every case to pass, zero failed/skipped cases, and matching captured performance counts.");
         }
     }
 

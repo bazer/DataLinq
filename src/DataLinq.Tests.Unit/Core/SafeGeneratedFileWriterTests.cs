@@ -91,8 +91,10 @@ public class SafeGeneratedFileWriterTests
     }
 
     [Test]
-    [TUnit.Core.RunOn(TUnit.Core.Enums.OS.Windows)]
-    public async Task WriteAll_BackupCleanupFailureRetainsEveryCommittedOutput()
+    [Arguments("First.cs")]
+    [Arguments("Second.cs")]
+    [Arguments("Third.cs")]
+    public async Task WriteAll_BackupCleanupFailureRetainsEveryCommittedOutput(string blockedFileName)
     {
         using var fixture = SafeGeneratedFileWriterFixture.Create();
         var paths = new[] { "First.cs", "Second.cs", "Third.cs" }
@@ -101,33 +103,29 @@ public class SafeGeneratedFileWriterTests
             File.WriteAllText(path, "original");
 
         string? protectedBackup = null;
-        try
-        {
-            var result = SafeGeneratedFileWriter.WriteAll(
-                paths.Select(path => (path, "replacement")), Encoding.UTF8,
-                message =>
+        var result = SafeGeneratedFileWriter.WriteAll(
+            paths.Select(path => (path, "replacement")), Encoding.UTF8,
+            overwriteExisting: true, log: null,
+            deleteBackup: path =>
+            {
+                // Inject a deletion failure without relying on OS-specific file permissions.
+                // Staging, replacement, and all other backup deletions use the real filesystem.
+                if (Path.GetFileName(path)!.StartsWith($".{blockedFileName}.", StringComparison.Ordinal))
                 {
-                    if (message.EndsWith(paths[2], StringComparison.Ordinal))
-                    {
-                        protectedBackup = Directory.GetFiles(fixture.BasePath, ".Second.cs.*.bak").Single();
-                        // Windows allows renaming this backup but refuses its deletion.
-                        File.SetAttributes(protectedBackup, FileAttributes.ReadOnly);
-                    }
-                });
+                    protectedBackup = path;
+                    throw new IOException("Injected backup deletion failure.");
+                }
+                File.Delete(path!);
+            });
 
-            await Assert.That(result.HasFailed).IsTrue();
-            await Assert.That(result.Failure.ToString()).Contains("All generated files were written");
-            await Assert.That(result.Failure.ToString()).Contains(protectedBackup!);
-            foreach (var path in paths)
-                await Assert.That(File.ReadAllText(path)).IsEqualTo("replacement");
-            await Assert.That(Directory.GetFiles(fixture.BasePath, "*.bak").Length).IsEqualTo(1);
-            await Assert.That(Directory.GetFiles(fixture.BasePath, "*.tmp").Length).IsEqualTo(0);
-        }
-        finally
-        {
-            if (protectedBackup != null && File.Exists(protectedBackup))
-                File.SetAttributes(protectedBackup, FileAttributes.Normal);
-        }
+        await Assert.That(result.HasFailed).IsTrue();
+        await Assert.That(result.Failure.ToString()).Contains("All generated files were written");
+        await Assert.That(result.Failure.ToString()).Contains(protectedBackup!);
+        foreach (var path in paths)
+            await Assert.That(File.ReadAllText(path)).IsEqualTo("replacement");
+        await Assert.That(File.ReadAllText(protectedBackup!)).IsEqualTo("original");
+        await Assert.That(Directory.GetFiles(fixture.BasePath, "*.bak").Length).IsEqualTo(1);
+        await Assert.That(Directory.GetFiles(fixture.BasePath, "*.tmp").Length).IsEqualTo(0);
     }
 
     [Test]
