@@ -140,6 +140,13 @@ Required focused evidence:
 - AAPI-46 empty reference/value/nullable results and multiple-match failures, accurate unconstrained nullable annotations, no caller-default overloads, and preserved required-reference navigation distinction
 - AAPI-47 selector-only aggregate entry points, numeric/nullable return families including integer-to-double averages, empty/null/conversion/overflow behavior, generic Min/Max capability validation, and converter-backed rejection
 - AAPI-48 direct query list/array materialization, standard async local collection construction, retained relation-specific frozen dictionaries, and prepared sequence composition without extra ExecuteToList/ExecuteToArray families
+- AAPI-49 existing database/transaction/generated key families and source overloads, metadata key order, shared support helper, nullable lookup results, and no implied Memory/neutral-source overload expansion
+- AAPI-50 model/provider-key distinction, conversion exactly once, supported pre-suspension key capture, null-key sentinel parity, and validation/conversion/provider/cancellation versus absent-row outcomes
+- AAPI-51 one genuine async collection row primitive, minimal custom implementations, buffered/incremental parity, and efficient built-in snapshot overrides without synchronous database fallback
+- AAPI-52 default unsupported capability, interface/concrete/custom member visibility and override dispatch, no recursive interface forwarding, and explicit source/binary migration review
+- AAPI-53 acyclic defaults, relation-scoped membership, duplicate-key rejection, direct awaited-result use, internally consistent values/keyed results, and no cross-call generation or positional-correspondence promise
+- AAPI-54 preserved synchronous reference covariance and exact constraints, invariant async capability, built-in/custom dispatch, and explicit unsupported capability without synchronous Value fallback
+- AAPI-55 shared navigation loader state with distinct sync/async execution, public async overrides, optional/required/duplicate/capability/provider failure distinctions, and focused error-severity DLG inheritance/name collisions
 - packed .NET 8/9/10 consumers cover accepted query signatures, projections, nullability, optional/named tokens, EF Core coexistence, and standard async-LINQ resolution; keep signature approval separate from implementation/provider evidence
 - use controllable pauses at initialization, hydration, reader moves, callback completion, and cache publication rather than timing-dependent delays; exercise cleanup failures and measure coordination/versioning costs against W0
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families
@@ -192,6 +199,7 @@ Required focused evidence:
 - mutation/callback fixtures follow AAPI-27 through AAPI-33 capture, exclusive mutable use, delegate invocation, collection preflight, token propagation, borrowed completion, and post-cleanup result timing contracts; provider evidence remains separate
 - concurrency fixtures follow AAPI-34 through AAPI-41 ownership, independent wait cancellation, invalidation-safe completeness, and isolation; collection doubles alone do not prove provider concurrency, recovery, or connection lifetime
 - query-capable fixtures follow AAPI-42 through AAPI-48 provider rejection, supported expression/default/numeric semantics, and explicit local async composition; a LINQ-to-Objects IQueryable is not automatically a DataLinq async execution source
+- key/relation fixtures follow AAPI-49 through AAPI-55 normalization, primitive/default dispatch, membership/key consistency, covariance/capability, generated failure, and collision contracts; packed consumers and runtime/provider tests establish different parts of the evidence
 - DI replacement behavior for Memory, fake unit of work, and SQLite-in-memory provider tests
 
 ### Source Type Aliases

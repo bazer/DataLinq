@@ -903,6 +903,96 @@ Do not add separate prepared `ExecuteToListAsync`, `ExecuteToArrayAsync`, or ana
 
 **Owner/gate:** A10 with T10 consultation, D10-1; packed .NET 8/9/10 consumers cover query/prepared materialization, standard local async collection construction, relation-specific keyed APIs, and no unintended overload/operator duplication.
 
+### AAPI-49: Mirror Existing Key Lookup Families
+
+**Accepted:** 2026-09-09. Add `GetAsync<TModel>(DataLinqKey key, CancellationToken cancellationToken = default)` to database and transaction access, retaining the existing model constraints and nullable lookup result as `ValueTask<TModel?>`. Generated model helpers mirror the existing `Get` families: named, typed key components in metadata order, then the source, then the optional final cancellation token. Preserve source overloads for `IDataSourceAccess`, `Database<TDatabase>`, and `Transaction<TDatabase>`.
+
+The shared provider-key helper behind generated code receives an async counterpart. Follow the existing [database lookup](../../../../src/DataLinq/Database.cs), [transaction lookup](../../../../src/DataLinq/Mutation/Transaction.cs), [IImmutable helper](../../../../src/DataLinq/Instances/InstanceFactory.cs), and [generator families](../../../../src/DataLinq.SharedCore/Factories/Generator/GeneratorFileFactory.cs). A valid absent key returns `null`; this remains distinct from required-reference navigation.
+
+Do not add parallel `FindAsync`/`LoadAsync`, tuple-key, or `params object[]` families. This decision does not add Memory-specific or neutral-read-source generated overloads; OAPI-9 still owns that capability decision.
+
+**Owner/gate:** A10, D10-1; packed consumers verify database/transaction/interface sources, generated scalar/composite signatures, metadata ordering, result nullability, and optional/named tokens. The signature inventory must include the generated-code support helper.
+
+### AAPI-50: Keep Model Keys And Provider Keys Distinct
+
+**Accepted:** 2026-09-09. Generated typed lookup helpers accept public model-side key types, including converted IDs, and normalize through the column scalar mappings. `DataLinqKey` database/transaction overloads continue to accept canonical provider-key components; do not treat them as arbitrary model-side values or run the converter twice.
+
+Reuse [KeyFactory](../../../../src/DataLinq/Instances/KeyFactory.cs) normalization paths and existing [DataLinqKey](../../../../src/DataLinq/Instances/DataLinqKey.cs) defensive handling. Normalize and capture supported key input before the first suspension. Do not introduce a general cloning subsystem or a stronger arbitrary reference-value snapshot promise.
+
+A valid key with no row returns `null`. Invalid source/model/key shape follows applicable validation; conversion failures remain conversion failures. Never turn cancellation, unsupported capability, or provider errors into a not-found result. Include explicit sync/async parity for the null-key sentinel rather than silently redefining its existing behavior.
+
+**Owner/gate:** A10 with T10 consultation, D10-1/D10-2; verify scalar/composite/converted keys, normalization exactly once, supported mutable-key capture, null-key sentinel behavior, missing rows, and validation/conversion/provider/cancellation distinctions.
+
+### AAPI-51: One Async Collection Primitive
+
+**Accepted:** 2026-09-09. Use the following foundational member on the existing `IImmutableRelation<T>` contract:
+
+```csharp
+IAsyncEnumerable<T> AsAsyncEnumerable(
+    CancellationToken cancellationToken = default);
+```
+
+Other async relation defaults compose this genuine async row source. Do not require both `ValuesAsync` and the row view as independent implementation primitives. Built-in relations may override values/keyed operations to use complete cached snapshots efficiently.
+
+The primitive may perform a complete buffered initial load; a custom implementation may produce rows incrementally. AAPI-17's absence of a universal streaming guarantee remains unchanged. Defaults must never evaluate synchronous `Values` and wrap the result in an awaitable. Preserve the accepted deferred execution, parameter/token, cancellation, and source ownership contracts.
+
+**Owner/gate:** A10 with T10 consultation, D10-1; prove a custom async collection can supply one primitive, built-in snapshot overrides remain valid, and buffered/incremental implementations preserve the same public semantics without synchronous database fallback.
+
+### AAPI-52: Default Interface Support And Concrete Dispatch
+
+**Accepted:** 2026-09-09. New collection async interface members have default bodies. If a custom relation has not supplied async support, the foundational primitive reports `NotSupportedException`; dependent defaults must not disguise synchronous execution as async support. Apart from the separately approved AAPI-11 rename, an existing synchronous custom implementation is not forced to implement every new terminal.
+
+Built-in concrete relation classes and public test helpers deliberately expose their async members: default interface members are not inherited as concrete class members. Use shared implementation helpers where appropriate. Do not implement a concrete method by casting `this` to the interface and invoking that same member: dispatch can select the concrete implementation again and recurse.
+
+Test interface receivers, concrete receivers, explicit overrides, and older synchronous custom implementations separately. Default methods are not a blanket binary-compatibility guarantee; preserve the consumer/ApiCompat review.
+
+**Owner/gate:** A10 with T10 consultation, D10-1; packed .NET 8/9/10 consumers cover member visibility, overload binding, override dispatch, unsupported capability, no recursive forwarding, and the separately documented synchronous rename migration.
+
+### AAPI-53: Acyclic Defaults And Consistent Relation Results
+
+**Accepted:** 2026-09-09. Give shared relation defaults an acyclic dependency direction:
+
+- row terminals, list/array materializers, and supported reductions consume the genuine async row view
+- `ValuesAsync` produces one completed async row materialization
+- `ToFrozenDictionaryAsync` consumes one completed values result
+- `GetAsync`, `ContainsKeyAsync`, and `KeysAsync` consume one keyed relation result
+
+Built-in overrides may avoid redundant work while preserving the same semantics. Relation lookup must establish membership in that relation, not merely find a row with the key somewhere in the database. Keyed construction rejects ambiguous duplicate primary keys instead of silently selecting a row.
+
+Use the awaited result directly; never follow it with a synchronous getter that can reload after invalidation. Each completed result must be internally consistent. Separate `ValuesAsync` and `KeysAsync` calls may observe different generations; they do not promise a cross-call transaction snapshot or new positional correspondence between their arrays. Use `ToFrozenDictionaryAsync` when keys and rows are needed together in one result.
+
+**Owner/gate:** A10 with T10 consultation, D10-1/D10-2; test minimal custom defaults, overrides, duplicate keys, relation membership, invalidation between calls, internally consistent keyed results, and absence of default recursion or post-await synchronous I/O.
+
+### AAPI-54: Preserve Covariant References With An Invariant Async Capability
+
+**Accepted:** 2026-09-09. Keep the existing `IImmutableForeignKey<out T>` synchronous interface and its covariance. Add the bounded, invariant loading capability:
+
+```csharp
+public interface IAsyncImmutableForeignKey<T>
+    : IImmutableForeignKey<T>
+    where T : IImmutableInstance
+{
+    ValueTask<T?> GetAsync(
+        CancellationToken cancellationToken = default);
+}
+```
+
+`ValueTask<T?>` cannot be added directly to the covariant interface; changing it to `Task<T?>` does not solve generic invariance. Preserve the existing generic constraint without adding a `class` constraint. Built-in reference holders implement the new capability. Existing synchronous custom holders retain their covariance and synchronous validity.
+
+Generated async navigation uses this capability. Its absence produces `NotSupportedException`, never fallback through `.Value`. Widening a synchronous holder does not automatically widen its invariant async capability. This is a reference-loading capability, not a separate async entity model; application navigation remains the generated `<PropertyName>Async(ct)` method.
+
+**Owner/gate:** A10 with T10 consultation, D10-1; consumers prove retained synchronous covariance, deliberate async invariance, built-in/custom capability behavior, exact constraints, generated dispatch, and no synchronous fallback.
+
+### AAPI-55: Shared Navigation State And Explicit Failure Classes
+
+**Accepted:** 2026-09-09. The synchronous property and generated async method share the underlying reference loader/cache state while retaining separate synchronous and asynchronous execution. The async method awaits the loader directly; it never evaluates the synchronous property first. Preserve AAPI-15's public, overridable model-base method, with `ValueTask<TTarget>` for required navigation and `ValueTask<TTarget?>` for optional navigation.
+
+The lower-level async reference capability returns a nullable result. Generated navigation applies the required/optional contract: an absent optional reference returns `null`; a missing required reference throws `InvalidOperationException` identifying the model and relation. Multiple matching targets also fail with a cardinality `InvalidOperationException`. Preserve cancellation, provider, and unsupported-capability failures instead of relabeling them as missing data. Diagnostics need not embed raw key values.
+
+Custom/test models can override the async method. Overriding only the synchronous property does not authorize an async fallback through it. Generated member collisions produce a focused error-severity diagnostic in the existing `DLG` family. Audit inherited members, optional-token signatures, and incompatible preexisting methods; do not silently rename or assume a matching user method fulfills the generated contract. The exact numeric diagnostic code remains an implementation inventory choice.
+
+**Owner/gate:** A10 with T10 consultation, D10-1/D10-2; verify scalar/composite/converted keys, nullable/required/missing/duplicate references, interface/concrete/custom dispatch, shared warm/cold/invalidation state, generated inheritance/collisions, and migration evidence for the synchronous required-reference correction. These are planned contracts, not claims that current generated getters already enforce them.
+
 ### OAPI-1: Task Versus ValueTask
 
 **Resolved:** 2026-08-30 by [AAPI-8](#aapi-8-valuetask-for-query-and-relation-results-key-lookup-and-disposal-task-otherwise), including its final framework-alignment revision. The OAPI identifier is retained for existing references. Public awaitable types are decided; performance, consumption, and compatibility verification remain part of implementation evidence.
@@ -917,7 +1007,7 @@ The remaining questions in this section are open. Resolved portions are identifi
 
 **Structural decisions resolved:** 2026-08-30 by AAPI-9 and AAPI-11 through AAPI-16. These settle the synchronous collection handle, async execution members/defaults, explicit row view and standard async LINQ, generated method placement/collisions, and required-reference behavior. AAPI-10 removes relation query composition from 0.10 entirely, including any requirement for queryable standalone test relations.
 
-The remaining work is the exact primitive/overload inventory, exception/diagnostic selection, and compatibility verification under OAPI-7. Check interface and concrete receivers, custom implementations, inherited generated members, scalar/composite/converted keys, and existing local LINQ and translated navigation predicates. Default methods do not remove those checks.
+AAPI-49 through AAPI-55 settle key helper families, key normalization, the collection primitive/default dependency direction, concrete/custom compatibility policy, the invariant async reference capability, and navigation failure/diagnostic classes. Remaining OAPI-7 implementation evidence includes exact signatures, the numeric generator diagnostic code, and compatibility verification. Check interface and concrete receivers, custom implementations, inherited generated members, scalar/composite/converted keys, and existing local LINQ and translated navigation predicates. Default methods do not remove those checks.
 
 AAPI-17 through AAPI-20 settle enumeration lifetime, capture, token combination, and reader/source ownership; direct `await foreach` on the relation itself is not an accepted addition. AAPI-21 through AAPI-26 define failure policies; AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, complete cache publication, and invalidation across awaits. In particular, use the loaded result directly after awaiting: warming a cache and then calling a synchronous getter can reintroduce I/O.
 
@@ -959,7 +1049,9 @@ Exact public accessors/overloads and compatibility remain under OAPI-7; provider
 
 **Query-surface decisions resolved:** 2026-09-08 by AAPI-42 through AAPI-48: extension namespace/static entry point, validated `IQueryable<T>` execution, supported terminal families, expression predicates, LINQ default semantics, selector/numeric aggregate overload policy, and direct list/array versus standard local async collection materialization.
 
-OAPI-7 remains open for key lookup and generated methods, exact relation primitives/interface compatibility, mutation/callback receiver inventory, lower-level SQL/command/reader ownership, schema metadata/existence checks, attached provider transactions, owned database/provider disposal, and public failure-context/recovery-configuration signatures. Give every public I/O boundary an explicit counterpart or documented exclusion. Complete consumer/ApiCompat checks for accepted query signatures as implementation evidence; keep backend internals private and do not reopen accepted query policy without an explicit revision.
+**Key/relation decisions resolved:** 2026-09-09 by AAPI-49 through AAPI-55: existing key lookup families and model/provider-key normalization, one async collection primitive with acyclic defaults, concrete/custom dispatch policy, preserved synchronous reference covariance with an invariant async capability, shared navigation state, and explicit failure/diagnostic classes.
+
+OAPI-7 remains open for mutation/callback receiver inventory, lower-level SQL/command/reader ownership, schema metadata/existence checks, attached provider transactions, owned database/provider disposal, and public failure-context/recovery-configuration signatures. Give every public I/O boundary an explicit counterpart or documented exclusion. Complete consumer/ApiCompat checks for accepted query/key/relation signatures and generated diagnostics as implementation evidence; keep backend internals private and do not reopen accepted policy without an explicit revision. Memory/neutral-source capability remains an explicit OAPI-9 question.
 
 **Owner/gate:** A10, D10-1; W0 audit, W3 ApiCompat and consumer-shaped compilation coverage.
 
@@ -981,9 +1073,9 @@ Recommendation: retain the same backend capability validation and query rejectio
 
 ## Recommended Decision Order
 
-OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, OAPI-5's mutation/callback contracts, and OAPI-6's concurrency/cache policies are resolved. OAPI-7's query-surface policies are accepted under AAPI-42 through AAPI-48; its remaining inventory is still open. Continue with:
+OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, OAPI-5's mutation/callback contracts, and OAPI-6's concurrency/cache policies are resolved. OAPI-7's query/key/relation policies are accepted under AAPI-42 through AAPI-55; its remaining inventory is still open. Continue with:
 
-1. Complete OAPI-7's remaining surface and contracts: key/generated APIs, relation primitives/interface compatibility, mutation/callback receivers, lower-level execution/ownership, metadata/existence and attached-resource boundaries, and failure-context/configuration signatures. Verify the accepted query overloads with consumer compilation.
+1. Complete OAPI-7's remaining surface and contracts: lower-level execution/ownership, metadata/existence and attached-resource boundaries, failure-context/configuration signatures, and mutation/callback receivers. Verify the accepted query/key/relation overloads and generated diagnostics with consumer compilation.
 2. Complete OAPI-9's backend/capability and provider evidence. Keep OAPI-8 within the agreed compatibility and release scope; accepted OAPI-6 policies still require deterministic implementation evidence before API freeze.
 
 ## Required Exit Evidence
@@ -1002,6 +1094,7 @@ OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's fa
 - AAPI-34 through AAPI-41 evidence covers mixed sync/async overlap and resource lifetimes, private internal/mutable/helper ownership, rejected busy disposal, unfinished-callback admission/recovery, independent owner/waiter cancellation, cold-load invalidation/subscription/publication races, partial-result completeness, and transaction/database isolation. Use deterministic paused execution at initialization, hydration, reader moves, callback completion, and publication rather than timing-dependent delays; verify safe cleanup failures and compare coordination costs with W0.
 - AAPI-42 through AAPI-48 evidence covers deliberate imports/static aliases and EF Core coexistence, interface-typed/projection receivers, incompatible provider rejection without fallback, exact supported terminal/predicate/default/numeric overloads, and direct versus standard local collection materialization. Packed .NET 8/9/10 consumers prove nullable result types, named/optional tokens, integer averages, prepared sequences, and absence of unintended surface/translation expansion.
 - Generator and ApiCompat evidence cover new members, collisions, nullability, and existing consumer compatibility.
+- AAPI-49 through AAPI-55 evidence covers database/transaction/generated source families and support helpers, model/provider-key normalization exactly once, null-key sentinel parity, the single async collection primitive and acyclic defaults, concrete/interface/custom dispatch without fallback or recursion, relation membership and duplicate-key rejection, internally consistent results across invalidation, retained synchronous covariance and invariant async references, and generated required/optional/cardinality/capability failures and DLG collision diagnostics. Packed consumers prove exact signatures and constraints; runtime tests prove shared loader state without post-await synchronous I/O.
 - Relation API evidence proves I/O-free collection handle access, relation-scoped keyed lookup, result/cardinality parity, no false complete-cache publication after partial execution, and preserved local LINQ/translated navigation predicate binding.
 - AAPI-11 evidence records the approved source/binary and loading-timing migration, proves row versus key/value enumeration on interface and concrete receivers, and reviews exact ApiCompat diagnostics without hiding unrelated breaks.
 - AAPI-12/AAPI-13 evidence covers local predicates, exact collection result/awaitable types, overload resolution with standard async LINQ, and packed .NET 8/9/10 consumers plus per-target dependency groups.
@@ -1034,4 +1127,5 @@ These references explain the accepted conventions and dependency policy; they do
 - [MySqlConnector connection reuse](https://mysqlconnector.net/troubleshooting/connection-reuse/) documents single-operation/open-reader restrictions and unsafe disposal during active execution, supporting AAPI-34 through AAPI-38.
 - [`SemaphoreSlim.WaitAsync`](https://learn.microsoft.com/en-us/dotnet/api/system.threading.semaphoreslim.waitasync?view=net-10.0) supports cancellable asynchronous coordination waits; AAPI-39 does not freeze a particular primitive.
 - [C# signatures and overloading](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/basic-concepts#76-signatures-and-overloading) explains why different return types do not resolve competing query extension signatures under AAPI-42.
+- [Default interface method versioning](https://learn.microsoft.com/en-us/dotnet/csharp/advanced-topics/interface-implementation/default-interface-methods-versions) supports AAPI-52's distinction between interface and concrete member access; [variant generic interface rules](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/covariance-contravariance/creating-variant-generic-interfaces) support AAPI-54's separate invariant async reference capability.
 - [`Queryable.FirstOrDefault`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.queryable.firstordefault?view=net-10.0) and [`Queryable.Average`](https://learn.microsoft.com/en-us/dotnet/api/system.linq.queryable.average?view=net-10.0) support AAPI-46/AAPI-47's default and numeric result conventions; framework overload availability does not broaden DataLinq's accepted translation surface.
