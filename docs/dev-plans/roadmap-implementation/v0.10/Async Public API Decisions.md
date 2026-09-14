@@ -15,7 +15,7 @@
 
 ## Purpose And Decision Boundary
 
-Record the API decisions agreed on 2026-08-30, 2026-08-31, 2026-09-04, and 2026-09-08 without pretending that every signature or failure case is settled. Public design discussion can precede implementation; it does not replace the before-state evidence or provider feasibility gate.
+Record the API decisions agreed between 2026-08-30 and 2026-09-14 without pretending that every signature or failure case is settled. Public design discussion can precede implementation; it does not replace the before-state evidence or provider feasibility gate.
 
 The async direction is additive: ordinary application code chooses synchronous or asynchronous execution at each operation. It does not choose a separate async database, transaction, or entity model. AAPI-11 separately approves a breaking correction to synchronous relation enumeration, and AAPI-16 approves enforcing required-reference nullability in both sync and async navigation. These are specific 0.10 compatibility corrections, not permission for unrelated API breaks.
 
@@ -147,7 +147,7 @@ This table is an inventory starting point, not a declaration that all overloads 
 
 Use native asynchronous provider operations wherever they exist. Do not implement them with `Task.Run`, `.Result`, or `.GetAwaiter().GetResult()`.
 
-The common awaitable API is not a guarantee that every provider performs nonblocking I/O. Microsoft.Data.Sqlite executes its async ADO.NET methods synchronously; the SQLite implementation and cancellation documentation must state that limitation. It is the explicit provider exception already allowed by A10, not permission to wrap genuinely asynchronous providers in synchronous work. AAPI-25's recovery budget does not create a hard interruption guarantee. Memory completion and unsupported backends require an explicit decision under OAPI-9.
+The common awaitable API is not a guarantee that every provider performs nonblocking I/O. Microsoft.Data.Sqlite executes its async ADO.NET methods synchronously; the SQLite implementation and cancellation documentation must state that limitation. It is the explicit provider exception already allowed by A10, not permission to wrap genuinely asynchronous providers in synchronous work. AAPI-25's recovery budget does not create a hard interruption guarantee. AAPI-74 through AAPI-81 settle Memory completion, unsupported capability, and provider-limit policies while retaining implementation evidence gates.
 
 ### AAPI-8: ValueTask For Query And Relation Results, Key Lookup, And Disposal; Task Otherwise
 
@@ -909,7 +909,7 @@ Do not add separate prepared `ExecuteToListAsync`, `ExecuteToArrayAsync`, or ana
 
 The shared provider-key helper behind generated code receives an async counterpart. Follow the existing [database lookup](../../../../src/DataLinq/Database.cs), [transaction lookup](../../../../src/DataLinq/Mutation/Transaction.cs), [IImmutable helper](../../../../src/DataLinq/Instances/InstanceFactory.cs), and [generator families](../../../../src/DataLinq.SharedCore/Factories/Generator/GeneratorFileFactory.cs). A valid absent key returns `null`; this remains distinct from required-reference navigation.
 
-Do not add parallel `FindAsync`/`LoadAsync`, tuple-key, or `params object[]` families. This decision does not add Memory-specific or neutral-read-source generated overloads; OAPI-9 still owns that capability decision.
+Do not add parallel SQL `FindAsync`/`LoadAsync`, tuple-key, or `params object[]` families. AAPI-75 separately mirrors Memory's existing narrow `Find` method; AAPI-76 retains the exclusion of Memory-specific or neutral-read-source generated lookup/prepared overloads.
 
 **Owner/gate:** A10, D10-1; packed consumers verify database/transaction/interface sources, generated scalar/composite signatures, metadata ordering, result nullability, and optional/named tokens. The signature inventory must include the generated-code support helper.
 
@@ -1253,6 +1253,101 @@ Do not add `Action`, synchronous-result, or `ValueTask` callback alternatives or
 
 **Owner/gate:** A10 with H10/T10 consultation, D10-1/D10-2; prove provider interface/base and typed database binding, four callback shapes, type/token defaults, generated source-less helper dispatch, shared recovery/result timing, and no competing callback families or sync blocking.
 
+### AAPI-73: Explicit Navigation Guidance Without A Strict Sync-I/O Mode
+
+**Accepted:** 2026-09-14. Retain synchronous navigation and document its I/O boundary explicitly. Obtaining a collection relation handle does not execute its query; synchronous reference loading or collection execution may perform database work. Async application code should retain and use the results returned by explicit async loads, then construct DTOs from returned values and materialized collections for serialization or UI binding.
+
+An awaited load does not make later synchronous navigation permanently I/O-free: invalidation and source state can change subsequent execution. Do not teach cache warming followed by synchronous navigation as a guarantee against blocking. No `ThrowOnSyncIo` mode, analyzer, eager-loading API, or batching feature is added in 0.10; each requires separate scope approval.
+
+**Owner/gate:** A10 with T10/H10 consultation, D10-1; examples and documentation prove the handle/execution/result distinction and preserve explicit returned results across invalidation without claiming a strict runtime enforcement mode.
+
+### AAPI-74: Async Memory Queries Preserve The Existing Capability Subset
+
+**Accepted:** 2026-09-14. Support the agreed `DataLinq.Linq` async query extensions over the existing `MemoryDatabase<TDatabase>.Query()` entry point, using the shared DataLinq execution infrastructure and preserving the [Memory preview capability boundaries](../../../../src/DataLinq.Memory/README.md).
+
+| Async family | Memory scope |
+| --- | --- |
+| `ToListAsync`, `ToArrayAsync`, `AsAsyncEnumerable` | Existing admitted entity and direct scalar sequences |
+| `AnyAsync`, `CountAsync` | Existing admitted unpaged shapes |
+| `SingleAsync`, `SingleOrDefaultAsync` | Existing admitted shapes and cardinality rules |
+| `FirstAsync`, `FirstOrDefaultAsync` | Existing admitted shapes requiring the supported primary-key ordering |
+| `LastAsync`, numeric aggregates, unsupported joins/projections | Continue rejecting unsupported shapes |
+
+Share validation, canonical-value handling, ordering, and materialization with synchronous execution. An extension being available does not expand backend capability: preserve rejected unordered/paged/other nearby shapes and never compile rejected expressions into a LINQ-to-Objects fallback. Broader Memory query-language work requires a separate proposal.
+
+**Owner/gate:** A10 with T10 consultation, D10-1/D10-2; verify supported/rejected sync/async parity, entity/scalar materialization and cardinality, explicit extension dispatch, and no query-language expansion.
+
+### AAPI-75: Async Memory Lookup Mirrors Its Existing Find Contract
+
+**Accepted:** 2026-09-14. Add the following counterpart to [Memory's existing public lookup](../../../../src/DataLinq.Memory/MemoryDatabase.cs):
+
+```csharp
+public ValueTask<TModel?> FindAsync<TModel>(
+    object modelPrimaryKey,
+    CancellationToken cancellationToken = default)
+    where TModel : class, IImmutableInstance, ITableModel<TDatabase>;
+```
+
+This mirrors an existing Memory method, not a new alias for AAPI-49's SQL `GetAsync` families. Preserve exactly one primary-key column, non-null model-side input normalized once, nullable absence, and existing argument/`MemoryLookupException` behavior. Cancellation remains cancellation, including warm materialization-cache hits, after ordinary validation under AAPI-21.
+
+Share lookup logic while forwarding cancellation through lookup/materialization checkpoints; merely wrapping public synchronous `Find` would omit that propagation. Do not add composite lookup, a public canonical `DataLinqKey` overload, or generated Memory-specific `GetAsync` overloads through this decision.
+
+**Owner/gate:** A10 with T10 consultation, D10-1/D10-2; verify exact signature/constraints, normalization once, invalid/null/unsupported keys versus absence, conversion failures, cancellation checkpoints, cache identity, and lack of SQL alias/source expansion.
+
+### AAPI-76: Memory Navigation And Prepared Execution Remain Separate Scope
+
+**Accepted:** 2026-09-14. This async slice does not add Memory relation navigation, a Memory/neutral-source prepared-query execution overload, or an SQL-capable interface implementation on Memory. Public [prepared execution](../../../../src/DataLinq/Linq/PreparedQuery.cs) retains its existing `IDataSourceAccess<TDatabase>` source boundary. Shared internal query plans do not imply a public Memory prepared-query execution contract.
+
+Async ordinary Memory queries and AAPI-75 lookup are supported without those additions. Preserve T10's standalone async relation graph/test doubles: providing an explicitly constructed graph is separate from supplying Memory backend navigation. Queryable fixtures use the actual Memory capability subset; prepared execution and provider ownership evidence use compatible execution sources. Any later Memory navigation/prepared-source proposal must address both sync and async behavior.
+
+**Owner/gate:** A10/T10, D10-1/D10-5; packed consumers prove the public source boundaries, standalone relation doubles retain accepted async behavior, and neither fixture convenience nor internal plan reuse invents unsupported Memory capabilities.
+
+### AAPI-77: Memory Completion Is Immediate And Cooperatively Cancelable
+
+**Accepted:** 2026-09-14. Memory operations may return already-completed `ValueTask` results and async enumerator moves. No thread switch or scheduling yield is promised. Scanning, buffering, sorting, conversion, and materialization remain local CPU work and may run on the calling thread. Do not add internal `Task.Run` or artificial `Task.Yield`.
+
+Preserve validation before pre-cancellation, including empty results and cache hits. Forward tokens through execution, scans, sorting, and iteration, and retain AAPI-18 through AAPI-20 capture/method/enumerator-token boundaries. Cancellation is cooperative and does not forcibly interrupt arbitrary user conversion code. Materializers never return a partially built collection as successful; stream rows already yielded remain delivered. Individually valid cached rows may remain under AAPI-41's publication rules.
+
+**Owner/gate:** A10/T10, D10-1/D10-2; verify immediate and controllably suspended consumers, warm/empty/ordered paths, cancellation checkpoints and capture boundaries, partial stream versus materializer outcomes, and no scheduling or CPU-offload guarantee.
+
+### AAPI-78: Missing Async Capability Fails Explicitly
+
+**Accepted:** 2026-09-14. Distinguish incompatible providers and missing async execution capability from unsupported query shapes and cancellation. Foreign `IQueryable` providers and custom sources/relations lacking async support report clear `NotSupportedException`; recognized DataLinq backends rejecting a shape retain existing translation/capability exceptions. Supported cancellation remains cancellation.
+
+Reject before backend execution at the already agreed validation boundary, preserving deferred sequence timing. Never disguise missing support as empty, null, or false results, synchronous execution, worker-thread work, or automatic dispatch to another ORM. Do not introduce a public `SupportsAsync` boolean: local immediate completion, SQLite's synchronous driver, and native asynchronous server I/O are distinct operation-level properties. Keep precise documentation and internal capability checks without a new public backend protocol.
+
+**Owner/gate:** A10 with T10 consultation, D10-1/D10-2; verify interface/concrete/custom rejection, diagnostic distinctions, validation/cancellation timing, no backend work or fallback, and no public capability-flag expansion.
+
+### AAPI-79: SQLite Limits Are Defined Per Operation
+
+**Accepted:** 2026-09-14. Retain the common awaitable API while explicitly documenting Microsoft.Data.Sqlite's synchronous async-ADO.NET execution. Awaiting does not guarantee calling-thread availability during provider work. Check cancellation before execution and between stages/rows DataLinq controls; do not promise immediate interruption of a native call.
+
+Verify opening, initialization, commands, row reading, transaction completion, and cleanup separately. Provider busy/locked retries and command timeout, including connection-level timeout configuration for implicit commands, are distinct from caller cancellation. Do not add custom `sqlite3_interrupt` integration or a worker-thread execution engine in this release.
+
+Preserve actual outcomes: later token cancellation cannot relabel a known successful commit. The independent 30-second recovery rollback budget is not a hard SQLite cleanup deadline. Record provider-version-specific evidence rather than inferring interruption from awaitable signatures.
+
+**Owner/gate:** A10, D10-2; W1/W2 verify file and in-memory SQLite, cancellation/locking/timeout checkpoints, completion certainty, cleanup safety, and documented blocking limits before W3.
+
+### AAPI-80: MySQL Cancellation Requires Operation And Connection Evidence
+
+**Accepted:** 2026-09-14. Use native MySqlConnector async APIs and classify the actual operation and connection outcome on MySQL and MariaDB. Successful soft cancellation can preserve a connection; hard cancellation closes it. Soft cancellation's separate `KILL QUERY` connection may be affected by proxies/load balancers. Connection survival alone does not prove transaction reusability.
+
+An ordinary read can be reusable only after safe reader cleanup and transaction/provider trust checks under AAPI-23. Interrupted mutations retain AAPI-24 poisoning even if the socket survives; a hard-closed connection cannot continue the transaction. Preserve original provider errors and the agreed failure context; an outer exception type or canceled token alone is insufficient classification evidence.
+
+Keep caller cancellation, provider command/read timeout, connector `CancellationTimeout` escalation, and DataLinq `RecoveryRollbackTimeout` distinct. Command timeout is not a whole-stream deadline. Do not silently rewrite connector settings. Verify behavior against the pinned connector and both server families.
+
+**Owner/gate:** A10, D10-2; provider-backed W1/W2 evidence covers soft/hard interruption, reader cleanup, trust, mutation poisoning, completion uncertainty, independent recovery, settings preservation, and actual MySQL/MariaDB behavior.
+
+### AAPI-81: Backend Policy Acceptance Does Not Complete The I/O Audit
+
+**Accepted:** 2026-09-14. Require a per-operation evidence matrix: native dispatch/cancellation/trust/recovery on MySQL and MariaDB; blocking, locking, initialization and cleanup on file/in-memory SQLite; supported/rejected shapes, immediate completion, cancellation and lookup on Memory; explicit rejection on unsupported/custom sources; and both immediate/suspended ownership and cancellation races with controllable implementations.
+
+Packed consumers cover supported .NET targets and package boundaries. Memory-only package evidence must not accidentally rely on SQL providers; Memory fixtures cannot prove server interruption or connection reuse. OAPI-8/OAPI-9 policy acceptance does not complete W1/W2/W3 or establish shipped behavior.
+
+OAPI-7 retains the full signature/compatibility and smaller I/O-boundary audit. In particular, the current [SQLite provider constructor](../../../../src/DataLinq.SQLite/SQLiteProvider.cs) acquires an in-memory keep-alive connection when needed and calls `SetJournalMode`. AAPI-1's I/O-free lazy transaction creation does not make provider construction I/O-free. Explicitly classify initialization and administrative helpers with counterparts or exclusions; this decision does not select a new constructor/setup API.
+
+**Owner/gate:** A10 with T10/H10 consultation, D10-1/D10-2/D10-5; complete the matrix and OAPI-7 inventory, generated/custom compatibility and packed-consumer evidence before API freeze without treating accepted policy as implementation proof.
+
 ### OAPI-1: Task Versus ValueTask
 
 **Resolved:** 2026-08-30 by [AAPI-8](#aapi-8-valuetask-for-query-and-relation-results-key-lookup-and-disposal-task-otherwise), including its final framework-alignment revision. The OAPI identifier is retained for existing references. Public awaitable types are decided; performance, consumption, and compatibility verification remain part of implementation evidence.
@@ -1315,35 +1410,34 @@ Exact public accessors/overloads and compatibility remain under OAPI-7; provider
 
 **Metadata/existence and main mutation/callback policies resolved:** 2026-09-14 by AAPI-64 through AAPI-72: distinct probe semantics, async metadata option/cancellation behavior, runtime validation signatures and policy, effective database identity/freshness, existing mutation and collection-insert families, generated helper ownership, narrow Save null behavior, unchanged-update async reads, and untyped provider callbacks.
 
-OAPI-7 remains open for the complete signature and compatibility audit, including smaller provider/helper I/O boundaries. Give each boundary an explicit counterpart or documented exclusion rather than treating the main policy decisions as a complete inventory. Complete detailed helper/field/enum/constructor signatures, consumer/ApiCompat checks, and generated diagnostics as implementation evidence, not proof of shipped behavior. Keep backend internals private and do not reopen accepted policy without an explicit revision. Memory/neutral-source capability remains an explicit OAPI-9 question.
+OAPI-7 remains open for the complete signature and compatibility audit, including smaller provider/helper I/O boundaries. Give each boundary an explicit counterpart or documented exclusion rather than treating the main policy decisions as a complete inventory. Complete detailed helper/field/enum/constructor signatures, consumer/ApiCompat checks, and generated diagnostics as implementation evidence, not proof of shipped behavior. Keep backend internals private and do not reopen accepted policy without an explicit revision. AAPI-74 through AAPI-78 settle Memory/neutral-source boundaries and missing capability; AAPI-81 retains the constructor/setup and administrative I/O audit.
 
 **Owner/gate:** A10, D10-1; W0 audit, W3 ApiCompat and consumer-shaped compilation coverage.
 
 ### OAPI-8: Synchronous Navigation Use In Async Applications
 
-Existing lazy navigation remains supported. Decide whether guidance and explicit methods are sufficient for 0.10 or whether a separately approved diagnostic for accidental synchronous I/O is needed.
-
-Recommendation: first document the boundary and use explicit relation results in async examples. A `ThrowOnSyncIo` mode, analyzers, eager-loading APIs, and batching are not silently approved by this record. Async loading a relation does not make every later synchronous navigation access permanently I/O-free.
+**Design decision resolved:** 2026-09-14 by AAPI-73. Retain synchronous navigation with explicit handle/execution/result guidance and async-loaded DTO examples. No strict sync-I/O mode, analyzer, eager-loading API, or batching feature is added; later synchronous navigation is not guaranteed I/O-free after an awaited load.
 
 **Owner/gate:** A10; any added feature requires the release scope process.
 
 ### OAPI-9: Backend Capability And Immediate Completion
 
-Decide which async query operations the read-only Memory backend exposes, how it represents immediate completion, and how unsupported execution sources report the absence of async support. Define SQLite cancellation limits per operation rather than promising interruption the driver cannot provide.
+**Design policies resolved:** 2026-09-14 by AAPI-74 through AAPI-81: existing Memory query subset and narrow FindAsync lookup, no Memory navigation/prepared-source expansion, legitimate immediate completion and cooperative cancellation, explicit missing capability, SQLite operation-level limits, MySQL/MariaDB operation/connection classification, and the required evidence matrix.
 
-Recommendation: retain the same backend capability validation and query rejection as synchronous execution. Completing immediately for in-memory work is legitimate; inventing SQL behavior or using `Task.Run` to suggest native async support is not. Memory writes and transactions remain out of scope.
+Provider interruption, recovery feasibility, exact signatures and compatibility still require W1/W2/W3 evidence; acceptance does not claim implementation or validated provider behavior. Memory writes/transactions remain out of scope. AAPI-81 keeps the complete OAPI-7 I/O inventory open, including constructor/setup and administrative boundaries.
 
 **Owner/gate:** A10 with T10 consultation, D10-1/D10-2; provider/capability evidence before W3.
 
 ## Recommended Decision Order
 
-OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, OAPI-5's mutation/callback contracts, and OAPI-6's concurrency/cache policies are resolved. OAPI-7's main query/key/relation, lower-level execution/ownership, failure-access/configuration, metadata/existence, and mutation/callback policies are accepted under AAPI-42 through AAPI-72; the complete inventory and compatibility audit remains open. Continue with:
+OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, OAPI-5's mutation/callback contracts, OAPI-6's concurrency/cache policies, OAPI-8's navigation guidance, and OAPI-9's backend policies are resolved. OAPI-7's main policies are accepted under AAPI-42 through AAPI-72 and backend boundaries under AAPI-74 through AAPI-81; the complete inventory and compatibility audit remains open. Continue with:
 
-1. Discuss OAPI-8's synchronous-navigation guidance and OAPI-9's backend/capability and provider limits without silently adding strict sync-I/O modes, analyzers, or backend features.
-2. Complete OAPI-7's smaller provider/helper I/O inventory with explicit counterparts/exclusions. Verify accepted signatures, fields/enums/constructors, custom compatibility, and generated diagnostics with consumer compilation and runtime/provider evidence. Accepted OAPI-6 policies still require deterministic evidence before API freeze.
+1. Discuss OAPI-7's remaining smaller provider/helper I/O boundaries, especially constructor/setup and administrative operations, with explicit counterparts or exclusions.
+2. Complete detailed fields/enums/constructors and generated diagnostics, then verify the complete accepted signature inventory and custom compatibility with consumer compilation, ApiCompat, deterministic runtime and provider evidence. Accepted policy does not replace implementation evidence before API freeze.
 
 ## Required Exit Evidence
 
+- AAPI-73 through AAPI-81 evidence covers explicit navigation results/DTO boundaries without strict sync-I/O enforcement, Memory's existing query subset and narrow async lookup, retained prepared/navigation source exclusions and separate graph doubles, immediate completion/cooperative cancellation, explicit missing capability, SQLite phase-specific blocking/locking/cleanup, MySQL/MariaDB cancellation/trust/settings distinctions, and the backend/consumer matrix. Constructor/setup and administrative I/O remain explicitly inventoried under OAPI-7.
 - A complete signature inventory identifies receiver, result type, token position/default, backend support, ownership, and failure behavior.
 - Consumer-shaped compilation tests cover token-free and token-supplied calls, generated single-reference methods, collection relation terminals, sync/async mixing, and both disposal forms.
 - Signature/consumer checks enforce AAPI-8, including task-returning callbacks, direct single consumption of value tasks, and one-time `.AsTask()` conversion for reusable operations.
@@ -1386,6 +1480,7 @@ These references explain the accepted conventions and dependency policy; they do
 - EF Core provides [`ToListAsync`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.entityframeworkcore.entityframeworkqueryableextensions.tolistasync?view=efcore-10.0) and [`ToArrayAsync`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.entityframeworkcore.entityframeworkqueryableextensions.toarrayasync?view=efcore-10.0), with optional cancellation tokens. [Query composition stays synchronous](https://learn.microsoft.com/en-us/ef/core/miscellaneous/async).
 - EF Core's [`BeginTransactionAsync`](https://github.com/dotnet/efcore/blob/release/10.0/src/EFCore.Relational/Storage/RelationalConnection.cs) opens a connection and starts the provider transaction immediately. It is not equivalent to DataLinq's lazy `Transaction()` factory.
 - [Microsoft.Data.Sqlite async limitations](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/async) explain why a shared awaitable surface cannot promise nonblocking SQLite I/O.
+- [SQLite locking and timeout behavior](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/database-errors) supports AAPI-79's separation of busy/locked retries, command and implicit-command timeouts, and caller cancellation; operation-level verification remains required.
 - [Microsoft cancellation guidance](https://devblogs.microsoft.com/premier-developer/recommended-patterns-for-cancellationtoken/) and [canceling an operation versus stopping the wait](https://devblogs.microsoft.com/dotnet/how-do-i-cancel-non-cancelable-async-operations/) support the consistency and resource-ownership boundaries in AAPI-23 through AAPI-25.
 - [MySqlConnector cancellation](https://mysqlconnector.net/overview/command-cancellation/) documents distinct cancellation/timeout mechanisms and connection consequences; verify the pinned provider's behavior rather than inferring transaction usability from the exception name alone.
 - [C# exception propagation through `finally`](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/statements#1311-the-try-statement) explains AAPI-25's scope-disposal limitation.

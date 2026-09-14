@@ -82,7 +82,10 @@ Acceptance summary:
 - failure access/configuration follows AAPI-62/AAPI-63: typed immutable exception/transaction snapshots and positive finite provider-scoped RecoveryRollbackTimeout, with no automatic retry or total-disposal deadline
 - metadata/existence behavior follows AAPI-64 through AAPI-67: distinct probes, async metadata Option/cancellation semantics, complete runtime validation with captured configuration, and fresh reads of the effective existing database without creation/repair or atomic-DDL promises
 - mutation/callback inventory follows AAPI-68 through AAPI-72: existing families and finite collection insertion, generated helper ownership, narrow nullable Save behavior, unchanged-update async reads, and untyped provider callbacks
-- OAPI-7 remains open for the complete smaller provider/helper I/O and signature/compatibility audit; accepted policies still require field/enum/constructor and runtime evidence. OAPI-8 guidance and OAPI-9 Memory/neutral-source capability/provider limits remain open
+- navigation guidance follows AAPI-73: retain explicit async-loaded results and materialized DTO boundaries without a strict sync-I/O mode or guarantees about later synchronous cache access
+- Memory/capability behavior follows AAPI-74 through AAPI-78: existing query subset, narrow FindAsync lookup, no navigation/prepared-source expansion, legitimate immediate completion and cooperative cancellation, and explicit missing capability without fallback or public SupportsAsync flags; standalone relation graph doubles remain separate
+- provider/evidence policy follows AAPI-79 through AAPI-81: SQLite operation-level blocking/locking/cancellation limits, MySQL/MariaDB connection and operation outcomes, separate timeout/recovery settings, and backend/packed-consumer evidence
+- OAPI-8/OAPI-9 policies are resolved; OAPI-7 remains open for the complete smaller provider/helper I/O and signature/compatibility audit, including constructor/setup and administrative boundaries. Accepted policies still require field/enum/constructor, compatibility, runtime, and provider evidence
 
 Explicit non-goals:
 
