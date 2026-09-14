@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-14.
+**Last reviewed:** 2026-09-15.
 
 **Prerequisite:** DataLinq 0.9.0 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
@@ -85,7 +85,8 @@ Acceptance summary:
 - navigation guidance follows AAPI-73: retain explicit async-loaded results and materialized DTO boundaries without a strict sync-I/O mode or guarantees about later synchronous cache access
 - Memory/capability behavior follows AAPI-74 through AAPI-78: existing query subset, narrow FindAsync lookup, no navigation/prepared-source expansion, legitimate immediate completion and cooperative cancellation, and explicit missing capability without fallback or public SupportsAsync flags; standalone relation graph doubles remain separate
 - provider/evidence policy follows AAPI-79 through AAPI-81: SQLite operation-level blocking/locking/cancellation limits, MySQL/MariaDB connection and operation outcomes, separate timeout/recovery settings, and backend/packed-consumer evidence
-- OAPI-8/OAPI-9 policies are resolved; OAPI-7 remains open for the complete smaller provider/helper I/O and signature/compatibility audit, including constructor/setup and administrative boundaries. Accepted policies still require field/enum/constructor, compatibility, runtime, and provider evidence
+- helper boundaries follow AAPI-82 through AAPI-90: synchronous construction/preparation with documented SQLite setup, explicit journal-mode/provisioning execution without automatic creation/repair or atomicity/replay guarantees, complete fluent reads and private builder snapshots, disabled mutation exclusions, public canonical cache lookup, and synchronous maintenance/callbacks
+- OAPI-8/OAPI-9 and the discussed OAPI-7 helper policies are resolved; OAPI-7 remains open for detailed failure fields/enums, execution-options constructor compatibility, generated identifiers and the complete signature/compatibility audit. Accepted policies still require runtime and provider evidence
 
 Explicit non-goals:
 

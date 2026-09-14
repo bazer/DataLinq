@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for the release-local builder, relation, Memory-fixture, unit-of-work, and DI-helper subset; later testing slices remain unscheduled.
-**Last reviewed:** 2026-09-14.
+**Last reviewed:** 2026-09-15.
 **Dependency:** Queryable provider-like tests use the shipped capability-declared `DataLinq.Memory` preview rather than inventing a second LINQ-to-Objects provider; fake unit-of-work support follows the real 0.10 unit-of-work contract.
 **Goal:** Make DataLinq application code testable without a live database when the test is about business behavior, while preserving provider-backed tests for SQL translation, schema, transaction, and database-specific behavior.
 
@@ -310,6 +310,8 @@ Query-capable fixtures follow ordinary/prepared parameter-capture boundaries wit
 [AAPI-64 through AAPI-72](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-64-async-existence-checks-preserve-their-distinct-probe-semantics) settle metadata/existence and main mutation/callback inventory. Metadata fixtures distinguish probes, failed options, cancellation, comparison results, and original operational errors; provider tests establish normalized database identity, no creation/repair, and lifetime/freshness limits. Mutation doubles follow existing families and finite collection insertion, typed generated bridges, independently owned source-less helpers, narrow nullable Save behavior, and unchanged-update read semantics. Provider callback fakes use untyped Transaction families and shared helper policies. These fixtures do not grant Memory SQL persistence, schema inspection, or unsupported backend capabilities.
 
 [AAPI-73 through AAPI-81](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-73-explicit-navigation-guidance-without-a-strict-sync-io-mode) settle navigation guidance and backend boundaries. Memory fixtures use the existing query subset and narrow single-model-key FindAsync; they do not gain relation navigation, generated lookup or neutral-source prepared execution. Preserve standalone async graph doubles separately. Immediate completion is legitimate, with validation/cancellation checkpoints, no forced scheduling, and no successful partial materializers. Unsupported sources fail explicitly rather than falling back. Use returned relation results in async/DTO examples; provider-backed and controllable fixtures prove SQLite/MySQL/MariaDB interruption, trust, cleanup and suspended execution. Memory-only packed consumers must not accidentally depend on SQL providers.
+
+[AAPI-82 through AAPI-90](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-82-construction-and-sql-preparation-remain-synchronous) settle remaining helper policies. Controllable fixtures cover construction versus execution, provisioning registration/input capture and partial failure without destructive recovery, fluent read shapes and private builder snapshots, and canonical cache lookup with invalidation-safe publication. Preserve disabled fluent mutation diagnostics and synchronous maintenance/notification contracts. SQLite/provider-backed evidence proves setup/journal/provisioning behavior and in-memory lifetime; pure graph/Memory fixtures do not gain provisioning, SQL execution, or cache-loader capabilities.
 
 Synchronous subset of the reference-holder shape:
 

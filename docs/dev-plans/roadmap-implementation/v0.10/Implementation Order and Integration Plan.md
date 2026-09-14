@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-14.
+**Last reviewed:** 2026-09-15.
 
 **Authority:** The [0.10 implementation roadmap](README.md) owns release scope. This document owns dependency order, shared-contract decisions, merge gates, and stop rules.
 
@@ -62,6 +62,8 @@ Complete the audit and decide/test:
 - enforce AAPI-68 through AAPI-72: existing mutation/finite collection-insert families, generated typed bridges and independently owned source-less helpers, narrow nullable Save behavior, genuine async reads for unchanged updates, and untyped provider callbacks without overload/batch expansion
 - enforce AAPI-73 through AAPI-78: explicit returned navigation/DTO results without strict sync-I/O enforcement, existing Memory query subset and narrow async lookup, retained navigation/prepared-source exclusions, separate graph doubles, immediate cooperative completion, and explicit missing capability without fallback or public flags
 - enforce AAPI-79 through AAPI-81: operation-level SQLite limits, MySQL/MariaDB operation/connection trust and timeout separation, backend/consumer evidence, and an explicit remaining constructor/setup/administrative I/O audit
+- enforce AAPI-82 through AAPI-85: synchronous construction/preparation and preserved SQLite setup timing, explicit journal-mode/provisioning counterparts, unsupported custom defaults, captured registration/inputs and partial-creation/error/resource behavior without migrations or destructive recovery
+- enforce AAPI-86 through AAPI-90: complete fluent read helper results, private per-invocation mutable-builder state, disabled fluent mutation exclusions, public canonical-key TableCache lookup, and synchronous local maintenance/callbacks
 
 Relation query composition is excluded from 0.10 under revised AAPI-10. Its [backlog proposal](../../query-and-runtime/Relation-Scoped%20Queries.md) creates no parser, test-helper query capability, or release-gate dependency here; existing database/transaction query roots remain in scope.
 
@@ -83,7 +85,7 @@ Implement and prove:
 - structured cause/stage/outcome/recovery/secondary-failure information for explicit and implicit helpers, preserving ordinary exception identity and provider codes
 - deterministic overlap/admission/recovery and cache invalidation/publication races under AAPI-34 through AAPI-41, including mixed sync/async execution, independent waiter cancellation, and cleanup failures without unsafe abandoned work
 
-OAPI-7's main policies are accepted under AAPI-42 through AAPI-72, including metadata/existence and mutation/callback families. The complete audit remains open: identify smaller provider/helper I/O counterparts or exclusions, including constructor/setup and administrative operations, and complete signature/consumer, generated-diagnostic, field/enum/constructor, and compatibility evidence. OAPI-8/OAPI-9 policies are accepted under AAPI-73 through AAPI-81; actual provider interruption/classification and recovery-budget feasibility still require W1/W2 evidence. AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, private ownership across awaits, and recovery of unfinished callback work. Private gate/versioning representations and cost remain implementation choices; preserve AAPI-28's exclusive mutable lifetime and AAPI-32's borrowed completion restrictions.
+OAPI-7's main policies are accepted under AAPI-42 through AAPI-72, including metadata/existence and mutation/callback families; AAPI-82 through AAPI-90 settle the discussed constructor/setup, administrative, fluent-read and cache/helper counterparts or exclusions. Detailed failure fields/enums, execution-options constructor compatibility, generated identifiers and the complete signature/consumer/ApiCompat audit remain open. OAPI-8/OAPI-9 policies are accepted under AAPI-73 through AAPI-81; actual provider interruption/classification and recovery-budget feasibility still require W1/W2 evidence. AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, private ownership across awaits, and recovery of unfinished callback work. Private gate/versioning representations and cost remain implementation choices; preserve AAPI-28's exclusive mutable lifetime and AAPI-32's borrowed completion restrictions.
 
 Provider differences may be explicit, but they cannot become silent semantic drift.
 

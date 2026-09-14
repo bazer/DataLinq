@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-14.
+**Last reviewed:** 2026-09-15.
 
 **Depends on:** The required workstreams and gates in the [0.10 implementation roadmap](README.md) and [implementation order](Implementation%20Order%20and%20Integration%20Plan.md).
 
@@ -169,6 +169,11 @@ Required focused evidence:
 - AAPI-79 SQLite file/in-memory per-operation opening/initialization/command/row/completion/cleanup behavior, busy/locked command and implicit-command timeout distinctions, no native-interruption or hard cleanup deadline promise, and preservation of known completion
 - AAPI-80 MySQL/MariaDB native async dispatch, soft/hard interruption, reader cleanup and connection/transaction trust, mutation poisoning despite socket survival, unchanged connector settings, and distinct caller/command/cancellation/recovery budgets
 - AAPI-81 per-operation backend matrix with both immediate and suspended controllable execution, supported .NET packed consumers, Memory-only package evidence without SQL dependencies, and explicit remaining OAPI-7 constructor/setup/administrative I/O counterparts or exclusions; policy acceptance does not complete implementation/provider evidence
+- AAPI-82 local construction/preparation and unopened command/connection creation versus existing SQLite constructor I/O, unchanged setup failure/lifetime timing, lazy transactions, and no new async initialization factory
+- AAPI-83/AAPI-84 exact journal-mode/factory/provisioning forwarding signatures, custom unsupported defaults, explicit script support and provider dispatch, no verified-effective-mode promise, and no implicit startup creation/validation repair or migration scope
+- AAPI-85 pre-cancellation/partial provisioning, original operational exceptions versus Option failures, registration/SQL input capture, owned command/connection and in-memory lifetime, and no automatic replay or destructive rollback of created objects
+- AAPI-86/AAPI-87 complete fluent reader/row/key/group/model/scalar results and receiver binding, buffering/early disposal, private selected-column/parameter/materialization state, capture timing and fresh enumeration, and no caller-builder mutation or post-await live input reads
+- AAPI-88 through AAPI-90 retained disabled fluent mutation diagnostics, raw-command ownership without tracking, public TableCache.GetRowAsync key/null/source fallback and warm/cold/cancellation/invalidation behavior, and synchronous maintenance/notification contracts
 - packed .NET 8/9/10 consumers cover accepted query signatures, projections, nullability, optional/named tokens, EF Core coexistence, and standard async-LINQ resolution; keep signature approval separate from implementation/provider evidence
 - use controllable pauses at initialization, hydration, reader moves, callback completion, and cache publication rather than timing-dependent delays; exercise cleanup failures and measure coordination/versioning costs against W0
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families
@@ -226,6 +231,7 @@ Required focused evidence:
 - metadata/mutation fixtures follow AAPI-64 through AAPI-72 probe/Option/validation distinctions, effective-source ownership, finite insertion, generated helper lifetimes, nullable Save and unchanged-update behavior, and provider callbacks; actual provider/host evidence remains separate from in-memory fixture fidelity
 - navigation/backend fixtures follow AAPI-73 through AAPI-81 explicit returned-result guidance, Memory query/lookup limits and separate graph doubles, retained prepared-source exclusions, cooperative immediate completion, and explicit missing capability; actual SQLite/server interruption, connection reuse, recovery and suspended execution require provider-backed/controllable evidence
 - DI replacement behavior for Memory, fake unit of work, and SQLite-in-memory provider tests
+- helper fixtures follow AAPI-82 through AAPI-90 construction/provisioning boundaries, captured fluent execution, disabled mutation exclusions, canonical cache lookup and synchronous invalidation/callback semantics; actual SQLite setup/journal/provisioning and resource-lifetime evidence remains provider-backed
 
 ### Source Type Aliases
 
