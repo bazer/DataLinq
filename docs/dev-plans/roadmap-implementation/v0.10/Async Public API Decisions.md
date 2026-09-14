@@ -1463,6 +1463,133 @@ This exclusion differs from AAPI-89 lookup, which can perform database I/O. Do n
 
 **Owner/gate:** A10 with T10 consultation, D10-1/D10-2; verify local maintenance boundaries, synchronous invalidation versus pending publication, unchanged callback contracts, and accurate documentation of callback/blocking limits.
 
+### AAPI-91: Failure Context Is An Immutable Diagnostic Snapshot
+
+**Accepted:** 2026-09-15. Place `DataLinqFailure`, `DataLinqFailureContext`, and associated diagnostic types in `DataLinq.Diagnostics`. Context is a sealed class with getters only and internal construction shared by DataLinq and its testing helpers:
+
+| Property | Type |
+| --- | --- |
+| `Cause` | `DataLinqFailureCause` |
+| `Operation` | `DataLinqOperationKind` |
+| `Stage` | `DataLinqFailureStage` |
+| `CompletionOutcome` | `DataLinqCompletionOutcome` |
+| `RecoveryActions` | `DataLinqRecoveryActions` |
+| `SecondaryFailures` | `IReadOnlyList<DataLinqSecondaryFailure>` |
+| `TransactionId` | `uint?` |
+| `ProviderInstanceId` | `string?` |
+| `ActiveOperation` | `DataLinqOperationKind?` |
+
+Reuse the existing managed transaction and provider telemetry-instance identifiers for correlation, not durable database transaction identity. `ActiveOperation` describes a conflicting operation when overlap was rejected.
+
+`DataLinqFailure.GetContext(Exception exception)` inspects only the supplied exception. Null throws `ArgumentNullException`; absent context returns null. Do not automatically traverse inner exceptions or select an aggregate branch. The transaction may expose a newer snapshot after recovery; already-returned snapshots remain unchanged. A competing rejected call receives its own exception context without replacing active operation state. Retain AAPI-62's no-live-resource and internal-storage boundaries.
+
+**Owner/gate:** A10 with H10/T10 consultation, D10-1/D10-2; verify namespace/types/getters, direct-only accessor/null behavior, identity correlation, explicit/implicit snapshots and overlap isolation, without public context mutation or construction.
+
+### AAPI-92: Failure Classification Uses Independent Public Enums
+
+**Accepted:** 2026-09-15. Use the following separate public diagnostic enums, not the internal mutation implementation enum:
+
+| Enum | Members |
+| --- | --- |
+| `DataLinqFailureCause` | `Unknown`, `Cancellation`, `Timeout`, `ProviderError`, `ApplicationError`, `MaterializationError`, `LocalFinalizationError`, `InvalidOperation` |
+| `DataLinqOperationKind` | `Unknown`, `Query`, `KeyLookup`, `RelationLoad`, `Insert`, `Update`, `Save`, `Delete`, `Commit`, `Rollback`, `Dispose`, `TransactionCallback`, `RawCommand`, `MetadataRead`, `SchemaValidation`, `ExistenceCheck`, `Provisioning`, `ProviderConfiguration` |
+| `DataLinqFailureStage` | `Unknown`, `Validation`, `Initialization`, `CommandExecution`, `RowLoading`, `Callback`, `LocalFinalization`, `Commit`, `Rollback`, `CacheRecovery`, `Notification`, `Cleanup` |
+
+Preserve the most specific known failing operation; an outer callback helper's recovery must not relabel an inner query failure. An unchanged update can fail in row loading without a dispatched write. Classify using actual execution/provider evidence rather than a blanket exception-type mapping or the token's incidental canceled state.
+
+Not every argument error needs context. Use `Unknown` when evidence is unavailable. Assign stable numeric values before release and have consumers handle unfamiliar future values conservatively; the list does not expose a versioned serialization protocol or make internal state names public.
+
+**Owner/gate:** A10 with H10/T10 consultation, D10-1/D10-2; verify enum/member and numeric-value inventory, orthogonal cause/operation/stage mapping, specific inner-operation preservation, unknown/future handling, and provider-backed classification.
+
+### AAPI-93: Completion Outcome Describes Transaction Completion Only
+
+**Accepted:** 2026-09-15. Define `DataLinqCompletionOutcome` with `NotApplicable`, `NotAttempted`, `Committed`, `RolledBack`, and `Unknown`.
+
+- `NotApplicable`: no applicable DataLinq transaction-completion contract, including Memory queries and standalone provisioning; this does not mean no database effects.
+- `NotAttempted`: no completion attempt; prior transaction writes may exist.
+- `Committed`/`RolledBack`: confirmed database completion, independent of later local finalization/cleanup failure.
+- `Unknown`: available evidence cannot safely establish completion.
+
+Retain `TransactionCommitFinalizationException` and its known-committed meaning. Attached context agrees with its existing `TransactionId`, `InnerException`, and `CleanupFailures`. Do not overload or replace `DatabaseTransactionStatus`; lifecycle and completion certainty remain separate.
+
+**Owner/gate:** A10/H10, D10-1/D10-2; test each outcome, uncertain completion, prior-write/no-attempt distinction, nontransactional provisioning effects, and existing exception/property compatibility.
+
+### AAPI-94: Recovery Flags Describe Actions Valid At Reporting Time
+
+**Accepted:** 2026-09-15. Define:
+
+```csharp
+[Flags]
+public enum DataLinqRecoveryActions
+{
+    None = 0,
+    Continue = 1,
+    Rollback = 2,
+    Dispose = 4,
+    FinishActiveOperation = 8
+}
+```
+
+After a recoverable read and safe cleanup, `Continue | Rollback | Dispose` may apply. A poisoned but recoverable transaction allows `Rollback | Dispose`; one unable to perform further database work may allow only `Dispose`. A conflict while another operation owns the transaction uses `FinishActiveOperation`; an implicit helper's already-disposed transaction uses `None`.
+
+Finishing active work means awaiting it or properly finishing/disposing its owned reader, not abandoning provider work, forcibly closing escaped handles, or completing a helper-borrowed transaction. `Continue` allows ordinary supported operations; it does not authorize retry or override read-only restrictions. These are snapshots, not enduring permissions: each later operation validates current state. Do not add a retry flag.
+
+**Owner/gate:** A10/H10 with T10 consultation, D10-1/D10-2; verify exact flags/combinations, active-reader conflicts, explicit/implicit ownership and stale-snapshot safety, with no automatic retry or bypass of ordinary validation.
+
+### AAPI-95: Secondary Failures Retain Ordered Original Exceptions
+
+**Accepted:** 2026-09-15. Use sealed `DataLinqSecondaryFailure` with getter-only `Cause: DataLinqFailureCause`, `Operation: DataLinqOperationKind`, `Stage: DataLinqFailureStage`, and `Exception: Exception`.
+
+Expose a non-null defensive snapshot through `IReadOnlyList<DataLinqSecondaryFailure>`, not a mutable list or castable mutable array. Keep original exception objects/stacks and encounter order. Do not flatten arbitrary aggregates or duplicate the primary exception merely to fit the collection. Retain AAPI-25's primary/secondary precedence and scope-disposal limits.
+
+Immutability applies to the diagnostic structure, not every property of an exception object. Do not automatically serialize the entire context into logs or API responses. Context adds no SQL, parameters, connection strings, or raw model keys; preserved provider/application exceptions are not automatically sanitized.
+
+**Owner/gate:** A10/H10 with T10 consultation, D10-1/D10-2; verify ordered rollback/disposal/cache/notification entries, defensive snapshots, original identities/stacks, existing cleanup-exception compatibility, and privacy documentation.
+
+### AAPI-96: Execution Options Preserve Existing Constructor Signatures
+
+**Accepted:** 2026-09-15. Preserve all existing constructor signatures and parameter names. Add fully specified concrete provider overloads with a required final options argument, for example:
+
+```csharp
+public MySqlProvider(string connectionString, string? databaseName,
+    DataLinqLoggingConfiguration? loggerFactory,
+    DataLinqExecutionOptions executionOptions);
+```
+
+Use the corresponding shape on MariaDB and SQLite. Do not add a second-argument options convenience overload that makes existing null calls ambiguous, or replace old signatures by appending an optional parameter. Apply the same preservation discipline through shared/protected base constructors; old entry points route to default settings.
+
+Expose captured effective settings through read-only provider `ExecutionOptions`. Existing direct `IDatabaseProvider` implementations receive a standard-settings compatibility default instead of a newly required member. Capture configuration under AAPI-63/AAPI-97, with no live reconfiguration.
+
+**Owner/gate:** A10/H10, D10-1; verify exact concrete/shared/protected overloads, positional/null/named calls, old binary consumers, provider property/interface defaults, and settings inheritance without constructor ambiguity.
+
+### AAPI-97: Execution Options Have A Bounded Captured Recovery Duration
+
+**Accepted:** 2026-09-15. Retain the 30-second default. Accept `RecoveryRollbackTimeout` from 1 millisecond through 4,294,967,294 milliseconds inclusive. Reject zero, negative, infinite, positive sub-millisecond and oversized values. The lower bound avoids truncating a positive duration into an effectively zero timer; the upper bound matches supported .NET timer limits.
+
+Validate before opening connections or provider setup/resource work, and capture a separate immutable effective value. Direct construction reports a clear argument error identifying `RecoveryRollbackTimeout`. Host configuration produces the same validated snapshot, with no different timeout semantics or live `IOptionsMonitor` reconfiguration. Externally supplied providers retain their already-captured settings.
+
+The budget still starts only at automatic rollback, not while unfinished work settles, and remains cooperative rather than a cleanup deadline. Verify exact timer behavior on supported targets; validation does not prove provider interruption feasibility.
+
+**Owner/gate:** A10/H10, D10-1/D10-2; test default/minimum/maximum/invalid values, no setup before invalid-option rejection, immutable direct/host capture, external provider preservation, inheritance and recovery timer start/limits.
+
+### AAPI-98: DLG004 Reports Async Navigation Member Conflicts
+
+**Accepted:** 2026-09-15. Reserve `DLG004`, error severity, with title `Async navigation member conflict`. Existing diagnostics/release tracking cover DLG000 through DLG003. Identify the relation property, generated `<PropertyName>Async` member, conflicting declaration/inherited member, and why the intended call cannot be generated safely.
+
+Report at the relation declaration and add the conflicting member's location when available. Check actual duplicate/signature/binding conflicts, including optional-token and inherited calls, not every shared name. Harmless overloads and legitimate overrides remain supported. Do not silently rename the async API or treat an unrelated user method as its implementation; existing relation-name fallback policies are separate.
+
+Stop the affected database's generation pass if valid output cannot be produced; unrelated databases may proceed. Add release tracking and consumer evidence for inheritance, partial declarations, nullability and token-free/token-supplied overloads.
+
+**Owner/gate:** A10 with T10 consultation, D10-1; verify diagnostic identity/severity/message/locations, valid versus conflicting overloads/overrides, per-database generation isolation, and release tracking before W3.
+
+### AAPI-99: Preserve And Document MariaDB Constructor Probe Timing
+
+**Accepted:** 2026-09-15. The existing [MariaDB provider constructor](../../../../src/DataLinq.MySql/MariaDB/MariaDBProvider.cs) invokes `DetectServerVersion`, executes `SELECT @@version`, sets public `IsMariaDbUuidSupported`, and catches failures with a false fallback. Preserve probe timing and fallback in this slice; do not silently remove it or defer it to the first query.
+
+Record MariaDB alongside AAPI-82's SQLite setup as a synchronous constructor-I/O exception. Later async application operations do not make construction nonblocking, and startup-validation cancellation cannot retrospectively cancel the earlier synchronous probe. Removing the eager probe/property behavior requires a separate deliberate cleanup proposal, even though the current repository has no other property references.
+
+**Owner/gate:** A10/H10, D10-1/D10-2; verify old/new constructor timing and version/failure property behavior, documented startup/cancellation limits, and no accidental probe removal during execution-options plumbing.
+
 ### OAPI-1: Task Versus ValueTask
 
 **Resolved:** 2026-08-30 by [AAPI-8](#aapi-8-valuetask-for-query-and-relation-results-key-lookup-and-disposal-task-otherwise), including its final framework-alignment revision. The OAPI identifier is retained for existing references. Public awaitable types are decided; performance, consumption, and compatibility verification remain part of implementation evidence.
@@ -1527,7 +1654,9 @@ Exact public accessors/overloads and compatibility remain under OAPI-7; provider
 
 **Remaining helper-boundary policies resolved:** 2026-09-15 by AAPI-82 through AAPI-90: synchronous construction/preparation and SQLite setup timing, explicit journal-mode/provisioning counterparts and provisioning failure/input capture, complete fluent read helpers with private execution state, disabled fluent mutation exclusions, public cache lookup, and synchronous maintenance/callbacks.
 
-OAPI-7 remains open for detailed failure-context fields/enums, execution-options construction compatibility, generated diagnostic identifiers, and the complete signature/compatibility audit. Verify every accepted counterpart and exclusion rather than treating the recorded policy as inventory/consumer evidence. Keep backend internals private and do not reopen accepted policy without an explicit revision. AAPI-74 through AAPI-81 settle backend boundaries and their evidence matrix; AAPI-82 through AAPI-90 classify the discussed smaller I/O helpers without proving the implementation audit complete.
+**Diagnostic/configuration and constructor policies resolved:** 2026-09-15 by AAPI-91 through AAPI-99: immutable diagnostic fields/access, independent classifications and completion outcomes, recovery flags, ordered secondary failures, compatible execution-options overloads/property, bounded captured duration, DLG004 and MariaDB constructor probe timing.
+
+OAPI-7 remains open for the consolidated signature inventory and compatibility/evidence audit, including exact expansions, enum numeric assignments and consumer verification. Verify every accepted counterpart and exclusion rather than treating recorded policy as implementation proof. Keep backend internals private and do not reopen accepted policy without an explicit revision. AAPI-74 through AAPI-99 settle the discussed backend/helper/diagnostic/configuration policies; concrete gaps or contradictions found during consolidation must be identified rather than silently resolved as new accepted contracts.
 
 **Owner/gate:** A10, D10-1; W0 audit, W3 ApiCompat and consumer-shaped compilation coverage.
 
@@ -1549,11 +1678,12 @@ Provider interruption, recovery feasibility, exact signatures and compatibility 
 
 OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, OAPI-5's mutation/callback contracts, OAPI-6's concurrency/cache policies, OAPI-8's navigation guidance, and OAPI-9's backend policies are resolved. OAPI-7's main policies are accepted under AAPI-42 through AAPI-72, backend boundaries under AAPI-74 through AAPI-81, and discussed helper counterparts/exclusions under AAPI-82 through AAPI-90; detailed diagnostic/configuration types and the complete inventory/compatibility audit remain open. Continue with:
 
-1. Discuss OAPI-7's detailed failure-context fields/enums, execution-options constructor compatibility and generated diagnostic identifiers. AAPI-82 through AAPI-90 settle the discussed smaller I/O helper counterparts/exclusions.
-2. Verify the complete accepted signature inventory and custom compatibility with consumer compilation, ApiCompat, deterministic runtime and provider evidence, including all helper counterparts/exclusions. Accepted policy does not replace implementation evidence before API freeze.
+1. Consolidate the accepted signatures, receiver/backend boundaries, compatibility requirements and unresolved exact expansions. AAPI-91 through AAPI-99 settle the discussed diagnostic/configuration details and additional MariaDB constructor I/O boundary.
+2. Verify the inventory with consumer compilation, ApiCompat, deterministic runtime and provider evidence, including all helper counterparts/exclusions. Raise further design questions only for concrete gaps or contradictions; accepted policy does not replace implementation evidence before API freeze.
 
 ## Required Exit Evidence
 
+- AAPI-91 through AAPI-99 evidence covers diagnostic namespace/immutable getters, direct-only accessor and snapshot/identity semantics, independent public enum mappings and numeric assignments, exact recovery flags, ordered defensive secondary failures and exception compatibility/privacy, preserved provider/base constructors and interface settings defaults, bounded pre-setup configuration capture, DLG004 binding/location/isolation/release tracking, and preserved MariaDB constructor probe timing/fallback. Consolidation remains distinct from packed-consumer/runtime proof.
 - AAPI-82 through AAPI-90 evidence covers local construction versus SQLite provider setup, journal-mode completion without effective-mode guarantees, explicit provisioning signatures/custom defaults and partial-creation/error/lifetime behavior, registration/input capture, complete fluent read helper results, private mutable-builder snapshots, disabled mutation exclusions, public canonical cache lookup, and synchronous maintenance/callback boundaries. Verify all source and compatibility details before claiming the inventory complete.
 - AAPI-73 through AAPI-81 evidence covers explicit navigation results/DTO boundaries without strict sync-I/O enforcement, Memory's existing query subset and narrow async lookup, retained prepared/navigation source exclusions and separate graph doubles, immediate completion/cooperative cancellation, explicit missing capability, SQLite phase-specific blocking/locking/cleanup, MySQL/MariaDB cancellation/trust/settings distinctions, and the backend/consumer matrix. Constructor/setup and administrative I/O remain explicitly inventoried under OAPI-7.
 - A complete signature inventory identifies receiver, result type, token position/default, backend support, ownership, and failure behavior.
@@ -1600,6 +1730,7 @@ These references explain the accepted conventions and dependency policy; they do
 - [Microsoft.Data.Sqlite async limitations](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/async) explain why a shared awaitable surface cannot promise nonblocking SQLite I/O.
 - [SQLite locking and timeout behavior](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/database-errors) supports AAPI-79's separation of busy/locked retries, command and implicit-command timeouts, and caller cancellation; operation-level verification remains required.
 - [SQLite journal-mode behavior](https://www.sqlite.org/pragma.html#pragma_journal_mode) supports AAPI-83's distinction between command completion and the effective mode, including in-memory restrictions. [MySQL DDL implicit commits](https://dev.mysql.com/doc/refman/8.4/en/implicit-commit.html) support AAPI-85's rejection of an atomic whole-script provisioning guarantee.
+- [.NET cancellation timer bounds](https://learn.microsoft.com/en-us/dotnet/api/system.threading.cancellationtokensource.cancelafter?view=net-10.0) and the [.NET 8 implementation](https://github.com/dotnet/runtime/blob/v8.0.0/src/libraries/System.Private.CoreLib/src/System/Threading/CancellationTokenSource.cs) support AAPI-97's bounded duration; [library compatibility guidance](https://learn.microsoft.com/en-us/dotnet/standard/library-guidance/breaking-changes) explains constructor binary signatures and overload ambiguity under AAPI-96.
 - [Microsoft cancellation guidance](https://devblogs.microsoft.com/premier-developer/recommended-patterns-for-cancellationtoken/) and [canceling an operation versus stopping the wait](https://devblogs.microsoft.com/dotnet/how-do-i-cancel-non-cancelable-async-operations/) support the consistency and resource-ownership boundaries in AAPI-23 through AAPI-25.
 - [MySqlConnector cancellation](https://mysqlconnector.net/overview/command-cancellation/) documents distinct cancellation/timeout mechanisms and connection consequences; verify the pinned provider's behavior rather than inferring transaction usability from the exception name alone.
 - [C# exception propagation through `finally`](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/statements#1311-the-try-statement) explains AAPI-25's scope-disposal limitation.
