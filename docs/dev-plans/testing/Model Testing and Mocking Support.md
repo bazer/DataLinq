@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for the release-local builder, relation, Memory-fixture, unit-of-work, and DI-helper subset; later testing slices remain unscheduled.
-**Last reviewed:** 2026-09-09.
+**Last reviewed:** 2026-09-14.
 **Dependency:** Queryable provider-like tests use the shipped capability-declared `DataLinq.Memory` preview rather than inventing a second LINQ-to-Objects provider; fake unit-of-work support follows the real 0.10 unit-of-work contract.
 **Goal:** Make DataLinq application code testable without a live database when the test is about business behavior, while preserving provider-backed tests for SQL translation, schema, transaction, and database-specific behavior.
 
@@ -306,6 +306,8 @@ Query-capable fixtures follow ordinary/prepared parameter-capture boundaries wit
 [AAPI-49 through AAPI-55](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-49-mirror-existing-key-lookup-families) own accepted key/relation contracts. Verify typed model/provider-key conversion and null-key parity separately from absence and execution failures. A minimal custom collection implements one async row primitive; shared defaults are acyclic, unsupported async capability fails explicitly, and public concrete test helpers expose members without recursive interface forwarding. Cover relation membership, duplicate primary keys, and consistent keyed results when separate calls cross invalidation. Preserve synchronous reference covariance through the invariant async capability; test required/optional/duplicate/capability failures, async overrides independent of synchronous property overrides, shared loader state, and generated DLG collision errors. No Memory-specific generated key overload or general provider SPI is implied.
 
 [AAPI-56 through AAPI-63](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-56-mirror-lower-level-execution-with-verified-async-capability) own lower-level execution/ownership and failure-access/configuration policy. Use controllable adapters/readers for capability rejection, genuine dispatch, borrowed command and current-row semantics, cleanup failures, raw/managed gating, and consuming attachment; collection doubles alone do not prove these. Fake unit-of-work helpers expose typed immutable failure snapshots with valid post-disposal recovery actions and inherit validated provider configuration where applicable, without live/global settings or deadline promises. Provider/host tests separately prove owning-root disposal order and actual rollback interruption/resource safety.
+
+[AAPI-64 through AAPI-72](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-64-async-existence-checks-preserve-their-distinct-probe-semantics) settle metadata/existence and main mutation/callback inventory. Metadata fixtures distinguish probes, failed options, cancellation, comparison results, and original operational errors; provider tests establish normalized database identity, no creation/repair, and lifetime/freshness limits. Mutation doubles follow existing families and finite collection insertion, typed generated bridges, independently owned source-less helpers, narrow nullable Save behavior, and unchanged-update read semantics. Provider callback fakes use untyped Transaction families and shared helper policies. These fixtures do not grant Memory SQL persistence, schema inspection, or unsupported backend capabilities.
 
 Synchronous subset of the reference-holder shape:
 

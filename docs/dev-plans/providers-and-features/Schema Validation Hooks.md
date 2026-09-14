@@ -5,9 +5,11 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for runtime/startup validation; MSBuild/build-time validation remains later work.
-**Last reviewed:** 2026-08-25.
+**Last reviewed:** 2026-09-14.
 **Dependency:** Runtime validation composes with the 0.10 DI/hosting package rather than introducing a competing startup abstraction.
 **Goal:** Let applications and builds explicitly validate DataLinq model metadata against live database schemas so schema drift is caught during development, CI, deployment, and application startup.
+
+**0.10 async contract:** [AAPI-64 through AAPI-67](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-64-async-existence-checks-preserve-their-distinct-probe-semantics) settle existence probes, live metadata async/Option behavior, runtime validation signatures and failure policy, and effective-source ownership/freshness. Async validation belongs in the first implementation, not only as reserved signatures. Capture configuration before suspension, propagate cancellation through metadata reading, and never return canceled or incomplete metadata as a successful comparison.
 
 **Related work:**
 
@@ -113,6 +115,14 @@ public abstract class Database<T>
 
     public void EnsureSchemaValid(
         Action<DataLinqSchemaValidationOptions>? configure = null);
+
+    public Task<DataLinqSchemaValidationResult> ValidateSchemaAsync(
+        Action<DataLinqSchemaValidationOptions>? configure = null,
+        CancellationToken cancellationToken = default);
+
+    public Task EnsureSchemaValidAsync(
+        Action<DataLinqSchemaValidationOptions>? configure = null,
+        CancellationToken cancellationToken = default);
 }
 ```
 
@@ -124,10 +134,17 @@ public static class DataLinqSchemaValidator
     public static DataLinqSchemaValidationResult Validate(
         IDatabaseProvider provider,
         DataLinqSchemaValidationOptions? options = null);
+
+    public static Task<DataLinqSchemaValidationResult> ValidateAsync(
+        IDatabaseProvider provider,
+        DataLinqSchemaValidationOptions? options = null,
+        CancellationToken cancellationToken = default);
 }
 ```
 
 ### 3.2. Runtime Validation Flow
+
+Invoke database configuration synchronously once, then capture effective options, including a copy of the include list, before suspension. The static helper likewise captures supplied options. `CommandTimeout` applies per metadata command; callers can bound the overall operation with their token, and hosting propagates startup cancellation. `RecoveryRollbackTimeout` is unrelated. Preserve genuine synchronous counterparts rather than sync-over-async wrappers.
 
 ```mermaid
 flowchart TD
@@ -169,6 +186,10 @@ PluginHook.MetadataFromSqlFactories[provider.DatabaseType]
 
 Implementation details will need to account for SQLite data-source normalization, provider-specific database name behavior, logging, and timeout plumbing. The point is not the exact call above; the point is that provider metadata readers should remain the only live schema readers.
 
+For async execution, AAPI-65 adds `ParseDatabaseAsync` with the same arguments, an optional final cancellation token, and `Task<Option<DatabaseDefinition, IDLOptionFailure>>`. Synchronous-only custom factories report unsupported async capability; built-in factories use actual async query/row execution where supported. Keep non-cancellation Option failures and their original exception objects, but cancellation must escape rather than being absorbed by `CatchAll`. Successful metadata is complete; local parsing/construction remains synchronous.
+
+AAPI-67 requires the provider's effective normalized database identity. Do not recreate a runtime provider or reconstruct an anonymous SQLite database from its original input string; preserve the existing named shared-memory identity and keep-alive ownership. Validation owns only its temporary resources, never implicitly joins an application's transaction, and must not create a missing database, alter journal settings, migrate, or repair. Each call reads fresh metadata, without claiming an atomic multi-query schema snapshot during concurrent DDL or adding retries/locks to suggest one. Existence probes are not substitutes for the actual metadata read.
+
 ### 3.4. Failure Policy
 
 Default policy should be strict enough to catch real breakage but not so strict that benign production metadata causes startup failure.
@@ -178,7 +199,7 @@ Recommended defaults:
 - fail on `SchemaDifferenceSeverity.Error`
 - warn/report `SchemaDifferenceSeverity.Warning`
 - omit or include `Info` by option
-- treat metadata read failures as validation failures
+- fail validation execution on operational metadata-read failures, preserving original provider exceptions where available; do not fabricate comparison differences from infrastructure errors
 - do not auto-create, auto-migrate, or auto-repair anything
 
 This means:
@@ -191,6 +212,8 @@ This means:
 - comments remain informational
 
 The exact classification should come from existing `SchemaDifferenceSeverity`; the runtime API should not maintain a separate severity table.
+
+Under AAPI-66, `ValidateSchemaAsync` returns a completed comparison with supported diagnostic issues; `EnsureSchemaValidAsync` throws `DataLinqSchemaValidationException` when that result fails the configured policy. Cancellation, connection failure, and command timeout remain operational failures. A failed metadata read is not evidence that a specific column differs.
 
 ## 4. Startup Hook
 
@@ -398,8 +421,7 @@ The source generator should continue validating model self-consistency. Live sch
 
 ## 8. Open Questions
 
-- Should `ValidateSchema()` be synchronous only for the first slice, matching the current provider access style, or should the public surface reserve async variants immediately?
+- Async validation and first-slice cancellation are resolved by AAPI-65/AAPI-66; exact implementation/provider evidence remains required.
 - Should the startup package live in the main runtime package or a separate hosting integration package?
 - Should MSBuild `FailOn=warning` map warnings to build errors, or should it emit warnings and rely on `TreatWarningsAsErrors`?
-- Should runtime validation support cancellation tokens in the first slice, or only command timeout?
 - Should startup validation run before or after application-specific migration tools, when both are registered?

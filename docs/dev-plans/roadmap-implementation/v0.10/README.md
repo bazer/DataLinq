@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-09.
+**Last reviewed:** 2026-09-14.
 
 **Prerequisite:** DataLinq 0.9.0 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
@@ -80,7 +80,9 @@ Acceptance summary:
 - key/generated/relation behavior follows AAPI-49 through AAPI-55: existing lookup families and typed normalization, one async collection primitive with acyclic defaults, concrete/custom compatibility, invariant async reference capability alongside synchronous covariance, and shared navigation state with explicit failures/diagnostics; consumer/runtime evidence remains required
 - lower-level execution/ownership follows AAPI-56 through AAPI-61: mirrored async families with verified provider capability, explicit reader/current-row and borrowed-resource lifetimes, raw/managed adapter safety without raw mutation tracking, consuming synchronous attachment, and owning-root async disposal
 - failure access/configuration follows AAPI-62/AAPI-63: typed immutable exception/transaction snapshots and positive finite provider-scoped RecoveryRollbackTimeout, with no automatic retry or total-disposal deadline
-- metadata/existence contracts and mutation/callback receiver/overload inventory still require OAPI-7 decisions; detailed accepted-signature, field/enum/constructor, compatibility, and runtime evidence remains required, and Memory/neutral-source capability remains under OAPI-9
+- metadata/existence behavior follows AAPI-64 through AAPI-67: distinct probes, async metadata Option/cancellation semantics, complete runtime validation with captured configuration, and fresh reads of the effective existing database without creation/repair or atomic-DDL promises
+- mutation/callback inventory follows AAPI-68 through AAPI-72: existing families and finite collection insertion, generated helper ownership, narrow nullable Save behavior, unchanged-update async reads, and untyped provider callbacks
+- OAPI-7 remains open for the complete smaller provider/helper I/O and signature/compatibility audit; accepted policies still require field/enum/constructor and runtime evidence. OAPI-8 guidance and OAPI-9 Memory/neutral-source capability/provider limits remain open
 
 Explicit non-goals:
 

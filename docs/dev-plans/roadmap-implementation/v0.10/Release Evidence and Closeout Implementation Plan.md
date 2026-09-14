@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-09.
+**Last reviewed:** 2026-09-14.
 
 **Depends on:** The required workstreams and gates in the [0.10 implementation roadmap](README.md) and [implementation order](Implementation%20Order%20and%20Integration%20Plan.md).
 
@@ -155,6 +155,15 @@ Required focused evidence:
 - AAPI-61 owning-root sync/async disposal dispatch and shared state, safe independent cleanup and secondary failures, dependency lifetime order, and container-created versus externally supplied resource ownership
 - AAPI-62 typed exception/transaction failure access, absent context, immutable old/new snapshots, valid recovery after implicit disposal, original exception identity/stack, secondary ordering, and no added live-resource/sensitive-payload retention
 - AAPI-63 provider construction/host options with preserved constructors, positive finite timer validation, immutable per-provider/helper inheritance, budget start at automatic rollback, no restarting retries, caller/recovery token distinction, and safe behavior after expiry
+- AAPI-64 database/provider probe signatures, validation/pre-cancellation, expected probe failures versus metadata-query exceptions, SQLite file/in-memory semantics, and no accidental database creation or subsequent-access guarantee
+- AAPI-65 metadata factory/default compatibility, native query/row dispatch, Option non-cancellation failures with original exception objects, cancellation escaping CatchAll, and complete live metadata without partial success
+- AAPI-66 database/static async validation signatures, completed comparisons and severity-policy exceptions versus operational failure, once-only configuration/include capture, per-command timeout, and overall/startup token propagation
+- AAPI-67 effective normalized server/SQLite identity and keep-alive ownership, no source-file parsing/provider recreation/implicit application transaction, no create/journal/migration side effects, fresh reads, and concurrent-DDL limitations
+- AAPI-68 exact database/transaction/extension mutation families and constraints/results, typed edits, transaction-type/token ordering, finite collection-insert preflight/order and empty input, without new batch families or async streams
+- AAPI-69 generated namespace/receiver binding, typed mutable bridges, pre-suspension source validation/capture, explicit versus independently owned source-less transactions, invalid origins, and no implicit Memory persistence or sync fallback
+- AAPI-70 narrow generic immutable/base-mutable Save null-means-new cases and nullable annotations, non-null direct/typed primitives, generated immutable update semantics, and typed-null/bare-null overload coverage
+- AAPI-71 unchanged update warm/cold result lookup, no unnecessary write, missing-result failure, native async reads, pre-cancellation, initialization/read recovery distinctions, and no stale immutable substitution
+- AAPI-72 four untyped provider callback families and typed database families, defaults and interface/base binding, shared helper recovery/result timing, generated source-less forwarding, and no Action/synchronous-result/ValueTask callback additions
 - packed .NET 8/9/10 consumers cover accepted query signatures, projections, nullability, optional/named tokens, EF Core coexistence, and standard async-LINQ resolution; keep signature approval separate from implementation/provider evidence
 - use controllable pauses at initialization, hydration, reader moves, callback completion, and cache publication rather than timing-dependent delays; exercise cleanup failures and measure coordination/versioning costs against W0
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families
@@ -209,6 +218,7 @@ Required focused evidence:
 - query-capable fixtures follow AAPI-42 through AAPI-48 provider rejection, supported expression/default/numeric semantics, and explicit local async composition; a LINQ-to-Objects IQueryable is not automatically a DataLinq async execution source
 - key/relation fixtures follow AAPI-49 through AAPI-55 normalization, primitive/default dispatch, membership/key consistency, covariance/capability, generated failure, and collision contracts; packed consumers and runtime/provider tests establish different parts of the evidence
 - lower-level/failure fixtures follow AAPI-56 through AAPI-63 capability, cursor/resource ownership, raw/managed gates, attachment/disposal, immutable context, and recovery-configuration contracts; use controllable providers and host tests for guarantees that collection doubles cannot establish
+- metadata/mutation fixtures follow AAPI-64 through AAPI-72 probe/Option/validation distinctions, effective-source ownership, finite insertion, generated helper lifetimes, nullable Save and unchanged-update behavior, and provider callbacks; actual provider/host evidence remains separate from in-memory fixture fidelity
 - DI replacement behavior for Memory, fake unit of work, and SQLite-in-memory provider tests
 
 ### Source Type Aliases

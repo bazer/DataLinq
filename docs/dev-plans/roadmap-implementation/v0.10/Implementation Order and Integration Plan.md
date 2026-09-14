@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-09.
+**Last reviewed:** 2026-09-14.
 
 **Authority:** The [0.10 implementation roadmap](README.md) owns release scope. This document owns dependency order, shared-contract decisions, merge gates, and stop rules.
 
@@ -58,6 +58,8 @@ Complete the audit and decide/test:
 - enforce AAPI-56 through AAPI-58: mirrored lower-level string/command/helper execution with verified async capability, the async reader companion, ephemeral current-row versus materialized results, and explicit owned/borrowed command/reader/connection lifetimes without arbitrary command cloning
 - enforce AAPI-59 through AAPI-61: shared raw/managed adapter execution gates without raw mutation tracking or inferred read-only SQL, consuming synchronous attachment, and async disposal on owning roots with explicit dependency/DI ownership
 - enforce AAPI-62/AAPI-63: typed immutable failure snapshots through exception access and Transaction.FailureContext, plus validated provider-scoped DataLinqExecutionOptions.RecoveryRollbackTimeout with preserved constructors and no global/live/per-operation timeout proliferation
+- enforce AAPI-64 through AAPI-67: distinct async probe/metadata semantics, cancellation outside metadata Option failures, complete runtime validation and captured configuration, effective database identity and owned resources, fresh metadata without hidden mutation or atomic-DDL promises
+- enforce AAPI-68 through AAPI-72: existing mutation/finite collection-insert families, generated typed bridges and independently owned source-less helpers, narrow nullable Save behavior, genuine async reads for unchanged updates, and untyped provider callbacks without overload/batch expansion
 
 Relation query composition is excluded from 0.10 under revised AAPI-10. Its [backlog proposal](../../query-and-runtime/Relation-Scoped%20Queries.md) creates no parser, test-helper query capability, or release-gate dependency here; existing database/transaction query roots remain in scope.
 
@@ -79,7 +81,7 @@ Implement and prove:
 - structured cause/stage/outcome/recovery/secondary-failure information for explicit and implicit helpers, preserving ordinary exception identity and provider codes
 - deterministic overlap/admission/recovery and cache invalidation/publication races under AAPI-34 through AAPI-41, including mixed sync/async execution, independent waiter cancellation, and cleanup failures without unsafe abandoned work
 
-OAPI-7's query/key/relation, lower-level execution/ownership, and failure-access/configuration policies are accepted under AAPI-42 through AAPI-63; complete their signature/consumer, generated-diagnostic, detailed field/enum/constructor, and compatibility evidence. Metadata/existence contracts and callback/mutation receiver/overload inventory remain open under OAPI-7. Provider-specific interruption/classification, Memory capability, and recovery-budget feasibility remain under OAPI-9 and W1/W2. AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, private ownership across awaits, and recovery of unfinished callback work. Private gate/versioning representations and cost remain implementation choices; preserve AAPI-28's exclusive mutable lifetime and AAPI-32's borrowed completion restrictions.
+OAPI-7's main policies are accepted under AAPI-42 through AAPI-72, including metadata/existence and mutation/callback families. The complete audit remains open: identify smaller provider/helper I/O counterparts or exclusions, and complete signature/consumer, generated-diagnostic, field/enum/constructor, and compatibility evidence. Provider-specific interruption/classification, Memory capability, and recovery-budget feasibility remain under OAPI-9 and W1/W2; OAPI-8 still owns synchronous-navigation guidance. AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, private ownership across awaits, and recovery of unfinished callback work. Private gate/versioning representations and cost remain implementation choices; preserve AAPI-28's exclusive mutable lifetime and AAPI-32's borrowed completion restrictions.
 
 Provider differences may be explicit, but they cannot become silent semantic drift.
 
@@ -105,7 +107,7 @@ Define one structured validation result and explicit policies for:
 - log warning and continue
 - disabled/no database access
 
-The host adapter consumes this result; it does not invent a second schema comparison model.
+The host adapter consumes this result; it does not invent a second schema comparison model. AAPI-64 through AAPI-67 settle async validation/probe contracts, configuration capture, operational failure versus schema differences, effective database identity, and fresh complete metadata without hidden creation/repair. Propagate startup cancellation, keep command timeout separate from a whole-operation token, and preserve provider/SQLite resource ownership.
 
 ### D10-5: Testing Fidelity Boundary
 
