@@ -1656,7 +1656,9 @@ Exact public accessors/overloads and compatibility remain under OAPI-7; provider
 
 **Diagnostic/configuration and constructor policies resolved:** 2026-09-15 by AAPI-91 through AAPI-99: immutable diagnostic fields/access, independent classifications and completion outcomes, recovery flags, ordered secondary failures, compatible execution-options overloads/property, bounded captured duration, DLG004 and MariaDB constructor probe timing.
 
-OAPI-7 remains open for the consolidated signature inventory and compatibility/evidence audit, including exact expansions, enum numeric assignments and consumer verification. Verify every accepted counterpart and exclusion rather than treating recorded policy as implementation proof. Keep backend internals private and do not reopen accepted policy without an explicit revision. AAPI-74 through AAPI-99 settle the discussed backend/helper/diagnostic/configuration policies; concrete gaps or contradictions found during consolidation must be identified rather than silently resolved as new accepted contracts.
+The first [signature inventory and compatibility matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md) is available. Its source audit identifies G01 raw model readers, G02 public provider-transaction completion, and G03 enum numeric assignments/options namespace as concrete unresolved questions. E01–E06 track exact declaration and integration expansions. These recommendations are not newly accepted decisions.
+
+OAPI-7 remains open for disposition of those findings and the compatibility/evidence audit. Verify every accepted counterpart and exclusion rather than treating recorded policy or consolidation as implementation proof. Keep backend internals private and do not reopen accepted policy without an explicit revision. AAPI-74 through AAPI-99 settle the discussed backend/helper/diagnostic/configuration policies; concrete gaps or contradictions must be identified rather than silently resolved as new accepted contracts.
 
 **Owner/gate:** A10, D10-1; W0 audit, W3 ApiCompat and consumer-shaped compilation coverage.
 
@@ -1676,10 +1678,10 @@ Provider interruption, recovery feasibility, exact signatures and compatibility 
 
 ## Recommended Decision Order
 
-OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, OAPI-5's mutation/callback contracts, OAPI-6's concurrency/cache policies, OAPI-8's navigation guidance, and OAPI-9's backend policies are resolved. OAPI-7's main policies are accepted under AAPI-42 through AAPI-72, backend boundaries under AAPI-74 through AAPI-81, and discussed helper counterparts/exclusions under AAPI-82 through AAPI-90; detailed diagnostic/configuration types and the complete inventory/compatibility audit remain open. Continue with:
+OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, OAPI-5's mutation/callback contracts, OAPI-6's concurrency/cache policies, OAPI-8's navigation guidance, and OAPI-9's backend policies are resolved. OAPI-7's main policies are accepted under AAPI-42 through AAPI-72, backend boundaries under AAPI-74 through AAPI-81, helper counterparts/exclusions under AAPI-82 through AAPI-90, and diagnostic/configuration details under AAPI-91 through AAPI-99. Continue with:
 
-1. Consolidate the accepted signatures, receiver/backend boundaries, compatibility requirements and unresolved exact expansions. AAPI-91 through AAPI-99 settle the discussed diagnostic/configuration details and additional MariaDB constructor I/O boundary.
-2. Verify the inventory with consumer compilation, ApiCompat, deterministic runtime and provider evidence, including all helper counterparts/exclusions. Raise further design questions only for concrete gaps or contradictions; accepted policy does not replace implementation evidence before API freeze.
+1. Review G01–G03 in the [consolidated inventory](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md#s10-concrete-questions-and-remaining-expansions), then finish E01–E06's exact declarations/integration work. The first inventory exists; its recommendations and pending evidence are not accepted or verified merely by inclusion.
+2. Establish W0/W1/W2 evidence and verify the implemented inventory in W3 with consumer compilation, ApiCompat, deterministic runtime and provider coverage. Raise further design questions only for concrete gaps or contradictions; accepted policy does not replace implementation evidence before API freeze.
 
 ## Required Exit Evidence
 

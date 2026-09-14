@@ -36,6 +36,8 @@ Durable design source: [Async and Lazy Loading](../../query-and-runtime/Async%20
 
 Accepted public API decisions and open signature questions: [Async Public API Decisions](Async%20Public%20API%20Decisions.md).
 
+Consolidated receiver/signature inventory, concrete audit questions, and pending consumer/backend checks: [Async Signature Inventory and Compatibility Matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md). This is a planning artifact, not an implemented API baseline.
+
 Required contract:
 
 - provider async APIs for SQLite, MySQL, and MariaDB, with native asynchronous I/O only where the underlying provider genuinely supports it and explicit SQLite limitations where it does not
@@ -87,7 +89,7 @@ Acceptance summary:
 - provider/evidence policy follows AAPI-79 through AAPI-81: SQLite operation-level blocking/locking/cancellation limits, MySQL/MariaDB connection and operation outcomes, separate timeout/recovery settings, and backend/packed-consumer evidence
 - helper boundaries follow AAPI-82 through AAPI-90: synchronous construction/preparation with documented SQLite setup, explicit journal-mode/provisioning execution without automatic creation/repair or atomicity/replay guarantees, complete fluent reads and private builder snapshots, disabled mutation exclusions, public canonical cache lookup, and synchronous maintenance/callbacks
 - diagnostic/configuration behavior follows AAPI-91 through AAPI-99: immutable typed failure snapshots and direct access, independent classification/outcome/recovery, ordered secondary exceptions, preserved constructors and provider settings defaults, bounded pre-setup capture, DLG004 and retained synchronous MariaDB constructor probing
-- OAPI-8/OAPI-9 and the discussed OAPI-7 helper/diagnostic/configuration policies are resolved; OAPI-7 remains open for consolidated exact signature expansions, enum numeric assignments and the complete compatibility/evidence audit. Accepted policies still require consumer, runtime and provider evidence; additional decisions require concrete audit findings
+- OAPI-8/OAPI-9 and the discussed OAPI-7 helper/diagnostic/configuration policies are resolved; the first consolidated inventory identifies G01 raw model readers, G02 public provider-transaction completion and G03 numeric assignments/options placement. OAPI-7 remains open for those decisions, E01–E06 declaration/integration expansions and the complete compatibility/evidence audit. Accepted policies still require consumer, runtime and provider evidence
 
 Explicit non-goals:
 
@@ -277,5 +279,6 @@ These are not stretch goals. They remain outside 0.10 until the roadmap is expli
 - [Development Roadmap](../../Roadmap.md)
 - [0.10 Implementation Order and Integration Plan](Implementation%20Order%20and%20Integration%20Plan.md)
 - [0.10 Async Public API Decisions](Async%20Public%20API%20Decisions.md)
+- [0.10 Async Signature Inventory and Compatibility Matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md)
 - [0.10 Release Evidence and Closeout Implementation Plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 - [DataLinq 0.9 Implementation Roadmap](../v0.9/README.md)

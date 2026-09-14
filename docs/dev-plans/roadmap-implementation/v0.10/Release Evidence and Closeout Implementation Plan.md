@@ -96,6 +96,7 @@ Acceptance:
 Required focused evidence:
 
 - the accepted [public API decisions](Async%20Public%20API%20Decisions.md), with unresolved signature/failure questions settled before W3
+- the [signature inventory and compatibility matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md), with G01–G03 dispositioned, E01–E06 expanded, B01–B16 supplied with actual consumer/compatibility evidence, and applicable S9 backend cells verified; the initial source/document audit is not completion of W0 or any runtime gate
 - no database I/O during transaction construction or unused disposal; first-use initialization follows the selected sync/async operation and its token
 - token-free and token-supplied consumer calls, sequential sync/async mixing, and both synchronous and asynchronous disposal
 - generated `<PropertyName>Async` single-reference methods bypass synchronous getters and preserve cache/nullability/source behavior
