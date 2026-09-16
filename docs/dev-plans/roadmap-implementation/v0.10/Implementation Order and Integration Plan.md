@@ -346,6 +346,8 @@ Exit gate: all requirements in the [release evidence plan](Release%20Evidence%20
 
 ## Merge Rules
 
+The accepted [branch, PR and benchmark workflow](Branch%20PR%20and%20Benchmark%20Workflow.md) defines `v0.10` integration, feature PRs, stable fixes, CI/protection, release promotion and the rolling website development benchmark series.
+
 1. Each change names its owning workstream and gate.
 2. Shared contract changes include focused tests in the same change.
 3. Provider changes preserve the other providers or land behind an internal unused seam until parity is ready.

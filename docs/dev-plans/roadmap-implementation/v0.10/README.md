@@ -21,6 +21,8 @@ The release is successful when an ordinary ASP.NET Core or Generic Host applicat
 
 ## Scope Policy
 
+Development follows the accepted [branch, PR and benchmark workflow](Branch%20PR%20and%20Benchmark%20Workflow.md): a protected `v0.10` integration branch, small feature PRs and a separately identified development performance line on the website.
+
 Every workstream in this document is required. There is no stretch-goal section and no automatic rule that completed work creates room for another feature.
 
 Adding scope requires all of the following before implementation:
