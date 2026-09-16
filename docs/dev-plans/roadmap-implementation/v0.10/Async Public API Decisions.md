@@ -1651,6 +1651,83 @@ Zero classification expresses missing evidence. In particular, a default complet
 **Owner/gate:** A10 with H10/T10 consultation, D10-1; verify exact namespaces, enum names/underlying values, defaults/flags, consumer baselines and compatibility. Numeric assignment does not prove actual provider failure classification.
 
 
+### AAPI-103: Exact Generic Query Min And Max Declarations
+
+**Accepted:** 2026-09-16. Resolves inventory E01's declaration choice. On `DataLinq.Linq.DataLinqAsyncQueryableExtensions`, expose exactly one selector-based generic overload per operator:
+
+~~~csharp
+public static ValueTask<TResult?> MinAsync<TSource, TResult>(
+    this IQueryable<TSource> source,
+    Expression<Func<TSource, TResult>> selector,
+    CancellationToken cancellationToken = default);
+public static ValueTask<TResult?> MaxAsync<TSource, TResult>(
+    this IQueryable<TSource> source,
+    Expression<Func<TSource, TResult>> selector,
+    CancellationToken cancellationToken = default);
+~~~
+
+Do not add `class`, `struct`, `notnull` or comparable constraints. Unconstrained `TResult?` means an `int` selector produces `ValueTask<int>`, `int?` produces `ValueTask<int?>` and `string` produces `ValueTask<string?>`. These annotations do not grant unsupported SQL translation. Retain direct-numeric-column and converter-backed-column restrictions, existing backend capability checks, and original conversion/empty-result behavior.
+
+Do not add separate nullable-generic, selector-free or comparer overloads. Empty non-nullable numeric Min/Max fails; nullable empty/all-null results remain null. Preserve genuine provider execution, never an implicit local fallback.
+
+**Owner/gate:** A10, D10-1/D10-2; packed .NET 8/9/10 consumers verify inference, nullable metadata and token binding; provider evidence verifies admitted/rejected selectors, empty/all-null results, numeric conversion and sync/async parity. The isolated language probe in the [inventory](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md#declaration-review-e01e03) is not product verification.
+
+### AAPI-104: Complete Direct Relation Terminal And Reduction Overloads
+
+**Accepted:** 2026-09-16. Resolves inventory E02's declaration choices. On `IImmutableRelation<T> where T : IModelInstance`, provide predicate-free and `Func<T, bool> predicate` forms for `FirstAsync`, `FirstOrDefaultAsync`, `SingleAsync`, `SingleOrDefaultAsync`, `LastAsync`, `LastOrDefaultAsync`, `AnyAsync` and `CountAsync`. Every form has the optional final cancellation token. Retain AAPI-8's result shapes and accurate nullability.
+
+Provide ten `SumAsync(Func<T, N> selector, ct)` and ten `AverageAsync(Func<T, N> selector, ct)` overloads, expanding each row below and its nullable counterpart. `N` and `ct` are inventory notation, not a new generic numeric parameter or a different token name.
+
+| Selector type | Sum result | Average result |
+| --- | --- | --- |
+| `int` / `int?` | `ValueTask<int>` / `ValueTask<int?>` | `ValueTask<double>` / `ValueTask<double?>` |
+| `long` / `long?` | `ValueTask<long>` / `ValueTask<long?>` | `ValueTask<double>` / `ValueTask<double?>` |
+| `float` / `float?` | `ValueTask<float>` / `ValueTask<float?>` | `ValueTask<float>` / `ValueTask<float?>` |
+| `double` / `double?` | `ValueTask<double>` / `ValueTask<double?>` | `ValueTask<double>` / `ValueTask<double?>` |
+| `decimal` / `decimal?` | `ValueTask<decimal>` / `ValueTask<decimal?>` | `ValueTask<decimal>` / `ValueTask<decimal?>` |
+
+Use these generic local extrema forms:
+
+~~~csharp
+ValueTask<TResult?> MinAsync<TResult>(
+    Func<T, TResult> selector,
+    CancellationToken cancellationToken = default);
+ValueTask<TResult?> MaxAsync<TResult>(
+    Func<T, TResult> selector,
+    CancellationToken cancellationToken = default);
+~~~
+
+Defaults project local values over the genuine async row source and use standard async LINQ. Forward cancellation deliberately; standard sequence Min/Max accepts an optional comparer before cancellation, so the shared default uses `MinAsync(cancellationToken: cancellationToken)` after `Select(selector)`.
+
+Local model-value comparison does not use SQL translation or inherit its converter-backed-column rejection. Unsupported local comparison fails normally. Preserve standard numeric/overflow/floating-point behavior: nullable empty/all-null Sum is zero; nullable Average/Min/Max returns null without a non-null value; non-nullable empty Average/Min/Max throws; integer Average returns double.
+
+Do not add direct relation comparer, selector-free aggregate, asynchronous-selector, predicate-specific materializer, `AllAsync` or `LongCountAsync` members. Existing materializers remain predicate-free, with richer local composition available after the explicit async view. Built-ins and public test helpers expose the members deliberately; retain acyclic defaults, override dispatch and resource ownership under AAPI-51 through AAPI-53.
+
+**Owner/gate:** A10 with T10 consultation, D10-1/D10-2; verify every declared overload, interface/concrete/custom dispatch, numeric/nullable behavior, local versus provider restrictions, cancellation and reader cleanup. Framework behavior checked in isolation does not prove the DataLinq defaults.
+
+### AAPI-105: Provider Interface Disposal Implements The Inherited Slot
+
+**Accepted:** 2026-09-16. Resolves inventory E03's provider-interface disposal declaration. Extend `DataLinq.Interfaces.IDatabaseProvider` to inherit `IDisposable` and `IAsyncDisposable`, supplying an explicit default for the inherited async-disposal member:
+
+~~~csharp
+public interface IDatabaseProvider : IDisposable, IAsyncDisposable
+{
+    // Existing members and the accepted ExecutionOptions default remain.
+    ValueTask IAsyncDisposable.DisposeAsync() =>
+        ValueTask.FromException(new NotSupportedException(
+            "This provider does not implement asynchronous disposal."));
+}
+~~~
+
+Do not redeclare a separate `new ValueTask DisposeAsync()` member: that does not implement the inherited slot. Keep public virtual `DisposeAsync()` on `DatabaseProvider` with an unsupported legacy default and actual built-in overrides. Existing explicit/public class implementations retain ordinary dispatch. No recursive cast-and-forward shim or new `IAsyncDatabaseProvider` interface is needed.
+
+Unsupported async disposal neither invokes synchronous database cleanup nor marks the provider disposed. Synchronous cleanup remains available when the caller deliberately chooses that path. Purely local built-in cleanup may complete immediately; accepted shared disposal state, lifetime ordering, exception precedence and no-root-draining boundaries remain unchanged.
+
+Retain the standard-settings interface getter and compatible constructor policy. Verify base/concrete/interface settings and disposal dispatch rather than assuming a default body proves binary compatibility. C02's constructor expansion and the full package/consumer matrix still require evidence.
+
+**Owner/gate:** A10 with H10/T10 consultation, D10-1/D10-2; old-source and old-binary consumers, generic/nongeneric interface receivers, base/concrete overrides, unsupported defaults, options dispatch and real cleanup. The isolated .NET 10 probe is limited language/framework evidence; .NET 8/9, packed consumers and provider verification remain pending.
+
+
 ### OAPI-1: Task Versus ValueTask
 
 **Resolved:** 2026-08-30 by [AAPI-8](#aapi-8-valuetask-for-query-and-relation-results-key-lookup-and-disposal-task-otherwise), including its final framework-alignment revision. The OAPI identifier is retained for existing references. Public awaitable types are decided; performance, consumption, and compatibility verification remain part of implementation evidence.
@@ -1717,9 +1794,9 @@ Exact public accessors/overloads and compatibility remain under OAPI-7; provider
 
 **Diagnostic/configuration and constructor policies resolved:** 2026-09-15 by AAPI-91 through AAPI-99: immutable diagnostic fields/access, independent classifications and completion outcomes, recovery flags, ordered secondary failures, compatible execution-options overloads/property, bounded captured duration, DLG004 and MariaDB constructor probe timing.
 
-The [signature inventory and compatibility matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md) is available. Its G01 raw model readers, G02 public provider-transaction completion, and G03 enum numeric assignments/options namespace are resolved by AAPI-100 through AAPI-102 on 2026-09-16. E01–E06 still track exact declaration and integration expansions; their recommendations are not approved merely by inclusion.
+The [signature inventory and compatibility matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md) is available. Its G01–G03 are resolved by AAPI-100 through AAPI-102. E01–E03's query extrema, relation overload and provider-interface disposal declarations are accepted under AAPI-103 through AAPI-105 on 2026-09-16; product compatibility and runtime evidence remain pending. E04–E06 retain runtime-validation integration, package selection and compiled-manifest work; their recommendations are not approved merely by inclusion.
 
-OAPI-7 remains open for E01–E06 and the compatibility/evidence audit. Verify every accepted counterpart and exclusion rather than treating recorded policy or consolidation as implementation proof. Keep backend internals private and do not reopen accepted policy without an explicit revision. AAPI-74 through AAPI-102 settle the discussed backend/helper/diagnostic/configuration policies and the first consolidation's gaps; additional concrete gaps or contradictions must be identified rather than silently resolved as new accepted contracts.
+OAPI-7 remains open for E04–E06 and the compatibility/evidence audit, including product verification of E01–E03. Verify every accepted counterpart and exclusion rather than treating recorded policy or consolidation as implementation proof. Keep backend internals private and do not reopen accepted policy without an explicit revision. AAPI-74 through AAPI-105 settle the discussed backend/helper/diagnostic/configuration policies and declaration findings; additional concrete gaps or contradictions must be identified rather than silently resolved as new accepted contracts.
 
 **Owner/gate:** A10, D10-1; W0 audit, W3 ApiCompat and consumer-shaped compilation coverage.
 
@@ -1741,11 +1818,12 @@ Provider interruption, recovery feasibility, exact signatures and compatibility 
 
 OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, OAPI-5's mutation/callback contracts, OAPI-6's concurrency/cache policies, OAPI-8's navigation guidance, and OAPI-9's backend policies are resolved. OAPI-7's main policies are accepted under AAPI-42 through AAPI-72, backend boundaries under AAPI-74 through AAPI-81, helper counterparts/exclusions under AAPI-82 through AAPI-90, and diagnostic/configuration details under AAPI-91 through AAPI-99. Continue with:
 
-1. G01–G03 are accepted under AAPI-100 through AAPI-102. Continue with E01–E03's aggregate/relation declarations and provider-interface disposal in the [consolidated inventory](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md#s10-concrete-questions-and-remaining-expansions); E04–E06 retain runtime-validation integration, package selection and compiled-manifest work. Pending recommendations and evidence are not accepted or verified merely by inclusion.
+1. G01–G03 and E01–E03's declaration choices are accepted under AAPI-100 through AAPI-105. Continue with E04–E06's runtime-validation supporting API, async-LINQ package selection and compiled-manifest/baseline work in the [consolidated inventory](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md#s10-concrete-questions-and-remaining-expansions). Pending recommendations and evidence are not accepted or verified merely by inclusion.
 2. Establish W0/W1/W2 evidence and verify the implemented inventory in W3 with consumer compilation, ApiCompat, deterministic runtime and provider coverage. Raise further design questions only for concrete gaps or contradictions; accepted policy does not replace implementation evidence before API freeze.
 
 ## Required Exit Evidence
 
+- AAPI-103 through AAPI-105 evidence covers exact generic query Min/Max nullable declarations without new translation, the full local relation terminal/numeric overload list and framework semantics, inherited provider-interface disposal-slot implementation and base/concrete/legacy dispatch. Keep isolated language checks distinct from packed .NET 8/9/10, ApiCompat and real-provider evidence.
 - AAPI-100 through AAPI-102 evidence covers raw model reader signatures and legacy subclasses, provider-transaction virtual completion/disposal and managed ownership boundaries, exact diagnostic enum assignments and the DataLinq execution-options namespace. Source/consumer compatibility and provider behavior still require proof after policy acceptance.
 - AAPI-91 through AAPI-99 evidence covers diagnostic namespace/immutable getters, direct-only accessor and snapshot/identity semantics, independent public enum mappings and numeric assignments, exact recovery flags, ordered defensive secondary failures and exception compatibility/privacy, preserved provider/base constructors and interface settings defaults, bounded pre-setup configuration capture, DLG004 binding/location/isolation/release tracking, and preserved MariaDB constructor probe timing/fallback. Consolidation remains distinct from packed-consumer/runtime proof.
 - AAPI-82 through AAPI-90 evidence covers local construction versus SQLite provider setup, journal-mode completion without effective-mode guarantees, explicit provisioning signatures/custom defaults and partial-creation/error/lifetime behavior, registration/input capture, complete fluent read helper results, private mutable-builder snapshots, disabled mutation exclusions, public canonical cache lookup, and synchronous maintenance/callback boundaries. Verify all source and compatibility details before claiming the inventory complete.

@@ -317,6 +317,8 @@ Query-capable fixtures follow ordinary/prepared parameter-capture boundaries wit
 
 [AAPI-100 through AAPI-102](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-100-async-raw-model-readers-follow-the-existing-class-hierarchy) add raw model reader and provider-transaction completion coverage for base/concrete/legacy subclass receivers, unsupported defaults without synchronous I/O, and the managed ownership boundary. Freeze exact diagnostic enum numbers and the DataLinq execution-options namespace in consumer/API baselines; zero classification remains Unknown. These accepted contracts do not replace reader-lifetime, materialization, cancellation or real-provider evidence.
 
+[AAPI-103 through AAPI-105](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-103-exact-generic-query-min-and-max-declarations) pin query extrema nullability, the complete direct local relation predicate/reduction overload list, and inherited provider-interface async-disposal defaults with base/concrete overrides. Testing helpers expose the actual relation members and preserve local numeric/comparison/empty semantics. Verify unsupported legacy disposal without synchronous cleanup or disposed-state changes. The existing isolated .NET 10 declaration probe does not prove the DataLinq implementation or .NET 8/9 consumers.
+
 Synchronous subset of the reference-holder shape:
 
 ```csharp

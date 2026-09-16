@@ -90,7 +90,8 @@ Acceptance summary:
 - helper boundaries follow AAPI-82 through AAPI-90: synchronous construction/preparation with documented SQLite setup, explicit journal-mode/provisioning execution without automatic creation/repair or atomicity/replay guarantees, complete fluent reads and private builder snapshots, disabled mutation exclusions, public canonical cache lookup, and synchronous maintenance/callbacks
 - diagnostic/configuration behavior follows AAPI-91 through AAPI-99: immutable typed failure snapshots and direct access, independent classification/outcome/recovery, ordered secondary exceptions, preserved constructors and provider settings defaults, bounded pre-setup capture, DLG004 and retained synchronous MariaDB constructor probing
 - AAPI-100 through AAPI-102 resolve inventory G01–G03: raw model readers on the existing class hierarchy, public provider-transaction async completion with legacy defaults and managed ownership boundaries, fixed diagnostic enum values with Unknown = 0, and DataLinq execution-options placement
-- OAPI-8/OAPI-9 and the discussed OAPI-7 policies and first audit findings are resolved. OAPI-7 remains open for E01–E06 declaration/integration expansions and the complete compatibility/evidence audit. Accepted policies still require consumer, runtime and provider evidence
+- AAPI-103 through AAPI-105 settle generic query Min/Max declarations, the direct local relation predicate/numeric overload list, and provider-interface inherited async-disposal defaults with public virtual base/concrete dispatch
+- OAPI-8/OAPI-9 and the discussed OAPI-7 policies and declaration findings are resolved. OAPI-7 remains open for E04–E06 validation/package/manifest work and the complete compatibility/evidence audit, including actual verification of E01–E03. Accepted policies still require consumer, runtime and provider evidence
 
 Explicit non-goals:
 

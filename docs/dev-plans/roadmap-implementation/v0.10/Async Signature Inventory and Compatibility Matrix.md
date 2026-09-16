@@ -3,13 +3,13 @@
 
 # 0.10 Async Signature Inventory And Compatibility Matrix
 
-**Status:** Consolidation of AAPI-1 through AAPI-102. G01–G03 are accepted; declaration/integration expansions and evidence remain open.
+**Status:** Consolidation of AAPI-1 through AAPI-105. G01–G03 and E01–E03 declaration policies are accepted; E04–E06 and product evidence remain open.
 
 **Target:** 0.10 / A10, with H10, V10 and T10 integration.
 
 **Last reviewed:** 2026-09-16.
 
-**Source audit baseline:** `8bf318cc`. The runtime sources examined below still describe the synchronous baseline. AAPI-100 through AAPI-102 were accepted on 2026-09-16; accepting them does not implement the target members.
+**Source audit baseline:** `543ae329`. The runtime sources examined below still describe the synchronous baseline. AAPI-100 through AAPI-105 were accepted on 2026-09-16; accepting them does not implement the target members.
 
 **Authority:** [Async Public API Decisions](Async%20Public%20API%20Decisions.md) owns accepted contracts. This inventory expands and cross-checks them against source; it cannot silently approve a new API or compatibility break. [Implementation Order](Implementation%20Order%20and%20Integration%20Plan.md) owns sequencing and [Release Evidence](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md) owns exit gates.
 
@@ -42,7 +42,7 @@ Place query extensions on `DataLinq.Linq.DataLinqAsyncQueryableExtensions`. Ever
 | Q07 | `CountAsync<T>` | `ValueTask<int>` | Same two forms |
 | Q08 | `SumAsync<T>(Expression<Func<T, N>> selector, ct)` | `ValueTask<N>` | Ten numeric forms below; `N` is table notation, not a generic arithmetic type |
 | Q09 | `AverageAsync<T>(Expression<Func<T, N>> selector, ct)` | `ValueTask<A>` | Ten numeric forms below |
-| Q10 | `MinAsync<T, TResult>(Expression<Func<T, TResult>> selector, ct)`; corresponding `MaxAsync` | `ValueTask<TResult?>` | Expansion: nullable annotation and generic binding require E01 |
+| Q10 | `MinAsync<TSource, TResult>(Expression<Func<TSource, TResult>> selector, ct)`; corresponding `MaxAsync` | `ValueTask<TResult?>` | Exact unconstrained declaration accepted by AAPI-103/E01; receiver is `IQueryable<TSource>` |
 
 For Q08/Q09, expand each row and its nullable counterpart into an actual overload:
 
@@ -81,7 +81,7 @@ Accepted target: AAPI-5/AAPI-9/AAPI-11 through AAPI-20, AAPI-39 through AAPI-41,
 | R06 | `ToFrozenDictionaryAsync(ct)` | `ValueTask<FrozenDictionary<DataLinqKey, T>>` |
 | R07 | `ToListAsync(ct)` / `ToArrayAsync(ct)` | `ValueTask<List<T>>` / `ValueTask<T[]>` |
 | R08 | Six element terminals, `AnyAsync` and `CountAsync` | Same result families as Q04–Q07; predicate forms use `Func<T, bool>` |
-| R09 | Supported selector reductions | Expansion E02 pins the local `Func` overload list; no provider expressions or relation-query conversion |
+| R09 | Selector reductions | AAPI-104/E02: ten local `Func` Sum forms, ten Average forms, generic selector Min/Max; no provider expressions or relation-query conversion |
 | R10 | `AsKeyValuePairs()` | Synchronous approved rename of keyed `AsEnumerable()`; no `AsKeyValuePairsAsync` |
 
 R02–R09 have overridable shared defaults over genuine async execution. Dependency direction: row view → completed values → keyed result → key lookup/accessors. Row terminals/materializers/reductions consume the async row view directly. Built-ins may optimize without reading synchronous getters after awaiting.
@@ -133,7 +133,7 @@ For the core mutation table, `M : class, IImmutableInstance` and `TMutable : Mut
 | M08 | `DataLinq.IModelExtensions` | `Task<M> InsertAsync<M>(this Mutable<M> model, Transaction transaction)`; corresponding `UpdateAsync` and `SaveAsync` |
 | M09 | Same extension class | `Task DeleteAsync<M>(this M model) where M : IImmutableInstance`; `Task DeleteAsync<M>(this M model, Transaction transaction) where M : IModelInstance` |
 | T01 | `Transaction`, inherited by `Transaction<D>` | `Task CommitAsync(ct)`; `Task RollbackAsync(ct)`; `ValueTask DisposeAsync()` |
-| T02 | Owning `Database<D>` / provider roots | `ValueTask DisposeAsync()` through `IAsyncDisposable`; old/custom dispatch still needs E03 |
+| T02 | Owning `Database<D>` / provider roots | `ValueTask DisposeAsync()` through `IAsyncDisposable`; AAPI-105/E03 fixes interface/default placement; old/custom product evidence remains pending |
 | T03 | `Database<D>` | Four `CommitAsync` callback forms using `Transaction<D>` below |
 | T04 | `IDatabaseProvider` / `DatabaseProvider` | Same four forms using untyped `Transaction`; no competing typed generic-provider family |
 | T05 | `DataLinq.DatabaseTransaction` | Public virtual `Task CommitAsync(ct)`, `Task RollbackAsync(ct)`, `ValueTask DisposeAsync()`; unsupported legacy defaults and built-in overrides under AAPI-101 |
@@ -395,7 +395,7 @@ Use existing [Memory row-plan validation](../../../../src/DataLinq.Memory/Memory
 
 ## S10: Concrete Questions And Remaining Expansions
 
-G01–G03 are **resolved by AAPI-100 through AAPI-102 on 2026-09-16**. E01–E06 remain declaration/integration work; recommendations there are not accepted merely by inclusion.
+G01–G03 are **resolved by AAPI-100 through AAPI-102**, and E01–E03's declaration policies by **AAPI-103 through AAPI-105**, on 2026-09-16. E04–E06 remain integration/manifest work; recommendations there are not accepted merely by inclusion. Product verification remains pending for all families.
 
 ### G01: Raw Model Reader Counterparts
 
@@ -425,20 +425,20 @@ AAPI-92/AAPI-93 name enums but do not assign numbers; AAPI-63/AAPI-96 do not cho
 
 | ID | Remaining work | Recommendation / gate |
 | --- | --- | --- |
-| E01 | Exact generic Min/Max nullable declarations | Compile Q10 against reference/value/nullable projections and preserve supported runtime semantics; do not add numeric/custom-type translation |
-| E02 | Exact relation reduction list | Expand local selector-based Sum/Average into the same ten numeric shapes, and generic Min/Max with local `Func` selectors; row predicates remain local `Func<T, bool>`. Review empty/null semantics and avoid unrelated LINQ operators |
-| E03 | Interface/base disposal and options dispatch | Verify T02/C02 on old implementers/subclasses. Keep concrete `DisposeAsync` visible and never make a default call synchronous database cleanup. Settle exact `IDatabaseProvider` inheritance/member implementation before W3 |
+| E01 | Accepted declaration; product evidence pending | AAPI-103 fixes generic Min/Max and nullable results; compile Q10 against actual reference/value/nullable consumers and verify supported runtime semantics |
+| E02 | Accepted declarations; product evidence pending | AAPI-104 fixes the direct local predicate/numeric/generic extrema list; verify full emitted overloads and actual shared defaults |
+| E03 | Accepted disposal declaration; product evidence pending | AAPI-105 fixes inherited `IAsyncDisposable` slot/default and public virtual base/concrete dispatch; verify old implementers/subclasses, options and C02 constructors |
 | E04 | New runtime validation supporting API | D10-4 owns package, namespace and full options/result/exception declarations; the existing Tools/CLI validator is not proof those runtime types exist |
 | E05 | Async LINQ package version | Select and pin a compatible version at implementation; verify actual packed dependency groups and consumer resolution, not only a project reference |
-| E06 | Full emitted signature manifest | Expand table notation into compiled public API baselines, generated fixtures and C02 declarations, including accepted AAPI-100 through AAPI-102; track every accepted/excluded receiver and approved break |
+| E06 | Full emitted signature manifest | Expand table notation into compiled public API baselines, generated fixtures and C02 declarations, including accepted AAPI-100 through AAPI-105; track every accepted/excluded receiver and approved break |
 
-G01/G02's public I/O boundaries and G03's constants/placement are accepted. E01–E06 turn accepted policy into exact compilation and integration evidence; they must not be relabeled as completed because this document exists.
+G01/G02's public I/O boundaries, G03's constants/placement and E01–E03's declaration policies are accepted. E04–E06 remain design/integration work. No item is product-verified merely because this document exists.
 
 ### Declaration Review: E01–E03
 
-**Reviewed:** 2026-09-16. The following are recommendations for the next decision batch, not newly accepted AAPI contracts. The isolated checks below do not change the pending product evidence matrix.
+**Accepted:** 2026-09-16 under AAPI-103 through AAPI-105. The isolated checks below do not change the pending product evidence matrix.
 
-**E01 — Pin generic Min/Max declarations and nullable results.** Recommend exactly one selector-based generic signature per operator on `DataLinqAsyncQueryableExtensions`, with no `class`, `struct`, `notnull` or comparable constraint:
+**E01 — Generic Min/Max declarations and nullable results (AAPI-103).** Use exactly one selector-based generic signature per operator on `DataLinqAsyncQueryableExtensions`, with no `class`, `struct`, `notnull` or comparable constraint:
 
 ~~~csharp
 public static ValueTask<TResult?> MinAsync<TSource, TResult>(
@@ -448,13 +448,13 @@ public static ValueTask<TResult?> MinAsync<TSource, TResult>(
 // MaxAsync has the identical generic/parameter/result shape.
 ~~~
 
-The proposed annotations follow the [Queryable selector form](https://learn.microsoft.com/en-us/dotnet/api/system.linq.queryable.min?view=net-10.0). Unconstrained `TResult?` preserves `ValueTask<int>` for an `int` selector, `ValueTask<int?>` for `int?`, and `ValueTask<string?>` for `string`. Type-checking a string selector does not grant SQL translation: the current DataLinq validator admits direct numeric columns and rejects converter-backed columns and unsupported shapes.
+The accepted annotations follow the [Queryable selector form](https://learn.microsoft.com/en-us/dotnet/api/system.linq.queryable.min?view=net-10.0). Unconstrained `TResult?` preserves `ValueTask<int>` for an `int` selector, `ValueTask<int?>` for `int?`, and `ValueTask<string?>` for `string`. Type-checking a string selector does not grant SQL translation: the current DataLinq validator admits direct numeric columns and rejects converter-backed columns and unsupported shapes.
 
 Do not add separate nullable-generic overloads or comparer/selector-free forms. Empty non-nullable numeric Min/Max fails; nullable empty/all-null results remain null. Product tests must verify sync/async parity and actual provider conversion/empty-result behavior, rather than routing these calls through local LINQ.
 
-**E02 — Pin direct relation terminal overloads.** Recommend R08's full two-form expansion for `FirstAsync`, `FirstOrDefaultAsync`, `SingleAsync`, `SingleOrDefaultAsync`, `LastAsync`, `LastOrDefaultAsync`, `AnyAsync` and `CountAsync`: `(ct)` and `(Func<T, bool> predicate, ct)`. Materializers remain predicate-free; compose the async row view for more elaborate local pipelines.
+**E02 — Direct relation terminal overloads (AAPI-104).** Use R08's full two-form expansion for `FirstAsync`, `FirstOrDefaultAsync`, `SingleAsync`, `SingleOrDefaultAsync`, `LastAsync`, `LastOrDefaultAsync`, `AnyAsync` and `CountAsync`: `(ct)` and `(Func<T, bool> predicate, ct)`. Materializers remain predicate-free; compose the async row view for more elaborate local pipelines.
 
-For R09, recommend ten `SumAsync(Func<T, N> selector, ct)` and ten `AverageAsync(Func<T, N> selector, ct)` overloads using S1's five numeric types plus nullable counterparts and the same result mapping. Add only these generic extrema forms:
+For R09, use ten `SumAsync(Func<T, N> selector, ct)` and ten `AverageAsync(Func<T, N> selector, ct)` overloads using S1's five numeric types plus nullable counterparts and the same result mapping. Add only these generic extrema forms:
 
 ~~~csharp
 ValueTask<TResult?> MinAsync<TResult>(
@@ -478,7 +478,7 @@ return await relation.AsAsyncEnumerable(cancellationToken)
 
 A nullable Sum of an empty/all-null sequence is zero; nullable Average/Min/Max return null when no non-null value exists. Non-nullable Average/Min/Max on empty input throw. Integer Average returns double. Preserve standard local comparison, numeric/overflow and floating-point behavior; do not infer SQL execution or extra provider support from the local contract. Built-ins/test helpers expose these members explicitly, while interface defaults remain acyclic under AAPI-51 through AAPI-53.
 
-**E03 — Implement the inherited disposal slot deliberately.** Recommend `IDatabaseProvider : IDisposable, IAsyncDisposable` with an explicit default implementation of the inherited slot:
+**E03 — Inherited disposal slot (AAPI-105).** Use `IDatabaseProvider : IDisposable, IAsyncDisposable` with an explicit default implementation of the inherited slot:
 
 ~~~csharp
 public interface IDatabaseProvider : IDisposable, IAsyncDisposable
@@ -500,7 +500,63 @@ Retain D07's standard-settings interface getter and C02's fully required new bas
 
 **Isolated evidence, not product verification:** a package-free C# 14 probe compiled and ran with SDK 10.0.401 / .NET 10.0.12. It checked the proposed query signatures at compile time; nullable/reference/numeric local Min/Max and Sum/Average behavior; inherited interface/base/concrete disposal dispatch; unsupported defaults without synchronous disposal; and class versus default options dispatch. Deliberately invalid variants failed with `CS0029` (numeric nullable mismatch), `CS8619` (reference nullability mismatch), and `CS0535` (unimplemented inherited disposal slot). A final positive run passed.
 
-The probe used stand-in provider/query types, not DataLinq assemblies. It did not exercise DataLinq query execution, existing binaries, .NET 8/9, the eventual transitive package, Native AOT/trim/WebAssembly, real provider cleanup or the full relation overload manifest. E01–E03 remain open for decision and those product checks; E04–E06 retain the distinct validation/package/manifest work.
+The probe used stand-in provider/query types, not DataLinq assemblies. It did not exercise DataLinq query execution, existing binaries, .NET 8/9, the eventual transitive package, Native AOT/trim/WebAssembly, real provider cleanup or the full relation overload manifest. E01–E03's declaration choices are now accepted; those product checks remain open. E04–E06 retain the distinct validation/package/manifest work.
+
+### Integration Review: E04–E06
+
+**Proposed for the next discussion, 2026-09-16; not accepted.** These six recommendations separate the remaining runtime-validation contract, package selection and compatibility tooling choices. They do not reopen AAPI-66's approved method signatures, turn roadmap APIs into existing APIs, or authorize implementation merely by appearing here.
+
+**1. E04 — Runtime types, package placement and result construction.** Put `DataLinqSchemaValidator`, `DataLinqSchemaValidationOptions` and `DataLinqSchemaValidationResult` in namespace `DataLinq.Validation` in the core `DataLinq` package. Put `DataLinqSchemaValidationException` in `DataLinq.Exceptions` in that package. Hosting registration/startup belongs in the separately planned hosting package. Core validation must not acquire dependencies on Microsoft hosting, `DataLinq.Tools`, CLI configuration or Roslyn/source-file parsing.
+
+The existing core already compiles the shared `SchemaComparer`, `SchemaDifference`, `SchemaDifferenceSeverity` and `DataLinqDiagnosticIssue` types. Reuse them. Preserve the existing Tools `SchemaValidationRunResult` and CLI behavior instead of moving or replacing that public type.
+
+Keep sealed, publicly parameterless-constructible options with mutable setters, captured once before suspension. Proposed properties are `FailOnSeverity` (default `Error`), `TreatValidationIssuesAsFailures` (default `true`), `TimeSpan? CommandTimeout`, `IReadOnlyList<string>? Include` and `Action<string>? MetadataReaderLog`. Recommendation 2 removes the old sketch's informational filtering property.
+
+Keep the result sealed with internal production construction and getter-only `DatabaseName`, `DatabaseType`, `ModelTableCount`, `DatabaseTableCount`, `Differences`, `Issues`, `HasDifferences` and `HasFailures`, with the types shown in the [runtime validation sketch](../../providers-and-features/Schema%20Validation%20Hooks.md#31-public-surface). Copy and expose read-only collection snapshots, including issue context-message lists. Existing `SchemaDifference` references to finalized metadata are retained; do not claim a deeply cloned metadata graph. Result flags reflect the captured policy and cannot change when caller options change later.
+
+The sealed exception should have `public DataLinqSchemaValidationException(DataLinqSchemaValidationResult result)`, reject null and expose that same result through a getter. Do not add an arbitrary public result builder merely to support tests; use the planned T10 controlled fixtures. Do not retain a live provider, connection or mutable options in the result or add a new automatic serialization contract.
+
+**2. E04 — Complete results and independent failure policy.** Always retain every difference in a completed structured result, including `Info`. Omit `IncludeInformationalDifferences` from the runtime options; presentation and hosting logging can filter what they display without discarding comparison evidence. This is a proposed refinement of the earlier suggested shape, not an already accepted removal.
+
+Use these rules:
+
+- `HasDifferences` means `Differences.Count != 0`, independent of failure severity.
+- `HasFailures` means at least one difference meets `FailOnSeverity`, or `TreatValidationIssuesAsFailures` is true and there is at least one typed validation issue.
+- Accept only the defined `Info`, `Warning` and `Error` threshold values. Default to `Error`.
+- Keeping `TreatValidationIssuesAsFailures = false` retains issues but removes only their contribution to `HasFailures`. It cannot suppress cancellation, timeout, connection failure, failed metadata acquisition or incomplete comparison.
+- `EnsureSchemaValid[Async]` throws the schema-validation exception with the complete result only when a completed comparison has failures. Operational failures retain AAPI-66's separate failure path.
+
+Do not compare the two severity enums by cast: `SchemaDifferenceSeverity` is ordered Info/Warning/Error, whereas `DataLinqDiagnosticSeverity` is Error/Warning. Do not fabricate typed issues by parsing human-readable metadata logs or convert failed metadata Options into successful issue-only results. Where the successful reader supplies no structured issues, an empty issue list is honest. The captured synchronous log callback remains subject to the accepted application-callback exception policy.
+
+**3. E04 — Include scopes the comparison, and empty is not unreadable.** Treat `Include` as exact model database table/view names (`Table.DbName`), not C# type names, patterns or raw SQL. Null or an empty list means the full comparison. Validate nonblank entries against the finalized model before I/O, deduplicate with the comparison's provider-aware table-name comparer and reject unknown model names. Capture the list once.
+
+Apply the same selected scope to model and live objects; counts describe the objects actually compared. Do not mutate finalized provider metadata. Compare foreign keys owned by selected tables, preserving their referenced identity, without implicitly broadening the scope to all referenced tables. Selection does not promise fewer metadata commands or suppression of read failures elsewhere in the schema.
+
+Do not pass runtime `Include` straight through the current import-reader option. The MySQL/MariaDB and SQLite readers reject missing requested objects, and they reject an empty schema. A runtime comparison must instead report a selected table absent from successfully read live metadata as `MissingTable`. An existing, successfully read empty database is valid comparison input and can yield missing-table differences; a missing database or an unreadable/incompletely read schema remains an operational failure.
+
+Reuse provider metadata readers with an explicit runtime-validation path for these distinctions. Preserve legacy import/CLI behavior, never translate an arbitrary failed Option into an empty schema, and never create a missing SQLite file/database to make the comparison succeed. Exact internal reader plumbing belongs to W1/D10-4; this recommendation does not add a general public provider extension protocol.
+
+**4. E04 — Bounded per-command timeout with explicit units.** Retain `TimeSpan? CommandTimeout`. Null preserves the provider's configured default; zero explicitly disables that command timeout. Positive values round up to whole seconds, so a subsecond value never truncates to unlimited. Validate before I/O and reject negative values (including `Timeout.InfiniteTimeSpan`) and values above `TimeSpan.FromSeconds(2_147_483)`. Use checked/integer normalization, not a lossy floating-point conversion.
+
+That proposed common ceiling avoids silent shortening by the repository's pinned [MySqlConnector 2.6.2 command implementation](https://raw.githubusercontent.com/mysql-net/MySqlConnector/2.6.2/src/MySqlConnector/MySqlCommand.cs), whose effective timeout caps at `int.MaxValue / 1000` seconds. Zero-as-disabled is documented by [MySqlConnector](https://mysqlconnector.net/connection-options/#DefaultCommandTimeout) and [Microsoft.Data.Sqlite](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/database-errors).
+
+This is a setting applied to each metadata command, not a wall-clock deadline for the full validation operation or its connection opening. Caller cancellation remains the cooperative whole-operation mechanism, subject to the accepted provider limits; rollback recovery uses its separate timeout. Current `MetadataFromDatabaseFactoryOptions` has no command-timeout member, so implementation must wire the setting through actual metadata execution. Never silently ignore an explicitly requested setting on an unsupported custom reader. Provider coverage must verify actual propagation and failure classification, not just option validation.
+
+**5. E05 — Pin the async LINQ dependency deliberately.** Recommend `System.Linq.AsyncEnumerable` **10.0.12**, published 2026-09-08, as the reviewed starting version. Its [NuGet package metadata](https://packages.nuget.org/packages/System.Linq.AsyncEnumerable/10.0.12) supplies .NET 8/9/10 assets. Retain AAPI-13's policy: a normal transitive reference from the core package for .NET 8 and .NET 9, with the package reference omitted for .NET 10's framework implementation.
+
+At implementation, pin the central `PackageVersion` in `src/Directory.Packages.props` and condition the core `PackageReference` by target framework. Do not float versions, use a prerelease 11.x package, substitute the older `System.Linq.Async` package or hide the dependency behind `PrivateAssets=all`. An exact central project version does not force every consuming application to resolve exactly that version; record the actual resolved graph.
+
+Verify packed dependency groups, clean consumer restore and extension binding under .NET 8/9/10, including the query/relation distinction. The isolated .NET 10 framework probe does not validate the package's .NET 8/9 assets. No package files, dependency references or release artifacts are changed by this planning recommendation.
+
+**6. E06 — Establish the right baseline before emitting the final manifest.** The current `ApiCompatibilityReporter` is a 0.9 release tool: its default locked baseline is `v0.8.0-packages.json`, its comparison package list excludes `DataLinq.Memory`, and Memory is checked in a special "new package" lane. Merely passing a different `--baseline-version` will not fix that package coverage.
+
+Recommend a version-specific 0.10 policy and locked published **0.9.0** baseline, with exact package bytes, hashes and provenance, including Memory as an existing library in normal compatibility comparisons. Preserve the historical 0.8-to-0.9 policy, lock and disposition evidence. Treat genuinely new 0.10 integration/test-helper packages separately only when their package identities/surfaces are settled.
+
+Reuse the existing ApiCompat runner and metadata snapshots. Map the inventory to compiled .NET 8/9/10 declarations: overloads, namespaces, generic constraints, nullable metadata, optional values and parameter names, constructors, inherited/default-interface dispatch, and fixed enum values. Supplement assembly manifests with generated-source and positive/negative consumer fixtures for converted/composite keys, required/optional navigation, DLG004 and extension binding. A textual API diff alone cannot prove dispatch or generated-client behavior.
+
+Disposition the already approved AAPI-11 keyed-view rename and AAPI-16 required-reference behavior explicitly; flag other changes for review instead of creating blanket suppressions. W0 captures the trustworthy before-state and package provenance; W3 emits the actual implementation's signature manifest and compatibility evidence. Do not fabricate an emitted manifest now from unimplemented signatures or call this planning review a completed compatibility check.
+
+**Next transition if approved:** record these choices, align the runtime-validation sketch, then prepare the bounded W0 evidence/tooling plan. Implementation, old-binary compatibility, packed-consumer verification and provider feasibility still remain separate work.
 
 
 ## S11: Traceability And Next Gates
@@ -523,10 +579,11 @@ Each accepted decision is assigned below. This is traceability, not evidence tha
 | AAPI-82–AAPI-90 | S4/S5/S7, K04, L07–L15, A08–A11 |
 | AAPI-91–AAPI-99 | S6, R12/DLG004, C01/C02, D01–D07, X06, G03 |
 | AAPI-100–AAPI-102 | L16/L17, T05, S6 fixed assignments/options namespace, G01–G03, B11/B13 |
+| AAPI-103–AAPI-105 | Q10, R08/R09, T02, E01–E03, B05/B06/B10/B11/B14 |
 
 Next gates, in order:
 
-1. **Finish declaration/integration review:** G01–G03 are accepted; continue E01–E03's aggregate/relation declarations and provider-interface disposal, then E04–E06 with the appropriate A10/H10/V10/T10 owners. OAPI-7 remains open.
+1. **Finish integration/manifest planning:** G01–G03 and E01–E03 declaration choices are accepted; continue E04–E06's validation API, package selection and compatibility manifest with the appropriate A10/H10/V10/T10 owners. OAPI-7 remains open for this work and product verification.
 2. **W0:** capture the real before-state I/O, compatibility and performance evidence. This document's source scan is only an input, not completion of W0.
 3. **W1/W2:** establish internal async contracts and prove provider feasibility, cancellation/timeout distinction, first initialization, ownership, cache publication, completion certainty and cleanup.
 4. **W3:** implement the public surface against those contracts; compile the full signature/generator manifest and run B01–B16 using packed consumers and ApiCompat.

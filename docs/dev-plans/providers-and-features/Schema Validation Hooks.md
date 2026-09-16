@@ -5,11 +5,13 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for runtime/startup validation; MSBuild/build-time validation remains later work.
-**Last reviewed:** 2026-09-14.
+**Last reviewed:** 2026-09-16.
 **Dependency:** Runtime validation composes with the 0.10 DI/hosting package rather than introducing a competing startup abstraction.
 **Goal:** Let applications and builds explicitly validate DataLinq model metadata against live database schemas so schema drift is caught during development, CI, deployment, and application startup.
 
 **0.10 async contract:** [AAPI-64 through AAPI-67](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-64-async-existence-checks-preserve-their-distinct-probe-semantics) settle existence probes, live metadata async/Option behavior, runtime validation signatures and failure policy, and effective-source ownership/freshness. Async validation belongs in the first implementation, not only as reserved signatures. Capture configuration before suspension, propagate cancellation through metadata reading, and never return canceled or incomplete metadata as a successful comparison.
+
+**Pending supporting-API review:** the [E04–E06 integration review](../roadmap-implementation/v0.10/Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md#integration-review-e04e06) proposes exact runtime type placement, complete results without informational filtering, comparison-scoped `Include`, empty-schema handling and bounded timeout semantics. Those refinements are **not accepted yet**; the suggested options and reader-adapter sketches below must not be mistaken for a finalized supporting API.
 
 **Related work:**
 
@@ -185,6 +187,8 @@ PluginHook.MetadataFromSqlFactories[provider.DatabaseType]
 ```
 
 Implementation details will need to account for SQLite data-source normalization, provider-specific database name behavior, logging, and timeout plumbing. The point is not the exact call above; the point is that provider metadata readers should remain the only live schema readers.
+
+**Source-audit caveat (2026-09-16):** current import readers fail on missing requested objects and on empty schemas, and `MetadataFromDatabaseFactoryOptions` has no command-timeout property. Passing `Include` through as sketched cannot by itself implement a runtime missing-table comparison. The pending E04 review addresses these gaps without relaxing operational failure handling or changing legacy import behavior.
 
 For async execution, AAPI-65 adds `ParseDatabaseAsync` with the same arguments, an optional final cancellation token, and `Task<Option<DatabaseDefinition, IDLOptionFailure>>`. Synchronous-only custom factories report unsupported async capability; built-in factories use actual async query/row execution where supported. Keep non-cancellation Option failures and their original exception objects, but cancellation must escape rather than being absorbed by `CatchAll`. Successful metadata is complete; local parsing/construction remains synchronous.
 
