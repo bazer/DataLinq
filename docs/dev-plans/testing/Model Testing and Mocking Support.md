@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for the release-local builder, relation, Memory-fixture, unit-of-work, and DI-helper subset; later testing slices remain unscheduled.
-**Last reviewed:** 2026-09-15.
+**Last reviewed:** 2026-09-16.
 **Dependency:** Queryable provider-like tests use the shipped capability-declared `DataLinq.Memory` preview rather than inventing a second LINQ-to-Objects provider; fake unit-of-work support follows the real 0.10 unit-of-work contract.
 **Goal:** Make DataLinq application code testable without a live database when the test is about business behavior, while preserving provider-backed tests for SQL translation, schema, transaction, and database-specific behavior.
 
@@ -314,6 +314,8 @@ Query-capable fixtures follow ordinary/prepared parameter-capture boundaries wit
 [AAPI-82 through AAPI-90](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-82-construction-and-sql-preparation-remain-synchronous) settle remaining helper policies. Controllable fixtures cover construction versus execution, provisioning registration/input capture and partial failure without destructive recovery, fluent read shapes and private builder snapshots, and canonical cache lookup with invalidation-safe publication. Preserve disabled fluent mutation diagnostics and synchronous maintenance/notification contracts. SQLite/provider-backed evidence proves setup/journal/provisioning behavior and in-memory lifetime; pure graph/Memory fixtures do not gain provisioning, SQL execution, or cache-loader capabilities.
 
 [AAPI-91 through AAPI-99](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-91-failure-context-is-an-immutable-diagnostic-snapshot) settle diagnostic/configuration details. DataLinq testing helpers share internal immutable snapshot construction without a public context-mutation API. Verify direct-only exception access, identity and overlap isolation, cause/operation/stage/outcome independence, exact recovery flags valid after helper disposal, defensive ordered original secondary exceptions, constructor/property/default binding, bounded pre-setup options capture, and DLG004 valid/conflicting overloads. Provider/host evidence separately proves MariaDB probe timing/fallback and actual interruption/recovery. Enumeration of accepted types is not packed-consumer or runtime proof.
+
+[AAPI-100 through AAPI-102](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-100-async-raw-model-readers-follow-the-existing-class-hierarchy) add raw model reader and provider-transaction completion coverage for base/concrete/legacy subclass receivers, unsupported defaults without synchronous I/O, and the managed ownership boundary. Freeze exact diagnostic enum numbers and the DataLinq execution-options namespace in consumer/API baselines; zero classification remains Unknown. These accepted contracts do not replace reader-lifetime, materialization, cancellation or real-provider evidence.
 
 Synchronous subset of the reference-holder shape:
 

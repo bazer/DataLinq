@@ -5,7 +5,7 @@
 
 **Status:** Accepted.
 **Release horizon:** DataLinq 0.10 for unnamed registration, explicit unit of work, and startup-host integration; broader host variants remain later work.
-**Last reviewed:** 2026-09-15.
+**Last reviewed:** 2026-09-16.
 **Dependency:** The shipped 0.9 backend/source boundary and the 0.10 async contracts must be stable before host integration freezes public service abstractions.
 **Goal:** Make DataLinq straightforward to configure, validate, and consume from ASP.NET Core, generic host, background workers, Blazor, MAUI, Avalonia, and other .NET application surfaces without hiding database I/O or transaction boundaries.
 
@@ -26,6 +26,8 @@
 - `docs/dev-plans/providers-and-features/UUID Storage Format Support.md`
 
 ## Problem Statement
+
+**0.10 inventory decisions:** [AAPI-100 through AAPI-102](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-100-async-raw-model-readers-follow-the-existing-class-hierarchy) settle raw model readers, lower-level provider-transaction async completion and exact diagnostic values/options placement. Hosted units of work complete through the managed Transaction wrapper; provider-level completion does not perform its mutable/cache finalization. DataLinqExecutionOptions lives in DataLinq; the diagnostic classification enums use Unknown = 0. Exact provider-root/interface disposal dispatch remains E03 in the signature inventory.
 
 **0.10 diagnostic/configuration detail:** [AAPI-91 through AAPI-99](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-91-failure-context-is-an-immutable-diagnostic-snapshot) settle immutable typed context/direct access, independent outcome/recovery classifications and secondary exceptions, preserved options constructors/provider interface defaults, 1 ms through 4,294,967,294 ms recovery duration with pre-setup immutable capture, and DLG004. Host registration uses the same validated settings without live reconfiguration; externally supplied providers retain their settings. Recovery actions describe reporting-time state, not permanent retry permissions. MariaDB's existing version probe, like SQLite setup, remains synchronous during provider construction and is not covered retroactively by startup-validation cancellation.
 

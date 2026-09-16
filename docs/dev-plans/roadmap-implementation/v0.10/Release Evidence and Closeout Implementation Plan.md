@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-15.
+**Last reviewed:** 2026-09-16.
 
 **Depends on:** The required workstreams and gates in the [0.10 implementation roadmap](README.md) and [implementation order](Implementation%20Order%20and%20Integration%20Plan.md).
 
@@ -96,7 +96,7 @@ Acceptance:
 Required focused evidence:
 
 - the accepted [public API decisions](Async%20Public%20API%20Decisions.md), with unresolved signature/failure questions settled before W3
-- the [signature inventory and compatibility matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md), with G01–G03 dispositioned, E01–E06 expanded, B01–B16 supplied with actual consumer/compatibility evidence, and applicable S9 backend cells verified; the initial source/document audit is not completion of W0 or any runtime gate
+- the [signature inventory and compatibility matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md), with accepted G01–G03/AAPI-100 through AAPI-102 implemented and verified, E01–E06 expanded, B01–B16 supplied with actual consumer/compatibility evidence, and applicable S9 backend cells verified; the source/document audit is not completion of W0 or any runtime gate
 - no database I/O during transaction construction or unused disposal; first-use initialization follows the selected sync/async operation and its token
 - token-free and token-supplied consumer calls, sequential sync/async mixing, and both synchronous and asynchronous disposal
 - generated `<PropertyName>Async` single-reference methods bypass synchronous getters and preserve cache/nullability/source behavior
@@ -179,6 +179,7 @@ Required focused evidence:
 - AAPI-93 through AAPI-95 completion certainty versus lifecycle/effects, exact recovery flag combinations and stale-snapshot checks, known-commit exception compatibility, ordered defensive secondary entries/original exceptions, and no automatic context serialization or sensitive payload additions
 - AAPI-96/AAPI-97 old/new concrete/shared/protected constructor and named/null/binary consumer binding, read-only provider options and direct-interface defaults, min/max/sub-millisecond/invalid durations, pre-setup immutable capture, external-provider preservation and actual timer/provider behavior
 - AAPI-98/AAPI-99 DLG004 identity/severity/message/locations, harmless versus conflicting overloads and overrides, affected-database emission isolation/release tracking, and MariaDB synchronous constructor probe/property/failure timing with accurate startup-cancellation documentation
+- AAPI-100 through AAPI-102 raw model reader signatures/legacy virtual defaults and built-in dispatch; public provider-transaction async completion/disposal, source/binary compatibility and managed-finalization boundaries; exact diagnostic enum numeric assignments, conservative zero values and DataLinq execution-options namespace
 - packed .NET 8/9/10 consumers cover accepted query signatures, projections, nullability, optional/named tokens, EF Core coexistence, and standard async-LINQ resolution; keep signature approval separate from implementation/provider evidence
 - use controllable pauses at initialization, hydration, reader moves, callback completion, and cache publication rather than timing-dependent delays; exercise cleanup failures and measure coordination/versioning costs against W0
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families

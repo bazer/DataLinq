@@ -7,7 +7,7 @@
 
 **Target release:** 0.10 / A10 ([issue #107](https://github.com/bazer/DataLinq/issues/107)).
 
-**Last reviewed:** 2026-09-15.
+**Last reviewed:** 2026-09-16.
 
 **Prerequisites:** The [W0 baseline and I/O audit](Implementation%20Order%20and%20Integration%20Plan.md#w0-baseline-and-io-inventory) and W1/W2 provider feasibility evidence remain required before implementation changes shared execution and freezes the complete public surface.
 
@@ -15,7 +15,7 @@
 
 ## Purpose And Decision Boundary
 
-Record the API decisions agreed between 2026-08-30 and 2026-09-15 without pretending that every signature or failure case is settled. Public design discussion can precede implementation; it does not replace the before-state evidence or provider feasibility gate.
+Record the API decisions agreed between 2026-08-30 and 2026-09-16 without pretending that every signature or failure case is settled. Public design discussion can precede implementation; it does not replace the before-state evidence or provider feasibility gate.
 
 The async direction is additive: ordinary application code chooses synchronous or asynchronous execution at each operation. It does not choose a separate async database, transaction, or entity model. AAPI-11 separately approves a breaking correction to synchronous relation enumeration, and AAPI-16 approves enforcing required-reference nullability in both sync and async navigation. These are specific 0.10 compatibility corrections, not permission for unrelated API breaks.
 
@@ -1590,6 +1590,67 @@ Record MariaDB alongside AAPI-82's SQLite setup as a synchronous constructor-I/O
 
 **Owner/gate:** A10/H10, D10-1/D10-2; verify old/new constructor timing and version/failure property behavior, documented startup/cancellation limits, and no accidental probe removal during execution-options plumbing.
 
+### AAPI-100: Async Raw Model Readers Follow The Existing Class Hierarchy
+
+**Accepted:** 2026-09-16. Resolves inventory G01. Mirror the existing public raw model readers on `DataLinq.Mutation.DataSourceAccess`:
+
+~~~csharp
+public virtual IAsyncEnumerable<T> GetFromQueryAsync<T>(
+    string query, CancellationToken cancellationToken = default)
+    where T : IModel;
+
+public virtual IAsyncEnumerable<T> GetFromCommandAsync<T>(
+    IDbCommand dbCommand, CancellationToken cancellationToken = default)
+    where T : IModel;
+~~~
+
+These are target declarations; the virtual methods have unsupported default bodies, not new abstract requirements. Existing synchronous subclasses remain valid. Built-in `ReadOnlyAccess` and `Transaction` provide genuine async overrides under the accepted provider limits.
+
+Preserve existing model materialization and constraints. These readers are separate from `IDatabaseAccess` current-row helpers and fluent `Select` helpers; do not add members to `IDataSourceAccess` or an arbitrary DTO mapper. Apply ordinary sequence capture/token/resource rules, borrowed-command stability and managed transaction gates. Row-returning raw SQL does not establish harmless/read-only execution or tracked mutation semantics.
+
+Sources: [DataSourceAccess](../../../../src/DataLinq/Mutation/DataSourceAccess.cs), [ReadOnlyAccess](../../../../src/DataLinq/Mutation/ReadOnlyAccess.cs), [Transaction](../../../../src/DataLinq/Mutation/Transaction.cs).
+
+**Owner/gate:** A10, D10-1/D10-2; W3 consumer/ApiCompat coverage for class/base/override receivers and legacy subclasses, with W1/W2 evidence for materialization, native dispatch, deferred capture, cancellation, borrowed commands, raw failure classification and reader lifetime.
+
+### AAPI-101: Async Completion On Public Provider Transactions
+
+**Accepted:** 2026-09-16. Resolves inventory G02. Add public virtual counterparts to `DataLinq.DatabaseTransaction`:
+
+~~~csharp
+public virtual Task CommitAsync(
+    CancellationToken cancellationToken = default);
+public virtual Task RollbackAsync(
+    CancellationToken cancellationToken = default);
+public virtual ValueTask DisposeAsync();
+~~~
+
+Use unsupported default bodies for legacy implementations and real built-in overrides; never fall back to synchronous database work. Preserve existing constructors, synchronous abstract members, status-change events and `DatabaseTransactionStatus`. Retain `IAsyncDisposable`-compatible disposal under the accepted owning-transaction contract. Creation stays synchronous and lazy; no public eager `OpenAsync`/`BeginAsync` factory.
+
+Provider transaction completion is not managed `DataLinq.Mutation.Transaction` completion. Direct use does not promise the managed wrapper's cache publication or mutable-instance finalization. When a managed transaction owns the provider transaction, callers must complete/dispose through that wrapper. Preserve the existing escape-hatch warning and accepted operation ownership rather than making lower-level completion a bypass.
+
+Source: [public provider transaction](../../../../src/DataLinq/Database/DatabaseTransaction.cs). Exact provider-interface/root disposal placement remains inventory E03; this decision settles the lower-level transaction class.
+
+**Owner/gate:** A10 with H10 consultation, D10-1/D10-2; verify built-in/base/legacy subclass dispatch, preserved source/binary contracts, lazy/unused behavior, native capability, disposal state, completion certainty and the distinction from managed finalization.
+
+### AAPI-102: Stable Diagnostic Values And Execution Options Namespace
+
+**Accepted:** 2026-09-16. Resolves inventory G03. Place `DataLinqExecutionOptions` in namespace `DataLinq` beside `DatabaseProvider`. Preserve AAPI-63/AAPI-96/AAPI-97's shape, constructor compatibility, validation and immutable provider capture.
+
+Assign explicit values to the diagnostic enums in `DataLinq.Diagnostics`:
+
+| Enum | Fixed assignments |
+| --- | --- |
+| `DataLinqFailureCause` | `Unknown = 0, Cancellation = 1, Timeout = 2, ProviderError = 3, ApplicationError = 4, MaterializationError = 5, LocalFinalizationError = 6, InvalidOperation = 7` |
+| `DataLinqOperationKind` | `Unknown = 0, Query = 1, KeyLookup = 2, RelationLoad = 3, Insert = 4, Update = 5, Save = 6, Delete = 7, Commit = 8, Rollback = 9, Dispose = 10, TransactionCallback = 11, RawCommand = 12, MetadataRead = 13, SchemaValidation = 14, ExistenceCheck = 15, Provisioning = 16, ProviderConfiguration = 17` |
+| `DataLinqFailureStage` | `Unknown = 0, Validation = 1, Initialization = 2, CommandExecution = 3, RowLoading = 4, Callback = 5, LocalFinalization = 6, Commit = 7, Rollback = 8, CacheRecovery = 9, Notification = 10, Cleanup = 11` |
+| `DataLinqCompletionOutcome` | `Unknown = 0, NotApplicable = 1, NotAttempted = 2, Committed = 3, RolledBack = 4` |
+| `DataLinqRecoveryActions` | Unchanged AAPI-94 `[Flags]` values: `None = 0, Continue = 1, Rollback = 2, Dispose = 4, FinishActiveOperation = 8` |
+
+Zero classification expresses missing evidence. In particular, a default completion value must not assert that completion was inapplicable. Preserve the previously accepted meanings, independent dimensions, unknown/future-value handling and absence of a public serialization protocol. Assign values explicitly in source; do not make declaration reordering silently renumber published members.
+
+**Owner/gate:** A10 with H10/T10 consultation, D10-1; verify exact namespaces, enum names/underlying values, defaults/flags, consumer baselines and compatibility. Numeric assignment does not prove actual provider failure classification.
+
+
 ### OAPI-1: Task Versus ValueTask
 
 **Resolved:** 2026-08-30 by [AAPI-8](#aapi-8-valuetask-for-query-and-relation-results-key-lookup-and-disposal-task-otherwise), including its final framework-alignment revision. The OAPI identifier is retained for existing references. Public awaitable types are decided; performance, consumption, and compatibility verification remain part of implementation evidence.
@@ -1656,9 +1717,9 @@ Exact public accessors/overloads and compatibility remain under OAPI-7; provider
 
 **Diagnostic/configuration and constructor policies resolved:** 2026-09-15 by AAPI-91 through AAPI-99: immutable diagnostic fields/access, independent classifications and completion outcomes, recovery flags, ordered secondary failures, compatible execution-options overloads/property, bounded captured duration, DLG004 and MariaDB constructor probe timing.
 
-The first [signature inventory and compatibility matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md) is available. Its source audit identifies G01 raw model readers, G02 public provider-transaction completion, and G03 enum numeric assignments/options namespace as concrete unresolved questions. E01–E06 track exact declaration and integration expansions. These recommendations are not newly accepted decisions.
+The [signature inventory and compatibility matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md) is available. Its G01 raw model readers, G02 public provider-transaction completion, and G03 enum numeric assignments/options namespace are resolved by AAPI-100 through AAPI-102 on 2026-09-16. E01–E06 still track exact declaration and integration expansions; their recommendations are not approved merely by inclusion.
 
-OAPI-7 remains open for disposition of those findings and the compatibility/evidence audit. Verify every accepted counterpart and exclusion rather than treating recorded policy or consolidation as implementation proof. Keep backend internals private and do not reopen accepted policy without an explicit revision. AAPI-74 through AAPI-99 settle the discussed backend/helper/diagnostic/configuration policies; concrete gaps or contradictions must be identified rather than silently resolved as new accepted contracts.
+OAPI-7 remains open for E01–E06 and the compatibility/evidence audit. Verify every accepted counterpart and exclusion rather than treating recorded policy or consolidation as implementation proof. Keep backend internals private and do not reopen accepted policy without an explicit revision. AAPI-74 through AAPI-102 settle the discussed backend/helper/diagnostic/configuration policies and the first consolidation's gaps; additional concrete gaps or contradictions must be identified rather than silently resolved as new accepted contracts.
 
 **Owner/gate:** A10, D10-1; W0 audit, W3 ApiCompat and consumer-shaped compilation coverage.
 
@@ -1680,11 +1741,12 @@ Provider interruption, recovery feasibility, exact signatures and compatibility 
 
 OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, OAPI-5's mutation/callback contracts, OAPI-6's concurrency/cache policies, OAPI-8's navigation guidance, and OAPI-9's backend policies are resolved. OAPI-7's main policies are accepted under AAPI-42 through AAPI-72, backend boundaries under AAPI-74 through AAPI-81, helper counterparts/exclusions under AAPI-82 through AAPI-90, and diagnostic/configuration details under AAPI-91 through AAPI-99. Continue with:
 
-1. Review G01–G03 in the [consolidated inventory](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md#s10-concrete-questions-and-remaining-expansions), then finish E01–E06's exact declarations/integration work. The first inventory exists; its recommendations and pending evidence are not accepted or verified merely by inclusion.
+1. G01–G03 are accepted under AAPI-100 through AAPI-102. Continue with E01–E03's aggregate/relation declarations and provider-interface disposal in the [consolidated inventory](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md#s10-concrete-questions-and-remaining-expansions); E04–E06 retain runtime-validation integration, package selection and compiled-manifest work. Pending recommendations and evidence are not accepted or verified merely by inclusion.
 2. Establish W0/W1/W2 evidence and verify the implemented inventory in W3 with consumer compilation, ApiCompat, deterministic runtime and provider coverage. Raise further design questions only for concrete gaps or contradictions; accepted policy does not replace implementation evidence before API freeze.
 
 ## Required Exit Evidence
 
+- AAPI-100 through AAPI-102 evidence covers raw model reader signatures and legacy subclasses, provider-transaction virtual completion/disposal and managed ownership boundaries, exact diagnostic enum assignments and the DataLinq execution-options namespace. Source/consumer compatibility and provider behavior still require proof after policy acceptance.
 - AAPI-91 through AAPI-99 evidence covers diagnostic namespace/immutable getters, direct-only accessor and snapshot/identity semantics, independent public enum mappings and numeric assignments, exact recovery flags, ordered defensive secondary failures and exception compatibility/privacy, preserved provider/base constructors and interface settings defaults, bounded pre-setup configuration capture, DLG004 binding/location/isolation/release tracking, and preserved MariaDB constructor probe timing/fallback. Consolidation remains distinct from packed-consumer/runtime proof.
 - AAPI-82 through AAPI-90 evidence covers local construction versus SQLite provider setup, journal-mode completion without effective-mode guarantees, explicit provisioning signatures/custom defaults and partial-creation/error/lifetime behavior, registration/input capture, complete fluent read helper results, private mutable-builder snapshots, disabled mutation exclusions, public canonical cache lookup, and synchronous maintenance/callback boundaries. Verify all source and compatibility details before claiming the inventory complete.
 - AAPI-73 through AAPI-81 evidence covers explicit navigation results/DTO boundaries without strict sync-I/O enforcement, Memory's existing query subset and narrow async lookup, retained prepared/navigation source exclusions and separate graph doubles, immediate completion/cooperative cancellation, explicit missing capability, SQLite phase-specific blocking/locking/cleanup, MySQL/MariaDB cancellation/trust/settings distinctions, and the backend/consumer matrix. Constructor/setup and administrative I/O remain explicitly inventoried under OAPI-7.

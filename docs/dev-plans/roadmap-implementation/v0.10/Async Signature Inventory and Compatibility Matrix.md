@@ -3,13 +3,13 @@
 
 # 0.10 Async Signature Inventory And Compatibility Matrix
 
-**Status:** First consolidation of AAPI-1 through AAPI-99; concrete audit questions remain open.
+**Status:** Consolidation of AAPI-1 through AAPI-102. G01–G03 are accepted; declaration/integration expansions and evidence remain open.
 
 **Target:** 0.10 / A10, with H10, V10 and T10 integration.
 
-**Last reviewed:** 2026-09-15.
+**Last reviewed:** 2026-09-16.
 
-**Source baseline:** `459160fd`. That commit records the latest decisions; the runtime sources examined below still describe the synchronous baseline.
+**Source audit baseline:** `8bf318cc`. The runtime sources examined below still describe the synchronous baseline. AAPI-100 through AAPI-102 were accepted on 2026-09-16; accepting them does not implement the target members.
 
 **Authority:** [Async Public API Decisions](Async%20Public%20API%20Decisions.md) owns accepted contracts. This inventory expands and cross-checks them against source; it cannot silently approve a new API or compatibility break. [Implementation Order](Implementation%20Order%20and%20Integration%20Plan.md) owns sequencing and [Release Evidence](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md) owns exit gates.
 
@@ -19,7 +19,7 @@
 - **Expansion** means a concrete declaration or placement proposed to complete that family. Review the identified details before freezing the public API.
 - **Question** means source revealed an uncovered boundary or a choice not made by the accepted decisions.
 - **Excluded** means retain the existing synchronous or unsupported boundary.
-- Every consumer, ApiCompat and runtime check below is **pending**. This consolidation performed source/document review only.
+- Every DataLinq consumer, ApiCompat and runtime check below is **pending**. The isolated C#/.NET 10 declaration probe in S10 is limited language/framework evidence, not product verification.
 
 To keep tables readable, `ct` means the exact final parameter `CancellationToken cancellationToken = default`; `txType` means `TransactionType transactionType = TransactionType.ReadAndWrite`. These are documentation abbreviations, not proposed parameter names. `D` means a database model with `where D : class, IDatabaseModel<D>`. Additional model constraints are stated per family and must not be widened or tightened accidentally.
 
@@ -117,7 +117,7 @@ Sources: [relations](../../../../src/DataLinq/Instances/ImmutableRelation.cs), [
 
 ## S3: Mutations, Completion And Ownership
 
-Accepted target: AAPI-1 through AAPI-4, AAPI-8, AAPI-21 through AAPI-38, AAPI-60/AAPI-61/AAPI-68 through AAPI-72.
+Accepted target: AAPI-1 through AAPI-4, AAPI-8, AAPI-21 through AAPI-38, AAPI-60/AAPI-61/AAPI-68 through AAPI-72/AAPI-101.
 
 For the core mutation table, `M : class, IImmutableInstance` and `TMutable : Mutable<M>` unless the row states otherwise. All members have the final optional `ct` parameter.
 
@@ -136,6 +136,7 @@ For the core mutation table, `M : class, IImmutableInstance` and `TMutable : Mut
 | T02 | Owning `Database<D>` / provider roots | `ValueTask DisposeAsync()` through `IAsyncDisposable`; old/custom dispatch still needs E03 |
 | T03 | `Database<D>` | Four `CommitAsync` callback forms using `Transaction<D>` below |
 | T04 | `IDatabaseProvider` / `DatabaseProvider` | Same four forms using untyped `Transaction`; no competing typed generic-provider family |
+| T05 | `DataLinq.DatabaseTransaction` | Public virtual `Task CommitAsync(ct)`, `Task RollbackAsync(ct)`, `ValueTask DisposeAsync()`; unsupported legacy defaults and built-in overrides under AAPI-101 |
 
 In M03/M05/M06, each listed overload returns `Task<M>`, including forms where the return type is not repeated. Only the two nullable editing forms in M06 mean “null starts a new mutable.” Direct mutable and typed mutable forms reject null. Generated immutable-model `SaveAsync` helpers retain their existing update-alias semantics.
 
@@ -190,7 +191,7 @@ Sources: [database root](../../../../src/DataLinq/Database.cs), [managed transac
 
 ## S4: Lower-Level Execution And Fluent Reads
 
-Accepted target: AAPI-56 through AAPI-61, AAPI-82/AAPI-86 through AAPI-89. G01/G02 below identify additional public receiver questions.
+Accepted target: AAPI-56 through AAPI-61, AAPI-82/AAPI-86 through AAPI-89/AAPI-100/AAPI-101. G01/G02 below retain the resolved audit findings.
 
 On `DataLinq.Interfaces.IDatabaseAccess` and `DataLinq.DatabaseAccess`, each L01–L05 row expands into two overloads: `(string query, ct)` and `(IDbCommand command, ct)`.
 
@@ -225,6 +226,8 @@ L06 is this reader capability. Existing readers remain synchronously valid. Curr
 | L13 | Same | `ExecuteAsAsync<V>(ct)` | `IAsyncEnumerable<V>` |
 | L14 | Same | `ExecuteScalarAsync<V>(ct)` / `ExecuteScalarAsync(ct)` | `Task<V>` / `Task<object?>` |
 | L15 | `DataLinq.Query.SqlQuery<T>` | `SelectAsync(ct)` | `IAsyncEnumerable<T>` |
+| L16 | `DataLinq.Mutation.DataSourceAccess` and built-in overrides | `GetFromQueryAsync<T>(string query, ct) where T : IModel` | `IAsyncEnumerable<T>`; public virtual unsupported base default |
+| L17 | Same | `GetFromCommandAsync<T>(IDbCommand dbCommand, ct) where T : IModel` | `IAsyncEnumerable<T>`; public virtual unsupported base default |
 
 `Select<T>` and `ExecuteAsAsync<V>` retain their existing lack of entity constraints; accepted materialization still applies. `ExecuteAs` is a cast of supported models, not a new DTO mapper. L11 may buffer. L05 deliberately exposes the synchronous current-row interface specified by AAPI-56; L07 exposes the async companion specified by AAPI-86. These are different accepted receiver contracts, not interchangeable declarations.
 
@@ -262,7 +265,7 @@ Sources: [provider interface](../../../../src/DataLinq/Interfaces/IDatabaseProvi
 
 ## S6: Diagnostics And Execution Configuration
 
-Accepted target: AAPI-25/AAPI-26/AAPI-62/AAPI-63/AAPI-91 through AAPI-99.
+Accepted target: AAPI-25/AAPI-26/AAPI-62/AAPI-63/AAPI-91 through AAPI-99/AAPI-102.
 
 | ID | Public declaration | Details |
 | --- | --- | --- |
@@ -270,18 +273,18 @@ Accepted target: AAPI-25/AAPI-26/AAPI-62/AAPI-63/AAPI-91 through AAPI-99.
 | D02 | `Transaction.FailureContext` | `public DataLinqFailureContext? FailureContext { get; }` |
 | D03 | `DataLinqFailureContext` | Sealed; internal construction; public properties below have getters only |
 | D04 | `DataLinqSecondaryFailure` | Sealed; getter-only `Cause`, `Operation`, `Stage`, `Exception`; internal construction |
-| D05 | Five diagnostic enums | Names below; numeric assignment question G03 excludes already-fixed recovery bits |
-| D06 | `DataLinqExecutionOptions` | Sealed; `public TimeSpan RecoveryRollbackTimeout { get; init; } = TimeSpan.FromSeconds(30);` |
+| D05 | Five diagnostic enums | Exact assignments below, accepted by AAPI-102; recovery bits retain AAPI-94 values |
+| D06 | `DataLinq.DataLinqExecutionOptions` | Sealed; `public TimeSpan RecoveryRollbackTimeout { get; init; } = TimeSpan.FromSeconds(30);` |
 | D07 | `IDatabaseProvider` / `DatabaseProvider` | Read-only `DataLinqExecutionOptions ExecutionOptions { get; }`; interface compatibility default uses standard settings |
 
 D03 properties: `DataLinqFailureCause Cause`, `DataLinqOperationKind Operation`, `DataLinqFailureStage Stage`, `DataLinqCompletionOutcome CompletionOutcome`, `DataLinqRecoveryActions RecoveryActions`, `IReadOnlyList<DataLinqSecondaryFailure> SecondaryFailures`, `uint? TransactionId`, `string? ProviderInstanceId`, `DataLinqOperationKind? ActiveOperation`. D04 uses the same first three enum types and `System.Exception Exception`. These diagnostic types live in `DataLinq.Diagnostics`.
 
-| Enum | Accepted members |
+| Enum | Accepted fixed assignments |
 | --- | --- |
-| `DataLinqFailureCause` | `Unknown, Cancellation, Timeout, ProviderError, ApplicationError, MaterializationError, LocalFinalizationError, InvalidOperation` |
-| `DataLinqOperationKind` | `Unknown, Query, KeyLookup, RelationLoad, Insert, Update, Save, Delete, Commit, Rollback, Dispose, TransactionCallback, RawCommand, MetadataRead, SchemaValidation, ExistenceCheck, Provisioning, ProviderConfiguration` |
-| `DataLinqFailureStage` | `Unknown, Validation, Initialization, CommandExecution, RowLoading, Callback, LocalFinalization, Commit, Rollback, CacheRecovery, Notification, Cleanup` |
-| `DataLinqCompletionOutcome` | `NotApplicable, NotAttempted, Committed, RolledBack, Unknown` |
+| `DataLinqFailureCause` | `Unknown = 0, Cancellation = 1, Timeout = 2, ProviderError = 3, ApplicationError = 4, MaterializationError = 5, LocalFinalizationError = 6, InvalidOperation = 7` |
+| `DataLinqOperationKind` | `Unknown = 0, Query = 1, KeyLookup = 2, RelationLoad = 3, Insert = 4, Update = 5, Save = 6, Delete = 7, Commit = 8, Rollback = 9, Dispose = 10, TransactionCallback = 11, RawCommand = 12, MetadataRead = 13, SchemaValidation = 14, ExistenceCheck = 15, Provisioning = 16, ProviderConfiguration = 17` |
+| `DataLinqFailureStage` | `Unknown = 0, Validation = 1, Initialization = 2, CommandExecution = 3, RowLoading = 4, Callback = 5, LocalFinalization = 6, Commit = 7, Rollback = 8, CacheRecovery = 9, Notification = 10, Cleanup = 11` |
+| `DataLinqCompletionOutcome` | `Unknown = 0, NotApplicable = 1, NotAttempted = 2, Committed = 3, RolledBack = 4` |
 | `DataLinqRecoveryActions` | `[Flags]`: `None = 0, Continue = 1, Rollback = 2, Dispose = 4, FinishActiveOperation = 8` |
 
 The accessor inspects only the supplied exception, throws for null and returns null without attached context. Preserve original exception objects/stacks; a transaction may later expose a new snapshot. Secondary entries are ordered, non-null, defensively protected against list/array mutation, and never automatically flattened or serialized. Context contains no live transaction/connection or added SQL/keys/secrets, but original exceptions are not sanitized.
@@ -354,9 +357,9 @@ Every row is **pending implementation evidence**. “Preserve” is the required
 | B08 | Generated consumers | Scalar/composite/converted key parameters; all three sources; every M10 receiver; required/optional navigation; DLG004 binding/locations/isolation |
 | B09 | Callback overloads | Typed database versus untyped provider; four delegate forms; inference with result/no result, named token/type, no async-void route; helper completion ownership |
 | B10 | Provider constructors and subclasses | Preserve positional, typed-null, currently valid untyped-null and named calls; old binaries and external subclasses; options validated before setup |
-| B11 | Custom provider/access/factory implementations | Compile old source and run old binaries; new defaults fail without sync I/O; concrete visibility; default settings; disposal placement E03 |
+| B11 | Custom provider/access/factory implementations | Compile old source and run old binaries; new defaults fail without sync I/O; concrete visibility; default settings; L16/L17 and T05 legacy subclass dispatch; root disposal placement E03 |
 | B12 | Low-level command/reader consumers | String and command overloads, existing `ToDbCommand` output, invalid command rejection, L05/L07 view difference, row lifetime and disposal |
-| B13 | Diagnostic consumers | Namespace/getters/nullability, stable numbers after G03, flags, future values, immutable snapshots and original exception compatibility |
+| B13 | Diagnostic consumers | Namespace/getters/nullability, exact AAPI-102 numbers/options placement, flags, future values, immutable snapshots and original exception compatibility |
 | B14 | Packed .NET 8/9/10 consumers | Real NuGet dependency groups and transitive async LINQ; no mandatory extra install on 8/9; framework path on 10; no accidental overlapping imports |
 | B15 | Memory-only consumer and graph doubles | No SQL dependency introduced by Memory package use; narrow actual capabilities; standalone graph doubles do not imply Memory navigation support |
 | B16 | Runtime validation/hosting | V10 type/package placement; captured configuration/effective identity; owned versus externally supplied providers; explicit startup failure policy |
@@ -392,31 +395,31 @@ Use existing [Memory row-plan validation](../../../../src/DataLinq.Memory/Memory
 
 ## S10: Concrete Questions And Remaining Expansions
 
-These items are **not newly accepted AAPI decisions**.
+G01–G03 are **resolved by AAPI-100 through AAPI-102 on 2026-09-16**. E01–E06 remain declaration/integration work; recommendations there are not accepted merely by inclusion.
 
 ### G01: Raw Model Reader Counterparts
 
 [DataSourceAccess](../../../../src/DataLinq/Mutation/DataSourceAccess.cs) publicly declares `GetFromQuery<T>(string query)` and `GetFromCommand<T>(IDbCommand dbCommand)`, both returning `IEnumerable<T> where T : IModel`. [ReadOnlyAccess](../../../../src/DataLinq/Mutation/ReadOnlyAccess.cs) and [Transaction](../../../../src/DataLinq/Mutation/Transaction.cs) execute readers and materialize models through those methods. They are distinct from IDatabaseAccess's current-row helpers and Select's fluent helpers.
 
-**Recommendation:** include `IAsyncEnumerable<T> GetFromQueryAsync<T>(string query, ct) where T : IModel` and `IAsyncEnumerable<T> GetFromCommandAsync<T>(IDbCommand dbCommand, ct) where T : IModel` on the existing class hierarchy. Use unsupported virtual defaults for old subclasses and real built-in overrides. Preserve model/materialization limits, ordinary sequence capture, borrowed command lifetime and managed transaction gates; do not infer arbitrary raw SQL is harmless because the API returns rows. No additional `IDataSourceAccess` interface members or DTO-mapping feature.
+**Accepted: AAPI-100.** Include `IAsyncEnumerable<T> GetFromQueryAsync<T>(string query, ct) where T : IModel` and `IAsyncEnumerable<T> GetFromCommandAsync<T>(IDbCommand dbCommand, ct) where T : IModel` on the existing class hierarchy. Use unsupported public virtual defaults for old subclasses and real built-in overrides. Preserve model/materialization limits, ordinary sequence capture, borrowed command lifetime and managed transaction gates; do not infer arbitrary raw SQL is harmless because the API returns rows. No additional `IDataSourceAccess` interface members or DTO-mapping feature.
 
-**Why a decision is needed:** the general mirrored-execution policy points toward inclusion, but the accepted named inventories did not explicitly cover this public receiver. Record the two exact members and compatibility strategy before declaring the inventory complete.
+**Disposition:** L16/L17 now explicitly cover this public receiver. Legacy subclass compatibility and actual async materialization still require evidence.
 
 ### G02: Public Provider Transaction Completion
 
 [DatabaseTransaction](../../../../src/DataLinq/Database/DatabaseTransaction.cs) is a public abstract class, returned by provider factories, with public `Commit`, `Rollback` and `Dispose`. It is different from the managed `DataLinq.Mutation.Transaction`. AAPI-1/AAPI-82 require async initialization internally, but do not explicitly settle new public completion members on this lower-level class.
 
-**Recommendation:** add virtual `Task CommitAsync(ct)`, `Task RollbackAsync(ct)` and `ValueTask DisposeAsync()` with explicit unsupported defaults for legacy implementations and built-in overrides. Preserve constructors, old abstract synchronous members, lifecycle events and `DatabaseTransactionStatus`. Do not expose a new public eager `OpenAsync`/`BeginAsync` factory.
+**Accepted: AAPI-101.** Add public virtual `Task CommitAsync(ct)`, `Task RollbackAsync(ct)` and `ValueTask DisposeAsync()` with explicit unsupported defaults for legacy implementations and built-in overrides. Preserve constructors, old abstract synchronous members, lifecycle events and `DatabaseTransactionStatus`. Do not expose a new public eager `OpenAsync`/`BeginAsync` factory.
 
-**Boundary:** direct provider-level completion cannot promise the managed wrapper's cache/mutable finalization. If a provider transaction is owned by a managed transaction, callers must complete through that managed wrapper; retain the existing escape-hatch warning. Alternatively keeping async completion internal would leave this public I/O family sync-only, which needs an explicit exclusion rather than omission.
+**Boundary:** direct provider-level completion cannot promise the managed wrapper's cache/mutable finalization. If a provider transaction is owned by a managed transaction, callers must complete through that managed wrapper; retain the existing escape-hatch warning. T05 now records this public family; E03 separately reviews provider-root/interface disposal placement.
 
 ### G03: Numeric Values And Options Namespace
 
 AAPI-92/AAPI-93 name enums but do not assign numbers; AAPI-63/AAPI-96 do not choose an execution-options namespace.
 
-**Recommendation:** place `DataLinqExecutionOptions` in `DataLinq` beside `DatabaseProvider`, and give the diagnostic enums explicit stable values. For cause, operation and stage, use the listed order with `Unknown = 0`, then consecutive values (1–7, 1–17 and 1–11 respectively). For completion use `Unknown = 0, NotApplicable = 1, NotAttempted = 2, Committed = 3, RolledBack = 4`. Keep AAPI-94's exact flags unchanged.
+**Accepted: AAPI-102.** Place `DataLinqExecutionOptions` in `DataLinq` beside `DatabaseProvider`, and give the diagnostic enums explicit stable values. For cause, operation and stage, use the listed order with `Unknown = 0`, then consecutive values (1–7, 1–17 and 1–11 respectively). For completion use `Unknown = 0, NotApplicable = 1, NotAttempted = 2, Committed = 3, RolledBack = 4`. Keep AAPI-94's exact flags unchanged. S6 records every exact assignment.
 
-**Reason:** an uninitialized classification should express lack of evidence; in particular, zero completion should not accidentally assert “not applicable.” This numeric recommendation changes no accepted member meaning, but the exact assignments and namespace should be recorded before consumer baselines.
+**Reason:** an uninitialized classification should express lack of evidence; in particular, zero completion should not accidentally assert “not applicable.” Exact assignments and namespace are now settled; consumer baselines and actual failure classification remain pending.
 
 ### Expansion Work With No New Feature Proposal
 
@@ -427,9 +430,78 @@ AAPI-92/AAPI-93 name enums but do not assign numbers; AAPI-63/AAPI-96 do not cho
 | E03 | Interface/base disposal and options dispatch | Verify T02/C02 on old implementers/subclasses. Keep concrete `DisposeAsync` visible and never make a default call synchronous database cleanup. Settle exact `IDatabaseProvider` inheritance/member implementation before W3 |
 | E04 | New runtime validation supporting API | D10-4 owns package, namespace and full options/result/exception declarations; the existing Tools/CLI validator is not proof those runtime types exist |
 | E05 | Async LINQ package version | Select and pin a compatible version at implementation; verify actual packed dependency groups and consumer resolution, not only a project reference |
-| E06 | Full emitted signature manifest | Expand table notation into compiled public API baselines, generated fixtures and C02 declarations after G01–G03 disposition; track every accepted/excluded receiver and approved break |
+| E06 | Full emitted signature manifest | Expand table notation into compiled public API baselines, generated fixtures and C02 declarations, including accepted AAPI-100 through AAPI-102; track every accepted/excluded receiver and approved break |
 
-G01/G02 are concrete uncovered public I/O boundaries. G03 pins remaining public constants/placement. E01–E06 turn accepted policy into exact compilation and integration evidence; they must not be relabeled as completed because this document exists.
+G01/G02's public I/O boundaries and G03's constants/placement are accepted. E01–E06 turn accepted policy into exact compilation and integration evidence; they must not be relabeled as completed because this document exists.
+
+### Declaration Review: E01–E03
+
+**Reviewed:** 2026-09-16. The following are recommendations for the next decision batch, not newly accepted AAPI contracts. The isolated checks below do not change the pending product evidence matrix.
+
+**E01 — Pin generic Min/Max declarations and nullable results.** Recommend exactly one selector-based generic signature per operator on `DataLinqAsyncQueryableExtensions`, with no `class`, `struct`, `notnull` or comparable constraint:
+
+~~~csharp
+public static ValueTask<TResult?> MinAsync<TSource, TResult>(
+    this IQueryable<TSource> source,
+    Expression<Func<TSource, TResult>> selector,
+    CancellationToken cancellationToken = default);
+// MaxAsync has the identical generic/parameter/result shape.
+~~~
+
+The proposed annotations follow the [Queryable selector form](https://learn.microsoft.com/en-us/dotnet/api/system.linq.queryable.min?view=net-10.0). Unconstrained `TResult?` preserves `ValueTask<int>` for an `int` selector, `ValueTask<int?>` for `int?`, and `ValueTask<string?>` for `string`. Type-checking a string selector does not grant SQL translation: the current DataLinq validator admits direct numeric columns and rejects converter-backed columns and unsupported shapes.
+
+Do not add separate nullable-generic overloads or comparer/selector-free forms. Empty non-nullable numeric Min/Max fails; nullable empty/all-null results remain null. Product tests must verify sync/async parity and actual provider conversion/empty-result behavior, rather than routing these calls through local LINQ.
+
+**E02 — Pin direct relation terminal overloads.** Recommend R08's full two-form expansion for `FirstAsync`, `FirstOrDefaultAsync`, `SingleAsync`, `SingleOrDefaultAsync`, `LastAsync`, `LastOrDefaultAsync`, `AnyAsync` and `CountAsync`: `(ct)` and `(Func<T, bool> predicate, ct)`. Materializers remain predicate-free; compose the async row view for more elaborate local pipelines.
+
+For R09, recommend ten `SumAsync(Func<T, N> selector, ct)` and ten `AverageAsync(Func<T, N> selector, ct)` overloads using S1's five numeric types plus nullable counterparts and the same result mapping. Add only these generic extrema forms:
+
+~~~csharp
+ValueTask<TResult?> MinAsync<TResult>(
+    Func<T, TResult> selector,
+    CancellationToken cancellationToken = default);
+ValueTask<TResult?> MaxAsync<TResult>(
+    Func<T, TResult> selector,
+    CancellationToken cancellationToken = default);
+~~~
+
+Here `T` is the relation's existing type parameter. Generic result comparison is local framework comparison, not provider translation. Do not impose SQL's converter-backed-column rejection on already materialized model values; unsupported comparisons still fail normally. No additional relation comparer, selector-free aggregate, asynchronous selector, predicate-specific materializer, `All` or `LongCount` member is proposed.
+
+Shared defaults select local values over the genuine async row view and call the standard numeric/Min/Max operators. The framework [MinAsync sequence API](https://learn.microsoft.com/en-us/dotnet/api/system.linq.asyncenumerable.minasync?view=net-10.0) accepts an optional comparer before cancellation; it is not a selector overload. Forward cancellation by name after projection:
+
+~~~csharp
+// Sketch of a shared local default, not a synchronous materialization.
+return await relation.AsAsyncEnumerable(cancellationToken)
+    .Select(selector)
+    .MinAsync(cancellationToken: cancellationToken);
+~~~
+
+A nullable Sum of an empty/all-null sequence is zero; nullable Average/Min/Max return null when no non-null value exists. Non-nullable Average/Min/Max on empty input throw. Integer Average returns double. Preserve standard local comparison, numeric/overflow and floating-point behavior; do not infer SQL execution or extra provider support from the local contract. Built-ins/test helpers expose these members explicitly, while interface defaults remain acyclic under AAPI-51 through AAPI-53.
+
+**E03 — Implement the inherited disposal slot deliberately.** Recommend `IDatabaseProvider : IDisposable, IAsyncDisposable` with an explicit default implementation of the inherited slot:
+
+~~~csharp
+public interface IDatabaseProvider : IDisposable, IAsyncDisposable
+{
+    // Existing members and the accepted ExecutionOptions default remain.
+    ValueTask IAsyncDisposable.DisposeAsync() =>
+        ValueTask.FromException(new NotSupportedException(
+            "This provider does not implement asynchronous disposal."));
+}
+~~~
+
+Do not instead declare `new ValueTask DisposeAsync()` with a default body: that creates a separate member and does not implement the inherited slot. This follows the [C# default-interface explicit-implementation rules](https://github.com/dotnet/csharplang/blob/main/proposals/csharp-8.0/default-interface-methods.md#explicit-implementation-in-interfaces).
+
+Keep a public virtual `DisposeAsync` on `DatabaseProvider` with an unsupported legacy default, concrete built-in overrides, and the existing class-based transaction declarations. Thus concrete/base/interface callers reach implemented async cleanup, and direct synchronous-only provider implementations remain source-valid without a hidden synchronous cleanup call. Existing explicit or public class implementations of `IAsyncDisposable` keep ordinary dispatch; no recursive cast-and-forward shim.
+
+A legacy unsupported async call must not mark the object disposed or pretend resources were released. Its synchronous disposal remains available to a caller deliberately choosing that path; DataLinq must not choose it as an automatic fallback. Purely local built-in cleanup may complete immediately. Shared disposal state, dependency lifetime ordering and failure precedence remain the already accepted contracts.
+
+Retain D07's standard-settings interface getter and C02's fully required new base-constructor overloads. Class settings override the interface default; no new `IAsyncDatabaseProvider` interface, root draining engine or live configuration is needed. Actual old-binary compatibility still requires B01/B10/B11 and ApiCompat.
+
+**Isolated evidence, not product verification:** a package-free C# 14 probe compiled and ran with SDK 10.0.401 / .NET 10.0.12. It checked the proposed query signatures at compile time; nullable/reference/numeric local Min/Max and Sum/Average behavior; inherited interface/base/concrete disposal dispatch; unsupported defaults without synchronous disposal; and class versus default options dispatch. Deliberately invalid variants failed with `CS0029` (numeric nullable mismatch), `CS8619` (reference nullability mismatch), and `CS0535` (unimplemented inherited disposal slot). A final positive run passed.
+
+The probe used stand-in provider/query types, not DataLinq assemblies. It did not exercise DataLinq query execution, existing binaries, .NET 8/9, the eventual transitive package, Native AOT/trim/WebAssembly, real provider cleanup or the full relation overload manifest. E01–E03 remain open for decision and those product checks; E04–E06 retain the distinct validation/package/manifest work.
+
 
 ## S11: Traceability And Next Gates
 
@@ -450,13 +522,14 @@ Each accepted decision is assigned below. This is traceability, not evidence tha
 | AAPI-73–AAPI-81 | S2/S7/S9, K05, B15, X09–X11 |
 | AAPI-82–AAPI-90 | S4/S5/S7, K04, L07–L15, A08–A11 |
 | AAPI-91–AAPI-99 | S6, R12/DLG004, C01/C02, D01–D07, X06, G03 |
+| AAPI-100–AAPI-102 | L16/L17, T05, S6 fixed assignments/options namespace, G01–G03, B11/B13 |
 
 Next gates, in order:
 
-1. **Finish the source/API planning audit:** disposition G01–G03 and expand E01–E06 with the appropriate A10/H10/V10/T10 owners. OAPI-7 remains open.
+1. **Finish declaration/integration review:** G01–G03 are accepted; continue E01–E03's aggregate/relation declarations and provider-interface disposal, then E04–E06 with the appropriate A10/H10/V10/T10 owners. OAPI-7 remains open.
 2. **W0:** capture the real before-state I/O, compatibility and performance evidence. This document's source scan is only an input, not completion of W0.
 3. **W1/W2:** establish internal async contracts and prove provider feasibility, cancellation/timeout distinction, first initialization, ownership, cache publication, completion certainty and cleanup.
 4. **W3:** implement the public surface against those contracts; compile the full signature/generator manifest and run B01–B16 using packed consumers and ApiCompat.
 5. **Release integration:** supply deterministic and real-provider evidence from S9; reconcile hosted validation/testing integration, packaging, benchmarks and migration notes with the release evidence plan.
 
-No runtime implementation, package publication, baseline benchmark, provider experiment or consumer compilation was performed to create this document.
+No DataLinq runtime implementation, package publication, baseline benchmark, real-provider experiment or DataLinq consumer compilation was performed. S10 separately records the isolated language/framework probe and its limitations.

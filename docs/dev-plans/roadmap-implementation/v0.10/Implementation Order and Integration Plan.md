@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-15.
+**Last reviewed:** 2026-09-16.
 
 **Authority:** The [0.10 implementation roadmap](README.md) owns release scope. This document owns dependency order, shared-contract decisions, merge gates, and stop rules.
 
@@ -66,6 +66,7 @@ Complete the audit and decide/test:
 - enforce AAPI-86 through AAPI-90: complete fluent read helper results, private per-invocation mutable-builder state, disabled fluent mutation exclusions, public canonical-key TableCache lookup, and synchronous local maintenance/callbacks
 - enforce AAPI-91 through AAPI-95: immutable diagnostic namespace/fields/direct accessor, identity and snapshot isolation, separate public classification/outcome enums, exact recovery flags and defensive ordered original secondary exceptions
 - enforce AAPI-96 through AAPI-99: preserved concrete/shared/protected constructors and options property/interface defaults, bounded immutable pre-setup capture, DLG004 conflict binding/locations/database isolation, and retained synchronous MariaDB constructor probing
+- enforce AAPI-100 through AAPI-102: class-based raw model readers and provider-transaction completion/disposal with unsupported legacy defaults, preserved managed ownership, exact diagnostic enum assignments, and the DataLinq execution-options namespace
 
 Relation query composition is excluded from 0.10 under revised AAPI-10. Its [backlog proposal](../../query-and-runtime/Relation-Scoped%20Queries.md) creates no parser, test-helper query capability, or release-gate dependency here; existing database/transaction query roots remain in scope.
 
@@ -87,7 +88,7 @@ Implement and prove:
 - structured cause/stage/outcome/recovery/secondary-failure information for explicit and implicit helpers, preserving ordinary exception identity and provider codes
 - deterministic overlap/admission/recovery and cache invalidation/publication races under AAPI-34 through AAPI-41, including mixed sync/async execution, independent waiter cancellation, and cleanup failures without unsafe abandoned work
 
-OAPI-7's main policies are accepted under AAPI-42 through AAPI-72, helper boundaries under AAPI-82 through AAPI-90, and diagnostic/configuration details under AAPI-91 through AAPI-99. The first [signature inventory and compatibility matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md) identifies G01 raw model readers, G02 public provider-transaction completion, G03 numeric assignments/options placement, and E01–E06 exact declaration/integration work. Disposition those findings before freezing the surface; all listed consumer/ApiCompat checks remain pending. OAPI-8/OAPI-9 policies are accepted under AAPI-73 through AAPI-81; actual provider interruption/classification and recovery-budget feasibility still require W1/W2 evidence. AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, private ownership across awaits, and recovery of unfinished callback work. Private gate/versioning representations and cost remain implementation choices; preserve AAPI-28's exclusive mutable lifetime and AAPI-32's borrowed completion restrictions.
+OAPI-7's main policies are accepted under AAPI-42 through AAPI-72, helper boundaries under AAPI-82 through AAPI-90, and diagnostic/configuration details under AAPI-91 through AAPI-99. AAPI-100 through AAPI-102 resolve the [signature inventory](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md)'s G01 raw model readers, G02 public provider-transaction completion and G03 numeric assignments/options placement. E01–E06 exact declaration/integration work and all listed consumer/ApiCompat checks remain open. OAPI-8/OAPI-9 policies are accepted under AAPI-73 through AAPI-81; actual provider interruption/classification and recovery-budget feasibility still require W1/W2 evidence. AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, private ownership across awaits, and recovery of unfinished callback work. Private gate/versioning representations and cost remain implementation choices; preserve AAPI-28's exclusive mutable lifetime and AAPI-32's borrowed completion restrictions.
 
 Provider differences may be explicit, but they cannot become silent semantic drift.
 

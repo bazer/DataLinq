@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-15.
+**Last reviewed:** 2026-09-16.
 
 **Prerequisite:** DataLinq 0.9.0 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
@@ -89,7 +89,8 @@ Acceptance summary:
 - provider/evidence policy follows AAPI-79 through AAPI-81: SQLite operation-level blocking/locking/cancellation limits, MySQL/MariaDB connection and operation outcomes, separate timeout/recovery settings, and backend/packed-consumer evidence
 - helper boundaries follow AAPI-82 through AAPI-90: synchronous construction/preparation with documented SQLite setup, explicit journal-mode/provisioning execution without automatic creation/repair or atomicity/replay guarantees, complete fluent reads and private builder snapshots, disabled mutation exclusions, public canonical cache lookup, and synchronous maintenance/callbacks
 - diagnostic/configuration behavior follows AAPI-91 through AAPI-99: immutable typed failure snapshots and direct access, independent classification/outcome/recovery, ordered secondary exceptions, preserved constructors and provider settings defaults, bounded pre-setup capture, DLG004 and retained synchronous MariaDB constructor probing
-- OAPI-8/OAPI-9 and the discussed OAPI-7 helper/diagnostic/configuration policies are resolved; the first consolidated inventory identifies G01 raw model readers, G02 public provider-transaction completion and G03 numeric assignments/options placement. OAPI-7 remains open for those decisions, E01–E06 declaration/integration expansions and the complete compatibility/evidence audit. Accepted policies still require consumer, runtime and provider evidence
+- AAPI-100 through AAPI-102 resolve inventory G01–G03: raw model readers on the existing class hierarchy, public provider-transaction async completion with legacy defaults and managed ownership boundaries, fixed diagnostic enum values with Unknown = 0, and DataLinq execution-options placement
+- OAPI-8/OAPI-9 and the discussed OAPI-7 policies and first audit findings are resolved. OAPI-7 remains open for E01–E06 declaration/integration expansions and the complete compatibility/evidence audit. Accepted policies still require consumer, runtime and provider evidence
 
 Explicit non-goals:
 
