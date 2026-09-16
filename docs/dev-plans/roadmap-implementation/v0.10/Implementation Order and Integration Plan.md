@@ -163,7 +163,7 @@ flowchart TD
 
 ### W0: Baseline And I/O Inventory
 
-The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) proposes the next execution details. Its W0-P1 through W0-P6 remain pending; the required work and exit gate below are already accepted. AAPI-111 fixes the published 0.9.0 compatibility baseline, distinct from current-development performance/test identity.
+The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) records accepted W0-P1 through W0-P6, including .NET 10 for all new benchmark baseline/candidate runs. Begin with narrow evidence tooling and benchmark-target migration; baseline capture remains pending. AAPI-111 fixes the published 0.9.0 compatibility baseline, distinct from current-development performance/test identity.
 
 Required work:
 

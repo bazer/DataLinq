@@ -432,7 +432,7 @@ AAPI-92/AAPI-93 name enums but do not assign numbers; AAPI-63/AAPI-96 do not cho
 | E05 | Accepted package version; package evidence pending | AAPI-110 selects System.Linq.AsyncEnumerable 10.0.12 for .NET 8/9 only; verify actual packed groups and consumer resolution |
 | E06 | Accepted baseline/manifest policy; tooling/output pending | AAPI-111 fixes locked 0.9.0 coverage including Memory and compiled/generated evidence; emit actual declarations through AAPI-111 and disposition approved breaks |
 
-G01–G03 and E01–E06 design policies are accepted. No item is product-verified merely because this document exists. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) contains the next pending execution-plan choices.
+G01–G03 and E01–E06 design policies are accepted. No item is product-verified merely because this document exists. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) is accepted, including .NET 10 benchmark baselines/candidates; proceed with tooling preparation and evidence capture.
 
 ### Declaration Review: E01–E03
 
@@ -556,7 +556,7 @@ Reuse the existing ApiCompat runner and metadata snapshots. Map the inventory to
 
 Disposition the already approved AAPI-11 keyed-view rename and AAPI-16 required-reference behavior explicitly; flag other changes for review instead of creating blanket suppressions. W0 captures the trustworthy before-state and package provenance; W3 emits the actual implementation's signature manifest and compatibility evidence. Do not fabricate an emitted manifest now from unimplemented signatures or call this planning review a completed compatibility check.
 
-**Next transition:** decisions are recorded and the validation specification is aligned. Review the [bounded W0 plan](W0%20Baseline%20and%20Evidence%20Plan.md), including separate baseline identities and tooling readiness. Implementation, old-binary compatibility, packed-consumer verification and provider feasibility remain separate work.
+**Next transition:** decisions are recorded and the validation specification is aligned. Execute the accepted [bounded W0 plan](W0%20Baseline%20and%20Evidence%20Plan.md), including separate baseline identities and tooling readiness. Implementation, old-binary compatibility, packed-consumer verification and provider feasibility remain separate work.
 
 
 ## S11: Traceability And Next Gates
@@ -584,7 +584,7 @@ Each accepted decision is assigned below. This is traceability, not evidence tha
 
 Next gates, in order:
 
-1. **Finish W0 execution planning:** G01–G03 and E01–E06 design choices are accepted. Review the [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md). OAPI-7 remains an implementation/manifest/verification gate; new design questions require concrete findings.
+1. **Execute W0 preparation:** G01–G03/E01–E06 design choices and W0-P1 through W0-P6 are accepted. Follow the [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md), starting with compatibility tooling and .NET 10 benchmark migration. OAPI-7 remains an implementation/manifest/verification gate; new design questions require concrete findings.
 2. **W0:** capture the real before-state I/O, compatibility and performance evidence. This document's source scan is only an input, not completion of W0.
 3. **W1/W2:** establish internal async contracts and prove provider feasibility, cancellation/timeout distinction, first initialization, ownership, cache publication, completion certainty and cleanup.
 4. **W3:** implement the public surface against those contracts; compile the full signature/generator manifest and run B01–B16 using packed consumers and ApiCompat.

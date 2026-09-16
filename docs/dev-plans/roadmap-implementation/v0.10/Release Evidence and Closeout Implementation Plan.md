@@ -59,7 +59,7 @@ The manifest records:
 
 ## RE10-0: Freeze The Before-State
 
-AAPI-111 requires a locked published 0.9.0 API baseline including Memory; do not confuse it with the locally packed development baseline below. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) proposes the concrete capture sequence and additional patch coverage; its recommendations are not yet accepted or executed.
+AAPI-111 requires a locked published 0.9.0 API baseline including Memory; do not confuse it with the locally packed development baseline below. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) accepts the capture sequence, additional patch coverage and .NET 10 benchmark baseline/candidate target. Tooling preparation and capture remain to be executed.
 
 Before changing shared execution paths:
 
@@ -339,6 +339,7 @@ Acceptance:
 
 Required comparison:
 
+- .NET 10 for both baseline and candidate in all new runs; historical .NET 8 evidence retains its identity and is not a comparable .NET 10 before-state
 - same runner, runtime family, provider, profile, operation counts, harness schema, and target selection
 - baseline captured before shared runtime work
 - query, relation, mutation, transaction, provider-init, startup, and any new async-specific stages affected by 0.10

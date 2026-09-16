@@ -3,13 +3,13 @@
 
 # 0.10 W0 Baseline And Evidence Plan
 
-**Status:** Proposed execution plan; W0-P1 through W0-P6 are pending discussion.
+**Status:** Accepted execution plan. W0-P1 through W0-P6 accepted on 2026-09-16, with .NET 10 required for benchmark baselines and candidate runs now and going forward. Execution/evidence remains pending.
 
 **Last reviewed:** 2026-09-16.
 
 **Source audit:** `58142e7d546a494426d7266f8e256ca5f7cafdc2`.
 
-**Authority:** [Implementation order](Implementation%20Order%20and%20Integration%20Plan.md#w0-baseline-and-io-inventory) and [RE10-0](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md#re10-0-freeze-the-before-state) already require a baseline before shared runtime changes. [AAPI-106 through AAPI-111](Async%20Public%20API%20Decisions.md#aapi-106-runtime-validation-types-and-immutable-result-construction) settle validation, package and compatibility policies. This document proposes the bounded execution details; it does not supersede those decisions.
+**Authority:** [Implementation order](Implementation%20Order%20and%20Integration%20Plan.md#w0-baseline-and-io-inventory) and [RE10-0](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md#re10-0-freeze-the-before-state) require a baseline before shared runtime changes. [AAPI-106 through AAPI-111](Async%20Public%20API%20Decisions.md#aapi-106-runtime-validation-types-and-immutable-result-construction) settle validation, package and compatibility policies. This document records the accepted bounded execution details; it does not supersede those decisions.
 
 ## Observed Starting Point
 
@@ -24,9 +24,9 @@ These are source-audit findings. No package acquisition, baseline build/test/ben
 
 ## W0-P1: Keep Published Compatibility And Development Baselines Distinct
 
-**Recommendation:** preserve AAPI-111's locked published 0.9.0 baseline, add latest-patch coverage, and freeze a separate pre-async development commit.
+**Accepted:** preserve AAPI-111's locked published 0.9.0 baseline, add latest-patch coverage, and freeze a separate pre-async development commit.
 
-| Identity | Proposed role | Required record |
+| Identity | Accepted role | Required record |
 | --- | --- | --- |
 | Published 0.9.0 | Accepted release-line compatibility baseline, including Memory | Exact nupkg bytes, hashes, repository metadata and tag/commit provenance |
 | Latest published 0.9 patch at W0 freeze | Additional upgrade coverage; verify whether tagged 0.9.2 is that release | Independently acquired package lock and generated/behavioral patch-change review; never silently substitute it for 0.9.0 |
@@ -39,7 +39,7 @@ Keep published bytes distinct from locally packed development bytes. A local reb
 
 ## W0-P2: Repair Evidence Tooling In A Separate Slice Before Capture
 
-**Recommendation:** implement only the narrow 0.10 package/baseline policy first, verify it and commit it before any strict baseline run.
+**Accepted:** implement the narrow 0.10 package/baseline policy and .NET 10 benchmark migration first, verify them and commit before any strict baseline run.
 
 Extend the existing API reporter with explicit release-specific package sets/locks and report identity. Include core, SQLite, MySql, Memory, Tools and CLI assets as appropriate across .NET 8/9/10. Preserve the historical 0.8-to-0.9 path; do not mutate old locks or broaden suppressions to make the new profile pass.
 
@@ -51,7 +51,7 @@ The API reporter currently requires candidate/checkout identity agreement. Do no
 
 ## W0-P3: Capture A Complete Health Baseline With Explicit Coverage
 
-**Recommendation:** run doctor, restore and a forced build, then quick feedback followed by the full supported test matrix. Capture catalog/target definitions before execution.
+**Accepted:** run doctor, restore and a forced build, then quick feedback followed by the full supported test matrix. Capture catalog/target definitions before execution.
 
 The current provider catalog contains SQLite file/memory plus MySQL 8.4/9.7 and MariaDB 10.11/11.4/11.8/12.3. Freeze resolved targets and actual server/image versions or digests for the run; these names describe the checked-in matrix, not an external support claim. Generators, unit and Memory suites are targetless and must not be multiplied across SQL targets.
 
@@ -75,7 +75,7 @@ Capture generated-source/API snapshots and packed consumer behavior for existing
 
 ## W0-P4: Use Existing Strict Benchmark Lanes And Preserve Their Meaning
 
-**Recommendation:** capture the six canonical lanes with `--profile heavy --release-evidence` and separate history paths, then repeat the same scopes against the candidate on the same runner.
+**Accepted, with the user's .NET 10 amendment:** capture the six canonical lanes with `--profile heavy --release-evidence` and separate history paths, then repeat the same scopes against the candidate on the same runner. Both sides run on .NET 10.
 
 | Existing selector | Current expected rows | Purpose |
 | --- | ---: | --- |
@@ -88,7 +88,9 @@ Capture generated-source/API snapshots and packed consumer behavior for existing
 
 These are 90 rows across six lanes, not 90 independent feature guarantees. Reconfirm selector/target inventories from the actual clean harness at freeze. Do not interpret smoke runs, filtered/provider-subset runs, reused binaries or historical schema-v1/v2 artifacts as strict evidence.
 
-Current settings point the benchmark assembly at `net8.0`. State that runtime explicitly; these timings do not establish .NET 9/10 performance parity. Compatibility consumers still cover all three frameworks.
+Migrate the benchmark project, CLI/build/run paths and CI invocation from `net8.0` to `net10.0` before capture. Use .NET 10 for both the new baseline and all subsequent candidate runs. Record the actual SDK/runtime and toolchain; this change does not retarget the public libraries or reduce .NET 8/9/10 consumer coverage.
+
+Preserve historical .NET 8 evidence with its original identity. It cannot serve as a comparable .NET 10 before-state or be relabeled by editing metadata. Historical source targets used for new measurements must actually build/run on .NET 10 through recorded tooling, without silently falling back to .NET 8 or modifying the frozen runtime sources. Recapture both sides when a runtime/toolchain change invalidates comparison.
 
 Freeze scenario definitions, normalized operation counts and corpus/cache state. Retain allocations, latency and workload telemetry together; faster results caused by fewer queries, missing invalidations or changed transaction behavior are not a performance win. Run performance lanes without concurrent full-provider testing or another benchmark on the same machine.
 
@@ -98,7 +100,7 @@ Add targeted diagnostic measurements only for concrete uncovered costs, such as 
 
 ## W0-P5: Map I/O And Behavior Now, Prove Async Feasibility In W1/W2
 
-**Recommendation:** expand the accepted signature inventory into a source-linked execution map rather than another public API redesign.
+**Accepted:** expand the signature inventory into a source-linked execution map rather than another public API redesign.
 
 For every query, relation/navigation, key lookup, prepared/raw reader, mutation, transaction, metadata/probe, provisioning/setup and disposal family, record:
 
@@ -117,7 +119,7 @@ New async-only features receive an explicitly new-feature evidence entry until i
 
 ## W0-P6: Define A Reviewable Exit Bundle And Stop At Real Gaps
 
-**Recommendation:** close W0 only with an immutable evidence bundle and a concise tracked index, not a collection of successful-looking logs.
+**Accepted:** close W0 only with an immutable evidence bundle and a concise tracked index, not a collection of successful-looking logs.
 
 Use `artifacts/release/v0.10/<w0-run-id>/` for the baseline manifest and captured logs/summaries, referencing hashed benchmark artifacts under their existing `artifacts/benchmarks` roots. Record file lengths/hashes and the exact baseline/tooling identities. Keep raw generated output and package bytes in evidence storage rather than committing large artifacts.
 

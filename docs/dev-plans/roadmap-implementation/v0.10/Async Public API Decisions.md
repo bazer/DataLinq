@@ -1881,7 +1881,7 @@ Provider interruption, recovery feasibility, exact signatures and compatibility 
 
 OAPI-1, OAPI-2's structural choices, OAPI-3's enumeration contracts, OAPI-4's failure policies, OAPI-5's mutation/callback contracts, OAPI-6's concurrency/cache policies, OAPI-8's navigation guidance, and OAPI-9's backend policies are resolved. OAPI-7's main policies are accepted under AAPI-42 through AAPI-72, backend boundaries under AAPI-74 through AAPI-81, helper counterparts/exclusions under AAPI-82 through AAPI-90, and diagnostic/configuration details under AAPI-91 through AAPI-99. Continue with:
 
-1. G01–G03 and E01–E06 design choices are accepted through AAPI-111. Continue with the six pending execution-plan choices in the [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md): distinct baseline identities, tooling readiness, health coverage, benchmark scope, I/O mapping and the exit bundle. They are not accepted or verified merely by inclusion.
+1. G01–G03/E01–E06 design choices and W0-P1 through W0-P6 are accepted. Execute the [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md): distinct baseline identities, tooling readiness, health coverage, .NET 10 benchmark baseline/candidate scope, I/O mapping and the exit bundle. Acceptance does not mean the evidence has been captured.
 2. Establish W0/W1/W2 evidence and verify the implemented inventory in W3 with consumer compilation, ApiCompat, deterministic runtime and provider coverage. Raise further design questions only for concrete gaps or contradictions; accepted policy does not replace implementation evidence before API freeze.
 
 ## Required Exit Evidence
