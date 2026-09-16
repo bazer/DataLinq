@@ -91,7 +91,8 @@ Acceptance summary:
 - diagnostic/configuration behavior follows AAPI-91 through AAPI-99: immutable typed failure snapshots and direct access, independent classification/outcome/recovery, ordered secondary exceptions, preserved constructors and provider settings defaults, bounded pre-setup capture, DLG004 and retained synchronous MariaDB constructor probing
 - AAPI-100 through AAPI-102 resolve inventory G01–G03: raw model readers on the existing class hierarchy, public provider-transaction async completion with legacy defaults and managed ownership boundaries, fixed diagnostic enum values with Unknown = 0, and DataLinq execution-options placement
 - AAPI-103 through AAPI-105 settle generic query Min/Max declarations, the direct local relation predicate/numeric overload list, and provider-interface inherited async-disposal defaults with public virtual base/concrete dispatch
-- OAPI-8/OAPI-9 and the discussed OAPI-7 policies and declaration findings are resolved. OAPI-7 remains open for E04–E06 validation/package/manifest work and the complete compatibility/evidence audit, including actual verification of E01–E03. Accepted policies still require consumer, runtime and provider evidence
+- AAPI-106 through AAPI-111 settle core runtime-validation supporting types, complete results/failure policy, comparison scope/empty schemas, bounded per-command timeout, async LINQ 10.0.12 and locked 0.9.0 compatibility coverage including Memory
+- OAPI-8/OAPI-9 and the discussed OAPI-7 design policies are resolved through E06. OAPI-7 remains an implementation/manifest/verification gate. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) contains the next pending execution-plan choices; accepted policies still require consumer, runtime and provider evidence
 
 Explicit non-goals:
 
@@ -282,5 +283,6 @@ These are not stretch goals. They remain outside 0.10 until the roadmap is expli
 - [0.10 Implementation Order and Integration Plan](Implementation%20Order%20and%20Integration%20Plan.md)
 - [0.10 Async Public API Decisions](Async%20Public%20API%20Decisions.md)
 - [0.10 Async Signature Inventory and Compatibility Matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md)
+- [0.10 W0 Baseline and Evidence Plan](W0%20Baseline%20and%20Evidence%20Plan.md)
 - [0.10 Release Evidence and Closeout Implementation Plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 - [DataLinq 0.9 Implementation Roadmap](../v0.9/README.md)

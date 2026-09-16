@@ -319,6 +319,8 @@ Query-capable fixtures follow ordinary/prepared parameter-capture boundaries wit
 
 [AAPI-103 through AAPI-105](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-103-exact-generic-query-min-and-max-declarations) pin query extrema nullability, the complete direct local relation predicate/reduction overload list, and inherited provider-interface async-disposal defaults with base/concrete overrides. Testing helpers expose the actual relation members and preserve local numeric/comparison/empty semantics. Verify unsupported legacy disposal without synchronous cleanup or disposed-state changes. The existing isolated .NET 10 declaration probe does not prove the DataLinq implementation or .NET 8/9 consumers.
 
+[AAPI-106 through AAPI-111](../roadmap-implementation/v0.10/Async%20Public%20API%20Decisions.md#aapi-106-runtime-validation-types-and-immutable-result-construction) require controlled validation fixtures without arbitrary public result construction, complete difference/issue snapshots, threshold/scope/timeout edge coverage, and packed async-LINQ/compatibility consumers. Empty-versus-missing/unreadable schema and command-timeout behavior also require real providers; graph doubles do not prove metadata I/O. The locked 0.9.0 compatibility baseline includes Memory.
+
 Synchronous subset of the reference-holder shape:
 
 ```csharp

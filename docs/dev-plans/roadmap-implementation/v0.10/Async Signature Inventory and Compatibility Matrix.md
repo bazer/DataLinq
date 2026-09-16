@@ -3,13 +3,13 @@
 
 # 0.10 Async Signature Inventory And Compatibility Matrix
 
-**Status:** Consolidation of AAPI-1 through AAPI-105. G01–G03 and E01–E03 declaration policies are accepted; E04–E06 and product evidence remain open.
+**Status:** Consolidation of AAPI-1 through AAPI-111. G01–G03 and E01–E06 design policies are accepted; W0 capture, implementation, emitted manifests and product evidence remain open.
 
 **Target:** 0.10 / A10, with H10, V10 and T10 integration.
 
 **Last reviewed:** 2026-09-16.
 
-**Source audit baseline:** `543ae329`. The runtime sources examined below still describe the synchronous baseline. AAPI-100 through AAPI-105 were accepted on 2026-09-16; accepting them does not implement the target members.
+**Source audit baseline:** `58142e7d`. The runtime sources examined below still describe the synchronous baseline. AAPI-100 through AAPI-111 were accepted on 2026-09-16; accepting them does not implement the target members.
 
 **Authority:** [Async Public API Decisions](Async%20Public%20API%20Decisions.md) owns accepted contracts. This inventory expands and cross-checks them against source; it cannot silently approve a new API or compatibility break. [Implementation Order](Implementation%20Order%20and%20Integration%20Plan.md) owns sequencing and [Release Evidence](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md) owns exit gates.
 
@@ -257,7 +257,7 @@ Accepted target: AAPI-64 through AAPI-67, AAPI-82 through AAPI-85/AAPI-99.
 
 A04/A09 retain unsupported defaults for old synchronous-only factories. Probe capability and cancellation are not false/not-found outcomes. Expected availability failures follow existing probe policy; metadata-query operational failures must not become absence. Metadata retains its non-cancellation `Option` behavior; cancellation escapes. Provisioning retains registration/generation options and original operational exceptions, rather than wrapping every failure into `Option`.
 
-Runtime schema APIs A05–A07 and their supporting types are planned V10 APIs, **not existing runtime APIs in this baseline**. Their full supporting type/package/namespace review belongs to D10-4; see E04. Invoke configuration once synchronously and capture its include list/options. Inspect fresh live metadata for the effective provider database; do not use a boolean probe as a substitute for actual validation. No hidden creation, repair, borrowed application transaction or atomic concurrent-DDL promise.
+Runtime schema APIs A05–A07 and their supporting types are planned V10 APIs, **not existing runtime APIs in this baseline**. AAPI-106 through AAPI-109 settle supporting types in core, result/failure policy, comparison scope and timeout bounds; D10-4 owns implementation and evidence. Invoke configuration once synchronously and capture its include list/options. Inspect fresh live metadata for the effective provider database; do not use a boolean probe as a substitute for actual validation. No hidden creation, repair, borrowed application transaction or atomic concurrent-DDL promise.
 
 Provisioning is explicit and can leave partial effects. Capture registration and inputs before suspension; no automatic retry, database drop or file deletion. Current script support executes `Sql.Text` and does not establish arbitrary parameterized script support. Journal-mode completion does not verify the effective mode. Preserve SQLite shared in-memory identity and intended keeper ownership.
 
@@ -395,7 +395,7 @@ Use existing [Memory row-plan validation](../../../../src/DataLinq.Memory/Memory
 
 ## S10: Concrete Questions And Remaining Expansions
 
-G01–G03 are **resolved by AAPI-100 through AAPI-102**, and E01–E03's declaration policies by **AAPI-103 through AAPI-105**, on 2026-09-16. E04–E06 remain integration/manifest work; recommendations there are not accepted merely by inclusion. Product verification remains pending for all families.
+G01–G03 are **resolved by AAPI-100 through AAPI-102**, E01–E03's declaration policies by **AAPI-103 through AAPI-105**, and E04–E06's integration/evidence policies by **AAPI-106 through AAPI-111**, on 2026-09-16. Implementation, emitted manifests and product verification remain pending for all families.
 
 ### G01: Raw Model Reader Counterparts
 
@@ -428,11 +428,11 @@ AAPI-92/AAPI-93 name enums but do not assign numbers; AAPI-63/AAPI-96 do not cho
 | E01 | Accepted declaration; product evidence pending | AAPI-103 fixes generic Min/Max and nullable results; compile Q10 against actual reference/value/nullable consumers and verify supported runtime semantics |
 | E02 | Accepted declarations; product evidence pending | AAPI-104 fixes the direct local predicate/numeric/generic extrema list; verify full emitted overloads and actual shared defaults |
 | E03 | Accepted disposal declaration; product evidence pending | AAPI-105 fixes inherited `IAsyncDisposable` slot/default and public virtual base/concrete dispatch; verify old implementers/subclasses, options and C02 constructors |
-| E04 | New runtime validation supporting API | D10-4 owns package, namespace and full options/result/exception declarations; the existing Tools/CLI validator is not proof those runtime types exist |
-| E05 | Async LINQ package version | Select and pin a compatible version at implementation; verify actual packed dependency groups and consumer resolution, not only a project reference |
-| E06 | Full emitted signature manifest | Expand table notation into compiled public API baselines, generated fixtures and C02 declarations, including accepted AAPI-100 through AAPI-105; track every accepted/excluded receiver and approved break |
+| E04 | Accepted supporting API; implementation/evidence pending | AAPI-106–109 fix core types, complete results/policy, comparison scope/empty schemas and bounded timeout; D10-4 verifies actual declarations and execution |
+| E05 | Accepted package version; package evidence pending | AAPI-110 selects System.Linq.AsyncEnumerable 10.0.12 for .NET 8/9 only; verify actual packed groups and consumer resolution |
+| E06 | Accepted baseline/manifest policy; tooling/output pending | AAPI-111 fixes locked 0.9.0 coverage including Memory and compiled/generated evidence; emit actual declarations through AAPI-111 and disposition approved breaks |
 
-G01/G02's public I/O boundaries, G03's constants/placement and E01–E03's declaration policies are accepted. E04–E06 remain design/integration work. No item is product-verified merely because this document exists.
+G01–G03 and E01–E06 design policies are accepted. No item is product-verified merely because this document exists. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) contains the next pending execution-plan choices.
 
 ### Declaration Review: E01–E03
 
@@ -500,23 +500,23 @@ Retain D07's standard-settings interface getter and C02's fully required new bas
 
 **Isolated evidence, not product verification:** a package-free C# 14 probe compiled and ran with SDK 10.0.401 / .NET 10.0.12. It checked the proposed query signatures at compile time; nullable/reference/numeric local Min/Max and Sum/Average behavior; inherited interface/base/concrete disposal dispatch; unsupported defaults without synchronous disposal; and class versus default options dispatch. Deliberately invalid variants failed with `CS0029` (numeric nullable mismatch), `CS8619` (reference nullability mismatch), and `CS0535` (unimplemented inherited disposal slot). A final positive run passed.
 
-The probe used stand-in provider/query types, not DataLinq assemblies. It did not exercise DataLinq query execution, existing binaries, .NET 8/9, the eventual transitive package, Native AOT/trim/WebAssembly, real provider cleanup or the full relation overload manifest. E01–E03's declaration choices are now accepted; those product checks remain open. E04–E06 retain the distinct validation/package/manifest work.
+The probe used stand-in provider/query types, not DataLinq assemblies. It did not exercise DataLinq query execution, existing binaries, .NET 8/9, the eventual transitive package, Native AOT/trim/WebAssembly, real provider cleanup or the full relation overload manifest. E01–E06 design choices are now accepted; the probe does not complete their validation/package/manifest work.
 
 ### Integration Review: E04–E06
 
-**Proposed for the next discussion, 2026-09-16; not accepted.** These six recommendations separate the remaining runtime-validation contract, package selection and compatibility tooling choices. They do not reopen AAPI-66's approved method signatures, turn roadmap APIs into existing APIs, or authorize implementation merely by appearing here.
+**Accepted:** 2026-09-16 under AAPI-106 through AAPI-111, respectively. These six decisions settle the runtime-validation contract, package selection and compatibility evidence policy. They do not reopen AAPI-66's method signatures or turn roadmap APIs into existing APIs. W0 and provider feasibility gates still apply.
 
 **1. E04 — Runtime types, package placement and result construction.** Put `DataLinqSchemaValidator`, `DataLinqSchemaValidationOptions` and `DataLinqSchemaValidationResult` in namespace `DataLinq.Validation` in the core `DataLinq` package. Put `DataLinqSchemaValidationException` in `DataLinq.Exceptions` in that package. Hosting registration/startup belongs in the separately planned hosting package. Core validation must not acquire dependencies on Microsoft hosting, `DataLinq.Tools`, CLI configuration or Roslyn/source-file parsing.
 
 The existing core already compiles the shared `SchemaComparer`, `SchemaDifference`, `SchemaDifferenceSeverity` and `DataLinqDiagnosticIssue` types. Reuse them. Preserve the existing Tools `SchemaValidationRunResult` and CLI behavior instead of moving or replacing that public type.
 
-Keep sealed, publicly parameterless-constructible options with mutable setters, captured once before suspension. Proposed properties are `FailOnSeverity` (default `Error`), `TreatValidationIssuesAsFailures` (default `true`), `TimeSpan? CommandTimeout`, `IReadOnlyList<string>? Include` and `Action<string>? MetadataReaderLog`. Recommendation 2 removes the old sketch's informational filtering property.
+Keep sealed, publicly parameterless-constructible options with mutable setters, captured once before suspension. Accepted properties are `FailOnSeverity` (default `Error`), `TreatValidationIssuesAsFailures` (default `true`), `TimeSpan? CommandTimeout`, `IReadOnlyList<string>? Include` and `Action<string>? MetadataReaderLog`. AAPI-107 removes the old sketch's informational filtering property.
 
 Keep the result sealed with internal production construction and getter-only `DatabaseName`, `DatabaseType`, `ModelTableCount`, `DatabaseTableCount`, `Differences`, `Issues`, `HasDifferences` and `HasFailures`, with the types shown in the [runtime validation sketch](../../providers-and-features/Schema%20Validation%20Hooks.md#31-public-surface). Copy and expose read-only collection snapshots, including issue context-message lists. Existing `SchemaDifference` references to finalized metadata are retained; do not claim a deeply cloned metadata graph. Result flags reflect the captured policy and cannot change when caller options change later.
 
-The sealed exception should have `public DataLinqSchemaValidationException(DataLinqSchemaValidationResult result)`, reject null and expose that same result through a getter. Do not add an arbitrary public result builder merely to support tests; use the planned T10 controlled fixtures. Do not retain a live provider, connection or mutable options in the result or add a new automatic serialization contract.
+The sealed exception has `public DataLinqSchemaValidationException(DataLinqSchemaValidationResult result)`, rejects null and exposes that same result through a getter. Do not add an arbitrary public result builder merely to support tests; use the planned T10 controlled fixtures. Do not retain a live provider, connection or mutable options in the result or add a new automatic serialization contract.
 
-**2. E04 — Complete results and independent failure policy.** Always retain every difference in a completed structured result, including `Info`. Omit `IncludeInformationalDifferences` from the runtime options; presentation and hosting logging can filter what they display without discarding comparison evidence. This is a proposed refinement of the earlier suggested shape, not an already accepted removal.
+**2. E04 — Complete results and independent failure policy.** Always retain every difference in a completed structured result, including `Info`. Omit `IncludeInformationalDifferences` from the runtime options; presentation and hosting logging can filter what they display without discarding comparison evidence. AAPI-107 accepts this refinement of the earlier suggested shape.
 
 Use these rules:
 
@@ -534,29 +534,29 @@ Apply the same selected scope to model and live objects; counts describe the obj
 
 Do not pass runtime `Include` straight through the current import-reader option. The MySQL/MariaDB and SQLite readers reject missing requested objects, and they reject an empty schema. A runtime comparison must instead report a selected table absent from successfully read live metadata as `MissingTable`. An existing, successfully read empty database is valid comparison input and can yield missing-table differences; a missing database or an unreadable/incompletely read schema remains an operational failure.
 
-Reuse provider metadata readers with an explicit runtime-validation path for these distinctions. Preserve legacy import/CLI behavior, never translate an arbitrary failed Option into an empty schema, and never create a missing SQLite file/database to make the comparison succeed. Exact internal reader plumbing belongs to W1/D10-4; this recommendation does not add a general public provider extension protocol.
+Reuse provider metadata readers with an explicit runtime-validation path for these distinctions. Preserve legacy import/CLI behavior, never translate an arbitrary failed Option into an empty schema, and never create a missing SQLite file/database to make the comparison succeed. Exact internal reader plumbing belongs to W1/D10-4; this decision does not add a general public provider extension protocol.
 
 **4. E04 — Bounded per-command timeout with explicit units.** Retain `TimeSpan? CommandTimeout`. Null preserves the provider's configured default; zero explicitly disables that command timeout. Positive values round up to whole seconds, so a subsecond value never truncates to unlimited. Validate before I/O and reject negative values (including `Timeout.InfiniteTimeSpan`) and values above `TimeSpan.FromSeconds(2_147_483)`. Use checked/integer normalization, not a lossy floating-point conversion.
 
-That proposed common ceiling avoids silent shortening by the repository's pinned [MySqlConnector 2.6.2 command implementation](https://raw.githubusercontent.com/mysql-net/MySqlConnector/2.6.2/src/MySqlConnector/MySqlCommand.cs), whose effective timeout caps at `int.MaxValue / 1000` seconds. Zero-as-disabled is documented by [MySqlConnector](https://mysqlconnector.net/connection-options/#DefaultCommandTimeout) and [Microsoft.Data.Sqlite](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/database-errors).
+That accepted common ceiling avoids silent shortening by the repository's pinned [MySqlConnector 2.6.2 command implementation](https://raw.githubusercontent.com/mysql-net/MySqlConnector/2.6.2/src/MySqlConnector/MySqlCommand.cs), whose effective timeout caps at `int.MaxValue / 1000` seconds. Zero-as-disabled is documented by [MySqlConnector](https://mysqlconnector.net/connection-options/#DefaultCommandTimeout) and [Microsoft.Data.Sqlite](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/database-errors).
 
 This is a setting applied to each metadata command, not a wall-clock deadline for the full validation operation or its connection opening. Caller cancellation remains the cooperative whole-operation mechanism, subject to the accepted provider limits; rollback recovery uses its separate timeout. Current `MetadataFromDatabaseFactoryOptions` has no command-timeout member, so implementation must wire the setting through actual metadata execution. Never silently ignore an explicitly requested setting on an unsupported custom reader. Provider coverage must verify actual propagation and failure classification, not just option validation.
 
-**5. E05 — Pin the async LINQ dependency deliberately.** Recommend `System.Linq.AsyncEnumerable` **10.0.12**, published 2026-09-08, as the reviewed starting version. Its [NuGet package metadata](https://packages.nuget.org/packages/System.Linq.AsyncEnumerable/10.0.12) supplies .NET 8/9/10 assets. Retain AAPI-13's policy: a normal transitive reference from the core package for .NET 8 and .NET 9, with the package reference omitted for .NET 10's framework implementation.
+**5. E05 — Pin the async LINQ dependency deliberately.** AAPI-110 selects `System.Linq.AsyncEnumerable` **10.0.12**, published 2026-09-08, as the reviewed starting version. Its [NuGet package metadata](https://packages.nuget.org/packages/System.Linq.AsyncEnumerable/10.0.12) supplies .NET 8/9/10 assets. Retain AAPI-13's policy: a normal transitive reference from the core package for .NET 8 and .NET 9, with the package reference omitted for .NET 10's framework implementation.
 
 At implementation, pin the central `PackageVersion` in `src/Directory.Packages.props` and condition the core `PackageReference` by target framework. Do not float versions, use a prerelease 11.x package, substitute the older `System.Linq.Async` package or hide the dependency behind `PrivateAssets=all`. An exact central project version does not force every consuming application to resolve exactly that version; record the actual resolved graph.
 
-Verify packed dependency groups, clean consumer restore and extension binding under .NET 8/9/10, including the query/relation distinction. The isolated .NET 10 framework probe does not validate the package's .NET 8/9 assets. No package files, dependency references or release artifacts are changed by this planning recommendation.
+Verify packed dependency groups, clean consumer restore and extension binding under .NET 8/9/10, including the query/relation distinction. The isolated .NET 10 framework probe does not validate the package's .NET 8/9 assets. No package files, dependency references or release artifacts are changed by this planning decision.
 
 **6. E06 — Establish the right baseline before emitting the final manifest.** The current `ApiCompatibilityReporter` is a 0.9 release tool: its default locked baseline is `v0.8.0-packages.json`, its comparison package list excludes `DataLinq.Memory`, and Memory is checked in a special "new package" lane. Merely passing a different `--baseline-version` will not fix that package coverage.
 
-Recommend a version-specific 0.10 policy and locked published **0.9.0** baseline, with exact package bytes, hashes and provenance, including Memory as an existing library in normal compatibility comparisons. Preserve the historical 0.8-to-0.9 policy, lock and disposition evidence. Treat genuinely new 0.10 integration/test-helper packages separately only when their package identities/surfaces are settled.
+AAPI-111 requires a version-specific 0.10 policy and locked published **0.9.0** baseline, with exact package bytes, hashes and provenance, including Memory as an existing library in normal compatibility comparisons. Preserve the historical 0.8-to-0.9 policy, lock and disposition evidence. Treat genuinely new 0.10 integration/test-helper packages separately only when their package identities/surfaces are settled.
 
 Reuse the existing ApiCompat runner and metadata snapshots. Map the inventory to compiled .NET 8/9/10 declarations: overloads, namespaces, generic constraints, nullable metadata, optional values and parameter names, constructors, inherited/default-interface dispatch, and fixed enum values. Supplement assembly manifests with generated-source and positive/negative consumer fixtures for converted/composite keys, required/optional navigation, DLG004 and extension binding. A textual API diff alone cannot prove dispatch or generated-client behavior.
 
 Disposition the already approved AAPI-11 keyed-view rename and AAPI-16 required-reference behavior explicitly; flag other changes for review instead of creating blanket suppressions. W0 captures the trustworthy before-state and package provenance; W3 emits the actual implementation's signature manifest and compatibility evidence. Do not fabricate an emitted manifest now from unimplemented signatures or call this planning review a completed compatibility check.
 
-**Next transition if approved:** record these choices, align the runtime-validation sketch, then prepare the bounded W0 evidence/tooling plan. Implementation, old-binary compatibility, packed-consumer verification and provider feasibility still remain separate work.
+**Next transition:** decisions are recorded and the validation specification is aligned. Review the [bounded W0 plan](W0%20Baseline%20and%20Evidence%20Plan.md), including separate baseline identities and tooling readiness. Implementation, old-binary compatibility, packed-consumer verification and provider feasibility remain separate work.
 
 
 ## S11: Traceability And Next Gates
@@ -580,10 +580,11 @@ Each accepted decision is assigned below. This is traceability, not evidence tha
 | AAPI-91–AAPI-99 | S6, R12/DLG004, C01/C02, D01–D07, X06, G03 |
 | AAPI-100–AAPI-102 | L16/L17, T05, S6 fixed assignments/options namespace, G01–G03, B11/B13 |
 | AAPI-103–AAPI-105 | Q10, R08/R09, T02, E01–E03, B05/B06/B10/B11/B14 |
+| AAPI-106–AAPI-111 | A05–A07, E04–E06, B04/B14/B16, D10-4 and W0 baseline/tooling |
 
 Next gates, in order:
 
-1. **Finish integration/manifest planning:** G01–G03 and E01–E03 declaration choices are accepted; continue E04–E06's validation API, package selection and compatibility manifest with the appropriate A10/H10/V10/T10 owners. OAPI-7 remains open for this work and product verification.
+1. **Finish W0 execution planning:** G01–G03 and E01–E06 design choices are accepted. Review the [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md). OAPI-7 remains an implementation/manifest/verification gate; new design questions require concrete findings.
 2. **W0:** capture the real before-state I/O, compatibility and performance evidence. This document's source scan is only an input, not completion of W0.
 3. **W1/W2:** establish internal async contracts and prove provider feasibility, cancellation/timeout distinction, first initialization, ownership, cache publication, completion certainty and cleanup.
 4. **W3:** implement the public surface against those contracts; compile the full signature/generator manifest and run B01–B16 using packed consumers and ApiCompat.

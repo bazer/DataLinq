@@ -68,6 +68,7 @@ Complete the audit and decide/test:
 - enforce AAPI-96 through AAPI-99: preserved concrete/shared/protected constructors and options property/interface defaults, bounded immutable pre-setup capture, DLG004 conflict binding/locations/database isolation, and retained synchronous MariaDB constructor probing
 - enforce AAPI-100 through AAPI-102: class-based raw model readers and provider-transaction completion/disposal with unsupported legacy defaults, preserved managed ownership, exact diagnostic enum assignments, and the DataLinq execution-options namespace
 - enforce AAPI-103 through AAPI-105: exact unconstrained query Min/Max nullable declarations, complete local relation predicate/numeric/generic extrema overloads, and inherited provider-interface disposal defaults with concrete/base dispatch and no synchronous fallback
+- enforce AAPI-106 through AAPI-111: core validation types/snapshots, complete differences and independent failure policy, comparison-scoped Include/empty schemas, bounded per-command timeout, async LINQ 10.0.12 on .NET 8/9, and locked 0.9.0 compatibility including Memory with actual emitted evidence
 
 Relation query composition is excluded from 0.10 under revised AAPI-10. Its [backlog proposal](../../query-and-runtime/Relation-Scoped%20Queries.md) creates no parser, test-helper query capability, or release-gate dependency here; existing database/transaction query roots remain in scope.
 
@@ -89,7 +90,7 @@ Implement and prove:
 - structured cause/stage/outcome/recovery/secondary-failure information for explicit and implicit helpers, preserving ordinary exception identity and provider codes
 - deterministic overlap/admission/recovery and cache invalidation/publication races under AAPI-34 through AAPI-41, including mixed sync/async execution, independent waiter cancellation, and cleanup failures without unsafe abandoned work
 
-OAPI-7's main policies are accepted under AAPI-42 through AAPI-72, helper boundaries under AAPI-82 through AAPI-90, and diagnostic/configuration details under AAPI-91 through AAPI-99. AAPI-100 through AAPI-102 resolve the [signature inventory](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md)'s G01–G03; AAPI-103 through AAPI-105 settle E01–E03's query/relation/disposal declaration choices. E04–E06 validation/package/manifest work and all listed consumer/ApiCompat checks remain open. OAPI-8/OAPI-9 policies are accepted under AAPI-73 through AAPI-81; actual provider interruption/classification and recovery-budget feasibility still require W1/W2 evidence. AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, private ownership across awaits, and recovery of unfinished callback work. Private gate/versioning representations and cost remain implementation choices; preserve AAPI-28's exclusive mutable lifetime and AAPI-32's borrowed completion restrictions.
+OAPI-7's discussed design policies are accepted through AAPI-111, including G01–G03 and E01–E06 in the [signature inventory](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md). Implementation, emitted manifests and all listed consumer/ApiCompat checks remain open. OAPI-8/OAPI-9 policies are accepted under AAPI-73 through AAPI-81; actual provider interruption/classification and recovery-budget feasibility still require W1/W2 evidence. AAPI-34 through AAPI-41 settle wider operation/shared-load coordination, private ownership across awaits, and recovery of unfinished callback work. Private gate/versioning representations and cost remain implementation choices; preserve AAPI-28's exclusive mutable lifetime and AAPI-32's borrowed completion restrictions.
 
 Provider differences may be explicit, but they cannot become silent semantic drift.
 
@@ -116,6 +117,8 @@ Define one structured validation result and explicit policies for:
 - disabled/no database access
 
 The host adapter consumes this result; it does not invent a second schema comparison model. AAPI-64 through AAPI-67 settle async validation/probe contracts, configuration capture, operational failure versus schema differences, effective database identity, and fresh complete metadata without hidden creation/repair. Propagate startup cancellation, keep command timeout separate from a whole-operation token, and preserve provider/SQLite resource ownership.
+
+AAPI-106 through AAPI-109 fix runtime types in core and hosting separately, immutable result snapshots retaining Info, independent threshold/issue policy, comparison-scoped Include and empty-schema behavior, and null/default, zero/unlimited, rounded positive command timeouts capped at 2,147,483 seconds. The adapter must not discard structured differences to filter logs, fabricate empty schemas from reader failures or silently ignore timeout settings.
 
 ### D10-5: Testing Fidelity Boundary
 
@@ -159,6 +162,8 @@ flowchart TD
 ## Implementation Waves
 
 ### W0: Baseline And I/O Inventory
+
+The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) proposes the next execution details. Its W0-P1 through W0-P6 remain pending; the required work and exit gate below are already accepted. AAPI-111 fixes the published 0.9.0 compatibility baseline, distinct from current-development performance/test identity.
 
 Required work:
 
