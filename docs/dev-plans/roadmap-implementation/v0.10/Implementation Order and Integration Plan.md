@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-16.
+**Last reviewed:** 2026-09-17.
 
 **Authority:** The [0.10 implementation roadmap](README.md) owns release scope. This document owns dependency order, shared-contract decisions, merge gates, and stop rules.
 
@@ -163,7 +163,7 @@ flowchart TD
 
 ### W0: Baseline And I/O Inventory
 
-The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) records accepted W0-P1 through W0-P6, including .NET 10 for all new benchmark baseline/candidate runs. The initial evidence tooling and benchmark-target migration are implemented and tested; clean baseline capture and the I/O map remain pending. AAPI-111, as explicitly amended by the user on 2026-09-16, fixes the published 0.9.2 compatibility baseline, distinct from current-development performance/test identity. The earlier PluginHook compatibility question is resolved by that amendment and no longer blocks W0.
+The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) records accepted W0-P1 through W0-P6, including .NET 10 for all new benchmark baseline/candidate runs. The evidence tooling, benchmark-target migration, [sealed baseline capture](W0%20Baseline%20Evidence.md) and [I/O map](W0%20IO%20Execution%20Map.md) are recorded. W0-F1 remains open: an intermittent SQLite transaction failure and a separately reproduced driver pool ownership defect require a focused follow-up before W1. AAPI-111, as explicitly amended by the user on 2026-09-16, fixes the published 0.9.2 compatibility baseline, distinct from current-development performance/test identity. The earlier PluginHook compatibility question is resolved by that amendment and no longer blocks W0.
 
 Required work:
 

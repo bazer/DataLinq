@@ -7,7 +7,7 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-16.
+**Last reviewed:** 2026-09-17.
 
 **Depends on:** The required workstreams and gates in the [0.10 implementation roadmap](README.md) and [implementation order](Implementation%20Order%20and%20Integration%20Plan.md).
 
@@ -59,14 +59,14 @@ The manifest records:
 
 ## RE10-0: Freeze The Before-State
 
-AAPI-111, amended by the user on 2026-09-16, requires a locked published 0.9.2 API baseline including Memory; do not confuse it with the locally packed development baseline below. This replaces the earlier 0.9.0-plus-patch requirement and accepts the existing provider registration changes. Retained 0.9.0 diagnostics are historical, not a release gate. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) accepts the capture sequence and .NET 10 benchmark baseline/candidate target. Initial tooling preparation is implemented and tested; clean baseline capture and the I/O map remain outstanding.
+AAPI-111, amended by the user on 2026-09-16, requires a locked published 0.9.2 API baseline including Memory; do not confuse it with the locally packed development baseline below. This replaces the earlier 0.9.0-plus-patch requirement and accepts the existing provider registration changes. Retained 0.9.0 diagnostics are historical, not a release gate. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) accepts the capture sequence and .NET 10 benchmark baseline/candidate target. The [sealed W0 capture](W0%20Baseline%20Evidence.md) and [I/O map](W0%20IO%20Execution%20Map.md) now record those baselines. W0-F1 remains unresolved; the passing full matrix and all six strict benchmark lanes do not waive the initial SQLite failure or the separately reproduced driver ownership defect.
 
 Before changing shared execution paths:
 
 - run repository doctor, restore, and forced build
 - record the current test catalog and supported provider targets
 - run quick and complete provider matrices
-- pack and inspect a current-development 0.9 baseline if package shape evidence is needed
+- pack and inspect the pre-async development baseline if package shape evidence is needed; keep its local evidence version distinct from published 0.9.2
 - capture public API and generated-source baselines
 - run the benchmark lanes affected by query, relation, mutation, transaction, and provider initialization
 - record current logging, metrics, cache, invalidation, and terminal-state telemetry

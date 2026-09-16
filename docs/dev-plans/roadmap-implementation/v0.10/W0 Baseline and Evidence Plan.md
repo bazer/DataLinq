@@ -3,9 +3,9 @@
 
 # 0.10 W0 Baseline And Evidence Plan
 
-**Status:** Accepted execution plan. W0-P1 through W0-P6 accepted on 2026-09-16, with .NET 10 required for benchmark baselines and candidate runs now and going forward. The first tooling preparation slice is implemented and checked below; clean baseline capture and W0 completion remain pending.
+**Status:** Accepted execution plan. W0-P1 through W0-P6 accepted on 2026-09-16, with .NET 10 required for benchmark baselines and candidate runs now and going forward. Tooling and baseline capture are complete; the [sealed evidence index](W0%20Baseline%20Evidence.md) and [I/O map](W0%20IO%20Execution%20Map.md) record the executed checkpoint. W0 completion and W1 handoff remain blocked by W0-F1, the unresolved SQLite finding.
 
-**Last reviewed:** 2026-09-16.
+**Last reviewed:** 2026-09-17.
 
 **Baseline amendment:** On 2026-09-16 the user selected published **0.9.2** as the 0.10 compatibility baseline, replacing the earlier primary-0.9.0/additional-patch policy. Existing provider registration changes stay; consumers are aware of them. New performance baselines still use a separately frozen development commit and .NET 10.
 
@@ -55,7 +55,7 @@ Diagnostic report: `artifacts/dev/api-report/w0-policy-0.9.0-to-0.9.2-diagnostic
 
 **Disposition accepted on 2026-09-16:** the user explicitly replaces the 0.9.0 compatibility baseline with 0.9.2, keeps the atomic registration changes and confirms consumers know about them. AAPI-111 is amended accordingly. This historical 0.9.0-to-0.9.2 finding no longer blocks W0 or requires a compatibility exception/suppression. Retain the exact diagnostic record and both acquired locks; do not relabel the failed report as a pass. Old-binary/source consumer checks for 0.10 now start from 0.9.2, and new unexplained breaks against that baseline remain failures.
 
-The next execution slice freezes clean development/tooling identities, captures health/package/generated-source baselines, maps current I/O, and runs the six heavy benchmark lanes without concurrent test workloads. W0 is not complete, and W1 runtime changes have not started.
+That tooling checkpoint was followed by the [clean baseline capture](W0%20Baseline%20Evidence.md): health/package/generated-source evidence, the I/O map and all six heavy benchmark lanes are retained under exact identities. W0 remains open because W0-F1 requires a focused provider-lifetime follow-up; W1 runtime changes have not started.
 
 ## W0-P1: Keep Published Compatibility And Development Baselines Distinct
 

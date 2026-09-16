@@ -7,11 +7,11 @@
 
 **Target release:** 0.10.
 
-**Last reviewed:** 2026-09-16.
+**Last reviewed:** 2026-09-17.
 
 **Prerequisite:** DataLinq 0.9.2 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
-**Execution checkpoint, 2026-09-16:** the detailed async design is accepted through AAPI-111, and the W0-P1–P6 execution plan is accepted. The first W0 tooling slice is implemented and tested; clean baseline capture and the I/O map remain outstanding. Async runtime implementation has not started. The user-selected published compatibility baseline is fixed at 0.9.2, while new development performance baselines and candidates both run on .NET 10. See the [W0 checkpoint and baseline amendment](W0%20Baseline%20and%20Evidence%20Plan.md) for evidence and remaining work.
+**Execution checkpoint, 2026-09-17:** the detailed async design and W0-P1–P6 plan remain accepted. [W0 evidence](W0%20Baseline%20Evidence.md) is captured and sealed from clean `7e36614b`: 5,855 passing full-matrix tests, all 90 strict .NET 10 benchmark rows, package/API/generated-source baselines, and the [I/O map](W0%20IO%20Execution%20Map.md). **W0 is still open:** the initial quick run failed a SQLite parallel-transaction test, and a separate public-API probe reproduced duplicate live native handles in the pinned SQLite driver. Passing repeats do not waive W0-F1; a safe correction and its relationship to the original failure remain to be established before W1. Async runtime implementation has not started. The published compatibility baseline remains fixed at 0.9.2.
 
 ## Release Thesis
 
@@ -96,7 +96,7 @@ Acceptance summary:
 - AAPI-100 through AAPI-102 resolve inventory G01–G03: raw model readers on the existing class hierarchy, public provider-transaction async completion with legacy defaults and managed ownership boundaries, fixed diagnostic enum values with Unknown = 0, and DataLinq execution-options placement
 - AAPI-103 through AAPI-105 settle generic query Min/Max declarations, the direct local relation predicate/numeric overload list, and provider-interface inherited async-disposal defaults with public virtual base/concrete dispatch
 - AAPI-106 through AAPI-111 settle core runtime-validation supporting types, complete results/failure policy, comparison scope/empty schemas, bounded per-command timeout, async LINQ 10.0.12 and locked 0.9.2 compatibility coverage including Memory
-- OAPI-8/OAPI-9 and the discussed OAPI-7 design policies are resolved through E06. OAPI-7 remains an implementation/manifest/verification gate. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) is accepted, including .NET 10 benchmark baselines/candidates; the initial tooling slice is implemented, and clean evidence capture comes next
+- OAPI-8/OAPI-9 and the discussed OAPI-7 design policies are resolved through E06. OAPI-7 remains an implementation/manifest/verification gate. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) is accepted, including .NET 10 benchmark baselines/candidates; the tooling and baseline capture are complete, but W0-F1 blocks handoff as recorded in the [evidence index](W0%20Baseline%20Evidence.md)
 
 Explicit non-goals:
 
@@ -288,5 +288,7 @@ These are not stretch goals. They remain outside 0.10 until the roadmap is expli
 - [0.10 Async Public API Decisions](Async%20Public%20API%20Decisions.md)
 - [0.10 Async Signature Inventory and Compatibility Matrix](Async%20Signature%20Inventory%20and%20Compatibility%20Matrix.md)
 - [0.10 W0 Baseline and Evidence Plan](W0%20Baseline%20and%20Evidence%20Plan.md)
+- [0.10 W0 Baseline Evidence](W0%20Baseline%20Evidence.md)
+- [0.10 W0 I/O Execution Map](W0%20IO%20Execution%20Map.md)
 - [0.10 Release Evidence and Closeout Implementation Plan](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md)
 - [DataLinq 0.9 Implementation Roadmap](../v0.9/README.md)
