@@ -2,7 +2,7 @@
 
 DataLinq's CI is organized around time to first useful failure and trustworthy per-provider evidence. It deliberately does not run one giant solution build followed by one giant test command.
 
-## Pull requests and master
+## Pull requests and integration branches
 
 `Latest CI` starts these independent lanes together:
 
@@ -17,6 +17,8 @@ DataLinq's CI is organized around time to first useful failure and trustworthy p
 The smoke result is independent and normally appears first; slower server setup cannot hide an immediate compiler, query, mutation, cache, or SQLite regression. Matrix `fail-fast` is disabled, so one broken target does not suppress the evidence from the other required targets.
 
 Pull-request and branch runs use a workflow/ref concurrency group with cancellation. A newer commit cancels obsolete work for the same pull request or branch. Master uses the same complete latest-provider-family contract; it does not treat a green smoke job as permission to ignore a failed server shard.
+
+Push checks also cover version integration branches such as `v0.10`. Feature PRs target that branch. Require PRs and `Latest required gate`, forbid force pushes/deletion, and retain merge commits for merges between long-lived branches. The sole-maintainer setup requires zero additional approving reviewers; that avoids making a second person a prerequisite for every PR. Squash short-lived feature PRs.
 
 Each shard builds `DataLinq.Testing.CLI`, asks the CLI to build its selected test project exactly once, and then executes the resolved host DLL directly. Shards upload raw logs, HTML, TRX, fixture telemetry, and their summary with `if: always()`. Artifact names contain the logical shard, Actions run id, and run attempt, so retries and concurrent runs cannot overwrite one another.
 
@@ -47,7 +49,7 @@ The nightly workflow fans out into 17 canonical shards:
 
 Every provider shard uses `--batch-size 1`. The SQLite-file compliance shard and MySQL 9.7 provider-specific shard are the invariant anchors. MySQL 8.4 and every other provider shard declare `target-specific`, which applies the provider-affinity filter inside the runner and records that role in the invocation, expected row, and result row.
 
-After every shard finishes—even if one failed—the aggregate job downloads all matching artifacts and applies schema `v0.9.testing-shard-aggregate.v2`. Before validation it loads the per-shard case-count baseline published by the previous successful master run. Aggregation fails closed unless all of the following are true:
+After every shard finishes—even if one failed—the aggregate job downloads all matching artifacts and applies schema `v0.9.testing-shard-aggregate.v2`. Before validation it loads the per-shard case-count baseline published by the previous successful run of the same active channel. Aggregation fails closed unless all of the following are true:
 
 - exactly one report exists for every canonical suite/target and no unexpected or duplicate shard exists;
 - every report uses test-summary schema `v0.9.testing-run-summary.v2`, the requested configuration, compatible OS identity, the same architecture/.NET runtime, and the exact Actions commit SHA;
@@ -59,7 +61,15 @@ After every shard finishes—even if one failed—the aggregate job downloads al
 
 Ubuntu LTS point releases are compatible within the same release: `Ubuntu 24.04.4 LTS` and `Ubuntu 24.04.5 LTS` aggregate as `Ubuntu 24.04 LTS`. GitHub can assign both during a hosted-runner rollout. Each shard summary retains its full OS description; other OS descriptions, architecture, and .NET runtime must match exactly, and different Ubuntu releases remain incompatible.
 
-A broad multi-target batch is never release evidence. The aggregate is the nightly/release gate; a missing or duplicate target, incompatible schema, wrong commit, wrong configuration, count regression, failed/skipped case, or absent artifact makes it fail. Test-count growth is accepted automatically and becomes the next successful baseline; a later loss in any individual shard still fails even when another shard grows enough to hide it in the total. All count and role mismatches are reported together. Badge and baseline publication happen only after the aggregate succeeds on master. Nightly failure therefore cannot ratchet the baseline downward or rewrite master. An intentional reviewed coverage reduction must change the source floors and increment the source-controlled baseline epoch; ordinary code changes cannot silently reset history. A failed run blocks using that run as release evidence, and a release must use a successful aggregate produced from the exact candidate commit and configuration.
+A broad multi-target batch is never release evidence. The aggregate is the nightly/release gate; a missing or duplicate target, incompatible schema, wrong commit, wrong configuration, count regression, failed/skipped case, or absent artifact makes it fail. Test-count growth is accepted automatically and becomes the next successful baseline; a later loss in any individual shard still fails even when another shard grows enough to hide it in the total. All count and role mismatches are reported together. Badge and baseline publication happen only after the aggregate succeeds for an active channel, into that channel's directory. Nightly failure therefore cannot ratchet the baseline downward or rewrite master. An intentional reviewed coverage reduction must change the source floors and increment the source-controlled baseline epoch; ordinary code changes cannot silently reset history. A failed run blocks using that run as release evidence, and a release must use a successful aggregate produced from the exact candidate commit and configuration.
+
+## Branch publication and scheduling
+
+Master retains the public badge/baseline at `.github/badges/` on `badge-data`. Development publishes to `.github/badges/branches/<branch>/`, after its own successful aggregate. Publications share a lock and cannot overwrite the other channel's baseline or badge. A branch with no published baseline uses source-controlled floors. Unconfigured branches can run the matrix manually but do not publish badges or consume another branch's baseline.
+
+Master's full matrix remains scheduled at 02:00 UTC. The default-branch development dispatcher runs at 02:25 UTC and explicitly starts both full matrix and heavy benchmarks on the configured development ref. It reads `public/release-channels.json` from master; setting `Development` to `null` disables that dispatch. Heavy stable benchmarks retain their 04:00 UTC schedule.
+
+The `Deploy static content to Pages` workflow is manual and restricted to master. Deploy documentation deliberately after review; benchmark data refreshes independently.
 
 ## Critical-path measurements
 

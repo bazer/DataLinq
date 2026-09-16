@@ -1,0 +1,5 @@
+{
+  "SchemaVersion": 1,
+  "Stable": { "Branch": "master", "Label": "Stable (master)" },
+  "Development": { "Branch": "v0.10", "Label": "0.10 (development)" }
+}

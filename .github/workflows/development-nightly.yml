@@ -1,0 +1,34 @@
+name: Development Nightly Dispatch
+
+on:
+  schedule:
+    - cron: "25 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: development-nightly-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - name: Run the configured development branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          branch=$(python scripts/benchmark_channels.py development)
+          if [ -z "$branch" ]; then
+            echo "No active development channel."
+            exit 0
+          fi
+          gh workflow run full-matrix.yml --ref "$branch"
+          gh workflow run benchmark-history.yml --ref "$branch" -f profile=heavy
