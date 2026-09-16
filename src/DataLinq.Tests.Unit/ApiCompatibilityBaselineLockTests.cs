@@ -152,6 +152,38 @@ public sealed class ApiCompatibilityBaselineLockTests
         await Assert.That(ineligible!.Message).Contains("not eligible");
     }
 
+    [Test]
+    [Arguments("tag")]
+    [Arguments("commit")]
+    public async Task Load_V010RequiresMemoryAndPreservesExactTagType(string tagType)
+    {
+        using var fixture = new LockFixture();
+        var document = ValidDocument()
+            .Replace(ApiCompatibilityBaselineLock.SchemaVersion, ApiCompatibilityBaselineLock.V010SchemaVersion, StringComparison.Ordinal)
+            .Replace("0.8.0", "0.9.0", StringComparison.Ordinal)
+            .Replace("\"repositoryTagObjectType\": \"commit\"", $"\"repositoryTagObjectType\": \"{tagType}\"", StringComparison.Ordinal);
+        var policy = ApiCompatibilityReleasePolicy.ForBaseline("0.9.0");
+        fixture.Write(document);
+        var missingMemory = Capture<InvalidDataException>(() => ApiCompatibilityBaselineLock.Load(
+            fixture.Path, "0.9.0", policy.BaselinePackageIds, policy.LibraryComparisonPackageIds, policy.LockSchemaVersion));
+        await Assert.That(missingMemory).IsNotNull();
+        await Assert.That(missingMemory!.Message).Contains("DataLinq.Memory");
+
+        document = document.Replace("\"packages\": [",
+            "\"packages\": [ { \"id\": \"DataLinq.Memory\", \"sha256\": \"" + new string('f', 64) + "\" },",
+            StringComparison.Ordinal);
+        fixture.Write(document);
+        var loaded = ApiCompatibilityBaselineLock.Load(
+            fixture.Path, "0.9.0", policy.BaselinePackageIds, policy.LibraryComparisonPackageIds, policy.LockSchemaVersion);
+        await Assert.That(loaded.RepositoryTagObjectType).IsEqualTo(tagType);
+        await Assert.That(loaded.PackageSha256.Count).IsEqualTo(6);
+
+        fixture.Write(document.Replace($"\"repositoryTagObjectType\": \"{tagType}\"",
+            "\"repositoryTagObjectType\": \"tree\"", StringComparison.Ordinal));
+        await Assert.That(Capture<InvalidDataException>(() => ApiCompatibilityBaselineLock.Load(
+            fixture.Path, "0.9.0", policy.BaselinePackageIds, policy.LibraryComparisonPackageIds, policy.LockSchemaVersion))).IsNotNull();
+    }
+
     private static TException? Capture<TException>(Action action)
         where TException : Exception
     {

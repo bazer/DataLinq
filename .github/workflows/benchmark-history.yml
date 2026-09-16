@@ -96,6 +96,9 @@ jobs:
                       continue
                   if metadata.get("Filter") != benchmark_filter:
                       continue
+                  runtime = metadata.get("RuntimeDescription")
+                  if not isinstance(runtime, str) or not runtime.startswith(".NET 10."):
+                      continue
                   schema_version = run.get("SchemaVersion")
                   if type(schema_version) is not int or schema_version not in (1, 2):
                       continue
@@ -111,7 +114,7 @@ jobs:
             baseline_args+=(--comparison-json artifacts/benchmarks/ci/latest-comparison.json)
           fi
 
-          dotnet exec src/DataLinq.Benchmark.CLI/bin/Release/net8.0/DataLinq.Benchmark.CLI.dll run \
+          dotnet exec src/DataLinq.Benchmark.CLI/bin/Release/net10.0/DataLinq.Benchmark.CLI.dll run \
             --profile "${BENCHMARK_PROFILE}" \
             --filter "${BENCHMARK_FILTER}" \
             --history-json artifacts/benchmarks/ci/latest-history.json \
@@ -230,6 +233,8 @@ jobs:
                   fail("history Metadata and Invocation must be objects.")
               if metadata.get("Profile") != expected_profile or metadata.get("Filter") != expected_filter:
                   fail("history Metadata does not match this workflow's profile and filter.")
+              if not require_text(metadata, "RuntimeDescription", "history.Metadata").startswith(".NET 10."):
+                  fail("history.Metadata.RuntimeDescription must identify .NET 10.")
               for key in (
                       "RunnerOs", "RunnerArchitecture", "RuntimeDescription",
                       "ProcessorIdentifier", "BenchmarkDotNetVersion"):
@@ -265,6 +270,9 @@ jobs:
               summary = report.get("Summary")
               if not isinstance(rows, list) or not rows:
                   fail("history.Rows must be a non-empty array.")
+              for index, row in enumerate(rows):
+                  if not require_text(row, "Runtime", f"history.Rows[{index}]").startswith(".NET 10."):
+                      fail(f"history.Rows[{index}].Runtime must identify .NET 10.")
               if not isinstance(expected_targets, list) or not isinstance(observed_targets, list):
                   fail("history target collections must be arrays.")
               if not isinstance(warnings, list) or not isinstance(summary, dict):

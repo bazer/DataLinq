@@ -446,7 +446,7 @@ internal sealed class BenchmarkHarnessRunner
             "-c",
             "Release",
             "-f",
-            "net8.0",
+            "net10.0",
             "-nologo",
             "-v",
             verbose ? "minimal" : "q",
@@ -553,6 +553,9 @@ internal sealed class BenchmarkHarnessRunner
                     : null,
                 BenchmarkTargetRepositoryRoot = settings.UsesExternalBenchmarkTarget
                     ? settings.BenchmarkTargetRepositoryRoot
+                    : null,
+                CustomAfterMicrosoftCommonCrossTargetingTargets = settings.UsesExternalBenchmarkTarget
+                    ? Path.Combine(settings.RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "BenchmarkTargetProvenance.targets")
                     : null,
                 BenchmarkCompatibilitySource = settings.UsesExternalBenchmarkTarget
                     ? Path.Combine(settings.RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "HistoricalBenchmarkConfig.cs.txt")

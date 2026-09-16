@@ -12,7 +12,7 @@ internal static class ApiReportCommand
     {
         var candidateDirectoryOption = new Option<string>("--candidate-dir")
         {
-            Description = "Fresh directory containing the exact 0.9 candidate package set.",
+            Description = "Fresh directory containing the exact candidate package set for the selected release policy.",
             Required = true
         };
         var candidateVersionOption = new Option<string>("--candidate-version")
@@ -28,15 +28,11 @@ internal static class ApiReportCommand
         var baselineVersionOption = new Option<string>("--baseline-version")
         {
             Description = "Exact baseline package version.",
-            DefaultValueFactory = _ => "0.8.0"
+            DefaultValueFactory = _ => "0.9.0"
         };
-        var baselineLockOption = new Option<string>("--baseline-lock")
+        var baselineLockOption = new Option<string?>("--baseline-lock")
         {
-            Description = "Tracked package hash and repository provenance lock.",
-            DefaultValueFactory = _ => Path.Combine(
-                "test-infra",
-                "api-compatibility",
-                "v0.8.0-packages.json")
+            Description = "Tracked package hash/provenance lock. Defaults to test-infra/api-compatibility/v<baseline-version>-packages.json."
         };
         var outputOption = new Option<string?>("--output")
         {
@@ -51,7 +47,7 @@ internal static class ApiReportCommand
 
         var command = new Command(
             "api-report",
-            "Compares exact public package assets against the locked 0.8 API baseline with pinned ApiCompat.");
+            "Compares public package assets against a locked 0.9 baseline (or historical 0.8.0) with pinned ApiCompat.");
         command.Options.Add(candidateDirectoryOption);
         command.Options.Add(candidateVersionOption);
         command.Options.Add(baselineDirectoryOption);
@@ -79,7 +75,8 @@ internal static class ApiReportCommand
                 candidateVersion,
                 ResolvePath(settings.RepositoryRoot, parseResult.GetValue(baselineDirectoryOption)),
                 baselineVersion,
-                ResolvePath(settings.RepositoryRoot, parseResult.GetValue(baselineLockOption)),
+                ResolvePath(settings.RepositoryRoot, parseResult.GetValue(baselineLockOption) ??
+                    Path.Combine("test-infra", "api-compatibility", $"v{baselineVersion}-packages.json")),
                 outputDirectory,
                 CommandHelpers.ParseProfile(parseResult.GetValue(profileOption)));
             var report = new ApiCompatibilityReporter(settings.Paths, options).CreateReport();

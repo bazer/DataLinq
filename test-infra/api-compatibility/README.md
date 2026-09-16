@@ -1,5 +1,26 @@
 # API Compatibility Baseline
 
+## 0.10 release policy
+
+`v0.9.0-packages.json` locks the primary published 0.9 compatibility baseline. `v0.9.2-packages.json` locks additional latest-patch upgrade coverage; 0.9.2 was the latest published stable 0.9 package in the NuGet.org index checked on 2026-09-16. It does not replace the 0.9.0 baseline.
+
+Both locks use `v0.10.api-package-baseline-lock.v1` and contain the six public packages, including Memory. The reporter compares Memory as an existing package. The historical 0.8 lock below is unchanged and remains available with explicit `--baseline-version 0.8.0`.
+
+The twelve nupkg files were downloaded independently from NuGet.org's flat container on 2026-09-16 and hashed with SHA-256. Each nuspec repository URL was `https://github.com/bazer/DataLinq`, and all six commits per version matched the resolved local tag:
+
+| Baseline | Tag object type | Resolved commit |
+| --- | --- | --- |
+| 0.9.0 | annotated `tag` | `a687616f6689b46843bbcdb9ce0fb291213322c7` |
+| 0.9.2 | lightweight `commit` | `1894d53d25511a3581e8923deda1b74d0f76ee25` |
+
+Exact package hashes are in the locks. Local acquired bytes and self-check logs are under `artifacts/api-baseline/w0-20260916/` and are intentionally untracked. These records establish byte and repository identity; this acquisition did not independently verify package signatures or online certificate revocation.
+
+ApiCompat 10.0.400 self-validation checked all five library packages per version with strict compatible-framework, attribute, and parameter-name rules. Each core package emitted exactly the two `loadLock` framework diagnostics recorded in its lock; SQLite, MySql, Memory and Tools emitted none. The inherited dispositions preserve the published per-framework protected fields and do not waive new differences. CLI baseline and bidirectional framework comparisons remain part of `api-report`, not these library self-checks.
+
+For a fresh acquisition, use the flat-container URL format shown below with the exact 0.9 version and include `DataLinq.Memory` in the package list. Compare all bytes and nuspec identities against the tracked lock before reporting. The reporter requires the selected canonical lock to match the clean checkout; an alternate or edited lock cannot create authoritative evidence.
+
+## Historical 0.9 release policy
+
 `v0.8.0-packages.json` is the tracked byte, repository-provenance, and inherited-divergence disposition lock for the published DataLinq `0.8.0` API baseline. `api-report` accepts package bytes from an explicit directory, but authoritative evidence is valid only when this canonical tracked lock is unchanged from the checkout.
 
 The two `loadLock` dispositions bind exact ApiCompat diagnostic identities to an explicit rationale. The 0.8 package already exposes `object` on net8 and `System.Threading.Lock` on net9/net10 because `Lock` does not exist on net8. Preserving those per-TFM field signatures avoids breaking subclasses compiled against the published package. The reporter self-validates the locked baseline and downgrades a candidate diagnostic only when both that proof and the exact tracked disposition match; a new, changed, missing, or stale divergence remains a hard failure.

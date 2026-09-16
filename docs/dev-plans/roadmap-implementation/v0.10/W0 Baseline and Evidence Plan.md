@@ -3,7 +3,7 @@
 
 # 0.10 W0 Baseline And Evidence Plan
 
-**Status:** Accepted execution plan. W0-P1 through W0-P6 accepted on 2026-09-16, with .NET 10 required for benchmark baselines and candidate runs now and going forward. Execution/evidence remains pending.
+**Status:** Accepted execution plan. W0-P1 through W0-P6 accepted on 2026-09-16, with .NET 10 required for benchmark baselines and candidate runs now and going forward. The first tooling preparation slice is implemented and checked below; clean baseline capture and W0 completion remain pending.
 
 **Last reviewed:** 2026-09-16.
 
@@ -13,6 +13,8 @@
 
 ## Observed Starting Point
 
+This section records the source audit above, before the tooling slice below.
+
 - G01–G03 and E01–E06 design policies are accepted through AAPI-111. Actual implementations, emitted signatures and verification are pending.
 - `ApiCompatibilityReporter` still declares `v0.9.api-compatibility-report.v2`, defaults to `v0.8.0-packages.json`, omits Memory from baseline library comparisons and checks Memory as new in 0.9. Passing a different baseline-version argument is insufficient.
 - Local tags resolve to `0.9.0` at `a687616f6689b46843bbcdb9ce0fb291213322c7`, `0.9.1` at `57aa3dd3cc99e1e214dfae6cae99527e3ae0386e`, and `0.9.2` at `1894d53d25511a3581e8923deda1b74d0f76ee25`. Tag existence alone does not verify published package bytes.
@@ -20,7 +22,38 @@
 - Benchmark history already has strict schema-v3 scope/provenance checks. Its six canonical selectors require heavy profiles; smoke/default/filtered runs are diagnostic only.
 - The current Testing CLI has quick/full plans and a structured target catalog. Baseline assertions must use captured expected/observed cases and targets, not just a successful process exit or a moving `latest` alias.
 
-These are source-audit findings. No package acquisition, baseline build/test/benchmark run or new tooling implementation has been completed by this document.
+These were source-audit findings, not executed baseline evidence.
+
+## Tooling Preparation Checkpoint: 2026-09-16
+
+The first W0-P2 slice implements release-specific API reporting and the .NET 10 benchmark migration without changing runtime execution or public library target frameworks:
+
+- Published 0.9.0 and 0.9.2 bytes were independently acquired, hashed and checked against nuspec/tag repository identities. 0.9.2 was the latest stable 0.9 version in the checked NuGet index. Both six-package locks and the exact inherited `loadLock` dispositions are tracked under `test-infra/api-compatibility/`; the 0.8 lock is unchanged. See the [acquisition record](../../../../test-infra/api-compatibility/README.md).
+- `api-report` defaults to 0.9.0, uses the 0.10 report/lock policy for stable locked 0.9 baselines, and compares Memory as an existing package. Explicit 0.8.0 retains the historical policy. Candidate/checkout, clean runner, immutable-input, tag and canonical-lock checks remain enforced.
+- The benchmark CLI/harness, build paths and CI invocation now target .NET 10. History writing and revalidation require both CLI and row runtimes to identify .NET 10. Historical .NET 8 artifacts retain their identity and cannot qualify as new .NET 10 evidence.
+- Recorded historical build hooks retarget the harness and fix BenchmarkDotNet's inherited framework matrix without changing the frozen target sources. Existing historical calibration definitions are preserved; injection is only used when the target lacks them.
+- The full unit suite passed **1,833/1,833**, including new Memory-break routing, release/lock validation and cross-runtime benchmark evidence tests. Log root: `artifacts/test-results/20260916T171744352Z-ca8df3f8913e4869992e9fffc659c4c5/`. An earlier exploratory filter was invalid; an initial fixture dependency fault was fixed, and a transient allocation assertion passed on the full rerun. Neither failed run is baseline evidence.
+- Current-development and clean-source 0.9.2 historical Memory smoke runs each completed all nine cases with telemetry and artifact-complete histories on .NET 10.0.12 (row runtime .NET 10.0). Histories: `artifacts/benchmarks/history/w0-net10-current-smoke.json` and `w0-net10-historical-smoke-fixed.json`. The first historical attempt exposed the generated-project framework inheritance fault; its failed history remains separate. The successful smoke runs are diagnostic, with `ValidForEvidence: false`, not timing/allocation baselines.
+- A real 0.9.2-to-itself API diagnostic captured 36 surfaces and ten comparison groups with zero compatibility/framework breaks and the two inherited review items. Its four hard failures correctly concern the uncommitted lock, dirty-built runner/checkout and historical candidate/checkout mismatch; no provenance check was bypassed. Report: `artifacts/dev/api-report/w0-policy-0.9.2-self-diagnostic/report.json`.
+- DocFX built the contributor documentation successfully with zero warnings/errors; `git diff --check` passed.
+
+Other reporters retain their existing contracts: package inspection and package-consumer smoke still identify their 0.9 schemas, and constrained-runtime reporting still uses its 0.9 catalog. W0 may capture the current six-package graph with those exact contracts; release integration must extend and verify them before claiming evidence for the new 0.10 package graph. No hosting/test-helper package or new async consumer is covered by this slice.
+
+### Pre-existing PluginHook Compatibility Finding
+
+A real ApiCompat 10.0.400 diagnostic comparison of the acquired 0.9.0 and 0.9.2 packages found **nine CP0002 compatibility breaks**: these three public fields were replaced by read-only properties on each of net8/net9/net10:
+
+- `DataLinq.Metadata.PluginHook.DatabaseProviders`
+- `DataLinq.Metadata.PluginHook.SqlFromMetadataFactories`
+- `DataLinq.Metadata.PluginHook.MetadataFromSqlFactories`
+
+The tag-to-tag source diff corroborates the field-to-property and `Dictionary`-to-`IReadOnlyDictionary` changes made with atomic provider registration. Identical names do not preserve compiled field references or source code that mutates/reassigns those dictionaries. These are baseline-to-candidate breaks, not inherited cross-framework `loadLock` differences.
+
+Diagnostic report: `artifacts/dev/api-report/w0-policy-0.9.0-to-0.9.2-diagnostic/report.json`, with six baseline packages, six candidate packages, 36 API surfaces and ten comparison groups. The run correctly failed: nine compatibility findings plus five provenance failures from the uncommitted/dirty/changing tooling checkout and the historical candidate/checkout mismatch. It is not clean release evidence. Memory, provider, Tools and CLI comparisons reported no baseline breaks.
+
+**Disposition remains open.** W0/RE10-0 owns the finding and the packed old-binary/source consumer follow-up. Keep 0.9.0 as the compatibility baseline and retain the exact diagnostics; do not substitute 0.9.2, weaken the existing divergence rules, restore mutable registry fields, or silently approve a compatibility exception in this tooling slice. The next review must choose an explicit treatment consistent with AAPI-111 and the atomic registration design.
+
+The next execution slice freezes clean development/tooling identities, captures health/package/generated-source baselines, maps current I/O, and runs the six heavy benchmark lanes without concurrent test workloads. W0 is not complete, and W1 runtime changes have not started.
 
 ## W0-P1: Keep Published Compatibility And Development Baselines Distinct
 

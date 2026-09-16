@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "v0.10.api-package-baseline-lock.v1",
+  "baselineVersion": "0.9.0",
+  "packageSource": "https://api.nuget.org/v3/index.json",
+  "repositoryUrl": "https://github.com/bazer/DataLinq",
+  "repositoryCommit": "a687616f6689b46843bbcdb9ce0fb291213322c7",
+  "repositoryTag": "0.9.0",
+  "repositoryTagObjectType": "tag",
+  "provenanceNote": "SHA-256 values were independently acquired from NuGet.org flat-container package bytes on 2026-09-16. All six nuspec repository identities match this resolved tag commit. ApiCompat 10.0.400 self-validation of the five library packages found only the two exact inherited framework divergences recorded here. Package signatures and online certificate revocation were not independently verified in this acquisition.",
+  "packages": [
+    {
+      "id": "DataLinq",
+      "sha256": "ce387eda8d33d965d06439427c6712052d34d9a934699cf5140fe5e2ddcd83fc"
+    },
+    {
+      "id": "DataLinq.SQLite",
+      "sha256": "36bc335577ea1dc4ade1eeac5b816985a5aefcf9ac175a56489f61486256fa2e"
+    },
+    {
+      "id": "DataLinq.MySql",
+      "sha256": "d7845f531db70366c769aaf9d486dc5b017ecc679af03b7e07f15216bc6855e5"
+    },
+    {
+      "id": "DataLinq.Memory",
+      "sha256": "4e7ae40ea465bc14e903703061e30b0bf407daf4363e94b83deda80828267cc5"
+    },
+    {
+      "id": "DataLinq.CLI",
+      "sha256": "118e7949fed62e9dbb6df1c471e236d83b15646c88134385176a5602df4f525b"
+    },
+    {
+      "id": "DataLinq.Tools",
+      "sha256": "306ff365c992404a1488f356a1f89827e3483287a180c895a4276a25e83159a6"
+    }
+  ],
+  "inheritedFrameworkDivergences": [
+    {
+      "packageId": "DataLinq",
+      "diagnosticId": "CP0002",
+      "target": "F:DataLinq.Instances.ImmutableForeignKey`2.loadLock",
+      "left": "lib/net8.0/DataLinq.dll",
+      "right": "lib/net9.0/DataLinq.dll",
+      "rationale": "Preserve the published 0.9.0 protected-field signatures: net8 uses object because System.Threading.Lock is unavailable, while net9 and net10 use Lock. Changing either side would break subclasses compiled for that target framework."
+    },
+    {
+      "packageId": "DataLinq",
+      "diagnosticId": "CP0002",
+      "target": "F:DataLinq.Instances.ImmutableRelation`2.loadLock",
+      "left": "lib/net8.0/DataLinq.dll",
+      "right": "lib/net9.0/DataLinq.dll",
+      "rationale": "Preserve the published 0.9.0 protected-field signatures: net8 uses object because System.Threading.Lock is unavailable, while net9 and net10 use Lock. Changing either side would break subclasses compiled for that target framework."
+    }
+  ]
+}

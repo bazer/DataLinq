@@ -21,26 +21,6 @@ public sealed class ApiCompatibilityReporter
     private const string RepositoryBuildStateMetadataName = "DataLinqRepositoryBuildState";
     private const string CleanRepositoryBuildState = "clean";
 
-    private static readonly string[] BaselinePackageIds =
-    [
-        PackageInspectionPolicy.CorePackageId,
-        PackageInspectionPolicy.SQLitePackageId,
-        PackageInspectionPolicy.MySqlPackageId,
-        PackageInspectionPolicy.ToolsPackageId,
-        PackageInspectionPolicy.CliPackageId
-    ];
-
-    private static readonly string[] CandidatePackageIds =
-        PackageInspectionPolicy.PublicPackageIds.ToArray();
-
-    private static readonly string[] LibraryComparisonPackageIds =
-    [
-        PackageInspectionPolicy.CorePackageId,
-        PackageInspectionPolicy.SQLitePackageId,
-        PackageInspectionPolicy.MySqlPackageId,
-        PackageInspectionPolicy.ToolsPackageId
-    ];
-
     private readonly DevToolPaths paths;
     private readonly ApiCompatibilityReportOptions options;
     private readonly IApiCompatProcessRunner? processRunner;
@@ -63,6 +43,7 @@ public sealed class ApiCompatibilityReporter
     public ApiCompatibilityReport CreateReport()
     {
         var normalized = NormalizeAndValidateOptions(options);
+        var policy = ApiCompatibilityReleasePolicy.ForBaseline(normalized.BaselineVersion);
         PrepareReportDirectory(
             normalized.OutputDirectory,
             normalized.BaselinePackageDirectory,
@@ -97,12 +78,14 @@ public sealed class ApiCompatibilityReporter
             baselineLock = ApiCompatibilityBaselineLock.Load(
                 normalized.BaselineLockPath,
                 normalized.BaselineVersion,
-                BaselinePackageIds,
-                LibraryComparisonPackageIds);
+                policy.BaselinePackageIds,
+                policy.LibraryComparisonPackageIds,
+                policy.LockSchemaVersion);
             baselineLockMatchesCheckout = VerifyBaselineLockPolicy(
                 normalized.RepositoryRoot,
                 normalized.Profile,
-                baselineLock.LockPath);
+                baselineLock.LockPath,
+                normalized.BaselineVersion);
             baselineLock = baselineLock with
             {
                 CanonicalTrackedPolicy = baselineLockMatchesCheckout
@@ -120,7 +103,7 @@ public sealed class ApiCompatibilityReporter
                 var inspectionOptions = new ApiPackageSetInspectionOptions(
                         normalized.BaselinePackageDirectory,
                         normalized.BaselineVersion,
-                        BaselinePackageIds,
+                        policy.BaselinePackageIds,
                         baselineLock.PackageSha256,
                         baselineLock.RepositoryCommit,
                         baselineLock.RepositoryUrl);
@@ -142,7 +125,7 @@ public sealed class ApiCompatibilityReporter
             var inspectionOptions = new ApiPackageSetInspectionOptions(
                     normalized.CandidatePackageDirectory,
                     normalized.CandidateVersion,
-                    CandidatePackageIds,
+                    policy.CandidatePackageIds,
                     ExpectedRepositoryUrl: baselineLock?.RepositoryUrl);
             var sourcePackages = ApiPackageSetInspector.Inspect(inspectionOptions);
             candidateInput = MaterializePackageInput(
@@ -197,7 +180,7 @@ public sealed class ApiCompatibilityReporter
 
         if (toolRunner is not null && baselinePackages is not null && candidatePackages is not null)
         {
-            foreach (var packageId in LibraryComparisonPackageIds)
+            foreach (var packageId in policy.LibraryComparisonPackageIds)
             {
                 try
                 {
@@ -237,21 +220,24 @@ public sealed class ApiCompatibilityReporter
                     ApiCompatibilityComparisonKind.ToolAssemblyBaseline));
             }
 
-            try
+            if (policy.MemoryIsNew)
             {
-                comparisons.Add(ValidateNewMemoryPackage(
-                    toolRunner,
-                    candidatePackages,
-                    surfaces,
-                    executions,
-                    findings));
-            }
-            catch (Exception exception) when (IsReportable(exception))
-            {
-                AddError(findings, "comparison-exception", PackageInspectionPolicy.MemoryPackageId, exception.Message);
-                comparisons.Add(CreateFailedComparison(
-                    PackageInspectionPolicy.MemoryPackageId,
-                    ApiCompatibilityComparisonKind.NewPackage));
+                try
+                {
+                    comparisons.Add(ValidateNewMemoryPackage(
+                        toolRunner,
+                        candidatePackages,
+                        surfaces,
+                        executions,
+                        findings));
+                }
+                catch (Exception exception) when (IsReportable(exception))
+                {
+                    AddError(findings, "comparison-exception", PackageInspectionPolicy.MemoryPackageId, exception.Message);
+                    comparisons.Add(CreateFailedComparison(
+                        PackageInspectionPolicy.MemoryPackageId,
+                        ApiCompatibilityComparisonKind.NewPackage));
+                }
             }
         }
 
@@ -299,7 +285,7 @@ public sealed class ApiCompatibilityReporter
             comparisons,
             orderedFindings);
         var report = new ApiCompatibilityReport(
-            SchemaVersion,
+            policy.ReportSchemaVersion,
             DateTimeOffset.UtcNow,
             new ApiCompatibilityReportInvocation(
                 normalized.RepositoryRoot,
@@ -309,8 +295,8 @@ public sealed class ApiCompatibilityReporter
                 normalized.BaselineVersion,
                 normalized.BaselineLockPath,
                 normalized.Profile,
-                Array.AsReadOnly(BaselinePackageIds.ToArray()),
-                Array.AsReadOnly(CandidatePackageIds.ToArray())),
+                policy.BaselinePackageIds,
+                policy.CandidatePackageIds) { ReleasePolicy = policy.Id },
             normalized.OutputDirectory,
             baselineLock,
             baselinePackages,
@@ -342,6 +328,7 @@ public sealed class ApiCompatibilityReporter
         builder.AppendLine();
         builder.AppendLine($"Generated UTC: `{report.GeneratedAtUtc:O}`");
         builder.AppendLine($"Baseline: {Code(report.Invocation.BaselineVersion)} from {Code(report.Invocation.BaselinePackageDirectory)}");
+        builder.AppendLine($"Release policy: {Code(report.Invocation.ReleasePolicy)}");
         builder.AppendLine($"Candidate: {Code(report.Invocation.CandidateVersion)} from {Code(report.Invocation.CandidatePackageDirectory)}");
         builder.AppendLine($"Outcome: **{(report.Summary.HasHardFailures ? "failed" : report.Summary.RequiresReview ? "review required" : "passed")}**");
         builder.AppendLine();
@@ -1252,12 +1239,13 @@ public sealed class ApiCompatibilityReporter
     private bool VerifyBaselineLockPolicy(
         string repositoryRoot,
         ToolingProfile profile,
-        string lockPath)
+        string lockPath,
+        string baselineVersion)
     {
         var relativePath = Path.Combine(
             "test-infra",
             "api-compatibility",
-            "v0.8.0-packages.json");
+            $"v{baselineVersion}-packages.json");
         var expectedPath = Path.GetFullPath(Path.Combine(repositoryRoot, relativePath));
         var pathComparison = OperatingSystem.IsWindows()
             ? StringComparison.OrdinalIgnoreCase

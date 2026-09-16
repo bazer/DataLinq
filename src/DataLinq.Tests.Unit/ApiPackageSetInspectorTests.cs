@@ -540,7 +540,7 @@ public sealed class ApiPackageSetInspectorTests
         }
     }
 
-    private sealed class PackageFixture : IDisposable
+    internal sealed class PackageFixture : IDisposable
     {
         private const string SupportedNuspecNamespace = "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd";
 

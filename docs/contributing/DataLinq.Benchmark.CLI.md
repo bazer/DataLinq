@@ -4,6 +4,8 @@
 
 Use it instead of calling BenchmarkDotNet directly.
 
+The CLI and harness target .NET 10. New baselines and candidates must both run on .NET 10 with matching recorded environments. Public libraries retain their .NET 8/9/10 targets. Older .NET 8 histories retain their original identity and remain readable, but cannot satisfy the current evidence policy or serve as comparable .NET 10 baselines.
+
 ## Why It Exists
 
 Direct BenchmarkDotNet invocation is too raw for normal repo use.
@@ -103,7 +105,9 @@ dotnet run --project DataLinq.Benchmark.CLI -- run -- --anyCategories stable mac
 
 `--benchmark-target-root` separates the tooling checkout from the runtime checkout. The current `DataLinq.Benchmark.CLI` and `DataLinq.DevTools` assemblies must match the clean current checkout; the benchmark assembly must match the clean target worktree. Both repository states are captured before and after the run. A dirty or changing checkout, mismatched assembly commit, or unknown build state invalidates evidence.
 
-The frozen baseline is commit `8bcfc770246f960e27a91e3046f19a76c3736217`. Its runtime and original benchmark sources are identical to tag `0.8.0`; the later commit contains documentation changes only. The historical benchmark config did not register CSV or GitHub-Markdown exporters, so current tooling replaces that config during the external build with `HistoricalBenchmarkConfig.cs.txt`. For `--allocation-regression`, the build also injects the current `AllocationRegressionBenchmarks.cs`, which is deliberately limited to APIs present in the frozen project. This makes baseline and candidate execute the exact same calibrated scenario definitions while the 0.8 runtime and target worktree remain byte-for-byte clean. Both shims are covered by current tooling commit provenance.
+The frozen final-0.8 parity baseline is commit `8bcfc770246f960e27a91e3046f19a76c3736217`. Its runtime and original benchmark sources are identical to tag `0.8.0`; the later commit contains documentation changes only. This historical debt target is separate from the 0.10 pre-async baseline. Current tooling replaces the external benchmark config with `HistoricalBenchmarkConfig.cs.txt` to guarantee the required exporters. If the target lacks `AllocationRegressionBenchmarks.cs`, the build injects the current calibration source, which uses APIs present in the frozen project; a target that already owns that file keeps its own definitions.
+
+The recorded MSBuild hooks retarget only the external harness to `net10.0` and prevent BenchmarkDotNet's generated executable from inheriting the library framework matrix. They leave the historical source checkout and public library target declarations unchanged. Both inner and outer build hooks, the config/calibration paths, and the current tooling identity remain in provenance. A successful historical build alone is insufficient: the actual benchmark rows and CLI runtime must also identify .NET 10 before history can qualify for evidence.
 
 Run the stable allocation baseline and candidate from a clean committed checkout at the repo root:
 
@@ -411,7 +415,7 @@ Current policy:
 - published history keeps all recent runs, then thins older runs by age instead of raw run count
 - broader or noisier scenarios stay available locally until they are stable enough to deserve regression history
 
-This filtered multi-category workflow is intentionally noncanonical. It records schema-v3 diagnostic history with `ReleaseEvidenceIntent: false`, unknown reconstructed release scope, and `ValidForEvidence: false`; its successful exit and publication are trend telemetry, not a final-RC benchmark gate. Automatic comparison selects only a retained schema-v1/v2 baseline with the exact profile and filter, because the hosted runner's full v3 processor/runtime/BenchmarkDotNet identity is known only after the benchmark runs. If no such diagnostic baseline remains, the workflow publishes the history without a comparison. Strict v3-to-v3 comparison is a separate release operation with exact environment matching.
+This filtered multi-category workflow is intentionally noncanonical. It records schema-v3 diagnostic history with `ReleaseEvidenceIntent: false`, unknown reconstructed release scope, and `ValidForEvidence: false`; its successful exit and publication are trend telemetry, not a final-RC benchmark gate. Automatic comparison selects only a retained schema-v1/v2 baseline with the exact profile, filter, and .NET 10 runtime, because the hosted runner's full v3 processor/runtime/BenchmarkDotNet identity is known only after the benchmark runs. If no such diagnostic baseline remains, the workflow publishes the history without a comparison. Strict v3-to-v3 comparison is a separate release operation with exact environment matching.
 
 Macro category policy:
 

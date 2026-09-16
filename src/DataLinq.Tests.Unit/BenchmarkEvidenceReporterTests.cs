@@ -12,6 +12,47 @@ namespace DataLinq.Tests.Unit;
 
 public sealed class BenchmarkEvidenceReporterTests
 {
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task CreateHistory_NonNet10RunnerOrRowsCannotBecomeEvidence(bool changeRunner)
+    {
+        using var fixture = new BenchmarkFixture();
+        var input = fixture.CreateInput("wrong-runtime");
+        input = changeRunner
+            ? input with { Metadata = input.Metadata with { RuntimeDescription = ".NET 8.0.31" } }
+            : input with { Rows = input.Rows.Select(row => row with { Runtime = ".NET 8.0.31" }).ToArray() };
+
+        var artifact = BenchmarkEvidenceReporter.CreateHistory(input);
+
+        await Assert.That(artifact.IsCompleteForInvocation).IsTrue();
+        await Assert.That(artifact.ValidForEvidence).IsFalse();
+    }
+
+    [Test]
+    public async Task ReadHistory_Net8RemainsReadableWithoutBecomingNet10Baseline()
+    {
+        using var fixture = new BenchmarkFixture();
+        var path = fixture.OutputPath("net8.json");
+        var input = fixture.CreateInput("net8", historyPath: path);
+        var oldArtifact = BenchmarkEvidenceReporter.CreateHistory(input with
+        {
+            Metadata = input.Metadata with { RuntimeDescription = ".NET 8.0.31" },
+            Rows = input.Rows.Select(row => row with { Runtime = ".NET 8.0.31" }).ToArray()
+        });
+        BenchmarkEvidenceReporter.WriteHistory(fixture.RepositoryRoot, path, oldArtifact);
+        var baseline = BenchmarkEvidenceReporter.ReadHistory(fixture.RepositoryRoot, path);
+        var candidate = fixture.CreateAndReadHistory("net10");
+        var comparison = BenchmarkEvidenceReporter.CreateComparison(
+            fixture.RepositoryRoot, baseline, candidate,
+            fixture.OutputPath("runtime-comparison.json"), 10d, releaseEvidenceIntent: false);
+
+        await Assert.That(baseline.Artifact.Metadata.RuntimeDescription).IsEqualTo(".NET 8.0.31");
+        await Assert.That(baseline.Reference.SourceValidForEvidence).IsFalse();
+        await Assert.That(comparison.Comparable).IsFalse();
+        await Assert.That(comparison.ValidForEvidence).IsFalse();
+    }
+
     private const string Commit = "0123456789abcdef0123456789abcdef01234567";
 
     [Test]
@@ -968,7 +1009,7 @@ public sealed class BenchmarkEvidenceReporterTests
                 "DataLinq.Benchmark",
                 "bin",
                 "Release",
-                "net8.0",
+                "net10.0",
                 "DataLinq.Benchmark.dll");
             Directory.CreateDirectory(Path.GetDirectoryName(BenchmarkAssemblyPath)!);
             File.WriteAllText(BenchmarkAssemblyPath, "benchmark assembly fixture");
@@ -1013,7 +1054,7 @@ public sealed class BenchmarkEvidenceReporterTests
                 Profile: profile,
                 Filter: "*")
             {
-                RuntimeDescription = ".NET fixture",
+                RuntimeDescription = ".NET 10.0.12",
                 ProcessorCount = 1,
                 ProcessorIdentifier = "fixture processor",
                 BenchmarkDotNetVersion = "0.15.8"
@@ -1092,7 +1133,7 @@ public sealed class BenchmarkEvidenceReporterTests
                 TelemetryDelta: telemetry)
             {
                 Job = expectedJob,
-                Runtime = ".NET fixture",
+                Runtime = ".NET 10.0.12",
                 Jit = "RyuJIT",
                 Platform = "X64",
                 Toolchain = "fixture"
@@ -1189,7 +1230,7 @@ public sealed class BenchmarkEvidenceReporterTests
                         "-c",
                         "Release",
                         "-f",
-                        "net8.0",
+                        "net10.0",
                         "-nologo",
                         "-v",
                         "q",
@@ -1260,7 +1301,7 @@ public sealed class BenchmarkEvidenceReporterTests
                 "DataLinq.Benchmark",
                 "bin",
                 "Release",
-                "net8.0",
+                "net10.0",
                 "DataLinq.Benchmark.dll");
             Directory.CreateDirectory(Path.GetDirectoryName(assemblyPath)!);
             File.WriteAllText(projectPath, "<Project Sdk=\"Microsoft.NET.Sdk\" />");
@@ -1309,6 +1350,8 @@ public sealed class BenchmarkEvidenceReporterTests
                         "DataLinq.Benchmark.CLI",
                         "BenchmarkTargetProvenance.targets"),
                     BenchmarkTargetRepositoryRoot = targetRoot,
+                    CustomAfterMicrosoftCommonCrossTargetingTargets = Path.Combine(
+                        RepositoryRoot, "src", "DataLinq.Benchmark.CLI", "BenchmarkTargetProvenance.targets"),
                     BenchmarkCompatibilitySource = Path.Combine(
                         RepositoryRoot,
                         "src",

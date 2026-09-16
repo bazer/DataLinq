@@ -38,7 +38,7 @@ internal sealed class BenchmarkCliSettings
             repositoryRoot,
             repositoryRoot,
             Path.Combine(repositoryRoot, "src", "DataLinq.Benchmark", "DataLinq.Benchmark.csproj"),
-            Path.Combine(repositoryRoot, "src", "DataLinq.Benchmark", "bin", "Release", "net8.0", "DataLinq.Benchmark.dll"),
+            Path.Combine(repositoryRoot, "src", "DataLinq.Benchmark", "bin", "Release", "net10.0", "DataLinq.Benchmark.dll"),
             Path.Combine(repositoryRoot, "artifacts", "benchmarks"),
             DevToolPaths.Create(repositoryRoot));
     }
@@ -81,7 +81,7 @@ internal sealed class BenchmarkCliSettings
             RepositoryRoot,
             targetRoot,
             projectPath,
-            Path.Combine(targetRoot, "src", "DataLinq.Benchmark", "bin", "Release", "net8.0", "DataLinq.Benchmark.dll"),
+            Path.Combine(targetRoot, "src", "DataLinq.Benchmark", "bin", "Release", "net10.0", "DataLinq.Benchmark.dll"),
             ArtifactsRoot,
             ToolPaths);
     }
@@ -143,6 +143,8 @@ internal sealed class BenchmarkCliSettings
                 "DataLinq.Benchmark.CLI",
                 "BenchmarkTargetProvenance.targets");
             environment["DataLinqBenchmarkTargetRepositoryRoot"] = BenchmarkTargetRepositoryRoot;
+            environment["CustomAfterMicrosoftCommonCrossTargetingTargets"] =
+                environment["CustomAfterMicrosoftCommonTargets"];
             environment["DataLinqBenchmarkCompatibilitySource"] = Path.Combine(
                 RepositoryRoot,
                 "src",
