@@ -256,7 +256,8 @@ function flattenHistory(history) {
         generatedAtUtc: run.GeneratedAtUtc,
         metadata: run.Metadata ?? {},
         commit: run.Metadata?.Commit ?? null,
-        branch: run.Metadata?.Branch ?? null,
+        branch: run.Metadata?.Branch ?? 'unknown',
+        runtime: run.Metadata?.RuntimeDescription ?? 'Unknown runtime',
         runnerOs: run.Metadata?.RunnerOs ?? null,
         profile,
         method: row.Method,
@@ -704,6 +705,7 @@ function renderTrendTable(points, expectedScenarios, selectedProfile, commitUrlT
 
 function renderPointTitle(point, selector) {
   return [
+    `${point.branch} · ${point.runtime}`,
     `${formatDateTime(point.generatedAtUtc)} (${shortCommit(point.commit)})`,
     `${selector === 'allocatedBytes' ? 'allocated' : 'mean'}: ${formatMetricValue(point[selector], selector)}`,
     `uncertainty: ${formatUnsignedPercent(point.uncertaintyPercent)}`,
@@ -720,96 +722,93 @@ function renderTooltipHtml(title) {
   return [`<strong>${lines[0]}</strong>`, ...lines.slice(1)].join('<br>')
 }
 
-function buildSmoothPath(coordinates) {
-  if (coordinates.length === 0) {
-    return ''
-  }
-
-  if (coordinates.length === 1) {
-    return `M ${coordinates[0].x.toFixed(1)} ${coordinates[0].y.toFixed(1)}`
-  }
-
-  let path = `M ${coordinates[0].x.toFixed(1)} ${coordinates[0].y.toFixed(1)}`
-  for (let index = 0; index < coordinates.length - 1; index += 1) {
-    const current = coordinates[index]
-    const next = coordinates[index + 1]
-    const previous = coordinates[index - 1] ?? current
-    const afterNext = coordinates[index + 2] ?? next
-    const cp1x = current.x + (next.x - previous.x) / 6
-    const cp1y = current.y + (next.y - previous.y) / 6
-    const cp2x = next.x - (afterNext.x - current.x) / 6
-    const cp2y = next.y - (afterNext.y - current.y) / 6
-    path += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${next.x.toFixed(1)} ${next.y.toFixed(1)}`
-  }
-
-  return path
+// A branch is a permanent run identity. Channel labels only describe current selection.
+function comparisonBranches(points, channels) {
+  const stable = channels.Stable.Branch
+  const active = channels.Development?.Branch
+  return [...new Set([active, ...points.map(point => point.branch)])]
+    .filter(branch => branch && branch !== stable)
 }
 
-function renderTrendChart(points, selector) {
-  const series = withoutInteriorOutliers(points, selector)
-  const validPoints = series.points
-  if (validPoints.length < 2) {
-    return '<div class="benchmark-empty-chart">Need at least two runs</div>'
-  }
+function branchLabel(branch, channels) {
+  if (branch === channels.Stable.Branch) return channels.Stable.Label
+  if (branch === channels.Development?.Branch) return channels.Development.Label
+  return `${branch} (archived)`
+}
 
-  const width = 520
-  const height = 190
-  const paddingLeft = 68
-  const paddingRight = 20
-  const paddingTop = 22
-  const paddingBottom = 34
-  const smoothed = smoothSeries(validPoints, selector)
-  const values = [
-    ...validPoints.map(point => numericValue(point, selector)),
-    ...smoothed.map(item => item.smoothedValue)
-  ]
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const range = Math.max(max - min, 1)
-  const steps = Math.max(validPoints.length - 1, 1)
-  const chartWidth = width - paddingLeft - paddingRight
-  const chartHeight = height - paddingTop - paddingBottom
-  const midY = paddingTop + chartHeight / 2
-  const midValue = min + range / 2
+function branchColor(branch, channels) {
+  return branch === channels.Stable.Branch ? '#2563eb' : '#b45309'
+}
 
-  const coordinates = smoothed.map(({ point, smoothedValue }, index) => {
-    const x = paddingLeft + (index / steps) * chartWidth
-    const y = height - paddingBottom - ((smoothedValue - min) / range) * chartHeight
-    return { point, value: numericValue(point, selector), x, y }
-  })
+function selectBenchmarkPoints(points, profile, runtime, stable, comparison) {
+  return points.filter(point => point.profile === profile && point.runtime === runtime &&
+    (point.branch === stable || point.branch === comparison))
+}
 
-  const profile = validPoints[validPoints.length - 1].profile
-  const color = PROFILE_COLORS.get(profile) ?? '#334155'
-  const path = buildSmoothPath(coordinates)
-  const hoverPoints = coordinates.map(item => ({
-    x: Number(item.x.toFixed(1)),
-    y: Number(item.y.toFixed(1)),
-    title: renderPointTitle(item.point, selector)
-  }))
+function chartSeries(points, selector) {
+  // Split before outlier rejection and smoothing, even if called without page filters.
+  return [...groupBy(points, point =>
+    JSON.stringify([point.branch, point.profile, point.runtime])).values()].map(group => {
+      const result = withoutInteriorOutliers(group.filter(point =>
+        Number.isFinite(Date.parse(point.generatedAtUtc))), selector)
+      return { branch: group[0].branch, skipped: result.skipped,
+        values: smoothSeries(result.points, selector) }
+    }).filter(series => series.values.length > 0)
+}
 
+function renderTrendChart(points, selector, channels) {
+  const series = chartSeries(points, selector)
+  if (series.length === 0) return '<div class="benchmark-empty-chart">No matching runs yet.</div>'
+  const width = 520, height = 190
+  const left = 68, right = 20, top = 22, bottom = 34
+  const values = series.flatMap(item => item.values.map(value => value.smoothedValue))
+  const dates = series.flatMap(item => item.values.map(value => Date.parse(value.point.generatedAtUtc)))
+  const first = Math.min(...dates), last = Math.max(...dates)
+  const rawMin = Math.min(...values), rawMax = Math.max(...values)
+  const margin = Math.max((rawMax - rawMin) * 0.08, rawMax * 0.02, 0.01)
+  const min = Math.max(0, rawMin - margin), max = rawMax + margin
+  const range = max - min
+  const chartWidth = width - left - right, chartHeight = height - top - bottom
+  const hoverPoints = []
+  const paths = series.map(item => {
+    const color = branchColor(item.branch, channels)
+    const coordinates = item.values.map(({ point, smoothedValue }) => {
+      const x = left + (first === last ? 0.5 : (Date.parse(point.generatedAtUtc) - first) / (last - first)) * chartWidth
+      const y = height - bottom - ((smoothedValue - min) / range) * chartHeight
+      hoverPoints.push({ x, y, color, title: renderPointTitle(point, selector) +
+        `\nplotted rolling mean: ${formatMetricValue(smoothedValue, selector)}` })
+      return { x, y, point }
+    })
+    // Straight segments avoid spline overshoot; the values already use a rolling mean.
+    const path = coordinates.map((value, index) => `${index ? 'L' : 'M'} ${value.x} ${value.y}`).join(' ')
+    const dashed = item.branch === channels.Stable.Branch ? '' : ' stroke-dasharray="6 3"'
+    return `<g data-series-branch="${escapeHtml(item.branch)}">
+      <path class="benchmark-chart-line" fill="none" stroke="${color}"${dashed} d="${path}">
+        <title>${escapeHtml(branchLabel(item.branch, channels))}</title>
+      </path>
+      ${coordinates.map(value => `<circle cx="${value.x}" cy="${value.y}" r="3" fill="${color}"><title>${escapeHtml(renderPointTitle(value.point, selector))}</title></circle>`).join('')}
+    </g>`
+  }).join('')
+  const skipped = series.reduce((sum, item) => sum + item.skipped, 0)
   return `
     <div class="benchmark-chart-frame" tabindex="0" data-chart-points="${escapeHtml(JSON.stringify(hoverPoints))}">
-      <svg class="benchmark-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="benchmark trend">
-        <line x1="${paddingLeft}" y1="${paddingTop}" x2="${paddingLeft}" y2="${height - paddingBottom}" class="benchmark-axis"></line>
-        <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" class="benchmark-axis"></line>
-        <line x1="${paddingLeft}" y1="${paddingTop}" x2="${width - paddingRight}" y2="${paddingTop}" class="benchmark-grid"></line>
-        <line x1="${paddingLeft}" y1="${midY}" x2="${width - paddingRight}" y2="${midY}" class="benchmark-grid"></line>
-        <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" class="benchmark-grid"></line>
-        <text x="${paddingLeft - 8}" y="${paddingTop + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatMetricValue(max, selector))}</text>
-        <text x="${paddingLeft - 8}" y="${midY + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatMetricValue(midValue, selector))}</text>
-        <text x="${paddingLeft - 8}" y="${height - paddingBottom + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatMetricValue(min, selector))}</text>
-        <text x="${paddingLeft}" y="${height - 8}" text-anchor="start" class="benchmark-axis-label">${escapeHtml(formatDateLabel(validPoints[0]?.generatedAtUtc))}</text>
-        <text x="${width - paddingRight}" y="${height - 8}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatDateLabel(validPoints[validPoints.length - 1]?.generatedAtUtc))}</text>
-        <path class="benchmark-chart-line" fill="none" stroke="${color}" d="${path}">
-          <title>${escapeHtml(renderPointTitle(validPoints[validPoints.length - 1], selector))}</title>
-        </path>
-        <line class="benchmark-chart-crosshair" x1="0" y1="${paddingTop}" x2="0" y2="${height - paddingBottom}"></line>
-        <circle class="benchmark-chart-hover-point" cx="0" cy="0" r="4.2" fill="${color}"></circle>
+      <svg class="benchmark-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="${selector === 'allocatedBytes' ? 'Allocation' : 'Mean time'} by branch and date; use arrow keys to inspect points">
+        <line x1="${left}" y1="${top}" x2="${left}" y2="${height - bottom}" class="benchmark-axis"></line>
+        <line x1="${left}" y1="${height - bottom}" x2="${width - right}" y2="${height - bottom}" class="benchmark-axis"></line>
+        ${[0, 0.5, 1].map(fraction => {
+          const y = top + fraction * chartHeight
+          return `<line x1="${left}" y1="${y}" x2="${width - right}" y2="${y}" class="benchmark-grid"></line>
+            <text x="${left - 8}" y="${y + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatMetricValue(max - fraction * range, selector))}</text>`
+        }).join('')}
+        <text x="${left}" y="${height - 8}" text-anchor="start" class="benchmark-axis-label">${escapeHtml(formatDateLabel(new Date(first).toISOString()))}</text>
+        <text x="${width - right}" y="${height - 8}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatDateLabel(new Date(last).toISOString()))}</text>
+        ${paths}
+        <line class="benchmark-chart-crosshair" x1="0" y1="${top}" x2="0" y2="${height - bottom}"></line>
+        <circle class="benchmark-chart-hover-point" cx="0" cy="0" r="4.2"></circle>
       </svg>
       <div class="benchmark-chart-tooltip" role="tooltip"></div>
-      ${series.skipped > 0 ? `<p class="benchmark-chart-note">${series.skipped} one-off outlier${series.skipped === 1 ? '' : 's'} skipped.</p>` : ''}
-    </div>
-  `
+      ${skipped > 0 ? `<p class="benchmark-chart-note">${skipped} isolated outlier(s) omitted within their own series.</p>` : ''}
+    </div>`
 }
 
 function getChartPoints(frame) {
@@ -833,6 +832,7 @@ function showChartHover(frame, point) {
   crosshair.setAttribute('x2', point.x)
   hoverPoint.setAttribute('cx', point.x)
   hoverPoint.setAttribute('cy', point.y)
+  hoverPoint.setAttribute('fill', point.color)
   tooltip.innerHTML = renderTooltipHtml(point.title)
   tooltip.classList.remove(
     'benchmark-chart-tooltip-left',
@@ -870,101 +870,50 @@ function installChartHover(root) {
       }
 
       const chartX = ((event.clientX - bounds.left) / bounds.width) * 520
-      const nearest = points.reduce((best, point) =>
-        Math.abs(point.x - chartX) < Math.abs(best.x - chartX) ? point : best)
+      const chartY = ((event.clientY - bounds.top) / bounds.height) * 190
+      const distance = point => Math.hypot((point.x - chartX) * bounds.width / 520, (point.y - chartY) * bounds.height / 190)
+      const nearest = points.reduce((best, point) => distance(point) < distance(best) ? point : best)
       showChartHover(frame, nearest)
     })
 
     frame.addEventListener('pointerleave', () => hideChartHover(frame))
     frame.addEventListener('focus', () => showChartHover(frame, points[points.length - 1]))
+    let keyboardIndex = points.length - 1
+    frame.addEventListener('keydown', event => {
+      if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return
+      event.preventDefault()
+      keyboardIndex = (keyboardIndex + (event.key === 'ArrowRight' ? 1 : -1) + points.length) % points.length
+      showChartHover(frame, points[keyboardIndex])
+    })
     frame.addEventListener('blur', () => hideChartHover(frame))
   }
 }
 
-function renderTrendCards(points, expectedScenarios, selectedProfile) {
-  const groupsByKey = groupBy(points, point => `${point.method}__${point.providerName}`)
-  const cards = [...groupsByKey.entries()].map(([key, groupPoints]) => ({
-    key,
-    scenario: {
-      method: groupPoints[groupPoints.length - 1].method,
-      providerName: groupPoints[groupPoints.length - 1].providerName,
-      category: groupPoints[groupPoints.length - 1].category
-    },
-    groupPoints
-  }))
-
-  for (const scenario of expectedScenarios) {
-    const key = `${scenario.method}__${scenario.providerName}`
-    if (!groupsByKey.has(key)) {
-      cards.push({ key, scenario, groupPoints: [] })
-    }
-  }
-
-  cards.sort((left, right) =>
-    categoryRank(left.scenario.category) - categoryRank(right.scenario.category) ||
-    left.scenario.method.localeCompare(right.scenario.method) ||
-    left.scenario.providerName.localeCompare(right.scenario.providerName))
-
-  if (cards.length === 0) {
-    return '<p class="benchmark-muted">No benchmark history is published yet.</p>'
-  }
-
-  return cards.map(({ scenario, groupPoints }) => {
-    if (groupPoints.length === 0) {
-      return `
-        <section class="benchmark-card benchmark-card-missing">
-          <header class="benchmark-card-header">
-            <div>
-              <h3>${escapeHtml(scenario.method)}</h3>
-              <p>No ${escapeHtml(selectedProfile)} runs yet</p>
-            </div>
-          </header>
-          <div class="benchmark-card-grid">
-            <div>
-              <h4>Mean Time</h4>
-              <div class="benchmark-empty-chart">No ${escapeHtml(selectedProfile)} run has been published for this scenario yet.</div>
-              <p class="benchmark-card-value">-</p>
-            </div>
-            <div>
-              <h4>Allocated Bytes</h4>
-              <div class="benchmark-empty-chart">No ${escapeHtml(selectedProfile)} run has been published for this scenario yet.</div>
-              <p class="benchmark-card-value">-</p>
-            </div>
-          </div>
-        </section>
-      `
-    }
-
-    const meanSeries = withoutInteriorOutliers(groupPoints, 'meanMicroseconds')
-    const latest = meanSeries.points[meanSeries.points.length - 1] ?? groupPoints[groupPoints.length - 1]
-    const skipped = meanSeries.skipped
-    const skippedText = skipped > 0
-      ? `, ${skipped} one-off outlier${skipped === 1 ? '' : 's'} skipped`
-      : ''
-
-    return `
-      <section class="benchmark-card">
-        <header class="benchmark-card-header">
-          <div>
-            <h3>${escapeHtml(latest.method)}</h3>
-            <p>${meanSeries.points.length} ${escapeHtml(latest.profile)} runs${skippedText}</p>
-          </div>
-        </header>
+function renderTrendCards(points, expectedScenarios, selectedProfile, channels, branches) {
+  const groups = groupBy(points, point => `${point.method}__${point.providerName}`)
+  const scenarios = new Map(points.map(point => [`${point.method}__${point.providerName}`, point]))
+  for (const scenario of expectedScenarios) scenarios.set(`${scenario.method}__${scenario.providerName}`, scenario)
+  return [...scenarios.entries()].sort(([, left], [, right]) =>
+    categoryRank(left.category) - categoryRank(right.category) || left.method.localeCompare(right.method))
+    .map(([key, scenario]) => {
+      const group = groups.get(key) ?? []
+      const stats = selector => branches.map(branch => {
+        const own = group.filter(point => point.branch === branch)
+        const latest = own[own.length - 1]
+        return `<span class="benchmark-series-stat" style="--series-color:${branchColor(branch, channels)}">
+          <strong>${escapeHtml(branchLabel(branch, channels))}</strong>
+          ${latest ? `${formatMetricValue(latest[selector], selector)} · ${own.length} run(s)` : 'Awaiting matching runs'}
+        </span>`
+      }).join('')
+      return `<section class="benchmark-card">
+        <header class="benchmark-card-header"><div><h3>${escapeHtml(scenario.method)}</h3>
+          <p>${escapeHtml(scenario.providerName)} · ${escapeHtml(selectedProfile)} · latest raw values below each chart</p></div></header>
         <div class="benchmark-card-grid">
-          <div>
-            <h4>Mean Time</h4>
-            ${renderTrendChart(groupPoints, 'meanMicroseconds')}
-            <p class="benchmark-card-value">${formatMicroseconds(latest.meanMicroseconds)}</p>
-          </div>
-          <div>
-            <h4>Allocated Bytes</h4>
-            ${renderTrendChart(groupPoints, 'allocatedBytes')}
-            <p class="benchmark-card-value">${formatBytes(latest.allocatedBytes)}</p>
-          </div>
+          <div><h4>Mean Time</h4>${renderTrendChart(group, 'meanMicroseconds', channels)}<div class="benchmark-series-stats">${stats('meanMicroseconds')}</div></div>
+          <div><h4>Allocated Bytes</h4>${renderTrendChart(group, 'allocatedBytes', channels)}<div class="benchmark-series-stats">${stats('allocatedBytes')}</div></div>
         </div>
-      </section>
-    `
-  }).join('')
+      </section>`
+    }).join('')
 }
 
 function renderProfileSwitch(profiles, selectedProfile) {
@@ -985,46 +934,48 @@ function renderProfileSwitch(profiles, selectedProfile) {
   `
 }
 
-function renderBenchmarkPage(root, points, selectedProfile, allowedProviders, expectedScenarios, commitUrlTemplate) {
+function renderBenchmarkPage(root, points, selectedProfile, allowedProviders, expectedScenarios, commitUrlTemplate, channels) {
   root.dataset.selectedProfile = selectedProfile
-  const profilePoints = points.filter(point => point.profile === selectedProfile)
-  const latestPoint = profilePoints[profilePoints.length - 1]
   const profiles = getAvailableProfiles(points)
-  const providerScope = allowedProviders.length === 0 ? 'all published providers' : allowedProviders.join(', ')
-
+  const comparisons = comparisonBranches(points, channels)
+  const comparison = comparisons.includes(root.dataset.selectedBranch) ? root.dataset.selectedBranch : (comparisons[0] ?? '')
+  root.dataset.selectedBranch = comparison
+  const branches = [channels.Stable.Branch, comparison].filter(Boolean)
+  const relevant = points.filter(point => point.profile === selectedProfile && branches.includes(point.branch))
+  const runtimes = [...new Set(relevant.map(point => point.runtime))].reverse()
+  const runtime = runtimes.includes(root.dataset.selectedRuntime) ? root.dataset.selectedRuntime : (relevant.at(-1)?.runtime ?? '')
+  root.dataset.selectedRuntime = runtime
+  const selected = selectBenchmarkPoints(points, selectedProfile, runtime, channels.Stable.Branch, comparison)
+  const options = (values, current, label) => values.map(value =>
+    `<option value="${escapeHtml(value)}" ${value === current ? 'selected' : ''}>${escapeHtml(label(value))}</option>`).join('')
   root.innerHTML = `
     <section class="benchmark-overview">
-      <div class="benchmark-overview-item benchmark-overview-profile">
-        <strong>Profile</strong>
-        ${renderProfileSwitch(profiles, selectedProfile)}
-      </div>
-      <div class="benchmark-overview-item">
-        <strong>Latest ${escapeHtml(selectedProfile)} run</strong>
-        <span>${escapeHtml(formatDateTime(latestPoint?.generatedAtUtc))}</span>
-      </div>
-      <div class="benchmark-overview-item">
-        <strong>Commit</strong>
-        <span>${renderCommitLink(latestPoint?.commit, commitUrlTemplate)}</span>
-      </div>
-      <div class="benchmark-overview-item">
-        <strong>Provider scope</strong>
-        <span>${escapeHtml(providerScope)}</span>
-      </div>
+      <div class="benchmark-overview-item"><strong>Profile</strong>${renderProfileSwitch(profiles, selectedProfile)}</div>
+      <div class="benchmark-overview-item"><label for="benchmark-branch"><strong>Compare with stable</strong></label>
+        <select id="benchmark-branch" data-branch-select>${comparisons.length ? options(comparisons, comparison, branch => branchLabel(branch, channels)) : '<option value="">No development branch</option>'}</select></div>
+      <div class="benchmark-overview-item"><label for="benchmark-runtime"><strong>Recorded runtime</strong></label>
+        <select id="benchmark-runtime" data-runtime-select>${options(runtimes, runtime, value => value)}</select></div>
     </section>
+    <div class="benchmark-legend">${branches.map(branch => `<span style="--series-color:${branchColor(branch, channels)}" class="benchmark-series-stat"><strong>${escapeHtml(branchLabel(branch, channels))}</strong>${branch === channels.Stable.Branch ? 'Solid line' : 'Dashed line'}</span>`).join('')}</div>
+    <p class="benchmark-muted">Only matching profiles and recorded runtimes are shown together. Points keep their actual dates and commits; a single run is a dot. Lines show a three-run rolling mean within each branch. GitHub-hosted runner noise means these trends are not controlled release evidence.</p>
+    <h2>Charts</h2><div class="benchmark-card-list">${renderTrendCards(selected, expectedScenarios, selectedProfile, channels, branches)}</div>
     <h2>Trend Summary</h2>
-    ${renderTrendTable(profilePoints, expectedScenarios, selectedProfile, commitUrlTemplate)}
-    <h2>Charts</h2>
-    <div class="benchmark-card-list">
-      ${renderTrendCards(profilePoints, expectedScenarios, selectedProfile)}
-    </div>
+    <p class="benchmark-muted">Changes below compare each branch with its own earlier runs.</p>
+    ${branches.map(branch => `<h3>${escapeHtml(branchLabel(branch, channels))}</h3>
+      ${renderTrendTable(selected.filter(point => point.branch === branch), expectedScenarios, selectedProfile, commitUrlTemplate)}`).join('')}
   `
-
+  const render = profile => renderBenchmarkPage(root, points, profile, allowedProviders, expectedScenarios, commitUrlTemplate, channels)
   for (const button of root.querySelectorAll('[data-profile-select]')) {
-    button.addEventListener('click', () => {
-      renderBenchmarkPage(root, points, button.dataset.profileSelect, allowedProviders, expectedScenarios, commitUrlTemplate)
-    })
+    button.addEventListener('click', () => render(button.dataset.profileSelect))
   }
-
+  root.querySelector('[data-branch-select]').addEventListener('change', event => {
+    root.dataset.selectedBranch = event.target.value
+    render(selectedProfile)
+  })
+  root.querySelector('[data-runtime-select]').addEventListener('change', event => {
+    root.dataset.selectedRuntime = event.target.value
+    render(selectedProfile)
+  })
   installChartHover(root)
 }
 
@@ -1043,6 +994,8 @@ async function renderBenchmarkResults() {
     const allowedMethods = parseListFilter(root, 'methodFilter')
 
     const rawHistory = await fetchJson(historyUrl)
+    const channels = rawHistory.Channels ?? await fetchJson(new URL('./release-channels.json', import.meta.url).href)
+    if (!channels?.Stable?.Branch) throw new Error('Missing stable benchmark channel configuration.')
 
     const history = filterHistory(rawHistory, allowedProviders, allowedMethods)
     const points = flattenHistory(history)
@@ -1059,7 +1012,8 @@ async function renderBenchmarkResults() {
       chooseProfile(root, profiles),
       allowedProviders,
       expectedScenarios,
-      commitUrlTemplate)
+      commitUrlTemplate,
+      channels)
   } catch (error) {
     root.innerHTML = `<p class="benchmark-error">Failed to load published benchmark history. ${escapeHtml(error?.message ?? String(error))}</p>`
   }

@@ -47,7 +47,9 @@ public sealed class CiWorkflowPolicyTests
             .Contains("Load previous successful matrix baseline")
             .And.Contains("--baseline artifacts/ci/full-matrix-baseline.json")
             .And.Contains("aggregate[\"CaseCountBaseline\"]")
-            .And.Contains(".github/badges/full-matrix-baseline.json");
+            .And.Contains("FETCH_HEAD:$BASELINE_DIRECTORY/full-matrix-baseline.json");
+        await Assert.That(workflow).Contains("needs.detect-nightly-activity.outputs.badge_directory")
+            .And.Contains("group: full-matrix-badge-publication");
         await Assert.That(workflow).DoesNotContain("--plan full");
         await Assert.That(TestShardEvidenceAggregator.FullMatrixContract.Select(
             static contract => $"{contract.Suite}:{contract.TargetId ?? "-"}").Distinct()).Count().IsEqualTo(17);

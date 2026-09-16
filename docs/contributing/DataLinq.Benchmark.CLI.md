@@ -412,8 +412,26 @@ Current policy:
 - CI trends the `stable` benchmark category plus the `macro-readwrite` and `macro-bulk` CRUD workflow lanes
 - CI currently trends the `sqlite-memory` provider only
 - scheduled history runs use the heavier benchmark profile
+- stable and active development branches publish the same subset; the chart separates branch, profile and recorded runtime
 - published history keeps all recent runs, then thins older runs by age instead of raw run count
 - broader or noisier scenarios stay available locally until they are stable enough to deserve regression history
+
+### Branch channels and rollover
+
+`public/release-channels.json` on master is the channel source of truth. Pushes to master and version branches start the workflow; only configured active channels can publish. The default-branch `Development Nightly Dispatch` workflow explicitly dispatches the full matrix and heavy benchmarks on the development ref, because GitHub schedules only default-branch workflows.
+
+The shared `benchmark-data` publisher is serialized. Its aggregate `benchmarks/history.json` includes channel descriptors, while every retained run keeps its original metadata. Immutable individual JSON files stay under `benchmarks/runs/`. Each active branch gets `benchmarks/branches/<branch>/latest.json`; the legacy root latest/comparison files remain stable-only. Aggregate retention keeps all runs for 183 days, then one per week through 730 days and one per month thereafter, separately by branch/profile/runtime/filter. Raw run JSON is not thinned.
+
+For the next release:
+
+1. Create the next integration branch from updated master and apply the same PR/status-check protection.
+2. Change only `Development.Branch` and `Development.Label` in the channel configuration through a master PR. Merge infrastructure/configuration updates forward into the integration branch.
+3. Dispatch the benchmark workflow on the new branch and verify the first published point. The website reads the updated channel selection from published history; older branches remain available as archived history.
+4. Set `Development` to `null` if there is no active development branch. A subsequent stable publication updates the website selection.
+
+Manual workflow dispatch accepts `profile=default` or `profile=heavy`. Public docs deployment is separately dispatched from master; updating benchmark data does not deploy unfinished API documentation. See [CI test lanes](CI%20Test%20Lanes.md) for matrix evidence and branch protection.
+
+The unit suite exercises the actual JavaScript chart and Python publication policy through `BenchmarkChannelWorkflowTests`. Node.js and Python 3 are required for those two fixture checks (available on GitHub's Ubuntu runner); all test entry points remain in the TUnit unit project.
 
 This filtered multi-category workflow is intentionally noncanonical. It records schema-v3 diagnostic history with `ReleaseEvidenceIntent: false`, unknown reconstructed release scope, and `ValidForEvidence: false`; its successful exit and publication are trend telemetry, not a final-RC benchmark gate. Automatic comparison selects only a retained schema-v1/v2 baseline with the exact profile, filter, and .NET 10 runtime, because the hosted runner's full v3 processor/runtime/BenchmarkDotNet identity is known only after the benchmark runs. If no such diagnostic baseline remains, the workflow publishes the history without a comparison. Strict v3-to-v3 comparison is a separate release operation with exact environment matching.
 
