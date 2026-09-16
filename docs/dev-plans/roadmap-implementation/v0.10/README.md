@@ -9,7 +9,9 @@
 
 **Last reviewed:** 2026-09-16.
 
-**Prerequisite:** DataLinq 0.9.0 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
+**Prerequisite:** DataLinq 0.9.2 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
+
+**Execution checkpoint, 2026-09-16:** the detailed async design is accepted through AAPI-111, and the W0-P1–P6 execution plan is accepted. The first W0 tooling slice is implemented and tested; clean baseline capture and the I/O map remain outstanding. Async runtime implementation has not started. The user-selected published compatibility baseline is fixed at 0.9.2, while new development performance baselines and candidates both run on .NET 10. See the [W0 checkpoint and baseline amendment](W0%20Baseline%20and%20Evidence%20Plan.md) for evidence and remaining work.
 
 ## Release Thesis
 
@@ -91,8 +93,8 @@ Acceptance summary:
 - diagnostic/configuration behavior follows AAPI-91 through AAPI-99: immutable typed failure snapshots and direct access, independent classification/outcome/recovery, ordered secondary exceptions, preserved constructors and provider settings defaults, bounded pre-setup capture, DLG004 and retained synchronous MariaDB constructor probing
 - AAPI-100 through AAPI-102 resolve inventory G01–G03: raw model readers on the existing class hierarchy, public provider-transaction async completion with legacy defaults and managed ownership boundaries, fixed diagnostic enum values with Unknown = 0, and DataLinq execution-options placement
 - AAPI-103 through AAPI-105 settle generic query Min/Max declarations, the direct local relation predicate/numeric overload list, and provider-interface inherited async-disposal defaults with public virtual base/concrete dispatch
-- AAPI-106 through AAPI-111 settle core runtime-validation supporting types, complete results/failure policy, comparison scope/empty schemas, bounded per-command timeout, async LINQ 10.0.12 and locked 0.9.0 compatibility coverage including Memory
-- OAPI-8/OAPI-9 and the discussed OAPI-7 design policies are resolved through E06. OAPI-7 remains an implementation/manifest/verification gate. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) is accepted, including .NET 10 benchmark baselines/candidates; tooling preparation and actual evidence capture come next
+- AAPI-106 through AAPI-111 settle core runtime-validation supporting types, complete results/failure policy, comparison scope/empty schemas, bounded per-command timeout, async LINQ 10.0.12 and locked 0.9.2 compatibility coverage including Memory
+- OAPI-8/OAPI-9 and the discussed OAPI-7 design policies are resolved through E06. OAPI-7 remains an implementation/manifest/verification gate. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) is accepted, including .NET 10 benchmark baselines/candidates; the initial tooling slice is implemented, and clean evidence capture comes next
 
 Explicit non-goals:
 

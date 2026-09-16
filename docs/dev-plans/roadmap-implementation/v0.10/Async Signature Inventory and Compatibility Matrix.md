@@ -430,9 +430,9 @@ AAPI-92/AAPI-93 name enums but do not assign numbers; AAPI-63/AAPI-96 do not cho
 | E03 | Accepted disposal declaration; product evidence pending | AAPI-105 fixes inherited `IAsyncDisposable` slot/default and public virtual base/concrete dispatch; verify old implementers/subclasses, options and C02 constructors |
 | E04 | Accepted supporting API; implementation/evidence pending | AAPI-106–109 fix core types, complete results/policy, comparison scope/empty schemas and bounded timeout; D10-4 verifies actual declarations and execution |
 | E05 | Accepted package version; package evidence pending | AAPI-110 selects System.Linq.AsyncEnumerable 10.0.12 for .NET 8/9 only; verify actual packed groups and consumer resolution |
-| E06 | Accepted baseline/manifest policy; tooling/output pending | AAPI-111 fixes locked 0.9.0 coverage including Memory and compiled/generated evidence; emit actual declarations through AAPI-111 and disposition approved breaks |
+| E06 | Accepted amended baseline policy; initial tooling implemented, capture/output pending | AAPI-111 fixes locked 0.9.2 coverage including Memory and compiled/generated evidence; retain 0.9.0 diagnostics historically, emit actual declarations through AAPI-111 and disposition approved breaks |
 
-G01–G03 and E01–E06 design policies are accepted. No item is product-verified merely because this document exists. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) is accepted, including .NET 10 benchmark baselines/candidates; proceed with tooling preparation and evidence capture.
+G01–G03 and E01–E06 design policies are accepted. No item is product-verified merely because this document exists. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) is accepted, including .NET 10 benchmark baselines/candidates; the initial tooling slice is implemented, and clean evidence capture comes next.
 
 ### Declaration Review: E01–E03
 
@@ -548,9 +548,9 @@ At implementation, pin the central `PackageVersion` in `src/Directory.Packages.p
 
 Verify packed dependency groups, clean consumer restore and extension binding under .NET 8/9/10, including the query/relation distinction. The isolated .NET 10 framework probe does not validate the package's .NET 8/9 assets. No package files, dependency references or release artifacts are changed by this planning decision.
 
-**6. E06 — Establish the right baseline before emitting the final manifest.** The current `ApiCompatibilityReporter` is a 0.9 release tool: its default locked baseline is `v0.8.0-packages.json`, its comparison package list excludes `DataLinq.Memory`, and Memory is checked in a special "new package" lane. Merely passing a different `--baseline-version` will not fix that package coverage.
+**6. E06 — Establish the right baseline before emitting the final manifest.** At the source audit, `ApiCompatibilityReporter` had only the historical 0.8 baseline and treated Memory as new. The initial W0 tooling slice now supplies the 0.10 release policy and compares Memory as an existing library. The accepted baseline amendment selects `v0.9.2-packages.json` by default. The old 0.8 and 0.9.0 inputs remain available for explicit historical comparisons.
 
-AAPI-111 requires a version-specific 0.10 policy and locked published **0.9.0** baseline, with exact package bytes, hashes and provenance, including Memory as an existing library in normal compatibility comparisons. Preserve the historical 0.8-to-0.9 policy, lock and disposition evidence. Treat genuinely new 0.10 integration/test-helper packages separately only when their package identities/surfaces are settled.
+AAPI-111 requires a version-specific 0.10 policy and locked published **0.9.2** baseline, with exact package bytes, hashes and provenance, including Memory as an existing library in normal compatibility comparisons. Preserve the historical 0.8-to-0.9 policy, lock and disposition evidence. Treat genuinely new 0.10 integration/test-helper packages separately only when their package identities/surfaces are settled.
 
 Reuse the existing ApiCompat runner and metadata snapshots. Map the inventory to compiled .NET 8/9/10 declarations: overloads, namespaces, generic constraints, nullable metadata, optional values and parameter names, constructors, inherited/default-interface dispatch, and fixed enum values. Supplement assembly manifests with generated-source and positive/negative consumer fixtures for converted/composite keys, required/optional navigation, DLG004 and extension binding. A textual API diff alone cannot prove dispatch or generated-client behavior.
 
@@ -584,7 +584,7 @@ Each accepted decision is assigned below. This is traceability, not evidence tha
 
 Next gates, in order:
 
-1. **Execute W0 preparation:** G01–G03/E01–E06 design choices and W0-P1 through W0-P6 are accepted. Follow the [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md), starting with compatibility tooling and .NET 10 benchmark migration. OAPI-7 remains an implementation/manifest/verification gate; new design questions require concrete findings.
+1. **Complete W0:** G01–G03/E01–E06 design choices and W0-P1 through W0-P6 are accepted. Compatibility tooling and .NET 10 benchmark migration are implemented. Follow the [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) to freeze clean identities and capture the remaining baselines. OAPI-7 remains an implementation/manifest/verification gate; new design questions require concrete findings.
 2. **W0:** capture the real before-state I/O, compatibility and performance evidence. This document's source scan is only an input, not completion of W0.
 3. **W1/W2:** establish internal async contracts and prove provider feasibility, cancellation/timeout distinction, first initialization, ownership, cache publication, completion certainty and cleanup.
 4. **W3:** implement the public surface against those contracts; compile the full signature/generator manifest and run B01–B16 using packed consumers and ApiCompat.

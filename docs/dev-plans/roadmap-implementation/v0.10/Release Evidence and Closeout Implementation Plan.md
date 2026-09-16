@@ -59,7 +59,7 @@ The manifest records:
 
 ## RE10-0: Freeze The Before-State
 
-AAPI-111 requires a locked published 0.9.0 API baseline including Memory; do not confuse it with the locally packed development baseline below. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) accepts the capture sequence, additional patch coverage and .NET 10 benchmark baseline/candidate target. Tooling preparation and capture remain to be executed.
+AAPI-111, amended by the user on 2026-09-16, requires a locked published 0.9.2 API baseline including Memory; do not confuse it with the locally packed development baseline below. This replaces the earlier 0.9.0-plus-patch requirement and accepts the existing provider registration changes. Retained 0.9.0 diagnostics are historical, not a release gate. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) accepts the capture sequence and .NET 10 benchmark baseline/candidate target. Initial tooling preparation is implemented and tested; clean baseline capture and the I/O map remain outstanding.
 
 Before changing shared execution paths:
 
@@ -183,7 +183,7 @@ Required focused evidence:
 - AAPI-98/AAPI-99 DLG004 identity/severity/message/locations, harmless versus conflicting overloads and overrides, affected-database emission isolation/release tracking, and MariaDB synchronous constructor probe/property/failure timing with accurate startup-cancellation documentation
 - AAPI-100 through AAPI-102 raw model reader signatures/legacy virtual defaults and built-in dispatch; public provider-transaction async completion/disposal, source/binary compatibility and managed-finalization boundaries; exact diagnostic enum numeric assignments, conservative zero values and DataLinq execution-options namespace
 - AAPI-103 through AAPI-105 exact generic query Min/Max nullable metadata and binding, complete local relation terminal/reduction overloads and semantics, inherited provider-interface disposal-slot/default and base/concrete/legacy dispatch; isolated .NET 10 prototype checks do not replace packed consumers, old binaries or real-provider verification
-- AAPI-106 through AAPI-111 runtime validation core placement/immutable results, complete Info and issue policy, scoped comparison/empty-schema/import compatibility, timeout normalization and actual command propagation, pinned async LINQ dependency/consumer binding, and locked 0.9.0 API comparison including Memory with truthful compiled/generated/old-binary evidence
+- AAPI-106 through AAPI-111 runtime validation core placement/immutable results, complete Info and issue policy, scoped comparison/empty-schema/import compatibility, timeout normalization and actual command propagation, pinned async LINQ dependency/consumer binding, and locked 0.9.2 API comparison including Memory with truthful compiled/generated/old-binary evidence
 - packed .NET 8/9/10 consumers cover accepted query signatures, projections, nullability, optional/named tokens, EF Core coexistence, and standard async-LINQ resolution; keep signature approval separate from implementation/provider evidence
 - use controllable pauses at initialization, hydration, reader moves, callback completion, and cache publication rather than timing-dependent delays; exercise cleanup failures and measure coordination/versioning costs against W0
 - sync/async result parity for supported entity, scalar, projection, paging, aggregate, and terminal query families

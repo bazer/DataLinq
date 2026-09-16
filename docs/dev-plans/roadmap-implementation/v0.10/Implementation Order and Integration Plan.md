@@ -68,7 +68,7 @@ Complete the audit and decide/test:
 - enforce AAPI-96 through AAPI-99: preserved concrete/shared/protected constructors and options property/interface defaults, bounded immutable pre-setup capture, DLG004 conflict binding/locations/database isolation, and retained synchronous MariaDB constructor probing
 - enforce AAPI-100 through AAPI-102: class-based raw model readers and provider-transaction completion/disposal with unsupported legacy defaults, preserved managed ownership, exact diagnostic enum assignments, and the DataLinq execution-options namespace
 - enforce AAPI-103 through AAPI-105: exact unconstrained query Min/Max nullable declarations, complete local relation predicate/numeric/generic extrema overloads, and inherited provider-interface disposal defaults with concrete/base dispatch and no synchronous fallback
-- enforce AAPI-106 through AAPI-111: core validation types/snapshots, complete differences and independent failure policy, comparison-scoped Include/empty schemas, bounded per-command timeout, async LINQ 10.0.12 on .NET 8/9, and locked 0.9.0 compatibility including Memory with actual emitted evidence
+- enforce AAPI-106 through AAPI-111: core validation types/snapshots, complete differences and independent failure policy, comparison-scoped Include/empty schemas, bounded per-command timeout, async LINQ 10.0.12 on .NET 8/9, and locked 0.9.2 compatibility including Memory with actual emitted evidence
 
 Relation query composition is excluded from 0.10 under revised AAPI-10. Its [backlog proposal](../../query-and-runtime/Relation-Scoped%20Queries.md) creates no parser, test-helper query capability, or release-gate dependency here; existing database/transaction query roots remain in scope.
 
@@ -163,7 +163,7 @@ flowchart TD
 
 ### W0: Baseline And I/O Inventory
 
-The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) records accepted W0-P1 through W0-P6, including .NET 10 for all new benchmark baseline/candidate runs. Begin with narrow evidence tooling and benchmark-target migration; baseline capture remains pending. AAPI-111 fixes the published 0.9.0 compatibility baseline, distinct from current-development performance/test identity.
+The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) records accepted W0-P1 through W0-P6, including .NET 10 for all new benchmark baseline/candidate runs. The initial evidence tooling and benchmark-target migration are implemented and tested; clean baseline capture and the I/O map remain pending. AAPI-111, as explicitly amended by the user on 2026-09-16, fixes the published 0.9.2 compatibility baseline, distinct from current-development performance/test identity. The earlier PluginHook compatibility question is resolved by that amendment and no longer blocks W0.
 
 Required work:
 

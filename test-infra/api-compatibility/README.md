@@ -2,7 +2,7 @@
 
 ## 0.10 release policy
 
-`v0.9.0-packages.json` locks the primary published 0.9 compatibility baseline. `v0.9.2-packages.json` locks additional latest-patch upgrade coverage; 0.9.2 was the latest published stable 0.9 package in the NuGet.org index checked on 2026-09-16. It does not replace the 0.9.0 baseline.
+`v0.9.2-packages.json` locks the accepted published compatibility baseline for 0.10. On 2026-09-16 the user explicitly replaced the earlier primary-0.9.0/additional-patch policy with fixed 0.9.2 coverage, retaining the existing provider registration changes whose consumers are aware of them. `v0.9.0-packages.json` remains a historical diagnostic input, not a required 0.10 compatibility gate. Its field-to-property diagnostics remain truthful failures when that older comparison is explicitly requested; no suppression was added.
 
 Both locks use `v0.10.api-package-baseline-lock.v1` and contain the six public packages, including Memory. The reporter compares Memory as an existing package. The historical 0.8 lock below is unchanged and remains available with explicit `--baseline-version 0.8.0`.
 

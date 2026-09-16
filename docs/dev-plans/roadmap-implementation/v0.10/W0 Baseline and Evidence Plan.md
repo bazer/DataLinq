@@ -7,6 +7,8 @@
 
 **Last reviewed:** 2026-09-16.
 
+**Baseline amendment:** On 2026-09-16 the user selected published **0.9.2** as the 0.10 compatibility baseline, replacing the earlier primary-0.9.0/additional-patch policy. Existing provider registration changes stay; consumers are aware of them. New performance baselines still use a separately frozen development commit and .NET 10.
+
 **Source audit:** `58142e7d546a494426d7266f8e256ca5f7cafdc2`.
 
 **Authority:** [Implementation order](Implementation%20Order%20and%20Integration%20Plan.md#w0-baseline-and-io-inventory) and [RE10-0](Release%20Evidence%20and%20Closeout%20Implementation%20Plan.md#re10-0-freeze-the-before-state) require a baseline before shared runtime changes. [AAPI-106 through AAPI-111](Async%20Public%20API%20Decisions.md#aapi-106-runtime-validation-types-and-immutable-result-construction) settle validation, package and compatibility policies. This document records the accepted bounded execution details; it does not supersede those decisions.
@@ -29,7 +31,7 @@ These were source-audit findings, not executed baseline evidence.
 The first W0-P2 slice implements release-specific API reporting and the .NET 10 benchmark migration without changing runtime execution or public library target frameworks:
 
 - Published 0.9.0 and 0.9.2 bytes were independently acquired, hashed and checked against nuspec/tag repository identities. 0.9.2 was the latest stable 0.9 version in the checked NuGet index. Both six-package locks and the exact inherited `loadLock` dispositions are tracked under `test-infra/api-compatibility/`; the 0.8 lock is unchanged. See the [acquisition record](../../../../test-infra/api-compatibility/README.md).
-- `api-report` defaults to 0.9.0, uses the 0.10 report/lock policy for stable locked 0.9 baselines, and compares Memory as an existing package. Explicit 0.8.0 retains the historical policy. Candidate/checkout, clean runner, immutable-input, tag and canonical-lock checks remain enforced.
+- At this initial checkpoint, `api-report` defaulted to 0.9.0; the subsequent accepted baseline amendment changes the default to 0.9.2. It uses the 0.10 report/lock policy for stable locked 0.9 baselines and compares Memory as an existing package. Explicit 0.8.0 retains the historical policy. Candidate/checkout, clean runner, immutable-input, tag and canonical-lock checks remain enforced.
 - The benchmark CLI/harness, build paths and CI invocation now target .NET 10. History writing and revalidation require both CLI and row runtimes to identify .NET 10. Historical .NET 8 artifacts retain their identity and cannot qualify as new .NET 10 evidence.
 - Recorded historical build hooks retarget the harness and fix BenchmarkDotNet's inherited framework matrix without changing the frozen target sources. Existing historical calibration definitions are preserved; injection is only used when the target lacks them.
 - The full unit suite passed **1,833/1,833**, including new Memory-break routing, release/lock validation and cross-runtime benchmark evidence tests. Log root: `artifacts/test-results/20260916T171744352Z-ca8df3f8913e4869992e9fffc659c4c5/`. An earlier exploratory filter was invalid; an initial fixture dependency fault was fixed, and a transient allocation assertion passed on the full rerun. Neither failed run is baseline evidence.
@@ -51,24 +53,24 @@ The tag-to-tag source diff corroborates the field-to-property and `Dictionary`-t
 
 Diagnostic report: `artifacts/dev/api-report/w0-policy-0.9.0-to-0.9.2-diagnostic/report.json`, with six baseline packages, six candidate packages, 36 API surfaces and ten comparison groups. The run correctly failed: nine compatibility findings plus five provenance failures from the uncommitted/dirty/changing tooling checkout and the historical candidate/checkout mismatch. It is not clean release evidence. Memory, provider, Tools and CLI comparisons reported no baseline breaks.
 
-**Disposition remains open.** W0/RE10-0 owns the finding and the packed old-binary/source consumer follow-up. Keep 0.9.0 as the compatibility baseline and retain the exact diagnostics; do not substitute 0.9.2, weaken the existing divergence rules, restore mutable registry fields, or silently approve a compatibility exception in this tooling slice. The next review must choose an explicit treatment consistent with AAPI-111 and the atomic registration design.
+**Disposition accepted on 2026-09-16:** the user explicitly replaces the 0.9.0 compatibility baseline with 0.9.2, keeps the atomic registration changes and confirms consumers know about them. AAPI-111 is amended accordingly. This historical 0.9.0-to-0.9.2 finding no longer blocks W0 or requires a compatibility exception/suppression. Retain the exact diagnostic record and both acquired locks; do not relabel the failed report as a pass. Old-binary/source consumer checks for 0.10 now start from 0.9.2, and new unexplained breaks against that baseline remain failures.
 
 The next execution slice freezes clean development/tooling identities, captures health/package/generated-source baselines, maps current I/O, and runs the six heavy benchmark lanes without concurrent test workloads. W0 is not complete, and W1 runtime changes have not started.
 
 ## W0-P1: Keep Published Compatibility And Development Baselines Distinct
 
-**Accepted:** preserve AAPI-111's locked published 0.9.0 baseline, add latest-patch coverage, and freeze a separate pre-async development commit.
+**Accepted, amended on 2026-09-16:** use AAPI-111's locked published 0.9.2 compatibility baseline and freeze a separate pre-async development commit. The earlier primary-0.9.0/additional-patch requirement is superseded.
 
 | Identity | Accepted role | Required record |
 | --- | --- | --- |
-| Published 0.9.0 | Accepted release-line compatibility baseline, including Memory | Exact nupkg bytes, hashes, repository metadata and tag/commit provenance |
-| Latest published 0.9 patch at W0 freeze | Additional upgrade coverage; verify whether tagged 0.9.2 is that release | Independently acquired package lock and generated/behavioral patch-change review; never silently substitute it for 0.9.0 |
+| Published 0.9.2 | Accepted fixed compatibility baseline, including Memory and the existing registration changes | Exact nupkg bytes, hashes, repository metadata and tag/commit provenance |
+| Published 0.9.0 | Retained historical diagnostic input; no longer a required 0.10 compatibility gate | Existing acquired lock and truthful 0.9.0-to-0.9.2 diagnostic record |
 | Pre-async development target | Before-state tests, I/O inventory, generated/API snapshots and performance | Clean full commit, package graph, source scope and immutable artifacts |
 | Evidence tooling | Code that builds, runs and validates evidence | Clean full tooling commit, embedded runner identities and any instrumented fixture/shim provenance |
 
 Resolve tags to full commits once; do not use moving branch names as evidence identities. A tooling-only change may advance the tooling commit without changing the frozen runtime target, but both identities must remain visible and obey each reporter's existing provenance rules.
 
-Keep published bytes distinct from locally packed development bytes. A local rebuild is useful for development package shape but is not a replacement for the published compatibility input. Review patches between 0.9.0 and the additional baseline so an API/behavior introduced after 0.9.0 is not omitted from upgrade coverage.
+Keep published bytes distinct from locally packed development bytes. A local rebuild is useful for development package shape but is not a replacement for the published compatibility input. Freeze the exact 0.9.2 bytes already acquired; a later patch must not silently move the baseline.
 
 ## W0-P2: Repair Evidence Tooling In A Separate Slice Before Capture
 

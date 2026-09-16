@@ -28,7 +28,7 @@ internal static class ApiReportCommand
         var baselineVersionOption = new Option<string>("--baseline-version")
         {
             Description = "Exact baseline package version.",
-            DefaultValueFactory = _ => "0.9.0"
+            DefaultValueFactory = _ => "0.9.2"
         };
         var baselineLockOption = new Option<string?>("--baseline-lock")
         {
