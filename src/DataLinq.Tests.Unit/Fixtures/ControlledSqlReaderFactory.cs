@@ -7,7 +7,7 @@ using DataLinq.Metadata;
 
 namespace DataLinq.Tests.Unit.Fixtures;
 
-internal sealed class ControlledSqlReaderFactory : IAsyncSqlReaderFactory
+internal sealed class ControlledSqlReaderFactory : IAsyncSqlReaderFactory, IAsyncSqlScalarFactory
 {
     internal List<CapturedSql> Inputs { get; } = [];
     internal List<ControlledOwnedCommandFactory> Commands { get; } = [];
@@ -15,8 +15,28 @@ internal sealed class ControlledSqlReaderFactory : IAsyncSqlReaderFactory
     internal Func<CapturedSql, ControlledAsyncDatabaseAccess> CreateAccess { get; set; } = _ => new();
     internal Action<ControlledOwnedCommandFactory>? ConfigureCommand { get; set; }
     internal Func<IAsyncReaderSource, IAsyncReaderSource>? WrapSource { get; set; }
+    internal Func<IAsyncScalarSource, IAsyncScalarSource>? WrapScalar { get; set; }
+    internal Func<object?, object?>? ScalarConverting { get; set; }
+
+    public AsyncScalarInvocation<T> BindScalar<T>(CapturedSql sql)
+    {
+        var convert = ScalarConverting;
+        return new(BindScalar(sql), value => (T)(convert is null ? value : convert(value))!);
+    }
 
     public IAsyncReaderSource BindReader(CapturedSql sql)
+    {
+        var execution = BindOwned(sql);
+        return WrapSource is null ? execution : WrapSource(execution);
+    }
+
+    public IAsyncScalarSource BindScalar(CapturedSql sql)
+    {
+        var execution = BindOwned(sql);
+        return WrapScalar is null ? execution : WrapScalar(execution);
+    }
+
+    private OwnedCommandExecution BindOwned(CapturedSql sql)
     {
         Inputs.Add(sql);
         var access = CreateAccess(sql);
@@ -29,12 +49,11 @@ internal sealed class ControlledSqlReaderFactory : IAsyncSqlReaderFactory
         };
         ConfigureCommand?.Invoke(factory);
         Commands.Add(factory);
-        var execution = new OwnedCommandExecution(access, factory);
-        return WrapSource is null ? execution : WrapSource(execution);
+        return new OwnedCommandExecution(access, factory);
     }
 }
 
-internal sealed class ControlledRowDataReader(params object?[][] rows) : IAsyncDataReader
+internal class ControlledRowDataReader(params object?[][] rows) : IAsyncDataReader
 {
     private int position = -1;
     internal AsyncCheckpoint Advance { get; set; } = new();
