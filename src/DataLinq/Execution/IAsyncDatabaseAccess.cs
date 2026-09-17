@@ -17,6 +17,7 @@ internal interface IAsyncDatabaseAccess
 {
     // I/O-free validation lets deferred orchestration validate before cancellation/admission.
     void ValidateReader(IDbCommand command);
+    void ValidateCommand(IDbCommand command, AsyncCommandKind kind);
     Task<IAsyncDataReader> ExecuteReaderAsync(IDbCommand command, CancellationToken cancellationToken);
     Task<object?> ExecuteScalarAsync(IDbCommand command, CancellationToken cancellationToken);
     Task<int> ExecuteNonQueryAsync(IDbCommand command, CancellationToken cancellationToken);

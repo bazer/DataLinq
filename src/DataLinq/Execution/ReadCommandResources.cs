@@ -44,10 +44,10 @@ internal struct ReadCommandResources(uint? transactionId) : IDisposable
             return;
         disposed = true;
         try { reader?.Dispose(); }
-        catch (Exception failure) { RecordFailure(failure, ExecutionFailureStage.Cleanup); }
+        catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
         finally { reader = null; }
         try { command?.Dispose(); }
-        catch (Exception failure) { RecordFailure(failure, ExecutionFailureStage.Cleanup); }
+        catch (Exception failure) { (failures ??= new()).AddCleanup(failure); }
         finally { command = null; }
         if (failures?.Primary is { } primary)
         {

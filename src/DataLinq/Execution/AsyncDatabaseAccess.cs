@@ -37,6 +37,12 @@ internal abstract class AsyncDatabaseAccess : IAsyncDatabaseAccess
         ValidateCommand(command, AsyncCommandKind.Reader);
     }
 
+    void IAsyncDatabaseAccess.ValidateCommand(IDbCommand command, AsyncCommandKind kind)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateCommand(command, kind);
+    }
+
     public Task<object?> ExecuteScalarAsync(IDbCommand command, CancellationToken cancellationToken)
     {
         Validate(command, AsyncCommandKind.Scalar, cancellationToken);
