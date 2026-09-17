@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -93,7 +93,7 @@ internal sealed record TransactionFailure(
 /// <summary>
 /// Represents a database transaction.
 /// </summary>
-public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction>
+public partial class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction>
 {
     private static uint transactionCount = 0;
     private readonly List<StateChange> successfulChanges = [];
@@ -122,6 +122,8 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
     private void EnsureAsyncRecoveryAllowed(string operation, ExecutionRecoveryActions required)
     {
+        if (DatabaseAccess is IAsyncTransactionCompletion { InitializationState: TransactionInitializationState.Failed or TransactionInitializationState.Disposed })
+            throw new InvalidOperationException($"Cannot {operation} after transaction initialization became unusable; only disposal is permitted.");
         var context = AsyncFailureContext;
         if (context is not null && (context.Recovery & required) == 0)
             throw new InvalidOperationException(
@@ -691,16 +693,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                 }
 
                 UpdateAsyncRecovery(ExecutionCompletion.Committed, ExecutionRecoveryActions.Dispose);
-                try
-                {
-                    Provider.State.ApplyChanges(successfulChanges);
-                    Provider.State.RemoveTransactionFromCache(this);
-                    PromoteTouchedMutablesAfterCommit();
-                }
-                catch (Exception finalizationFailure)
-                {
-                    ThrowCommittedStateFinalizationFailure(finalizationFailure);
-                }
+                FinalizeCommittedState();
 
                 Volatile.Write(ref managedCommitFinalizationState, 2);
                 PublishDeferredCommittedStatus();
@@ -805,6 +798,20 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
     private void RegisterTouchedMutable(IMutableLifecycle mutable) =>
         touchedMutables.Add(mutable);
+
+    private void FinalizeCommittedState()
+    {
+        try
+        {
+            Provider.State.ApplyChanges(successfulChanges);
+            Provider.State.RemoveTransactionFromCache(this);
+            PromoteTouchedMutablesAfterCommit();
+        }
+        catch (Exception finalizationFailure)
+        {
+            ThrowCommittedStateFinalizationFailure(finalizationFailure);
+        }
+    }
 
     private void PromoteTouchedMutablesAfterCommit()
     {
@@ -1382,7 +1389,10 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     public void Dispose()
     {
         if (IsDisposed)
+        {
+            ExecutionGate.ThrowIfActive("dispose");
             return;
+        }
 
         var operation = BeginExclusiveOperation("dispose", completion: true);
         try

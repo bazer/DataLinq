@@ -9,8 +9,8 @@ internal interface IAsyncHelperTransaction : IAsyncTransactionRecovery
 {
     void ValidateCallback();
     void ValidateCommit();
-    Task CommitAsync(CancellationToken cancellationToken);
-    void FinalizeCommit();
+    Task CommitAsync(TransactionOperationGate.Step owner, CancellationToken cancellationToken);
+    void FinalizeCommit(TransactionOperationGate.Step owner);
     ExecutionRecoveryActions Recovery { get; }
 }
 
@@ -54,10 +54,10 @@ internal static class TransactionCallbackRunner
                 stage = ExecutionFailureStage.Commit;
                 using var step = gate.EnterStep(owner);
                 dispatched = true;
-                await resource.CommitAsync(cancellationToken).ConfigureAwait(false);
+                await resource.CommitAsync(step, cancellationToken).ConfigureAwait(false);
                 completion = ExecutionCompletion.Committed;
                 stage = ExecutionFailureStage.Finalization;
-                resource.FinalizeCommit(); // Short consistency work ignores late cancellation.
+                resource.FinalizeCommit(step); // Short consistency work ignores late cancellation.
             }
             catch (Exception failure)
             {

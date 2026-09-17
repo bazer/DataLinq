@@ -18,7 +18,7 @@ internal class ControlledTransactionRecovery : IAsyncTransactionRecovery
     internal Action? DisposingTransaction { get; set; }
     internal Action? DisposingConnection { get; set; }
 
-    public Task RollbackAsync(CancellationToken cancellationToken)
+    public Task RollbackAsync(TransactionOperationGate.Step owner, CancellationToken cancellationToken)
     {
         Calls.Enqueue("rollback");
         RollbackToken = cancellationToken;
@@ -26,14 +26,14 @@ internal class ControlledTransactionRecovery : IAsyncTransactionRecovery
         return Rollback.ReachAsync(IgnoreCancellation ? CancellationToken.None : cancellationToken);
     }
 
-    public ValueTask DisposeTransactionAsync()
+    public ValueTask DisposeTransactionAsync(TransactionOperationGate.Step owner)
     {
         Calls.Enqueue("dispose-transaction");
         DisposingTransaction?.Invoke();
         return new(TransactionCleanup.ReachAsync(CancellationToken.None));
     }
 
-    public ValueTask DisposeConnectionAsync()
+    public ValueTask DisposeConnectionAsync(TransactionOperationGate.Step owner)
     {
         Calls.Enqueue("dispose-connection");
         DisposingConnection?.Invoke();
