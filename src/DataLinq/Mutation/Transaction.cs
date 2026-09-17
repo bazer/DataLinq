@@ -102,7 +102,6 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     private readonly bool isAttachedTransaction;
     private TransactionFailure? failure;
     internal TransactionOperationGate ExecutionGate { get; }
-    private int internalReadThreadId;
     private int managedCommitFinalizationState;
     private int deferredCommittedStatus;
     private int managedRollbackFinalizationState;
@@ -431,7 +430,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <returns>The models returned by the query.</returns>
     public override IEnumerable<T> GetFromQuery<T>(string query)
     {
-        EnsureCanRead("execute a query");
+        using var read = BeginRead(this, "execute a query");
         var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
 
         foreach (var reader in DatabaseAccess.ReadReader(query))
@@ -454,7 +453,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <returns>The models returned by the command.</returns>
     public override IEnumerable<T> GetFromCommand<T>(IDbCommand dbCommand)
     {
-        EnsureCanRead("execute a command query");
+        using var read = BeginRead(this, "execute a command query");
         var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
 
         foreach (var reader in DatabaseAccess.ReadReader(dbCommand))
@@ -505,7 +504,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                 }
 
                 failureStage = TransactionFailureStage.Hydration;
-                var immutable = LoadAuthoritativeStateChange(change);
+                var immutable = LoadAuthoritativeStateChange(change, operation);
                 if (!change.HasSameFinalizedMutation())
                 {
                     throw new InvalidOperationException(
@@ -542,7 +541,8 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         }
     }
 
-    private IImmutableInstance? LoadAuthoritativeStateChange(StateChange change)
+    private IImmutableInstance? LoadAuthoritativeStateChange(
+        StateChange change, TransactionOperationGate.Lease operation)
     {
         if (change.Type == TransactionChangeType.Delete ||
             change.Model is not IMutableLifecycle)
@@ -550,18 +550,11 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             return null;
         }
 
-        BeginInternalRead();
-        try
-        {
-            return Provider
-                .GetTableCache(change.Table)
-                .GetRow(change.PrimaryKeys, this) ??
-                throw new ModelLoadFailureException(change.PrimaryKeys);
-        }
-        finally
-        {
-            EndInternalRead();
-        }
+        using var step = ExecutionGate.EnterStep(operation);
+        return Provider
+            .GetTableCache(change.Table)
+            .GetOwnedRow(change.PrimaryKeys, this, step) ??
+            throw new ModelLoadFailureException(change.PrimaryKeys);
     }
 
     private void FinalizeSuccessfulStateChange(
@@ -1129,7 +1122,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             allowRollback: false);
     }
 
-    internal void EnsureCanRead(string operation)
+    internal void EnsureCanRead(string operation, TransactionOperationGate.Step? owner = null)
     {
         if (IsDisposed)
             throw new ObjectDisposedException(nameof(Transaction));
@@ -1152,8 +1145,10 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         ThrowIfRollbackAttemptFailed(operation);
 
-        if (Volatile.Read(ref internalReadThreadId) != Environment.CurrentManagedThreadId)
+        if (owner is null)
             ThrowIfOperationInProgress(operation);
+        else
+            ExecutionGate.ValidateStep(owner);
 
         ThrowIfPoisoned(operation);
     }
@@ -1292,19 +1287,6 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             $"Cannot {operation} through transaction {TransactionID} because its attached provider transaction was completed or invalidated outside the DataLinq wrapper. " +
             "DataLinq cannot infer whether it committed or rolled back. Only Dispose() remains legal; materialize fresh committed rows before retrying through a new transaction.");
     }
-
-    private void BeginInternalRead()
-    {
-        var threadId = Environment.CurrentManagedThreadId;
-        if (Interlocked.CompareExchange(ref internalReadThreadId, threadId, 0) != 0)
-        {
-            throw new InvalidOperationException(
-                $"Transaction {TransactionID} cannot start a second authoritative-row read while finalizing a mutation.");
-        }
-    }
-
-    private void EndInternalRead() =>
-        Volatile.Write(ref internalReadThreadId, 0);
 
     private void ThrowIfPoisoned(string operation)
     {

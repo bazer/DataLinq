@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using DataLinq.Diagnostics;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -141,8 +142,8 @@ public class Select<T> : IQuery
 
     internal IEnumerable<IDataLinqDataReader> ReadReader(CancellationToken cancellationToken)
     {
-        DataSourceAccess.EnsureReadAllowed(query.DataSource, "read query rows");
-        cancellationToken.ThrowIfCancellationRequested();
+        using var read = DataSourceAccess.BeginRead(
+            query.DataSource, "read query rows", cancellationToken: cancellationToken);
         using var command = ToDbCommand();
         cancellationToken.ThrowIfCancellationRequested();
         using var reader = query.DataSource.DatabaseAccess.ExecuteReader(command);
@@ -175,8 +176,11 @@ public class Select<T> : IQuery
     }
 
     public RowData? ReadFirstRow()
+        => ReadFirstRow(owner: null);
+
+    internal RowData? ReadFirstRow(TransactionOperationGate.Step? owner)
     {
-        DataSourceAccess.EnsureReadAllowed(query.DataSource, "read the first query row");
+        using var read = DataSourceAccess.BeginRead(query.DataSource, "read the first query row", owner);
         // Resolve the actual columns being fetched to ensure the RowData
         // reader aligns with the DataReader's fields.
         var columnsToRead = GetColumnsToRead();
@@ -385,8 +389,8 @@ public class Select<T> : IQuery
 
     internal V ExecuteScalar<V>(CancellationToken cancellationToken)
     {
-        DataSourceAccess.EnsureReadAllowed(query.DataSource, "execute a scalar query");
-        cancellationToken.ThrowIfCancellationRequested();
+        using var read = DataSourceAccess.BeginRead(
+            query.DataSource, "execute a scalar query", cancellationToken: cancellationToken);
         var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
         var activity = DataLinqTelemetry.StartQueryActivity(
             telemetryContext,
@@ -435,8 +439,8 @@ public class Select<T> : IQuery
 
     internal object? ExecuteScalar(CancellationToken cancellationToken)
     {
-        DataSourceAccess.EnsureReadAllowed(query.DataSource, "execute a scalar query");
-        cancellationToken.ThrowIfCancellationRequested();
+        using var read = DataSourceAccess.BeginRead(
+            query.DataSource, "execute a scalar query", cancellationToken: cancellationToken);
         var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
         var activity = DataLinqTelemetry.StartQueryActivity(
             telemetryContext,

@@ -54,6 +54,16 @@ internal sealed class TransactionOperationGate(uint transactionId)
             throw new InvalidOperationException($"The operation does not own transaction {transactionId}.");
     }
 
+    internal void ValidateStep(Step step)
+    {
+        ArgumentNullException.ThrowIfNull(step);
+        lock (sync)
+        {
+            if (!ReferenceEquals(active?.ActiveStep, step))
+                throw new InvalidOperationException($"The read step does not own transaction {transactionId}.");
+        }
+    }
+
     private void RequireIdle(Lease owner)
     {
         RequireOwner(owner);

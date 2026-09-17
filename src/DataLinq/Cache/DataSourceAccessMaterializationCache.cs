@@ -1,4 +1,5 @@
 using System;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -13,10 +14,13 @@ namespace DataLinq.Cache;
 internal sealed class DataSourceAccessMaterializationCache : IReadSourceMaterializationCache
 {
     private readonly IDataSourceAccess dataSource;
+    private readonly TransactionOperationGate.Step? owner;
 
-    internal DataSourceAccessMaterializationCache(IDataSourceAccess dataSource)
+    internal DataSourceAccessMaterializationCache(
+        IDataSourceAccess dataSource, TransactionOperationGate.Step? owner = null)
     {
         this.dataSource = dataSource ?? throw new ArgumentNullException(nameof(dataSource));
+        this.owner = owner;
     }
 
     public bool TryGetCached(
@@ -26,7 +30,7 @@ internal sealed class DataSourceAccessMaterializationCache : IReadSourceMaterial
         GetTableCache(table).TryGetMaterializedRow(
             canonicalProviderKey,
             dataSource,
-            out instance);
+            out instance, owner);
 
     public ModelCachePublicationResult PublishCached(
         TableDefinition table,
@@ -39,7 +43,7 @@ internal sealed class DataSourceAccessMaterializationCache : IReadSourceMaterial
             rowData,
             instance,
             dataSource,
-            readGeneration);
+            readGeneration, owner);
 
     public void RecordCacheLookup(TableDefinition table, bool hit) =>
         GetTableCache(table).RecordMaterializationCacheLookup(hit);
@@ -53,7 +57,7 @@ internal sealed class DataSourceAccessMaterializationCache : IReadSourceMaterial
     private TableCache GetTableCache(TableDefinition table)
     {
         ArgumentNullException.ThrowIfNull(table);
-        DataSourceAccess.EnsureReadAllowed(dataSource, "access materialized rows");
+        DataSourceAccess.EnsureReadAllowed(dataSource, "access materialized rows", owner);
 
         if (!ReferenceEquals(table.Database, dataSource.Metadata))
         {

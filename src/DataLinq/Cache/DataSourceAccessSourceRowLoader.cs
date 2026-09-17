@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -16,10 +17,13 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
 {
     private readonly IDataSourceAccess dataSource;
     private readonly string sourceName;
+    private readonly TransactionOperationGate.Step? owner;
 
-    internal DataSourceAccessSourceRowLoader(IDataSourceAccess dataSource)
+    internal DataSourceAccessSourceRowLoader(
+        IDataSourceAccess dataSource, TransactionOperationGate.Step? owner = null)
     {
         this.dataSource = dataSource ?? throw new ArgumentNullException(nameof(dataSource));
+        this.owner = owner;
         sourceName = $"sql:{dataSource.Provider.DatabaseType}";
         ProviderRowMaterializer.ValidateSourceName(sourceName);
     }
@@ -36,7 +40,8 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
             keyIndex: 0,
             nameof(canonicalProviderKey));
         EnsureCanLoad(table, "load one source row");
-        cancellationToken.ThrowIfCancellationRequested();
+        using var read = DataSourceAccess.BeginRead(
+            dataSource, "load one source row", owner, cancellationToken);
 
         var query = CreateSingleQuery(
             table,
@@ -55,6 +60,8 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
     {
         ArgumentNullException.ThrowIfNull(request);
         EnsureCanLoad(request.Table, "load source rows");
+        using var read = DataSourceAccess.BeginRead(
+            dataSource, "load source rows", owner, request.CancellationToken);
 
         request.ThrowIfCancellationRequested();
         var select = CreateSelect(request);
@@ -69,6 +76,8 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
     {
         ArgumentNullException.ThrowIfNull(request);
         EnsureCanLoad(request.Table, "load indexed source rows");
+        using var read = DataSourceAccess.BeginRead(
+            dataSource, "load indexed source rows", owner, request.CancellationToken);
 
         request.ThrowIfCancellationRequested();
         var select = CreateSelect(request);
@@ -81,7 +90,7 @@ internal sealed class DataSourceAccessSourceRowLoader : ISourceRowLoader, ISourc
 
     private void EnsureCanLoad(TableDefinition table, string operation)
     {
-        DataSourceAccess.EnsureReadAllowed(dataSource, operation);
+        DataSourceAccess.EnsureReadAllowed(dataSource, operation, owner);
 
         if (!ReferenceEquals(table.Database, dataSource.Metadata))
         {

@@ -1,5 +1,6 @@
 using System;
 using DataLinq.Attributes;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -12,10 +13,11 @@ public partial class TableCache
     internal bool TryGetMaterializedRow(
         DataLinqKey canonicalProviderKey,
         IDataSourceAccess dataSource,
-        out IImmutableInstance? row)
+        out IImmutableInstance? row,
+        TransactionOperationGate.Step? owner = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
-        EnsureTransactionRowCache(dataSource);
+        EnsureTransactionRowCache(dataSource, owner);
         return GetRowFromCache(canonicalProviderKey, dataSource, out row);
     }
 
@@ -24,7 +26,8 @@ public partial class TableCache
         RowData rowData,
         IImmutableInstance row,
         IDataSourceAccess dataSource,
-        RowReadGeneration? generation)
+        RowReadGeneration? generation,
+        TransactionOperationGate.Step? owner = null)
     {
         ArgumentNullException.ThrowIfNull(rowData);
         ArgumentNullException.ThrowIfNull(row);
@@ -36,7 +39,7 @@ public partial class TableCache
                 $"Cannot publish model row for table '{rowData.Table.DbName}' into cache for '{Table.DbName}'.");
         }
 
-        EnsureTransactionRowCache(dataSource);
+        EnsureTransactionRowCache(dataSource, owner);
         lock (publicationGate)
         {
             if (!ReferenceEquals(generation, readGeneration))

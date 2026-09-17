@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -147,17 +148,18 @@ public partial class TableCache
         return primaryKey is not null;
     }
 
-    private RowData? GetRowDataFromPrimaryKeyValue<TKey>(TKey key, IDataSourceAccess dataSource)
+    private RowData? GetRowDataFromPrimaryKeyValue<TKey>(
+        TKey key, IDataSourceAccess dataSource, TransactionOperationGate.Step? owner = null)
         where TKey : notnull
     {
         if (TryConvertScalarProviderColumnValue(key, Table.PrimaryKeyColumns, dataSource, out var primaryKeyColumn, out var scalarKey))
             return new ScalarColumnRowsQuery(Table, dataSource, primaryKeyColumn, scalarKey)
-                .ReadFirstRow();
+                .ReadFirstRow(owner);
 
         return new SqlQuery(Table, dataSource)
             .Where(Table.PrimaryKeyColumns, key)
             .SelectQuery()
-            .ReadFirstRow();
+            .ReadFirstRow(owner);
     }
 
     private static bool TryConvertScalarProviderColumnValue<TKey>(
