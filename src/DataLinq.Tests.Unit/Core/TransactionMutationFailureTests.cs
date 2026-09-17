@@ -1479,10 +1479,10 @@ public sealed partial class TransactionMutationFailureTests
 
     private sealed class ScriptedFixture : IDisposable
     {
-        internal ScriptedFixture()
+        internal ScriptedFixture(bool captureSql = false)
         {
             Scenario = new ScriptedMutationScenario();
-            Provider = new ScriptedMutationProvider(Scenario);
+            Provider = captureSql ? new CapturedReadProvider(Scenario) : new ScriptedMutationProvider(Scenario);
             Database = new ScriptedDatabase(Provider);
             RowTable = Provider.Metadata.GetTableModel(typeof(TransactionMutationGuardRow)).Table;
             BinaryTable = Provider.Metadata.GetTableModel(typeof(TransactionMutationGuardBinaryRow)).Table;
@@ -1586,6 +1586,7 @@ public sealed partial class TransactionMutationFailureTests
         internal object? ScalarResult { get; set; } = 1L;
         internal Action? ScalarExecuting { get; set; }
         internal ControlledCompletionProvider? AsyncCompletion { get; set; }
+        internal IAsyncSqlReaderFactory? AsyncSqlReaders { get; set; }
         internal int CommandCreations { get; set; }
         internal int CommandDisposals { get; set; }
         internal Exception? CommandDisposeFailure { get; set; }
@@ -1627,7 +1628,7 @@ public sealed partial class TransactionMutationFailureTests
                 Disposals);
     }
 
-    private sealed class ScriptedMutationProvider(ScriptedMutationScenario scenario)
+    private class ScriptedMutationProvider(ScriptedMutationScenario scenario)
         : ScriptedMutationProvider<TransactionMutationGuardDb>(scenario);
 
     private class ScriptedMutationProvider<TModel> : DatabaseProvider<TModel>
@@ -1645,7 +1646,7 @@ public sealed partial class TransactionMutationFailureTests
                 "transaction-mutation-failure-tests")
         {
             this.scenario = scenario;
-            databaseAccess = new ScriptedDatabaseAccess(this);
+            databaseAccess = new ScriptedDatabaseAccess(this, scenario);
         }
 
         public override IDatabaseProviderConstants Constants { get; } = new ScriptedProviderConstants();
@@ -1694,8 +1695,10 @@ public sealed partial class TransactionMutationFailureTests
         public override IDbConnection GetDbConnection() => throw new NotSupportedException();
     }
 
-    private sealed class ScriptedDatabaseAccess(IDatabaseProvider provider) : DatabaseAccess(provider)
+    private sealed class ScriptedDatabaseAccess(IDatabaseProvider provider, ScriptedMutationScenario scenario) : DatabaseAccess(provider), IAsyncSqlReaderFactory
     {
+        public IAsyncReaderSource BindReader(CapturedSql sql) =>
+            (scenario.AsyncSqlReaders ?? throw new NotSupportedException("Scripted async SQL reads were not enabled.")).BindReader(sql);
         public override IDataLinqDataReader ExecuteReader(IDbCommand command) => throw new NotSupportedException();
         public override IDataLinqDataReader ExecuteReader(string query) => throw new NotSupportedException();
         public override object? ExecuteScalar(IDbCommand command) => throw new NotSupportedException();
@@ -1739,9 +1742,12 @@ public sealed partial class TransactionMutationFailureTests
         public void Dispose() => onDispose?.Invoke();
     }
 
-    private sealed class ScriptedDatabaseTransaction : DatabaseTransaction, IAsyncTransactionCompletion
+    private sealed class ScriptedDatabaseTransaction : DatabaseTransaction, IAsyncTransactionCompletion, IAsyncSqlReaderFactory
     {
         private readonly ScriptedMutationScenario scenario;
+
+        public IAsyncReaderSource BindReader(CapturedSql sql) =>
+            (scenario.AsyncSqlReaders ?? throw new NotSupportedException("Scripted async SQL reads were not enabled.")).BindReader(sql);
 
         internal ScriptedDatabaseTransaction(
             IDatabaseProvider provider,

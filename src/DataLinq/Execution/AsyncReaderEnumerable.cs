@@ -13,9 +13,7 @@ namespace DataLinq.Execution;
 /// </summary>
 internal sealed class AsyncReaderEnumerable<T> : IAsyncEnumerable<T>
 {
-    private readonly Func<IAsyncReaderSource> capture;
-    private readonly Func<IAsyncDataReader, T> materialize;
-    private readonly Transaction? transaction;
+    private readonly Func<AsyncReaderInvocation<T>> capture;
     private readonly CancellationToken methodToken;
 
     internal AsyncReaderEnumerable(
@@ -24,17 +22,27 @@ internal sealed class AsyncReaderEnumerable<T> : IAsyncEnumerable<T>
     {
         ArgumentNullException.ThrowIfNull(capture);
         ArgumentNullException.ThrowIfNull(materialize);
-        this.capture = capture;
-        this.materialize = materialize;
-        this.transaction = transaction;
+        this.capture = () => new(capture() ?? throw new InvalidOperationException("Reader capture returned no source."), materialize, transaction);
         methodToken = cancellationToken;
     }
 
-    public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
-        new AsyncReaderEnumerator<T>(
-            capture() ?? throw new InvalidOperationException("Reader capture returned no source."),
-            materialize, transaction, methodToken, cancellationToken);
+    internal AsyncReaderEnumerable(Func<AsyncReaderInvocation<T>> capture, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(capture);
+        this.capture = capture;
+        methodToken = cancellationToken;
+    }
+
+    public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
+    {
+        var invocation = capture() ?? throw new InvalidOperationException("Reader capture returned no invocation.");
+        ArgumentNullException.ThrowIfNull(invocation.Source);
+        ArgumentNullException.ThrowIfNull(invocation.Materialize);
+        return new AsyncReaderEnumerator<T>(invocation.Source, invocation.Materialize, invocation.Transaction, methodToken, cancellationToken);
+    }
 }
+
+internal sealed record AsyncReaderInvocation<T>(IAsyncReaderSource Source, Func<IAsyncDataReader, T> Materialize, Transaction? Transaction = null);
 
 internal sealed record AsyncEnumerationFailure(Exception Cause, Exception? CleanupFailure,
     ExecutionFailureContext Context);
