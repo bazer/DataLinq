@@ -51,6 +51,18 @@ The reader tests validate the test fixture's ability to represent later orchestr
 
 The Testing CLI summaries record the actual test configuration (Debug, .NET 10), resolved commands, runner identity and referenced raw results. The CLI launcher and separate explicit builds used Release; do not relabel the test-host configuration from the launcher's `-c` argument. These are development checks from a modified checkout, not a clean strict release capture. The broader unit suite contains existing provider-backed fixtures; the new 29 cases themselves use only controllable doubles. Earlier 28-case / 1,863-test runs remain in the adjacent non-final reports; the additional case verifies sequential source opens and borrowed-command ownership after reader disposal.
 
+A subsequent explicit Release / .NET 10 unit run on W1 commit `85795c5b` also passed **1,864/1,864**, recorded in `artifacts/w1-contracts-unit-release-pass.json`. Build and execution were separated because rebuilding the Testing CLI through its own running Release process hit Windows DLL file locks; the earlier failed build report remains in `artifacts/w1-contracts-unit-release.json`. The separate build completed with zero warnings/errors. This additional run is development verification, not the strict release capture.
+
+## First CI Follow-Up
+
+[W1 PR #147](https://github.com/bazer/DataLinq/pull/147)'s first [CI run](https://github.com/bazer/DataLinq/actions/runs/35233194825) failed the existing SQLite-file `Immutable_EqualsSameCachedInstance` reference-identity assertion. Primary-key equality and hash equality passed. The [original artifact](https://github.com/bazer/DataLinq/actions/runs/35233194825/artifacts/10502028618) is retained locally as `artifacts/w1-ci-sqlite-attempt1.zip`, SHA-256 `cd92c61374f9ba73c8270d82e544f05c290000bf65c900f286d8ec093d14abed`.
+
+Each fixture has its own provider/cache. A controlled model-construction gate reproduced the failed same-reference expectation by running scheduled cleanup during the first read: age maintenance advances the publication generation even when it removes zero rows, so the first result can legitimately remain uncached. The historical CI report does not trace this interleaving; the reproduction establishes a concrete race consistent with that failure.
+
+[PR #148](https://github.com/bazer/DataLinq/pull/148) fixes the test on master by stopping background cleanup only for its stable-cache identity assertion. A separate deterministic test preserves coverage of the cleanup/publication overlap, including equal results with different references followed by stable cached identity. All original identity assertions remain; no production cache behavior, driver or pooling setting changes. The negative control is `artifacts/cache-identity-forced-red.json`; Release / .NET 10 SQLite-file and SQLite-memory anchor shards each passed **516/516** at maximum parallelism 8 in the adjacent `cache-identity-sqlite-*-green.json` summaries. PR #148's required CI gate passed before merging to master; [PR #149](https://github.com/bazer/DataLinq/pull/149) carries the merge forward to `v0.10`.
+
+This is separate from W0-F1, not covered by its exception. The failed first W1 CI attempt remains a failure; a later green check must identify its own commit. Neither the test correction nor passing development checks close the upstream SQLite limitation.
+
 No package was published, no driver dependency changed, and no native-provider acceptance, performance improvement, packed API compatibility or W0-F1 closeout is claimed. The new core types are internal and are not wired into existing production execution. Planning pages are excluded from DocFX.
 
 ## Remaining W1 Slices
