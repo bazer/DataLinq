@@ -18,6 +18,9 @@ public class EmployeesInstanceEqualityTests
     public async Task Immutable_EqualsSameCachedInstance(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(provider, nameof(Immutable_EqualsSameCachedInstance), EmployeesFixtureProfile.TinySeeded);
+        // Startup maintenance can reject publication of an in-flight read. This test
+        // requires a stable cache; cleanup/publication interleavings are tested separately.
+        databaseScope.Database.Provider.State.Cache.CleanupScheduler?.Stop();
         var employeeNumber = databaseScope.Database.Query().Employees.OrderBy(x => x.emp_no).Select(x => x.emp_no!.Value).First();
 
         var employeeA = GetCachedEmployee(databaseScope.Database, employeeNumber);
