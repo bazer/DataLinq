@@ -10,7 +10,7 @@ namespace DataLinq.Execution;
 /// scalar/non-query calls release it before returning. The enclosing operation owns transaction
 /// admission/initialization; standalone connection ownership stays with the provider access.
 /// </summary>
-internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncReadFailureEvidence
+internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncScalarSource, IAsyncReadFailureEvidence
 {
     private readonly IAsyncDatabaseAccess access;
     private readonly IAsyncOwnedCommandFactory factory;
@@ -28,6 +28,7 @@ internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncReadFail
     }
 
     public void Validate() => Validate(AsyncCommandKind.Reader);
+    void IAsyncScalarSource.Validate() => Validate(AsyncCommandKind.Scalar);
 
     private void Validate(AsyncCommandKind kind)
     {
@@ -65,7 +66,7 @@ internal sealed class OwnedCommandExecution : IAsyncReaderSource, IAsyncReadFail
         throw new InvalidOperationException("Failed reader acquisition did not report its failure.");
     }
 
-    internal Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken)
+    public Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken)
     {
         Begin(AsyncCommandKind.Scalar, cancellationToken);
         return ExecuteAsync(AsyncCommandKind.Scalar, cancellationToken, static (access, command, token) => access.ExecuteScalarAsync(command, token));

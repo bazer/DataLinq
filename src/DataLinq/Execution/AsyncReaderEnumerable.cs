@@ -37,12 +37,21 @@ internal sealed class AsyncReaderEnumerable<T> : IAsyncEnumerable<T>
     {
         var invocation = capture() ?? throw new InvalidOperationException("Reader capture returned no invocation.");
         ArgumentNullException.ThrowIfNull(invocation.Source);
-        ArgumentNullException.ThrowIfNull(invocation.Materialize);
-        return new AsyncReaderEnumerator<T>(invocation.Source, invocation.Materialize, invocation.Transaction, methodToken, cancellationToken);
+        if ((invocation.Materialize is null) == (invocation.Buffer is null))
+            throw new InvalidOperationException("A reader invocation requires exactly one row materializer or buffer.");
+        return new AsyncReaderEnumerator<T>(invocation.Source, invocation.Materialize, invocation.Transaction, methodToken, cancellationToken, invocation.Buffer);
     }
 }
 
-internal sealed record AsyncReaderInvocation<T>(IAsyncReaderSource Source, Func<IAsyncDataReader, T> Materialize, Transaction? Transaction = null);
+internal sealed record AsyncReaderInvocation<T>(IAsyncReaderSource Source, Func<IAsyncDataReader, T>? Materialize,
+    Transaction? Transaction = null, IAsyncReaderBuffer<T>? Buffer = null);
+
+/// <summary>Invocation-local aggregation. No result is visible until all rows and cleanup succeed.</summary>
+internal interface IAsyncReaderBuffer<T>
+{
+    void AddRow(IAsyncDataReader reader);
+    IReadOnlyList<T> Complete(CancellationToken cancellationToken);
+}
 
 internal sealed record AsyncEnumerationFailure(Exception Cause, Exception? CleanupFailure,
     ExecutionFailureContext Context);
@@ -51,7 +60,10 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
 {
     private const string Operation = "enumerate asynchronous reader rows";
     private readonly IAsyncReaderSource source;
-    private readonly Func<IAsyncDataReader, T> materialize;
+    private readonly Func<IAsyncDataReader, T>? materialize;
+    private IAsyncReaderBuffer<T>? buffer;
+    private IReadOnlyList<T>? bufferedResults;
+    private int bufferedPosition;
     private readonly Transaction? transaction;
     private readonly EnumeratorCallGate calls = new();
     private readonly CancellationToken token;
@@ -67,11 +79,12 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
     internal AsyncEnumerationFailure? Failure { get; private set; }
 
     internal AsyncReaderEnumerator(
-        IAsyncReaderSource source, Func<IAsyncDataReader, T> materialize, Transaction? transaction,
-        CancellationToken methodToken, CancellationToken enumeratorToken)
+        IAsyncReaderSource source, Func<IAsyncDataReader, T>? materialize, Transaction? transaction,
+        CancellationToken methodToken, CancellationToken enumeratorToken, IAsyncReaderBuffer<T>? buffer = null)
     {
         this.source = source;
         this.materialize = materialize;
+        this.buffer = buffer;
         this.transaction = transaction;
         if (!methodToken.CanBeCanceled)
             token = enumeratorToken;
@@ -131,25 +144,66 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                         ?? throw new InvalidOperationException("Reader acquisition returned no reader.");
                 }
 
-                stage = ExecutionFailureStage.RowLoading;
-                CheckCancellation();
-                var hasRow = await reader!.ReadNextRowAsync(token).ConfigureAwait(false);
-                CheckCancellation();
-                if (hasRow)
+                if (buffer is not null)
                 {
+                    while (true)
+                    {
+                        stage = ExecutionFailureStage.RowLoading;
+                        cause = ExecutionFailureCause.Unknown;
+                        CheckCancellation();
+                        var hasRow = await reader!.ReadNextRowAsync(token).ConfigureAwait(false);
+                        CheckCancellation();
+                        if (!hasRow) break;
+                        stage = ExecutionFailureStage.Materialization;
+                        cause = ExecutionFailureCause.MaterializationError;
+                        buffer.AddRow(reader);
+                    }
                     stage = ExecutionFailureStage.Materialization;
                     cause = ExecutionFailureCause.MaterializationError;
-                    var value = materialize(reader);
+                    bufferedResults = buffer.Complete(token);
+                    buffer = null;
                     CheckCancellation();
-                    current = value;
-                    hasCurrent = true;
-                    return true;
+                    failures = new();
+                    await DisposeReaderAsync(failures).ConfigureAwait(false);
+                    // Keep transaction admission through buffered enumeration, matching
+                    // the synchronous grouped path; native resources are already closed.
+                }
+                if (failures?.Primary is null)
+                {
+                    stage = ExecutionFailureStage.RowLoading;
+                    cause = ExecutionFailureCause.Unknown;
+                    CheckCancellation();
+                    if (bufferedResults is not null)
+                    {
+                        if (bufferedPosition < bufferedResults.Count)
+                        {
+                            current = bufferedResults[bufferedPosition++];
+                            hasCurrent = true;
+                            return true;
+                        }
+                    }
+                    else
+                    {
+                        var hasRow = await reader!.ReadNextRowAsync(token).ConfigureAwait(false);
+                        CheckCancellation();
+                        if (hasRow)
+                        {
+                            stage = ExecutionFailureStage.Materialization;
+                            cause = ExecutionFailureCause.MaterializationError;
+                            var value = materialize!(reader);
+                            CheckCancellation();
+                            current = value;
+                            hasCurrent = true;
+                            return true;
+                        }
+                    }
                 }
             }
             catch (Exception primary)
             {
-                failures = new ExecutionFailures();
-                failures.AddReported(primary, stage, cause);
+                failures ??= new ExecutionFailures();
+                failures.AddReported(primary, stage, primary is OperationCanceledException canceled &&
+                    canceled.CancellationToken == token && token.IsCancellationRequested ? ExecutionFailureCause.Cancellation : cause);
             }
             failures ??= new ExecutionFailures();
             await FinishAsync(failures).ConfigureAwait(false);
@@ -200,20 +254,11 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
         finished = true;
         hasCurrent = false;
         current = default!;
-        var ownedReader = reader;
-        reader = null;
+        buffer = null;
+        bufferedResults = null;
         try
         {
-            try
-            {
-                // Cleanup never inherits a canceled enumeration token or uses sync fallback.
-                if (ownedReader is not null)
-                    await ownedReader.DisposeAsync().ConfigureAwait(false);
-            }
-            catch (Exception cleanup)
-            {
-                failures.AddCleanup(cleanup);
-            }
+            await DisposeReaderAsync(failures).ConfigureAwait(false);
 
             if (failures.Primary is { } primary)
             {
@@ -256,5 +301,17 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                 linkedTokens = null;
             }
         }
+    }
+
+    private async ValueTask DisposeReaderAsync(ExecutionFailures failures)
+    {
+        var ownedReader = reader;
+        reader = null;
+        try
+        {
+            // Cleanup never inherits a canceled enumeration token or uses sync fallback.
+            if (ownedReader is not null) await ownedReader.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception cleanup) { failures.AddCleanup(cleanup); }
     }
 }

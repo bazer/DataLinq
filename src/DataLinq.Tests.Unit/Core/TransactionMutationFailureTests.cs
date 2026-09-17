@@ -1587,6 +1587,7 @@ public sealed partial class TransactionMutationFailureTests
         internal Action? ScalarExecuting { get; set; }
         internal ControlledCompletionProvider? AsyncCompletion { get; set; }
         internal IAsyncSqlReaderFactory? AsyncSqlReaders { get; set; }
+        internal IAsyncSqlScalarFactory? AsyncSqlScalars { get; set; }
         internal int CommandCreations { get; set; }
         internal int CommandDisposals { get; set; }
         internal Exception? CommandDisposeFailure { get; set; }
@@ -1695,10 +1696,14 @@ public sealed partial class TransactionMutationFailureTests
         public override IDbConnection GetDbConnection() => throw new NotSupportedException();
     }
 
-    private sealed class ScriptedDatabaseAccess(IDatabaseProvider provider, ScriptedMutationScenario scenario) : DatabaseAccess(provider), IAsyncSqlReaderFactory
+    private sealed class ScriptedDatabaseAccess(IDatabaseProvider provider, ScriptedMutationScenario scenario) : DatabaseAccess(provider), IAsyncSqlReaderFactory, IAsyncSqlScalarFactory
     {
         public IAsyncReaderSource BindReader(CapturedSql sql) =>
             (scenario.AsyncSqlReaders ?? throw new NotSupportedException("Scripted async SQL reads were not enabled.")).BindReader(sql);
+        public IAsyncScalarSource BindScalar(CapturedSql sql) =>
+            (scenario.AsyncSqlScalars ?? throw new NotSupportedException("Scripted async scalars were not enabled.")).BindScalar(sql);
+        public AsyncScalarInvocation<T> BindScalar<T>(CapturedSql sql) =>
+            (scenario.AsyncSqlScalars ?? throw new NotSupportedException("Scripted async scalars were not enabled.")).BindScalar<T>(sql);
         public override IDataLinqDataReader ExecuteReader(IDbCommand command) => throw new NotSupportedException();
         public override IDataLinqDataReader ExecuteReader(string query) => throw new NotSupportedException();
         public override object? ExecuteScalar(IDbCommand command) => throw new NotSupportedException();
@@ -1742,12 +1747,17 @@ public sealed partial class TransactionMutationFailureTests
         public void Dispose() => onDispose?.Invoke();
     }
 
-    private sealed class ScriptedDatabaseTransaction : DatabaseTransaction, IAsyncTransactionCompletion, IAsyncSqlReaderFactory
+    private sealed class ScriptedDatabaseTransaction : DatabaseTransaction, IAsyncTransactionCompletion, IAsyncSqlReaderFactory, IAsyncSqlScalarFactory
     {
         private readonly ScriptedMutationScenario scenario;
 
         public IAsyncReaderSource BindReader(CapturedSql sql) =>
             (scenario.AsyncSqlReaders ?? throw new NotSupportedException("Scripted async SQL reads were not enabled.")).BindReader(sql);
+
+        public IAsyncScalarSource BindScalar(CapturedSql sql) =>
+            (scenario.AsyncSqlScalars ?? throw new NotSupportedException("Scripted async scalars were not enabled.")).BindScalar(sql);
+        public AsyncScalarInvocation<T> BindScalar<T>(CapturedSql sql) =>
+            (scenario.AsyncSqlScalars ?? throw new NotSupportedException("Scripted async scalars were not enabled.")).BindScalar<T>(sql);
 
         internal ScriptedDatabaseTransaction(
             IDatabaseProvider provider,

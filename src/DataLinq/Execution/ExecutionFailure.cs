@@ -40,10 +40,11 @@ internal sealed class ExecutionFailureContext
     internal ExecutionRecoveryActions Recovery { get; }
     internal uint? TransactionId { get; }
     internal IReadOnlyList<ExecutionSecondaryFailure> SecondaryFailures { get; }
+    internal bool HasCleanupFailure { get; }
 
     internal ExecutionFailureContext(ExecutionFailureCause cause, ExecutionFailureStage stage,
         ExecutionCompletion completion, ExecutionRecoveryActions recovery, uint? transactionId,
-        IEnumerable<ExecutionSecondaryFailure> secondaryFailures)
+        IEnumerable<ExecutionSecondaryFailure> secondaryFailures, bool hasCleanupFailure = false)
     {
         Cause = cause;
         Stage = stage;
@@ -51,11 +52,13 @@ internal sealed class ExecutionFailureContext
         Recovery = recovery;
         TransactionId = transactionId;
         SecondaryFailures = Array.AsReadOnly(secondaryFailures.ToArray());
+        HasCleanupFailure = hasCleanupFailure || stage == ExecutionFailureStage.Cleanup ||
+            SecondaryFailures.Any(x => x.Stage == ExecutionFailureStage.Cleanup);
     }
 
     internal ExecutionFailureContext AfterRecovery(ExecutionCompletion completion, ExecutionRecoveryActions recovery) =>
         new(Cause, Stage, ExecutionRecoveryPolicy.PreserveCompletion(Completion, completion), recovery,
-            TransactionId, SecondaryFailures);
+            TransactionId, SecondaryFailures, HasCleanupFailure);
 }
 
 internal static class ExecutionRecoveryPolicy
@@ -112,6 +115,9 @@ internal sealed class ExecutionFailures
         ExecutionFailureCause fallbackCause = ExecutionFailureCause.Unknown)
     {
         var context = ExecutionFailureContexts.Get(exception);
+        // Identity deduplication can omit a cleanup occurrence when a provider throws
+        // the same exception for execution and disposal. Preserve that safety fact.
+        if (context?.HasCleanupFailure == true) HasCleanupFailure = true;
         Add(exception, context?.Cause ?? fallbackCause, context?.Stage ?? fallbackStage);
         if (context is not null)
             foreach (var failure in context.SecondaryFailures)
@@ -132,7 +138,7 @@ internal sealed class ExecutionFailures
                 ? evidence.Cause : cause,
             stage == ExecutionFailureStage.CommandExecution && evidence.Effects == ExecutionEffects.Initialization
                 ? ExecutionFailureStage.Initialization : stage,
-            completion, recovery, transactionId, secondary);
+            completion, recovery, transactionId, secondary, HasCleanupFailure);
 
     internal void ThrowIfAny() => primary?.Throw();
 }
