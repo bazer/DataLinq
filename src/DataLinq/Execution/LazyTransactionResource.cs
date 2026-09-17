@@ -185,7 +185,7 @@ internal sealed class LazyTransactionResource<T> where T : class, ITransactionRe
         // without allowing an older exception attachment to change that boundary.
         failures.Add(failure, cause, ExecutionFailureStage.Initialization);
         failures.AddReported(failure, ExecutionFailureStage.Initialization);
-        if (cleanup is not null) failures.AddReported(cleanup, ExecutionFailureStage.Cleanup);
+        if (cleanup is not null) failures.AddCleanup(cleanup);
         ExecutionFailureContexts.Attach(failure, failures.Snapshot(new(Effects: ExecutionEffects.Initialization),
             ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.Dispose, gate.TransactionId));
     }

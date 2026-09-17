@@ -204,7 +204,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
             }
             catch (Exception cleanup)
             {
-                failures.AddReported(cleanup, ExecutionFailureStage.Cleanup);
+                failures.AddCleanup(cleanup);
             }
 
             if (failures.Primary is { } primary)

@@ -118,6 +118,14 @@ internal sealed class ExecutionFailures
                 Add(failure.Exception, failure.Cause, failure.Stage);
     }
 
+    internal void AddCleanup(Exception exception)
+    {
+        // A direct disposal failure establishes a cleanup failure even if the same
+        // exception already carries context from earlier execution (or is the primary).
+        Add(exception, ExecutionFailureContexts.Get(exception)?.Cause ?? ExecutionFailureCause.Unknown, ExecutionFailureStage.Cleanup);
+        AddReported(exception, ExecutionFailureStage.Cleanup);
+    }
+
     internal ExecutionFailureContext Snapshot(ReadFailureEvidence evidence, ExecutionCompletion completion,
         ExecutionRecoveryActions recovery, uint? transactionId) =>
         new(cause == ExecutionFailureCause.Unknown && stage is ExecutionFailureStage.CommandExecution or ExecutionFailureStage.RowLoading or ExecutionFailureStage.Cleanup

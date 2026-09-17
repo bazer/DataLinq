@@ -45,6 +45,8 @@ internal sealed class ControlledAsyncDatabaseAccess(AsyncCheckpoint? dispatch = 
     internal AsyncCheckpoint Dispatch { get; } = dispatch ?? new AsyncCheckpoint();
     internal ConcurrentQueue<string> Calls { get; } = new();
     internal ControlledAsyncDataReader Reader { get; set; } = new();
+    internal IAsyncDataReader? ReaderOverride { get; set; }
+    internal Action? ReaderAcquired { get; set; }
     internal Exception? ValidationFailure { get; set; }
     internal AsyncCommandKind? UnsupportedKind { get; set; }
     internal IDbCommand? ObservedCommand { get; private set; }
@@ -82,7 +84,8 @@ internal sealed class ControlledAsyncDatabaseAccess(AsyncCheckpoint? dispatch = 
     protected override async Task<IAsyncDataReader> ExecuteReaderCoreAsync(IDbCommand command, CancellationToken cancellationToken)
     {
         await DispatchAsync(command, AsyncCommandKind.Reader, cancellationToken).ConfigureAwait(false);
-        return Reader;
+        ReaderAcquired?.Invoke();
+        return ReaderOverride ?? Reader;
     }
 
     protected override async Task<object?> ExecuteScalarCoreAsync(IDbCommand command, CancellationToken cancellationToken)
