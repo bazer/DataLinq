@@ -1,5 +1,5 @@
 > [!WARNING]
-> This is diagnostic evidence for W0-F1. The correction is tested locally in Microsoft.Data.Sqlite, but DataLinq still references the unchanged published driver. W0-F1 is not closed and W1 has not started.
+> This is diagnostic evidence for W0-F1. The correction is tested locally in Microsoft.Data.Sqlite, but DataLinq still references the unchanged published driver. W0-F1 is not closed. The accepted limited exception below permits W1 internal contracts and controllable-provider tests; SQLite integration and release approval remain blocked.
 
 # SQLite Pool Ownership Investigation
 
@@ -7,7 +7,19 @@
 
 **Finding:** Microsoft.Data.Sqlite can lend one pooled internal connection to two distinct, still-open outer connections. Starting independent transactions then produces SQLite error 1, `cannot start a transaction within a transaction`, matching the W0 failure.
 
-**Disposition:** submitted [upstream issue #39008](https://github.com/dotnet/efcore/issues/39008) and [fix PR #39009](https://github.com/dotnet/efcore/pull/39009) on 2026-09-17 with the user's authorization, including a request to consider 10.0 servicing. Maintainer review, contributor agreement completion, a corrected official package and DataLinq adoption remain pending. No dependency replacement, lock, retry, or pooling configuration change is included here.
+**Disposition:** submitted [upstream issue #39008](https://github.com/dotnet/efcore/issues/39008) and [fix PR #39009](https://github.com/dotnet/efcore/pull/39009) on 2026-09-17 with the user's authorization, including a request to consider 10.0 servicing. The user has posted CLA acceptance; upstream acceptance, a corrected official package and DataLinq adoption remain pending. No dependency replacement, lock, retry, or pooling configuration change is included here.
+
+## Accepted Limited W1 Exception
+
+**Accepted by the user, 2026-09-17:** continue the 0.10 implementation without waiting for EF Core's merge or package schedule. This explicitly replaces the earlier blanket stop on all W1 implementation; it does not waive W0-F1 or mark W0 fully closed.
+
+- Permit internal async provider/access/source contracts, deterministic controllable-provider tests, and W1 operation ownership, cancellation/recovery and invocation-capture work on feature PRs targeting `v0.10`.
+- Keep these changes isolated from production provider wiring and public async support claims. Retain direct synchronous execution; do not introduce sync-over-async, `Task.Run` provider substitutes, or unsupported synchronous fallbacks.
+- Keep SQLite integration acceptance, W0-F1 closeout, final provider feasibility/public API freeze and release approval blocked until a corrected official dependency is adopted and the affected evidence is rerun. Passing unrelated CI or controllable tests does not satisfy those gates.
+- Preserve the original frozen baseline and failed runs. New W1 results identify their actual commit and scope; a test double is orchestration evidence, not native-driver evidence. The original 0.9.2 compatibility baseline and .NET 10 performance policy are unchanged.
+- No temporary pooling policy, retry workaround, unofficial driver distribution or package publication is authorized by this exception. A corrected dependency still lands on `master` and merges forward.
+
+The exception allows scoped W1 progress only. It does not automatically remove other wave dependencies or approve unrelated provider/runtime work.
 
 ## Root Cause And Correction
 
@@ -57,7 +69,7 @@ The failure mechanism and exact error are independently reproduced with the same
 - [Upstream correction and regression test](evidence/sqlite-pool/0001-Publish-SQLite-pooled-connection-ownership-before-ac.patch): applicable to upstream base `961b3cb6fe78daf720068a5166218138c6c04f73` using `git am` in an EF Core checkout. It does not apply to DataLinq.
 - Upstream fix commit: [`4198aba3e42cf76a436edb08070e7e32da44bcd2`](https://github.com/bazer/efcore/commit/4198aba3e42cf76a436edb08070e7e32da44bcd2), pushed to `bazer/efcore:codex/sqlite-pool-owner-publication` and submitted to upstream `main` in [dotnet/efcore#39009](https://github.com/dotnet/efcore/pull/39009). The submitted source and test are unchanged from the tested patch.
 
-Both the issue and PR disclose: "This fix was found, reproduced and posted with GPT-6 Astra on Extra High, with the repository owner's authorization." The PR leaves maintainer approval and upstream automated checks unchecked. The [CLA bot request](https://github.com/dotnet/efcore/pull/39009#issuecomment-5714780475) requires the contributor's personal review and response; no agreement was accepted on the user's behalf.
+Both the issue and PR disclose: "This fix was found, reproduced and posted with GPT-6 Astra on Extra High, with the repository owner's authorization." The PR leaves maintainer approval and upstream automated checks unchecked. The user personally posted [CLA acceptance](https://github.com/dotnet/efcore/pull/39009#issuecomment-5715068889); no agreement was accepted on the user's behalf.
 
 The upstream regression uses upstream's existing xUnit test project. No xUnit project or dependency is added to DataLinq; new DataLinq tests still belong in its TUnit projects.
 
@@ -82,10 +94,10 @@ The sealed archive predates upstream submission and retains the original draft w
 
 ## Remaining Integration Work
 
-1. Follow up on submitted issue #39008 and PR #39009 for maintainer review and 10.0 servicing consideration. The contributor must personally handle the pending CLA request. Submission is complete; approval, CI acceptance and a release are not implied.
+1. Follow up on submitted issue #39008 and PR #39009 for maintainer review and 10.0 servicing consideration. The user has posted CLA acceptance. Submission is complete; approval, CI acceptance and a release are not implied.
 2. Obtain and pin a corrected official package. Record the actual version, upstream fix and package hashes; do not assume that the next version contains the correction.
 3. Make the DataLinq dependency update on `master`, test it, then merge it forward into `v0.10` under the accepted branch workflow. Preserve the published 0.9.2 compatibility baseline and original pre-async evidence.
 4. Rerun the published-package ownership/transaction reproducer, focused parallel transaction coverage, quick plan and full supported provider matrix. Rebuild and recapture affected package/consumer/performance evidence against a clean frozen candidate with the new dependency. Record the new dependency graph and exact evidence target rather than relabeling W0's old results.
-5. Close W0-F1 only when the dependency actually used by DataLinq is corrected and the required evidence passes. W1 remains gated in the meantime.
+5. Close W0-F1 only when the dependency actually used by DataLinq is corrected and the required evidence passes. Only the scoped W1 work authorized above may proceed in the meantime.
 
 A DataLinq-only checkout lock would not protect raw Microsoft.Data.Sqlite callers sharing the same pool. Disabling pooling globally would change connection behavior and performance. Neither is silently introduced as a substitute for the driver fix. A temporary mitigation would require a separately reviewed implementation and measured consequences.
