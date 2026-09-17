@@ -158,26 +158,44 @@ public sealed partial class TransactionMutationFailureTests
         scenario.ReaderFactory = () => { FailProvider(); return EmptyReader.Instance; };
         scenario.ScalarExecuting = FailProvider;
         var helper = transaction.ExecutionGate.BeginHelperLifetime();
-        // A test-only worker suspends direct synchronous provider work.
-        var pendingRead = Task.Run(read);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        // This intentionally blocks synchronous provider work. A dedicated test thread
+        // leaves the shared pool free to run the continuation that releases the read.
+        var pendingRead = Task.Factory.StartNew(() =>
+        {
+            // These ownership tests do not exercise background cache maintenance.
+            // Stop it on this dedicated thread as well: fixture teardown otherwise
+            // synchronously waits for its pool continuation and can starve peers.
+            transaction.Provider.State.Cache.CleanupScheduler?.Stop();
+            read();
+        }, CancellationToken.None,
+            TaskCreationOptions.LongRunning, TaskScheduler.Default);
         var failures = new ExecutionFailures();
-        var drain = helper.CloseAndDrainAsync(failures);
+        Task<TransactionOperationGate.Lease>? drain = null;
+        Exception? observed = null;
         try
         {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            drain = helper.CloseAndDrainAsync(failures);
             await Assert.That(drain.IsCompleted).IsFalse();
             _ = Capture<InvalidOperationException>(() => transaction.EnsureCanRead("start a competing read"));
             await Assert.That(scenario.CommandDisposals).IsEqualTo(0);
         }
-        finally { resume.Set(); }
-        await Assert.That(await AsyncEnumerationFailureOf(() => pendingRead)).IsSameReferenceAs(expected);
-        using var completionOwner = await drain.WaitAsync(TimeSpan.FromSeconds(10));
+        finally
+        {
+            resume.Set();
+            // Even a failed entry/assertion must join the worker before its fixture or
+            // release event is disposed. Do not leave a blocked orphan test operation.
+            try { await pendingRead; }
+            catch (Exception failure) { observed = failure; }
+            using var completionOwner = await (drain ?? helper.CloseAndDrainAsync(failures)).WaitAsync(TimeSpan.FromSeconds(10));
+            transaction.DatabaseAccess.Dispose(); // Scripted resource; public completion is borrowed.
+        }
+        await Assert.That(observed).IsSameReferenceAs(expected);
         await Assert.That(failures.Primary).IsTypeOf<InvalidOperationException>();
         var context = failures.Snapshot(new(), ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.Dispose, transaction.TransactionID);
         await Assert.That(context.SecondaryFailures.Count).IsEqualTo(1);
         await Assert.That(context.SecondaryFailures[0].Exception).IsSameReferenceAs(expected);
         await Assert.That(scenario.CommandDisposals).IsEqualTo(1);
-        transaction.DatabaseAccess.Dispose(); // Scripted resource only; public completion is intentionally borrowed.
     }
 
     private static void ExecuteEagerRead(ScriptedFixture fixture, Transaction<TransactionMutationGuardDb> transaction, string route)

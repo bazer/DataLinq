@@ -40,6 +40,21 @@ Local Release / .NET 10:
 
 These are modified-checkout development checks, not frozen release evidence. Exact-head CI is recorded in the PR. Planning pages are excluded from DocFX; relative links and whitespace are verified separately.
 
+## CI Follow-Through: Blocking Test Workers
+
+[PR #158](https://github.com/bazer/DataLinq/pull/158)'s first [CI run](https://github.com/bazer/DataLinq/actions/runs/35270867522) failed 13 existing eager-read/relation cases while waiting for their provider-entry checkpoints. All 21 new completion cases passed. The original [unit artifact](https://github.com/bazer/DataLinq/actions/runs/35270867522/artifacts/10518725425) is retained as `artifacts/w1-managed-completion-ci-unit-failure.zip`, SHA-256 `630d164b21e2a9cb3988c7547abd89ba2b3dbfe2c76ed6b2057502a5e2289274`.
+
+The eager-read tests deliberately block synchronous provider calls. Their shared-pool workers competed with the continuations that release those calls; fixture disposal also synchronously waits for the cache-maintenance worker. A constrained local control used two reported CPUs, 16 parallel tests and four pool workers (`DOTNET_ThreadPool_ForceMinWorkerThreads=4`, `DOTNET_ThreadPool_ForceMaxWorkerThreads=4`, per the [.NET threading configuration](https://learn.microsoft.com/en-us/dotnet/core/runtime-config/threading)). The ordinary two-CPU run passed, but this constrained control failed **12/14** in **75.9 seconds**, reproducing checkpoint delays and reads reaching their safety timeout before test release.
+
+The fix uses dedicated test threads, stops unrelated cache maintenance on those threads before the read, and releases/joins pending work in `finally`, including assertion failure. Production code and ownership assertions are unchanged. Dedicated read threads alone still left two constrained cleanup timeouts; the fixture shutdown correction was also necessary. Final evidence:
+
+- `artifacts/w1-eager-pool-starvation-red.json`: **2 passed / 12 failed**, original harness under the four-worker control.
+- `artifacts/w1-eager-pool-starvation-green.json`: **12 passed / 2 failed**, intermediate dedicated-worker-only correction; not passing evidence.
+- `artifacts/w1-eager-pool-starvation-final-green.json`: **14/14 passed in 1.2 seconds**, complete correction under the same control.
+- `artifacts/w1-managed-completion-unit-final.json`: **2,085/2,085 passed**, full Release / .NET 10 suite at CI parallelism 16.
+
+The failed CI run remains a failure. A subsequent green run must identify its own PR head; neither this harness correction nor the new managed completion closes W0-F1.
+
 ## Remaining Integration
 
 The managed wrapper consumes initialization state, but the controllable lazy initializer still needs complete command/completion handoff and diagnostic publication. The scripted failed-initialization case proves restrictions, not actual native initialization. Native open/configure/begin, attached-provider feasibility, driver-specific outcome/cancellation classification, low-level public provider completion and public declarations remain W2/W3 work.
