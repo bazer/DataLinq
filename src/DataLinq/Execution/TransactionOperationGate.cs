@@ -12,7 +12,7 @@ namespace DataLinq.Execution;
 internal sealed class TransactionOperationGate(uint transactionId)
 {
     private readonly object sync = new();
-    private uint TransactionId => transactionId;
+    internal uint TransactionId => transactionId;
     private Lease? active;
     private HelperOwner? helper;
     private TaskCompletionSource? changed;

@@ -19,6 +19,12 @@ internal interface IAsyncReaderSource
     Task<IAsyncDataReader> OpenReaderAsync(CancellationToken cancellationToken);
 }
 
+/// <summary>Reader acquisition that requires the caller's existing private transaction step.</summary>
+internal interface IAsyncTransactionReaderSource : IAsyncReaderSource
+{
+    Task<IAsyncDataReader> OpenReaderAsync(TransactionOperationGate.Step owner, CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// Captures the identity of a borrowed command, not a snapshot of its mutable parameters.
 /// The command must remain stable through each operation and reader lifetime. No connection,

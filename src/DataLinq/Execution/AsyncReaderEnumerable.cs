@@ -107,6 +107,8 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                 if (!started)
                 {
                     source.Validate();
+                    if (source is IAsyncTransactionReaderSource && transaction is null)
+                        throw new InvalidOperationException("This reader source requires a managed transaction owner.");
                     CheckCancellation();
                     if (transaction is not null)
                         ownership = DataSourceAccess.BeginRead(transaction, Operation, cancellationToken: token);
@@ -115,7 +117,9 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
                     stage = ExecutionFailureStage.CommandExecution;
                     // Assignment precedes cancellation: a successfully acquired reader must
                     // be cleaned up even if its provider completed despite a cancellation request.
-                    reader = await source.OpenReaderAsync(token).ConfigureAwait(false)
+                    reader = await (source is IAsyncTransactionReaderSource ownedSource
+                        ? ownedSource.OpenReaderAsync(ownership!.Step, token)
+                        : source.OpenReaderAsync(token)).ConfigureAwait(false)
                         ?? throw new InvalidOperationException("Reader acquisition returned no reader.");
                 }
 
@@ -137,7 +141,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
             catch (Exception primary)
             {
                 failures = new ExecutionFailures();
-                failures.Add(primary, cause, stage);
+                failures.AddReported(primary, stage, cause);
             }
             failures ??= new ExecutionFailures();
             await FinishAsync(failures).ConfigureAwait(false);
@@ -200,7 +204,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTra
             }
             catch (Exception cleanup)
             {
-                failures.Add(cleanup, ExecutionFailureCause.Unknown, ExecutionFailureStage.Cleanup);
+                failures.AddReported(cleanup, ExecutionFailureStage.Cleanup);
             }
 
             if (failures.Primary is { } primary)

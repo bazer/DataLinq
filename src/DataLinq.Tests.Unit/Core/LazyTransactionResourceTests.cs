@@ -157,6 +157,11 @@ public sealed class LazyTransactionResourceTests
         var failureSnapshot = lazy.Failure!;
         await Assert.That(failureSnapshot.Cause).IsSameReferenceAs(expected);
         await Assert.That(failureSnapshot.CleanupFailure).IsSameReferenceAs(cleanup);
+        var context = ExecutionFailureContexts.Get(expected)!;
+        await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Initialization);
+        await Assert.That(context.SecondaryFailures.Count).IsEqualTo(1);
+        await Assert.That(context.SecondaryFailures[0].Exception).IsSameReferenceAs(cleanup);
+        await Assert.That(context.SecondaryFailures[0].Stage).IsEqualTo(ExecutionFailureStage.Cleanup);
         await Assert.That(lazy.PublishedResource).IsNull();
         resource.Cleanup = new AsyncCheckpoint();
         await lazy.DisposeAsync(owner);
@@ -199,10 +204,17 @@ public sealed class LazyTransactionResourceTests
         var expected = new Exception("sync initialization");
         var cleanup = new Exception("sync cleanup");
         var resource = new ControlledTransactionResource { SyncInitializationFailure = expected, SyncCleanupFailure = cleanup };
+        ExecutionFailureContexts.Attach(expected, new(ExecutionFailureCause.Timeout, ExecutionFailureStage.CommandExecution,
+            ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.Dispose, 2, []));
         var lazy = new LazyTransactionResource<ControlledTransactionResource>(gate, () => resource);
         using var owner = gate.Enter("sync");
         await Assert.That(Capture(() => lazy.GetOrInitialize(owner))).IsSameReferenceAs(expected);
         await Assert.That(lazy.Failure!.CleanupFailure).IsSameReferenceAs(cleanup);
+        var context = ExecutionFailureContexts.Get(expected)!;
+        await Assert.That(context.Cause).IsEqualTo(ExecutionFailureCause.Timeout);
+        await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Initialization);
+        await Assert.That(context.SecondaryFailures.Count).IsEqualTo(1);
+        await Assert.That(context.SecondaryFailures[0].Exception).IsSameReferenceAs(cleanup);
         await Assert.That(await CaptureAsync(() => lazy.GetOrInitializeAsync(owner, CancellationToken.None))).IsTypeOf<InvalidOperationException>();
         await lazy.DisposeAsync(owner);
         await Assert.That(resource.Calls.ToArray()).IsEquivalentTo(new[] { "sync-initialize", "sync-dispose", "async-dispose" });
@@ -250,6 +262,75 @@ public sealed class LazyTransactionResourceTests
         await lazy.DisposeAsync(owner);
         await Assert.That(resource.Calls.Count(x => x == "async-dispose")).IsEqualTo(1);
         await Assert.That(Capture(() => lazy.GetOrInitialize(owner))).IsTypeOf<ObjectDisposedException>();
+    }
+
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task PrivateStep_RejectsForeignAndExpiredOwnersBeforeCancellationOrResourceWork(bool foreign)
+    {
+        var gate = new TransactionOperationGate(61);
+        var other = foreign ? new TransactionOperationGate(62) : gate;
+        var resource = new ControlledTransactionResource();
+        var lazy = new LazyTransactionResource<ControlledTransactionResource>(gate, () => resource);
+        using var lease = other.Enter("read");
+        using var step = other.EnterStep(lease);
+        if (!foreign) step.Dispose();
+        await Assert.That(await CaptureAsync(() => lazy.GetOrInitializeAsync(step, new(true)))).IsTypeOf<InvalidOperationException>();
+        await Assert.That(Capture(() => lazy.GetOrInitialize(step))).IsTypeOf<InvalidOperationException>();
+        await Assert.That(await CaptureAsync(() => lazy.DisposeAsync(step).AsTask())).IsTypeOf<InvalidOperationException>();
+        await Assert.That(Capture(() => lazy.Dispose(step))).IsTypeOf<InvalidOperationException>();
+        await Assert.That(resource.Calls).IsEmpty();
+        await Assert.That(lazy.State).IsEqualTo(TransactionInitializationState.Unused);
+    }
+
+    [Test]
+    [Arguments("initialization")]
+    [Arguments("failed-cleanup")]
+    [Arguments("disposal")]
+    public async Task PrivateStep_DoesNotAuthorizeOverlappingResourceCalls(string phase)
+    {
+        var gate = new TransactionOperationGate(63);
+        var resource = new ControlledTransactionResource { Open = new(paused: true), Cleanup = new(paused: true) };
+        var lazy = new LazyTransactionResource<ControlledTransactionResource>(gate, () => resource);
+        using var lease = gate.Enter("read");
+        using var step = gate.EnterStep(lease);
+        var pending = lazy.GetOrInitializeAsync(step, CancellationToken.None);
+        await resource.Open.Entered.WaitAsync(Timeout);
+        var expected = new Exception("open failed");
+        Task active = pending;
+        if (phase == "failed-cleanup")
+        {
+            resource.Open.Fail(expected);
+            await resource.Cleanup.Entered.WaitAsync(Timeout);
+        }
+        else if (phase == "disposal")
+        {
+            resource.Open.Release();
+            await pending.WaitAsync(Timeout);
+            active = lazy.DisposeAsync(step).AsTask();
+            await resource.Cleanup.Entered.WaitAsync(Timeout);
+        }
+        try
+        {
+            await Assert.That(await CaptureAsync(() => lazy.GetOrInitializeAsync(step, CancellationToken.None))).IsTypeOf<InvalidOperationException>();
+            await Assert.That(Capture(() => lazy.GetOrInitialize(step))).IsTypeOf<InvalidOperationException>();
+            await Assert.That(await CaptureAsync(() => lazy.DisposeAsync(step).AsTask())).IsTypeOf<InvalidOperationException>();
+            await Assert.That(Capture(() => lazy.Dispose(step))).IsTypeOf<InvalidOperationException>();
+        }
+        finally { resource.Open.Release(); resource.Cleanup.Release(); }
+        if (phase == "failed-cleanup")
+        {
+            await Assert.That(await CaptureAsync(() => active)).IsSameReferenceAs(expected);
+            var context = ExecutionFailureContexts.Get(expected)!;
+            await Assert.That(context.Stage).IsEqualTo(ExecutionFailureStage.Initialization);
+            await Assert.That(context.Recovery).IsEqualTo(ExecutionRecoveryActions.Dispose);
+            await Assert.That(context.TransactionId).IsEqualTo((uint?)63);
+        }
+        else await active.WaitAsync(Timeout);
+        await lazy.DisposeAsync(step);
+        await Assert.That(resource.Calls.Count(x => x == "async-open")).IsEqualTo(1);
+        await Assert.That(resource.Calls.Count(x => x == "async-dispose")).IsEqualTo(1);
     }
 
     private static AsyncCheckpoint Pause(ControlledTransactionResource resource, string stage)

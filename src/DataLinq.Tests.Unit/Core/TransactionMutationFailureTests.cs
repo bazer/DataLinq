@@ -1797,10 +1797,10 @@ public sealed partial class TransactionMutationFailureTests
         private ControlledCompletionProvider CompletionProvider => scenario.AsyncCompletion ??
             throw new NotSupportedException("Scripted async completion was not enabled.");
         void IAsyncTransactionCompletion.ValidateCompletion(AsyncCompletionOperation operation) => CompletionProvider.ValidateCompletion(operation);
-        Task IAsyncTransactionCompletion.CommitAsync(CancellationToken token) => CompletionProvider.CommitAsync(token);
-        Task IAsyncTransactionCompletion.RollbackAsync(CancellationToken token) => CompletionProvider.RollbackAsync(token);
-        ValueTask IAsyncTransactionCompletion.DisposeTransactionAsync() => CompletionProvider.DisposeTransactionAsync();
-        ValueTask IAsyncTransactionCompletion.DisposeConnectionAsync() => CompletionProvider.DisposeConnectionAsync();
+        Task IAsyncTransactionCompletion.CommitAsync(TransactionOperationGate.Step owner, CancellationToken token) => CompletionProvider.CommitAsync(owner, token);
+        Task IAsyncTransactionCompletion.RollbackAsync(TransactionOperationGate.Step owner, CancellationToken token) => CompletionProvider.RollbackAsync(owner, token);
+        ValueTask IAsyncTransactionCompletion.DisposeTransactionAsync(TransactionOperationGate.Step owner) => CompletionProvider.DisposeTransactionAsync(owner);
+        ValueTask IAsyncTransactionCompletion.DisposeConnectionAsync(TransactionOperationGate.Step owner) => CompletionProvider.DisposeConnectionAsync(owner);
 
         public override void Commit()
         {

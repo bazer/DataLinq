@@ -11,13 +11,14 @@ internal sealed record TransactionInitializationFailure(Exception Cause, Excepti
 /// <summary>
 /// First-use publication under an existing operation lease. Provider resources are private
 /// until the entire initialization succeeds. A started failure is terminal, not retryable.
-/// W2 will bind this contract to native resources; W1.3 owns public failure diagnostics.
+/// W2 will bind this contract to native resources; public diagnostics remain W3.
 /// </summary>
 internal sealed class LazyTransactionResource<T> where T : class, ITransactionResource
 {
     private readonly TransactionOperationGate gate;
     private readonly Func<T> create;
     private T? owned;
+    private int activeCall;
     private Snapshot snapshot = new(TransactionInitializationState.Unused);
     private sealed record Snapshot(TransactionInitializationState State, T? Resource = null,
         TransactionInitializationFailure? Failure = null);
@@ -37,6 +38,12 @@ internal sealed class LazyTransactionResource<T> where T : class, ITransactionRe
     internal T GetOrInitialize(TransactionOperationGate.Lease operation)
     {
         using var step = gate.EnterStep(operation);
+        return GetOrInitialize(step);
+    }
+
+    internal T GetOrInitialize(TransactionOperationGate.Step step)
+    {
+        using var call = EnterCall(step);
         var ready = GetReadyOrValidate();
         if (ready is not null)
             return ready;
@@ -56,6 +63,7 @@ internal sealed class LazyTransactionResource<T> where T : class, ITransactionRe
             try { owned?.Dispose(); owned = null; }
             catch (Exception cleanup) { cleanupFailure = cleanup; }
             Publish(new(TransactionInitializationState.Failed, Failure: new(failure, cleanupFailure)));
+            ReportInitializationFailure(failure, cleanupFailure, CancellationToken.None);
             throw;
         }
     }
@@ -63,6 +71,12 @@ internal sealed class LazyTransactionResource<T> where T : class, ITransactionRe
     internal async Task<T> GetOrInitializeAsync(TransactionOperationGate.Lease operation, CancellationToken cancellationToken)
     {
         using var step = gate.EnterStep(operation);
+        return await GetOrInitializeAsync(step, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task<T> GetOrInitializeAsync(TransactionOperationGate.Step step, CancellationToken cancellationToken)
+    {
+        using var call = EnterCall(step);
         var ready = GetReadyOrValidate();
         cancellationToken.ThrowIfCancellationRequested();
         if (ready is not null)
@@ -90,6 +104,7 @@ internal sealed class LazyTransactionResource<T> where T : class, ITransactionRe
             }
             catch (Exception cleanup) { cleanupFailure = cleanup; }
             Publish(new(TransactionInitializationState.Failed, Failure: new(failure, cleanupFailure)));
+            ReportInitializationFailure(failure, cleanupFailure, cancellationToken);
             throw;
         }
     }
@@ -97,6 +112,12 @@ internal sealed class LazyTransactionResource<T> where T : class, ITransactionRe
     internal void Dispose(TransactionOperationGate.Lease operation)
     {
         using var step = gate.EnterStep(operation);
+        Dispose(step);
+    }
+
+    internal void Dispose(TransactionOperationGate.Step step)
+    {
+        using var call = EnterCall(step);
         var previous = Volatile.Read(ref snapshot);
         if (previous.State == TransactionInitializationState.Disposed)
             return;
@@ -109,6 +130,12 @@ internal sealed class LazyTransactionResource<T> where T : class, ITransactionRe
     internal async ValueTask DisposeAsync(TransactionOperationGate.Lease operation)
     {
         using var step = gate.EnterStep(operation);
+        await DisposeAsync(step).ConfigureAwait(false);
+    }
+
+    internal async ValueTask DisposeAsync(TransactionOperationGate.Step step)
+    {
+        using var call = EnterCall(step);
         var previous = Volatile.Read(ref snapshot);
         if (previous.State == TransactionInitializationState.Disposed)
             return;
@@ -126,7 +153,41 @@ internal sealed class LazyTransactionResource<T> where T : class, ITransactionRe
             throw new ObjectDisposedException(nameof(LazyTransactionResource<T>));
         if (current.State == TransactionInitializationState.Failed)
             throw new InvalidOperationException("Transaction initialization failed; dispose it and use a new transaction.", current.Failure!.Cause);
+        if (current.State == TransactionInitializationState.Initializing)
+            throw new InvalidOperationException("Transaction initialization is already in progress.");
         return current.Resource;
+    }
+
+    internal void Validate() => _ = GetReadyOrValidate();
+
+    private ResourceCall EnterCall(TransactionOperationGate.Step step)
+    {
+        gate.ValidateStep(step);
+        // A private step may be passed down a call chain, but does not authorize
+        // overlapping initialization/disposal calls inside that chain.
+        if (Interlocked.CompareExchange(ref activeCall, 1, 0) != 0)
+            throw new InvalidOperationException("The transaction resource already has an active initialization or disposal call.");
+        return new(this);
+    }
+
+    private readonly struct ResourceCall(LazyTransactionResource<T> resource) : IDisposable
+    {
+        public void Dispose() => Volatile.Write(ref resource.activeCall, 0);
+    }
+
+    private void ReportInitializationFailure(Exception failure, Exception? cleanup, CancellationToken token)
+    {
+        var failures = new ExecutionFailures();
+        var cause = failure is OperationCanceledException canceled &&
+            canceled.CancellationToken == token && token.IsCancellationRequested
+                ? ExecutionFailureCause.Cancellation : ExecutionFailureContexts.Get(failure)?.Cause ?? ExecutionFailureCause.Unknown;
+        // Initialization is the enclosing boundary; import any nested cleanup details
+        // without allowing an older exception attachment to change that boundary.
+        failures.Add(failure, cause, ExecutionFailureStage.Initialization);
+        failures.AddReported(failure, ExecutionFailureStage.Initialization);
+        if (cleanup is not null) failures.AddReported(cleanup, ExecutionFailureStage.Cleanup);
+        ExecutionFailureContexts.Attach(failure, failures.Snapshot(new(Effects: ExecutionEffects.Initialization),
+            ExecutionCompletion.NotAttempted, ExecutionRecoveryActions.Dispose, gate.TransactionId));
     }
 
     private void Publish(Snapshot value) => Volatile.Write(ref snapshot, value);

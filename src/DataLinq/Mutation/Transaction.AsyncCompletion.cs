@@ -136,7 +136,7 @@ public partial class Transaction
             {
                 // Completing an unused wrapper never initializes it merely to commit nothing.
                 if (provider.InitializationState != TransactionInitializationState.Unused)
-                    await provider.CommitAsync(cancellationToken).ConfigureAwait(false);
+                    await provider.CommitAsync(owner, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception failure)
             {
@@ -195,7 +195,7 @@ public partial class Transaction
                 try
                 {
                     if (provider.InitializationState != TransactionInitializationState.Unused)
-                        await provider.RollbackAsync(cancellationToken).ConfigureAwait(false);
+                        await provider.RollbackAsync(owner, cancellationToken).ConfigureAwait(false);
                     confirmed = true;
                     transaction.DatabaseAccess.RecordConfirmedAsyncCompletion(ExecutionCompletion.RolledBack);
                 }
@@ -235,7 +235,7 @@ public partial class Transaction
             if (Interlocked.Exchange(ref transaction.disposeState, 1) != 0) return;
             var completion = Completion;
             var failures = new ExecutionFailures();
-            try { await provider.DisposeTransactionAsync().ConfigureAwait(false); }
+            try { await provider.DisposeTransactionAsync(owner).ConfigureAwait(false); }
             catch (Exception failure) { failures.AddReported(failure, ExecutionFailureStage.Cleanup); }
 
             try
@@ -254,7 +254,7 @@ public partial class Transaction
         {
             transaction.ExecutionGate.ValidateStep(owner);
             // Independent of transaction disposal success; no request token or implicit retry.
-            await provider.DisposeConnectionAsync().ConfigureAwait(false);
+            await provider.DisposeConnectionAsync(owner).ConfigureAwait(false);
         }
 
         private void Report(ExecutionFailures failures, ExecutionCompletion completion, ExecutionRecoveryActions recovery)
