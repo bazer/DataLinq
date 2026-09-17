@@ -587,6 +587,11 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
                 throw;
             }
         }
+        catch (Exception failure)
+        {
+            operation.ReportFailure(failure);
+            throw;
+        }
         finally
         {
             operation.Dispose();
@@ -660,7 +665,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// </summary>
     public void Commit()
     {
-        var operation = BeginExclusiveOperation("commit");
+        var operation = BeginExclusiveOperation("commit", completion: true);
         try
         {
             EnsureTransactionCanComplete("commit", rejectPoisoned: true);
@@ -717,7 +722,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// </summary>
     public void Rollback()
     {
-        var operation = BeginExclusiveOperation("roll back");
+        var operation = BeginExclusiveOperation("roll back", completion: true);
         try
         {
             EnsureTransactionCanComplete("roll back", rejectPoisoned: false);
@@ -1282,12 +1287,12 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         }
     }
 
-    private TransactionOperationGate.Lease BeginExclusiveOperation(string operation)
+    private TransactionOperationGate.Lease BeginExclusiveOperation(string operation, bool completion = false)
     {
         if (IsDisposed)
             throw new ObjectDisposedException(nameof(Transaction));
 
-        var lease = ExecutionGate.Enter(operation);
+        var lease = ExecutionGate.Enter(operation, completion);
 
         if (IsDisposed)
         {
@@ -1379,7 +1384,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         if (IsDisposed)
             return;
 
-        var operation = BeginExclusiveOperation("dispose");
+        var operation = BeginExclusiveOperation("dispose", completion: true);
         try
         {
             if (Interlocked.Exchange(ref disposeState, 1) != 0)

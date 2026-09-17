@@ -71,6 +71,8 @@ The [ownership and initialization record](W1%20Transaction%20Ownership%20and%20I
 
 ## Remaining W1 Slices
 
+The [W1 completion audit](W1%20Completion%20Audit.md) is the current requirement-by-requirement evidence checklist. [Helper lifetime and draining](W1%20Helper%20Lifetime%20and%20Draining.md) follows merged automatic recovery #155; it adds internal callback/reader draining without claiming all operation families or native/public helper wiring are complete.
+
 | Next slice | Required work and evidence |
 | --- | --- |
 | W1.2 ownership follow-through | Synchronous outer enumeration and the internal [async single-reader lifetime](W1%20Async%20Reader%20Enumeration.md) retain shared admission. Native wiring, async private hydration, helper draining, initialization and coordination cost measurement remain open; no lock held across arbitrary awaits |

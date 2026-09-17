@@ -9,7 +9,7 @@ namespace DataLinq.Execution;
 
 // Internal evidence vocabulary. Public diagnostic declarations/mappings remain W3 work.
 internal enum ExecutionFailureCause { Unknown, Cancellation, Timeout, ProviderError, MaterializationError }
-internal enum ExecutionFailureStage { Validation, Initialization, CommandExecution, RowLoading, Materialization, Cleanup, Recovery }
+internal enum ExecutionFailureStage { Validation, Initialization, CommandExecution, RowLoading, Materialization, Cleanup, Recovery, Callback, Commit, Finalization }
 internal enum ExecutionCompletion { NotApplicable, NotAttempted, Committed, RolledBack, Unknown }
 internal enum ExecutionEffects { Unknown, NoStatement, OrdinaryRead, Mutation, Initialization }
 internal enum TransactionIntegrity { Unknown, Confirmed, Lost }
@@ -104,8 +104,17 @@ internal sealed class ExecutionFailures
             cause = failureCause;
             stage = failureStage;
         }
-        else if (!ReferenceEquals(exception, Primary))
+        else if (!ReferenceEquals(exception, Primary) && !secondary.Any(x => ReferenceEquals(x.Exception, exception)))
             secondary.Add(new(failureCause, failureStage, exception));
+    }
+
+    internal void AddReported(Exception exception, ExecutionFailureStage fallbackStage)
+    {
+        var context = ExecutionFailureContexts.Get(exception);
+        Add(exception, context?.Cause ?? ExecutionFailureCause.Unknown, context?.Stage ?? fallbackStage);
+        if (context is not null)
+            foreach (var failure in context.SecondaryFailures)
+                Add(failure.Exception, failure.Cause, failure.Stage);
     }
 
     internal ExecutionFailureContext Snapshot(ReadFailureEvidence evidence, ExecutionCompletion completion,

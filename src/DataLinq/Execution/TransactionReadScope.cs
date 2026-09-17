@@ -41,4 +41,7 @@ internal sealed class TransactionReadScope : IDisposable
         Step.Dispose();
         lease.Dispose();
     }
+
+    internal void RegisterReader(IHelperTrackedReader reader) => lease.RegisterReader(reader);
+    internal void ReportFailure(Exception failure) => lease.ReportFailure(failure);
 }
