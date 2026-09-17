@@ -1,7 +1,7 @@
 {
   "SchemaVersion": "v0.9.testing-shard-count-baseline.v1",
   "Epoch": 1,
-  "CommitSha": "8bf318cc3d9fde72d09441768d0295f2845154d6",
+  "CommitSha": "7e36614b5f26f1dd199ff93bc60620f4b0714d5f",
   "Shards": [
     {
       "Suite": "generators",
@@ -13,7 +13,7 @@
       "Suite": "unit",
       "TargetId": null,
       "ProviderAffinityRole": null,
-      "Cases": 1819
+      "Cases": 1835
     },
     {
       "Suite": "memory",
