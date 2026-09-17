@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using DataLinq.Exceptions;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -100,7 +101,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         new(ReferenceEqualityComparer.Instance);
     private readonly bool isAttachedTransaction;
     private TransactionFailure? failure;
-    private int exclusiveOperationState;
+    internal TransactionOperationGate ExecutionGate { get; }
     private int internalReadThreadId;
     private int managedCommitFinalizationState;
     private int deferredCommittedStatus;
@@ -172,6 +173,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         isAttachedTransaction = false;
 
         TransactionID = Interlocked.Increment(ref transactionCount);
+        ExecutionGate = new TransactionOperationGate(TransactionID);
         MutableOwnership = new MutableTransactionOwnership(databaseProvider, TransactionID);
     }
 
@@ -196,6 +198,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         isAttachedTransaction = true;
 
         TransactionID = Interlocked.Increment(ref transactionCount);
+        ExecutionGate = new TransactionOperationGate(TransactionID);
         MutableOwnership = new MutableTransactionOwnership(databaseProvider, TransactionID);
     }
 
@@ -475,7 +478,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
     private IImmutableInstance? ExecutePreflightedStateChange(StateChange change)
     {
-        BeginExclusiveOperation("execute a mutation");
+        var operation = BeginExclusiveOperation("execute a mutation");
         try
         {
             successfulChanges.EnsureCapacity(successfulChanges.Count + 1);
@@ -535,7 +538,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         }
         finally
         {
-            EndExclusiveOperation();
+            operation.Dispose();
         }
     }
 
@@ -612,7 +615,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// </summary>
     public void Commit()
     {
-        BeginExclusiveOperation("commit");
+        var operation = BeginExclusiveOperation("commit");
         try
         {
             EnsureTransactionCanComplete("commit", rejectPoisoned: true);
@@ -658,7 +661,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         }
         finally
         {
-            EndExclusiveOperation();
+            operation.Dispose();
         }
     }
 
@@ -667,7 +670,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// </summary>
     public void Rollback()
     {
-        BeginExclusiveOperation("roll back");
+        var operation = BeginExclusiveOperation("roll back");
         try
         {
             EnsureTransactionCanComplete("roll back", rejectPoisoned: false);
@@ -734,7 +737,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         }
         finally
         {
-            EndExclusiveOperation();
+            operation.Dispose();
         }
     }
 
@@ -1222,35 +1225,24 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         }
     }
 
-    private void BeginExclusiveOperation(string operation)
+    private TransactionOperationGate.Lease BeginExclusiveOperation(string operation)
     {
         if (IsDisposed)
             throw new ObjectDisposedException(nameof(Transaction));
 
-        if (Interlocked.CompareExchange(ref exclusiveOperationState, 1, 0) != 0)
-        {
-            throw new InvalidOperationException(
-                $"Cannot {operation} through transaction {TransactionID} while another managed transaction operation is being finalized.");
-        }
+        var lease = ExecutionGate.Enter(operation);
 
         if (IsDisposed)
         {
-            EndExclusiveOperation();
+            lease.Dispose();
             throw new ObjectDisposedException(nameof(Transaction));
         }
+
+        return lease;
     }
 
-    private void EndExclusiveOperation() =>
-        Volatile.Write(ref exclusiveOperationState, 0);
-
-    private void ThrowIfOperationInProgress(string operation)
-    {
-        if (Volatile.Read(ref exclusiveOperationState) == 0)
-            return;
-
-        throw new InvalidOperationException(
-            $"Cannot {operation} through transaction {TransactionID} while another managed transaction operation is being finalized.");
-    }
+    private void ThrowIfOperationInProgress(string operation) =>
+        ExecutionGate.ThrowIfBusy(operation);
 
     private void ThrowIfRollbackAttemptFailed(string operation)
     {
@@ -1343,7 +1335,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         if (IsDisposed)
             return;
 
-        BeginExclusiveOperation("dispose");
+        var operation = BeginExclusiveOperation("dispose");
         try
         {
             if (Interlocked.Exchange(ref disposeState, 1) != 0)
@@ -1438,7 +1430,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         }
         finally
         {
-            EndExclusiveOperation();
+            operation.Dispose();
         }
     }
 
