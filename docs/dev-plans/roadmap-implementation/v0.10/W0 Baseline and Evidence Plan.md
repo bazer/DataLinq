@@ -3,7 +3,7 @@
 
 # 0.10 W0 Baseline And Evidence Plan
 
-**Status:** Accepted execution plan. W0-P1 through W0-P6 accepted on 2026-09-16, with .NET 10 required for benchmark baselines and candidate runs now and going forward. Tooling and baseline capture are complete; the [sealed evidence index](W0%20Baseline%20Evidence.md) and [I/O map](W0%20IO%20Execution%20Map.md) record the executed checkpoint. W0 completion and W1 handoff remain blocked by W0-F1, the unresolved SQLite finding.
+**Status:** Accepted execution plan. W0-P1 through W0-P6 accepted on 2026-09-16, with .NET 10 required for benchmark baselines and candidate runs now and going forward. Tooling and baseline capture are complete; the [sealed evidence index](W0%20Baseline%20Evidence.md) and [I/O map](W0%20IO%20Execution%20Map.md) record the executed checkpoint. W0 completion remains blocked by W0-F1. The user's [limited W1 exception](SQLite%20Pool%20Ownership%20Investigation.md#accepted-limited-w1-exception), accepted on 2026-09-17, permits internal contracts and controllable-provider tests without waiving the SQLite finding.
 
 **Last reviewed:** 2026-09-17.
 
@@ -55,7 +55,7 @@ Diagnostic report: `artifacts/dev/api-report/w0-policy-0.9.0-to-0.9.2-diagnostic
 
 **Disposition accepted on 2026-09-16:** the user explicitly replaces the 0.9.0 compatibility baseline with 0.9.2, keeps the atomic registration changes and confirms consumers know about them. AAPI-111 is amended accordingly. This historical 0.9.0-to-0.9.2 finding no longer blocks W0 or requires a compatibility exception/suppression. Retain the exact diagnostic record and both acquired locks; do not relabel the failed report as a pass. Old-binary/source consumer checks for 0.10 now start from 0.9.2, and new unexplained breaks against that baseline remain failures.
 
-That tooling checkpoint was followed by the [clean baseline capture](W0%20Baseline%20Evidence.md): health/package/generated-source evidence, the I/O map and all six heavy benchmark lanes are retained under exact identities. W0 remains open because W0-F1 requires a focused provider-lifetime follow-up; W1 runtime changes have not started.
+That tooling checkpoint was followed by the [clean baseline capture](W0%20Baseline%20Evidence.md): health/package/generated-source evidence, the I/O map and all six heavy benchmark lanes are retained under exact identities. The [follow-up investigation](SQLite%20Pool%20Ownership%20Investigation.md) records the reproduced driver race, submitted correction and explicit permission for scoped W1 progress. W0-F1, native SQLite integration acceptance and release approval remain open.
 
 ## W0-P1: Keep Published Compatibility And Development Baselines Distinct
 
@@ -168,6 +168,8 @@ The tracked index should link each inventory family and required gate to one of:
 A failed/incomplete command, missing suite/target, stale artifact, unverified package identity or unexplained before-state failure cannot become a pass through omission. Fix tooling/environment faults and rerun the affected evidence. Any exception to a required gate must be explicit; marking a failure "pre-existing" does not automatically waive it.
 
 W0 is ready to hand off when every current I/O family has an owner, baseline identities and artifacts are trustworthy, the agreed current-behavior matrix is complete, benchmark scopes are frozen and all future-only checks have an assigned stage. Then begin W1 internal contracts and controllable execution tests. Do not publish packages, freeze the final public API or claim release readiness at this boundary.
+
+**Sequencing amendment, accepted 2026-09-17:** the linked limited W1 exception permits internal contracts and controllable-provider tests before W0-F1 closeout. It changes scheduling only: keep the failed run and old baseline immutable, and require corrected-package adoption plus affected evidence before native SQLite acceptance, final provider feasibility/public API freeze or release approval. It does not release other wave dependencies automatically.
 
 ## References
 

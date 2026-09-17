@@ -143,7 +143,7 @@ Freeze a 0.9 baseline with the current benchmark harness before shared runtime c
 
 ```mermaid
 flowchart TD
-    W0["W0 baseline and I/O inventory"] --> W1["W1 async/cancellation contracts"]
+    W0["W0 baseline and I/O inventory"] -->|limited W1 exception| W1["W1 async/cancellation contracts"]
     W1 --> W2["W2 provider-native async"]
     W2 --> W3["W3 public async surface"]
     W3 --> W4["W4 DI and unit of work"]
@@ -161,9 +161,11 @@ flowchart TD
 
 ## Implementation Waves
 
+**Accepted sequencing exception, 2026-09-17:** the [W0-F1 investigation](SQLite%20Pool%20Ownership%20Investigation.md#accepted-limited-w1-exception) authorizes internal W1 contracts and controllable-provider tests while the submitted SQLite correction awaits upstream integration. W0 is not fully closed. Native SQLite acceptance, final provider feasibility/public API freeze and release approval remain blocked on verified official-package adoption and affected evidence. This changes only the W0-to-W1 scheduling edge; other wave dependencies remain in force.
+
 ### W0: Baseline And I/O Inventory
 
-The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) records accepted W0-P1 through W0-P6, including .NET 10 for all new benchmark baseline/candidate runs. The evidence tooling, benchmark-target migration, [sealed baseline capture](W0%20Baseline%20Evidence.md) and [I/O map](W0%20IO%20Execution%20Map.md) are recorded. W0-F1 remains open: an intermittent SQLite transaction failure and a separately reproduced driver pool ownership defect require a focused follow-up before W1. AAPI-111, as explicitly amended by the user on 2026-09-16, fixes the published 0.9.2 compatibility baseline, distinct from current-development performance/test identity. The earlier PluginHook compatibility question is resolved by that amendment and no longer blocks W0.
+The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) records accepted W0-P1 through W0-P6, including .NET 10 for all new benchmark baseline/candidate runs. The evidence tooling, benchmark-target migration, [sealed baseline capture](W0%20Baseline%20Evidence.md) and [I/O map](W0%20IO%20Execution%20Map.md) are recorded. W0-F1 remains open pending adoption of the tested upstream SQLite correction and affected evidence; only the scoped W1 exception above permits progress before its closeout. AAPI-111, as explicitly amended by the user on 2026-09-16, fixes the published 0.9.2 compatibility baseline, distinct from current-development performance/test identity. The earlier PluginHook compatibility question is resolved by that amendment and no longer blocks W0.
 
 Required work:
 
