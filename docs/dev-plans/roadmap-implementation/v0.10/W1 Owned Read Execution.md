@@ -43,7 +43,7 @@ These are modified-checkout development checks, not a clean release capture. Ori
 
 ## Remaining Work
 
-This is deliberately not universal operation ownership. General LINQ/entity/projection/relation enumeration can compose multiple reads; this slice protects the integrated inner boundaries, not the entire outer invocation or buffered result lifetime. Complete source capture and ownership across those outer sequences, overlapping enumerator-call rejection, async reader transfer, combined cancellation and enumeration cleanup remain W1.2/W1.4 work. Direct low-level `DatabaseAccess` still bypasses managed orchestration; its provider adapter work remains pending.
+This slice is deliberately not universal operation ownership: it protects the integrated inner boundaries, not an entire outer invocation or buffered result lifetime. The subsequent [query and relation ownership integration](W1%20Query%20and%20Relation%20Ownership.md) extends synchronous admission across those outer sequences and rejects overlapping enumerator calls. Complete invocation capture, async reader transfer, combined cancellation and async enumeration cleanup remain W1.2/W1.4 work. Direct low-level `DatabaseAccess` still bypasses managed orchestration; its provider adapter work remains pending.
 
 W1.3 must establish connection trust, interrupted-read versus write recovery, terminal outcomes and primary/secondary failure composition. A released gate after a cleanup exception is **not** proof that a provider connection can safely be reused; this slice preserves existing synchronous failure behavior and tests admission release separately from trust. Helper callback admission/draining and production lazy initialization are also still pending.
 

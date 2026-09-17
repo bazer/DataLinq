@@ -140,10 +140,16 @@ public class Select<T> : IQuery
     public IEnumerable<IDataLinqDataReader> ReadReader()
         => ReadReader(CancellationToken.None);
 
-    internal IEnumerable<IDataLinqDataReader> ReadReader(CancellationToken cancellationToken)
+    internal IEnumerable<IDataLinqDataReader> ReadReader(
+        CancellationToken cancellationToken, TransactionOperationGate.Step? owner = null) =>
+        DataSourceAccess.ReadSequence(query.DataSource, "read query rows",
+            step => ReadReaderCore(cancellationToken, step), owner, cancellationToken);
+
+    private IEnumerable<IDataLinqDataReader> ReadReaderCore(
+        CancellationToken cancellationToken, TransactionOperationGate.Step? owner)
     {
         using var read = DataSourceAccess.BeginRead(
-            query.DataSource, "read query rows", cancellationToken: cancellationToken);
+            query.DataSource, "read query rows", owner, cancellationToken);
         using var command = ToDbCommand();
         cancellationToken.ThrowIfCancellationRequested();
         using var reader = query.DataSource.DatabaseAccess.ExecuteReader(command);
@@ -160,13 +166,18 @@ public class Select<T> : IQuery
         }
     }
 
-    public IEnumerable<RowData> ReadRows()
+    public IEnumerable<RowData> ReadRows() => ReadRows(owner: null);
+
+    internal IEnumerable<RowData> ReadRows(TransactionOperationGate.Step? owner) =>
+        DataSourceAccess.ReadSequence(query.DataSource, "read query rows", ReadRowsCore, owner);
+
+    private IEnumerable<RowData> ReadRowsCore(TransactionOperationGate.Step? owner)
     {
         // Resolve the actual columns being fetched to ensure the RowData 
         // reader aligns with the DataReader's fields.
         var columnsToRead = GetColumnsToRead();
 
-        foreach (var reader in ReadReader())
+        foreach (var reader in ReadReader(default, owner))
             yield return new RowData(
                 reader,
                 query.Table,
@@ -245,7 +256,8 @@ public class Select<T> : IQuery
 
     public IEnumerable<DataLinqKey> ReadKeys()
     {
-        return KeyFactory.GetKeys(this, query.Table.PrimaryKeyColumns);
+        return DataSourceAccess.ReadSequence(query.DataSource, "read query keys",
+            owner => KeyFactory.GetKeys(this, query.Table.PrimaryKeyColumns, owner));
     }
 
     //public IEnumerable<DataLinqKey> ReadForeignKeys(ColumnIndex foreignKeyIndex)
@@ -256,11 +268,16 @@ public class Select<T> : IQuery
     //}
 
     public IEnumerable<(DataLinqKey fk, DataLinqKey[] pks)> ReadPrimaryAndForeignKeys(ColumnIndex foreignKeyIndex)
+        => DataSourceAccess.ReadSequence(query.DataSource, "read query key groups",
+            owner => ReadPrimaryAndForeignKeysCore(foreignKeyIndex, owner));
+
+    private IEnumerable<(DataLinqKey fk, DataLinqKey[] pks)> ReadPrimaryAndForeignKeysCore(
+        ColumnIndex foreignKeyIndex, TransactionOperationGate.Step? owner)
     {
         var columnsToRead = GetPrimaryAndForeignKeyColumns(foreignKeyIndex);
         var primaryKeysByForeignKey = new Dictionary<DataLinqKey, List<DataLinqKey>>();
 
-        foreach (var reader in ReadReader())
+        foreach (var reader in ReadReader(default, owner))
         {
             var row = new RowData(
                 reader,
@@ -304,10 +321,17 @@ public class Select<T> : IQuery
     }
 
     public IEnumerable<V> ExecuteAs<V>() =>
-        Execute().Select(x => (V)x);
+        DataSourceAccess.ReadSequence(query.DataSource, "execute a typed entity query",
+            owner => ExecuteCore(owner).Select(x => (V)x));
 
-    public IEnumerable<IImmutableInstance> Execute()
+    public IEnumerable<IImmutableInstance> Execute() => Execute(owner: null);
+
+    internal IEnumerable<IImmutableInstance> Execute(TransactionOperationGate.Step? owner) =>
+        DataSourceAccess.ReadSequence(query.DataSource, "execute an entity query", ExecuteCore, owner);
+
+    private IEnumerable<IImmutableInstance> ExecuteCore(TransactionOperationGate.Step? owner)
     {
+        DataSourceAccess.EnsureReadAllowed(query.DataSource, "execute an entity query", owner);
         var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
         var activity = DataLinqTelemetry.StartQueryActivity(
             telemetryContext,
@@ -326,20 +350,20 @@ public class Select<T> : IQuery
                 var tableCache = query.DataSource.Provider.GetTableCache(query.Table);
 
                 if (query.TryGetSimpleScalarPrimaryKey(out var simpleScalarKey) &&
-                    tableCache.TryGetRowFromProviderKeyValue(simpleScalarKey, query.DataSource, out var scalarRow))
+                    tableCache.TryGetRowFromProviderKeyValue(simpleScalarKey, query.DataSource, out var scalarRow, owner))
                 {
                     if (scalarRow is not null)
                         yield return scalarRow;
                 }
                 else if (query.TryGetSimplePrimaryKey() is DataLinqKey simpleKey)
                 {
-                    var row = tableCache.GetRow(simpleKey, query.DataSource);
+                    var row = tableCache.GetRow(simpleKey, query.DataSource, owner);
                     if (row is not null)
                         yield return row;
                 }
                 else if (!query.HasDerivedSource &&
                     !query.HasJoins &&
-                    tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, out var providerKeyRows))
+                    tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, out var providerKeyRows, owner))
                 {
                     foreach (var row in providerKeyRows)
                         yield return row;
@@ -347,16 +371,16 @@ public class Select<T> : IQuery
                 else
                 {
                     this.What(query.Table.PrimaryKeyColumns);
-                    var keys = this.ReadKeys().ToArray();
+                    var keys = KeyFactory.GetKeys(this, query.Table.PrimaryKeyColumns, owner).ToArray();
                     // The database has already applied ordering, collation, and paging.
                     // Replay that key sequence instead of sorting cached models in the CLR.
-                    foreach (var row in tableCache.GetRows(keys, query.DataSource))
+                    foreach (var row in tableCache.GetRows(keys, query.DataSource, owner: owner))
                         yield return row;
                 }
             }
             else
             {
-                foreach (var rowData in this.ReadRows())
+                foreach (var rowData in this.ReadRows(owner))
                     yield return InstanceFactory.NewImmutableRow(rowData, query.DataSource);
             }
 
@@ -387,10 +411,10 @@ public class Select<T> : IQuery
     public V ExecuteScalar<V>()
         => ExecuteScalar<V>(CancellationToken.None);
 
-    internal V ExecuteScalar<V>(CancellationToken cancellationToken)
+    internal V ExecuteScalar<V>(CancellationToken cancellationToken, TransactionOperationGate.Step? owner = null)
     {
         using var read = DataSourceAccess.BeginRead(
-            query.DataSource, "execute a scalar query", cancellationToken: cancellationToken);
+            query.DataSource, "execute a scalar query", owner, cancellationToken);
         var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
         var activity = DataLinqTelemetry.StartQueryActivity(
             telemetryContext,
@@ -437,10 +461,10 @@ public class Select<T> : IQuery
     public object? ExecuteScalar()
         => ExecuteScalar(CancellationToken.None);
 
-    internal object? ExecuteScalar(CancellationToken cancellationToken)
+    internal object? ExecuteScalar(CancellationToken cancellationToken, TransactionOperationGate.Step? owner = null)
     {
         using var read = DataSourceAccess.BeginRead(
-            query.DataSource, "execute a scalar query", cancellationToken: cancellationToken);
+            query.DataSource, "execute a scalar query", owner, cancellationToken);
         var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
         var activity = DataLinqTelemetry.StartQueryActivity(
             telemetryContext,

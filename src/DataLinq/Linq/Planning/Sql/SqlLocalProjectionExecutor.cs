@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using DataLinq.Exceptions;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -14,14 +15,16 @@ internal sealed class SqlLocalProjectionExecutor
 {
     private readonly DataSourceAccess dataSource;
     private readonly CancellationToken cancellationToken;
+    private readonly TransactionOperationGate.Step? owner;
 
     public SqlLocalProjectionExecutor(
         DataSourceAccess dataSource,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, TransactionOperationGate.Step? owner = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         this.dataSource = dataSource;
         this.cancellationToken = cancellationToken;
+        this.owner = owner;
     }
 
     public IEnumerable<TResult> Execute<TResult>(QueryPlanInvocation invocation)
@@ -91,7 +94,7 @@ internal sealed class SqlLocalProjectionExecutor
         // reader is open would require nested readers on the same provider/transaction connection.
         int[][]? primaryKeyOrdinalsBySource = null;
         var joinedPrimaryKeyRows = new List<object[]>();
-        foreach (var reader in select.ReadReader(cancellationToken))
+        foreach (var reader in select.ReadReader(cancellationToken, owner))
         {
             primaryKeyOrdinalsBySource ??= GetJoinedPrimaryKeyOrdinals(reader, joinedSources);
             var primaryKeysBySource = new object[joinedSources.Length];
@@ -136,11 +139,11 @@ internal sealed class SqlLocalProjectionExecutor
         object primaryKey)
     {
         var tableCache = dataSource.Provider.GetTableCache(source.Table);
-        if (tableCache.TryGetRowFromProviderKeyValue(primaryKey, dataSource, out var row))
+        if (tableCache.TryGetRowFromProviderKeyValue(primaryKey, dataSource, out var row, owner))
             return row;
 
         return primaryKey is DataLinqKey dataLinqKey
-            ? tableCache.GetRow(dataLinqKey, dataSource)
+            ? tableCache.GetRow(dataLinqKey, dataSource, owner)
             : null;
     }
 
@@ -247,7 +250,7 @@ internal sealed class SqlLocalProjectionExecutor
         cancellationToken.ThrowIfCancellationRequested();
         var rows = new QueryPlanSqlBuilder(invocation, dataSource)
             .BuildSelect<object>()
-            .Execute();
+            .Execute(owner);
 
         foreach (var row in rows)
         {

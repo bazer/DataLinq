@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using DataLinq.Exceptions;
+using DataLinq.Execution;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -13,14 +14,16 @@ internal sealed class SqlDirectProjectionExecutor
 {
     private readonly DataSourceAccess dataSource;
     private readonly CancellationToken cancellationToken;
+    private readonly TransactionOperationGate.Step? owner;
 
     public SqlDirectProjectionExecutor(
         DataSourceAccess dataSource,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, TransactionOperationGate.Step? owner = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         this.dataSource = dataSource;
         this.cancellationToken = cancellationToken;
+        this.owner = owner;
     }
 
     public IEnumerable<TResult> Execute<TResult>(QueryPlanInvocation invocation)
@@ -47,7 +50,7 @@ internal sealed class SqlDirectProjectionExecutor
         var select = new QueryPlanSqlBuilder(invocation, dataSource).BuildSelect<TResult>();
         var sourceName = $"sql:{dataSource.Provider.DatabaseType}:grouped-projection";
 
-        foreach (var reader in select.ReadReader(cancellationToken))
+        foreach (var reader in select.ReadReader(cancellationToken, owner))
         {
             var values = new object?[projection.Members.Count];
             for (var index = 0; index < projection.Members.Count; index++)
@@ -90,7 +93,7 @@ internal sealed class SqlDirectProjectionExecutor
         var select = new QueryPlanSqlBuilder(invocation, dataSource).BuildSelect<TResult>();
         var sourceName = $"sql:{dataSource.Provider.DatabaseType}:scalar-projection";
 
-        foreach (var reader in select.ReadReader(cancellationToken))
+        foreach (var reader in select.ReadReader(cancellationToken, owner))
         {
             var ordinal = reader.GetOrdinal(QueryPlanSqlBuilder.ScalarProjectionAlias);
             var modelValue = ReadProjectedColumnValue(
@@ -111,7 +114,7 @@ internal sealed class SqlDirectProjectionExecutor
         var select = new QueryPlanSqlBuilder(invocation, dataSource).BuildSelect<TResult>();
         var sourceName = $"sql:{dataSource.Provider.DatabaseType}:row-projection";
 
-        foreach (var reader in select.ReadReader(cancellationToken))
+        foreach (var reader in select.ReadReader(cancellationToken, owner))
         {
             var values = new object?[projection.Members.Count];
             for (var index = 0; index < projection.Members.Count; index++)

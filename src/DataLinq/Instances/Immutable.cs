@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -306,7 +307,7 @@ public abstract class Immutable<T, M> : IImmutable<T>, IImmutableInstance<M>,
             .GetRows(GetRelationKey(property), property, source)
             .Cast<V>();
 
-        return result;
+        return source is Transaction ? new GuardedEnumerable<V>(result) : result;
     }
 
     private DataLinqKey GetRelationKey(RelationProperty property)

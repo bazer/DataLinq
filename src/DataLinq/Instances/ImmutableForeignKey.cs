@@ -3,6 +3,7 @@ using System.Threading;
 using System;
 using DataLinq.Cache;
 using DataLinq.Diagnostics;
+using DataLinq.Execution;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -79,6 +80,7 @@ public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dat
     protected T? GetInstance()
     {
         var source = GetDataSource();
+        using var read = DataSourceAccess.BeginRead(source, "load a relation reference");
         var localHolder = Volatile.Read(ref valueHolder);
         if (localHolder is not null && ReferenceEquals(localHolder.Source, source))
         {
@@ -97,7 +99,7 @@ public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dat
         // Neither the query nor model constructors run under the relation gate.
         var tableCache = GetTableCache(source);
         var readGeneration = tableCache.CaptureReadGeneration();
-        var instance = LoadInstance(tableCache, source);
+        var instance = LoadInstance(tableCache, source, read?.Step);
         var created = new ValueHolder(this, source, instance);
         tableCache.SubscribeToChanges(
             created,
@@ -122,14 +124,14 @@ public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dat
         return instance;
     }
 
-    private T? LoadInstance(TableCache tableCache, IDataSourceAccess source)
+    private T? LoadInstance(TableCache tableCache, IDataSourceAccess source, TransactionOperationGate.Step? owner)
     {
         var otherSide = property.RelationPart.GetOtherSide();
         if (tableCache.Table.PrimaryKeyColumns.SequenceEqual(otherSide.ColumnIndex.Columns))
-            return (T?)tableCache.GetRow(foreignKey, source);
+            return (T?)tableCache.GetRow(foreignKey, source, owner);
 
         return (T?)tableCache
-            .GetRows(foreignKey, property, source)
+            .GetRows(foreignKey, property, source, owner)
             .SingleOrDefault();
     }
 

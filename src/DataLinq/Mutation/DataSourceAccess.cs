@@ -62,14 +62,54 @@ public abstract class DataSourceAccess :
             : null;
     }
 
+    internal static IEnumerable<T> ReadSequence<T>(
+        IDataSourceAccess source,
+        string operation,
+        Func<TransactionOperationGate.Step?, IEnumerable<T>> rows,
+        TransactionOperationGate.Step? owner = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Private composition shares the outer owner's lifetime. Database-root
+        // reads remain independent and retain their existing execution path.
+        if (owner is not null)
+        {
+            EnsureReadAllowed(source, operation, owner);
+            return rows(owner);
+        }
+        if (source is not Transaction)
+            return rows(owner);
+
+        return new GuardedEnumerable<T>(Read());
+
+        IEnumerable<T> Read()
+        {
+            using var scope = BeginRead(source, operation, cancellationToken: cancellationToken);
+            using var iterator = rows(scope!.Step).GetEnumerator();
+            while (true)
+            {
+                EnsureReadAllowed(source, operation, scope.Step);
+                cancellationToken.ThrowIfCancellationRequested();
+                var hasRow = iterator.MoveNext();
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!hasRow)
+                    yield break;
+                yield return iterator.Current;
+            }
+        }
+    }
+
     // This service bundle is private dispatch state, not a replacement model source.
     internal IDataLinqSourceRowServices GetOwnedRowServices(TransactionOperationGate.Step owner)
         => new OwnedRowServices(this, owner);
 
-    private sealed class OwnedRowServices : IDataLinqSourceRowServices
+    internal IDataLinqIndexRowServices GetOwnedIndexRowServices(TransactionOperationGate.Step owner)
+        => new OwnedRowServices(this, owner);
+
+    private sealed class OwnedRowServices : IDataLinqSourceRowServices, IDataLinqIndexRowServices
     {
         public DatabaseDefinition Metadata { get; }
         public ISourceRowLoader RowLoader { get; }
+        public ISourceIndexRowLoader IndexRowLoader => (ISourceIndexRowLoader)RowLoader;
         public IModelMaterializationServices MaterializationServices { get; }
 
         internal OwnedRowServices(DataSourceAccess source, TransactionOperationGate.Step owner)
