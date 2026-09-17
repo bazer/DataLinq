@@ -690,7 +690,7 @@ public sealed class TransactionMutationFailureTests
         {
             await Assert.That(failure).IsTypeOf<InvalidOperationException>();
             await Assert.That(failure.Message).Contains(
-                "another managed transaction operation is being finalized");
+                "'execute a mutation' is active");
         }
 
         await Assert.That(transaction.IsPoisoned).IsFalse();
@@ -1289,7 +1289,7 @@ public sealed class TransactionMutationFailureTests
         await Assert.That(notification.Snapshot.MutableLifecycle.TransactionOwner)
             .IsSameReferenceAs(transaction.MutableOwnership);
         await Assert.That(notification.Snapshot.FallbackFailure.Message)
-            .Contains("while another managed transaction operation is being finalized");
+            .Contains("while 'commit' is active");
         await Assert.That(transactionBound.GetReadSource())
             .IsSameReferenceAs(fixture.Provider.ReadOnlyAccess);
     }
