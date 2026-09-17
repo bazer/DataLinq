@@ -31,6 +31,12 @@ internal abstract class AsyncDatabaseAccess : IAsyncDatabaseAccess
         return ExecuteReaderCoreAsync(command, cancellationToken);
     }
 
+    public void ValidateReader(IDbCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateCommand(command, AsyncCommandKind.Reader);
+    }
+
     public Task<object?> ExecuteScalarAsync(IDbCommand command, CancellationToken cancellationToken)
     {
         Validate(command, AsyncCommandKind.Scalar, cancellationToken);
@@ -53,7 +59,7 @@ internal abstract class AsyncDatabaseAccess : IAsyncDatabaseAccess
     /// <summary>
     /// Performs ordinary argument, lifecycle and capability checks without I/O, mutation of
     /// the borrowed command, or transaction admission. These checks precede pre-cancellation.
-    /// Actual operation admission and its lifetime belong to the later W1 ownership slice.
+    /// Operation admission and its lifetime belong to the surrounding execution orchestration.
     /// </summary>
     protected abstract void ValidateCommand(IDbCommand command, AsyncCommandKind kind);
 

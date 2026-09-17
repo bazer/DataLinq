@@ -45,7 +45,7 @@ These are development checks from a modified checkout, not frozen release eviden
 
 ## Remaining Work
 
-The next ownership slice is async reader/enumerator orchestration with controllable providers: acquisition and reader transfer across suspension, combined method/enumerator tokens, overlapping async-call rejection and cleanup on every exit. Native lazy initialization, helper callback admission/draining and full invocation capture remain open. Direct low-level `DatabaseAccess` still bypasses this managed orchestration.
+The subsequent [async reader enumeration slice](W1%20Async%20Reader%20Enumeration.md) implements internal single-reader acquisition across suspension, combined method/enumerator tokens, overlapping async-call rejection and awaited cleanup with controllable providers. Native wiring, lazy initialization, helper callback admission/draining and full invocation capture remain open. Direct low-level `DatabaseAccess` still bypasses this managed orchestration.
 
 W1.3 must establish interrupted-read versus write recovery, connection trust, completion certainty and primary/secondary failure composition. This slice preserves existing synchronous cleanup-failure precedence. Releasing a gate after cleanup failure does not prove a provider connection is safe to reuse.
 
