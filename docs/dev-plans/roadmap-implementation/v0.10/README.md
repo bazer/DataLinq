@@ -11,7 +11,7 @@
 
 **Prerequisite:** DataLinq 0.9.2 is published and its backend-neutral read, scalar/provider-value, UUID, Memory preview, and SQL mutable-lifecycle boundaries remain the baseline.
 
-**Execution checkpoint, 2026-09-17:** the detailed async design and W0-P1–P6 plan remain accepted. [W0 evidence](W0%20Baseline%20Evidence.md) is captured and sealed from clean `7e36614b`: 5,855 passing full-matrix tests, all 90 strict .NET 10 benchmark rows, package/API/generated-source baselines, and the [I/O map](W0%20IO%20Execution%20Map.md). **W0 is still open:** the initial quick run failed a SQLite parallel-transaction test, and a separate public-API probe reproduced duplicate live native handles in the pinned SQLite driver. Passing repeats do not waive W0-F1; a safe correction and its relationship to the original failure remain to be established before W1. Async runtime implementation has not started. The published compatibility baseline remains fixed at 0.9.2.
+**Execution checkpoint, 2026-09-17:** the detailed async design and W0-P1–P6 plan remain accepted. [W0 evidence](W0%20Baseline%20Evidence.md) is captured and sealed from clean `7e36614b`: 5,855 passing full-matrix tests, all 90 strict .NET 10 benchmark rows, package/API/generated-source baselines, and the [I/O map](W0%20IO%20Execution%20Map.md). **W0-F1 remains open:** the SQLite ownership race and exact transaction error have been reproduced, and a tested correction is submitted upstream, but DataLinq's official dependency is unchanged. The user's [limited W1 exception](SQLite%20Pool%20Ownership%20Investigation.md#accepted-limited-w1-exception) permits internal contracts and controllable-provider tests while SQLite integration and release approval remain blocked. The published compatibility baseline remains fixed at 0.9.2.
 
 ## Release Thesis
 
@@ -22,6 +22,8 @@ The release is successful when an ordinary ASP.NET Core or Generic Host applicat
 ## Scope Policy
 
 Development follows the accepted [branch, PR and benchmark workflow](Branch%20PR%20and%20Benchmark%20Workflow.md): a protected `v0.10` integration branch, small feature PRs and a separately identified development performance line on the website.
+
+W0-F1 follow-up, 2026-09-17: the [SQLite pool ownership investigation](SQLite%20Pool%20Ownership%20Investigation.md) reproduces the driver race and records the tested correction submitted in [dotnet/efcore#39009](https://github.com/dotnet/efcore/pull/39009). DataLinq's dependency is unchanged. The user's accepted limited exception permits W1 internal contracts and controllable-provider tests while SQLite integration, W0-F1 closeout and release approval remain blocked pending verified package adoption.
 
 Every workstream in this document is required. There is no stretch-goal section and no automatic rule that completed work creates room for another feature.
 

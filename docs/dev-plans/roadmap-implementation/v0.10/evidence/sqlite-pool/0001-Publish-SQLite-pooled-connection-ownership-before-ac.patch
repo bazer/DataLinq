@@ -1,0 +1,143 @@
+From 4198aba3e42cf76a436edb08070e7e32da44bcd2 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Sebastian=20=C3=96berg?= <sebastian.oberg@gmail.com>
+Date: Thu, 17 Sep 2026 02:27:17 +0200
+Subject: [PATCH] Publish SQLite pooled connection ownership before activation
+
+- Set the weak owner before the volatile active flag so concurrent leak reclamation cannot lend a connection that is still being activated to another owner.
+- Add concurrent-open coverage that keeps all owners open while checking handle identity. The regression fails with the old ordering and passes with the correction.
+---
+ .../SqliteConnectionInternal.cs               |  3 +-
+ .../SqliteConnectionFactoryTest.cs            | 91 +++++++++++++++++++
+ 2 files changed, 93 insertions(+), 1 deletion(-)
+
+diff --git a/src/Microsoft.Data.Sqlite.Core/SqliteConnectionInternal.cs b/src/Microsoft.Data.Sqlite.Core/SqliteConnectionInternal.cs
+index 3317f7d..58b6e81 100644
+--- a/src/Microsoft.Data.Sqlite.Core/SqliteConnectionInternal.cs
++++ b/src/Microsoft.Data.Sqlite.Core/SqliteConnectionInternal.cs
+@@ -161,8 +161,9 @@ public void DoNotPool()
+ 
+     public void Activate(SqliteConnection outerConnection)
+     {
+-        _active = true;
++        // Publish the owner before making this connection eligible for leak reclamation.
+         _outerConnection.SetTarget(outerConnection);
++        _active = true;
+     }
+ 
+     public void Close()
+diff --git a/test/Microsoft.Data.Sqlite.Tests/SqliteConnectionFactoryTest.cs b/test/Microsoft.Data.Sqlite.Tests/SqliteConnectionFactoryTest.cs
+index 78fd38a..18d0705 100644
+--- a/test/Microsoft.Data.Sqlite.Tests/SqliteConnectionFactoryTest.cs
++++ b/test/Microsoft.Data.Sqlite.Tests/SqliteConnectionFactoryTest.cs
+@@ -2,10 +2,12 @@
+ // The .NET Foundation licenses this file to you under the MIT license.
+ 
+ using System;
++using System.Collections.Concurrent;
+ using System.Data;
+ using System.IO;
+ using System.Linq;
+ using System.Runtime.CompilerServices;
++using System.Threading;
+ using System.Threading.Tasks;
+ using SQLitePCL;
+ using Xunit;
+@@ -18,6 +20,95 @@ public class SqliteConnectionFactoryTest : IDisposable
+     private const string FileName = "pooled.db";
+     private const string ConnectionString = "Data Source=" + FileName + ";Cache=Shared;Pooling=True";
+ 
++    [Fact]
++    public async Task Concurrent_opens_do_not_share_internal_connections()
++    {
++        const int workerCount = 16;
++        const int iterations = 1000;
++        var connections = new SqliteConnection?[workerCount];
++        var errors = new ConcurrentQueue<Exception>();
++        var duplicate = false;
++        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
++        using var barrier = new Barrier(workerCount + 1);
++        using var pool = new SqliteConnection(ConnectionString);
++
++        // Dedicated workers avoid blocking thread-pool threads at the phase barriers.
++        var workers = Enumerable.Range(0, workerCount).Select(index => Task.Factory.StartNew(
++            () =>
++            {
++                for (var iteration = 0; iteration < iterations; iteration++)
++                {
++                    barrier.SignalAndWait(timeout.Token);
++                    try
++                    {
++                        connections[index] = new SqliteConnection(ConnectionString);
++                        connections[index]!.Open();
++                    }
++                    catch (Exception exception)
++                    {
++                        errors.Enqueue(exception);
++                    }
++
++                    try
++                    {
++                        barrier.SignalAndWait(timeout.Token);
++                        // Keep every owner alive and open until its handle has been inspected.
++                        barrier.SignalAndWait(timeout.Token);
++                    }
++                    finally
++                    {
++                        try
++                        {
++                            connections[index]?.Dispose();
++                        }
++                        catch (Exception exception)
++                        {
++                            errors.Enqueue(exception);
++                        }
++                    }
++
++                    barrier.SignalAndWait(timeout.Token);
++                    if (duplicate || !errors.IsEmpty)
++                    {
++                        break;
++                    }
++                }
++            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)).ToArray();
++
++        var completed = false;
++        try
++        {
++            for (var iteration = 0; iteration < iterations; iteration++)
++            {
++                // Only clear this pool, between waves while all previous owners are closed.
++                SqliteConnection.ClearPool(pool);
++                barrier.SignalAndWait(timeout.Token);
++                barrier.SignalAndWait(timeout.Token);
++                duplicate = connections.Select(c => c?.Handle).Distinct().Count() != workerCount;
++                barrier.SignalAndWait(timeout.Token);
++                barrier.SignalAndWait(timeout.Token);
++                if (duplicate || !errors.IsEmpty)
++                {
++                    break;
++                }
++            }
++
++            completed = true;
++        }
++        finally
++        {
++            if (!completed)
++            {
++                timeout.Cancel();
++            }
++
++            await Task.WhenAll(workers);
++        }
++
++        Assert.Empty(errors);
++        Assert.False(duplicate);
++    }
++
+     [Fact]
+     public void Internal_connections_are_reused_after_reopen()
+     {
+-- 
+2.55.0.windows.4
+

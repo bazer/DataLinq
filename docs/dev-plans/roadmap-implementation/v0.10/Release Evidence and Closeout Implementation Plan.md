@@ -61,6 +61,8 @@ The manifest records:
 
 AAPI-111, amended by the user on 2026-09-16, requires a locked published 0.9.2 API baseline including Memory; do not confuse it with the locally packed development baseline below. This replaces the earlier 0.9.0-plus-patch requirement and accepts the existing provider registration changes. Retained 0.9.0 diagnostics are historical, not a release gate. The [W0 baseline and evidence plan](W0%20Baseline%20and%20Evidence%20Plan.md) accepts the capture sequence and .NET 10 benchmark baseline/candidate target. The [sealed W0 capture](W0%20Baseline%20Evidence.md) and [I/O map](W0%20IO%20Execution%20Map.md) now record those baselines. W0-F1 remains unresolved; the passing full matrix and all six strict benchmark lanes do not waive the initial SQLite failure or the separately reproduced driver ownership defect.
 
+The user's [limited W1 exception](SQLite%20Pool%20Ownership%20Investigation.md#accepted-limited-w1-exception), accepted on 2026-09-17, changes implementation scheduling only. Controllable-provider tests cannot close W0-F1 or substitute for corrected official-package adoption, native SQLite acceptance or final release evidence. Preserve the original before-state and identify every later dependency change and recaptured evidence target explicitly.
+
 Before changing shared execution paths:
 
 - run repository doctor, restore, and forced build
