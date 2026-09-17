@@ -79,22 +79,51 @@ public abstract class DataSourceAccess :
         if (source is not Transaction)
             return rows(owner);
 
-        return new GuardedEnumerable<T>(Read());
+        return new GuardedEnumerable<T>(Read);
 
-        IEnumerable<T> Read()
+        IEnumerable<T> Read(IHelperTrackedReader reader)
         {
             using var scope = BeginRead(source, operation, cancellationToken: cancellationToken);
-            using var iterator = rows(scope!.Step).GetEnumerator();
-            while (true)
+            scope!.RegisterReader(reader);
+            IEnumerator<T>? iterator = null;
+            ExecutionFailures? failures = null;
+            try
             {
-                EnsureReadAllowed(source, operation, scope.Step);
-                cancellationToken.ThrowIfCancellationRequested();
-                var hasRow = iterator.MoveNext();
-                cancellationToken.ThrowIfCancellationRequested();
-                if (!hasRow)
-                    yield break;
-                yield return iterator.Current;
+                try { iterator = rows(scope.Step).GetEnumerator(); }
+                catch (Exception failure) { Record(failure); throw; }
+                while (true)
+                {
+                    bool hasRow;
+                    T row = default!;
+                    try
+                    {
+                        EnsureReadAllowed(source, operation, scope.Step);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        hasRow = iterator.MoveNext();
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (hasRow) row = iterator.Current;
+                    }
+                    catch (Exception failure) { Record(failure); throw; }
+                    if (!hasRow)
+                        yield break;
+                    yield return row;
+                }
             }
+            finally
+            {
+                try { iterator?.Dispose(); }
+                catch (Exception failure) { Record(failure, ExecutionFailureStage.Cleanup); }
+                if (failures?.Primary is { } primary)
+                {
+                    ExecutionFailureContexts.Attach(primary, failures.Snapshot(new(), ExecutionCompletion.NotAttempted,
+                        ExecutionRecoveryActions.Dispose, ((Transaction)source).TransactionID));
+                    scope.ReportFailure(primary);
+                    failures.ThrowIfAny();
+                }
+            }
+
+            void Record(Exception failure, ExecutionFailureStage stage = ExecutionFailureStage.RowLoading) =>
+                (failures ??= new()).AddReported(failure, stage);
         }
     }
 

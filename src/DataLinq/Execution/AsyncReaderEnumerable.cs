@@ -39,7 +39,7 @@ internal sealed class AsyncReaderEnumerable<T> : IAsyncEnumerable<T>
 internal sealed record AsyncEnumerationFailure(Exception Cause, Exception? CleanupFailure,
     ExecutionFailureContext Context);
 
-internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>
+internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>, IHelperTrackedReader
 {
     private const string Operation = "enumerate asynchronous reader rows";
     private readonly IAsyncReaderSource source;
@@ -52,6 +52,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>
     private IAsyncDataReader? reader;
     private bool started;
     private bool finished;
+    private bool helperDrained;
     private bool hasCurrent;
     private T current = default!;
 
@@ -109,6 +110,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>
                     CheckCancellation();
                     if (transaction is not null)
                         ownership = DataSourceAccess.BeginRead(transaction, Operation, cancellationToken: token);
+                    ownership?.RegisterReader(this);
                     started = true;
                     stage = ExecutionFailureStage.CommandExecution;
                     // Assignment precedes cancellation: a successfully acquired reader must
@@ -152,7 +154,22 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>
         }
     }
 
-    public ValueTask DisposeAsync() => DisposeCoreAsync(calls.Enter());
+    public ValueTask DisposeAsync() => Volatile.Read(ref helperDrained)
+        ? ValueTask.CompletedTask : DisposeCoreAsync(calls.Enter());
+
+    public void StopAdmission() => calls.StopAdmission();
+
+    public async ValueTask DrainAsync()
+    {
+        await calls.WaitForIdleAsync().ConfigureAwait(false);
+        try
+        {
+            var failures = new ExecutionFailures();
+            await FinishAsync(failures).ConfigureAwait(false);
+            failures.ThrowIfAny();
+        }
+        finally { Volatile.Write(ref helperDrained, true); }
+    }
 
     private async ValueTask DisposeCoreAsync(EnumeratorCallGate.Call call)
     {
@@ -213,6 +230,7 @@ internal sealed class AsyncReaderEnumerator<T> : IAsyncEnumerator<T>
                 if (ownership is not null)
                     transaction!.RecordAsyncReadFailure(ownership.Step, context);
                 ExecutionFailureContexts.Attach(primary, context);
+                ownership?.ReportFailure(primary);
                 Failure = new(primary, ReferenceEquals(primary, failures.FirstCleanupFailure) ? null : failures.FirstCleanupFailure, context);
             }
         }

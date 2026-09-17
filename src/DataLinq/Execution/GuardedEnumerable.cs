@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace DataLinq.Execution;
 
@@ -9,17 +10,46 @@ namespace DataLinq.Execution;
 internal sealed class EnumeratorCallGate
 {
     private int active;
+    private TaskCompletionSource? closing;
+    internal bool IsClosed => Volatile.Read(ref closing) is not null;
 
     internal Call Enter()
     {
+        if (IsClosed)
+            throw new InvalidOperationException("The helper has closed this enumerator.");
         if (Interlocked.CompareExchange(ref active, 1, 0) != 0)
             throw new InvalidOperationException("An enumerator call is already in progress.");
+        if (IsClosed)
+        {
+            Release();
+            throw new InvalidOperationException("The helper has closed this enumerator.");
+        }
         return new Call(this);
+    }
+
+    internal void StopAdmission()
+    {
+        if (!IsClosed)
+            Interlocked.CompareExchange(ref closing, new(TaskCreationOptions.RunContinuationsAsynchronously), null);
+        if (Volatile.Read(ref active) == 0)
+            closing!.TrySetResult();
+    }
+
+    internal Task WaitForIdleAsync()
+    {
+        StopAdmission();
+        return closing!.Task;
+    }
+
+    private void Release()
+    {
+        Volatile.Write(ref active, 0);
+        Volatile.Read(ref closing)?.TrySetResult();
     }
 
     internal readonly struct Call(EnumeratorCallGate gate) : IDisposable
     {
-        public void Dispose() => Volatile.Write(ref gate.active, 0);
+        public void Dispose() => gate.Release();
     }
 }
 
@@ -27,15 +57,22 @@ internal sealed class EnumeratorCallGate
 /// Guards the outer iterator, including its finally blocks. A rejected concurrent
 /// move/disposal must not run cleanup or clear the first call's current position.
 /// </summary>
-internal sealed class GuardedEnumerable<T>(IEnumerable<T> source) : IEnumerable<T>
+internal sealed class GuardedEnumerable<T> : IEnumerable<T>
 {
-    public IEnumerator<T> GetEnumerator() => new Enumerator(source.GetEnumerator());
+    private readonly Func<IHelperTrackedReader, IEnumerable<T>> source;
+    internal GuardedEnumerable(IEnumerable<T> source) : this(_ => source) { }
+    internal GuardedEnumerable(Func<IHelperTrackedReader, IEnumerable<T>> source) => this.source = source;
+    public IEnumerator<T> GetEnumerator() => new Enumerator(source);
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    private sealed class Enumerator(IEnumerator<T> inner) : IEnumerator<T>
+    private sealed class Enumerator : IEnumerator<T>, IHelperTrackedReader
     {
+        private readonly IEnumerator<T> inner;
         private readonly EnumeratorCallGate calls = new();
         private bool finished;
+        private bool helperDrained;
+
+        internal Enumerator(Func<IHelperTrackedReader, IEnumerable<T>> source) => inner = source(this).GetEnumerator();
 
         public T Current
         {
@@ -70,6 +107,8 @@ internal sealed class GuardedEnumerable<T>(IEnumerable<T> source) : IEnumerable<
 
         public void Dispose()
         {
+            if (Volatile.Read(ref helperDrained))
+                return;
             using var call = calls.Enter();
             DisposeCore();
         }
@@ -80,6 +119,14 @@ internal sealed class GuardedEnumerable<T>(IEnumerable<T> source) : IEnumerable<
                 return;
             finished = true;
             inner.Dispose();
+        }
+
+        public void StopAdmission() => calls.StopAdmission();
+        public async ValueTask DrainAsync()
+        {
+            await calls.WaitForIdleAsync().ConfigureAwait(false);
+            try { DisposeCore(); }
+            finally { Volatile.Write(ref helperDrained, true); }
         }
 
         public void Reset() => throw new NotSupportedException();

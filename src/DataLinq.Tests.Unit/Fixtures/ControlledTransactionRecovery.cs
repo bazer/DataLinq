@@ -6,7 +6,7 @@ using DataLinq.Execution;
 
 namespace DataLinq.Tests.Unit.Fixtures;
 
-internal sealed class ControlledTransactionRecovery : IAsyncTransactionRecovery
+internal class ControlledTransactionRecovery : IAsyncTransactionRecovery
 {
     internal ConcurrentQueue<string> Calls { get; } = new();
     internal AsyncCheckpoint Rollback { get; set; } = new();

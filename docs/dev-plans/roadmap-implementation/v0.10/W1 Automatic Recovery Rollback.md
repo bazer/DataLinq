@@ -45,7 +45,7 @@ CI is recorded separately against the PR head. These controllable-provider check
 
 ## Next Slice And Remaining Gates
 
-Next, implement the internal helper lifecycle that hands off to this runner: invoke/await the callback once, reject borrowed transaction completion, close admission when the callback ends, drain unfinished admitted work without committing, then transfer idle ownership to recovery. Preserve callback/operation/cleanup failure precedence throughout. The runner's active-step rejection is a prerequisite, not proof that helper draining is implemented.
+The subsequent [helper lifetime and draining slice](W1%20Helper%20Lifetime%20and%20Draining.md) adds callback execution, private completion ownership, atomic admission closure, tracked command/reader draining and handoff to this runner. Eager-read failure hooks and full lifecycle-adapter integration remain open; the [W1 completion audit](W1%20Completion%20Audit.md) tracks those and the wider remaining gates.
 
 Native rollback/commit confirmation and classification, partial initialization, async mutation/hydration finalization, provider/host settings and constructor compatibility, public diagnostics, complete invocation capture, relation publication and coordination/allocation cost acceptance remain open. The 30-second default still needs provider feasibility evidence. No package, pooling, public declaration, benchmark target or compatibility-baseline change is included.
 
